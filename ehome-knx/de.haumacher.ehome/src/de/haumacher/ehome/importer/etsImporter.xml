@@ -1,0 +1,785 @@
+<handler id="all">
+	<tag name="KNX">
+		<dispatch>
+			<tag name="MasterData">
+				<dispatch>
+					<tag name="Manufacturers">
+						<in-scope argument-var="" expr="`ehome.catalog#ROOT`">
+							<dispatch>
+								<tag name="Manufacturer">
+									<object model-type="ehome.catalog:Manufacturer" id-attribute="Id">
+										<linking>
+											<list-linking name="ehome.catalog:ManufacturerRoot#manufacturers"/>
+										</linking>
+									
+										<property name="name" xml-attribute="Name"/>
+										
+										<dispatch/>
+									</object>
+								</tag>
+							</dispatch>
+						</in-scope>
+					</tag>
+				</dispatch>
+			</tag>
+			<tag name="ManufacturerData">
+				<dispatch>
+					<tag name="Manufacturer">
+						<object-ref id-attribute="RefId">
+							<dispatch>
+								<tag name="Hardware">
+									<dispatch>
+										<tag name="Hardware">
+											<object model-type="ehome.catalog:Product" id-attribute="Id">
+												<property name="name" xml-attribute="Name"/>
+												<property name="serialNumber" xml-attribute="SerialNumber"/>
+												<property name="versionNumber" xml-attribute="VersionNumber"/>
+												
+												<dispatch>
+													<tag name="Products">
+														<dispatch>
+															<tag name="Product">
+																<object model-type="ehome.catalog:Variant" id-attribute="Id">
+																	<linking>
+																		<list-linking name="ehome.catalog:Product#variants"/>
+																	</linking>
+
+																	<property name="name" xml-attribute="Text"/>
+																	<property name="orderNumber" xml-attribute="OrderNumber"/>
+
+																	<dispatch/>
+																</object>
+															</tag>
+														</dispatch>
+													</tag>
+													
+													<tag name="Hardware2Programs">
+														<dispatch>
+															<tag name="Hardware2Program">
+																<object model-type="ehome.catalog:ProgramAssignment" id-attribute="Id">
+																	<linking>
+																		<ref-linking name="ehome.catalog:ProgramAssignment#product" reverse="true"/>
+																	</linking>
+																	<dispatch>
+																		<tag name="ApplicationProgramRef">
+																			<object-ref id-attribute="RefId">
+																				<linking>
+																					<ref-linking name="ehome.catalog:ProgramAssignment#program"/>
+																				</linking>
+																				<dispatch/>
+																			</object-ref>
+																		</tag>
+																	</dispatch>
+																</object>
+															</tag>
+														</dispatch>
+													</tag>
+												</dispatch>
+											</object>
+										</tag>
+									</dispatch>
+								</tag>
+								<tag name="ApplicationPrograms">
+									<dispatch>
+										<tag name="ApplicationProgram">
+											<object model-type="ehome.operational:Program" id-attribute="Id" var="program">
+												<linking>
+													<list-linking name="ehome.catalog:Manufacturer#programs"/>
+												</linking>
+
+												<property name="name" xml-attribute="Name"/>
+												<reference name="originalManufacturer" id-attribute="OriginalManufacturer"/>
+												
+												<dispatch>
+													<tag name="Static">
+														<dispatch>
+															<tag name="Code">
+																<dispatch>
+																	<tag name="AbsoluteSegment">
+																		<object model-type="ehome.operational:CodeSegment" id-attribute="Id">
+																			<linking>
+																				<list-linking name="ehome.operational:Program#segments"/>
+																			</linking>
+
+																			<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																			<property name="size" xml-attribute="Size" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+																			<dispatch/>
+																		</object>
+																	</tag>
+																</dispatch>
+															</tag>
+															<tag name="ParameterTypes">
+																<dispatch>
+																	<tag name="ParameterType">
+																		<with-result id-attribute="Id">
+																			<linking>
+																				<list-linking name="ehome.operational:Program#parameterTypes"/>
+																			</linking>
+
+																			<property name="name" xml-attribute="Name"/>
+																			
+																			<dispatch>
+																				<tag name="TypeNone">
+																					<object model-type="ehome.operational:VoidType">
+																						<dispatch/>
+																					</object>
+																				</tag>
+																				<tag name="TypeText">
+																					<object model-type="ehome.operational:TextType">
+																						<property name="bits" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																						
+																						<dispatch/>
+																					</object>
+																				</tag>
+																				<tag name="TypeNumber">
+																					<object model-type="ehome.operational:NumericType">
+																						<property name="min" xml-attribute="minInclusive" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																						<property name="max" xml-attribute="maxInclusive" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																						<property name="bits" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																						<property name="kind" xml-attribute="Type">
+																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																								type="ehome.operational:NumberKind"
+																							/>
+																						</property>
+																						
+																						<dispatch/>
+																					</object>
+																				</tag>
+																				<tag name="TypeFloat">
+																					<object model-type="ehome.operational:FloatType">
+																						<dispatch/>
+																					</object>
+																				</tag>
+																				<tag name="TypeRestriction">
+																					<object model-type="ehome.operational:EnumerationType">
+																						<property name="bits" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																						<property name="kind" xml-attribute="Base">
+																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																								type="ehome.operational:ValueKind"
+																							/>
+																						</property>
+																						
+																						<dispatch>
+																							<tag name="Enumeration">
+																								<object model-type="ehome.operational:EnumerationValue" id-attribute="Id">
+																									<linking>
+																										<list-linking name="ehome.operational:EnumerationType#values"/>
+																									</linking>
+
+																									<property name="name" xml-attribute="Text"/>
+																									<property name="index" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																									<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																									<property name="binary" xml-attribute="BinaryValue" format="de.haumacher.ehome.etsImport.importer.format.Base64Format"/>
+
+																									<dispatch/>
+																								</object>
+																							</tag>
+																						</dispatch>
+																					</object>
+																				</tag>
+																				<tag name="TypeTime">
+																					<object model-type="ehome.operational:TimeType">
+																						<dispatch/>
+																					</object>
+																				</tag>
+																				<tag name="TypeDate">
+																					<object model-type="ehome.operational:DateType">
+																						<dispatch/>
+																					</object>
+																				</tag>
+																				<tag name="TypeIPAddress">
+																					<object model-type="ehome.operational:IPAddressType">
+																						<dispatch/>
+																					</object>
+																				</tag>
+																			</dispatch>
+																		</with-result>
+																	</tag>
+																</dispatch>
+															</tag>
+															<tag name="Parameters">
+																<dispatch>
+																	<tag name="Union">
+																		<object model-type="ehome.operational:Pointer">
+																			<property name="bits" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																			
+																			<dispatch>
+																				<tag name="Memory">
+																					<reference name="segment" id-attribute="CodeSegment"/>
+																					<property name="byteOffset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																					<property name="bitOffset" xml-attribute="BitOffset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																					
+																					<dispatch/>
+																				</tag>
+																				<tag name="Parameter">
+																					<object model-type="ehome.operational:Parameter" id-attribute="Id">
+																						<linking>
+																							<ref-linking name="ehome.operational:Parameter#address" reverse="true"/>
+																						</linking>
+																						<linking target-var="program">
+																							<list-linking name="ehome.operational:Program#parameters" />
+																						</linking>
+
+																						<property name="name" xml-attribute="Name"/>
+																						<property name="description" xml-attribute="Text"/>
+																						<reference name="type" id-attribute="ParameterType"/>
+																						<property name="access" xml-attribute="Access">
+																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																								type="ehome.operational:AccessKind"
+																							/>
+																						</property>
+																						<!-- TODO: Value is in the format of the parameter type (enum value name for an enum type). -->
+																						<!-- 
+																						<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																						 -->
+																						
+																						<dispatch/>
+																					</object>
+																				</tag>
+																			</dispatch>
+																		</object>
+																	</tag>
+																	<tag name="Parameter">
+																		<object model-type="ehome.operational:Parameter" id-attribute="Id">
+																			<linking>
+																				<list-linking name="ehome.operational:Program#parameters"/>
+																			</linking>
+
+																			<property name="name" xml-attribute="Name"/>
+																			<property name="description" xml-attribute="Text"/>
+																			<reference name="type" id-attribute="ParameterType"/>
+																			<property name="access" xml-attribute="Access">
+																				<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																					type="ehome.operational:AccessKind"
+																				/>
+																			</property>
+																			<!-- TODO: Value is in the format of the parameter type (enum value name for an enum type). -->
+																			<!-- 
+																			<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																			 -->
+
+																			<dispatch>
+																				<tag name="Memory">
+																					<object model-type="ehome.operational:Pointer">
+																						<linking>
+																							<ref-linking name="ehome.operational:Parameter#address"/>
+																						</linking>
+
+																						<reference name="segment" id-attribute="CodeSegment"/>
+																						<property name="byteOffset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																						<property name="bitOffset" xml-attribute="BitOffset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+																						<dispatch/>
+																					</object>
+																				</tag>
+																			</dispatch>
+																		</object>
+																	</tag>
+																</dispatch>
+															</tag>
+															<tag name="ParameterRefs">
+																<dispatch>
+																	<tag name="ParameterRef">
+																		<object-ref id-attribute="RefId">
+																			<object model-type="ehome.operational:ParameterView" id-attribute="Id">
+																				<linking>
+																					<list-linking name="ehome.operational:Parameter#views"/>
+																				</linking>
+
+																				<property name="name" xml-attribute="Name"/>
+																				<property name="description" xml-attribute="Text"/>
+																				<property name="access" xml-attribute="Access">
+																					<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																						type="ehome.operational:AccessKind"
+																					/>
+																				</property>
+																				
+																				<!-- TODO: Value is in the format of the parameter type (enum value name for an enum type). -->
+																				<!-- 
+																				<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																				-->
+																				<property name="order" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																				<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+																				<dispatch/>
+																			</object>
+																		</object-ref>
+																	</tag>
+																</dispatch>
+															</tag>
+															<tag name="ComObjectTable">
+																<dispatch>
+																	<tag name="ComObject">
+																		<object model-type="ehome.operational:Port" id-attribute="Id">
+																			<linking>
+																				<list-linking name="ehome.operational:Program#ports"/>
+																			</linking>
+																			
+																			<property name="name" xml-attribute="Name"/>
+																			<property name="function" xml-attribute="FunctionText"/>
+																			<property name="text" xml-attribute="Text"/>
+																			<property name="description" xml-attribute="VisibleDescription"/>
+																			<property name="index" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																			<property name="size" xml-attribute="ObjectSize" format="de.haumacher.ehome.etsImport.importer.format.ObjectSizeFormat"/>
+																			
+																			<property name="priority" xml-attribute="Priority">
+																				<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																					type="ehome.physical:Priority"
+																				/>
+																			</property>
+																			<property name="canRead" xml-attribute="ReadFlag">
+																				<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																					type="ehome.common:Enablement"
+																				/>
+																			</property>
+																			<property name="canWrite" xml-attribute="WriteFlag">
+																				<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																					type="ehome.common:Enablement"
+																				/>
+																			</property>
+																			<property name="communication" xml-attribute="CommunicationFlag">
+																				<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																					type="ehome.common:Enablement"
+																				/>
+																			</property>
+																			<property name="transmission" xml-attribute="TransmitFlag">
+																				<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																					type="ehome.common:Enablement"
+																				/>
+																			</property>
+																			<property name="update" xml-attribute="UpdateFlag">
+																				<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																					type="ehome.common:Enablement"
+																				/>
+																			</property>
+																			<property name="readOnInit" xml-attribute="ReadOnInitFlag">
+																				<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																					type="ehome.common:Enablement"
+																				/>
+																			</property>
+
+																			<dispatch/>
+																		</object>
+																	</tag>
+																</dispatch>
+															</tag>
+															<tag name="ComObjectRefs">
+																<dispatch>
+																	<tag name="ComObjectRef">
+																		<object-ref id-attribute="RefId">
+																			<object model-type="ehome.operational:Interface" id-attribute="Id">
+																				<linking>
+																					<list-linking name="ehome.operational:Port#interfaces"/>
+																				</linking>
+
+																				<property name="name" xml-attribute="Text"/>
+																				<property name="function" xml-attribute="FunctionText"/>
+																				<property name="dpt" xml-attribute="DatapointType"/>
+																				<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+																				<dispatch/>
+																			</object>
+																		</object-ref>
+																	</tag>
+																</dispatch>
+															</tag>
+														</dispatch>
+													</tag>
+													<tag name="Dynamic">
+														<dispatch>
+															<tag name="ChannelIndependentBlock">
+																<object model-type="ehome.operational:ChannelIndependent">
+																	<linking>
+																		<list-linking name="ehome.operational:Program#fragments"/>
+																	</linking>
+
+																	<ref handler-id="channel-contents"/>
+																</object>
+															</tag>
+															<tag name="Channel">
+																<object model-type="ehome.operational:Channel" id-attribute="Id">
+																	<linking>
+																		<list-linking name="ehome.operational:Program#fragments"/>
+																	</linking>
+
+																	<property name="name" xml-attribute="Name"/>
+																	<property name="description" xml-attribute="Text"/>
+																	<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																	
+																	<dispatch id="channel-contents">
+																		<tag name="ParameterBlock">
+																			<object model-type="ehome.operational:ParameterGroup" id="Id">
+																				<linking>
+																					<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																				</linking>
+																				
+																				<property name="name" xml-attribute="Name"/>
+																				<property name="description" xml-attribute="Text"/>
+																				<property name="access" xml-attribute="Access">
+																					<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																						type="ehome.operational:AccessKind"
+																					/>
+																				</property>
+																				<reference name="input" id-attribute="ParamRefId"/>
+																				
+																				<ref handler-id="channel-contents"/>
+																			</object>
+																		</tag>
+																		<tag name="choose">
+																			<object model-type="ehome.operational:Switch">
+																				<linking>
+																					<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																				</linking>
+																			
+																				<reference name="input" id-attribute="ParamRefId"/>
+																				
+																				<dispatch>
+																					<tag name="when">
+																						<object model-type="ehome.operational:Case">
+																							<linking>
+																								<list-linking name="ehome.operational:Switch#alternatives"/>
+																							</linking>
+																							
+																							<property name="pattern" xml-attribute="test"/>
+																							
+																							<ref handler-id="channel-contents"/>
+																						</object>
+																					</tag>
+																				</dispatch>
+																			</object>
+																		</tag>	
+																		<tag name="ParameterRefRef">
+																			<object-ref id-attribute="RefId">
+																				<linking>
+																					<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																				</linking>
+																			</object-ref>
+																			
+																			<dispatch/>
+																		</tag>	
+																		<tag name="ComObjectRefRef">
+																			<object-ref id-attribute="RefId">
+																				<linking>
+																					<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																				</linking>
+																			</object-ref>
+																			
+																			<dispatch/>
+																		</tag>	
+																	</dispatch>
+																</object>
+															</tag>
+														</dispatch>
+													</tag>
+												</dispatch>
+											</object>
+										</tag>
+									</dispatch>
+								</tag>
+								<tag name="Catalog">
+									<dispatch id="catalog-type">
+										<tag name="CatalogSection">
+											<object model-type="ehome.catalog:Catalog" id-attribute="Id">
+												<linking>
+													<list-linking name="ehome.catalog:Manufacturer#catalogs"/>
+													<list-linking name="ehome.catalog:Catalog#sections"/>
+												</linking>
+
+												<property name="name" xml-attribute="Name"/>
+
+												<ref handler-id="catalog-type"/>
+											</object>
+										</tag>
+										<tag name="CatalogItem">
+											<object-ref id-attribute="ProductRefId">
+												<linking>
+													<list-linking name="ehome.catalog:Catalog#products"/>
+												</linking>
+												<dispatch/>
+											</object-ref>
+										</tag>
+									</dispatch>
+								</tag>
+							</dispatch>
+						</object-ref>
+					</tag>
+				</dispatch>
+			</tag>
+			<tag name="Project">
+				<object model-type="ehome.project:Project" id-attribute="Id" join-duplicates="true">
+					<dispatch>
+						<tag name="ProjectInformation">
+							<property name="name" xml-attribute="Name"/>
+						</tag>
+						<tag name="Installations">
+							<dispatch>
+								<tag name="Installation">
+									<dispatch>
+										<tag name="Topology">
+											<dispatch>
+												<tag name="Area">
+													<object model-type="ehome.physical:Area" id-attribute="Id">
+														<linking>
+															<list-linking name="ehome.project:Project#areas"/>
+														</linking>
+
+														<property name="name" xml-attribute="Name"/>
+														<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+														<dispatch>
+															<tag name="Line">
+																<object model-type="ehome.physical:Line" id-attribute="Id">
+																	<linking>
+																		<list-linking name="ehome.physical:Area#lines"/>
+																	</linking>
+
+																	<property name="name" xml-attribute="Name"/>
+																	<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+																	<dispatch>
+																		<tag name="DeviceInstance">
+																			<object model-type="ehome.physical:Device" id-attribute="Id">
+																				<linking>
+																					<list-linking name="ehome.physical:Line#devices"/>
+																				</linking>
+
+																				<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																				<reference name="type" id-attribute="ProductRefId"/>
+																				<reference name="program" id-attribute="Hardware2ProgramRefId"/>
+																				
+																				<dispatch>
+																					<tag name="ComObjectInstanceRefs">
+																						<dispatch>
+																							<tag name="ComObjectInstanceRef">
+																								<object model-type="ehome.physical:Connector">
+																									<linking>
+																										<list-linking name="ehome.physical:Device#connectors"/>
+																									</linking>
+																									
+																									<reference name="port" id-attribute="RefId"/>
+																									
+																									<property name="description" xml-attribute="Text"/>
+																									<property name="function" xml-attribute="FunctionText"/>
+																									
+																									<property name="priority" xml-attribute="Priority">
+																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																											type="ehome.physical:Priority"
+																										/>
+																									</property>
+																									<property name="canRead" xml-attribute="ReadFlag">
+																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																											type="ehome.common:Enablement"
+																										/>
+																									</property>
+																									<property name="canWrite" xml-attribute="WriteFlag">
+																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																											type="ehome.common:Enablement"
+																										/>
+																									</property>
+																									<property name="communication" xml-attribute="CommunicationFlag">
+																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																											type="ehome.common:Enablement"
+																										/>
+																									</property>
+																									<property name="transmission" xml-attribute="TransmitFlag">
+																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																											type="ehome.common:Enablement"
+																										/>
+																									</property>
+																									<property name="update" xml-attribute="UpdateFlag">
+																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																											type="ehome.common:Enablement"
+																										/>
+																									</property>
+																									<property name="readOnInit" xml-attribute="ReadOnInitFlag">
+																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																											type="ehome.common:Enablement"
+																										/>
+																									</property>
+																									
+																									<dispatch>
+																										<tag name="Connectors">
+																											<dispatch>
+																												<tag name="Send">
+																													<chain>
+																														<object model-type="ehome.physical:Connection" id="create-connection">
+																															<linking>
+																																<list-linking name="ehome.physical:Connector#connections"/>
+																															</linking>
+																															
+																															<reference name="target" id-attribute="GroupAddressRefId"/>
+																															<property name="acknowledge" xml-attribute="Acknowledge" format="com.top_logic.basic.config.format.PrimitiveBooleanFormat"/>
+																															
+																															<dispatch/>
+																														</object>
+																														<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#send`.singleton()"/>
+																													</chain>
+																												</tag>
+																												<tag name="Receive">
+																													<chain>
+																														<ref handler-id="create-connection"/>
+																														<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#receive`.singleton()"/>
+																													</chain>
+																												</tag>
+																											</dispatch>
+																										</tag>
+																									</dispatch>
+																								</object>
+																							</tag>
+																						</dispatch>
+																					</tag>
+																				</dispatch>
+																			</object>
+																		</tag>
+																	</dispatch>
+																</object>
+															</tag>
+														</dispatch>
+													</object>
+												</tag>
+											</dispatch>
+										</tag>
+										<tag name="Buildings">
+											<dispatch id="building-type">
+												<!-- Only relevant when recursively called in the context of another building part. -->
+												<tag name="DeviceInstanceRef">
+													<object-ref id-attribute="RefId">
+														<linking>
+															<ref-linking name="ehome.physical:Device#location" reverse="true"/>
+														</linking>
+														<dispatch/>
+													</object-ref>
+												</tag>
+												<tag name="BuildingPart">
+													<switch xml-attribute="Type">
+														<case value="Building">
+															<object model-type="ehome.building:Building" id-attribute="Id">
+																<linking>
+																	<list-linking name="ehome.project:Project#buildings"/>
+																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
+																</linking>
+
+																<property name="name" xml-attribute="Name"/>
+
+																<ref handler-id="building-type"/>
+															</object>
+														</case>
+														<case value="Floor">
+															<object model-type="ehome.building:Floor" id-attribute="Id">
+																<linking>
+																	<list-linking name="ehome.project:Project#buildings"/>
+																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
+																</linking>
+
+																<property name="name" xml-attribute="Name"/>
+
+																<ref handler-id="building-type"/>
+															</object>
+														</case>
+														<case value="Stairway">
+															<object model-type="ehome.building:Stairway" id-attribute="Id">
+																<linking>
+																	<list-linking name="ehome.project:Project#buildings"/>
+																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
+																</linking>
+
+																<property name="name" xml-attribute="Name"/>
+
+																<ref handler-id="building-type"/>
+															</object>
+														</case>
+														<case value="Room">
+															<object model-type="ehome.building:Room" id-attribute="Id">
+																<linking>
+																	<list-linking name="ehome.project:Project#buildings"/>
+																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
+																</linking>
+
+																<property name="name" xml-attribute="Name"/>
+
+																<ref handler-id="building-type"/>
+															</object>
+														</case>
+														<case value="Corridor">
+															<object model-type="ehome.building:Corridor" id-attribute="Id">
+																<linking>
+																	<list-linking name="ehome.project:Project#buildings"/>
+																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
+																</linking>
+
+																<property name="name" xml-attribute="Name"/>
+
+																<ref handler-id="building-type"/>
+															</object>
+														</case>
+														<case value="DistributionBoard">
+															<object model-type="ehome.building:DistributionBoard" id-attribute="Id">
+																<linking>
+																	<list-linking name="ehome.project:Project#buildings"/>
+																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
+																</linking>
+
+																<property name="name" xml-attribute="Name"/>
+
+																<ref handler-id="building-type"/>
+															</object>
+														</case>
+														<default>
+															<object model-type="ehome.building:BuildingPart" id-attribute="Id">
+																<linking>
+																	<list-linking name="ehome.project:Project#buildings"/>
+																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
+																</linking>
+
+																<property name="name" xml-attribute="Name"/>
+
+																<ref handler-id="building-type"/>
+															</object>
+														</default>
+													</switch>
+												</tag>
+											</dispatch>
+										</tag>
+										<tag name="GroupAddresses">
+											<dispatch id="group-addresses-type">
+												<tag name="GroupRanges">
+													<ref handler-id="group-addresses-type"/>
+												</tag>
+												<tag name="GroupRange">
+													<object model-type="ehome.logical:GroupRange" id-attribute="Id">
+														<linking>
+															<list-linking name="ehome.project:Project#groupAddresses"/>
+															<list-linking name="ehome.logical:GroupRange#parts"/>
+														</linking>
+
+														<property name="name" xml-attribute="Name"/>
+
+														<ref handler-id="group-addresses-type"/>
+													</object>
+												</tag>
+												<tag name="GroupAddress">
+													<object model-type="ehome.logical:GroupAddress" id-attribute="Id">
+														<linking>
+															<list-linking name="ehome.project:Project#groupAddresses"/>
+															<list-linking name="ehome.logical:GroupRange#parts"/>
+														</linking>
+
+														<property name="name" xml-attribute="Name"/>
+														<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+														<dispatch/>
+													</object>
+												</tag>
+											</dispatch>
+										</tag>
+									</dispatch>
+								</tag>
+							</dispatch>
+						</tag>
+					</dispatch>
+				</object>
+			</tag>
+		</dispatch>
+	</tag>
+</handler>

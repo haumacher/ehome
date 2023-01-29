@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<objectlist xmlns="http://www.top-logic.com/ns/meta/5.8">
+	<metaobjects>
+		<metaobject object_name="EHManufacturer" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHCatalog" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHProduct" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHProgramAssignment" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHProject" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHGroupAddress" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHLine" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHDevice" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHConnector" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHConnection" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHBuilding" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHProgram" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHCodeSegment" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHPointer" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHParameterType" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHEnumerationValue" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHParameter" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHParameterView" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHPort" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHInterface" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHConfigFragment" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+		<metaobject object_name="EHSwitch" super_class="AttributedObject" abstract="false" object_type="MOKnowledgeObject">
+			<attributes>
+			</attributes>
+		</metaobject>
+	</metaobjects>
+</objectlist>

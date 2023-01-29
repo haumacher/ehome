@@ -1,0 +1,95 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<KNX xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" CreatedBy="ETS4" ToolVersion="ETS 4.2.0 (Build 3884)" xmlns="http://knx.org/xml/project/11">
+  <Project Id="P-0353">
+    <Installations>
+      <Installation InstallationId="0" Name="" BCUKey="4294967295" DefaultLine="P-0353-0_L-2" IPRoutingMulticastAddress="224.0.23.12" SplitType="None" CompletionStatus="Undefined">
+        <Topology>
+          <Area Id="P-0353-0_A-0" Name="Backbone Bereich" Address="0" CompletionStatus="Undefined">
+            <Line Id="P-0353-0_L-0" Name="Bereichslinie" Address="0" MediumTypeRefId="MT-5" DomainAddress="0" DomainAddressIsChecked="0" CompletionStatus="Undefined" IPRoutingMulticastAddress="224.0.23.12" MulticastTTL="16" />
+          </Area>
+          <Area Id="P-0353-0_A-1" Name="Neuer Bereich" Address="1" CompletionStatus="Undefined">
+            <Line Id="P-0353-0_L-1" Name="Hauptlinie" Address="0" MediumTypeRefId="MT-5" DomainAddress="0" DomainAddressIsChecked="0" CompletionStatus="Undefined" IPRoutingMulticastAddress="224.0.23.12" MulticastTTL="16" />
+            <Line Id="P-0353-0_L-2" Name="Neue Linie" Address="3" MediumTypeRefId="MT-0" DomainAddress="0" DomainAddressIsChecked="0" CompletionStatus="Undefined" IPRoutingMulticastAddress="224.0.23.12" MulticastTTL="16">
+              <DeviceInstance Id="P-0353-0_DI-1" ProductRefId="M-006A_H-N000402-0-O00C5_P-N000402" Hardware2ProgramRefId="M-006A_H-N000402-0-O00C5_HP-0703-10-FD20-O00C5" Address="0" LastModified="2018-07-06T21:12:07" CompletionStatus="Undefined" IndividualAddressLoaded="0" ApplicationProgramLoaded="0" ParametersLoaded="0" CommunicationPartLoaded="0" MediumConfigLoaded="0" IsCommunicationObjectVisibilityCalculated="1" Broken="0" />
+              <DeviceInstance Id="P-0353-0_DI-2" ProductRefId="M-0083_H-3.2E13-2_P-AKK.2D0416.2E03" Hardware2ProgramRefId="M-0083_H-3.2E13-2_HP-000C-21-83B5" Address="5" LastModified="2018-07-06T21:14:56" LastDownload="2018-07-06T21:14:56" CompletionStatus="Undefined" IndividualAddressLoaded="1" ApplicationProgramLoaded="1" ParametersLoaded="1" CommunicationPartLoaded="1" MediumConfigLoaded="1" IsCommunicationObjectVisibilityCalculated="1" Broken="0">
+                <ParameterInstanceRefs>
+                  <ParameterInstanceRef RefId="M-0083_A-000C-21-83B5_P-301_R-491" Value="0" />
+                  <ParameterInstanceRef RefId="M-0083_A-000C-21-83B5_P-61_R-85" Value="2" />
+                  <ParameterInstanceRef RefId="M-0083_A-000C-21-83B5_P-194_R-314" Value="3" />
+                  <ParameterInstanceRef RefId="M-0083_A-000C-21-83B5_UP-5028_R-5028" Value="0" />
+                  <ParameterInstanceRef RefId="M-0083_A-000C-21-83B5_UP-190_R-285" Value="0" />
+                  <ParameterInstanceRef RefId="M-0083_A-000C-21-83B5_UP-298_R-483" Value="3000" />
+                  <ParameterInstanceRef RefId="M-0083_A-000C-21-83B5_UP-187_R-266" Value="20" />
+                </ParameterInstanceRefs>
+                <ComObjectInstanceRefs>
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-0_R-10000" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-0353-0_GA-1" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-4_R-10002" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-48_R-10256" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-50_R-213" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-7_R-10005" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-13_R-47" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-0353-0_GA-2" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-16_R-48" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-19_R-49" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-25_R-119" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-0353-0_GA-3" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0083_A-000C-21-83B5_O-28_R-120" IsActive="1" />
+                </ComObjectInstanceRefs>
+              </DeviceInstance>
+              <DeviceInstance Id="P-0353-0_DI-3" ProductRefId="M-0008_H-8.20.2F.2F.20zxy3.20xx-1_P-5133.2000" Hardware2ProgramRefId="M-0008_H-8.20.2F.2F.20zxy3.20xx-1_HP-10D7-11-A0E5-O000A" Address="50" LastModified="2018-07-06T21:09:08" LastDownload="2018-07-06T21:09:08" CompletionStatus="Undefined" IndividualAddressLoaded="1" ApplicationProgramLoaded="1" ParametersLoaded="1" CommunicationPartLoaded="1" MediumConfigLoaded="1" LoadedImage="7dTZSkJRFMbxtY/mFqmwkYgIiYiICImIjAgtiea5bJ5pLpstm/Rpepde4Vz3DF3W3/RASlARZUQLfqzzude+OKyDSpQ4RMSQZD0ERCJKxDar41pCog1TtJ3uoDvpLnou8uFGIYpRijKUowKV8KAK1agxbboWdagnN9C9aEQTmtGCVrShHX50IIgudHOvB73oQz8GMIghDGMEoxjDOCYwiRCmMI0ZzGIO81gwtV7EEs/L9BWsYs106nVs8vsWtrGDXexhH2EcMHtIP8IxTnCKsyLREfo5LhDFJa5wjRvcImaKT0LRwIPI039lo6zPf65TJI9uYxGV6s4lxUqU8eboFqOOl1FK5aQfhjm8tw7/RmVhK99U1pJ8QZESsZZUUPiB97WuDnJVEn+TcfEmsjGxoRKfgyf2OpeKJ56RYxnzyu9OZSOVPWlZkvPy9Phetn8xW+/9ufzDq/t19Qw=" CheckSums="AQABAAEAAAABAAAAAwYAAAAB1koAAAGQsAAAAYRtAAAB9YcAAAGkvwAAAdk4AAA=" IsCommunicationObjectVisibilityCalculated="1" Broken="0">
+                <ParameterInstanceRefs>
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-221_R-221" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-768_R-768" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-2192_R-2192" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-2733_R-2733" Value="1" />
+                </ParameterInstanceRefs>
+                <ComObjectInstanceRefs>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-4_R-3038" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-0353-0_GA-3" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-0_R-81" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-0353-0_GA-1" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-2_R-6001" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-0353-0_GA-2" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                </ComObjectInstanceRefs>
+              </DeviceInstance>
+            </Line>
+          </Area>
+          <Area Id="P-0353-0_A-2" Name="Neuer Bereich" Address="15" CompletionStatus="Undefined">
+            <Line Id="P-0353-0_L-3" Name="Neue Linie" Address="15" MediumTypeRefId="MT-0" DomainAddress="0" DomainAddressIsChecked="0" CompletionStatus="Undefined" IPRoutingMulticastAddress="224.0.23.12" MulticastTTL="16" />
+          </Area>
+        </Topology>
+        <Buildings />
+        <GroupAddresses>
+          <GroupRanges>
+            <GroupRange Id="P-0353-0_GR-1" Name="Neue Hauptgruppe" RangeStart="1" RangeEnd="2047">
+              <GroupRange Id="P-0353-0_GR-2" Name="Neue Mittelgruppe" RangeStart="1" RangeEnd="255">
+                <GroupAddress Id="P-0353-0_GA-1" Address="1" Name="Steckdose 1" />
+                <GroupAddress Id="P-0353-0_GA-2" Address="2" Name="Steckdose 2" />
+                <GroupAddress Id="P-0353-0_GA-3" Address="3" Name="Steckdose 3" />
+              </GroupRange>
+            </GroupRange>
+          </GroupRanges>
+        </GroupAddresses>
+      </Installation>
+    </Installations>
+  </Project>
+</KNX>

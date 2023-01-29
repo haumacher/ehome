@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<KNX xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" CreatedBy="ETS4" ToolVersion="ETS 4.2.0 (Build 3884)" xmlns="http://knx.org/xml/project/11">
+  <ManufacturerData>
+    <Manufacturer RefId="M-006A">
+      <Hardware>
+        <Hardware Id="M-006A_H-N000402-0-O00C5" Name="KNX / EIB IP Router" SerialNumber="N000402" VersionNumber="0" BusCurrent="1.2000000e+001" IsAccessory="0" HasIndividualAddress="1" HasApplicationProgram="1" HasApplicationProgram2="0" IsPowerSupply="0" IsChoke="0" IsCoupler="1" IsPowerLineRepeater="0" IsPowerLineSignalFilter="0" IsCable="0" OriginalManufacturer="M-00C5" NonRegRelevantDataVersion="0" IsIPEnabled="1">
+          <Products>
+            <Product Id="M-006A_H-N000402-0-O00C5_P-N000402" Text="KNX / EIB IP Router" OrderNumber="N000402" IsRailMounted="1" WidthInMillimeter="3.6000000e+001" DefaultLanguage="de-DE" Hash="jBnLhRaSaU2QQ949bGELnNYFEfg=" NonRegRelevantDataVersion="0">
+              <Attributes>
+                <Attribute Id="M-006A_H-N000402-0-O00C5_P-N000402_AT-Colour" Name="Colour" Value="grau" />
+              </Attributes>
+              <RegistrationInfo RegistrationStatus="Registered" RegistrationSignature="ab9e+Lh53h851Grap/+LdIn8LRbaLd5WHH5m7z/UlgoPZk23vhkJ9QmgVQcZ6ljCB3TE5I9z9fKJRSuOwI4kRQMqSYLekuxtGJBw609AITrVt3Zzo8PUwU4axqDHCGKVbzR7TnZ6JJqcOXh66yRcCOHwsV23QYSy4Me3EzTuQyk=" />
+            </Product>
+          </Products>
+          <Hardware2Programs>
+            <Hardware2Program Id="M-006A_H-N000402-0-O00C5_HP-0703-10-FD20-O00C5" MediumTypes="MT-0" Hash="r/hkZxLg9JYim9vpl1JQHd3K0CE=">
+              <ApplicationProgramRef RefId="M-006A_A-0703-10-FD20-O00C5" />
+              <RegistrationInfo RegistrationSignature="JDdnP70+DXZIlon0jELNrqLxXQf9OPuttTLPG+FxelT8iS41ASXQ9K+U2cV2BP/lhAxyMJ4rO6rVp/hH95U/vAyUvpbP76t4kECGxWmf6D/cLvsjGBSoy5ypPOHiVtRs/idi8YdWFidMU8NHrcHUjTZGWfquXaWf9nQXLrbRZeA=" OriginalRegistrationNumber="2006/7522" RegistrationNumber="2008/8321" RegistrationStatus="Registered" />
+            </Hardware2Program>
+          </Hardware2Programs>
+        </Hardware>
+      </Hardware>
+      <Languages>
+        <Language Identifier="de-DE">
+          <TranslationUnit RefId="M-006A_H-N000402-0-O00C5_P-N000402" Version="0">
+            <TranslationElement RefId="M-006A_H-N000402-0-O00C5_P-N000402">
+              <Translation AttributeName="Text" Text="KNX / EIB IP Router" />
+            </TranslationElement>
+            <TranslationElement RefId="M-006A_H-N000402-0-O00C5_P-N000402_AT-Colour">
+              <Translation AttributeName="Value" Text="grau" />
+            </TranslationElement>
+          </TranslationUnit>
+        </Language>
+      </Languages>
+    </Manufacturer>
+  </ManufacturerData>
+</KNX>

@@ -1,0 +1,421 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<include name="templates/masterFrame.xml"
+	componentName="main"
+>
+	<tabs>
+		<tab label="eh.projects.tabber">
+			<include name="templates/contentStructure.xml"
+				componentName="projectsView"
+				layout="/ehome/project/projectsView.xml"
+				resPrefix="eh.projects."
+			/>
+		</tab>
+		<tab label="eh.building.tabber">
+			<include name="templates/contentStructure.xml"
+				componentName="buildingView"
+				layout="/ehome/building/buildingView.xml"
+				resPrefix="eh.building."
+			/>
+		</tab>
+		<tab label="eh.groupAddresses.tabber">
+			<include name="templates/contentStructure.xml"
+				componentName="gaView"
+				layout="/ehome/logical/gaView.xml"
+				resPrefix="eh.groupAddresses."
+			/>
+		</tab>
+		<tab label="eh.physical.tabber">
+			<include name="templates/contentStructure.xml"
+				componentName="physicalView"
+				layout="/ehome/physical/physicalView.xml"
+				resPrefix="eh.physical."
+			/>
+		</tab>
+		<tab label="eh.catalog.tabber">
+			<include name="templates/contentStructure.xml"
+				componentName="catalogView"
+				layout="/ehome/catalog/catalogView.xml"
+				resPrefix="eh.catalog."
+			/>
+		</tab>
+		<tab label="eh.discover.tabber">
+			<include name="templates/contentStructure.xml"
+				componentName="discoverView"
+				layout="/ehome/discover/discoverView.xml"
+				resPrefix="eh.discover."
+			/>
+		</tab>
+		<tab id="adminView"
+			image="/image_buttons/administration22.png"
+			label="tl.admin.tabber"
+			rendered="false"
+		>
+			<include name="templates/levelOne.xml"
+				componentName="adminView"
+				image="/image_buttons/administration22.png"
+				resPrefix="tl.admin."
+			>
+				<tabs>
+					<tab label="main.admin.functional.tabber">
+						<include name="templates/levelTwoTabbed.xml"
+							componentName="adminFunctionalView"
+							parentName="adminView"
+							resPrefix="main.admin.functional."
+						>
+							<tabs>
+								<tab label="contact.person.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="personContactView"
+										layout="/contact/EditPersonContacts.xml"
+										parentName="adminFunctionalView"
+										resPrefix="contact.person."
+									/>
+								</tab>
+								<tab label="contact.company.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="companyContactView"
+										layout="/contact/EditCompanyContacts.xml"
+										parentName="adminFunctionalView"
+										resPrefix="contact.company."
+									/>
+								</tab>
+								<tab label="contact.orgUnit.tabber">
+									<include name="templates/contentTree.xml"
+										componentName="orgUnit"
+										domain="orgStructure"
+										layout="/contact/EditOrgUnit.xml"
+										parentName="adminFunctionalView"
+										resPrefix="contact.orgUnit."
+									/>
+								</tab>
+							</tabs>
+						</include>
+					</tab>
+					<tab label="main.admin.persons.tabber">
+						<include name="templates/levelTwoTabbed.xml"
+							componentName="adminPersonsView"
+							parentName="adminView"
+							resPrefix="main.admin.persons."
+						>
+							<tabs>
+								<tab label="main.admin.persons.person.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminPersonEditView"
+										layout="/admin/persons/editPerson.xml"
+										parentName="adminPersonsView"
+										resPrefix="main.admin.persons.person."
+									/>
+								</tab>
+								<tab label="main.admin.persons.groups.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminPersonGroupsView"
+										layout="/admin/persons/editPersonGroups.xml"
+										parentName="adminPersonsView"
+										resPrefix="main.admin.persons.groups."
+									/>
+								</tab>
+								<tab label="main.admin.groups.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminGroupEditView"
+										layout="/admin/editGroups.xml"
+										parentName="adminPersonsView"
+										resPrefix="main.admin.groups."
+									/>
+								</tab>
+							</tabs>
+						</include>
+					</tab>
+					<tab label="main.admin.roles.tabber">
+						<include name="templates/levelTwoTabbedAdmin.xml"
+							componentName="adminRolesView"
+							parentName="adminView"
+							resPrefix="main.admin.roles."
+						>
+							<tabs>
+								<tab label="main.admin.roles.admin.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminRolesAdminView"
+										layout="/admin/roles/editScopedRoles.xml"
+										parentName="adminRolesView"
+										resPrefix="main.admin.roles.admin."
+									/>
+								</tab>
+								<tab label="main.admin.roles.config.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminRolesConfigView"
+										layout="/admin/roles/editScopedProfiles.xml"
+										parentName="adminRolesView"
+										resPrefix="main.admin.roles.config."
+									/>
+								</tab>
+								<tab label="main.admin.group.roles.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminGroupRolesView"
+										layout="/admin/groups/editGroupRightsMulti.xml"
+										parentName="adminRolesView"
+										resPrefix="main.admin.group.roles."
+									/>
+								</tab>
+								<tab label="main.admin.persons.roles.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminPersonsRolesView"
+										layout="/admin/persons/editPersonRights.xml"
+										parentName="adminRolesView"
+										resPrefix="main.admin.persons.roles."
+									/>
+								</tab>
+								<tab label="element.admin.fuctional.attSec.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminAttSec"
+										layout="/admin/attSecurity.xml"
+										parentName="adminRolesView"
+										resPrefix="element.admin.fuctional.attSec."
+									/>
+								</tab>
+								<tab label="element.admin.fuctional.attRoleClass.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminRoleClassSec"
+										layout="/admin/attRoleClass.xml"
+										parentName="adminRolesView"
+										resPrefix="element.admin.fuctional.attRoleClass."
+									/>
+								</tab>
+								<tab label="main.admin.showSecurity.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="showSecurity"
+										layout="/admin/security/showSecurity.xml"
+										parentName="adminRolesView"
+										resPrefix="main.admin.showSecurity."
+									/>
+								</tab>
+							</tabs>
+						</include>
+					</tab>
+					<tab label="main.admin.base.tabber">
+						<include name="templates/levelTwoTabbed.xml"
+							componentName="adminBaseView"
+							parentName="adminView"
+							resPrefix="main.admin.base."
+						>
+							<tabs>
+								<tab label="main.admin.meta.element.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminMetaElement"
+										layout="/admin/mandator/editMetaElement.xml"
+										parentName="adminBaseView"
+										resPrefix="main.admin.meta.element."
+									/>
+								</tab>
+								<tab label="main.admin.meta.attribute.group.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminMetaAttributeGroup"
+										layout="/admin/mandator/editMetaAttributeGroups.xml"
+										parentName="adminBaseView"
+										resPrefix="main.admin.meta.attribute.group."
+									/>
+								</tab>
+								<tab label="main.admin.meta.attribute.group.config.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="configureMetaAttributeGroup"
+										layout="/element/meta/configureMetaAttributeGroups.xml"
+										parentName="adminBaseView"
+										resPrefix="main.admin.meta.attribute.group.config."
+									/>
+								</tab>
+								<tab label="main.admin.list.edit.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminLists"
+										layout="/admin/list/listAdmin.xml"
+										parentName="adminBaseView"
+										resPrefix="main.admin.list.edit."
+									/>
+								</tab>
+								<tab label="admin.units.unit.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminUnit"
+										layout="/admin/units/editUnit.xml"
+										parentName="adminBaseView"
+										resPrefix="admin.units.unit."
+									/>
+								</tab>
+								<tab label="admin.currency.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminCurrencies"
+										layout="/admin/currency/currencyAdmin.xml"
+										parentName="adminBaseView"
+										resPrefix="admin.currency."
+									/>
+								</tab>
+								<tab label="admin.model.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="modelBrowserView"
+										layout="/admin/model/ModelBrowser.xml"
+										parentName="adminBaseView"
+										resPrefix="admin.model."
+									/>
+								</tab>
+							</tabs>
+						</include>
+					</tab>
+					<tab label="tl.admin.technical.tabber">
+						<include name="templates/levelTwoTabbed.xml"
+							componentName="adminTechnicalView"
+							parentName="adminView"
+							resPrefix="tl.admin.technical."
+						>
+							<tabs>
+								<tab label="main.admin.maintenanceWindow.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="maintenanceWindow"
+										layout="/admin/maintenanceWindow.xml"
+										parentName="adminTechnicalView"
+										resPrefix="main.admin.maintenanceWindow."
+									/>
+								</tab>
+								<tab label="tl.admin.scheduler.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminScheduler"
+										layout="/admin/technical/scheduler.xml"
+										parentName="adminTechnicalView"
+										resPrefix="tl.admin.scheduler."
+									/>
+								</tab>
+								<tab label="tl.admin.technical.deleteLocks.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminTechnicalDeleteLocksView"
+										layout="/admin/technical/deleteLocks.xml"
+										parentName="adminTechnicalView"
+										resPrefix="tl.admin.technical.deleteLocks."
+									/>
+								</tab>
+								<tab label="tl.admin.config.view.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminViewConfigView"
+										layout="/admin/technical/configViews.xml"
+										parentName="adminTechnicalView"
+										resPrefix="tl.admin.config.view."
+									/>
+								</tab>
+								<tab label="main.admin.help.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminHelpView"
+										layout="/admin/help/AdminHelp.xml"
+										parentName="adminTechnicalView"
+										resPrefix="main.admin.help."
+									/>
+								</tab>
+								<tab label="tl.admin.technical.viewLogs.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminTechnicalViewLogsView"
+										layout="/admin/technical/logging.xml"
+										parentName="adminTechnicalView"
+										resPrefix="tl.admin.technical.viewLogs."
+									/>
+								</tab>
+								<tab label="tl.admin.maintenance.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminMaintenance"
+										layout="/admin/technical/maintenance.xml"
+										parentName="adminTechnicalView"
+										resPrefix="tl.admin.maintenance."
+									/>
+								</tab>
+							</tabs>
+						</include>
+					</tab>
+					<tab label="main.admin.monitor.tabber">
+						<include name="templates/levelTwoTabbed.xml"
+							componentName="adminMonitorView"
+							parentName="adminView"
+							resPrefix="main.admin.monitor."
+						>
+							<tabs>
+								<tab label="tl.admin.technical.monitor.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminMonitor"
+										layout="/admin/technical/monitor.xml"
+										parentName="adminMonitorView"
+										resPrefix="tl.admin.technical.monitor."
+									/>
+								</tab>
+								<tab label="main.admin.technical.userHistory.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminTechnicalUserHistoryView"
+										layout="/monitoring/session/userMonitorWithFailedLogin.xml"
+										parentName="adminMonitorView"
+										resPrefix="main.admin.technical.userHistory."
+									/>
+								</tab>
+								<tab label="admin.sys.memoryObserver.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminMemory"
+										layout="/admin/technical/memoryObserver.xml"
+										parentName="adminMonitorView"
+										resPrefix="admin.sys.memoryObserver."
+									/>
+								</tab>
+								<tab label="admin.sys.memoryObserverReport.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminMemoryReport"
+										layout="/monitoring/memory/memoryObserverReport.xml"
+										parentName="adminMonitorView"
+										resPrefix="admin.sys.memoryObserverReport."
+									/>
+								</tab>
+								<tab label="util.monitor.thread.layout.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminMonitorThread"
+										layout="/admin/technical/monitor/thread/threadMonitor.xml"
+										parentName="adminMonitorView"
+										resPrefix="util.monitor.thread.layout."
+									/>
+								</tab>
+								<tab label="util.monitor.db.layout.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminMonitorDB"
+										layout="/admin/technical/monitor/db/statementMonitor.xml"
+										parentName="adminMonitorView"
+										resPrefix="util.monitor.db.layout."
+									/>
+								</tab>
+								<tab label="util.monitor.schema.layout.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminMonitorSchema"
+										layout="/monitoring/schema/schemaMonitor.xml"
+										parentName="adminMonitorView"
+										resPrefix="util.monitor.schema.layout."
+									/>
+								</tab>
+								<tab label="admin.technical.eventMonitor.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminEventMonitor"
+										layout="/admin/technical/eventMonitor.xml"
+										parentName="adminMonitorView"
+										resPrefix="admin.technical.eventMonitor."
+									/>
+								</tab>
+								<tab label="tl.admin.performanceMonitor.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminPerformanceMonitor"
+										layout="/admin/technical/performanceMonitor.xml"
+										parentName="adminMonitorView"
+										resPrefix="tl.admin.performanceMonitor."
+									/>
+								</tab>
+								<tab label="tl.admin.performanceChart.tabber">
+									<include name="templates/projectLayoutBrace.xml"
+										componentName="adminConfigViewsPerformance"
+										layout="/monitoring/rendering/viewPerformance.xml"
+										parentName="adminMonitorView"
+										resPrefix="tl.admin.performanceChart."
+									/>
+								</tab>
+							</tabs>
+						</include>
+					</tab>
+				</tabs>
+			</include>
+		</tab>
+	</tabs>
+</include>

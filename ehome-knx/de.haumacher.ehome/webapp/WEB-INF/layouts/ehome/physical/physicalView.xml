@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<template>
+	<params>
+		<param name="namePrefix"
+			value="physicalView"
+		/>
+		<param name="structure"
+			value="TODO: UnusedNonsense"
+		/>
+		<param name="master"
+			value="projectViewTable"
+		/>
+	</params>
+
+	<layout horizontal="true">
+		<grid name="${namePrefix}Grid"
+			elementTypes="ehome.physical:Area,ehome.physical:Line,ehome.physical:Device,ehome.physical:Connector"
+			model="selection(${master})"
+		>
+			<modelBuilder class="com.top_logic.element.layout.grid.TreeGridBuilder">
+				<builder class="de.haumacher.ehome.common.builder.ConfiguredTreeBuilder"
+					supports="x -> $x.instanceOf(`ehome.project:Project`)"
+					supports-node="m -> x -> $x.instanceOf(`ehome.physical:Area`) or $x.instanceOf(`ehome.physical:Line`) or $x.instanceOf(`ehome.physical:Device`)"
+				>
+					<children>
+						<switch
+							expr="a -> $a.get(`ehome.project:Project#areas`)"
+							type="ehome.project:Project"
+						/>
+						<switch
+							expr="a -> $a.get(`ehome.physical:Area#lines`)"
+							type="ehome.physical:Area"
+						/>
+						<switch
+							expr="l -> $l.get(`ehome.physical:Line#devices`)"
+							type="ehome.physical:Line"
+						/>
+						<switch
+							expr="l -> $l.get(`ehome.physical:Device#connectors`)"
+							type="ehome.physical:Device"
+						/>
+					</children>
+					<parent>
+						<switch
+							expr="m -> d -> $d.referers(`ehome.physical:Device#connectors`)"
+							type="ehome.physical:Connector"
+						/>
+						<switch
+							expr="m -> d -> $d.referers(`ehome.physical:Line#devices`)"
+							type="ehome.physical:Device"
+						/>
+						<switch
+							expr="m -> d -> $d.referers(`ehome.physical:Area#lines`)"
+							type="ehome.physical:Line"
+						/>
+						<switch
+							expr="m -> d -> $d.referers(`ehome.project:Project#areas`)"
+							type="ehome.physical:Area"
+						/>
+					</parent>
+				</builder>
+			</modelBuilder>
+
+			<tables>
+				<table
+					defaultColumns="name,type,port,connections"
+					fixedColumns="1"
+				>
+					<columns>
+						<column name="name">
+							<cellRenderer class="com.top_logic.layout.tree.renderer.TreeCellRenderer"
+								resourceProvider="com.top_logic.element.layout.grid.TreeGridTypeProvider"
+							/>
+						</column>
+					</columns>
+				</table>
+			</tables>
+		</grid>
+
+		<form name="${namePrefix}Detail"
+			model="selection(${namePrefix}Grid)"
+		>
+			<modelBuilder class="de.haumacher.ehome.ui.physical.ParameterFormBuilder"/>
+		</form>
+	</layout>
+</template>

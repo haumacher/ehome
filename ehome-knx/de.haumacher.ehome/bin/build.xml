@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+	See build_new.doc in the tl-build project for a description. 
+		
+-->
+
+<project name="ehome" basedir="../">
+	<property name="project.shortname" value="ehome" />
+	
+	<property name="templates.dir" value="../../data/templates"/>
+	
+	<property name="db.schema.name" value="ehome"/>
+
+	<property name="dist.debug" value="true"/>
+
+	<property name="war.db" value="mysql" />
+
+	<property name="war.maintenance.pages"
+		value="ActiveModules.jsp
+				CheckMemory.jsp
+				DBQuery.jsp
+				DecodeString.jsp
+				EncodeConfigurationValues.jsp
+				EncodeString.jsp
+				ExportUserHistory.jsp
+				InfoUser.jsp
+				PerformanceTest.jsp
+				ReleaseMemory.jsp
+				Reload.jsp
+				ReloadSecurityProfiles.jsp
+				ReloadSecurityStorage.jsp
+				ScanData.jsp
+				SearchIndex.jsp
+				Settings.jsp
+				ShowConfiguration.jsp
+				ShowSystemEnvironment.jsp
+				SortProjects.jsp
+				TestJava7.jsp
+				TestJDBCAccess.jsp
+				ThreadDump.jsp
+				"
+	/>
+
+	<!-- Import allows you to override targets from base-build -->
+	<import file="${basedir}/../tl-build/bin/base-build.xml"/>
+	
+</project>
