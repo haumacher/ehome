@@ -18,7 +18,6 @@ import com.top_logic.basic.Logger;
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.io.binary.BinaryData;
-import com.top_logic.dob.DataObjectException;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.KnowledgeBaseException;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -98,15 +97,10 @@ public class ImportFromEts extends AbstractCommandHandler {
 			
 			@Override
 			public Object createObject(String modelType, String id) {
-				try {
-					TLClass type = (TLClass) TLModelUtil.findType(_model, modelType);
-					TLObject result = ModelService.getInstance().getFactory().createObject(type, null, null);
-					assignId(result, id);
-					return result;
-				} catch (ConfigurationException | DataObjectException ex) {
-					// TODO
-					throw new RuntimeException(ex);
-				}
+				TLClass type = (TLClass) TLModelUtil.findType(_model, modelType);
+				TLObject result = ModelService.getInstance().getFactory().createObject(type, null, null);
+				assignId(result, id);
+				return result;
 			}
 			
 			@Override
@@ -132,13 +126,8 @@ public class ImportFromEts extends AbstractCommandHandler {
 			
 			@Override
 			public boolean isInstanceOf(Object obj, String type) {
-				try {
-					TLType expectedType = TLModelUtil.findType(_model, type);
-					return TLModelUtil.isCompatibleInstance(expectedType, (TLObject) obj);
-				} catch (ConfigurationException ex) {
-					// TODO
-					throw new RuntimeException(ex);
-				}
+				TLType expectedType = TLModelUtil.findType(_model, type);
+				return TLModelUtil.isCompatibleInstance(expectedType, (TLObject) obj);
 			}
 
 			private void setValue(Object obj, String partName, Object value) {

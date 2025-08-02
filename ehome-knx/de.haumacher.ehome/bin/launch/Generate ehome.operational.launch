@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <launchConfiguration type="org.eclipse.jdt.launching.localJavaApplication">
-<stringAttribute key="bad_container_name" value="\de.haumacher.e\bin\launch"/>
-<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
-<listEntry value="/com.top_logic.element/src/com/top_logic/element/model/generate/WrapperGenerator.java"/>
-</listAttribute>
-<listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
-<listEntry value="1"/>
-</listAttribute>
-<booleanAttribute key="org.eclipse.debug.core.appendEnvironmentVariables" value="true"/>
-<stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="com.top_logic.element.model.generate.WrapperGenerator"/>
-<stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-def webapp/WEB-INF/model/ehome.model.xml&#13;&#10;-module ehome.operational&#13;&#10;-out src&#13;&#10;-pkg de.haumacher.ehome.model.operational&#13;&#10;-impl com.top_logic.contact.orgunit.impl&#13;&#10;-languages en,de&#13;&#10;-resources webapp/WEB-INF/conf/resources&#13;&#10;-naming com.top_logic.element.binding.gen.StructureNamingConvention"/>
-<stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="de.haumacher.ehome"/>
+    <stringAttribute key="bad_container_name" value="\de.haumacher.e\bin\launch"/>
+    <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_PATHS">
+        <listEntry value="/com.top_logic.element/src/com/top_logic/element/model/generate/WrapperGenerator.java"/>
+    </listAttribute>
+    <listAttribute key="org.eclipse.debug.core.MAPPED_RESOURCE_TYPES">
+        <listEntry value="1"/>
+    </listAttribute>
+    <booleanAttribute key="org.eclipse.debug.core.appendEnvironmentVariables" value="true"/>
+    <stringAttribute key="org.eclipse.jdt.launching.CLASSPATH_PROVIDER" value="org.eclipse.m2e.launchconfig.classpathProvider"/>
+    <stringAttribute key="org.eclipse.jdt.launching.MAIN_TYPE" value="com.top_logic.element.model.generate.WrapperGenerator"/>
+    <stringAttribute key="org.eclipse.jdt.launching.PROGRAM_ARGUMENTS" value="-def webapp/WEB-INF/model/ehome.model.xml&#13;&#10;-module ehome.operational&#13;&#10;-out src&#13;&#10;-pkg de.haumacher.ehome.model.operational&#13;&#10;-impl com.top_logic.contact.orgunit.impl&#13;&#10;-languages en,de&#13;&#10;-resources webapp/WEB-INF/conf/resources&#13;&#10;-naming com.top_logic.element.binding.gen.StructureNamingConvention"/>
+    <stringAttribute key="org.eclipse.jdt.launching.PROJECT_ATTR" value="de.haumacher.ehome"/>
+    <stringAttribute key="org.eclipse.jdt.launching.SOURCE_PATH_PROVIDER" value="org.eclipse.m2e.launchconfig.sourcepathProvider"/>
 </launchConfiguration>
