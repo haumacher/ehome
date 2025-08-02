@@ -9,9 +9,11 @@ import com.top_logic.layout.I18NConstantsBase;
 /**
  * Internationalization constants for this package.
  */
-@SuppressWarnings("javadoc")
 public class I18NConstants extends I18NConstantsBase {
 
+	/**
+	 * @en Error: Unexpected attribute value "{0}", expecting "{1}".
+	 */
 	public static ResKey2 ERROR_UNEXPECTED_ATTRIBUTE_VALUE__GIVEN_EXPECTED;
 
 	static {

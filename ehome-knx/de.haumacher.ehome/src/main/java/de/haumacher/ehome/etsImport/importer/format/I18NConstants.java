@@ -9,9 +9,11 @@ import com.top_logic.layout.I18NConstantsBase;
 /**
  * Internationalization constants for this package.
  */
-@SuppressWarnings("javadoc")
 public class I18NConstants extends I18NConstantsBase {
 
+	/**
+	 * @en Invalid object size format "{0}", expected "{1}".
+	 */
 	public static ResKey2 INVALID_OBJECT_SIZE_FORMAT__FOUND_EXPECTED;
 
 	static {

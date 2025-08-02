@@ -10,15 +10,26 @@ import com.top_logic.layout.I18NConstantsBase;
 /**
  * Internationalization constants for this package.
  */
-@SuppressWarnings("javadoc")
 public class I18NConstants extends I18NConstantsBase {
 
+	/**
+	 * @en Discover failed: {0}
+	 */
 	public static ResKey1 DISCOVERY_FAILED__DETAIL;
 
+	/**
+	 * @en No endpoints found.
+	 */
 	public static ResKey NO_ENDPOINTS_FOUND;
 
+	/**
+	 * @en Unknown host: {0}
+	 */
 	public static ResKey1 UNKNOWN_HOST__VALUE;
 
+	/**
+	 * @en Unknown interface: {0}
+	 */
 	public static ResKey1 UNKNOWN_INTERFACE__VALUE;
 
 	static {
