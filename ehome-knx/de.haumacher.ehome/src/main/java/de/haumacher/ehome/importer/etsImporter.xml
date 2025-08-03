@@ -31,6 +31,10 @@
 									<dispatch>
 										<tag name="Hardware">
 											<object model-type="ehome.catalog:Product" id-attribute="Id">
+												<linking>
+													<list-linking name="ehome.catalog:Manufacturer#products"/>
+												</linking>
+											
 												<property name="name" xml-attribute="Name"/>
 												<property name="serialNumber" xml-attribute="SerialNumber"/>
 												<property name="versionNumber" xml-attribute="VersionNumber"/>
@@ -494,7 +498,7 @@
 										<tag name="CatalogItem">
 											<object-ref id-attribute="ProductRefId">
 												<linking>
-													<list-linking name="ehome.catalog:Catalog#products"/>
+													<list-linking name="ehome.catalog:Catalog#variants"/>
 												</linking>
 												<dispatch/>
 											</object-ref>

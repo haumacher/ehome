@@ -24,11 +24,12 @@
 					multiple="true"
 					type="Catalog"
 				/>
-				<reference name="products"
-					composite="true"
+				<reference name="variants"
 					kind="forwards"
 					multiple="true"
-					type="Product"
+					navigate="true"
+					ordered="true"
+					type="Variant"
 				/>
 			</attributes>
 		</class>
@@ -58,6 +59,13 @@
 					kind="forwards"
 					multiple="true"
 					type="ehome.operational:Program"
+				/>
+				<reference name="products"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					navigate="true"
+					type="Product"
 				/>
 			</attributes>
 		</class>
