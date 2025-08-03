@@ -12,6 +12,7 @@
 											<list-linking name="ehome.catalog:ManufacturerRoot#manufacturers"/>
 										</linking>
 									
+										<property name="extId" xml-attribute="Id"/>
 										<property name="name" xml-attribute="Name"/>
 										
 										<dispatch/>
@@ -35,6 +36,7 @@
 													<list-linking name="ehome.catalog:Manufacturer#products"/>
 												</linking>
 											
+												<property name="extId" xml-attribute="Id"/>
 												<property name="name" xml-attribute="Name"/>
 												<property name="serialNumber" xml-attribute="SerialNumber"/>
 												<property name="versionNumber" xml-attribute="VersionNumber"/>
@@ -48,6 +50,7 @@
 																		<list-linking name="ehome.catalog:Product#variants"/>
 																	</linking>
 
+																	<property name="extId" xml-attribute="Id"/>
 																	<property name="name" xml-attribute="Text"/>
 																	<property name="orderNumber" xml-attribute="OrderNumber"/>
 
@@ -64,6 +67,9 @@
 																	<linking>
 																		<ref-linking name="ehome.catalog:ProgramAssignment#product" reverse="true"/>
 																	</linking>
+																	
+																	<property name="extId" xml-attribute="Id"/>
+																	
 																	<dispatch>
 																		<tag name="ApplicationProgramRef">
 																			<object-ref id-attribute="RefId">
@@ -91,6 +97,7 @@
 													<list-linking name="ehome.catalog:Manufacturer#programs"/>
 												</linking>
 
+												<property name="extId" xml-attribute="Id"/>
 												<property name="name" xml-attribute="Name"/>
 												<reference name="originalManufacturer" id-attribute="OriginalManufacturer"/>
 												
@@ -105,6 +112,7 @@
 																				<list-linking name="ehome.operational:Program#segments"/>
 																			</linking>
 
+																			<property name="extId" xml-attribute="Id"/>
 																			<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																			<property name="size" xml-attribute="Size" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
@@ -121,6 +129,7 @@
 																				<list-linking name="ehome.operational:Program#parameterTypes"/>
 																			</linking>
 
+																			<property name="extId" xml-attribute="Id"/>
 																			<property name="name" xml-attribute="Name"/>
 																			
 																			<dispatch>
@@ -171,6 +180,7 @@
 																										<list-linking name="ehome.operational:EnumerationType#values"/>
 																									</linking>
 
+																									<property name="extId" xml-attribute="Id"/>
 																									<property name="name" xml-attribute="Text"/>
 																									<property name="index" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																									<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
@@ -225,6 +235,7 @@
 																							<list-linking name="ehome.operational:Program#parameters" />
 																						</linking>
 
+																						<property name="extId" xml-attribute="Id"/>
 																						<property name="name" xml-attribute="Name"/>
 																						<property name="description" xml-attribute="Text"/>
 																						<reference name="type" id-attribute="ParameterType"/>
@@ -250,6 +261,7 @@
 																				<list-linking name="ehome.operational:Program#parameters"/>
 																			</linking>
 
+																			<property name="extId" xml-attribute="Id"/>
 																			<property name="name" xml-attribute="Name"/>
 																			<property name="description" xml-attribute="Text"/>
 																			<reference name="type" id-attribute="ParameterType"/>
@@ -291,6 +303,7 @@
 																					<list-linking name="ehome.operational:Parameter#views"/>
 																				</linking>
 
+																				<property name="extId" xml-attribute="Id"/>
 																				<property name="name" xml-attribute="Name"/>
 																				<property name="description" xml-attribute="Text"/>
 																				<property name="access" xml-attribute="Access">
@@ -320,6 +333,7 @@
 																				<list-linking name="ehome.operational:Program#ports"/>
 																			</linking>
 																			
+																			<property name="extId" xml-attribute="Id"/>
 																			<property name="name" xml-attribute="Name"/>
 																			<property name="function" xml-attribute="FunctionText"/>
 																			<property name="text" xml-attribute="Text"/>
@@ -377,6 +391,7 @@
 																					<list-linking name="ehome.operational:Port#interfaces"/>
 																				</linking>
 
+																				<property name="extId" xml-attribute="Id"/>
 																				<property name="name" xml-attribute="Text"/>
 																				<property name="function" xml-attribute="FunctionText"/>
 																				<property name="dpt" xml-attribute="DatapointType"/>
@@ -407,6 +422,7 @@
 																		<list-linking name="ehome.operational:Program#fragments"/>
 																	</linking>
 
+																	<property name="extId" xml-attribute="Id"/>
 																	<property name="name" xml-attribute="Name"/>
 																	<property name="description" xml-attribute="Text"/>
 																	<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
@@ -490,6 +506,7 @@
 													<list-linking name="ehome.catalog:Catalog#sections"/>
 												</linking>
 
+												<property name="extId" xml-attribute="Id"/>
 												<property name="name" xml-attribute="Name"/>
 
 												<ref handler-id="catalog-type"/>
@@ -512,6 +529,7 @@
 			</tag>
 			<tag name="Project">
 				<object model-type="ehome.project:Project" id-attribute="Id" join-duplicates="true">
+					<property name="extId" xml-attribute="Id"/>
 					<dispatch>
 						<tag name="ProjectInformation">
 							<property name="name" xml-attribute="Name"/>
@@ -528,6 +546,7 @@
 															<list-linking name="ehome.project:Project#areas"/>
 														</linking>
 
+														<property name="extId" xml-attribute="Id"/>
 														<property name="name" xml-attribute="Name"/>
 														<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
@@ -538,6 +557,7 @@
 																		<list-linking name="ehome.physical:Area#lines"/>
 																	</linking>
 
+																	<property name="extId" xml-attribute="Id"/>
 																	<property name="name" xml-attribute="Name"/>
 																	<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
@@ -548,6 +568,7 @@
 																					<list-linking name="ehome.physical:Line#devices"/>
 																				</linking>
 
+																				<property name="extId" xml-attribute="Id"/>
 																				<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																				<reference name="type" id-attribute="ProductRefId"/>
 																				<reference name="program" id-attribute="Hardware2ProgramRefId"/>
@@ -664,6 +685,7 @@
 																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
 																</linking>
 
+																<property name="extId" xml-attribute="Id"/>
 																<property name="name" xml-attribute="Name"/>
 
 																<ref handler-id="building-type"/>
@@ -676,6 +698,7 @@
 																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
 																</linking>
 
+																<property name="extId" xml-attribute="Id"/>
 																<property name="name" xml-attribute="Name"/>
 
 																<ref handler-id="building-type"/>
@@ -688,6 +711,7 @@
 																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
 																</linking>
 
+																<property name="extId" xml-attribute="Id"/>
 																<property name="name" xml-attribute="Name"/>
 
 																<ref handler-id="building-type"/>
@@ -700,6 +724,7 @@
 																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
 																</linking>
 
+																<property name="extId" xml-attribute="Id"/>
 																<property name="name" xml-attribute="Name"/>
 
 																<ref handler-id="building-type"/>
@@ -712,6 +737,7 @@
 																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
 																</linking>
 
+																<property name="extId" xml-attribute="Id"/>
 																<property name="name" xml-attribute="Name"/>
 
 																<ref handler-id="building-type"/>
@@ -724,6 +750,7 @@
 																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
 																</linking>
 
+																<property name="extId" xml-attribute="Id"/>
 																<property name="name" xml-attribute="Name"/>
 
 																<ref handler-id="building-type"/>
@@ -736,6 +763,7 @@
 																	<list-linking name="ehome.building:BuildingDefinition#parts"/>
 																</linking>
 
+																<property name="extId" xml-attribute="Id"/>
 																<property name="name" xml-attribute="Name"/>
 
 																<ref handler-id="building-type"/>
@@ -756,7 +784,8 @@
 															<list-linking name="ehome.project:Project#groupAddresses"/>
 															<list-linking name="ehome.logical:GroupRange#parts"/>
 														</linking>
-
+														
+														<property name="extId" xml-attribute="Id"/>
 														<property name="name" xml-attribute="Name"/>
 
 														<ref handler-id="group-addresses-type"/>
@@ -768,7 +797,8 @@
 															<list-linking name="ehome.project:Project#groupAddresses"/>
 															<list-linking name="ehome.logical:GroupRange#parts"/>
 														</linking>
-
+														
+														<property name="extId" xml-attribute="Id"/>
 														<property name="name" xml-attribute="Name"/>
 														<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
