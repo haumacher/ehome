@@ -308,7 +308,7 @@
 			</generalizations>
 			<attributes>
 				<property name="bits" type="tl.core:Integer" mandatory="true"/>
-				<reference name="kind" type="ehome.operational:ValueKind" multiple="true" composite="true" mandatory="true" ordered="true"/>
+				<reference name="kind" type="ehome.operational:ValueKind" mandatory="true" ordered="true"/>
 				<reference name="values" type="ehome.operational:EnumerationValue" multiple="true" composite="true" mandatory="true" ordered="true"/>
 			</attributes>
 		</class>

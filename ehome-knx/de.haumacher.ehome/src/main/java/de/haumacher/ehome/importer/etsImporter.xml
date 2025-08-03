@@ -613,13 +613,13 @@
 																															
 																															<dispatch/>
 																														</object>
-																														<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#send`.singleton()"/>
+																														<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#send`"/>
 																													</chain>
 																												</tag>
 																												<tag name="Receive">
 																													<chain>
 																														<ref handler-id="create-connection"/>
-																														<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#receive`.singleton()"/>
+																														<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#receive`"/>
 																													</chain>
 																												</tag>
 																											</dispatch>
