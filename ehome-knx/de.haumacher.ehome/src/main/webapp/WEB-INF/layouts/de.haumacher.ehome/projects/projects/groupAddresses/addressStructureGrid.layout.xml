@@ -5,9 +5,9 @@
 	template="com.top_logic.element/treegrid.template.xml"
 >
 	<arguments
-		defaultColumns="name,extId"
+		defaultColumns="name,address,extId"
 		model="selection(de.haumacher.ehome/projects/projectsContextTable.layout.xml#Table)"
-		type="ehome.logical:GroupRange"
+		type="ehome.logical:GroupAddressDefinition"
 	>
 		<name key="dynamic.f1db18b5-2308-459c-972d-6b5d07d82d8a">
 			<en>Address structure</en>
