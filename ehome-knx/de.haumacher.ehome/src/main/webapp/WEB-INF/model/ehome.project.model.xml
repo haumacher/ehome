@@ -8,6 +8,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHProject"/>
+				<instance-presentation icon="colored:tl-icon structure"/>
 			</annotations>
 			<attributes>
 				<property name="name"

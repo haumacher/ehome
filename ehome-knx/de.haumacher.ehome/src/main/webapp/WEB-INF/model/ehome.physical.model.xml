@@ -17,6 +17,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHLine"/>
+				<instance-presentation icon="css:fa-solid fa-lock"/>
 			</annotations>
 			<attributes>
 				<property name="name"
@@ -39,6 +40,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHConnection"/>
+				<instance-presentation icon="css:fa-solid fa-link"/>
 			</annotations>
 			<attributes>
 				<property name="name"
@@ -73,6 +75,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHConnector"/>
+				<instance-presentation icon="css:fa-solid fa-plug"/>
 			</annotations>
 			<attributes>
 				<reference name="port"
@@ -128,6 +131,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHDevice"/>
+				<instance-presentation icon="css:fa-solid fa-mobile-screen-button"/>
 			</annotations>
 			<attributes>
 				<property name="name"
@@ -164,6 +168,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHLine"/>
+				<instance-presentation icon="colored:tl-icon network-small"/>
 			</annotations>
 			<attributes>
 				<property name="name"

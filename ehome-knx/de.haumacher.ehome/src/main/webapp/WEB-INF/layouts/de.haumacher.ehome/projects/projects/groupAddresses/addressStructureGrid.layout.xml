@@ -5,7 +5,7 @@
 	template="com.top_logic.element/treegrid.template.xml"
 >
 	<arguments
-		defaultColumns="parts,name,extId"
+		defaultColumns="name,extId"
 		model="selection(de.haumacher.ehome/projects/projectsContextTable.layout.xml#Table)"
 		type="ehome.logical:GroupRange"
 	>
@@ -34,7 +34,9 @@
 		<buttons>
 			<button id="exportExcelGrid"
 				class="com.top_logic.layout.table.export.StreamingExcelExportHandler"
-			/>
+			>
+				<downloadNameProvider class="com.top_logic.layout.table.export.ComponentDownloadName"/>
+			</button>
 			<button id="createNewRow"
 				class="com.top_logic.model.search.providers.GridCreateHandlerByExpression"
 				createContext="model -> $model"

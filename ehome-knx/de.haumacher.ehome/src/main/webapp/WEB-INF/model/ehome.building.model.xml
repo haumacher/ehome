@@ -24,6 +24,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHBuilding"/>
+				<instance-presentation icon="css:fa-solid fa-building"/>
 			</annotations>
 		</class>
 		<class name="BuildingPart">
@@ -32,6 +33,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHBuilding"/>
+				<instance-presentation icon="css:fa-solid fa-cube"/>
 			</annotations>
 		</class>
 		<class name="Corridor">
@@ -40,6 +42,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHBuilding"/>
+				<instance-presentation icon="css:fa-solid fa-person-running"/>
 			</annotations>
 		</class>
 		<class name="DistributionBoard">
@@ -48,6 +51,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHBuilding"/>
+				<instance-presentation icon="css:fa-solid fa-bolt-lightning"/>
 			</annotations>
 		</class>
 		<class name="Floor">
@@ -56,6 +60,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHBuilding"/>
+				<instance-presentation icon="css:fa-solid fa-elevator"/>
 			</annotations>
 		</class>
 		<class name="Location">
@@ -64,6 +69,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHBuilding"/>
+				<instance-presentation icon="css:fa-solid fa-location-dot"/>
 			</annotations>
 		</class>
 		<class name="Room">
@@ -72,6 +78,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHBuilding"/>
+				<instance-presentation icon="css:fa-solid fa-door-closed"/>
 			</annotations>
 		</class>
 		<class name="Stairway">
@@ -80,6 +87,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHBuilding"/>
+				<instance-presentation icon="css:fa-solid fa-stairs"/>
 			</annotations>
 		</class>
 	</module>

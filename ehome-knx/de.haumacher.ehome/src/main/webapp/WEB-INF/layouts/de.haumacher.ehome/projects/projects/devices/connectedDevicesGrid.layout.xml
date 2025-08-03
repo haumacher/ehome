@@ -5,9 +5,9 @@
 	template="com.top_logic.element/treegrid.template.xml"
 >
 	<arguments
-		defaultColumns="name,areas,buildings,groupAddresses,extId"
+		defaultColumns="name,extId,location,address"
 		model="selection(de.haumacher.ehome/projects/projectsContextTable.layout.xml#Table)"
-		type="ehome.project:Project"
+		type="ehome.project:Project,ehome.physical:Line,ehome.physical:Device"
 	>
 		<name key="dynamic.e099e8d4-f1a3-4404-8030-ae106908f05e">
 			<en>Connected Devices</en>
@@ -36,7 +36,9 @@
 		<buttons>
 			<button id="exportExcelGrid"
 				class="com.top_logic.layout.table.export.StreamingExcelExportHandler"
-			/>
+			>
+				<downloadNameProvider class="com.top_logic.layout.table.export.ComponentDownloadName"/>
+			</button>
 			<button id="createNewRow"
 				class="com.top_logic.model.search.providers.GridCreateHandlerByExpression"
 				createContext="model -> $model"

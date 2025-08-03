@@ -18,6 +18,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHGroupAddress"/>
+				<instance-presentation icon="css:fa-solid fa-at"/>
 			</annotations>
 			<attributes>
 				<property name="address"
@@ -31,6 +32,7 @@
 			</generalizations>
 			<annotations>
 				<table name="EHGroupAddress"/>
+				<instance-presentation icon="css:fa-solid fa-arrows-left-right-to-line"/>
 			</annotations>
 			<attributes>
 				<reference name="parts"
