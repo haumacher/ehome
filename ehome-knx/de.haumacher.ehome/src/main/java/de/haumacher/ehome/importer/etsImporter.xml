@@ -147,7 +147,7 @@
 																					</object>
 																				</tag>
 																				<tag name="TypeFloat">
-																					<object model-type="ehome.operational:FloatType">
+																					<object model-type="ehome.operational:FloatingPointType">
 																						<dispatch/>
 																					</object>
 																				</tag>
