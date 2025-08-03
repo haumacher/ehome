@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<module name="ehome.logical">
+		<interface name="GroupAddressDefinition">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+			</attributes>
+		</interface>
+		<class name="GroupAddress">
+			<generalizations>
+				<generalization type="GroupAddressDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHGroupAddress"/>
+			</annotations>
+			<attributes>
+				<property name="address"
+					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<class name="GroupRange">
+			<generalizations>
+				<generalization type="GroupAddressDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHGroupAddress"/>
+			</annotations>
+			<attributes>
+				<reference name="parts"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="GroupAddressDefinition"
+				/>
+			</attributes>
+		</class>
+	</module>
+</model>

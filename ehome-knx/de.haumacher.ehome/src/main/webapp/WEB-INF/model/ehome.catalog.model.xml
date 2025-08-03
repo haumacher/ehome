@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<module name="ehome.catalog">
+		<annotations>
+			<singletons>
+				<singleton type="ManufacturerRoot"/>
+			</singletons>
+		</annotations>
+		<class name="Catalog">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHCatalog"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<reference name="sections"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Catalog"
+				/>
+				<reference name="products"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Product"
+				/>
+			</attributes>
+		</class>
+		<class name="Manufacturer">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHManufacturer"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="id"
+					type="tl.core:Integer"
+				/>
+				<reference name="catalogs"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Catalog"
+				/>
+				<reference name="programs"
+					composite="true"
+					inverse-reference="manufacturer"
+					kind="forwards"
+					multiple="true"
+					type="ehome.operational:Program"
+				/>
+			</attributes>
+		</class>
+		<class name="ManufacturerRoot">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="manufacturers"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Manufacturer"
+				/>
+			</attributes>
+		</class>
+		<class name="Product">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHProduct"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="serialNumber"
+					type="tl.core:String"
+				/>
+				<property name="versionNumber"
+					type="tl.core:String"
+				/>
+				<reference name="variants"
+					composite="true"
+					inverse-reference="product"
+					kind="forwards"
+					multiple="true"
+					type="Variant"
+				/>
+				<reference name="programs"
+					inverse-reference="product"
+					kind="backwards"
+					multiple="true"
+					type="ProgramAssignment"
+				/>
+			</attributes>
+		</class>
+		<class name="ProgramAssignment">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHProgramAssignment"/>
+			</annotations>
+			<attributes>
+				<reference name="product"
+					inverse-reference="programs"
+					kind="forwards"
+					type="Product"
+				/>
+				<reference name="program"
+					kind="forwards"
+					type="ehome.operational:Program"
+				/>
+			</attributes>
+		</class>
+		<class name="Variant">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHProduct"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="orderNumber"
+					type="tl.core:String"
+				/>
+				<reference name="product"
+					aggregate="true"
+					inverse-reference="variants"
+					kind="backwards"
+					type="Product"
+				/>
+			</attributes>
+		</class>
+	</module>
+</model>

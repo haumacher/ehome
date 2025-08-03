@@ -1,0 +1,561 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<module name="ehome.operational">
+		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.operational.internal"
+				interface-package="de.haumacher.ehome.model.operational"
+			/>
+		</annotations>
+		<enum name="AccessKind">
+			<classifier name="None"/>
+			<classifier name="Read"/>
+			<classifier name="Write"/>
+			<classifier name="ReadWrite"/>
+		</enum>
+		<enum name="NumberKind">
+			<classifier name="unsignedInt"/>
+			<classifier name="signedInt"/>
+		</enum>
+		<enum name="ValueKind">
+			<classifier name="Value"/>
+			<classifier name="BinaryValue"/>
+		</enum>
+		<class name="CodeSegment">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHCodeSegment"/>
+			</annotations>
+			<attributes>
+				<property name="address"
+					type="tl.core:Integer"
+				/>
+				<property name="size"
+					type="tl.core:Integer"
+				/>
+				<reference name="pointers"
+					inverse-reference="segment"
+					kind="backwards"
+					multiple="true"
+					type="Pointer"
+				/>
+			</attributes>
+		</class>
+		<interface name="ConfigFragment">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="contents"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Option"
+				/>
+			</attributes>
+		</interface>
+		<class name="Case">
+			<generalizations>
+				<generalization type="ConfigFragment"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHConfigFragment"/>
+			</annotations>
+			<attributes>
+				<property name="pattern"
+					type="tl.core:String"
+				/>
+			</attributes>
+		</class>
+		<class name="Channel">
+			<generalizations>
+				<generalization type="ConfigFragment"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHConfigFragment"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="description"
+					type="tl.core:String"
+				/>
+				<property name="number"
+					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<class name="ChannelIndependent">
+			<generalizations>
+				<generalization type="ConfigFragment"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHConfigFragment"/>
+			</annotations>
+		</class>
+		<class name="ParameterGroup">
+			<generalizations>
+				<generalization type="ConfigFragment"/>
+				<generalization type="Option"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHConfigFragment"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="description"
+					type="tl.core:String"
+				/>
+				<reference name="access"
+					kind="forwards"
+					type="AccessKind"
+				/>
+				<reference name="input"
+					kind="forwards"
+					type="ParameterView"
+				/>
+			</attributes>
+		</class>
+		<class name="EnumerationValue">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHEnumerationValue"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="index"
+					type="tl.core:Integer"
+				/>
+				<property name="value"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<property name="binary"
+					type="tl.core:Binary"
+				/>
+			</attributes>
+		</class>
+		<interface name="Option">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+		</interface>
+		<class name="Interface">
+			<generalizations>
+				<generalization type="Option"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHInterface"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="function"
+					type="tl.core:String"
+				/>
+				<reference name="port"
+					aggregate="true"
+					inverse-reference="interfaces"
+					kind="backwards"
+					type="Port"
+				/>
+				<property name="dpt"
+					type="tl.core:String"
+				/>
+				<property name="tag"
+					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<class name="ParameterView">
+			<generalizations>
+				<generalization type="Option"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterView"/>
+			</annotations>
+			<attributes>
+				<reference name="parameter"
+					aggregate="true"
+					inverse-reference="views"
+					kind="backwards"
+					type="Parameter"
+				/>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="description"
+					type="tl.core:String"
+				/>
+				<reference name="access"
+					kind="forwards"
+					type="AccessKind"
+				/>
+				<property name="value"
+					type="tl.core:Integer"
+				/>
+				<property name="order"
+					type="tl.core:Integer"
+				/>
+				<property name="tag"
+					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<class name="Switch">
+			<generalizations>
+				<generalization type="Option"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHSwitch"/>
+			</annotations>
+			<attributes>
+				<reference name="input"
+					kind="forwards"
+					type="ParameterView"
+				/>
+				<reference name="alternatives"
+					kind="forwards"
+					multiple="true"
+					type="Case"
+				/>
+			</attributes>
+		</class>
+		<class name="Parameter">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameter"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="description"
+					type="tl.core:String"
+				/>
+				<reference name="type"
+					kind="forwards"
+					mandatory="true"
+					type="ParameterType"
+				/>
+				<reference name="access"
+					kind="forwards"
+					mandatory="true"
+					type="AccessKind"
+				/>
+				<property name="value"
+					type="tl.core:Integer"
+				/>
+				<reference name="address"
+					inverse-reference="usage"
+					kind="forwards"
+					type="Pointer"
+				/>
+				<reference name="views"
+					composite="true"
+					inverse-reference="parameter"
+					kind="forwards"
+					multiple="true"
+					type="ParameterView"
+				/>
+			</attributes>
+		</class>
+		<interface name="ParameterType">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+			</attributes>
+		</interface>
+		<class name="DateType">
+			<generalizations>
+				<generalization type="ParameterType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+		</class>
+		<class name="EnumerationType">
+			<generalizations>
+				<generalization type="ParameterType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+			<attributes>
+				<property name="bits"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<reference name="kind"
+					kind="forwards"
+					mandatory="true"
+					type="ValueKind"
+				/>
+				<reference name="values"
+					composite="true"
+					kind="forwards"
+					mandatory="true"
+					multiple="true"
+					ordered="true"
+					type="EnumerationValue"
+				/>
+			</attributes>
+		</class>
+		<class name="FloatingPointType">
+			<generalizations>
+				<generalization type="ParameterType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+		</class>
+		<class name="IPAddressType">
+			<generalizations>
+				<generalization type="ParameterType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+		</class>
+		<class name="NumericType">
+			<generalizations>
+				<generalization type="ParameterType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+			<attributes>
+				<property name="min"
+					mandatory="true"
+					type="tl.core:Long"
+				/>
+				<property name="max"
+					mandatory="true"
+					type="tl.core:Long"
+				/>
+				<property name="bits"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<reference name="kind"
+					kind="forwards"
+					mandatory="true"
+					type="NumberKind"
+				/>
+			</attributes>
+		</class>
+		<class name="TextType">
+			<generalizations>
+				<generalization type="ParameterType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+			<attributes>
+				<property name="bits"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<class name="TimeType">
+			<generalizations>
+				<generalization type="ParameterType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+		</class>
+		<class name="VoidType">
+			<generalizations>
+				<generalization type="ParameterType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+		</class>
+		<class name="Pointer">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<table name="EHPointer"/>
+			</annotations>
+			<attributes>
+				<reference name="segment"
+					inverse-reference="pointers"
+					kind="forwards"
+					mandatory="true"
+					type="CodeSegment"
+				/>
+				<property name="byteOffset"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<property name="bitOffset"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<property name="bits"
+					type="tl.core:Integer"
+				/>
+				<reference name="usage"
+					inverse-reference="address"
+					kind="backwards"
+					multiple="true"
+					type="Parameter"
+				/>
+			</attributes>
+		</class>
+		<class name="Port">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHPort"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="function"
+					type="tl.core:String"
+				/>
+				<property name="text"
+					type="tl.core:String"
+				/>
+				<property name="description"
+					type="tl.core:String"
+				/>
+				<property name="index"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<property name="size"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<reference name="priority"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.physical:Priority"
+				/>
+				<reference name="canRead"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="canWrite"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="communication"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="transmission"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="update"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="readOnInit"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="interfaces"
+					composite="true"
+					inverse-reference="port"
+					kind="forwards"
+					multiple="true"
+					type="Interface"
+				/>
+			</attributes>
+		</class>
+		<class name="Program">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHProgram"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<reference name="manufacturer"
+					aggregate="true"
+					inverse-reference="programs"
+					kind="backwards"
+					type="ehome.catalog:Manufacturer"
+				/>
+				<reference name="originalManufacturer"
+					kind="forwards"
+					type="ehome.catalog:Manufacturer"
+				/>
+				<reference name="parameterTypes"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="ParameterType"
+				/>
+				<reference name="parameters"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Parameter"
+				/>
+				<reference name="ports"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Port"
+				/>
+				<reference name="segments"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="CodeSegment"
+				/>
+				<reference name="fragments"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ConfigFragment"
+				/>
+			</attributes>
+		</class>
+	</module>
+</model>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<module name="ehome.core">
+		<interface name="Externalized">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<property name="extId"
+					type="tl.core:String"
+				/>
+			</attributes>
+		</interface>
+	</module>
+</model>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<module name="ehome.building">
+		<interface name="BuildingDefinition">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<reference name="parts"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="BuildingDefinition"
+				/>
+			</attributes>
+		</interface>
+		<class name="Building">
+			<generalizations>
+				<generalization type="BuildingDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHBuilding"/>
+			</annotations>
+		</class>
+		<class name="BuildingPart">
+			<generalizations>
+				<generalization type="BuildingDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHBuilding"/>
+			</annotations>
+		</class>
+		<class name="Corridor">
+			<generalizations>
+				<generalization type="BuildingDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHBuilding"/>
+			</annotations>
+		</class>
+		<class name="DistributionBoard">
+			<generalizations>
+				<generalization type="BuildingDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHBuilding"/>
+			</annotations>
+		</class>
+		<class name="Floor">
+			<generalizations>
+				<generalization type="BuildingDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHBuilding"/>
+			</annotations>
+		</class>
+		<class name="Location">
+			<generalizations>
+				<generalization type="BuildingDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHBuilding"/>
+			</annotations>
+		</class>
+		<class name="Room">
+			<generalizations>
+				<generalization type="BuildingDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHBuilding"/>
+			</annotations>
+		</class>
+		<class name="Stairway">
+			<generalizations>
+				<generalization type="BuildingDefinition"/>
+			</generalizations>
+			<annotations>
+				<table name="EHBuilding"/>
+			</annotations>
+		</class>
+	</module>
+</model>

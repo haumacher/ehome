@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<module name="ehome.physical">
+		<enum name="ConnectionType">
+			<classifier name="send"/>
+			<classifier name="receive"/>
+		</enum>
+		<enum name="Priority">
+			<classifier name="Low"/>
+			<classifier name="High"/>
+			<classifier name="Alert"/>
+		</enum>
+		<class name="Area">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHLine"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="address"
+					type="tl.core:Integer"
+				/>
+				<reference name="lines"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Line"
+				/>
+			</attributes>
+		</class>
+		<class name="Connection">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHConnection"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr>x -&gt; "{0} ({1})".fill(     $x.get(`ehome.physical:Connection#target`)         .get(`ehome.logical:GroupAddress#name`),      $x.get(`ehome.physical:Connection#kind`))</expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<reference name="kind"
+					kind="forwards"
+					mandatory="true"
+					type="ConnectionType"
+				/>
+				<reference name="target"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.logical:GroupAddress"
+				/>
+				<property name="acknowledge"
+					type="tl.core:Boolean"
+				/>
+			</attributes>
+		</class>
+		<class name="Connector">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHConnector"/>
+			</annotations>
+			<attributes>
+				<reference name="port"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.operational:Interface"
+				/>
+				<property name="description"
+					type="tl.core:String"
+				/>
+				<property name="function"
+					type="tl.core:String"
+				/>
+				<reference name="priority"
+					kind="forwards"
+					type="Priority"
+				/>
+				<reference name="canRead"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="canWrite"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="communication"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="transmission"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="update"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="readOnInit"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="connections"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Connection"
+				/>
+			</attributes>
+		</class>
+		<class name="Device">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHDevice"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="address"
+					type="tl.core:Integer"
+				/>
+				<reference name="type"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.catalog:Variant"
+				/>
+				<reference name="program"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.catalog:ProgramAssignment"
+				/>
+				<reference name="location"
+					kind="forwards"
+					type="ehome.building:BuildingDefinition"
+				/>
+				<reference name="connectors"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Connector"
+				/>
+			</attributes>
+		</class>
+		<class name="Line">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHLine"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="address"
+					type="tl.core:Integer"
+				/>
+				<reference name="devices"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Device"
+				/>
+			</attributes>
+		</class>
+	</module>
+</model>

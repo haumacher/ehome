@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<module name="ehome.project">
+		<class name="Project">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<table name="EHProject"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<reference name="areas"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="ehome.physical:Area"
+				/>
+				<reference name="buildings"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="ehome.building:BuildingDefinition"
+				/>
+				<reference name="groupAddresses"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="ehome.logical:GroupAddressDefinition"
+				/>
+			</attributes>
+		</class>
+	</module>
+</model>
