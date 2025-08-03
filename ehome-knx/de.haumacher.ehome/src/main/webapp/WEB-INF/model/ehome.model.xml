@@ -680,7 +680,10 @@
 				>
 					<annotations>
 						<storage-algorithm>
-							<query expr="x -> concat($x.get(`ehome.physical:Connection#target`).get(`ehome.logical:GroupAddress#name`), ' (', $x.get(`ehome.physical:Connection#kind`), ')')"/>
+							<query expr='x -> "{0} ({1})".fill(
+    $x.get(`ehome.physical:Connection#target`)
+        .get(`ehome.logical:GroupAddress#name`), 
+    $x.get(`ehome.physical:Connection#kind`))'/>
 						</storage-algorithm>
 					</annotations>
 				</property>
