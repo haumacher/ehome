@@ -136,7 +136,18 @@
 			<attributes>
 				<property name="name"
 					type="tl.core:String"
-				/>
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[d -> "{0} ({1})".fill(
+    $d.get(`ehome.physical:Device#type`).label(),
+    $d.get(`ehome.physical:Device#address`).label()
+)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<property name="address"
 					type="tl.core:Integer"
 				/>
