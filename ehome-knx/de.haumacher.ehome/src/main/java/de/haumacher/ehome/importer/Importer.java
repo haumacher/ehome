@@ -7,6 +7,7 @@ import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
@@ -24,13 +25,13 @@ import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.TypedConfiguration;
 import com.top_logic.basic.io.Content;
 import com.top_logic.basic.io.binary.ClassRelativeBinaryContent;
+import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.basic.xml.XMLStreamUtil;
-
-import de.haumacher.ehome.importer.binding.DefaultImportContext;
-import de.haumacher.ehome.importer.binding.ImportContext;
-import de.haumacher.ehome.importer.binding.ModelBinding;
-import de.haumacher.ehome.importer.handlers.DispatchingImporter;
-import de.haumacher.ehome.importer.handlers.Handler;
+import com.top_logic.xio.importer.binding.DefaultImportContext;
+import com.top_logic.xio.importer.binding.ImportContext;
+import com.top_logic.xio.importer.binding.ModelBinding;
+import com.top_logic.xio.importer.handlers.DispatchingImporter;
+import com.top_logic.xio.importer.handlers.Handler;
 
 /**
  * TODO
@@ -82,7 +83,8 @@ public class Importer {
 		Handler handler = (Handler) context.getInstance((PolymorphicConfiguration<?>) config);
 		context.checkErrors();
 		ZipInputStream zip = new ZipInputStream(in);
-		try (ImportContext importContext = new DefaultImportContext(log, null, _binding)) {
+		try (ImportContext importContext = new DefaultImportContext(
+			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)), _binding)) {
 			importETS(zip, importContext, handler);
 		}
 	}
