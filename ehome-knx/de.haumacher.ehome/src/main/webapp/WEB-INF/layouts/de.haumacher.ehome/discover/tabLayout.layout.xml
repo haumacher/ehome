@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic/tab.template.xml"
+>
+	<arguments
+		helpID="ID_d53aac5d_1e89_473e_8192_7e74f441985f"
+		tabIcon="css:fa-solid fa-network-wired"
+	>
+		<tabLabel key="dynamic.54e35549-4333-4c86-8352-87342c06b5c0">
+			<en>Discover</en>
+			<de>Discover</de>
+		</tabLabel>
+		<components>
+			<layout-reference resource="de.haumacher.ehome/discover/innerLayout.layout.xml"/>
+		</components>
+	</arguments>
+</config:template-call>

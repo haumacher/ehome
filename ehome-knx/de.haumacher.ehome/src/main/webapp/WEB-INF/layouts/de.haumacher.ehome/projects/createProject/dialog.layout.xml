@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic.model.search/create/genericCreateDialog.template.xml"
+>
+	<arguments>
+		<title>
+			<title key="dynamic.e4d10df2-45e1-4eb7-977a-0e5efc338f72">
+				<en>Create Project</en>
+				<de>Projekt erstellen</de>
+			</title>
+		</title>
+		<open-handler id="ID_9f9951a6_de47_44bf_9c43_7b4b7f452e66"
+			config:interface="com.top_logic.layout.editor.config.CreateDialogOpenHandlerConfig"
+			image="theme:ICONS_ADD_BUTTON"
+			targetComponent="de.haumacher.ehome/projects/createProject/dialog.layout.xml#Editor"
+		>
+			<resourceKey key="dynamic.e4d10df2-45e1-4eb7-977a-0e5efc338f72">
+				<en>Create Project</en>
+				<de>Projekt erstellen</de>
+			</resourceKey>
+		</open-handler>
+		<typeOptions type="ehome.project:Project"/>
+		<create-handler id="ID_a7359c02_5003_4e7c_96ca_48a81c51e4b9"/>
+	</arguments>
+</config:template-call>

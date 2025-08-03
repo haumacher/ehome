@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic/tile.template.xml"
+>
+	<arguments
+		helpID="f19a010e-dd3e-428a-ae44-30909aeab88e"
+		tileName="ID_11f54611_2176_4773_9d11_43df3dd36947"
+	>
+		<tileLabel key="dynamic.8a0bf618-8fa0-4218-a6c1-5a82fe814ed3">
+			<en>Buildings</en>
+			<de>Gebäude</de>
+		</tileLabel>
+		<preview class="com.top_logic.mig.html.layout.tiles.component.StaticPreview"
+			icon="css:fa-solid fa-city"
+		/>
+		<components>
+			<layout-reference resource="de.haumacher.ehome/projects/projects/buildings/innerLayout.layout.xml"/>
+		</components>
+	</arguments>
+</config:template-call>

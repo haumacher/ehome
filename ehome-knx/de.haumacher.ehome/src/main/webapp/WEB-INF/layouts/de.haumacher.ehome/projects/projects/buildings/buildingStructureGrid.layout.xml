@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic.element/treegrid.template.xml"
+>
+	<arguments
+		defaultColumns="name,extId"
+		model="selection(de.haumacher.ehome/projects/projectsContextTable.layout.xml#Table)"
+		type="ehome.project:Project"
+	>
+		<name key="dynamic.c4edacf5-0a5f-4984-b221-c7280bc0d0c6">
+			<en>Building structure</en>
+			<de>Gebäudestruktur</de>
+		</name>
+		<modelBuilder class="com.top_logic.model.search.providers.TreeModelByExpression"
+			children="node->$node.get(`ehome.project:Project#buildings`)"
+			nodePredicate="node->$node.instanceOf(`ehome.project:Project`)"
+			parents="node->$node.referers(`ehome.project:Project#buildings`)"
+			rootNode="model -> $model"
+		/>
+		<buttons>
+			<button id="exportExcelGrid"
+				class="com.top_logic.layout.table.export.StreamingExcelExportHandler"
+			/>
+			<button id="createNewRow"
+				class="com.top_logic.model.search.providers.GridCreateHandlerByExpression"
+				createContext="model -> $model"
+				initOperation="createContext -> newObject -> target -> $createContext.add(`ehome.project:Project#buildings`, $newObject)"
+				target="selection(self())"
+			>
+				<checkScopeProvider/>
+				<type-options class="com.top_logic.element.layout.create.AttributeBasedCreateTypeOptions"
+					attribute="ehome.project:Project#buildings"
+					owner="ehome.project:Project"
+				/>
+			</button>
+		</buttons>
+	</arguments>
+</config:template-call>

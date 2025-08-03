@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic/tab.template.xml"
+>
+	<arguments
+		helpID="ID_9b5dee0f_e667_4a7f_9768_1103da19e2fd"
+		tabIcon="css:fa-solid fa-book"
+	>
+		<tabLabel key="dynamic.c482049e-9a63-44ca-83b0-892fb22e0626">
+			<en>Catalogs</en>
+			<de>Kataloge</de>
+		</tabLabel>
+		<components>
+			<layout-reference resource="de.haumacher.ehome/catalogs/innerLayout.layout.xml"/>
+		</components>
+	</arguments>
+</config:template-call>

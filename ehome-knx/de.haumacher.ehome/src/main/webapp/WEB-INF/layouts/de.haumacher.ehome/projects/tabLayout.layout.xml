@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic/tab.template.xml"
+>
+	<arguments
+		helpID="ID_532ece76_84a2_400f_b244_b465d08a4299"
+		tabIcon="css:fa-solid fa-diagram-project"
+	>
+		<tabLabel key="dynamic.df132e47-f3a0-4cc6-8c00-dd40e434018e">
+			<en>Projects</en>
+			<de>Projekte</de>
+		</tabLabel>
+		<components>
+			<layout-reference resource="de.haumacher.ehome/projects/innerLayout.layout.xml"/>
+		</components>
+	</arguments>
+</config:template-call>

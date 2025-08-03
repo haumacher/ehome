@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic/tileTable.template.xml"
+>
+	<arguments
+		defaultColumns="name,extId"
+		helpID="ID_4dd488db_7c97_4dd1_aa70_fc98bd82a924"
+		type="ehome.project:Project"
+	>
+		<name key="dynamic.533cacf2-1e63-42bd-9b5e-dbb6abc2efe4">
+			<en>Projects</en>
+			<de>Projekte</de>
+		</name>
+		<modelBuilder class="com.top_logic.model.search.providers.ListModelByExpression"
+			elements="model->all(`ehome.project:Project`)"
+			supportsElement="element->$element.instanceOf(`ehome.project:Project`)"
+		/>
+		<dialogs>
+			<layout-reference resource="de.haumacher.ehome/projects/createProject/dialog.layout.xml"/>
+		</dialogs>
+		<component class="com.top_logic.mig.html.layout.LayoutReference$LayoutReferenceComponent"
+			resource="de.haumacher.ehome/projects/projects/_0_GroupTile.layout.xml"
+		/>
+	</arguments>
+</config:template-call>
