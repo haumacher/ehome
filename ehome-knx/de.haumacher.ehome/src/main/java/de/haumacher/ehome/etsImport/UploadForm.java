@@ -4,9 +4,7 @@
 package de.haumacher.ehome.etsImport;
 
 import com.top_logic.basic.config.ConfigurationItem;
-import com.top_logic.basic.config.annotation.InstanceFormat;
 import com.top_logic.basic.io.binary.BinaryData;
-import com.top_logic.layout.form.values.edit.annotation.PropertyEditor;
 
 /**
  * TODO
@@ -15,9 +13,6 @@ import com.top_logic.layout.form.values.edit.annotation.PropertyEditor;
  */
 public interface UploadForm extends ConfigurationItem {
 
-	// TODO: Should be @Format
-	@InstanceFormat
-	@PropertyEditor(BinaryDataEditor.class)
 	BinaryData getProjectData();
 
 }
