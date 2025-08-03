@@ -65,6 +65,8 @@ public class ImportFromEts extends AbstractCommandHandler {
 			return HandlerResult.error(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ex.getMessage()), ex);
 		}
 		
+		aComponent.closeDialog();
+
 		return HandlerResult.DEFAULT_RESULT;
 	}
 
