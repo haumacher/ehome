@@ -19,6 +19,7 @@
 		/>
 		<dialogs>
 			<layout-reference resource="de.haumacher.ehome/projects/createProject/dialog.layout.xml"/>
+			<layout-reference resource="de.haumacher.ehome/projects/eTS_Import/dialog.layout.xml"/>
 		</dialogs>
 		<component class="com.top_logic.mig.html.layout.LayoutReference$LayoutReferenceComponent"
 			resource="de.haumacher.ehome/projects/projects/_0_GroupTile.layout.xml"

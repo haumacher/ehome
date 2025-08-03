@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic/dialog.template.xml"
+>
+	<arguments helpID="ID_1ffcb4ee_0a04_419d_a990_6b3223a8355a">
+		<title>
+			<title key="dynamic.827ad8dc-16dc-4fc4-a3cc-ca56f3dee74d">
+				<de>ETS-Import</de>
+			</title>
+		</title>
+		<open-handler id="ID_830337e8_1b66_48f8_a009_1a0cc5e926fe"
+			config:interface="com.top_logic.layout.editor.config.DialogOpenHandlerConfig"
+			image="css:fa-solid fa-upload"
+		>
+			<resourceKey key="dynamic.827ad8dc-16dc-4fc4-a3cc-ca56f3dee74d">
+				<de>ETS-Import</de>
+			</resourceKey>
+		</open-handler>
+		<components>
+			<layout-reference resource="de.haumacher.ehome/projects/eTS_Import/innerLayout.layout.xml"/>
+		</components>
+	</arguments>
+</config:template-call>
