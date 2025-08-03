@@ -6,7 +6,7 @@
 >
 	<arguments>
 		<components>
-			<layout-reference resource="de.haumacher.ehome/projects/eTS_Import/componentPlaceholderLayout.layout.xml">
+			<layout-reference resource="de.haumacher.ehome/projects/eTS_Import/uploadForm.layout.xml">
 				<layoutInfo/>
 			</layout-reference>
 		</components>
