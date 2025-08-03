@@ -3,9 +3,6 @@
  */
 package de.haumacher.ehome.etsImport.importer.format;
 
-import java.util.Collections;
-import java.util.List;
-
 import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.config.AbstractConfigurationValueProvider;
 import com.top_logic.basic.config.ConfigurationException;
@@ -23,7 +20,7 @@ import com.top_logic.model.util.TLModelUtil;
  *
  * @author <a href="mailto:bhu@top-logic.com">Bernhard Haumacher</a>
  */
-public class TLEnumerationFormat extends AbstractConfigurationValueProvider<List<TLClassifier>>
+public class TLEnumerationFormat extends AbstractConfigurationValueProvider<TLClassifier>
 		implements ConfiguredInstance<TLEnumerationFormat.Config<?>> {
 
 	/**
@@ -75,25 +72,24 @@ public class TLEnumerationFormat extends AbstractConfigurationValueProvider<List
 	}
 
 	@Override
-	public List<TLClassifier> defaultValue() {
-		return Collections.singletonList(_defaultValue);
+	public TLClassifier defaultValue() {
+		return _defaultValue;
 	}
 
 	@Override
-	protected List<TLClassifier> getValueNonEmpty(String propertyName, CharSequence propertyValue)
+	protected TLClassifier getValueNonEmpty(String propertyName, CharSequence propertyValue)
 			throws ConfigurationException {
 		TLClassifier result = _type.getClassifier(propertyValue.toString());
 		if (result == null) {
 			throw new ConfigurationException("No such classifier '" + propertyValue + "' in '" + _type + "'.");
 		}
 
-		// For compatibility: Enum attributes expect collections as values.
-		return Collections.singletonList(result);
+		return result;
 	}
 
 	@Override
-	protected String getSpecificationNonNull(List<TLClassifier> configValue) {
-		return configValue.get(0).getName();
+	protected String getSpecificationNonNull(TLClassifier configValue) {
+		return configValue.getName();
 	}
 
 }
