@@ -9,6 +9,7 @@
 			<layout-reference resource="de.haumacher.ehome/projects/projects/buildings/tileLayout.layout.xml"/>
 			<layout-reference resource="de.haumacher.ehome/projects/projects/groupAddresses/tileLayout.layout.xml"/>
 			<layout-reference resource="de.haumacher.ehome/projects/projects/devices/tileLayout.layout.xml"/>
+			<layout-reference resource="de.haumacher.ehome/projects/projects/properties/tileLayout.layout.xml"/>
 		</components>
 	</arguments>
 </config:template-call>

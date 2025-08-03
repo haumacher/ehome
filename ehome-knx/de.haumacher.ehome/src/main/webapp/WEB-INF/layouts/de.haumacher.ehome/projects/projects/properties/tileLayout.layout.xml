@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic/tile.template.xml"
+>
+	<arguments
+		helpID="d6e4d7d1-421b-4cb8-9e89-b8b12f6e3a65"
+		tileName="ID_8e436441_b1c1_4b6e_b7d5_2c8f4327dc27"
+	>
+		<tileLabel key="dynamic.a9519821-a452-48d7-ab65-6ce10bcbf9e3">
+			<en>Properties</en>
+			<de>Eigenschaften</de>
+		</tileLabel>
+		<preview class="com.top_logic.mig.html.layout.tiles.component.StaticPreview"
+			icon="css:fa-solid fa-gear"
+		/>
+		<components>
+			<layout-reference resource="de.haumacher.ehome/projects/projects/properties/innerLayout.layout.xml"/>
+		</components>
+	</arguments>
+</config:template-call>

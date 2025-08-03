@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<config:template-call
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+	template="com.top_logic.element/form.template.xml"
+>
+	<arguments model="selection(de.haumacher.ehome/projects/projectsContextTable.layout.xml#Table)">
+		<name key="dynamic.3c47d758-5b91-4d7d-8013-131238e095f5">
+			<en>Project properties</en>
+			<de>Projekteigenschaften</de>
+		</name>
+		<buttons>
+			<button id="ID_0c2fef77_8091_4282_bcba_cf7b3403a719"
+				class="com.top_logic.layout.component.GenericDeleteCommandHandler"
+			>
+				<confirmation class="com.top_logic.tool.boundsec.confirm.DefaultDeleteConfirmation"/>
+			</button>
+		</buttons>
+	</arguments>
+</config:template-call>
