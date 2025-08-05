@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<KNX xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" CreatedBy="ETS4" ToolVersion="ETS 4.2.0 (Build 3884)" xmlns="http://knx.org/xml/project/11">
+  <Project Id="P-01A0">
+    <Installations>
+      <Installation InstallationId="0" Name="" BCUKey="4294967295" DefaultLine="P-01A0-0_L-1" IPRoutingMulticastAddress="224.0.23.12" SplitType="None" CompletionStatus="Undefined">
+        <Topology>
+          <Area Id="P-01A0-0_A-0" Name="Backbone Bereich" Address="0" CompletionStatus="Undefined">
+            <Line Id="P-01A0-0_L-0" Name="Bereichslinie" Address="0" MediumTypeRefId="MT-0" DomainAddress="0" DomainAddressIsChecked="0" CompletionStatus="Undefined" IPRoutingMulticastAddress="224.0.23.12" MulticastTTL="16" />
+          </Area>
+          <Area Id="P-01A0-0_A-1" Name="Neuer Bereich" Address="1" CompletionStatus="Undefined">
+            <Line Id="P-01A0-0_L-1" Name="Hauptlinie" Address="0" MediumTypeRefId="MT-0" DomainAddress="0" DomainAddressIsChecked="0" CompletionStatus="Undefined" IPRoutingMulticastAddress="224.0.23.12" MulticastTTL="16">
+              <DeviceInstance Id="P-01A0-0_DI-1" ProductRefId="M-0008_H-8.20.2F.2F.20zxy3.20xx-1_P-5133.2000" Hardware2ProgramRefId="M-0008_H-8.20.2F.2F.20zxy3.20xx-1_HP-10D7-11-A0E5-O000A" Address="1" LastModified="2025-08-05T18:58:05" CompletionStatus="Undefined" IndividualAddressLoaded="0" ApplicationProgramLoaded="0" ParametersLoaded="0" CommunicationPartLoaded="0" MediumConfigLoaded="0" IsCommunicationObjectVisibilityCalculated="1" Broken="0">
+                <ParameterInstanceRefs>
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-2382_R-2382" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-221_R-221" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-1736_R-1736" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-579_R-579" Value="5" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-696_R-696" Value="9" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-751_R-751" Value="2" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_UP-698_R-749" Value="42" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-2081_R-2081" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-3163_R-3163" Value="3" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-2393_R-2393" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-3848_R-3848" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_UP-3858_R-3858" Value="0" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-3862_R-3862" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-3863_R-3863" Value="1" />
+                  <ParameterInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_P-2384_R-2384" Value="255" />
+                </ParameterInstanceRefs>
+                <ComObjectInstanceRefs>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-64_R-1249" DatapointType="DPST-9-1" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-1" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-0_R-81" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-3" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-4_R-2843" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-6" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-36_R-1037" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-8" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-37_R-1542" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-2" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-2_R-6027" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-5" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-1_R-1552" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-4" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-19_R-1553" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-7" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-74_R-6394" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-10" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-66_R-6385" IsActive="1">
+                    <Connectors>
+                      <Send GroupAddressRefId="P-01A0-0_GA-9" />
+                    </Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-67_R-6389" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-68_R-6393" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-69_R-6372" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-70_R-6375" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-71_R-6378" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-72_R-6381" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-73_R-6384" IsActive="1" />
+                  <ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-54_R-1246" IsActive="1" />
+                </ComObjectInstanceRefs>
+              </DeviceInstance>
+            </Line>
+          </Area>
+        </Topology>
+        <Buildings />
+        <GroupAddresses>
+          <GroupRanges>
+            <GroupRange Id="P-01A0-0_GR-1" Name="HG1" RangeStart="1" RangeEnd="2047">
+              <GroupRange Id="P-01A0-0_GR-3" Name="MG11" RangeStart="1" RangeEnd="255">
+                <GroupAddress Id="P-01A0-0_GA-1" Address="1" Name="GA1" />
+                <GroupAddress Id="P-01A0-0_GA-2" Address="2" Name="GD2" />
+                <GroupAddress Id="P-01A0-0_GA-3" Address="3" Name="GA3" />
+              </GroupRange>
+              <GroupRange Id="P-01A0-0_GR-4" Name="Neue Mittelgruppe" RangeStart="256" RangeEnd="511">
+                <GroupAddress Id="P-01A0-0_GA-4" Address="257" Name="Taste 2" />
+                <GroupAddress Id="P-01A0-0_GA-5" Address="258" Name="Wippe 2" />
+                <GroupAddress Id="P-01A0-0_GA-6" Address="259" Name="Ein/aus" />
+                <GroupAddress Id="P-01A0-0_GA-7" Address="260" Name="Lang 2" />
+                <GroupAddress Id="P-01A0-0_GA-8" Address="261" Name="Status 1" />
+                <GroupAddress Id="P-01A0-0_GA-9" Address="262" Name="Szene 1" />
+                <GroupAddress Id="P-01A0-0_GA-10" Address="263" Name="Szene Nebenstelle" />
+              </GroupRange>
+            </GroupRange>
+            <GroupRange Id="P-01A0-0_GR-2" Name="HG2" RangeStart="2048" RangeEnd="4095" />
+          </GroupRanges>
+        </GroupAddresses>
+      </Installation>
+    </Installations>
+  </Project>
+</KNX>

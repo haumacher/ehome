@@ -1,0 +1,6 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<KNX xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" CreatedBy="ETS4" ToolVersion="ETS 4.2.0 (Build 3884)" xmlns="http://knx.org/xml/project/11">
+  <Project Id="P-01A0">
+    <ProjectInformation Name="Test" LastModified="2025-08-05T18:58:05" ProjectStart="2022-12-20T17:51:47" ProjectId="0" ProjectTracingLevel="None" Hide16BitGroupsFromLegacyPlugins="1" GroupAddressStyle="ThreeLevel" CompletionStatus="Undefined" />
+  </Project>
+</KNX>
