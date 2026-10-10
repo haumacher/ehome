@@ -5,7 +5,7 @@
 	template="com.top_logic.element/treegrid.template.xml"
 >
 	<arguments
-		defaultColumns="name,sections,products,extId"
+		defaultColumns="name,sections,variants,extId"
 		type="ehome.catalog:Catalog"
 	>
 		<name key="dynamic.ab7e8626-cd2b-43fe-88b1-9ef33c9aec65">
@@ -14,7 +14,7 @@
 		</name>
 		<modelBuilder class="com.top_logic.model.search.providers.TreeModelByExpression"
 			nodePredicate="true"
-			parents="node->$node.container()"
+			parents="node->$node.instanceOf(`ehome.catalog:Variant`) ? $node.referers(`ehome.catalog:Catalog#variants`) : $node.container()"
 			rootNode="`ehome.catalog#ROOT`"
 		>
 			<children><![CDATA[node->switch {
@@ -22,7 +22,7 @@
         $node.get(`ehome.catalog:Manufacturer#catalogs`);
     $node.instanceOf(`ehome.catalog:Catalog`):
         $node.get(`ehome.catalog:Catalog#sections`)
-        .union($node.get(`ehome.catalog:Catalog#products`));
+        .union($node.get(`ehome.catalog:Catalog#variants`));
     $node.instanceOf(`ehome.catalog:ManufacturerRoot`):
         $node.get(`ehome.catalog:ManufacturerRoot#manufacturers`)
         .filter(m -> !$m.get(`ehome.catalog:Manufacturer#catalogs`).isEmpty());
@@ -43,13 +43,8 @@
         $createContext.add(`ehome.catalog:ManufacturerRoot#manufacturers`, $newObject);
     $createContext.instanceOf(`ehome.catalog:Manufacturer`):
         $createContext.add(`ehome.catalog:Manufacturer#catalogs`, $newObject);
-    $createContext.instanceOf(`ehome.catalog:Catalog`): 
-        switch {
-            $newObject.instanceOf(`ehome.catalog:Catalog`):
-                $createContext.add(`ehome.catalog:Catalog#sections`, $newObject);
-            $newObject.instanceOf(`ehome.catalog:Product`):
-                $createContext.add(`ehome.catalog:Catalog#products`, $newObject);
-        };
+    $createContext.instanceOf(`ehome.catalog:Catalog`):
+        $createContext.add(`ehome.catalog:Catalog#sections`, $newObject);
 }]]></initOperation>
 				<type-options class="com.top_logic.model.search.providers.CreateTypeOptionsByExpression"
 					include-subtypes="true"
@@ -58,12 +53,9 @@
     $node.instanceOf(`ehome.catalog:Manufacturer`):
         `ehome.catalog:Manufacturer#catalogs`
         .get(`tl.model:TLStructuredTypePart#type`);
-    $node.instanceOf(`ehome.catalog:Catalog`): [
+    $node.instanceOf(`ehome.catalog:Catalog`):
         `ehome.catalog:Catalog#sections`
-        .get(`tl.model:TLStructuredTypePart#type`),
-        `ehome.catalog:Catalog#products`
-        .get(`tl.model:TLStructuredTypePart#type`)
-        ];
+        .get(`tl.model:TLStructuredTypePart#type`);
     $node.instanceOf(`ehome.catalog:ManufacturerRoot`):
         `ehome.catalog:ManufacturerRoot#manufacturers`
         .get(`tl.model:TLStructuredTypePart#type`);
