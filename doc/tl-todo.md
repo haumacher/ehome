@@ -37,7 +37,7 @@ command (`<navigate-push>`) on the selected project. Double-click and Enter on a
 
 **When fixed:** remove `activation-button="false"` and the "Open" toolbar command.
 
-## Closing dialogs lingers without an application animation (ticket not yet filed)
+## Closing dialogs lingers without an application animation (TL #29792)
 
 When a dialog closes (or a drill-down frame leaves), the bridge keeps an inert copy of it on screen
 until its exit animation ends (`useKeyedTransition` / `whenFinished` in
@@ -50,8 +50,8 @@ dialog disappears, while the server answered after 60 ms. `tl-demo-react` hides 
 Workaround: `src/main/webapp/style/ehome.css` (registered as `ClientResources` in
 `WEB-INF/conf/ehomeConf.config.xml`) animates the classes; a cancelled dialog is gone after ~190 ms.
 
-**When fixed in the engine** (no animation = remove the copy at once): the stylesheet may stay for
-the fade, or be removed.
+**When fixed in the engine** (default animations in the theme, no waiting without an animation):
+remove `style/ehome.css` and its `ClientResources` registration.
 
 ## Upstream tickets to follow
 
@@ -59,3 +59,4 @@ the fade, or be removed.
   bound to the build, see `CLAUDE.md`).
 - TL #29790: missing steps in the 7.11 to 8.0 upgrade guide.
 - TL #29791: see above.
+- TL #29792: see above (default transition animations in the engine).
