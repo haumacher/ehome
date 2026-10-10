@@ -79,6 +79,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String SEGMENTS_ATTR = "segments";
 
 	/**
+	 * Part <code>unplaced</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:Option</code> in configuration.
+	 * </p>
+	 */
+	String UNPLACED_ATTR = "unplaced";
+
+	/**
 	 * Getter for part {@link #MANUFACTURER_ATTR}.
 	 */
 	default com.top_logic.model.TLObject getManufacturer() {
@@ -269,6 +278,49 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void removeSegment(de.haumacher.ehome.model.operational.CodeSegment oldValue) {
 		tRemoveByName(SEGMENTS_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #UNPLACED_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.Option> getUnplaced() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.Option>) tValueByName(UNPLACED_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #UNPLACED_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.Option> getUnplacedModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(UNPLACED_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.Option> result = (java.util.List<de.haumacher.ehome.model.operational.Option>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #UNPLACED_ATTR}.
+	 */
+	default void setUnplaced(java.util.List<de.haumacher.ehome.model.operational.Option> newValue) {
+		tUpdateByName(UNPLACED_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #UNPLACED_ATTR} reference.
+	 */
+	default void addUnplaced(de.haumacher.ehome.model.operational.Option newValue) {
+		tAddByName(UNPLACED_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #UNPLACED_ATTR} reference.
+	 */
+	default void removeUnplaced(de.haumacher.ehome.model.operational.Option oldValue) {
+		tRemoveByName(UNPLACED_ATTR, oldValue);
 	}
 
 }

@@ -367,28 +367,25 @@
 																	<tag name="ParameterRefs">
 																		<dispatch>
 																			<tag name="ParameterRef">
-																				<object-ref id-attribute="RefId">
-																					<object model-type="ehome.operational:ParameterView" id-attribute="Id">
-																						<linking>
-																							<list-linking name="ehome.operational:Parameter#views"/>
-																						</linking>
+																				<object model-type="ehome.operational:ParameterView" id-attribute="Id">
+																					<!-- Owned by the structure element placing it; if placed nowhere, by the program (Program#unplaced). -->
+																					<reference name="parameter" id-attribute="RefId"/>
 
-																						<property name="extId" xml-attribute="Id"/>
-																						<property name="name" xml-attribute="Name"/>
-																						<i18n-property name="description" xml-attribute="Text"/>
-																						<property name="access" xml-attribute="Access">
-																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																								type="ehome.operational:AccessKind"
-																							/>
-																						</property>
-																				
-																						<property name="defaultValue" xml-attribute="Value"/>
-																						<property name="order" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																						<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																					<property name="extId" xml-attribute="Id"/>
+																					<property name="name" xml-attribute="Name"/>
+																					<i18n-property name="description" xml-attribute="Text"/>
+																					<property name="access" xml-attribute="Access">
+																						<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																							type="ehome.operational:AccessKind"
+																						/>
+																					</property>
+																			
+																					<property name="defaultValue" xml-attribute="Value"/>
+																					<property name="order" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																					<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
-																						<dispatch/>
-																					</object>
-																				</object-ref>
+																					<dispatch/>
+																				</object>
 																			</tag>
 																		</dispatch>
 																	</tag>
@@ -453,21 +450,18 @@
 																	<tag name="ComObjectRefs">
 																		<dispatch>
 																			<tag name="ComObjectRef">
-																				<object-ref id-attribute="RefId">
-																					<object model-type="ehome.operational:Interface" id-attribute="Id">
-																						<linking>
-																							<list-linking name="ehome.operational:Port#interfaces"/>
-																						</linking>
+																				<object model-type="ehome.operational:Interface" id-attribute="Id">
+																					<!-- Owned by the structure element placing it; if placed nowhere, by the program (Program#unplaced). -->
+																					<reference name="port" id-attribute="RefId"/>
 
-																						<property name="extId" xml-attribute="Id"/>
-																						<i18n-property name="name" xml-attribute="Text"/>
-																						<i18n-property name="function" xml-attribute="FunctionText"/>
-																						<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
-																						<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																					<property name="extId" xml-attribute="Id"/>
+																					<i18n-property name="name" xml-attribute="Text"/>
+																					<i18n-property name="function" xml-attribute="FunctionText"/>
+																					<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
+																					<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
-																						<dispatch/>
-																					</object>
-																				</object-ref>
+																					<dispatch/>
+																				</object>
 																			</tag>
 																		</dispatch>
 																	</tag>
@@ -540,26 +534,24 @@
 																					</object>
 																				</tag>
 																				<tag name="ParameterRefRef">
-																					<object model-type="ehome.operational:ParameterEntry">
+																					<!-- Places the reference here: it becomes part of this structure element. -->
+																					<object-ref id-attribute="RefId">
 																						<linking>
 																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																						</linking>
 
-																						<reference name="parameter" id-attribute="RefId"/>
-
 																						<dispatch/>
-																					</object>
+																					</object-ref>
 																				</tag>
 																				<tag name="ComObjectRefRef">
-																					<object model-type="ehome.operational:InterfaceEntry">
+																					<!-- Places the reference here: it becomes part of this structure element. -->
+																					<object-ref id-attribute="RefId">
 																						<linking>
 																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																						</linking>
 
-																						<reference name="interface" id-attribute="RefId"/>
-
 																						<dispatch/>
-																					</object>
+																					</object-ref>
 																				</tag>
 																			</dispatch>
 																		</object>
@@ -591,6 +583,8 @@
 																</dispatch>
 															</tag>
 														</dispatch>
+														<!-- Parameter and communication object references that no structure element places. -->
+														<assign argument-var="this" property="unplaced" value="p -> concat($p.get(`ehome.operational:Program#parameters`).get(`ehome.operational:Parameter#views`), $p.get(`ehome.operational:Program#ports`).get(`ehome.operational:Port#interfaces`)).filter(x -> $x.container() == null)"/>
 													</object>
 												</default-language>
 											</unless-known>

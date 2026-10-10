@@ -153,12 +153,24 @@ public class TestEtsImport extends BasicTestCase {
 		TLObject channel = (TLObject) contents.get(0);
 		assertEquals("ehome.operational:Channel", TLModelUtil.qualifiedName(channel.tType()));
 		assertSame(program, channel.tContainer());
-		List<TLObject> entries = descendants(channel).stream()
-			.filter(o -> TLModelUtil.qualifiedName(o.tType()).equals("ehome.operational:ParameterEntry"))
+		// A placed parameter (communication object) is the reference itself, owned by the structure
+		// element placing it: 3862 of the 3921 parameter references and all 410 object references.
+		List<TLObject> placed = descendants(channel).stream()
+			.filter(o -> TLModelUtil.qualifiedName(o.tType()).equals("ehome.operational:ParameterView"))
 			.toList();
-		assertFalse("No parameter placed in the structure.", entries.isEmpty());
-		for (TLObject entry : entries) {
-			assertNotNull(entry.tValueByName("parameter"));
+		assertEquals(3862, placed.size());
+		for (TLObject reference : placed) {
+			assertNotNull(reference.tValueByName("parameter"));
+			assertTrue(((Collection<?>) ((TLObject) reference.tValueByName("parameter")).tValueByName("views"))
+				.contains(reference));
+		}
+		assertEquals(410, descendants(channel).stream()
+			.filter(o -> TLModelUtil.qualifiedName(o.tType()).equals("ehome.operational:Interface"))
+			.count());
+		List<?> unplaced = (List<?>) program.tValueByName("unplaced");
+		assertEquals(59, unplaced.size());
+		for (Object reference : unplaced) {
+			assertSame(program, ((TLObject) reference).tContainer());
 		}
 
 		// Labels: a switch on a parameter without value that has only a default case groups content;

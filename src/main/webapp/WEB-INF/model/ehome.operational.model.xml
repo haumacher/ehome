@@ -261,92 +261,13 @@
 				<generalization type="tl.model:TLObject"/>
 			</generalizations>
 		</interface>
-		<!-- A parameter placed in the configuration structure (ETS: ParameterRefRef). -->
-		<class name="ParameterEntry">
-			<generalizations>
-				<generalization type="Option"/>
-			</generalizations>
-			<annotations>
-				<id-column value="displayName"/>
-				<instance-presentation icon="css:bi bi-input-cursor-text"/>
-			</annotations>
-			<attributes>
-				<reference name="parameter"
-					kind="forwards"
-					mandatory="true"
-					type="ParameterView"
-				>
-					<annotations>
-						<!-- Only the elements of the program containing this one. -->
-						<options>
-							<options-by-expression>
-								<function><![CDATA[self -> recursion($self, x -> $x.container())
-    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
-    .firstElement()
-    .get(`ehome.operational:Program#parameters`)
-    .get(`ehome.operational:Parameter#views`)]]></function>
-							</options-by-expression>
-						</options>
-					</annotations>
-				</reference>
-				<!-- The label in the structure tree: the text of the parameter. -->
-				<property name="displayName"
-					type="tl.core:String"
-				>
-					<annotations>
-						<storage-algorithm>
-							<query>
-								<expr><![CDATA[e -> $e.get(`ehome.operational:ParameterEntry#parameter`).get(`ehome.operational:ParameterView#title`)]]></expr>
-							</query>
-						</storage-algorithm>
-					</annotations>
-				</property>
-			</attributes>
-		</class>
-		<!-- A communication object placed in the configuration structure (ETS: ComObjectRefRef). -->
-		<class name="InterfaceEntry">
-			<generalizations>
-				<generalization type="Option"/>
-			</generalizations>
-			<annotations>
-				<id-column value="displayName"/>
-				<instance-presentation icon="css:bi bi-plug"/>
-			</annotations>
-			<attributes>
-				<reference name="interface"
-					kind="forwards"
-					mandatory="true"
-					type="Interface"
-				>
-					<annotations>
-						<!-- Only the elements of the program containing this one. -->
-						<options>
-							<options-by-expression>
-								<function><![CDATA[self -> recursion($self, x -> $x.container())
-    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
-    .firstElement()
-    .get(`ehome.operational:Program#ports`)
-    .get(`ehome.operational:Port#interfaces`)]]></function>
-							</options-by-expression>
-						</options>
-					</annotations>
-				</reference>
-				<!-- The label in the structure tree: the text of the communication object. -->
-				<property name="displayName"
-					type="tl.core:String"
-				>
-					<annotations>
-						<storage-algorithm>
-							<query>
-								<expr><![CDATA[e -> $e.get(`ehome.operational:InterfaceEntry#interface`).get(`ehome.operational:Interface#displayName`)]]></expr>
-							</query>
-						</storage-algorithm>
-					</annotations>
-				</property>
-			</attributes>
-		</class>
+		<!--
+			A communication object placed in the configuration structure (ETS: ComObjectRef, placed by
+			ComObjectRefRef): the object definition with the texts and datapoint types it has at this place.
+		-->
 		<class name="Interface">
 			<generalizations>
+				<generalization type="Option"/>
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
@@ -361,10 +282,11 @@
 				<property name="function"
 					type="tl.model.i18n:I18NString"
 				/>
+				<!-- The communication object definition this reference places. -->
 				<reference name="port"
-					aggregate="true"
 					inverse-reference="interfaces"
-					kind="backwards"
+					kind="forwards"
+					mandatory="true"
 					type="Port"
 				/>
 				<reference name="datapointTypes"
@@ -395,8 +317,13 @@
 				</property>
 			</attributes>
 		</class>
+		<!--
+			A parameter placed in the configuration structure (ETS: ParameterRef, placed by ParameterRefRef):
+			the parameter definition with the text, default and access it has at this place.
+		-->
 		<class name="ParameterView">
 			<generalizations>
+				<generalization type="Option"/>
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
@@ -406,10 +333,11 @@
 				<table name="EHParameterView"/>
 			</annotations>
 			<attributes>
+				<!-- The parameter definition this reference places. -->
 				<reference name="parameter"
-					aggregate="true"
 					inverse-reference="views"
-					kind="backwards"
+					kind="forwards"
+					mandatory="true"
 					type="Parameter"
 				/>
 				<property name="name"
@@ -599,10 +527,10 @@
 					kind="forwards"
 					type="Pointer"
 				/>
+				<!-- The references placing this parameter in the structure. -->
 				<reference name="views"
-					composite="true"
 					inverse-reference="parameter"
-					kind="forwards"
+					kind="backwards"
 					multiple="true"
 					type="ParameterView"
 				/>
@@ -828,10 +756,10 @@
 					mandatory="true"
 					type="ehome.common:Enablement"
 				/>
+				<!-- The references placing this communication object in the structure. -->
 				<reference name="interfaces"
-					composite="true"
 					inverse-reference="port"
-					kind="forwards"
+					kind="backwards"
 					multiple="true"
 					type="Interface"
 				/>
@@ -883,6 +811,14 @@
 					kind="forwards"
 					multiple="true"
 					type="CodeSegment"
+				/>
+				<!-- Parameter and communication object references that no structure element places. -->
+				<reference name="unplaced"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Option"
 				/>
 			</attributes>
 		</class>

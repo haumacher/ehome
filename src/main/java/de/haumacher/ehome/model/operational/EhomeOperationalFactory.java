@@ -278,48 +278,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
-	 * Lookup {@link ParameterEntry} type.
-	 */
-	public static com.top_logic.model.TLClass getParameterEntryType() {
-		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(ParameterEntry.PARAMETER_ENTRY_TYPE);
-	}
-
-	/**
-	 * Lookup {@link ParameterEntry#DISPLAY_NAME_ATTR} of {@link ParameterEntry}.
-	 */
-	public static com.top_logic.model.TLProperty getDisplayNameParameterEntryAttr() {
-		return (com.top_logic.model.TLProperty) getParameterEntryType().getPart(ParameterEntry.DISPLAY_NAME_ATTR);
-	}
-
-	/**
-	 * Lookup {@link ParameterEntry#PARAMETER_ATTR} of {@link ParameterEntry}.
-	 */
-	public static com.top_logic.model.TLReference getParameterParameterEntryAttr() {
-		return (com.top_logic.model.TLReference) getParameterEntryType().getPart(ParameterEntry.PARAMETER_ATTR);
-	}
-
-	/**
-	 * Lookup {@link InterfaceEntry} type.
-	 */
-	public static com.top_logic.model.TLClass getInterfaceEntryType() {
-		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(InterfaceEntry.INTERFACE_ENTRY_TYPE);
-	}
-
-	/**
-	 * Lookup {@link InterfaceEntry#DISPLAY_NAME_ATTR} of {@link InterfaceEntry}.
-	 */
-	public static com.top_logic.model.TLProperty getDisplayNameInterfaceEntryAttr() {
-		return (com.top_logic.model.TLProperty) getInterfaceEntryType().getPart(InterfaceEntry.DISPLAY_NAME_ATTR);
-	}
-
-	/**
-	 * Lookup {@link InterfaceEntry#INTERFACE_ATTR} of {@link InterfaceEntry}.
-	 */
-	public static com.top_logic.model.TLReference getInterfaceInterfaceEntryAttr() {
-		return (com.top_logic.model.TLReference) getInterfaceEntryType().getPart(InterfaceEntry.INTERFACE_ATTR);
-	}
-
-	/**
 	 * Lookup {@link Interface} type.
 	 */
 	public static com.top_logic.model.TLClass getInterfaceType() {
@@ -873,6 +831,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Program#UNPLACED_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getUnplacedProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.UNPLACED_ATTR);
+	}
+
+	/**
 	 * Lookup {@value #ACCESS_KIND_ENUM} enumeration.
 	 */
 	public static com.top_logic.model.TLEnumeration getAccessKindEnum() {
@@ -1042,32 +1007,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	@Deprecated
 	public static final String OPTION_NODE = Option.OPTION_TYPE;
-
-	/**
-	 * Name of type <code>ParameterEntry</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
-	 * 
-	 * @deprecated Use {@link ParameterEntry#PARAMETER_ENTRY_TYPE}.
-	 */
-	@Deprecated
-	public static final String PARAMETER_ENTRY_NODE = ParameterEntry.PARAMETER_ENTRY_TYPE;
-
-	/**
-	 * Storage table name of {@link #PARAMETER_ENTRY_NODE} objects.
-	 */
-	public static final String KO_NAME_PARAMETER_ENTRY = "GenericObject";
-
-	/**
-	 * Name of type <code>InterfaceEntry</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
-	 * 
-	 * @deprecated Use {@link InterfaceEntry#INTERFACE_ENTRY_TYPE}.
-	 */
-	@Deprecated
-	public static final String INTERFACE_ENTRY_NODE = InterfaceEntry.INTERFACE_ENTRY_TYPE;
-
-	/**
-	 * Storage table name of {@link #INTERFACE_ENTRY_NODE} objects.
-	 */
-	public static final String KO_NAME_INTERFACE_ENTRY = "GenericObject";
 
 	/**
 	 * Name of type <code>Interface</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
@@ -1355,34 +1294,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public final EnumerationValue createEnumerationValue() {
 		return createEnumerationValue(null);
-	}
-
-	/**
-	 * Create an instance of {@link ParameterEntry} type.
-	 */
-	public final ParameterEntry createParameterEntry(com.top_logic.model.TLObject context) {
-		return (ParameterEntry) createObject(getParameterEntryType(), context);
-	}
-
-	/**
-	 * Create an instance of {@link ParameterEntry} type.
-	 */
-	public final ParameterEntry createParameterEntry() {
-		return createParameterEntry(null);
-	}
-
-	/**
-	 * Create an instance of {@link InterfaceEntry} type.
-	 */
-	public final InterfaceEntry createInterfaceEntry(com.top_logic.model.TLObject context) {
-		return (InterfaceEntry) createObject(getInterfaceEntryType(), context);
-	}
-
-	/**
-	 * Create an instance of {@link InterfaceEntry} type.
-	 */
-	public final InterfaceEntry createInterfaceEntry() {
-		return createInterfaceEntry(null);
 	}
 
 	/**

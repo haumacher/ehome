@@ -286,41 +286,6 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	}
 
 	/**
-	 * Live view of the {@link #INTERFACES_ATTR} part.
-	 * <p>
-	 * Changes to this {@link java.util.Collection} change directly the attribute value.
-	 * The caller has to take care of the transaction handling.
-	 * </p>
-	 */
-	default java.util.Set<de.haumacher.ehome.model.operational.Interface> getInterfacesModifiable() {
-		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(INTERFACES_ATTR);
-		@SuppressWarnings("unchecked")
-		java.util.Set<de.haumacher.ehome.model.operational.Interface> result = (java.util.Set<de.haumacher.ehome.model.operational.Interface>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
-		return result;
-	}
-
-	/**
-	 * Setter for part {@link #INTERFACES_ATTR}.
-	 */
-	default void setInterfaces(java.util.Set<de.haumacher.ehome.model.operational.Interface> newValue) {
-		tUpdateByName(INTERFACES_ATTR, newValue);
-	}
-
-	/**
-	 * Adds a value to the {@link #INTERFACES_ATTR} reference.
-	 */
-	default void addInterface(de.haumacher.ehome.model.operational.Interface newValue) {
-		tAddByName(INTERFACES_ATTR, newValue);
-	}
-
-	/**
-	 * Removes the given value from the {@link #INTERFACES_ATTR} reference.
-	 */
-	default void removeInterface(de.haumacher.ehome.model.operational.Interface oldValue) {
-		tRemoveByName(INTERFACES_ATTR, oldValue);
-	}
-
-	/**
 	 * Getter for part {@link #PRIORITY_ATTR}.
 	 */
 	default com.top_logic.model.TLClassifier getPriority() {

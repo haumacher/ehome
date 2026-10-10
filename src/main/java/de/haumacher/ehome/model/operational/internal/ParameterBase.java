@@ -156,39 +156,4 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 		return (java.util.Set<? extends de.haumacher.ehome.model.operational.ParameterView>) tValueByName(VIEWS_ATTR);
 	}
 
-	/**
-	 * Live view of the {@link #VIEWS_ATTR} part.
-	 * <p>
-	 * Changes to this {@link java.util.Collection} change directly the attribute value.
-	 * The caller has to take care of the transaction handling.
-	 * </p>
-	 */
-	default java.util.Set<de.haumacher.ehome.model.operational.ParameterView> getViewsModifiable() {
-		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(VIEWS_ATTR);
-		@SuppressWarnings("unchecked")
-		java.util.Set<de.haumacher.ehome.model.operational.ParameterView> result = (java.util.Set<de.haumacher.ehome.model.operational.ParameterView>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
-		return result;
-	}
-
-	/**
-	 * Setter for part {@link #VIEWS_ATTR}.
-	 */
-	default void setViews(java.util.Set<de.haumacher.ehome.model.operational.ParameterView> newValue) {
-		tUpdateByName(VIEWS_ATTR, newValue);
-	}
-
-	/**
-	 * Adds a value to the {@link #VIEWS_ATTR} reference.
-	 */
-	default void addView(de.haumacher.ehome.model.operational.ParameterView newValue) {
-		tAddByName(VIEWS_ATTR, newValue);
-	}
-
-	/**
-	 * Removes the given value from the {@link #VIEWS_ATTR} reference.
-	 */
-	default void removeView(de.haumacher.ehome.model.operational.ParameterView oldValue) {
-		tRemoveByName(VIEWS_ATTR, oldValue);
-	}
-
 }

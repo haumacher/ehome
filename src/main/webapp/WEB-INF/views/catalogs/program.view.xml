@@ -5,9 +5,9 @@
 	independent part, parameter blocks, switches with their cases, and the parameters and
 	communication objects placed in them), and its parameters with their defaults.
 
-	The structure tab creates, edits and deletes structure elements; an entry chooses which parameter
-	or communication object of the program it places. Creating entries, parameters and communication
-	objects is not offered yet. Imported programs are editable as well, so that the model can be
+	The structure tab creates, edits and deletes structure elements. A placed parameter (communication
+	object) is edited at its place: which definition it places, and its text, default and access there.
+	Placing parameters and creating parameters and communication objects is not offered yet. Imported programs are editable as well, so that the model can be
 	checked; a change applies to every device using the program.
 -->
 <view>
@@ -32,15 +32,10 @@
 		/>
 		<derived-channel name="referencedParameter"
 			expr="n -> switch {
-    $n.instanceOf(`ehome.operational:ParameterEntry`): $n.get(`ehome.operational:ParameterEntry#parameter`);
     $n.instanceOf(`ehome.operational:Switch`): $n.get(`ehome.operational:Switch#input`);
     $n.instanceOf(`ehome.operational:ParameterGroup`): $n.get(`ehome.operational:ParameterGroup#input`);
     default: null;
 }"
-			inputs="selected"
-		/>
-		<derived-channel name="referencedInterface"
-			expr="n -> if($n.instanceOf(`ehome.operational:InterfaceEntry`), $n.get(`ehome.operational:InterfaceEntry#interface`), null)"
 			inputs="selected"
 		/>
 		<derived-channel name="selectedSwitch"
@@ -320,42 +315,36 @@
 											<field attribute="isDefault"/>
 										</form>
 									</case>
-									<case test="n -> $n.instanceOf(`ehome.operational:ParameterEntry`)">
-										<!-- A parameter placed on a page: the entry chooses which parameter of the program sits here. -->
+									<case test="n -> $n.instanceOf(`ehome.operational:ParameterView`)">
+										<!--
+											A parameter placed here: which parameter definition, and the text, default and
+											access it has at this place (empty: those of the parameter). Its value is set per
+											device; here only the default is known.
+										-->
 										<form
 											input="selected"
 											with-inset="true"
 										>
 											<field attribute="parameter"/>
-										</form>
-										<!-- The placed parameter, read-only. -->
-										<form
-											input="referencedParameter"
-											mode-switch="false"
-											with-inset="true"
-										>
+											<field attribute="description"/>
+											<field attribute="defaultValue"/>
 											<field attribute="displayDefault"/>
+											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
-											<field attribute="parameter"/>
+											<field attribute="extId"/>
 										</form>
 									</case>
-									<case test="n -> $n.instanceOf(`ehome.operational:InterfaceEntry`)">
-										<!-- A communication object placed in the structure: the entry chooses which object of the program. -->
+									<case test="n -> $n.instanceOf(`ehome.operational:Interface`)">
+										<!-- A communication object placed here: which object definition, and its texts and datapoint types at this place. -->
 										<form
 											input="selected"
 											with-inset="true"
 										>
-											<field attribute="interface"/>
-										</form>
-										<!-- The placed communication object, read-only. -->
-										<form
-											input="referencedInterface"
-											mode-switch="false"
-											with-inset="true"
-										>
+											<field attribute="port"/>
+											<field attribute="name"/>
 											<field attribute="function"/>
 											<field attribute="datapointTypes"/>
-											<field attribute="port"/>
+											<field attribute="extId"/>
 										</form>
 									</case>
 								</switch>
