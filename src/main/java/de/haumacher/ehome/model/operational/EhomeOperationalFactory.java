@@ -222,6 +222,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link ParameterGroup#EFFECTIVE_ACCESS_ATTR} of {@link ParameterGroup}.
+	 */
+	public static com.top_logic.model.TLReference getEffectiveAccessParameterGroupAttr() {
+		return (com.top_logic.model.TLReference) getParameterGroupType().getPart(ParameterGroup.EFFECTIVE_ACCESS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterGroup#EFFECTIVE_TITLE_ATTR} of {@link ParameterGroup}.
+	 */
+	public static com.top_logic.model.TLProperty getEffectiveTitleParameterGroupAttr() {
+		return (com.top_logic.model.TLProperty) getParameterGroupType().getPart(ParameterGroup.EFFECTIVE_TITLE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ParameterGroup#INPUT_ATTR} of {@link ParameterGroup}.
 	 */
 	public static com.top_logic.model.TLReference getInputParameterGroupAttr() {

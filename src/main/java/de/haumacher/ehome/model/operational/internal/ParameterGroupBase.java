@@ -43,6 +43,24 @@ public interface ParameterGroupBase extends de.haumacher.ehome.model.operational
 	String DISPLAY_NAME_ATTR = "displayName";
 
 	/**
+	 * Part <code>effectiveAccess</code> of <code>ParameterGroup</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:AccessKind</code> in configuration.
+	 * </p>
+	 */
+	String EFFECTIVE_ACCESS_ATTR = "effectiveAccess";
+
+	/**
+	 * Part <code>effectiveTitle</code> of <code>ParameterGroup</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String EFFECTIVE_TITLE_ATTR = "effectiveTitle";
+
+	/**
 	 * Part <code>input</code> of <code>ParameterGroup</code>
 	 * 
 	 * <p>
@@ -93,6 +111,20 @@ public interface ParameterGroupBase extends de.haumacher.ehome.model.operational
 	 */
 	default String getDisplayName() {
 		return (String) tValueByName(DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Getter for part {@link #EFFECTIVE_ACCESS_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getEffectiveAccess() {
+		return (com.top_logic.model.TLClassifier) tValueByName(EFFECTIVE_ACCESS_ATTR);
+	}
+
+	/**
+	 * Getter for part {@link #EFFECTIVE_TITLE_ATTR}.
+	 */
+	default String getEffectiveTitle() {
+		return (String) tValueByName(EFFECTIVE_TITLE_ATTR);
 	}
 
 	/**

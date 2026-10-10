@@ -226,11 +226,40 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[g -> $g.get(`ehome.operational:ParameterGroup#description`).localize() || $g.get(`ehome.operational:ParameterGroup#name`)]]></expr>
+								<expr><![CDATA[g -> $g.get(`ehome.operational:ParameterGroup#effectiveTitle`)]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>
 				</property>
+				<!-- The title the parameter dialog shows: its own, otherwise the text of the title parameter, otherwise the internal name. -->
+				<property name="effectiveTitle"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[g -> $g.get(`ehome.operational:ParameterGroup#description`).localize()
+    || $g.get(`ehome.operational:ParameterGroup#input`).get(`ehome.operational:ParameterView#title`)
+    || $g.get(`ehome.operational:ParameterGroup#name`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- How the parameter dialog shows the block: its own display, otherwise that of the title parameter, otherwise editable. -->
+				<reference name="effectiveAccess"
+					kind="forwards"
+					type="AccessKind"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[g -> $g.get(`ehome.operational:ParameterGroup#access`)
+    || $g.get(`ehome.operational:ParameterGroup#input`).get(`ehome.operational:ParameterView#effectiveAccess`)
+    || `ehome.operational:AccessKind#ReadWrite`]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
 		<class name="EnumerationValue">

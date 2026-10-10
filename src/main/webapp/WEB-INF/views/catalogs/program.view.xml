@@ -30,14 +30,6 @@
 			expr="n -> if($n.instanceOf(`ehome.operational:ConfigFragment`) and !$n.instanceOf(`ehome.operational:Program`), $n, null)"
 			inputs="selected"
 		/>
-		<derived-channel name="referencedParameter"
-			expr="n -> switch {
-    $n.instanceOf(`ehome.operational:Switch`): $n.get(`ehome.operational:Switch#input`);
-    $n.instanceOf(`ehome.operational:ParameterGroup`): $n.get(`ehome.operational:ParameterGroup#input`);
-    default: null;
-}"
-			inputs="selected"
-		/>
 		<derived-channel name="selectedSwitch"
 			expr="n -> if($n.instanceOf(`ehome.operational:Switch`), $n, null)"
 			inputs="selected"
@@ -271,21 +263,13 @@
 											input="selected"
 											with-inset="true"
 										>
-											<field attribute="name"/>
+											<field attribute="effectiveTitle"/>
 											<field attribute="description"/>
-											<field attribute="access"/>
 											<field attribute="input"/>
-											<field attribute="extId"/>
-										</form>
-										<!-- The parameter the element depends on; it is edited where it is placed on a page (its entry). -->
-										<form
-											input="referencedParameter"
-											mode-switch="false"
-											with-inset="true"
-										>
-											<field attribute="title"/>
-											<field attribute="displayDefault"/>
+											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
+											<field attribute="name"/>
+											<field attribute="extId"/>
 										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:Switch`)">
@@ -294,16 +278,6 @@
 											with-inset="true"
 										>
 											<field attribute="input"/>
-										</form>
-										<!-- The parameter the element depends on; it is edited where it is placed on a page (its entry). -->
-										<form
-											input="referencedParameter"
-											mode-switch="false"
-											with-inset="true"
-										>
-											<field attribute="title"/>
-											<field attribute="displayDefault"/>
-											<field attribute="effectiveAccess"/>
 										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:Case`)">

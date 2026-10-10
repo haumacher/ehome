@@ -194,6 +194,16 @@ public class TestEtsImport extends BasicTestCase {
 		String caseLabel = (String) derived(buttonCase, "displayName");
 		assertTrue(caseLabel, caseLabel.startsWith("= 1 (") && caseLabel.endsWith(")"));
 
+		// A block without a title of its own takes it from its title parameter; its own display wins
+		// over that of the title parameter.
+		TLObject general = byExtId("ehome.operational:ParameterGroup", "M-0008_A-10D7-11-A0E5-O000A_PB-3762", 0);
+		TLObject titleParameter = (TLObject) general.tValueByName("input");
+		assertNull(general.tValueByName("description"));
+		assertEquals(derived(titleParameter, "title"), derived(general, "effectiveTitle"));
+		assertEquals(derived(general, "effectiveTitle"), derived(general, "displayName"));
+		assertNotNull(general.tValueByName("access"));
+		assertEquals(general.tValueByName("access"), derived(general, "effectiveAccess"));
+
 		// A channel that depends on a parameter: a switch directly in the program.
 		importSample("src/test/fixtures/TestDynamic.knxproj");
 		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000B");

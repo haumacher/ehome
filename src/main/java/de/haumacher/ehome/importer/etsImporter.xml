@@ -497,6 +497,7 @@
 																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																						</linking>
 
+																						<property name="extId" xml-attribute="Id"/>
 																						<property name="name" xml-attribute="Name"/>
 																						<i18n-property name="description" xml-attribute="Text"/>
 																						<property name="access" xml-attribute="Access">
