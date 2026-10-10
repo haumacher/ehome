@@ -10,7 +10,7 @@ The XSD itself is not public and not in the repository.
 
 ## Overall
 
-- Of 408 element paths of the schema, 150 are handled by the import; of 1138 attribute slots, 232 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
+- Of 408 element paths of the schema, 152 are handled by the import; of 1138 attribute slots, 260 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
 - The model has a counterpart for exactly what the import reads, and almost nothing more. The only stored model attribute the import never fills is `ehome.catalog:Manufacturer#id` (it would be `KnxManufacturerId`). So "covered by the model" and "read by the import" mean the same thing here.
 - Many unread attributes are irrelevant for E-Home (ETS bookkeeping: `Hash`, `NonRegRelevantDataVersion`, `CompletionStatus`, `LastModified`, passwords, history, to-dos). The gaps below are those that matter for understanding or operating an installation.
 
@@ -40,7 +40,7 @@ Ordered by how much they limit E-Home. "In samples" says whether the fixtures co
 | 1 | ~~Datapoint types~~ | Done: module `ehome.datapoint`, page "Datenpunkttypen". | |
 | 2 | ~~Parameter values~~ | Done: `Parameter`/`ParameterView#defaultValue`, `ehome.physical:ParameterSetting` (`Device#settings`), table "Parametereinstellungen" of a device. | |
 | 3 | ~~Translations~~ | Done: translated texts are `tl.model.i18n:I18NString` attributes, filled from the element's `DefaultLanguage` and the `Languages` sections. Only the languages the application offers (de, en) are stored. | |
-| 4 | Device details: `DeviceInstance` Name, Description, Comment, SerialNumber, `IsActive` of com objects; `UnassignedDevices` | Devices are shown only by product and address; devices not yet placed in a line are lost. | partly |
+| 4 | ~~Device details~~ | Done: `Device` title, description, installation hints, serial number, download state (`loaded`, `lastModified`, `lastDownload`, derived `downloadPending`), `Connector#active`, `Project#unassignedDevices`. `Comment` (RTF) is not imported. | |
 | 5 | Ranges and address details: `GroupRange` RangeStart/RangeEnd, `GroupAddress` Central, Description, Comment | Ranges cannot be checked or extended; descriptions are lost. | yes |
 | 6 | `Dynamic/choose` directly below `Dynamic` (channels that exist only for some parameter values) | Such channels are skipped entirely. | no |
 | 7 | UI structure of parameters: `ParameterSeparator`, `Assign`, `ParameterBlockRename`, `ParameterCalculations` | Parameter pages look different from ETS; `Assign` changes parameter values. | `ParameterSeparator` 12, `Assign` 4 |

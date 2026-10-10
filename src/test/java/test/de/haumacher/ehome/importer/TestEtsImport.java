@@ -103,6 +103,45 @@ public class TestEtsImport extends BasicTestCase {
 		}
 
 		checkTranslations();
+		checkDeviceDetails();
+	}
+
+	private void checkDeviceDetails() throws Exception {
+		// The device of the Test sample was never downloaded.
+		TLObject plain = byExtId("ehome.physical:Device", "P-01A0-0_DI-1", 0);
+		assertTrue(((Collection<?>) plain.tValueByName("loaded")).isEmpty());
+		assertEquals(Boolean.TRUE, derived(plain, "downloadPending"));
+
+		// The fixture adds names, descriptions, the download state, an inactive communication object
+		// and an unassigned device to it.
+		importSample("src/test/fixtures/TestDetails.knxproj");
+		TLObject device = byTitle("Taster Küche");
+		assertEquals("Taster Küche", derived(device, "name"));
+		assertEquals("Neben der Tür", device.tValueByName("description"));
+		assertEquals("Unterputzdose links", device.tValueByName("installationHints"));
+		assertEquals("0008:1234ABCD", device.tValueByName("serialNumber"));
+		assertNotNull(device.tValueByName("lastModified"));
+		assertNotNull(device.tValueByName("lastDownload"));
+		assertEquals(5, ((Collection<?>) device.tValueByName("loaded")).size());
+		assertEquals(Boolean.FALSE, derived(device, "downloadPending"));
+
+		Collection<?> connectors = (Collection<?>) device.tValueByName("connectors");
+		assertEquals(1, connectors.stream().filter(c -> Boolean.FALSE.equals(((TLObject) c).tValueByName("active"))).count());
+		assertEquals(connectors.size() - 1, connectors.stream().filter(c -> Boolean.TRUE.equals(((TLObject) c).tValueByName("active"))).count());
+
+		TLObject unassigned = byTitle("Taster Reserve");
+		TLObject project = unassigned.tContainer();
+		assertEquals("ehome.project:Project", TLModelUtil.qualifiedName(project.tType()));
+		assertEquals(List.of(unassigned), project.tValueByName("unassignedDevices"));
+		assertSame(project, device.tContainer().tContainer().tContainer());
+	}
+
+	private static TLObject byTitle(String title) {
+		List<TLObject> result = instances("ehome.physical:Device").stream()
+			.filter(d -> title.equals(d.tValueByName("title")))
+			.toList();
+		assertEquals(1, result.size());
+		return result.get(0);
 	}
 
 	private void checkTranslations() {
@@ -119,11 +158,23 @@ public class TestEtsImport extends BasicTestCase {
 	}
 
 	private static TLObject byExtId(String typeName, String extId) {
-		List<TLObject> result = instances(typeName).stream()
-			.filter(obj -> extId.equals(obj.tValueByName("extId")))
-			.toList();
+		List<TLObject> result = withExtId(typeName, extId);
 		assertEquals(1, result.size());
 		return result.get(0);
+	}
+
+	/**
+	 * The object of a project that was imported several times, from the import with the given
+	 * index.
+	 */
+	private static TLObject byExtId(String typeName, String extId, int index) {
+		return withExtId(typeName, extId).get(index);
+	}
+
+	private static List<TLObject> withExtId(String typeName, String extId) {
+		return instances(typeName).stream()
+			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.toList();
 	}
 
 	private void checkParameterSettings() {

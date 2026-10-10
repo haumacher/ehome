@@ -32,3 +32,11 @@
 	from { opacity: 1; }
 	to   { opacity: 0; }
 }
+
+/*
+ * A device that needs a download (dynamic icon of ehome.physical:Device). The React theme does not
+ * style the classic marker class tl-warning.
+ */
+.ehomeDownloadPending {
+	color: var(--tl-status-warning-text);
+}

@@ -20,6 +20,14 @@
 					multiple="true"
 					type="ehome.physical:Area"
 				/>
+				<!-- Devices of the project not placed in a line yet. -->
+				<reference name="unassignedDevices"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.physical:Device"
+				/>
 				<reference name="buildings"
 					composite="true"
 					kind="forwards"

@@ -619,6 +619,13 @@
 									<dispatch>
 										<tag name="Topology">
 											<dispatch>
+												<tag name="UnassignedDevices">
+													<dispatch>
+														<tag name="DeviceInstance">
+															<ref handler-id="device"/>
+														</tag>
+													</dispatch>
+												</tag>
 												<tag name="Area">
 													<object model-type="ehome.physical:Area" id-attribute="Id">
 														<linking>
@@ -642,13 +649,46 @@
 
 																	<dispatch>
 																		<tag name="DeviceInstance">
-																			<object model-type="ehome.physical:Device" id-attribute="Id">
+																			<object model-type="ehome.physical:Device" id-attribute="Id" id="device">
 																				<linking>
 																					<list-linking name="ehome.physical:Line#devices"/>
+																					<list-linking name="ehome.project:Project#unassignedDevices"/>
 																				</linking>
 
 																				<property name="extId" xml-attribute="Id"/>
 																				<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																				<property name="title" xml-attribute="Name"/>
+																				<property name="description" xml-attribute="Description"/>
+																				<property name="installationHints" xml-attribute="InstallationHints"/>
+																				<property name="serialNumber" xml-attribute="SerialNumber"/>
+																				<property name="lastModified" xml-attribute="LastModified" format="com.top_logic.basic.config.format.DateValueProvider"/>
+																				<property name="lastDownload" xml-attribute="LastDownload" format="com.top_logic.basic.config.format.DateValueProvider"/>
+																				<!-- The parts of the configuration in the real device. -->
+																				<switch xml-attribute="IndividualAddressLoaded">
+																					<case value="1">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#IndividualAddress`)"/>
+																					</case>
+																				</switch>
+																				<switch xml-attribute="ApplicationProgramLoaded">
+																					<case value="1">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#ApplicationProgram`)"/>
+																					</case>
+																				</switch>
+																				<switch xml-attribute="ParametersLoaded">
+																					<case value="1">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#Parameters`)"/>
+																					</case>
+																				</switch>
+																				<switch xml-attribute="CommunicationPartLoaded">
+																					<case value="1">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#GroupAddresses`)"/>
+																					</case>
+																				</switch>
+																				<switch xml-attribute="MediumConfigLoaded">
+																					<case value="1">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#MediumConfig`)"/>
+																					</case>
+																				</switch>
 																				<reference name="type" id-attribute="ProductRefId"/>
 																				<reference name="program" id-attribute="Hardware2ProgramRefId"/>
 																				
@@ -682,6 +722,7 @@
 																									
 																									<property name="description" xml-attribute="Text"/>
 																									<property name="function" xml-attribute="FunctionText"/>
+																									<property name="active" xml-attribute="IsActive" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																									
 																									<property name="priority" xml-attribute="Priority">
 																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
@@ -730,7 +771,7 @@
 																															</linking>
 																															
 																															<reference name="target" id-attribute="GroupAddressRefId"/>
-																															<property name="acknowledge" xml-attribute="Acknowledge" format="com.top_logic.basic.config.format.PrimitiveBooleanFormat"/>
+																															<property name="acknowledge" xml-attribute="Acknowledge" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																															
 																															<dispatch/>
 																														</object>

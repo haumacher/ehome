@@ -6,6 +6,14 @@
 			<classifier name="send"/>
 			<classifier name="receive"/>
 		</enum>
+		<!-- The parts of a device configuration ETS downloads into the device. -->
+		<enum name="DownloadPart">
+			<classifier name="IndividualAddress"/>
+			<classifier name="ApplicationProgram"/>
+			<classifier name="Parameters"/>
+			<classifier name="GroupAddresses"/>
+			<classifier name="MediumConfig"/>
+		</enum>
 		<enum name="Priority">
 			<classifier name="Low"/>
 			<classifier name="High"/>
@@ -89,6 +97,10 @@
 				<property name="function"
 					type="tl.core:String"
 				/>
+				<!-- Whether the communication object is in use under the current parameter values. -->
+				<property name="active"
+					type="tl.core:Boolean"
+				/>
 				<reference name="datapointTypes"
 					kind="forwards"
 					multiple="true"
@@ -162,6 +174,14 @@
 			<annotations>
 				<table name="EHDevice"/>
 				<instance-presentation icon="css:fa-solid fa-mobile-screen-button"/>
+				<!-- A device that needs a download is marked like ETS does. -->
+				<dynamic-icon>
+					<icon-by-expression>
+						<icon><![CDATA[d -> if($d.get(`ehome.physical:Device#downloadPending`),
+    "css:fa-solid fa-mobile-screen-button ehomeDownloadPending",
+    null)]]></icon>
+					</icon-by-expression>
+				</dynamic-icon>
 			</annotations>
 			<attributes>
 				<property name="name"
@@ -170,10 +190,54 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[d -> "{0} ({1})".fill(
+								<expr><![CDATA[d -> $d.get(`ehome.physical:Device#title`) || "{0} ({1})".fill(
     $d.get(`ehome.physical:Device#type`).label(),
     $d.get(`ehome.physical:Device#address`).label()
 )]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The name the user gave the device; without one, the device is named by type and address. -->
+				<property name="title"
+					type="tl.core:String"
+				/>
+				<property name="description"
+					type="tl.core:Text"
+				/>
+				<property name="installationHints"
+					type="tl.core:Text"
+				/>
+				<!-- The serial number of the real device, as read from the bus. -->
+				<property name="serialNumber"
+					type="tl.core:String"
+				/>
+				<property name="lastModified"
+					type="tl.core:DateTime"
+				/>
+				<property name="lastDownload"
+					type="tl.core:DateTime"
+				/>
+				<!-- The parts of the configuration that are in the real device. -->
+				<reference name="loaded"
+					kind="forwards"
+					multiple="true"
+					type="DownloadPart"
+				/>
+				<!-- Whether the real device needs a download: a part is missing or the configuration changed since. -->
+				<property name="downloadPending"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[d -> {
+    modified = $d.get(`ehome.physical:Device#lastModified`);
+    download = $d.get(`ehome.physical:Device#lastDownload`);
+    $d.get(`ehome.physical:Device#loaded`).size() < 5
+        or $download == null
+        or ($modified != null and $modified > $download)
+}]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

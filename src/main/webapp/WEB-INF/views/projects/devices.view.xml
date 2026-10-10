@@ -2,7 +2,8 @@
 
 <!--
 	The topology of a project: areas, their lines, the devices on a line and the connectors of a
-	device. The selected node is shown in a form beside the tree.
+	device that are in use. Devices not placed in a line yet follow the areas. The selected node is
+	shown in a form beside the tree.
 -->
 <view>
 	<channels>
@@ -116,13 +117,16 @@
 						<root>p -> $p</root>
 						<children><![CDATA[p -> node -> switch {
     $node.instanceOf(`ehome.project:Project`):
-        $node.get(`ehome.project:Project#areas`);
+        concat(
+            $node.get(`ehome.project:Project#areas`),
+            $node.get(`ehome.project:Project#unassignedDevices`));
     $node.instanceOf(`ehome.physical:Area`):
         $node.get(`ehome.physical:Area#lines`);
     $node.instanceOf(`ehome.physical:Line`):
         $node.get(`ehome.physical:Line#devices`);
     $node.instanceOf(`ehome.physical:Device`):
-        $node.get(`ehome.physical:Device#connectors`);
+        $node.get(`ehome.physical:Device#connectors`)
+            .filter(c -> $c.get(`ehome.physical:Connector#active`) != false);
     default: [];
 }]]></children>
 						<parents>p -> node -> $node.container()</parents>
@@ -154,11 +158,18 @@
 								input="selected"
 								with-inset="true"
 							>
-								<field attribute="name"/>
+								<field attribute="title"/>
 								<field attribute="address"/>
 								<field attribute="type"/>
 								<field attribute="program"/>
 								<field attribute="location"/>
+								<field attribute="description"/>
+								<field attribute="installationHints"/>
+								<field attribute="serialNumber"/>
+								<field attribute="loaded"/>
+								<field attribute="lastModified"/>
+								<field attribute="lastDownload"/>
+								<field attribute="downloadPending"/>
 								<field attribute="extId"/>
 							</form>
 							<!-- The parameter values set in the project; all others have their default. -->
@@ -189,6 +200,7 @@
 								with-inset="true"
 							>
 								<field attribute="port"/>
+								<field attribute="active"/>
 								<field attribute="effectiveDatapointType"/>
 								<field attribute="function"/>
 								<field attribute="description"/>
