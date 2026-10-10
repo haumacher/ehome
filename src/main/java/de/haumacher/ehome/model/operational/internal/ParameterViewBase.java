@@ -52,6 +52,15 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	String DISPLAY_DEFAULT_ATTR = "displayDefault";
 
 	/**
+	 * Part <code>effectiveAccess</code> of <code>ParameterView</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:AccessKind</code> in configuration.
+	 * </p>
+	 */
+	String EFFECTIVE_ACCESS_ATTR = "effectiveAccess";
+
+	/**
 	 * Part <code>effectiveDefault</code> of <code>ParameterView</code>
 	 * 
 	 * <p>
@@ -95,6 +104,15 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	 * </p>
 	 */
 	String TAG_ATTR = "tag";
+
+	/**
+	 * Part <code>title</code> of <code>ParameterView</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String TITLE_ATTR = "title";
 
 	/**
 	 * Getter for part {@link #ACCESS_ATTR}.
@@ -146,6 +164,13 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	}
 
 	/**
+	 * Getter for part {@link #EFFECTIVE_ACCESS_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getEffectiveAccess() {
+		return (com.top_logic.model.TLClassifier) tValueByName(EFFECTIVE_ACCESS_ATTR);
+	}
+
+	/**
 	 * Getter for part {@link #EFFECTIVE_DEFAULT_ATTR}.
 	 */
 	default String getEffectiveDefault() {
@@ -185,6 +210,13 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	 */
 	default void setTag(Integer newValue) {
 		tUpdateByName(TAG_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #TITLE_ATTR}.
+	 */
+	default String getTitle() {
+		return (String) tValueByName(TITLE_ATTR);
 	}
 
 }

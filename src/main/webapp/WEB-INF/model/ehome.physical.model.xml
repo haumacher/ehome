@@ -260,14 +260,7 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[s -> {
-    view = $s.get(`ehome.physical:ParameterSetting#parameter`);
-    parameter = $view.get(`ehome.operational:ParameterView#parameter`);
-    $view.get(`ehome.operational:ParameterView#description`)
-        || $parameter.get(`ehome.operational:Parameter#description`)
-        || $view.get(`ehome.operational:ParameterView#name`)
-        || $parameter.get(`ehome.operational:Parameter#name`)
-}]]></expr>
+								<expr><![CDATA[s -> $s.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#title`)]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

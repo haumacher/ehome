@@ -100,6 +100,11 @@ public class TestEtsImport extends BasicTestCase {
 		assertEquals("9", led.tValueByName("value"));
 		assertEquals("Vergleicher ohne Vorzeichen (1 Byte)", derived(led, "displayValue"));
 		assertEquals("Betätigungsanzeige", derived(led, "displayDefault"));
+		// The catalog shows the same parameter with its default.
+		TLObject view = (TLObject) led.tValueByName("parameter");
+		assertEquals("Funktion der Status-LED rechts", ((String) derived(view, "title")).trim());
+		assertEquals("Betätigungsanzeige", derived(view, "displayDefault"));
+		assertNotNull(derived(view, "effectiveAccess"));
 
 		TLObject number = setting(settings, "Vergleichswert (0...255)");
 		assertEquals("42", derived(number, "displayValue"));

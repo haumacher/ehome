@@ -320,6 +320,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link ParameterView#EFFECTIVE_ACCESS_ATTR} of {@link ParameterView}.
+	 */
+	public static com.top_logic.model.TLReference getEffectiveAccessParameterViewAttr() {
+		return (com.top_logic.model.TLReference) getParameterViewType().getPart(ParameterView.EFFECTIVE_ACCESS_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ParameterView#EFFECTIVE_DEFAULT_ATTR} of {@link ParameterView}.
 	 */
 	public static com.top_logic.model.TLProperty getEffectiveDefaultParameterViewAttr() {
@@ -352,6 +359,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLProperty getTagParameterViewAttr() {
 		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.TAG_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterView#TITLE_ATTR} of {@link ParameterView}.
+	 */
+	public static com.top_logic.model.TLProperty getTitleParameterViewAttr() {
+		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.TITLE_ATTR);
 	}
 
 	/**

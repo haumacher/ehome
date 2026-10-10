@@ -227,6 +227,39 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
+				<!-- The access of the reference, otherwise of the parameter; ETS defaults to ReadWrite. -->
+				<reference name="effectiveAccess"
+					kind="forwards"
+					type="AccessKind"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[p -> $p.get(`ehome.operational:ParameterView#access`)
+    || $p.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#access`)
+    || `ehome.operational:AccessKind#ReadWrite`]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</reference>
+				<!-- The text naming the parameter where the configuration shows it. -->
+				<property name="title"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[p -> {
+    parameter = $p.get(`ehome.operational:ParameterView#parameter`);
+    $p.get(`ehome.operational:ParameterView#description`)
+        || $parameter.get(`ehome.operational:Parameter#description`)
+        || $p.get(`ehome.operational:ParameterView#name`)
+        || $parameter.get(`ehome.operational:Parameter#name`)
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<!-- The default as the user reads it: for an enumeration the text of the entry. -->
 				<property name="displayDefault"
 					type="tl.core:String"

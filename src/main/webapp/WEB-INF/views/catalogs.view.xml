@@ -2,8 +2,9 @@
 
 <!--
 	The product catalogs imported from ETS projects: manufacturers, their catalogs with sections, and
-	the product variants listed in a catalog. A variant is referenced by its catalog, not contained
-	in it, so the tree finds the catalog of a variant through that reference.
+	the product variants listed in a catalog, and below a variant the application programs of its
+	product. A variant is referenced by its catalog, not contained in it, so the tree finds the
+	catalog of a variant through that reference.
 
 	The ETS import creates every manufacturer of the KNX master data. Only those with catalogs are
 	shown, and those created here (they have no external ID).
@@ -158,11 +159,17 @@
     $node.instanceOf(`ehome.catalog:Catalog`):
         $node.get(`ehome.catalog:Catalog#sections`)
             .union($node.get(`ehome.catalog:Catalog#variants`));
+    $node.instanceOf(`ehome.catalog:Variant`):
+        $node.get(`ehome.catalog:Variant#product`).get(`ehome.catalog:Product#programs`);
     default: [];
 }]]></children>
-						<parents><![CDATA[node -> if($node.instanceOf(`ehome.catalog:Variant`),
-    $node.referers(`ehome.catalog:Catalog#variants`),
-    $node.container())]]></parents>
+						<parents><![CDATA[node -> switch {
+    $node.instanceOf(`ehome.catalog:Variant`):
+        $node.referers(`ehome.catalog:Catalog#variants`);
+    $node.instanceOf(`ehome.catalog:ProgramAssignment`):
+        $node.get(`ehome.catalog:ProgramAssignment#product`).get(`ehome.catalog:Product#variants`);
+    default: $node.container();
+}]]></parents>
 					</tree>
 				</panel>
 			</pane>
@@ -205,6 +212,41 @@
 								<field attribute="product"/>
 								<field attribute="extId"/>
 							</form>
+						</case>
+						<!--
+							An application program of the product: its parameters, as the configuration
+							of a device shows them, with their defaults.
+						-->
+						<case test="n -> $n.instanceOf(`ehome.catalog:ProgramAssignment`)">
+							<form
+								input="selected"
+								with-inset="true"
+							>
+								<field attribute="name"/>
+								<field attribute="program"/>
+								<field attribute="extId"/>
+							</form>
+							<table
+								types="ehome.operational:ParameterView"
+							>
+								<inputs>
+									<input channel="selected"/>
+								</inputs>
+								<columns>
+									<column attribute="title"
+										width="320"
+									/>
+									<column attribute="displayDefault"
+										width="220"
+									/>
+									<column attribute="effectiveAccess"
+										width="120"
+									/>
+								</columns>
+								<rows><![CDATA[a -> $a.get(`ehome.catalog:ProgramAssignment#program`)
+    .get(`ehome.operational:Program#parameters`)
+    .get(`ehome.operational:Parameter#views`)]]></rows>
+							</table>
 						</case>
 					</switch>
 				</panel>
