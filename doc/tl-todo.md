@@ -1,7 +1,8 @@
 # Waiting for TopLogic
 
-Gaps of the React UI (`src/main/webapp/WEB-INF/views/`) compared with the classic layouts that the
-TopLogic version in use (8.0.0-alpha10) cannot close yet. Check each item when upgrading TopLogic.
+Gaps of the React UI (`src/main/webapp/WEB-INF/views/`) compared with the classic layouts, and
+workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha10) cannot close yet.
+Check each item when upgrading TopLogic.
 
 ## Tree tables
 
@@ -53,6 +54,25 @@ Workaround: `src/main/webapp/style/ehome.css` (registered as `ClientResources` i
 **When fixed in the engine** (default animations in the theme, no waiting without an animation):
 remove `style/ehome.css` and its `ClientResources` registration.
 
+## ETS import: workarounds for the XML import (TL #29794 to #29797)
+
+The ETS import (`de.haumacher.ehome.importer`, `etsImporter.xml`) has handlers of its own for what
+the engine's XML import (`com.top_logic.xio`) cannot do yet:
+
+- TL #29794 (defect): `join-duplicates` links a reused object to its container again (fails for set
+  references). Workaround: `JoiningModelBinding` skips adding an element a reference already holds.
+  **When fixed:** remove `JoiningModelBinding` and its use in `Importer`.
+- TL #29795: `set-translation` only takes a fixed language. Workaround: `<i18n-property>`
+  (`I18NPropertyImport`, `I18NTexts`), language from the variable `language`, fills the fallback
+  language. **When available:** use `<set-translation>` with the language from the variable.
+- TL #29796: no handler binds a variable to an XML attribute. Workaround: `<default-language>`
+  (`DefaultLanguage`). **When available:** use the engine handler.
+- TL #29797: import into existing data. Workarounds: `Importer.registerSharedObjects()` registers
+  the shared objects under their `extId`; `<unless-known>` (`UnlessKnown`) skips known application
+  programs; `<translations>` (`TranslationsImport`) reads the `Languages` sections and ignores
+  unknown IDs. **When available:** declare the lookup in `etsImporter.xml`, and express the
+  translations with `<with-var>`, `<object-ref>` (optional), `<switch>` and `<set-translation>`.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -60,3 +80,5 @@ remove `style/ehome.css` and its `ClientResources` registration.
 - TL #29790: missing steps in the 7.11 to 8.0 upgrade guide.
 - TL #29791: see above.
 - TL #29792: see above (default transition animations in the engine).
+- TL #29793: developer-docs recipe for an application-defined primitive type (group addresses).
+- TL #29794 to #29797: see above (XML import).
