@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The group addresses of a project: the ranges and their addresses, and below each address the
+	devices connected to it. The selected node is shown in a form beside the tree.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="selected"/>
+		<derived-channel name="selectedDefinition"
+			expr="n -> if($n.instanceOf(`ehome.logical:GroupAddressDefinition`), $n, null)"
+			inputs="selected"
+		/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="240"
+				size="40"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Group addresses</en>
+						<de>Gruppenadressen</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-trash"
+							input="selectedDefinition"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="n -> #('Delete {0}?'@en, '{0} löschen?'@de).fill($n.label())"/>
+							<delete-object/>
+							<write-channel name="selected"/>
+						</generic-command>
+					</commands>
+					<tree
+						observed-types="ehome.logical:GroupAddressDefinition"
+						selection="selected"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<root>p -> $p</root>
+						<children><![CDATA[p -> node -> switch {
+    $node.instanceOf(`ehome.project:Project`):
+        $node.get(`ehome.project:Project#groupAddresses`);
+    $node.instanceOf(`ehome.logical:GroupRange`):
+        $node.get(`ehome.logical:GroupRange#parts`);
+    $node.instanceOf(`ehome.logical:GroupAddress`):
+        $node.referers(`ehome.physical:Connection#target`)
+            .referers(`ehome.physical:Connector#connections`)
+            .referers(`ehome.physical:Device#connectors`);
+    default: [];
+}]]></children>
+					</tree>
+				</panel>
+			</pane>
+			<pane
+				size="60"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Details</en>
+						<de>Details</de>
+					</title>
+					<switch input="selected">
+						<case test="n -> $n.instanceOf(`ehome.logical:GroupRange`)">
+							<form
+								input="selected"
+								with-inset="true"
+							>
+								<field attribute="name"/>
+								<field attribute="extId"/>
+							</form>
+						</case>
+						<case test="n -> $n.instanceOf(`ehome.logical:GroupAddress`)">
+							<form
+								input="selected"
+								with-inset="true"
+							>
+								<field attribute="name"/>
+								<field attribute="address"/>
+								<field attribute="extId"/>
+							</form>
+						</case>
+						<case test="n -> $n.instanceOf(`ehome.physical:Device`)">
+							<form
+								input="selected"
+								with-inset="true"
+							>
+								<field attribute="name"/>
+								<field attribute="address"/>
+								<field attribute="type"/>
+								<field attribute="location"/>
+								<field attribute="extId"/>
+							</form>
+						</case>
+					</switch>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

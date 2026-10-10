@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The building structure of a project: buildings and their nested parts (floors, rooms, ...), with
+	the selected part in a form beside the tree.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="selected"/>
+		<derived-channel name="selectedPart"
+			expr="n -> if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, null)"
+			inputs="selected"
+		/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="240"
+				size="40"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Buildings</en>
+						<de>Gebäude</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-trash"
+							input="selectedPart"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="n -> #('Delete {0}?'@en, '{0} löschen?'@de).fill($n.label())"/>
+							<delete-object/>
+							<write-channel name="selected"/>
+						</generic-command>
+					</commands>
+					<tree
+						observed-types="ehome.building:BuildingDefinition"
+						selection="selected"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<root>p -> $p</root>
+						<children><![CDATA[p -> node -> switch {
+    $node.instanceOf(`ehome.project:Project`):
+        $node.get(`ehome.project:Project#buildings`);
+    $node.instanceOf(`ehome.building:BuildingDefinition`):
+        $node.get(`ehome.building:BuildingDefinition#parts`);
+    default: [];
+}]]></children>
+						<parents>p -> node -> $node.container()</parents>
+					</tree>
+				</panel>
+			</pane>
+			<pane
+				size="60"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Details</en>
+						<de>Details</de>
+					</title>
+					<form
+						input="selectedPart"
+						with-inset="true"
+					>
+						<field attribute="name"/>
+						<field attribute="extId"/>
+					</form>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Initial frame of the project drill-down: all projects. Activating a row pushes the frame showing
+	the structures of the project.
+
+	A project is created empty or imported from an ETS project file (.knxproj). The table observes
+	projects, so a created, imported or deleted project is reflected without a reload.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+	</channels>
+
+	<panel>
+		<title>
+			<en>Projects</en>
+			<de>Projekte</de>
+		</title>
+		<commands>
+			<generic-command
+				image="css:bi bi-plus-lg"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>New project</en>
+					<de>Neues Projekt</de>
+				</label>
+				<create-transient type="ehome.project:Project"/>
+				<open-dialog
+					bind-input-to="model"
+					dialog-view="projects/create-project.view.xml"
+				>
+					<bind
+						channel="selection"
+						to="project"
+					/>
+				</open-dialog>
+			</generic-command>
+			<upload-command
+				accept=".knxproj"
+				image="css:fa-solid fa-upload"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>ETS import</en>
+					<de>ETS-Import</de>
+				</label>
+				<executability>
+					<model-access
+						operation="Create"
+						type="ehome.project:Project"
+					/>
+				</executability>
+				<import-ets-project/>
+				<write-channel name="project"/>
+			</upload-command>
+			<generic-command
+				image="css:bi bi-trash"
+				input="project"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Delete</en>
+					<de>Löschen</de>
+				</label>
+				<executability>
+					<null-input-disabled/>
+				</executability>
+				<confirm expr="p -> #('Delete project {0}?'@en, 'Projekt {0} löschen?'@de).fill($p.get(`ehome.project:Project#name`))"/>
+				<delete-object/>
+				<write-channel name="project"/>
+			</generic-command>
+		</commands>
+		<table
+			observed-types="ehome.project:Project"
+			selection="project"
+			types="ehome.project:Project"
+		>
+			<columns>
+				<column attribute="name"/>
+				<column attribute="extId"/>
+			</columns>
+			<rows>all(`ehome.project:Project`)</rows>
+			<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
+				bind-input-to="project"
+				view="projects/project.view.xml"
+			>
+				<frame-label class="com.top_logic.layout.view.tiles.ScriptedTileLabel"
+					expr="p -> $p.get(`ehome.project:Project#name`)"
+					inputs="project"
+				/>
+			</on-activate>
+		</table>
+	</panel>
+</view>

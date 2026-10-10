@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Second frame of the project drill-down: the structures of the project the frame was opened for,
+	one tab each, and the properties of the project itself.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+	</channels>
+
+	<tab-bar active-tab="buildings">
+		<tabs>
+			<tab id="buildings"
+				icon="css:fa-solid fa-city"
+			>
+				<label>
+					<en>Buildings</en>
+					<de>Gebäude</de>
+				</label>
+				<view-ref view="projects/buildings.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
+			<tab id="addresses"
+				icon="css:fa-solid fa-wifi"
+			>
+				<label>
+					<en>Group addresses</en>
+					<de>Gruppenadressen</de>
+				</label>
+				<view-ref view="projects/addresses.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
+			<tab id="devices"
+				icon="css:bi bi-hdd-network-fill"
+			>
+				<label>
+					<en>Devices</en>
+					<de>Geräte</de>
+				</label>
+				<view-ref view="projects/devices.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
+			<tab id="properties"
+				icon="css:fa-solid fa-gear"
+			>
+				<label>
+					<en>Properties</en>
+					<de>Eigenschaften</de>
+				</label>
+				<panel>
+					<title>
+						<en>Project</en>
+						<de>Projekt</de>
+					</title>
+					<form
+						input="project"
+						with-inset="true"
+					>
+						<field attribute="name"/>
+						<field attribute="extId"/>
+					</form>
+				</panel>
+			</tab>
+		</tabs>
+	</tab-bar>
+</view>

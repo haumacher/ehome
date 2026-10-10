@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The pages of E-Home in the application shell that tl-layout-view defines
+	(WEB-INF/views/app.view.xml): a same-path overlay that names the application and places its
+	pages in the sidebar before the system section.
+-->
+<view xmlns:config="http://www.top-logic.com/ns/config/6.0">
+	<app-shell>
+		<content>
+			<sidebar active-item="projects">
+				<header config:override="true">
+					<text>
+						<label>
+							<en>E-Home</en>
+							<de>E-Home</de>
+						</label>
+					</text>
+				</header>
+				<items>
+					<nav-item id="projects"
+						config:position="before"
+						config:reference="system-separator"
+						icon="css:bi bi-house-gear"
+					>
+						<view-ref view="projects.view.xml"/>
+						<label>
+							<en>Projects</en>
+							<de>Projekte</de>
+						</label>
+					</nav-item>
+					<nav-item id="catalogs"
+						config:position="before"
+						config:reference="system-separator"
+						icon="css:bi bi-journal-bookmark"
+					>
+						<view-ref view="catalogs.view.xml"/>
+						<label>
+							<en>Catalogs</en>
+							<de>Kataloge</de>
+						</label>
+					</nav-item>
+					<nav-item id="discover"
+						config:position="before"
+						config:reference="system-separator"
+						icon="css:bi bi-broadcast"
+					>
+						<view-ref view="discover.view.xml"/>
+						<label>
+							<en>Discover</en>
+							<de>Discover</de>
+						</label>
+					</nav-item>
+				</items>
+			</sidebar>
+		</content>
+		<header>
+			<app-bar>
+				<title>
+					<en>E-Home</en>
+					<de>E-Home</de>
+				</title>
+			</app-bar>
+		</header>
+	</app-shell>
+</view>

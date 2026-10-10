@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Drill-down through the KNX projects: the list of projects, and the structures of one project.
+-->
+<view>
+	<channels>
+		<channel name="navPath"/>
+	</channels>
+
+	<stack>
+		<slot-content to="appbar-content">
+			<tile-breadcrumb path="navPath">
+				<home-label>
+					<en>Projects</en>
+					<de>Projekte</de>
+				</home-label>
+			</tile-breadcrumb>
+		</slot-content>
+
+		<tile-stack
+			initial="projects/overview.view.xml"
+			path="navPath"
+		/>
+	</stack>
+</view>

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The product catalogs imported from ETS projects: manufacturers, their catalogs with sections, and
+	the product variants listed in a catalog. A variant is referenced by its catalog, not contained
+	in it, so the tree finds the catalog of a variant through that reference.
+
+	The detail pane shows the selected node in a form matching its type.
+-->
+<view>
+	<channels>
+		<channel name="selected"/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="240"
+				size="40"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Catalogs</en>
+						<de>Kataloge</de>
+					</title>
+					<tree
+						observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog"
+						selection="selected"
+					>
+						<root>`ehome.catalog#ROOT`</root>
+						<children><![CDATA[node -> switch {
+    $node.instanceOf(`ehome.catalog:ManufacturerRoot`):
+        $node.get(`ehome.catalog:ManufacturerRoot#manufacturers`)
+            .filter(m -> !$m.get(`ehome.catalog:Manufacturer#catalogs`).isEmpty());
+    $node.instanceOf(`ehome.catalog:Manufacturer`):
+        $node.get(`ehome.catalog:Manufacturer#catalogs`);
+    $node.instanceOf(`ehome.catalog:Catalog`):
+        $node.get(`ehome.catalog:Catalog#sections`)
+            .union($node.get(`ehome.catalog:Catalog#variants`));
+    default: [];
+}]]></children>
+						<parents><![CDATA[node -> if($node.instanceOf(`ehome.catalog:Variant`),
+    $node.referers(`ehome.catalog:Catalog#variants`),
+    $node.container())]]></parents>
+					</tree>
+				</panel>
+			</pane>
+			<pane
+				size="60"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Details</en>
+						<de>Details</de>
+					</title>
+					<switch input="selected">
+						<case test="n -> $n.instanceOf(`ehome.catalog:Manufacturer`)">
+							<form
+								input="selected"
+								with-inset="true"
+							>
+								<field attribute="name"/>
+								<field attribute="id"/>
+								<field attribute="extId"/>
+							</form>
+						</case>
+						<case test="n -> $n.instanceOf(`ehome.catalog:Catalog`)">
+							<form
+								input="selected"
+								with-inset="true"
+							>
+								<field attribute="name"/>
+								<field attribute="extId"/>
+							</form>
+						</case>
+						<case test="n -> $n.instanceOf(`ehome.catalog:Variant`)">
+							<form
+								input="selected"
+								with-inset="true"
+							>
+								<field attribute="name"/>
+								<field attribute="orderNumber"/>
+								<field attribute="product"/>
+								<field attribute="extId"/>
+							</form>
+						</case>
+					</switch>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

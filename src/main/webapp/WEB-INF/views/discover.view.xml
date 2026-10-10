@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Searches the local networks for KNXnet/IP gateways and lists the gateways that answered.
+-->
+<view>
+	<channels>
+		<channel name="gateways"/>
+	</channels>
+
+	<panel>
+		<title>
+			<en>KNX gateways</en>
+			<de>KNX-Gateways</de>
+		</title>
+		<commands>
+			<generic-command
+				image="css:bi bi-broadcast"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Search</en>
+					<de>Suchen</de>
+				</label>
+				<discover-knx-gateways/>
+				<write-channel name="gateways"/>
+				<notify expr="rows -> if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
+					kind="warning"
+				/>
+			</generic-command>
+		</commands>
+		<table>
+			<inputs>
+				<input channel="gateways"/>
+			</inputs>
+			<columns>
+				<computed-column name="name"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Name</en>
+						<de>Name</de>
+					</label>
+					<value>row -> $row["name"]</value>
+				</computed-column>
+				<computed-column name="address"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Individual address</en>
+						<de>Physikalische Adresse</de>
+					</label>
+					<value>row -> $row["address"]</value>
+				</computed-column>
+				<computed-column name="endpoint"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Control endpoint</en>
+						<de>Steuerungs-Endpunkt</de>
+					</label>
+					<value>row -> $row["endpoint"]</value>
+				</computed-column>
+				<computed-column name="mac"
+					type="tl.core:String"
+				>
+					<label>
+						<en>MAC address</en>
+						<de>MAC-Adresse</de>
+					</label>
+					<value>row -> $row["mac"]</value>
+				</computed-column>
+				<computed-column name="serial"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Serial number</en>
+						<de>Seriennummer</de>
+					</label>
+					<value>row -> $row["serial"]</value>
+				</computed-column>
+				<computed-column name="medium"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Medium</en>
+						<de>Medium</de>
+					</label>
+					<value>row -> $row["medium"]</value>
+				</computed-column>
+			</columns>
+			<rows>gateways -> if($gateways == null, [], $gateways)</rows>
+		</table>
+	</panel>
+</view>
