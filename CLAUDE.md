@@ -2,11 +2,11 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-E-Home: a TopLogic (7.10.2, Java 17) web app that imports KNX ETS projects (`.knxproj`) and discovers KNX gateways (Calimero). Single Maven module; the git root is two levels up (`/home/haui/devel/ehome`).
+E-Home: a TopLogic (7.10.2, Java 17) web app that imports KNX ETS projects (`.knxproj`) and discovers KNX gateways (Calimero). Single Maven module at the repository root.
 
 ## Build, run, verify
 
-- Build: `mvn install` (run in this directory). The parent `com.top-logic:tl-parent-app` comes from the TopLogic Nexus configured in `~/.m2/settings.xml`.
+- Build: `mvn install`. The parent `com.top-logic:tl-parent-app` comes from the TopLogic Nexus configured in `~/.m2/settings.xml`.
 - Lint: `mvn checkstyle:check` (rules in `checkstyle.xml`: copyright header, ASCII-only, tab indentation, imports, braces). It is not bound to the build, so run it after Java edits.
 - Run: `mvn exec:java` starts the app with Jetty on port 8080 (`-Dtl.port=...` to change). Local runs use H2 (`deploy/local`). The launch config `bin/launch/Start E-Home.launch` sets `-Dtl_initial_password=root1234` for the initial `root` login.
 - Tests: `mvn test -DskipTests=false` (the TopLogic parent skips tests by default). The generic `test.TestAll` from tl-basic collects every test under `src/test/java` and adds TopLogic conformance checks (copyright comments, normalized layouts, JSPs, I18N). Test classes go in package `test.<package>` and provide `suite()`; for KB/model access, wrap them like `TestEtsImport` (`KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(..., ModelService.Module.INSTANCE))`). Test-only config lives in `src/test/webapp/WEB-INF/conf/`.
