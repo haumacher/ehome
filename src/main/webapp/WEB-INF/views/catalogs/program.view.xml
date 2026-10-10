@@ -5,8 +5,10 @@
 	independent part, parameter blocks, switches with their cases, and the parameters and
 	communication objects placed in them), and its parameters with their defaults.
 
-	The structure tab creates and deletes structure elements. Parameters and communication objects
-	are defined by the program (imported); placing them in the structure is not offered yet.
+	The structure tab creates, edits and deletes structure elements, and edits the parameters and
+	communication objects they refer to; creating parameters and communication objects and placing
+	them in the structure is not offered yet. Imported programs are editable as well, so that the
+	model can be checked; a change applies to every device using the program.
 -->
 <view>
 	<channels>
@@ -281,16 +283,18 @@
 											<field attribute="extId"/>
 										</form>
 										<!--
-											The parameter the element refers to, as the program defines it. Its value is set per
-											device; here only the default is known.
+											The parameter the element refers to, as the program defines it (editable: changes
+											apply to every device using the program). Its value is set per device; here only the
+											default is known.
 										-->
 										<form
 											input="referencedParameter"
-											mode-switch="false"
 											with-inset="true"
 										>
-											<field attribute="title"/>
+											<field attribute="description"/>
+											<field attribute="defaultValue"/>
 											<field attribute="displayDefault"/>
+											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
 											<field attribute="parameter"/>
 										</form>
@@ -303,16 +307,18 @@
 											<field attribute="input"/>
 										</form>
 										<!--
-											The parameter the element refers to, as the program defines it. Its value is set per
-											device; here only the default is known.
+											The parameter the element refers to, as the program defines it (editable: changes
+											apply to every device using the program). Its value is set per device; here only the
+											default is known.
 										-->
 										<form
 											input="referencedParameter"
-											mode-switch="false"
 											with-inset="true"
 										>
-											<field attribute="title"/>
+											<field attribute="description"/>
+											<field attribute="defaultValue"/>
 											<field attribute="displayDefault"/>
+											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
 											<field attribute="parameter"/>
 										</form>
@@ -334,16 +340,18 @@
 											<field attribute="parameter"/>
 										</form>
 										<!--
-											The parameter the element refers to, as the program defines it. Its value is set per
-											device; here only the default is known.
+											The parameter the element refers to, as the program defines it (editable: changes
+											apply to every device using the program). Its value is set per device; here only the
+											default is known.
 										-->
 										<form
 											input="referencedParameter"
-											mode-switch="false"
 											with-inset="true"
 										>
-											<field attribute="title"/>
+											<field attribute="description"/>
+											<field attribute="defaultValue"/>
 											<field attribute="displayDefault"/>
+											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
 											<field attribute="parameter"/>
 										</form>
@@ -357,10 +365,9 @@
 										</form>
 										<form
 											input="referencedInterface"
-											mode-switch="false"
 											with-inset="true"
 										>
-											<field attribute="displayName"/>
+											<field attribute="name"/>
 											<field attribute="function"/>
 											<field attribute="datapointTypes"/>
 											<field attribute="port"/>
