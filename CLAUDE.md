@@ -41,7 +41,7 @@ E-Home: a TopLogic (8.0.0-alpha10, Java 17) web app that imports KNX ETS project
 - Indent with tabs. Every Java file starts with:
   ```
   /*
-   * Copyright (c) 2018 Business Operation Systems GmbH. All Rights Reserved.
+   * Copyright (c) <year the file was created> Bernhard Haumacher
    */
   ```
 - Put UI texts in `I18NConstants` classes as `ResKey` fields, with the English text in an `@en` javadoc tag (TopLogic convention).

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Business Operation Systems GmbH. All Rights Reserved.
+ * Copyright (c) 2018 Bernhard Haumacher
  */
 package de.haumacher.ehome.model.core;
 

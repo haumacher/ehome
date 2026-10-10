@@ -4,7 +4,7 @@
 
 	<configs>
 		<config config:interface="test.com.top_logic.basic.TestComment$Config">
-			<copyright-pattern>\W*Copyright \(c\) \d{4} Business Operation Systems GmbH\. All Rights Reserved\.</copyright-pattern>
+			<copyright-pattern>\W*Copyright \(c\) \d{4} Bernhard Haumacher</copyright-pattern>
 		</config>
 	</configs>
 

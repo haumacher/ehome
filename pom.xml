@@ -102,7 +102,7 @@
         <configuration>
           <modules>ehome.core,ehome.operational</modules>
           <languages>en,de</languages>
-          <copyrightHeader>Copyright (c) 2018 Business Operation Systems GmbH. All Rights Reserved.</copyrightHeader>
+          <copyrightHeader>Copyright (c) 2018 Bernhard Haumacher</copyrightHeader>
         </configuration>
       </plugin>
       <plugin>
