@@ -25,6 +25,18 @@
 			</instance>
 		</config>
 
+		<!-- Animations of the React UI's dialog and drill-down transitions (see the stylesheet). -->
+		<config service-class="com.top_logic.layout.react.resource.ClientResources">
+			<instance class="com.top_logic.layout.react.resource.ClientResources">
+				<resources>
+					<stylesheet name="ehome-css"
+						requires="tl-react-controls-css"
+						resource="/style/ehome.css"
+					/>
+				</resources>
+			</instance>
+		</config>
+
 		<!-- The create commands of the structure trees, one per node type, folded into a menu. -->
 		<config service-class="com.top_logic.layout.view.command.CommandCliqueService">
 			<instance>

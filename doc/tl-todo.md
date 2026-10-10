@@ -37,6 +37,22 @@ command (`<navigate-push>`) on the selected project. Double-click and Enter on a
 
 **When fixed:** remove `activation-button="false"` and the "Open" toolbar command.
 
+## Closing dialogs lingers without an application animation (ticket not yet filed)
+
+When a dialog closes (or a drill-down frame leaves), the bridge keeps an inert copy of it on screen
+until its exit animation ends (`useKeyedTransition` / `whenFinished` in
+`com.top_logic.layout.react/react-src/bridge/transition.ts`). The engine ships no animation for
+`tlDialog__backdrop--exiting` / `tlTileStack__frame--exiting`, so without an application stylesheet
+the copy stays for the full `TRANSITION_FALLBACK_MS` (1 s): measured 1,070 ms until the closed
+dialog disappears, while the server answered after 60 ms. `tl-demo-react` hides this with its own
+150 ms animations (`style/tl-demo-react.css`).
+
+Workaround: `src/main/webapp/style/ehome.css` (registered as `ClientResources` in
+`WEB-INF/conf/ehomeConf.config.xml`) animates the classes; a cancelled dialog is gone after ~190 ms.
+
+**When fixed in the engine** (no animation = remove the copy at once): the stylesheet may stay for
+the fade, or be removed.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
