@@ -3,7 +3,6 @@
  */
 package de.haumacher.ehome.discover;
 
-import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey1;
 import com.top_logic.layout.I18NConstantsBase;
 
@@ -16,11 +15,6 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Discover failed: {0}
 	 */
 	public static ResKey1 DISCOVERY_FAILED__DETAIL;
-
-	/**
-	 * @en No endpoints found.
-	 */
-	public static ResKey NO_ENDPOINTS_FOUND;
 
 	/**
 	 * @en Unknown host: {0}

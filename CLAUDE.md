@@ -9,10 +9,9 @@ E-Home: a TopLogic (8.0.0-alpha10, Java 17) web app that imports KNX ETS project
 - Use the Maven wrapper `./mvnw` (Maven 3.9.16); TopLogic 8 requires Maven >= 3.8.9 and the system `mvn` is older.
 - Build: `./mvnw install`. The parent `com.top-logic:tl-parent-app` comes from the TopLogic Nexus repositories declared in `pom.xml`.
 - Lint: `./mvnw checkstyle:check` (rules in `checkstyle.xml`: copyright header, tab indentation, imports, braces). It is not bound to the build, so run it after Java edits.
-- Run: `./mvnw exec:java` starts the app with Jetty on port 8080 (`-Dtl.port=...` to change); `pom.xml` sets `tl_operation_mode=development` for it (without it, TopLogic 8 runs in production mode). Local runs use H2 (`deploy/local`, data in `tmp/`). The launch config `bin/launch/Start E-Home.launch` sets `-Dtl_initial_password=root1234` for the initial `root` login. The React UI is at `/de.haumacher.ehome/view/`, the classic UI at `/de.haumacher.ehome/servlet/LayoutServlet`; log in through the in-app dialog (there is no `login.jsp` any more).
+- Run: `./mvnw exec:java` starts the app with Jetty on port 8080 (`-Dtl.port=...` to change); `pom.xml` sets `tl_operation_mode=development` for it (without it, TopLogic 8 runs in production mode). Local runs use H2 (`deploy/local`, data in `tmp/`). The launch config `bin/launch/Start E-Home.launch` sets `-Dtl_initial_password=root1234` for the initial `root` login. The UI is at `/de.haumacher.ehome/view/` (the classic `/servlet/LayoutServlet` only shows the engine's administration); log in through the in-app dialog (there is no `login.jsp` any more).
 - Model access rights are deny-by-default in TopLogic 8 and there is no `<security-config>` yet: only administrators (`root`) see data. Add grants for the `ehome.*` modules before creating non-admin users.
 - Tests: `./mvnw test -DskipTests=false` (the TopLogic parent skips tests by default). The generic `test.TestAll` from tl-basic collects every test under `src/test/java` and adds TopLogic conformance checks (copyright comments, normalized layouts, JSPs, I18N). Test classes go in package `test.<package>` and provide `suite()`; for KB/model access, wrap them like `TestEtsImport` (`KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(..., ModelService.Module.INSTANCE))`). Test-only config lives in `src/test/webapp/WEB-INF/conf/`.
-- After editing layouts, normalize them with `./mvnw exec:java@normalize-layouts -DskipNormalizeLayouts=false`, otherwise `TestLayoutsNormalized` fails.
 - Verify behavior changes by running the tests, then starting the app and checking it in the browser. For ETS import, use the sample projects in `samples/` (`Test.knxproj` has a single device).
 
 ## Generated code
@@ -20,11 +19,11 @@ E-Home: a TopLogic (8.0.0-alpha10, Java 17) web app that imports KNX ETS project
 - The Java model bindings in `src/main/java/de/haumacher/ehome/model/{core,operational}/` are generated from `src/main/webapp/WEB-INF/model/ehome.{core,operational}.model.xml` by `tl:generate-java` (configured in `pom.xml`, not bound to the build). Never hand-edit `internal/*Base.java`, `*Constants.java` (deprecated stubs), or the `*Factory.java` files.
 - The generator reads the model and the engine's web fragments from the artifacts installed in `~/.m2`, not from the sources. After a model change, run `./mvnw install -DskipTests`, then `./mvnw tl:generate-java`, then build again. If the existing wrappers do not compile against the changed model, add `-Dmaven.main.skip` to the first install.
 - The plain `X.java` / `internal/XImpl.java` wrappers are generated only once and are meant for hand-written code.
-- Layouts (`WEB-INF/layouts/**`), `WEB-INF/autoconf/*.config.xml`, model XML, and `.properties` resources can be edited directly as text.
+- Views (`WEB-INF/views/**`), `WEB-INF/autoconf/*.config.xml`, model XML, and `.properties` resources can be edited directly as text.
 
-## React UI (TL views)
+## UI (TL views)
 
-- The new UI lives in `src/main/webapp/WEB-INF/views/*.view.xml` (module `tl-layout-view`); the classic layouts in `WEB-INF/layouts/` stay until the React UI covers everything. Read the `view-layer` chapter of the developer docs (tl-mcp `list_docs`/`read_doc`) before editing views; `tl-demo-react` in the engine sources is the reference application.
+- The UI lives in `src/main/webapp/WEB-INF/views/*.view.xml` (module `tl-layout-view`); the app has no classic layouts (`WEB-INF/layouts/`) any more. Read the `view-layer` chapter of the developer docs (tl-mcp `list_docs`/`read_doc`) before editing views; `tl-demo-react` in the engine sources is the reference application.
 - `app.view.xml` is an overlay of the engine's shell (sidebar items). Structure trees create nodes through `create-node.view.xml` and the `new` command clique (configured in `WEB-INF/conf/ehomeConf.config.xml`, as is the TL-Script function `knxNetworkInterfaces()`).
 - App-specific view actions are Java classes with a `@TagName` config (`import-ets-project`, `discover-knx-gateways`).
 - A changed `.view.xml` is not picked up by a running app; restart it.
