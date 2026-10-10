@@ -282,21 +282,15 @@
 											<field attribute="input"/>
 											<field attribute="extId"/>
 										</form>
-										<!--
-											The parameter the element refers to, as the program defines it (editable: changes
-											apply to every device using the program). Its value is set per device; here only the
-											default is known.
-										-->
+										<!-- The parameter the element depends on; it is edited where it is placed on a page (its entry). -->
 										<form
 											input="referencedParameter"
+											mode-switch="false"
 											with-inset="true"
 										>
-											<field attribute="description"/>
-											<field attribute="defaultValue"/>
+											<field attribute="title"/>
 											<field attribute="displayDefault"/>
-											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
-											<field attribute="parameter"/>
 										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:Switch`)">
@@ -306,21 +300,15 @@
 										>
 											<field attribute="input"/>
 										</form>
-										<!--
-											The parameter the element refers to, as the program defines it (editable: changes
-											apply to every device using the program). Its value is set per device; here only the
-											default is known.
-										-->
+										<!-- The parameter the element depends on; it is edited where it is placed on a page (its entry). -->
 										<form
 											input="referencedParameter"
+											mode-switch="false"
 											with-inset="true"
 										>
-											<field attribute="description"/>
-											<field attribute="defaultValue"/>
+											<field attribute="title"/>
 											<field attribute="displayDefault"/>
-											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
-											<field attribute="parameter"/>
 										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:Case`)">
@@ -333,21 +321,16 @@
 										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:ParameterEntry`)">
-										<form
-											input="selected"
-											with-inset="true"
-										>
-											<field attribute="parameter"/>
-										</form>
 										<!--
-											The parameter the element refers to, as the program defines it (editable: changes
-											apply to every device using the program). Its value is set per device; here only the
-											default is known.
+											A parameter placed on a page: what is edited is the parameter, as the program
+											defines it. Changes apply to every device using the program; its value is set per
+											device, here only the default is known.
 										-->
 										<form
 											input="referencedParameter"
 											with-inset="true"
 										>
+											<field attribute="title"/>
 											<field attribute="description"/>
 											<field attribute="defaultValue"/>
 											<field attribute="displayDefault"/>
@@ -357,16 +340,12 @@
 										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:InterfaceEntry`)">
-										<form
-											input="selected"
-											with-inset="true"
-										>
-											<field attribute="interface"/>
-										</form>
+										<!-- A communication object placed in the structure: what is edited is the object. -->
 										<form
 											input="referencedInterface"
 											with-inset="true"
 										>
+											<field attribute="displayName"/>
 											<field attribute="name"/>
 											<field attribute="function"/>
 											<field attribute="datapointTypes"/>
