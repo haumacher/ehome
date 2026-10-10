@@ -61,6 +61,36 @@
 						</ga-style>
 					</annotations>
 				</property>
+				<reference name="datapointTypes"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.datapoint:DatapointType"
+				/>
+				<!--
+					The datapoint type of the values sent to this address: its own one if set in the
+					project, otherwise the one of the first communication object connected to it.
+				-->
+				<reference name="effectiveDatapointType"
+					kind="forwards"
+					type="ehome.datapoint:DatapointType"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[ga -> {
+    own = $ga.get(`ehome.logical:GroupAddress#datapointTypes`);
+    if(!$own.isEmpty(), $own.firstElement(),
+        $ga.referers(`ehome.physical:Connection#target`)
+            .referers(`ehome.physical:Connector#connections`)
+            .map(c -> $c.get(`ehome.physical:Connector#effectiveDatapointType`))
+            .filter(t -> $t != null)
+            .firstElement())
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
 		<class name="GroupRange">

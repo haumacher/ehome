@@ -3,6 +3,54 @@
 		<dispatch>
 			<tag name="MasterData">
 				<dispatch>
+					<tag name="DatapointTypes">
+						<!--
+							Datapoint types are standardized and exist only once: an import reuses the ones
+							that exist (see Importer) and adds those its master data defines in addition.
+						-->
+						<in-scope argument-var="" expr="`ehome.datapoint#ROOT`">
+							<dispatch>
+								<tag name="DatapointType">
+									<object model-type="ehome.datapoint:DatapointMainType" id-attribute="Id" join-duplicates="true">
+										<linking>
+											<list-linking name="ehome.datapoint:DatapointTypes#types"/>
+										</linking>
+
+										<property name="extId" xml-attribute="Id"/>
+										<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+										<property name="description" xml-attribute="Text"/>
+										<property name="sizeInBit" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+										<dispatch>
+											<tag name="DatapointSubtypes">
+												<dispatch>
+													<tag name="DatapointSubtype">
+														<object model-type="ehome.datapoint:DatapointSubtype" id-attribute="Id" join-duplicates="true">
+															<linking>
+																<list-linking name="ehome.datapoint:DatapointMainType#subtypes"/>
+															</linking>
+
+															<property name="extId" xml-attribute="Id"/>
+															<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+															<property name="name" xml-attribute="Name"/>
+															<property name="description" xml-attribute="Text"/>
+															<switch xml-attribute="Default">
+																<case value="true">
+																	<assign argument-var="this" target-var="scope" property="defaultSubtype" value="s -> $s"/>
+																</case>
+															</switch>
+
+															<dispatch/>
+														</object>
+													</tag>
+												</dispatch>
+											</tag>
+										</dispatch>
+									</object>
+								</tag>
+							</dispatch>
+						</in-scope>
+					</tag>
 					<tag name="Manufacturers">
 						<in-scope argument-var="" expr="`ehome.catalog#ROOT`">
 							<dispatch>
@@ -376,6 +424,7 @@
 																					type="ehome.common:Enablement"
 																				/>
 																			</property>
+																			<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 
 																			<dispatch/>
 																		</object>
@@ -394,7 +443,7 @@
 																				<property name="extId" xml-attribute="Id"/>
 																				<property name="name" xml-attribute="Text"/>
 																				<property name="function" xml-attribute="FunctionText"/>
-																				<property name="dpt" xml-attribute="DatapointType"/>
+																				<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 																				<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
 																				<dispatch/>
@@ -538,6 +587,8 @@
 									type="ehome.logical:GroupAddressStyle"
 								/>
 							</property>
+
+							<dispatch/>
 						</tag>
 						<tag name="Installations">
 							<dispatch>
@@ -588,6 +639,7 @@
 																									</linking>
 																									
 																									<reference name="port" id-attribute="RefId"/>
+									<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 																									
 																									<property name="description" xml-attribute="Text"/>
 																									<property name="function" xml-attribute="FunctionText"/>
@@ -806,6 +858,7 @@
 														<property name="extId" xml-attribute="Id"/>
 														<property name="name" xml-attribute="Name"/>
 														<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+														<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 
 														<dispatch/>
 													</object>

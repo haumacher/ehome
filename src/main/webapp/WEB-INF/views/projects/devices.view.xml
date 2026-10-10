@@ -168,6 +168,7 @@
 								with-inset="true"
 							>
 								<field attribute="port"/>
+								<field attribute="effectiveDatapointType"/>
 								<field attribute="function"/>
 								<field attribute="description"/>
 								<field attribute="priority"/>

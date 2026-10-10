@@ -89,6 +89,36 @@
 				<property name="function"
 					type="tl.core:String"
 				/>
+				<reference name="datapointTypes"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.datapoint:DatapointType"
+				/>
+				<!--
+					The datapoint type the values of this communication object have: its own one if set
+					in the project, otherwise the one of the program's reference, otherwise the one of
+					the program's communication object.
+				-->
+				<reference name="effectiveDatapointType"
+					kind="forwards"
+					type="ehome.datapoint:DatapointType"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[c -> {
+    ref = $c.get(`ehome.physical:Connector#port`);
+    own = $c.get(`ehome.physical:Connector#datapointTypes`);
+    fromRef = $ref.get(`ehome.operational:Interface#datapointTypes`);
+    fromPort = $ref.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`);
+    if(!$own.isEmpty(), $own.firstElement(),
+        if(!$fromRef.isEmpty(), $fromRef.firstElement(), $fromPort.firstElement()))
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</reference>
 				<reference name="priority"
 					kind="forwards"
 					type="Priority"

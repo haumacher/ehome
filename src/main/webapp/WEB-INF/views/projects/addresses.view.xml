@@ -154,6 +154,8 @@
 							>
 								<field attribute="name"/>
 								<field attribute="address"/>
+								<field attribute="effectiveDatapointType"/>
+								<field attribute="datapointTypes"/>
 								<field attribute="extId"/>
 							</form>
 						</case>

@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The KNX datapoint types: all subtypes, grouped by their main type, and the selected one in a
+	form. They come from the master data of the first imported ETS project.
+-->
+<view>
+	<channels>
+		<channel name="selected"/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="320"
+				size="60"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Datapoint types</en>
+						<de>Datenpunkttypen</de>
+					</title>
+					<table
+						group-by="mainType"
+						observed-types="ehome.datapoint:DatapointType"
+						selection="selected"
+						types="ehome.datapoint:DatapointSubtype"
+					>
+						<columns>
+							<column attribute="code"/>
+							<column attribute="name"/>
+							<column attribute="description"/>
+							<column attribute="sizeInBit"/>
+							<column attribute="mainType"/>
+						</columns>
+						<rows><![CDATA[`ehome.datapoint#ROOT`
+    .get(`ehome.datapoint:DatapointTypes#types`)
+    .get(`ehome.datapoint:DatapointMainType#subtypes`)]]></rows>
+					</table>
+				</panel>
+			</pane>
+			<pane
+				size="40"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Details</en>
+						<de>Details</de>
+					</title>
+					<form
+						input="selected"
+						with-inset="true"
+					>
+						<field attribute="code"/>
+						<field attribute="name"/>
+						<field attribute="description"/>
+						<field attribute="sizeInBit"/>
+						<field attribute="mainType"/>
+						<field attribute="extId"/>
+					</form>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

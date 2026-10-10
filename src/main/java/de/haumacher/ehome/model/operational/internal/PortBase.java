@@ -43,6 +43,15 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	String COMMUNICATION_ATTR = "communication";
 
 	/**
+	 * Part <code>datapointTypes</code> of <code>Port</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.datapoint:DatapointType</code> in configuration.
+	 * </p>
+	 */
+	String DATAPOINT_TYPES_ATTR = "datapointTypes";
+
+	/**
 	 * Part <code>description</code> of <code>Port</code>
 	 * 
 	 * <p>
@@ -181,6 +190,49 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	 */
 	default void setCommunication(com.top_logic.model.TLClassifier newValue) {
 		tUpdateByName(COMMUNICATION_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #DATAPOINT_TYPES_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends com.top_logic.model.TLObject> getDatapointTypes() {
+		return (java.util.List<? extends com.top_logic.model.TLObject>) tValueByName(DATAPOINT_TYPES_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #DATAPOINT_TYPES_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<com.top_logic.model.TLObject> getDatapointTypesModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(DATAPOINT_TYPES_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<com.top_logic.model.TLObject> result = (java.util.List<com.top_logic.model.TLObject>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #DATAPOINT_TYPES_ATTR}.
+	 */
+	default void setDatapointTypes(java.util.List<com.top_logic.model.TLObject> newValue) {
+		tUpdateByName(DATAPOINT_TYPES_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #DATAPOINT_TYPES_ATTR} reference.
+	 */
+	default void addDatapointType(com.top_logic.model.TLObject newValue) {
+		tAddByName(DATAPOINT_TYPES_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #DATAPOINT_TYPES_ATTR} reference.
+	 */
+	default void removeDatapointType(com.top_logic.model.TLObject oldValue) {
+		tRemoveByName(DATAPOINT_TYPES_ATTR, oldValue);
 	}
 
 	/**

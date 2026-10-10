@@ -40,6 +40,17 @@
 							<de>Kataloge</de>
 						</label>
 					</nav-item>
+					<nav-item id="datapoints"
+						config:position="before"
+						config:reference="system-separator"
+						icon="css:bi bi-123"
+					>
+						<view-ref view="datapoints.view.xml"/>
+						<label>
+							<en>Datapoint types</en>
+							<de>Datenpunkttypen</de>
+						</label>
+					</nav-item>
 					<nav-item id="discover"
 						config:position="before"
 						config:reference="system-separator"

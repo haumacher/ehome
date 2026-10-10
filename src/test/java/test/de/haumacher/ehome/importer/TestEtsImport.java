@@ -5,7 +5,9 @@ package test.de.haumacher.ehome.importer;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Stream;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -14,6 +16,8 @@ import test.com.top_logic.knowledge.KBSetup;
 
 import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.KnowledgeBase;
+import com.top_logic.knowledge.wrap.person.Person;
+import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.LabelProvider;
@@ -22,8 +26,10 @@ import com.top_logic.layout.provider.LabelResourceProvider;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
+import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
@@ -40,14 +46,7 @@ import de.haumacher.ehome.model.operational.Program;
 public class TestEtsImport extends BasicTestCase {
 
 	public void testImportSample() throws Exception {
-		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-		ApplicationModelBinding binding = new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false);
-		try (InputStream in = new FileInputStream("samples/Test.knxproj")) {
-			try (Transaction tx = kb.beginTransaction()) {
-				new Importer(binding).importStream(in);
-				tx.commit();
-			}
-		}
+		importSample("samples/Test.knxproj");
 
 		List<TLObject> projects = instances("ehome.project:Project");
 		assertEquals(1, projects.size());
@@ -79,6 +78,89 @@ public class TestEtsImport extends BasicTestCase {
 		for (TLObject program : programs) {
 			assertInstanceof("Generated binding not used.", program, Program.class);
 		}
+
+		checkDatapointTypes(37, 273);
+
+		// Further imports reuse the standardized datapoint types and add only those missing so far
+		// (the master data of the demo project is newer).
+		importSample("samples/EHomeDemo.knxproj");
+		checkDatapointTypes(38, 279);
+		importSample("samples/Test.knxproj");
+		assertEquals(3, instances("ehome.project:Project").size());
+		checkDatapointTypes(38, 279);
+	}
+
+	private void checkDatapointTypes(int mainTypes, int subtypes) throws Exception {
+		assertEquals(mainTypes, instances("ehome.datapoint:DatapointMainType").size());
+		assertEquals(subtypes, instances("ehome.datapoint:DatapointSubtype").size());
+		TLObject root = TLModelUtil.findType("ehome.datapoint:DatapointTypes").getModule().getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
+		assertEquals(mainTypes, ((List<?>) root.tValueByName("types")).size());
+
+		TLObject temperature = datapointType("DPST-9-1");
+		assertEquals("9.001", temperature.tValueByName("code"));
+		assertEquals("DPT_Value_Temp", temperature.tValueByName("name"));
+		assertEquals(16, temperature.tValueByName("sizeInBit"));
+		assertEquals("9.001 temperature (°C)", MetaLabelProvider.INSTANCE.getLabel(temperature));
+		TLObject floats = datapointType("DPT-9");
+		assertEquals("9.*", floats.tValueByName("code"));
+		assertEquals(datapointType("DPST-1-1"), datapointType("DPT-1").tValueByName("defaultSubtype"));
+
+		// The temperature object of the sample device has its datapoint type set in the project.
+		List<TLObject> connectors = instances("ehome.physical:Connector").stream()
+			.filter(c -> !((List<?>) c.tValueByName("datapointTypes")).isEmpty())
+			.toList();
+		assertFalse("No datapoint type of a communication object imported.", connectors.isEmpty());
+		for (TLObject connector : connectors) {
+			assertEquals(temperature, derived(connector, "effectiveDatapointType"));
+			// The group addresses the object sends to or receives from have its type, too.
+			for (Object connection : (Collection<?>) connector.tValueByName("connections")) {
+				TLObject address = (TLObject) ((TLObject) connection).tValueByName("target");
+				assertEquals(temperature, derived(address, "effectiveDatapointType"));
+			}
+		}
+	}
+
+	/**
+	 * The value of a derived attribute, read as the technical administrator.
+	 *
+	 * <p>
+	 * A derived attribute is computed with the rights of the reading user, and the test has none, so it would read nothing.
+	 * </p>
+	 */
+	private static Object derived(TLObject obj, String attribute) {
+		TLContext context = TLContext.getContext();
+		Person before = context.getPerson();
+		String contextId = context.getContextId();
+		context.setPerson(PersonManager.getManager().getRoot());
+		try {
+			return obj.tValueByName(attribute);
+		} finally {
+			context.setPerson(before);
+			if (before == null) {
+				context.setContextId(contextId);
+			}
+		}
+	}
+
+	private static TLObject datapointType(String extId) {
+		List<TLObject> result = Stream.concat(
+			instances("ehome.datapoint:DatapointMainType").stream(),
+			instances("ehome.datapoint:DatapointSubtype").stream())
+			.filter(t -> extId.equals(t.tValueByName("extId")))
+			.toList();
+		assertEquals(1, result.size());
+		return result.get(0);
+	}
+
+	private static void importSample(String file) throws Exception {
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		ApplicationModelBinding binding = new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false);
+		try (InputStream in = new FileInputStream(file)) {
+			try (Transaction tx = kb.beginTransaction()) {
+				new Importer(binding).importStream(in);
+				tx.commit();
+			}
+		}
 	}
 
 	private static List<TLObject> instances(String typeName) {
@@ -88,7 +170,7 @@ public class TestEtsImport extends BasicTestCase {
 
 	public static Test suite() {
 		return KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(TestEtsImport.class, ModelService.Module.INSTANCE,
-			LabelProviderService.Module.INSTANCE));
+			LabelProviderService.Module.INSTANCE, PersonManager.Module.INSTANCE));
 	}
 
 }

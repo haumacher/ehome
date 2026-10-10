@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<!--
+		The KNX datapoint types (DPT): how the value on a group address is encoded. They are defined
+		by the KNX standard and imported once from the master data of an ETS project (knx_master.xml);
+		later imports reuse them. A main type (9.* "2-byte float value") defines the encoding and size,
+		its subtypes (9.001 "temperature (°C)") the meaning and unit.
+	-->
+	<module name="ehome.datapoint">
+		<annotations>
+			<singletons>
+				<singleton type="DatapointTypes"/>
+			</singletons>
+		</annotations>
+		<class name="DatapointTypes">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="types"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="DatapointMainType"
+				/>
+			</attributes>
+		</class>
+		<!-- A main type or a subtype; what communication objects and group addresses refer to. -->
+		<interface name="DatapointType">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-123"/>
+			</annotations>
+			<attributes>
+				<property name="number"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<property name="description"
+					type="tl.core:String"
+				/>
+				<property name="code"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[t -> if($t.instanceOf(`ehome.datapoint:DatapointSubtype`),
+    "{0}.{1}".fill(
+        numberFormat("0").format($t.get(`ehome.datapoint:DatapointSubtype#mainType`).get(`ehome.datapoint:DatapointType#number`)),
+        numberFormat("000").format($t.get(`ehome.datapoint:DatapointType#number`))),
+    "{0}.*".fill(numberFormat("0").format($t.get(`ehome.datapoint:DatapointType#number`))))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[t -> "{0} {1}".fill($t.get(`ehome.datapoint:DatapointType#code`), $t.get(`ehome.datapoint:DatapointType#description`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</interface>
+		<class name="DatapointMainType">
+			<generalizations>
+				<generalization type="DatapointType"/>
+			</generalizations>
+			<annotations>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<property name="sizeInBit"
+					type="tl.core:Integer"
+				/>
+				<reference name="subtypes"
+					composite="true"
+					inverse-reference="mainType"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="DatapointSubtype"
+				/>
+				<reference name="defaultSubtype"
+					kind="forwards"
+					type="DatapointSubtype"
+				/>
+			</attributes>
+		</class>
+		<class name="DatapointSubtype">
+			<generalizations>
+				<generalization type="DatapointType"/>
+			</generalizations>
+			<annotations>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<!-- The name in the KNX standard, e.g. DPT_Value_Temp. -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<reference name="mainType"
+					aggregate="true"
+					inverse-reference="subtypes"
+					kind="backwards"
+					type="DatapointMainType"
+				/>
+				<property name="sizeInBit"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[t -> $t.get(`ehome.datapoint:DatapointSubtype#mainType`).get(`ehome.datapoint:DatapointMainType#sizeInBit`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+	</module>
+</model>

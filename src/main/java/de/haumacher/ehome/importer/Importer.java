@@ -6,6 +6,7 @@ package de.haumacher.ehome.importer;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
@@ -27,6 +28,9 @@ import com.top_logic.basic.io.Content;
 import com.top_logic.basic.io.binary.ClassRelativeBinaryContent;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.basic.xml.XMLStreamUtil;
+import com.top_logic.model.TLModule;
+import com.top_logic.model.TLObject;
+import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.DefaultImportContext;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.binding.ModelBinding;
@@ -47,7 +51,7 @@ public class Importer {
 	 *
 	 */
 	public Importer(ModelBinding binding) {
-		_binding = binding;
+		_binding = new JoiningModelBinding(binding);
 	}
 
 	public void importETS(ZipInputStream zip, ImportContext context, Handler handler)
@@ -71,6 +75,29 @@ public class Importer {
 		}
 	}
 
+	/**
+	 * Makes the datapoint types that already exist known under their ETS IDs.
+	 *
+	 * <p>
+	 * Datapoint types are standardized and exist only once: the import creates them only if there
+	 * are none yet, and references to them from the imported project resolve to the existing ones.
+	 * </p>
+	 */
+	private void registerDatapointTypes() {
+		TLModule module = ModelService.getApplicationModel().getModule("ehome.datapoint");
+		TLObject root = module.getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
+		for (Object mainType : (Collection<?>) root.tValueByName("types")) {
+			register((TLObject) mainType);
+			for (Object subtype : (Collection<?>) ((TLObject) mainType).tValueByName("subtypes")) {
+				register((TLObject) subtype);
+			}
+		}
+	}
+
+	private void register(TLObject datapointType) {
+		_binding.assignId(datapointType, (String) datapointType.tValueByName("extId"));
+	}
+
 	public void importStream(InputStream in)
 			throws IOException, XMLStreamException, ConfigurationException {
 		Log log = new SyserrProtocol();
@@ -82,6 +109,7 @@ public class Importer {
 		ConfigurationItem config = reader.read();
 		Handler handler = (Handler) context.getInstance((PolymorphicConfiguration<?>) config);
 		context.checkErrors();
+		registerDatapointTypes();
 		ZipInputStream zip = new ZipInputStream(in);
 		try (ImportContext importContext = new DefaultImportContext(
 			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)), _binding)) {

@@ -10,7 +10,7 @@ The XSD itself is not public and not in the repository.
 
 ## Overall
 
-- Of 408 element paths of the schema, 140 are handled by the import; of 1138 attribute slots, 206 are read.
+- Of 408 element paths of the schema, 144 are handled by the import; of 1138 attribute slots, 219 are read.
 - The model has a counterpart for exactly what the import reads, and almost nothing more. The only stored model attribute the import never fills is `ehome.catalog:Manufacturer#id` (it would be `KnxManufacturerId`). So "covered by the model" and "read by the import" mean the same thing here.
 - Many unread attributes are irrelevant for E-Home (ETS bookkeeping: `Hash`, `NonRegRelevantDataVersion`, `CompletionStatus`, `LastModified`, passwords, history, to-dos). The gaps below are those that matter for understanding or operating an installation.
 
@@ -18,6 +18,7 @@ The XSD itself is not public and not in the repository.
 
 | Area | Schema | Model |
 |---|---|---|
+| Datapoint types | `MasterData/DatapointTypes` (main types and subtypes, Default flag); the `DatapointType` attribute of `ComObject`, `ComObjectRef`, `ComObjectInstanceRef` and `GroupAddress` | `ehome.datapoint:*`, `datapointTypes` and the derived `effectiveDatapointType` of `Connector` and `GroupAddress` |
 | Manufacturers | `MasterData/Manufacturers/Manufacturer` (Id, Name) | `ehome.catalog:Manufacturer` |
 | Catalog | `CatalogSection` (Id, Name), `CatalogItem` → product | `ehome.catalog:Catalog` |
 | Hardware | `Hardware` (Id, Name, SerialNumber, VersionNumber), `Product` (Id, Text, OrderNumber), `Hardware2Program` | `Product`, `Variant`, `ProgramAssignment` |
@@ -34,7 +35,7 @@ Ordered by how much they limit E-Home. "In samples" says whether the fixtures co
 
 | # | Missing | Why it matters | In samples |
 |---|---|---|---|
-| 1 | Datapoint types: `MasterData/DatapointTypes` (DPT and subtypes) and the `DatapointType` attribute of `GroupAddress`, `ComObject` and `ComObjectInstanceRef` | Needed to decode and encode the values on a group address (switch, dimming value, temperature). Today only `ComObjectRef@DatapointType` is kept, as a plain string. | yes (`knx_master.xml`; `DPST-9-1` in `Test`) |
+| 1 | ~~Datapoint types~~ | Done: module `ehome.datapoint`, page "Datenpunkttypen". | |
 | 2 | Parameter values of a device: `DeviceInstance/ParameterInstanceRefs` | Without them the configuration of the real devices is unknown; only the program's defaults are known. Also `Parameter@Value`/`ParameterRef@Value` (defaults) are not read. | yes (26) |
 | 3 | Texts in other languages: `Languages/Language/TranslationUnit` (master and manufacturer data) | Names and texts exist only in the default language of the export (mostly English or German). | yes (12,257 translations) |
 | 4 | Device details: `DeviceInstance` Name, Description, Comment, SerialNumber, `IsActive` of com objects; `UnassignedDevices` | Devices are shown only by product and address; devices not yet placed in a line are lost. | partly |

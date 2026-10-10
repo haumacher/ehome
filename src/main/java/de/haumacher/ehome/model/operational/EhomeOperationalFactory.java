@@ -250,10 +250,10 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
-	 * Lookup {@link Interface#DPT_ATTR} of {@link Interface}.
+	 * Lookup {@link Interface#DATAPOINT_TYPES_ATTR} of {@link Interface}.
 	 */
-	public static com.top_logic.model.TLProperty getDptInterfaceAttr() {
-		return (com.top_logic.model.TLProperty) getInterfaceType().getPart(Interface.DPT_ATTR);
+	public static com.top_logic.model.TLReference getDatapointTypesInterfaceAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceType().getPart(Interface.DATAPOINT_TYPES_ATTR);
 	}
 
 	/**
@@ -611,6 +611,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLReference getCommunicationPortAttr() {
 		return (com.top_logic.model.TLReference) getPortType().getPart(Port.COMMUNICATION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Port#DATAPOINT_TYPES_ATTR} of {@link Port}.
+	 */
+	public static com.top_logic.model.TLReference getDatapointTypesPortAttr() {
+		return (com.top_logic.model.TLReference) getPortType().getPart(Port.DATAPOINT_TYPES_ATTR);
 	}
 
 	/**
