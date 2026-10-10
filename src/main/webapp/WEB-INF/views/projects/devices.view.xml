@@ -12,6 +12,10 @@
 			expr="n -> if($n.instanceOf(`ehome.project:Project`), null, $n)"
 			inputs="selected"
 		/>
+		<derived-channel name="selectedArea"
+			expr="n -> if($n.instanceOf(`ehome.physical:Area`), $n, null)"
+			inputs="selected"
+		/>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -29,6 +33,62 @@
 						<de>Geräte</de>
 					</title>
 					<commands>
+						<generic-command
+							clique="new"
+							image="css:bi bi-diagram-3"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Area</en>
+								<de>Bereich</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.physical:Area"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="project"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-dash-lg"
+							input="selectedArea"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Line</en>
+								<de>Linie</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.physical:Line"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="selectedArea"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
 							input="selectedNode"

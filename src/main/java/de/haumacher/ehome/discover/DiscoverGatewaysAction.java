@@ -3,6 +3,10 @@
  */
 package de.haumacher.ehome.discover;
 
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -29,7 +33,11 @@ import tuwien.auto.calimero.knxnetip.util.DeviceDIB;
  * {@link ViewAction} searching the local networks for KNXnet/IP gateways.
  *
  * <p>
- * The input is ignored. The result is the list of gateways that answered, one map per gateway
+ * The input is either nothing or a map with the search settings: <code>interface</code> (name of
+ * the network interface to search on, all interfaces if empty), <code>local-host</code> (local
+ * address to send from), <code>use-nat</code> and <code>use-multicast</code>; settings missing in
+ * the map are taken from the configuration. The result is the list of gateways that answered, one
+ * map per gateway
  * with the keys <code>name</code>, <code>address</code>, <code>endpoint</code>, <code>mac</code>,
  * <code>serial</code> and <code>medium</code>, to be displayed as rows of a table.
  * </p>
@@ -79,12 +87,29 @@ public class DiscoverGatewaysAction implements ViewAction {
 
 	@Override
 	public Object execute(ReactContext context, Object input) {
+		Map<?, ?> settings = input instanceof Map<?, ?> map ? map : Map.of();
+		String interfaceName = text(settings.get("interface"));
+		String localHost = text(settings.get("local-host"));
+		boolean useNat = flag(settings.get("use-nat"), _config.getUseNat());
+		boolean useMulticast = flag(settings.get("use-multicast"), _config.getUseMulticast());
+
 		SearchResponse[] responses;
 		try {
-			Discoverer discoverer = new Discoverer(null, 0, _config.getUseNat(), _config.getUseMulticast());
-			discoverer.startSearch(_config.getTimeout(), true);
+			InetAddress localAddress = localHost.isEmpty() ? null : InetAddress.getByName(localHost);
+			Discoverer discoverer = new Discoverer(localAddress, 0, useNat, useMulticast);
+			if (interfaceName.isEmpty()) {
+				discoverer.startSearch(_config.getTimeout(), true);
+			} else {
+				NetworkInterface networkInterface = NetworkInterface.getByName(interfaceName);
+				if (networkInterface == null) {
+					throw new TopLogicException(I18NConstants.UNKNOWN_INTERFACE__VALUE.fill(interfaceName));
+				}
+				discoverer.startSearch(networkInterface, _config.getTimeout(), true);
+			}
 			responses = discoverer.getSearchResponses();
-		} catch (KNXException ex) {
+		} catch (UnknownHostException ex) {
+			throw new TopLogicException(I18NConstants.UNKNOWN_HOST__VALUE.fill(localHost), ex);
+		} catch (SocketException | KNXException ex) {
 			throw new TopLogicException(I18NConstants.DISCOVERY_FAILED__DETAIL.fill(ex.getMessage()), ex);
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
@@ -105,6 +130,14 @@ public class DiscoverGatewaysAction implements ViewAction {
 			result.add(row);
 		}
 		return result;
+	}
+
+	private static String text(Object value) {
+		return value == null ? "" : value.toString().trim();
+	}
+
+	private static boolean flag(Object value, boolean defaultValue) {
+		return value instanceof Boolean b ? b.booleanValue() : defaultValue;
 	}
 
 }

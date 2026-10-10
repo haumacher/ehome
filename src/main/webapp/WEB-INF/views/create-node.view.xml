@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Create dialog for a node of one of the structure trees (building parts, group addresses, areas
+	and lines, catalog entries).
+
+	"model" carries the transient object of the type the opening command chose; "container" is the
+	object the new node is added to. The reference it is added to depends on the container and the
+	type of the new node. The created node is written to "selection", so that the tree selects it.
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="container"/>
+		<channel name="selection"/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>New element</en>
+			<de>Neues Element</de>
+		</title>
+		<form
+			initial-edit-mode="true"
+			input="model"
+			mode-switch="false"
+			with-inset="true"
+		>
+			<field attribute="name"/>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.logical:GroupAddress`) or $n.instanceOf(`ehome.physical:Area`) or $n.instanceOf(`ehome.physical:Line`)"
+				input="model"
+			>
+				<field attribute="address"/>
+			</visible-if>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.catalog:Manufacturer`)"
+				input="model"
+			>
+				<field attribute="id"/>
+			</visible-if>
+			<commands>
+				<generic-command
+					image="css:bi bi-check-lg"
+					input="model"
+					placement="BUTTON_BAR"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<store-form-state/>
+					<switch value="container -> node -> switch {
+    $container.instanceOf(`ehome.project:Project`) and $node.instanceOf(`ehome.building:BuildingDefinition`): 'buildings';
+    $container.instanceOf(`ehome.project:Project`) and $node.instanceOf(`ehome.logical:GroupAddressDefinition`): 'groupAddresses';
+    $container.instanceOf(`ehome.project:Project`) and $node.instanceOf(`ehome.physical:Area`): 'areas';
+    $container.instanceOf(`ehome.physical:Area`): 'lines';
+    $container.instanceOf(`ehome.catalog:ManufacturerRoot`): 'manufacturers';
+    $container.instanceOf(`ehome.catalog:Manufacturer`): 'catalogs';
+    $container.instanceOf(`ehome.catalog:Catalog`): 'sections';
+    default: 'parts';
+}">
+						<inputs>
+							<input channel="container"/>
+						</inputs>
+						<case match="'buildings'">
+							<persist-transient
+								container="container"
+								reference="buildings"
+							/>
+						</case>
+						<case match="'groupAddresses'">
+							<persist-transient
+								container="container"
+								reference="groupAddresses"
+							/>
+						</case>
+						<case match="'areas'">
+							<persist-transient
+								container="container"
+								reference="areas"
+							/>
+						</case>
+						<case match="'lines'">
+							<persist-transient
+								container="container"
+								reference="lines"
+							/>
+						</case>
+						<case match="'manufacturers'">
+							<persist-transient
+								container="container"
+								reference="manufacturers"
+							/>
+						</case>
+						<case match="'catalogs'">
+							<persist-transient
+								container="container"
+								reference="catalogs"
+							/>
+						</case>
+						<case match="'sections'">
+							<persist-transient
+								container="container"
+								reference="sections"
+							/>
+						</case>
+						<default>
+							<persist-transient
+								container="container"
+								reference="parts"
+							/>
+						</default>
+					</switch>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</generic-command>
+			</commands>
+		</form>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

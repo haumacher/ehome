@@ -131,6 +131,17 @@
 					kind="forwards"
 					type="ehome.operational:Program"
 				/>
+				<property name="name"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[a -> $a.get(`ehome.catalog:ProgramAssignment#program`).get(`ehome.operational:Program#name`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="Variant">

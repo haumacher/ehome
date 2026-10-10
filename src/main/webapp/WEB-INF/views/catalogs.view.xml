@@ -5,11 +5,26 @@
 	the product variants listed in a catalog. A variant is referenced by its catalog, not contained
 	in it, so the tree finds the catalog of a variant through that reference.
 
+	The ETS import creates every manufacturer of the KNX master data. Only those with catalogs are
+	shown, and those created here (they have no external ID).
+
 	The detail pane shows the selected node in a form matching its type.
 -->
 <view>
 	<channels>
 		<channel name="selected"/>
+		<derived-channel name="root"
+			expr="x -> `ehome.catalog#ROOT`"
+			inputs="selected"
+		/>
+		<derived-channel name="selectedManufacturer"
+			expr="n -> if($n.instanceOf(`ehome.catalog:Manufacturer`), $n, null)"
+			inputs="selected"
+		/>
+		<derived-channel name="selectedCatalog"
+			expr="n -> if($n.instanceOf(`ehome.catalog:Catalog`), $n, null)"
+			inputs="selected"
+		/>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -26,6 +41,108 @@
 						<en>Catalogs</en>
 						<de>Kataloge</de>
 					</title>
+					<commands>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-industry"
+							input="root"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Manufacturer</en>
+								<de>Hersteller</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.catalog:Manufacturer"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="root"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-journal-plus"
+							input="selectedManufacturer"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Catalog</en>
+								<de>Katalog</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.catalog:Catalog"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="selectedManufacturer"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-journal-text"
+							input="selectedCatalog"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Section</en>
+								<de>Abschnitt</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.catalog:Catalog"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="selectedCatalog"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							input="selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="n -> #('Delete {0}?'@en, '{0} löschen?'@de).fill($n.label())"/>
+							<delete-object/>
+							<write-channel name="selected"/>
+						</generic-command>
+					</commands>
 					<tree
 						observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog"
 						selection="selected"
@@ -34,7 +151,8 @@
 						<children><![CDATA[node -> switch {
     $node.instanceOf(`ehome.catalog:ManufacturerRoot`):
         $node.get(`ehome.catalog:ManufacturerRoot#manufacturers`)
-            .filter(m -> !$m.get(`ehome.catalog:Manufacturer#catalogs`).isEmpty());
+            .filter(m -> !$m.get(`ehome.catalog:Manufacturer#catalogs`).isEmpty()
+                or $m.get(`ehome.core:Externalized#extId`) == null);
     $node.instanceOf(`ehome.catalog:Manufacturer`):
         $node.get(`ehome.catalog:Manufacturer#catalogs`);
     $node.instanceOf(`ehome.catalog:Catalog`):

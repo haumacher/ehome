@@ -16,6 +16,33 @@
 				</declarations>
 			</instance>
 		</config>
+
+		<config service-class="com.top_logic.model.search.expr.config.SearchBuilder">
+			<instance>
+				<methods>
+					<method name="knxNetworkInterfaces" class="de.haumacher.ehome.discover.KnxNetworkInterfaces$Builder"/>
+				</methods>
+			</instance>
+		</config>
+
+		<!-- The create commands of the structure trees, one per node type, folded into a menu. -->
+		<config service-class="com.top_logic.layout.view.command.CommandCliqueService">
+			<instance>
+				<cliques>
+					<clique name="new"
+						config:position="before"
+						config:reference="create"
+						display="menu"
+						icon="css:bi bi-plus-lg"
+					>
+						<label>
+							<en>New</en>
+							<de>Neu</de>
+						</label>
+					</clique>
+				</cliques>
+			</instance>
+		</config>
 	</services>
 
 	<configs>

@@ -2,7 +2,10 @@
 
 <!--
 	Initial frame of the project drill-down: all projects. Activating a row pushes the frame showing
-	the structures of the project.
+	the structures of the project, as does the Open command for the selected project.
+
+	The row activation button is switched off: it does not select its row before pushing the frame,
+	so the breadcrumb would name the previously selected project (TL #29791, see doc/tl-todo.md).
 
 	A project is created empty or imported from an ETS project file (.knxproj). The table observes
 	projects, so a created, imported or deleted project is reflected without a reload.
@@ -55,6 +58,26 @@
 				<import-ets-project/>
 				<write-channel name="project"/>
 			</upload-command>
+			<navigate-push
+				bind-input-to="project"
+				clique="navigate"
+				image="css:bi bi-chevron-right"
+				input="project"
+				placement="TOOLBAR"
+				view="projects/project.view.xml"
+			>
+				<label>
+					<en>Open</en>
+					<de>Öffnen</de>
+				</label>
+				<executability>
+					<null-input-disabled/>
+				</executability>
+				<frame-label class="com.top_logic.layout.view.tiles.ScriptedTileLabel"
+					expr="p -> $p.get(`ehome.project:Project#name`)"
+					inputs="project"
+				/>
+			</navigate-push>
 			<generic-command
 				image="css:bi bi-trash"
 				input="project"
@@ -73,6 +96,7 @@
 			</generic-command>
 		</commands>
 		<table
+			activation-button="false"
 			observed-types="ehome.project:Project"
 			selection="project"
 			types="ehome.project:Project"

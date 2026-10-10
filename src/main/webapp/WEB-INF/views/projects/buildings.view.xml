@@ -12,6 +12,10 @@
 			expr="n -> if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, null)"
 			inputs="selected"
 		/>
+		<derived-channel name="container"
+			expr="p -> n -> if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, $p)"
+			inputs="project, selected"
+		/>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -29,6 +33,230 @@
 						<de>Gebäude</de>
 					</title>
 					<commands>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-building"
+							input="container"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Building</en>
+								<de>Gebäude</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.building:Building"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="container"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-building-circle-arrow-right"
+							input="container"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Building part</en>
+								<de>Gebäudeteil</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.building:BuildingPart"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="container"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-layer-group"
+							input="container"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Floor</en>
+								<de>Etage</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.building:Floor"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="container"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-door-open"
+							input="container"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Room</en>
+								<de>Raum</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.building:Room"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="container"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-arrows-left-right"
+							input="container"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Corridor</en>
+								<de>Flur</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.building:Corridor"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="container"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-stairs"
+							input="container"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Stairway</en>
+								<de>Treppenhaus</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.building:Stairway"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="container"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-plug"
+							input="container"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Distribution board</en>
+								<de>Verteiler</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.building:DistributionBoard"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="container"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-location-dot"
+							input="container"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Location</en>
+								<de>Ort</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.building:Location"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="container"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
 							input="selectedPart"
