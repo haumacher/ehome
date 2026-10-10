@@ -80,6 +80,7 @@ public class TestEtsImport extends BasicTestCase {
 		}
 
 		checkDatapointTypes(37, 273);
+		checkParameterSettings();
 
 		// Further imports reuse the standardized datapoint types and add only those missing so far
 		// (the master data of the demo project is newer).
@@ -88,6 +89,29 @@ public class TestEtsImport extends BasicTestCase {
 		importSample("samples/Test.knxproj");
 		assertEquals(3, instances("ehome.project:Project").size());
 		checkDatapointTypes(38, 279);
+	}
+
+	private void checkParameterSettings() {
+		// ETS stores only the values that differ from the default of the application program.
+		List<TLObject> settings = instances("ehome.physical:ParameterSetting");
+		assertEquals(15, settings.size());
+
+		TLObject led = setting(settings, "Funktion der Status-LED rechts");
+		assertEquals("9", led.tValueByName("value"));
+		assertEquals("Vergleicher ohne Vorzeichen (1 Byte)", derived(led, "displayValue"));
+		assertEquals("Betätigungsanzeige", derived(led, "displayDefault"));
+
+		TLObject number = setting(settings, "Vergleichswert (0...255)");
+		assertEquals("42", derived(number, "displayValue"));
+		assertEquals("0", derived(number, "displayDefault"));
+	}
+
+	private static TLObject setting(List<TLObject> settings, String name) {
+		List<TLObject> result = settings.stream()
+			.filter(s -> name.equals(((String) derived(s, "name")).trim()))
+			.toList();
+		assertEquals(1, result.size());
+		return result.get(0);
 	}
 
 	private void checkDatapointTypes(int mainTypes, int subtypes) throws Exception {

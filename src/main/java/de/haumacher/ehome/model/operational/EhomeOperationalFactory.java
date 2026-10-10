@@ -299,10 +299,31 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link ParameterView#DEFAULT_VALUE_ATTR} of {@link ParameterView}.
+	 */
+	public static com.top_logic.model.TLProperty getDefaultValueParameterViewAttr() {
+		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.DEFAULT_VALUE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ParameterView#DESCRIPTION_ATTR} of {@link ParameterView}.
 	 */
 	public static com.top_logic.model.TLProperty getDescriptionParameterViewAttr() {
 		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.DESCRIPTION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterView#DISPLAY_DEFAULT_ATTR} of {@link ParameterView}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayDefaultParameterViewAttr() {
+		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.DISPLAY_DEFAULT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterView#EFFECTIVE_DEFAULT_ATTR} of {@link ParameterView}.
+	 */
+	public static com.top_logic.model.TLProperty getEffectiveDefaultParameterViewAttr() {
+		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.EFFECTIVE_DEFAULT_ATTR);
 	}
 
 	/**
@@ -331,13 +352,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLProperty getTagParameterViewAttr() {
 		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.TAG_ATTR);
-	}
-
-	/**
-	 * Lookup {@link ParameterView#VALUE_ATTR} of {@link ParameterView}.
-	 */
-	public static com.top_logic.model.TLProperty getValueParameterViewAttr() {
-		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.VALUE_ATTR);
 	}
 
 	/**
@@ -383,6 +397,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Parameter#DEFAULT_VALUE_ATTR} of {@link Parameter}.
+	 */
+	public static com.top_logic.model.TLProperty getDefaultValueParameterAttr() {
+		return (com.top_logic.model.TLProperty) getParameterType().getPart(Parameter.DEFAULT_VALUE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Parameter#DESCRIPTION_ATTR} of {@link Parameter}.
 	 */
 	public static com.top_logic.model.TLProperty getDescriptionParameterAttr() {
@@ -401,13 +422,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLReference getTypeParameterAttr() {
 		return (com.top_logic.model.TLReference) getParameterType().getPart(Parameter.TYPE_ATTR);
-	}
-
-	/**
-	 * Lookup {@link Parameter#VALUE_ATTR} of {@link Parameter}.
-	 */
-	public static com.top_logic.model.TLProperty getValueParameterAttr() {
-		return (com.top_logic.model.TLProperty) getParameterType().getPart(Parameter.VALUE_ATTR);
 	}
 
 	/**

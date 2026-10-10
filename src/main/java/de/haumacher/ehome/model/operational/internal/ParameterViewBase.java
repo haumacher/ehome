@@ -25,6 +25,15 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	String ACCESS_ATTR = "access";
 
 	/**
+	 * Part <code>defaultValue</code> of <code>ParameterView</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String DEFAULT_VALUE_ATTR = "defaultValue";
+
+	/**
 	 * Part <code>description</code> of <code>ParameterView</code>
 	 * 
 	 * <p>
@@ -32,6 +41,24 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	 * </p>
 	 */
 	String DESCRIPTION_ATTR = "description";
+
+	/**
+	 * Part <code>displayDefault</code> of <code>ParameterView</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String DISPLAY_DEFAULT_ATTR = "displayDefault";
+
+	/**
+	 * Part <code>effectiveDefault</code> of <code>ParameterView</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String EFFECTIVE_DEFAULT_ATTR = "effectiveDefault";
 
 	/**
 	 * Part <code>name</code> of <code>ParameterView</code>
@@ -70,15 +97,6 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	String TAG_ATTR = "tag";
 
 	/**
-	 * Part <code>value</code> of <code>ParameterView</code>
-	 * 
-	 * <p>
-	 * Declared as <code>tl.core:Integer</code> in configuration.
-	 * </p>
-	 */
-	String VALUE_ATTR = "value";
-
-	/**
 	 * Getter for part {@link #ACCESS_ATTR}.
 	 */
 	default com.top_logic.model.TLClassifier getAccess() {
@@ -93,6 +111,20 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	}
 
 	/**
+	 * Getter for part {@link #DEFAULT_VALUE_ATTR}.
+	 */
+	default String getDefaultValue() {
+		return (String) tValueByName(DEFAULT_VALUE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #DEFAULT_VALUE_ATTR}.
+	 */
+	default void setDefaultValue(String newValue) {
+		tUpdateByName(DEFAULT_VALUE_ATTR, newValue);
+	}
+
+	/**
 	 * Getter for part {@link #DESCRIPTION_ATTR}.
 	 */
 	default String getDescription() {
@@ -104,6 +136,20 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	 */
 	default void setDescription(String newValue) {
 		tUpdateByName(DESCRIPTION_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #DISPLAY_DEFAULT_ATTR}.
+	 */
+	default String getDisplayDefault() {
+		return (String) tValueByName(DISPLAY_DEFAULT_ATTR);
+	}
+
+	/**
+	 * Getter for part {@link #EFFECTIVE_DEFAULT_ATTR}.
+	 */
+	default String getEffectiveDefault() {
+		return (String) tValueByName(EFFECTIVE_DEFAULT_ATTR);
 	}
 
 	/**
@@ -139,20 +185,6 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	 */
 	default void setTag(Integer newValue) {
 		tUpdateByName(TAG_ATTR, newValue);
-	}
-
-	/**
-	 * Getter for part {@link #VALUE_ATTR}.
-	 */
-	default Integer getValue() {
-		return (Integer) tValueByName(VALUE_ATTR);
-	}
-
-	/**
-	 * Setter for part {@link #VALUE_ATTR}.
-	 */
-	default void setValue(Integer newValue) {
-		tUpdateByName(VALUE_ATTR, newValue);
 	}
 
 }

@@ -195,6 +195,14 @@
 					kind="forwards"
 					type="ehome.building:BuildingDefinition"
 				/>
+				<!-- The parameter values set in the project; all others have their default. -->
+				<reference name="settings"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ParameterSetting"
+				/>
 				<reference name="connectors"
 					composite="true"
 					kind="forwards"
@@ -224,6 +232,77 @@
 					multiple="true"
 					type="Device"
 				/>
+			</attributes>
+		</class>
+		<!--
+			A parameter value of a device that differs from the default of its application program. The
+			value is kept as ETS writes it; displayValue shows it as the user reads it.
+		-->
+		<class name="ParameterSetting">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-sliders"/>
+			</annotations>
+			<attributes>
+				<reference name="parameter"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.operational:ParameterView"
+				/>
+				<property name="value"
+					type="tl.core:String"
+				/>
+				<property name="name"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[s -> {
+    view = $s.get(`ehome.physical:ParameterSetting#parameter`);
+    parameter = $view.get(`ehome.operational:ParameterView#parameter`);
+    $view.get(`ehome.operational:ParameterView#description`)
+        || $parameter.get(`ehome.operational:Parameter#description`)
+        || $view.get(`ehome.operational:ParameterView#name`)
+        || $parameter.get(`ehome.operational:Parameter#name`)
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<property name="displayValue"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[s -> {
+    value = $s.get(`ehome.physical:ParameterSetting#value`);
+    type = $s.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+    if($type.instanceOf(`ehome.operational:EnumerationType`),
+        $type.get(`ehome.operational:EnumerationType#values`)
+            .filter(v -> numberFormat("0").format($v.get(`ehome.operational:EnumerationValue#value`)) == $value)
+            .firstElement()
+            .get(`ehome.operational:EnumerationValue#name`) || $value,
+        $value)
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<property name="displayDefault"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[s -> $s.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#displayDefault`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 	</module>

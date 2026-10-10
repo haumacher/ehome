@@ -161,6 +161,27 @@
 								<field attribute="location"/>
 								<field attribute="extId"/>
 							</form>
+							<!-- The parameter values set in the project; all others have their default. -->
+							<table
+								observed-types="ehome.physical:ParameterSetting"
+								types="ehome.physical:ParameterSetting"
+							>
+								<inputs>
+									<input channel="selected"/>
+								</inputs>
+								<columns>
+									<column attribute="name"
+										width="320"
+									/>
+									<column attribute="displayValue"
+										width="220"
+									/>
+									<column attribute="displayDefault"
+										width="220"
+									/>
+								</columns>
+								<rows>d -> $d.get(`ehome.physical:Device#settings`)</rows>
+							</table>
 						</case>
 						<case test="n -> $n.instanceOf(`ehome.physical:Connector`)">
 							<form

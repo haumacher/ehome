@@ -10,7 +10,7 @@ The XSD itself is not public and not in the repository.
 
 ## Overall
 
-- Of 408 element paths of the schema, 144 are handled by the import; of 1138 attribute slots, 219 are read.
+- Of 408 element paths of the schema, 148 are handled by the import; of 1138 attribute slots, 226 are read.
 - The model has a counterpart for exactly what the import reads, and almost nothing more. The only stored model attribute the import never fills is `ehome.catalog:Manufacturer#id` (it would be `KnxManufacturerId`). So "covered by the model" and "read by the import" mean the same thing here.
 - Many unread attributes are irrelevant for E-Home (ETS bookkeeping: `Hash`, `NonRegRelevantDataVersion`, `CompletionStatus`, `LastModified`, passwords, history, to-dos). The gaps below are those that matter for understanding or operating an installation.
 
@@ -24,6 +24,7 @@ The XSD itself is not public and not in the repository.
 | Hardware | `Hardware` (Id, Name, SerialNumber, VersionNumber), `Product` (Id, Text, OrderNumber), `Hardware2Program` | `Product`, `Variant`, `ProgramAssignment` |
 | Application program, static part | `AbsoluteSegment`, `ParameterType` (`TypeNumber`, `TypeRestriction`/`Enumeration`, `TypeText`, other kinds as type only), `Parameter`/`Union` with `Memory`, `ParameterRef`, `ComObject` (all flags), `ComObjectRef` (Text, Tag, FunctionText, DatapointType) | `ehome.operational:*` |
 | Application program, dynamic part | `ChannelIndependentBlock`, `Channel`, `ParameterBlock`, `choose`/`when`, `ParameterRefRef`, `ComObjectRefRef` | `Channel`, `ChannelIndependent`, `ParameterGroup`, `Switch`, `Case`, `ParameterView`, `Port` |
+| Parameter values | `Parameter@Value`, `ParameterRef@Value` (defaults), `DeviceInstance/ParameterInstanceRefs` (values changed in the project) | `defaultValue` of `Parameter` and `ParameterView`, `ehome.physical:ParameterSetting` |
 | Project | `Project` (Id), `ProjectInformation` (Name, GroupAddressStyle) | `ehome.project:Project` |
 | Topology | `Area`, `Line` (Id, Name, Address), `DeviceInstance` (Id, product, program, Address), `ComObjectInstanceRef` (flags, texts), `Send`/`Receive` connectors | `ehome.physical:*` |
 | Buildings | `BuildingPart` (Id, Name, Type), `DeviceInstanceRef` | `ehome.building:*` |
@@ -36,7 +37,7 @@ Ordered by how much they limit E-Home. "In samples" says whether the fixtures co
 | # | Missing | Why it matters | In samples |
 |---|---|---|---|
 | 1 | ~~Datapoint types~~ | Done: module `ehome.datapoint`, page "Datenpunkttypen". | |
-| 2 | Parameter values of a device: `DeviceInstance/ParameterInstanceRefs` | Without them the configuration of the real devices is unknown; only the program's defaults are known. Also `Parameter@Value`/`ParameterRef@Value` (defaults) are not read. | yes (26) |
+| 2 | ~~Parameter values~~ | Done: `Parameter`/`ParameterView#defaultValue`, `ehome.physical:ParameterSetting` (`Device#settings`), table "Parametereinstellungen" of a device. | |
 | 3 | Texts in other languages: `Languages/Language/TranslationUnit` (master and manufacturer data) | Names and texts exist only in the default language of the export (mostly English or German). | yes (12,257 translations) |
 | 4 | Device details: `DeviceInstance` Name, Description, Comment, SerialNumber, `IsActive` of com objects; `UnassignedDevices` | Devices are shown only by product and address; devices not yet placed in a line are lost. | partly |
 | 5 | Ranges and address details: `GroupRange` RangeStart/RangeEnd, `GroupAddress` Central, Description, Comment | Ranges cannot be checked or extended; descriptions are lost. | yes |

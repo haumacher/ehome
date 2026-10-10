@@ -211,9 +211,43 @@
 					kind="forwards"
 					type="AccessKind"
 				/>
-				<property name="value"
-					type="tl.core:Integer"
+				<!-- The default this reference sets for the parameter; empty for the parameter's own one. -->
+				<property name="defaultValue"
+					type="tl.core:String"
 				/>
+				<property name="effectiveDefault"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[p -> $p.get(`ehome.operational:ParameterView#defaultValue`)
+    || $p.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#defaultValue`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The default as the user reads it: for an enumeration the text of the entry. -->
+				<property name="displayDefault"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[p -> {
+    value = $p.get(`ehome.operational:ParameterView#effectiveDefault`);
+    type = $p.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+    if($type.instanceOf(`ehome.operational:EnumerationType`),
+        $type.get(`ehome.operational:EnumerationType#values`)
+            .filter(v -> numberFormat("0").format($v.get(`ehome.operational:EnumerationValue#value`)) == $value)
+            .firstElement()
+            .get(`ehome.operational:EnumerationValue#name`) || $value,
+        $value)
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<property name="order"
 					type="tl.core:Integer"
 				/>
@@ -266,8 +300,9 @@
 					mandatory="true"
 					type="AccessKind"
 				/>
-				<property name="value"
-					type="tl.core:Integer"
+				<!-- The value the parameter has unless a reference or a device sets another one. -->
+				<property name="defaultValue"
+					type="tl.core:String"
 				/>
 				<reference name="address"
 					inverse-reference="usage"

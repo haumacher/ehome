@@ -34,6 +34,15 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	String ADDRESS_ATTR = "address";
 
 	/**
+	 * Part <code>defaultValue</code> of <code>Parameter</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String DEFAULT_VALUE_ATTR = "defaultValue";
+
+	/**
 	 * Part <code>description</code> of <code>Parameter</code>
 	 * 
 	 * <p>
@@ -59,15 +68,6 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	 * </p>
 	 */
 	String TYPE_ATTR = "type";
-
-	/**
-	 * Part <code>value</code> of <code>Parameter</code>
-	 * 
-	 * <p>
-	 * Declared as <code>tl.core:Integer</code> in configuration.
-	 * </p>
-	 */
-	String VALUE_ATTR = "value";
 
 	/**
 	 * Part <code>views</code> of <code>Parameter</code>
@@ -107,6 +107,20 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	}
 
 	/**
+	 * Getter for part {@link #DEFAULT_VALUE_ATTR}.
+	 */
+	default String getDefaultValue() {
+		return (String) tValueByName(DEFAULT_VALUE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #DEFAULT_VALUE_ATTR}.
+	 */
+	default void setDefaultValue(String newValue) {
+		tUpdateByName(DEFAULT_VALUE_ATTR, newValue);
+	}
+
+	/**
 	 * Getter for part {@link #DESCRIPTION_ATTR}.
 	 */
 	default String getDescription() {
@@ -132,20 +146,6 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	 */
 	default void setType(de.haumacher.ehome.model.operational.ParameterType newValue) {
 		tUpdateByName(TYPE_ATTR, newValue);
-	}
-
-	/**
-	 * Getter for part {@link #VALUE_ATTR}.
-	 */
-	default Integer getValue() {
-		return (Integer) tValueByName(VALUE_ATTR);
-	}
-
-	/**
-	 * Setter for part {@link #VALUE_ATTR}.
-	 */
-	default void setValue(Integer newValue) {
-		tUpdateByName(VALUE_ATTR, newValue);
 	}
 
 	/**

@@ -292,10 +292,7 @@
 																								type="ehome.operational:AccessKind"
 																							/>
 																						</property>
-																						<!-- TODO: Value is in the format of the parameter type (enum value name for an enum type). -->
-																						<!-- 
-																						<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																						 -->
+																						<property name="defaultValue" xml-attribute="Value"/>
 																						
 																						<dispatch/>
 																					</object>
@@ -318,10 +315,7 @@
 																					type="ehome.operational:AccessKind"
 																				/>
 																			</property>
-																			<!-- TODO: Value is in the format of the parameter type (enum value name for an enum type). -->
-																			<!-- 
-																			<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																			 -->
+																			<property name="defaultValue" xml-attribute="Value"/>
 
 																			<dispatch>
 																				<tag name="Memory">
@@ -360,10 +354,7 @@
 																					/>
 																				</property>
 																				
-																				<!-- TODO: Value is in the format of the parameter type (enum value name for an enum type). -->
-																				<!-- 
-																				<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																				-->
+																				<property name="defaultValue" xml-attribute="Value"/>
 																				<property name="order" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																				<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
@@ -630,6 +621,22 @@
 																				<reference name="program" id-attribute="Hardware2ProgramRefId"/>
 																				
 																				<dispatch>
+																					<tag name="ParameterInstanceRefs">
+																						<dispatch>
+																							<tag name="ParameterInstanceRef">
+																								<object model-type="ehome.physical:ParameterSetting">
+																									<linking>
+																										<list-linking name="ehome.physical:Device#settings"/>
+																									</linking>
+
+																									<reference name="parameter" id-attribute="RefId"/>
+																									<property name="value" xml-attribute="Value"/>
+
+																									<dispatch/>
+																								</object>
+																							</tag>
+																						</dispatch>
+																					</tag>
 																					<tag name="ComObjectInstanceRefs">
 																						<dispatch>
 																							<tag name="ComObjectInstanceRef">
