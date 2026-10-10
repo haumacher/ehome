@@ -33,7 +33,7 @@ public class TestEtsImport extends BasicTestCase {
 
 	public void testImportSample() throws Exception {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-		ApplicationModelBinding binding = new ApplicationModelBinding(kb, ModelService.getApplicationModel());
+		ApplicationModelBinding binding = new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false);
 		try (InputStream in = new FileInputStream("samples/Test.knxproj")) {
 			try (Transaction tx = kb.beginTransaction()) {
 				new Importer(binding).importStream(in);

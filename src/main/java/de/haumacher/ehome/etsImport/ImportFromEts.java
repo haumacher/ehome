@@ -54,7 +54,7 @@ public class ImportFromEts extends AbstractCommandHandler {
 		BinaryData data = ((UploadForm) model).getProjectData();
 		
 		ModelBinding binding =
-			new ApplicationModelBinding(PersistencyLayer.getKnowledgeBase(), ModelService.getApplicationModel());
+			new ApplicationModelBinding(PersistencyLayer.getKnowledgeBase(), ModelService.getApplicationModel(), false);
 		
 		try (InputStream in = data.getStream()) {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {

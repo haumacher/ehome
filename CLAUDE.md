@@ -2,21 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-E-Home: a TopLogic (7.10.2, Java 17) web app that imports KNX ETS projects (`.knxproj`) and discovers KNX gateways (Calimero). Single Maven module at the repository root.
+E-Home: a TopLogic (8.0.0-alpha10, Java 17) web app that imports KNX ETS projects (`.knxproj`) and discovers KNX gateways (Calimero). Single Maven module at the repository root. The app has its own version (`1.0.0-SNAPSHOT`), independent of the TopLogic version.
 
 ## Build, run, verify
 
-- Build: `mvn install`. The parent `com.top-logic:tl-parent-app` comes from the TopLogic Nexus configured in `~/.m2/settings.xml`.
-- Lint: `mvn checkstyle:check` (rules in `checkstyle.xml`: copyright header, ASCII-only, tab indentation, imports, braces). It is not bound to the build, so run it after Java edits.
-- Run: `mvn exec:java` starts the app with Jetty on port 8080 (`-Dtl.port=...` to change). Local runs use H2 (`deploy/local`). The launch config `bin/launch/Start E-Home.launch` sets `-Dtl_initial_password=root1234` for the initial `root` login.
-- Tests: `mvn test -DskipTests=false` (the TopLogic parent skips tests by default). The generic `test.TestAll` from tl-basic collects every test under `src/test/java` and adds TopLogic conformance checks (copyright comments, normalized layouts, JSPs, I18N). Test classes go in package `test.<package>` and provide `suite()`; for KB/model access, wrap them like `TestEtsImport` (`KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(..., ModelService.Module.INSTANCE))`). Test-only config lives in `src/test/webapp/WEB-INF/conf/`.
-- After editing layouts, normalize them with `mvn exec:java@normalize-layouts -DskipNormalizeLayouts=false`, otherwise `TestLayoutsNormalized` fails.
+- Use the Maven wrapper `./mvnw` (Maven 3.9.16); TopLogic 8 requires Maven >= 3.8.9 and the system `mvn` is older.
+- Build: `./mvnw install`. The parent `com.top-logic:tl-parent-app` comes from the TopLogic Nexus repositories declared in `pom.xml`.
+- Lint: `./mvnw checkstyle:check` (rules in `checkstyle.xml`: copyright header, tab indentation, imports, braces). It is not bound to the build, so run it after Java edits.
+- Run: `./mvnw exec:java` starts the app with Jetty on port 8080 (`-Dtl.port=...` to change); `pom.xml` sets `tl_operation_mode=development` for it (without it, TopLogic 8 runs in production mode). Local runs use H2 (`deploy/local`, data in `tmp/`). The launch config `bin/launch/Start E-Home.launch` sets `-Dtl_initial_password=root1234` for the initial `root` login. Log in through the in-app dialog at `/de.haumacher.ehome/servlet/LayoutServlet` (there is no `login.jsp` any more).
+- Model access rights are deny-by-default in TopLogic 8 and there is no `<security-config>` yet: only administrators (`root`) see data. Add grants for the `ehome.*` modules before creating non-admin users.
+- Tests: `./mvnw test -DskipTests=false` (the TopLogic parent skips tests by default). The generic `test.TestAll` from tl-basic collects every test under `src/test/java` and adds TopLogic conformance checks (copyright comments, normalized layouts, JSPs, I18N). Test classes go in package `test.<package>` and provide `suite()`; for KB/model access, wrap them like `TestEtsImport` (`KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(..., ModelService.Module.INSTANCE))`). Test-only config lives in `src/test/webapp/WEB-INF/conf/`.
+- After editing layouts, normalize them with `./mvnw exec:java@normalize-layouts -DskipNormalizeLayouts=false`, otherwise `TestLayoutsNormalized` fails.
 - Verify behavior changes by running the tests, then starting the app and checking it in the browser. For ETS import, use the sample projects in `samples/` (`Test.knxproj` has a single device).
 
 ## Generated code
 
-- The Java model bindings in `src/main/java/de/haumacher/ehome/model/{core,operational}/` are generated from `src/main/webapp/WEB-INF/model/ehome.{core,operational}.model.xml` by `tl:generate-java`, which is bound to `generate-sources` (configured in `pom.xml`). Never hand-edit `internal/*Base.java`, `*Constants.java` (deprecated stubs), or the `*Factory.java` files.
-- The generator reads the model from the project artifact installed in `~/.m2`, not from the sources. After a model change, run `mvn install` twice (the first installs the new XML, the second regenerates). If the stale wrappers no longer compile, install once with `-Dmaven.main.skip`, then build normally.
+- The Java model bindings in `src/main/java/de/haumacher/ehome/model/{core,operational}/` are generated from `src/main/webapp/WEB-INF/model/ehome.{core,operational}.model.xml` by `tl:generate-java` (configured in `pom.xml`, not bound to the build). Never hand-edit `internal/*Base.java`, `*Constants.java` (deprecated stubs), or the `*Factory.java` files.
+- The generator reads the model and the engine's web fragments from the artifacts installed in `~/.m2`, not from the sources. After a model change, run `./mvnw install -DskipTests`, then `./mvnw tl:generate-java`, then build again. If the existing wrappers do not compile against the changed model, add `-Dmaven.main.skip` to the first install.
 - The plain `X.java` / `internal/XImpl.java` wrappers are generated only once and are meant for hand-written code.
 - Layouts (`WEB-INF/layouts/**`), `WEB-INF/autoconf/*.config.xml`, model XML, and `.properties` resources can be edited directly as text.
 
@@ -26,7 +28,7 @@ E-Home: a TopLogic (7.10.2, Java 17) web app that imports KNX ETS projects (`.kn
 
 ## Code style
 
-- Java source encoding is ISO-8859-1 (Eclipse project setting). Keep Java files ASCII-only and use `\uXXXX` escapes for non-ASCII characters.
+- Java sources and `.properties` resource bundles are UTF-8 (TopLogic 8); write umlauts directly, not as `\uXXXX` escapes.
 - Indent with tabs. Every Java file starts with:
   ```
   /*
