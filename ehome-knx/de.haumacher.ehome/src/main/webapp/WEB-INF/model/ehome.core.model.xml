@@ -2,6 +2,12 @@
 
 <model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
 	<module name="ehome.core">
+		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.core.internal"
+				interface-package="de.haumacher.ehome.model.core"
+			/>
+		</annotations>
 		<interface name="Externalized">
 			<generalizations>
 				<generalization type="tl.model:TLObject"/>
