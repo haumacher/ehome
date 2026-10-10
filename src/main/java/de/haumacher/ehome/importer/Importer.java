@@ -6,8 +6,8 @@ package de.haumacher.ehome.importer;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -28,6 +28,8 @@ import com.top_logic.basic.io.Content;
 import com.top_logic.basic.io.binary.ClassRelativeBinaryContent;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.basic.xml.XMLStreamUtil;
+import com.top_logic.element.meta.MetaElementUtil;
+import com.top_logic.model.TLClass;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
@@ -43,6 +45,8 @@ import com.top_logic.xio.importer.handlers.Handler;
  * @author <a href="mailto:bhu@top-logic.com">Bernhard Haumacher</a>
  */
 public class Importer {
+
+	private static final String EXT_ID = "extId";
 
 	private ModelBinding _binding;
 
@@ -76,26 +80,37 @@ public class Importer {
 	}
 
 	/**
-	 * Makes the datapoint types that already exist known under their ETS IDs.
+	 * The modules holding the data ETS shares between projects: the datapoint types and the
+	 * manufacturer data (catalogs, hardware, application programs).
+	 */
+	private static final List<String> SHARED_MODULES =
+		List.of("ehome.datapoint", "ehome.catalog", "ehome.operational");
+
+	/**
+	 * Makes the objects of the data shared between projects that already exist known under their
+	 * ETS IDs.
 	 *
 	 * <p>
-	 * Datapoint types are standardized and exist only once: the import creates them only if there
-	 * are none yet, and references to them from the imported project resolve to the existing ones.
+	 * This data exists only once: the import reuses the objects that exist (or skips them, see
+	 * {@link UnlessKnown}), creates only the missing ones, and references from the imported
+	 * project resolve to the existing ones.
 	 * </p>
 	 */
-	private void registerDatapointTypes() {
-		TLModule module = ModelService.getApplicationModel().getModule("ehome.datapoint");
-		TLObject root = module.getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
-		for (Object mainType : (Collection<?>) root.tValueByName("types")) {
-			register((TLObject) mainType);
-			for (Object subtype : (Collection<?>) ((TLObject) mainType).tValueByName("subtypes")) {
-				register((TLObject) subtype);
+	private void registerSharedObjects() {
+		for (String moduleName : SHARED_MODULES) {
+			TLModule module = ModelService.getApplicationModel().getModule(moduleName);
+			for (TLClass type : module.getClasses()) {
+				if (type.getPart(EXT_ID) == null) {
+					continue;
+				}
+				for (TLObject obj : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
+					String id = (String) obj.tValueByName(EXT_ID);
+					if (id != null) {
+						_binding.assignId(obj, id);
+					}
+				}
 			}
 		}
-	}
-
-	private void register(TLObject datapointType) {
-		_binding.assignId(datapointType, (String) datapointType.tValueByName("extId"));
 	}
 
 	public void importStream(InputStream in)
@@ -109,7 +124,7 @@ public class Importer {
 		ConfigurationItem config = reader.read();
 		Handler handler = (Handler) context.getInstance((PolymorphicConfiguration<?>) config);
 		context.checkErrors();
-		registerDatapointTypes();
+		registerSharedObjects();
 		ZipInputStream zip = new ZipInputStream(in);
 		try (ImportContext importContext = new DefaultImportContext(
 			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)), _binding)) {

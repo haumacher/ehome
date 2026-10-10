@@ -89,6 +89,15 @@ public class TestEtsImport extends BasicTestCase {
 		importSample("samples/Test.knxproj");
 		assertEquals(3, instances("ehome.project:Project").size());
 		checkDatapointTypes(38, 279);
+
+		// The manufacturer data is shared as well: the program of the Test device is part of both
+		// samples and exists only once.
+		assertEquals(318, instances("ehome.catalog:Manufacturer").size());
+		assertEquals(3, instances("ehome.catalog:Product").size());
+		assertEquals(3, instances("ehome.operational:Program").size());
+		for (TLObject device : instances("ehome.physical:Device")) {
+			assertNotNull(device.tValueByName("program"));
+		}
 	}
 
 	private void checkParameterSettings() {
