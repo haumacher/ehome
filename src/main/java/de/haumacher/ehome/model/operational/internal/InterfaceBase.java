@@ -25,6 +25,15 @@ public interface InterfaceBase extends de.haumacher.ehome.model.core.Externalize
 	String DATAPOINT_TYPES_ATTR = "datapointTypes";
 
 	/**
+	 * Part <code>displayName</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String DISPLAY_NAME_ATTR = "displayName";
+
+	/**
 	 * Part <code>function</code> of <code>Interface</code>
 	 * 
 	 * <p>
@@ -101,6 +110,13 @@ public interface InterfaceBase extends de.haumacher.ehome.model.core.Externalize
 	 */
 	default void removeDatapointType(com.top_logic.model.TLObject oldValue) {
 		tRemoveByName(DATAPOINT_TYPES_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #DISPLAY_NAME_ATTR}.
+	 */
+	default String getDisplayName() {
+		return (String) tValueByName(DISPLAY_NAME_ATTR);
 	}
 
 	/**

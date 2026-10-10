@@ -65,6 +65,7 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<instance-presentation icon="css:bi bi-signpost"/>
 				<id-column value="displayName"/>
 				<table name="EHConfigFragment"/>
 			</annotations>
@@ -121,6 +122,7 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<instance-presentation icon="css:bi bi-diagram-3"/>
 				<id-column value="displayName"/>
 				<table name="EHConfigFragment"/>
 			</annotations>
@@ -159,6 +161,7 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<instance-presentation icon="css:bi bi-collection"/>
 				<id-column value="displayName"/>
 				<table name="EHConfigFragment"/>
 			</annotations>
@@ -184,6 +187,7 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<instance-presentation icon="css:bi bi-card-list"/>
 				<id-column value="displayName"/>
 				<table name="EHConfigFragment"/>
 			</annotations>
@@ -334,11 +338,7 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[e -> {
-    interface = $e.get(`ehome.operational:InterfaceEntry#interface`);
-    $interface.get(`ehome.operational:Interface#name`).localize()
-        || $interface.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#text`).localize()
-}]]></expr>
+								<expr><![CDATA[e -> $e.get(`ehome.operational:InterfaceEntry#interface`).get(`ehome.operational:Interface#displayName`)]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>
@@ -350,6 +350,8 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<id-column value="displayName"/>
+				<instance-presentation icon="css:bi bi-plug-fill"/>
 				<table name="EHInterface"/>
 			</annotations>
 			<attributes>
@@ -374,6 +376,23 @@
 				<property name="tag"
 					type="tl.core:Integer"
 				/>
+				<!-- The text of the communication object as the program shows it. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[i -> {
+    port = $i.get(`ehome.operational:Interface#port`);
+    $i.get(`ehome.operational:Interface#name`).localize()
+        || $port.get(`ehome.operational:Port#text`).localize()
+        || $port.get(`ehome.operational:Port#name`)
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="ParameterView">
@@ -381,6 +400,9 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<!-- Most parameter references have no name of their own; they are labeled by their text. -->
+				<id-column value="title"/>
+				<instance-presentation icon="css:bi bi-sliders"/>
 				<table name="EHParameterView"/>
 			</annotations>
 			<attributes>
@@ -484,6 +506,7 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<instance-presentation icon="css:bi bi-signpost-split"/>
 				<id-column value="displayName"/>
 				<table name="EHSwitch"/>
 			</annotations>
@@ -547,6 +570,7 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<instance-presentation icon="css:bi bi-sliders2"/>
 				<table name="EHParameter"/>
 			</annotations>
 			<attributes>
@@ -819,6 +843,7 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<instance-presentation icon="css:bi bi-cpu"/>
 				<table name="EHProgram"/>
 			</annotations>
 			<attributes>

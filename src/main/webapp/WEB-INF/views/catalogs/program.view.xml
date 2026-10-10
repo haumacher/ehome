@@ -28,6 +28,19 @@
 			expr="n -> if($n.instanceOf(`ehome.operational:ConfigFragment`) and !$n.instanceOf(`ehome.operational:Program`), $n, null)"
 			inputs="selected"
 		/>
+		<derived-channel name="referencedParameter"
+			expr="n -> switch {
+    $n.instanceOf(`ehome.operational:ParameterEntry`): $n.get(`ehome.operational:ParameterEntry#parameter`);
+    $n.instanceOf(`ehome.operational:Switch`): $n.get(`ehome.operational:Switch#input`);
+    $n.instanceOf(`ehome.operational:ParameterGroup`): $n.get(`ehome.operational:ParameterGroup#input`);
+    default: null;
+}"
+			inputs="selected"
+		/>
+		<derived-channel name="referencedInterface"
+			expr="n -> if($n.instanceOf(`ehome.operational:InterfaceEntry`), $n.get(`ehome.operational:InterfaceEntry#interface`), null)"
+			inputs="selected"
+		/>
 		<derived-channel name="selectedSwitch"
 			expr="n -> if($n.instanceOf(`ehome.operational:Switch`), $n, null)"
 			inputs="selected"
@@ -267,6 +280,20 @@
 											<field attribute="input"/>
 											<field attribute="extId"/>
 										</form>
+										<!--
+											The parameter the element refers to, as the program defines it. Its value is set per
+											device; here only the default is known.
+										-->
+										<form
+											input="referencedParameter"
+											mode-switch="false"
+											with-inset="true"
+										>
+											<field attribute="title"/>
+											<field attribute="displayDefault"/>
+											<field attribute="effectiveAccess"/>
+											<field attribute="parameter"/>
+										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:Switch`)">
 										<form
@@ -274,6 +301,20 @@
 											with-inset="true"
 										>
 											<field attribute="input"/>
+										</form>
+										<!--
+											The parameter the element refers to, as the program defines it. Its value is set per
+											device; here only the default is known.
+										-->
+										<form
+											input="referencedParameter"
+											mode-switch="false"
+											with-inset="true"
+										>
+											<field attribute="title"/>
+											<field attribute="displayDefault"/>
+											<field attribute="effectiveAccess"/>
+											<field attribute="parameter"/>
 										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:Case`)">
@@ -292,6 +333,20 @@
 										>
 											<field attribute="parameter"/>
 										</form>
+										<!--
+											The parameter the element refers to, as the program defines it. Its value is set per
+											device; here only the default is known.
+										-->
+										<form
+											input="referencedParameter"
+											mode-switch="false"
+											with-inset="true"
+										>
+											<field attribute="title"/>
+											<field attribute="displayDefault"/>
+											<field attribute="effectiveAccess"/>
+											<field attribute="parameter"/>
+										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:InterfaceEntry`)">
 										<form
@@ -299,6 +354,16 @@
 											with-inset="true"
 										>
 											<field attribute="interface"/>
+										</form>
+										<form
+											input="referencedInterface"
+											mode-switch="false"
+											with-inset="true"
+										>
+											<field attribute="displayName"/>
+											<field attribute="function"/>
+											<field attribute="datapointTypes"/>
+											<field attribute="port"/>
 										</form>
 									</case>
 								</switch>
