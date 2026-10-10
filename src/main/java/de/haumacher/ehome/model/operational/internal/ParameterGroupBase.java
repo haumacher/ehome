@@ -28,7 +28,7 @@ public interface ParameterGroupBase extends de.haumacher.ehome.model.operational
 	 * Part <code>description</code> of <code>ParameterGroup</code>
 	 * 
 	 * <p>
-	 * Declared as <code>tl.core:String</code> in configuration.
+	 * Declared as <code>tl.model.i18n:I18NString</code> in configuration.
 	 * </p>
 	 */
 	String DESCRIPTION_ATTR = "description";
@@ -68,14 +68,14 @@ public interface ParameterGroupBase extends de.haumacher.ehome.model.operational
 	/**
 	 * Getter for part {@link #DESCRIPTION_ATTR}.
 	 */
-	default String getDescription() {
-		return (String) tValueByName(DESCRIPTION_ATTR);
+	default com.top_logic.basic.util.ResKey getDescription() {
+		return (com.top_logic.basic.util.ResKey) tValueByName(DESCRIPTION_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #DESCRIPTION_ATTR}.
 	 */
-	default void setDescription(String newValue) {
+	default void setDescription(com.top_logic.basic.util.ResKey newValue) {
 		tUpdateByName(DESCRIPTION_ATTR, newValue);
 	}
 

@@ -64,7 +64,7 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	 * Part <code>function</code> of <code>Port</code>
 	 * 
 	 * <p>
-	 * Declared as <code>tl.core:String</code> in configuration.
+	 * Declared as <code>tl.model.i18n:I18NString</code> in configuration.
 	 * </p>
 	 */
 	String FUNCTION_ATTR = "function";
@@ -127,7 +127,7 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	 * Part <code>text</code> of <code>Port</code>
 	 * 
 	 * <p>
-	 * Declared as <code>tl.core:String</code> in configuration.
+	 * Declared as <code>tl.model.i18n:I18NString</code> in configuration.
 	 * </p>
 	 */
 	String TEXT_ATTR = "text";
@@ -252,14 +252,14 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	/**
 	 * Getter for part {@link #FUNCTION_ATTR}.
 	 */
-	default String getFunction() {
-		return (String) tValueByName(FUNCTION_ATTR);
+	default com.top_logic.basic.util.ResKey getFunction() {
+		return (com.top_logic.basic.util.ResKey) tValueByName(FUNCTION_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #FUNCTION_ATTR}.
 	 */
-	default void setFunction(String newValue) {
+	default void setFunction(com.top_logic.basic.util.ResKey newValue) {
 		tUpdateByName(FUNCTION_ATTR, newValue);
 	}
 
@@ -365,14 +365,14 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	/**
 	 * Getter for part {@link #TEXT_ATTR}.
 	 */
-	default String getText() {
-		return (String) tValueByName(TEXT_ATTR);
+	default com.top_logic.basic.util.ResKey getText() {
+		return (com.top_logic.basic.util.ResKey) tValueByName(TEXT_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #TEXT_ATTR}.
 	 */
-	default void setText(String newValue) {
+	default void setText(com.top_logic.basic.util.ResKey newValue) {
 		tUpdateByName(TEXT_ATTR, newValue);
 	}
 

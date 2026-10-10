@@ -28,7 +28,7 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	 * Part <code>function</code> of <code>Interface</code>
 	 * 
 	 * <p>
-	 * Declared as <code>tl.core:String</code> in configuration.
+	 * Declared as <code>tl.model.i18n:I18NString</code> in configuration.
 	 * </p>
 	 */
 	String FUNCTION_ATTR = "function";
@@ -37,7 +37,7 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	 * Part <code>name</code> of <code>Interface</code>
 	 * 
 	 * <p>
-	 * Declared as <code>tl.core:String</code> in configuration.
+	 * Declared as <code>tl.model.i18n:I18NString</code> in configuration.
 	 * </p>
 	 */
 	String NAME_ATTR = "name";
@@ -106,14 +106,14 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	/**
 	 * Getter for part {@link #FUNCTION_ATTR}.
 	 */
-	default String getFunction() {
-		return (String) tValueByName(FUNCTION_ATTR);
+	default com.top_logic.basic.util.ResKey getFunction() {
+		return (com.top_logic.basic.util.ResKey) tValueByName(FUNCTION_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #FUNCTION_ATTR}.
 	 */
-	default void setFunction(String newValue) {
+	default void setFunction(com.top_logic.basic.util.ResKey newValue) {
 		tUpdateByName(FUNCTION_ATTR, newValue);
 	}
 

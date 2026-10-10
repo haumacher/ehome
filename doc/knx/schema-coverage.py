@@ -69,7 +69,7 @@ def schema_rows(xsd_file):
 
 def import_coverage(mapping_file):
 	root = ET.parse(mapping_file).getroot()
-	handlers = {e.get('id'): e for e in root.iter() if e.get('id') and e.tag in ('dispatch', 'object', 'handler')}
+	handlers = {e.get('id'): e for e in root.iter() if e.get('id')}
 	cov = {}
 
 	def node(p):
@@ -96,7 +96,7 @@ def import_coverage(mapping_file):
 		if c.tag == 'object-ref':
 			n['types'].add('(existing object)')
 		for a in ('xml-attribute', 'id-attribute'):
-			if c.get(a):
+			if c.get(a) and c.tag != 'mapping':
 				if c.tag in ('object', 'object-ref', 'with-result'):
 					target = '(id)'
 				elif c.tag == 'switch':
@@ -104,7 +104,7 @@ def import_coverage(mapping_file):
 				elif c.tag == 'reference':
 					target = c.get('name')
 				else:
-					target = c.get('name')
+					target = c.get('name') or '(' + c.tag + ')'
 				n['attrs'].setdefault(c.get(a), set()).add(target)
 		walk(c, path, current, seen)
 

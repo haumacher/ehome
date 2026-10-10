@@ -7,6 +7,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.stream.Stream;
 
 import junit.framework.Test;
@@ -14,6 +15,8 @@ import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKeyUtil;
 import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.wrap.person.Person;
@@ -98,6 +101,29 @@ public class TestEtsImport extends BasicTestCase {
 		for (TLObject device : instances("ehome.physical:Device")) {
 			assertNotNull(device.tValueByName("program"));
 		}
+
+		checkTranslations();
+	}
+
+	private void checkTranslations() {
+		// The program of the Test device is written in German; EHomeDemo adds the English texts.
+		TLObject parameter = byExtId("ehome.operational:Parameter", "M-0008_A-10D7-11-A0E5-O000A_P-696");
+		ResKey description = (ResKey) parameter.tValueByName("description");
+		assertEquals("Funktion der Status-LED rechts", ResKeyUtil.getTranslation(description, Locale.GERMAN));
+		assertEquals("Function of right status LED", ResKeyUtil.getTranslation(description, Locale.ENGLISH));
+
+		// The datapoint types are English in the master data, with German translations.
+		ResKey temperature = (ResKey) datapointType("DPST-9-1").tValueByName("description");
+		assertEquals("Temperatur (°C)", ResKeyUtil.getTranslation(temperature, Locale.GERMAN));
+		assertEquals("temperature (°C)", ResKeyUtil.getTranslation(temperature, Locale.ENGLISH));
+	}
+
+	private static TLObject byExtId(String typeName, String extId) {
+		List<TLObject> result = instances(typeName).stream()
+			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.toList();
+		assertEquals(1, result.size());
+		return result.get(0);
 	}
 
 	private void checkParameterSettings() {

@@ -37,7 +37,7 @@ public interface EnumerationValueBase extends de.haumacher.ehome.model.core.Exte
 	 * Part <code>name</code> of <code>EnumerationValue</code>
 	 * 
 	 * <p>
-	 * Declared as <code>tl.core:String</code> in configuration.
+	 * Declared as <code>tl.model.i18n:I18NString</code> in configuration.
 	 * </p>
 	 */
 	String NAME_ATTR = "name";

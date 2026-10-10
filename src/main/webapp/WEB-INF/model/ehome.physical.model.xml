@@ -278,7 +278,7 @@
         $type.get(`ehome.operational:EnumerationType#values`)
             .filter(v -> numberFormat("0").format($v.get(`ehome.operational:EnumerationValue#value`)) == $value)
             .firstElement()
-            .get(`ehome.operational:EnumerationValue#name`) || $value,
+            .get(`ehome.operational:EnumerationValue#name`).localize() || $value,
         $value)
 }]]></expr>
 							</query>

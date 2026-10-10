@@ -41,7 +41,7 @@
 					type="tl.core:Integer"
 				/>
 				<property name="description"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<property name="code"
 					type="tl.core:String"
@@ -64,7 +64,7 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[t -> "{0} {1}".fill($t.get(`ehome.datapoint:DatapointType#code`), $t.get(`ehome.datapoint:DatapointType#description`))]]></expr>
+								<expr><![CDATA[t -> "{0} {1}".fill($t.get(`ehome.datapoint:DatapointType#code`), $t.get(`ehome.datapoint:DatapointType#description`).localize())]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

@@ -84,7 +84,7 @@
 					type="tl.core:String"
 				/>
 				<property name="description"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<property name="number"
 					type="tl.core:Integer"
@@ -114,7 +114,7 @@
 					type="tl.core:String"
 				/>
 				<property name="description"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<reference name="access"
 					kind="forwards"
@@ -135,7 +135,7 @@
 			</annotations>
 			<attributes>
 				<property name="name"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<property name="index"
 					type="tl.core:Integer"
@@ -164,10 +164,10 @@
 			</annotations>
 			<attributes>
 				<property name="name"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<property name="function"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<reference name="port"
 					aggregate="true"
@@ -205,7 +205,7 @@
 					type="tl.core:String"
 				/>
 				<property name="description"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<reference name="access"
 					kind="forwards"
@@ -251,8 +251,8 @@
 							<query>
 								<expr><![CDATA[p -> {
     parameter = $p.get(`ehome.operational:ParameterView#parameter`);
-    $p.get(`ehome.operational:ParameterView#description`)
-        || $parameter.get(`ehome.operational:Parameter#description`)
+    $p.get(`ehome.operational:ParameterView#description`).localize()
+        || $parameter.get(`ehome.operational:Parameter#description`).localize()
         || $p.get(`ehome.operational:ParameterView#name`)
         || $parameter.get(`ehome.operational:Parameter#name`)
 }]]></expr>
@@ -274,7 +274,7 @@
         $type.get(`ehome.operational:EnumerationType#values`)
             .filter(v -> numberFormat("0").format($v.get(`ehome.operational:EnumerationValue#value`)) == $value)
             .firstElement()
-            .get(`ehome.operational:EnumerationValue#name`) || $value,
+            .get(`ehome.operational:EnumerationValue#name`).localize() || $value,
         $value)
 }]]></expr>
 							</query>
@@ -321,7 +321,7 @@
 					type="tl.core:String"
 				/>
 				<property name="description"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<reference name="type"
 					kind="forwards"
@@ -514,10 +514,10 @@
 					type="tl.core:String"
 				/>
 				<property name="function"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<property name="text"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<property name="description"
 					type="tl.core:String"
@@ -589,7 +589,7 @@
 			</annotations>
 			<attributes>
 				<property name="name"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<reference name="manufacturer"
 					aggregate="true"

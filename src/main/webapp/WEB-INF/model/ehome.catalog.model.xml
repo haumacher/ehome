@@ -16,7 +16,7 @@
 			</annotations>
 			<attributes>
 				<property name="name"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<reference name="sections"
 					composite="true"
@@ -137,7 +137,7 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[a -> $a.get(`ehome.catalog:ProgramAssignment#program`).get(`ehome.operational:Program#name`)]]></expr>
+								<expr><![CDATA[a -> $a.get(`ehome.catalog:ProgramAssignment#program`).get(`ehome.operational:Program#name`).localize()]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>
@@ -153,7 +153,7 @@
 			</annotations>
 			<attributes>
 				<property name="name"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<property name="orderNumber"
 					type="tl.core:String"
