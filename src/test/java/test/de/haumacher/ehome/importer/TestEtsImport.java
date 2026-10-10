@@ -161,6 +161,27 @@ public class TestEtsImport extends BasicTestCase {
 			assertNotNull(entry.tValueByName("parameter"));
 		}
 
+		// Labels: a switch on a parameter without value that has only a default case groups content;
+		// a case names the value of the switch's parameter with its text.
+		TLObject grouping = descendants(channel).stream()
+			.filter(o -> TLModelUtil.qualifiedName(o.tType()).equals("ehome.operational:Switch"))
+			.filter(o -> "M-0008_A-10D7-11-A0E5-O000A_P-3739_R-3739".equals(
+				((TLObject) o.tValueByName("input")).tValueByName("extId")))
+			.findFirst().orElseThrow();
+		assertTrue((String) derived(grouping, "displayName"),
+			((String) derived(grouping, "displayName")).matches("(Gruppe|Group) Bedienkonzept"));
+		TLObject buttons = descendants(grouping).stream()
+			.filter(o -> TLModelUtil.qualifiedName(o.tType()).equals("ehome.operational:Switch"))
+			.filter(o -> "Bedienkonzept der Tasten 1 und 2".equals(
+				((String) derived((TLObject) o.tValueByName("input"), "title")).trim()))
+			.findFirst().orElseThrow();
+		TLObject buttonCase = ((List<?>) buttons.tValueByName("alternatives")).stream()
+			.map(TLObject.class::cast)
+			.filter(c -> "1".equals(c.tValueByName("pattern")))
+			.findFirst().orElseThrow();
+		String caseLabel = (String) derived(buttonCase, "displayName");
+		assertTrue(caseLabel, caseLabel.startsWith("= 1 (") && caseLabel.endsWith(")"));
+
 		// A channel that depends on a parameter: a switch directly in the program.
 		importSample("src/test/fixtures/TestDynamic.knxproj");
 		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000B");

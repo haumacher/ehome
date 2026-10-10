@@ -77,16 +77,37 @@
 				<property name="isDefault"
 					type="tl.core:Boolean"
 				/>
-				<!-- The label in the structure tree: the values the case is taken for. -->
+				<!--
+					The label in the structure tree: the values the case is taken for, with their text for an
+					enumeration. The only case of a switch is taken always.
+				-->
 				<property name="displayName"
 					type="tl.core:String"
 				>
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[c -> if($c.get(`ehome.operational:Case#isDefault`),
-    #("Otherwise"@en, "Sonst"@de).localize(),
-    "= {0}".fill($c.get(`ehome.operational:Case#pattern`)))]]></expr>
+								<expr><![CDATA[c -> {
+    choice = $c.container();
+    if($c.get(`ehome.operational:Case#isDefault`),
+        if($choice.get(`ehome.operational:Switch#alternatives`).size() == 1,
+            #("Always"@en, "Immer"@de).localize(),
+            #("Otherwise"@en, "Sonst"@de).localize()),
+        {
+            pattern = $c.get(`ehome.operational:Case#pattern`);
+            type = $choice.get(`ehome.operational:Switch#input`)
+                .get(`ehome.operational:ParameterView#parameter`)
+                .get(`ehome.operational:Parameter#type`);
+            text = if($type.instanceOf(`ehome.operational:EnumerationType`),
+                $type.get(`ehome.operational:EnumerationType#values`)
+                    .filter(v -> numberFormat("0").format($v.get(`ehome.operational:EnumerationValue#value`)) == $pattern)
+                    .firstElement()
+                    .get(`ehome.operational:EnumerationValue#name`)
+                    .localize(),
+                null);
+            if($text == null, "= {0}".fill($pattern), "= {0} ({1})".fill($pattern, $text))
+        })
+}]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>
@@ -491,15 +512,30 @@
 					ordered="true"
 					type="Case"
 				/>
-				<!-- The label in the structure tree: the parameter the switch depends on. -->
+				<!--
+					The label in the structure tree: the parameter the switch depends on. A switch on a
+					parameter without a value (TypeNone) that has only a default case is how some programs
+					group content; it is labeled as a group.
+				-->
 				<property name="displayName"
 					type="tl.core:String"
 				>
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[s -> #("If {0}"@en, "Wenn {0}"@de).fill(
-    $s.get(`ehome.operational:Switch#input`).get(`ehome.operational:ParameterView#title`)).localize()]]></expr>
+								<expr><![CDATA[s -> {
+    view = $s.get(`ehome.operational:Switch#input`);
+    title = $view.get(`ehome.operational:ParameterView#title`);
+    grouping = $view.get(`ehome.operational:ParameterView#parameter`)
+            .get(`ehome.operational:Parameter#type`)
+            .instanceOf(`ehome.operational:VoidType`)
+        and $s.get(`ehome.operational:Switch#alternatives`)
+            .filter(c -> !$c.get(`ehome.operational:Case#isDefault`))
+            .isEmpty();
+    if($grouping,
+        #("Group {0}"@en, "Gruppe {0}"@de).fill($title).localize(),
+        #("If {0}"@en, "Wenn {0}"@de).fill($title).localize())
+}]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

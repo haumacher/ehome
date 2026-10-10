@@ -7,7 +7,10 @@ Test project adds them, and marks the device as fully downloaded after its last 
 
 TestDynamic.knxproj: the samples contain no channels that depend on a parameter (a choose directly
 below Dynamic). This copy gives the application program a new ID (so that an import does not skip it
-as known) and wraps its channel in such a choose, with a default case.
+as known), a name marking it as test data, and wraps its channel in such a choose (on a parameter
+chosen only for the test), with a default case.
+
+The projects of both fixtures are named after the fixture, not "Test".
 
 Usage (from the project root): python3 src/test/fixtures/make-fixtures.py
 """
@@ -15,6 +18,19 @@ import zipfile
 
 SOURCE = 'samples/Test.knxproj'
 PROJECT = 'P-01A0/0.xml'
+
+
+PROJECT_INFO = 'P-01A0/Project.xml'
+
+# Names that make clear in the app that the fixtures are artificial test data.
+PROGRAM_NAME = 'Tastsensor 3 Komfort 3fach 10D711'
+TEST_PROGRAM_NAME = 'TEST: bedingter Kanal (künstliche Testdaten)'
+
+
+def rename_project(xml, name):
+    project = '<ProjectInformation Name="Test"'
+    assert xml.count(project) == 1
+    return xml.replace(project, '<ProjectInformation Name="' + name + '"', 1)
 
 
 def details(xml):
@@ -64,7 +80,11 @@ NEW_VERSION = '10D7-11-A0E5-O000B'
 
 def dynamic(name, xml):
     xml = xml.replace(VERSION, NEW_VERSION)
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestDynamic')
     if name.endswith(PROGRAM + '.xml'):
+        assert xml.count('"' + PROGRAM_NAME + '"') == 2
+        xml = xml.replace('"' + PROGRAM_NAME + '"', '"' + TEST_PROGRAM_NAME + '"')
         channel = '<Channel Name="Generic"'
         assert xml.count(channel) == 1
         start = xml.index(channel)
@@ -94,6 +114,8 @@ def write(target, modify):
 
 
 def keep_details(name, xml):
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestDetails')
     return details(xml) if name == PROJECT else xml
 
 
