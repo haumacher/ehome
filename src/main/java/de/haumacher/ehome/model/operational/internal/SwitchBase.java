@@ -25,6 +25,15 @@ public interface SwitchBase extends de.haumacher.ehome.model.operational.Option,
 	String ALTERNATIVES_ATTR = "alternatives";
 
 	/**
+	 * Part <code>displayName</code> of <code>Switch</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String DISPLAY_NAME_ATTR = "displayName";
+
+	/**
 	 * Part <code>input</code> of <code>Switch</code>
 	 * 
 	 * <p>
@@ -37,8 +46,8 @@ public interface SwitchBase extends de.haumacher.ehome.model.operational.Option,
 	 * Getter for part {@link #ALTERNATIVES_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")
-	default java.util.Set<? extends de.haumacher.ehome.model.operational.Case> getAlternatives() {
-		return (java.util.Set<? extends de.haumacher.ehome.model.operational.Case>) tValueByName(ALTERNATIVES_ATTR);
+	default java.util.List<? extends de.haumacher.ehome.model.operational.Case> getAlternatives() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.Case>) tValueByName(ALTERNATIVES_ATTR);
 	}
 
 	/**
@@ -48,17 +57,17 @@ public interface SwitchBase extends de.haumacher.ehome.model.operational.Option,
 	 * The caller has to take care of the transaction handling.
 	 * </p>
 	 */
-	default java.util.Set<de.haumacher.ehome.model.operational.Case> getAlternativesModifiable() {
+	default java.util.List<de.haumacher.ehome.model.operational.Case> getAlternativesModifiable() {
 		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(ALTERNATIVES_ATTR);
 		@SuppressWarnings("unchecked")
-		java.util.Set<de.haumacher.ehome.model.operational.Case> result = (java.util.Set<de.haumacher.ehome.model.operational.Case>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		java.util.List<de.haumacher.ehome.model.operational.Case> result = (java.util.List<de.haumacher.ehome.model.operational.Case>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
 		return result;
 	}
 
 	/**
 	 * Setter for part {@link #ALTERNATIVES_ATTR}.
 	 */
-	default void setAlternatives(java.util.Set<de.haumacher.ehome.model.operational.Case> newValue) {
+	default void setAlternatives(java.util.List<de.haumacher.ehome.model.operational.Case> newValue) {
 		tUpdateByName(ALTERNATIVES_ATTR, newValue);
 	}
 
@@ -74,6 +83,13 @@ public interface SwitchBase extends de.haumacher.ehome.model.operational.Option,
 	 */
 	default void removeAlternative(de.haumacher.ehome.model.operational.Case oldValue) {
 		tRemoveByName(ALTERNATIVES_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #DISPLAY_NAME_ATTR}.
+	 */
+	default String getDisplayName() {
+		return (String) tValueByName(DISPLAY_NAME_ATTR);
 	}
 
 	/**

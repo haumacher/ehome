@@ -49,7 +49,9 @@
 				<generalization type="tl.model:TLObject"/>
 			</generalizations>
 			<attributes>
+				<!-- The elements of the container, in the order of the configuration; owned by it. -->
 				<reference name="contents"
+					composite="true"
 					kind="forwards"
 					multiple="true"
 					ordered="true"
@@ -63,20 +65,42 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<id-column value="displayName"/>
 				<table name="EHConfigFragment"/>
 			</annotations>
 			<attributes>
+				<!-- The values of the switch's parameter this case is taken for (ETS: when@test). -->
 				<property name="pattern"
 					type="tl.core:String"
 				/>
+				<!-- Whether the case is taken when no other one matches (ETS: when@default). -->
+				<property name="isDefault"
+					type="tl.core:Boolean"
+				/>
+				<!-- The label in the structure tree: the values the case is taken for. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[c -> if($c.get(`ehome.operational:Case#isDefault`),
+    #("Otherwise"@en, "Sonst"@de).localize(),
+    "= {0}".fill($c.get(`ehome.operational:Case#pattern`)))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="Channel">
 			<generalizations>
 				<generalization type="ConfigFragment"/>
+				<generalization type="Option"/>
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<id-column value="displayName"/>
 				<table name="EHConfigFragment"/>
 			</annotations>
 			<attributes>
@@ -89,16 +113,48 @@
 				<property name="number"
 					type="tl.core:Integer"
 				/>
+				<!-- The label in the structure tree: number and text of the channel. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[c -> {
+    text = $c.get(`ehome.operational:Channel#description`).localize() || $c.get(`ehome.operational:Channel#name`);
+    number = $c.get(`ehome.operational:Channel#number`);
+    if($number == null, $text, "{0}: {1}".fill($number, $text))
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="ChannelIndependent">
 			<generalizations>
 				<generalization type="ConfigFragment"/>
+				<generalization type="Option"/>
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<id-column value="displayName"/>
 				<table name="EHConfigFragment"/>
 			</annotations>
+			<attributes>
+				<!-- The label in the structure tree. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[c -> #("Independent of channels"@en, "Kanalunabhängig"@de).localize()]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
 		</class>
 		<class name="ParameterGroup">
 			<generalizations>
@@ -107,6 +163,7 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<id-column value="displayName"/>
 				<table name="EHConfigFragment"/>
 			</annotations>
 			<attributes>
@@ -123,7 +180,32 @@
 				<reference name="input"
 					kind="forwards"
 					type="ParameterView"
-				/>
+				>
+					<annotations>
+						<!-- Only the elements of the program containing this one. -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> recursion($self, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
+    .firstElement()
+    .get(`ehome.operational:Program#parameters`)
+    .get(`ehome.operational:Parameter#views`)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The label in the structure tree: the text of the parameter block. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[g -> $g.get(`ehome.operational:ParameterGroup#description`).localize() || $g.get(`ehome.operational:ParameterGroup#name`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="EnumerationValue">
@@ -154,9 +236,96 @@
 				<generalization type="tl.model:TLObject"/>
 			</generalizations>
 		</interface>
-		<class name="Interface">
+		<!-- A parameter placed in the configuration structure (ETS: ParameterRefRef). -->
+		<class name="ParameterEntry">
 			<generalizations>
 				<generalization type="Option"/>
+			</generalizations>
+			<annotations>
+				<id-column value="displayName"/>
+				<instance-presentation icon="css:bi bi-input-cursor-text"/>
+			</annotations>
+			<attributes>
+				<reference name="parameter"
+					kind="forwards"
+					mandatory="true"
+					type="ParameterView"
+				>
+					<annotations>
+						<!-- Only the elements of the program containing this one. -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> recursion($self, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
+    .firstElement()
+    .get(`ehome.operational:Program#parameters`)
+    .get(`ehome.operational:Parameter#views`)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The label in the structure tree: the text of the parameter. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[e -> $e.get(`ehome.operational:ParameterEntry#parameter`).get(`ehome.operational:ParameterView#title`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- A communication object placed in the configuration structure (ETS: ComObjectRefRef). -->
+		<class name="InterfaceEntry">
+			<generalizations>
+				<generalization type="Option"/>
+			</generalizations>
+			<annotations>
+				<id-column value="displayName"/>
+				<instance-presentation icon="css:bi bi-plug"/>
+			</annotations>
+			<attributes>
+				<reference name="interface"
+					kind="forwards"
+					mandatory="true"
+					type="Interface"
+				>
+					<annotations>
+						<!-- Only the elements of the program containing this one. -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> recursion($self, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
+    .firstElement()
+    .get(`ehome.operational:Program#ports`)
+    .get(`ehome.operational:Port#interfaces`)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The label in the structure tree: the text of the communication object. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[e -> {
+    interface = $e.get(`ehome.operational:InterfaceEntry#interface`);
+    $interface.get(`ehome.operational:Interface#name`).localize()
+        || $interface.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#text`).localize()
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<class name="Interface">
+			<generalizations>
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
@@ -188,7 +357,6 @@
 		</class>
 		<class name="ParameterView">
 			<generalizations>
-				<generalization type="Option"/>
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
@@ -295,18 +463,47 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<id-column value="displayName"/>
 				<table name="EHSwitch"/>
 			</annotations>
 			<attributes>
 				<reference name="input"
 					kind="forwards"
 					type="ParameterView"
-				/>
+				>
+					<annotations>
+						<!-- Only the elements of the program containing this one. -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> recursion($self, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
+    .firstElement()
+    .get(`ehome.operational:Program#parameters`)
+    .get(`ehome.operational:Parameter#views`)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<reference name="alternatives"
+					composite="true"
 					kind="forwards"
 					multiple="true"
+					ordered="true"
 					type="Case"
 				/>
+				<!-- The label in the structure tree: the parameter the switch depends on. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[s -> #("If {0}"@en, "Wenn {0}"@de).fill(
+    $s.get(`ehome.operational:Switch#input`).get(`ehome.operational:ParameterView#title`)).localize()]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="Parameter">
@@ -582,6 +779,7 @@
 		</class>
 		<class name="Program">
 			<generalizations>
+				<generalization type="ConfigFragment"/>
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
@@ -624,13 +822,6 @@
 					kind="forwards"
 					multiple="true"
 					type="CodeSegment"
-				/>
-				<reference name="fragments"
-					composite="true"
-					kind="forwards"
-					multiple="true"
-					ordered="true"
-					type="ConfigFragment"
 				/>
 			</attributes>
 		</class>

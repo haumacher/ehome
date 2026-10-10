@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Create dialog for an element of the configuration structure of an application program: a
+	channel, the channel independent part, a parameter block, a switch or a case.
+
+	"model" carries the transient object of the type the opening command chose; "container" is the
+	element the new one is added to: a case to the cases of a switch, everything else to the contents
+	of a container. The created element is written to "selection", so that the tree selects it.
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="container"/>
+		<channel name="selection"/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>New structure element</en>
+			<de>Neues Strukturelement</de>
+		</title>
+		<form
+			initial-edit-mode="true"
+			input="model"
+			mode-switch="false"
+			with-inset="true"
+		>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:Channel`)"
+				input="model"
+			>
+				<field attribute="number"/>
+			</visible-if>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:Channel`) or $n.instanceOf(`ehome.operational:ParameterGroup`)"
+				input="model"
+			>
+				<field attribute="name"/>
+				<field attribute="description"/>
+			</visible-if>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:Case`)"
+				input="model"
+			>
+				<field attribute="pattern"/>
+				<field attribute="isDefault"/>
+			</visible-if>
+			<commands>
+				<generic-command
+					image="css:bi bi-check-lg"
+					input="model"
+					placement="BUTTON_BAR"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<store-form-state/>
+					<switch value="container -> if($container.instanceOf(`ehome.operational:Switch`), 'alternatives', 'contents')">
+						<inputs>
+							<input channel="container"/>
+						</inputs>
+						<case match="'alternatives'">
+							<persist-transient
+								container="container"
+								reference="alternatives"
+							/>
+						</case>
+						<default>
+							<persist-transient
+								container="container"
+								reference="contents"
+							/>
+						</default>
+					</switch>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</generic-command>
+			</commands>
+		</form>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

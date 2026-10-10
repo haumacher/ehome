@@ -34,6 +34,15 @@ public interface ParameterGroupBase extends de.haumacher.ehome.model.operational
 	String DESCRIPTION_ATTR = "description";
 
 	/**
+	 * Part <code>displayName</code> of <code>ParameterGroup</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String DISPLAY_NAME_ATTR = "displayName";
+
+	/**
 	 * Part <code>input</code> of <code>ParameterGroup</code>
 	 * 
 	 * <p>
@@ -77,6 +86,13 @@ public interface ParameterGroupBase extends de.haumacher.ehome.model.operational
 	 */
 	default void setDescription(com.top_logic.basic.util.ResKey newValue) {
 		tUpdateByName(DESCRIPTION_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #DISPLAY_NAME_ATTR}.
+	 */
+	default String getDisplayName() {
+		return (String) tValueByName(DISPLAY_NAME_ATTR);
 	}
 
 	/**

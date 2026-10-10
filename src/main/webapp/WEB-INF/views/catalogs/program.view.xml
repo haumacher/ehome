@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	An application program in the catalog: its configuration structure (channels, the channel
+	independent part, parameter blocks, switches with their cases, and the parameters and
+	communication objects placed in them), and its parameters with their defaults.
+
+	The structure tab creates and deletes structure elements. Parameters and communication objects
+	are defined by the program (imported); placing them in the structure is not offered yet.
+-->
+<view>
+	<channels>
+		<channel name="program"/>
+		<channel name="selected"/>
+		<derived-channel name="selectedNode"
+			expr="n -> if($n.instanceOf(`ehome.operational:Program`), null, $n)"
+			inputs="selected"
+		/>
+		<derived-channel name="fragment"
+			expr="p -> n -> if($n.instanceOf(`ehome.operational:ConfigFragment`), $n, if($n == null, $p, null))"
+			inputs="program, selected"
+		/>
+		<derived-channel name="channelContainer"
+			expr="p -> n -> if($n.instanceOf(`ehome.operational:Program`) or $n.instanceOf(`ehome.operational:Case`), $n, if($n == null, $p, null))"
+			inputs="program, selected"
+		/>
+		<derived-channel name="blockContainer"
+			expr="n -> if($n.instanceOf(`ehome.operational:ConfigFragment`) and !$n.instanceOf(`ehome.operational:Program`), $n, null)"
+			inputs="selected"
+		/>
+		<derived-channel name="selectedSwitch"
+			expr="n -> if($n.instanceOf(`ehome.operational:Switch`), $n, null)"
+			inputs="selected"
+		/>
+	</channels>
+
+	<tab-bar active-tab="structure">
+		<tabs>
+			<tab id="structure"
+				icon="css:bi bi-diagram-3"
+			>
+				<label>
+					<en>Structure</en>
+					<de>Struktur</de>
+				</label>
+				<split-panel
+					orientation="horizontal"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							min-size="240"
+							size="50"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Structure</en>
+									<de>Struktur</de>
+								</title>
+								<commands>
+						<generic-command
+							clique="new"
+							image="css:bi bi-diagram-3"
+							input="channelContainer"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Channel</en>
+								<de>Kanal</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.operational:Channel"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="catalogs/create-structure.view.xml"
+							>
+								<bind
+									channel="container"
+									to="channelContainer"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-collection"
+							input="program"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Channel independent part</en>
+								<de>Kanalunabhängiger Teil</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.operational:ChannelIndependent"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="catalogs/create-structure.view.xml"
+							>
+								<bind
+									channel="container"
+									to="program"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-card-list"
+							input="blockContainer"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Parameter block</en>
+								<de>Parameterblock</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.operational:ParameterGroup"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="catalogs/create-structure.view.xml"
+							>
+								<bind
+									channel="container"
+									to="blockContainer"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-signpost-split"
+							input="fragment"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Switch</en>
+								<de>Fallunterscheidung</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.operational:Switch"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="catalogs/create-structure.view.xml"
+							>
+								<bind
+									channel="container"
+									to="fragment"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-signpost"
+							input="selectedSwitch"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Case</en>
+								<de>Fall</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.operational:Case"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="catalogs/create-structure.view.xml"
+							>
+								<bind
+									channel="container"
+									to="selectedSwitch"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+									<generic-command
+										image="css:bi bi-trash"
+										input="selectedNode"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Delete</en>
+											<de>Löschen</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<confirm expr="n -> #('Delete {0} with all its contents?'@en, '{0} mit allem Inhalt löschen?'@de).fill($n.label())"/>
+										<delete-object/>
+										<write-channel name="selected"/>
+									</generic-command>
+								</commands>
+								<tree
+									observed-types="ehome.operational:Option,ehome.operational:Case,ehome.operational:Program"
+									selection="selected"
+								>
+									<inputs>
+										<input channel="program"/>
+									</inputs>
+									<root>p -> $p</root>
+									<children><![CDATA[p -> node -> switch {
+    $node.instanceOf(`ehome.operational:Switch`):
+        $node.get(`ehome.operational:Switch#alternatives`);
+    $node.instanceOf(`ehome.operational:ConfigFragment`):
+        $node.get(`ehome.operational:ConfigFragment#contents`);
+    default: [];
+}]]></children>
+									<parents>p -> node -> $node.container()</parents>
+								</tree>
+							</panel>
+						</pane>
+						<pane
+							size="50"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Details</en>
+									<de>Details</de>
+								</title>
+								<switch input="selected">
+									<case test="n -> $n.instanceOf(`ehome.operational:Channel`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="number"/>
+											<field attribute="name"/>
+											<field attribute="description"/>
+											<field attribute="extId"/>
+										</form>
+									</case>
+									<case test="n -> $n.instanceOf(`ehome.operational:ParameterGroup`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="name"/>
+											<field attribute="description"/>
+											<field attribute="access"/>
+											<field attribute="input"/>
+											<field attribute="extId"/>
+										</form>
+									</case>
+									<case test="n -> $n.instanceOf(`ehome.operational:Switch`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="input"/>
+										</form>
+									</case>
+									<case test="n -> $n.instanceOf(`ehome.operational:Case`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="pattern"/>
+											<field attribute="isDefault"/>
+										</form>
+									</case>
+									<case test="n -> $n.instanceOf(`ehome.operational:ParameterEntry`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="parameter"/>
+										</form>
+									</case>
+									<case test="n -> $n.instanceOf(`ehome.operational:InterfaceEntry`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="interface"/>
+										</form>
+									</case>
+								</switch>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
+			</tab>
+			<tab id="parameters"
+				icon="css:bi bi-sliders"
+			>
+				<label>
+					<en>Parameters</en>
+					<de>Parameter</de>
+				</label>
+				<table
+					types="ehome.operational:ParameterView"
+				>
+					<inputs>
+						<input channel="program"/>
+					</inputs>
+					<columns>
+						<column attribute="title"
+							width="320"
+						/>
+						<column attribute="displayDefault"
+							width="220"
+						/>
+						<column attribute="effectiveAccess"
+							width="120"
+						/>
+					</columns>
+					<rows><![CDATA[p -> $p.get(`ehome.operational:Program#parameters`)
+    .get(`ehome.operational:Parameter#views`)]]></rows>
+				</table>
+			</tab>
+		</tabs>
+	</tab-bar>
+</view>

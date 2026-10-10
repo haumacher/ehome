@@ -3,7 +3,8 @@
 <!--
 	The product catalogs imported from ETS projects: manufacturers, their catalogs with sections, and
 	the product variants listed in a catalog, and below a variant the application programs of its
-	product. A variant is referenced by its catalog, not contained in it, so the tree finds the
+	product. The application programs of a manufacturer are also listed below the manufacturer; an
+	application program is shown with its structure and parameters (catalogs/program.view.xml). A variant is referenced by its catalog, not contained in it, so the tree finds the
 	catalog of a variant through that reference.
 
 	The ETS import creates every manufacturer of the KNX master data. Only those with catalogs are
@@ -20,6 +21,14 @@
 		/>
 		<derived-channel name="selectedManufacturer"
 			expr="n -> if($n.instanceOf(`ehome.catalog:Manufacturer`), $n, null)"
+			inputs="selected"
+		/>
+		<derived-channel name="selectedProgram"
+			expr="n -> switch {
+    $n.instanceOf(`ehome.operational:Program`): $n;
+    $n.instanceOf(`ehome.catalog:ProgramAssignment`): $n.get(`ehome.catalog:ProgramAssignment#program`);
+    default: null;
+}"
 			inputs="selected"
 		/>
 		<derived-channel name="selectedCatalog"
@@ -128,6 +137,34 @@
 							</open-dialog>
 						</generic-command>
 						<generic-command
+							clique="new"
+							image="css:bi bi-cpu"
+							input="selectedManufacturer"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Application program</en>
+								<de>Applikationsprogramm</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.operational:Program"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="selectedManufacturer"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
 							image="css:bi bi-trash"
 							input="selected"
 							placement="TOOLBAR"
@@ -145,7 +182,7 @@
 						</generic-command>
 					</commands>
 					<tree
-						observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog"
+						observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog,ehome.operational:Program"
 						selection="selected"
 					>
 						<root>`ehome.catalog#ROOT`</root>
@@ -155,7 +192,9 @@
             .filter(m -> !$m.get(`ehome.catalog:Manufacturer#catalogs`).isEmpty()
                 or $m.get(`ehome.core:Externalized#extId`) == null);
     $node.instanceOf(`ehome.catalog:Manufacturer`):
-        $node.get(`ehome.catalog:Manufacturer#catalogs`);
+        concat(
+            $node.get(`ehome.catalog:Manufacturer#catalogs`),
+            $node.get(`ehome.catalog:Manufacturer#programs`));
     $node.instanceOf(`ehome.catalog:Catalog`):
         $node.get(`ehome.catalog:Catalog#sections`)
             .union($node.get(`ehome.catalog:Catalog#variants`));
@@ -213,40 +252,21 @@
 								<field attribute="extId"/>
 							</form>
 						</case>
-						<!--
-							An application program of the product: its parameters, as the configuration
-							of a device shows them, with their defaults.
-						-->
-						<case test="n -> $n.instanceOf(`ehome.catalog:ProgramAssignment`)">
+						<!-- An application program, also when reached as the program of a product. -->
+						<case test="n -> $n.instanceOf(`ehome.operational:Program`) or $n.instanceOf(`ehome.catalog:ProgramAssignment`)">
 							<form
-								input="selected"
+								input="selectedProgram"
 								with-inset="true"
 							>
 								<field attribute="name"/>
-								<field attribute="program"/>
 								<field attribute="extId"/>
 							</form>
-							<table
-								types="ehome.operational:ParameterView"
-							>
-								<inputs>
-									<input channel="selected"/>
-								</inputs>
-								<columns>
-									<column attribute="title"
-										width="320"
-									/>
-									<column attribute="displayDefault"
-										width="220"
-									/>
-									<column attribute="effectiveAccess"
-										width="120"
-									/>
-								</columns>
-								<rows><![CDATA[a -> $a.get(`ehome.catalog:ProgramAssignment#program`)
-    .get(`ehome.operational:Program#parameters`)
-    .get(`ehome.operational:Parameter#views`)]]></rows>
-							</table>
+							<view-ref view="catalogs/program.view.xml">
+								<bind
+									channel="program"
+									to="selectedProgram"
+								/>
+							</view-ref>
 						</case>
 					</switch>
 				</panel>

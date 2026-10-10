@@ -124,6 +124,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Case#DISPLAY_NAME_ATTR} of {@link Case}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameCaseAttr() {
+		return (com.top_logic.model.TLProperty) getCaseType().getPart(Case.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Case#IS_DEFAULT_ATTR} of {@link Case}.
+	 */
+	public static com.top_logic.model.TLProperty getIsDefaultCaseAttr() {
+		return (com.top_logic.model.TLProperty) getCaseType().getPart(Case.IS_DEFAULT_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Case#PATTERN_ATTR} of {@link Case}.
 	 */
 	public static com.top_logic.model.TLProperty getPatternCaseAttr() {
@@ -142,6 +156,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLProperty getDescriptionChannelAttr() {
 		return (com.top_logic.model.TLProperty) getChannelType().getPart(Channel.DESCRIPTION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Channel#DISPLAY_NAME_ATTR} of {@link Channel}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameChannelAttr() {
+		return (com.top_logic.model.TLProperty) getChannelType().getPart(Channel.DISPLAY_NAME_ATTR);
 	}
 
 	/**
@@ -166,6 +187,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link ChannelIndependent#DISPLAY_NAME_ATTR} of {@link ChannelIndependent}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameChannelIndependentAttr() {
+		return (com.top_logic.model.TLProperty) getChannelIndependentType().getPart(ChannelIndependent.DISPLAY_NAME_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ParameterGroup} type.
 	 */
 	public static com.top_logic.model.TLClass getParameterGroupType() {
@@ -184,6 +212,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLProperty getDescriptionParameterGroupAttr() {
 		return (com.top_logic.model.TLProperty) getParameterGroupType().getPart(ParameterGroup.DESCRIPTION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterGroup#DISPLAY_NAME_ATTR} of {@link ParameterGroup}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameParameterGroupAttr() {
+		return (com.top_logic.model.TLProperty) getParameterGroupType().getPart(ParameterGroup.DISPLAY_NAME_ATTR);
 	}
 
 	/**
@@ -240,6 +275,48 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLClass getOptionType() {
 		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(Option.OPTION_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ParameterEntry} type.
+	 */
+	public static com.top_logic.model.TLClass getParameterEntryType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(ParameterEntry.PARAMETER_ENTRY_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ParameterEntry#DISPLAY_NAME_ATTR} of {@link ParameterEntry}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameParameterEntryAttr() {
+		return (com.top_logic.model.TLProperty) getParameterEntryType().getPart(ParameterEntry.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterEntry#PARAMETER_ATTR} of {@link ParameterEntry}.
+	 */
+	public static com.top_logic.model.TLReference getParameterParameterEntryAttr() {
+		return (com.top_logic.model.TLReference) getParameterEntryType().getPart(ParameterEntry.PARAMETER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link InterfaceEntry} type.
+	 */
+	public static com.top_logic.model.TLClass getInterfaceEntryType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(InterfaceEntry.INTERFACE_ENTRY_TYPE);
+	}
+
+	/**
+	 * Lookup {@link InterfaceEntry#DISPLAY_NAME_ATTR} of {@link InterfaceEntry}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameInterfaceEntryAttr() {
+		return (com.top_logic.model.TLProperty) getInterfaceEntryType().getPart(InterfaceEntry.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link InterfaceEntry#INTERFACE_ATTR} of {@link InterfaceEntry}.
+	 */
+	public static com.top_logic.model.TLReference getInterfaceInterfaceEntryAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceEntryType().getPart(InterfaceEntry.INTERFACE_ATTR);
 	}
 
 	/**
@@ -380,6 +457,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLReference getAlternativesSwitchAttr() {
 		return (com.top_logic.model.TLReference) getSwitchType().getPart(Switch.ALTERNATIVES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Switch#DISPLAY_NAME_ATTR} of {@link Switch}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameSwitchAttr() {
+		return (com.top_logic.model.TLProperty) getSwitchType().getPart(Switch.DISPLAY_NAME_ATTR);
 	}
 
 	/**
@@ -733,13 +817,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
-	 * Lookup {@link Program#FRAGMENTS_ATTR} of {@link Program}.
-	 */
-	public static com.top_logic.model.TLReference getFragmentsProgramAttr() {
-		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.FRAGMENTS_ATTR);
-	}
-
-	/**
 	 * Lookup {@link Program#MANUFACTURER_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getManufacturerProgramAttr() {
@@ -958,6 +1035,32 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	@Deprecated
 	public static final String OPTION_NODE = Option.OPTION_TYPE;
+
+	/**
+	 * Name of type <code>ParameterEntry</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link ParameterEntry#PARAMETER_ENTRY_TYPE}.
+	 */
+	@Deprecated
+	public static final String PARAMETER_ENTRY_NODE = ParameterEntry.PARAMETER_ENTRY_TYPE;
+
+	/**
+	 * Storage table name of {@link #PARAMETER_ENTRY_NODE} objects.
+	 */
+	public static final String KO_NAME_PARAMETER_ENTRY = "GenericObject";
+
+	/**
+	 * Name of type <code>InterfaceEntry</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link InterfaceEntry#INTERFACE_ENTRY_TYPE}.
+	 */
+	@Deprecated
+	public static final String INTERFACE_ENTRY_NODE = InterfaceEntry.INTERFACE_ENTRY_TYPE;
+
+	/**
+	 * Storage table name of {@link #INTERFACE_ENTRY_NODE} objects.
+	 */
+	public static final String KO_NAME_INTERFACE_ENTRY = "GenericObject";
 
 	/**
 	 * Name of type <code>Interface</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
@@ -1245,6 +1348,34 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public final EnumerationValue createEnumerationValue() {
 		return createEnumerationValue(null);
+	}
+
+	/**
+	 * Create an instance of {@link ParameterEntry} type.
+	 */
+	public final ParameterEntry createParameterEntry(com.top_logic.model.TLObject context) {
+		return (ParameterEntry) createObject(getParameterEntryType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link ParameterEntry} type.
+	 */
+	public final ParameterEntry createParameterEntry() {
+		return createParameterEntry(null);
+	}
+
+	/**
+	 * Create an instance of {@link InterfaceEntry} type.
+	 */
+	public final InterfaceEntry createInterfaceEntry(com.top_logic.model.TLObject context) {
+		return (InterfaceEntry) createObject(getInterfaceEntryType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link InterfaceEntry} type.
+	 */
+	public final InterfaceEntry createInterfaceEntry() {
+		return createInterfaceEntry(null);
 	}
 
 	/**

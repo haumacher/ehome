@@ -5,6 +5,7 @@ package test.de.haumacher.ehome.importer;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -140,6 +141,67 @@ public class TestEtsImport extends BasicTestCase {
 		assertSame(project, device.tContainer().tContainer().tContainer());
 
 		checkGroups(project);
+		checkProgramStructure();
+	}
+
+	private void checkProgramStructure() throws Exception {
+		// The structure of a program is one tree owned by the program: channels, blocks, switches,
+		// and entries placing parameters and communication objects.
+		TLObject program = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000A");
+		List<?> contents = (List<?>) program.tValueByName("contents");
+		assertEquals(1, contents.size());
+		TLObject channel = (TLObject) contents.get(0);
+		assertEquals("ehome.operational:Channel", TLModelUtil.qualifiedName(channel.tType()));
+		assertSame(program, channel.tContainer());
+		List<TLObject> entries = descendants(channel).stream()
+			.filter(o -> TLModelUtil.qualifiedName(o.tType()).equals("ehome.operational:ParameterEntry"))
+			.toList();
+		assertFalse("No parameter placed in the structure.", entries.isEmpty());
+		for (TLObject entry : entries) {
+			assertNotNull(entry.tValueByName("parameter"));
+		}
+
+		// A channel that depends on a parameter: a switch directly in the program.
+		importSample("src/test/fixtures/TestDynamic.knxproj");
+		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000B");
+		List<?> top = (List<?>) dynamic.tValueByName("contents");
+		assertEquals(1, top.size());
+		TLObject choice = (TLObject) top.get(0);
+		assertEquals("ehome.operational:Switch", TLModelUtil.qualifiedName(choice.tType()));
+		assertEquals("M-0008_A-10D7-11-A0E5-O000B_P-3762_R-3762",
+			((TLObject) choice.tValueByName("input")).tValueByName("extId"));
+		List<?> cases = (List<?>) choice.tValueByName("alternatives");
+		assertEquals(2, cases.size());
+		TLObject first = (TLObject) cases.get(0);
+		assertEquals("1", first.tValueByName("pattern"));
+		assertNotSame(Boolean.TRUE, first.tValueByName("isDefault"));
+		List<?> caseContents = (List<?>) first.tValueByName("contents");
+		assertEquals(1, caseContents.size());
+		assertEquals("ehome.operational:Channel",
+			TLModelUtil.qualifiedName(((TLObject) caseContents.get(0)).tType()));
+		TLObject otherwise = (TLObject) cases.get(1);
+		assertEquals(Boolean.TRUE, otherwise.tValueByName("isDefault"));
+		assertTrue(((List<?>) otherwise.tValueByName("contents")).isEmpty());
+
+		// The known program of the Test sample was not changed by the import of the new version.
+		assertEquals(1, ((List<?>) program.tValueByName("contents")).size());
+	}
+
+	private static List<TLObject> descendants(TLObject node) {
+		List<TLObject> result = new ArrayList<>();
+		List<TLObject> todo = new ArrayList<>(List.of(node));
+		while (!todo.isEmpty()) {
+			TLObject current = todo.remove(todo.size() - 1);
+			result.add(current);
+			for (String part : List.of("contents", "alternatives")) {
+				if (current.tType().getPart(part) != null) {
+					for (Object child : (Collection<?>) current.tValueByName(part)) {
+						todo.add((TLObject) child);
+					}
+				}
+			}
+		}
+		return result;
 	}
 
 	private void checkGroups(TLObject project) throws Exception {

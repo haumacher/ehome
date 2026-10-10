@@ -474,11 +474,12 @@
 																</dispatch>
 															</tag>
 															<tag name="Dynamic">
-																<dispatch>
+																<!-- The configuration structure of the program: channels, the channel independent part, and parts that depend on parameter values. -->
+																<dispatch id="dynamic-contents">
 																	<tag name="ChannelIndependentBlock">
 																		<object model-type="ehome.operational:ChannelIndependent">
 																			<linking>
-																				<list-linking name="ehome.operational:Program#fragments"/>
+																				<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																			</linking>
 
 																			<ref handler-id="channel-contents"/>
@@ -487,30 +488,30 @@
 																	<tag name="Channel">
 																		<object model-type="ehome.operational:Channel" id-attribute="Id">
 																			<linking>
-																				<list-linking name="ehome.operational:Program#fragments"/>
+																				<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																			</linking>
 
 																			<property name="extId" xml-attribute="Id"/>
 																			<property name="name" xml-attribute="Name"/>
 																			<i18n-property name="description" xml-attribute="Text"/>
 																			<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																	
+
 																			<dispatch id="channel-contents">
 																				<tag name="ParameterBlock">
 																					<object model-type="ehome.operational:ParameterGroup" id-attribute="Id">
 																						<linking>
 																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																						</linking>
-																				
+
 																						<property name="name" xml-attribute="Name"/>
 																						<i18n-property name="description" xml-attribute="Text"/>
 																						<property name="access" xml-attribute="Access">
-																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
 																								type="ehome.operational:AccessKind"
 																							/>
 																						</property>
 																						<reference name="input" id-attribute="ParamRefId"/>
-																				
+
 																						<ref handler-id="channel-contents"/>
 																					</object>
 																				</tag>
@@ -519,9 +520,9 @@
 																						<linking>
 																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																						</linking>
-																			
+
 																						<reference name="input" id-attribute="ParamRefId"/>
-																				
+
 																						<dispatch>
 																							<tag name="when">
 																								<object model-type="ehome.operational:Case">
@@ -530,31 +531,60 @@
 																									</linking>
 																							
 																									<property name="pattern" xml-attribute="test"/>
+																									<property name="isDefault" xml-attribute="default" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																							
 																									<ref handler-id="channel-contents"/>
 																								</object>
 																							</tag>
 																						</dispatch>
 																					</object>
-																				</tag>	
+																				</tag>
 																				<tag name="ParameterRefRef">
-																					<object-ref id-attribute="RefId">
+																					<object model-type="ehome.operational:ParameterEntry">
 																						<linking>
 																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																						</linking>
-																					</object-ref>
-																			
-																					<dispatch/>
-																				</tag>	
+
+																						<reference name="parameter" id-attribute="RefId"/>
+
+																						<dispatch/>
+																					</object>
+																				</tag>
 																				<tag name="ComObjectRefRef">
-																					<object-ref id-attribute="RefId">
+																					<object model-type="ehome.operational:InterfaceEntry">
 																						<linking>
 																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																						</linking>
-																					</object-ref>
-																			
-																					<dispatch/>
-																				</tag>	
+
+																						<reference name="interface" id-attribute="RefId"/>
+
+																						<dispatch/>
+																					</object>
+																				</tag>
+																			</dispatch>
+																		</object>
+																	</tag>
+																	<tag name="choose">
+																		<object model-type="ehome.operational:Switch">
+																			<linking>
+																				<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																			</linking>
+
+																			<reference name="input" id-attribute="ParamRefId"/>
+
+																			<dispatch>
+																				<tag name="when">
+																					<object model-type="ehome.operational:Case">
+																						<linking>
+																							<list-linking name="ehome.operational:Switch#alternatives"/>
+																						</linking>
+																				
+																						<property name="pattern" xml-attribute="test"/>
+																						<property name="isDefault" xml-attribute="default" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+																				
+																						<ref handler-id="dynamic-contents"/>
+																					</object>
+																				</tag>
 																			</dispatch>
 																		</object>
 																	</tag>

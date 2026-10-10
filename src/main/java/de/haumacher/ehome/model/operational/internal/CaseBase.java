@@ -16,6 +16,24 @@ public interface CaseBase extends de.haumacher.ehome.model.operational.ConfigFra
 	String CASE_TYPE = "Case";
 
 	/**
+	 * Part <code>displayName</code> of <code>Case</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String DISPLAY_NAME_ATTR = "displayName";
+
+	/**
+	 * Part <code>isDefault</code> of <code>Case</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String IS_DEFAULT_ATTR = "isDefault";
+
+	/**
 	 * Part <code>pattern</code> of <code>Case</code>
 	 * 
 	 * <p>
@@ -23,6 +41,27 @@ public interface CaseBase extends de.haumacher.ehome.model.operational.ConfigFra
 	 * </p>
 	 */
 	String PATTERN_ATTR = "pattern";
+
+	/**
+	 * Getter for part {@link #DISPLAY_NAME_ATTR}.
+	 */
+	default String getDisplayName() {
+		return (String) tValueByName(DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Getter for part {@link #IS_DEFAULT_ATTR}.
+	 */
+	default boolean getIsDefault() {
+		return (Boolean) tValueByName(IS_DEFAULT_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #IS_DEFAULT_ATTR}.
+	 */
+	default void setIsDefault(boolean newValue) {
+		tUpdateByName(IS_DEFAULT_ATTR, newValue);
+	}
 
 	/**
 	 * Getter for part {@link #PATTERN_ATTR}.

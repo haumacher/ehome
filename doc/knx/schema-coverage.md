@@ -10,7 +10,7 @@ The XSD itself is not public and not in the repository.
 
 ## Overall
 
-- Of 408 element paths of the schema, 152 are handled by the import; of 1138 attribute slots, 267 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
+- Of 408 element paths of the schema, 154 are handled by the import; of 1138 attribute slots, 282 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
 - The model has a counterpart for exactly what the import reads, and almost nothing more. The only stored model attribute the import never fills is `ehome.catalog:Manufacturer#id` (it would be `KnxManufacturerId`). So "covered by the model" and "read by the import" mean the same thing here.
 - Many unread attributes are irrelevant for E-Home (ETS bookkeeping: `Hash`, `NonRegRelevantDataVersion`, `CompletionStatus`, `LastModified`, passwords, history, to-dos). The gaps below are those that matter for understanding or operating an installation.
 
@@ -42,7 +42,7 @@ Ordered by how much they limit E-Home. "In samples" says whether the fixtures co
 | 3 | ~~Translations~~ | Done: translated texts are `tl.model.i18n:I18NString` attributes, filled from the element's `DefaultLanguage` and the `Languages` sections. Only the languages the application offers (de, en) are stored. | |
 | 4 | ~~Device details~~ | Done: `Device` title, description, installation hints, serial number, download state (`loaded`, `lastModified`, `lastDownload`, derived `downloadPending`), `Connector#active`, `Project#unassignedDevices`. `Comment` (RTF) is not imported. | |
 | 5 | ~~Group range and address details~~ | Done: `GroupRange#rangeStart`/`rangeEnd` (type `GA`), `unfiltered`, `description`, `GroupAddress#central`, ETS-style labels (`displayName`), constraint `WithinGroupRange`. `Comment` (RTF) and `Global` (meaning unclear) are not imported. | |
-| 6 | `Dynamic/choose` directly below `Dynamic` (channels that exist only for some parameter values) | Such channels are skipped entirely. | no |
+| 6 | ~~Conditional channels~~ | Done: `Program` is the root `ConfigFragment` of its structure; channels are `Option`s and may be in a `Case`; `Case#isDefault`; `ParameterRefRef`/`ComObjectRefRef` are `ParameterEntry`/`InterfaceEntry` objects owned by the structure. Editable in the catalog (`catalogs/program.view.xml`). | |
 | 7 | UI structure of parameters: `ParameterSeparator`, `Assign`, `ParameterBlockRename`, `ParameterCalculations` | Parameter pages look different from ETS; `Assign` changes parameter values. | `ParameterSeparator` 12, `Assign` 4 |
 | 8 | Parameter type details: `TypeFloat`, `TypeTime`, `TypeDate`, `TypeIPAddress` attributes (range, unit, encoding), `TypePicture`, `TypeNumber@UIHint`, `TypeText@Pattern` | The model has `FloatingPointType`, `TimeType`, `DateType`, `IPAddressType`, but without their properties, so such values cannot be validated or shown properly. | no |
 | 9 | Download data: `AddressTable`, `AssociationTable`, `LoadProcedures`, `RelativeSegment`, `AbsoluteSegment/Data`, `Mask`, `Options`, `Extension`, `BinaryData`, `MaskVersions` | Only needed to program devices from E-Home. | partly (3–4 each) |

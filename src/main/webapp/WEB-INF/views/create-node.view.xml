@@ -2,7 +2,7 @@
 
 <!--
 	Create dialog for a node of one of the structure trees (building parts, group addresses, areas
-	and lines, catalog entries).
+	and lines, catalog entries, application programs).
 
 	"model" carries the transient object of the type the opening command chose; "container" is the
 	object the new node is added to. The reference it is added to depends on the container and the
@@ -55,6 +55,7 @@
     $container.instanceOf(`ehome.project:Project`) and $node.instanceOf(`ehome.physical:Area`): 'areas';
     $container.instanceOf(`ehome.physical:Area`): 'lines';
     $container.instanceOf(`ehome.catalog:ManufacturerRoot`): 'manufacturers';
+    $container.instanceOf(`ehome.catalog:Manufacturer`) and $node.instanceOf(`ehome.operational:Program`): 'programs';
     $container.instanceOf(`ehome.catalog:Manufacturer`): 'catalogs';
     $container.instanceOf(`ehome.catalog:Catalog`): 'sections';
     default: 'parts';
@@ -90,6 +91,12 @@
 							<persist-transient
 								container="container"
 								reference="manufacturers"
+							/>
+						</case>
+						<case match="'programs'">
+							<persist-transient
+								container="container"
+								reference="programs"
 							/>
 						</case>
 						<case match="'catalogs'">
