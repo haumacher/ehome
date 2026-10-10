@@ -22,6 +22,7 @@
 		>
 			<field attribute="name"/>
 			<field attribute="extId"/>
+			<field attribute="groupAddressStyle"/>
 			<commands>
 				<generic-command
 					image="css:bi bi-check-lg"

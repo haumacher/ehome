@@ -32,6 +32,10 @@
 					multiple="true"
 					type="ehome.logical:GroupAddressDefinition"
 				/>
+				<!-- The notation of the project's group addresses, as chosen in ETS. -->
+				<reference name="groupAddressStyle"
+					type="ehome.logical:GroupAddressStyle"
+				/>
 			</attributes>
 		</class>
 	</module>

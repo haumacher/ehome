@@ -25,6 +25,15 @@
 			</instance>
 		</config>
 
+		<!-- Group addresses (model type ehome.logical:GA) are written in the notation they carry. -->
+		<config service-class="com.top_logic.layout.provider.LabelProviderService">
+			<instance>
+				<label-providers>
+					<provider kind="CODE" type="de.haumacher.ehome.knx.GA" implementation="de.haumacher.ehome.knx.GALabelProvider"/>
+				</label-providers>
+			</instance>
+		</config>
+
 		<!-- Animations of the React UI's dialog and drill-down transitions (see the stylesheet). -->
 		<config service-class="com.top_logic.layout.react.resource.ClientResources">
 			<instance class="com.top_logic.layout.react.resource.ClientResources">

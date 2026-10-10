@@ -533,6 +533,11 @@
 					<dispatch>
 						<tag name="ProjectInformation">
 							<property name="name" xml-attribute="Name"/>
+							<property name="groupAddressStyle" xml-attribute="GroupAddressStyle">
+								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+									type="ehome.logical:GroupAddressStyle"
+								/>
+							</property>
 						</tag>
 						<tag name="Installations">
 							<dispatch>
@@ -816,4 +821,4 @@
 			</tag>
 		</dispatch>
 	</tag>
-</handler>
+</handler>

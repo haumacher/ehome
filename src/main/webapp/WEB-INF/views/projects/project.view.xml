@@ -71,6 +71,7 @@
 					>
 						<field attribute="name"/>
 						<field attribute="extId"/>
+						<field attribute="groupAddressStyle"/>
 					</form>
 				</panel>
 			</tab>

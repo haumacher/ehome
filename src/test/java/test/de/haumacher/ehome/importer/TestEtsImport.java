@@ -16,13 +16,21 @@ import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.LabelProvider;
+import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.provider.LabelResourceProvider;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.knx.GALabelProvider;
+import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.model.operational.Program;
 
 /**
@@ -46,6 +54,25 @@ public class TestEtsImport extends BasicTestCase {
 		TLObject project = projects.get(0);
 		assertEquals("Test", project.tValueByName("name"));
 		assertEquals("P-01A0", project.tValueByName("extId"));
+		Object style = project.tValueByName("groupAddressStyle");
+		assertNotNull("Group address style not imported.", style);
+		assertEquals("ThreeLevel", ((TLClassifier) style).getName());
+
+		List<TLObject> addresses = instances("ehome.logical:GroupAddress");
+		assertFalse("No group address imported.", addresses.isEmpty());
+		for (TLObject address : addresses) {
+			Object value = address.tValueByName("address");
+			assertInstanceof("Group address not read as GA.", value, GA.class);
+			assertEquals(GroupAddressStyle.ThreeLevel, ((GA) value).getStyle());
+			// Labels (table cells, search and filter texts) show the same notation.
+			LabelProvider labels = LabelProviderService.getInstance().getLabelProvider(value);
+			if (labels instanceof LabelResourceProvider adapter) {
+				labels = ((LabelResourceProvider.Config<?>) adapter.getConfig()).getLabelProvider();
+			}
+			assertInstanceof("GA label provider not registered.", labels, GALabelProvider.class);
+			assertEquals(value.toString(), MetaLabelProvider.INSTANCE.getLabel(value));
+			assertTrue(MetaLabelProvider.INSTANCE.getLabel(value).matches("\\d+/\\d+/\\d+"));
+		}
 
 		List<TLObject> programs = instances("ehome.operational:Program");
 		assertFalse("No application program imported.", programs.isEmpty());
@@ -60,7 +87,8 @@ public class TestEtsImport extends BasicTestCase {
 	}
 
 	public static Test suite() {
-		return KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(TestEtsImport.class, ModelService.Module.INSTANCE));
+		return KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(TestEtsImport.class, ModelService.Module.INSTANCE,
+			LabelProviderService.Module.INSTANCE));
 	}
 
 }

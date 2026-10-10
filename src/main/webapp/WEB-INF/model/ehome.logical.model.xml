@@ -2,6 +2,33 @@
 
 <model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
 	<module name="ehome.logical">
+		<!--
+			A KNX group address. The database stores the plain 16-bit number; the application sees a
+			de.haumacher.ehome.knx.GA that carries the notation of its project (see GroupAddressStyle),
+			so the address is written the same way in every form, table and label. An attribute of
+			this type states where its notation comes from with a <ga-style> annotation; without one,
+			addresses are written main/middle/sub.
+		-->
+		<datatype name="GA"
+			db_type="int"
+			kind="Custom"
+		>
+			<annotations>
+				<storage-algorithm>
+					<group-address-storage/>
+				</storage-algorithm>
+				<input-control>
+					<impl class="de.haumacher.ehome.knx.GAControlProvider"/>
+				</input-control>
+			</annotations>
+			<group-address-mapping/>
+		</datatype>
+		<!-- The notations of group addresses ETS offers, named like ETS names them. -->
+		<enum name="GroupAddressStyle">
+			<classifier name="ThreeLevel" default="true"/>
+			<classifier name="TwoLevel"/>
+			<classifier name="Free"/>
+		</enum>
 		<interface name="GroupAddressDefinition">
 			<generalizations>
 				<generalization type="ehome.core:Externalized"/>
@@ -22,8 +49,18 @@
 			</annotations>
 			<attributes>
 				<property name="address"
-					type="tl.core:Integer"
-				/>
+					type="GA"
+				>
+					<annotations>
+						<!-- The notation chosen by the project the address belongs to. -->
+						<ga-style>
+							<style><![CDATA[ga -> recursion($ga, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.project:Project`))
+    .firstElement()
+    .get(`ehome.project:Project#groupAddressStyle`)]]></style>
+						</ga-style>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="GroupRange">
