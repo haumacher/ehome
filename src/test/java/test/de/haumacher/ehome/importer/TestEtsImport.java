@@ -15,6 +15,8 @@ import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 
+import com.top_logic.basic.config.SimpleInstantiationContext;
+import com.top_logic.basic.config.TypedConfiguration;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKeyUtil;
 import com.top_logic.element.meta.MetaElementUtil;
@@ -31,6 +33,7 @@ import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
@@ -40,6 +43,7 @@ import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GALabelProvider;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.knx.WithinGroupRange;
 import de.haumacher.ehome.model.operational.Program;
 
 /**
@@ -134,6 +138,43 @@ public class TestEtsImport extends BasicTestCase {
 		assertEquals("ehome.project:Project", TLModelUtil.qualifiedName(project.tType()));
 		assertEquals(List.of(unassigned), project.tValueByName("unassignedDevices"));
 		assertSame(project, device.tContainer().tContainer().tContainer());
+
+		checkGroups(project);
+	}
+
+	private void checkGroups(TLObject project) throws Exception {
+		TLObject address = byDescription("ehome.logical:GroupAddress", "Raumtemperatur Küche");
+		assertEquals(Boolean.TRUE, address.tValueByName("central"));
+		assertEquals(Boolean.TRUE, address.tValueByName("unfiltered"));
+		assertEquals("0/0/1 GA1", derived(address, "displayName"));
+
+		TLObject middle = byDescription("ehome.logical:GroupRange", "Küche");
+		assertEquals(Boolean.TRUE, middle.tValueByName("unfiltered"));
+		assertEquals(1, ((GA) middle.tValueByName("rangeStart")).getValue());
+		assertEquals(255, ((GA) middle.tValueByName("rangeEnd")).getValue());
+		assertEquals("0/0 MG11", derived(middle, "displayName"));
+		assertEquals("0 HG1", derived(middle.tContainer(), "displayName"));
+		assertSame(project, middle.tContainer().tContainer());
+
+		// An address must lie within the range of its group.
+		WithinGroupRange constraint = new WithinGroupRange(SimpleInstantiationContext.CREATE_ALWAYS_FAIL_IMMEDIATELY,
+			TypedConfiguration.newConfigItem(WithinGroupRange.Config.class));
+		TLStructuredTypePart addressPart = address.tType().getPart("address");
+		assertNull(constraint.check(address, addressPart));
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		try (Transaction tx = kb.beginTransaction()) {
+			address.tUpdateByName("address", 300);
+			assertNotNull("Address outside its range accepted.", constraint.check(address, addressPart));
+			tx.rollback();
+		}
+	}
+
+	private static TLObject byDescription(String typeName, String description) {
+		List<TLObject> result = instances(typeName).stream()
+			.filter(obj -> description.equals(obj.tValueByName("description")))
+			.toList();
+		assertEquals(1, result.size());
+		return result.get(0);
 	}
 
 	private static TLObject byTitle(String title) {

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Creates TestDetails.knxproj from samples/Test.knxproj for TestEtsImport.
 
-The samples contain no device names, descriptions, serial numbers, unassigned devices or inactive
-communication objects. This copy of the Test project adds them, and marks the device as fully
-downloaded after its last change.
+The samples contain no device names, descriptions, serial numbers, unassigned devices, inactive
+communication objects or details of group ranges and addresses. This copy of the Test project adds
+them, and marks the device as fully downloaded after its last change.
 
 Usage (from the project root): python3 src/test/fixtures/make-test-details.py
 """
@@ -28,6 +28,15 @@ def modify(xml):
     active = 'IsActive="1"'
     assert active in xml
     xml = xml.replace(active, 'IsActive="0"', 1)
+
+    # Details of a group range and a group address.
+    group_range = '<GroupRange Id="P-01A0-0_GR-3" '
+    assert xml.count(group_range) == 1
+    xml = xml.replace(group_range, group_range + 'Unfiltered="1" Description="Küche" ', 1)
+    group_address = '<GroupAddress Id="P-01A0-0_GA-1" '
+    assert xml.count(group_address) == 1
+    xml = xml.replace(group_address, group_address
+        + 'Central="1" Unfiltered="1" Description="Raumtemperatur Küche" ', 1)
 
     # A second device of the same product, not placed in a line yet.
     end = '</Topology>'

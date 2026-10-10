@@ -144,6 +144,10 @@
 								with-inset="true"
 							>
 								<field attribute="name"/>
+								<field attribute="rangeStart"/>
+								<field attribute="rangeEnd"/>
+								<field attribute="unfiltered"/>
+								<field attribute="description"/>
 								<field attribute="extId"/>
 							</form>
 						</case>
@@ -154,6 +158,9 @@
 							>
 								<field attribute="name"/>
 								<field attribute="address"/>
+								<field attribute="central"/>
+								<field attribute="unfiltered"/>
+								<field attribute="description"/>
 								<field attribute="effectiveDatapointType"/>
 								<field attribute="datapointTypes"/>
 								<field attribute="extId"/>

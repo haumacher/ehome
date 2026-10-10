@@ -10,7 +10,7 @@ The XSD itself is not public and not in the repository.
 
 ## Overall
 
-- Of 408 element paths of the schema, 152 are handled by the import; of 1138 attribute slots, 260 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
+- Of 408 element paths of the schema, 152 are handled by the import; of 1138 attribute slots, 267 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
 - The model has a counterpart for exactly what the import reads, and almost nothing more. The only stored model attribute the import never fills is `ehome.catalog:Manufacturer#id` (it would be `KnxManufacturerId`). So "covered by the model" and "read by the import" mean the same thing here.
 - Many unread attributes are irrelevant for E-Home (ETS bookkeeping: `Hash`, `NonRegRelevantDataVersion`, `CompletionStatus`, `LastModified`, passwords, history, to-dos). The gaps below are those that matter for understanding or operating an installation.
 
@@ -41,7 +41,7 @@ Ordered by how much they limit E-Home. "In samples" says whether the fixtures co
 | 2 | ~~Parameter values~~ | Done: `Parameter`/`ParameterView#defaultValue`, `ehome.physical:ParameterSetting` (`Device#settings`), table "Parametereinstellungen" of a device. | |
 | 3 | ~~Translations~~ | Done: translated texts are `tl.model.i18n:I18NString` attributes, filled from the element's `DefaultLanguage` and the `Languages` sections. Only the languages the application offers (de, en) are stored. | |
 | 4 | ~~Device details~~ | Done: `Device` title, description, installation hints, serial number, download state (`loaded`, `lastModified`, `lastDownload`, derived `downloadPending`), `Connector#active`, `Project#unassignedDevices`. `Comment` (RTF) is not imported. | |
-| 5 | Ranges and address details: `GroupRange` RangeStart/RangeEnd, `GroupAddress` Central, Description, Comment | Ranges cannot be checked or extended; descriptions are lost. | yes |
+| 5 | ~~Group range and address details~~ | Done: `GroupRange#rangeStart`/`rangeEnd` (type `GA`), `unfiltered`, `description`, `GroupAddress#central`, ETS-style labels (`displayName`), constraint `WithinGroupRange`. `Comment` (RTF) and `Global` (meaning unclear) are not imported. | |
 | 6 | `Dynamic/choose` directly below `Dynamic` (channels that exist only for some parameter values) | Such channels are skipped entirely. | no |
 | 7 | UI structure of parameters: `ParameterSeparator`, `Assign`, `ParameterBlockRename`, `ParameterCalculations` | Parameter pages look different from ETS; `Assign` changes parameter values. | `ParameterSeparator` 12, `Assign` 4 |
 | 8 | Parameter type details: `TypeFloat`, `TypeTime`, `TypeDate`, `TypeIPAddress` attributes (range, unit, encoding), `TypePicture`, `TypeNumber@UIHint`, `TypeText@Pattern` | The model has `FloatingPointType`, `TimeType`, `DateType`, `IPAddressType`, but without their properties, so such values cannot be validated or shown properly. | no |
@@ -50,6 +50,12 @@ Ordered by how much they limit E-Home. "In samples" says whether the fixtures co
 | 11 | Hardware properties: `IsCoupler`, `IsPowerSupply`, `IsIPEnabled`, `BusCurrent`, `HasIndividualAddress`, …; `Product` `IsRailMounted`, `WidthInMillimeter`; Manufacturer `KnxManufacturerId` | Device classification and planning data. | yes |
 
 Not needed for E-Home: `ProjectInformation` bookkeeping (numbers, dates, passwords, tracing), `HistoryEntries`, `ToDoItems`, `ProjectTraces`, `UserFiles`, `AddInData`, `SplitInfos`, `Baggages`, `PublicKeys`, `OrderNumberFormattingScript`, `InterfaceObject*`, `PropertyDataTypes`, `MediumTypes`, and all `Hash`/`CheckSums`/`NonRegRelevantDataVersion`/`CompletionStatus` attributes.
+
+## Open questions
+
+- **Time zone of dates.** ETS writes dates without a time zone (`DeviceInstance@LastModified="2018-07-06T21:12:07"`, `LastDownload`). The import reads them as UTC (`DateValueProvider`), so `21:12` in the file shows as `23:12` in summer time in the app. Whether ETS means UTC or local time is not known yet; compare with the time ETS itself shows for a device of a real export, then adjust the format if needed.
+
+- **Comments in RTF.** ETS stores comments as RTF documents, and the import skips them: `DeviceInstance@Comment` (gap 4), `GroupRange@Comment` and `GroupAddress@Comment` (gap 5), and likewise the comments of areas, lines, building parts and the project. Importing them needs an RTF conversion (e.g. to `tl.core:Html`) and an export of samples that actually contain comments.
 
 ## Limits of this analysis
 

@@ -61,6 +61,28 @@ public enum GroupAddressStyle {
 	}
 
 	/**
+	 * The part of the addresses of a group range that all its addresses share, as ETS labels the
+	 * range: the main group (<code>8</code>) for a main group range, main and middle group
+	 * (<code>8/0</code>) for a middle group range in the three-level notation.
+	 *
+	 * @return The prefix, or <code>null</code> if the range is no main or middle group in this
+	 *         notation.
+	 */
+	public String rangePrefix(int start, int end) {
+		switch (this) {
+			case ThreeLevel:
+				if (start >> 8 == end >> 8) {
+					return ((start >> 11) & 0x1F) + "/" + ((start >> 8) & 0x07);
+				}
+				return start >> 11 == end >> 11 ? Integer.toString((start >> 11) & 0x1F) : null;
+			case TwoLevel:
+				return start >> 11 == end >> 11 ? Integer.toString((start >> 11) & 0x1F) : null;
+			default:
+				return null;
+		}
+	}
+
+	/**
 	 * Reads a group address written in this notation.
 	 *
 	 * @throws TopLogicException

@@ -924,6 +924,10 @@
 														
 														<property name="extId" xml-attribute="Id"/>
 														<property name="name" xml-attribute="Name"/>
+														<property name="rangeStart" xml-attribute="RangeStart" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+														<property name="rangeEnd" xml-attribute="RangeEnd" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+														<property name="unfiltered" xml-attribute="Unfiltered" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+														<property name="description" xml-attribute="Description"/>
 
 														<ref handler-id="group-addresses-type"/>
 													</object>
@@ -938,6 +942,9 @@
 														<property name="extId" xml-attribute="Id"/>
 														<property name="name" xml-attribute="Name"/>
 														<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+														<property name="central" xml-attribute="Central" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+														<property name="unfiltered" xml-attribute="Unfiltered" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+														<property name="description" xml-attribute="Description"/>
 														<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 
 														<dispatch/>

@@ -37,6 +37,13 @@
 				<property name="name"
 					type="tl.core:String"
 				/>
+				<property name="description"
+					type="tl.core:Text"
+				/>
+				<!-- Couplers pass the telegrams to these addresses without filtering. -->
+				<property name="unfiltered"
+					type="tl.core:Boolean"
+				/>
 			</attributes>
 		</interface>
 		<class name="GroupAddress">
@@ -46,6 +53,7 @@
 			<annotations>
 				<table name="EHGroupAddress"/>
 				<instance-presentation icon="css:fa-solid fa-at"/>
+				<id-column value="displayName"/>
 			</annotations>
 			<attributes>
 				<property name="address"
@@ -59,6 +67,29 @@
     .firstElement()
     .get(`ehome.project:Project#groupAddressStyle`)]]></style>
 						</ga-style>
+						<constraints>
+							<constraint class="de.haumacher.ehome.knx.WithinGroupRange"/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- An address of a central function (e.g. all off), which couplers treat specially. -->
+				<property name="central"
+					type="tl.core:Boolean"
+				/>
+				<!-- The label ETS lists the address with: address and name. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[ga -> {
+    address = $ga.get(`ehome.logical:GroupAddress#address`);
+    name = $ga.get(`ehome.logical:GroupAddressDefinition#name`);
+    if($address == null, $name, "{0} {1}".fill($address, $name))
+}]]></expr>
+							</query>
+						</storage-algorithm>
 					</annotations>
 				</property>
 				<reference name="datapointTypes"
@@ -100,8 +131,59 @@
 			<annotations>
 				<table name="EHGroupAddress"/>
 				<instance-presentation icon="css:fa-solid fa-arrows-left-right-to-line"/>
+				<id-column value="displayName"/>
 			</annotations>
 			<attributes>
+				<!-- The first address of the range, in the notation of the project. -->
+				<property name="rangeStart"
+					type="GA"
+				>
+					<annotations>
+						<ga-style>
+							<style><![CDATA[ga -> recursion($ga, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.project:Project`))
+    .firstElement()
+    .get(`ehome.project:Project#groupAddressStyle`)]]></style>
+						</ga-style>
+						<constraints>
+							<constraint class="de.haumacher.ehome.knx.WithinGroupRange"/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The last address of the range. -->
+				<property name="rangeEnd"
+					type="GA"
+				>
+					<annotations>
+						<ga-style>
+							<style><![CDATA[ga -> recursion($ga, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.project:Project`))
+    .firstElement()
+    .get(`ehome.project:Project#groupAddressStyle`)]]></style>
+						</ga-style>
+						<constraints>
+							<constraint class="de.haumacher.ehome.knx.WithinGroupRange"/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The label ETS lists the range with: the main group (8) or main and middle group (8/0), and the name. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[r -> {
+    prefix = groupRangePrefix(
+        $r.get(`ehome.logical:GroupRange#rangeStart`),
+        $r.get(`ehome.logical:GroupRange#rangeEnd`));
+    name = $r.get(`ehome.logical:GroupAddressDefinition#name`);
+    if($prefix == null, $name, "{0} {1}".fill($prefix, $name))
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<reference name="parts"
 					composite="true"
 					kind="forwards"

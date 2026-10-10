@@ -21,6 +21,7 @@
 			<instance>
 				<methods>
 					<method name="knxNetworkInterfaces" class="de.haumacher.ehome.discover.KnxNetworkInterfaces$Builder"/>
+					<method name="groupRangePrefix" class="de.haumacher.ehome.knx.GroupRangePrefix$Builder"/>
 				</methods>
 			</instance>
 		</config>

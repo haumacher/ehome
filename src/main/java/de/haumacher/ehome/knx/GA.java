@@ -64,6 +64,15 @@ public final class GA implements Comparable<GA> {
 		return new GA(value, style);
 	}
 
+	/**
+	 * The prefix ETS labels the group range from this address to the given end with.
+	 *
+	 * @see GroupAddressStyle#rangePrefix(int, int)
+	 */
+	public String rangePrefix(GA end) {
+		return (_style == null ? GroupAddressStyle.DEFAULT : _style).rangePrefix(_value, end._value);
+	}
+
 	@Override
 	public boolean equals(Object obj) {
 		return obj instanceof GA other && other._value == _value;
