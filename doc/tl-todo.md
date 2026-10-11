@@ -75,7 +75,7 @@ the engine's XML import (`com.top_logic.xio`) cannot do yet:
   unknown IDs. **When available:** declare the lookup in `etsImporter.xml`, and express the
   translations with `<with-var>`, `<object-ref>` (optional), `<switch>` and `<set-translation>`.
 
-## Derived references and the commit check (ticket pending)
+## Derived references and the commit check (TL #29798)
 
 A derived reference (`<storage-algorithm><query>`) is computed with security disabled in its
 expression, but `AttributeByExpression#getAttributeValue` runs it through a `QueryExecutor` whose
@@ -98,7 +98,7 @@ references) instead of reading the derived `valueType`.
 
 **When fixed:** read `ParameterValue#valueType` in those scripts instead of calling the function.
 
-## Derived attributes in a form in edit mode (ticket pending)
+## Derived attributes in a form in edit mode (TL #29799)
 
 A derived attribute shown in a form does not follow the values entered in the same form: in the
 details of a placed parameter (`catalogs/program.view.xml`), "Wirksame Vorgabe"
@@ -121,7 +121,7 @@ for the derived fields: they are correct after saving.
 
 **When fixed:** call `parameterValueType` in the visibility and options scripts of `ParameterValue`.
 
-## Model change of an existing database: new generalization with overrides (ticket pending)
+## Model change of an existing database: new generalization with overrides (TL #29800)
 
 Adding a generalization to a class and, in the same change, overriding attributes of the new
 generalization (`ehome.physical:ParameterSetting` became an `ehome.operational:ParameterValue` and
@@ -146,3 +146,6 @@ typed attributes are labeled on the interface only.
 - TL #29792: see above (default transition animations in the engine).
 - TL #29793: developer-docs recipe for an application-defined primitive type (group addresses).
 - TL #29794 to #29797: see above (XML import).
+- TL #29798: see above (derived references in the commit check).
+- TL #29799: see above (derived fields and Java script functions in forms).
+- TL #29800: see above (model patch of a new generalization with overrides).
