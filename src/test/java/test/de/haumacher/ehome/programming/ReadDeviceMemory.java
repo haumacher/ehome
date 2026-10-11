@@ -16,7 +16,7 @@ import java.util.HexFormat;
 import java.util.List;
 
 import tuwien.auto.calimero.IndividualAddress;
-import tuwien.auto.calimero.exception.KNXException;
+import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.link.KNXNetworkLink;
 import tuwien.auto.calimero.link.KNXNetworkLinkIP;
 import tuwien.auto.calimero.link.medium.TPSettings;
@@ -76,7 +76,7 @@ public class ReadDeviceMemory {
 
 		InetSocketAddress local = new InetSocketAddress(localAddressTowards(GATEWAY.getAddress()), 0);
 		System.out.println("Connecting " + local + " -> " + GATEWAY);
-		KNXNetworkLink link = new KNXNetworkLinkIP(KNXNetworkLinkIP.TUNNELING, local, GATEWAY, false, TPSettings.TP1);
+		KNXNetworkLink link = KNXNetworkLinkIP.newTunnelingLink(local, GATEWAY, false, new TPSettings());
 		try {
 			ManagementClientImpl management = new ManagementClientImpl(link);
 			try {

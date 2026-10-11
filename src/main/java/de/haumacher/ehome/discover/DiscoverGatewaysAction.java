@@ -8,6 +8,7 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -24,8 +25,10 @@ import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
 import com.top_logic.util.error.TopLogicException;
 
-import tuwien.auto.calimero.exception.KNXException;
+import tuwien.auto.calimero.KNXException;
+import tuwien.auto.calimero.SerialNumber;
 import tuwien.auto.calimero.knxnetip.Discoverer;
+import tuwien.auto.calimero.knxnetip.Discoverer.Result;
 import tuwien.auto.calimero.knxnetip.servicetype.SearchResponse;
 import tuwien.auto.calimero.knxnetip.util.DeviceDIB;
 
@@ -93,7 +96,7 @@ public class DiscoverGatewaysAction implements ViewAction {
 		boolean useNat = flag(settings.get("use-nat"), _config.getUseNat());
 		boolean useMulticast = flag(settings.get("use-multicast"), _config.getUseMulticast());
 
-		SearchResponse[] responses;
+		List<Result<SearchResponse>> responses;
 		try {
 			InetAddress localAddress = localHost.isEmpty() ? null : InetAddress.getByName(localHost);
 			Discoverer discoverer = new Discoverer(localAddress, 0, useNat, useMulticast);
@@ -120,12 +123,15 @@ public class DiscoverGatewaysAction implements ViewAction {
 		// interface it searches on every interface, and with multicast responses each of those
 		// sockets receives every answer. Merge the answers by the identity of the gateway.
 		Map<String, Map<String, Object>> gateways = new LinkedHashMap<>();
-		for (SearchResponse response : responses) {
+		for (Result<SearchResponse> result : responses) {
+			SearchResponse response = result.response();
 			DeviceDIB device = response.getDevice();
 			String endpoint = response.getControlEndpoint().getAddress().getHostAddress() + ":"
 				+ response.getControlEndpoint().getPort();
-			String serial = device.getSerialNumberString();
-			String key = serial.isEmpty() ? device.getMACAddressString() + "/" + endpoint : serial;
+			// Formats of Calimero 2.2: the serial number as plain hex digits, the MAC address with dashes.
+			String serial = HexFormat.of().formatHex(device.serialNumber().array());
+			String mac = HexFormat.ofDelimiter("-").formatHex(device.getMACAddress());
+			String key = device.serialNumber().equals(SerialNumber.Zero) ? mac + "/" + endpoint : serial;
 			if (gateways.containsKey(key)) {
 				continue;
 			}
@@ -133,7 +139,7 @@ public class DiscoverGatewaysAction implements ViewAction {
 			row.put("name", device.getName());
 			row.put("address", device.getAddress().toString());
 			row.put("endpoint", endpoint);
-			row.put("mac", device.getMACAddressString());
+			row.put("mac", mac);
 			row.put("serial", serial);
 			row.put("medium", device.getKNXMediumString());
 			gateways.put(key, row);
