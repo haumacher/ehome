@@ -119,7 +119,16 @@ write the navigation to the parameter type in TL-Script instead of calling `para
 the constraints (run at save and commit) and the display keep calling the function. No workaround
 for the derived fields: they are correct after saving.
 
-**When fixed:** call `parameterValueType` in the visibility and options scripts of `ParameterValue`.
+The configuration of a device (`projects/devices.view.xml`, `projects/device-item.view.xml`) is
+computed by Java functions (`DeviceFunctions`: `deviceValue`, `deviceItems`, `devicePages`, …),
+because `DeviceConfiguration` is the one definition of what the device's values select. It is shown
+in channels, a tree and an object list, not in a form: these name the settings, connectors and
+connections of devices in `observed-types`, and the tree takes the selected cases of the switches
+(`deviceSelectedCases`) as an input, so that a change of a value rebuilds the pages it opens or
+closes.
+
+**When fixed:** call `parameterValueType` in the visibility and options scripts of `ParameterValue`;
+the `observed-types` of the device configuration may stay (they are what the channels need anyway).
 
 ## Model change of an existing database: new generalization with overrides (TL #29800)
 
@@ -159,7 +168,8 @@ A `<table>` inside a `<switch>` case whose rows read an input channel fails with
 so that the case is removed: the switch disposes the table, and the observer, still in the
 channel's listener snapshot, re-evaluates on a null scope. The user sees an error toast; the change
 itself goes through. In the app: the entries table of an enumeration type in
-`projects/devices.view.xml` (select an enumeration setting, then a line in the tree) and in
+`projects/devices.view.xml` (select an enumeration setting, then a line in the tree; or reset the
+selected setting to its default in the tab "Geänderte Werte", which removes it) and in
 `catalogs/program.view.xml` (select an enumeration parameter, then another node).
 
 Workaround: none for the structure tab (the toast is left visible). The types tab of
@@ -205,10 +215,12 @@ shows the radio buttons "Kein Wert", "Im ausgewählten Element (am Ende)", "Nach
 Element".
 
 Workaround: none needed beyond the channel: the position choice of
-`catalogs/create-structure.view.xml` is a derived channel with a `reverse`, so choosing "no value"
-falls back to the default position; the option stays visible.
+`catalogs/create-structure.view.xml` and the direction of a connection in
+`projects/connect-group-address.view.xml` are derived channels with a `reverse`, so choosing "no
+value" falls back to the default; the option stays visible. The value of a parameter in
+`projects/device-item.view.xml` treats an emptied input as the default.
 
-**When available:** declare the position choice mandatory.
+**When available:** declare the position choice and the direction of a connection mandatory.
 
 ## A singleton turns every generated wrapper of its module into a structured element (TL #29806)
 
@@ -236,6 +248,21 @@ Workaround: the enumeration of the memory a load step writes to is named `Memory
 
 **When available:** nothing to undo; the name may stay.
 
+## A text or number input applies its value on Enter only (TL #29808)
+
+The `<on-submit>` command of a text or number `<value-input>` runs for the Enter gesture only; a
+value committed by leaving the field writes the channel but does not run the command
+(`ValueInputElement.followSubmit`, `ReactFormFieldControl.hasSubmitGesture`). A select, date or
+checkbox input submits on every commit. The parameter inputs of a device
+(`projects/device-item.view.xml`) store their value through `deviceApplyValue` in `<on-submit>`, so
+a typed value stays unapplied until Enter is pressed.
+
+Workaround: the text and number inputs carry the placeholder "Übernehmen mit Enter" / "Apply with
+Enter".
+
+**When available:** run the apply command on every commit (or move it to the `<on-change>` hook)
+and drop the placeholder.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -256,3 +283,4 @@ Workaround: the enumeration of the memory a load step writes to is named `Memory
 - TL #29805: see above (mandatory `<value-input>`).
 - TL #29806: see above (singleton and generated wrappers; when available: dissolve `ehome.mask`).
 - TL #29807: see above (classifier constant names).
+- TL #29808: see above (apply on Enter only).

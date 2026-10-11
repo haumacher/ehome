@@ -147,19 +147,40 @@ public class ParameterValues {
 		if (holder == null) {
 			return null;
 		}
-		String attribute = valueAttribute(valueType(holder));
-		Object value = attribute == null ? null : holder.tValueByName(attribute);
-		if (value instanceof EnumerationValue entry) {
-			return Integer.toString(entry.getValue());
-		}
-		if (value instanceof Number number && attribute.equals(DECIMAL)) {
-			return encodeDecimal(number.doubleValue());
-		}
-		if (value != null) {
-			return value.toString();
+		String encoded = encodeValue(valueType(holder), value(holder));
+		if (encoded != null) {
+			return encoded;
 		}
 		// A value that could not be decoded is kept as text.
 		return (String) holder.tValueByName(TEXT);
+	}
+
+	/**
+	 * The typed value of the given holder: the attribute fitting the kind of its type (an
+	 * {@link EnumerationValue}, a {@link Long}, a {@link Double} or a {@link String});
+	 * <code>null</code> if it holds none, or only a value that could not be decoded for its type.
+	 */
+	public static Object value(TLObject holder) {
+		if (holder == null) {
+			return null;
+		}
+		String attribute = valueAttribute(valueType(holder));
+		return attribute == null ? null : holder.tValueByName(attribute);
+	}
+
+	/**
+	 * A typed value of the given type in the notation of ETS, <code>null</code> for no value.
+	 *
+	 * @see #value(TLObject)
+	 */
+	public static String encodeValue(ParameterType type, Object value) {
+		if (value instanceof EnumerationValue entry) {
+			return Integer.toString(entry.getValue());
+		}
+		if (value instanceof Number number && DECIMAL.equals(valueAttribute(type))) {
+			return encodeDecimal(number.doubleValue());
+		}
+		return value == null ? null : value.toString();
 	}
 
 	/**

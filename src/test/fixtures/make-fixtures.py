@@ -7,8 +7,11 @@ Test project adds them, and marks the device as fully downloaded after its last 
 
 TestDynamic.knxproj: the samples contain no channels that depend on a parameter (a choose directly
 below Dynamic). This copy gives the application program a new ID (so that an import does not skip it
-as known), a name marking it as test data, and wraps its channel in such a choose (on a parameter
-chosen only for the test), with a default case. The samples contain only enumeration, integer, text and
+as known), a name marking it as test data, and wraps its channel in such a choose, with a default
+case. The choose decides by a parameter added for the test ("Kanal Generic", an enumeration "Aus" 0 /
+"Ein" 1 with the default "Ein", stored nowhere in the device), which a block of its own in a channel
+independent part shows; the channel is therefore shown by default and hidden when the parameter is
+set to "Aus". The samples contain only enumeration, integer, text and
 void parameter types; the program of this copy adds one parameter of every other kind (floating point,
 time, text with a pattern, date, IP address) to its block "Allgemein", with a default each, and the
 device sets the floating point parameter. The values are written in the notation of XML (a decimal
@@ -83,12 +86,12 @@ def details(xml):
 
 
 PROGRAM = 'M-0008_A-10D7-11-A0E5-O000A'
-NEW_PROGRAM = 'M-0008_A-10D7-11-A0E5-O000D'
+NEW_PROGRAM = 'M-0008_A-10D7-11-A0E5-O000E'
 
 
 # The version suffix shared by the IDs of the program and of its assignment to the hardware.
 VERSION = '10D7-11-A0E5-O000A'
-NEW_VERSION = '10D7-11-A0E5-O000D'
+NEW_VERSION = '10D7-11-A0E5-O000E'
 
 
 def dynamic(name, xml):
@@ -105,13 +108,22 @@ def dynamic(name, xml):
         start = xml.index(channel)
         end = xml.index('</Channel>', start) + len('</Channel>')
         xml = (xml[:start]
-            + '<choose ParamRefId="' + NEW_PROGRAM + '_P-3762_R-3762"><when test="1">'
+            + CHANNEL_SWITCH_BLOCK
+            + '<choose ParamRefId="' + NEW_PROGRAM + '_P-' + CHANNEL_SWITCH + '_R-' + CHANNEL_SWITCH
+            + '"><when test="1">'
             + xml[start:end]
             + '</when><when default="true" /></choose>'
             + xml[end:])
         xml = typed_parameters(xml)
         xml = download_data(xml)
     return xml
+
+
+# The parameter the channel depends on, and the block showing it outside the channel.
+CHANNEL_SWITCH = '9010'
+CHANNEL_SWITCH_BLOCK = ('<ChannelIndependentBlock><ParameterBlock Id="' + NEW_PROGRAM + '_PB-' + CHANNEL_SWITCH
+    + '" Name="Test" Text="Test"><ParameterRefRef RefId="' + NEW_PROGRAM + '_P-' + CHANNEL_SWITCH + '_R-'
+    + CHANNEL_SWITCH + '" /></ParameterBlock></ChannelIndependentBlock>\n')
 
 
 # Parameter types, parameters and references of the kinds the samples lack (IDs in the ETS scheme of
@@ -127,6 +139,11 @@ NEW_TYPES = [
     ('Test.5FIP', 'Test_IP', '<TypeIPAddress AddressType="GatewayAddress" />'),
     ('Test.5FPercent', 'Test_Percent',
         '<TypeNumber SizeInBit="8" Type="unsignedInt" minInclusive="0" maxInclusive="100" />'),
+    ('Test.5FSwitch', 'Test_Switch',
+        '<TypeRestriction Base="Value" SizeInBit="1">'
+        + '<Enumeration Id="' + NEW_PROGRAM + '_PT-Test.5FSwitch_EN-0" DisplayOrder="0" Text="Aus" Value="0" />'
+        + '<Enumeration Id="' + NEW_PROGRAM + '_PT-Test.5FSwitch_EN-1" DisplayOrder="1" Text="Ein" Value="1" />'
+        + '</TypeRestriction>'),
 ]
 NEW_PARAMETERS = [
     ('9001', 'Test.5FFloat', 'Sollwert', '20.5'),
@@ -136,6 +153,8 @@ NEW_PARAMETERS = [
     ('9005', 'Test.5FIP', 'Gateway', '192.168.1.1'),
     # A value outside the range of its type: kept as text by the import, reported as a warning.
     ('9006', 'Test.5FPercent', 'Helligkeit', '300'),
+    # The parameter the channel depends on (placed in a block of its own, see CHANNEL_SWITCH_BLOCK).
+    (CHANNEL_SWITCH, 'Test.5FSwitch', 'Kanal Generic', '1'),
 ]
 # The values the device of the project sets: the floating point parameter, and the parameter whose
 # value does not fit its type.
@@ -152,7 +171,7 @@ def typed_parameters(xml):
     refs = ''.join('<ParameterRef Id="' + prefix + 'P-' + pid + '_R-' + pid + '" RefId="' + prefix + 'P-'
         + pid + '" Tag="' + pid + '" />\n' for pid, _, _, _ in NEW_PARAMETERS)
     placements = ''.join('<ParameterRefRef RefId="' + prefix + 'P-' + pid + '_R-' + pid + '" />\n'
-        for pid, _, _, _ in NEW_PARAMETERS)
+        for pid, _, _, _ in NEW_PARAMETERS if pid != CHANNEL_SWITCH)
     for end, content in (('</ParameterTypes>', types), ('</Parameters>', parameters),
                          ('</ParameterRefs>', refs)):
         assert xml.count(end) == 1

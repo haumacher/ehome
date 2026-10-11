@@ -8,13 +8,18 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.Case;
+import de.haumacher.ehome.model.operational.Channel;
+import de.haumacher.ehome.model.operational.ChannelIndependent;
 import de.haumacher.ehome.model.operational.ConfigFragment;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Option;
@@ -24,6 +29,7 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.Switch;
+import de.haumacher.ehome.model.operational.VoidType;
 
 /**
  * The configuration of a device (<code>ehome.physical:Device</code>): the effective value of each
@@ -40,9 +46,17 @@ import de.haumacher.ehome.model.operational.Switch;
  * </p>
  *
  * <p>
- * Haumacher/ehome #4 (device configuration by the program structure) is to replace the inside of
- * {@link #valueHolder(TLObject, ParameterView)}; the walk here is the minimal one the download image
- * needs.
+ * The same walk gives the configuration as a person reads it (haumacher/ehome #4): the pages
+ * (channels, the channel independent part and parameter blocks, {@link #getPages(Object)}) in their
+ * hierarchy, and on each page the parameters and communication objects shown there
+ * ({@link #getItems(Object)}), switches resolved. The device itself stands for the top of the
+ * structure. What the walk leaves out is not part of the configuration: neither shown nor written
+ * into the device.
+ * </p>
+ *
+ * <p>
+ * Values are changed through {@link DeviceSettings}, which keeps a setting exactly where a value
+ * differs from its default.
  * </p>
  */
 public class DeviceConfiguration {
@@ -57,6 +71,14 @@ public class DeviceConfiguration {
 
 	private final Map<Port, Interface> _activeInterfaces = new LinkedHashMap<>();
 
+	private final List<Case> _selectedCases = new ArrayList<>();
+
+	private final Map<Object, Set<ConfigFragment>> _pages = new HashMap<>();
+
+	private final Map<Object, Set<Option>> _items = new HashMap<>();
+
+	private final Map<ConfigFragment, Object> _parents = new HashMap<>();
+
 	/**
 	 * Creates the {@link DeviceConfiguration} of the given device.
 	 */
@@ -70,7 +92,7 @@ public class DeviceConfiguration {
 			}
 		}
 		if (_program != null) {
-			walk(_program);
+			walk(_program, device);
 		}
 	}
 
@@ -105,9 +127,11 @@ public class DeviceConfiguration {
 	 * setting for it, else the placement itself if it sets a default of its own, else the parameter.
 	 *
 	 * <p>
-	 * This is the one definition of a device's effective parameter value until haumacher/ehome #4
-	 * replaces its inside. The result is a {@link de.haumacher.ehome.model.operational.ParameterValue}
-	 * holder: {@link ParameterValues#encode(TLObject)} gives the value in ETS notation.
+	 * This is the one definition of a device's effective parameter value, shared by the view of the
+	 * device's configuration, the editing of a value ({@link DeviceSettings}) and the download image.
+	 * The result is a {@link de.haumacher.ehome.model.operational.ParameterValue} holder:
+	 * {@link ParameterValues#encode(TLObject)} gives the value in ETS notation,
+	 * {@link ParameterValues#value(TLObject)} the typed value.
 	 * </p>
 	 */
 	public static TLObject valueHolder(TLObject device, ParameterView view) {
@@ -129,7 +153,11 @@ public class DeviceConfiguration {
 		return setting != null ? setting : defaultHolder(view);
 	}
 
-	private static TLObject defaultHolder(ParameterView view) {
+	/**
+	 * The object holding the default of the given placement: the placement itself if it sets a
+	 * default of its own, else its parameter.
+	 */
+	public static TLObject defaultHolder(ParameterView view) {
 		if (holdsValue(view)) {
 			return view;
 		}
@@ -166,31 +194,48 @@ public class DeviceConfiguration {
 		return Collections.unmodifiableMap(_activeInterfaces);
 	}
 
-	private void walk(ConfigFragment fragment) {
+	private void walk(ConfigFragment fragment, Object page) {
 		for (Option option : fragment.getContents()) {
-			walk(option);
+			walk(option, page);
 		}
 	}
 
-	private void walk(Option option) {
+	private void walk(Option option, Object page) {
 		if (option instanceof ParameterView view) {
 			addView(view);
+			addItem(page, view);
 		} else if (option instanceof Interface placed) {
 			_activeInterfaces.putIfAbsent(placed.getPort(), placed);
+			addItem(page, placed);
 		} else if (option instanceof Switch choice) {
 			Case selected = select(choice);
 			if (selected != null) {
-				walk(selected);
+				_selectedCases.add(selected);
+				walk(selected, page);
 			}
-		} else {
+		} else if (option instanceof ConfigFragment fragment) {
+			Object inner = page;
+			if (isPage(fragment)) {
+				_pages.computeIfAbsent(page, x -> new LinkedHashSet<>()).add(fragment);
+				_parents.put(fragment, page);
+				inner = fragment;
+			}
 			if (option instanceof ParameterGroup group && group.getInput() != null) {
 				// The parameter a block shows as its title is in effect with the block.
 				addView(group.getInput());
+				addItem(inner, group.getInput());
 			}
-			if (option instanceof ConfigFragment fragment) {
-				walk(fragment);
-			}
+			walk(fragment, inner);
 		}
+	}
+
+	private static boolean isPage(ConfigFragment fragment) {
+		return fragment instanceof Channel || fragment instanceof ChannelIndependent
+			|| fragment instanceof ParameterGroup;
+	}
+
+	private void addItem(Object page, Option item) {
+		_items.computeIfAbsent(page, x -> new LinkedHashSet<>()).add(item);
 	}
 
 	private void addView(ParameterView view) {
@@ -198,6 +243,145 @@ public class DeviceConfiguration {
 		if (parameter != null) {
 			_activeViews.putIfAbsent(parameter, view);
 		}
+	}
+
+	/**
+	 * The cases of the switches in effect, in the order of the structure: what the values of the
+	 * device select. Two configurations with the same cases show the same structure.
+	 */
+	public List<Case> getSelectedCases() {
+		return Collections.unmodifiableList(_selectedCases);
+	}
+
+	/**
+	 * The pages directly below the given one, in the order of the structure: the channels, the
+	 * channel independent part and the parameter blocks in effect that are shown.
+	 *
+	 * @param page
+	 *        The device for the top of the structure, otherwise a page of this configuration.
+	 * @return The pages; empty for anything that is no page in effect.
+	 */
+	public List<ConfigFragment> getPages(Object page) {
+		Set<ConfigFragment> pages = _pages.get(page);
+		if (pages == null) {
+			return Collections.emptyList();
+		}
+		List<ConfigFragment> result = new ArrayList<>();
+		for (ConfigFragment candidate : pages) {
+			if (!isHidden(candidate)) {
+				result.add(candidate);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The page the given page is shown in: the device for a page at the top, <code>null</code> for
+	 * anything that is no page in effect.
+	 */
+	public Object getParentPage(Object page) {
+		return _parents.get(page);
+	}
+
+	/**
+	 * Whether the given object is the device or a page in effect.
+	 */
+	public boolean isPage(Object page) {
+		return page == _device || _parents.containsKey(page);
+	}
+
+	/**
+	 * The parameters and communication objects shown on the given page, in the order of the
+	 * structure, with the cases of its switches resolved (pages nested in it not included).
+	 * Parameters ETS does not show (access <code>None</code>) are left out.
+	 *
+	 * @param page
+	 *        The device for the top of the structure, otherwise a page of this configuration.
+	 * @return The {@link ParameterView}s and {@link Interface}s; empty for anything that is no page
+	 *         in effect.
+	 */
+	public List<Option> getItems(Object page) {
+		Set<Option> items = _items.get(page);
+		if (items == null) {
+			return Collections.emptyList();
+		}
+		List<Option> result = new ArrayList<>();
+		for (Option item : items) {
+			if (!(item instanceof ParameterView view) || !"None".equals(accessName(view))) {
+				result.add(item);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Whether the given placement is shown in this configuration: on a page in effect and not
+	 * hidden by its access.
+	 */
+	public boolean isShown(ParameterView view) {
+		for (Map.Entry<Object, Set<Option>> entry : _items.entrySet()) {
+			if (entry.getValue().contains(view)) {
+				Object page = entry.getKey();
+				return !"None".equals(accessName(view))
+					&& (page == _device || !isHidden((ConfigFragment) page) && isPage(page));
+			}
+		}
+		return false;
+	}
+
+	private boolean isHidden(ConfigFragment page) {
+		for (Object current = page; current instanceof ConfigFragment fragment; current = _parents.get(fragment)) {
+			if (fragment instanceof ParameterGroup group && "None".equals(accessName(group))) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The name of the access of a placement (<code>None</code>, <code>Read</code>,
+	 * <code>Write</code>, <code>ReadWrite</code>): its own, otherwise that of its parameter,
+	 * otherwise <code>ReadWrite</code> (as ETS defaults it).
+	 */
+	public static String accessName(ParameterView view) {
+		TLClassifier access = view.getAccess();
+		if (access == null && view.getParameter() != null) {
+			access = view.getParameter().getAccess();
+		}
+		return access == null ? "ReadWrite" : access.getName();
+	}
+
+	/**
+	 * The name of the access of a parameter block: its own, otherwise that of the parameter it shows
+	 * as its title, otherwise <code>ReadWrite</code>.
+	 */
+	public static String accessName(ParameterGroup group) {
+		TLClassifier access = group.getAccess();
+		if (access != null) {
+			return access.getName();
+		}
+		return group.getInput() == null ? "ReadWrite" : accessName(group.getInput());
+	}
+
+	/**
+	 * Whether the value of the given placement can be changed: its access and that of every block
+	 * around it allows it, and its parameter has a value at all.
+	 */
+	public static boolean isEditable(ParameterView view) {
+		if (!editable(accessName(view))) {
+			return false;
+		}
+		for (TLObject container = view.tContainer(); container != null; container = container.tContainer()) {
+			if (container instanceof ParameterGroup group && group.getAccess() != null
+				&& !editable(group.getAccess().getName())) {
+				return false;
+			}
+		}
+		return !(ParameterValues.valueType(view) instanceof VoidType);
+	}
+
+	private static boolean editable(String access) {
+		return "ReadWrite".equals(access) || "Write".equals(access);
 	}
 
 	/**

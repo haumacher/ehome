@@ -40,3 +40,12 @@
 .ehomeDownloadPending {
 	color: var(--tl-status-warning-text);
 }
+
+/*
+ * An entry of a page of a device's configuration (projects/device-item.view.xml): the text of the
+ * parameter in a column of its own, the input and the hints beside it.
+ */
+.ehomeDeviceItem__label {
+	flex: 0 0 40%;
+	min-width: 12rem;
+}

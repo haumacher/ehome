@@ -33,6 +33,24 @@
 					<method name="structureMove" class="de.haumacher.ehome.knx.EhomeFunctions$StructureMove$Builder"/>
 					<method name="programDeleteVeto" class="de.haumacher.ehome.knx.EhomeFunctions$ProgramDeleteVeto$Builder"/>
 					<method name="programDelete" class="de.haumacher.ehome.knx.EhomeFunctions$ProgramDelete$Builder"/>
+					<!-- The configuration of a device (de.haumacher.ehome.programming.DeviceConfiguration, DeviceSettings): one builder, the function by its name. -->
+					<method name="deviceValue" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceValueHolder" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceSetting" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceEditVeto" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceSetValue" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceApplyValue" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceResetSetting" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="devicePages" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceParentPage" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceItems" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceSelectedCases" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceInterfaces" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceConnections" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceDefaultConnectionKind" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceGroupAddresses" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceConnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceDisconnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

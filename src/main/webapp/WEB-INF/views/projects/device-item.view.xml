@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	One entry of a page of a device's configuration (projects/devices.view.xml): a parameter placed
+	there with the device's value, or a communication object with its connections.
+
+	The value of a parameter is entered by the type of the parameter: an entry of an enumeration, a
+	whole number for an integer or a time, a number for a floating point type, a text for every other
+	type. The input shows the effective value (the device's setting, else the default); a value the
+	user finishes (a choice; Enter in a typed field) is applied at once in a transaction of its own
+	(deviceApplyValue): a value other than the default creates or changes the device's setting, the
+	default (or an emptied input) removes it. A refused value is reported with its reason, and the
+	input shows the effective value again. A parameter that can only be read
+	shows its value as text, a parameter without value (a heading) only its text.
+
+	The value is computed by Java functions, which a form cannot trace (TL #29799): the channels name
+	the settings of devices as observed types, so that they follow every change of a value.
+-->
+<view>
+	<channels>
+		<channel name="device"/>
+		<channel name="item"/>
+		<!--
+			What the input holds while it is not applied yet ("#none" for an emptied input): the reverse of
+			"value" writes it here, the submit empties it again, so that the input shows the effective
+			value afterwards, also when the value was refused or the input was emptied (which means the
+			default).
+		-->
+		<channel name="edit"/>
+		<derived-channel name="value"
+			expr="e -> d -> x -> if($e == null, deviceValue($d, $x), if($e == '#none', null, $e))"
+			inputs="edit, device, item"
+			observed-types="ehome.physical:ParameterSetting"
+			reverse="v -> if($v == null, '#none', $v)"
+		/>
+		<derived-channel name="type"
+			expr="x -> if($x.instanceOf(`ehome.operational:ParameterView`), $x.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`), null)"
+			inputs="item"
+		/>
+		<!-- How the entry is shown: a communication object, a heading, a value to read, or the kind of input. -->
+		<derived-channel name="kind"
+			inputs="device, item"
+			observed-types="ehome.physical:ParameterSetting"
+		>
+			<expr><![CDATA[d -> x -> if(!$x.instanceOf(`ehome.operational:ParameterView`), "object", {
+    t = $x.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+    switch {
+        $t.instanceOf(`ehome.operational:VoidType`): "heading";
+        deviceEditVeto($d, $x) != null: "readonly";
+        $t.instanceOf(`ehome.operational:EnumerationType`): "choice";
+        $t.instanceOf(`ehome.operational:NumericType`) or $t.instanceOf(`ehome.operational:TimeType`): "number";
+        $t.instanceOf(`ehome.operational:FloatingPointType`): "decimal";
+        default: "text";
+    }
+})]]></expr>
+		</derived-channel>
+		<derived-channel name="display"
+			expr="d -> x -> deviceValueHolder($d, $x).get(`ehome.operational:ParameterValue#displayValue`)"
+			inputs="device, item"
+			observed-types="ehome.physical:ParameterSetting"
+		/>
+		<!-- The device's setting of the parameter: set only where the value differs from the default. -->
+		<derived-channel name="setting"
+			expr="d -> x -> deviceSetting($d, $x)"
+			inputs="device, item"
+			observed-types="ehome.physical:ParameterSetting"
+		/>
+		<derived-channel name="defaultHint"
+			expr="s -> x -> if($s == null, null, #('Default: {0}'@en, 'Vorgabe: {0}'@de).fill($x.get(`ehome.operational:ParameterView#displayDefault`) || '–').localize())"
+			inputs="setting, item"
+		/>
+		<!-- The unit of a time. -->
+		<derived-channel name="unit"
+			expr="t -> if($t.instanceOf(`ehome.operational:TimeType`), $t.get(`ehome.operational:TimeType#unit`).label(), null)"
+			inputs="type"
+		/>
+		<!-- The connections of a communication object. -->
+		<derived-channel name="connections"
+			expr="d -> x -> if($x.instanceOf(`ehome.operational:Interface`), deviceConnections($d, $x), [])"
+			inputs="device, item"
+			observed-types="ehome.physical:Connection,ehome.physical:Connector"
+		/>
+	</channels>
+	<stack
+		align="center"
+		css-class="ehomeDeviceItem"
+		direction="row"
+		gap="compact"
+		wrap="true"
+	>
+		<text
+			css-class="ehomeDeviceItem__label"
+			input="item"
+		/>
+		<switch input="kind">
+			<case test="k -> $k == 'choice'">
+				<value-input
+					inputs="type"
+					label-position="hide-label"
+					options="t -> $t.get(`ehome.operational:EnumerationType#values`)"
+					type="ehome.operational:EnumerationValue"
+					value="value"
+				>
+					<label>
+						<en>Value</en>
+						<de>Wert</de>
+					</label>
+					<on-submit>
+						<with-transaction>
+							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
+								<inputs>
+									<input channel="device"/>
+									<input channel="item"/>
+								</inputs>
+							</execute-script>
+						</with-transaction>
+						<notify
+							expr="problem -> $problem"
+							kind="error"
+						/>
+						<execute-script function="x -> null"/>
+						<write-channel name="edit"/>
+					</on-submit>
+				</value-input>
+			</case>
+			<case test="k -> $k == 'number'">
+				<value-input
+					label-position="hide-label"
+					type="tl.core:Long"
+					value="value"
+				>
+					<label>
+						<en>Value</en>
+						<de>Wert</de>
+					</label>
+					<placeholder>
+						<en>Enter to apply</en>
+						<de>Übernehmen mit Enter</de>
+					</placeholder>
+					<on-submit>
+						<with-transaction>
+							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
+								<inputs>
+									<input channel="device"/>
+									<input channel="item"/>
+								</inputs>
+							</execute-script>
+						</with-transaction>
+						<notify
+							expr="problem -> $problem"
+							kind="error"
+						/>
+						<execute-script function="x -> null"/>
+						<write-channel name="edit"/>
+					</on-submit>
+				</value-input>
+			</case>
+			<case test="k -> $k == 'decimal'">
+				<value-input
+					label-position="hide-label"
+					type="tl.core:Double"
+					value="value"
+				>
+					<label>
+						<en>Value</en>
+						<de>Wert</de>
+					</label>
+					<placeholder>
+						<en>Enter to apply</en>
+						<de>Übernehmen mit Enter</de>
+					</placeholder>
+					<on-submit>
+						<with-transaction>
+							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
+								<inputs>
+									<input channel="device"/>
+									<input channel="item"/>
+								</inputs>
+							</execute-script>
+						</with-transaction>
+						<notify
+							expr="problem -> $problem"
+							kind="error"
+						/>
+						<execute-script function="x -> null"/>
+						<write-channel name="edit"/>
+					</on-submit>
+				</value-input>
+			</case>
+			<case test="k -> $k == 'text'">
+				<value-input
+					label-position="hide-label"
+					type="tl.core:String"
+					value="value"
+				>
+					<label>
+						<en>Value</en>
+						<de>Wert</de>
+					</label>
+					<placeholder>
+						<en>Enter to apply</en>
+						<de>Übernehmen mit Enter</de>
+					</placeholder>
+					<on-submit>
+						<with-transaction>
+							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
+								<inputs>
+									<input channel="device"/>
+									<input channel="item"/>
+								</inputs>
+							</execute-script>
+						</with-transaction>
+						<notify
+							expr="problem -> $problem"
+							kind="error"
+						/>
+						<execute-script function="x -> null"/>
+						<write-channel name="edit"/>
+					</on-submit>
+				</value-input>
+			</case>
+			<case test="k -> $k == 'readonly'">
+				<text input="display"/>
+			</case>
+			<case test="k -> $k == 'object'">
+				<text
+					input="connections"
+					tone="secondary"
+				/>
+			</case>
+		</switch>
+		<visible-if
+			expr="u -> $u != null"
+			input="unit"
+		>
+			<text input="unit"/>
+		</visible-if>
+		<!-- A value the project changed: its default, and the way back to it. -->
+		<visible-if
+			expr="s -> $s != null"
+			input="setting"
+		>
+			<stack
+				align="center"
+				direction="row"
+				gap="compact"
+			>
+				<text
+					input="defaultHint"
+					tone="secondary"
+				/>
+				<button
+					appearance="ghost"
+					size="small"
+				>
+					<action class="com.top_logic.layout.view.command.GenericViewCommand"
+						image="css:bi bi-arrow-counterclockwise"
+						input="setting"
+					>
+						<label>
+							<en>Reset to default</en>
+							<de>Auf Vorgabe zurücksetzen</de>
+						</label>
+						<executability>
+							<null-input-disabled/>
+						</executability>
+						<with-transaction>
+							<execute-script function="s -> deviceResetSetting($s)"/>
+						</with-transaction>
+					</action>
+				</button>
+			</stack>
+		</visible-if>
+	</stack>
+</view>

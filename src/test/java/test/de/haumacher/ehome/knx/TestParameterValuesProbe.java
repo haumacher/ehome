@@ -56,7 +56,7 @@ public class TestParameterValuesProbe extends BasicTestCase {
 
 	private static final String PROGRAM = "M-0008_A-10D7-11-A0E5-O000A_";
 
-	private static final String TYPED_PROGRAM = "M-0008_A-10D7-11-A0E5-O000D_";
+	private static final String TYPED_PROGRAM = "M-0008_A-10D7-11-A0E5-O000E_";
 
 	public void testProbe() throws Exception {
 		importSample("src/test/fixtures/TestDetails.knxproj");

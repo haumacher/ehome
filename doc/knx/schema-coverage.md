@@ -41,7 +41,7 @@ Ordered by how much they limit E-Home. "In samples" says whether the fixtures co
 | # | Missing | Why it matters | In samples |
 |---|---|---|---|
 | 1 | ~~Datapoint types~~ | Done: module `ehome.datapoint`, page "Datenpunkttypen". | |
-| 2 | ~~Parameter values~~ | Done: the typed values of `Parameter`, `ParameterView` and `ehome.physical:ParameterSetting` (`Device#settings`), table "Parametereinstellungen" of a device; see gap 8 for how they are typed. | |
+| 2 | ~~Parameter values~~ | Done: the typed values of `Parameter`, `ParameterView` and `ehome.physical:ParameterSetting` (`Device#settings`), tab "Geänderte Werte" of a device; edited by the structure of the program in the tab "Parameter" (haumacher/ehome #4: a setting exactly where a value differs from its default); see gap 8 for how they are typed. | |
 | 3 | ~~Translations~~ | Done: translated texts are `tl.model.i18n:I18NString` attributes, filled from the element's `DefaultLanguage` and the `Languages` sections. Only the languages the application offers (de, en) are stored. | |
 | 4 | ~~Device details~~ | Done: `Device` title, description, installation hints, serial number, download state (`loaded`, `lastModified`, `lastDownload`, derived `downloadPending`), `Connector#active`, `Project#unassignedDevices`. `Comment` (RTF) is not imported. | |
 | 5 | ~~Group range and address details~~ | Done: `GroupRange#rangeStart`/`rangeEnd` (type `GA`), `unfiltered`, `description`, `GroupAddress#central`, ETS-style labels (`displayName`), constraint `WithinGroupRange`. `Comment` (RTF) and `Global` (meaning unclear) are not imported. | |

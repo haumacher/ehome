@@ -221,15 +221,18 @@ public class TestEtsImport extends BasicTestCase {
 		assertNotNull(general.tValueByName("access"));
 		assertEquals(general.tValueByName("access"), derived(general, "effectiveAccess"));
 
-		// A channel that depends on a parameter: a switch directly in the program.
+		// A channel that depends on a parameter: a switch directly in the program, after the channel
+		// independent part showing the parameter.
 		importSample("src/test/fixtures/TestDynamic.knxproj");
 		TestDownloadDataImport.checkFixture();
-		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000D");
+		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000E");
 		List<?> top = (List<?>) dynamic.tValueByName("contents");
-		assertEquals(1, top.size());
-		TLObject choice = (TLObject) top.get(0);
+		assertEquals(2, top.size());
+		assertEquals("ehome.operational:ChannelIndependent",
+			TLModelUtil.qualifiedName(((TLObject) top.get(0)).tType()));
+		TLObject choice = (TLObject) top.get(1);
 		assertEquals("ehome.operational:Switch", TLModelUtil.qualifiedName(choice.tType()));
-		assertEquals("M-0008_A-10D7-11-A0E5-O000D_P-3762_R-3762",
+		assertEquals("M-0008_A-10D7-11-A0E5-O000E_P-9010_R-9010",
 			((TLObject) choice.tValueByName("input")).tValueByName("extId"));
 		List<?> cases = (List<?>) choice.tValueByName("alternatives");
 		assertEquals(2, cases.size());

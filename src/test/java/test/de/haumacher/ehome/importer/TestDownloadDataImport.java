@@ -334,7 +334,7 @@ public class TestDownloadDataImport extends BasicTestCase {
 	 * </p>
 	 */
 	public static void checkFixture() throws IOException {
-		String prefix = "M-0008_A-10D7-11-A0E5-O000D_";
+		String prefix = "M-0008_A-10D7-11-A0E5-O000E_";
 		Program program = program(prefix.substring(0, prefix.length() - 1));
 		List<RelativeSegment> relative = program.getSegments().stream()
 			.filter(RelativeSegment.class::isInstance)
