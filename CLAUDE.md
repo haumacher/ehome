@@ -6,7 +6,7 @@ E-Home: a TopLogic (8.0.0-alpha10, Java 17) web app that imports KNX ETS project
 
 ## Build, run, verify
 
-- Use the Maven wrapper `./mvnw` (Maven 3.9.16); TopLogic 8 requires Maven >= 3.8.9 and the system `mvn` is older.
+- Maven 3.9.16: the wrapper `./mvnw`, or `mvn` from `~/tools/maven` (first on the PATH via `~/.bashrc` and `~/.profile`). TopLogic 8 requires Maven >= 3.8.9; the distribution's `/usr/bin/mvn` is older and must not come first on the PATH.
 - Build: `./mvnw install`. The parent `com.top-logic:tl-parent-app` comes from the TopLogic Nexus repositories declared in `pom.xml`.
 - Lint: `./mvnw checkstyle:check` (rules in `checkstyle.xml`: copyright header, tab indentation, imports, braces). It is not bound to the build, so run it after Java edits.
 - Run: `./mvnw exec:java` starts the app with Jetty on port 8080 (`-Dtl.port=...` to change); `pom.xml` sets `tl_operation_mode=development` for it (without it, TopLogic 8 runs in production mode). Local runs use H2 (`deploy/local`, data in `tmp/`). The launch config `bin/launch/Start E-Home.launch` sets `-Dtl_initial_password=root1234` for the initial `root` login. The UI is at `/de.haumacher.ehome/view/` (the classic `/servlet/LayoutServlet` only shows the engine's administration); log in through the in-app dialog (there is no `login.jsp` any more).
@@ -14,6 +14,7 @@ E-Home: a TopLogic (8.0.0-alpha10, Java 17) web app that imports KNX ETS project
 - Tests: `./mvnw test -DskipTests=false` (the TopLogic parent skips tests by default). The generic `test.TestAll` from tl-basic collects every test under `src/test/java` and adds TopLogic conformance checks (copyright comments, normalized layouts, JSPs, I18N). Test classes go in package `test.<package>` and provide `suite()`; for KB/model access, wrap them like `TestEtsImport` (`KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(..., ModelService.Module.INSTANCE))`). Test-only config lives in `src/test/webapp/WEB-INF/conf/`.
 - Derived attributes (`<storage-algorithm><query>`) are computed with the reading user's access rights. A test runs without a person and reads them as `null`; read them as `root` (see `TestEtsImport.derived`).
 - Verify behavior changes by running the tests, then starting the app and checking it in the browser. For ETS import, use the sample projects in `samples/` (`Test.knxproj` has a single device).
+- Commit to `master` and push to `origin/master` after every verified change (standing directive). Feature branches and pull requests are for external contributors. The working method (agent briefs, probe review, gate, run loop) is the skill `ehome-workflow` in `.claude/skills/`.
 
 ## Generated code
 
