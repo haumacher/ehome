@@ -1017,6 +1017,27 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Interface#CAN_READ_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLReference getCanReadInterfaceAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceType().getPart(Interface.CAN_READ_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Interface#CAN_WRITE_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLReference getCanWriteInterfaceAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceType().getPart(Interface.CAN_WRITE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Interface#COMMUNICATION_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLReference getCommunicationInterfaceAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceType().getPart(Interface.COMMUNICATION_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Interface#DATAPOINT_TYPES_ATTR} of {@link Interface}.
 	 */
 	public static com.top_logic.model.TLReference getDatapointTypesInterfaceAttr() {
@@ -1052,10 +1073,45 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Interface#PRIORITY_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLReference getPriorityInterfaceAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceType().getPart(Interface.PRIORITY_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Interface#READ_ON_INIT_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLReference getReadOnInitInterfaceAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceType().getPart(Interface.READ_ON_INIT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Interface#SIZE_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLProperty getSizeInterfaceAttr() {
+		return (com.top_logic.model.TLProperty) getInterfaceType().getPart(Interface.SIZE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Interface#TAG_ATTR} of {@link Interface}.
 	 */
 	public static com.top_logic.model.TLProperty getTagInterfaceAttr() {
 		return (com.top_logic.model.TLProperty) getInterfaceType().getPart(Interface.TAG_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Interface#TRANSMISSION_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLReference getTransmissionInterfaceAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceType().getPart(Interface.TRANSMISSION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Interface#UPDATE_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLReference getUpdateInterfaceAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceType().getPart(Interface.UPDATE_ATTR);
 	}
 
 	/**
@@ -1266,6 +1322,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLReference getTypeParameterAttr() {
 		return (com.top_logic.model.TLReference) getParameterType().getPart(Parameter.TYPE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Parameter#UNION_BIT_OFFSET_ATTR} of {@link Parameter}.
+	 */
+	public static com.top_logic.model.TLProperty getUnionBitOffsetParameterAttr() {
+		return (com.top_logic.model.TLProperty) getParameterType().getPart(Parameter.UNION_BIT_OFFSET_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Parameter#UNION_OFFSET_ATTR} of {@link Parameter}.
+	 */
+	public static com.top_logic.model.TLProperty getUnionOffsetParameterAttr() {
+		return (com.top_logic.model.TLProperty) getParameterType().getPart(Parameter.UNION_OFFSET_ATTR);
 	}
 
 	/**
@@ -1721,6 +1791,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLReference getAssociationTableProgramAttr() {
 		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.ASSOCIATION_TABLE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#DYNAMIC_TABLE_MANAGEMENT_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getDynamicTableManagementProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.DYNAMIC_TABLE_MANAGEMENT_ATTR);
 	}
 
 	/**

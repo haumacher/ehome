@@ -16,6 +16,33 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	String INTERFACE_TYPE = "Interface";
 
 	/**
+	 * Part <code>canRead</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.common:Enablement</code> in configuration.
+	 * </p>
+	 */
+	String CAN_READ_ATTR = "canRead";
+
+	/**
+	 * Part <code>canWrite</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.common:Enablement</code> in configuration.
+	 * </p>
+	 */
+	String CAN_WRITE_ATTR = "canWrite";
+
+	/**
+	 * Part <code>communication</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.common:Enablement</code> in configuration.
+	 * </p>
+	 */
+	String COMMUNICATION_ATTR = "communication";
+
+	/**
 	 * Part <code>datapointTypes</code> of <code>Interface</code>
 	 * 
 	 * <p>
@@ -61,6 +88,33 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	String PORT_ATTR = "port";
 
 	/**
+	 * Part <code>priority</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.physical:Priority</code> in configuration.
+	 * </p>
+	 */
+	String PRIORITY_ATTR = "priority";
+
+	/**
+	 * Part <code>readOnInit</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.common:Enablement</code> in configuration.
+	 * </p>
+	 */
+	String READ_ON_INIT_ATTR = "readOnInit";
+
+	/**
+	 * Part <code>size</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String SIZE_ATTR = "size";
+
+	/**
 	 * Part <code>tag</code> of <code>Interface</code>
 	 * 
 	 * <p>
@@ -68,6 +122,66 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	 * </p>
 	 */
 	String TAG_ATTR = "tag";
+
+	/**
+	 * Part <code>transmission</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.common:Enablement</code> in configuration.
+	 * </p>
+	 */
+	String TRANSMISSION_ATTR = "transmission";
+
+	/**
+	 * Part <code>update</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.common:Enablement</code> in configuration.
+	 * </p>
+	 */
+	String UPDATE_ATTR = "update";
+
+	/**
+	 * Getter for part {@link #CAN_READ_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getCanRead() {
+		return (com.top_logic.model.TLClassifier) tValueByName(CAN_READ_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #CAN_READ_ATTR}.
+	 */
+	default void setCanRead(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(CAN_READ_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #CAN_WRITE_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getCanWrite() {
+		return (com.top_logic.model.TLClassifier) tValueByName(CAN_WRITE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #CAN_WRITE_ATTR}.
+	 */
+	default void setCanWrite(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(CAN_WRITE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #COMMUNICATION_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getCommunication() {
+		return (com.top_logic.model.TLClassifier) tValueByName(COMMUNICATION_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #COMMUNICATION_ATTR}.
+	 */
+	default void setCommunication(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(COMMUNICATION_ATTR, newValue);
+	}
 
 	/**
 	 * Getter for part {@link #DATAPOINT_TYPES_ATTR}.
@@ -148,6 +262,48 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	}
 
 	/**
+	 * Getter for part {@link #PRIORITY_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getPriority() {
+		return (com.top_logic.model.TLClassifier) tValueByName(PRIORITY_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #PRIORITY_ATTR}.
+	 */
+	default void setPriority(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(PRIORITY_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #READ_ON_INIT_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getReadOnInit() {
+		return (com.top_logic.model.TLClassifier) tValueByName(READ_ON_INIT_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #READ_ON_INIT_ATTR}.
+	 */
+	default void setReadOnInit(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(READ_ON_INIT_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #SIZE_ATTR}.
+	 */
+	default Integer getSize() {
+		return (Integer) tValueByName(SIZE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #SIZE_ATTR}.
+	 */
+	default void setSize(Integer newValue) {
+		tUpdateByName(SIZE_ATTR, newValue);
+	}
+
+	/**
 	 * Getter for part {@link #TAG_ATTR}.
 	 */
 	default Integer getTag() {
@@ -159,6 +315,34 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	 */
 	default void setTag(Integer newValue) {
 		tUpdateByName(TAG_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #TRANSMISSION_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getTransmission() {
+		return (com.top_logic.model.TLClassifier) tValueByName(TRANSMISSION_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #TRANSMISSION_ATTR}.
+	 */
+	default void setTransmission(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(TRANSMISSION_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #UPDATE_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getUpdate() {
+		return (com.top_logic.model.TLClassifier) tValueByName(UPDATE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #UPDATE_ATTR}.
+	 */
+	default void setUpdate(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(UPDATE_ATTR, newValue);
 	}
 
 }

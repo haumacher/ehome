@@ -579,6 +579,42 @@
 				<property name="tag"
 					type="tl.core:Integer"
 				/>
+				<!--
+					The size and flags the communication object has at this place (ETS: ComObjectRef@ObjectSize,
+					@Priority, @ReadFlag, ...); empty where the reference takes those of the object (Port).
+				-->
+				<!-- The size in bits. -->
+				<property name="size"
+					type="tl.core:Integer"
+				/>
+				<reference name="priority"
+					kind="forwards"
+					type="ehome.physical:Priority"
+				/>
+				<reference name="canRead"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="canWrite"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="communication"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="transmission"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="update"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
+				<reference name="readOnInit"
+					kind="forwards"
+					type="ehome.common:Enablement"
+				/>
 				<!-- The text of the communication object as the program shows it. -->
 				<property name="displayName"
 					type="tl.core:String"
@@ -1111,6 +1147,16 @@
 					inverse-reference="usage"
 					kind="forwards"
 					type="Location"
+				/>
+				<!--
+					Where a parameter of a union lies within the location the union members share (ETS:
+					Union/Parameter@Offset, @BitOffset); empty outside a union and for the start of the union.
+				-->
+				<property name="unionOffset"
+					type="tl.core:Integer"
+				/>
+				<property name="unionBitOffset"
+					type="tl.core:Integer"
 				/>
 				<!-- The references placing this parameter in the structure. -->
 				<reference name="views"
@@ -1763,6 +1809,13 @@
 				<reference name="textEncodingSource"
 					kind="forwards"
 					type="TextEncodingSource"
+				/>
+				<!--
+					Whether ETS places and sizes the address and association tables by their contents (ETS:
+					DynamicTableManagement): the association table then follows the address table directly.
+				-->
+				<property name="dynamicTableManagement"
+					type="tl.core:Boolean"
 				/>
 				<!-- Whether a text parameter shorter than its size ends with a zero byte. -->
 				<property name="textZeroTerminated"

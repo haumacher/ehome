@@ -684,6 +684,7 @@
 														<property name="applicationNumber" xml-attribute="ApplicationNumber" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 														<property name="applicationVersion" xml-attribute="ApplicationVersion" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 														<property name="peiType" xml-attribute="PeiType" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+														<property name="dynamicTableManagement" xml-attribute="DynamicTableManagement" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 														<property name="loadProcedureStyle" xml-attribute="LoadProcedureStyle">
 															<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
 																type="ehome.operational:LoadProcedureStyle"
@@ -926,6 +927,9 @@
 																									/>
 																								</property>
 																								<typed-value xml-attribute="Value"/>
+																								<!-- The place of the member within the location the union members share. -->
+																								<property name="unionOffset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																								<property name="unionBitOffset" xml-attribute="BitOffset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																						
 																								<dispatch/>
 																							</object>
@@ -1097,6 +1101,43 @@
 																					<i18n-property name="function" xml-attribute="FunctionText"/>
 																					<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 																					<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																					<!-- Size and flags the reference overrides; empty where it takes those of the object. -->
+																					<property name="size" xml-attribute="ObjectSize" format="de.haumacher.ehome.etsImport.importer.format.ObjectSizeFormat"/>
+																					<property name="priority" xml-attribute="Priority">
+																						<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																							type="ehome.physical:Priority"
+																						/>
+																					</property>
+																					<property name="canRead" xml-attribute="ReadFlag">
+																						<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																							type="ehome.common:Enablement"
+																						/>
+																					</property>
+																					<property name="canWrite" xml-attribute="WriteFlag">
+																						<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																							type="ehome.common:Enablement"
+																						/>
+																					</property>
+																					<property name="communication" xml-attribute="CommunicationFlag">
+																						<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																							type="ehome.common:Enablement"
+																						/>
+																					</property>
+																					<property name="transmission" xml-attribute="TransmitFlag">
+																						<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																							type="ehome.common:Enablement"
+																						/>
+																					</property>
+																					<property name="update" xml-attribute="UpdateFlag">
+																						<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																							type="ehome.common:Enablement"
+																						/>
+																					</property>
+																					<property name="readOnInit" xml-attribute="ReadOnInitFlag">
+																						<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																							type="ehome.common:Enablement"
+																						/>
+																					</property>
 
 																					<dispatch/>
 																				</object>

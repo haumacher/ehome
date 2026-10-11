@@ -1,0 +1,9 @@
+# Read-back of DI-3 (1.3.50) on the test system (gateway 192.168.178.81), properties (object index, property id: first element). Taken 2026-10-11 with ReadDeviceMemory.
+1 7: 4000
+2 7: 4045
+3 7: # timeout waiting for property response
+1 5: 01
+2 5: 01
+3 5: 01
+3 13: 000810d711
+0 78: 000a0000003d

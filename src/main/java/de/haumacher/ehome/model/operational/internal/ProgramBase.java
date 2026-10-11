@@ -52,6 +52,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String ASSOCIATION_TABLE_ATTR = "associationTable";
 
 	/**
+	 * Part <code>dynamicTableManagement</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String DYNAMIC_TABLE_MANAGEMENT_ATTR = "dynamicTableManagement";
+
+	/**
 	 * Part <code>ignoreLoadedState</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -330,6 +339,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setAssociationTable(de.haumacher.ehome.model.operational.TableLocation newValue) {
 		tUpdateByName(ASSOCIATION_TABLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #DYNAMIC_TABLE_MANAGEMENT_ATTR}.
+	 */
+	default boolean getDynamicTableManagement() {
+		return (Boolean) tValueByName(DYNAMIC_TABLE_MANAGEMENT_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #DYNAMIC_TABLE_MANAGEMENT_ATTR}.
+	 */
+	default void setDynamicTableManagement(boolean newValue) {
+		tUpdateByName(DYNAMIC_TABLE_MANAGEMENT_ATTR, newValue);
 	}
 
 	/**

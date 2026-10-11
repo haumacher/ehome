@@ -70,6 +70,24 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	String TYPE_ATTR = "type";
 
 	/**
+	 * Part <code>unionBitOffset</code> of <code>Parameter</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String UNION_BIT_OFFSET_ATTR = "unionBitOffset";
+
+	/**
+	 * Part <code>unionOffset</code> of <code>Parameter</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String UNION_OFFSET_ATTR = "unionOffset";
+
+	/**
 	 * Part <code>views</code> of <code>Parameter</code>
 	 * 
 	 * <p>
@@ -139,6 +157,34 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	 */
 	default void setType(de.haumacher.ehome.model.operational.ParameterType newValue) {
 		tUpdateByName(TYPE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #UNION_BIT_OFFSET_ATTR}.
+	 */
+	default Integer getUnionBitOffset() {
+		return (Integer) tValueByName(UNION_BIT_OFFSET_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #UNION_BIT_OFFSET_ATTR}.
+	 */
+	default void setUnionBitOffset(Integer newValue) {
+		tUpdateByName(UNION_BIT_OFFSET_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #UNION_OFFSET_ATTR}.
+	 */
+	default Integer getUnionOffset() {
+		return (Integer) tValueByName(UNION_OFFSET_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #UNION_OFFSET_ATTR}.
+	 */
+	default void setUnionOffset(Integer newValue) {
+		tUpdateByName(UNION_OFFSET_ATTR, newValue);
 	}
 
 	/**

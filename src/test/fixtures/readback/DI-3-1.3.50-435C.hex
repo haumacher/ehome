@@ -1,0 +1,2 @@
+# Read-back of DI-3 (1.3.50) on the test system (gateway 192.168.178.81), memory 435C, 13 bytes. Taken 2026-10-11 with ReadDeviceMemory.
+435C: 80 FF FF 1E 06 A7 0A 00 14 00 00 01 06

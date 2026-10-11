@@ -67,14 +67,23 @@ public class TestParameterValuesProbe extends BasicTestCase {
 		importSample("samples/Test.knxproj");
 		assertEquals(counts, counts());
 
-		checkProgramTypes();
-		checkBinaryEnumeration();
-		checkVoidParameters();
-		checkInvariants();
-		checkLanguages();
-		checkEditSurvivesReimport();
-		checkTypeChange();
-		checkDecimalWithoutFormat();
+		try {
+			checkProgramTypes();
+			checkBinaryEnumeration();
+			checkVoidParameters();
+			checkInvariants();
+			checkLanguages();
+			checkEditSurvivesReimport();
+			checkTypeChange();
+			checkDecimalWithoutFormat();
+		} finally {
+			// The program is shared by the tests: later ones (the download image) expect its defaults.
+			ParameterView view = (ParameterView) byExtId("ehome.operational:ParameterView", PROGRAM + "P-696_R-696");
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				view.setChoice(null);
+				tx.commit();
+			}
+		}
 	}
 
 	/** The types of the typed fixture belong to its program, so the types tab lists them. */
