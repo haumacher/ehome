@@ -9,7 +9,8 @@
 
 	A project is created empty or imported from an ETS project file (.knxproj); an import that
 	reports messages (values kept as text, unresolved references) shows them in a dialog
-	(import-report.view.xml). The table observes
+	(import-report.view.xml). The selected project is exported as an (unsigned) ETS project file
+	offered for download in a dialog (export-knxproj.view.xml). The table observes
 	projects, so a created, imported or deleted project is reflected without a reload.
 -->
 <view>
@@ -69,6 +70,24 @@
 				<execute-script function='report -> $report["project"]'/>
 				<write-channel name="project"/>
 			</upload-command>
+			<generic-command
+				image="css:fa-solid fa-download"
+				input="project"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Export as .knxproj</en>
+					<de>Als .knxproj exportieren</de>
+				</label>
+				<executability>
+					<null-input-disabled/>
+				</executability>
+				<export-knxproj/>
+				<open-dialog
+					bind-input-to="file"
+					dialog-view="projects/export-knxproj.view.xml"
+				/>
+			</generic-command>
 			<navigate-push
 				bind-input-to="project"
 				clique="navigate"

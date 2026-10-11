@@ -1,0 +1,257 @@
+# What the E-Home model does not hold of an ETS project file (schema 11), as rules of the
+# round-trip comparison (test.de.haumacher.ehome.roundtrip.TestRoundTrip, KnxprojDiff):
+# importing a sample and exporting it again must reproduce everything not listed here.
+# Explained in doc/knx/schema-coverage.md ("Gaps that matter", "Not needed for E-Home") and
+# doc/knx/export.md.
+#
+# Rules (one per line, '#' starts a comment):
+#   file <glob>              an archive entry that is not compared
+#   skip <path>              an element (with its content) that is not compared
+#   skip <path>@<attribute>  an attribute that is not compared ('*' for any attribute)
+#   unordered <path>         an element whose children are compared without their order
+#   subset <path>            an element of whose children the export writes those the project uses
+#   merge <path>             an element occurring several times among its siblings whose occurrences
+#                            the model merges: compared as one element, its children of the same
+#                            name merged (their children concatenated)
+#   default <path>@<attribute> <values>
+#                            the values (separated by commas) meaning the schema default of an
+#                            optional attribute; they count as no value (the model reads a missing
+#                            boolean as false)
+#   text <path>@<attribute>  a translatable text, compared as the text in effect per application
+#                            language (de, en): its translation, else the attribute's text
+# A path is a suffix of the element path, element names separated by '/', '*' for any element.
+# Besides the rules, the comparison ignores whitespace between elements, the order of attributes,
+# namespace declarations, empty attribute values (the import reads them as no value), the
+# 'Languages' sections (folded into the texts, see 'text') and translations into languages other
+# than de and en.
+
+## Files
+
+# Signatures: proprietary, created only by an installed ETS; the export is unsigned.
+file *.signature
+# Files of ETS plug-ins and help (Baggages).
+file */Baggages.xml
+file */Baggages/*
+
+## ETS bookkeeping, everywhere
+
+skip KNX@CreatedBy
+skip KNX@ToolVersion
+skip *@Hash
+skip *@NonRegRelevantDataVersion
+skip *@CompletionStatus
+skip *@DefaultLanguage
+skip *@Comment
+skip RegistrationInfo
+
+## Schema defaults
+
+default DatapointSubtype@Default false,0
+default MemorySegment@Optional false,0
+default AbsoluteSegment@UserMemory false,0
+default LdCtrlClearLCFilterTable@UseFunctionProp false,0
+default when@default false,0
+default TypeDate@DisplayTheYear true,1
+default Send@Acknowledge false,0
+default Receive@Acknowledge false,0
+default GroupRange@Unfiltered false,0
+default GroupAddress@Unfiltered false,0
+default GroupAddress@Central false,0
+
+## Translatable texts (I18NString in the model)
+
+text DatapointType@Text
+text DatapointSubtype@Text
+text CatalogSection@Name
+text Product@Text
+text ApplicationProgram@Name
+text Parameter@Text
+text ParameterRef@Text
+text Enumeration@Text
+text ComObject@Text
+text ComObject@FunctionText
+text ComObjectRef@Text
+text ComObjectRef@FunctionText
+text ParameterBlock@Text
+text Channel@Text
+
+## Master data (knx_master.xml)
+
+skip MasterData@Version
+skip MasterData@Signature
+# The export writes the master data the project uses, not all of ETS's.
+subset MasterData/DatapointTypes
+subset MasterData/MaskVersions
+subset MasterData/Manufacturers
+unordered MasterData/Manufacturers
+# A main datapoint type is named by its number ("1.xxx"); its default flag is not read.
+skip DatapointTypes/DatapointType@Name
+skip DatapointTypes/DatapointType@Default
+skip MasterData/MediumTypes
+skip MasterData/InterfaceObjectTypes
+skip MasterData/InterfaceObjectProperties
+skip MasterData/PropertyDataTypes
+skip MasterData/OrderNumberFormattingScript
+skip MasterData/PublicKeys
+skip MasterData/Manufacturers/Manufacturer/PublicKeys
+skip MasterData/Manufacturers/Manufacturer@CompatibilityGroup
+skip MasterData/Manufacturers/Manufacturer@ImportRestriction
+skip MasterData/Manufacturers/Manufacturer@ImportGroup
+# A mask version may have a second configuration for older ETS versions (LegacyVersion="1", e.g.
+# MV-0912, MV-091A); the import merges its features, resources, procedures and memory segments
+# into those of the mask (the current configuration first).
+merge MaskVersion/HawkConfigurationData
+skip MaskVersion/HawkConfigurationData/InterfaceObjects
+skip MaskVersion/HawkConfigurationData@Ets3SystemPlugin
+skip MaskVersion/HawkConfigurationData@LegacyVersion
+
+## Catalog (M-xxxx/Catalog.xml)
+
+# Not modeled: the number of a catalog section and the catalog item itself (an item places a
+# product variant in a section; the export forms its ID as ETS does).
+skip CatalogSection@Number
+skip CatalogSection@VisibleDescription
+skip CatalogItem@Name
+skip CatalogItem@Number
+skip CatalogItem@VisibleDescription
+
+## Hardware (M-xxxx/Hardware.xml), gap 11 of schema-coverage.md
+
+skip Hardware/Hardware@BusCurrent
+skip Hardware/Hardware@IsAccessory
+skip Hardware/Hardware@HasIndividualAddress
+skip Hardware/Hardware@HasApplicationProgram
+skip Hardware/Hardware@HasApplicationProgram2
+skip Hardware/Hardware@IsPowerSupply
+skip Hardware/Hardware@IsChoke
+skip Hardware/Hardware@IsCoupler
+skip Hardware/Hardware@IsPowerLineRepeater
+skip Hardware/Hardware@IsPowerLineSignalFilter
+skip Hardware/Hardware@IsCable
+skip Hardware/Hardware@IsIPEnabled
+skip Hardware/Hardware@OriginalManufacturer
+skip Product@IsRailMounted
+skip Product@WidthInMillimeter
+skip Product@VisibleDescription
+skip Product/Attributes
+skip Hardware2Program@MediumTypes
+unordered Manufacturer/Hardware
+unordered Hardware/Products
+unordered Hardware/Hardware2Programs
+
+## Application programs (M-xxxx/M-xxxx_A-….xml)
+
+skip ApplicationProgram@ProgramType
+skip ApplicationProgram@Linkable
+skip ApplicationProgram@MinEtsVersion
+skip ApplicationProgram@PreEts4Style
+skip ApplicationProgram@ConvertedFromPreEts4Data
+skip ApplicationProgram@CreatedFromLegacySchemaVersion
+skip ApplicationProgram@HelpFile
+skip ApplicationProgram@HelpTopic
+skip ApplicationProgram@VisibleDescription
+skip ApplicationProgram@Broken
+skip ApplicationProgram@DownloadInfoIncomplete
+skip ApplicationProgram@IPConfig
+skip ApplicationProgram@AdditionalAddressesCount
+skip ParameterType@InternalDescription
+skip ParameterType@Plugin
+skip TypeNumber@UIHint
+skip TypeFloat@UIHint
+skip TypeTime@UIHint
+# Only the number of decimal places is modeled.
+skip TypeFloat@DisplayFormat
+skip TypePicture
+skip Parameter@SuffixText
+skip Parameter@LegacyPatchAlways
+skip Union/Parameter@DefaultUnionParameter
+skip Static/ParameterCalculations
+skip Static/Extension
+skip Static/BinaryData
+skip Static/FixupList
+skip Static/DeviceCompare
+skip Options@EasyCtrlModeModeStyleEmptyGroupComTables
+skip Options@PartialDownloadOnlyVisibleParameters
+skip Options@LegacyNoOptimisticWrite
+skip Options@LegacyDoNotReportPropertyWriteErrors
+skip Options@LegacyNoBackgroundDownload
+skip Options@LegacyDoNotCheckManufacturerId
+skip Options@LegacyAlwaysReloadAppIfCoVisibilityChanged
+skip Options@LegacyNeverReloadAppIfCoVisibilityChanged
+skip Options@LegacyDoNotSupportUndoDelete
+skip Options@LegacyAllowPartialDownloadIfAp2Mismatch
+skip Options@LegacyProxyCommunicationObjects
+skip Options@DeviceCompareAllowCompatibleManufacturerId
+skip Options@Comparable
+skip Options@Reconstructable
+skip Options@LineCoupler0912NewProgrammingStyle
+# Gap 7: UI structure of the parameter dialog.
+skip ParameterSeparator
+skip Assign
+skip ParameterBlockRename
+skip BinaryDataRef
+# The model keeps these as sets: their order in the file has no meaning.
+unordered Static/Code
+unordered Static/ParameterTypes
+unordered Static/Parameters
+unordered Parameters/Union
+unordered Static/ParameterRefs
+unordered Static/ComObjectTable
+unordered Static/ComObjectRefs
+
+## Project (P-xxxx/Project.xml, P-xxxx/0.xml)
+
+skip ProjectInformation@LastModified
+skip ProjectInformation@ProjectStart
+skip ProjectInformation@ProjectId
+skip ProjectInformation@ProjectNumber
+skip ProjectInformation@ProjectTracingLevel
+skip ProjectInformation@Hide16BitGroupsFromLegacyPlugins
+skip ProjectInformation@CodePage
+skip ProjectInformation@ContractNumber
+skip ProjectInformation@ProjectPassword
+skip ProjectInformation@ArchivedVersion
+skip ProjectInformation@ProjectType
+skip ProjectInformation@BusAccessLegacyMode
+skip HistoryEntries
+skip ToDoItems
+skip ProjectTraces
+skip UserFiles
+skip AddInData
+skip SplitInfos
+skip Project/UserFiles
+# Gap 10: installation, trades, bus access, IP settings, line medium.
+skip Installation@*
+skip Trades
+skip BusAccess
+skip IPConfig
+skip Line@MediumTypeRefId
+skip Line@DomainAddress
+skip Line@DomainAddressIsChecked
+skip Line@IPRoutingMulticastAddress
+skip Line@MulticastTTL
+skip AdditionalGroupAddresses
+skip DeviceInstance@IsCommunicationObjectVisibilityCalculated
+skip DeviceInstance@Broken
+skip DeviceInstance@CheckSums
+skip DeviceInstance@LoadedImage
+skip DeviceInstance@Puid
+skip DeviceInstance/AdditionalAddresses
+skip DeviceInstance/BinaryData
+skip DeviceInstance/Data
+skip BuildingPart@Number
+skip BuildingPart@Puid
+skip GroupRange@Puid
+skip GroupAddress@Puid
+skip GroupAddress@Global
+# The model keeps these as sets: their order in the file has no meaning.
+unordered Topology
+unordered Topology/Area
+unordered Area/Line
+unordered UnassignedDevices
+unordered DeviceInstance/ComObjectInstanceRefs
+unordered ComObjectInstanceRef/Connectors
+unordered Buildings
+unordered BuildingPart
+unordered GroupRanges
+unordered GroupRange

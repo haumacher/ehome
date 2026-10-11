@@ -56,7 +56,8 @@ public class ObjectSizeFormat extends AbstractConfigurationValueProvider<Integer
 		int bits = configValue.intValue();
 		int bytes = bits / 8;
 		if (bytes > 0 && bits % 8 == 0) {
-			return bytes + " " + BYTE_UNIT;
+			// As the schema enumerates them: "1 Byte", "2 Bytes".
+			return bytes + " " + BYTE_UNIT + (bytes > 1 ? "s" : "");
 		} else {
 			return bits + " " + BIT_UNIT;
 		}

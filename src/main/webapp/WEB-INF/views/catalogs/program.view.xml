@@ -530,6 +530,7 @@
 											<field attribute="port"/>
 											<field attribute="name"/>
 											<field attribute="function"/>
+											<field attribute="description"/>
 											<field attribute="datapointTypes"/>
 											<field attribute="extId"/>
 										</form>

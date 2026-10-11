@@ -263,6 +263,17 @@ Enter".
 **When available:** run the apply command on every commit (or move it to the `<on-change>` hook)
 and drop the placeholder.
 
+## A `<value-input>` of a binary value gets no binary control (TL #29809)
+
+A `<value-input type="tl.core:Binary">` shows the file name as plain text: `FieldControlService`
+maps no control to the type `tl.core:Binary`, and the fallback builds a text display, so a read-only
+input offers no download (and an editable one no upload).
+
+Workaround: the download dialog of the `.knxproj` export (`projects/export-knxproj.view.xml`) names
+the control explicitly (`<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>`).
+
+**When fixed:** remove the `<input-control>` from that `<value-input>`.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -284,3 +295,4 @@ and drop the placeholder.
 - TL #29806: see above (singleton and generated wrappers; when available: dissolve `ehome.mask`).
 - TL #29807: see above (classifier constant names).
 - TL #29808: see above (apply on Enter only).
+- TL #29809: see above (binary value input; when fixed: drop the explicit input control of the export dialog).

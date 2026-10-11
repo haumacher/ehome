@@ -1099,6 +1099,7 @@
 																					<property name="extId" xml-attribute="Id"/>
 																					<i18n-property name="name" xml-attribute="Text"/>
 																					<i18n-property name="function" xml-attribute="FunctionText"/>
+																					<property name="description" xml-attribute="VisibleDescription"/>
 																					<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 																					<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																					<!-- Size and flags the reference overrides; empty where it takes those of the object. -->
@@ -1488,8 +1489,9 @@
 																									<reference name="port" id-attribute="RefId"/>
 									<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 																									
-																									<property name="description" xml-attribute="Text"/>
+																									<property name="text" xml-attribute="Text"/>
 																									<property name="function" xml-attribute="FunctionText"/>
+																									<property name="description" xml-attribute="Description"/>
 																									<property name="active" xml-attribute="IsActive" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																									
 																									<property name="priority" xml-attribute="Priority">

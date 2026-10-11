@@ -551,6 +551,10 @@
 				<property name="function"
 					type="tl.model.i18n:I18NString"
 				/>
+				<!-- The description the reference overrides (ETS: VisibleDescription); empty where it takes the one of the object. -->
+				<property name="description"
+					type="tl.core:String"
+				/>
 				<!-- The communication object definition this reference places. -->
 				<reference name="port"
 					inverse-reference="interfaces"

@@ -52,6 +52,15 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	String DATAPOINT_TYPES_ATTR = "datapointTypes";
 
 	/**
+	 * Part <code>description</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String DESCRIPTION_ATTR = "description";
+
+	/**
 	 * Part <code>displayName</code> of <code>Interface</code>
 	 * 
 	 * <p>
@@ -224,6 +233,20 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	 */
 	default void removeDatapointType(com.top_logic.model.TLObject oldValue) {
 		tRemoveByName(DATAPOINT_TYPES_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #DESCRIPTION_ATTR}.
+	 */
+	default String getDescription() {
+		return (String) tValueByName(DESCRIPTION_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #DESCRIPTION_ATTR}.
+	 */
+	default void setDescription(String newValue) {
+		tUpdateByName(DESCRIPTION_ATTR, newValue);
 	}
 
 	/**

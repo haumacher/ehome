@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Download of the export of a project as an ETS project archive (.knxproj). "file" carries the
+	result of <export-knxproj> (de.haumacher.ehome.exporter.ExportKnxprojAction): the archive named
+	after the project, offered by a read-only binary input as a download link.
+
+	The archive is not signed (the signature files of a .knxproj can only be created by an installed
+	ETS), so ETS refuses it; E-Home and other tools reading the project schema read it. See
+	doc/knx/export.md.
+-->
+<view>
+	<channels>
+		<channel name="file"/>
+	</channels>
+	<window width="600px">
+		<title>
+			<en>Export as .knxproj</en>
+			<de>Als .knxproj exportieren</de>
+		</title>
+		<inset>
+			<stack gap="loose">
+				<text>
+					<label>
+						<en>The project has been exported in the ETS project format (schema 11, ETS 4) with the master data, catalogs, hardware and application programs it uses. The file is not signed: ETS does not import it, E-Home and other tools reading the ETS format do.</en>
+						<de>Das Projekt wurde im ETS-Projektformat (Schema 11, ETS 4) exportiert, mit den Stammdaten, Katalogen, Hardware-Beschreibungen und Applikationsprogrammen, die es verwendet. Die Datei ist nicht signiert: Die ETS importiert sie nicht, E-Home und andere Werkzeuge, die das ETS-Format lesen, schon.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						readonly="true"
+						type="tl.core:Binary"
+						value="file"
+					>
+						<label>
+							<en>File</en>
+							<de>Datei</de>
+						</label>
+						<!-- A value input picks no control by the type tl.core:Binary (TL #29809, doc/tl-todo.md); the binary field offers the download. -->
+						<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

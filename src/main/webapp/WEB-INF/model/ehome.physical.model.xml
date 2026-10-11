@@ -95,6 +95,11 @@
 					mandatory="true"
 					type="ehome.operational:Interface"
 				/>
+				<!-- The text of the communication object in this device, if it differs from the program's (ETS: Text). -->
+				<property name="text"
+					type="tl.core:String"
+				/>
+				<!-- A description entered in the project (ETS: Description). -->
 				<property name="description"
 					type="tl.core:String"
 				/>

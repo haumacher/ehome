@@ -1045,6 +1045,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Interface#DESCRIPTION_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLProperty getDescriptionInterfaceAttr() {
+		return (com.top_logic.model.TLProperty) getInterfaceType().getPart(Interface.DESCRIPTION_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Interface#DISPLAY_NAME_ATTR} of {@link Interface}.
 	 */
 	public static com.top_logic.model.TLProperty getDisplayNameInterfaceAttr() {
