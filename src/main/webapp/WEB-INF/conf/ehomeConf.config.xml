@@ -106,6 +106,15 @@
 					<method name="compareVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="downloadConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="addressConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<!-- Reading an installation from the bus (de.haumacher.ehome.scan.ScanFunctions): one builder, the function by its name. -->
+					<method name="scanVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanApplyVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanApply" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanRefresh" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanRematch" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanReadVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanLedVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanLedConfirmation" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

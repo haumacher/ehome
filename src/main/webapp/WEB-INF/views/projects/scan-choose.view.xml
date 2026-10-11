@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog choosing what a device found on the bus is, when the catalog offers several candidates
+	(projects/scan.view.xml): programs differing in the hash part of their ID, or several products
+	carrying the program. The chosen candidate creates or updates the device in the project
+	(scanApply, de.haumacher.ehome.scan.ScanFunctions).
+
+	"row" is the row of the device (de.haumacher.ehome.scan.ScanRows), "result" the result of the
+	scan, whose rows are refreshed afterwards.
+-->
+<view>
+	<channels>
+		<channel name="row"/>
+		<channel name="result"/>
+		<channel name="candidate"/>
+		<derived-channel name="device"
+			expr='r -> #("Device {0}, program version {1}"@en, "Gerät {0}, Programmversion {1}"@de).fill($r["address"], $r["programVersion"]).localize()'
+			inputs="row"
+		/>
+	</channels>
+	<window width="900px">
+		<title>
+			<en>Choose the product</en>
+			<de>Produkt wählen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text input="device"/>
+				<table selection="candidate">
+					<inputs>
+						<input channel="row"/>
+					</inputs>
+					<columns>
+						<computed-column name="product"
+							type="tl.core:String"
+							width="300"
+						>
+							<label>
+								<en>Product</en>
+								<de>Produkt</de>
+							</label>
+							<value>c -> $c["product"]</value>
+						</computed-column>
+						<computed-column name="order"
+							type="tl.core:String"
+							width="150"
+						>
+							<label>
+								<en>Order number</en>
+								<de>Bestellnummer</de>
+							</label>
+							<value>c -> $c["order"]</value>
+						</computed-column>
+						<computed-column name="program"
+							type="tl.core:String"
+							width="300"
+						>
+							<label>
+								<en>Application program</en>
+								<de>Applikationsprogramm</de>
+							</label>
+							<value>c -> $c["program"]</value>
+						</computed-column>
+					</columns>
+					<rows>r -> if($r == null, [], $r["candidates"])</rows>
+				</table>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-check-lg"
+					input="candidate"
+				>
+					<label>
+						<en>Create / update</en>
+						<de>Anlegen / Aktualisieren</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="r -> c -> scanApply($r, $c)">
+							<inputs>
+								<input channel="row"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<notify expr="m -> $m"/>
+					<execute-script function='r -> x -> {"summary": $r["summary"], "rows": scanRefresh($r["rows"]), "notes": $r["notes"]}'>
+						<inputs>
+							<input channel="result"/>
+						</inputs>
+					</execute-script>
+					<write-channel name="result"/>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

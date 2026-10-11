@@ -184,6 +184,68 @@ The device may then be unloaded (its LED or behavior shows no application): reco
 3. If the individual address is lost (a download of E-Home never writes it; only "Physikalische
    Adresse programmieren" does), program it in ETS with the programming button.
 
+## Reading an installation (scan, read-back; haumacher/ehome #9)
+
+Projects → a project → "Installation einlesen" (`projects/scan.view.xml`, package
+`de.haumacher.ehome.scan`). Everything here only reads, except "Programmier-LED an/aus".
+
+- **Scan** (`BusScanner`, `CalimeroScanBus`): over the project's gateway, the devices of a line
+  that answer a connection (Calimero `scanNetworkDevices`), optionally the couplers of all lines,
+  the devices in programming mode (broadcast address read) and the gateway itself through KNXnet/IP
+  local device management (it does not answer point-to-point reads through its own tunnel). Per
+  device: descriptor, manufacturer (object 0 property 12), serial number (11), order info (15),
+  hardware type (78), program version (object 3 property 13; BCU 1: memory 0104-0107), load
+  states, run state. A device that does not answer its descriptor is read once more (right after the
+  scan the actuator of the test system refused the first connection).
+- **Matching** (`CatalogMatch`): manufacturer by KNX ID, program by application number and version
+  (all hash variants are candidates; a program for another mask or whose load procedure compares
+  another hardware type is excluded), product by the order info (a variant whose order number the
+  order info starts with), else every variant of a product carrying the program. A gateway without
+  application object is matched by manufacturer and order info alone. One candidate: "Anlegen";
+  several: a choice dialog; none: the device is kept as `ehome.project:UnidentifiedDevice` of the
+  project and matched again by "Vorgemerkte Geräte zuordnen" (e.g. after a product data import).
+- **Creation** (`InstallationBuilder`): the device under the line of its address (areas and lines
+  created, named by their address), `serialNumber` in the ETS form (base64), `loaded` = individual
+  address and program. An existing device with the address and program is updated; one with another
+  program is a conflict, nothing changes.
+- **Read-back** (`ReadBack`, "Konfiguration einlesen"): reads where the download image writes (every
+  loaded block, the tables at the device's table pointers, property 7, their lengths from their
+  counts, the parameter properties), then decodes: the parameters with memory by their types until
+  the parameters in effect settle; the parameters without memory (ETS shows them to open pages and
+  objects, the device never holds them) by a search for the values that explain the device: every
+  associated object in effect with a placement of the size its type byte gives, every object without
+  association with its configuration byte, every parameter byte equal (`Search`: placing objects
+  along their way through the switches, then switches whose cases hold evidence); the connections
+  from the tables (the first address of an object is the one it sends to, as ETS links them; group
+  addresses the project lacks are created, named by their address); the flags where an object's
+  configuration byte differs. The proof: the image of the device as read back equals the memory read
+  (report "Identisch"), and the device is recorded as downloaded in that state.
+- **LED** ("Programmier-LED an/aus", `LedJob`): writes the programming mode (object 0 property 54;
+  BCU 1: memory 0060 with parity) through `CalimeroWriter`, so it is disabled unless the application
+  runs with `-Dehome.programming.writeEnabled=true`, and asks for a confirmation naming device and
+  gateway. **Not yet executed against a real device**: tested only against the mock; the first real
+  toggle is the user's decision.
+
+Result of 2026-10-11 on the test system (gateway 192.168.178.81:3671, line 1.3, into an empty
+project on an own app instance with the catalog of `samples/KNX-Testsystem.knxproj`):
+
+- 1.3.1 through local device management: EIBMARKT (M-006A), serial 00C5:0101BC95, order info
+  N000402000, no application object, no readable hardware type; matched to "KNX / EIB IP Router
+  (N000402)", program M-006A_A-0703-10-FD20-O00C5.
+- 1.3.5: mask 0705, MDT (M-0083), serial 0083:65AEF06D, program version 00 83 00 0C 21, hardware type
+  00 00 00 00 03 0D, load states loaded, running; matched to AKK-0416.03.
+- 1.3.50: mask 0705, Gira (M-0008), serial 000A:2A4A2711, program version 00 08 10 D7 11, hardware
+  type 00 0A 00 00 00 3D, order info not set (FF); matched to "Tastsensor 3 Komfort 3fach (5133 00)".
+- Read-back of the actuator: 31 values differ from the defaults, 21 connections, 21 group addresses
+  created, 626 bytes of the image equal the memory; "Mit dem Gerät vergleichen" afterwards: 4 of 4
+  blocks identical.
+
+Limits: values of parameters without memory whose cases leave no trace in the device (e.g. a scene
+switched on without an address or a different value) keep their default; where two choices yield
+the same bytes, the read-back keeps the first it finds (`TestBusScan` logs them: the actuator's
+"Scene B" of channel A). Relative segments (System B) and parameters in properties of objects given
+by type are not read (reported). KNX Secure devices are not supported.
+
 ## Not supported (refused with the reason)
 
 - Masks whose load state machines are controlled in memory instead of properties (mask 7.1,

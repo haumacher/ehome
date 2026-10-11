@@ -1,0 +1,124 @@
+/*
+ * Copyright (c) 2026 Bernhard Haumacher
+ */
+package de.haumacher.ehome.scan;
+
+import java.net.InetSocketAddress;
+import java.util.List;
+
+import com.top_logic.basic.CalledByReflection;
+import com.top_logic.basic.config.InstantiationContext;
+import com.top_logic.basic.config.PolymorphicConfiguration;
+import com.top_logic.basic.config.annotation.defaults.ClassDefault;
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.service.HistoryUtils;
+import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.view.job.JobBody;
+import com.top_logic.layout.view.job.JobMonitor;
+import com.top_logic.model.TLObject;
+import com.top_logic.util.error.TopLogicException;
+
+import de.haumacher.ehome.programming.download.BusException;
+import de.haumacher.ehome.programming.download.CalimeroReader;
+import de.haumacher.ehome.programming.download.DownloadPlan;
+import de.haumacher.ehome.programming.download.DownloadRecord;
+import de.haumacher.ehome.programming.download.Gateways;
+import de.haumacher.ehome.programming.download.ProgrammingReport;
+
+/**
+ * The work of the command "Read the configuration" of a device found by a scan
+ * (<code>&lt;start-job&gt;</code> body of <code>projects/scan.view.xml</code>): reads the device's
+ * memory through the project's gateway with {@link CalimeroReader} (nothing is written), decodes it
+ * into the project's device ({@link ReadBack}) in a transaction, and records that the device holds
+ * the project's state (as a download would: <code>loaded</code>, <code>lastDownload</code>,
+ * <code>downloadRevision</code>).
+ *
+ * <p>
+ * The job is started with the row of the device (see {@link ScanRows}). The result is a
+ * {@link ProgrammingReport}: what was read and decoded, and whether the image of the device as read
+ * back equals the memory read.
+ * </p>
+ */
+public class ReadBackJob implements JobBody {
+
+	/**
+	 * Configuration of {@link ReadBackJob}.
+	 */
+	public interface Config extends PolymorphicConfiguration<ReadBackJob> {
+
+		@Override
+		@ClassDefault(ReadBackJob.class)
+		Class<? extends ReadBackJob> getImplementationClass();
+	}
+
+	/**
+	 * Creates a {@link ReadBackJob} from configuration.
+	 */
+	@CalledByReflection
+	public ReadBackJob(InstantiationContext context, Config config) {
+		// No configuration.
+	}
+
+	@Override
+	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
+		Object row = arguments.get(0);
+		ResKey veto = ScanFunctions.readVeto(row);
+		if (veto != null) {
+			throw new TopLogicException(veto);
+		}
+		FoundDevice found = ScanRows.found(row);
+		TLObject project = ScanRows.project(row);
+		TLObject device = InstallationBuilder.device(project, found.address());
+		InetSocketAddress gateway = Gateways.parse(Gateways.of(project));
+		String gatewayText = Gateways.format(gateway);
+
+		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
+		ProgrammingReport report = new ProgrammingReport();
+		ReadBack.Memory memory;
+		try (CalimeroReader reader = CalimeroReader.open(gateway, found.address())) {
+			memory = ReadBack.read(device, reader, (done, total, what) -> {
+				job.progress(done, total);
+				job.message(ResKey.text(what));
+			});
+		} catch (BusException ex) {
+			report.add("error", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_FAILURE, "", ex.getMessage());
+			return report.toMap(I18NConstants.READBACK_FAILED__DEVICE_GATEWAY_REASON.fill(found.addressText(), gatewayText,
+				ex.getMessage()), false);
+		}
+
+		ReadBack.Report result;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			result = ReadBack.apply(device, memory);
+			tx.commit();
+		}
+		if (result.identical()) {
+			// The device holds what the project now says.
+			DownloadRecord.record(device, DownloadPlan.Kind.FULL, HistoryUtils.getLastRevision().getCommitNumber());
+		}
+
+		String where = found.addressText();
+		for (String problem : result.problems()) {
+			report.add("warning", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_DIFFERENT, where, problem);
+		}
+		if (!result.createdAddresses().isEmpty()) {
+			report.add("info", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_NOTE, where,
+				"Group addresses created: " + String.join(", ", result.createdAddresses()) + ".");
+		}
+		if (result.flags() > 0) {
+			report.add("info", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_NOTE, where,
+				result.flags() + " communication objects with flags of their own.");
+		}
+		if (result.differences().isEmpty()) {
+			report.add("info", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_IDENTICAL, where,
+				result.compared() + " bytes of the download image compared with the memory read, all equal.");
+		} else {
+			report.add("error", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_DIFFERENT, where,
+				result.differences().size() + " of " + result.compared() + " bytes of the download image differ from the memory read: "
+					+ result.differences().stream().map(a -> String.format("%04X", a)).toList() + ".");
+		}
+		return report.toMap(I18NConstants.READBACK_DONE__DEVICE_GATEWAY_SETTINGS_CONNECTIONS.fill(where, gatewayText,
+			result.settings(), result.connections()), result.identical());
+	}
+
+}

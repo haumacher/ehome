@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Report of reading the configuration of a device back, or of switching its programming LED
+	(projects/scan.view.xml): the outcome as a sentence, then the messages (what could not be decoded,
+	the group addresses created, and whether the download image of the device as read back equals the
+	memory read).
+
+	"report" carries the result of the job (de.haumacher.ehome.programming.download.ProgrammingReport,
+	written by de.haumacher.ehome.scan.ReadBackJob and LedJob): "summary" and "messages" with the keys
+	of the messages of the ETS import, shown by import-message.view.xml.
+-->
+<view>
+	<channels>
+		<channel name="report"/>
+		<derived-channel name="summary"
+			expr='r -> $r["summary"]'
+			inputs="report"
+		/>
+	</channels>
+	<window width="900px">
+		<title>
+			<en>Installation: report</en>
+			<de>Installation: Bericht</de>
+		</title>
+		<inset>
+			<stack gap="loose">
+				<text input="summary"/>
+				<object-list
+					gap="default"
+					inputs="report"
+					items='r -> if($r == null, [], $r["messages"])'
+				>
+					<item>
+						<view-ref view="projects/import-message.view.xml">
+							<bind
+								channel="message"
+								to="element"
+							/>
+						</view-ref>
+					</item>
+				</object-list>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

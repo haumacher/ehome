@@ -172,7 +172,7 @@ public class DeviceSettings {
 	 *
 	 * @return The setting holding the value, <code>null</code> if the device has the default now.
 	 */
-	static TLObject restoreValue(TLObject device, ParameterView view, Object value) {
+	public static TLObject restoreValue(TLObject device, ParameterView view, Object value) {
 		List<TLObject> settings = settings(device, view);
 		if (value == null) {
 			return store(device, view, settings, null, null);

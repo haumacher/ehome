@@ -51,6 +51,68 @@
 				<property name="gateway"
 					type="tl.core:String"
 				/>
+				<!--
+					Devices a scan of the installation found that the catalog could not identify (their
+					program or manufacturer is missing); matched again after an import of product data.
+				-->
+				<reference name="unidentifiedDevices"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="UnidentifiedDevice"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A device found on the bus by a scan of the installation (de.haumacher.ehome.scan) that no
+			application program of the catalog matches: what it told about itself.
+		-->
+		<class name="UnidentifiedDevice">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-question-circle"/>
+			</annotations>
+			<attributes>
+				<!-- The individual address as text (1.3.5). -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The individual address: area, line and device number in 4, 4 and 8 bits. -->
+				<property name="address"
+					type="tl.core:Integer"
+				/>
+				<!-- The device descriptor (mask version) as hex digits. -->
+				<property name="descriptor"
+					type="tl.core:String"
+				/>
+				<property name="manufacturerId"
+					type="tl.core:Integer"
+				/>
+				<!-- The serial number as hex digits. -->
+				<property name="serialNumber"
+					type="tl.core:String"
+				/>
+				<!-- Manufacturer, application number and version (5 bytes) as hex digits. -->
+				<property name="programVersion"
+					type="tl.core:String"
+				/>
+				<!-- The hardware type (device object, property 78) as hex digits. -->
+				<property name="hardwareType"
+					type="tl.core:String"
+				/>
+				<property name="orderInfo"
+					type="tl.core:String"
+				/>
+				<!-- Why the catalog does not identify the device. -->
+				<property name="reason"
+					type="tl.core:String"
+				/>
+				<property name="lastSeen"
+					type="tl.core:DateTime"
+				/>
 			</attributes>
 		</class>
 	</module>
