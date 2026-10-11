@@ -25,6 +25,15 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	String COMPATIBLE_MASKS_ATTR = "compatibleMasks";
 
 	/**
+	 * Part <code>configurations</code> of <code>MaskVersion</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:MaskConfiguration</code> in configuration.
+	 * </p>
+	 */
+	String CONFIGURATIONS_ATTR = "configurations";
+
+	/**
 	 * Part <code>entries</code> of <code>MaskVersion</code>
 	 * 
 	 * <p>
@@ -32,15 +41,6 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	 * </p>
 	 */
 	String ENTRIES_ATTR = "entries";
-
-	/**
-	 * Part <code>features</code> of <code>MaskVersion</code>
-	 * 
-	 * <p>
-	 * Declared as <code>ehome.operational:MaskFeature</code> in configuration.
-	 * </p>
-	 */
-	String FEATURES_ATTR = "features";
 
 	/**
 	 * Part <code>managementDescriptor</code> of <code>MaskVersion</code>
@@ -70,15 +70,6 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	String MEDIUM_ATTR = "medium";
 
 	/**
-	 * Part <code>memory</code> of <code>MaskVersion</code>
-	 * 
-	 * <p>
-	 * Declared as <code>ehome.operational:MaskMemory</code> in configuration.
-	 * </p>
-	 */
-	String MEMORY_ATTR = "memory";
-
-	/**
 	 * Part <code>name</code> of <code>MaskVersion</code>
 	 * 
 	 * <p>
@@ -104,24 +95,6 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	 * </p>
 	 */
 	String OTHER_MEDIUM_ATTR = "otherMedium";
-
-	/**
-	 * Part <code>procedures</code> of <code>MaskVersion</code>
-	 * 
-	 * <p>
-	 * Declared as <code>ehome.operational:LoadProcedure</code> in configuration.
-	 * </p>
-	 */
-	String PROCEDURES_ATTR = "procedures";
-
-	/**
-	 * Part <code>resources</code> of <code>MaskVersion</code>
-	 * 
-	 * <p>
-	 * Declared as <code>ehome.operational:MaskResource</code> in configuration.
-	 * </p>
-	 */
-	String RESOURCES_ATTR = "resources";
 
 	/**
 	 * Getter for part {@link #COMPATIBLE_MASKS_ATTR}.
@@ -164,6 +137,49 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	 */
 	default void removeCompatibleMask(de.haumacher.ehome.model.operational.MaskVersion oldValue) {
 		tRemoveByName(COMPATIBLE_MASKS_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #CONFIGURATIONS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.MaskConfiguration> getConfigurations() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.MaskConfiguration>) tValueByName(CONFIGURATIONS_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #CONFIGURATIONS_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.MaskConfiguration> getConfigurationsModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(CONFIGURATIONS_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.MaskConfiguration> result = (java.util.List<de.haumacher.ehome.model.operational.MaskConfiguration>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #CONFIGURATIONS_ATTR}.
+	 */
+	default void setConfigurations(java.util.List<de.haumacher.ehome.model.operational.MaskConfiguration> newValue) {
+		tUpdateByName(CONFIGURATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #CONFIGURATIONS_ATTR} reference.
+	 */
+	default void addConfiguration(de.haumacher.ehome.model.operational.MaskConfiguration newValue) {
+		tAddByName(CONFIGURATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #CONFIGURATIONS_ATTR} reference.
+	 */
+	default void removeConfiguration(de.haumacher.ehome.model.operational.MaskConfiguration oldValue) {
+		tRemoveByName(CONFIGURATIONS_ATTR, oldValue);
 	}
 
 	/**
@@ -210,49 +226,6 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	}
 
 	/**
-	 * Getter for part {@link #FEATURES_ATTR}.
-	 */
-	@SuppressWarnings("unchecked")
-	default java.util.List<? extends de.haumacher.ehome.model.operational.MaskFeature> getFeatures() {
-		return (java.util.List<? extends de.haumacher.ehome.model.operational.MaskFeature>) tValueByName(FEATURES_ATTR);
-	}
-
-	/**
-	 * Live view of the {@link #FEATURES_ATTR} part.
-	 * <p>
-	 * Changes to this {@link java.util.Collection} change directly the attribute value.
-	 * The caller has to take care of the transaction handling.
-	 * </p>
-	 */
-	default java.util.List<de.haumacher.ehome.model.operational.MaskFeature> getFeaturesModifiable() {
-		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(FEATURES_ATTR);
-		@SuppressWarnings("unchecked")
-		java.util.List<de.haumacher.ehome.model.operational.MaskFeature> result = (java.util.List<de.haumacher.ehome.model.operational.MaskFeature>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
-		return result;
-	}
-
-	/**
-	 * Setter for part {@link #FEATURES_ATTR}.
-	 */
-	default void setFeatures(java.util.List<de.haumacher.ehome.model.operational.MaskFeature> newValue) {
-		tUpdateByName(FEATURES_ATTR, newValue);
-	}
-
-	/**
-	 * Adds a value to the {@link #FEATURES_ATTR} reference.
-	 */
-	default void addFeature(de.haumacher.ehome.model.operational.MaskFeature newValue) {
-		tAddByName(FEATURES_ATTR, newValue);
-	}
-
-	/**
-	 * Removes the given value from the {@link #FEATURES_ATTR} reference.
-	 */
-	default void removeFeature(de.haumacher.ehome.model.operational.MaskFeature oldValue) {
-		tRemoveByName(FEATURES_ATTR, oldValue);
-	}
-
-	/**
 	 * Getter for part {@link #MANAGEMENT_DESCRIPTOR_ATTR}.
 	 */
 	default com.top_logic.basic.io.binary.BinaryDataSource getManagementDescriptor() {
@@ -295,49 +268,6 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	}
 
 	/**
-	 * Getter for part {@link #MEMORY_ATTR}.
-	 */
-	@SuppressWarnings("unchecked")
-	default java.util.List<? extends de.haumacher.ehome.model.operational.MaskMemory> getMemory() {
-		return (java.util.List<? extends de.haumacher.ehome.model.operational.MaskMemory>) tValueByName(MEMORY_ATTR);
-	}
-
-	/**
-	 * Live view of the {@link #MEMORY_ATTR} part.
-	 * <p>
-	 * Changes to this {@link java.util.Collection} change directly the attribute value.
-	 * The caller has to take care of the transaction handling.
-	 * </p>
-	 */
-	default java.util.List<de.haumacher.ehome.model.operational.MaskMemory> getMemoryModifiable() {
-		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(MEMORY_ATTR);
-		@SuppressWarnings("unchecked")
-		java.util.List<de.haumacher.ehome.model.operational.MaskMemory> result = (java.util.List<de.haumacher.ehome.model.operational.MaskMemory>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
-		return result;
-	}
-
-	/**
-	 * Setter for part {@link #MEMORY_ATTR}.
-	 */
-	default void setMemory(java.util.List<de.haumacher.ehome.model.operational.MaskMemory> newValue) {
-		tUpdateByName(MEMORY_ATTR, newValue);
-	}
-
-	/**
-	 * Adds a value to the {@link #MEMORY_ATTR} reference.
-	 */
-	default void addMemory(de.haumacher.ehome.model.operational.MaskMemory newValue) {
-		tAddByName(MEMORY_ATTR, newValue);
-	}
-
-	/**
-	 * Removes the given value from the {@link #MEMORY_ATTR} reference.
-	 */
-	default void removeMemory(de.haumacher.ehome.model.operational.MaskMemory oldValue) {
-		tRemoveByName(MEMORY_ATTR, oldValue);
-	}
-
-	/**
 	 * Getter for part {@link #NUMBER_ATTR}.
 	 */
 	default int getNumber() {
@@ -363,92 +293,6 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	 */
 	default void setOtherMedium(com.top_logic.model.TLClassifier newValue) {
 		tUpdateByName(OTHER_MEDIUM_ATTR, newValue);
-	}
-
-	/**
-	 * Getter for part {@link #PROCEDURES_ATTR}.
-	 */
-	@SuppressWarnings("unchecked")
-	default java.util.List<? extends de.haumacher.ehome.model.operational.LoadProcedure> getProcedures() {
-		return (java.util.List<? extends de.haumacher.ehome.model.operational.LoadProcedure>) tValueByName(PROCEDURES_ATTR);
-	}
-
-	/**
-	 * Live view of the {@link #PROCEDURES_ATTR} part.
-	 * <p>
-	 * Changes to this {@link java.util.Collection} change directly the attribute value.
-	 * The caller has to take care of the transaction handling.
-	 * </p>
-	 */
-	default java.util.List<de.haumacher.ehome.model.operational.LoadProcedure> getProceduresModifiable() {
-		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(PROCEDURES_ATTR);
-		@SuppressWarnings("unchecked")
-		java.util.List<de.haumacher.ehome.model.operational.LoadProcedure> result = (java.util.List<de.haumacher.ehome.model.operational.LoadProcedure>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
-		return result;
-	}
-
-	/**
-	 * Setter for part {@link #PROCEDURES_ATTR}.
-	 */
-	default void setProcedures(java.util.List<de.haumacher.ehome.model.operational.LoadProcedure> newValue) {
-		tUpdateByName(PROCEDURES_ATTR, newValue);
-	}
-
-	/**
-	 * Adds a value to the {@link #PROCEDURES_ATTR} reference.
-	 */
-	default void addProcedure(de.haumacher.ehome.model.operational.LoadProcedure newValue) {
-		tAddByName(PROCEDURES_ATTR, newValue);
-	}
-
-	/**
-	 * Removes the given value from the {@link #PROCEDURES_ATTR} reference.
-	 */
-	default void removeProcedure(de.haumacher.ehome.model.operational.LoadProcedure oldValue) {
-		tRemoveByName(PROCEDURES_ATTR, oldValue);
-	}
-
-	/**
-	 * Getter for part {@link #RESOURCES_ATTR}.
-	 */
-	@SuppressWarnings("unchecked")
-	default java.util.List<? extends de.haumacher.ehome.model.operational.MaskResource> getResources() {
-		return (java.util.List<? extends de.haumacher.ehome.model.operational.MaskResource>) tValueByName(RESOURCES_ATTR);
-	}
-
-	/**
-	 * Live view of the {@link #RESOURCES_ATTR} part.
-	 * <p>
-	 * Changes to this {@link java.util.Collection} change directly the attribute value.
-	 * The caller has to take care of the transaction handling.
-	 * </p>
-	 */
-	default java.util.List<de.haumacher.ehome.model.operational.MaskResource> getResourcesModifiable() {
-		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(RESOURCES_ATTR);
-		@SuppressWarnings("unchecked")
-		java.util.List<de.haumacher.ehome.model.operational.MaskResource> result = (java.util.List<de.haumacher.ehome.model.operational.MaskResource>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
-		return result;
-	}
-
-	/**
-	 * Setter for part {@link #RESOURCES_ATTR}.
-	 */
-	default void setResources(java.util.List<de.haumacher.ehome.model.operational.MaskResource> newValue) {
-		tUpdateByName(RESOURCES_ATTR, newValue);
-	}
-
-	/**
-	 * Adds a value to the {@link #RESOURCES_ATTR} reference.
-	 */
-	default void addResource(de.haumacher.ehome.model.operational.MaskResource newValue) {
-		tAddByName(RESOURCES_ATTR, newValue);
-	}
-
-	/**
-	 * Removes the given value from the {@link #RESOURCES_ATTR} reference.
-	 */
-	default void removeResource(de.haumacher.ehome.model.operational.MaskResource oldValue) {
-		tRemoveByName(RESOURCES_ATTR, oldValue);
 	}
 
 }

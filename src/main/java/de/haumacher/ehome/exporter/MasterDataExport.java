@@ -137,61 +137,66 @@ final class MasterDataExport {
 			out.close();
 		}
 
-		List<TLObject> features = list(mask, "features");
-		List<TLObject> resources = list(mask, "resources");
-		List<TLObject> procedures = list(mask, "procedures");
-		List<TLObject> memory = list(mask, "memory");
-		if (!features.isEmpty() || !resources.isEmpty() || !procedures.isEmpty() || !memory.isEmpty()) {
-			out.open("HawkConfigurationData");
-			if (!features.isEmpty()) {
-				out.open("Features");
-				for (TLObject feature : features) {
-					out.open("Feature").attr("Name", string(feature, "name")).attr("Value", number(feature, "value"))
-						.close();
-				}
+		for (TLObject configuration : list(mask, "configurations")) {
+			writeConfiguration(out, configuration);
+		}
+		out.close();
+	}
+
+	private static void writeConfiguration(XmlOut out, TLObject configuration) throws XMLStreamException {
+		List<TLObject> features = list(configuration, "features");
+		List<TLObject> resources = list(configuration, "resources");
+		List<TLObject> procedures = list(configuration, "procedures");
+		List<TLObject> memory = list(configuration, "memory");
+		out.open("HawkConfigurationData")
+			.attr("LegacyVersion", Values.trueOnly(configuration, "legacy", "1"));
+		if (!features.isEmpty()) {
+			out.open("Features");
+			for (TLObject feature : features) {
+				out.open("Feature").attr("Name", string(feature, "name")).attr("Value", number(feature, "value"))
+					.close();
+			}
+			out.close();
+		}
+		if (!resources.isEmpty()) {
+			out.open("Resources");
+			for (TLObject resource : resources) {
+				out.open("Resource")
+					.attr("Name", string(resource, "name"))
+					.attr("Access", classifiers(resource, "access"))
+					.attr("MgmtStyle", classifiers(resource, "management"));
+				writeLocation(out, "Location", ref(resource, "location"));
+				writeLocation(out, "ImgLocation", ref(resource, "imageLocation"));
+				out.open("ResourceType")
+					.attr("Length", number(resource, "length"))
+					.attr("Flavour", string(resource, "flavour"))
+					.close();
+				writeAccessRights(out, resource);
 				out.close();
 			}
-			if (!resources.isEmpty()) {
-				out.open("Resources");
-				for (TLObject resource : resources) {
-					out.open("Resource")
-						.attr("Name", string(resource, "name"))
-						.attr("Access", classifiers(resource, "access"))
-						.attr("MgmtStyle", classifiers(resource, "management"));
-					writeLocation(out, "Location", ref(resource, "location"));
-					writeLocation(out, "ImgLocation", ref(resource, "imageLocation"));
-					out.open("ResourceType")
-						.attr("Length", number(resource, "length"))
-						.attr("Flavour", string(resource, "flavour"))
-						.close();
-					writeAccessRights(out, resource);
-					out.close();
-				}
+			out.close();
+		}
+		if (!procedures.isEmpty()) {
+			out.open("Procedures");
+			for (TLObject procedure : procedures) {
+				out.open("Procedure")
+					.attr("ProcedureType", classifier(procedure, "kind"))
+					.attr("ProcedureSubType", classifier(procedure, "scope"))
+					.attr("Access", classifiers(procedure, "access"));
+				LoadSteps.write(out, procedure);
 				out.close();
 			}
-			if (!procedures.isEmpty()) {
-				out.open("Procedures");
-				for (TLObject procedure : procedures) {
-					out.open("Procedure")
-						.attr("ProcedureType", classifier(procedure, "kind"))
-						.attr("ProcedureSubType", classifier(procedure, "scope"))
-						.attr("Access", classifiers(procedure, "access"));
-					LoadSteps.write(out, procedure);
-					out.close();
-				}
-				out.close();
-			}
-			if (!memory.isEmpty()) {
-				out.open("MemorySegments");
-				for (TLObject segment : memory) {
-					out.open("MemorySegment")
-						.attr("Length", number(segment, "length"))
-						.attr("Optional", Values.trueOnly(segment, "optional", "true"))
-						.attr("MemoryType", classifier(segment, "memoryType"));
-					writeLocation(out, "Location", ref(segment, "location"));
-					writeAccessRights(out, segment);
-					out.close();
-				}
+			out.close();
+		}
+		if (!memory.isEmpty()) {
+			out.open("MemorySegments");
+			for (TLObject segment : memory) {
+				out.open("MemorySegment")
+					.attr("Length", number(segment, "length"))
+					.attr("Optional", Values.trueOnly(segment, "optional", "true"))
+					.attr("MemoryType", classifier(segment, "memoryType"));
+				writeLocation(out, "Location", ref(segment, "location"));
+				writeAccessRights(out, segment);
 				out.close();
 			}
 			out.close();

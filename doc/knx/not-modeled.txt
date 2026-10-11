@@ -10,9 +10,6 @@
 #   skip <path>@<attribute>  an attribute that is not compared ('*' for any attribute)
 #   unordered <path>         an element whose children are compared without their order
 #   subset <path>            an element of whose children the export writes those the project uses
-#   merge <path>             an element occurring several times among its siblings whose occurrences
-#                            the model merges: compared as one element, its children of the same
-#                            name merged (their children concatenated)
 #   default <path>@<attribute> <values>
 #                            the values (separated by commas) meaning the schema default of an
 #                            optional attribute; they count as no value (the model reads a missing
@@ -97,13 +94,8 @@ skip MasterData/Manufacturers/Manufacturer/PublicKeys
 skip MasterData/Manufacturers/Manufacturer@CompatibilityGroup
 skip MasterData/Manufacturers/Manufacturer@ImportRestriction
 skip MasterData/Manufacturers/Manufacturer@ImportGroup
-# A mask version may have a second configuration for older ETS versions (LegacyVersion="1", e.g.
-# MV-0912, MV-091A); the import merges its features, resources, procedures and memory segments
-# into those of the mask (the current configuration first).
-merge MaskVersion/HawkConfigurationData
 skip MaskVersion/HawkConfigurationData/InterfaceObjects
 skip MaskVersion/HawkConfigurationData@Ets3SystemPlugin
-skip MaskVersion/HawkConfigurationData@LegacyVersion
 
 ## Catalog (M-xxxx/Catalog.xml)
 

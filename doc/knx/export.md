@@ -46,7 +46,7 @@ Values are written through the inverse of the import formats (`getSpecification`
 | `Installation@Name`, `@InstallationId` | empty, `0` |
 | `Line@MediumTypeRefId` | `MT-0` (twisted pair) |
 
-Everything else the model does not hold is left out. The complete list, as rules of the round-trip comparison, is [not-modeled.txt](not-modeled.txt); the reasons are in [schema-coverage.md](schema-coverage.md). In short: signatures, `Hash`/`CheckSums` and other ETS bookkeeping, project information beyond name and group address style, history, to-dos, comments (RTF), trades, bus access and IP settings, hardware properties, ETS plug-ins and baggages, the UI elements of parameter dialogs (separators, assignments, renames), translations into further languages, and the legacy configuration of a mask version as a section of its own (it is merged into the current one).
+Everything else the model does not hold is left out. The complete list, as rules of the round-trip comparison, is [not-modeled.txt](not-modeled.txt); the reasons are in [schema-coverage.md](schema-coverage.md). In short: signatures, `Hash`/`CheckSums` and other ETS bookkeeping, project information beyond name and group address style, history, to-dos, comments (RTF), trades, bus access and IP settings, hardware properties, ETS plug-ins and baggages, the UI elements of parameter dialogs (separators, assignments, renames), and translations into further languages.
 
 ## Other schema versions
 

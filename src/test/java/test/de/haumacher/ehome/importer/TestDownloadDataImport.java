@@ -38,6 +38,7 @@ import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.Location;
+import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Parameter;
@@ -146,6 +147,8 @@ public class TestDownloadDataImport extends BasicTestCase {
 		assertEquals(1, masks("MV-0705").size());
 		assertSame(mask, masks("MV-0705").get(0));
 		assertEquals(1797, mask.getNumber());
+		assertEquals(1, mask.getConfigurations().size());
+		assertSame(mask.getConfigurations().get(0), mask.getCurrentConfiguration());
 		assertEquals("7.5", mask.getName());
 		assertEquals("BimM112", mask.getManagementModel().getName());
 		assertEquals("TP", mask.getMedium().getName());
@@ -185,6 +188,28 @@ public class TestDownloadDataImport extends BasicTestCase {
 		MaskVersion router = (MaskVersion) masks("MV-091A").get(0);
 		assertEquals(List.of(masks("MV-0910").get(0), masks("MV-0911").get(0), masks("MV-0912").get(0)),
 			router.getCompatibleMasks());
+		// The coupler describes itself twice: the current configuration first, then the one for older
+		// ETS versions (LegacyVersion="1"), kept apart; the accessors of the mask read the current one.
+		assertEquals(2, router.getConfigurations().size());
+		MaskConfiguration current = router.getConfigurations().get(0);
+		MaskConfiguration legacy = router.getConfigurations().get(1);
+		assertFalse(Boolean.TRUE.equals(current.tValueByName(MaskConfiguration.LEGACY_ATTR)));
+		assertEquals(Boolean.TRUE, legacy.tValueByName(MaskConfiguration.LEGACY_ATTR));
+		assertSame(current, router.getCurrentConfiguration());
+		assertEquals(List.of("all", "par"), router.getProcedures().stream().map(p -> p.getScope().getName()).toList());
+		assertEquals(List.of("RestartTime=5000", "UnloadedIndividualAddress=65280", "VerifyMode=1"),
+			router.getFeatures().stream().map(f -> f.getName() + "=" + f.tValueByName("value")).toList());
+		assertEquals(4, router.getResources().size());
+		assertEquals(3, router.getMemory().size());
+		assertEquals(List.of("RestartTime=5000", "UnloadedIndividualAddress=65280", "PropertyMappedLsms=1",
+			"VerifyMode=1"),
+			legacy.getFeatures().stream().map(f -> f.getName() + "=" + f.tValueByName("value")).toList());
+		assertEquals(14, legacy.getResources().size());
+		assertEquals(1, legacy.getMemory().size());
+		// The two sample files differ in the legacy procedures of this mask (4 or 5, see
+		// TestDownloadDataProbe); the shared mask is defined by the file imported first.
+		assertTrue(legacy.getProcedures().size() == 4 || legacy.getProcedures().size() == 5);
+		assertEquals("Merge", legacy.getProcedures().get(0).getSteps().get(1).getKind().getName());
 
 		// The load procedure of the program, in the order of the file.
 		assertEquals(1, program.getLoadProcedures().size());

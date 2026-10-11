@@ -87,9 +87,6 @@ public class KnxprojDiff {
 	 * order,</li>
 	 * <li><code>subset &lt;path&gt;</code>: an element of whose children the export writes only those the
 	 * project uses (matched by ID); children of the original without a counterpart are ignored,</li>
-	 * <li><code>merge &lt;path&gt;</code>: an element that may occur several times among its siblings,
-	 * whose occurrences the model merges into one: compared as one element whose children of the same
-	 * name are merged in turn (their children concatenated),</li>
 	 * <li><code>default &lt;path&gt;@&lt;attribute&gt; &lt;values&gt;</code>: the values (separated by
 	 * commas) that mean the schema's default of an optional attribute and count as no value,</li>
 	 * <li><code>text &lt;path&gt;@&lt;attribute&gt;</code>: a translatable text, compared as its text in
@@ -112,8 +109,6 @@ public class KnxprojDiff {
 		final List<String[]> _unordered = new ArrayList<>();
 
 		final List<String[]> _subset = new ArrayList<>();
-
-		final List<String[]> _merge = new ArrayList<>();
 
 		final List<PathAttribute> _texts = new ArrayList<>();
 
@@ -152,7 +147,6 @@ public class KnxprojDiff {
 					}
 					case "unordered" -> rules._unordered.add(path.split("/"));
 					case "subset" -> rules._subset.add(path.split("/"));
-					case "merge" -> rules._merge.add(path.split("/"));
 					case "text" -> rules._texts.add(PathAttribute.parse(path));
 					default -> throw new IOException(file + ":" + number + ": Unknown rule: " + line);
 				}
@@ -194,10 +188,6 @@ public class KnxprojDiff {
 
 		boolean isSubset(Node node) {
 			return _subset.stream().anyMatch(p -> matches(p, node));
-		}
-
-		boolean isMerged(Node node) {
-			return _merge.stream().anyMatch(p -> matches(p, node));
 		}
 
 		boolean isText(Node node, String attribute) {
@@ -395,8 +385,6 @@ public class KnxprojDiff {
 	private void compareFile(byte[] left, byte[] right) throws XMLStreamException {
 		Node original = parse(left);
 		Node exported = parse(right);
-		merge(original);
-		merge(exported);
 		Texts originalTexts = texts(original);
 		Texts exportedTexts = texts(exported);
 		compareNode(original, exported);
@@ -424,41 +412,6 @@ public class KnxprojDiff {
 					report(key, "text " + key.substring(key.indexOf('@') + 1) + " (" + language + ") differs",
 						left + " != " + right);
 				}
-			}
-		}
-	}
-
-	private void merge(Node node) {
-		Map<String, Node> first = new HashMap<>();
-		for (var it = node._children.iterator(); it.hasNext();) {
-			Node child = it.next();
-			if (_rules.isMerged(child)) {
-				Node target = first.get(child._name);
-				if (target == null) {
-					first.put(child._name, child);
-				} else {
-					mergeInto(target, child);
-					it.remove();
-				}
-			}
-		}
-		for (Node child : node._children) {
-			merge(child);
-		}
-	}
-
-	/**
-	 * Merges the given element into the target: its attributes, and its children into the target's
-	 * child of the same name (their children concatenated), or as new children of the target.
-	 */
-	private static void mergeInto(Node target, Node other) {
-		other._attributes.forEach(target._attributes::putIfAbsent);
-		for (Node child : other._children) {
-			Node same = target._children.stream().filter(c -> c._name.equals(child._name)).findFirst().orElse(null);
-			if (same == null) {
-				target._children.add(child);
-			} else {
-				same._children.addAll(child._children);
 			}
 		}
 	}

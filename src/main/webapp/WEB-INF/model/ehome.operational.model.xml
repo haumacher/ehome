@@ -2146,6 +2146,33 @@
 					ordered="true"
 					type="MaskEntry"
 				/>
+				<!--
+					The configuration sets of the mask version (ETS: HawkConfigurationData), the current one first; a
+					further one marked legacy describes the mask for older ETS versions.
+				-->
+				<reference name="configurations"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="MaskConfiguration"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A configuration set of a mask version (ETS: HawkConfigurationData): the features, resources, memory
+			areas and generic load procedures of its system software. A mask version may describe itself twice,
+			the second time for older ETS versions (legacy).
+		-->
+		<class name="MaskConfiguration">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- Whether this is the configuration for older ETS versions (ETS: LegacyVersion). -->
+				<property name="legacy"
+					type="tl.core:Boolean"
+				/>
 				<!-- Properties of the system software such as FirstAppObjectIdx or VerifyMode (ETS: Feature). -->
 				<reference name="features"
 					composite="true"

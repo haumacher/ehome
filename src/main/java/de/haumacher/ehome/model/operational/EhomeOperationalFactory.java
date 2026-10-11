@@ -2361,17 +2361,17 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link MaskVersion#CONFIGURATIONS_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getConfigurationsMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.CONFIGURATIONS_ATTR);
+	}
+
+	/**
 	 * Lookup {@link MaskVersion#ENTRIES_ATTR} of {@link MaskVersion}.
 	 */
 	public static com.top_logic.model.TLReference getEntriesMaskVersionAttr() {
 		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.ENTRIES_ATTR);
-	}
-
-	/**
-	 * Lookup {@link MaskVersion#FEATURES_ATTR} of {@link MaskVersion}.
-	 */
-	public static com.top_logic.model.TLReference getFeaturesMaskVersionAttr() {
-		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.FEATURES_ATTR);
 	}
 
 	/**
@@ -2396,13 +2396,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
-	 * Lookup {@link MaskVersion#MEMORY_ATTR} of {@link MaskVersion}.
-	 */
-	public static com.top_logic.model.TLReference getMemoryMaskVersionAttr() {
-		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.MEMORY_ATTR);
-	}
-
-	/**
 	 * Lookup {@link MaskVersion#NAME_ATTR} of {@link MaskVersion}.
 	 */
 	public static com.top_logic.model.TLProperty getNameMaskVersionAttr() {
@@ -2424,17 +2417,45 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
-	 * Lookup {@link MaskVersion#PROCEDURES_ATTR} of {@link MaskVersion}.
+	 * Lookup {@link MaskConfiguration} type.
 	 */
-	public static com.top_logic.model.TLReference getProceduresMaskVersionAttr() {
-		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.PROCEDURES_ATTR);
+	public static com.top_logic.model.TLClass getMaskConfigurationType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MaskConfiguration.MASK_CONFIGURATION_TYPE);
 	}
 
 	/**
-	 * Lookup {@link MaskVersion#RESOURCES_ATTR} of {@link MaskVersion}.
+	 * Lookup {@link MaskConfiguration#FEATURES_ATTR} of {@link MaskConfiguration}.
 	 */
-	public static com.top_logic.model.TLReference getResourcesMaskVersionAttr() {
-		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.RESOURCES_ATTR);
+	public static com.top_logic.model.TLReference getFeaturesMaskConfigurationAttr() {
+		return (com.top_logic.model.TLReference) getMaskConfigurationType().getPart(MaskConfiguration.FEATURES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskConfiguration#LEGACY_ATTR} of {@link MaskConfiguration}.
+	 */
+	public static com.top_logic.model.TLProperty getLegacyMaskConfigurationAttr() {
+		return (com.top_logic.model.TLProperty) getMaskConfigurationType().getPart(MaskConfiguration.LEGACY_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskConfiguration#MEMORY_ATTR} of {@link MaskConfiguration}.
+	 */
+	public static com.top_logic.model.TLReference getMemoryMaskConfigurationAttr() {
+		return (com.top_logic.model.TLReference) getMaskConfigurationType().getPart(MaskConfiguration.MEMORY_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskConfiguration#PROCEDURES_ATTR} of {@link MaskConfiguration}.
+	 */
+	public static com.top_logic.model.TLReference getProceduresMaskConfigurationAttr() {
+		return (com.top_logic.model.TLReference) getMaskConfigurationType().getPart(MaskConfiguration.PROCEDURES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskConfiguration#RESOURCES_ATTR} of {@link MaskConfiguration}.
+	 */
+	public static com.top_logic.model.TLReference getResourcesMaskConfigurationAttr() {
+		return (com.top_logic.model.TLReference) getMaskConfigurationType().getPart(MaskConfiguration.RESOURCES_ATTR);
 	}
 
 	/**
@@ -4041,6 +4062,19 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	public static final String KO_NAME_MASK_VERSION = "GenericObject";
 
 	/**
+	 * Name of type <code>MaskConfiguration</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link MaskConfiguration#MASK_CONFIGURATION_TYPE}.
+	 */
+	@Deprecated
+	public static final String MASK_CONFIGURATION_NODE = MaskConfiguration.MASK_CONFIGURATION_TYPE;
+
+	/**
+	 * Storage table name of {@link #MASK_CONFIGURATION_NODE} objects.
+	 */
+	public static final String KO_NAME_MASK_CONFIGURATION = "GenericObject";
+
+	/**
 	 * Name of type <code>MaskEntry</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
 	 * 
 	 * @deprecated Use {@link MaskEntry#MASK_ENTRY_TYPE}.
@@ -4482,6 +4516,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public final MaskVersion createMaskVersion() {
 		return createMaskVersion(null);
+	}
+
+	/**
+	 * Create an instance of {@link MaskConfiguration} type.
+	 */
+	public final MaskConfiguration createMaskConfiguration(com.top_logic.model.TLObject context) {
+		return (MaskConfiguration) createObject(getMaskConfigurationType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link MaskConfiguration} type.
+	 */
+	public final MaskConfiguration createMaskConfiguration() {
+		return createMaskConfiguration(null);
 	}
 
 	/**

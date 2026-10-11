@@ -37,6 +37,7 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.LoadProcedure;
+import de.haumacher.ehome.model.operational.MaskConfiguration;
 import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
@@ -140,20 +141,32 @@ public class TestDownloadDataProbe extends BasicTestCase {
 		MaskVersion coupler = router.getMask();
 		assertEquals(2330, coupler.getNumber());
 		assertEquals("Bcu1", coupler.getManagementModel().getName());
-		// The master data of the two sample files differ: the export of EHomeDemo (a newer ETS)
-		// adds a seventh procedure (scope par,grp) to this mask. The mask is shared, so the file
-		// imported first (the tests share one database) defines it; the common part is checked.
+		// The mask describes itself twice: the current configuration (memory writes to the coupler)
+		// and one for older ETS versions (LegacyVersion="1"); the procedures of the mask are those of
+		// the current one.
+		assertEquals(2, coupler.getConfigurations().size());
+		assertSame(coupler.getConfigurations().get(0), coupler.getCurrentConfiguration());
 		List<LoadProcedure> procedures = new ArrayList<>(coupler.getProcedures());
-		assertTrue(procedures.size() == 6 || procedures.size() == 7);
-		List<String> scopes = procedures.stream().map(p -> p.getScope().getName()).toList();
-		assertEquals(List.of("all", "par", "all", "par", "grp"), scopes.subList(0, 5));
-		assertEquals("all", scopes.get(scopes.size() - 1));
-		assertEquals("Unload", procedures.get(procedures.size() - 1).getKind().getName());
-		assertEquals(List.of(12, 9, 15, 11, 7), procedures.subList(0, 5).stream().map(p -> p.getSteps().size()).toList());
-		assertEquals(15, procedures.get(procedures.size() - 1).getSteps().size());
+		assertEquals(List.of("all", "par"), procedures.stream().map(p -> p.getScope().getName()).toList());
+		assertEquals(List.of(12, 9), procedures.stream().map(p -> p.getSteps().size()).toList());
 		for (LoadProcedure generic : procedures) {
 			assertTrue(generic.getAccess().stream().map(TLClassifier::getName).toList().contains("remote"));
 		}
+		// The master data of the two sample files differ: the export of EHomeDemo (a newer ETS)
+		// adds a fifth procedure (scope par,grp) to the legacy configuration of this mask. The mask
+		// is shared, so the file imported first (the tests share one database) defines it; the
+		// common part is checked.
+		MaskConfiguration legacy = coupler.getConfigurations().get(1);
+		assertEquals(Boolean.TRUE, legacy.tValueByName(MaskConfiguration.LEGACY_ATTR));
+		List<LoadProcedure> legacyProcedures = new ArrayList<>(legacy.getProcedures());
+		assertTrue(legacyProcedures.size() == 4 || legacyProcedures.size() == 5);
+		List<String> scopes = legacyProcedures.stream().map(p -> p.getScope().getName()).toList();
+		assertEquals(List.of("all", "par", "grp"), scopes.subList(0, 3));
+		assertEquals("all", scopes.get(scopes.size() - 1));
+		assertEquals("Unload", legacyProcedures.get(legacyProcedures.size() - 1).getKind().getName());
+		assertEquals(List.of(15, 11, 7),
+			legacyProcedures.subList(0, 3).stream().map(p -> p.getSteps().size()).toList());
+		assertEquals(15, legacyProcedures.get(legacyProcedures.size() - 1).getSteps().size());
 		assertEquals(1, router.getSegments().size());
 		assertNull(router.getSegments().iterator().next().getData());
 
