@@ -5,6 +5,10 @@ TestDetails.knxproj: the samples contain no device names, descriptions, serial n
 devices, inactive communication objects or details of group ranges and addresses. This copy of the
 Test project adds them, and marks the device as fully downloaded after its last change.
 
+The samples contain no building parts and place no device. TestDetails.knxproj adds a building
+"Haus" with the floor "Erdgeschoss", holding the room "Küche", in which the device "Taster Küche" is
+placed, and an empty distribution board "Verteiler".
+
 TestDynamic.knxproj: the samples contain no channels that depend on a parameter (a choose directly
 below Dynamic). This copy gives the application program a new ID (so that an import does not skip it
 as known), a name marking it as test data, and wraps its channel in such a choose, with a default
@@ -72,6 +76,20 @@ def details(xml):
     assert xml.count(group_address) == 1
     xml = xml.replace(group_address, group_address
         + 'Central="1" Unfiltered="1" Description="Raumtemperatur Küche" ', 1)
+
+    # A building with a floor, a room holding the device, and an empty distribution board.
+    buildings = '<Buildings />'
+    assert xml.count(buildings) == 1
+    xml = xml.replace(buildings, '<Buildings>\n'
+        + '          <BuildingPart Id="P-01A0-0_BP-1" Name="Haus" Type="Building">\n'
+        + '            <BuildingPart Id="P-01A0-0_BP-2" Name="Erdgeschoss" Type="Floor">\n'
+        + '              <BuildingPart Id="P-01A0-0_BP-3" Name="Küche" Type="Room">\n'
+        + '                <DeviceInstanceRef RefId="P-01A0-0_DI-1" />\n'
+        + '              </BuildingPart>\n'
+        + '              <BuildingPart Id="P-01A0-0_BP-4" Name="Verteiler" Type="DistributionBoard" />\n'
+        + '            </BuildingPart>\n'
+        + '          </BuildingPart>\n'
+        + '        </Buildings>', 1)
 
     # A second device of the same product, not placed in a line yet.
     end = '</Topology>'

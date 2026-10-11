@@ -191,6 +191,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 ERROR_ADDRESS_TAKEN__ADDRESS_EXISTING;
 
+	/**
+	 * @en "{0}" cannot be placed in "{1}": the building part belongs to another project.
+	 */
+	public static ResKey2 ERROR_OTHER_PROJECT__DEVICE_PART;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

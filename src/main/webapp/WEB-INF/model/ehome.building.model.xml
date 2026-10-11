@@ -16,6 +16,13 @@
 					multiple="true"
 					type="BuildingDefinition"
 				/>
+				<!-- The devices placed in this part (ehome.physical:Device#location), not those of its sub-parts. -->
+				<reference name="devices"
+					inverse-reference="location"
+					kind="backwards"
+					multiple="true"
+					type="ehome.physical:Device"
+				/>
 			</attributes>
 		</interface>
 		<class name="Building">

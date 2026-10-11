@@ -1,20 +1,79 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The building structure of a project: buildings and their nested parts (floors, rooms, ...), with
-	the selected part in a form beside the tree.
+	The building structure of a project: buildings and their nested parts (floors, rooms, ...), and
+	under each part the devices placed in it (ehome.physical:Device#location, labelled with name and
+	individual address by deviceLabel), after its sub-parts. The selected node is shown beside the
+	tree: a part, or a placed device with the way to it in the device view ("Go to the device").
+	Below, for the selected part (or the part of the selected device), the devices placed in it and
+	the group addresses in use in it: the connections of the devices placed in the part and in its
+	sub-parts (BuildingDevices#connections), derived and stored nowhere, since ETS links group
+	addresses to devices, not to building parts.
+
+	A device is placed in the selected part with the dialog projects/place-device.view.xml and
+	removed from it with "Remove the placement"; the device view chooses the location from the other
+	side (projects/choose-location.view.xml). The devices of a part are computed by Java functions
+	(BuildingFunctions), hence the tree, the tables and the channels reading them observe the
+	devices: a device placed in the device view appears here, and the other way round, without
+	reloading.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="selected"/>
+		<!-- The selected node; nothing once its object was deleted (TL #29810). -->
+		<derived-channel name="node"
+			expr="n -> existingObject($n)"
+			inputs="selected"
+			observed-types="ehome.building:BuildingDefinition,ehome.physical:Device"
+		/>
+		<!--
+			Where the devices of the project are placed; an input of the tree, which is built anew when
+			a device is placed or removed: the tree reconciles itself on changes of the objects it
+			displays only, and a device placed from outside the tree (from the device view, or one placed
+			nowhere before) is no such object (engine gap, see doc/tl-todo.md).
+		-->
+		<derived-channel name="placements"
+			expr="p -> groupAddressDevices($p).map(d -> $d.get(`ehome.physical:Device#location`))"
+			inputs="project"
+			observed-types="ehome.physical:Device"
+		/>
 		<derived-channel name="selectedPart"
 			expr="n -> if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, null)"
-			inputs="selected"
+			inputs="node"
+		/>
+		<!-- The selected part, or the part the selected device is placed in. -->
+		<derived-channel name="part"
+			expr="n -> if($n.instanceOf(`ehome.physical:Device`), $n.get(`ehome.physical:Device#location`), if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, null))"
+			inputs="node"
+			observed-types="ehome.physical:Device"
+		/>
+		<derived-channel name="partPath"
+			expr="p -> buildingPath($p)"
+			inputs="part"
+			observed-types="ehome.building:BuildingDefinition"
 		/>
 		<derived-channel name="container"
-			expr="p -> n -> if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, $p)"
-			inputs="project, selected"
+			expr="p -> x -> if($x != null, $x, $p)"
+			inputs="project, part"
+		/>
+		<!-- The device selected in the table of the devices of the part. -->
+		<channel name="selectedRow"/>
+		<!-- The selected device: the node selected in the tree, or the row selected in the table of the devices of the part. -->
+		<derived-channel name="device"
+			inputs="node, part, selectedRow"
+			observed-types="ehome.physical:Device"
+		>
+			<expr><![CDATA[n -> p -> r -> switch {
+    $n.instanceOf(`ehome.physical:Device`): $n;
+    $r != null and $p != null and buildingDevices($p).containsElement($r): $r;
+    default: null;
+}]]></expr>
+		</derived-channel>
+		<derived-channel name="deviceText"
+			expr="d -> deviceLabel($d)"
+			inputs="device"
+			observed-types="ehome.physical:Device"
 		/>
 	</channels>
 	<split-panel
@@ -273,23 +332,104 @@
 							<delete-object/>
 							<write-channel name="selected"/>
 						</generic-command>
+						<generic-command
+							image="css:bi bi-box-arrow-in-down-right"
+							input="part"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Place a device</en>
+								<de>Gerät zuordnen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="part"
+								dialog-view="projects/place-device.view.xml"
+							>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-box-arrow-up-left"
+							input="device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Remove the placement</en>
+								<de>Zuordnung entfernen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="d -> #('Remove {0} from {1}?'@en, '{0} aus {1} entfernen?'@de).fill(deviceLabel($d), buildingPath($d.get(`ehome.physical:Device#location`)))"/>
+							<with-transaction>
+								<!-- The part the device was placed in is selected afterwards. -->
+								<execute-script>
+									<function><![CDATA[p -> d -> {
+    buildingPlace($d, null);
+    $p
+}]]></function>
+									<inputs>
+										<input channel="part"/>
+									</inputs>
+								</execute-script>
+							</with-transaction>
+							<write-channel name="selected"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-box-arrow-up-right"
+							input="device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Go to the device</en>
+								<de>Zum Gerät</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<show-views>
+								<show view="projects/project.view.xml"
+									label-expr="d -> recursion($d, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+								>
+									<bind
+										channel="project"
+										expr="d -> recursion($d, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+									/>
+								</show>
+								<show view="projects/devices.view.xml">
+									<bind channel="selected"/>
+								</show>
+							</show-views>
+						</generic-command>
 					</commands>
 					<tree
-						observed-types="ehome.building:BuildingDefinition"
+						observed-types="ehome.building:BuildingDefinition,ehome.physical:Device"
 						selection="selected"
 					>
 						<inputs>
 							<input channel="project"/>
+							<input channel="placements"/>
 						</inputs>
-						<root>p -> $p</root>
-						<children><![CDATA[p -> node -> switch {
+						<root>p -> m -> $p</root>
+						<children><![CDATA[p -> m -> node -> switch {
     $node.instanceOf(`ehome.project:Project`):
         $node.get(`ehome.project:Project#buildings`);
     $node.instanceOf(`ehome.building:BuildingDefinition`):
-        $node.get(`ehome.building:BuildingDefinition#parts`);
+        concat(
+            $node.get(`ehome.building:BuildingDefinition#parts`),
+            buildingDevices($node));
     default: [];
 }]]></children>
-						<parents>p -> node -> $node.container()</parents>
+						<parents>p -> m -> node -> if($node.instanceOf(`ehome.physical:Device`), $node.get(`ehome.physical:Device#location`), $node.container())</parents>
+						<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
+							label="x -> if($x.instanceOf(`ehome.physical:Device`), deviceLabel($x), null)"
+						/>
 					</tree>
 				</panel>
 			</pane>
@@ -297,19 +437,201 @@
 				size="60"
 				unit="%"
 			>
-				<panel>
-					<title>
-						<en>Details</en>
-						<de>Details</de>
-					</title>
-					<form
-						input="selectedPart"
-						with-inset="true"
-					>
-						<field attribute="name"/>
-						<field attribute="extId"/>
-					</form>
-				</panel>
+				<!--
+					Above, the selected node; below, the devices of the selected part (or of the part of
+					the selected device) and the group addresses in use in it. The tables stay outside of
+					the switch over the selected node: a table in a switch case that disappears on a
+					change of the channel its rows read fails (TL #29580).
+				-->
+				<split-panel
+					orientation="vertical"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="40"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Details</en>
+									<de>Details</de>
+								</title>
+								<switch input="node">
+									<case test="n -> $n.instanceOf(`ehome.building:BuildingDefinition`)">
+										<stack>
+											<inset>
+												<text
+													input="partPath"
+													variant="title"
+												/>
+											</inset>
+											<form
+												input="selectedPart"
+												with-inset="true"
+											>
+												<field attribute="name"/>
+												<field attribute="extId"/>
+											</form>
+										</stack>
+									</case>
+									<case test="n -> $n.instanceOf(`ehome.physical:Device`)">
+										<!-- A placed device; it is configured in the device view ("Go to the device"). -->
+										<stack>
+											<inset>
+												<text
+													input="deviceText"
+													variant="title"
+												/>
+											</inset>
+											<form
+												input="node"
+												with-inset="true"
+												withEditMode="false"
+											>
+												<field attribute="name"/>
+												<field attribute="type"/>
+												<field attribute="location"/>
+												<field attribute="description"/>
+												<field attribute="installationHints"/>
+											</form>
+										</stack>
+									</case>
+								</switch>
+							</panel>
+						</pane>
+						<pane
+							size="60"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>In this building part</en>
+									<de>In diesem Gebäudeteil</de>
+								</title>
+								<tab-bar active-tab="devices">
+									<tabs>
+										<tab id="devices"
+											icon="css:fa-solid fa-mobile-screen-button"
+										>
+											<label>
+												<en>Devices</en>
+												<de>Geräte</de>
+											</label>
+											<table
+												observed-types="ehome.physical:Device"
+												selection="selectedRow"
+												types="ehome.physical:Device"
+											>
+												<inputs>
+													<input channel="part"/>
+												</inputs>
+												<columns>
+													<computed-column name="device"
+														type="tl.core:String"
+														width="240"
+													>
+														<label>
+															<en>Device</en>
+															<de>Gerät</de>
+														</label>
+														<value>d -> deviceLabel($d)</value>
+													</computed-column>
+													<column attribute="type"
+														width="260"
+													/>
+													<column attribute="description"
+														width="200"
+													/>
+												</columns>
+												<rows>p -> if($p == null, [], buildingDevices($p))</rows>
+											</table>
+										</tab>
+										<tab id="addresses"
+											icon="css:fa-solid fa-wifi"
+										>
+											<label>
+												<en>Group addresses in use</en>
+												<de>Verwendete Gruppenadressen</de>
+											</label>
+											<!--
+												The group addresses the devices placed in the part and in its sub-parts are
+												connected to, one row per connection.
+											-->
+											<table
+												observed-types="ehome.physical:Connection,ehome.physical:Connector,ehome.physical:Device,ehome.building:BuildingDefinition"
+												types="ehome.physical:Connection"
+											>
+												<inputs>
+													<input channel="part"/>
+												</inputs>
+												<columns>
+													<column attribute="target"
+														width="200"
+													>
+														<label>
+															<en>Group address</en>
+															<de>Gruppenadresse</de>
+														</label>
+													</column>
+													<computed-column name="device"
+														type="tl.core:String"
+														width="200"
+													>
+														<label>
+															<en>Device</en>
+															<de>Gerät</de>
+														</label>
+														<value>c -> deviceLabel(connectionDevice($c))</value>
+													</computed-column>
+													<computed-column name="number"
+														type="tl.core:Integer"
+														width="70"
+													>
+														<label>
+															<en>No.</en>
+															<de>Nr.</de>
+														</label>
+														<value>c -> connectionObject($c).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
+													</computed-column>
+													<computed-column name="object"
+														type="tl.core:String"
+														width="170"
+													>
+														<label>
+															<en>Object</en>
+															<de>Objekt</de>
+														</label>
+														<value>c -> connectionObject($c).get(`ehome.operational:Interface#displayName`)</value>
+													</computed-column>
+													<column attribute="kind"
+														width="100"
+													>
+														<label>
+															<en>Direction</en>
+															<de>Richtung</de>
+														</label>
+													</column>
+													<computed-column name="location"
+														type="tl.core:String"
+														width="200"
+													>
+														<label>
+															<en>Placed in</en>
+															<de>Platziert in</de>
+														</label>
+														<value>c -> buildingPath(connectionDevice($c).get(`ehome.physical:Device#location`))</value>
+													</computed-column>
+												</columns>
+												<rows>p -> if($p == null, [], buildingConnections($p))</rows>
+											</table>
+										</tab>
+									</tabs>
+								</tab-bar>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
 			</pane>
 		</panes>
 	</split-panel>

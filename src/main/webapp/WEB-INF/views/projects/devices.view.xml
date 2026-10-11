@@ -264,15 +264,46 @@
 											<en>Device</en>
 											<de>Gerät</de>
 										</label>
+										<!--
+											The location is chosen from the building parts of the project in a dialog
+											(projects/choose-location.view.xml), not from the plain reference field, which
+											would offer the parts of every project without their path.
+										-->
 										<form
 											input="selected"
 											with-inset="true"
 										>
+											<commands>
+												<generic-command
+													image="css:fa-solid fa-location-dot"
+													input="device"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Choose the location</en>
+														<de>Standort wählen</de>
+													</label>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<open-dialog
+														bind-input-to="device"
+														dialog-view="projects/choose-location.view.xml"
+													>
+														<bind
+															channel="selection"
+															to="selected"
+														/>
+													</open-dialog>
+												</generic-command>
+											</commands>
 											<field attribute="title"/>
 											<field attribute="address"/>
 											<field attribute="type"/>
 											<field attribute="program"/>
-											<field attribute="location"/>
+											<field attribute="location"
+												readonly="true"
+											/>
 											<field attribute="description"/>
 											<field attribute="installationHints"/>
 											<field attribute="serialNumber"/>

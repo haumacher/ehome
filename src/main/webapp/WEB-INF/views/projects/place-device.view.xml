@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog placing a device of the project in a building part: the counterpart of
+	projects/choose-location.view.xml from the part's side.
+
+	"part" carries the building part (ehome.building:BuildingDefinition). The table offers the devices
+	of the part's project that are not placed in it, those placed nowhere first, each with its name
+	and individual address and the part it is placed in now; the chosen one is placed in the part
+	(buildingPlace, which moves it out of its former part) and written to "selection".
+-->
+<view>
+	<channels>
+		<channel name="part"/>
+		<channel name="selection"/>
+		<channel name="chosen"/>
+		<!-- What the dialog does; why the table is empty where there is nothing to place. -->
+		<derived-channel name="hint"
+			inputs="part"
+		>
+			<expr><![CDATA[p -> if(buildingDeviceChoices($p).isEmpty(),
+    #("The project has no device that is not placed in {0} already."@en, "Das Projekt hat kein Gerät, das nicht schon in {0} platziert ist."@de),
+    #("Place a device in {0}. A device placed elsewhere moves here."@en, "Ein Gerät in {0} platzieren. Ein anderswo platziertes Gerät wird hierher verschoben."@de))
+    .fill(buildingPath($p)).localize()]]></expr>
+		</derived-channel>
+	</channels>
+	<window width="760px">
+		<title>
+			<en>Place a device</en>
+			<de>Gerät zuordnen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text
+					input="hint"
+					tone="secondary"
+				/>
+				<table
+					selection="chosen"
+					types="ehome.physical:Device"
+				>
+					<inputs>
+						<input channel="part"/>
+					</inputs>
+					<columns>
+						<computed-column name="device"
+							type="tl.core:String"
+							width="260"
+						>
+							<label>
+								<en>Device</en>
+								<de>Gerät</de>
+							</label>
+							<value>d -> deviceLabel($d)</value>
+						</computed-column>
+						<computed-column name="location"
+							type="tl.core:String"
+							width="240"
+						>
+							<label>
+								<en>Placed in</en>
+								<de>Platziert in</de>
+							</label>
+							<value>d -> buildingPath($d.get(`ehome.physical:Device#location`))</value>
+						</computed-column>
+						<column attribute="type"
+							width="200"
+						/>
+					</columns>
+					<rows>p -> buildingDeviceChoices($p)</rows>
+				</table>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-box-arrow-in-down-right"
+					input="chosen"
+				>
+					<label>
+						<en>Place</en>
+						<de>Zuordnen</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="p -> d -> buildingPlace($d, $p)">
+							<inputs>
+								<input channel="part"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

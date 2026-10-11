@@ -316,6 +316,21 @@ without sorting; the row source then keeps the groups in the order of their firs
 **When available:** replace `<row-order-column>` by `<computed-column>` with the row-order option
 and delete `RowOrderColumn`.
 
+## A tree ignores updates of objects it does not display yet (TL #29813)
+
+`ObservableTreeModel` reconciles a `<tree>` on a create of an object of its `observed-types`, and
+on an update or delete of an object it displays; an update of an object it does not display is not
+observed, even where the tree's `parents` function would say where the object hangs now. In the
+building tree (`projects/buildings.view.xml`) a device placed in a part from the device view, or
+one placed nowhere before, changes only `ehome.physical:Device#location` of a device not yet in the
+tree: the device did not appear under its part until the view was opened again.
+
+Workaround: the derived channel `placements` (the locations of the project's devices, observing
+`ehome.physical:Device`) is an input of the tree, which is built anew (with its open nodes) when a
+device is placed or removed.
+
+**When fixed:** drop the `placements` channel and the tree input.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -341,3 +356,4 @@ and delete `RowOrderColumn`.
 - TL #29810: see above (deleted object in a tree selection).
 - TL #29811: see above (icon-only buttons).
 - TL #29812: see above (groups in row order).
+- TL #29813: see above (tree updates for objects not displayed yet; when fixed: drop the `placements` input of the building tree).
