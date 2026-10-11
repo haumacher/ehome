@@ -53,7 +53,21 @@ public class ObjectSizeFormat extends AbstractConfigurationValueProvider<Integer
 
 	@Override
 	protected String getSpecificationNonNull(Integer configValue) {
-		int bits = configValue.intValue();
+		return text(configValue.intValue());
+	}
+
+	/**
+	 * The size of a communication object with its unit, as ETS writes it: "1 Bit", "4 Bit", "1 Byte",
+	 * "2 Bytes"; <code>null</code> for no size.
+	 *
+	 * @param bits
+	 *        The size in bits.
+	 */
+	public static String text(Integer bits) {
+		return bits == null ? null : text(bits.intValue());
+	}
+
+	private static String text(int bits) {
 		int bytes = bits / 8;
 		if (bytes > 0 && bits % 8 == 0) {
 			// As the schema enumerates them: "1 Byte", "2 Bytes".

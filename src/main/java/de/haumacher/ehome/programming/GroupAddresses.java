@@ -76,6 +76,25 @@ public final class GroupAddresses {
 	}
 
 	/**
+	 * The group ranges and addresses directly below the given project or group range, in the order
+	 * of their addresses: a range by its start, an address by its value; a range before an address
+	 * of the same value, entries without address last.
+	 */
+	public static List<TLObject> parts(TLObject node) {
+		List<TLObject> result = ExtIds.isA(node, GROUP_RANGE) ? ExtIds.list(node, PARTS)
+			: ExtIds.list(node, "groupAddresses");
+		result.sort(Comparator.comparingInt(GroupAddresses::position)
+			.thenComparingInt(part -> ExtIds.isA(part, GROUP_RANGE) ? 0 : 1)
+			.thenComparing(part -> String.valueOf(part.tValueByName("name"))));
+		return result;
+	}
+
+	private static int position(TLObject part) {
+		return ExtIds.isA(part, GROUP_RANGE) ? bound(part, RANGE_START, Integer.MAX_VALUE)
+			: bound(part, ADDRESS, Integer.MAX_VALUE);
+	}
+
+	/**
 	 * The range a new address is proposed in: the range of the given address (the one chosen last)
 	 * if it belongs to the project of the given object, otherwise the project's first range taking
 	 * addresses.

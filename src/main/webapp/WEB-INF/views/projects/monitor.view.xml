@@ -298,7 +298,7 @@
 											<columns>
 												<computed-column name="fresh"
 													type="tl.core:String"
-													width="40"
+													width="100"
 												>
 													<label>
 														<en>New</en>
@@ -308,7 +308,7 @@
 												</computed-column>
 												<computed-column name="address"
 													type="tl.core:String"
-													width="90"
+													width="130"
 												>
 													<label>
 														<en>Address</en>
@@ -328,7 +328,7 @@
 												</computed-column>
 												<computed-column name="dpt"
 													type="tl.core:String"
-													width="80"
+													width="100"
 												>
 													<label>
 														<en>Type</en>
@@ -358,7 +358,7 @@
 												</computed-column>
 												<computed-column name="time"
 													type="tl.core:String"
-													width="90"
+													width="100"
 												>
 													<label>
 														<en>Time</en>
@@ -368,7 +368,7 @@
 												</computed-column>
 												<computed-column name="count"
 													type="tl.core:Integer"
-													width="80"
+													width="160"
 												>
 													<label>
 														<en>Telegrams</en>
@@ -642,7 +642,7 @@
 										</computed-column>
 										<computed-column name="own"
 											type="tl.core:String"
-											width="60"
+											width="110"
 										>
 											<label>
 												<en>Own</en>
@@ -662,7 +662,7 @@
 										</computed-column>
 										<computed-column name="address"
 											type="tl.core:String"
-											width="90"
+											width="130"
 										>
 											<label>
 												<en>Address</en>
@@ -692,7 +692,7 @@
 										</computed-column>
 										<computed-column name="service"
 											type="ehome.monitor:TelegramService"
-											width="100"
+											width="120"
 										>
 											<label>
 												<en>Service</en>
@@ -702,7 +702,7 @@
 										</computed-column>
 										<computed-column name="priority"
 											type="ehome.monitor:TelegramPriority"
-											width="90"
+											width="130"
 										>
 											<label>
 												<en>Priority</en>
@@ -712,7 +712,7 @@
 										</computed-column>
 										<computed-column name="repeated"
 											type="tl.core:Boolean"
-											width="90"
+											width="150"
 										>
 											<label>
 												<en>Repeated</en>
@@ -722,7 +722,7 @@
 										</computed-column>
 										<computed-column name="hops"
 											type="tl.core:Integer"
-											width="70"
+											width="130"
 										>
 											<label>
 												<en>Routing</en>
@@ -732,7 +732,7 @@
 										</computed-column>
 										<computed-column name="data"
 											type="tl.core:String"
-											width="100"
+											width="120"
 										>
 											<label>
 												<en>Data</en>

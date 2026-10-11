@@ -70,6 +70,12 @@
     default: null;
 }]]></expr>
 		</derived-channel>
+		<!-- Where the selected device node is placed, as the path of its building part. -->
+		<derived-channel name="locationPath"
+			expr="n -> if($n.instanceOf(`ehome.physical:Device`), buildingPath($n.get(`ehome.physical:Device#location`)), null)"
+			inputs="node"
+			observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
+		/>
 		<derived-channel name="deviceText"
 			expr="d -> deviceLabel($d)"
 			inputs="device"
@@ -104,6 +110,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
+								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Building`)"/>
 							</executability>
 							<create-transient type="ehome.building:Building"/>
 							<open-dialog
@@ -132,6 +139,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
+								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:BuildingPart`)"/>
 							</executability>
 							<create-transient type="ehome.building:BuildingPart"/>
 							<open-dialog
@@ -160,6 +168,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
+								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Floor`)"/>
 							</executability>
 							<create-transient type="ehome.building:Floor"/>
 							<open-dialog
@@ -188,6 +197,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
+								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Room`)"/>
 							</executability>
 							<create-transient type="ehome.building:Room"/>
 							<open-dialog
@@ -216,6 +226,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
+								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Corridor`)"/>
 							</executability>
 							<create-transient type="ehome.building:Corridor"/>
 							<open-dialog
@@ -244,6 +255,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
+								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Stairway`)"/>
 							</executability>
 							<create-transient type="ehome.building:Stairway"/>
 							<open-dialog
@@ -272,6 +284,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
+								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:DistributionBoard`)"/>
 							</executability>
 							<create-transient type="ehome.building:DistributionBoard"/>
 							<open-dialog
@@ -300,6 +313,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
+								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Location`)"/>
 							</executability>
 							<create-transient type="ehome.building:Location"/>
 							<open-dialog
@@ -491,7 +505,16 @@
 											>
 												<field attribute="name"/>
 												<field attribute="type"/>
-												<field attribute="location"/>
+												<value-input
+													readonly="true"
+													type="tl.core:String"
+													value="locationPath"
+												>
+													<label>
+														<en>Location</en>
+														<de>Standort</de>
+													</label>
+												</value-input>
 												<field attribute="description"/>
 												<field attribute="installationHints"/>
 											</form>
@@ -586,7 +609,7 @@
 													</computed-column>
 													<computed-column name="number"
 														type="tl.core:Integer"
-														width="70"
+														width="90"
 													>
 														<label>
 															<en>No.</en>
@@ -605,7 +628,7 @@
 														<value>c -> connectionObject($c).get(`ehome.operational:Interface#displayName`)</value>
 													</computed-column>
 													<column attribute="kind"
-														width="100"
+														width="130"
 													>
 														<label>
 															<en>Direction</en>

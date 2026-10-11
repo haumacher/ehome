@@ -53,16 +53,34 @@
 				<field attribute="name"/>
 				<field attribute="type"/>
 				<field attribute="access"/>
-				<group>
+				<!--
+					The default, in the one field fitting the kind of the chosen type (none before a type is
+					chosen, hence no group with a heading of its own).
+				-->
+				<field attribute="choice">
 					<label>
 						<en>Default</en>
 						<de>Vorgabe</de>
 					</label>
-					<field attribute="choice"/>
-					<field attribute="number"/>
-					<field attribute="decimal"/>
-					<field attribute="text"/>
-				</group>
+				</field>
+				<field attribute="number">
+					<label>
+						<en>Default</en>
+						<de>Vorgabe</de>
+					</label>
+				</field>
+				<field attribute="decimal">
+					<label>
+						<en>Default</en>
+						<de>Vorgabe</de>
+					</label>
+				</field>
+				<field attribute="text">
+					<label>
+						<en>Default</en>
+						<de>Vorgabe</de>
+					</label>
+				</field>
 			</visible-if>
 			<visible-if
 				expr="n -> $n.instanceOf(`ehome.operational:Port`)"
@@ -72,7 +90,13 @@
 				<field attribute="name"/>
 				<field attribute="text"/>
 				<field attribute="function"/>
-				<field attribute="size"/>
+				<!-- The size in bits; the table of the objects shows it with its unit ("1 Bit", "2 Bytes"). -->
+				<field attribute="size">
+					<label>
+						<en>Size in bits</en>
+						<de>Größe in Bit</de>
+					</label>
+				</field>
 				<field attribute="datapointTypes"/>
 				<group>
 					<label>

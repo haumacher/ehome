@@ -388,7 +388,11 @@
 						</case>
 						<!-- An application program, also when reached as the program of a product. -->
 						<case test="n -> $n.instanceOf(`ehome.operational:Program`) or $n.instanceOf(`ehome.catalog:ProgramAssignment`)">
-							<!-- The assignment itself: which program the product runs, and its ID. -->
+							<!--
+								The assignment itself: which program the product runs, and its ID; the program
+								is shown below it without an edit command of its own (one "Edit" per detail),
+								it is edited where it is selected itself.
+							-->
 							<visible-if
 								expr="n -> $n.instanceOf(`ehome.catalog:ProgramAssignment`)"
 								input="selected"
@@ -401,14 +405,27 @@
 									<field attribute="program"/>
 									<field attribute="extId"/>
 								</form>
+								<form
+									input="selectedProgram"
+									with-inset="true"
+									withEditMode="false"
+								>
+									<field attribute="name"/>
+									<field attribute="extId"/>
+								</form>
 							</visible-if>
-							<form
-								input="selectedProgram"
-								with-inset="true"
+							<visible-if
+								expr="n -> $n.instanceOf(`ehome.operational:Program`)"
+								input="selected"
 							>
-								<field attribute="name"/>
-								<field attribute="extId"/>
-							</form>
+								<form
+									input="selectedProgram"
+									with-inset="true"
+								>
+									<field attribute="name"/>
+									<field attribute="extId"/>
+								</form>
+							</visible-if>
 							<view-ref view="catalogs/program.view.xml">
 								<bind
 									channel="program"

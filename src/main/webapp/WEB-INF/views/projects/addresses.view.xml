@@ -253,10 +253,8 @@
 						</inputs>
 						<root>p -> $p</root>
 						<children><![CDATA[p -> node -> switch {
-    $node.instanceOf(`ehome.project:Project`):
-        $node.get(`ehome.project:Project#groupAddresses`);
-    $node.instanceOf(`ehome.logical:GroupRange`):
-        $node.get(`ehome.logical:GroupRange#parts`);
+    $node.instanceOf(`ehome.project:Project`) or $node.instanceOf(`ehome.logical:GroupRange`):
+        groupAddressParts($node);
     $node.instanceOf(`ehome.logical:GroupAddress`):
         groupAddressConnections($node);
     default: [];
@@ -410,7 +408,7 @@
 											</computed-column>
 											<computed-column name="number"
 												type="tl.core:Integer"
-												width="70"
+												width="90"
 											>
 												<label>
 													<en>No.</en>
@@ -439,7 +437,7 @@
 												<value>c -> connectionFunction($c)</value>
 											</computed-column>
 											<column attribute="kind"
-												width="100"
+												width="130"
 											>
 												<label>
 													<en>Direction</en>

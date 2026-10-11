@@ -130,6 +130,30 @@ public class TestBuildingDevices extends BasicTestCase {
 		assertTrue(deviceLabel, deviceLabel.startsWith("Taster Küche (") && deviceLabel.endsWith(")"));
 		assertNull(asRoot(Locale.GERMAN, () -> label.execute(kitchen)));
 
+		// The "New" menu offers the part types the selected container takes, as ETS does.
+		assertTrue(BuildingDevices.canContain(project, buildingType("Building")));
+		assertFalse(BuildingDevices.canContain(project, buildingType("Room")));
+		assertTrue(BuildingDevices.canContain(house, buildingType("Floor")));
+		assertTrue(BuildingDevices.canContain(house, buildingType("Room")));
+		assertFalse(BuildingDevices.canContain(house, buildingType("Building")));
+		assertTrue(BuildingDevices.canContain(floor, buildingType("Room")));
+		assertTrue(BuildingDevices.canContain(floor, buildingType("DistributionBoard")));
+		assertFalse(BuildingDevices.canContain(floor, buildingType("Floor")));
+		assertTrue(BuildingDevices.canContain(kitchen, buildingType("DistributionBoard")));
+		assertFalse(BuildingDevices.canContain(kitchen, buildingType("Building")));
+		assertFalse(BuildingDevices.canContain(kitchen, buildingType("Room")));
+		for (String type : List.of("Building", "BuildingPart", "Floor", "Room", "Corridor", "Stairway",
+			"DistributionBoard", "Location")) {
+			assertFalse(type, BuildingDevices.canContain(board, buildingType(type)));
+		}
+		// The rule of the view's create commands, in the order of the commands (Building first, Room fourth).
+		QueryExecutor buildingVeto = script(viewAttribute(BUILDINGS_VIEW, "disabled-if", "expr", 0));
+		QueryExecutor roomVeto = script(viewAttribute(BUILDINGS_VIEW, "disabled-if", "expr", 3));
+		assertNull(asRoot(Locale.ENGLISH, () -> buildingVeto.execute(project)));
+		assertNotNull(asRoot(Locale.ENGLISH, () -> buildingVeto.execute(kitchen)));
+		assertNull(asRoot(Locale.ENGLISH, () -> roomVeto.execute(floor)));
+		assertNotNull(asRoot(Locale.ENGLISH, () -> roomVeto.execute(board)));
+
 		// The group addresses in use: the connections of the device, in the kitchen and in every part above.
 		Set<TLObject> deviceConnections = connectionsOf(device);
 		assertFalse(deviceConnections.isEmpty());
@@ -249,6 +273,10 @@ public class TestBuildingDevices extends BasicTestCase {
 			result.addAll(DeviceSettings.connections(device, object));
 		}
 		return result;
+	}
+
+	private static TLClass buildingType(String name) {
+		return (TLClass) TLModelUtil.findType("ehome.building:" + name);
 	}
 
 	private static TLObject byTitle(TLObject project, String title) {

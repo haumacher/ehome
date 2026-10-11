@@ -74,6 +74,8 @@ public class GroupAddressFunctions extends GenericMethod {
 		existingObject(1, true),
 		/** <code>groupAddressRanges(obj)</code>: {@link GroupAddresses#ranges(TLObject)}. */
 		groupAddressRanges(1, true),
+		/** <code>groupAddressParts(node)</code>: {@link GroupAddresses#parts(TLObject)}. */
+		groupAddressParts(1, true),
 		/**
 		 * <code>groupAddressDefaultRange(obj, lastAddress)</code>:
 		 * {@link GroupAddresses#defaultRange(TLObject, TLObject)}.
@@ -182,6 +184,8 @@ public class GroupAddressFunctions extends GenericMethod {
 				return GroupAddressConnections.objects(obj);
 			case groupAddressRanges:
 				return GroupAddresses.ranges(obj);
+			case groupAddressParts:
+				return GroupAddresses.parts(obj);
 			case groupAddressDefaultRange:
 				return GroupAddresses.defaultRange(obj, object(arguments[1]));
 			case groupAddressNextFree:

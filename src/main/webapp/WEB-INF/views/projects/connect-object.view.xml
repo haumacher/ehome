@@ -75,7 +75,7 @@
 					<columns>
 						<computed-column name="number"
 							type="tl.core:Integer"
-							width="70"
+							width="90"
 						>
 							<label>
 								<en>No.</en>

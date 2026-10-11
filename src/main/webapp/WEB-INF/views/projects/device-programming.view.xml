@@ -15,7 +15,8 @@
 	Both writing commands are disabled, with the reason, unless the application runs with
 	-Dehome.programming.writeEnabled=true (de.haumacher.ehome.programming.download.CalimeroWriter).
 	The commands run as jobs (DownloadJob, CompareJob) with their progress shown here, and end with
-	the report (projects/programming-report.view.xml).
+	the report (projects/programming-report.view.xml), which replaces the progress display; a job
+	that fails keeps its display with the error.
 -->
 <view>
 	<channels>
@@ -123,6 +124,9 @@
 						bind-input-to="report"
 						dialog-view="projects/programming-report.view.xml"
 					/>
+					<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
+					<execute-script function="r -> null"/>
+					<write-channel name="programmingJob"/>
 				</generic-command>
 				<generic-command
 					image="css:bi bi-download"
@@ -153,6 +157,9 @@
 						bind-input-to="report"
 						dialog-view="projects/programming-report.view.xml"
 					/>
+					<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
+					<execute-script function="r -> null"/>
+					<write-channel name="programmingJob"/>
 				</generic-command>
 				<generic-command
 					image="css:bi bi-hand-index"
@@ -185,6 +192,9 @@
 						bind-input-to="report"
 						dialog-view="projects/programming-report.view.xml"
 					/>
+					<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
+					<execute-script function="r -> null"/>
+					<write-channel name="programmingJob"/>
 				</generic-command>
 			</commands>
 			<inset>
@@ -212,7 +222,7 @@
 						<columns>
 							<computed-column name="number"
 								type="tl.core:Integer"
-								width="50"
+								width="90"
 							>
 								<label>
 									<en>No.</en>
@@ -242,7 +252,7 @@
 							</computed-column>
 							<computed-column name="bytes"
 								type="tl.core:Integer"
-								width="70"
+								width="100"
 							>
 								<label>
 									<en>Bytes</en>

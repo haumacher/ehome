@@ -196,6 +196,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 ERROR_OTHER_PROJECT__DEVICE_PART;
 
+	/**
+	 * @en {0} cannot be created in "{1}".
+	 */
+	public static ResKey2 ERROR_CANNOT_CONTAIN__TYPE_CONTAINER;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

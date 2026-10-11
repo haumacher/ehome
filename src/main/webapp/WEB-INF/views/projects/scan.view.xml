@@ -340,7 +340,7 @@
 								<columns>
 									<computed-column name="address"
 										type="tl.core:String"
-										width="80"
+										width="120"
 									>
 										<label>
 											<en>Address</en>
@@ -350,7 +350,7 @@
 									</computed-column>
 									<computed-column name="source"
 										type="tl.core:String"
-										width="90"
+										width="160"
 									>
 										<label>
 											<en>Read via</en>
@@ -360,7 +360,7 @@
 									</computed-column>
 									<computed-column name="descriptor"
 										type="tl.core:String"
-										width="80"
+										width="110"
 									>
 										<label>
 											<en>Mask</en>
@@ -380,7 +380,7 @@
 									</computed-column>
 									<computed-column name="serial"
 										type="tl.core:String"
-										width="130"
+										width="170"
 									>
 										<label>
 											<en>Serial number</en>
@@ -390,7 +390,7 @@
 									</computed-column>
 									<computed-column name="programVersion"
 										type="tl.core:String"
-										width="130"
+										width="180"
 									>
 										<label>
 											<en>Program version</en>

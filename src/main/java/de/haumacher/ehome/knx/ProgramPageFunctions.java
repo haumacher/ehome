@@ -15,11 +15,13 @@ import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 
+import de.haumacher.ehome.etsImport.importer.format.ObjectSizeFormat;
 import de.haumacher.ehome.model.operational.Program;
 
 /**
  * The TL-Script functions listing the parameters and communication objects of an application
- * program by the page they are placed on, see {@link ProgramPages}.
+ * program by the page they are placed on, see {@link ProgramPages}, and the display of the size of
+ * a communication object.
  *
  * <p>
  * Each function is registered in <code>ehomeConf.config.xml</code> under the name of its
@@ -50,7 +52,13 @@ public class ProgramPageFunctions extends GenericMethod {
 		 * <code>programRowOf(definition)</code>: the first row of a parameter or communication
 		 * object, see {@link ProgramPages#rowOf(com.top_logic.model.TLObject)}.
 		 */
-		programRowOf(1);
+		programRowOf(1),
+
+		/**
+		 * <code>programObjectSize(bits)</code>: the size of a communication object with its unit,
+		 * see {@link ObjectSizeFormat#text(Integer)}.
+		 */
+		programObjectSize(1);
 
 		private final int _arguments;
 
@@ -96,6 +104,9 @@ public class ProgramPageFunctions extends GenericMethod {
 
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
+		if (_function == Function.programObjectSize) {
+			return arguments[0] instanceof Number bits ? ObjectSizeFormat.text(Integer.valueOf(bits.intValue())) : null;
+		}
 		if (_function == Function.programRowOf) {
 			if (arguments[0] instanceof TLObject definition && definition.tValid()
 				&& definition.tContainer() instanceof Program program) {
@@ -115,6 +126,7 @@ public class ProgramPageFunctions extends GenericMethod {
 			case programPortRows:
 				return pages.portRows(filter, unplacedOnly);
 			case programRowOf:
+			case programObjectSize:
 				break;
 		}
 		return List.of();

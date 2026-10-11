@@ -10,10 +10,12 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 
@@ -133,6 +135,62 @@ public class BuildingDevices {
 			names.add(0, MetaLabelProvider.INSTANCE.getLabel(current));
 		}
 		return String.join(PATH_SEPARATOR, names);
+	}
+
+	/**
+	 * Whether a building part of the given type may be created in the given container (the project
+	 * or a building part), following the building structure of ETS.
+	 *
+	 * <p>
+	 * The project takes buildings; a building and a building part take building parts, floors and
+	 * everything a floor takes; a floor takes rooms, corridors, stairways, locations and distribution
+	 * boards; a room, a corridor, a stairway and a location take locations and distribution boards; a
+	 * distribution board takes no further part, only devices.
+	 * </p>
+	 */
+	public static boolean canContain(TLObject container, TLStructuredType type) {
+		if (container == null || type == null) {
+			return false;
+		}
+		String containerType = TLModelUtil.qualifiedName(container.tType());
+		String partType = TLModelUtil.qualifiedName(type);
+		switch (containerType) {
+			case "ehome.project:Project":
+				return partType.equals("ehome.building:Building");
+			case "ehome.building:Building":
+			case "ehome.building:BuildingPart":
+				return partType.equals("ehome.building:BuildingPart") || partType.equals("ehome.building:Floor")
+					|| floorPart(partType);
+			case "ehome.building:Floor":
+				return floorPart(partType);
+			case "ehome.building:Room":
+			case "ehome.building:Corridor":
+			case "ehome.building:Stairway":
+			case "ehome.building:Location":
+				return roomPart(partType);
+			default:
+				return false;
+		}
+	}
+
+	private static boolean floorPart(String partType) {
+		return partType.equals("ehome.building:Room") || partType.equals("ehome.building:Corridor") || partType.equals("ehome.building:Stairway")
+			|| roomPart(partType);
+	}
+
+	private static boolean roomPart(String partType) {
+		return partType.equals("ehome.building:Location") || partType.equals("ehome.building:DistributionBoard");
+	}
+
+	/**
+	 * Why a building part of the given type cannot be created in the given container;
+	 * <code>null</code> if it can, see {@link #canContain(TLObject, TLStructuredType)}.
+	 */
+	public static ResKey insertVeto(TLObject container, TLStructuredType type) {
+		if (canContain(container, type)) {
+			return null;
+		}
+		return I18NConstants.ERROR_CANNOT_CONTAIN__TYPE_CONTAINER.fill(type, container);
 	}
 
 	/**

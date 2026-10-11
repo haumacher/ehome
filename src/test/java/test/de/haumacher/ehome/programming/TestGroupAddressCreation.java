@@ -9,6 +9,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
@@ -151,6 +152,19 @@ public class TestGroupAddressCreation extends BasicTestCase {
 		assertEquals(count + 1, addresses.size());
 		assertSame(created, addresses.get(addresses.size() - 1));
 		assertEquals(56, GroupAddresses.nextFree(middle).getValue());
+
+		// The address tree lists the addresses of a range in numeric order, the new one last.
+		List<TLObject> parts = GroupAddresses.parts(middle);
+		assertEquals(new HashSet<>(ExtIds.list(middle, "parts")), new HashSet<>(parts));
+		int last = -1;
+		for (TLObject part : parts) {
+			int value = ((GA) part.tValueByName("address")).getValue();
+			assertTrue(parts.toString(), value > last);
+			last = value;
+		}
+		assertSame(created, parts.get(parts.size() - 1));
+		assertTrue(GroupAddresses.parts(project).contains(main));
+		assertTrue(GroupAddresses.parts(main).contains(middle));
 		assertVeto(I18NConstants.ERROR_ADDRESS_TAKEN__ADDRESS_EXISTING.fill("", ""),
 			GroupAddresses.veto(middle, created.tValueByName("address")));
 

@@ -37,6 +37,7 @@
 					<method name="programParameterRows" class="de.haumacher.ehome.knx.ProgramPageFunctions$Builder"/>
 					<method name="programPortRows" class="de.haumacher.ehome.knx.ProgramPageFunctions$Builder"/>
 					<method name="programRowOf" class="de.haumacher.ehome.knx.ProgramPageFunctions$Builder"/>
+					<method name="programObjectSize" class="de.haumacher.ehome.knx.ProgramPageFunctions$Builder"/>
 					<!-- The configuration of a device (de.haumacher.ehome.programming.DeviceConfiguration, DeviceSettings): one builder, the function by its name. -->
 					<method name="deviceValue" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceValueHolder" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
@@ -90,8 +91,10 @@
 					<method name="buildingDeviceChoices" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
 					<method name="buildingPath" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
 					<method name="buildingPlace" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
+					<method name="buildingInsertVeto" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
 					<!-- Creating a group address from the connect dialog (de.haumacher.ehome.programming.GroupAddresses). -->
 					<method name="groupAddressRanges" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressParts" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="groupAddressDefaultRange" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="groupAddressNextFree" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="groupAddressCreateProblem" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
@@ -131,12 +134,18 @@
 			</instance>
 		</config>
 
-		<!-- Group addresses (model type ehome.logical:GA) are written in the notation they carry. -->
+		<!--
+			Group addresses (model type ehome.logical:GA) are written in the notation they carry; a device
+			is named with its individual address (also in the options of a device choice).
+		-->
 		<config service-class="com.top_logic.layout.provider.LabelProviderService">
 			<instance>
 				<label-providers>
 					<provider kind="CODE" type="de.haumacher.ehome.knx.GA" implementation="de.haumacher.ehome.knx.GALabelProvider"/>
 				</label-providers>
+				<resource-providers>
+					<provider kind="MODEL" type="ehome.physical:Device" implementation="de.haumacher.ehome.programming.DeviceResourceProvider"/>
+				</resource-providers>
 			</instance>
 		</config>
 

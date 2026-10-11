@@ -515,6 +515,10 @@
 					type="tl.core:Integer"
 				>
 					<annotations>
+						<!-- A code or a size in bits: written without thousands separator. -->
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
 						<default-value>
 							<int value="0"/>
 						</default-value>
@@ -1228,6 +1232,10 @@
 					type="tl.core:Integer"
 				>
 					<annotations>
+						<!-- A code or a size in bits: written without thousands separator. -->
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
 						<default-value>
 							<int value="8"/>
 						</default-value>
@@ -1364,6 +1372,10 @@
 					type="tl.core:Integer"
 				>
 					<annotations>
+						<!-- A code or a size in bits: written without thousands separator. -->
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
 						<default-value>
 							<int value="8"/>
 						</default-value>
@@ -1396,6 +1408,10 @@
 					type="tl.core:Integer"
 				>
 					<annotations>
+						<!-- A code or a size in bits: written without thousands separator. -->
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
 						<default-value>
 							<int value="112"/>
 						</default-value>
@@ -1421,6 +1437,10 @@
 					type="tl.core:Integer"
 				>
 					<annotations>
+						<!-- A code or a size in bits: written without thousands separator. -->
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
 						<default-value>
 							<int value="16"/>
 						</default-value>

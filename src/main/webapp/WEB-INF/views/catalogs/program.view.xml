@@ -454,18 +454,36 @@
 										>
 											<field attribute="parameter"/>
 											<field attribute="description"/>
-											<group>
+											<!--
+												The default at this place, in the one field fitting the kind of the parameter's type (none
+												without a parameter, hence no group with a heading of its own).
+											-->
+											<field attribute="choice">
 												<label>
 													<en>Default at this place</en>
 													<de>Vorgabe an dieser Stelle</de>
 												</label>
-												<field attribute="choice"/>
-												<field attribute="number"/>
-												<field attribute="decimal"/>
-												<field attribute="text"/>
-												<field attribute="displayDefault"/>
-												<field attribute="defaultSource"/>
-											</group>
+											</field>
+											<field attribute="number">
+												<label>
+													<en>Default at this place</en>
+													<de>Vorgabe an dieser Stelle</de>
+												</label>
+											</field>
+											<field attribute="decimal">
+												<label>
+													<en>Default at this place</en>
+													<de>Vorgabe an dieser Stelle</de>
+												</label>
+											</field>
+											<field attribute="text">
+												<label>
+													<en>Default at this place</en>
+													<de>Vorgabe an dieser Stelle</de>
+												</label>
+											</field>
+											<field attribute="displayDefault"/>
+											<field attribute="defaultSource"/>
 											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
 											<field attribute="extId"/>
@@ -964,7 +982,7 @@
 										</computed-column>
 										<computed-column name="index"
 											type="tl.core:Integer"
-											width="80"
+											width="100"
 										>
 											<label>
 												<en>Index</en>
@@ -993,14 +1011,14 @@
 											<value>r -> $r['placement'].get(`ehome.operational:Interface#function`).localize() || $r['definition'].get(`ehome.operational:Port#function`).localize()</value>
 										</computed-column>
 										<computed-column name="size"
-											type="tl.core:Integer"
+											type="tl.core:String"
 											width="100"
 										>
 											<label>
 												<en>Size</en>
 												<de>Größe</de>
 											</label>
-											<value>r -> $r['definition'].get(`ehome.operational:Port#size`)</value>
+											<value>r -> programObjectSize($r['definition'].get(`ehome.operational:Port#size`))</value>
 										</computed-column>
 										<computed-column name="placements"
 											type="tl.core:Integer"
@@ -1054,7 +1072,13 @@
 									<field attribute="text"/>
 									<field attribute="function"/>
 									<field attribute="description"/>
-									<field attribute="size"/>
+									<!-- The size in bits; the table of the objects shows it with its unit ("1 Bit", "2 Bytes"). -->
+									<field attribute="size">
+										<label>
+											<en>Size in bits</en>
+											<de>Größe in Bit</de>
+										</label>
+									</field>
 									<field attribute="datapointTypes"/>
 									<group>
 										<label>
@@ -1413,6 +1437,11 @@
 												<en>Bits</en>
 												<de>Bits</de>
 											</label>
+											<annotations>
+												<format>
+													<decimal pattern="0"/>
+												</format>
+											</annotations>
 											<value><![CDATA[t -> switch {
     $t.instanceOf(`ehome.operational:NumericType`): $t.get(`ehome.operational:NumericType#bits`);
     $t.instanceOf(`ehome.operational:EnumerationType`): $t.get(`ehome.operational:EnumerationType#bits`);

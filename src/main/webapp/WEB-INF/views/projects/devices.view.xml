@@ -31,6 +31,12 @@
 			expr="n -> if($n.instanceOf(`ehome.physical:Device`), $n, null)"
 			inputs="selected"
 		/>
+		<!-- Where the selected device is placed, as the path of its building part ("Haus / Erdgeschoss / Küche"). -->
+		<derived-channel name="locationPath"
+			expr="d -> buildingPath($d.get(`ehome.physical:Device#location`))"
+			inputs="device"
+			observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
+		/>
 		<!--
 			What the device's values select in the structure of its program (the cases of its switches);
 			changes when a value opens or closes a part of the structure, which rebuilds the pages. The
@@ -301,9 +307,16 @@
 											<field attribute="address"/>
 											<field attribute="type"/>
 											<field attribute="program"/>
-											<field attribute="location"
+											<value-input
 												readonly="true"
-											/>
+												type="tl.core:String"
+												value="locationPath"
+											>
+												<label>
+													<en>Location</en>
+													<de>Standort</de>
+												</label>
+											</value-input>
 											<field attribute="description"/>
 											<field attribute="installationHints"/>
 											<field attribute="serialNumber"/>
@@ -425,7 +438,7 @@
 														<columns>
 															<computed-column name="number"
 																type="tl.core:Integer"
-																width="50"
+																width="90"
 															>
 																<label>
 																	<en>No.</en>
@@ -540,7 +553,7 @@
 																	width="220"
 																/>
 																<column attribute="kind"
-																	width="100"
+																	width="130"
 																/>
 															</columns>
 															<rows>d -> i -> if($i == null, [], deviceConnections($d, $i))</rows>

@@ -8,6 +8,7 @@ import java.util.List;
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.TLType;
 import com.top_logic.model.search.expr.EvalContext;
 import com.top_logic.model.search.expr.GenericMethod;
@@ -44,7 +45,12 @@ public class BuildingFunctions extends GenericMethod {
 		 * <code>buildingPlace(device, part)</code>: {@link BuildingDevices#place(TLObject, TLObject)},
 		 * the device as result.
 		 */
-		buildingPlace(2, false);
+		buildingPlace(2, false),
+		/**
+		 * <code>buildingInsertVeto(container, type)</code>:
+		 * {@link BuildingDevices#insertVeto(TLObject, TLStructuredType)}.
+		 */
+		buildingInsertVeto(2, true);
 
 		private final int _arguments;
 
@@ -94,6 +100,10 @@ public class BuildingFunctions extends GenericMethod {
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
 		TLObject obj = object(arguments[0]);
+		if (_function == Function.buildingInsertVeto) {
+			return BuildingDevices.insertVeto(obj,
+				arguments[1] instanceof TLStructuredType type ? type : null);
+		}
 		if (obj == null) {
 			return _function == Function.buildingPath || _function == Function.buildingPlace ? null : List.of();
 		}
