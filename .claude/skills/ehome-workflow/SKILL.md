@@ -16,9 +16,11 @@ is no roadmap file — direction lives in issues and commit messages.
 
 Work is a pipeline, not a pile:
 
-0. **Engine check**: once per session, look for a newer TopLogic version than `pom.xml` names
-   and for progress on the TL tickets in `doc/tl-todo.md` (§8). A shipped fix is a package of its
-   own: upgrade, undo the workaround, re-run the gate.
+0. **Engine upgrade — only when the user asks for it.** Do not look for a newer TopLogic version
+   or poll the TL tickets at the start of a session. When the user requests an upgrade, it is a
+   package of its own: set the new version in `pom.xml`, go through every entry of
+   `doc/tl-todo.md` (§8) and check whether its ticket has shipped (`get_ticket`), undo the
+   workarounds that have, re-run the gate, and tell the user which entries remain.
 1. **Intake**: user reports (chat, screenshots, ETS XML snippets, GitHub issues) and the open
    issues at `haumacher/ehome`. Bugs outrank queued features. Triage every new GitHub issue with a
    diagnosis comment *before* fixing; use the repository's labels (`bug`, `enhancement`,
@@ -298,11 +300,10 @@ app is the shared reference for bug reports.
   the workaround is minimal** — a few lines, no copy of engine code, no second mechanism;
   otherwise **leave the problem visible** (the gap shows in the UI or the report, the issue stays
   open) rather than building around it; (3) record the ticket number and the workaround in
-  `doc/tl-todo.md` with a **When fixed/available:** line saying what to remove; (4) at the start
-  of every session, check for a newer engine version (the TopLogic Nexus in `pom.xml`) and the
-  status of the recorded tickets (`get_ticket`), and when a fix has shipped, upgrade and undo the
-  workaround as the entry says. A workaround without a ticket, or a ticket without an entry, is
-  not done.
+  `doc/tl-todo.md` with a **When fixed/available:** line saying what to remove; (4) when the user
+  asks for an engine upgrade (§1 step 0, never unprompted), check the status of every recorded
+  ticket (`get_ticket`) and undo the workarounds whose fix has shipped, as the entries say. A
+  workaround without a ticket, or a ticket without an entry, is not done.
 - **Views are the UI.** No classic layouts (`WEB-INF/layouts/`) come back; a gap of the view layer
   is an entry in `doc/tl-todo.md` (tree tables, Excel export), not a classic component.
 - **Refusals speak**: no command may decline silently; the UI shows the reason.

@@ -30,7 +30,7 @@ E-Home: a TopLogic (8.0.0-alpha10, Java 17) web app that imports KNX ETS project
 - App-specific view actions are Java classes with a `@TagName` config (`import-ets-project`, `discover-knx-gateways`).
 - A changed `.view.xml` is not picked up by a running app; restart it.
 - `doc/knx/schema-coverage.md` tracks which parts of the KNX project schema the model covers; extend the model there in its own terms, not as a copy of the XML.
-- `doc/tl-todo.md` lists the gaps that wait for a newer TopLogic version (tree tables, Excel export, TL #29791). Engine gaps and defects get a TL ticket, a minimal workaround (or none, leaving the problem visible) and an entry there; check the entries and the engine version at the start of every session and on every TopLogic upgrade.
+- `doc/tl-todo.md` lists the gaps that wait for a newer TopLogic version (tree tables, Excel export, TL #29791). Engine gaps and defects get a TL ticket, a minimal workaround (or none, leaving the problem visible) and an entry there. A TopLogic upgrade happens only when the user asks for one; then check every entry and undo the workarounds whose fix has shipped. Do not look for newer engine versions or poll the tickets on your own.
 
 ## Stale files (ignore)
 
