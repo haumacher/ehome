@@ -58,6 +58,31 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 WARN_PARAMETER__NAME_PROBLEM;
 
+	/**
+	 * @en The file cannot be read: it holds an encrypted (password protected) entry, which follows the entry "{0}". Only unencrypted files can be imported.
+	 */
+	public static ResKey1 ERROR_ENCRYPTED_ENTRY__AFTER;
+
+	/**
+	 * @en The file is no readable ZIP archive: {0}
+	 */
+	public static ResKey1 ERROR_INVALID_ARCHIVE__DETAIL;
+
+	/**
+	 * @en The product file holds a project (entry "{0}"). Import a project file (.knxproj) in the projects view.
+	 */
+	public static ResKey1 ERROR_PROJECT_IN_PRODUCT_DATA__ENTRY;
+
+	/**
+	 * @en The product file holds baggage (entry "{0}"): pictures, help or plug-in files of ETS 5 or 6, which E-Home cannot import. Only product files without baggage can be imported.
+	 */
+	public static ResKey1 ERROR_BAGGAGES_IN_PRODUCT_DATA__ENTRY;
+
+	/**
+	 * @en The file holds no product data of a manufacturer (no folder "M-xxxx").
+	 */
+	public static ResKey ERROR_NO_MANUFACTURER_DATA;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

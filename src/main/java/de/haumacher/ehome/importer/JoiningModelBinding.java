@@ -5,7 +5,9 @@ package de.haumacher.ehome.importer;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.Consumer;
 
 import javax.xml.stream.Location;
@@ -29,6 +31,8 @@ public class JoiningModelBinding implements ModelBinding {
 
 	private List<Object> _created = new ArrayList<>();
 
+	private Set<Object> _resolved = new LinkedHashSet<>();
+
 	/**
 	 * Creates a {@link JoiningModelBinding}.
 	 *
@@ -50,7 +54,11 @@ public class JoiningModelBinding implements ModelBinding {
 
 	@Override
 	public Object resolveObject(ImportPart handler, Location location, String id) {
-		return _impl.resolveObject(handler, location, id);
+		Object result = _impl.resolveObject(handler, location, id);
+		if (result != null) {
+			_resolved.add(result);
+		}
+		return result;
 	}
 
 	@Override
@@ -68,10 +76,21 @@ public class JoiningModelBinding implements ModelBinding {
 	}
 
 	/**
-	 * Forgets the objects created so far, see {@link #getCreated()}.
+	 * The existing objects the import found under their IDs since the last {@link #clearCreated()}:
+	 * objects it reused or referenced, including those it created itself before, in the order they
+	 * were first found.
+	 */
+	public Set<Object> getResolved() {
+		return _resolved;
+	}
+
+	/**
+	 * Forgets the objects created and found so far, see {@link #getCreated()} and
+	 * {@link #getResolved()}.
 	 */
 	public void clearCreated() {
 		_created = new ArrayList<>();
+		_resolved = new LinkedHashSet<>();
 	}
 
 	@Override

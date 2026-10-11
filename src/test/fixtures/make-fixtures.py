@@ -32,9 +32,27 @@ database holding an earlier version imports it as a new program instead of skipp
 
 The projects of both fixtures are named after the fixture, not "Test".
 
+TestProduct.knxprod: a product file of a manufacturer, as ETS imports it into its catalog: the Test
+project without its project part (the folder P-01A0 and its signature), that is, the master data and
+the data of the manufacturer M-0008 (catalog, hardware, application program). Its IDs are those of
+the Test project, so an import of it reuses what an import of the Test project created, and vice
+versa.
+
+TestNewProduct.knxprod and TestNewProduct.knxproj: the same pair of a product file and a project, with
+the IDs of the product data changed (the hardware, its product, the catalog sections, the application
+program with a new version O00F0, and the assignment of the program to the hardware) and names
+marking them as test data, so that a database already holding the Test project imports them as new
+products. The project (named "TestNewProduct") uses the renamed product.
+
+Encrypted.knxprod: TestProduct.knxprod with an entry of its manufacturer folder encrypted with the
+traditional ZIP password protection (password "test"), which Java cannot read; the import refuses
+it. Its content is a short text, not ETS data.
+
 Usage (from the project root): python3 src/test/fixtures/make-fixtures.py
 """
+import struct
 import zipfile
+import zlib
 
 SOURCE = 'samples/Test.knxproj'
 PROJECT = 'P-01A0/0.xml'
@@ -237,27 +255,127 @@ def typed_setting(xml):
     return xml.replace(refs, refs + settings, 1)
 
 
-def write(target, modify):
-    with zipfile.ZipFile(SOURCE) as source, zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as out:
-        for info in source.infolist():
-            data = source.read(info.filename)
-            name = info.filename
-            if name.endswith('.xml'):
-                text = data.decode('utf-8-sig')
-                modified = modify(name, text)
-                if modified != text:
-                    data = modified.encode('utf-8')
-                if modify is dynamic:
-                    name = name.replace(VERSION, NEW_VERSION)
-            info.filename = name
-            out.writestr(info, data)
-
-
 def keep_details(name, xml):
     if name == PROJECT_INFO:
         return rename_project(xml, 'TestDetails')
     return details(xml) if name == PROJECT else xml
 
 
+# Renames of the product data in TestNewProduct (applied to the entry names as well).
+NEW_PRODUCT_IDS = [
+    (VERSION, '10D7-11-A0E5-O00F0'),
+    ('H-8.20.2F.2F.20zxy3.20xx-1', 'H-8.20.2F.2F.20TEST-1'),
+    ('M-0008_CS-PB', 'M-0008_CS-TEST'),
+]
+NEW_PRODUCT_NAMES = [
+    ('"' + PROGRAM_NAME + '"', '"TEST: Produktdaten 10D711 (künstliche Testdaten)"'),
+    ('"Tastsensor 3 Komfort 3fach"', '"TEST: Produktdaten (künstliche Testdaten)"'),
+    ('"Taster"', '"TEST: Taster"'),
+    ('"Taster, 3fach"', '"TEST: Taster, 3fach"'),
+]
+
+
+def new_product_name(name):
+    for old, new in NEW_PRODUCT_IDS:
+        name = name.replace(old, new)
+    return name
+
+
+def new_product(name, xml):
+    xml = new_product_name(xml)
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestNewProduct')
+    if name.startswith('M-0008/'):
+        for old, new in NEW_PRODUCT_NAMES:
+            xml = xml.replace(old, new)
+    return xml
+
+
+def is_product_data(name):
+    """Whether an entry of a project file belongs to the product data: everything but the project."""
+    return not name.startswith('P-')
+
+
+def write(target, modify, keep=lambda name: True, rename=lambda name: name):
+    with zipfile.ZipFile(SOURCE) as source, zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as out:
+        for info in source.infolist():
+            if not keep(info.filename):
+                continue
+            data = source.read(info.filename)
+            if info.filename.endswith('.xml'):
+                text = data.decode('utf-8-sig')
+                modified = modify(info.filename, text)
+                if modified != text:
+                    data = modified.encode('utf-8')
+            info.filename = rename(info.filename)
+            out.writestr(info, data)
+
+
+def unchanged(name, xml):
+    return xml
+
+
+# The local file header of a ZIP entry, see the ZIP specification (APPNOTE.TXT, 4.3.7).
+LOCAL_HEADER = struct.Struct('<IHHHHHIIIHH')
+CENTRAL_HEADER_SIGNATURE = 0x02014b50
+
+
+def encrypted(target, source, entry, password, content):
+    """Copies the archive, adding an entry encrypted with the traditional PKWARE encryption.
+
+    Python's zipfile reads such entries but cannot write them, so the entry is written by hand: the
+    content stored uncompressed, preceded by the 12 byte encryption header, the entry flagged as
+    encrypted (bit 0) in its local and central header.
+    """
+    crc = zlib.crc32(content)
+    keys = [0x12345678, 0x23456789, 0x34567890]
+
+    def update(c):
+        keys[0] = zlib.crc32(bytes([c]), keys[0] ^ 0xffffffff) ^ 0xffffffff
+        keys[1] = (keys[1] + (keys[0] & 0xff)) & 0xffffffff
+        keys[1] = (keys[1] * 134775813 + 1) & 0xffffffff
+        keys[2] = zlib.crc32(bytes([keys[1] >> 24]), keys[2] ^ 0xffffffff) ^ 0xffffffff
+
+    def encrypt(data):
+        result = bytearray()
+        for c in data:
+            k = keys[2] | 2
+            result.append(c ^ (((k * (k ^ 1)) >> 8) & 0xff))
+            update(c)
+        return bytes(result)
+
+    for c in password:
+        update(c)
+    # Fixed random bytes (reproducible fixture); the last byte checks the password: the high byte of
+    # the CRC.
+    header = bytes(range(1, 12)) + bytes([crc >> 24])
+    data = encrypt(header) + encrypt(content)
+
+    with zipfile.ZipFile(source) as src, zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as out:
+        for info in src.infolist():
+            out.writestr(info, src.read(info.filename))
+        name = entry.encode('utf-8')
+        info = zipfile.ZipInfo(entry, date_time=(2026, 1, 1, 0, 0, 0))
+        info.compress_type = zipfile.ZIP_STORED
+        info.flag_bits |= 0x1
+        info.CRC = crc
+        info.compress_size = len(data)
+        info.file_size = len(content)
+        info.header_offset = out.fp.tell()
+        out.fp.write(LOCAL_HEADER.pack(0x04034b50, 20, 0x1, 0, 0, 0x5C21, crc, len(data), len(content),
+            len(name), 0))
+        out.fp.write(name)
+        out.fp.write(data)
+        out.start_dir = out.fp.tell()
+        out.filelist.append(info)
+        out.NameToInfo[entry] = info
+
+
 write('src/test/fixtures/TestDetails.knxproj', keep_details)
-write('src/test/fixtures/TestDynamic.knxproj', dynamic)
+write('src/test/fixtures/TestDynamic.knxproj', dynamic,
+    rename=lambda name: name.replace(VERSION, NEW_VERSION))
+write('src/test/fixtures/TestProduct.knxprod', unchanged, keep=is_product_data)
+write('src/test/fixtures/TestNewProduct.knxproj', new_product, rename=new_product_name)
+write('src/test/fixtures/TestNewProduct.knxprod', new_product, keep=is_product_data, rename=new_product_name)
+encrypted('src/test/fixtures/Encrypted.knxprod', 'src/test/fixtures/TestProduct.knxprod',
+    'M-0008/Secret.xml', b'test', b'<KNX/>')
