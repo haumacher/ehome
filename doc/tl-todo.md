@@ -280,6 +280,19 @@ the control explicitly (`<input-control class="com.top_logic.layout.view.form.Bi
 
 **When fixed:** remove the `<input-control>` from that `<value-input>`.
 
+## A tree keeps a deleted object in its selection (TL #29810)
+
+The selection channel of a `<tree>` still holds a node's object after that object was deleted in
+another view (a connection removed in the device view while selected in the group address tree),
+and every script over the selection fails with a `DeletedObjectAccess` toast until another node is
+selected; a `<table>` drops such a selection, a tree does not.
+
+Workaround: the TL-Script function `existingObject(x)` turns a deleted object into `null`; every
+reader of the tree selection in `projects/addresses.view.xml` goes through it, and the remove
+command selects the address before deleting its connection.
+
+**When available:** drop `existingObject` and read the selection directly.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -302,3 +315,4 @@ the control explicitly (`<input-control class="com.top_logic.layout.view.form.Bi
 - TL #29807: see above (classifier constant names).
 - TL #29808: see above (apply on Enter only).
 - TL #29809: see above (binary value input; when fixed: drop the explicit input control of the export dialog).
+- TL #29810: see above (deleted object in a tree selection).
