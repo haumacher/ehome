@@ -295,8 +295,13 @@ app is the shared reference for bug reports.
   say so in every UI report.
 - **Engine gaps are bookkept, never buried.** When the TopLogic engine in use cannot do something
   out of the box (the view layer, the XML import, the generator) or has a proven defect, the
-  sequence is fixed: (1) file a TL Trac ticket against the engine with a minimal reproduction
-  (`tl-dev` tools: `create_ticket`, `search_tickets`); (2) work around it in the app **only if
+  sequence is fixed: (1) **search Trac before filing** — several `search_tickets` queries with
+  one filter each (`summary~=<keyword>`), in English and German, with the class or element name
+  (`RowSourceObserver`, `adaptive-detail`), the symptom (`drag`, `Baum`, `NPE`) and the feature,
+  without a status filter (a closed or approved ticket may already carry the fix); when a ticket
+  exists, reference it (and add the app's reproduction as a comment only if it adds something)
+  instead of filing a duplicate; only then file a TL Trac ticket with a minimal reproduction
+  (`create_ticket`); (2) work around it in the app **only if
   the workaround is minimal** — a few lines, no copy of engine code, no second mechanism;
   otherwise **leave the problem visible** (the gap shows in the UI or the report, the issue stays
   open) rather than building around it; (3) record the ticket number and the workaround in

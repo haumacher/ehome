@@ -152,7 +152,7 @@ screens and `reset-on`.
 **When available** (configurable selector share): replace the split panel and the guard by an
 `<adaptive-detail>` with `reset-on="selected"`.
 
-## Error toast when a table in a switch case disappears (TL #29802)
+## Error toast when a table in a switch case disappears (TL #29580)
 
 A `<table>` inside a `<switch>` case whose rows read an input channel fails with a
 `NullPointerException` in `RowSourceObserver#deregisterObjectListeners` when that channel changes
@@ -165,6 +165,21 @@ itself goes through. In the app: the entries table of an enumeration type in
 Workaround: none; the toast is left visible.
 
 **When fixed:** nothing to remove.
+
+## Line numbers of XML import messages with a thousands separator (TL #29804)
+
+The location the engine adds to a message of the XML import (`I18NLogAsXMLStreamLog.withLocation`,
+keys `com.top_logic.basic.xml.log.I18NConstants.AT_LOCATION__FILE_LINE_COL_DETAIL` and
+`AT_LOCATION__LINE_COL_DETAIL`, texts `In {0} line {1} column {2}: {3}`) formats the line and column
+as numbers of the locale, so a line beyond 999 reads "line 4,433" (English) or "Zeile 4.433"
+(German). Reproduction: import `src/test/fixtures/TestDynamic.knxproj` into a database without its
+program; the ETS import report shows "In knxproj:M-0008/M-0008_A-10D7-11-A0E5-O000C.xml Zeile 4.433
+Spalte 183: …". The texts need `{1,number,#}` / `{2,number,#}` (and `{0,number,#}` /
+`{1,number,#}` for the variant without file).
+
+Workaround: none; the message is readable, the separator stays visible.
+
+**When fixed:** nothing to remove; check the line numbers in the ETS import report.
 
 ## Upstream tickets to follow
 
@@ -179,4 +194,6 @@ Workaround: none; the toast is left visible.
 - TL #29799: see above (derived fields and Java script functions in forms).
 - TL #29800: see above (model patch of a new generalization with overrides).
 - TL #29801: see above (adaptive-detail split proportions).
-- TL #29802: see above (table in a switch case disposed during a channel change).
+- TL #29580: see above (table in a switch case disposed during a channel change; fix with registration handles described there).
+- TL #29804: see above (line numbers of import messages).
+- TL #29776: drag and drop for trees (reordering the program structure; see the catalog package).
