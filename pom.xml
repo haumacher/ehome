@@ -9,7 +9,7 @@
   <artifactId>de.haumacher.ehome</artifactId>
   <version>1.0.0-SNAPSHOT</version>
   <properties>
-    <!-- The context path of the app: in development mode (exec:java) and the name of the deployable war. -->
+    <!-- The context path of the app: in development mode (exec:java) and the name of the deployable war (target/ehome.war). -->
     <tl.contextPath>ehome</tl.contextPath>
   </properties>
   <repositories>
@@ -116,7 +116,7 @@
           <execution>
             <id>build-app</id>
             <configuration>
-              <warName>${tl.contextPath}</warName>
+              <warName>${tl.contextPath}.war</warName>
             </configuration>
           </execution>
         </executions>
