@@ -34,32 +34,32 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 PRODUCT_FILE__FILE_CONTENTS;
 
 	/**
-	 * @en manufacturer imported: {0}
+	 * @en Manufacturer imported: {0}
 	 */
 	public static ResKey1 MANUFACTURERS_IMPORTED__NAMES;
 
 	/**
-	 * @en manufacturer already known: {0}
+	 * @en Manufacturer already known: {0}
 	 */
 	public static ResKey1 MANUFACTURERS_KNOWN__NAMES;
 
 	/**
-	 * @en products imported: {0}
+	 * @en Products imported: {0}
 	 */
 	public static ResKey1 PRODUCTS_IMPORTED__NAMES;
 
 	/**
-	 * @en products already known: {0}
+	 * @en Products already known: {0}
 	 */
 	public static ResKey1 PRODUCTS_KNOWN__NAMES;
 
 	/**
-	 * @en application programs imported: {0}
+	 * @en Application programs imported: {0}
 	 */
 	public static ResKey1 PROGRAMS_IMPORTED__NAMES;
 
 	/**
-	 * @en application programs already known: {0}
+	 * @en Application programs already known: {0}
 	 */
 	public static ResKey1 PROGRAMS_KNOWN__NAMES;
 
