@@ -2,7 +2,9 @@
 
 Gaps of the React UI (`src/main/webapp/WEB-INF/views/`) compared with the classic layouts, and
 workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha10) cannot close yet.
-Check each item when upgrading TopLogic.
+Check each item when upgrading TopLogic, and at the start of a session check whether a newer engine
+version or a fix of one of the tickets below has shipped. Every entry names its TL ticket and what to
+remove once the engine covers it; a gap whose workaround would not be minimal is left visible instead.
 
 ## Tree tables
 

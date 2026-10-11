@@ -16,6 +16,9 @@ is no roadmap file — direction lives in issues and commit messages.
 
 Work is a pipeline, not a pile:
 
+0. **Engine check**: once per session, look for a newer TopLogic version than `pom.xml` names
+   and for progress on the TL tickets in `doc/tl-todo.md` (§8). A shipped fix is a package of its
+   own: upgrade, undo the workaround, re-run the gate.
 1. **Intake**: user reports (chat, screenshots, ETS XML snippets, GitHub issues) and the open
    issues at `haumacher/ehome`. Bugs outrank queued features. Triage every new GitHub issue with a
    diagnosis comment *before* fixing; use the repository's labels (`bug`, `enhancement`,
@@ -288,11 +291,18 @@ app is the shared reference for bug reports.
 - **Access is deny-by-default.** A new type or module needs grants before a non-admin user can see
   it (`access-configuration` article); until a `<security-config>` exists, only `root` sees data —
   say so in every UI report.
-- **Engine gaps are bookkept, never buried.** When TopLogic 8.0.0-alpha10 cannot do something
-  (the view layer, the XML import, the generator), the workaround lives in the app with a TL Trac
-  ticket number (`tl-dev` tools: `create_ticket`, `search_tickets`) and an entry in
-  `doc/tl-todo.md` saying **When fixed/available:** what to remove. Check that file on every
-  TopLogic upgrade.
+- **Engine gaps are bookkept, never buried.** When the TopLogic engine in use cannot do something
+  out of the box (the view layer, the XML import, the generator) or has a proven defect, the
+  sequence is fixed: (1) file a TL Trac ticket against the engine with a minimal reproduction
+  (`tl-dev` tools: `create_ticket`, `search_tickets`); (2) work around it in the app **only if
+  the workaround is minimal** — a few lines, no copy of engine code, no second mechanism;
+  otherwise **leave the problem visible** (the gap shows in the UI or the report, the issue stays
+  open) rather than building around it; (3) record the ticket number and the workaround in
+  `doc/tl-todo.md` with a **When fixed/available:** line saying what to remove; (4) at the start
+  of every session, check for a newer engine version (the TopLogic Nexus in `pom.xml`) and the
+  status of the recorded tickets (`get_ticket`), and when a fix has shipped, upgrade and undo the
+  workaround as the entry says. A workaround without a ticket, or a ticket without an entry, is
+  not done.
 - **Views are the UI.** No classic layouts (`WEB-INF/layouts/`) come back; a gap of the view layer
   is an entry in `doc/tl-todo.md` (tree tables, Excel export), not a classic component.
 - **Refusals speak**: no command may decline silently; the UI shows the reason.
