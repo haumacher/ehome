@@ -7,6 +7,7 @@ import java.util.List;
 
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLType;
 import com.top_logic.model.search.expr.EvalContext;
@@ -14,6 +15,7 @@ import com.top_logic.model.search.expr.GenericMethod;
 import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
+import com.top_logic.util.Resources;
 
 /**
  * The TL-Script functions reading the connections of a group address from the address's side, see
@@ -26,6 +28,13 @@ import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBui
  * {@link DeviceFunctions}, the functions are implemented in Java: a view calling them names the
  * connections and connectors of devices in its <code>observed-types</code> (TL #29799).
  * </p>
+ *
+ * <p>
+ * The functions <code>groupAddressRanges</code>, <code>groupAddressDefaultRange</code>,
+ * <code>groupAddressNextFree</code>, <code>groupAddressCreateProblem</code> and
+ * <code>groupAddressCreate</code> create a group address from the connect dialog, see
+ * {@link GroupAddresses}.
+ * </p>
  */
 public class GroupAddressFunctions extends GenericMethod {
 
@@ -34,35 +43,64 @@ public class GroupAddressFunctions extends GenericMethod {
 	 */
 	public enum Function {
 		/** <code>groupAddressConnections(address)</code>: {@link GroupAddressConnections#connections(TLObject)}. */
-		groupAddressConnections,
+		groupAddressConnections(1, true),
 		/** <code>groupAddressSenders(address)</code>: {@link GroupAddressConnections#senders(TLObject)}. */
-		groupAddressSenders,
+		groupAddressSenders(1, true),
 		/** <code>groupAddressProblems(address)</code>: {@link GroupAddressConnections#problemText(TLObject)}. */
-		groupAddressProblems,
+		groupAddressProblems(1, true),
 		/** <code>groupAddressDevices(address)</code>: {@link GroupAddressConnections#devices(TLObject)}. */
-		groupAddressDevices,
+		groupAddressDevices(1, true),
 		/** <code>connectionLabel(connection)</code>: {@link GroupAddressConnections#label(TLObject)}. */
-		connectionLabel,
+		connectionLabel(1, true),
 		/** <code>connectionDevice(connection)</code>: {@link GroupAddressConnections#device(TLObject)}. */
-		connectionDevice,
+		connectionDevice(1, true),
 		/** <code>connectionObject(connection)</code>: {@link GroupAddressConnections#object(TLObject)}. */
-		connectionObject,
+		connectionObject(1, true),
 		/** <code>connectionFunction(connection)</code>: {@link GroupAddressConnections#function(TLObject)}. */
-		connectionFunction,
+		connectionFunction(1, true),
 		/**
 		 * <code>connectionDatapointType(connection)</code>:
 		 * {@link GroupAddressConnections#datapointType(TLObject)}.
 		 */
-		connectionDatapointType,
+		connectionDatapointType(1, true),
 		/** <code>deviceLabel(device)</code>: {@link GroupAddressConnections#deviceLabel(TLObject)}. */
-		deviceLabel,
+		deviceLabel(1, true),
 		/** <code>deviceObjects(device)</code>: {@link GroupAddressConnections#objects(TLObject)}. */
-		deviceObjects,
+		deviceObjects(1, true),
 		/**
 		 * <code>existingObject(value)</code>: the value, <code>null</code> for an object deleted
 		 * meanwhile (e.g. a selection whose object was deleted in another view).
 		 */
-		existingObject;
+		existingObject(1, true),
+		/** <code>groupAddressRanges(obj)</code>: {@link GroupAddresses#ranges(TLObject)}. */
+		groupAddressRanges(1, true),
+		/**
+		 * <code>groupAddressDefaultRange(obj, lastAddress)</code>:
+		 * {@link GroupAddresses#defaultRange(TLObject, TLObject)}.
+		 */
+		groupAddressDefaultRange(2, true),
+		/** <code>groupAddressNextFree(range)</code>: {@link GroupAddresses#nextFree(TLObject)}. */
+		groupAddressNextFree(1, true),
+		/**
+		 * <code>groupAddressCreateProblem(range, address)</code>: the reason of
+		 * {@link GroupAddresses#veto(TLObject, Object)} as text, <code>null</code> if the address can
+		 * be created.
+		 */
+		groupAddressCreateProblem(2, true),
+		/**
+		 * <code>groupAddressCreate(range, address, name, datapointType)</code>:
+		 * {@link GroupAddresses#create(TLObject, Object, String, TLObject)}.
+		 */
+		groupAddressCreate(4, false);
+
+		private final int _arguments;
+
+		private final boolean _sideEffectFree;
+
+		Function(int arguments, boolean sideEffectFree) {
+			_arguments = arguments;
+			_sideEffectFree = sideEffectFree;
+		}
 	}
 
 	private final Function _function;
@@ -92,7 +130,7 @@ public class GroupAddressFunctions extends GenericMethod {
 
 	@Override
 	public boolean isSideEffectFree() {
-		return true;
+		return _function._sideEffectFree;
 	}
 
 	@Override
@@ -102,8 +140,18 @@ public class GroupAddressFunctions extends GenericMethod {
 
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
-		if (_function == Function.existingObject) {
-			return arguments[0] instanceof TLObject obj && !obj.tValid() ? null : arguments[0];
+		switch (_function) {
+			case existingObject:
+				return arguments[0] instanceof TLObject obj && !obj.tValid() ? null : arguments[0];
+			case groupAddressCreate:
+				return GroupAddresses.create(object(arguments[0]), arguments[1],
+					arguments[2] == null ? null : arguments[2].toString(), object(arguments[3]));
+			case groupAddressCreateProblem: {
+				ResKey veto = GroupAddresses.veto(object(arguments[0]), arguments[1]);
+				return veto == null ? null : Resources.getInstance().getString(veto);
+			}
+			default:
+				break;
 		}
 		if (!(arguments[0] instanceof TLObject obj) || !obj.tValid()) {
 			return null;
@@ -132,10 +180,22 @@ public class GroupAddressFunctions extends GenericMethod {
 				return GroupAddressConnections.deviceLabel(obj);
 			case deviceObjects:
 				return GroupAddressConnections.objects(obj);
+			case groupAddressRanges:
+				return GroupAddresses.ranges(obj);
+			case groupAddressDefaultRange:
+				return GroupAddresses.defaultRange(obj, object(arguments[1]));
+			case groupAddressNextFree:
+				return GroupAddresses.nextFree(obj);
 			case existingObject:
+			case groupAddressCreateProblem:
+			case groupAddressCreate:
 				return obj;
 		}
 		return null;
+	}
+
+	private static TLObject object(Object value) {
+		return value instanceof TLObject obj && obj.tValid() ? obj : null;
 	}
 
 	/**
@@ -156,7 +216,7 @@ public class GroupAddressFunctions extends GenericMethod {
 
 		@Override
 		public GroupAddressFunctions build(Expr expr, SearchExpression[] args) throws ConfigurationException {
-			checkArgs(expr, args, 1, 1);
+			checkArgs(expr, args, _function._arguments, _function._arguments);
 			return new GroupAddressFunctions(getConfig().getName(), _function, args);
 		}
 

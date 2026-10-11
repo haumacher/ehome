@@ -23,6 +23,8 @@
 			reverse="k -> $k"
 		/>
 		<channel name="address"/>
+		<!-- The address created last in the dialog on top; recomputes the address options. -->
+		<channel name="createdAddress"/>
 		<derived-channel name="hint"
 			inputs="interface"
 		>
@@ -62,8 +64,8 @@
 						/>
 					</value-input>
 					<value-input
-						inputs="device"
-						options="d -> deviceGroupAddresses($d)"
+						inputs="device, createdAddress"
+						options="d -> c -> deviceGroupAddresses($d)"
 						type="ehome.logical:GroupAddress"
 						value="address"
 					>
@@ -73,6 +75,45 @@
 						</label>
 					</value-input>
 				</fields>
+				<stack
+					direction="row"
+					justify="end"
+				>
+					<button
+						appearance="ghost"
+						size="small"
+					>
+						<action class="com.top_logic.layout.view.command.GenericViewCommand"
+							image="css:bi bi-plus-lg"
+							input="device"
+						>
+							<label>
+								<en>New group address…</en>
+								<de>Neue Gruppenadresse…</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="context"
+								dialog-view="projects/create-group-address.view.xml"
+							>
+								<bind
+									channel="interface"
+									to="interface"
+								/>
+								<bind
+									channel="address"
+									to="address"
+								/>
+								<bind
+									channel="created"
+									to="createdAddress"
+								/>
+							</open-dialog>
+						</action>
+					</button>
+				</stack>
 			</stack>
 		</inset>
 		<actions>

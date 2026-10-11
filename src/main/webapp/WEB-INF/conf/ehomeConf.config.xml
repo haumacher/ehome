@@ -84,6 +84,12 @@
 					<method name="deviceLabel" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="deviceObjects" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="existingObject" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<!-- Creating a group address from the connect dialog (de.haumacher.ehome.programming.GroupAddresses). -->
+					<method name="groupAddressRanges" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressDefaultRange" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressNextFree" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressCreateProblem" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressCreate" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<!-- The programming of a device (de.haumacher.ehome.programming.download.ProgrammingFunctions): one builder, the function by its name. -->
 					<method name="downloadPlanRows" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="downloadSummary" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>

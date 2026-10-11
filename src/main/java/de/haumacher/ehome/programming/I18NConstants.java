@@ -7,6 +7,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey1;
 import com.top_logic.basic.util.ResKey2;
 import com.top_logic.basic.util.ResKey3;
+import com.top_logic.basic.util.ResKey4;
 import com.top_logic.layout.I18NConstantsBase;
 
 /**
@@ -164,6 +165,31 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Discard all changes of the devices since their last download (changes: {0}, devices: {1})? Their values and connections are set back to the state of their last download.
 	 */
 	public static ResKey2 CONFIRM_DISCARD_PROJECT__COUNT_DEVICES;
+
+	/**
+	 * @en No group range is chosen.
+	 */
+	public static ResKey ERROR_NO_GROUP_RANGE;
+
+	/**
+	 * @en No address is entered.
+	 */
+	public static ResKey ERROR_NO_ADDRESS_NUMBER;
+
+	/**
+	 * @en The address {0} lies outside the range "{1}" ({2} to {3}).
+	 */
+	public static ResKey4 ERROR_OUTSIDE_RANGE__ADDRESS_RANGE_START_END;
+
+	/**
+	 * @en The address {0} lies in the range "{1}" below; create it there.
+	 */
+	public static ResKey2 ERROR_IN_SUB_RANGE__ADDRESS_RANGE;
+
+	/**
+	 * @en The address {0} is taken already by "{1}".
+	 */
+	public static ResKey2 ERROR_ADDRESS_TAKEN__ADDRESS_EXISTING;
 
 	static {
 		initConstants(I18NConstants.class);

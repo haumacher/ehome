@@ -132,6 +132,12 @@
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.logical:GroupAddress"/>
+							<!-- The next free address of the range is proposed. -->
+							<execute-script function="c -> a -> { $a.set(`ehome.logical:GroupAddress#address`, groupAddressNextFree($c)); $a }">
+								<inputs>
+									<input channel="container"/>
+								</inputs>
+							</execute-script>
 							<open-dialog
 								bind-input-to="model"
 								dialog-view="create-node.view.xml"
