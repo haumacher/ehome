@@ -210,6 +210,32 @@ falls back to the default position; the option stays visible.
 
 **When available:** declare the position choice mandatory.
 
+## A singleton turns every generated wrapper of its module into a structured element (TL #29806)
+
+`InterfaceGenerator` decides by `TLModelGenerator.isStructure(module)`, i.e. by the module carrying
+`TLSingletons`, that a generated interface without generalizations extends `StructuredElement`
+instead of `Wrapper`. Putting the root of the shared mask versions into `ehome.operational` turned
+all its wrappers into structured-element wrappers although no model class specializes
+`tl.element:StructuredElement` (regression of TL #26716).
+
+Workaround: the root lives in the separate module `ehome.mask` (`ehome.mask.model.xml`, no generated
+bindings, reached by `tValueByName`); the mask classes stay in `ehome.operational`.
+
+**When available:** move `MaskVersions` into `ehome.operational`, regenerate, delete `ehome.mask`
+(with a model migration renaming the module of the root).
+
+## Classifier constants of two enumerations collide in the generated factory (TL #29807)
+
+`FactoryGenerator` names a classifier constant `<CLASSIFIER>_<ENUM>_CLASSIFIER` with a single
+underscore, which is ambiguous: `LcFilterMemory` of `AddressSpace` and `LcFilter` of
+`MemoryAddressSpace` both became `LC_FILTER_MEMORY_ADDRESS_SPACE_CLASSIFIER`, and the factory did
+not compile.
+
+Workaround: the enumeration of the memory a load step writes to is named `MemorySpace` instead of
+`MemoryAddressSpace` (the schema's `LdCtrlMemAddrSpace_t`).
+
+**When available:** nothing to undo; the name may stay.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -228,3 +254,5 @@ falls back to the default position; the option stays visible.
 - TL #29776: see above (drag and drop for trees; when available: replace the position choice and the
   move commands by the tree's drag and drop).
 - TL #29805: see above (mandatory `<value-input>`).
+- TL #29806: see above (singleton and generated wrappers; when available: dissolve `ehome.mask`).
+- TL #29807: see above (classifier constant names).
