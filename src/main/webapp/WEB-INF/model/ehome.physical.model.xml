@@ -14,6 +14,14 @@
 			<classifier name="GroupAddresses"/>
 			<classifier name="MediumConfig"/>
 		</enum>
+		<!--
+			What the configuration of a device is compared with: the defaults of its program, or what the
+			device holds since its last download.
+		-->
+		<enum name="ChangeReference">
+			<classifier name="default"/>
+			<classifier name="device"/>
+		</enum>
 		<enum name="Priority">
 			<classifier name="Low"/>
 			<classifier name="High"/>
@@ -226,6 +234,13 @@
 				/>
 				<property name="lastDownload"
 					type="tl.core:DateTime"
+				/>
+				<!--
+					The revision of the project data the last full download was computed from: the device's
+					state in it is what the real device holds (de.haumacher.ehome.programming.DeviceChanges).
+				-->
+				<property name="downloadRevision"
+					type="tl.core:Long"
 				/>
 				<!-- The parts of the configuration that are in the real device. -->
 				<reference name="loaded"

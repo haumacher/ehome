@@ -13,8 +13,18 @@
 	input shows the effective value again. A parameter that can only be read
 	shows its value as text, a parameter without value (a heading) only its text.
 
+	A communication object shows its connections, each with the command removing it, and the
+	command connecting it to another group address (projects/connect-group-address.view.xml,
+	haumacher/ehome #17).
+
+	Beside the entry: "Default: …" with the way back to the default where the value differs from it,
+	and "Device: …" with the way back to what the device holds where the value or the connections
+	differ from the state of the last download (DeviceChanges, haumacher/ehome #15); an entry changed
+	since the last download carries a mark beside its text.
+
 	The value is computed by Java functions, which a form cannot trace (TL #29799): the channels name
-	the settings of devices as observed types, so that they follow every change of a value.
+	the settings, connectors and connections of devices (and the devices, for a download) as observed
+	types, so that they follow every change.
 -->
 <view>
 	<channels>
@@ -74,12 +84,20 @@
 			expr="t -> if($t.instanceOf(`ehome.operational:TimeType`), $t.get(`ehome.operational:TimeType#unit`).label(), null)"
 			inputs="type"
 		/>
-		<!-- The connections of a communication object. -->
-		<derived-channel name="connections"
-			expr="d -> x -> if($x.instanceOf(`ehome.operational:Interface`), deviceConnections($d, $x), [])"
+		<!-- Whether the entry is changed since the last download. -->
+		<derived-channel name="changed"
+			expr="d -> x -> deviceChanged($d, $x)"
 			inputs="device, item"
-			observed-types="ehome.physical:Connection,ehome.physical:Connector"
+			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
 		/>
+		<!-- What the device holds since the last download, where the entry differs from it. -->
+		<derived-channel name="deviceHint"
+			expr="d -> x -> deviceReferenceHint($d, $x)"
+			inputs="device, item"
+			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
+		/>
+		<!-- The connection a connect command made. -->
+		<channel name="newConnection"/>
 	</channels>
 	<stack
 		align="center"
@@ -88,10 +106,28 @@
 		gap="compact"
 		wrap="true"
 	>
-		<text
+		<stack
+			align="center"
 			css-class="ehomeDeviceItem__label"
-			input="item"
-		/>
+			direction="row"
+			gap="compact"
+		>
+			<text input="item"/>
+			<visible-if
+				expr="c -> $c"
+				input="changed"
+			>
+				<text
+					css-class="ehomeChangeMark"
+					tone="warning"
+				>
+					<label>
+						<en>●</en>
+						<de>●</de>
+					</label>
+				</text>
+			</visible-if>
+		</stack>
 		<switch input="kind">
 			<case test="k -> $k == 'choice'">
 				<value-input
@@ -223,10 +259,90 @@
 				<text input="display"/>
 			</case>
 			<case test="k -> $k == 'object'">
-				<text
-					input="connections"
-					tone="secondary"
-				/>
+				<!-- The connections, each removable, and the way to another group address. -->
+				<stack
+					align="center"
+					direction="row"
+					gap="compact"
+					wrap="true"
+				>
+					<object-list
+						element-channel="connection"
+						gap="compact"
+						inputs="device, item"
+						items="d -> x -> deviceConnections($d, $x)"
+						layout="grid"
+						observed-types="ehome.physical:Connection,ehome.physical:Connector"
+					>
+						<item>
+							<stack
+								align="center"
+								css-class="ehomeConnection"
+								direction="row"
+								gap="compact"
+							>
+								<text
+									input="connection"
+									tone="secondary"
+								/>
+								<button
+									appearance="ghost"
+									size="small"
+								>
+									<action class="com.top_logic.layout.view.command.GenericViewCommand"
+										image="css:bi bi-x-lg"
+										input="connection"
+									>
+										<label>
+											<en>Remove the connection</en>
+											<de>Verbindung entfernen</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<with-transaction>
+											<execute-script function="c -> deviceDisconnect($c)"/>
+										</with-transaction>
+									</action>
+								</button>
+							</stack>
+						</item>
+						<empty-text>
+							<en>not connected</en>
+							<de>nicht verbunden</de>
+						</empty-text>
+					</object-list>
+					<button
+						appearance="ghost"
+						size="small"
+					>
+						<action class="com.top_logic.layout.view.command.GenericViewCommand"
+							image="css:bi bi-link-45deg"
+							input="item"
+						>
+							<label>
+								<en>Connect a group address</en>
+								<de>Gruppenadresse verbinden</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="interface"
+								dialog-view="projects/connect-group-address.view.xml"
+							>
+								<bind
+									channel="device"
+									to="device"
+								/>
+								<bind
+									channel="selection"
+									to="newConnection"
+								/>
+							</open-dialog>
+						</action>
+					</button>
+				</stack>
 			</case>
 		</switch>
 		<visible-if
@@ -266,6 +382,47 @@
 						</executability>
 						<with-transaction>
 							<execute-script function="s -> deviceResetSetting($s)"/>
+						</with-transaction>
+					</action>
+				</button>
+			</stack>
+		</visible-if>
+		<!-- A value or connections changed since the last download: what the device holds, and the way back to it. -->
+		<visible-if
+			expr="h -> $h != null"
+			input="deviceHint"
+		>
+			<stack
+				align="center"
+				direction="row"
+				gap="compact"
+			>
+				<text
+					css-class="ehomeDeviceHint"
+					input="deviceHint"
+					tone="secondary"
+				/>
+				<button
+					appearance="ghost"
+					size="small"
+				>
+					<action class="com.top_logic.layout.view.command.GenericViewCommand"
+						image="css:bi bi-arrow-counterclockwise"
+						input="item"
+					>
+						<label>
+							<en>Reset to the state of the device</en>
+							<de>Auf den Stand des Geräts zurücksetzen</de>
+						</label>
+						<executability>
+							<null-input-disabled/>
+						</executability>
+						<with-transaction>
+							<execute-script function="d -> x -> deviceResetToReference($d, $x)">
+								<inputs>
+									<input channel="device"/>
+								</inputs>
+							</execute-script>
 						</with-transaction>
 					</action>
 				</button>

@@ -49,3 +49,32 @@
 	flex: 0 0 40%;
 	min-width: 12rem;
 }
+
+/*
+ * Changes since the last download (haumacher/ehome #15): a tree node (a device in the topology, a
+ * page of a device's configuration) holding a change carries a dot after its label, in the color
+ * of the mark beside a changed entry (projects/device-item.view.xml).
+ */
+.ehomeChanged::after {
+	content: "●";
+	color: var(--text-warning);
+	margin-left: 0.4em;
+	font-size: 0.75em;
+	vertical-align: middle;
+}
+
+.ehomeChangeMark {
+	font-size: 0.75em;
+}
+
+/* A connection of a communication object with the command removing it. */
+.ehomeConnection {
+	border: 1px solid var(--border-subtle);
+	border-radius: 999px;
+	padding: 0 0 0 0.6em;
+}
+
+/* The path of a page heading a group of changes. */
+.ehomeChangeGroup {
+	margin-top: 0.5em;
+}

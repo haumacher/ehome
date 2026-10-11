@@ -52,8 +52,11 @@ public class DownloadPlan {
 
 	private final List<ResKey> _problems;
 
-	DownloadPlan(String device, Integer individualAddress, Kind kind, ResKey procedure, DownloadImage image,
-			List<Block> unloaded, List<Operation> operations, List<ResKey> problems) {
+	private final long _revision;
+
+	DownloadPlan(long revision, String device, Integer individualAddress, Kind kind, ResKey procedure,
+			DownloadImage image, List<Block> unloaded, List<Operation> operations, List<ResKey> problems) {
+		_revision = revision;
 		_unloaded = Collections.unmodifiableList(unloaded);
 		_device = device;
 		_individualAddress = individualAddress;
@@ -62,6 +65,14 @@ public class DownloadPlan {
 		_image = image;
 		_operations = Collections.unmodifiableList(operations);
 		_problems = Collections.unmodifiableList(problems);
+	}
+
+	/**
+	 * The commit number of the revision of the project data the plan was computed from: the state of
+	 * the device the download brings into the real device.
+	 */
+	public long getRevision() {
+		return _revision;
 	}
 
 	/**

@@ -15,6 +15,7 @@ import java.util.Objects;
 import java.util.Set;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
@@ -109,6 +110,9 @@ public class DownloadPlanner {
 	private static final Set<String> FULL_SCOPES = Set.of("auto", "all", "full", "fullpar", "fullgrp");
 
 	private final TLObject _device;
+
+	/** The revision the plan is computed from, see {@link DownloadPlan#getRevision()}. */
+	private final long _revision = HistoryUtils.getLastRevision().getCommitNumber();
 
 	private final Set<ResKey> _problems = new LinkedHashSet<>();
 
@@ -280,7 +284,7 @@ public class DownloadPlanner {
 	}
 
 	private DownloadPlan result(String device, Integer address, DownloadPlan.Kind kind) {
-		return new DownloadPlan(device, address, kind, _procedureName, _image, _unloaded, _operations,
+		return new DownloadPlan(_revision, device, address, kind, _procedureName, _image, _unloaded, _operations,
 			new ArrayList<>(_problems));
 	}
 

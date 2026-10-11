@@ -110,6 +110,61 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey WARNING_OBJECT_SIZES_DIFFER;
 
+	/**
+	 * @en Communication objects
+	 */
+	public static ResKey CHANGES_OBJECTS;
+
+	/**
+	 * @en Not in the configuration
+	 */
+	public static ResKey CHANGES_NOT_SHOWN;
+
+	/**
+	 * @en not connected
+	 */
+	public static ResKey NOT_CONNECTED;
+
+	/**
+	 * @en {0} ({1})
+	 */
+	public static ResKey2 CONNECTION__ADDRESS_KIND;
+
+	/**
+	 * @en Device: {0}
+	 */
+	public static ResKey1 HINT_DEVICE__VALUE;
+
+	/**
+	 * @en The group address {0} "{1}" was connected to at the last download no longer exists.
+	 */
+	public static ResKey2 ERROR_ADDRESS_GONE__ADDRESS_OBJECT;
+
+	/**
+	 * @en No download of "{0}" is known: there is no state of the device to go back to.
+	 */
+	public static ResKey1 ERROR_NO_DOWNLOAD__DEVICE;
+
+	/**
+	 * @en "{0}" has no changes since its last download.
+	 */
+	public static ResKey1 ERROR_NO_CHANGES__DEVICE;
+
+	/**
+	 * @en No device of the project has changes since its last download.
+	 */
+	public static ResKey ERROR_NO_CHANGES_PROJECT;
+
+	/**
+	 * @en Discard all changes of "{0}" since its last download (changes: {1})? Its values and connections are set back to the state of the last download.
+	 */
+	public static ResKey2 CONFIRM_DISCARD__DEVICE_COUNT;
+
+	/**
+	 * @en Discard all changes of the devices since their last download (changes: {0}, devices: {1})? Their values and connections are set back to the state of their last download.
+	 */
+	public static ResKey2 CONFIRM_DISCARD_PROJECT__COUNT_DEVICES;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

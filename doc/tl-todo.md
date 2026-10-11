@@ -150,16 +150,14 @@ typed attributes are labeled on the interface only.
 
 `<adaptive-detail>` splits selector and detail at a fixed 32/68
 (`ReactAdaptiveDetailControl#buildRegularSplit`); its `detail-size` applies only to the drawer
-display. With 32 % the settings table of a device (`projects/devices.view.xml`: name, value, default)
-shows only its first column.
+display. With 32 % the settings table of a device (name, value, default) showed only its first
+column.
 
-Workaround: `projects/devices.view.xml` arranges the settings table and the detail of the selected
-setting in a `<split-panel>` (55/45) and guards the selection itself (`setting` derived channel:
-the selected setting only if it belongs to the selected device), losing the drill-in on narrow
-screens and `reset-on`.
+Workaround: none any more. The settings table with its detail in a `<split-panel>` (tab "Geänderte
+Werte" of `projects/devices.view.xml`) was replaced by the grouped list of changes, each entry with
+its input (haumacher/ehome #15), which needs no master-detail.
 
-**When available** (configurable selector share): replace the split panel and the guard by an
-`<adaptive-detail>` with `reset-on="selected"`.
+**When available** (configurable selector share): nothing to remove.
 
 ## Error toast when a table in a switch case disappears (TL #29580)
 
@@ -168,9 +166,9 @@ A `<table>` inside a `<switch>` case whose rows read an input channel fails with
 so that the case is removed: the switch disposes the table, and the observer, still in the
 channel's listener snapshot, re-evaluates on a null scope. The user sees an error toast; the change
 itself goes through. In the app: the entries table of an enumeration type in
-`projects/devices.view.xml` (select an enumeration setting, then a line in the tree; or reset the
-selected setting to its default in the tab "Geänderte Werte", which removes it) and in
-`catalogs/program.view.xml` (select an enumeration parameter, then another node).
+`catalogs/program.view.xml` (select an enumeration parameter, then another node). The same table in
+the tab "Geänderte Werte" of `projects/devices.view.xml` is gone with the list of changes
+(haumacher/ehome #15).
 
 Workaround: none for the structure tab (the toast is left visible). The types tab of
 `catalogs/program.view.xml` shows the entries panel for every selected type (empty and without
@@ -222,11 +220,12 @@ Element".
 
 Workaround: none needed beyond the channel: the position choice of
 `catalogs/create-structure.view.xml` and the direction of a connection in
-`projects/connect-group-address.view.xml` are derived channels with a `reverse`, so choosing "no
-value" falls back to the default; the option stays visible. The value of a parameter in
+`projects/connect-group-address.view.xml` and the reference the changes of a device are compared
+with (tab "Geänderte Werte" of `projects/devices.view.xml`) are derived channels with a `reverse`,
+so choosing "no value" falls back to the default; the option stays visible. The value of a parameter in
 `projects/device-item.view.xml` treats an emptied input as the default.
 
-**When available:** declare the position choice and the direction of a connection mandatory.
+**When available:** declare the position choice, the direction of a connection and the reference of the changes mandatory.
 
 ## A singleton turns every generated wrapper of its module into a structured element (TL #29806)
 
@@ -293,6 +292,17 @@ command selects the address before deleting its connection.
 
 **When available:** drop `existingObject` and read the selection directly.
 
+## A `<button>` cannot be icon-only (TL #29811)
+
+`ButtonElement` renders its command with `ButtonDisplayMode.ICON_LABEL` unconditionally and the
+configuration offers no display mode, so the remove button beside every connection chip of an
+object (`projects/device-item.view.xml`) and the reset buttons beside the hints show their full
+label.
+
+Workaround: none; the labels stay visible.
+
+**When available:** make the chip and hint buttons icon-only with the label as tooltip.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -316,3 +326,4 @@ command selects the address before deleting its connection.
 - TL #29808: see above (apply on Enter only).
 - TL #29809: see above (binary value input; when fixed: drop the explicit input control of the export dialog).
 - TL #29810: see above (deleted object in a tree selection).
+- TL #29811: see above (icon-only buttons).

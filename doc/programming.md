@@ -31,7 +31,14 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   "Identisch" or the differing addresses.
 - "Herunterladen": asks for confirmation naming the device, its address and the gateway, then runs
   the plan with progress, and reports success (operations, duration) or the failing operation with
-  the device's answer. On success the device records the download (`loaded`, `lastDownload`).
+  the device's answer. On success the device records the download (`loaded`, `lastDownload`) and,
+  for a full download, the revision of the project data the plan was computed from
+  (`downloadRevision`): the device's state in that revision is what the real device holds. The tab
+  "Geänderte Werte" lists the changes since (values and connections, grouped by page, with
+  "Gerät: …" and the way back per entry, and "Alle Änderungen seit dem letzten Download
+  verwerfen"); the confirmation of "Herunterladen" names their number (haumacher/ehome #15). For a
+  device ETS had downloaded, the state as imported is the reference until the first download from
+  E-Home.
 - "Physikalische Adresse programmieren": writes the device's individual address into the one device
   whose programming button is pressed.
 

@@ -329,6 +329,26 @@ public class DeviceConfiguration {
 		return false;
 	}
 
+	/**
+	 * The parameters and communication objects shown in this configuration with the page each is
+	 * shown on (the device for the top of the structure), in the order of the structure: the
+	 * entries of a page, then those of the pages below it.
+	 */
+	public Map<Option, Object> getShownItems() {
+		Map<Option, Object> result = new LinkedHashMap<>();
+		collectShown(_device, result);
+		return result;
+	}
+
+	private void collectShown(Object page, Map<Option, Object> result) {
+		for (Option item : getItems(page)) {
+			result.putIfAbsent(item, page);
+		}
+		for (ConfigFragment inner : getPages(page)) {
+			collectShown(inner, result);
+		}
+	}
+
 	private boolean isHidden(ConfigFragment page) {
 		for (Object current = page; current instanceof ConfigFragment fragment; current = _parents.get(fragment)) {
 			if (fragment instanceof ParameterGroup group && "None".equals(accessName(group))) {

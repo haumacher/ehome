@@ -21,6 +21,7 @@ import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 
@@ -122,8 +123,8 @@ public class ProgrammingFunctions extends GenericMethod {
 			case compareVeto:
 				return compareVeto(device);
 			case downloadConfirmation:
-				return I18NConstants.CONFIRM_DOWNLOAD__DEVICE_ADDRESS_GATEWAY.fill(device.tValueByName("name"),
-					address(device), Gateways.of(device));
+				return I18NConstants.CONFIRM_DOWNLOAD__DEVICE_ADDRESS_GATEWAY_CHANGES.fill(device.tValueByName("name"),
+					address(device), Gateways.of(device), changes(device));
 			case addressConfirmation:
 				return I18NConstants.CONFIRM_ADDRESS__ADDRESS_GATEWAY.fill(address(device), Gateways.of(device));
 		}
@@ -140,6 +141,18 @@ public class ProgrammingFunctions extends GenericMethod {
 			}
 		}
 		throw new IllegalArgumentException("No device among " + arguments);
+	}
+
+	/**
+	 * What the download changes in the device, for a person: the number of changes since its last
+	 * download.
+	 */
+	private static ResKey changes(TLObject device) {
+		DeviceChanges changes = DeviceChanges.sinceDownload(device);
+		if (changes == null) {
+			return I18NConstants.CHANGES_NO_DOWNLOAD;
+		}
+		return I18NConstants.CHANGES_SINCE_DOWNLOAD__COUNT.fill(changes.getCount());
 	}
 
 	private static String address(TLObject device) {

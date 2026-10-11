@@ -165,6 +165,22 @@ public class DeviceSettings {
 		}
 	}
 
+	/**
+	 * Restores a value the device had before (see {@link DeviceChanges}): like
+	 * {@link #setValue(TLObject, ParameterView, Object)}, but also for a placement the current
+	 * values do not show (a value that opens it may be restored after it).
+	 *
+	 * @return The setting holding the value, <code>null</code> if the device has the default now.
+	 */
+	static TLObject restoreValue(TLObject device, ParameterView view, Object value) {
+		List<TLObject> settings = settings(device, view);
+		if (value == null) {
+			return store(device, view, settings, null, null);
+		}
+		ParameterType type = ParameterValues.valueType(view);
+		return store(device, view, settings, type, typed(type, value));
+	}
+
 	private static TLObject store(TLObject device, ParameterView view, List<TLObject> settings, ParameterType type,
 			Object value) {
 		String standard = ParameterValues.encode(DeviceConfiguration.defaultHolder(view));

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	One group of the changes of a device (tab "Changed values" of projects/devices.view.xml): the
+	path of the page in the structure of the program the changed entries are shown on, and the
+	entries with their inputs and hints (projects/device-item.view.xml).
+
+	"group" is a dictionary of deviceChangeGroups with "title" and "items", "device" the device.
+-->
+<view>
+	<channels>
+		<channel name="device"/>
+		<channel name="group"/>
+		<derived-channel name="title"
+			expr="g -> $g['title']"
+			inputs="group"
+		/>
+	</channels>
+	<stack gap="compact">
+		<text
+			css-class="ehomeChangeGroup"
+			input="title"
+			variant="label"
+		/>
+		<object-list
+			element-channel="item"
+			gap="compact"
+			inputs="group"
+			items="g -> $g['items']"
+		>
+			<item>
+				<view-ref view="projects/device-item.view.xml">
+					<bind
+						channel="device"
+						to="device"
+					/>
+					<bind
+						channel="item"
+						to="item"
+					/>
+				</view-ref>
+			</item>
+		</object-list>
+	</stack>
+</view>

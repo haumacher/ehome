@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The topology of a project: areas, their lines, the devices on a line and the connectors of a
-	device that are in use. Devices not placed in a line yet follow the areas. The selected node is
-	shown beside the tree; a device with its data, its configuration by the structure of its program
-	(projects/device-item.view.xml for each entry of a page), its communication objects with the
-	group addresses they are connected to, the values the project changed, and its programming
+	The topology of a project: areas, their lines and the devices on a line; devices not placed in a
+	line yet follow the areas. A device changed since its last download is marked. The selected node
+	is shown beside the tree; a device with its data, its configuration by the structure of its
+	program (projects/device-item.view.xml for each entry of a page; a page holding a change since the
+	last download is marked), its communication objects with the group addresses they are connected
+	to, its changes against the state of the last download or the defaults
+	(projects/device-change-group.view.xml per page), and its programming
 	(projects/device-programming.view.xml).
+
+	The changes are computed by the Java functions of DeviceChangeFunctions (haumacher/ehome #15):
+	the channels and lists reading them name the settings, connectors and connections of devices and
+	the devices (a download moves the reference) as observed types.
 -->
 <view>
 	<channels>
@@ -55,28 +61,38 @@
 			observed-types="ehome.physical:Connection"
 		/>
 		<!--
-			The parameter setting selected in the changed values of a device; the setting shown is the one of
-			the selected device only (the table leaves a selection it has no row for in the channel). The
-			placement it sets, the parameter definition and the type of that.
+			The pages of the configuration holding a change since the last download; an input of the tree
+			of pages, which is built anew with its marks when they change.
 		-->
-		<channel name="selectedSetting"/>
-		<derived-channel name="setting"
-			expr="d -> s -> if($s != null and $s.container() == $d, $s, null)"
-			inputs="selected, selectedSetting"
-			observed-types="ehome.physical:ParameterSetting"
+		<derived-channel name="changedPages"
+			expr="d -> if($d == null, [], deviceChangedPages($d))"
+			inputs="device"
+			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
 		/>
-		<derived-channel name="settingView"
-			expr="s -> $s.get(`ehome.physical:ParameterSetting#parameter`)"
-			inputs="setting"
+		<!--
+			What the changes of the device are listed against: the state of the last download (the
+			default where one is known) or the defaults of the program. "No value" falls back to the
+			default choice (TL #29805). The choice is the first input: the reverse writes it.
+		-->
+		<channel name="chosenReference"/>
+		<derived-channel name="reference"
+			expr="r -> d -> if($d == null, null, deviceChangeReference($d, $r))"
+			inputs="chosenReference, device"
+			observed-types="ehome.physical:Device"
+			reverse="r -> $r"
 		/>
-		<derived-channel name="settingParameter"
-			expr="s -> $s.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`)"
-			inputs="setting"
-		/>
-		<derived-channel name="settingType"
-			expr="p -> $p.get(`ehome.operational:Parameter#type`)"
-			inputs="settingParameter"
-		/>
+		<derived-channel name="changeSummary"
+			inputs="device, reference"
+			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
+		>
+			<expr><![CDATA[d -> r -> if($d == null, null, {
+    count = deviceChangeCount($d, $r);
+    if($r == `ehome.physical:ChangeReference#device`,
+        #("Changes since the last download: {0}"@en, "Änderungen seit dem letzten Download: {0}"@de),
+        #("Values other than the default: {0}"@en, "Von der Vorgabe abweichende Werte: {0}"@de))
+        .fill($count).localize()
+})]]></expr>
+		</derived-channel>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -166,6 +182,25 @@
 							<delete-object/>
 							<write-channel name="selected"/>
 						</generic-command>
+						<generic-command
+							image="css:bi bi-arrow-counterclockwise"
+							input="project"
+							observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Discard all changes of all devices since their last download</en>
+								<de>Alle Änderungen aller Geräte seit dem letzten Download verwerfen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="p -> projectDiscardVeto($p)"/>
+							</executability>
+							<confirm expr="p -> projectDiscardConfirmation($p)"/>
+							<with-transaction>
+								<execute-script function="p -> projectDiscardChanges($p)"/>
+							</with-transaction>
+						</generic-command>
 					</commands>
 					<tree
 						observed-types="ehome.physical:Area,ehome.physical:Line,ehome.physical:Device"
@@ -184,12 +219,13 @@
         $node.get(`ehome.physical:Area#lines`);
     $node.instanceOf(`ehome.physical:Line`):
         $node.get(`ehome.physical:Line#devices`);
-    $node.instanceOf(`ehome.physical:Device`):
-        $node.get(`ehome.physical:Device#connectors`)
-            .filter(c -> $c.get(`ehome.physical:Connector#active`) != false);
     default: [];
 }]]></children>
 						<parents>p -> node -> $node.container()</parents>
+						<!-- A device changed since its last download is marked (it changes with every change of its configuration). -->
+						<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
+							css-class="x -> if($x.instanceOf(`ehome.physical:Device`) and deviceChanged($x, $x), 'ehomeChanged', null)"
+						/>
 					</tree>
 				</panel>
 			</pane>
@@ -278,10 +314,16 @@
 														<inputs>
 															<input channel="device"/>
 															<input channel="configuration"/>
+															<input channel="changedPages"/>
 														</inputs>
-														<root>d -> c -> $d</root>
-														<children>d -> c -> node -> devicePages($d, $node)</children>
-														<parents>d -> c -> node -> deviceParentPage($d, $node)</parents>
+														<root>d -> c -> m -> $d</root>
+														<children>d -> c -> m -> node -> devicePages($d, $node)</children>
+														<parents>d -> c -> m -> node -> deviceParentPage($d, $node)</parents>
+														<!-- A page holding a change since the last download (on it or below it) is marked. -->
+														<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
+															css-class="d -> x -> if(deviceChanged($d, $x), 'ehomeChanged', null)"
+															inputs="device"
+														/>
 													</tree>
 												</pane>
 												<pane
@@ -341,7 +383,7 @@
 													unit="%"
 												>
 													<table
-														observed-types="ehome.physical:Connection,ehome.physical:Connector,ehome.physical:ParameterSetting"
+														observed-types="ehome.physical:Connection,ehome.physical:Connector,ehome.physical:ParameterSetting,ehome.physical:Device"
 														selection="selectedInterface"
 														types="ehome.operational:Interface"
 													>
@@ -379,6 +421,20 @@
 																	<de>Gruppenadressen</de>
 																</label>
 																<value>d -> i -> deviceConnections($d, $i)</value>
+															</computed-column>
+															<!-- What the device holds where the connections changed since the last download. -->
+															<computed-column name="device"
+																type="tl.core:String"
+																width="220"
+															>
+																<inputs>
+																	<input channel="device"/>
+																</inputs>
+																<label>
+																	<en>Since the last download</en>
+																	<de>Seit dem letzten Download</de>
+																</label>
+																<value>d -> i -> deviceReferenceHint($d, $i)</value>
 															</computed-column>
 														</columns>
 														<rows>d -> c -> deviceInterfaces($d)</rows>
@@ -471,132 +527,89 @@
 											<de>Geänderte Werte</de>
 										</label>
 										<!--
-											The parameter settings of the device: the values the project changed (all others
-											have their default). The selected one is shown beside the table with the input of
-											its type, like on its page; setting it back to the default removes it from the
-											list. Below, the placed parameter, the encoding of the value in ETS and the type,
-											for information.
+											The changes of the device against the state of its last download (offered when
+											one is known, and the default then) or against the defaults of its program, grouped
+											by the page of the structure they are shown on, each entry with its input and the
+											ways back to the default and to the device's state. Discarding all changes since
+											the last download sets the device back to that state.
 										-->
-										<split-panel
-											orientation="horizontal"
-											resizable="true"
-										>
-											<panes>
-												<pane
-													min-size="240"
-													size="55"
-													unit="%"
+										<panel>
+											<title>
+												<en>Changed values</en>
+												<de>Geänderte Werte</de>
+											</title>
+											<commands>
+												<generic-command
+													image="css:bi bi-arrow-counterclockwise"
+													input="device"
+													observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
+													placement="TOOLBAR"
 												>
-													<table
-														observed-types="ehome.physical:ParameterSetting"
-														selection="selectedSetting"
-														types="ehome.physical:ParameterSetting"
-													>
-														<inputs>
-															<input channel="selected"/>
-														</inputs>
-														<columns>
-															<column attribute="name"
-																width="240"
+													<label>
+														<en>Discard all changes since the last download</en>
+														<de>Alle Änderungen seit dem letzten Download verwerfen</de>
+													</label>
+													<executability>
+														<null-input-disabled/>
+														<disabled-if expr="d -> deviceDiscardVeto($d)"/>
+													</executability>
+													<confirm expr="d -> deviceDiscardConfirmation($d)"/>
+													<with-transaction>
+														<execute-script function="d -> deviceDiscardChanges($d)"/>
+													</with-transaction>
+												</generic-command>
+											</commands>
+											<inset>
+												<stack gap="default">
+													<fields>
+														<value-input
+															inputs="device"
+															label-position="hide-label"
+															options="d -> deviceChangeReferences($d)"
+															type="ehome.physical:ChangeReference"
+															value="reference"
+														>
+															<label>
+																<en>Compared with</en>
+																<de>Verglichen mit</de>
+															</label>
+															<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+																display="radio"
+																orientation="horizontal"
 															/>
-															<column attribute="displayValue"
-																width="120"
-															>
-																<label>
-																	<en>Value</en>
-																	<de>Wert</de>
-																</label>
-															</column>
-															<column attribute="displayDefault"
-																width="120"
-															/>
-														</columns>
-														<rows>d -> $d.get(`ehome.physical:Device#settings`)</rows>
-													</table>
-												</pane>
-												<pane
-													min-size="240"
-													size="45"
-													unit="%"
-												>
-													<!-- Nothing while no setting of the device is selected. -->
-													<visible-if
-														expr="s -> $s != null"
-														input="setting"
+														</value-input>
+													</fields>
+													<text
+														input="changeSummary"
+														tone="secondary"
+													/>
+													<object-list
+														element-channel="changeGroup"
+														gap="default"
+														inputs="device, reference"
+														items="d -> r -> if($d == null, [], deviceChangeGroups($d, $r))"
+														observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
 													>
-														<inset>
-															<view-ref view="projects/device-item.view.xml">
+														<item>
+															<view-ref view="projects/device-change-group.view.xml">
 																<bind
 																	channel="device"
 																	to="device"
 																/>
 																<bind
-																	channel="item"
-																	to="settingView"
+																	channel="group"
+																	to="changeGroup"
 																/>
 															</view-ref>
-														</inset>
-														<form
-															input="setting"
-															with-inset="true"
-															withEditMode="false"
-														>
-															<field attribute="parameter"/>
-															<field attribute="encodedValue"/>
-														</form>
-														<form
-															input="settingType"
-															with-inset="true"
-															withEditMode="false"
-														>
-															<group>
-																<label>
-																	<en>Type</en>
-																	<de>Typ</de>
-																</label>
-																<field attribute="name"/>
-																<field attribute="bits"/>
-																<field attribute="kind"/>
-																<field attribute="min"/>
-																<field attribute="max"/>
-																<field attribute="encoding"/>
-																<field attribute="decimals"/>
-																<field attribute="unit"/>
-																<field attribute="pattern"/>
-																<field attribute="showsYear"/>
-																<field attribute="addressKind"/>
-																<field attribute="version"/>
-															</group>
-														</form>
-														<!-- The entries of an enumeration type. -->
-														<switch input="settingType">
-															<case test="t -> $t.instanceOf(`ehome.operational:EnumerationType`)">
-																<table
-																	observed-types="ehome.operational:EnumerationValue"
-																	types="ehome.operational:EnumerationValue"
-																>
-																	<inputs>
-																		<input channel="settingType"/>
-																	</inputs>
-																	<columns>
-																		<column attribute="name"
-																			width="200"
-																		/>
-																		<column attribute="value"
-																			width="100"
-																		/>
-																		<column attribute="index"
-																			width="100"
-																		/>
-																	</columns>
-																	<rows>t -> $t.get(`ehome.operational:EnumerationType#values`)</rows>
-																</table>
-															</case>
-														</switch>
-													</visible-if>
-												</pane>
-											</panes>
-										</split-panel>
+														</item>
+														<empty-text>
+															<en>No changes.</en>
+															<de>Keine Änderungen.</de>
+														</empty-text>
+													</object-list>
+												</stack>
+											</inset>
+										</panel>
 									</tab>
 									<tab id="programming"
 										icon="css:bi bi-cpu"
@@ -622,21 +635,6 @@
 									</tab>
 								</tabs>
 							</tab-bar>
-						</case>
-						<case test="n -> $n.instanceOf(`ehome.physical:Connector`)">
-							<form
-								input="selected"
-								with-inset="true"
-							>
-								<field attribute="port"/>
-								<field attribute="active"/>
-								<field attribute="effectiveDatapointType"/>
-								<field attribute="text"/>
-								<field attribute="function"/>
-								<field attribute="description"/>
-								<field attribute="priority"/>
-								<field attribute="connections"/>
-							</form>
 						</case>
 					</switch>
 				</panel>
