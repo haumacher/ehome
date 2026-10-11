@@ -194,9 +194,9 @@ delivery:
   `url:` line it prints instead of assuming 8080.
 - **TopLogic build output bypasses `-q`.** The install boots the full service stack through
   log4j; filter with `grep -E "^\[ERROR\]|BUILD (SUCCESS|FAILURE)"` instead of `-q` or `tail`.
-- **The Playwright MCP writes into the repository root** (`.playwright-mcp/`, hundreds of
-  snapshots and console logs), not the scratchpad, and **it is not in `.gitignore`** — never
-  `git add -A`; add files by name.
+- **The Playwright MCP writes into the repository root** (`.playwright-mcp/`, snapshots, console
+  logs and screenshots), not the scratchpad. The directory is in `.gitignore`; still add files by
+  name rather than `git add -A`, because a screenshot saved elsewhere is not.
 - **`tmp/` is the database.** `tmp/h2.mv.db` and `tmp/app-data` survive restarts, which is what
   you want (imported sample projects stay). Delete `tmp/` only after an incompatible model change
   without migration or when `root`/`root1234` is refused (the initial password applies only to a
