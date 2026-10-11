@@ -30,7 +30,8 @@ import java.util.TreeSet;
  * <li>Object table (<code>GroupObjectTable_M112</code>): the number of objects, the address of the
  * RAM flags (two bytes), then four bytes per object: the address of its value (two bytes), the
  * configuration byte, the type (size) byte. ETS takes the table from the static data of the program
- * and changes only the configuration bytes.</li>
+ * and recomputes the configuration byte, and for an object with an association the type byte from
+ * the size of the object's reference in effect (a parameter may decide it).</li>
  * </ul>
  */
 public class GroupTables {
@@ -43,6 +44,9 @@ public class GroupTables {
 
 	/** The position of the configuration byte in an object descriptor of the BIM M112 family. */
 	public static final int OBJECT_CONFIG = 2;
+
+	/** The position of the type (size) byte in an object descriptor of the BIM M112 family. */
+	public static final int OBJECT_TYPE = 3;
 
 	/** Configuration bit: the object's value is updated by responses to a read (ETS: UpdateFlag). */
 	public static final int UPDATE = 0x80;
@@ -203,6 +207,38 @@ public class GroupTables {
 			default:
 				return 3;
 		}
+	}
+
+	/**
+	 * The type code of a communication object of the given size in bits, as the type byte of its
+	 * descriptor holds it (KNX: 0 to 6 for 1 to 7 bits, 7 for a byte, 8 to 14 for 2, 3, 4, 6, 8, 10
+	 * and 14 bytes, 15 to 20 for 5, 7, 9, 11, 12 and 13 bytes); ETS writes it from the size of the
+	 * object's reference in effect, so that an object whose size a parameter decides is described
+	 * as the parameter says.
+	 *
+	 * @return The code, or -1 for a size that has none.
+	 */
+	public static int objectType(int bits) {
+		if (bits >= 1 && bits <= 7) {
+			return bits - 1;
+		}
+		return switch (bits) {
+			case 8 -> 7;
+			case 16 -> 8;
+			case 24 -> 9;
+			case 32 -> 10;
+			case 48 -> 11;
+			case 64 -> 12;
+			case 80 -> 13;
+			case 112 -> 14;
+			case 40 -> 15;
+			case 56 -> 16;
+			case 72 -> 17;
+			case 88 -> 18;
+			case 96 -> 19;
+			case 104 -> 20;
+			default -> -1;
+		};
 	}
 
 	private static void put16(byte[] buffer, int position, int value) {

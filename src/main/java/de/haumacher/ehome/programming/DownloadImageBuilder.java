@@ -424,6 +424,18 @@ class DownloadImageBuilder {
 				enabled("communication", connector, placed, port),
 				GroupTables.priorityCode(classifier("priority", connector, placed, port)),
 				_associatedObjects.contains(number));
+			// The type byte of an object with an association is the size in effect (a parameter may
+			// decide it through the reference); an object without one keeps the static byte, as the
+			// memory of the test devices shows.
+			if (_associatedObjects.contains(number)) {
+				int bits = placed != null && placed.getSize() != null ? placed.getSize() : port.getSize();
+				int type = GroupTables.objectType(bits);
+				if (type < 0) {
+					_image.addProblem("Object " + number + " has a size of " + bits + " bits, which has no type code.");
+					continue;
+				}
+				data[position - GroupTables.OBJECT_CONFIG + GroupTables.OBJECT_TYPE] = (byte) type;
+			}
 		}
 		_image.setObjectTable(new Block("Object table", segment.address() + start, segment.stateMachine(),
 			Arrays.copyOfRange(data, start, start + length), Arrays.copyOfRange(segment.mask(), start, start + length)));
