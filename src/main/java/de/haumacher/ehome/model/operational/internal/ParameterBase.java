@@ -52,6 +52,15 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	String NAME_ATTR = "name";
 
 	/**
+	 * Part <code>title</code> of <code>Parameter</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String TITLE_ATTR = "title";
+
+	/**
 	 * Part <code>type</code> of <code>Parameter</code>
 	 * 
 	 * <p>
@@ -109,6 +118,13 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	 */
 	default void setDescription(com.top_logic.basic.util.ResKey newValue) {
 		tUpdateByName(DESCRIPTION_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #TITLE_ATTR}.
+	 */
+	default String getTitle() {
+		return (String) tValueByName(TITLE_ATTR);
 	}
 
 	/**

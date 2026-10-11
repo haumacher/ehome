@@ -10,8 +10,9 @@ The XSD itself is not public and not in the repository.
 
 ## Overall
 
-- Of 408 element paths of the schema, 154 are handled by the import; of 1138 attribute slots, 294 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
-- The model has a counterpart for exactly what the import reads, and almost nothing more. The only stored model attribute the import never fills is `ehome.catalog:Manufacturer#id` (it would be `KnxManufacturerId`). So "covered by the model" and "read by the import" mean the same thing here.
+- Of 408 element paths of the schema, 154 are handled by the import; of 1138 attribute slots, 295 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
+- The model has a counterpart for exactly what the import reads, and almost nothing more. So "covered by the model" and "read by the import" mean the same thing here.
+- IDs: the import keeps the `Id` ETS wrote (`extId`). An object created in the app gets an ID of the same shape (`de.haumacher.ehome.knx.ExtIds`): the ID of the object it belongs to and a number from a sequence of that scope, above every number imported there; types, enumeration entries, communication objects and products are named by their name, value, object number and order number, as in ETS. Switches, cases and the channel independent part have no ID (`choose`, `when` and `ChannelIndependentBlock` have none in ETS).
 - Many unread attributes are irrelevant for E-Home (ETS bookkeeping: `Hash`, `NonRegRelevantDataVersion`, `CompletionStatus`, `LastModified`, passwords, history, to-dos). The gaps below are those that matter for understanding or operating an installation.
 
 ## Covered
@@ -19,7 +20,7 @@ The XSD itself is not public and not in the repository.
 | Area | Schema | Model |
 |---|---|---|
 | Datapoint types | `MasterData/DatapointTypes` (main types and subtypes, Default flag); the `DatapointType` attribute of `ComObject`, `ComObjectRef`, `ComObjectInstanceRef` and `GroupAddress` | `ehome.datapoint:*`, `datapointTypes` and the derived `effectiveDatapointType` of `Connector` and `GroupAddress` |
-| Manufacturers | `MasterData/Manufacturers/Manufacturer` (Id, Name) | `ehome.catalog:Manufacturer` |
+| Manufacturers | `MasterData/Manufacturers/Manufacturer` (Id, Name, KnxManufacturerId) | `ehome.catalog:Manufacturer` (`id`) |
 | Catalog | `CatalogSection` (Id, Name), `CatalogItem` → product | `ehome.catalog:Catalog` |
 | Hardware | `Hardware` (Id, Name, SerialNumber, VersionNumber), `Product` (Id, Text, OrderNumber), `Hardware2Program` | `Product`, `Variant`, `ProgramAssignment` |
 | Application program, static part | `AbsoluteSegment`, `ParameterType` (`TypeNumber`, `TypeRestriction`/`Enumeration`, `TypeText` with `Pattern`, `TypeFloat`, `TypeTime`, `TypeDate`, `TypeIPAddress`, `TypeNone`), `Parameter`/`Union` with `Memory`, `ParameterRef`, `ComObject` (all flags), `ComObjectRef` (Text, Tag, FunctionText, DatapointType) | `ehome.operational:*` |
@@ -47,7 +48,7 @@ Ordered by how much they limit E-Home. "In samples" says whether the fixtures co
 | 8 | ~~Parameter type details~~ | Done: every parameter type carries its properties (`FloatingPointType`: encoding, range, decimal places; `TimeType`: size, unit, range; `DateType`: whether the year is shown; `IPAddressType`: address kind, IP version; `TextType`: size and pattern), and a parameter value is typed by its parameter's type (`ParameterValue`: the entry of an enumeration, a number for an integer or time, a decimal, a text; the ETS notation `encodedValue` and the readable `displayValue` are derived). Defaults are edited by type and checked against the type's range and entries (errors) and its size and pattern (warnings only, so that a manufacturer's value or pattern never rejects an import; a pattern Java cannot compile is ignored). `TypePicture` is not supported. Test data: `TestDynamic.knxproj` (no sample contains the other kinds). | partly |
 | 9 | Download data: `AddressTable`, `AssociationTable`, `LoadProcedures`, `RelativeSegment`, `AbsoluteSegment/Data`, `Mask`, `Options`, `Extension`, `BinaryData`, `MaskVersions` | Only needed to program devices from E-Home. | partly (3–4 each) |
 | 10 | Trades (`Installation/Trades`), `Installation` Name, Line `MediumTypeRefId`, `BusAccess`, IP settings (`IPConfig`, `IPRoutingMulticastAddress`) | Trades are a second structure next to buildings; medium and IP settings matter for bus access. | no |
-| 11 | Hardware properties: `IsCoupler`, `IsPowerSupply`, `IsIPEnabled`, `BusCurrent`, `HasIndividualAddress`, …; `Product` `IsRailMounted`, `WidthInMillimeter`; Manufacturer `KnxManufacturerId` | Device classification and planning data. | yes |
+| 11 | Hardware properties: `IsCoupler`, `IsPowerSupply`, `IsIPEnabled`, `BusCurrent`, `HasIndividualAddress`, …; `Product` `IsRailMounted`, `WidthInMillimeter` | Device classification and planning data. | yes |
 
 Deliberately not read for parameter types:
 

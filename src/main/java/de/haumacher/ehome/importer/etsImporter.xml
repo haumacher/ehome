@@ -82,6 +82,7 @@
 									
 										<property name="extId" xml-attribute="Id"/>
 										<property name="name" xml-attribute="Name"/>
+										<property name="id" xml-attribute="KnxManufacturerId" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 										
 										<dispatch/>
 									</object>
@@ -135,7 +136,7 @@
 															<tag name="Hardware2Program">
 																<object model-type="ehome.catalog:ProgramAssignment" id-attribute="Id" join-duplicates="true">
 																	<linking>
-																		<ref-linking name="ehome.catalog:ProgramAssignment#product" reverse="true"/>
+																		<list-linking name="ehome.catalog:Product#programs"/>
 																	</linking>
 																	
 																	<property name="extId" xml-attribute="Id"/>

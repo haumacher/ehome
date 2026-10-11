@@ -162,9 +162,13 @@ itself goes through. In the app: the entries table of an enumeration type in
 `projects/devices.view.xml` (select an enumeration setting, then a line in the tree) and in
 `catalogs/program.view.xml` (select an enumeration parameter, then another node).
 
-Workaround: none; the toast is left visible.
+Workaround: none for the structure tab (the toast is left visible). The types tab of
+`catalogs/program.view.xml` shows the entries panel for every selected type (empty and without
+commands for a type that is no enumeration) instead of in a `<visible-if>`: there the failure also
+aborted the create command of a new type before its dialog closed.
 
-**When fixed:** nothing to remove.
+**When fixed:** put the entries panel of the types tab back into a `<visible-if>` on
+`selectedEnumeration`.
 
 ## Line numbers of XML import messages with a thousands separator (TL #29804)
 
@@ -181,6 +185,31 @@ Workaround: none; the message is readable, the separator stays visible.
 
 **When fixed:** nothing to remove; check the line numbers in the ETS import report.
 
+## Drag and drop in the structure tree of a program (TL #29776)
+
+The structure of an application program (`catalogs/program.view.xml`) is reordered without drag
+and drop, which trees do not offer in 8.0.0-alpha10: the create dialog of a structure element
+(`catalogs/create-structure.view.xml`) asks whether the element goes into the selected element (at
+its end) or after it, and "Move up" / "Move down" reorder the selected element among its siblings
+(`de.haumacher.ehome.knx.ProgramStructure`).
+
+**When available:** replace the position choice and the move commands by the tree's drag and drop.
+
+## A `<value-input>` cannot be mandatory (TL #29805)
+
+A `<value-input>` of an enumeration type always offers "no value": `ValueInputElement` builds an
+`AbstractFieldModel`/`SimpleSelectFieldModel` that is never mandatory, and the configuration has no
+option for it. Reproduction: `<value-input type="ehome.operational:InsertPosition" value="x">` with
+`<input-control class="com.top_logic.layout.view.form.SelectControlProvider" display="radio"/>`
+shows the radio buttons "Kein Wert", "Im ausgewählten Element (am Ende)", "Nach dem ausgewählten
+Element".
+
+Workaround: none needed beyond the channel: the position choice of
+`catalogs/create-structure.view.xml` is a derived channel with a `reverse`, so choosing "no value"
+falls back to the default position; the option stays visible.
+
+**When available:** declare the position choice mandatory.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -196,4 +225,6 @@ Workaround: none; the message is readable, the separator stays visible.
 - TL #29801: see above (adaptive-detail split proportions).
 - TL #29580: see above (table in a switch case disposed during a channel change; fix with registration handles described there).
 - TL #29804: see above (line numbers of import messages).
-- TL #29776: drag and drop for trees (reordering the program structure; see the catalog package).
+- TL #29776: see above (drag and drop for trees; when available: replace the position choice and the
+  move commands by the tree's drag and drop).
+- TL #29805: see above (mandatory `<value-input>`).

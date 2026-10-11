@@ -12,6 +12,12 @@
 			<generalizations>
 				<generalization type="tl.model:TLObject"/>
 			</generalizations>
+			<annotations>
+				<!-- An object created in the app gets an ID in the manner of ETS when it is committed (de.haumacher.ehome.knx.ExtIds). -->
+				<object-initializers>
+					<initializer class="de.haumacher.ehome.knx.ExtIdInitializer"/>
+				</object-initializers>
+			</annotations>
 			<attributes>
 				<property name="extId"
 					type="tl.core:String"

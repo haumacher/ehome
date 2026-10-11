@@ -3,7 +3,9 @@
  */
 package de.haumacher.ehome.importer;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.function.Consumer;
 
 import javax.xml.stream.Location;
@@ -24,6 +26,8 @@ import com.top_logic.xio.importer.handlers.ImportPart;
 public class JoiningModelBinding implements ModelBinding {
 
 	private final ModelBinding _impl;
+
+	private List<Object> _created = new ArrayList<>();
 
 	/**
 	 * Creates a {@link JoiningModelBinding}.
@@ -51,7 +55,23 @@ public class JoiningModelBinding implements ModelBinding {
 
 	@Override
 	public Object createObject(ImportPart handler, Location location, String modelType, String id) {
-		return _impl.createObject(handler, location, modelType, id);
+		Object result = _impl.createObject(handler, location, modelType, id);
+		_created.add(result);
+		return result;
+	}
+
+	/**
+	 * The objects created through this binding since the last {@link #clearCreated()}.
+	 */
+	public List<Object> getCreated() {
+		return _created;
+	}
+
+	/**
+	 * Forgets the objects created so far, see {@link #getCreated()}.
+	 */
+	public void clearCreated() {
+		_created = new ArrayList<>();
 	}
 
 	@Override

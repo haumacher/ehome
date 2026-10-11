@@ -2,7 +2,8 @@
 
 <!--
 	Create dialog for an empty project. "model" carries the transient project bound by the opening
-	command; the created project is written to "selection".
+	command; the created project is written to "selection". The project gets its external ID
+	(P-xxxx, as in ETS) when it is created (de.haumacher.ehome.knx.ExtIds).
 -->
 <view>
 	<channels>
@@ -21,7 +22,6 @@
 			with-inset="true"
 		>
 			<field attribute="name"/>
-			<field attribute="extId"/>
 			<field attribute="groupAddressStyle"/>
 			<commands>
 				<generic-command

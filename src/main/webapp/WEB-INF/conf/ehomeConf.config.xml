@@ -25,6 +25,14 @@
 					<method name="encodedParameterValue" class="de.haumacher.ehome.knx.EncodedParameterValue$Builder"/>
 					<method name="parameterValueType" class="de.haumacher.ehome.knx.ParameterValueType$Builder"/>
 					<method name="matchesPattern" class="de.haumacher.ehome.knx.MatchesPattern$Builder"/>
+					<!-- Editing an application program (de.haumacher.ehome.knx.ProgramStructure): one builder per function. -->
+					<method name="structureCanInsert" class="de.haumacher.ehome.knx.EhomeFunctions$StructureCanInsert$Builder"/>
+					<method name="structureInsertVeto" class="de.haumacher.ehome.knx.EhomeFunctions$StructureInsertVeto$Builder"/>
+					<method name="structureInsert" class="de.haumacher.ehome.knx.EhomeFunctions$StructureInsert$Builder"/>
+					<method name="structureMoveVeto" class="de.haumacher.ehome.knx.EhomeFunctions$StructureMoveVeto$Builder"/>
+					<method name="structureMove" class="de.haumacher.ehome.knx.EhomeFunctions$StructureMove$Builder"/>
+					<method name="programDeleteVeto" class="de.haumacher.ehome.knx.EhomeFunctions$ProgramDeleteVeto$Builder"/>
+					<method name="programDelete" class="de.haumacher.ehome.knx.EhomeFunctions$ProgramDelete$Builder"/>
 				</methods>
 			</instance>
 		</config>

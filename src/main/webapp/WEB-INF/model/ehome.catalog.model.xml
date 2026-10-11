@@ -46,7 +46,21 @@
 				/>
 				<property name="id"
 					type="tl.core:Integer"
-				/>
+				>
+					<annotations>
+						<!-- The KNX manufacturer ID; the external ID of a manufacturer created in the app is formed from it. -->
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> if($value != null
+        and !$obj.container().get(`ehome.catalog:ManufacturerRoot#manufacturers`)
+            .filter(m -> $m != $obj and $m.get(`ehome.catalog:Manufacturer#id`) == $value)
+            .isEmpty(),
+    #("Another manufacturer has the KNX ID {0}."@en, "Ein anderer Hersteller hat die KNX-ID {0}."@de).fill($value),
+    null)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
 				<reference name="catalogs"
 					composite="true"
 					kind="forwards"
@@ -106,9 +120,11 @@
 					multiple="true"
 					type="Variant"
 				/>
+				<!-- The application programs the product runs (ETS: Hardware2Program); owned by the product. -->
 				<reference name="programs"
+					composite="true"
 					inverse-reference="product"
-					kind="backwards"
+					kind="forwards"
 					multiple="true"
 					type="ProgramAssignment"
 				/>
@@ -123,14 +139,29 @@
 			</annotations>
 			<attributes>
 				<reference name="product"
+					aggregate="true"
 					inverse-reference="programs"
-					kind="forwards"
+					kind="backwards"
 					type="Product"
 				/>
 				<reference name="program"
 					kind="forwards"
 					type="ehome.operational:Program"
-				/>
+				>
+					<annotations>
+						<!-- Only the programs of the manufacturer of the product (in a create dialog: of the variant the assignment is created for). -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> {
+    context = $self.container();
+    product = $self.get(`ehome.catalog:ProgramAssignment#product`)
+        || if($context.instanceOf(`ehome.catalog:Variant`), $context.get(`ehome.catalog:Variant#product`), null);
+    $product.container().get(`ehome.catalog:Manufacturer#programs`)
+}]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<property name="name"
 					type="tl.core:String"
 				>

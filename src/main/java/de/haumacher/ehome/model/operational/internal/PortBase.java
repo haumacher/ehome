@@ -133,6 +133,15 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	String TEXT_ATTR = "text";
 
 	/**
+	 * Part <code>title</code> of <code>Port</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String TITLE_ATTR = "title";
+
+	/**
 	 * Part <code>transmission</code> of <code>Port</code>
 	 * 
 	 * <p>
@@ -339,6 +348,13 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	 */
 	default void setText(com.top_logic.basic.util.ResKey newValue) {
 		tUpdateByName(TEXT_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #TITLE_ATTR}.
+	 */
+	default String getTitle() {
+		return (String) tValueByName(TITLE_ATTR);
 	}
 
 	/**

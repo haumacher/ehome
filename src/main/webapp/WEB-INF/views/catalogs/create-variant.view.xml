@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Create dialog for a product variant (ETS: product) listed in a catalog.
+
+	"model" carries the transient variant; "container" is the catalog (section) or a variant selected
+	in the tree. In a catalog, the dialog creates a new product (ETS: hardware) of the catalog's
+	manufacturer, named like the variant, with the variant as its first one; at a variant, the new
+	variant belongs to the same product. Either way the variant is listed in the catalog. The created
+	variant is written to "selection".
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="container"/>
+		<channel name="selection"/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>New product variant</en>
+			<de>Neue Produktvariante</de>
+		</title>
+		<form
+			initial-edit-mode="true"
+			input="model"
+			mode-switch="false"
+			with-inset="true"
+		>
+			<field attribute="name"/>
+			<field attribute="orderNumber"/>
+			<commands>
+				<generic-command
+					image="css:bi bi-check-lg"
+					input="model"
+					placement="BUTTON_BAR"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<store-form-state/>
+					<with-transaction>
+						<persist-transient/>
+						<execute-script>
+							<function><![CDATA[container -> variant -> {
+    catalog = if($container.instanceOf(`ehome.catalog:Catalog`),
+        $container,
+        $container.referers(`ehome.catalog:Catalog#variants`).firstElement());
+    product = if($container.instanceOf(`ehome.catalog:Variant`),
+        $container.get(`ehome.catalog:Variant#product`),
+        {
+            manufacturer = recursion($catalog, x -> $x.container())
+                .filter(x -> $x.instanceOf(`ehome.catalog:Manufacturer`))
+                .firstElement();
+            created = new(`ehome.catalog:Product`);
+            $created.set(`ehome.catalog:Product#name`, $variant.get(`ehome.catalog:Variant#name`).localize());
+            $manufacturer.add(`ehome.catalog:Manufacturer#products`, $created);
+            $created
+        });
+    $product.add(`ehome.catalog:Product#variants`, $variant);
+    $catalog.add(`ehome.catalog:Catalog#variants`, $variant);
+    $variant
+}]]></function>
+							<inputs>
+								<input channel="container"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</generic-command>
+			</commands>
+		</form>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

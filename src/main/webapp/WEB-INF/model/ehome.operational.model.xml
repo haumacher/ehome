@@ -36,6 +36,11 @@
 			<classifier name="PackedDaysHoursMinutesAndSeconds"/>
 		</enum>
 		<!-- The role of the address an IP address parameter holds (ETS: TypeIPAddress@AddressType). -->
+		<!-- Where a new element of the configuration structure goes relative to the selected one. -->
+		<enum name="InsertPosition">
+			<classifier name="Inside"/>
+			<classifier name="After"/>
+		</enum>
 		<enum name="IPAddressKind">
 			<classifier name="HostAddress"/>
 			<classifier name="GatewayAddress"/>
@@ -309,7 +314,13 @@
 				<property name="value"
 					mandatory="true"
 					type="tl.core:Integer"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<int value="0"/>
+						</default-value>
+					</annotations>
+				</property>
 				<property name="binary"
 					type="tl.core:Binary"
 				/>
@@ -347,7 +358,19 @@
 					kind="forwards"
 					mandatory="true"
 					type="Port"
-				/>
+				>
+					<annotations>
+						<!-- Only the communication objects of the program containing this placement. -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> recursion($self, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
+    .firstElement()
+    .get(`ehome.operational:Program#ports`)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<reference name="datapointTypes"
 					kind="forwards"
 					multiple="true"
@@ -676,7 +699,19 @@
 					kind="forwards"
 					mandatory="true"
 					type="Parameter"
-				/>
+				>
+					<annotations>
+						<!-- Only the parameters of the program containing this placement. -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> recursion($self, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
+    .firstElement()
+    .get(`ehome.operational:Program#parameters`)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<property name="name"
 					type="tl.core:String"
 				/>
@@ -832,6 +867,7 @@
 				<generalization type="ParameterValue"/>
 			</generalizations>
 			<annotations>
+				<id-column value="title"/>
 				<instance-presentation icon="css:bi bi-sliders2"/>
 				<table name="EHParameter"/>
 			</annotations>
@@ -846,12 +882,27 @@
 					kind="forwards"
 					mandatory="true"
 					type="ParameterType"
-				/>
+				>
+					<annotations>
+						<!-- Only the types of the program defining the parameter. -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> $self.container().get(`ehome.operational:Program#parameterTypes`)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<reference name="access"
 					kind="forwards"
 					mandatory="true"
 					type="AccessKind"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="ReadWrite"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<reference name="address"
 					inverse-reference="usage"
 					kind="forwards"
@@ -864,6 +915,19 @@
 					multiple="true"
 					type="ParameterView"
 				/>
+				<!-- The text naming the parameter: its text, otherwise its internal name. -->
+				<property name="title"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[p -> $p.get(`ehome.operational:Parameter#description`).localize()
+    || $p.get(`ehome.operational:Parameter#name`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<interface name="ParameterType">
@@ -888,7 +952,13 @@
 				<!-- Whether the parameter dialog shows the year (ETS: DisplayTheYear). -->
 				<property name="showsYear"
 					type="tl.core:Boolean"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="EnumerationType">
@@ -902,16 +972,27 @@
 				<property name="bits"
 					mandatory="true"
 					type="tl.core:Integer"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<int value="8"/>
+						</default-value>
+					</annotations>
+				</property>
 				<reference name="kind"
 					kind="forwards"
 					mandatory="true"
 					type="ValueKind"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="Value"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<reference name="values"
 					composite="true"
 					kind="forwards"
-					mandatory="true"
 					multiple="true"
 					ordered="true"
 					type="EnumerationValue"
@@ -930,15 +1011,33 @@
 					kind="forwards"
 					mandatory="true"
 					type="FloatEncoding"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="DPT9"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<property name="min"
 					mandatory="true"
 					type="tl.core:Double"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<double value="-671088.64"/>
+						</default-value>
+					</annotations>
+				</property>
 				<property name="max"
 					mandatory="true"
 					type="tl.core:Double"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<double value="670760.96"/>
+						</default-value>
+					</annotations>
+				</property>
 				<!-- The number of decimal places a value is shown with (from ETS: DisplayFormat); empty for as many as needed. -->
 				<property name="decimals"
 					type="tl.core:Integer"
@@ -958,12 +1057,24 @@
 					kind="forwards"
 					mandatory="true"
 					type="IPAddressKind"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="HostAddress"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<reference name="version"
 					kind="forwards"
 					mandatory="true"
 					type="IPVersion"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="IPv4"/>
+						</default-value>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
 		<class name="NumericType">
@@ -977,20 +1088,44 @@
 				<property name="min"
 					mandatory="true"
 					type="tl.core:Long"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<long value="0"/>
+						</default-value>
+					</annotations>
+				</property>
 				<property name="max"
 					mandatory="true"
 					type="tl.core:Long"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<long value="255"/>
+						</default-value>
+					</annotations>
+				</property>
 				<property name="bits"
 					mandatory="true"
 					type="tl.core:Integer"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<int value="8"/>
+						</default-value>
+					</annotations>
+				</property>
 				<reference name="kind"
 					kind="forwards"
 					mandatory="true"
 					type="NumberKind"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="unsignedInt"/>
+						</default-value>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
 		<class name="TextType">
@@ -1005,7 +1140,13 @@
 				<property name="bits"
 					mandatory="true"
 					type="tl.core:Integer"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<int value="112"/>
+						</default-value>
+					</annotations>
+				</property>
 				<!-- A regular expression every value must match; empty for any text. -->
 				<property name="pattern"
 					type="tl.core:String"
@@ -1024,20 +1165,44 @@
 				<property name="bits"
 					mandatory="true"
 					type="tl.core:Integer"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<int value="16"/>
+						</default-value>
+					</annotations>
+				</property>
 				<reference name="unit"
 					kind="forwards"
 					mandatory="true"
 					type="TimeUnit"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="Seconds"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<property name="min"
 					mandatory="true"
 					type="tl.core:Long"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<long value="0"/>
+						</default-value>
+					</annotations>
+				</property>
 				<property name="max"
 					mandatory="true"
 					type="tl.core:Long"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<long value="65535"/>
+						</default-value>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="VoidType">
@@ -1086,6 +1251,7 @@
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
+				<id-column value="title"/>
 				<table name="EHPort"/>
 			</annotations>
 			<attributes>
@@ -1104,11 +1270,23 @@
 				<property name="index"
 					mandatory="true"
 					type="tl.core:Integer"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<int value="0"/>
+						</default-value>
+					</annotations>
+				</property>
 				<property name="size"
 					mandatory="true"
 					type="tl.core:Integer"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<int value="1"/>
+						</default-value>
+					</annotations>
+				</property>
 				<reference name="datapointTypes"
 					kind="forwards"
 					multiple="true"
@@ -1119,37 +1297,79 @@
 					kind="forwards"
 					mandatory="true"
 					type="ehome.physical:Priority"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="Low"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<reference name="canRead"
 					kind="forwards"
 					mandatory="true"
 					type="ehome.common:Enablement"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="Enabled"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<reference name="canWrite"
 					kind="forwards"
 					mandatory="true"
 					type="ehome.common:Enablement"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="Enabled"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<reference name="communication"
 					kind="forwards"
 					mandatory="true"
 					type="ehome.common:Enablement"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="Enabled"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<reference name="transmission"
 					kind="forwards"
 					mandatory="true"
 					type="ehome.common:Enablement"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="Enabled"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<reference name="update"
 					kind="forwards"
 					mandatory="true"
 					type="ehome.common:Enablement"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="Enabled"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<reference name="readOnInit"
 					kind="forwards"
 					mandatory="true"
 					type="ehome.common:Enablement"
-				/>
+				>
+					<annotations>
+						<default-value>
+							<classifier value="Disabled"/>
+						</default-value>
+					</annotations>
+				</reference>
 				<!-- The references placing this communication object in the structure. -->
 				<reference name="interfaces"
 					inverse-reference="port"
@@ -1157,6 +1377,19 @@
 					multiple="true"
 					type="Interface"
 				/>
+				<!-- The text naming the communication object: its text, otherwise its internal name. -->
+				<property name="title"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[o -> $o.get(`ehome.operational:Port#text`).localize()
+    || $o.get(`ehome.operational:Port#name`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="Program">

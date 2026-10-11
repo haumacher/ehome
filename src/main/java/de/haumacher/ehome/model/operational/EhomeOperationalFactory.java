@@ -125,6 +125,21 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	public static final String TEN_MILLISECONDS_TIME_UNIT_CLASSIFIER = "TenMilliseconds";
 
 	/**
+	 * Name of the enumeration <code>InsertPosition</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String INSERT_POSITION_ENUM = "InsertPosition";
+
+	/**
+	 * Name of the classifier <code>After</code> in enumeration {@value #INSERT_POSITION_ENUM}.
+	 */
+	public static final String AFTER_INSERT_POSITION_CLASSIFIER = "After";
+
+	/**
+	 * Name of the classifier <code>Inside</code> in enumeration {@value #INSERT_POSITION_ENUM}.
+	 */
+	public static final String INSIDE_INSERT_POSITION_CLASSIFIER = "Inside";
+
+	/**
 	 * Name of the enumeration <code>IPAddressKind</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
 	 */
 	public static final String IP_ADDRESS_KIND_ENUM = "IPAddressKind";
@@ -652,6 +667,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Parameter#TITLE_ATTR} of {@link Parameter}.
+	 */
+	public static com.top_logic.model.TLProperty getTitleParameterAttr() {
+		return (com.top_logic.model.TLProperty) getParameterType().getPart(Parameter.TITLE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Parameter#TYPE_ATTR} of {@link Parameter}.
 	 */
 	public static com.top_logic.model.TLReference getTypeParameterAttr() {
@@ -1016,6 +1038,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Port#TITLE_ATTR} of {@link Port}.
+	 */
+	public static com.top_logic.model.TLProperty getTitlePortAttr() {
+		return (com.top_logic.model.TLProperty) getPortType().getPart(Port.TITLE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Port#TRANSMISSION_ATTR} of {@link Port}.
 	 */
 	public static com.top_logic.model.TLReference getTransmissionPortAttr() {
@@ -1237,6 +1266,27 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLClassifier getTenMillisecondsTimeUnitClassifier() {
 		return getTimeUnitEnum().getClassifier(TEN_MILLISECONDS_TIME_UNIT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #INSERT_POSITION_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getInsertPositionEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(INSERT_POSITION_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #AFTER_INSERT_POSITION_CLASSIFIER} of enumeration {@value #INSERT_POSITION_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getAfterInsertPositionClassifier() {
+		return getInsertPositionEnum().getClassifier(AFTER_INSERT_POSITION_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #INSIDE_INSERT_POSITION_CLASSIFIER} of enumeration {@value #INSERT_POSITION_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getInsideInsertPositionClassifier() {
+		return getInsertPositionEnum().getClassifier(INSIDE_INSERT_POSITION_CLASSIFIER);
 	}
 
 	/**

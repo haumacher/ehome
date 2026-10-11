@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.knx;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey1;
 import com.top_logic.basic.util.ResKey2;
 import com.top_logic.basic.util.ResKey3;
@@ -42,6 +43,56 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The value "{0}" was kept as text: it is no value of the parameter type {1}.
 	 */
 	public static ResKey2 ERROR_VALUE_DOES_NOT_FIT_TYPE__VALUE_TYPE;
+
+	/**
+	 * @en Nothing is selected.
+	 */
+	public static ResKey ERROR_NOTHING_SELECTED;
+
+	/**
+	 * @en {0} cannot be placed in or after "{1}".
+	 */
+	public static ResKey2 ERROR_CANNOT_INSERT__TYPE_ANCHOR;
+
+	/**
+	 * @en "{0}" is not part of an ordered structure.
+	 */
+	public static ResKey1 ERROR_NOT_ORDERED__NODE;
+
+	/**
+	 * @en "{0}" is the first element already.
+	 */
+	public static ResKey1 ERROR_ALREADY_FIRST__NODE;
+
+	/**
+	 * @en "{0}" is the last element already.
+	 */
+	public static ResKey1 ERROR_ALREADY_LAST__NODE;
+
+	/**
+	 * @en The type "{0}" cannot be deleted: {1} parameters use it, e.g. "{2}".
+	 */
+	public static ResKey3 ERROR_TYPE_IN_USE__TYPE_COUNT_EXAMPLE;
+
+	/**
+	 * @en The entry "{0}" cannot be deleted: it is the value or default of {1} parameters or settings.
+	 */
+	public static ResKey2 ERROR_ENTRY_IN_USE__ENTRY_COUNT;
+
+	/**
+	 * @en The parameter "{0}" cannot be deleted: {1} devices set it.
+	 */
+	public static ResKey2 ERROR_PARAMETER_SET_BY_DEVICES__PARAMETER_COUNT;
+
+	/**
+	 * @en The parameter "{0}" cannot be deleted: "{1}" depends on it.
+	 */
+	public static ResKey2 ERROR_PARAMETER_DECIDES__PARAMETER_USER;
+
+	/**
+	 * @en The communication object "{0}" cannot be deleted: {1} devices use it.
+	 */
+	public static ResKey2 ERROR_OBJECT_USED_BY_DEVICES__OBJECT_COUNT;
 
 	static {
 		initConstants(I18NConstants.class);

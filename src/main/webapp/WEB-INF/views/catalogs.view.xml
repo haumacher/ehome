@@ -1,14 +1,21 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The product catalogs imported from ETS projects: manufacturers, their catalogs with sections, and
-	the product variants listed in a catalog, and below a variant the application programs of its
-	product. The application programs of a manufacturer are also listed below the manufacturer; an
-	application program is shown with its structure and parameters (catalogs/program.view.xml). A variant is referenced by its catalog, not contained in it, so the tree finds the
-	catalog of a variant through that reference.
+	The product catalogs: manufacturers, their catalogs with sections, and the product variants listed
+	in a catalog, and below a variant the application programs of its product. The application
+	programs of a manufacturer are also listed below the manufacturer; an application program is shown
+	with its structure, parameters, communication objects and types (catalogs/program.view.xml). A
+	variant is referenced by its catalog, not contained in it, so the tree finds the catalog of a
+	variant through that reference.
 
-	The ETS import creates every manufacturer of the KNX master data. Only those with catalogs are
-	shown, and those created here (they have no external ID).
+	The ETS import creates every manufacturer of the KNX master data. Only those with catalogs,
+	products or application programs are shown; a manufacturer just created is shown in the details
+	until it has one of them.
+
+	Everything the tree shows is created here: a manufacturer, a catalog, a section, an application
+	program, a product with its first variant (in a catalog), a further variant of a product, and the
+	assignment of an application program to the product of a variant. Every object gets an external
+	ID in the manner of ETS when it is created (de.haumacher.ehome.knx.ExtIds).
 
 	The detail pane shows the selected node in a form matching its type.
 -->
@@ -33,6 +40,10 @@
 		/>
 		<derived-channel name="selectedCatalog"
 			expr="n -> if($n.instanceOf(`ehome.catalog:Catalog`), $n, null)"
+			inputs="selected"
+		/>
+		<derived-channel name="selectedVariant"
+			expr="n -> if($n.instanceOf(`ehome.catalog:Variant`), $n, null)"
 			inputs="selected"
 		/>
 	</channels>
@@ -165,6 +176,99 @@
 							</open-dialog>
 						</generic-command>
 						<generic-command
+							clique="new"
+							image="css:bi bi-box-seam"
+							input="selectedCatalog"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Product</en>
+								<de>Produkt</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient
+								container="selectedCatalog"
+								type="ehome.catalog:Variant"
+							/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="catalogs/create-variant.view.xml"
+							>
+								<bind
+									channel="container"
+									to="selectedCatalog"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-boxes"
+							input="selectedVariant"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Variant</en>
+								<de>Variante</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient
+								container="selectedVariant"
+								type="ehome.catalog:Variant"
+							/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="catalogs/create-variant.view.xml"
+							>
+								<bind
+									channel="container"
+									to="selectedVariant"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-link-45deg"
+							input="selectedVariant"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Program assignment</en>
+								<de>Programmzuweisung</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-transient
+								container="selectedVariant"
+								type="ehome.catalog:ProgramAssignment"
+							/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="selectedVariant"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
 							image="css:bi bi-trash"
 							input="selected"
 							placement="TOOLBAR"
@@ -182,7 +286,7 @@
 						</generic-command>
 					</commands>
 					<tree
-						observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog,ehome.operational:Program"
+						observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog,ehome.catalog:Product,ehome.catalog:Variant,ehome.catalog:ProgramAssignment,ehome.operational:Program"
 						selection="selected"
 					>
 						<root>`ehome.catalog#ROOT`</root>
@@ -190,7 +294,8 @@
     $node.instanceOf(`ehome.catalog:ManufacturerRoot`):
         $node.get(`ehome.catalog:ManufacturerRoot#manufacturers`)
             .filter(m -> !$m.get(`ehome.catalog:Manufacturer#catalogs`).isEmpty()
-                or $m.get(`ehome.core:Externalized#extId`) == null);
+                or !$m.get(`ehome.catalog:Manufacturer#products`).isEmpty()
+                or !$m.get(`ehome.catalog:Manufacturer#programs`).isEmpty());
     $node.instanceOf(`ehome.catalog:Manufacturer`):
         concat(
             $node.get(`ehome.catalog:Manufacturer#catalogs`),
@@ -254,6 +359,20 @@
 						</case>
 						<!-- An application program, also when reached as the program of a product. -->
 						<case test="n -> $n.instanceOf(`ehome.operational:Program`) or $n.instanceOf(`ehome.catalog:ProgramAssignment`)">
+							<!-- The assignment itself: which program the product runs, and its ID. -->
+							<visible-if
+								expr="n -> $n.instanceOf(`ehome.catalog:ProgramAssignment`)"
+								input="selected"
+							>
+								<form
+									input="selected"
+									with-inset="true"
+								>
+									<field attribute="product"/>
+									<field attribute="program"/>
+									<field attribute="extId"/>
+								</form>
+							</visible-if>
 							<form
 								input="selectedProgram"
 								with-inset="true"

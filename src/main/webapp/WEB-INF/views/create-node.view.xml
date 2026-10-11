@@ -2,7 +2,7 @@
 
 <!--
 	Create dialog for a node of one of the structure trees (building parts, group addresses, areas
-	and lines, catalog entries, application programs).
+	and lines, catalog entries, application programs, the assignment of a program to a product).
 
 	"model" carries the transient object of the type the opening command chose; "container" is the
 	object the new node is added to. The reference it is added to depends on the container and the
@@ -13,6 +13,11 @@
 		<channel name="model"/>
 		<channel name="container"/>
 		<channel name="selection"/>
+		<!-- The product of a variant the new node is created for (a program assignment). -->
+		<derived-channel name="product"
+			expr="c -> if($c.instanceOf(`ehome.catalog:Variant`), $c.get(`ehome.catalog:Variant#product`), null)"
+			inputs="container"
+		/>
 	</channels>
 	<window width="500px">
 		<title>
@@ -25,7 +30,13 @@
 			mode-switch="false"
 			with-inset="true"
 		>
-			<field attribute="name"/>
+			<!-- The name of a program assignment is that of its program. -->
+			<visible-if
+				expr="n -> !$n.instanceOf(`ehome.catalog:ProgramAssignment`)"
+				input="model"
+			>
+				<field attribute="name"/>
+			</visible-if>
 			<visible-if
 				expr="n -> $n.instanceOf(`ehome.logical:GroupAddress`) or $n.instanceOf(`ehome.physical:Area`) or $n.instanceOf(`ehome.physical:Line`)"
 				input="model"
@@ -37,6 +48,12 @@
 				input="model"
 			>
 				<field attribute="id"/>
+			</visible-if>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.catalog:ProgramAssignment`)"
+				input="model"
+			>
+				<field attribute="program"/>
 			</visible-if>
 			<commands>
 				<generic-command
@@ -58,6 +75,7 @@
     $container.instanceOf(`ehome.catalog:Manufacturer`) and $node.instanceOf(`ehome.operational:Program`): 'programs';
     $container.instanceOf(`ehome.catalog:Manufacturer`): 'catalogs';
     $container.instanceOf(`ehome.catalog:Catalog`): 'sections';
+    $container.instanceOf(`ehome.catalog:Variant`): 'assignment';
     default: 'parts';
 }">
 						<inputs>
@@ -109,6 +127,13 @@
 							<persist-transient
 								container="container"
 								reference="sections"
+							/>
+						</case>
+						<!-- The assignment of a program to the product of the selected variant, owned by the product. -->
+						<case match="'assignment'">
+							<persist-transient
+								container="product"
+								reference="programs"
 							/>
 						</case>
 						<default>

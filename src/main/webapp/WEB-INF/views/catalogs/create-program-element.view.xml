@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Create dialog for a definition of an application program: a parameter type of one of the eight
+	kinds, a parameter, a communication object, or an entry of an enumeration type.
+
+	"model" carries the transient object of the type the opening command chose, created in the context
+	of "container" (the program, for an entry its enumeration type), so that the options of the form
+	(the types of a parameter) are those of the program. The form opens with the defaults of the model;
+	a parameter's default is entered in the field fitting the kind of its type. The created object is
+	written to "selection".
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="container"/>
+		<channel name="selection"/>
+	</channels>
+	<window width="560px">
+		<title>
+			<en>New element</en>
+			<de>Neues Element</de>
+		</title>
+		<form
+			initial-edit-mode="true"
+			input="model"
+			mode-switch="false"
+			with-inset="true"
+		>
+			<!-- A parameter type; the fields its kind does not have are not shown. -->
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:ParameterType`)"
+				input="model"
+			>
+				<field attribute="name"/>
+				<field attribute="bits"/>
+				<field attribute="kind"/>
+				<field attribute="encoding"/>
+				<field attribute="unit"/>
+				<field attribute="min"/>
+				<field attribute="max"/>
+				<field attribute="decimals"/>
+				<field attribute="pattern"/>
+				<field attribute="showsYear"/>
+				<field attribute="addressKind"/>
+				<field attribute="version"/>
+			</visible-if>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:Parameter`)"
+				input="model"
+			>
+				<field attribute="description"/>
+				<field attribute="name"/>
+				<field attribute="type"/>
+				<field attribute="access"/>
+				<group>
+					<label>
+						<en>Default</en>
+						<de>Vorgabe</de>
+					</label>
+					<field attribute="choice"/>
+					<field attribute="number"/>
+					<field attribute="decimal"/>
+					<field attribute="text"/>
+				</group>
+			</visible-if>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:Port`)"
+				input="model"
+			>
+				<field attribute="index"/>
+				<field attribute="name"/>
+				<field attribute="text"/>
+				<field attribute="function"/>
+				<field attribute="size"/>
+				<field attribute="datapointTypes"/>
+				<group>
+					<label>
+						<en>Flags</en>
+						<de>Flags</de>
+					</label>
+					<field attribute="priority"/>
+					<field attribute="communication"/>
+					<field attribute="canRead"/>
+					<field attribute="canWrite"/>
+					<field attribute="transmission"/>
+					<field attribute="update"/>
+					<field attribute="readOnInit"/>
+				</group>
+			</visible-if>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:EnumerationValue`)"
+				input="model"
+			>
+				<field attribute="name"/>
+				<field attribute="value"/>
+				<field attribute="index"/>
+			</visible-if>
+			<commands>
+				<generic-command
+					image="css:bi bi-check-lg"
+					input="model"
+					placement="BUTTON_BAR"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<store-form-state/>
+					<switch value="n -> switch {
+    $n.instanceOf(`ehome.operational:ParameterType`): 'parameterTypes';
+    $n.instanceOf(`ehome.operational:Parameter`): 'parameters';
+    $n.instanceOf(`ehome.operational:Port`): 'ports';
+    default: 'values';
+}">
+						<case match="'parameterTypes'">
+							<persist-transient
+								container="container"
+								reference="parameterTypes"
+							/>
+						</case>
+						<case match="'parameters'">
+							<persist-transient
+								container="container"
+								reference="parameters"
+							/>
+						</case>
+						<case match="'ports'">
+							<persist-transient
+								container="container"
+								reference="ports"
+							/>
+						</case>
+						<default>
+							<persist-transient
+								container="container"
+								reference="values"
+							/>
+						</default>
+					</switch>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</generic-command>
+			</commands>
+		</form>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

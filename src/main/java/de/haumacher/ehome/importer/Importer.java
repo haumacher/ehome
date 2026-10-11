@@ -40,6 +40,8 @@ import com.top_logic.xio.importer.binding.ModelBinding;
 import com.top_logic.xio.importer.handlers.DispatchingImporter;
 import com.top_logic.xio.importer.handlers.Handler;
 
+import de.haumacher.ehome.knx.ExtIds;
+
 /**
  * Imports an ETS project file (<code>.knxproj</code>) into the model, as described in
  * <code>etsImporter.xml</code>, and collects the messages of the import (see
@@ -56,7 +58,7 @@ public class Importer {
 	 */
 	public static final String ENTRY_SCHEME = "knxproj:";
 
-	private ModelBinding _binding;
+	private JoiningModelBinding _binding;
 
 	private BufferingI18NLog _messages = new BufferingI18NLog();
 
@@ -159,11 +161,14 @@ public class Importer {
 		Handler handler = (Handler) context.getInstance((PolymorphicConfiguration<?>) config);
 		context.checkErrors();
 		registerSharedObjects();
+		_binding.clearCreated();
 		ZipInputStream zip = new ZipInputStream(in);
 		try (ImportContext importContext = new DefaultImportContext(
 			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)).tee(_messages), _binding)) {
 			importETS(zip, importContext, handler);
 		}
+		// Numbers the app allocates for new objects lie above those of the imported ones.
+		ExtIds.raiseImported(_binding.getCreated());
 	}
 
 }

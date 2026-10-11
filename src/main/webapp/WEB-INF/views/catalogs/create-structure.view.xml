@@ -2,23 +2,58 @@
 
 <!--
 	Create dialog for an element of the configuration structure of an application program: a
-	channel, the channel independent part, a parameter block, a switch or a case.
+	channel, the channel independent part, a parameter block, a switch, a case, or a parameter or
+	communication object placed in the structure.
 
-	"model" carries the transient object of the type the opening command chose; "container" is the
-	element the new one is added to: a case to the cases of a switch, everything else to the contents
-	of a container. The created element is written to "selection", so that the tree selects it.
+	"model" carries the transient object of the type the opening command chose, created in the context
+	of "anchor", the element selected in the structure tree (the program if nothing is selected). The
+	new element goes into the anchor (at its end) or after it into the anchor's container
+	(structureInsert): by default inside if the anchor can contain an element of its kind, otherwise
+	after it. The choice is offered only where both are possible. The created element is written to
+	"selection", so that the tree selects it.
+
+	The element is persisted without container and inserted in the same transaction, so that it is
+	part of the structure when it is committed and gets its external ID from there.
 -->
 <view>
 	<channels>
 		<channel name="model"/>
-		<channel name="container"/>
+		<channel name="anchor"/>
 		<channel name="selection"/>
+		<!-- The position the user chose; empty for the default. -->
+		<channel name="position"/>
+		<derived-channel name="effectivePosition"
+			expr="p -> a -> m -> if($p != null, $p, if(structureCanInsert($a, $m, 'inside'), `ehome.operational:InsertPosition#Inside`, `ehome.operational:InsertPosition#After`))"
+			inputs="position, anchor, model"
+			reverse="p -> $p"
+		/>
+		<derived-channel name="choosePosition"
+			expr="a -> m -> structureCanInsert($a, $m, 'inside') and structureCanInsert($a, $m, 'after')"
+			inputs="anchor, model"
+		/>
 	</channels>
 	<window width="500px">
 		<title>
 			<en>New structure element</en>
 			<de>Neues Strukturelement</de>
 		</title>
+		<visible-if
+			expr="b -> $b"
+			input="choosePosition"
+		>
+			<value-input
+				type="ehome.operational:InsertPosition"
+				value="effectivePosition"
+			>
+				<label>
+					<en>Position</en>
+					<de>Position</de>
+				</label>
+				<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+					display="radio"
+				/>
+			</value-input>
+		</visible-if>
 		<form
 			initial-edit-mode="true"
 			input="model"
@@ -39,11 +74,33 @@
 				<field attribute="description"/>
 			</visible-if>
 			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:ParameterGroup`) or $n.instanceOf(`ehome.operational:Switch`)"
+				input="model"
+			>
+				<field attribute="input"/>
+			</visible-if>
+			<visible-if
 				expr="n -> $n.instanceOf(`ehome.operational:Case`)"
 				input="model"
 			>
 				<field attribute="pattern"/>
 				<field attribute="isDefault"/>
+			</visible-if>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:ParameterView`)"
+				input="model"
+			>
+				<field attribute="parameter"/>
+				<field attribute="description"/>
+				<field attribute="access"/>
+			</visible-if>
+			<visible-if
+				expr="n -> $n.instanceOf(`ehome.operational:Interface`)"
+				input="model"
+			>
+				<field attribute="port"/>
+				<field attribute="name"/>
+				<field attribute="function"/>
 			</visible-if>
 			<commands>
 				<generic-command
@@ -56,23 +113,15 @@
 						<de>Erstellen</de>
 					</label>
 					<store-form-state/>
-					<switch value="container -> if($container.instanceOf(`ehome.operational:Switch`), 'alternatives', 'contents')">
-						<inputs>
-							<input channel="container"/>
-						</inputs>
-						<case match="'alternatives'">
-							<persist-transient
-								container="container"
-								reference="alternatives"
-							/>
-						</case>
-						<default>
-							<persist-transient
-								container="container"
-								reference="contents"
-							/>
-						</default>
-					</switch>
+					<with-transaction>
+						<persist-transient/>
+						<execute-script function="anchor -> position -> node -> structureInsert($node, $anchor, $position)">
+							<inputs>
+								<input channel="anchor"/>
+								<input channel="effectivePosition"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
 					<write-channel name="selection"/>
 					<close-dialog/>
 				</generic-command>
