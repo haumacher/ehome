@@ -24,6 +24,46 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 IMPORT_SUMMARY__IMPORTED_COUNT;
 
 	/**
+	 * @en Imported product data: {0}. Messages of the import: {1}.
+	 */
+	public static ResKey2 PRODUCT_SUMMARY__IMPORTED_COUNT;
+
+	/**
+	 * @en {0} ({1})
+	 */
+	public static ResKey2 PRODUCT_FILE__FILE_CONTENTS;
+
+	/**
+	 * @en manufacturer imported: {0}
+	 */
+	public static ResKey1 MANUFACTURERS_IMPORTED__NAMES;
+
+	/**
+	 * @en manufacturer already known: {0}
+	 */
+	public static ResKey1 MANUFACTURERS_KNOWN__NAMES;
+
+	/**
+	 * @en products imported: {0}
+	 */
+	public static ResKey1 PRODUCTS_IMPORTED__NAMES;
+
+	/**
+	 * @en products already known: {0}
+	 */
+	public static ResKey1 PRODUCTS_KNOWN__NAMES;
+
+	/**
+	 * @en application programs imported: {0}
+	 */
+	public static ResKey1 PROGRAMS_IMPORTED__NAMES;
+
+	/**
+	 * @en application programs already known: {0}
+	 */
+	public static ResKey1 PROGRAMS_KNOWN__NAMES;
+
+	/**
 	 * @en Error
 	 */
 	public static ResKey LEVEL_ERROR;

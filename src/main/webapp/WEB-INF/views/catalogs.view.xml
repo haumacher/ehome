@@ -12,6 +12,12 @@
 	products or application programs are shown; a manufacturer just created is shown in the details
 	until it has one of them.
 
+	The catalog is filled by importing the product file of a manufacturer (.knxprod, the format of
+	the ETS catalog import; ImportProductDataAction) or an ETS project (projects/overview.view.xml).
+	The product import always shows its report (projects/import-report.view.xml), naming the
+	manufacturer, products and application programs imported or already known, and selects the
+	manufacturer of the file.
+
 	Everything the tree shows is created here: a manufacturer, a catalog, a section, an application
 	program, a product with its first variant (in a catalog), a further variant of a product, and the
 	assignment of an application program to the product of a variant. Every object gets an external
@@ -63,6 +69,29 @@
 						<de>Kataloge</de>
 					</title>
 					<commands>
+						<upload-command
+							accept=".knxprod"
+							image="css:fa-solid fa-upload"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Import product data</en>
+								<de>Produktdaten importieren</de>
+							</label>
+							<executability>
+								<model-access
+									operation="Create"
+									type="ehome.catalog:Product"
+								/>
+							</executability>
+							<import-product-data/>
+							<open-dialog
+								bind-input-to="report"
+								dialog-view="projects/import-report.view.xml"
+							/>
+							<execute-script function='report -> $report["manufacturer"]'/>
+							<write-channel name="selected"/>
+						</upload-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-industry"

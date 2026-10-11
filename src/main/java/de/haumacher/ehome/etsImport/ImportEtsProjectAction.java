@@ -5,12 +5,9 @@ package de.haumacher.ehome.etsImport;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.xml.stream.XMLStreamException;
@@ -21,22 +18,17 @@ import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
-import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.io.binary.BinaryData;
-import com.top_logic.basic.logging.Level;
-import com.top_logic.basic.util.ResKey;
 import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.KnowledgeBaseException;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
-import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
-import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
@@ -131,7 +123,7 @@ public class ImportEtsProjectAction implements ViewAction {
 
 	@Override
 	public Object execute(ReactContext context, Object input) {
-		Report report = new Report();
+		ImportReport report = new ImportReport(I18NConstants.IMPORT_SUMMARY__IMPORTED_COUNT);
 		if (input instanceof Collection<?> files) {
 			for (Object file : files) {
 				importFile(report, (BinaryData) file);
@@ -142,7 +134,7 @@ public class ImportEtsProjectAction implements ViewAction {
 		return report.toMap();
 	}
 
-	private static void importFile(Report report, BinaryData data) {
+	private static void importFile(ImportReport report, BinaryData data) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		ModelBinding binding = new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false);
 
@@ -158,74 +150,7 @@ public class ImportEtsProjectAction implements ViewAction {
 		}
 
 		TLObject project = projects().stream().filter(p -> !before.contains(p)).findFirst().orElse(null);
-		report.add(data.getName(), project, importer.getMessages());
-	}
-
-	/**
-	 * The outcome of the import of the uploaded files, see {@link #toMap()}.
-	 */
-	private static final class Report {
-
-		private final Resources _resources = Resources.getInstance();
-
-		private TLObject _project;
-
-		private final List<String> _imported = new ArrayList<>();
-
-		private final List<Map<String, Object>> _messages = new ArrayList<>();
-
-		void add(String fileName, TLObject project, List<BufferingI18NLog.Entry> messages) {
-			String file = fileName == null ? "" : fileName;
-			if (project != null) {
-				_project = project;
-				_imported.add(MetaLabelProvider.INSTANCE.getLabel(project));
-			} else {
-				_imported.add(file);
-			}
-			for (BufferingI18NLog.Entry message : messages) {
-				_messages.add(Map.of(
-					FILE, file,
-					SEVERITY, severity(message.getLevel()),
-					LEVEL, _resources.getString(levelLabel(message.getLevel())),
-					MESSAGE, _resources.getString(message.getMessage())));
-			}
-		}
-
-		/**
-		 * The report as a dictionary for the action chain: {@value #PROJECT} the project created
-		 * last, {@value #SUMMARY} a sentence naming what was imported and how many messages there
-		 * are, and {@value #MESSAGES} the messages of the import as dictionaries with
-		 * {@value #FILE}, {@value #SEVERITY}, {@value #LEVEL} and {@value #MESSAGE} (texts in the
-		 * user's language).
-		 */
-		Map<String, Object> toMap() {
-			Map<String, Object> result = new HashMap<>();
-			result.put(PROJECT, _project);
-			result.put(SUMMARY, _resources.getString(
-				I18NConstants.IMPORT_SUMMARY__IMPORTED_COUNT.fill(String.join(", ", _imported), _messages.size())));
-			result.put(MESSAGES, _messages);
-			return result;
-		}
-
-		private static String severity(Level level) {
-			if (level.is(Level.ERROR)) {
-				return SEVERITY_ERROR;
-			} else if (level.is(Level.WARN)) {
-				return SEVERITY_WARNING;
-			} else {
-				return SEVERITY_INFO;
-			}
-		}
-
-		private static ResKey levelLabel(Level level) {
-			if (level.is(Level.ERROR)) {
-				return I18NConstants.LEVEL_ERROR;
-			} else if (level.is(Level.WARN)) {
-				return I18NConstants.LEVEL_WARNING;
-			} else {
-				return I18NConstants.LEVEL_INFO;
-			}
-		}
+		report.addProject(data.getName(), project, importer.getMessages());
 	}
 
 	private static List<TLObject> projects() {
