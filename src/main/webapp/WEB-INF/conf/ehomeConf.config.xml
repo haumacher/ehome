@@ -51,6 +51,19 @@
 					<method name="deviceGroupAddresses" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceConnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceDisconnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<!-- The connections of a group address seen from the address (de.haumacher.ehome.programming.GroupAddressConnections): one builder, the function by its name. -->
+					<method name="groupAddressConnections" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressSenders" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressProblems" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressDevices" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="connectionLabel" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="connectionDevice" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="connectionObject" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="connectionFunction" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="connectionDatapointType" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="deviceLabel" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="deviceObjects" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="existingObject" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<!-- The programming of a device (de.haumacher.ehome.programming.download.ProgrammingFunctions): one builder, the function by its name. -->
 					<method name="downloadPlanRows" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="downloadSummary" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>

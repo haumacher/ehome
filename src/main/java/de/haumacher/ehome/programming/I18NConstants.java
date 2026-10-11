@@ -90,6 +90,26 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 ERROR_NOT_A_CONNECTION__ELEMENT;
 
+	/**
+	 * @en {0} has the datapoint type {1}, the group address {2}.
+	 */
+	public static ResKey3 WARNING_TYPE_DIFFERS_FROM_ADDRESS__OBJECT_TYPE_ADDRESS_TYPE;
+
+	/**
+	 * @en {0} has {1} bits, the datapoint type of the group address {2} bits.
+	 */
+	public static ResKey3 WARNING_SIZE_DIFFERS_FROM_ADDRESS__OBJECT_SIZE_ADDRESS_SIZE;
+
+	/**
+	 * @en The connected objects have datapoint types of different main types.
+	 */
+	public static ResKey WARNING_OBJECT_TYPES_DIFFER;
+
+	/**
+	 * @en The connected objects have different sizes.
+	 */
+	public static ResKey WARNING_OBJECT_SIZES_DIFFER;
+
 	static {
 		initConstants(I18NConstants.class);
 	}
