@@ -331,6 +331,36 @@ device is placed or removed.
 
 **When fixed:** drop the `placements` channel and the tree input.
 
+## A live source cannot push into a view (TL #29814)
+
+The group monitor receives bus telegrams on a Calimero listener thread and has no declared way to
+update the view's channels from it; only `<start-job>` updates a view from another thread, through
+the internal `ReactWindowReplay.inWindow`.
+
+Workaround: `de.haumacher.ehome.monitor.WindowPublisher` calls that internal API in the user's
+session context, throttled to one update per 250 ms, and disconnects the monitor when the page is
+gone.
+
+**When available:** replace `WindowPublisher` by the layer's live-source element.
+
+## A table row cannot carry a CSS class (TL #29815)
+
+Rows of the monitor's state board and log cannot be highlighted by state (changed recently, own
+telegram).
+
+Workaround: a column with "●" for recently changed rows and "►" for own telegrams
+(`projects/monitor.view.xml`).
+
+**When available:** a `row-class` expression on the tables, and drop the marker columns.
+
+## A computed column cannot be hidden by default (TL #29816)
+
+The raw data column of the monitor's log is always visible.
+
+Workaround: none.
+
+**When available:** declare the column hidden by default.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -357,3 +387,6 @@ device is placed or removed.
 - TL #29811: see above (icon-only buttons).
 - TL #29812: see above (groups in row order).
 - TL #29813: see above (tree updates for objects not displayed yet; when fixed: drop the `placements` input of the building tree).
+- TL #29814: see above (live source push).
+- TL #29815: see above (row CSS class).
+- TL #29816: see above (hidden computed column).
