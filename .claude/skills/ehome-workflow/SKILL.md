@@ -251,7 +251,7 @@ green result from a tree with uncommitted foreign edits; check `git status` firs
 
 ```bash
 (tl_initial_password=root1234 nohup ./mvnw -B exec:java > tmp/tl-app.log 2>&1 &)
-# Jetty on 8080, context /de.haumacher.ehome, dev mode (pom.xml); "up and running" in
+# Jetty on 8080, context /ehome (tl.contextPath in pom.xml), dev mode (pom.xml); "up and running" in
 # tmp/tl-app.log after ~10 s on a warm tmp/ (the first start of a fresh tmp/ is slow)
 curl -sf http://localhost:8080/admin/stop               # stop; the port is free ~2 s later
 ```
@@ -260,7 +260,7 @@ The `tl-app` skill (`tl-app.sh start|stop|restart .`) does the same with its own
 `tmp/tl-app.log`; use it when the port does not matter, the command above when the user expects
 8080.
 
-Open `http://localhost:8080/de.haumacher.ehome/view/` and log in through the in-app dialog as
+Open `http://localhost:8080/ehome/view/` and log in through the in-app dialog as
 `root` / `root1234` (the initial password is read from `tl_initial_password` — environment
 variable or `-D` system property — and applies only to a fresh `tmp/`). The classic
 `/servlet/LayoutServlet` only shows the engine's administration. `-Dtl.port=...` changes the port.

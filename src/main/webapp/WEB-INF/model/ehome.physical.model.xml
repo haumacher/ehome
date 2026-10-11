@@ -49,15 +49,19 @@
 			<annotations>
 				<table name="EHConnection"/>
 				<instance-presentation icon="css:fa-solid fa-link"/>
+				<id-column value="name"/>
 			</annotations>
 			<attributes>
+				<!-- The label: the group address as the app displays it, and whether the object sends to it or receives from it. -->
 				<property name="name"
 					type="tl.core:String"
 				>
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr>x -&gt; "{0} ({1})".fill(     $x.get(`ehome.physical:Connection#target`)         .get(`ehome.logical:GroupAddress#name`),      $x.get(`ehome.physical:Connection#kind`))</expr>
+								<expr><![CDATA[x -> "{0} ({1})".fill(
+    $x.get(`ehome.physical:Connection#target`).get(`ehome.logical:GroupAddress#displayName`),
+    $x.get(`ehome.physical:Connection#kind`).label())]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

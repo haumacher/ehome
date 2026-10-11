@@ -114,6 +114,17 @@ public class TestEtsImport extends BasicTestCase {
 
 		checkTranslations();
 		checkDeviceDetails();
+		checkConnections();
+	}
+
+	/** A connection is labeled by its group address as displayed and by its direction (issue #3). */
+	private void checkConnections() {
+		List<TLObject> connections = instances("ehome.physical:Connection");
+		assertFalse(connections.isEmpty());
+		for (TLObject connection : connections) {
+			String name = (String) derived(connection, "name");
+			assertTrue(name, name.matches("\\d+/\\d+/\\d+ .+ \\((Senden|Empfangen|Send|Receive)\\)"));
+		}
 	}
 
 	private void checkDeviceDetails() throws Exception {
