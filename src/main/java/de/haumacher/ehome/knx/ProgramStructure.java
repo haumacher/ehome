@@ -282,8 +282,9 @@ public final class ProgramStructure {
 	}
 
 	/**
-	 * Deletes the given parameter (with its placements), communication object (with its
-	 * placements), parameter type or enumeration entry, unless {@link #deleteVeto(TLObject)} refuses.
+	 * Deletes the given parameter (with its placements, and its location in the device unless
+	 * another parameter of its union still uses it), communication object (with its placements),
+	 * parameter type or enumeration entry, unless {@link #deleteVeto(TLObject)} refuses.
 	 */
 	public static void delete(TLObject obj) {
 		ResKey veto = deleteVeto(obj);
@@ -295,7 +296,11 @@ public final class ProgramStructure {
 				placement.tDelete();
 			}
 		}
+		TLObject location = isA(obj, "ehome.operational:Parameter") ? (TLObject) obj.tValueByName("address") : null;
 		obj.tDelete();
+		if (location != null && location.tValid() && ((Collection<?>) location.tValueByName("usage")).isEmpty()) {
+			location.tDelete();
+		}
 	}
 
 	private static TLReference reference(String typeName, String name) {

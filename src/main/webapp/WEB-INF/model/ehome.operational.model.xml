@@ -57,9 +57,188 @@
 			<classifier name="Value"/>
 			<classifier name="BinaryValue"/>
 		</enum>
-		<class name="CodeSegment">
+		<!-- How the parameter bytes of a program are ordered in the device (ETS: Options@ParameterByteOrder). -->
+		<enum name="ByteOrder">
+			<classifier name="BigEndian"/>
+			<classifier name="LittleEndian"/>
+		</enum>
+		<!-- Which code page encodes a text parameter (ETS: Options@TextParameterEncodingSelector). -->
+		<enum name="TextEncodingSource">
+			<classifier name="UseTextParameterEncodingCodePage"/>
+			<classifier name="UseProjectCodePage"/>
+			<classifier name="UseWindowsAnsiCodePage"/>
+		</enum>
+		<!-- The kind of memory a segment lives in (ETS: MemoryType). -->
+		<enum name="MemoryType">
+			<classifier name="RAM"/>
+			<classifier name="EEPROM"/>
+			<classifier name="FLASH"/>
+		</enum>
+		<!--
+			Whose load procedures program a device (ETS: ApplicationProgram@LoadProcedureStyle): those of
+			the mask version (DefaultProcedure), those of the program (ProductProcedure), or those of the
+			mask merged with the program's at the merge points (MergedProcedure).
+		-->
+		<enum name="LoadProcedureStyle">
+			<classifier name="DefaultProcedure"/>
+			<classifier name="ProductProcedure"/>
+			<classifier name="MergedProcedure"/>
+		</enum>
+		<!-- How a device is managed (ETS: MaskVersion@ManagementModel). -->
+		<enum name="ManagementModel">
+			<classifier name="None"/>
+			<classifier name="Bcu1"/>
+			<classifier name="Bcu2"/>
+			<classifier name="BimM112"/>
+			<classifier name="PropertyBased"/>
+			<classifier name="SystemB"/>
+		</enum>
+		<!-- Over which connection a resource or procedure is used (ETS: ResourceAccess_t). -->
+		<enum name="ManagementAccess">
+			<classifier name="remote"/>
+			<classifier name="local1"/>
+			<classifier name="local2"/>
+		</enum>
+		<!-- How a resource is managed (ETS: Resource@MgmtStyle). -->
+		<enum name="ResourceManagement">
+			<classifier name="simple"/>
+			<classifier name="lsm"/>
+		</enum>
+		<!-- Where a resource of a mask version lies (ETS: ResourceAddrSpace_t). -->
+		<enum name="AddressSpace">
+			<classifier name="None"/>
+			<classifier name="StandardMemory"/>
+			<classifier name="UserMemory"/>
+			<classifier name="SystemProperty"/>
+			<classifier name="AppProperty"/>
+			<classifier name="LcSlaveMemory"/>
+			<classifier name="LcFilterMemory"/>
+			<classifier name="ADC"/>
+			<classifier name="Constant"/>
+			<classifier name="Pointer"/>
+			<classifier name="Property"/>
+			<classifier name="RelativeMemory"/>
+		</enum>
+		<!-- Who may read or write a resource (ETS: ResourceAccessRights_t). -->
+		<enum name="AccessRights">
+			<classifier name="None"/>
+			<classifier name="SystemManufacturer"/>
+			<classifier name="Manufacturer"/>
+			<classifier name="Configuration"/>
+			<classifier name="Runtime"/>
+		</enum>
+		<!-- Whether a procedure of a mask version loads or unloads (ETS: ProcedureType_t). -->
+		<enum name="ProcedureKind">
+			<classifier name="Load"/>
+			<classifier name="Unload"/>
+		</enum>
+		<!--
+			Which kind of download a load procedure or step serves (ETS: LdCtrlProcType_t and the
+			sub types of the procedures of a mask version): the full download, parameters, group addresses,
+			their combinations, all of them, automatic (as the procedure decides), application program 1
+			and configuration. A value with a comma in ETS ("full,par") is written without it.
+		-->
+		<enum name="DownloadScope">
+			<classifier name="auto"/>
+			<classifier name="all"/>
+			<classifier name="full"/>
+			<classifier name="par"/>
+			<classifier name="grp"/>
+			<classifier name="fullpar"/>
+			<classifier name="fullgrp"/>
+			<classifier name="pargrp"/>
+			<classifier name="ap1"/>
+			<classifier name="cfg"/>
+		</enum>
+		<!-- The memory a memory step writes to (ETS: LdCtrlMemAddrSpace_t). -->
+		<enum name="MemorySpace">
+			<classifier name="Standard"/>
+			<classifier name="User"/>
+			<classifier name="LcSlave"/>
+			<classifier name="LcFilter"/>
+		</enum>
+		<!-- A switch of the download a SetControlVariable step sets (ETS: LdCtrlControlVariable_t). -->
+		<enum name="ControlVariable">
+			<classifier name="EnableSegmentWrite"/>
+			<classifier name="EnableVerifyOnWriteDirect"/>
+			<classifier name="EnableOptimisticWrite"/>
+			<classifier name="EnableMemoryAutoVerify"/>
+		</enum>
+		<!-- What a step of a load procedure does: the LdCtrl* elements of ETS without their prefix. -->
+		<enum name="LoadStepKind">
+			<classifier name="Connect"/>
+			<classifier name="Disconnect"/>
+			<classifier name="Unload"/>
+			<classifier name="Load"/>
+			<classifier name="MaxLength"/>
+			<classifier name="ClearCachedObjectTypes"/>
+			<classifier name="LoadCompleted"/>
+			<classifier name="AbsSegment"/>
+			<classifier name="RelSegment"/>
+			<classifier name="TaskSegment"/>
+			<classifier name="TaskPtr"/>
+			<classifier name="TaskCtrl1"/>
+			<classifier name="TaskCtrl2"/>
+			<classifier name="WriteProp"/>
+			<classifier name="CompareProp"/>
+			<classifier name="LoadImageProp"/>
+			<classifier name="InvokeFunctionProp"/>
+			<classifier name="ReadFunctionProp"/>
+			<classifier name="WriteMem"/>
+			<classifier name="CompareMem"/>
+			<classifier name="LoadImageMem"/>
+			<classifier name="WriteRelMem"/>
+			<classifier name="CompareRelMem"/>
+			<classifier name="LoadImageRelMem"/>
+			<classifier name="Restart"/>
+			<classifier name="Delay"/>
+			<classifier name="SetControlVariable"/>
+			<classifier name="MapError"/>
+			<classifier name="ProgressText"/>
+			<classifier name="DeclarePropDesc"/>
+			<classifier name="ClearLCFilterTable"/>
+			<classifier name="Merge"/>
+		</enum>
+		<!--
+			A memory segment of an application program: what ETS writes into the device besides the
+			parameters, the tables and the communication objects. Its static content (data) is the image
+			before the parameters are patched in; mask marks the bytes of the image that are to be written.
+			Parameters with a memory location (Pointer) point into a segment.
+		-->
+		<class name="Segment"
+			abstract="true"
+		>
 			<generalizations>
 				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The number of bytes of the segment. -->
+				<property name="size"
+					type="tl.core:Integer"
+				/>
+				<!-- The static content, as many bytes as the size; empty if ETS gives none (the memory is only reserved). -->
+				<property name="data"
+					type="tl.core:Binary"
+				/>
+				<!-- Per byte of the data, the bits that are written to the device (ETS: Mask); empty for all. -->
+				<property name="mask"
+					type="tl.core:Binary"
+				/>
+				<reference name="pointers"
+					inverse-reference="segment"
+					kind="backwards"
+					multiple="true"
+					type="Pointer"
+				/>
+			</attributes>
+		</class>
+		<!-- A segment at a fixed address of the device memory (ETS: AbsoluteSegment). -->
+		<class name="CodeSegment">
+			<generalizations>
+				<generalization type="Segment"/>
 			</generalizations>
 			<annotations>
 				<table name="EHCodeSegment"/>
@@ -68,14 +247,34 @@
 				<property name="address"
 					type="tl.core:Integer"
 				/>
-				<property name="size"
+				<!-- Whether the segment lies in the user memory of the device. -->
+				<property name="userMemory"
+					type="tl.core:Boolean"
+				/>
+				<reference name="memoryType"
+					kind="forwards"
+					type="MemoryType"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A segment placed by the device (System B, ETS: RelativeSegment): an offset within the memory a
+			load state machine allocates for it.
+		-->
+		<class name="RelativeSegment">
+			<generalizations>
+				<generalization type="Segment"/>
+			</generalizations>
+			<annotations>
+				<table name="EHCodeSegment"/>
+			</annotations>
+			<attributes>
+				<property name="offset"
 					type="tl.core:Integer"
 				/>
-				<reference name="pointers"
-					inverse-reference="segment"
-					kind="backwards"
-					multiple="true"
-					type="Pointer"
+				<!-- The load state machine (its index) allocating the memory of the segment. -->
+				<property name="stateMachine"
+					type="tl.core:Integer"
 				/>
 			</attributes>
 		</class>
@@ -903,10 +1102,15 @@
 						</default-value>
 					</annotations>
 				</reference>
+				<!--
+					Where the value is stored in the device; empty for a parameter that is not downloaded. The
+					location is owned by the program (Program#locations), not by the parameter, because the
+					parameters of a union share one.
+				-->
 				<reference name="address"
 					inverse-reference="usage"
 					kind="forwards"
-					type="Pointer"
+					type="Location"
 				/>
 				<!-- The references placing this parameter in the structure. -->
 				<reference name="views"
@@ -1213,9 +1417,43 @@
 				<table name="EHParameterType"/>
 			</annotations>
 		</class>
-		<class name="Pointer">
+		<!--
+			Where the value of a parameter is stored in the device: in memory (Pointer) or in a property of
+			an interface object (PropertyLocation). The parameters of a union share one location.
+			Owned by the program (Program#locations).
+		-->
+		<class name="Location"
+			abstract="true"
+		>
 			<generalizations>
 				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- The byte of the memory segment or of the property value where the value starts. -->
+				<property name="byteOffset"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<property name="bitOffset"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<!-- The size of a union, shared by its parameters; empty for the size of the parameter's type. -->
+				<property name="bits"
+					type="tl.core:Integer"
+				/>
+				<reference name="usage"
+					inverse-reference="address"
+					kind="backwards"
+					multiple="true"
+					type="Parameter"
+				/>
+			</attributes>
+		</class>
+		<!-- A location in a memory segment of the program (ETS: Memory). -->
+		<class name="Pointer">
+			<generalizations>
+				<generalization type="Location"/>
 			</generalizations>
 			<annotations>
 				<table name="EHPointer"/>
@@ -1225,24 +1463,34 @@
 					inverse-reference="pointers"
 					kind="forwards"
 					mandatory="true"
-					type="CodeSegment"
+					type="Segment"
 				/>
-				<property name="byteOffset"
+			</attributes>
+		</class>
+		<!-- A location in the value of a property of an interface object of the device (ETS: Property). -->
+		<class name="PropertyLocation">
+			<generalizations>
+				<generalization type="Location"/>
+			</generalizations>
+			<annotations>
+				<table name="EHPointer"/>
+			</annotations>
+			<attributes>
+				<!-- The interface object by its index in the device; or by its type, see objectType. -->
+				<property name="objectIndex"
+					type="tl.core:Integer"
+				/>
+				<!-- The interface object by its type (and occurrence), where no index is given. -->
+				<property name="objectType"
+					type="tl.core:Integer"
+				/>
+				<!-- Which interface object of the type is meant, counted from 0. -->
+				<property name="occurrence"
+					type="tl.core:Integer"
+				/>
+				<property name="propertyId"
 					mandatory="true"
 					type="tl.core:Integer"
-				/>
-				<property name="bitOffset"
-					mandatory="true"
-					type="tl.core:Integer"
-				/>
-				<property name="bits"
-					type="tl.core:Integer"
-				/>
-				<reference name="usage"
-					inverse-reference="address"
-					kind="backwards"
-					multiple="true"
-					type="Parameter"
 				/>
 			</attributes>
 		</class>
@@ -1437,7 +1685,116 @@
 					composite="true"
 					kind="forwards"
 					multiple="true"
-					type="CodeSegment"
+					type="Segment"
+				/>
+				<!--
+					Where the parameters of the program are stored in the device; owned by the program, so that
+					they go with it. A parameter refers to its location (Parameter#address), the parameters of a
+					union share one.
+				-->
+				<reference name="locations"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Location"
+				/>
+				<!-- The mask version (system software) of the devices the program runs on. -->
+				<reference name="mask"
+					kind="forwards"
+					type="MaskVersion"
+				/>
+				<!-- The number of the program at its manufacturer; with the version, what a device reports as its application. -->
+				<property name="applicationNumber"
+					type="tl.core:Integer"
+				/>
+				<property name="applicationVersion"
+					type="tl.core:Integer"
+				/>
+				<!-- The type of the physical external interface (PEI) the program expects. -->
+				<property name="peiType"
+					type="tl.core:Integer"
+				/>
+				<!-- Whose load procedures are executed: the mask's, the program's (loadProcedures), or both merged. -->
+				<reference name="loadProcedureStyle"
+					kind="forwards"
+					type="LoadProcedureStyle"
+				/>
+				<!-- The load procedures of the program, in the order of ETS. -->
+				<reference name="loadProcedures"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="LoadProcedure"
+				/>
+				<!-- Where the group address table lies, and its size. -->
+				<reference name="addressTable"
+					composite="true"
+					kind="forwards"
+					type="TableLocation"
+				/>
+				<!-- Where the association table lies, and its size. -->
+				<reference name="associationTable"
+					composite="true"
+					kind="forwards"
+					type="TableLocation"
+				/>
+				<!-- Where the communication object table lies. -->
+				<reference name="objectTable"
+					composite="true"
+					kind="forwards"
+					type="TableLocation"
+				/>
+				<!-- The byte order of parameters of more than one byte. -->
+				<reference name="parameterByteOrder"
+					kind="forwards"
+					type="ByteOrder"
+				>
+					<annotations>
+						<default-value>
+							<classifier value="BigEndian"/>
+						</default-value>
+					</annotations>
+				</reference>
+				<!-- The character encoding of text parameters (e.g. iso-8859-1), used as textEncodingSource says. -->
+				<property name="textEncoding"
+					type="tl.core:String"
+				/>
+				<reference name="textEncodingSource"
+					kind="forwards"
+					type="TextEncodingSource"
+				/>
+				<!-- Whether a text parameter shorter than its size ends with a zero byte. -->
+				<property name="textZeroTerminated"
+					type="tl.core:Boolean"
+				/>
+				<!-- Whether only parameters and tables are downloaded when the application is loaded already. -->
+				<property name="preferPartialDownload"
+					type="tl.core:Boolean"
+				/>
+				<!-- Whether a partial download is never done (ETS: LegacyNoPartialDownload). -->
+				<property name="noPartialDownload"
+					type="tl.core:Boolean"
+				/>
+				<!-- Whether written memory is not read back for verification (ETS: LegacyNoMemoryVerifyMode). -->
+				<property name="noMemoryVerify"
+					type="tl.core:Boolean"
+				/>
+				<!-- Whether the object table states the length 1 instead of the number of objects. -->
+				<property name="objectTableLengthAlwaysOne"
+					type="tl.core:Boolean"
+				/>
+				<!-- Whether gaps in the numbers of communication objects stay in the object table (ETS: LegacyKeepObjectTableGaps). -->
+				<property name="keepObjectTableGaps"
+					type="tl.core:Boolean"
+				/>
+				<!-- Whether the run state of the device is ignored when checking it before a download. -->
+				<property name="ignoreRunState"
+					type="tl.core:Boolean"
+				/>
+				<!-- Whether the load state of the device is ignored when checking it before a download. -->
+				<property name="ignoreLoadedState"
+					type="tl.core:Boolean"
 				/>
 				<!-- Parameter and communication object references that no structure element places. -->
 				<reference name="unplaced"
@@ -1446,6 +1803,475 @@
 					multiple="true"
 					ordered="true"
 					type="Option"
+				/>
+			</attributes>
+		</class>
+		<!-- Where a table of the device lies in the memory of the program, and how many entries it takes. -->
+		<class name="TableLocation">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- The segment holding the table; empty if the mask version places it. -->
+				<reference name="segment"
+					kind="forwards"
+					type="Segment"
+				/>
+				<!-- The start of the table in the segment. -->
+				<property name="offset"
+					type="tl.core:Integer"
+				/>
+				<!-- The number of entries the table can hold; empty for the object table. -->
+				<property name="maxEntries"
+					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A load procedure: the steps that program a device, in order (ETS: LoadProcedure of an
+			application program, Procedure of a mask version).
+		-->
+		<class name="LoadProcedure">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- Of a mask version: whether the procedure loads or unloads. -->
+				<reference name="kind"
+					kind="forwards"
+					type="ProcedureKind"
+				/>
+				<!-- Of a mask version: the kind of download the procedure performs. -->
+				<reference name="scope"
+					kind="forwards"
+					type="DownloadScope"
+				/>
+				<!-- Of a mask version: over which connections the procedure is used. -->
+				<reference name="access"
+					kind="forwards"
+					multiple="true"
+					type="ManagementAccess"
+				/>
+				<!-- Of a program with merged procedures: the merge point of the mask's procedure this one is inserted at. -->
+				<property name="mergeId"
+					type="tl.core:Integer"
+				/>
+				<reference name="steps"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="LoadStep"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A step of a load procedure (ETS: an LdCtrl* element). The kind says what the step does; of the
+			other attributes, each kind uses those it needs, the rest are empty. All numbers are as ETS
+			writes them (decimal), the inline data are the bytes of the hexadecimal text.
+
+			- Every kind: appliesTo (the downloads the step is part of; empty: every download).
+			- Unload, Load, LoadCompleted: stateMachine or objectType and occurrence (the load state
+			  machine to control).
+			- MaxLength: stateMachine or objectType, occurrence, size.
+			- AbsSegment: stateMachine or objectType, occurrence, segmentType, address, size, segmentAccess
+			  (read and write level, one nibble each), memoryType (as the device codes it), segmentFlags.
+			- RelSegment: stateMachine or objectType, occurrence, size, mode, fill.
+			- TaskSegment: stateMachine or objectType, occurrence, address.
+			- TaskPtr: stateMachine or objectType, occurrence, initPointer, savePointer, serialPointer.
+			- TaskCtrl1: stateMachine or objectType, occurrence, address, count.
+			- TaskCtrl2: stateMachine or objectType, occurrence, callback, address, segment0, segment1.
+			- WriteProp, CompareProp: objectIndex or objectType, occurrence, propertyId, startElement, count,
+			  inlineData; WriteProp also verify.
+			- LoadImageProp: objectIndex or objectType, occurrence, propertyId, count, startElement.
+			- InvokeFunctionProp: objectIndex or objectType, occurrence, propertyId, inlineData.
+			- ReadFunctionProp: objectIndex or objectType, occurrence, propertyId.
+			- WriteMem, CompareMem, LoadImageMem: addressSpace, address, size, inlineData; WriteMem also verify.
+			- WriteRelMem, CompareRelMem, LoadImageRelMem: objectIndex, offset, size, inlineData; WriteRelMem
+			  also verify.
+			- Connect, Disconnect, Restart, ClearCachedObjectTypes: nothing more.
+			- Delay: milliseconds.
+			- SetControlVariable: controlVariable, controlValue.
+			- MapError: errorFilter, originalError, mappedError.
+			- ProgressText: textId.
+			- DeclarePropDesc: objectIndex or objectType, occurrence, propertyId, propertyType, maxElements,
+			  readLevel, writeLevel, writable.
+			- ClearLCFilterTable: useFunctionProperty.
+			- Merge: mergeId (where the program's procedure with this merge ID is inserted).
+		-->
+		<class name="LoadStep">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="kind"
+					kind="forwards"
+					mandatory="true"
+					type="LoadStepKind"
+				/>
+				<reference name="appliesTo"
+					kind="forwards"
+					type="DownloadScope"
+				/>
+				<property name="stateMachine"
+					type="tl.core:Integer"
+				/>
+				<property name="objectIndex"
+					type="tl.core:Integer"
+				/>
+				<property name="objectType"
+					type="tl.core:Integer"
+				/>
+				<property name="occurrence"
+					type="tl.core:Integer"
+				/>
+				<property name="propertyId"
+					type="tl.core:Integer"
+				/>
+				<property name="startElement"
+					type="tl.core:Integer"
+				/>
+				<property name="count"
+					type="tl.core:Integer"
+				/>
+				<reference name="addressSpace"
+					kind="forwards"
+					type="MemorySpace"
+				/>
+				<property name="address"
+					type="tl.core:Long"
+				/>
+				<property name="size"
+					type="tl.core:Long"
+				/>
+				<property name="offset"
+					type="tl.core:Long"
+				/>
+				<property name="inlineData"
+					type="tl.core:Binary"
+				/>
+				<property name="verify"
+					type="tl.core:Boolean"
+				/>
+				<property name="segmentType"
+					type="tl.core:Integer"
+				/>
+				<property name="segmentAccess"
+					type="tl.core:Integer"
+				/>
+				<property name="memoryType"
+					type="tl.core:Integer"
+				/>
+				<property name="segmentFlags"
+					type="tl.core:Integer"
+				/>
+				<property name="mode"
+					type="tl.core:Integer"
+				/>
+				<property name="fill"
+					type="tl.core:Integer"
+				/>
+				<property name="initPointer"
+					type="tl.core:Integer"
+				/>
+				<property name="savePointer"
+					type="tl.core:Integer"
+				/>
+				<property name="serialPointer"
+					type="tl.core:Integer"
+				/>
+				<property name="callback"
+					type="tl.core:Integer"
+				/>
+				<property name="segment0"
+					type="tl.core:Integer"
+				/>
+				<property name="segment1"
+					type="tl.core:Integer"
+				/>
+				<property name="milliseconds"
+					type="tl.core:Integer"
+				/>
+				<reference name="controlVariable"
+					kind="forwards"
+					type="ControlVariable"
+				/>
+				<property name="controlValue"
+					type="tl.core:Boolean"
+				/>
+				<property name="errorFilter"
+					type="tl.core:Integer"
+				/>
+				<property name="originalError"
+					type="tl.core:Long"
+				/>
+				<property name="mappedError"
+					type="tl.core:Long"
+				/>
+				<property name="textId"
+					type="tl.core:Long"
+				/>
+				<!-- The property data type, as KNX names it (PDT_...). -->
+				<property name="propertyType"
+					type="tl.core:String"
+				/>
+				<property name="maxElements"
+					type="tl.core:Integer"
+				/>
+				<property name="readLevel"
+					type="tl.core:Integer"
+				/>
+				<property name="writeLevel"
+					type="tl.core:Integer"
+				/>
+				<property name="writable"
+					type="tl.core:Boolean"
+				/>
+				<property name="useFunctionProperty"
+					type="tl.core:Boolean"
+				/>
+				<property name="mergeId"
+					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A mask version: the system software of a device, as the device reports it in its descriptor
+			(ETS: MaskVersion). It defines where the device keeps its tables and load controls (resources),
+			its memory, and the load procedures used for a program that brings none of its own.
+		-->
+		<class name="MaskVersion">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<id-column value="name"/>
+				<instance-presentation icon="css:bi bi-motherboard"/>
+			</annotations>
+			<attributes>
+				<!-- The number the device reports (device descriptor type 0), e.g. 1797 (0x0705). -->
+				<property name="number"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<reference name="managementModel"
+					kind="forwards"
+					type="ManagementModel"
+				/>
+				<reference name="medium"
+					kind="forwards"
+					type="ehome.common:Medium"
+				/>
+				<!-- A second medium of a device coupling two media. -->
+				<reference name="otherMedium"
+					kind="forwards"
+					type="ehome.common:Medium"
+				/>
+				<!-- The management descriptor 01 distinguishing variants of one mask number (ETS: MgmtDescriptor01). -->
+				<property name="managementDescriptor"
+					type="tl.core:Binary"
+				/>
+				<!-- Mask versions whose programs run on a device of this one, too. -->
+				<reference name="compatibleMasks"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="MaskVersion"
+				/>
+				<!-- Named entry points of the system software (ETS: MaskEntry). -->
+				<reference name="entries"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="MaskEntry"
+				/>
+				<!-- Properties of the system software such as FirstAppObjectIdx or VerifyMode (ETS: Feature). -->
+				<reference name="features"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="MaskFeature"
+				/>
+				<!-- Where the device keeps its tables, load controls, identification and so on (ETS: Resource). -->
+				<reference name="resources"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="MaskResource"
+				/>
+				<!-- The memory areas of the device (ETS: MemorySegment). -->
+				<reference name="memory"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="MaskMemory"
+				/>
+				<!-- The generic load and unload procedures (ETS: Procedure). -->
+				<reference name="procedures"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="LoadProcedure"
+				/>
+			</attributes>
+		</class>
+		<class name="MaskEntry">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<id-column value="name"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="address"
+					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<class name="MaskFeature">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<id-column value="name"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="value"
+					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A resource of a mask version (ETS: Resource), e.g. GroupAddressTable, ApplicationLoadControl,
+			ApplicationId, DevicePeiType: where it lies, its size, and who may read and write it.
+		-->
+		<class name="MaskResource">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<id-column value="name"/>
+			</annotations>
+			<attributes>
+				<!-- The name of the resource as KNX defines it (ETS: ResourceName_t). -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<reference name="access"
+					kind="forwards"
+					multiple="true"
+					type="ManagementAccess"
+				/>
+				<reference name="management"
+					kind="forwards"
+					multiple="true"
+					type="ResourceManagement"
+				/>
+				<reference name="location"
+					composite="true"
+					kind="forwards"
+					type="ResourceLocation"
+				/>
+				<!-- Where the image of the resource is kept (ETS: ImgLocation). -->
+				<reference name="imageLocation"
+					composite="true"
+					kind="forwards"
+					type="ResourceLocation"
+				/>
+				<!-- The size of the resource in bytes. -->
+				<property name="length"
+					type="tl.core:Long"
+				/>
+				<!-- The format of the resource, as KNX names it (ETS: ResourceType@Flavour), e.g. AddressTable_Bcu1. -->
+				<property name="flavour"
+					type="tl.core:String"
+				/>
+				<reference name="readRights"
+					kind="forwards"
+					type="AccessRights"
+				/>
+				<reference name="writeRights"
+					kind="forwards"
+					type="AccessRights"
+				/>
+			</attributes>
+		</class>
+		<!--
+			Where a resource or memory area of a mask version lies: an address in a memory, a property of an
+			interface object, a constant, or the target of another resource holding a pointer.
+		-->
+		<class name="ResourceLocation">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="addressSpace"
+					kind="forwards"
+					type="AddressSpace"
+				/>
+				<!-- The address in the memory, the start in the property value, or the constant. -->
+				<property name="startAddress"
+					type="tl.core:Long"
+				/>
+				<!-- The index of the interface object holding the property. -->
+				<property name="interfaceObject"
+					type="tl.core:Integer"
+				/>
+				<property name="propertyId"
+					type="tl.core:Integer"
+				/>
+				<property name="occurrence"
+					type="tl.core:Integer"
+				/>
+				<!-- Of a location of the address space Pointer: the name of the resource holding the address. -->
+				<property name="pointerResource"
+					type="tl.core:String"
+				/>
+			</attributes>
+		</class>
+		<!-- A memory area of a mask version (ETS: MemorySegment). -->
+		<class name="MaskMemory">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="location"
+					composite="true"
+					kind="forwards"
+					type="ResourceLocation"
+				/>
+				<property name="length"
+					type="tl.core:Long"
+				/>
+				<!-- Whether a device of the mask version may lack the area. -->
+				<property name="optional"
+					type="tl.core:Boolean"
+				/>
+				<reference name="memoryType"
+					kind="forwards"
+					type="MemoryType"
+				/>
+				<reference name="readRights"
+					kind="forwards"
+					type="AccessRights"
+				/>
+				<reference name="writeRights"
+					kind="forwards"
+					type="AccessRights"
 				/>
 			</attributes>
 		</class>

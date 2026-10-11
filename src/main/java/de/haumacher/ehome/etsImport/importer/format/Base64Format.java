@@ -33,7 +33,8 @@ public class Base64Format extends AbstractConfigurationValueProvider<BinaryData>
 	@Override
 	protected BinaryData getValueNonEmpty(String propertyName, CharSequence propertyValue)
 			throws ConfigurationException {
-		byte[] data = Base64.getDecoder().decode(propertyValue.toString());
+		// The content of an element (AbsoluteSegment/Data) may be broken into lines.
+		byte[] data = Base64.getMimeDecoder().decode(propertyValue.toString());
 		return BinaryDataFactory.createBinaryData(data);
 	}
 	

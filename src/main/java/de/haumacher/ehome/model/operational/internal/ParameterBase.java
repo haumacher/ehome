@@ -28,7 +28,7 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	 * Part <code>address</code> of <code>Parameter</code>
 	 * 
 	 * <p>
-	 * Declared as <code>ehome.operational:Pointer</code> in configuration.
+	 * Declared as <code>ehome.operational:Location</code> in configuration.
 	 * </p>
 	 */
 	String ADDRESS_ATTR = "address";
@@ -95,14 +95,14 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	/**
 	 * Getter for part {@link #ADDRESS_ATTR}.
 	 */
-	default de.haumacher.ehome.model.operational.Pointer getAddress() {
-		return (de.haumacher.ehome.model.operational.Pointer) tValueByName(ADDRESS_ATTR);
+	default de.haumacher.ehome.model.operational.Location getAddress() {
+		return (de.haumacher.ehome.model.operational.Location) tValueByName(ADDRESS_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #ADDRESS_ATTR}.
 	 */
-	default void setAddress(de.haumacher.ehome.model.operational.Pointer newValue) {
+	default void setAddress(de.haumacher.ehome.model.operational.Location newValue) {
 		tUpdateByName(ADDRESS_ATTR, newValue);
 	}
 

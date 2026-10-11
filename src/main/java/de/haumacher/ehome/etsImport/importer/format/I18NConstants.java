@@ -22,6 +22,16 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 ERROR_INVALID_BOOLEAN__VALUE;
 
+	/**
+	 * @en Invalid hexadecimal data "{0}", expected pairs of the digits 0-9 and A-F.
+	 */
+	public static ResKey1 ERROR_INVALID_HEX_BINARY__VALUE;
+
+	/**
+	 * @en Unknown medium type "{0}", expected MT-0, MT-1, MT-2 or MT-5.
+	 */
+	public static ResKey1 ERROR_UNKNOWN_MEDIUM__VALUE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

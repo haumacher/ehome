@@ -205,6 +205,573 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	public static final String VALUE_VALUE_KIND_CLASSIFIER = "Value";
 
 	/**
+	 * Name of the enumeration <code>ByteOrder</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String BYTE_ORDER_ENUM = "ByteOrder";
+
+	/**
+	 * Name of the classifier <code>BigEndian</code> in enumeration {@value #BYTE_ORDER_ENUM}.
+	 */
+	public static final String BIG_ENDIAN_BYTE_ORDER_CLASSIFIER = "BigEndian";
+
+	/**
+	 * Name of the classifier <code>LittleEndian</code> in enumeration {@value #BYTE_ORDER_ENUM}.
+	 */
+	public static final String LITTLE_ENDIAN_BYTE_ORDER_CLASSIFIER = "LittleEndian";
+
+	/**
+	 * Name of the enumeration <code>TextEncodingSource</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String TEXT_ENCODING_SOURCE_ENUM = "TextEncodingSource";
+
+	/**
+	 * Name of the classifier <code>UseProjectCodePage</code> in enumeration {@value #TEXT_ENCODING_SOURCE_ENUM}.
+	 */
+	public static final String USE_PROJECT_CODE_PAGE_TEXT_ENCODING_SOURCE_CLASSIFIER = "UseProjectCodePage";
+
+	/**
+	 * Name of the classifier <code>UseTextParameterEncodingCodePage</code> in enumeration {@value #TEXT_ENCODING_SOURCE_ENUM}.
+	 */
+	public static final String USE_TEXT_PARAMETER_ENCODING_CODE_PAGE_TEXT_ENCODING_SOURCE_CLASSIFIER = "UseTextParameterEncodingCodePage";
+
+	/**
+	 * Name of the classifier <code>UseWindowsAnsiCodePage</code> in enumeration {@value #TEXT_ENCODING_SOURCE_ENUM}.
+	 */
+	public static final String USE_WINDOWS_ANSI_CODE_PAGE_TEXT_ENCODING_SOURCE_CLASSIFIER = "UseWindowsAnsiCodePage";
+
+	/**
+	 * Name of the enumeration <code>MemoryType</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String MEMORY_TYPE_ENUM = "MemoryType";
+
+	/**
+	 * Name of the classifier <code>EEPROM</code> in enumeration {@value #MEMORY_TYPE_ENUM}.
+	 */
+	public static final String EEPROM_MEMORY_TYPE_CLASSIFIER = "EEPROM";
+
+	/**
+	 * Name of the classifier <code>FLASH</code> in enumeration {@value #MEMORY_TYPE_ENUM}.
+	 */
+	public static final String FLASH_MEMORY_TYPE_CLASSIFIER = "FLASH";
+
+	/**
+	 * Name of the classifier <code>RAM</code> in enumeration {@value #MEMORY_TYPE_ENUM}.
+	 */
+	public static final String RAM_MEMORY_TYPE_CLASSIFIER = "RAM";
+
+	/**
+	 * Name of the enumeration <code>LoadProcedureStyle</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String LOAD_PROCEDURE_STYLE_ENUM = "LoadProcedureStyle";
+
+	/**
+	 * Name of the classifier <code>DefaultProcedure</code> in enumeration {@value #LOAD_PROCEDURE_STYLE_ENUM}.
+	 */
+	public static final String DEFAULT_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER = "DefaultProcedure";
+
+	/**
+	 * Name of the classifier <code>MergedProcedure</code> in enumeration {@value #LOAD_PROCEDURE_STYLE_ENUM}.
+	 */
+	public static final String MERGED_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER = "MergedProcedure";
+
+	/**
+	 * Name of the classifier <code>ProductProcedure</code> in enumeration {@value #LOAD_PROCEDURE_STYLE_ENUM}.
+	 */
+	public static final String PRODUCT_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER = "ProductProcedure";
+
+	/**
+	 * Name of the enumeration <code>ManagementModel</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String MANAGEMENT_MODEL_ENUM = "ManagementModel";
+
+	/**
+	 * Name of the classifier <code>Bcu1</code> in enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static final String BCU1_MANAGEMENT_MODEL_CLASSIFIER = "Bcu1";
+
+	/**
+	 * Name of the classifier <code>Bcu2</code> in enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static final String BCU2_MANAGEMENT_MODEL_CLASSIFIER = "Bcu2";
+
+	/**
+	 * Name of the classifier <code>BimM112</code> in enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static final String BIM_M112_MANAGEMENT_MODEL_CLASSIFIER = "BimM112";
+
+	/**
+	 * Name of the classifier <code>None</code> in enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static final String NONE_MANAGEMENT_MODEL_CLASSIFIER = "None";
+
+	/**
+	 * Name of the classifier <code>PropertyBased</code> in enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static final String PROPERTY_BASED_MANAGEMENT_MODEL_CLASSIFIER = "PropertyBased";
+
+	/**
+	 * Name of the classifier <code>SystemB</code> in enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static final String SYSTEM_B_MANAGEMENT_MODEL_CLASSIFIER = "SystemB";
+
+	/**
+	 * Name of the enumeration <code>ManagementAccess</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String MANAGEMENT_ACCESS_ENUM = "ManagementAccess";
+
+	/**
+	 * Name of the classifier <code>local1</code> in enumeration {@value #MANAGEMENT_ACCESS_ENUM}.
+	 */
+	public static final String LOCAL1_MANAGEMENT_ACCESS_CLASSIFIER = "local1";
+
+	/**
+	 * Name of the classifier <code>local2</code> in enumeration {@value #MANAGEMENT_ACCESS_ENUM}.
+	 */
+	public static final String LOCAL2_MANAGEMENT_ACCESS_CLASSIFIER = "local2";
+
+	/**
+	 * Name of the classifier <code>remote</code> in enumeration {@value #MANAGEMENT_ACCESS_ENUM}.
+	 */
+	public static final String REMOTE_MANAGEMENT_ACCESS_CLASSIFIER = "remote";
+
+	/**
+	 * Name of the enumeration <code>ResourceManagement</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String RESOURCE_MANAGEMENT_ENUM = "ResourceManagement";
+
+	/**
+	 * Name of the classifier <code>lsm</code> in enumeration {@value #RESOURCE_MANAGEMENT_ENUM}.
+	 */
+	public static final String LSM_RESOURCE_MANAGEMENT_CLASSIFIER = "lsm";
+
+	/**
+	 * Name of the classifier <code>simple</code> in enumeration {@value #RESOURCE_MANAGEMENT_ENUM}.
+	 */
+	public static final String SIMPLE_RESOURCE_MANAGEMENT_CLASSIFIER = "simple";
+
+	/**
+	 * Name of the enumeration <code>AddressSpace</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String ADDRESS_SPACE_ENUM = "AddressSpace";
+
+	/**
+	 * Name of the classifier <code>ADC</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String ADC_ADDRESS_SPACE_CLASSIFIER = "ADC";
+
+	/**
+	 * Name of the classifier <code>AppProperty</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String APP_PROPERTY_ADDRESS_SPACE_CLASSIFIER = "AppProperty";
+
+	/**
+	 * Name of the classifier <code>Constant</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String CONSTANT_ADDRESS_SPACE_CLASSIFIER = "Constant";
+
+	/**
+	 * Name of the classifier <code>LcFilterMemory</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String LC_FILTER_MEMORY_ADDRESS_SPACE_CLASSIFIER = "LcFilterMemory";
+
+	/**
+	 * Name of the classifier <code>LcSlaveMemory</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String LC_SLAVE_MEMORY_ADDRESS_SPACE_CLASSIFIER = "LcSlaveMemory";
+
+	/**
+	 * Name of the classifier <code>None</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String NONE_ADDRESS_SPACE_CLASSIFIER = "None";
+
+	/**
+	 * Name of the classifier <code>Pointer</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String POINTER_ADDRESS_SPACE_CLASSIFIER = "Pointer";
+
+	/**
+	 * Name of the classifier <code>Property</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String PROPERTY_ADDRESS_SPACE_CLASSIFIER = "Property";
+
+	/**
+	 * Name of the classifier <code>RelativeMemory</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String RELATIVE_MEMORY_ADDRESS_SPACE_CLASSIFIER = "RelativeMemory";
+
+	/**
+	 * Name of the classifier <code>StandardMemory</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String STANDARD_MEMORY_ADDRESS_SPACE_CLASSIFIER = "StandardMemory";
+
+	/**
+	 * Name of the classifier <code>SystemProperty</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String SYSTEM_PROPERTY_ADDRESS_SPACE_CLASSIFIER = "SystemProperty";
+
+	/**
+	 * Name of the classifier <code>UserMemory</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String USER_MEMORY_ADDRESS_SPACE_CLASSIFIER = "UserMemory";
+
+	/**
+	 * Name of the enumeration <code>AccessRights</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String ACCESS_RIGHTS_ENUM = "AccessRights";
+
+	/**
+	 * Name of the classifier <code>Configuration</code> in enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static final String CONFIGURATION_ACCESS_RIGHTS_CLASSIFIER = "Configuration";
+
+	/**
+	 * Name of the classifier <code>Manufacturer</code> in enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static final String MANUFACTURER_ACCESS_RIGHTS_CLASSIFIER = "Manufacturer";
+
+	/**
+	 * Name of the classifier <code>None</code> in enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static final String NONE_ACCESS_RIGHTS_CLASSIFIER = "None";
+
+	/**
+	 * Name of the classifier <code>Runtime</code> in enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static final String RUNTIME_ACCESS_RIGHTS_CLASSIFIER = "Runtime";
+
+	/**
+	 * Name of the classifier <code>SystemManufacturer</code> in enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static final String SYSTEM_MANUFACTURER_ACCESS_RIGHTS_CLASSIFIER = "SystemManufacturer";
+
+	/**
+	 * Name of the enumeration <code>ProcedureKind</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String PROCEDURE_KIND_ENUM = "ProcedureKind";
+
+	/**
+	 * Name of the classifier <code>Load</code> in enumeration {@value #PROCEDURE_KIND_ENUM}.
+	 */
+	public static final String LOAD_PROCEDURE_KIND_CLASSIFIER = "Load";
+
+	/**
+	 * Name of the classifier <code>Unload</code> in enumeration {@value #PROCEDURE_KIND_ENUM}.
+	 */
+	public static final String UNLOAD_PROCEDURE_KIND_CLASSIFIER = "Unload";
+
+	/**
+	 * Name of the enumeration <code>DownloadScope</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String DOWNLOAD_SCOPE_ENUM = "DownloadScope";
+
+	/**
+	 * Name of the classifier <code>all</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String ALL_DOWNLOAD_SCOPE_CLASSIFIER = "all";
+
+	/**
+	 * Name of the classifier <code>ap1</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String AP1_DOWNLOAD_SCOPE_CLASSIFIER = "ap1";
+
+	/**
+	 * Name of the classifier <code>auto</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String AUTO_DOWNLOAD_SCOPE_CLASSIFIER = "auto";
+
+	/**
+	 * Name of the classifier <code>cfg</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String CFG_DOWNLOAD_SCOPE_CLASSIFIER = "cfg";
+
+	/**
+	 * Name of the classifier <code>full</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String FULL_DOWNLOAD_SCOPE_CLASSIFIER = "full";
+
+	/**
+	 * Name of the classifier <code>fullgrp</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String FULLGRP_DOWNLOAD_SCOPE_CLASSIFIER = "fullgrp";
+
+	/**
+	 * Name of the classifier <code>fullpar</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String FULLPAR_DOWNLOAD_SCOPE_CLASSIFIER = "fullpar";
+
+	/**
+	 * Name of the classifier <code>grp</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String GRP_DOWNLOAD_SCOPE_CLASSIFIER = "grp";
+
+	/**
+	 * Name of the classifier <code>par</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String PAR_DOWNLOAD_SCOPE_CLASSIFIER = "par";
+
+	/**
+	 * Name of the classifier <code>pargrp</code> in enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static final String PARGRP_DOWNLOAD_SCOPE_CLASSIFIER = "pargrp";
+
+	/**
+	 * Name of the enumeration <code>MemorySpace</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String MEMORY_SPACE_ENUM = "MemorySpace";
+
+	/**
+	 * Name of the classifier <code>LcFilter</code> in enumeration {@value #MEMORY_SPACE_ENUM}.
+	 */
+	public static final String LC_FILTER_MEMORY_SPACE_CLASSIFIER = "LcFilter";
+
+	/**
+	 * Name of the classifier <code>LcSlave</code> in enumeration {@value #MEMORY_SPACE_ENUM}.
+	 */
+	public static final String LC_SLAVE_MEMORY_SPACE_CLASSIFIER = "LcSlave";
+
+	/**
+	 * Name of the classifier <code>Standard</code> in enumeration {@value #MEMORY_SPACE_ENUM}.
+	 */
+	public static final String STANDARD_MEMORY_SPACE_CLASSIFIER = "Standard";
+
+	/**
+	 * Name of the classifier <code>User</code> in enumeration {@value #MEMORY_SPACE_ENUM}.
+	 */
+	public static final String USER_MEMORY_SPACE_CLASSIFIER = "User";
+
+	/**
+	 * Name of the enumeration <code>ControlVariable</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String CONTROL_VARIABLE_ENUM = "ControlVariable";
+
+	/**
+	 * Name of the classifier <code>EnableMemoryAutoVerify</code> in enumeration {@value #CONTROL_VARIABLE_ENUM}.
+	 */
+	public static final String ENABLE_MEMORY_AUTO_VERIFY_CONTROL_VARIABLE_CLASSIFIER = "EnableMemoryAutoVerify";
+
+	/**
+	 * Name of the classifier <code>EnableOptimisticWrite</code> in enumeration {@value #CONTROL_VARIABLE_ENUM}.
+	 */
+	public static final String ENABLE_OPTIMISTIC_WRITE_CONTROL_VARIABLE_CLASSIFIER = "EnableOptimisticWrite";
+
+	/**
+	 * Name of the classifier <code>EnableSegmentWrite</code> in enumeration {@value #CONTROL_VARIABLE_ENUM}.
+	 */
+	public static final String ENABLE_SEGMENT_WRITE_CONTROL_VARIABLE_CLASSIFIER = "EnableSegmentWrite";
+
+	/**
+	 * Name of the classifier <code>EnableVerifyOnWriteDirect</code> in enumeration {@value #CONTROL_VARIABLE_ENUM}.
+	 */
+	public static final String ENABLE_VERIFY_ON_WRITE_DIRECT_CONTROL_VARIABLE_CLASSIFIER = "EnableVerifyOnWriteDirect";
+
+	/**
+	 * Name of the enumeration <code>LoadStepKind</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String LOAD_STEP_KIND_ENUM = "LoadStepKind";
+
+	/**
+	 * Name of the classifier <code>AbsSegment</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String ABS_SEGMENT_LOAD_STEP_KIND_CLASSIFIER = "AbsSegment";
+
+	/**
+	 * Name of the classifier <code>ClearCachedObjectTypes</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String CLEAR_CACHED_OBJECT_TYPES_LOAD_STEP_KIND_CLASSIFIER = "ClearCachedObjectTypes";
+
+	/**
+	 * Name of the classifier <code>ClearLCFilterTable</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String CLEAR_LC_FILTER_TABLE_LOAD_STEP_KIND_CLASSIFIER = "ClearLCFilterTable";
+
+	/**
+	 * Name of the classifier <code>CompareMem</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String COMPARE_MEM_LOAD_STEP_KIND_CLASSIFIER = "CompareMem";
+
+	/**
+	 * Name of the classifier <code>CompareProp</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String COMPARE_PROP_LOAD_STEP_KIND_CLASSIFIER = "CompareProp";
+
+	/**
+	 * Name of the classifier <code>CompareRelMem</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String COMPARE_REL_MEM_LOAD_STEP_KIND_CLASSIFIER = "CompareRelMem";
+
+	/**
+	 * Name of the classifier <code>Connect</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String CONNECT_LOAD_STEP_KIND_CLASSIFIER = "Connect";
+
+	/**
+	 * Name of the classifier <code>DeclarePropDesc</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String DECLARE_PROP_DESC_LOAD_STEP_KIND_CLASSIFIER = "DeclarePropDesc";
+
+	/**
+	 * Name of the classifier <code>Delay</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String DELAY_LOAD_STEP_KIND_CLASSIFIER = "Delay";
+
+	/**
+	 * Name of the classifier <code>Disconnect</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String DISCONNECT_LOAD_STEP_KIND_CLASSIFIER = "Disconnect";
+
+	/**
+	 * Name of the classifier <code>InvokeFunctionProp</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String INVOKE_FUNCTION_PROP_LOAD_STEP_KIND_CLASSIFIER = "InvokeFunctionProp";
+
+	/**
+	 * Name of the classifier <code>Load</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String LOAD_LOAD_STEP_KIND_CLASSIFIER = "Load";
+
+	/**
+	 * Name of the classifier <code>LoadCompleted</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String LOAD_COMPLETED_LOAD_STEP_KIND_CLASSIFIER = "LoadCompleted";
+
+	/**
+	 * Name of the classifier <code>LoadImageMem</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String LOAD_IMAGE_MEM_LOAD_STEP_KIND_CLASSIFIER = "LoadImageMem";
+
+	/**
+	 * Name of the classifier <code>LoadImageProp</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String LOAD_IMAGE_PROP_LOAD_STEP_KIND_CLASSIFIER = "LoadImageProp";
+
+	/**
+	 * Name of the classifier <code>LoadImageRelMem</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String LOAD_IMAGE_REL_MEM_LOAD_STEP_KIND_CLASSIFIER = "LoadImageRelMem";
+
+	/**
+	 * Name of the classifier <code>MapError</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String MAP_ERROR_LOAD_STEP_KIND_CLASSIFIER = "MapError";
+
+	/**
+	 * Name of the classifier <code>MaxLength</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String MAX_LENGTH_LOAD_STEP_KIND_CLASSIFIER = "MaxLength";
+
+	/**
+	 * Name of the classifier <code>Merge</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String MERGE_LOAD_STEP_KIND_CLASSIFIER = "Merge";
+
+	/**
+	 * Name of the classifier <code>ProgressText</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String PROGRESS_TEXT_LOAD_STEP_KIND_CLASSIFIER = "ProgressText";
+
+	/**
+	 * Name of the classifier <code>ReadFunctionProp</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String READ_FUNCTION_PROP_LOAD_STEP_KIND_CLASSIFIER = "ReadFunctionProp";
+
+	/**
+	 * Name of the classifier <code>RelSegment</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String REL_SEGMENT_LOAD_STEP_KIND_CLASSIFIER = "RelSegment";
+
+	/**
+	 * Name of the classifier <code>Restart</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String RESTART_LOAD_STEP_KIND_CLASSIFIER = "Restart";
+
+	/**
+	 * Name of the classifier <code>SetControlVariable</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String SET_CONTROL_VARIABLE_LOAD_STEP_KIND_CLASSIFIER = "SetControlVariable";
+
+	/**
+	 * Name of the classifier <code>TaskCtrl1</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String TASK_CTRL1_LOAD_STEP_KIND_CLASSIFIER = "TaskCtrl1";
+
+	/**
+	 * Name of the classifier <code>TaskCtrl2</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String TASK_CTRL2_LOAD_STEP_KIND_CLASSIFIER = "TaskCtrl2";
+
+	/**
+	 * Name of the classifier <code>TaskPtr</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String TASK_PTR_LOAD_STEP_KIND_CLASSIFIER = "TaskPtr";
+
+	/**
+	 * Name of the classifier <code>TaskSegment</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String TASK_SEGMENT_LOAD_STEP_KIND_CLASSIFIER = "TaskSegment";
+
+	/**
+	 * Name of the classifier <code>Unload</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String UNLOAD_LOAD_STEP_KIND_CLASSIFIER = "Unload";
+
+	/**
+	 * Name of the classifier <code>WriteMem</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String WRITE_MEM_LOAD_STEP_KIND_CLASSIFIER = "WriteMem";
+
+	/**
+	 * Name of the classifier <code>WriteProp</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String WRITE_PROP_LOAD_STEP_KIND_CLASSIFIER = "WriteProp";
+
+	/**
+	 * Name of the classifier <code>WriteRelMem</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String WRITE_REL_MEM_LOAD_STEP_KIND_CLASSIFIER = "WriteRelMem";
+
+	/**
+	 * Lookup {@link Segment} type.
+	 */
+	public static com.top_logic.model.TLClass getSegmentType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(Segment.SEGMENT_TYPE);
+	}
+
+	/**
+	 * Lookup {@link Segment#DATA_ATTR} of {@link Segment}.
+	 */
+	public static com.top_logic.model.TLProperty getDataSegmentAttr() {
+		return (com.top_logic.model.TLProperty) getSegmentType().getPart(Segment.DATA_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Segment#MASK_ATTR} of {@link Segment}.
+	 */
+	public static com.top_logic.model.TLProperty getMaskSegmentAttr() {
+		return (com.top_logic.model.TLProperty) getSegmentType().getPart(Segment.MASK_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Segment#NAME_ATTR} of {@link Segment}.
+	 */
+	public static com.top_logic.model.TLProperty getNameSegmentAttr() {
+		return (com.top_logic.model.TLProperty) getSegmentType().getPart(Segment.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Segment#POINTERS_ATTR} of {@link Segment}.
+	 */
+	public static com.top_logic.model.TLReference getPointersSegmentAttr() {
+		return (com.top_logic.model.TLReference) getSegmentType().getPart(Segment.POINTERS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Segment#SIZE_ATTR} of {@link Segment}.
+	 */
+	public static com.top_logic.model.TLProperty getSizeSegmentAttr() {
+		return (com.top_logic.model.TLProperty) getSegmentType().getPart(Segment.SIZE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link CodeSegment} type.
 	 */
 	public static com.top_logic.model.TLClass getCodeSegmentType() {
@@ -219,17 +786,38 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
-	 * Lookup {@link CodeSegment#POINTERS_ATTR} of {@link CodeSegment}.
+	 * Lookup {@link CodeSegment#MEMORY_TYPE_ATTR} of {@link CodeSegment}.
 	 */
-	public static com.top_logic.model.TLReference getPointersCodeSegmentAttr() {
-		return (com.top_logic.model.TLReference) getCodeSegmentType().getPart(CodeSegment.POINTERS_ATTR);
+	public static com.top_logic.model.TLReference getMemoryTypeCodeSegmentAttr() {
+		return (com.top_logic.model.TLReference) getCodeSegmentType().getPart(CodeSegment.MEMORY_TYPE_ATTR);
 	}
 
 	/**
-	 * Lookup {@link CodeSegment#SIZE_ATTR} of {@link CodeSegment}.
+	 * Lookup {@link CodeSegment#USER_MEMORY_ATTR} of {@link CodeSegment}.
 	 */
-	public static com.top_logic.model.TLProperty getSizeCodeSegmentAttr() {
-		return (com.top_logic.model.TLProperty) getCodeSegmentType().getPart(CodeSegment.SIZE_ATTR);
+	public static com.top_logic.model.TLProperty getUserMemoryCodeSegmentAttr() {
+		return (com.top_logic.model.TLProperty) getCodeSegmentType().getPart(CodeSegment.USER_MEMORY_ATTR);
+	}
+
+	/**
+	 * Lookup {@link RelativeSegment} type.
+	 */
+	public static com.top_logic.model.TLClass getRelativeSegmentType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(RelativeSegment.RELATIVE_SEGMENT_TYPE);
+	}
+
+	/**
+	 * Lookup {@link RelativeSegment#OFFSET_ATTR} of {@link RelativeSegment}.
+	 */
+	public static com.top_logic.model.TLProperty getOffsetRelativeSegmentAttr() {
+		return (com.top_logic.model.TLProperty) getRelativeSegmentType().getPart(RelativeSegment.OFFSET_ATTR);
+	}
+
+	/**
+	 * Lookup {@link RelativeSegment#STATE_MACHINE_ATTR} of {@link RelativeSegment}.
+	 */
+	public static com.top_logic.model.TLProperty getStateMachineRelativeSegmentAttr() {
+		return (com.top_logic.model.TLProperty) getRelativeSegmentType().getPart(RelativeSegment.STATE_MACHINE_ATTR);
 	}
 
 	/**
@@ -898,31 +1486,45 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Location} type.
+	 */
+	public static com.top_logic.model.TLClass getLocationType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(Location.LOCATION_TYPE);
+	}
+
+	/**
+	 * Lookup {@link Location#BIT_OFFSET_ATTR} of {@link Location}.
+	 */
+	public static com.top_logic.model.TLProperty getBitOffsetLocationAttr() {
+		return (com.top_logic.model.TLProperty) getLocationType().getPart(Location.BIT_OFFSET_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Location#BITS_ATTR} of {@link Location}.
+	 */
+	public static com.top_logic.model.TLProperty getBitsLocationAttr() {
+		return (com.top_logic.model.TLProperty) getLocationType().getPart(Location.BITS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Location#BYTE_OFFSET_ATTR} of {@link Location}.
+	 */
+	public static com.top_logic.model.TLProperty getByteOffsetLocationAttr() {
+		return (com.top_logic.model.TLProperty) getLocationType().getPart(Location.BYTE_OFFSET_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Location#USAGE_ATTR} of {@link Location}.
+	 */
+	public static com.top_logic.model.TLReference getUsageLocationAttr() {
+		return (com.top_logic.model.TLReference) getLocationType().getPart(Location.USAGE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Pointer} type.
 	 */
 	public static com.top_logic.model.TLClass getPointerType() {
 		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(Pointer.POINTER_TYPE);
-	}
-
-	/**
-	 * Lookup {@link Pointer#BIT_OFFSET_ATTR} of {@link Pointer}.
-	 */
-	public static com.top_logic.model.TLProperty getBitOffsetPointerAttr() {
-		return (com.top_logic.model.TLProperty) getPointerType().getPart(Pointer.BIT_OFFSET_ATTR);
-	}
-
-	/**
-	 * Lookup {@link Pointer#BITS_ATTR} of {@link Pointer}.
-	 */
-	public static com.top_logic.model.TLProperty getBitsPointerAttr() {
-		return (com.top_logic.model.TLProperty) getPointerType().getPart(Pointer.BITS_ATTR);
-	}
-
-	/**
-	 * Lookup {@link Pointer#BYTE_OFFSET_ATTR} of {@link Pointer}.
-	 */
-	public static com.top_logic.model.TLProperty getByteOffsetPointerAttr() {
-		return (com.top_logic.model.TLProperty) getPointerType().getPart(Pointer.BYTE_OFFSET_ATTR);
 	}
 
 	/**
@@ -933,10 +1535,38 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
-	 * Lookup {@link Pointer#USAGE_ATTR} of {@link Pointer}.
+	 * Lookup {@link PropertyLocation} type.
 	 */
-	public static com.top_logic.model.TLReference getUsagePointerAttr() {
-		return (com.top_logic.model.TLReference) getPointerType().getPart(Pointer.USAGE_ATTR);
+	public static com.top_logic.model.TLClass getPropertyLocationType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(PropertyLocation.PROPERTY_LOCATION_TYPE);
+	}
+
+	/**
+	 * Lookup {@link PropertyLocation#OBJECT_INDEX_ATTR} of {@link PropertyLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getObjectIndexPropertyLocationAttr() {
+		return (com.top_logic.model.TLProperty) getPropertyLocationType().getPart(PropertyLocation.OBJECT_INDEX_ATTR);
+	}
+
+	/**
+	 * Lookup {@link PropertyLocation#OBJECT_TYPE_ATTR} of {@link PropertyLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getObjectTypePropertyLocationAttr() {
+		return (com.top_logic.model.TLProperty) getPropertyLocationType().getPart(PropertyLocation.OBJECT_TYPE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link PropertyLocation#OCCURRENCE_ATTR} of {@link PropertyLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getOccurrencePropertyLocationAttr() {
+		return (com.top_logic.model.TLProperty) getPropertyLocationType().getPart(PropertyLocation.OCCURRENCE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link PropertyLocation#PROPERTY_ID_ATTR} of {@link PropertyLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getPropertyIdPropertyLocationAttr() {
+		return (com.top_logic.model.TLProperty) getPropertyLocationType().getPart(PropertyLocation.PROPERTY_ID_ATTR);
 	}
 
 	/**
@@ -1066,10 +1696,87 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Program#ADDRESS_TABLE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getAddressTableProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.ADDRESS_TABLE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#APPLICATION_NUMBER_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getApplicationNumberProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.APPLICATION_NUMBER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#APPLICATION_VERSION_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getApplicationVersionProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.APPLICATION_VERSION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#ASSOCIATION_TABLE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getAssociationTableProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.ASSOCIATION_TABLE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#IGNORE_LOADED_STATE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getIgnoreLoadedStateProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.IGNORE_LOADED_STATE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#IGNORE_RUN_STATE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getIgnoreRunStateProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.IGNORE_RUN_STATE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#KEEP_OBJECT_TABLE_GAPS_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getKeepObjectTableGapsProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.KEEP_OBJECT_TABLE_GAPS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#LOAD_PROCEDURE_STYLE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getLoadProcedureStyleProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.LOAD_PROCEDURE_STYLE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#LOAD_PROCEDURES_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getLoadProceduresProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.LOAD_PROCEDURES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#LOCATIONS_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getLocationsProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.LOCATIONS_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#MANUFACTURER_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getManufacturerProgramAttr() {
 		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.MANUFACTURER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#MASK_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getMaskProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.MASK_ATTR);
 	}
 
 	/**
@@ -1080,10 +1787,45 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Program#NO_MEMORY_VERIFY_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getNoMemoryVerifyProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.NO_MEMORY_VERIFY_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#NO_PARTIAL_DOWNLOAD_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getNoPartialDownloadProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.NO_PARTIAL_DOWNLOAD_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#OBJECT_TABLE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getObjectTableProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.OBJECT_TABLE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#OBJECT_TABLE_LENGTH_ALWAYS_ONE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getObjectTableLengthAlwaysOneProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.OBJECT_TABLE_LENGTH_ALWAYS_ONE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#ORIGINAL_MANUFACTURER_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getOriginalManufacturerProgramAttr() {
 		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.ORIGINAL_MANUFACTURER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#PARAMETER_BYTE_ORDER_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getParameterByteOrderProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.PARAMETER_BYTE_ORDER_ATTR);
 	}
 
 	/**
@@ -1101,10 +1843,24 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Program#PEI_TYPE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getPeiTypeProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.PEI_TYPE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#PORTS_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getPortsProgramAttr() {
 		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.PORTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#PREFER_PARTIAL_DOWNLOAD_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getPreferPartialDownloadProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.PREFER_PARTIAL_DOWNLOAD_ATTR);
 	}
 
 	/**
@@ -1115,10 +1871,696 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Program#TEXT_ENCODING_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getTextEncodingProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.TEXT_ENCODING_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#TEXT_ENCODING_SOURCE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getTextEncodingSourceProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.TEXT_ENCODING_SOURCE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#TEXT_ZERO_TERMINATED_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getTextZeroTerminatedProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.TEXT_ZERO_TERMINATED_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#UNPLACED_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getUnplacedProgramAttr() {
 		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.UNPLACED_ATTR);
+	}
+
+	/**
+	 * Lookup {@link TableLocation} type.
+	 */
+	public static com.top_logic.model.TLClass getTableLocationType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(TableLocation.TABLE_LOCATION_TYPE);
+	}
+
+	/**
+	 * Lookup {@link TableLocation#MAX_ENTRIES_ATTR} of {@link TableLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getMaxEntriesTableLocationAttr() {
+		return (com.top_logic.model.TLProperty) getTableLocationType().getPart(TableLocation.MAX_ENTRIES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link TableLocation#OFFSET_ATTR} of {@link TableLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getOffsetTableLocationAttr() {
+		return (com.top_logic.model.TLProperty) getTableLocationType().getPart(TableLocation.OFFSET_ATTR);
+	}
+
+	/**
+	 * Lookup {@link TableLocation#SEGMENT_ATTR} of {@link TableLocation}.
+	 */
+	public static com.top_logic.model.TLReference getSegmentTableLocationAttr() {
+		return (com.top_logic.model.TLReference) getTableLocationType().getPart(TableLocation.SEGMENT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadProcedure} type.
+	 */
+	public static com.top_logic.model.TLClass getLoadProcedureType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(LoadProcedure.LOAD_PROCEDURE_TYPE);
+	}
+
+	/**
+	 * Lookup {@link LoadProcedure#ACCESS_ATTR} of {@link LoadProcedure}.
+	 */
+	public static com.top_logic.model.TLReference getAccessLoadProcedureAttr() {
+		return (com.top_logic.model.TLReference) getLoadProcedureType().getPart(LoadProcedure.ACCESS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadProcedure#KIND_ATTR} of {@link LoadProcedure}.
+	 */
+	public static com.top_logic.model.TLReference getKindLoadProcedureAttr() {
+		return (com.top_logic.model.TLReference) getLoadProcedureType().getPart(LoadProcedure.KIND_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadProcedure#MERGE_ID_ATTR} of {@link LoadProcedure}.
+	 */
+	public static com.top_logic.model.TLProperty getMergeIdLoadProcedureAttr() {
+		return (com.top_logic.model.TLProperty) getLoadProcedureType().getPart(LoadProcedure.MERGE_ID_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadProcedure#SCOPE_ATTR} of {@link LoadProcedure}.
+	 */
+	public static com.top_logic.model.TLReference getScopeLoadProcedureAttr() {
+		return (com.top_logic.model.TLReference) getLoadProcedureType().getPart(LoadProcedure.SCOPE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadProcedure#STEPS_ATTR} of {@link LoadProcedure}.
+	 */
+	public static com.top_logic.model.TLReference getStepsLoadProcedureAttr() {
+		return (com.top_logic.model.TLReference) getLoadProcedureType().getPart(LoadProcedure.STEPS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep} type.
+	 */
+	public static com.top_logic.model.TLClass getLoadStepType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(LoadStep.LOAD_STEP_TYPE);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#ADDRESS_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getAddressLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.ADDRESS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#ADDRESS_SPACE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLReference getAddressSpaceLoadStepAttr() {
+		return (com.top_logic.model.TLReference) getLoadStepType().getPart(LoadStep.ADDRESS_SPACE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#APPLIES_TO_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLReference getAppliesToLoadStepAttr() {
+		return (com.top_logic.model.TLReference) getLoadStepType().getPart(LoadStep.APPLIES_TO_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#CALLBACK_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getCallbackLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.CALLBACK_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#CONTROL_VALUE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getControlValueLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.CONTROL_VALUE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#CONTROL_VARIABLE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLReference getControlVariableLoadStepAttr() {
+		return (com.top_logic.model.TLReference) getLoadStepType().getPart(LoadStep.CONTROL_VARIABLE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#COUNT_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getCountLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.COUNT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#ERROR_FILTER_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getErrorFilterLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.ERROR_FILTER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#FILL_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getFillLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.FILL_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#INIT_POINTER_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getInitPointerLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.INIT_POINTER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#INLINE_DATA_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getInlineDataLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.INLINE_DATA_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#KIND_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLReference getKindLoadStepAttr() {
+		return (com.top_logic.model.TLReference) getLoadStepType().getPart(LoadStep.KIND_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#MAPPED_ERROR_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getMappedErrorLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.MAPPED_ERROR_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#MAX_ELEMENTS_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getMaxElementsLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.MAX_ELEMENTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#MEMORY_TYPE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getMemoryTypeLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.MEMORY_TYPE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#MERGE_ID_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getMergeIdLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.MERGE_ID_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#MILLISECONDS_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getMillisecondsLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.MILLISECONDS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#MODE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getModeLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.MODE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#OBJECT_INDEX_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getObjectIndexLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.OBJECT_INDEX_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#OBJECT_TYPE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getObjectTypeLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.OBJECT_TYPE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#OCCURRENCE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getOccurrenceLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.OCCURRENCE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#OFFSET_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getOffsetLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.OFFSET_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#ORIGINAL_ERROR_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getOriginalErrorLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.ORIGINAL_ERROR_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#PROPERTY_ID_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getPropertyIdLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.PROPERTY_ID_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#PROPERTY_TYPE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getPropertyTypeLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.PROPERTY_TYPE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#READ_LEVEL_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getReadLevelLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.READ_LEVEL_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#SAVE_POINTER_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getSavePointerLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.SAVE_POINTER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#SEGMENT0_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getSegment0LoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.SEGMENT0_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#SEGMENT1_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getSegment1LoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.SEGMENT1_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#SEGMENT_ACCESS_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getSegmentAccessLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.SEGMENT_ACCESS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#SEGMENT_FLAGS_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getSegmentFlagsLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.SEGMENT_FLAGS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#SEGMENT_TYPE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getSegmentTypeLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.SEGMENT_TYPE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#SERIAL_POINTER_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getSerialPointerLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.SERIAL_POINTER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#SIZE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getSizeLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.SIZE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#START_ELEMENT_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getStartElementLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.START_ELEMENT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#STATE_MACHINE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getStateMachineLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.STATE_MACHINE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#TEXT_ID_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getTextIdLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.TEXT_ID_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#USE_FUNCTION_PROPERTY_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getUseFunctionPropertyLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.USE_FUNCTION_PROPERTY_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#VERIFY_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getVerifyLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.VERIFY_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#WRITABLE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getWritableLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.WRITABLE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#WRITE_LEVEL_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getWriteLevelLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.WRITE_LEVEL_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion} type.
+	 */
+	public static com.top_logic.model.TLClass getMaskVersionType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MaskVersion.MASK_VERSION_TYPE);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#COMPATIBLE_MASKS_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getCompatibleMasksMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.COMPATIBLE_MASKS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#ENTRIES_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getEntriesMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.ENTRIES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#FEATURES_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getFeaturesMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.FEATURES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#MANAGEMENT_DESCRIPTOR_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLProperty getManagementDescriptorMaskVersionAttr() {
+		return (com.top_logic.model.TLProperty) getMaskVersionType().getPart(MaskVersion.MANAGEMENT_DESCRIPTOR_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#MANAGEMENT_MODEL_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getManagementModelMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.MANAGEMENT_MODEL_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#MEDIUM_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getMediumMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.MEDIUM_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#MEMORY_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getMemoryMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.MEMORY_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#NAME_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLProperty getNameMaskVersionAttr() {
+		return (com.top_logic.model.TLProperty) getMaskVersionType().getPart(MaskVersion.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#NUMBER_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLProperty getNumberMaskVersionAttr() {
+		return (com.top_logic.model.TLProperty) getMaskVersionType().getPart(MaskVersion.NUMBER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#OTHER_MEDIUM_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getOtherMediumMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.OTHER_MEDIUM_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#PROCEDURES_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getProceduresMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.PROCEDURES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskVersion#RESOURCES_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLReference getResourcesMaskVersionAttr() {
+		return (com.top_logic.model.TLReference) getMaskVersionType().getPart(MaskVersion.RESOURCES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskEntry} type.
+	 */
+	public static com.top_logic.model.TLClass getMaskEntryType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MaskEntry.MASK_ENTRY_TYPE);
+	}
+
+	/**
+	 * Lookup {@link MaskEntry#ADDRESS_ATTR} of {@link MaskEntry}.
+	 */
+	public static com.top_logic.model.TLProperty getAddressMaskEntryAttr() {
+		return (com.top_logic.model.TLProperty) getMaskEntryType().getPart(MaskEntry.ADDRESS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskEntry#NAME_ATTR} of {@link MaskEntry}.
+	 */
+	public static com.top_logic.model.TLProperty getNameMaskEntryAttr() {
+		return (com.top_logic.model.TLProperty) getMaskEntryType().getPart(MaskEntry.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskFeature} type.
+	 */
+	public static com.top_logic.model.TLClass getMaskFeatureType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MaskFeature.MASK_FEATURE_TYPE);
+	}
+
+	/**
+	 * Lookup {@link MaskFeature#NAME_ATTR} of {@link MaskFeature}.
+	 */
+	public static com.top_logic.model.TLProperty getNameMaskFeatureAttr() {
+		return (com.top_logic.model.TLProperty) getMaskFeatureType().getPart(MaskFeature.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskFeature#VALUE_ATTR} of {@link MaskFeature}.
+	 */
+	public static com.top_logic.model.TLProperty getValueMaskFeatureAttr() {
+		return (com.top_logic.model.TLProperty) getMaskFeatureType().getPart(MaskFeature.VALUE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskResource} type.
+	 */
+	public static com.top_logic.model.TLClass getMaskResourceType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MaskResource.MASK_RESOURCE_TYPE);
+	}
+
+	/**
+	 * Lookup {@link MaskResource#ACCESS_ATTR} of {@link MaskResource}.
+	 */
+	public static com.top_logic.model.TLReference getAccessMaskResourceAttr() {
+		return (com.top_logic.model.TLReference) getMaskResourceType().getPart(MaskResource.ACCESS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskResource#FLAVOUR_ATTR} of {@link MaskResource}.
+	 */
+	public static com.top_logic.model.TLProperty getFlavourMaskResourceAttr() {
+		return (com.top_logic.model.TLProperty) getMaskResourceType().getPart(MaskResource.FLAVOUR_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskResource#IMAGE_LOCATION_ATTR} of {@link MaskResource}.
+	 */
+	public static com.top_logic.model.TLReference getImageLocationMaskResourceAttr() {
+		return (com.top_logic.model.TLReference) getMaskResourceType().getPart(MaskResource.IMAGE_LOCATION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskResource#LENGTH_ATTR} of {@link MaskResource}.
+	 */
+	public static com.top_logic.model.TLProperty getLengthMaskResourceAttr() {
+		return (com.top_logic.model.TLProperty) getMaskResourceType().getPart(MaskResource.LENGTH_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskResource#LOCATION_ATTR} of {@link MaskResource}.
+	 */
+	public static com.top_logic.model.TLReference getLocationMaskResourceAttr() {
+		return (com.top_logic.model.TLReference) getMaskResourceType().getPart(MaskResource.LOCATION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskResource#MANAGEMENT_ATTR} of {@link MaskResource}.
+	 */
+	public static com.top_logic.model.TLReference getManagementMaskResourceAttr() {
+		return (com.top_logic.model.TLReference) getMaskResourceType().getPart(MaskResource.MANAGEMENT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskResource#NAME_ATTR} of {@link MaskResource}.
+	 */
+	public static com.top_logic.model.TLProperty getNameMaskResourceAttr() {
+		return (com.top_logic.model.TLProperty) getMaskResourceType().getPart(MaskResource.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskResource#READ_RIGHTS_ATTR} of {@link MaskResource}.
+	 */
+	public static com.top_logic.model.TLReference getReadRightsMaskResourceAttr() {
+		return (com.top_logic.model.TLReference) getMaskResourceType().getPart(MaskResource.READ_RIGHTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskResource#WRITE_RIGHTS_ATTR} of {@link MaskResource}.
+	 */
+	public static com.top_logic.model.TLReference getWriteRightsMaskResourceAttr() {
+		return (com.top_logic.model.TLReference) getMaskResourceType().getPart(MaskResource.WRITE_RIGHTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ResourceLocation} type.
+	 */
+	public static com.top_logic.model.TLClass getResourceLocationType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(ResourceLocation.RESOURCE_LOCATION_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ResourceLocation#ADDRESS_SPACE_ATTR} of {@link ResourceLocation}.
+	 */
+	public static com.top_logic.model.TLReference getAddressSpaceResourceLocationAttr() {
+		return (com.top_logic.model.TLReference) getResourceLocationType().getPart(ResourceLocation.ADDRESS_SPACE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ResourceLocation#INTERFACE_OBJECT_ATTR} of {@link ResourceLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getInterfaceObjectResourceLocationAttr() {
+		return (com.top_logic.model.TLProperty) getResourceLocationType().getPart(ResourceLocation.INTERFACE_OBJECT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ResourceLocation#OCCURRENCE_ATTR} of {@link ResourceLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getOccurrenceResourceLocationAttr() {
+		return (com.top_logic.model.TLProperty) getResourceLocationType().getPart(ResourceLocation.OCCURRENCE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ResourceLocation#POINTER_RESOURCE_ATTR} of {@link ResourceLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getPointerResourceResourceLocationAttr() {
+		return (com.top_logic.model.TLProperty) getResourceLocationType().getPart(ResourceLocation.POINTER_RESOURCE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ResourceLocation#PROPERTY_ID_ATTR} of {@link ResourceLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getPropertyIdResourceLocationAttr() {
+		return (com.top_logic.model.TLProperty) getResourceLocationType().getPart(ResourceLocation.PROPERTY_ID_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ResourceLocation#START_ADDRESS_ATTR} of {@link ResourceLocation}.
+	 */
+	public static com.top_logic.model.TLProperty getStartAddressResourceLocationAttr() {
+		return (com.top_logic.model.TLProperty) getResourceLocationType().getPart(ResourceLocation.START_ADDRESS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskMemory} type.
+	 */
+	public static com.top_logic.model.TLClass getMaskMemoryType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MaskMemory.MASK_MEMORY_TYPE);
+	}
+
+	/**
+	 * Lookup {@link MaskMemory#LENGTH_ATTR} of {@link MaskMemory}.
+	 */
+	public static com.top_logic.model.TLProperty getLengthMaskMemoryAttr() {
+		return (com.top_logic.model.TLProperty) getMaskMemoryType().getPart(MaskMemory.LENGTH_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskMemory#LOCATION_ATTR} of {@link MaskMemory}.
+	 */
+	public static com.top_logic.model.TLReference getLocationMaskMemoryAttr() {
+		return (com.top_logic.model.TLReference) getMaskMemoryType().getPart(MaskMemory.LOCATION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskMemory#MEMORY_TYPE_ATTR} of {@link MaskMemory}.
+	 */
+	public static com.top_logic.model.TLReference getMemoryTypeMaskMemoryAttr() {
+		return (com.top_logic.model.TLReference) getMaskMemoryType().getPart(MaskMemory.MEMORY_TYPE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskMemory#OPTIONAL_ATTR} of {@link MaskMemory}.
+	 */
+	public static com.top_logic.model.TLProperty getOptionalMaskMemoryAttr() {
+		return (com.top_logic.model.TLProperty) getMaskMemoryType().getPart(MaskMemory.OPTIONAL_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskMemory#READ_RIGHTS_ATTR} of {@link MaskMemory}.
+	 */
+	public static com.top_logic.model.TLReference getReadRightsMaskMemoryAttr() {
+		return (com.top_logic.model.TLReference) getMaskMemoryType().getPart(MaskMemory.READ_RIGHTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link MaskMemory#WRITE_RIGHTS_ATTR} of {@link MaskMemory}.
+	 */
+	public static com.top_logic.model.TLReference getWriteRightsMaskMemoryAttr() {
+		return (com.top_logic.model.TLReference) getMaskMemoryType().getPart(MaskMemory.WRITE_RIGHTS_ATTR);
 	}
 
 	/**
@@ -1381,6 +2823,749 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@value #BYTE_ORDER_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getByteOrderEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(BYTE_ORDER_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #BIG_ENDIAN_BYTE_ORDER_CLASSIFIER} of enumeration {@value #BYTE_ORDER_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getBigEndianByteOrderClassifier() {
+		return getByteOrderEnum().getClassifier(BIG_ENDIAN_BYTE_ORDER_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LITTLE_ENDIAN_BYTE_ORDER_CLASSIFIER} of enumeration {@value #BYTE_ORDER_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLittleEndianByteOrderClassifier() {
+		return getByteOrderEnum().getClassifier(LITTLE_ENDIAN_BYTE_ORDER_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #TEXT_ENCODING_SOURCE_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getTextEncodingSourceEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(TEXT_ENCODING_SOURCE_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #USE_PROJECT_CODE_PAGE_TEXT_ENCODING_SOURCE_CLASSIFIER} of enumeration {@value #TEXT_ENCODING_SOURCE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getUseProjectCodePageTextEncodingSourceClassifier() {
+		return getTextEncodingSourceEnum().getClassifier(USE_PROJECT_CODE_PAGE_TEXT_ENCODING_SOURCE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #USE_TEXT_PARAMETER_ENCODING_CODE_PAGE_TEXT_ENCODING_SOURCE_CLASSIFIER} of enumeration {@value #TEXT_ENCODING_SOURCE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getUseTextParameterEncodingCodePageTextEncodingSourceClassifier() {
+		return getTextEncodingSourceEnum().getClassifier(USE_TEXT_PARAMETER_ENCODING_CODE_PAGE_TEXT_ENCODING_SOURCE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #USE_WINDOWS_ANSI_CODE_PAGE_TEXT_ENCODING_SOURCE_CLASSIFIER} of enumeration {@value #TEXT_ENCODING_SOURCE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getUseWindowsAnsiCodePageTextEncodingSourceClassifier() {
+		return getTextEncodingSourceEnum().getClassifier(USE_WINDOWS_ANSI_CODE_PAGE_TEXT_ENCODING_SOURCE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #MEMORY_TYPE_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getMemoryTypeEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MEMORY_TYPE_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #EEPROM_MEMORY_TYPE_CLASSIFIER} of enumeration {@value #MEMORY_TYPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getEEPROMMemoryTypeClassifier() {
+		return getMemoryTypeEnum().getClassifier(EEPROM_MEMORY_TYPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #FLASH_MEMORY_TYPE_CLASSIFIER} of enumeration {@value #MEMORY_TYPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getFLASHMemoryTypeClassifier() {
+		return getMemoryTypeEnum().getClassifier(FLASH_MEMORY_TYPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #RAM_MEMORY_TYPE_CLASSIFIER} of enumeration {@value #MEMORY_TYPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getRAMMemoryTypeClassifier() {
+		return getMemoryTypeEnum().getClassifier(RAM_MEMORY_TYPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #LOAD_PROCEDURE_STYLE_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getLoadProcedureStyleEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(LOAD_PROCEDURE_STYLE_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #DEFAULT_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER} of enumeration {@value #LOAD_PROCEDURE_STYLE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getDefaultProcedureLoadProcedureStyleClassifier() {
+		return getLoadProcedureStyleEnum().getClassifier(DEFAULT_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #MERGED_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER} of enumeration {@value #LOAD_PROCEDURE_STYLE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getMergedProcedureLoadProcedureStyleClassifier() {
+		return getLoadProcedureStyleEnum().getClassifier(MERGED_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #PRODUCT_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER} of enumeration {@value #LOAD_PROCEDURE_STYLE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getProductProcedureLoadProcedureStyleClassifier() {
+		return getLoadProcedureStyleEnum().getClassifier(PRODUCT_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #MANAGEMENT_MODEL_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getManagementModelEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MANAGEMENT_MODEL_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #BCU1_MANAGEMENT_MODEL_CLASSIFIER} of enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getBcu1ManagementModelClassifier() {
+		return getManagementModelEnum().getClassifier(BCU1_MANAGEMENT_MODEL_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #BCU2_MANAGEMENT_MODEL_CLASSIFIER} of enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getBcu2ManagementModelClassifier() {
+		return getManagementModelEnum().getClassifier(BCU2_MANAGEMENT_MODEL_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #BIM_M112_MANAGEMENT_MODEL_CLASSIFIER} of enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getBimM112ManagementModelClassifier() {
+		return getManagementModelEnum().getClassifier(BIM_M112_MANAGEMENT_MODEL_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #NONE_MANAGEMENT_MODEL_CLASSIFIER} of enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getNoneManagementModelClassifier() {
+		return getManagementModelEnum().getClassifier(NONE_MANAGEMENT_MODEL_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #PROPERTY_BASED_MANAGEMENT_MODEL_CLASSIFIER} of enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getPropertyBasedManagementModelClassifier() {
+		return getManagementModelEnum().getClassifier(PROPERTY_BASED_MANAGEMENT_MODEL_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #SYSTEM_B_MANAGEMENT_MODEL_CLASSIFIER} of enumeration {@value #MANAGEMENT_MODEL_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getSystemBManagementModelClassifier() {
+		return getManagementModelEnum().getClassifier(SYSTEM_B_MANAGEMENT_MODEL_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #MANAGEMENT_ACCESS_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getManagementAccessEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MANAGEMENT_ACCESS_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #LOCAL1_MANAGEMENT_ACCESS_CLASSIFIER} of enumeration {@value #MANAGEMENT_ACCESS_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLocal1ManagementAccessClassifier() {
+		return getManagementAccessEnum().getClassifier(LOCAL1_MANAGEMENT_ACCESS_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LOCAL2_MANAGEMENT_ACCESS_CLASSIFIER} of enumeration {@value #MANAGEMENT_ACCESS_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLocal2ManagementAccessClassifier() {
+		return getManagementAccessEnum().getClassifier(LOCAL2_MANAGEMENT_ACCESS_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #REMOTE_MANAGEMENT_ACCESS_CLASSIFIER} of enumeration {@value #MANAGEMENT_ACCESS_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getRemoteManagementAccessClassifier() {
+		return getManagementAccessEnum().getClassifier(REMOTE_MANAGEMENT_ACCESS_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #RESOURCE_MANAGEMENT_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getResourceManagementEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(RESOURCE_MANAGEMENT_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #LSM_RESOURCE_MANAGEMENT_CLASSIFIER} of enumeration {@value #RESOURCE_MANAGEMENT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLsmResourceManagementClassifier() {
+		return getResourceManagementEnum().getClassifier(LSM_RESOURCE_MANAGEMENT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #SIMPLE_RESOURCE_MANAGEMENT_CLASSIFIER} of enumeration {@value #RESOURCE_MANAGEMENT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getSimpleResourceManagementClassifier() {
+		return getResourceManagementEnum().getClassifier(SIMPLE_RESOURCE_MANAGEMENT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #ADDRESS_SPACE_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getAddressSpaceEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(ADDRESS_SPACE_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #ADC_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getADCAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(ADC_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #APP_PROPERTY_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getAppPropertyAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(APP_PROPERTY_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #CONSTANT_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getConstantAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(CONSTANT_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LC_FILTER_MEMORY_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLcFilterMemoryAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(LC_FILTER_MEMORY_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LC_SLAVE_MEMORY_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLcSlaveMemoryAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(LC_SLAVE_MEMORY_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #NONE_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getNoneAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(NONE_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #POINTER_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getPointerAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(POINTER_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #PROPERTY_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getPropertyAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(PROPERTY_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #RELATIVE_MEMORY_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getRelativeMemoryAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(RELATIVE_MEMORY_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #STANDARD_MEMORY_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getStandardMemoryAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(STANDARD_MEMORY_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #SYSTEM_PROPERTY_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getSystemPropertyAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(SYSTEM_PROPERTY_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #USER_MEMORY_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getUserMemoryAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(USER_MEMORY_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #ACCESS_RIGHTS_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getAccessRightsEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(ACCESS_RIGHTS_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #CONFIGURATION_ACCESS_RIGHTS_CLASSIFIER} of enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getConfigurationAccessRightsClassifier() {
+		return getAccessRightsEnum().getClassifier(CONFIGURATION_ACCESS_RIGHTS_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #MANUFACTURER_ACCESS_RIGHTS_CLASSIFIER} of enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getManufacturerAccessRightsClassifier() {
+		return getAccessRightsEnum().getClassifier(MANUFACTURER_ACCESS_RIGHTS_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #NONE_ACCESS_RIGHTS_CLASSIFIER} of enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getNoneAccessRightsClassifier() {
+		return getAccessRightsEnum().getClassifier(NONE_ACCESS_RIGHTS_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #RUNTIME_ACCESS_RIGHTS_CLASSIFIER} of enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getRuntimeAccessRightsClassifier() {
+		return getAccessRightsEnum().getClassifier(RUNTIME_ACCESS_RIGHTS_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #SYSTEM_MANUFACTURER_ACCESS_RIGHTS_CLASSIFIER} of enumeration {@value #ACCESS_RIGHTS_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getSystemManufacturerAccessRightsClassifier() {
+		return getAccessRightsEnum().getClassifier(SYSTEM_MANUFACTURER_ACCESS_RIGHTS_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #PROCEDURE_KIND_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getProcedureKindEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(PROCEDURE_KIND_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #LOAD_PROCEDURE_KIND_CLASSIFIER} of enumeration {@value #PROCEDURE_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLoadProcedureKindClassifier() {
+		return getProcedureKindEnum().getClassifier(LOAD_PROCEDURE_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #UNLOAD_PROCEDURE_KIND_CLASSIFIER} of enumeration {@value #PROCEDURE_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getUnloadProcedureKindClassifier() {
+		return getProcedureKindEnum().getClassifier(UNLOAD_PROCEDURE_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #DOWNLOAD_SCOPE_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getDownloadScopeEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(DOWNLOAD_SCOPE_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #ALL_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getAllDownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(ALL_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #AP1_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getAp1DownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(AP1_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #AUTO_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getAutoDownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(AUTO_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #CFG_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getCfgDownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(CFG_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #FULL_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getFullDownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(FULL_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #FULLGRP_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getFullgrpDownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(FULLGRP_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #FULLPAR_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getFullparDownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(FULLPAR_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #GRP_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getGrpDownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(GRP_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #PAR_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getParDownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(PAR_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #PARGRP_DOWNLOAD_SCOPE_CLASSIFIER} of enumeration {@value #DOWNLOAD_SCOPE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getPargrpDownloadScopeClassifier() {
+		return getDownloadScopeEnum().getClassifier(PARGRP_DOWNLOAD_SCOPE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #MEMORY_SPACE_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getMemorySpaceEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(MEMORY_SPACE_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #LC_FILTER_MEMORY_SPACE_CLASSIFIER} of enumeration {@value #MEMORY_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLcFilterMemorySpaceClassifier() {
+		return getMemorySpaceEnum().getClassifier(LC_FILTER_MEMORY_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LC_SLAVE_MEMORY_SPACE_CLASSIFIER} of enumeration {@value #MEMORY_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLcSlaveMemorySpaceClassifier() {
+		return getMemorySpaceEnum().getClassifier(LC_SLAVE_MEMORY_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #STANDARD_MEMORY_SPACE_CLASSIFIER} of enumeration {@value #MEMORY_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getStandardMemorySpaceClassifier() {
+		return getMemorySpaceEnum().getClassifier(STANDARD_MEMORY_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #USER_MEMORY_SPACE_CLASSIFIER} of enumeration {@value #MEMORY_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getUserMemorySpaceClassifier() {
+		return getMemorySpaceEnum().getClassifier(USER_MEMORY_SPACE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #CONTROL_VARIABLE_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getControlVariableEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(CONTROL_VARIABLE_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #ENABLE_MEMORY_AUTO_VERIFY_CONTROL_VARIABLE_CLASSIFIER} of enumeration {@value #CONTROL_VARIABLE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getEnableMemoryAutoVerifyControlVariableClassifier() {
+		return getControlVariableEnum().getClassifier(ENABLE_MEMORY_AUTO_VERIFY_CONTROL_VARIABLE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #ENABLE_OPTIMISTIC_WRITE_CONTROL_VARIABLE_CLASSIFIER} of enumeration {@value #CONTROL_VARIABLE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getEnableOptimisticWriteControlVariableClassifier() {
+		return getControlVariableEnum().getClassifier(ENABLE_OPTIMISTIC_WRITE_CONTROL_VARIABLE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #ENABLE_SEGMENT_WRITE_CONTROL_VARIABLE_CLASSIFIER} of enumeration {@value #CONTROL_VARIABLE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getEnableSegmentWriteControlVariableClassifier() {
+		return getControlVariableEnum().getClassifier(ENABLE_SEGMENT_WRITE_CONTROL_VARIABLE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #ENABLE_VERIFY_ON_WRITE_DIRECT_CONTROL_VARIABLE_CLASSIFIER} of enumeration {@value #CONTROL_VARIABLE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getEnableVerifyOnWriteDirectControlVariableClassifier() {
+		return getControlVariableEnum().getClassifier(ENABLE_VERIFY_ON_WRITE_DIRECT_CONTROL_VARIABLE_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #LOAD_STEP_KIND_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getLoadStepKindEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(LOAD_STEP_KIND_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #ABS_SEGMENT_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getAbsSegmentLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(ABS_SEGMENT_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #CLEAR_CACHED_OBJECT_TYPES_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getClearCachedObjectTypesLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(CLEAR_CACHED_OBJECT_TYPES_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #CLEAR_LC_FILTER_TABLE_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getClearLCFilterTableLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(CLEAR_LC_FILTER_TABLE_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #COMPARE_MEM_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getCompareMemLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(COMPARE_MEM_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #COMPARE_PROP_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getComparePropLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(COMPARE_PROP_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #COMPARE_REL_MEM_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getCompareRelMemLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(COMPARE_REL_MEM_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #CONNECT_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getConnectLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(CONNECT_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #DECLARE_PROP_DESC_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getDeclarePropDescLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(DECLARE_PROP_DESC_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #DELAY_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getDelayLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(DELAY_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #DISCONNECT_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getDisconnectLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(DISCONNECT_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #INVOKE_FUNCTION_PROP_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getInvokeFunctionPropLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(INVOKE_FUNCTION_PROP_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LOAD_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLoadLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(LOAD_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LOAD_COMPLETED_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLoadCompletedLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(LOAD_COMPLETED_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LOAD_IMAGE_MEM_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLoadImageMemLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(LOAD_IMAGE_MEM_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LOAD_IMAGE_PROP_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLoadImagePropLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(LOAD_IMAGE_PROP_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #LOAD_IMAGE_REL_MEM_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getLoadImageRelMemLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(LOAD_IMAGE_REL_MEM_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #MAP_ERROR_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getMapErrorLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(MAP_ERROR_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #MAX_LENGTH_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getMaxLengthLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(MAX_LENGTH_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #MERGE_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getMergeLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(MERGE_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #PROGRESS_TEXT_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getProgressTextLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(PROGRESS_TEXT_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #READ_FUNCTION_PROP_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getReadFunctionPropLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(READ_FUNCTION_PROP_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #REL_SEGMENT_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getRelSegmentLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(REL_SEGMENT_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #RESTART_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getRestartLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(RESTART_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #SET_CONTROL_VARIABLE_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getSetControlVariableLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(SET_CONTROL_VARIABLE_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #TASK_CTRL1_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getTaskCtrl1LoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(TASK_CTRL1_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #TASK_CTRL2_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getTaskCtrl2LoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(TASK_CTRL2_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #TASK_PTR_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getTaskPtrLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(TASK_PTR_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #TASK_SEGMENT_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getTaskSegmentLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(TASK_SEGMENT_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #UNLOAD_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getUnloadLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(UNLOAD_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #WRITE_MEM_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getWriteMemLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(WRITE_MEM_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #WRITE_PROP_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getWritePropLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(WRITE_PROP_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #WRITE_REL_MEM_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getWriteRelMemLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(WRITE_REL_MEM_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Name of type <code>Segment</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link Segment#SEGMENT_TYPE}.
+	 */
+	@Deprecated
+	public static final String SEGMENT_NODE = Segment.SEGMENT_TYPE;
+
+	/**
 	 * Name of type <code>CodeSegment</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
 	 * 
 	 * @deprecated Use {@link CodeSegment#CODE_SEGMENT_TYPE}.
@@ -1392,6 +3577,19 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 * Storage table name of {@link #CODE_SEGMENT_NODE} objects.
 	 */
 	public static final String KO_NAME_CODE_SEGMENT = "EHCodeSegment";
+
+	/**
+	 * Name of type <code>RelativeSegment</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link RelativeSegment#RELATIVE_SEGMENT_TYPE}.
+	 */
+	@Deprecated
+	public static final String RELATIVE_SEGMENT_NODE = RelativeSegment.RELATIVE_SEGMENT_TYPE;
+
+	/**
+	 * Storage table name of {@link #RELATIVE_SEGMENT_NODE} objects.
+	 */
+	public static final String KO_NAME_RELATIVE_SEGMENT = "EHCodeSegment";
 
 	/**
 	 * Name of type <code>ConfigFragment</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
@@ -1647,6 +3845,14 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	public static final String KO_NAME_VOID_TYPE = "EHParameterType";
 
 	/**
+	 * Name of type <code>Location</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link Location#LOCATION_TYPE}.
+	 */
+	@Deprecated
+	public static final String LOCATION_NODE = Location.LOCATION_TYPE;
+
+	/**
 	 * Name of type <code>Pointer</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
 	 * 
 	 * @deprecated Use {@link Pointer#POINTER_TYPE}.
@@ -1658,6 +3864,19 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 * Storage table name of {@link #POINTER_NODE} objects.
 	 */
 	public static final String KO_NAME_POINTER = "EHPointer";
+
+	/**
+	 * Name of type <code>PropertyLocation</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link PropertyLocation#PROPERTY_LOCATION_TYPE}.
+	 */
+	@Deprecated
+	public static final String PROPERTY_LOCATION_NODE = PropertyLocation.PROPERTY_LOCATION_TYPE;
+
+	/**
+	 * Storage table name of {@link #PROPERTY_LOCATION_NODE} objects.
+	 */
+	public static final String KO_NAME_PROPERTY_LOCATION = "EHPointer";
 
 	/**
 	 * Name of type <code>Port</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
@@ -1685,6 +3904,123 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static final String KO_NAME_PROGRAM = "EHProgram";
 
+	/**
+	 * Name of type <code>TableLocation</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link TableLocation#TABLE_LOCATION_TYPE}.
+	 */
+	@Deprecated
+	public static final String TABLE_LOCATION_NODE = TableLocation.TABLE_LOCATION_TYPE;
+
+	/**
+	 * Storage table name of {@link #TABLE_LOCATION_NODE} objects.
+	 */
+	public static final String KO_NAME_TABLE_LOCATION = "GenericObject";
+
+	/**
+	 * Name of type <code>LoadProcedure</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link LoadProcedure#LOAD_PROCEDURE_TYPE}.
+	 */
+	@Deprecated
+	public static final String LOAD_PROCEDURE_NODE = LoadProcedure.LOAD_PROCEDURE_TYPE;
+
+	/**
+	 * Storage table name of {@link #LOAD_PROCEDURE_NODE} objects.
+	 */
+	public static final String KO_NAME_LOAD_PROCEDURE = "GenericObject";
+
+	/**
+	 * Name of type <code>LoadStep</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link LoadStep#LOAD_STEP_TYPE}.
+	 */
+	@Deprecated
+	public static final String LOAD_STEP_NODE = LoadStep.LOAD_STEP_TYPE;
+
+	/**
+	 * Storage table name of {@link #LOAD_STEP_NODE} objects.
+	 */
+	public static final String KO_NAME_LOAD_STEP = "GenericObject";
+
+	/**
+	 * Name of type <code>MaskVersion</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link MaskVersion#MASK_VERSION_TYPE}.
+	 */
+	@Deprecated
+	public static final String MASK_VERSION_NODE = MaskVersion.MASK_VERSION_TYPE;
+
+	/**
+	 * Storage table name of {@link #MASK_VERSION_NODE} objects.
+	 */
+	public static final String KO_NAME_MASK_VERSION = "GenericObject";
+
+	/**
+	 * Name of type <code>MaskEntry</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link MaskEntry#MASK_ENTRY_TYPE}.
+	 */
+	@Deprecated
+	public static final String MASK_ENTRY_NODE = MaskEntry.MASK_ENTRY_TYPE;
+
+	/**
+	 * Storage table name of {@link #MASK_ENTRY_NODE} objects.
+	 */
+	public static final String KO_NAME_MASK_ENTRY = "GenericObject";
+
+	/**
+	 * Name of type <code>MaskFeature</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link MaskFeature#MASK_FEATURE_TYPE}.
+	 */
+	@Deprecated
+	public static final String MASK_FEATURE_NODE = MaskFeature.MASK_FEATURE_TYPE;
+
+	/**
+	 * Storage table name of {@link #MASK_FEATURE_NODE} objects.
+	 */
+	public static final String KO_NAME_MASK_FEATURE = "GenericObject";
+
+	/**
+	 * Name of type <code>MaskResource</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link MaskResource#MASK_RESOURCE_TYPE}.
+	 */
+	@Deprecated
+	public static final String MASK_RESOURCE_NODE = MaskResource.MASK_RESOURCE_TYPE;
+
+	/**
+	 * Storage table name of {@link #MASK_RESOURCE_NODE} objects.
+	 */
+	public static final String KO_NAME_MASK_RESOURCE = "GenericObject";
+
+	/**
+	 * Name of type <code>ResourceLocation</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link ResourceLocation#RESOURCE_LOCATION_TYPE}.
+	 */
+	@Deprecated
+	public static final String RESOURCE_LOCATION_NODE = ResourceLocation.RESOURCE_LOCATION_TYPE;
+
+	/**
+	 * Storage table name of {@link #RESOURCE_LOCATION_NODE} objects.
+	 */
+	public static final String KO_NAME_RESOURCE_LOCATION = "GenericObject";
+
+	/**
+	 * Name of type <code>MaskMemory</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link MaskMemory#MASK_MEMORY_TYPE}.
+	 */
+	@Deprecated
+	public static final String MASK_MEMORY_NODE = MaskMemory.MASK_MEMORY_TYPE;
+
+	/**
+	 * Storage table name of {@link #MASK_MEMORY_NODE} objects.
+	 */
+	public static final String KO_NAME_MASK_MEMORY = "GenericObject";
+
 
 	/**
 	 * Create an instance of {@link CodeSegment} type.
@@ -1698,6 +4034,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public final CodeSegment createCodeSegment() {
 		return createCodeSegment(null);
+	}
+
+	/**
+	 * Create an instance of {@link RelativeSegment} type.
+	 */
+	public final RelativeSegment createRelativeSegment(com.top_logic.model.TLObject context) {
+		return (RelativeSegment) createObject(getRelativeSegmentType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link RelativeSegment} type.
+	 */
+	public final RelativeSegment createRelativeSegment() {
+		return createRelativeSegment(null);
 	}
 
 	/**
@@ -1953,6 +4303,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Create an instance of {@link PropertyLocation} type.
+	 */
+	public final PropertyLocation createPropertyLocation(com.top_logic.model.TLObject context) {
+		return (PropertyLocation) createObject(getPropertyLocationType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link PropertyLocation} type.
+	 */
+	public final PropertyLocation createPropertyLocation() {
+		return createPropertyLocation(null);
+	}
+
+	/**
 	 * Create an instance of {@link Port} type.
 	 */
 	public final Port createPort(com.top_logic.model.TLObject context) {
@@ -1978,6 +4342,132 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public final Program createProgram() {
 		return createProgram(null);
+	}
+
+	/**
+	 * Create an instance of {@link TableLocation} type.
+	 */
+	public final TableLocation createTableLocation(com.top_logic.model.TLObject context) {
+		return (TableLocation) createObject(getTableLocationType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link TableLocation} type.
+	 */
+	public final TableLocation createTableLocation() {
+		return createTableLocation(null);
+	}
+
+	/**
+	 * Create an instance of {@link LoadProcedure} type.
+	 */
+	public final LoadProcedure createLoadProcedure(com.top_logic.model.TLObject context) {
+		return (LoadProcedure) createObject(getLoadProcedureType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link LoadProcedure} type.
+	 */
+	public final LoadProcedure createLoadProcedure() {
+		return createLoadProcedure(null);
+	}
+
+	/**
+	 * Create an instance of {@link LoadStep} type.
+	 */
+	public final LoadStep createLoadStep(com.top_logic.model.TLObject context) {
+		return (LoadStep) createObject(getLoadStepType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link LoadStep} type.
+	 */
+	public final LoadStep createLoadStep() {
+		return createLoadStep(null);
+	}
+
+	/**
+	 * Create an instance of {@link MaskVersion} type.
+	 */
+	public final MaskVersion createMaskVersion(com.top_logic.model.TLObject context) {
+		return (MaskVersion) createObject(getMaskVersionType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link MaskVersion} type.
+	 */
+	public final MaskVersion createMaskVersion() {
+		return createMaskVersion(null);
+	}
+
+	/**
+	 * Create an instance of {@link MaskEntry} type.
+	 */
+	public final MaskEntry createMaskEntry(com.top_logic.model.TLObject context) {
+		return (MaskEntry) createObject(getMaskEntryType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link MaskEntry} type.
+	 */
+	public final MaskEntry createMaskEntry() {
+		return createMaskEntry(null);
+	}
+
+	/**
+	 * Create an instance of {@link MaskFeature} type.
+	 */
+	public final MaskFeature createMaskFeature(com.top_logic.model.TLObject context) {
+		return (MaskFeature) createObject(getMaskFeatureType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link MaskFeature} type.
+	 */
+	public final MaskFeature createMaskFeature() {
+		return createMaskFeature(null);
+	}
+
+	/**
+	 * Create an instance of {@link MaskResource} type.
+	 */
+	public final MaskResource createMaskResource(com.top_logic.model.TLObject context) {
+		return (MaskResource) createObject(getMaskResourceType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link MaskResource} type.
+	 */
+	public final MaskResource createMaskResource() {
+		return createMaskResource(null);
+	}
+
+	/**
+	 * Create an instance of {@link ResourceLocation} type.
+	 */
+	public final ResourceLocation createResourceLocation(com.top_logic.model.TLObject context) {
+		return (ResourceLocation) createObject(getResourceLocationType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link ResourceLocation} type.
+	 */
+	public final ResourceLocation createResourceLocation() {
+		return createResourceLocation(null);
+	}
+
+	/**
+	 * Create an instance of {@link MaskMemory} type.
+	 */
+	public final MaskMemory createMaskMemory(com.top_logic.model.TLObject context) {
+		return (MaskMemory) createObject(getMaskMemoryType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link MaskMemory} type.
+	 */
+	public final MaskMemory createMaskMemory() {
+		return createMaskMemory(null);
 	}
 
 	/**

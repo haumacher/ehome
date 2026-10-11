@@ -16,9 +16,12 @@ point, an ISO date, a dotted IP address), as ETS writes its files. One more para
 "Helligkeit" (an integer 0 to 100), has the value 300, which does not fit its type, and the device
 sets it to 300 as well: the import keeps the values as text and reports a warning for each (a defect
 of the artificial test data, not of ETS). The setting is part of the project, so that every import
-of the fixture reports it, also when the program is already known and skipped. Every change of the
-program gives it a new version in its ID (now O000C), so that a database holding an earlier version
-imports it as a new program instead of skipping it.
+of the fixture reports it, also when the program is already known and skipped. The samples contain
+no relative segment (System B) and no union stored in a property: the program of this copy adds a
+relative segment with data, a parameter stored in it ("Relativ"), and a union of two parameters
+stored in a property of an interface object ("Property A", "Property B"); none of them is placed in
+the structure. Every change of the program gives it a new version in its ID (now O000D), so that a
+database holding an earlier version imports it as a new program instead of skipping it.
 
 The projects of both fixtures are named after the fixture, not "Test".
 
@@ -80,12 +83,12 @@ def details(xml):
 
 
 PROGRAM = 'M-0008_A-10D7-11-A0E5-O000A'
-NEW_PROGRAM = 'M-0008_A-10D7-11-A0E5-O000C'
+NEW_PROGRAM = 'M-0008_A-10D7-11-A0E5-O000D'
 
 
 # The version suffix shared by the IDs of the program and of its assignment to the hardware.
 VERSION = '10D7-11-A0E5-O000A'
-NEW_VERSION = '10D7-11-A0E5-O000C'
+NEW_VERSION = '10D7-11-A0E5-O000D'
 
 
 def dynamic(name, xml):
@@ -107,6 +110,7 @@ def dynamic(name, xml):
             + '</when><when default="true" /></choose>'
             + xml[end:])
         xml = typed_parameters(xml)
+        xml = download_data(xml)
     return xml
 
 
@@ -157,6 +161,35 @@ def typed_parameters(xml):
     assert xml.count(block) == 1
     start = xml.index('>', xml.index(block)) + 1
     return xml[:start] + '\n' + placements + xml[start:]
+
+
+# A relative segment (ETS ID scheme: _RS-<load state machine>-<offset>) with the bytes 01 02 03 04,
+# all of them written to the device.
+RELATIVE_SEGMENT = 'RS-04-00000'
+RELATIVE_DATA = 'AQIDBA=='
+RELATIVE_MASK = '/////w=='
+
+
+def download_data(xml):
+    prefix = NEW_PROGRAM + '_'
+    segment = ('<RelativeSegment Id="' + prefix + RELATIVE_SEGMENT + '" Name="Test relative" Offset="0" '
+        + 'Size="4" LoadStateMachine="4"><Data>' + RELATIVE_DATA + '</Data><Mask>' + RELATIVE_MASK
+        + '</Mask></RelativeSegment>\n')
+    end = '</Code>'
+    assert xml.count(end) == 1
+    xml = xml.replace(end, segment + end, 1)
+    parameters = ('<Parameter Id="' + prefix + 'P-9007" Name="Relativ" Text="Relativ" ParameterType="'
+        + prefix + 'PT-Test.5FPercent" Access="ReadWrite" Value="5"><Memory CodeSegment="' + prefix
+        + RELATIVE_SEGMENT + '" Offset="2" BitOffset="0" /></Parameter>\n'
+        + '<Union SizeInBit="8"><Property ObjectIndex="4" PropertyId="51" Offset="1" BitOffset="0" />'
+        + '<Parameter Id="' + prefix + 'UP-9008" Name="Property A" Text="Property A" ParameterType="'
+        + prefix + 'PT-Test.5FPercent" Offset="0" BitOffset="0" Access="ReadWrite" Value="1" />'
+        + '<Parameter Id="' + prefix + 'UP-9009" Name="Property B" Text="Property B" ParameterType="'
+        + prefix + 'PT-Test.5FPercent" Offset="0" BitOffset="0" Access="ReadWrite" Value="2" />'
+        + '</Union>\n')
+    end = '</Parameters>'
+    assert xml.count(end) == 1
+    return xml.replace(end, parameters + end, 1)
 
 
 def typed_setting(xml):

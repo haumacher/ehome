@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<!--
+		The mask versions (system software versions of devices) KNX defines. They are imported once from
+		the master data of an ETS project (knx_master.xml); later imports reuse them. The mask versions
+		themselves are ehome.operational:MaskVersion; this module only holds their root, because a
+		singleton in a module with generated bindings turns its wrappers into structured elements.
+	-->
+	<module name="ehome.mask">
+		<annotations>
+			<singletons>
+				<singleton type="MaskVersions"/>
+			</singletons>
+		</annotations>
+		<class name="MaskVersions">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="masks"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.operational:MaskVersion"
+				/>
+			</attributes>
+		</class>
+	</module>
+</model>

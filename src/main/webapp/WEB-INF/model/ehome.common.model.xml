@@ -6,5 +6,12 @@
 			<classifier name="Disabled"/>
 			<classifier name="Enabled"/>
 		</enum>
+		<!-- The transmission medium of a KNX bus (ETS: MediumType, MT-0 to MT-5). -->
+		<enum name="Medium">
+			<classifier name="TP"/>
+			<classifier name="PL"/>
+			<classifier name="RF"/>
+			<classifier name="IP"/>
+		</enum>
 	</module>
 </model>

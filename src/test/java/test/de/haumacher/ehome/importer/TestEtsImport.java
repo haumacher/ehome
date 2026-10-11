@@ -99,6 +99,7 @@ public class TestEtsImport extends BasicTestCase {
 		// (the master data of the demo project is newer).
 		importSample("samples/EHomeDemo.knxproj");
 		checkDatapointTypes(38, 279);
+		TestDownloadDataImport.checkDemo();
 		importSample("samples/Test.knxproj");
 		assertEquals(3, instances("ehome.project:Project").size());
 		checkDatapointTypes(38, 279);
@@ -222,12 +223,13 @@ public class TestEtsImport extends BasicTestCase {
 
 		// A channel that depends on a parameter: a switch directly in the program.
 		importSample("src/test/fixtures/TestDynamic.knxproj");
-		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000C");
+		TestDownloadDataImport.checkFixture();
+		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000D");
 		List<?> top = (List<?>) dynamic.tValueByName("contents");
 		assertEquals(1, top.size());
 		TLObject choice = (TLObject) top.get(0);
 		assertEquals("ehome.operational:Switch", TLModelUtil.qualifiedName(choice.tType()));
-		assertEquals("M-0008_A-10D7-11-A0E5-O000C_P-3762_R-3762",
+		assertEquals("M-0008_A-10D7-11-A0E5-O000D_P-3762_R-3762",
 			((TLObject) choice.tValueByName("input")).tValueByName("extId"));
 		List<?> cases = (List<?>) choice.tValueByName("alternatives");
 		assertEquals(2, cases.size());

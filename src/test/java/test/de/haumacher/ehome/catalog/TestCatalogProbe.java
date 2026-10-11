@@ -109,7 +109,9 @@ public class TestCatalogProbe extends BasicTestCase {
 		}
 		long firstNumber = number(ExtIds.extId(first), "^M-FF([0-9A-F]{2})$", 16);
 		long secondNumber = number(ExtIds.extId(second), "^M-FF([0-9A-F]{2})$", 16);
-		assertEquals(firstNumber + 1, secondNumber);
+		// The numbers are given when the transaction commits, in the order the engine initializes the new
+		// objects, which need not be the order of creation.
+		assertEquals(1, Math.abs(secondNumber - firstNumber));
 
 		// A program from scratch under the first manufacturer.
 		EhomeOperationalFactory factory = EhomeOperationalFactory.getInstance();

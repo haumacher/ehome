@@ -36,7 +36,7 @@ public class TestImportMessages extends BasicTestCase {
 
 	private static final String FIXTURE = "src/test/fixtures/TestDynamic.knxproj";
 
-	private static final String PROGRAM = "M-0008_A-10D7-11-A0E5-O000C";
+	private static final String PROGRAM = "M-0008_A-10D7-11-A0E5-O000D";
 
 	public void testWarnings() throws Exception {
 		// Other tests of the suite may have imported the fixture into the same database before.

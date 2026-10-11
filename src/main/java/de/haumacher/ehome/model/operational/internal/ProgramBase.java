@@ -16,6 +16,96 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String PROGRAM_TYPE = "Program";
 
 	/**
+	 * Part <code>addressTable</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:TableLocation</code> in configuration.
+	 * </p>
+	 */
+	String ADDRESS_TABLE_ATTR = "addressTable";
+
+	/**
+	 * Part <code>applicationNumber</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String APPLICATION_NUMBER_ATTR = "applicationNumber";
+
+	/**
+	 * Part <code>applicationVersion</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String APPLICATION_VERSION_ATTR = "applicationVersion";
+
+	/**
+	 * Part <code>associationTable</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:TableLocation</code> in configuration.
+	 * </p>
+	 */
+	String ASSOCIATION_TABLE_ATTR = "associationTable";
+
+	/**
+	 * Part <code>ignoreLoadedState</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String IGNORE_LOADED_STATE_ATTR = "ignoreLoadedState";
+
+	/**
+	 * Part <code>ignoreRunState</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String IGNORE_RUN_STATE_ATTR = "ignoreRunState";
+
+	/**
+	 * Part <code>keepObjectTableGaps</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String KEEP_OBJECT_TABLE_GAPS_ATTR = "keepObjectTableGaps";
+
+	/**
+	 * Part <code>loadProcedureStyle</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:LoadProcedureStyle</code> in configuration.
+	 * </p>
+	 */
+	String LOAD_PROCEDURE_STYLE_ATTR = "loadProcedureStyle";
+
+	/**
+	 * Part <code>loadProcedures</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:LoadProcedure</code> in configuration.
+	 * </p>
+	 */
+	String LOAD_PROCEDURES_ATTR = "loadProcedures";
+
+	/**
+	 * Part <code>locations</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:Location</code> in configuration.
+	 * </p>
+	 */
+	String LOCATIONS_ATTR = "locations";
+
+	/**
 	 * Part <code>manufacturer</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -23,6 +113,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 * </p>
 	 */
 	String MANUFACTURER_ATTR = "manufacturer";
+
+	/**
+	 * Part <code>mask</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:MaskVersion</code> in configuration.
+	 * </p>
+	 */
+	String MASK_ATTR = "mask";
 
 	/**
 	 * Part <code>name</code> of <code>Program</code>
@@ -34,6 +133,42 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String NAME_ATTR = "name";
 
 	/**
+	 * Part <code>noMemoryVerify</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String NO_MEMORY_VERIFY_ATTR = "noMemoryVerify";
+
+	/**
+	 * Part <code>noPartialDownload</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String NO_PARTIAL_DOWNLOAD_ATTR = "noPartialDownload";
+
+	/**
+	 * Part <code>objectTable</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:TableLocation</code> in configuration.
+	 * </p>
+	 */
+	String OBJECT_TABLE_ATTR = "objectTable";
+
+	/**
+	 * Part <code>objectTableLengthAlwaysOne</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String OBJECT_TABLE_LENGTH_ALWAYS_ONE_ATTR = "objectTableLengthAlwaysOne";
+
+	/**
 	 * Part <code>originalManufacturer</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -41,6 +176,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 * </p>
 	 */
 	String ORIGINAL_MANUFACTURER_ATTR = "originalManufacturer";
+
+	/**
+	 * Part <code>parameterByteOrder</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ByteOrder</code> in configuration.
+	 * </p>
+	 */
+	String PARAMETER_BYTE_ORDER_ATTR = "parameterByteOrder";
 
 	/**
 	 * Part <code>parameterTypes</code> of <code>Program</code>
@@ -61,6 +205,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String PARAMETERS_ATTR = "parameters";
 
 	/**
+	 * Part <code>peiType</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String PEI_TYPE_ATTR = "peiType";
+
+	/**
 	 * Part <code>ports</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -70,13 +223,49 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String PORTS_ATTR = "ports";
 
 	/**
+	 * Part <code>preferPartialDownload</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String PREFER_PARTIAL_DOWNLOAD_ATTR = "preferPartialDownload";
+
+	/**
 	 * Part <code>segments</code> of <code>Program</code>
 	 * 
 	 * <p>
-	 * Declared as <code>ehome.operational:CodeSegment</code> in configuration.
+	 * Declared as <code>ehome.operational:Segment</code> in configuration.
 	 * </p>
 	 */
 	String SEGMENTS_ATTR = "segments";
+
+	/**
+	 * Part <code>textEncoding</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String TEXT_ENCODING_ATTR = "textEncoding";
+
+	/**
+	 * Part <code>textEncodingSource</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:TextEncodingSource</code> in configuration.
+	 * </p>
+	 */
+	String TEXT_ENCODING_SOURCE_ATTR = "textEncodingSource";
+
+	/**
+	 * Part <code>textZeroTerminated</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String TEXT_ZERO_TERMINATED_ATTR = "textZeroTerminated";
 
 	/**
 	 * Part <code>unplaced</code> of <code>Program</code>
@@ -88,10 +277,278 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String UNPLACED_ATTR = "unplaced";
 
 	/**
+	 * Getter for part {@link #ADDRESS_TABLE_ATTR}.
+	 */
+	default de.haumacher.ehome.model.operational.TableLocation getAddressTable() {
+		return (de.haumacher.ehome.model.operational.TableLocation) tValueByName(ADDRESS_TABLE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ADDRESS_TABLE_ATTR}.
+	 */
+	default void setAddressTable(de.haumacher.ehome.model.operational.TableLocation newValue) {
+		tUpdateByName(ADDRESS_TABLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #APPLICATION_NUMBER_ATTR}.
+	 */
+	default Integer getApplicationNumber() {
+		return (Integer) tValueByName(APPLICATION_NUMBER_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #APPLICATION_NUMBER_ATTR}.
+	 */
+	default void setApplicationNumber(Integer newValue) {
+		tUpdateByName(APPLICATION_NUMBER_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #APPLICATION_VERSION_ATTR}.
+	 */
+	default Integer getApplicationVersion() {
+		return (Integer) tValueByName(APPLICATION_VERSION_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #APPLICATION_VERSION_ATTR}.
+	 */
+	default void setApplicationVersion(Integer newValue) {
+		tUpdateByName(APPLICATION_VERSION_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #ASSOCIATION_TABLE_ATTR}.
+	 */
+	default de.haumacher.ehome.model.operational.TableLocation getAssociationTable() {
+		return (de.haumacher.ehome.model.operational.TableLocation) tValueByName(ASSOCIATION_TABLE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ASSOCIATION_TABLE_ATTR}.
+	 */
+	default void setAssociationTable(de.haumacher.ehome.model.operational.TableLocation newValue) {
+		tUpdateByName(ASSOCIATION_TABLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #IGNORE_LOADED_STATE_ATTR}.
+	 */
+	default boolean getIgnoreLoadedState() {
+		return (Boolean) tValueByName(IGNORE_LOADED_STATE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #IGNORE_LOADED_STATE_ATTR}.
+	 */
+	default void setIgnoreLoadedState(boolean newValue) {
+		tUpdateByName(IGNORE_LOADED_STATE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #IGNORE_RUN_STATE_ATTR}.
+	 */
+	default boolean getIgnoreRunState() {
+		return (Boolean) tValueByName(IGNORE_RUN_STATE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #IGNORE_RUN_STATE_ATTR}.
+	 */
+	default void setIgnoreRunState(boolean newValue) {
+		tUpdateByName(IGNORE_RUN_STATE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #KEEP_OBJECT_TABLE_GAPS_ATTR}.
+	 */
+	default boolean getKeepObjectTableGaps() {
+		return (Boolean) tValueByName(KEEP_OBJECT_TABLE_GAPS_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #KEEP_OBJECT_TABLE_GAPS_ATTR}.
+	 */
+	default void setKeepObjectTableGaps(boolean newValue) {
+		tUpdateByName(KEEP_OBJECT_TABLE_GAPS_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #LOAD_PROCEDURE_STYLE_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getLoadProcedureStyle() {
+		return (com.top_logic.model.TLClassifier) tValueByName(LOAD_PROCEDURE_STYLE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #LOAD_PROCEDURE_STYLE_ATTR}.
+	 */
+	default void setLoadProcedureStyle(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(LOAD_PROCEDURE_STYLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #LOAD_PROCEDURES_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.LoadProcedure> getLoadProcedures() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.LoadProcedure>) tValueByName(LOAD_PROCEDURES_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #LOAD_PROCEDURES_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.LoadProcedure> getLoadProceduresModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(LOAD_PROCEDURES_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.LoadProcedure> result = (java.util.List<de.haumacher.ehome.model.operational.LoadProcedure>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #LOAD_PROCEDURES_ATTR}.
+	 */
+	default void setLoadProcedures(java.util.List<de.haumacher.ehome.model.operational.LoadProcedure> newValue) {
+		tUpdateByName(LOAD_PROCEDURES_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #LOAD_PROCEDURES_ATTR} reference.
+	 */
+	default void addLoadProcedure(de.haumacher.ehome.model.operational.LoadProcedure newValue) {
+		tAddByName(LOAD_PROCEDURES_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #LOAD_PROCEDURES_ATTR} reference.
+	 */
+	default void removeLoadProcedure(de.haumacher.ehome.model.operational.LoadProcedure oldValue) {
+		tRemoveByName(LOAD_PROCEDURES_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #LOCATIONS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.Set<? extends de.haumacher.ehome.model.operational.Location> getLocations() {
+		return (java.util.Set<? extends de.haumacher.ehome.model.operational.Location>) tValueByName(LOCATIONS_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #LOCATIONS_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.Set<de.haumacher.ehome.model.operational.Location> getLocationsModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(LOCATIONS_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.Set<de.haumacher.ehome.model.operational.Location> result = (java.util.Set<de.haumacher.ehome.model.operational.Location>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #LOCATIONS_ATTR}.
+	 */
+	default void setLocations(java.util.Set<de.haumacher.ehome.model.operational.Location> newValue) {
+		tUpdateByName(LOCATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #LOCATIONS_ATTR} reference.
+	 */
+	default void addLocation(de.haumacher.ehome.model.operational.Location newValue) {
+		tAddByName(LOCATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #LOCATIONS_ATTR} reference.
+	 */
+	default void removeLocation(de.haumacher.ehome.model.operational.Location oldValue) {
+		tRemoveByName(LOCATIONS_ATTR, oldValue);
+	}
+
+	/**
 	 * Getter for part {@link #MANUFACTURER_ATTR}.
 	 */
 	default com.top_logic.model.TLObject getManufacturer() {
 		return (com.top_logic.model.TLObject) tValueByName(MANUFACTURER_ATTR);
+	}
+
+	/**
+	 * Getter for part {@link #MASK_ATTR}.
+	 */
+	default de.haumacher.ehome.model.operational.MaskVersion getMask() {
+		return (de.haumacher.ehome.model.operational.MaskVersion) tValueByName(MASK_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #MASK_ATTR}.
+	 */
+	default void setMask(de.haumacher.ehome.model.operational.MaskVersion newValue) {
+		tUpdateByName(MASK_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #NO_MEMORY_VERIFY_ATTR}.
+	 */
+	default boolean getNoMemoryVerify() {
+		return (Boolean) tValueByName(NO_MEMORY_VERIFY_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #NO_MEMORY_VERIFY_ATTR}.
+	 */
+	default void setNoMemoryVerify(boolean newValue) {
+		tUpdateByName(NO_MEMORY_VERIFY_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #NO_PARTIAL_DOWNLOAD_ATTR}.
+	 */
+	default boolean getNoPartialDownload() {
+		return (Boolean) tValueByName(NO_PARTIAL_DOWNLOAD_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #NO_PARTIAL_DOWNLOAD_ATTR}.
+	 */
+	default void setNoPartialDownload(boolean newValue) {
+		tUpdateByName(NO_PARTIAL_DOWNLOAD_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #OBJECT_TABLE_ATTR}.
+	 */
+	default de.haumacher.ehome.model.operational.TableLocation getObjectTable() {
+		return (de.haumacher.ehome.model.operational.TableLocation) tValueByName(OBJECT_TABLE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #OBJECT_TABLE_ATTR}.
+	 */
+	default void setObjectTable(de.haumacher.ehome.model.operational.TableLocation newValue) {
+		tUpdateByName(OBJECT_TABLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #OBJECT_TABLE_LENGTH_ALWAYS_ONE_ATTR}.
+	 */
+	default boolean getObjectTableLengthAlwaysOne() {
+		return (Boolean) tValueByName(OBJECT_TABLE_LENGTH_ALWAYS_ONE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #OBJECT_TABLE_LENGTH_ALWAYS_ONE_ATTR}.
+	 */
+	default void setObjectTableLengthAlwaysOne(boolean newValue) {
+		tUpdateByName(OBJECT_TABLE_LENGTH_ALWAYS_ONE_ATTR, newValue);
 	}
 
 	/**
@@ -106,6 +563,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setOriginalManufacturer(com.top_logic.model.TLObject newValue) {
 		tUpdateByName(ORIGINAL_MANUFACTURER_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #PARAMETER_BYTE_ORDER_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getParameterByteOrder() {
+		return (com.top_logic.model.TLClassifier) tValueByName(PARAMETER_BYTE_ORDER_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #PARAMETER_BYTE_ORDER_ATTR}.
+	 */
+	default void setParameterByteOrder(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(PARAMETER_BYTE_ORDER_ATTR, newValue);
 	}
 
 	/**
@@ -195,6 +666,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	}
 
 	/**
+	 * Getter for part {@link #PEI_TYPE_ATTR}.
+	 */
+	default Integer getPeiType() {
+		return (Integer) tValueByName(PEI_TYPE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #PEI_TYPE_ATTR}.
+	 */
+	default void setPeiType(Integer newValue) {
+		tUpdateByName(PEI_TYPE_ATTR, newValue);
+	}
+
+	/**
 	 * Getter for part {@link #PORTS_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")
@@ -238,11 +723,25 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	}
 
 	/**
+	 * Getter for part {@link #PREFER_PARTIAL_DOWNLOAD_ATTR}.
+	 */
+	default boolean getPreferPartialDownload() {
+		return (Boolean) tValueByName(PREFER_PARTIAL_DOWNLOAD_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #PREFER_PARTIAL_DOWNLOAD_ATTR}.
+	 */
+	default void setPreferPartialDownload(boolean newValue) {
+		tUpdateByName(PREFER_PARTIAL_DOWNLOAD_ATTR, newValue);
+	}
+
+	/**
 	 * Getter for part {@link #SEGMENTS_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")
-	default java.util.Set<? extends de.haumacher.ehome.model.operational.CodeSegment> getSegments() {
-		return (java.util.Set<? extends de.haumacher.ehome.model.operational.CodeSegment>) tValueByName(SEGMENTS_ATTR);
+	default java.util.Set<? extends de.haumacher.ehome.model.operational.Segment> getSegments() {
+		return (java.util.Set<? extends de.haumacher.ehome.model.operational.Segment>) tValueByName(SEGMENTS_ATTR);
 	}
 
 	/**
@@ -252,32 +751,74 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 * The caller has to take care of the transaction handling.
 	 * </p>
 	 */
-	default java.util.Set<de.haumacher.ehome.model.operational.CodeSegment> getSegmentsModifiable() {
+	default java.util.Set<de.haumacher.ehome.model.operational.Segment> getSegmentsModifiable() {
 		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(SEGMENTS_ATTR);
 		@SuppressWarnings("unchecked")
-		java.util.Set<de.haumacher.ehome.model.operational.CodeSegment> result = (java.util.Set<de.haumacher.ehome.model.operational.CodeSegment>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		java.util.Set<de.haumacher.ehome.model.operational.Segment> result = (java.util.Set<de.haumacher.ehome.model.operational.Segment>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
 		return result;
 	}
 
 	/**
 	 * Setter for part {@link #SEGMENTS_ATTR}.
 	 */
-	default void setSegments(java.util.Set<de.haumacher.ehome.model.operational.CodeSegment> newValue) {
+	default void setSegments(java.util.Set<de.haumacher.ehome.model.operational.Segment> newValue) {
 		tUpdateByName(SEGMENTS_ATTR, newValue);
 	}
 
 	/**
 	 * Adds a value to the {@link #SEGMENTS_ATTR} reference.
 	 */
-	default void addSegment(de.haumacher.ehome.model.operational.CodeSegment newValue) {
+	default void addSegment(de.haumacher.ehome.model.operational.Segment newValue) {
 		tAddByName(SEGMENTS_ATTR, newValue);
 	}
 
 	/**
 	 * Removes the given value from the {@link #SEGMENTS_ATTR} reference.
 	 */
-	default void removeSegment(de.haumacher.ehome.model.operational.CodeSegment oldValue) {
+	default void removeSegment(de.haumacher.ehome.model.operational.Segment oldValue) {
 		tRemoveByName(SEGMENTS_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #TEXT_ENCODING_ATTR}.
+	 */
+	default String getTextEncoding() {
+		return (String) tValueByName(TEXT_ENCODING_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #TEXT_ENCODING_ATTR}.
+	 */
+	default void setTextEncoding(String newValue) {
+		tUpdateByName(TEXT_ENCODING_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #TEXT_ENCODING_SOURCE_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getTextEncodingSource() {
+		return (com.top_logic.model.TLClassifier) tValueByName(TEXT_ENCODING_SOURCE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #TEXT_ENCODING_SOURCE_ATTR}.
+	 */
+	default void setTextEncodingSource(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(TEXT_ENCODING_SOURCE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #TEXT_ZERO_TERMINATED_ATTR}.
+	 */
+	default boolean getTextZeroTerminated() {
+		return (Boolean) tValueByName(TEXT_ZERO_TERMINATED_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #TEXT_ZERO_TERMINATED_ATTR}.
+	 */
+	default void setTextZeroTerminated(boolean newValue) {
+		tUpdateByName(TEXT_ZERO_TERMINATED_ATTR, newValue);
 	}
 
 	/**
