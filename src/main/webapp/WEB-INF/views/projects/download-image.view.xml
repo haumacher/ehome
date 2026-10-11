@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The download image of a device (de.haumacher.ehome.programming.DownloadImage#dump): per memory
+	block its bytes, 16 per line with their address; a byte not written shows as "--".
+
+	"device" is the device.
+-->
+<view>
+	<channels>
+		<channel name="device"/>
+		<derived-channel name="dump"
+			expr="d -> if($d == null, null, downloadImageDump($d))"
+			inputs="device"
+		/>
+	</channels>
+	<window width="800px">
+		<title>
+			<en>Download image</en>
+			<de>Download-Abbild</de>
+		</title>
+		<inset>
+			<html input="dump"/>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

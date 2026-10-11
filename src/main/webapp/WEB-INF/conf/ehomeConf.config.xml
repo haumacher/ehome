@@ -51,6 +51,16 @@
 					<method name="deviceGroupAddresses" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceConnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceDisconnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<!-- The programming of a device (de.haumacher.ehome.programming.download.ProgrammingFunctions): one builder, the function by its name. -->
+					<method name="downloadPlanRows" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="downloadSummary" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="downloadProblems" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="downloadImageDump" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="downloadVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="addressVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="compareVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="downloadConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="addressConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog choosing the KNX gateway of a project (ehome.project:Project#gateway): an address entered
+	(address or address:port), or a gateway the search found (its control endpoint).
+
+	"project" is the project. The search is the one of discover.view.xml with its default settings
+	(<discover-knx-gateways>, de.haumacher.ehome.discover.DiscoverGatewaysAction). An entered address
+	takes precedence over the selected gateway.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="gateways"/>
+		<channel name="selectedGateway"/>
+		<channel name="address"/>
+		<derived-channel name="current"
+			expr='p -> #("Current gateway: {0}"@en, "Aktuelles Gateway: {0}"@de).fill(if($p.get(`ehome.project:Project#gateway`) == null, "-", $p.get(`ehome.project:Project#gateway`))).localize()'
+			inputs="project"
+		/>
+	</channels>
+	<window width="800px">
+		<title>
+			<en>Choose the KNX gateway</en>
+			<de>KNX-Gateway wählen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text input="current"
+					tone="secondary"
+				/>
+				<button>
+					<action class="com.top_logic.layout.view.command.GenericViewCommand"
+						image="css:bi bi-broadcast"
+					>
+						<label>
+							<en>Search gateways</en>
+							<de>Gateways suchen</de>
+						</label>
+						<discover-knx-gateways/>
+						<write-channel name="gateways"/>
+						<notify expr="rows -> if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
+							kind="warning"
+						/>
+					</action>
+				</button>
+				<fields>
+					<value-input
+						type="tl.core:String"
+						value="address"
+					>
+						<label>
+							<en>Address (address or address:port)</en>
+							<de>Adresse (Adresse oder Adresse:Port)</de>
+						</label>
+					</value-input>
+				</fields>
+				<table selection="selectedGateway">
+					<inputs>
+						<input channel="gateways"/>
+					</inputs>
+					<columns>
+						<computed-column name="name"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Name</en>
+								<de>Name</de>
+							</label>
+							<value>row -> $row["name"]</value>
+						</computed-column>
+						<computed-column name="endpoint"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Control endpoint</en>
+								<de>Steuerungs-Endpunkt</de>
+							</label>
+							<value>row -> $row["endpoint"]</value>
+						</computed-column>
+						<computed-column name="address"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Individual address</en>
+								<de>Physikalische Adresse</de>
+							</label>
+							<value>row -> $row["address"]</value>
+						</computed-column>
+						<computed-column name="mac"
+							type="tl.core:String"
+						>
+							<label>
+								<en>MAC address</en>
+								<de>MAC-Adresse</de>
+							</label>
+							<value>row -> $row["mac"]</value>
+						</computed-column>
+					</columns>
+					<rows>gateways -> if($gateways == null, [], $gateways)</rows>
+				</table>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-check-lg"
+					input="project"
+				>
+					<label>
+						<en>Use</en>
+						<de>Übernehmen</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script>
+							<function><![CDATA[a -> g -> p -> {
+    gateway = if($a != null and $a.trim() != "", $a.trim(), if($g == null, null, $g["endpoint"]));
+    if($gateway == null,
+        throw(#("Enter an address or choose a gateway the search found."@en, "Bitte eine Adresse eingeben oder ein gefundenes Gateway wählen."@de)),
+        $p.set(`ehome.project:Project#gateway`, $gateway));
+}]]></function>
+							<inputs>
+								<input channel="address"/>
+								<input channel="selectedGateway"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

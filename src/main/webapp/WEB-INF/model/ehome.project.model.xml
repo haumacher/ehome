@@ -44,6 +44,13 @@
 				<reference name="groupAddressStyle"
 					type="ehome.logical:GroupAddressStyle"
 				/>
+				<!--
+					The KNXnet/IP gateway the devices of the project are programmed and read through: an
+					address, optionally with the port (192.168.178.81 or 192.168.178.81:3671).
+				-->
+				<property name="gateway"
+					type="tl.core:String"
+				/>
 			</attributes>
 		</class>
 	</module>

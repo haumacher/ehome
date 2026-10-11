@@ -5,7 +5,8 @@
 	device that are in use. Devices not placed in a line yet follow the areas. The selected node is
 	shown beside the tree; a device with its data, its configuration by the structure of its program
 	(projects/device-item.view.xml for each entry of a page), its communication objects with the
-	group addresses they are connected to, and the values the project changed.
+	group addresses they are connected to, the values the project changed, and its programming
+	(projects/device-programming.view.xml).
 -->
 <view>
 	<channels>
@@ -596,6 +597,28 @@
 												</pane>
 											</panes>
 										</split-panel>
+									</tab>
+									<tab id="programming"
+										icon="css:bi bi-cpu"
+									>
+										<label>
+											<en>Programming</en>
+											<de>Programmierung</de>
+										</label>
+										<!--
+											The download into the device over the project's KNX gateway: the plan, the
+											comparison with the device, the download (projects/device-programming.view.xml).
+										-->
+										<view-ref view="projects/device-programming.view.xml">
+											<bind
+												channel="device"
+												to="device"
+											/>
+											<bind
+												channel="project"
+												to="project"
+											/>
+										</view-ref>
 									</tab>
 								</tabs>
 							</tab-bar>

@@ -101,6 +101,14 @@ public class DownloadImage {
 	}
 
 	/**
+	 * The individual address of a device (<code>ehome.physical:Device</code>): area, line and device
+	 * number in 4, 4 and 8 bits; <code>null</code> if one of them is missing.
+	 */
+	public static Integer individualAddress(TLObject device) {
+		return DownloadImageBuilder.individualAddress(device);
+	}
+
+	/**
 	 * The device the image is for (individual address and ID), for a person.
 	 */
 	public String getDevice() {

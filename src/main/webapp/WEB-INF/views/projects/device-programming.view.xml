@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The programming of a device (tab "Programming" of projects/devices.view.xml): the KNX gateway of
+	the project, the plan of the full download (the operations with their addresses and bytes), and
+	the commands reaching the device through the gateway.
+
+	"device" is the device, "project" its project. The plan and the reasons a command is refused are
+	computed by the TL-Script functions of de.haumacher.ehome.programming.download.ProgrammingFunctions
+	(implemented in Java, TL #29799: the views name the types they depend on in observed-types).
+
+	- Compare reads the device and compares it with the download image; it never writes.
+	- Download runs the plan after a confirmation naming the device, its address and the gateway.
+	- Write address writes the individual address into the one device in programming mode.
+	Both writing commands are disabled, with the reason, unless the application runs with
+	-Dehome.programming.writeEnabled=true (de.haumacher.ehome.programming.download.CalimeroWriter).
+	The commands run as jobs (DownloadJob, CompareJob) with their progress shown here, and end with
+	the report (projects/programming-report.view.xml).
+-->
+<view>
+	<channels>
+		<channel name="device"/>
+		<channel name="project"/>
+		<channel name="programmingJob"/>
+		<derived-channel name="gateway"
+			expr="p -> if($p == null, null, $p.get(`ehome.project:Project#gateway`))"
+			inputs="project"
+			observed-types="ehome.project:Project"
+		/>
+		<derived-channel name="summary"
+			expr="d -> if($d == null, null, downloadSummary($d))"
+			inputs="device"
+			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
+		/>
+	</channels>
+	<stack gap="default">
+		<panel>
+			<title>
+				<en>Gateway</en>
+				<de>Gateway</de>
+			</title>
+			<commands>
+				<generic-command
+					image="css:bi bi-broadcast"
+					input="project"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Choose the gateway</en>
+						<de>Gateway wählen</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<open-dialog
+						bind-input-to="project"
+						dialog-view="projects/choose-gateway.view.xml"
+					/>
+				</generic-command>
+			</commands>
+			<inset>
+				<stack gap="compact">
+					<text input="gateway"/>
+					<text tone="helper"
+						variant="caption"
+					>
+						<label>
+							<en>The KNXnet/IP gateway of the project the devices are read and programmed through.</en>
+							<de>Das KNXnet/IP-Gateway des Projekts, über das die Geräte gelesen und programmiert werden.</de>
+						</label>
+					</text>
+				</stack>
+			</inset>
+		</panel>
+		<panel>
+			<title>
+				<en>Download</en>
+				<de>Download</de>
+			</title>
+			<commands>
+				<generic-command
+					image="css:bi bi-file-earmark-binary"
+					input="device"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Download image</en>
+						<de>Download-Abbild</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<open-dialog
+						bind-input-to="device"
+						dialog-view="projects/download-image.view.xml"
+					/>
+				</generic-command>
+				<generic-command
+					image="css:bi bi-arrow-left-right"
+					input="device"
+					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Compare with the device</en>
+						<de>Mit dem Gerät vergleichen</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr="d -> compareVeto($d)"/>
+					</executability>
+					<start-job
+						cancelable="true"
+						job="programmingJob"
+						update-interval="200"
+					>
+						<inputs>
+							<input channel="device"/>
+						</inputs>
+						<body class="de.haumacher.ehome.programming.download.CompareJob"/>
+					</start-job>
+					<open-dialog
+						bind-input-to="report"
+						dialog-view="projects/programming-report.view.xml"
+					/>
+				</generic-command>
+				<generic-command
+					image="css:bi bi-download"
+					input="device"
+					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Download</en>
+						<de>Herunterladen</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr="d -> downloadVeto($d)"/>
+					</executability>
+					<confirm expr="d -> downloadConfirmation($d)"/>
+					<start-job
+						cancelable="false"
+						job="programmingJob"
+						update-interval="200"
+					>
+						<inputs>
+							<input channel="device"/>
+						</inputs>
+						<body class="de.haumacher.ehome.programming.download.DownloadJob"/>
+					</start-job>
+					<open-dialog
+						bind-input-to="report"
+						dialog-view="projects/programming-report.view.xml"
+					/>
+				</generic-command>
+				<generic-command
+					image="css:bi bi-hand-index"
+					input="device"
+					observed-types="ehome.project:Project"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Write the individual address</en>
+						<de>Physikalische Adresse programmieren</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr="d -> addressVeto($d)"/>
+					</executability>
+					<confirm expr="d -> addressConfirmation($d)"/>
+					<start-job
+						cancelable="false"
+						job="programmingJob"
+						update-interval="200"
+					>
+						<inputs>
+							<input channel="device"/>
+						</inputs>
+						<body class="de.haumacher.ehome.programming.download.DownloadJob"
+							kind="ADDRESS"
+						/>
+					</start-job>
+					<open-dialog
+						bind-input-to="report"
+						dialog-view="projects/programming-report.view.xml"
+					/>
+				</generic-command>
+			</commands>
+			<inset>
+				<stack gap="default">
+					<job-status input="programmingJob"/>
+					<text input="summary"/>
+					<!-- Why the download is refused. -->
+					<object-list
+						gap="compact"
+						inputs="device"
+						items="d -> if($d == null, [], downloadProblems($d))"
+						observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
+					>
+						<item>
+							<text
+								input="element"
+								tone="error"
+							/>
+						</item>
+					</object-list>
+					<table>
+						<inputs>
+							<input channel="device"/>
+						</inputs>
+						<columns>
+							<computed-column name="number"
+								type="tl.core:Integer"
+								width="50"
+							>
+								<label>
+									<en>No.</en>
+									<de>Nr.</de>
+								</label>
+								<value>row -> $row["number"]</value>
+							</computed-column>
+							<computed-column name="step"
+								type="tl.core:String"
+								width="170"
+							>
+								<label>
+									<en>Step</en>
+									<de>Schritt</de>
+								</label>
+								<value>row -> $row["step"]</value>
+							</computed-column>
+							<computed-column name="operation"
+								type="tl.core:String"
+								width="600"
+							>
+								<label>
+									<en>Operation</en>
+									<de>Operation</de>
+								</label>
+								<value>row -> $row["operation"]</value>
+							</computed-column>
+							<computed-column name="bytes"
+								type="tl.core:Integer"
+								width="70"
+							>
+								<label>
+									<en>Bytes</en>
+									<de>Bytes</de>
+								</label>
+								<value>row -> $row["bytes"]</value>
+							</computed-column>
+						</columns>
+						<rows>d -> if($d == null, [], downloadPlanRows($d))</rows>
+					</table>
+				</stack>
+			</inset>
+		</panel>
+	</stack>
+</view>

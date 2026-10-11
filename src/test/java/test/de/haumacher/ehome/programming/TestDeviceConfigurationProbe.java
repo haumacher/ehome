@@ -271,7 +271,10 @@ public class TestDeviceConfigurationProbe extends BasicTestCase {
 	private static TLObject newGroupAddress(TLObject device, int number) throws Exception {
 		TLObject project = device.tContainer().tContainer().tContainer();
 		assertEquals("Project", project.tType().getName());
-		TLObject range = ExtIds.members(project, Kind.GROUP_RANGE).iterator().next();
+		// A range taking the address (the order of the project's ranges is not defined).
+		TLObject range = ExtIds.members(project, Kind.GROUP_RANGE).stream()
+			.filter(r -> within(r, number))
+			.findFirst().orElseThrow(() -> new AssertionError("No group range takes the address " + number));
 		try (Transaction tx = kb().beginTransaction()) {
 			TLObject address = ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
@@ -283,6 +286,12 @@ public class TestDeviceConfigurationProbe extends BasicTestCase {
 			tx.commit();
 			return address;
 		}
+	}
+
+	private static boolean within(TLObject range, int number) {
+		Object start = range.tValueByName("rangeStart");
+		Object end = range.tValueByName("rangeEnd");
+		return start instanceof GA s && end instanceof GA e && s.getValue() <= number && number <= e.getValue();
 	}
 
 	private static boolean contains(Block addressTable, int groupAddress) {

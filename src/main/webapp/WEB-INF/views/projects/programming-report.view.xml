@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Report of a download into a device or of a comparison with it: the outcome as a sentence, then
+	the messages (the failing operation with the device's answer, the steps not executed, or per block
+	of the download image whether the device holds it).
+
+	"report" carries the result of the job (de.haumacher.ehome.programming.download.ProgrammingReport):
+	"summary" and "messages" with the keys of the messages of the ETS import, shown by
+	import-message.view.xml.
+-->
+<view>
+	<channels>
+		<channel name="report"/>
+		<derived-channel name="summary"
+			expr='r -> $r["summary"]'
+			inputs="report"
+		/>
+	</channels>
+	<window width="900px">
+		<title>
+			<en>Programming: report</en>
+			<de>Programmierung: Bericht</de>
+		</title>
+		<inset>
+			<stack gap="loose">
+				<text input="summary"/>
+				<object-list
+					gap="default"
+					inputs="report"
+					items='r -> if($r == null, [], $r["messages"])'
+				>
+					<item>
+						<view-ref view="projects/import-message.view.xml">
+							<bind
+								channel="message"
+								to="element"
+							/>
+						</view-ref>
+					</item>
+				</object-list>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

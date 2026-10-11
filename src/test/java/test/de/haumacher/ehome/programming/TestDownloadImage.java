@@ -394,7 +394,7 @@ public class TestDownloadImage extends BasicTestCase {
 	 * Replaces the connections of a device by the wiring an address and an association table
 	 * describe, in random order, so that the computation has to find the order of the tables.
 	 */
-	private static void rewire(TLObject device, byte[][] addressTable, byte[][] associationTable) {
+	static void rewire(TLObject device, byte[][] addressTable, byte[][] associationTable) {
 		byte[] addresses = addressTable[1];
 		byte[] associations = associationTable[1];
 		Program program = DeviceConfiguration.program(device);
@@ -454,7 +454,7 @@ public class TestDownloadImage extends BasicTestCase {
 			start, differentParameters), TestDownloadImage.class);
 	}
 
-	private static BitSet parameterBytes(Program program) {
+	static BitSet parameterBytes(Program program) {
 		BitSet result = new BitSet();
 		for (Parameter parameter : program.getParameters()) {
 			mark(result, parameter);

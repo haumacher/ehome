@@ -1,0 +1,4 @@
+# Read-back of DI-3 (1.3.50) on the test system (gateway 192.168.178.81), the download stamps ETS wrote: object index, property 27 (PID_MCB_TABLE), the elements from 1, 8 bytes each. Taken 2026-10-11 with a read-only property read (ManagementClient.readProperty, start 1, count 1 resp. 6).
+1 27: 0000004500f24889
+2 27: 0000019f00f2c455
+3 27: 0000017700f2f5f2 0000000d00f382ab 0000000600f3f709 000000ca00f3fe0b 0000001500f30469 0000010000f3d0e6
