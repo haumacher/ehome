@@ -202,10 +202,12 @@ delivery:
 - **The Playwright MCP writes into the repository root** (`.playwright-mcp/`, snapshots, console
   logs and screenshots), not the scratchpad. The directory is in `.gitignore`; still add files by
   name rather than `git add -A`, because a screenshot saved elsewhere is not.
-- **`tmp/` is the database.** `tmp/h2.mv.db` and `tmp/app-data` survive restarts, which is what
-  you want (imported sample projects stay). Delete `tmp/` only after an incompatible model change
-  without migration or when `root`/`root1234` is refused (the initial password applies only to a
-  fresh DB) — and say so in the report, because it destroys the user's test data.
+- **`tmp/` is the database, and it is the user's.** `tmp/h2.mv.db` and `tmp/app-data` survive
+  restarts, which is what you want (imported sample projects stay). Never `rm -rf tmp/`. When a
+  model change cannot be migrated or `root`/`root1234` is refused (the initial password applies
+  only to a fresh DB), **ask first**, then move the old data aside (`mv tmp tmp.bak-<timestamp>`)
+  and start the app on an empty directory, so the old state stays restorable. `rm -rf` is for
+  worktrees and files you created yourself under the session scratchpad, nothing else.
 - **The Bash tool resets its working directory between calls.** Use absolute paths or one `cd`
   per command, and never `git add -A` after a relative `cd ..`.
 - **`pkill -f <pattern>` matches your own shell** when the pattern appears in the command line you
