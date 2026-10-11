@@ -53,6 +53,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey ERROR_LINKING_NULL_VALUE;
 
+	/**
+	 * @en Parameter "{0}": {1}
+	 */
+	public static ResKey2 WARN_PARAMETER__NAME_PROBLEM;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

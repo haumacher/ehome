@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	One message of an ETS import in the report (import-report.view.xml): a subdued line with its level
+	as a pill colored by the severity and the uploaded file, and below it the full text, wrapping over
+	as many lines as it needs. (Beside a long text in one row, the pill would be shrunk to "W…".)
+
+	"message" is a dictionary of the result of <import-ets-project>
+	(de.haumacher.ehome.etsImport.ImportEtsProjectAction): severity, level, message, file.
+-->
+<view>
+	<channels>
+		<channel name="message"/>
+		<derived-channel name="level"
+			expr='m -> $m["level"]'
+			inputs="message"
+		/>
+		<derived-channel name="text"
+			expr='m -> $m["message"]'
+			inputs="message"
+		/>
+		<derived-channel name="file"
+			expr='m -> $m["file"]'
+			inputs="message"
+		/>
+	</channels>
+	<stack gap="compact">
+		<stack
+			align="center"
+			direction="row"
+			gap="compact"
+		>
+			<visible-if
+				expr='m -> $m["severity"] == "error"'
+				input="message"
+			>
+				<text
+					appearance="pill"
+					input="level"
+					tone="error"
+					variant="caption"
+				/>
+			</visible-if>
+			<visible-if
+				expr='m -> $m["severity"] == "warning"'
+				input="message"
+			>
+				<text
+					appearance="pill"
+					input="level"
+					tone="warning"
+					variant="caption"
+				/>
+			</visible-if>
+			<visible-if
+				expr='m -> $m["severity"] == "info"'
+				input="message"
+			>
+				<text
+					appearance="pill"
+					input="level"
+					tone="secondary"
+					variant="caption"
+				/>
+			</visible-if>
+			<text
+				input="file"
+				tone="helper"
+				variant="caption"
+			/>
+		</stack>
+		<text input="text"/>
+	</stack>
+</view>

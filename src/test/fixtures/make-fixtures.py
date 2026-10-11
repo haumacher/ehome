@@ -12,7 +12,13 @@ chosen only for the test), with a default case. The samples contain only enumera
 void parameter types; the program of this copy adds one parameter of every other kind (floating point,
 time, text with a pattern, date, IP address) to its block "Allgemein", with a default each, and the
 device sets the floating point parameter. The values are written in the notation of XML (a decimal
-point, an ISO date, a dotted IP address), as ETS writes its files.
+point, an ISO date, a dotted IP address), as ETS writes its files. One more parameter of the block,
+"Helligkeit" (an integer 0 to 100), has the value 300, which does not fit its type, and the device
+sets it to 300 as well: the import keeps the values as text and reports a warning for each (a defect
+of the artificial test data, not of ETS). The setting is part of the project, so that every import
+of the fixture reports it, also when the program is already known and skipped. Every change of the
+program gives it a new version in its ID (now O000C), so that a database holding an earlier version
+imports it as a new program instead of skipping it.
 
 The projects of both fixtures are named after the fixture, not "Test".
 
@@ -74,12 +80,12 @@ def details(xml):
 
 
 PROGRAM = 'M-0008_A-10D7-11-A0E5-O000A'
-NEW_PROGRAM = 'M-0008_A-10D7-11-A0E5-O000B'
+NEW_PROGRAM = 'M-0008_A-10D7-11-A0E5-O000C'
 
 
 # The version suffix shared by the IDs of the program and of its assignment to the hardware.
 VERSION = '10D7-11-A0E5-O000A'
-NEW_VERSION = '10D7-11-A0E5-O000B'
+NEW_VERSION = '10D7-11-A0E5-O000C'
 
 
 def dynamic(name, xml):
@@ -115,6 +121,8 @@ NEW_TYPES = [
         '<TypeText SizeInBit="80" Pattern="[A-ZÄÖÜ][a-zäöüß]+" />'),
     ('Test.5FDate', 'Test_Date', '<TypeDate Encoding="DPT 11" DisplayTheYear="false" />'),
     ('Test.5FIP', 'Test_IP', '<TypeIPAddress AddressType="GatewayAddress" />'),
+    ('Test.5FPercent', 'Test_Percent',
+        '<TypeNumber SizeInBit="8" Type="unsignedInt" minInclusive="0" maxInclusive="100" />'),
 ]
 NEW_PARAMETERS = [
     ('9001', 'Test.5FFloat', 'Sollwert', '20.5'),
@@ -122,9 +130,12 @@ NEW_PARAMETERS = [
     ('9003', 'Test.5FPattern', 'Raumname', 'Küche'),
     ('9004', 'Test.5FDate', 'Stichtag', '2025-08-06'),
     ('9005', 'Test.5FIP', 'Gateway', '192.168.1.1'),
+    # A value outside the range of its type: kept as text by the import, reported as a warning.
+    ('9006', 'Test.5FPercent', 'Helligkeit', '300'),
 ]
-# The value the device of the project sets for the floating point parameter.
-NEW_SETTING = ('9001', '21.75')
+# The values the device of the project sets: the floating point parameter, and the parameter whose
+# value does not fit its type.
+NEW_SETTINGS = [('9001', '21.75'), ('9006', '300')]
 
 
 def typed_parameters(xml):
@@ -151,9 +162,9 @@ def typed_parameters(xml):
 def typed_setting(xml):
     refs = '<ParameterInstanceRefs>'
     assert xml.count(refs) == 1
-    pid, value = NEW_SETTING
-    return xml.replace(refs, refs + '\n<ParameterInstanceRef RefId="' + NEW_PROGRAM + '_P-' + pid + '_R-' + pid
-        + '" Value="' + value + '" />', 1)
+    settings = ''.join('\n<ParameterInstanceRef RefId="' + NEW_PROGRAM + '_P-' + pid + '_R-' + pid
+        + '" Value="' + value + '" />' for pid, value in NEW_SETTINGS)
+    return xml.replace(refs, refs + settings, 1)
 
 
 def write(target, modify):

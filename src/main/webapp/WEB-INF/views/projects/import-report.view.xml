@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Report of an ETS import that produced messages: what was imported, and the warnings and errors of
+	the import with their location in the project file.
+
+	"report" carries the result of <import-ets-project> (de.haumacher.ehome.etsImport.ImportEtsProjectAction):
+	"summary" is the sentence above the list, "messages" its entries, each shown by
+	import-message.view.xml with the full text wrapping (a <table> cell cuts a long text off). The
+	messages do not change the outcome of the import; the dialog only informs.
+-->
+<view>
+	<channels>
+		<channel name="report"/>
+		<derived-channel name="summary"
+			expr='r -> $r["summary"]'
+			inputs="report"
+		/>
+	</channels>
+	<window width="800px">
+		<title>
+			<en>ETS import: messages</en>
+			<de>ETS-Import: Meldungen</de>
+		</title>
+		<inset>
+			<stack gap="loose">
+				<text input="summary"/>
+				<object-list
+					gap="default"
+					inputs="report"
+					items='r -> if($r == null, [], $r["messages"])'
+				>
+					<item>
+						<view-ref view="projects/import-message.view.xml">
+							<bind
+								channel="message"
+								to="element"
+							/>
+						</view-ref>
+					</item>
+				</object-list>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

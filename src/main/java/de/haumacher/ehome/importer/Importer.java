@@ -24,6 +24,7 @@ import com.top_logic.basic.config.ConfigurationReader;
 import com.top_logic.basic.config.DefaultInstantiationContext;
 import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.TypedConfiguration;
+import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.io.Content;
 import com.top_logic.basic.io.binary.ClassRelativeBinaryContent;
 import com.top_logic.basic.util.ResourcesModule;
@@ -40,7 +41,9 @@ import com.top_logic.xio.importer.handlers.DispatchingImporter;
 import com.top_logic.xio.importer.handlers.Handler;
 
 /**
- * TODO
+ * Imports an ETS project file (<code>.knxproj</code>) into the model, as described in
+ * <code>etsImporter.xml</code>, and collects the messages of the import (see
+ * {@link #getMessages()}).
  *
  * @author <a href="mailto:bhu@top-logic.com">Bernhard Haumacher</a>
  */
@@ -48,7 +51,14 @@ public class Importer {
 
 	private static final String EXT_ID = "extId";
 
+	/**
+	 * Prefix of the system ID of an entry of the project archive, see {@link #getMessages()}.
+	 */
+	public static final String ENTRY_SCHEME = "knxproj:";
+
 	private ModelBinding _binding;
+
+	private BufferingI18NLog _messages = new BufferingI18NLog();
 
 	/**
 	 * Creates a {@link Importer}.
@@ -72,7 +82,11 @@ public class Importer {
 				if (entry.getName().endsWith(".xml")) {
 					Logger.info("Reading '" + entry.getName() + "'.", Importer.class);
 
-					XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory().createXMLStreamReader(entryIn);
+					// The entry name is the system ID, so that a message of the import names the file of
+					// the archive. As an absolute URI: the parser resolves a relative one against the
+					// working directory of the server.
+					XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
+						.createXMLStreamReader(ENTRY_SCHEME + entry.getName(), entryIn);
 					handler.importXml(context, in);
 				}
 			}
@@ -113,8 +127,28 @@ public class Importer {
 		}
 	}
 
+	/**
+	 * The messages the last {@link #importStream(InputStream)} reported: the warnings and errors of
+	 * the import context, each with its location in the project file (the entry of the archive, line
+	 * and column).
+	 *
+	 * <p>
+	 * They are written to the application log as well. A message does not change the outcome of the
+	 * import: a value that does not fit its type, for instance, is kept as text and reported.
+	 * </p>
+	 */
+	public List<BufferingI18NLog.Entry> getMessages() {
+		return _messages.getEntries();
+	}
+
+	/**
+	 * Imports the ETS project file (<code>.knxproj</code>) read from the given stream.
+	 *
+	 * @see #getMessages()
+	 */
 	public void importStream(InputStream in)
 			throws IOException, XMLStreamException, ConfigurationException {
+		_messages = new BufferingI18NLog();
 		Log log = new SyserrProtocol();
 		DefaultInstantiationContext context = new DefaultInstantiationContext(log);
 		ConfigurationReader reader = new ConfigurationReader(context, Collections.singletonMap("handler",
@@ -127,7 +161,7 @@ public class Importer {
 		registerSharedObjects();
 		ZipInputStream zip = new ZipInputStream(in);
 		try (ImportContext importContext = new DefaultImportContext(
-			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)), _binding)) {
+			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)).tee(_messages), _binding)) {
 			importETS(zip, importContext, handler);
 		}
 	}

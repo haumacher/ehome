@@ -5,9 +5,12 @@ package de.haumacher.ehome.etsImport;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.xml.stream.XMLStreamException;
@@ -18,17 +21,22 @@ import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
+import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.io.binary.BinaryData;
+import com.top_logic.basic.logging.Level;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.KnowledgeBaseException;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
@@ -41,11 +49,66 @@ import de.haumacher.ehome.importer.Importer;
  *
  * <p>
  * The input is the uploaded file, or a collection of them. Each file is imported in a transaction
- * of its own. The result is the project created by the last import, so that a following
- * <code>&lt;write-channel&gt;</code> selects it.
+ * of its own. The result is the report of the import, a dictionary: <code>project</code> is the
+ * project created by the last import (for a following <code>&lt;write-channel&gt;</code>),
+ * <code>messages</code> the warnings and errors the import reported (each a dictionary with
+ * <code>file</code>, <code>severity</code>, <code>level</code> and <code>message</code>), and <code>summary</code> a
+ * sentence naming the imported projects and the number of messages. The messages do not change the
+ * outcome: a file that cannot be imported fails the action.
  * </p>
  */
 public class ImportEtsProjectAction implements ViewAction {
+
+	/**
+	 * Key of the report holding the project created by the last import.
+	 */
+	public static final String PROJECT = "project";
+
+	/**
+	 * Key of the report holding the sentence summarizing the import.
+	 */
+	public static final String SUMMARY = "summary";
+
+	/**
+	 * Key of the report holding the list of messages of the import.
+	 */
+	public static final String MESSAGES = "messages";
+
+	/**
+	 * Key of a message holding the name of the uploaded file it belongs to.
+	 */
+	public static final String FILE = "file";
+
+	/**
+	 * Key of a message holding its severity: {@value #SEVERITY_ERROR}, {@value #SEVERITY_WARNING}
+	 * or {@value #SEVERITY_INFO}.
+	 */
+	public static final String SEVERITY = "severity";
+
+	/**
+	 * {@link #SEVERITY} of an error.
+	 */
+	public static final String SEVERITY_ERROR = "error";
+
+	/**
+	 * {@link #SEVERITY} of a warning.
+	 */
+	public static final String SEVERITY_WARNING = "warning";
+
+	/**
+	 * {@link #SEVERITY} of a note.
+	 */
+	public static final String SEVERITY_INFO = "info";
+
+	/**
+	 * Key of a message holding the label of its severity.
+	 */
+	public static final String LEVEL = "level";
+
+	/**
+	 * Key of a message holding its text, which includes its location in the project file.
+	 */
+	public static final String MESSAGE = "message";
 
 	/**
 	 * Configuration of {@link ImportEtsProjectAction}.
@@ -68,32 +131,101 @@ public class ImportEtsProjectAction implements ViewAction {
 
 	@Override
 	public Object execute(ReactContext context, Object input) {
-		Object result = null;
+		Report report = new Report();
 		if (input instanceof Collection<?> files) {
 			for (Object file : files) {
-				result = importFile((BinaryData) file);
+				importFile(report, (BinaryData) file);
 			}
 		} else if (input instanceof BinaryData file) {
-			result = importFile(file);
+			importFile(report, file);
 		}
-		return result;
+		return report.toMap();
 	}
 
-	private static TLObject importFile(BinaryData data) {
+	private static void importFile(Report report, BinaryData data) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		ModelBinding binding = new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false);
 
 		Set<TLObject> before = new HashSet<>(projects());
+		Importer importer = new Importer(binding);
 		try (InputStream in = data.getStream()) {
 			try (Transaction tx = kb.beginTransaction()) {
-				new Importer(binding).importStream(in);
+				importer.importStream(in);
 				tx.commit();
 			}
 		} catch (ConfigurationException | IOException | XMLStreamException | KnowledgeBaseException ex) {
 			throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ex.getMessage()), ex);
 		}
 
-		return projects().stream().filter(p -> !before.contains(p)).findFirst().orElse(null);
+		TLObject project = projects().stream().filter(p -> !before.contains(p)).findFirst().orElse(null);
+		report.add(data.getName(), project, importer.getMessages());
+	}
+
+	/**
+	 * The outcome of the import of the uploaded files, see {@link #toMap()}.
+	 */
+	private static final class Report {
+
+		private final Resources _resources = Resources.getInstance();
+
+		private TLObject _project;
+
+		private final List<String> _imported = new ArrayList<>();
+
+		private final List<Map<String, Object>> _messages = new ArrayList<>();
+
+		void add(String fileName, TLObject project, List<BufferingI18NLog.Entry> messages) {
+			String file = fileName == null ? "" : fileName;
+			if (project != null) {
+				_project = project;
+				_imported.add(MetaLabelProvider.INSTANCE.getLabel(project));
+			} else {
+				_imported.add(file);
+			}
+			for (BufferingI18NLog.Entry message : messages) {
+				_messages.add(Map.of(
+					FILE, file,
+					SEVERITY, severity(message.getLevel()),
+					LEVEL, _resources.getString(levelLabel(message.getLevel())),
+					MESSAGE, _resources.getString(message.getMessage())));
+			}
+		}
+
+		/**
+		 * The report as a dictionary for the action chain: {@value #PROJECT} the project created
+		 * last, {@value #SUMMARY} a sentence naming what was imported and how many messages there
+		 * are, and {@value #MESSAGES} the messages of the import as dictionaries with
+		 * {@value #FILE}, {@value #SEVERITY}, {@value #LEVEL} and {@value #MESSAGE} (texts in the
+		 * user's language).
+		 */
+		Map<String, Object> toMap() {
+			Map<String, Object> result = new HashMap<>();
+			result.put(PROJECT, _project);
+			result.put(SUMMARY, _resources.getString(
+				I18NConstants.IMPORT_SUMMARY__IMPORTED_COUNT.fill(String.join(", ", _imported), _messages.size())));
+			result.put(MESSAGES, _messages);
+			return result;
+		}
+
+		private static String severity(Level level) {
+			if (level.is(Level.ERROR)) {
+				return SEVERITY_ERROR;
+			} else if (level.is(Level.WARN)) {
+				return SEVERITY_WARNING;
+			} else {
+				return SEVERITY_INFO;
+			}
+		}
+
+		private static ResKey levelLabel(Level level) {
+			if (level.is(Level.ERROR)) {
+				return I18NConstants.LEVEL_ERROR;
+			} else if (level.is(Level.WARN)) {
+				return I18NConstants.LEVEL_WARNING;
+			} else {
+				return I18NConstants.LEVEL_INFO;
+			}
+		}
 	}
 
 	private static List<TLObject> projects() {

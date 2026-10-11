@@ -7,7 +7,9 @@
 	The row activation button is switched off: it does not select its row before pushing the frame,
 	so the breadcrumb would name the previously selected project (TL #29791, see doc/tl-todo.md).
 
-	A project is created empty or imported from an ETS project file (.knxproj). The table observes
+	A project is created empty or imported from an ETS project file (.knxproj); an import that
+	reports messages (values kept as text, unresolved references) shows them in a dialog
+	(import-report.view.xml). The table observes
 	projects, so a created, imported or deleted project is reflected without a reload.
 -->
 <view>
@@ -56,6 +58,15 @@
 					/>
 				</executability>
 				<import-ets-project/>
+				<if test='report -> $report["messages"]'>
+					<then>
+						<open-dialog
+							bind-input-to="report"
+							dialog-view="projects/import-report.view.xml"
+						/>
+					</then>
+				</if>
+				<execute-script function='report -> $report["project"]'/>
 				<write-channel name="project"/>
 			</upload-command>
 			<navigate-push

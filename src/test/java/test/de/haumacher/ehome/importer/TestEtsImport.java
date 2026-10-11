@@ -18,6 +18,7 @@ import test.com.top_logic.knowledge.KBSetup;
 
 import com.top_logic.basic.config.SimpleInstantiationContext;
 import com.top_logic.basic.config.TypedConfiguration;
+import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKeyUtil;
 import com.top_logic.element.meta.MetaElementUtil;
@@ -210,12 +211,12 @@ public class TestEtsImport extends BasicTestCase {
 
 		// A channel that depends on a parameter: a switch directly in the program.
 		importSample("src/test/fixtures/TestDynamic.knxproj");
-		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000B");
+		TLObject dynamic = byExtId("ehome.operational:Program", "M-0008_A-10D7-11-A0E5-O000C");
 		List<?> top = (List<?>) dynamic.tValueByName("contents");
 		assertEquals(1, top.size());
 		TLObject choice = (TLObject) top.get(0);
 		assertEquals("ehome.operational:Switch", TLModelUtil.qualifiedName(choice.tType()));
-		assertEquals("M-0008_A-10D7-11-A0E5-O000B_P-3762_R-3762",
+		assertEquals("M-0008_A-10D7-11-A0E5-O000C_P-3762_R-3762",
 			((TLObject) choice.tValueByName("input")).tValueByName("extId"));
 		List<?> cases = (List<?>) choice.tValueByName("alternatives");
 		assertEquals(2, cases.size());
@@ -429,15 +430,22 @@ public class TestEtsImport extends BasicTestCase {
 		return result.get(0);
 	}
 
-	public static void importSample(String file) throws Exception {
+	/**
+	 * Imports the given ETS project file in a transaction of its own.
+	 *
+	 * @return The messages of the import, see {@link Importer#getMessages()}.
+	 */
+	public static List<BufferingI18NLog.Entry> importSample(String file) throws Exception {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		ApplicationModelBinding binding = new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false);
+		Importer importer = new Importer(binding);
 		try (InputStream in = new FileInputStream(file)) {
 			try (Transaction tx = kb.beginTransaction()) {
-				new Importer(binding).importStream(in);
+				importer.importStream(in);
 				tx.commit();
 			}
 		}
+		return importer.getMessages();
 	}
 
 	public static List<TLObject> instances(String typeName) {

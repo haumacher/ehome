@@ -14,6 +14,7 @@ import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
 
@@ -28,10 +29,15 @@ import de.haumacher.ehome.knx.ParameterValues;
  * The type is read from the object's references, so they must be imported before this handler
  * runs. ETS files define the parameter types before the parameters, and the programs before the
  * projects using them, so the references are resolved at this point. A value that cannot be decoded
- * for its type is kept as text and reported as a warning with its location.
+ * for its type is kept as text and reported as a warning naming the parameter, with its location
+ * (see {@link Importer#getMessages()}).
  * </p>
  */
 public class TypedValueImport<C extends TypedValueImport.Config<?>> extends ConfiguredImportHandler<C> {
+
+	private static final String NAME = "name";
+
+	private static final String PARAMETER = "parameter";
 
 	/**
 	 * Configuration of {@link TypedValueImport}.
@@ -62,7 +68,27 @@ public class TypedValueImport<C extends TypedValueImport.Config<?>> extends Conf
 		TLObject self = (TLObject) context.getVar(ImportContext.THIS_VAR);
 		ResKey problem = ParameterValues.decode(self, value);
 		if (problem != null) {
-			context.log(Level.WARN, in.getLocation(), problem);
+			String name = parameterName(self);
+			context.log(Level.WARN, in.getLocation(),
+				name == null ? problem : I18NConstants.WARN_PARAMETER__NAME_PROBLEM.fill(name, problem));
+		}
+		return null;
+	}
+
+	/**
+	 * The name of the parameter whose value the given holder is: its own stored name, or that of
+	 * the parameter it refers to (a parameter reference without a name, a device setting).
+	 */
+	private static String parameterName(TLObject holder) {
+		TLObject current = holder;
+		while (current != null) {
+			TLStructuredTypePart namePart = current.tType().getPart(NAME);
+			if (namePart != null && !namePart.isDerived()
+				&& current.tValue(namePart) instanceof String name && !name.isBlank()) {
+				return name;
+			}
+			TLStructuredTypePart parameterPart = current.tType().getPart(PARAMETER);
+			current = parameterPart == null ? null : (TLObject) current.tValue(parameterPart);
 		}
 		return null;
 	}
