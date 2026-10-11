@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog creating a group address, opened from the dialog connecting an object to an address
+	(projects/connect-group-address.view.xml) on top of it.
+
+	"context" carries an object of the project (the device); "interface" the communication object
+	to be connected, whose datapoint type is proposed for the address. "address" is the address
+	chosen in the connect dialog: its range is proposed (otherwise the project's first range taking
+	addresses), and the created address is written to it, so that the connect dialog shows it
+	selected. "created" is an input of the connect dialog's address options, written before, so that
+	the options contain the new address. The address is created by groupAddressCreate
+	(de.haumacher.ehome.programming.GroupAddresses), which refuses an address outside the range or
+	taken already with the reason; the reason is shown while the address is entered.
+-->
+<view>
+	<channels>
+		<channel name="context"/>
+		<channel name="interface"/>
+		<channel name="address"/>
+		<channel name="created"/>
+		<!-- The range the user chose; empty for the proposal. -->
+		<channel name="chosenRange"/>
+		<derived-channel name="range"
+			expr="r -> c -> a -> if($r != null, $r, groupAddressDefaultRange($c, $a))"
+			inputs="chosenRange, context, address"
+			reverse="r -> $r"
+		/>
+		<!-- The address the user entered; empty for the next free one of the range. -->
+		<channel name="chosenNumber"/>
+		<derived-channel name="number"
+			expr="n -> r -> if($n != null, $n, groupAddressNextFree($r))"
+			inputs="chosenNumber, range"
+			reverse="n -> $n"
+		/>
+		<channel name="name"/>
+		<!-- The datapoint type the user chose; empty for the one of the object. -->
+		<channel name="chosenType"/>
+		<derived-channel name="datapointType"
+			inputs="chosenType, interface"
+			reverse="t -> $t"
+		>
+			<expr><![CDATA[t -> i -> if($t != null, $t, if($i == null, null, {
+    types = $i.get(`ehome.operational:Interface#datapointTypes`);
+    if($types.isEmpty(), $i.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $types.firstElement())
+}))]]></expr>
+		</derived-channel>
+		<derived-channel name="problem"
+			expr="r -> n -> groupAddressCreateProblem($r, $n)"
+			inputs="range, number"
+		/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>New group address</en>
+			<de>Neue Gruppenadresse</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<fields>
+					<value-input
+						inputs="context"
+						options="c -> groupAddressRanges($c)"
+						type="ehome.logical:GroupRange"
+						value="range"
+					>
+						<label>
+							<en>Group range</en>
+							<de>Gruppenbereich</de>
+						</label>
+					</value-input>
+					<value-input
+						type="ehome.logical:GA"
+						value="number"
+					>
+						<label>
+							<en>Address</en>
+							<de>Adresse</de>
+						</label>
+						<input-control class="de.haumacher.ehome.knx.GAControlProvider"/>
+					</value-input>
+					<value-input
+						type="tl.core:String"
+						value="name"
+					>
+						<label>
+							<en>Name</en>
+							<de>Name</de>
+						</label>
+					</value-input>
+					<value-input
+						type="ehome.datapoint:DatapointType"
+						value="datapointType"
+					>
+						<label>
+							<en>Datapoint type</en>
+							<de>Datenpunkttyp</de>
+						</label>
+					</value-input>
+				</fields>
+				<visible-if
+					expr="p -> $p != null"
+					input="problem"
+				>
+					<text
+						input="problem"
+						tone="warning"
+					/>
+				</visible-if>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-plus-lg"
+					input="range"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="n -> name -> t -> r -> groupAddressCreate($r, $n, $name, $t)">
+							<inputs>
+								<input channel="number"/>
+								<input channel="name"/>
+								<input channel="datapointType"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<!-- First the options of the connect dialog, then its choice. -->
+					<write-channel name="created"/>
+					<write-channel name="address"/>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>
