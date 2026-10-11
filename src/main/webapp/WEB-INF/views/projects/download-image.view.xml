@@ -2,7 +2,7 @@
 
 <!--
 	The download image of a device (de.haumacher.ehome.programming.DownloadImage#dump): per memory
-	block its bytes, 16 per line with their address; a byte not written shows as "--".
+	block its bytes, 16 per line with their address; a byte not written shows as two dashes.
 
 	"device" is the device.
 -->
