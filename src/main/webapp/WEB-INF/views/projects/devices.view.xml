@@ -186,7 +186,12 @@
 									/>
 									<column attribute="displayValue"
 										width="220"
-									/>
+									>
+										<label>
+											<en>Value</en>
+											<de>Wert</de>
+										</label>
+									</column>
 									<column attribute="displayDefault"
 										width="220"
 									/>

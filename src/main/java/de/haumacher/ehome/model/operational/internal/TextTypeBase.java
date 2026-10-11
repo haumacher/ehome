@@ -25,6 +25,15 @@ public interface TextTypeBase extends de.haumacher.ehome.model.operational.Param
 	String BITS_ATTR = "bits";
 
 	/**
+	 * Part <code>pattern</code> of <code>TextType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String PATTERN_ATTR = "pattern";
+
+	/**
 	 * Getter for part {@link #BITS_ATTR}.
 	 */
 	default int getBits() {
@@ -36,6 +45,20 @@ public interface TextTypeBase extends de.haumacher.ehome.model.operational.Param
 	 */
 	default void setBits(int newValue) {
 		tUpdateByName(BITS_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #PATTERN_ATTR}.
+	 */
+	default String getPattern() {
+		return (String) tValueByName(PATTERN_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #PATTERN_ATTR}.
+	 */
+	default void setPattern(String newValue) {
+		tUpdateByName(PATTERN_ATTR, newValue);
 	}
 
 }

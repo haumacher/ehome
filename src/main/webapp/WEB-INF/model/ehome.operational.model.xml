@@ -18,6 +18,36 @@
 			<classifier name="unsignedInt"/>
 			<classifier name="signedInt"/>
 		</enum>
+		<!-- How a floating point parameter is stored in the device (ETS: TypeFloat@Encoding). -->
+		<enum name="FloatEncoding">
+			<classifier name="DPT9"/>
+			<classifier name="IEEE754Single"/>
+			<classifier name="IEEE754Double"/>
+		</enum>
+		<!-- What a time parameter counts (ETS: TypeTime@Unit). -->
+		<enum name="TimeUnit">
+			<classifier name="Hours"/>
+			<classifier name="Minutes"/>
+			<classifier name="Seconds"/>
+			<classifier name="HundredMilliseconds"/>
+			<classifier name="TenMilliseconds"/>
+			<classifier name="Milliseconds"/>
+			<classifier name="PackedSecondsAndMilliseconds"/>
+			<classifier name="PackedDaysHoursMinutesAndSeconds"/>
+		</enum>
+		<!-- The role of the address an IP address parameter holds (ETS: TypeIPAddress@AddressType). -->
+		<enum name="IPAddressKind">
+			<classifier name="HostAddress"/>
+			<classifier name="GatewayAddress"/>
+			<classifier name="UnicastAddress"/>
+			<classifier name="BroadcastAddress"/>
+			<classifier name="MulticastAddress"/>
+			<classifier name="SubnetMask"/>
+		</enum>
+		<enum name="IPVersion">
+			<classifier name="IPv4"/>
+			<classifier name="IPv6"/>
+		</enum>
 		<enum name="ValueKind">
 			<classifier name="Value"/>
 			<classifier name="BinaryValue"/>
@@ -347,12 +377,290 @@
 			</attributes>
 		</class>
 		<!--
+			A holder of a parameter value: the parameter definition (its default), a placement of it in the
+			structure (the default at this place) and a device's setting (the value set in the project).
+
+			The value is typed, not kept as the text ETS writes: of the attributes choice, number, decimal and
+			text exactly the one fitting the kind of the holder's type (valueType) is used. An enumeration
+			holds the chosen entry of its type, a number or time an integer, a floating point type a
+			decimal, a text type its text. The text also keeps, unchanged, the values of the types the app
+			does not decode (date, IP address) and every value the import could not decode for its type. A
+			parameter without value (VoidType) holds nothing.
+
+			The notation of ETS (encodedValue) and the text a person reads (displayValue) are derived from
+			the typed value. Encoding and decoding live in one place (de.haumacher.ehome.knx.ParameterValues),
+			shared by the import and encodedValue.
+
+			The type of a holder is defined by the TL-Script function parameterValueType (Java:
+			ParameterValues.valueType), which navigates the stored references: a parameter's type, the type
+			of the parameter a placement places, the type of the parameter a setting sets. valueType is that
+			function; the constraints and the display call the function instead of reading valueType,
+			because a derived reference reads as empty where no user is logged in, as in the commit check
+			of an import (doc/tl-todo.md, "Derived references and the commit check"). The scripts a form
+			re-evaluates while editing (the visibility of the typed attributes and the options of choice)
+			write the same navigation in TL-Script, because the form cannot trace what a Java function
+			reads (doc/tl-todo.md, "Derived attributes in a form in edit mode").
+		-->
+		<interface name="ParameterValue">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- The type of the value (see parameterValueType). -->
+				<reference name="valueType"
+					kind="forwards"
+					type="ParameterType"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[h -> parameterValueType($h)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</reference>
+				<!-- The chosen entry of an enumeration type. -->
+				<reference name="choice"
+					kind="forwards"
+					type="EnumerationValue"
+				>
+					<annotations>
+						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> {
+    t = switch {
+        $self.instanceOf(`ehome.operational:Parameter`):
+            $self.get(`ehome.operational:Parameter#type`);
+        $self.instanceOf(`ehome.operational:ParameterView`):
+            $self.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+        default:
+            $self.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+    };
+    if($t.instanceOf(`ehome.operational:EnumerationType`), $t.get(`ehome.operational:EnumerationType#values`), [])
+}]]></function>
+							</options-by-expression>
+						</options>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> {
+    t = parameterValueType($obj);
+    if($value == null
+            or ($t.instanceOf(`ehome.operational:EnumerationType`)
+                and $t.get(`ehome.operational:EnumerationType#values`).containsElement($value)),
+        null,
+        #("The entry “{0}” is no value of the type {1}."@en, "Der Eintrag „{0}“ ist kein Wert des Typs {1}."@de)
+            .fill($value.get(`ehome.operational:EnumerationValue#name`).localize(), $t.get(`ehome.operational:ParameterType#name`)))
+}]]></check>
+							</constraint-by-expression>
+						</constraints>
+						<!-- Shown for a type of its kind, and wherever it holds a value, so that a value left from another type can be removed. -->
+						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[obj -> editMode -> {
+    t = switch {
+        $obj.instanceOf(`ehome.operational:Parameter`):
+            $obj.get(`ehome.operational:Parameter#type`);
+        $obj.instanceOf(`ehome.operational:ParameterView`):
+            $obj.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+        default:
+            $obj.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+    };
+    if($t.instanceOf(`ehome.operational:EnumerationType`) or $obj.get(`ehome.operational:ParameterValue#choice`) != null, null, "hidden")
+}]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The value of an integer or time type. -->
+				<property name="number"
+					type="tl.core:Long"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> {
+    t = parameterValueType($obj);
+    switch {
+        $value == null: null;
+        $t.instanceOf(`ehome.operational:NumericType`):
+            if($value < $t.get(`ehome.operational:NumericType#min`) or $value > $t.get(`ehome.operational:NumericType#max`),
+                #("The value must lie between {0} and {1}."@en, "Der Wert muss zwischen {0} und {1} liegen."@de)
+                    .fill($t.get(`ehome.operational:NumericType#min`), $t.get(`ehome.operational:NumericType#max`)),
+                null);
+        $t.instanceOf(`ehome.operational:TimeType`):
+            if($value < $t.get(`ehome.operational:TimeType#min`) or $value > $t.get(`ehome.operational:TimeType#max`),
+                #("The value must lie between {0} and {1}."@en, "Der Wert muss zwischen {0} und {1} liegen."@de)
+                    .fill($t.get(`ehome.operational:TimeType#min`), $t.get(`ehome.operational:TimeType#max`)),
+                null);
+        default: null;
+    }
+}]]></check>
+							</constraint-by-expression>
+						</constraints>
+						<!-- Shown for a type of its kind, and wherever it holds a value, so that a value left from another type can be removed. -->
+						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[obj -> editMode -> {
+    t = switch {
+        $obj.instanceOf(`ehome.operational:Parameter`):
+            $obj.get(`ehome.operational:Parameter#type`);
+        $obj.instanceOf(`ehome.operational:ParameterView`):
+            $obj.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+        default:
+            $obj.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+    };
+    if($t.instanceOf(`ehome.operational:NumericType`) or $t.instanceOf(`ehome.operational:TimeType`) or $obj.get(`ehome.operational:ParameterValue#number`) != null, null, "hidden")
+}]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</property>
+				<!-- The value of a floating point type. -->
+				<property name="decimal"
+					type="tl.core:Double"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> {
+    t = parameterValueType($obj);
+    if($value != null and $t.instanceOf(`ehome.operational:FloatingPointType`)
+            and ($value < $t.get(`ehome.operational:FloatingPointType#min`) or $value > $t.get(`ehome.operational:FloatingPointType#max`)),
+        #("The value must lie between {0} and {1}."@en, "Der Wert muss zwischen {0} und {1} liegen."@de)
+            .fill($t.get(`ehome.operational:FloatingPointType#min`), $t.get(`ehome.operational:FloatingPointType#max`)),
+        null)
+}]]></check>
+							</constraint-by-expression>
+						</constraints>
+						<!-- Shown for a type of its kind, and wherever it holds a value, so that a value left from another type can be removed. -->
+						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[obj -> editMode -> {
+    t = switch {
+        $obj.instanceOf(`ehome.operational:Parameter`):
+            $obj.get(`ehome.operational:Parameter#type`);
+        $obj.instanceOf(`ehome.operational:ParameterView`):
+            $obj.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+        default:
+            $obj.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+    };
+    if($t.instanceOf(`ehome.operational:FloatingPointType`) or $obj.get(`ehome.operational:ParameterValue#decimal`) != null, null, "hidden")
+}]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</property>
+				<!--
+					The value of a text type; for a date, an IP address and every value the app does not decode,
+					the value as ETS writes it.
+				-->
+				<property name="text"
+					type="tl.core:String"
+				>
+					<annotations>
+						<!--
+							Warnings only: a text is a fact from ETS, not user input, and a manufacturer's pattern must
+							not reject an import. A pattern Java cannot compile restricts nothing (matchesPattern).
+						-->
+						<constraints>
+							<constraint-by-expression type="warning">
+								<check><![CDATA[value -> obj -> {
+    t = parameterValueType($obj);
+    pattern = if($t.instanceOf(`ehome.operational:TextType`), $t.get(`ehome.operational:TextType#pattern`), null);
+    switch {
+        $value == null or !$t.instanceOf(`ehome.operational:TextType`): null;
+        $value.length() > $t.get(`ehome.operational:TextType#bits`) / 8:
+            #("At most {0} characters are allowed."@en, "Höchstens {0} Zeichen sind erlaubt."@de)
+                .fill(numberFormat("0").format($t.get(`ehome.operational:TextType#bits`) / 8));
+        !matchesPattern($value, $pattern):
+            #("The text does not match the pattern {0}."@en, "Der Text passt nicht zum Muster {0}."@de).fill($pattern);
+        default: null;
+    }
+}]]></check>
+							</constraint-by-expression>
+						</constraints>
+						<!-- Shown for a type of its kind, and wherever it holds a value, so that a value left from another type can be removed. -->
+						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[obj -> editMode -> {
+    t = switch {
+        $obj.instanceOf(`ehome.operational:Parameter`):
+            $obj.get(`ehome.operational:Parameter#type`);
+        $obj.instanceOf(`ehome.operational:ParameterView`):
+            $obj.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+        default:
+            $obj.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+    };
+    if($t.instanceOf(`ehome.operational:TextType`) or $t.instanceOf(`ehome.operational:DateType`) or $t.instanceOf(`ehome.operational:IPAddressType`) or $obj.get(`ehome.operational:ParameterValue#text`) != null, null, "hidden")
+}]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</property>
+				<!-- The value in the notation ETS writes it in; empty if the holder holds no value. -->
+				<property name="encodedValue"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[h -> encodedParameterValue($h)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!--
+					The value as a person reads it: the text of an enumeration entry, a time with its unit, a
+					decimal in the format of the type; empty if the holder holds no value.
+				-->
+				<property name="displayValue"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[h -> {
+    t = parameterValueType($h);
+    choice = $h.get(`ehome.operational:ParameterValue#choice`);
+    number = $h.get(`ehome.operational:ParameterValue#number`);
+    decimal = $h.get(`ehome.operational:ParameterValue#decimal`);
+    switch {
+        $choice != null:
+            $choice.get(`ehome.operational:EnumerationValue#name`).localize();
+        $number != null and $t.instanceOf(`ehome.operational:TimeType`):
+            "{0} {1}".fill(numberFormat("0").format($number), $t.get(`ehome.operational:TimeType#unit`).label());
+        $number != null:
+            numberFormat("0").format($number);
+        $decimal != null: {
+            decimals = if($t.instanceOf(`ehome.operational:FloatingPointType`), $t.get(`ehome.operational:FloatingPointType#decimals`), null);
+            numberFormat(switch {
+                $decimals == null: "0.##########";
+                $decimals <= 0: "0";
+                default: "0." + subString("0000000000", 0, if($decimals > 10, 10, $decimals));
+            }).format($decimal)
+        };
+        default: $h.get(`ehome.operational:ParameterValue#text`);
+    }
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</interface>
+		<!--
 			A parameter placed in the configuration structure (ETS: ParameterRef, placed by ParameterRefRef):
 			the parameter definition with the text, default and access it has at this place.
 		-->
 		<class name="ParameterView">
 			<generalizations>
 				<generalization type="Option"/>
+				<generalization type="ParameterValue"/>
 				<generalization type="ehome.core:Externalized"/>
 			</generalizations>
 			<annotations>
@@ -379,22 +687,27 @@
 					kind="forwards"
 					type="AccessKind"
 				/>
-				<!-- The default this reference sets for the parameter; empty for the parameter's own one. -->
-				<property name="defaultValue"
-					type="tl.core:String"
-				/>
-				<property name="effectiveDefault"
-					type="tl.core:String"
+				<!--
+					Who supplies the default at this place: the reference itself if it sets a default (its typed
+					value), otherwise the parameter.
+				-->
+				<reference name="defaultSource"
+					kind="forwards"
+					type="ParameterValue"
 				>
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[p -> $p.get(`ehome.operational:ParameterView#defaultValue`)
-    || $p.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#defaultValue`)]]></expr>
+								<expr><![CDATA[p -> if($p.get(`ehome.operational:ParameterValue#choice`) != null
+        or $p.get(`ehome.operational:ParameterValue#number`) != null
+        or $p.get(`ehome.operational:ParameterValue#decimal`) != null
+        or $p.get(`ehome.operational:ParameterValue#text`) != null,
+    $p,
+    $p.get(`ehome.operational:ParameterView#parameter`))]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>
-				</property>
+				</reference>
 				<!-- The access of the reference, otherwise of the parameter; ETS defaults to ReadWrite. -->
 				<reference name="effectiveAccess"
 					kind="forwards"
@@ -428,23 +741,14 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
-				<!-- The default as the user reads it: for an enumeration the text of the entry. -->
+				<!-- The default in effect at this place as the user reads it (see defaultSource). -->
 				<property name="displayDefault"
 					type="tl.core:String"
 				>
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[p -> {
-    value = $p.get(`ehome.operational:ParameterView#effectiveDefault`);
-    type = $p.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-    if($type.instanceOf(`ehome.operational:EnumerationType`),
-        $type.get(`ehome.operational:EnumerationType#values`)
-            .filter(v -> numberFormat("0").format($v.get(`ehome.operational:EnumerationValue#value`)) == $value)
-            .firstElement()
-            .get(`ehome.operational:EnumerationValue#name`).localize() || $value,
-        $value)
-}]]></expr>
+								<expr><![CDATA[p -> $p.get(`ehome.operational:ParameterView#defaultSource`).get(`ehome.operational:ParameterValue#displayValue`)]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>
@@ -525,6 +829,7 @@
 		<class name="Parameter">
 			<generalizations>
 				<generalization type="ehome.core:Externalized"/>
+				<generalization type="ParameterValue"/>
 			</generalizations>
 			<annotations>
 				<instance-presentation icon="css:bi bi-sliders2"/>
@@ -546,10 +851,6 @@
 					kind="forwards"
 					mandatory="true"
 					type="AccessKind"
-				/>
-				<!-- The value the parameter has unless a reference or a device sets another one. -->
-				<property name="defaultValue"
-					type="tl.core:String"
 				/>
 				<reference name="address"
 					inverse-reference="usage"
@@ -575,6 +876,7 @@
 				/>
 			</attributes>
 		</interface>
+		<!-- A date (always encoded as DPT 11); the value is kept as ETS writes it. -->
 		<class name="DateType">
 			<generalizations>
 				<generalization type="ParameterType"/>
@@ -582,6 +884,12 @@
 			<annotations>
 				<table name="EHParameterType"/>
 			</annotations>
+			<attributes>
+				<!-- Whether the parameter dialog shows the year (ETS: DisplayTheYear). -->
+				<property name="showsYear"
+					type="tl.core:Boolean"
+				/>
+			</attributes>
 		</class>
 		<class name="EnumerationType">
 			<generalizations>
@@ -617,7 +925,27 @@
 			<annotations>
 				<table name="EHParameterType"/>
 			</annotations>
+			<attributes>
+				<reference name="encoding"
+					kind="forwards"
+					mandatory="true"
+					type="FloatEncoding"
+				/>
+				<property name="min"
+					mandatory="true"
+					type="tl.core:Double"
+				/>
+				<property name="max"
+					mandatory="true"
+					type="tl.core:Double"
+				/>
+				<!-- The number of decimal places a value is shown with (from ETS: DisplayFormat); empty for as many as needed. -->
+				<property name="decimals"
+					type="tl.core:Integer"
+				/>
+			</attributes>
 		</class>
+		<!-- An IP address; the value is kept as ETS writes it. -->
 		<class name="IPAddressType">
 			<generalizations>
 				<generalization type="ParameterType"/>
@@ -625,6 +953,18 @@
 			<annotations>
 				<table name="EHParameterType"/>
 			</annotations>
+			<attributes>
+				<reference name="addressKind"
+					kind="forwards"
+					mandatory="true"
+					type="IPAddressKind"
+				/>
+				<reference name="version"
+					kind="forwards"
+					mandatory="true"
+					type="IPVersion"
+				/>
+			</attributes>
 		</class>
 		<class name="NumericType">
 			<generalizations>
@@ -661,12 +1001,18 @@
 				<table name="EHParameterType"/>
 			</annotations>
 			<attributes>
+				<!-- The size of the text: eight bits per character. -->
 				<property name="bits"
 					mandatory="true"
 					type="tl.core:Integer"
 				/>
+				<!-- A regular expression every value must match; empty for any text. -->
+				<property name="pattern"
+					type="tl.core:String"
+				/>
 			</attributes>
 		</class>
+		<!-- A duration or time of day, counted in a unit. -->
 		<class name="TimeType">
 			<generalizations>
 				<generalization type="ParameterType"/>
@@ -674,6 +1020,25 @@
 			<annotations>
 				<table name="EHParameterType"/>
 			</annotations>
+			<attributes>
+				<property name="bits"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<reference name="unit"
+					kind="forwards"
+					mandatory="true"
+					type="TimeUnit"
+				/>
+				<property name="min"
+					mandatory="true"
+					type="tl.core:Long"
+				/>
+				<property name="max"
+					mandatory="true"
+					type="tl.core:Long"
+				/>
+			</attributes>
 		</class>
 		<class name="VoidType">
 			<generalizations>

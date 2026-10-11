@@ -8,7 +8,11 @@ Test project adds them, and marks the device as fully downloaded after its last 
 TestDynamic.knxproj: the samples contain no channels that depend on a parameter (a choose directly
 below Dynamic). This copy gives the application program a new ID (so that an import does not skip it
 as known), a name marking it as test data, and wraps its channel in such a choose (on a parameter
-chosen only for the test), with a default case.
+chosen only for the test), with a default case. The samples contain only enumeration, integer, text and
+void parameter types; the program of this copy adds one parameter of every other kind (floating point,
+time, text with a pattern, date, IP address) to its block "Allgemein", with a default each, and the
+device sets the floating point parameter. The values are written in the notation of XML (a decimal
+point, an ISO date, a dotted IP address), as ETS writes its files.
 
 The projects of both fixtures are named after the fixture, not "Test".
 
@@ -82,6 +86,8 @@ def dynamic(name, xml):
     xml = xml.replace(VERSION, NEW_VERSION)
     if name == PROJECT_INFO:
         return rename_project(xml, 'TestDynamic')
+    if name == PROJECT:
+        return typed_setting(xml)
     if name.endswith(PROGRAM + '.xml'):
         assert xml.count('"' + PROGRAM_NAME + '"') == 2
         xml = xml.replace('"' + PROGRAM_NAME + '"', '"' + TEST_PROGRAM_NAME + '"')
@@ -94,7 +100,60 @@ def dynamic(name, xml):
             + xml[start:end]
             + '</when><when default="true" /></choose>'
             + xml[end:])
+        xml = typed_parameters(xml)
     return xml
+
+
+# Parameter types, parameters and references of the kinds the samples lack (IDs in the ETS scheme of
+# the program), and where they are placed.
+NEW_TYPES = [
+    ('Test.5FFloat', 'Test_Float',
+        '<TypeFloat Encoding="DPT 9" minInclusive="0" maxInclusive="100" DisplayFormat="0.0" />'),
+    ('Test.5FTime', 'Test_Time',
+        '<TypeTime SizeInBit="16" Unit="Seconds" minInclusive="0" maxInclusive="3600" />'),
+    ('Test.5FPattern', 'Test_Pattern',
+        '<TypeText SizeInBit="80" Pattern="[A-ZÄÖÜ][a-zäöüß]+" />'),
+    ('Test.5FDate', 'Test_Date', '<TypeDate Encoding="DPT 11" DisplayTheYear="false" />'),
+    ('Test.5FIP', 'Test_IP', '<TypeIPAddress AddressType="GatewayAddress" />'),
+]
+NEW_PARAMETERS = [
+    ('9001', 'Test.5FFloat', 'Sollwert', '20.5'),
+    ('9002', 'Test.5FTime', 'Verzögerung', '90'),
+    ('9003', 'Test.5FPattern', 'Raumname', 'Küche'),
+    ('9004', 'Test.5FDate', 'Stichtag', '2025-08-06'),
+    ('9005', 'Test.5FIP', 'Gateway', '192.168.1.1'),
+]
+# The value the device of the project sets for the floating point parameter.
+NEW_SETTING = ('9001', '21.75')
+
+
+def typed_parameters(xml):
+    prefix = NEW_PROGRAM + '_'
+    types = ''.join('<ParameterType Id="' + prefix + 'PT-' + tid + '" Name="' + name + '">'
+        + body + '</ParameterType>\n' for tid, name, body in NEW_TYPES)
+    parameters = ''.join('<Parameter Id="' + prefix + 'P-' + pid + '" Name="' + text + '" Text="' + text
+        + '" ParameterType="' + prefix + 'PT-' + tid + '" Access="ReadWrite" Value="' + value + '" />\n'
+        for pid, tid, text, value in NEW_PARAMETERS)
+    refs = ''.join('<ParameterRef Id="' + prefix + 'P-' + pid + '_R-' + pid + '" RefId="' + prefix + 'P-'
+        + pid + '" Tag="' + pid + '" />\n' for pid, _, _, _ in NEW_PARAMETERS)
+    placements = ''.join('<ParameterRefRef RefId="' + prefix + 'P-' + pid + '_R-' + pid + '" />\n'
+        for pid, _, _, _ in NEW_PARAMETERS)
+    for end, content in (('</ParameterTypes>', types), ('</Parameters>', parameters),
+                         ('</ParameterRefs>', refs)):
+        assert xml.count(end) == 1
+        xml = xml.replace(end, content + end, 1)
+    block = '<ParameterBlock Id="' + prefix + 'PB-3762" '
+    assert xml.count(block) == 1
+    start = xml.index('>', xml.index(block)) + 1
+    return xml[:start] + '\n' + placements + xml[start:]
+
+
+def typed_setting(xml):
+    refs = '<ParameterInstanceRefs>'
+    assert xml.count(refs) == 1
+    pid, value = NEW_SETTING
+    return xml.replace(refs, refs + '\n<ParameterInstanceRef RefId="' + NEW_PROGRAM + '_P-' + pid + '_R-' + pid
+        + '" Value="' + value + '" />', 1)
 
 
 def write(target, modify):

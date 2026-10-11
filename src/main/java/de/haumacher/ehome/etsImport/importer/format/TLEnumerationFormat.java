@@ -16,7 +16,12 @@ import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.util.TLModelUtil;
 
 /**
- * TODO
+ * Format reading a classifier of an enumeration by its name.
+ *
+ * <p>
+ * A value that is no identifier is matched with its letters, digits and underscores only, so that
+ * the classifier <code>DPT9</code> reads the ETS value <code>DPT 9</code>.
+ * </p>
  *
  * @author <a href="mailto:bhu@top-logic.com">Bernhard Haumacher</a>
  */
@@ -80,6 +85,11 @@ public class TLEnumerationFormat extends AbstractConfigurationValueProvider<TLCl
 	protected TLClassifier getValueNonEmpty(String propertyName, CharSequence propertyValue)
 			throws ConfigurationException {
 		TLClassifier result = _type.getClassifier(propertyValue.toString());
+		if (result == null) {
+			// ETS values that are no identifiers, such as "DPT 9" or "IEEE-754 Single", name the
+			// classifier without their other characters ("DPT9", "IEEE754Single").
+			result = _type.getClassifier(propertyValue.toString().replaceAll("[^A-Za-z0-9_]", ""));
+		}
 		if (result == null) {
 			throw new ConfigurationException("No such classifier '" + propertyValue + "' in '" + _type + "'.");
 		}

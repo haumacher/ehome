@@ -15,4 +15,27 @@ public interface DateTypeBase extends de.haumacher.ehome.model.operational.Param
 	 */
 	String DATE_TYPE_TYPE = "DateType";
 
+	/**
+	 * Part <code>showsYear</code> of <code>DateType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String SHOWS_YEAR_ATTR = "showsYear";
+
+	/**
+	 * Getter for part {@link #SHOWS_YEAR_ATTR}.
+	 */
+	default boolean getShowsYear() {
+		return (Boolean) tValueByName(SHOWS_YEAR_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #SHOWS_YEAR_ATTR}.
+	 */
+	default void setShowsYear(boolean newValue) {
+		tUpdateByName(SHOWS_YEAR_ATTR, newValue);
+	}
+
 }

@@ -300,11 +300,12 @@
 		</class>
 		<!--
 			A parameter value of a device that differs from the default of its application program. The
-			value is kept as ETS writes it; displayValue shows it as the user reads it.
+			value is typed like every parameter value (ehome.operational:ParameterValue).
 		-->
 		<class name="ParameterSetting">
 			<generalizations>
 				<generalization type="tl.model:TLObject"/>
+				<generalization type="ehome.operational:ParameterValue"/>
 			</generalizations>
 			<annotations>
 				<instance-presentation icon="css:bi bi-sliders"/>
@@ -314,9 +315,6 @@
 					kind="forwards"
 					mandatory="true"
 					type="ehome.operational:ParameterView"
-				/>
-				<property name="value"
-					type="tl.core:String"
 				/>
 				<property name="name"
 					type="tl.core:String"
@@ -329,26 +327,7 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
-				<property name="displayValue"
-					type="tl.core:String"
-				>
-					<annotations>
-						<storage-algorithm>
-							<query>
-								<expr><![CDATA[s -> {
-    value = $s.get(`ehome.physical:ParameterSetting#value`);
-    type = $s.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-    if($type.instanceOf(`ehome.operational:EnumerationType`),
-        $type.get(`ehome.operational:EnumerationType#values`)
-            .filter(v -> numberFormat("0").format($v.get(`ehome.operational:EnumerationValue#value`)) == $value)
-            .firstElement()
-            .get(`ehome.operational:EnumerationValue#name`).localize() || $value,
-        $value)
-}]]></expr>
-							</query>
-						</storage-algorithm>
-					</annotations>
-				</property>
+				<!-- The default in effect where the program places the parameter. -->
 				<property name="displayDefault"
 					type="tl.core:String"
 				>

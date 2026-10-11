@@ -10,7 +10,7 @@ The XSD itself is not public and not in the repository.
 
 ## Overall
 
-- Of 408 element paths of the schema, 154 are handled by the import; of 1138 attribute slots, 282 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
+- Of 408 element paths of the schema, 154 are handled by the import; of 1138 attribute slots, 294 are read. The content of the `Languages` sections is read by a handler of its own (`translations`) and shows as not handled in the table.
 - The model has a counterpart for exactly what the import reads, and almost nothing more. The only stored model attribute the import never fills is `ehome.catalog:Manufacturer#id` (it would be `KnxManufacturerId`). So "covered by the model" and "read by the import" mean the same thing here.
 - Many unread attributes are irrelevant for E-Home (ETS bookkeeping: `Hash`, `NonRegRelevantDataVersion`, `CompletionStatus`, `LastModified`, passwords, history, to-dos). The gaps below are those that matter for understanding or operating an installation.
 
@@ -22,9 +22,9 @@ The XSD itself is not public and not in the repository.
 | Manufacturers | `MasterData/Manufacturers/Manufacturer` (Id, Name) | `ehome.catalog:Manufacturer` |
 | Catalog | `CatalogSection` (Id, Name), `CatalogItem` → product | `ehome.catalog:Catalog` |
 | Hardware | `Hardware` (Id, Name, SerialNumber, VersionNumber), `Product` (Id, Text, OrderNumber), `Hardware2Program` | `Product`, `Variant`, `ProgramAssignment` |
-| Application program, static part | `AbsoluteSegment`, `ParameterType` (`TypeNumber`, `TypeRestriction`/`Enumeration`, `TypeText`, other kinds as type only), `Parameter`/`Union` with `Memory`, `ParameterRef`, `ComObject` (all flags), `ComObjectRef` (Text, Tag, FunctionText, DatapointType) | `ehome.operational:*` |
+| Application program, static part | `AbsoluteSegment`, `ParameterType` (`TypeNumber`, `TypeRestriction`/`Enumeration`, `TypeText` with `Pattern`, `TypeFloat`, `TypeTime`, `TypeDate`, `TypeIPAddress`, `TypeNone`), `Parameter`/`Union` with `Memory`, `ParameterRef`, `ComObject` (all flags), `ComObjectRef` (Text, Tag, FunctionText, DatapointType) | `ehome.operational:*` |
 | Application program, dynamic part | `ChannelIndependentBlock`, `Channel`, `ParameterBlock`, `choose`/`when`, `ParameterRefRef`, `ComObjectRefRef` | `Channel`, `ChannelIndependent`, `ParameterGroup`, `Switch`, `Case`, `ParameterView`, `Port` |
-| Parameter values | `Parameter@Value`, `ParameterRef@Value` (defaults), `DeviceInstance/ParameterInstanceRefs` (values changed in the project) | `defaultValue` of `Parameter` and `ParameterView`, `ehome.physical:ParameterSetting` |
+| Parameter values | `Parameter@Value`, `ParameterRef@Value` (defaults), `DeviceInstance/ParameterInstanceRefs` (values changed in the project) | the typed value of `ehome.operational:ParameterValue` (`Parameter`, `ParameterView`, `ehome.physical:ParameterSetting`), decoded by the parameter's type |
 | Translations | `Languages/…/Translation` of master and manufacturer data, `DefaultLanguage` | the texts of datapoint types, catalogs, products, programs, parameters, enumeration entries, communication objects, channels and parameter blocks as `I18NString` |
 | Project | `Project` (Id), `ProjectInformation` (Name, GroupAddressStyle) | `ehome.project:Project` |
 | Topology | `Area`, `Line` (Id, Name, Address), `DeviceInstance` (Id, product, program, Address), `ComObjectInstanceRef` (flags, texts), `Send`/`Receive` connectors | `ehome.physical:*` |
@@ -38,16 +38,25 @@ Ordered by how much they limit E-Home. "In samples" says whether the fixtures co
 | # | Missing | Why it matters | In samples |
 |---|---|---|---|
 | 1 | ~~Datapoint types~~ | Done: module `ehome.datapoint`, page "Datenpunkttypen". | |
-| 2 | ~~Parameter values~~ | Done: `Parameter`/`ParameterView#defaultValue`, `ehome.physical:ParameterSetting` (`Device#settings`), table "Parametereinstellungen" of a device. | |
+| 2 | ~~Parameter values~~ | Done: the typed values of `Parameter`, `ParameterView` and `ehome.physical:ParameterSetting` (`Device#settings`), table "Parametereinstellungen" of a device; see gap 8 for how they are typed. | |
 | 3 | ~~Translations~~ | Done: translated texts are `tl.model.i18n:I18NString` attributes, filled from the element's `DefaultLanguage` and the `Languages` sections. Only the languages the application offers (de, en) are stored. | |
 | 4 | ~~Device details~~ | Done: `Device` title, description, installation hints, serial number, download state (`loaded`, `lastModified`, `lastDownload`, derived `downloadPending`), `Connector#active`, `Project#unassignedDevices`. `Comment` (RTF) is not imported. | |
 | 5 | ~~Group range and address details~~ | Done: `GroupRange#rangeStart`/`rangeEnd` (type `GA`), `unfiltered`, `description`, `GroupAddress#central`, ETS-style labels (`displayName`), constraint `WithinGroupRange`. `Comment` (RTF) and `Global` (meaning unclear) are not imported. | |
 | 6 | ~~Conditional channels~~ | Done: `Program` is the root `ConfigFragment` of its structure; channels are `Option`s and may be in a `Case`; `Case#isDefault`; `ParameterRefRef`/`ComObjectRefRef` are `ParameterEntry`/`InterfaceEntry` objects owned by the structure. Editable in the catalog (`catalogs/program.view.xml`). | |
 | 7 | UI structure of parameters: `ParameterSeparator`, `Assign`, `ParameterBlockRename`, `ParameterCalculations` | Parameter pages look different from ETS; `Assign` changes parameter values. | `ParameterSeparator` 12, `Assign` 4 |
-| 8 | Parameter type details: `TypeFloat`, `TypeTime`, `TypeDate`, `TypeIPAddress` attributes (range, unit, encoding), `TypePicture`, `TypeNumber@UIHint`, `TypeText@Pattern` | The model has `FloatingPointType`, `TimeType`, `DateType`, `IPAddressType`, but without their properties, so such values cannot be validated or shown properly. | no |
+| 8 | ~~Parameter type details~~ | Done: every parameter type carries its properties (`FloatingPointType`: encoding, range, decimal places; `TimeType`: size, unit, range; `DateType`: whether the year is shown; `IPAddressType`: address kind, IP version; `TextType`: size and pattern), and a parameter value is typed by its parameter's type (`ParameterValue`: the entry of an enumeration, a number for an integer or time, a decimal, a text; the ETS notation `encodedValue` and the readable `displayValue` are derived). Defaults are edited by type and checked against the type's range and entries (errors) and its size and pattern (warnings only, so that a manufacturer's value or pattern never rejects an import; a pattern Java cannot compile is ignored). `TypePicture` is not supported. Test data: `TestDynamic.knxproj` (no sample contains the other kinds). | partly |
 | 9 | Download data: `AddressTable`, `AssociationTable`, `LoadProcedures`, `RelativeSegment`, `AbsoluteSegment/Data`, `Mask`, `Options`, `Extension`, `BinaryData`, `MaskVersions` | Only needed to program devices from E-Home. | partly (3–4 each) |
 | 10 | Trades (`Installation/Trades`), `Installation` Name, Line `MediumTypeRefId`, `BusAccess`, IP settings (`IPConfig`, `IPRoutingMulticastAddress`) | Trades are a second structure next to buildings; medium and IP settings matter for bus access. | no |
 | 11 | Hardware properties: `IsCoupler`, `IsPowerSupply`, `IsIPEnabled`, `BusCurrent`, `HasIndividualAddress`, …; `Product` `IsRailMounted`, `WidthInMillimeter`; Manufacturer `KnxManufacturerId` | Device classification and planning data. | yes |
+
+Deliberately not read for parameter types:
+
+- `UIHint` of `TypeNumber`, `TypeFloat` and `TypeTime` (slider, checkbox, time layouts): a hint for the ETS parameter editor, not a property of the value.
+- `TypeFloat@DisplayFormat` is read only for its number of decimal places (`decimals`); its grouping and exponent are not modeled.
+- `TypeDate@Encoding`: the only value is DPT 11, so it carries no information. Date and IP address values are kept as ETS writes them (`text`), they are not decoded into dates or addresses.
+- `TypePicture` (a picture shown in the parameter dialog, no value): not supported; the import has no handler for it.
+
+Value notation: ETS writes values in XML notation. A floating point value is read as an `xs:double` (a decimal point, optionally an exponent) and written back as a plain decimal with a point (`20.5`); the samples contain no floating point value, so this is an assumption taken from the XML schema (`Value` is a plain string there). A value that does not fit its type (not a number, outside the range, no entry of the enumeration) is kept unchanged as text, and the import logs a warning with its location.
 
 Not needed for E-Home: `ProjectInformation` bookkeeping (numbers, dates, passwords, tracing), `HistoryEntries`, `ToDoItems`, `ProjectTraces`, `UserFiles`, `AddInData`, `SplitInfos`, `Baggages`, `PublicKeys`, `OrderNumberFormattingScript`, `InterfaceObject*`, `PropertyDataTypes`, `MediumTypes`, and all `Hash`/`CheckSums`/`NonRegRelevantDataVersion`/`CompletionStatus` attributes.
 

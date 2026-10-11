@@ -75,6 +75,68 @@ the engine's XML import (`com.top_logic.xio`) cannot do yet:
   unknown IDs. **When available:** declare the lookup in `etsImporter.xml`, and express the
   translations with `<with-var>`, `<object-ref>` (optional), `<switch>` and `<set-translation>`.
 
+## Derived references and the commit check (ticket pending)
+
+A derived reference (`<storage-algorithm><query>`) is computed with security disabled in its
+expression, but `AttributeByExpression#getAttributeValue` runs it through a `QueryExecutor` whose
+result filter for the reading user's rights stays on. Where no user is logged in - the commit check
+of `ModelService`, which runs the `<constraint-by-expression>` checks, in tests and in background
+work - the derived reference reads as empty for every object not created in the current
+transaction. Reproduction: the constraint
+
+```
+value -> obj -> if($obj.get(`m:T#derivedRef`) == null, "empty", null)
+```
+
+on an object whose derived reference points to an object of an earlier commit rejects every commit
+without a user (seen with `ParameterValue#valueType` when `TestEtsImport` imported a second project
+using an already known program).
+
+Workaround: the options, constraints, visibility and display of `ehome.operational:ParameterValue`
+call the TL-Script function `parameterValueType` (`ParameterValues.valueType`, navigating the stored
+references) instead of reading the derived `valueType`.
+
+**When fixed:** read `ParameterValue#valueType` in those scripts instead of calling the function.
+
+## Derived attributes in a form in edit mode (ticket pending)
+
+A derived attribute shown in a form does not follow the values entered in the same form: in the
+details of a placed parameter (`catalogs/program.view.xml`), "Wirksame Vorgabe"
+(`ParameterView#displayDefault`) and "Vorgabe von" (`ParameterView#defaultSource`) keep their stored
+state while a default is entered or the parameter is changed, and show the new state only after
+saving. Both read other derived attributes (`defaultSource`, `displayValue`).
+
+The same holds for a script calling a TL-Script function implemented in Java, such as
+`parameterValueType`: the script tracer records only the model
+accesses written in TL-Script, so a function implemented in Java (`GenericMethod`) cannot declare
+what it reads, and changing the parameter in the form does not show the field of the new type's kind
+until saving. The engine needs a way for a script function to report its dependencies to the
+tracer.
+
+Workaround: the scripts a form re-evaluates while editing - the four `dynamic-visibility` scripts
+of the typed attributes of `ehome.operational:ParameterValue` and the options of its `choice` -
+write the navigation to the parameter type in TL-Script instead of calling `parameterValueType`;
+the constraints (run at save and commit) and the display keep calling the function. No workaround
+for the derived fields: they are correct after saving.
+
+**When fixed:** call `parameterValueType` in the visibility and options scripts of `ParameterValue`.
+
+## Model change of an existing database: new generalization with overrides (ticket pending)
+
+Adding a generalization to a class and, in the same change, overriding attributes of the new
+generalization (`ehome.physical:ParameterSetting` became an `ehome.operational:ParameterValue` and
+overrides `number`, `decimal`, `text`) cannot be applied to an existing database: the model patch
+at startup aborts with "Override failed. ehome.physical:ParameterSetting#number is declared to be an
+override, but is not overriding anything (ehome.physical:ParameterSetting extends
+tl.model:TLObject.)" - the overrides are applied before the generalization. A new database is set
+up correctly.
+
+Workaround: none; the local database (`tmp/`) was reset for this change (there is no production
+data yet). The app no longer contains such an override: the overrides were later removed and the
+typed attributes are labeled on the interface only.
+
+**When fixed:** nothing to remove; check that such a change applies to an existing database.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not

@@ -3,7 +3,8 @@
 <!--
 	An application program in the catalog: its configuration structure (channels, the channel
 	independent part, parameter blocks, switches with their cases, and the parameters and
-	communication objects placed in them), and its parameters with their defaults.
+	communication objects placed in them), its parameters with their types and defaults, and its
+	parameter types.
 
 	The structure tab creates, edits and deletes structure elements. A placed parameter (communication
 	object) is edited at its place: which definition it places, and its text, default and access there.
@@ -34,6 +35,17 @@
 			expr="n -> if($n.instanceOf(`ehome.operational:Switch`), $n, null)"
 			inputs="selected"
 		/>
+		<!-- The parameter definition a selected parameter reference places, and its type. -->
+		<derived-channel name="placedParameter"
+			expr="n -> if($n.instanceOf(`ehome.operational:ParameterView`), $n.get(`ehome.operational:ParameterView#parameter`), null)"
+			inputs="selected"
+		/>
+		<derived-channel name="placedType"
+			expr="p -> $p.get(`ehome.operational:Parameter#type`)"
+			inputs="placedParameter"
+		/>
+		<!-- The parameter type selected in the types tab. -->
+		<channel name="selectedType"/>
 	</channels>
 
 	<tab-bar active-tab="structure">
@@ -293,7 +305,9 @@
 										<!--
 											A parameter placed here: which parameter definition, and the text, default and
 											access it has at this place (empty: those of the parameter). Its value is set per
-											device; here only the default is known.
+											device; here only the default is known. The default is entered by the type of the
+											parameter: only the field fitting the type's kind is shown. Below, the placed
+											parameter with its own default (for comparison) and its type, for information.
 										-->
 										<form
 											input="selected"
@@ -301,12 +315,91 @@
 										>
 											<field attribute="parameter"/>
 											<field attribute="description"/>
-											<field attribute="defaultValue"/>
-											<field attribute="displayDefault"/>
+											<group>
+												<label>
+													<en>Default at this place</en>
+													<de>Vorgabe an dieser Stelle</de>
+												</label>
+												<field attribute="choice"/>
+												<field attribute="number"/>
+												<field attribute="decimal"/>
+												<field attribute="text"/>
+												<field attribute="displayDefault"/>
+												<field attribute="defaultSource"/>
+											</group>
 											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
 											<field attribute="extId"/>
 										</form>
+										<form
+											input="placedParameter"
+											with-inset="true"
+											withEditMode="false"
+										>
+											<group>
+												<label>
+													<en>Parameter</en>
+													<de>Parameter</de>
+												</label>
+												<field attribute="type"/>
+												<field attribute="displayValue">
+													<label>
+														<en>Default of the parameter</en>
+														<de>Vorgabe des Parameters</de>
+													</label>
+												</field>
+												<field attribute="encodedValue"/>
+											</group>
+										</form>
+										<form
+											input="placedType"
+											with-inset="true"
+											withEditMode="false"
+										>
+											<group>
+												<label>
+													<en>Type</en>
+													<de>Typ</de>
+												</label>
+												<field attribute="name"/>
+												<field attribute="bits"/>
+												<field attribute="kind"/>
+												<field attribute="min"/>
+												<field attribute="max"/>
+												<field attribute="encoding"/>
+												<field attribute="decimals"/>
+												<field attribute="unit"/>
+												<field attribute="pattern"/>
+												<field attribute="showsYear"/>
+												<field attribute="addressKind"/>
+												<field attribute="version"/>
+											</group>
+										</form>
+										<!-- The entries of an enumeration type. -->
+										<switch input="placedType">
+											<case test="t -> $t.instanceOf(`ehome.operational:EnumerationType`)">
+												<table
+													observed-types="ehome.operational:EnumerationValue"
+													types="ehome.operational:EnumerationValue"
+												>
+													<inputs>
+														<input channel="placedType"/>
+													</inputs>
+													<columns>
+														<column attribute="name"
+															width="320"
+														/>
+														<column attribute="value"
+															width="100"
+														/>
+														<column attribute="index"
+															width="100"
+														/>
+													</columns>
+													<rows>t -> $t.get(`ehome.operational:EnumerationType#values`)</rows>
+												</table>
+											</case>
+										</switch>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:Interface`)">
 										<!-- A communication object placed here: which object definition, and its texts and datapoint types at this place. -->
@@ -344,9 +437,17 @@
 						<column attribute="title"
 							width="320"
 						/>
-						<column attribute="displayDefault"
+						<column attribute="valueType"
 							width="220"
 						/>
+						<column attribute="displayDefault"
+							width="220"
+						>
+							<label>
+								<en>Default</en>
+								<de>Vorgabe</de>
+							</label>
+						</column>
 						<column attribute="effectiveAccess"
 							width="120"
 						/>
@@ -354,6 +455,146 @@
 					<rows><![CDATA[p -> $p.get(`ehome.operational:Program#parameters`)
     .get(`ehome.operational:Parameter#views`)]]></rows>
 				</table>
+			</tab>
+			<tab id="types"
+				icon="css:bi bi-list-ul"
+			>
+				<label>
+					<en>Types</en>
+					<de>Typen</de>
+				</label>
+				<!-- The parameter types of the program; the selected one with its properties and, for an enumeration, its entries. -->
+				<split-panel
+					orientation="horizontal"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							min-size="240"
+							size="50"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Types</en>
+									<de>Typen</de>
+								</title>
+								<table
+									observed-types="ehome.operational:ParameterType"
+									selection="selectedType"
+									types="ehome.operational:ParameterType"
+								>
+									<inputs>
+										<input channel="program"/>
+									</inputs>
+									<columns>
+										<column attribute="name"
+											width="240"
+										/>
+										<computed-column name="kind"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Kind</en>
+												<de>Art</de>
+											</label>
+											<value>t -> $t.type().label()</value>
+										</computed-column>
+										<computed-column name="size"
+											type="tl.core:Integer"
+										>
+											<label>
+												<en>Bits</en>
+												<de>Bits</de>
+											</label>
+											<value><![CDATA[t -> switch {
+    $t.instanceOf(`ehome.operational:NumericType`): $t.get(`ehome.operational:NumericType#bits`);
+    $t.instanceOf(`ehome.operational:EnumerationType`): $t.get(`ehome.operational:EnumerationType#bits`);
+    $t.instanceOf(`ehome.operational:TextType`): $t.get(`ehome.operational:TextType#bits`);
+    $t.instanceOf(`ehome.operational:TimeType`): $t.get(`ehome.operational:TimeType#bits`);
+    default: null;
+}]]></value>
+										</computed-column>
+										<computed-column name="range"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Range</en>
+												<de>Bereich</de>
+											</label>
+											<value><![CDATA[t -> switch {
+    $t.instanceOf(`ehome.operational:NumericType`):
+        $t.get(`ehome.operational:NumericType#min`) + " … " + $t.get(`ehome.operational:NumericType#max`);
+    $t.instanceOf(`ehome.operational:FloatingPointType`):
+        $t.get(`ehome.operational:FloatingPointType#min`) + " … " + $t.get(`ehome.operational:FloatingPointType#max`);
+    $t.instanceOf(`ehome.operational:TimeType`):
+        $t.get(`ehome.operational:TimeType#min`) + " … " + $t.get(`ehome.operational:TimeType#max`) + " " + $t.get(`ehome.operational:TimeType#unit`).label();
+    $t.instanceOf(`ehome.operational:EnumerationType`):
+        #("Entries: {0}"@en, "Einträge: {0}"@de).fill($t.get(`ehome.operational:EnumerationType#values`).size()).localize();
+    default: null;
+}]]></value>
+										</computed-column>
+									</columns>
+									<rows>p -> $p.get(`ehome.operational:Program#parameterTypes`)</rows>
+								</table>
+							</panel>
+						</pane>
+						<pane
+							size="50"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Details</en>
+									<de>Details</de>
+								</title>
+								<form
+									input="selectedType"
+									with-inset="true"
+								>
+									<field attribute="name"/>
+									<field attribute="bits"/>
+									<field attribute="kind"/>
+									<field attribute="min"/>
+									<field attribute="max"/>
+									<field attribute="encoding"/>
+									<field attribute="decimals"/>
+									<field attribute="unit"/>
+									<field attribute="pattern"/>
+									<field attribute="showsYear"/>
+									<field attribute="addressKind"/>
+									<field attribute="version"/>
+									<field attribute="extId"/>
+								</form>
+								<!-- The entries of an enumeration type. -->
+								<switch input="selectedType">
+									<case test="t -> $t.instanceOf(`ehome.operational:EnumerationType`)">
+										<table
+											observed-types="ehome.operational:EnumerationValue"
+											types="ehome.operational:EnumerationValue"
+										>
+											<inputs>
+												<input channel="selectedType"/>
+											</inputs>
+											<columns>
+												<column attribute="name"
+													width="320"
+												/>
+												<column attribute="value"
+													width="100"
+												/>
+												<column attribute="index"
+													width="100"
+												/>
+											</columns>
+											<rows>t -> $t.get(`ehome.operational:EnumerationType#values`)</rows>
+										</table>
+									</case>
+								</switch>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
 			</tab>
 		</tabs>
 	</tab-bar>

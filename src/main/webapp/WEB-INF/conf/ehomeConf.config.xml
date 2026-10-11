@@ -22,6 +22,9 @@
 				<methods>
 					<method name="knxNetworkInterfaces" class="de.haumacher.ehome.discover.KnxNetworkInterfaces$Builder"/>
 					<method name="groupRangePrefix" class="de.haumacher.ehome.knx.GroupRangePrefix$Builder"/>
+					<method name="encodedParameterValue" class="de.haumacher.ehome.knx.EncodedParameterValue$Builder"/>
+					<method name="parameterValueType" class="de.haumacher.ehome.knx.ParameterValueType$Builder"/>
+					<method name="matchesPattern" class="de.haumacher.ehome.knx.MatchesPattern$Builder"/>
 				</methods>
 			</instance>
 		</config>

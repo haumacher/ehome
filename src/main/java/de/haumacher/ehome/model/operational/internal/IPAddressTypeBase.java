@@ -15,4 +15,50 @@ public interface IPAddressTypeBase extends de.haumacher.ehome.model.operational.
 	 */
 	String IP_ADDRESS_TYPE_TYPE = "IPAddressType";
 
+	/**
+	 * Part <code>addressKind</code> of <code>IPAddressType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:IPAddressKind</code> in configuration.
+	 * </p>
+	 */
+	String ADDRESS_KIND_ATTR = "addressKind";
+
+	/**
+	 * Part <code>version</code> of <code>IPAddressType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:IPVersion</code> in configuration.
+	 * </p>
+	 */
+	String VERSION_ATTR = "version";
+
+	/**
+	 * Getter for part {@link #ADDRESS_KIND_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getAddressKind() {
+		return (com.top_logic.model.TLClassifier) tValueByName(ADDRESS_KIND_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ADDRESS_KIND_ATTR}.
+	 */
+	default void setAddressKind(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(ADDRESS_KIND_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #VERSION_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getVersion() {
+		return (com.top_logic.model.TLClassifier) tValueByName(VERSION_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #VERSION_ATTR}.
+	 */
+	default void setVersion(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(VERSION_ATTR, newValue);
+	}
+
 }

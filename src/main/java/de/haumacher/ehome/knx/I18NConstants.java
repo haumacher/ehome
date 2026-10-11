@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.knx;
 
+import com.top_logic.basic.util.ResKey1;
 import com.top_logic.basic.util.ResKey2;
 import com.top_logic.basic.util.ResKey3;
 import com.top_logic.layout.I18NConstantsBase;
@@ -26,6 +27,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The range ends at {1} before it starts at {0}.
 	 */
 	public static ResKey2 ERROR_RANGE_REVERSED__START_END;
+
+	/**
+	 * @en The value "{0}" was kept as text: its parameter type is not known.
+	 */
+	public static ResKey1 ERROR_VALUE_WITHOUT_TYPE__VALUE;
+
+	/**
+	 * @en The value "{0}" was kept as text: the parameter type {1} has no values.
+	 */
+	public static ResKey2 ERROR_VALUE_FOR_TYPE_WITHOUT_VALUE__VALUE_TYPE;
+
+	/**
+	 * @en The value "{0}" was kept as text: it is no value of the parameter type {1}.
+	 */
+	public static ResKey2 ERROR_VALUE_DOES_NOT_FIT_TYPE__VALUE_TYPE;
 
 	static {
 		initConstants(I18NConstants.class);

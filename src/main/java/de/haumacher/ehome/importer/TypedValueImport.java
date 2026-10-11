@@ -1,0 +1,70 @@
+/*
+ * Copyright (c) 2026 Bernhard Haumacher
+ */
+package de.haumacher.ehome.importer;
+
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
+
+import com.top_logic.basic.CalledByReflection;
+import com.top_logic.basic.config.InstantiationContext;
+import com.top_logic.basic.config.annotation.Mandatory;
+import com.top_logic.basic.config.annotation.Name;
+import com.top_logic.basic.config.annotation.TagName;
+import com.top_logic.basic.logging.Level;
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.model.TLObject;
+import com.top_logic.xio.importer.binding.ImportContext;
+import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
+
+import de.haumacher.ehome.knx.ParameterValues;
+
+/**
+ * Imports a parameter value as ETS writes it into the typed value of the current object (a
+ * parameter, parameter reference or parameter setting), decoded according to the object's parameter
+ * type, see {@link ParameterValues#decode(TLObject, String)}.
+ *
+ * <p>
+ * The type is read from the object's references, so they must be imported before this handler
+ * runs. ETS files define the parameter types before the parameters, and the programs before the
+ * projects using them, so the references are resolved at this point. A value that cannot be decoded
+ * for its type is kept as text and reported as a warning with its location.
+ * </p>
+ */
+public class TypedValueImport<C extends TypedValueImport.Config<?>> extends ConfiguredImportHandler<C> {
+
+	/**
+	 * Configuration of {@link TypedValueImport}.
+	 */
+	@TagName("typed-value")
+	public interface Config<I extends TypedValueImport<?>> extends ConfiguredImportHandler.Config<I> {
+
+		/**
+		 * The XML attribute holding the value.
+		 */
+		@Name("xml-attribute")
+		@Mandatory
+		String getXmlAttribute();
+
+	}
+
+	/**
+	 * Creates a {@link TypedValueImport} from configuration.
+	 */
+	@CalledByReflection
+	public TypedValueImport(InstantiationContext context, C config) {
+		super(context, config);
+	}
+
+	@Override
+	public Object importXml(ImportContext context, XMLStreamReader in) throws XMLStreamException {
+		String value = in.getAttributeValue(null, getConfig().getXmlAttribute());
+		TLObject self = (TLObject) context.getVar(ImportContext.THIS_VAR);
+		ResKey problem = ParameterValues.decode(self, value);
+		if (problem != null) {
+			context.log(Level.WARN, in.getLocation(), problem);
+		}
+		return null;
+	}
+
+}

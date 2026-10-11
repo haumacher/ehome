@@ -15,4 +15,96 @@ public interface FloatingPointTypeBase extends de.haumacher.ehome.model.operatio
 	 */
 	String FLOATING_POINT_TYPE_TYPE = "FloatingPointType";
 
+	/**
+	 * Part <code>decimals</code> of <code>FloatingPointType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String DECIMALS_ATTR = "decimals";
+
+	/**
+	 * Part <code>encoding</code> of <code>FloatingPointType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:FloatEncoding</code> in configuration.
+	 * </p>
+	 */
+	String ENCODING_ATTR = "encoding";
+
+	/**
+	 * Part <code>max</code> of <code>FloatingPointType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Double</code> in configuration.
+	 * </p>
+	 */
+	String MAX_ATTR = "max";
+
+	/**
+	 * Part <code>min</code> of <code>FloatingPointType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Double</code> in configuration.
+	 * </p>
+	 */
+	String MIN_ATTR = "min";
+
+	/**
+	 * Getter for part {@link #DECIMALS_ATTR}.
+	 */
+	default Integer getDecimals() {
+		return (Integer) tValueByName(DECIMALS_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #DECIMALS_ATTR}.
+	 */
+	default void setDecimals(Integer newValue) {
+		tUpdateByName(DECIMALS_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #ENCODING_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getEncoding() {
+		return (com.top_logic.model.TLClassifier) tValueByName(ENCODING_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ENCODING_ATTR}.
+	 */
+	default void setEncoding(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(ENCODING_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #MAX_ATTR}.
+	 */
+	default double getMax() {
+		return (Double) tValueByName(MAX_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #MAX_ATTR}.
+	 */
+	default void setMax(double newValue) {
+		tUpdateByName(MAX_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #MIN_ATTR}.
+	 */
+	default double getMin() {
+		return (Double) tValueByName(MIN_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #MIN_ATTR}.
+	 */
+	default void setMin(double newValue) {
+		tUpdateByName(MIN_ATTR, newValue);
+	}
+
 }

@@ -60,6 +60,121 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	public static final String UNSIGNED_INT_NUMBER_KIND_CLASSIFIER = "unsignedInt";
 
 	/**
+	 * Name of the enumeration <code>FloatEncoding</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String FLOAT_ENCODING_ENUM = "FloatEncoding";
+
+	/**
+	 * Name of the classifier <code>DPT9</code> in enumeration {@value #FLOAT_ENCODING_ENUM}.
+	 */
+	public static final String DPT9_FLOAT_ENCODING_CLASSIFIER = "DPT9";
+
+	/**
+	 * Name of the classifier <code>IEEE754Double</code> in enumeration {@value #FLOAT_ENCODING_ENUM}.
+	 */
+	public static final String IEEE754_DOUBLE_FLOAT_ENCODING_CLASSIFIER = "IEEE754Double";
+
+	/**
+	 * Name of the classifier <code>IEEE754Single</code> in enumeration {@value #FLOAT_ENCODING_ENUM}.
+	 */
+	public static final String IEEE754_SINGLE_FLOAT_ENCODING_CLASSIFIER = "IEEE754Single";
+
+	/**
+	 * Name of the enumeration <code>TimeUnit</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String TIME_UNIT_ENUM = "TimeUnit";
+
+	/**
+	 * Name of the classifier <code>Hours</code> in enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static final String HOURS_TIME_UNIT_CLASSIFIER = "Hours";
+
+	/**
+	 * Name of the classifier <code>HundredMilliseconds</code> in enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static final String HUNDRED_MILLISECONDS_TIME_UNIT_CLASSIFIER = "HundredMilliseconds";
+
+	/**
+	 * Name of the classifier <code>Milliseconds</code> in enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static final String MILLISECONDS_TIME_UNIT_CLASSIFIER = "Milliseconds";
+
+	/**
+	 * Name of the classifier <code>Minutes</code> in enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static final String MINUTES_TIME_UNIT_CLASSIFIER = "Minutes";
+
+	/**
+	 * Name of the classifier <code>PackedDaysHoursMinutesAndSeconds</code> in enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static final String PACKED_DAYS_HOURS_MINUTES_AND_SECONDS_TIME_UNIT_CLASSIFIER = "PackedDaysHoursMinutesAndSeconds";
+
+	/**
+	 * Name of the classifier <code>PackedSecondsAndMilliseconds</code> in enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static final String PACKED_SECONDS_AND_MILLISECONDS_TIME_UNIT_CLASSIFIER = "PackedSecondsAndMilliseconds";
+
+	/**
+	 * Name of the classifier <code>Seconds</code> in enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static final String SECONDS_TIME_UNIT_CLASSIFIER = "Seconds";
+
+	/**
+	 * Name of the classifier <code>TenMilliseconds</code> in enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static final String TEN_MILLISECONDS_TIME_UNIT_CLASSIFIER = "TenMilliseconds";
+
+	/**
+	 * Name of the enumeration <code>IPAddressKind</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String IP_ADDRESS_KIND_ENUM = "IPAddressKind";
+
+	/**
+	 * Name of the classifier <code>BroadcastAddress</code> in enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static final String BROADCAST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER = "BroadcastAddress";
+
+	/**
+	 * Name of the classifier <code>GatewayAddress</code> in enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static final String GATEWAY_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER = "GatewayAddress";
+
+	/**
+	 * Name of the classifier <code>HostAddress</code> in enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static final String HOST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER = "HostAddress";
+
+	/**
+	 * Name of the classifier <code>MulticastAddress</code> in enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static final String MULTICAST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER = "MulticastAddress";
+
+	/**
+	 * Name of the classifier <code>SubnetMask</code> in enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static final String SUBNET_MASK_IP_ADDRESS_KIND_CLASSIFIER = "SubnetMask";
+
+	/**
+	 * Name of the classifier <code>UnicastAddress</code> in enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static final String UNICAST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER = "UnicastAddress";
+
+	/**
+	 * Name of the enumeration <code>IPVersion</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
+	 */
+	public static final String IP_VERSION_ENUM = "IPVersion";
+
+	/**
+	 * Name of the classifier <code>IPv4</code> in enumeration {@value #IP_VERSION_ENUM}.
+	 */
+	public static final String I_PV4_IP_VERSION_CLASSIFIER = "IPv4";
+
+	/**
+	 * Name of the classifier <code>IPv6</code> in enumeration {@value #IP_VERSION_ENUM}.
+	 */
+	public static final String I_PV6_IP_VERSION_CLASSIFIER = "IPv6";
+
+	/**
 	 * Name of the enumeration <code>ValueKind</code> in module {@value #EHOME_OPERATIONAL_STRUCTURE}.
 	 */
 	public static final String VALUE_KIND_ENUM = "ValueKind";
@@ -341,6 +456,62 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link ParameterValue} type.
+	 */
+	public static com.top_logic.model.TLClass getParameterValueType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(ParameterValue.PARAMETER_VALUE_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ParameterValue#CHOICE_ATTR} of {@link ParameterValue}.
+	 */
+	public static com.top_logic.model.TLReference getChoiceParameterValueAttr() {
+		return (com.top_logic.model.TLReference) getParameterValueType().getPart(ParameterValue.CHOICE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValue#DECIMAL_ATTR} of {@link ParameterValue}.
+	 */
+	public static com.top_logic.model.TLProperty getDecimalParameterValueAttr() {
+		return (com.top_logic.model.TLProperty) getParameterValueType().getPart(ParameterValue.DECIMAL_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValue#DISPLAY_VALUE_ATTR} of {@link ParameterValue}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayValueParameterValueAttr() {
+		return (com.top_logic.model.TLProperty) getParameterValueType().getPart(ParameterValue.DISPLAY_VALUE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValue#ENCODED_VALUE_ATTR} of {@link ParameterValue}.
+	 */
+	public static com.top_logic.model.TLProperty getEncodedValueParameterValueAttr() {
+		return (com.top_logic.model.TLProperty) getParameterValueType().getPart(ParameterValue.ENCODED_VALUE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValue#NUMBER_ATTR} of {@link ParameterValue}.
+	 */
+	public static com.top_logic.model.TLProperty getNumberParameterValueAttr() {
+		return (com.top_logic.model.TLProperty) getParameterValueType().getPart(ParameterValue.NUMBER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValue#TEXT_ATTR} of {@link ParameterValue}.
+	 */
+	public static com.top_logic.model.TLProperty getTextParameterValueAttr() {
+		return (com.top_logic.model.TLProperty) getParameterValueType().getPart(ParameterValue.TEXT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValue#VALUE_TYPE_ATTR} of {@link ParameterValue}.
+	 */
+	public static com.top_logic.model.TLReference getValueTypeParameterValueAttr() {
+		return (com.top_logic.model.TLReference) getParameterValueType().getPart(ParameterValue.VALUE_TYPE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ParameterView} type.
 	 */
 	public static com.top_logic.model.TLClass getParameterViewType() {
@@ -355,10 +526,10 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
-	 * Lookup {@link ParameterView#DEFAULT_VALUE_ATTR} of {@link ParameterView}.
+	 * Lookup {@link ParameterView#DEFAULT_SOURCE_ATTR} of {@link ParameterView}.
 	 */
-	public static com.top_logic.model.TLProperty getDefaultValueParameterViewAttr() {
-		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.DEFAULT_VALUE_ATTR);
+	public static com.top_logic.model.TLReference getDefaultSourceParameterViewAttr() {
+		return (com.top_logic.model.TLReference) getParameterViewType().getPart(ParameterView.DEFAULT_SOURCE_ATTR);
 	}
 
 	/**
@@ -380,13 +551,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLReference getEffectiveAccessParameterViewAttr() {
 		return (com.top_logic.model.TLReference) getParameterViewType().getPart(ParameterView.EFFECTIVE_ACCESS_ATTR);
-	}
-
-	/**
-	 * Lookup {@link ParameterView#EFFECTIVE_DEFAULT_ATTR} of {@link ParameterView}.
-	 */
-	public static com.top_logic.model.TLProperty getEffectiveDefaultParameterViewAttr() {
-		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.EFFECTIVE_DEFAULT_ATTR);
 	}
 
 	/**
@@ -474,13 +638,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
-	 * Lookup {@link Parameter#DEFAULT_VALUE_ATTR} of {@link Parameter}.
-	 */
-	public static com.top_logic.model.TLProperty getDefaultValueParameterAttr() {
-		return (com.top_logic.model.TLProperty) getParameterType().getPart(Parameter.DEFAULT_VALUE_ATTR);
-	}
-
-	/**
 	 * Lookup {@link Parameter#DESCRIPTION_ATTR} of {@link Parameter}.
 	 */
 	public static com.top_logic.model.TLProperty getDescriptionParameterAttr() {
@@ -530,6 +687,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link DateType#SHOWS_YEAR_ATTR} of {@link DateType}.
+	 */
+	public static com.top_logic.model.TLProperty getShowsYearDateTypeAttr() {
+		return (com.top_logic.model.TLProperty) getDateTypeType().getPart(DateType.SHOWS_YEAR_ATTR);
+	}
+
+	/**
 	 * Lookup {@link EnumerationType} type.
 	 */
 	public static com.top_logic.model.TLClass getEnumerationTypeType() {
@@ -565,10 +729,52 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link FloatingPointType#DECIMALS_ATTR} of {@link FloatingPointType}.
+	 */
+	public static com.top_logic.model.TLProperty getDecimalsFloatingPointTypeAttr() {
+		return (com.top_logic.model.TLProperty) getFloatingPointTypeType().getPart(FloatingPointType.DECIMALS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link FloatingPointType#ENCODING_ATTR} of {@link FloatingPointType}.
+	 */
+	public static com.top_logic.model.TLReference getEncodingFloatingPointTypeAttr() {
+		return (com.top_logic.model.TLReference) getFloatingPointTypeType().getPart(FloatingPointType.ENCODING_ATTR);
+	}
+
+	/**
+	 * Lookup {@link FloatingPointType#MAX_ATTR} of {@link FloatingPointType}.
+	 */
+	public static com.top_logic.model.TLProperty getMaxFloatingPointTypeAttr() {
+		return (com.top_logic.model.TLProperty) getFloatingPointTypeType().getPart(FloatingPointType.MAX_ATTR);
+	}
+
+	/**
+	 * Lookup {@link FloatingPointType#MIN_ATTR} of {@link FloatingPointType}.
+	 */
+	public static com.top_logic.model.TLProperty getMinFloatingPointTypeAttr() {
+		return (com.top_logic.model.TLProperty) getFloatingPointTypeType().getPart(FloatingPointType.MIN_ATTR);
+	}
+
+	/**
 	 * Lookup {@link IPAddressType} type.
 	 */
 	public static com.top_logic.model.TLClass getIPAddressTypeType() {
 		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(IPAddressType.IP_ADDRESS_TYPE_TYPE);
+	}
+
+	/**
+	 * Lookup {@link IPAddressType#ADDRESS_KIND_ATTR} of {@link IPAddressType}.
+	 */
+	public static com.top_logic.model.TLReference getAddressKindIPAddressTypeAttr() {
+		return (com.top_logic.model.TLReference) getIPAddressTypeType().getPart(IPAddressType.ADDRESS_KIND_ATTR);
+	}
+
+	/**
+	 * Lookup {@link IPAddressType#VERSION_ATTR} of {@link IPAddressType}.
+	 */
+	public static com.top_logic.model.TLReference getVersionIPAddressTypeAttr() {
+		return (com.top_logic.model.TLReference) getIPAddressTypeType().getPart(IPAddressType.VERSION_ATTR);
 	}
 
 	/**
@@ -621,10 +827,45 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link TextType#PATTERN_ATTR} of {@link TextType}.
+	 */
+	public static com.top_logic.model.TLProperty getPatternTextTypeAttr() {
+		return (com.top_logic.model.TLProperty) getTextTypeType().getPart(TextType.PATTERN_ATTR);
+	}
+
+	/**
 	 * Lookup {@link TimeType} type.
 	 */
 	public static com.top_logic.model.TLClass getTimeTypeType() {
 		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(TimeType.TIME_TYPE_TYPE);
+	}
+
+	/**
+	 * Lookup {@link TimeType#BITS_ATTR} of {@link TimeType}.
+	 */
+	public static com.top_logic.model.TLProperty getBitsTimeTypeAttr() {
+		return (com.top_logic.model.TLProperty) getTimeTypeType().getPart(TimeType.BITS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link TimeType#MAX_ATTR} of {@link TimeType}.
+	 */
+	public static com.top_logic.model.TLProperty getMaxTimeTypeAttr() {
+		return (com.top_logic.model.TLProperty) getTimeTypeType().getPart(TimeType.MAX_ATTR);
+	}
+
+	/**
+	 * Lookup {@link TimeType#MIN_ATTR} of {@link TimeType}.
+	 */
+	public static com.top_logic.model.TLProperty getMinTimeTypeAttr() {
+		return (com.top_logic.model.TLProperty) getTimeTypeType().getPart(TimeType.MIN_ATTR);
+	}
+
+	/**
+	 * Lookup {@link TimeType#UNIT_ATTR} of {@link TimeType}.
+	 */
+	public static com.top_logic.model.TLReference getUnitTimeTypeAttr() {
+		return (com.top_logic.model.TLReference) getTimeTypeType().getPart(TimeType.UNIT_ATTR);
 	}
 
 	/**
@@ -908,6 +1149,167 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@value #FLOAT_ENCODING_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getFloatEncodingEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(FLOAT_ENCODING_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #DPT9_FLOAT_ENCODING_CLASSIFIER} of enumeration {@value #FLOAT_ENCODING_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getDPT9FloatEncodingClassifier() {
+		return getFloatEncodingEnum().getClassifier(DPT9_FLOAT_ENCODING_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #IEEE754_DOUBLE_FLOAT_ENCODING_CLASSIFIER} of enumeration {@value #FLOAT_ENCODING_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getIEEE754DoubleFloatEncodingClassifier() {
+		return getFloatEncodingEnum().getClassifier(IEEE754_DOUBLE_FLOAT_ENCODING_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #IEEE754_SINGLE_FLOAT_ENCODING_CLASSIFIER} of enumeration {@value #FLOAT_ENCODING_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getIEEE754SingleFloatEncodingClassifier() {
+		return getFloatEncodingEnum().getClassifier(IEEE754_SINGLE_FLOAT_ENCODING_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #TIME_UNIT_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getTimeUnitEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(TIME_UNIT_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #HOURS_TIME_UNIT_CLASSIFIER} of enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getHoursTimeUnitClassifier() {
+		return getTimeUnitEnum().getClassifier(HOURS_TIME_UNIT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #HUNDRED_MILLISECONDS_TIME_UNIT_CLASSIFIER} of enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getHundredMillisecondsTimeUnitClassifier() {
+		return getTimeUnitEnum().getClassifier(HUNDRED_MILLISECONDS_TIME_UNIT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #MILLISECONDS_TIME_UNIT_CLASSIFIER} of enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getMillisecondsTimeUnitClassifier() {
+		return getTimeUnitEnum().getClassifier(MILLISECONDS_TIME_UNIT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #MINUTES_TIME_UNIT_CLASSIFIER} of enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getMinutesTimeUnitClassifier() {
+		return getTimeUnitEnum().getClassifier(MINUTES_TIME_UNIT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #PACKED_DAYS_HOURS_MINUTES_AND_SECONDS_TIME_UNIT_CLASSIFIER} of enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getPackedDaysHoursMinutesAndSecondsTimeUnitClassifier() {
+		return getTimeUnitEnum().getClassifier(PACKED_DAYS_HOURS_MINUTES_AND_SECONDS_TIME_UNIT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #PACKED_SECONDS_AND_MILLISECONDS_TIME_UNIT_CLASSIFIER} of enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getPackedSecondsAndMillisecondsTimeUnitClassifier() {
+		return getTimeUnitEnum().getClassifier(PACKED_SECONDS_AND_MILLISECONDS_TIME_UNIT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #SECONDS_TIME_UNIT_CLASSIFIER} of enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getSecondsTimeUnitClassifier() {
+		return getTimeUnitEnum().getClassifier(SECONDS_TIME_UNIT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #TEN_MILLISECONDS_TIME_UNIT_CLASSIFIER} of enumeration {@value #TIME_UNIT_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getTenMillisecondsTimeUnitClassifier() {
+		return getTimeUnitEnum().getClassifier(TEN_MILLISECONDS_TIME_UNIT_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #IP_ADDRESS_KIND_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getIPAddressKindEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(IP_ADDRESS_KIND_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #BROADCAST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER} of enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getBroadcastAddressIPAddressKindClassifier() {
+		return getIPAddressKindEnum().getClassifier(BROADCAST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #GATEWAY_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER} of enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getGatewayAddressIPAddressKindClassifier() {
+		return getIPAddressKindEnum().getClassifier(GATEWAY_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #HOST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER} of enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getHostAddressIPAddressKindClassifier() {
+		return getIPAddressKindEnum().getClassifier(HOST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #MULTICAST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER} of enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getMulticastAddressIPAddressKindClassifier() {
+		return getIPAddressKindEnum().getClassifier(MULTICAST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #SUBNET_MASK_IP_ADDRESS_KIND_CLASSIFIER} of enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getSubnetMaskIPAddressKindClassifier() {
+		return getIPAddressKindEnum().getClassifier(SUBNET_MASK_IP_ADDRESS_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #UNICAST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER} of enumeration {@value #IP_ADDRESS_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getUnicastAddressIPAddressKindClassifier() {
+		return getIPAddressKindEnum().getClassifier(UNICAST_ADDRESS_IP_ADDRESS_KIND_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup {@value #IP_VERSION_ENUM} enumeration.
+	 */
+	public static com.top_logic.model.TLEnumeration getIPVersionEnum() {
+		return (com.top_logic.model.TLEnumeration) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(IP_VERSION_ENUM);
+	}
+
+	/**
+	 * Lookup classifier {@value #I_PV4_IP_VERSION_CLASSIFIER} of enumeration {@value #IP_VERSION_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getIPv4IPVersionClassifier() {
+		return getIPVersionEnum().getClassifier(I_PV4_IP_VERSION_CLASSIFIER);
+	}
+
+	/**
+	 * Lookup classifier {@value #I_PV6_IP_VERSION_CLASSIFIER} of enumeration {@value #IP_VERSION_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getIPv6IPVersionClassifier() {
+		return getIPVersionEnum().getClassifier(I_PV6_IP_VERSION_CLASSIFIER);
+	}
+
+	/**
 	 * Lookup {@value #VALUE_KIND_ENUM} enumeration.
 	 */
 	public static com.top_logic.model.TLEnumeration getValueKindEnum() {
@@ -1034,6 +1436,14 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 * Storage table name of {@link #INTERFACE_NODE} objects.
 	 */
 	public static final String KO_NAME_INTERFACE = "EHInterface";
+
+	/**
+	 * Name of type <code>ParameterValue</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link ParameterValue#PARAMETER_VALUE_TYPE}.
+	 */
+	@Deprecated
+	public static final String PARAMETER_VALUE_NODE = ParameterValue.PARAMETER_VALUE_TYPE;
 
 	/**
 	 * Name of type <code>ParameterView</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.

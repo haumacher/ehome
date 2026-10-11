@@ -45,6 +45,10 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GALabelProvider;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.knx.WithinGroupRange;
+import de.haumacher.ehome.model.operational.EnumerationType;
+import de.haumacher.ehome.model.operational.EnumerationValue;
+import de.haumacher.ehome.model.operational.NumericType;
+import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Program;
 
 /**
@@ -328,8 +332,15 @@ public class TestEtsImport extends BasicTestCase {
 		List<TLObject> settings = instances("ehome.physical:ParameterSetting");
 		assertEquals(15, settings.size());
 
+		// An enumeration value is the entry of the parameter's own type, written by its number.
 		TLObject led = setting(settings, "Funktion der Status-LED rechts");
-		assertEquals("9", led.tValueByName("value"));
+		EnumerationValue entry = (EnumerationValue) led.tValueByName("choice");
+		assertNotNull(entry);
+		assertEquals(9, entry.getValue());
+		assertEquals("Vergleicher ohne Vorzeichen (1 Byte)", ResKeyUtil.getTranslation((ResKey) entry.tValueByName("name"), Locale.GERMAN));
+		EnumerationType ledType = (EnumerationType) ((ParameterView) led.tValueByName("parameter")).getParameter().getType();
+		assertTrue(ledType.getValues().contains(entry));
+		assertEquals("9", derived(led, "encodedValue"));
 		assertEquals("Vergleicher ohne Vorzeichen (1 Byte)", derived(led, "displayValue"));
 		assertEquals("Betätigungsanzeige", derived(led, "displayDefault"));
 		// The catalog shows the same parameter with its default.
@@ -339,8 +350,13 @@ public class TestEtsImport extends BasicTestCase {
 		assertNotNull(derived(view, "effectiveAccess"));
 
 		TLObject number = setting(settings, "Vergleichswert (0...255)");
+		assertEquals(Long.valueOf(42), number.tValueByName("number"));
+		assertEquals("42", derived(number, "encodedValue"));
 		assertEquals("42", derived(number, "displayValue"));
 		assertEquals("0", derived(number, "displayDefault"));
+		NumericType numberType = (NumericType) ((ParameterView) number.tValueByName("parameter")).getParameter().getType();
+		assertEquals(0L, numberType.getMin());
+		assertEquals(255L, numberType.getMax());
 	}
 
 	private static TLObject setting(List<TLObject> settings, String name) {
@@ -388,7 +404,7 @@ public class TestEtsImport extends BasicTestCase {
 	 * A derived attribute is computed with the rights of the reading user, and the test has none, so it would read nothing.
 	 * </p>
 	 */
-	private static Object derived(TLObject obj, String attribute) {
+	public static Object derived(TLObject obj, String attribute) {
 		TLContext context = TLContext.getContext();
 		Person before = context.getPerson();
 		String contextId = context.getContextId();
@@ -413,7 +429,7 @@ public class TestEtsImport extends BasicTestCase {
 		return result.get(0);
 	}
 
-	private static void importSample(String file) throws Exception {
+	public static void importSample(String file) throws Exception {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		ApplicationModelBinding binding = new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false);
 		try (InputStream in = new FileInputStream(file)) {
@@ -424,7 +440,7 @@ public class TestEtsImport extends BasicTestCase {
 		}
 	}
 
-	private static List<TLObject> instances(String typeName) {
+	public static List<TLObject> instances(String typeName) {
 		TLClass type = (TLClass) TLModelUtil.findType(typeName);
 		return MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class);
 	}

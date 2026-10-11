@@ -217,6 +217,7 @@
 																						<tag name="TypeText">
 																							<object model-type="ehome.operational:TextType">
 																								<property name="bits" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																								<property name="pattern" xml-attribute="Pattern"/>
 																						
 																								<dispatch/>
 																							</object>
@@ -237,6 +238,16 @@
 																						</tag>
 																						<tag name="TypeFloat">
 																							<object model-type="ehome.operational:FloatingPointType">
+																								<property name="encoding" xml-attribute="Encoding">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																										type="ehome.operational:FloatEncoding"
+																									/>
+																								</property>
+																								<property name="min" xml-attribute="minInclusive" format="com.top_logic.basic.config.format.DoubleWrapperFormat"/>
+																								<property name="max" xml-attribute="maxInclusive" format="com.top_logic.basic.config.format.DoubleWrapperFormat"/>
+																								<!-- The ETS display format (e.g. "#,##0.00") is read for its number of decimal places only; grouping and exponent are not modeled. -->
+																								<property name="decimals" xml-attribute="DisplayFormat" format="de.haumacher.ehome.etsImport.importer.format.DecimalsFormat"/>
+
 																								<dispatch/>
 																							</object>
 																						</tag>
@@ -270,16 +281,42 @@
 																						</tag>
 																						<tag name="TypeTime">
 																							<object model-type="ehome.operational:TimeType">
+																								<property name="bits" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																								<property name="unit" xml-attribute="Unit">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																										type="ehome.operational:TimeUnit"
+																									/>
+																								</property>
+																								<property name="min" xml-attribute="minInclusive" format="com.top_logic.basic.config.format.LongWrapperFormat"/>
+																								<property name="max" xml-attribute="maxInclusive" format="com.top_logic.basic.config.format.LongWrapperFormat"/>
+
 																								<dispatch/>
 																							</object>
 																						</tag>
 																						<tag name="TypeDate">
 																							<object model-type="ehome.operational:DateType">
+																								<!-- ETS shows the year unless DisplayTheYear says otherwise. -->
+																								<assign argument-var="this" property="showsYear" value="t -> true"/>
+																								<property name="showsYear" xml-attribute="DisplayTheYear" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+
 																								<dispatch/>
 																							</object>
 																						</tag>
 																						<tag name="TypeIPAddress">
 																							<object model-type="ehome.operational:IPAddressType">
+																								<property name="addressKind" xml-attribute="AddressType">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																										type="ehome.operational:IPAddressKind"
+																									/>
+																								</property>
+																								<!-- Without a version, ETS means IPv4. -->
+																								<assign argument-var="this" property="version" value="t -> `ehome.operational:IPVersion#IPv4`"/>
+																								<property name="version" xml-attribute="Version">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																										type="ehome.operational:IPVersion"
+																									/>
+																								</property>
+
 																								<dispatch/>
 																							</object>
 																						</tag>
@@ -320,7 +357,7 @@
 																										type="ehome.operational:AccessKind"
 																									/>
 																								</property>
-																								<property name="defaultValue" xml-attribute="Value"/>
+																								<typed-value xml-attribute="Value"/>
 																						
 																								<dispatch/>
 																							</object>
@@ -343,7 +380,7 @@
 																							type="ehome.operational:AccessKind"
 																						/>
 																					</property>
-																					<property name="defaultValue" xml-attribute="Value"/>
+																					<typed-value xml-attribute="Value"/>
 
 																					<dispatch>
 																						<tag name="Memory">
@@ -380,7 +417,7 @@
 																						/>
 																					</property>
 																			
-																					<property name="defaultValue" xml-attribute="Value"/>
+																					<typed-value xml-attribute="Value"/>
 																					<property name="order" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																					<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
@@ -727,7 +764,7 @@
 																									</linking>
 
 																									<reference name="parameter" id-attribute="RefId"/>
-																									<property name="value" xml-attribute="Value"/>
+																									<typed-value xml-attribute="Value"/>
 
 																									<dispatch/>
 																								</object>

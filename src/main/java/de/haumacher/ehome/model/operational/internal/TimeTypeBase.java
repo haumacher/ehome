@@ -15,4 +15,96 @@ public interface TimeTypeBase extends de.haumacher.ehome.model.operational.Param
 	 */
 	String TIME_TYPE_TYPE = "TimeType";
 
+	/**
+	 * Part <code>bits</code> of <code>TimeType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String BITS_ATTR = "bits";
+
+	/**
+	 * Part <code>max</code> of <code>TimeType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Long</code> in configuration.
+	 * </p>
+	 */
+	String MAX_ATTR = "max";
+
+	/**
+	 * Part <code>min</code> of <code>TimeType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Long</code> in configuration.
+	 * </p>
+	 */
+	String MIN_ATTR = "min";
+
+	/**
+	 * Part <code>unit</code> of <code>TimeType</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:TimeUnit</code> in configuration.
+	 * </p>
+	 */
+	String UNIT_ATTR = "unit";
+
+	/**
+	 * Getter for part {@link #BITS_ATTR}.
+	 */
+	default int getBits() {
+		return (Integer) tValueByName(BITS_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #BITS_ATTR}.
+	 */
+	default void setBits(int newValue) {
+		tUpdateByName(BITS_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #MAX_ATTR}.
+	 */
+	default long getMax() {
+		return (Long) tValueByName(MAX_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #MAX_ATTR}.
+	 */
+	default void setMax(long newValue) {
+		tUpdateByName(MAX_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #MIN_ATTR}.
+	 */
+	default long getMin() {
+		return (Long) tValueByName(MIN_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #MIN_ATTR}.
+	 */
+	default void setMin(long newValue) {
+		tUpdateByName(MIN_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #UNIT_ATTR}.
+	 */
+	default com.top_logic.model.TLClassifier getUnit() {
+		return (com.top_logic.model.TLClassifier) tValueByName(UNIT_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #UNIT_ATTR}.
+	 */
+	default void setUnit(com.top_logic.model.TLClassifier newValue) {
+		tUpdateByName(UNIT_ATTR, newValue);
+	}
+
 }
