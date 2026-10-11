@@ -177,8 +177,14 @@ Workaround: none for the structure tab (the toast is left visible). The types ta
 commands for a type that is no enumeration) instead of in a `<visible-if>`: there the failure also
 aborted the create command of a new type before its dialog closed.
 
+The connections table of a group address (`projects/addresses.view.xml`) failed the same way in
+the case of a selected address when a connection made by "Objekt verbinden" was selected (the
+toast also kept the dialog open). Workaround: the table sits in a panel of its own below the
+details, outside the switch over the selected node, and reads the address of the selection.
+
 **When fixed:** put the entries panel of the types tab back into a `<visible-if>` on
-`selectedEnumeration`.
+`selectedEnumeration`; the connections table of an address may move back into the case of an
+address.
 
 ## Line numbers of XML import messages with a thousands separator (TL #29804)
 

@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog connecting a communication object of a device to a group address: the counterpart of
+	projects/connect-group-address.view.xml from the address's side.
+
+	"address" carries the group address (ehome.logical:GroupAddress). The user chooses a device of the
+	address's project, then one of its communication objects in effect, and the direction. The
+	object sends to the address by default as long as it sends to no address yet (an object sends
+	to one address only), otherwise it receives. The connection is made by deviceConnect, the same
+	operation as in the device view, which refuses a second connection to the same address and a
+	second sending address with the reason; the new connection is written to "selection".
+-->
+<view>
+	<channels>
+		<channel name="address"/>
+		<channel name="selection"/>
+		<channel name="device"/>
+		<!-- The object selected in the table; only one of the chosen device counts. -->
+		<channel name="selectedObject"/>
+		<derived-channel name="interface"
+			expr="d -> i -> if($d != null and $i != null and deviceObjects($d).containsElement($i), $i, null)"
+			inputs="device, selectedObject"
+		/>
+		<!-- The kind the user chose; empty for the default. -->
+		<channel name="chosenKind"/>
+		<derived-channel name="kind"
+			expr="k -> d -> i -> if($k != null, $k, if($i == null, null, deviceDefaultConnectionKind($d, $i)))"
+			inputs="chosenKind, device, interface"
+			reverse="k -> $k"
+		/>
+		<derived-channel name="hint"
+			inputs="address"
+		>
+			<expr><![CDATA[a -> {
+    type = $a.get(`ehome.logical:GroupAddress#effectiveDatapointType`);
+    if($type == null,
+        #("{0} has no datapoint type."@en, "{0} hat keinen Datenpunkttyp."@de).fill($a.get(`ehome.logical:GroupAddress#displayName`)),
+        #("{0} has the datapoint type {1}."@en, "{0} hat den Datenpunkttyp {1}."@de).fill($a.get(`ehome.logical:GroupAddress#displayName`), $type.label()))
+        .localize()
+}]]></expr>
+		</derived-channel>
+	</channels>
+	<window width="760px">
+		<title>
+			<en>Connect an object</en>
+			<de>Objekt verbinden</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text
+					input="hint"
+					tone="secondary"
+				/>
+				<fields>
+					<value-input
+						inputs="address"
+						options="a -> groupAddressDevices($a)"
+						type="ehome.physical:Device"
+						value="device"
+					>
+						<label>
+							<en>Device</en>
+							<de>Gerät</de>
+						</label>
+					</value-input>
+				</fields>
+				<table
+					selection="selectedObject"
+					types="ehome.operational:Interface"
+				>
+					<inputs>
+						<input channel="device"/>
+					</inputs>
+					<columns>
+						<computed-column name="number"
+							type="tl.core:Integer"
+							width="70"
+						>
+							<label>
+								<en>No.</en>
+								<de>Nr.</de>
+							</label>
+							<value>i -> $i.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
+						</computed-column>
+						<column attribute="displayName"
+							width="220"
+						/>
+						<computed-column name="function"
+							type="tl.core:String"
+							width="180"
+						>
+							<label>
+								<en>Function</en>
+								<de>Funktion</de>
+							</label>
+							<value>i -> $i.get(`ehome.operational:Interface#function`).localize() || $i.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#function`).localize()</value>
+						</computed-column>
+						<computed-column name="datapointType"
+							type="ehome.datapoint:DatapointType"
+							width="200"
+						>
+							<label>
+								<en>Datapoint type</en>
+								<de>Datenpunkttyp</de>
+							</label>
+							<value><![CDATA[i -> {
+    own = $i.get(`ehome.operational:Interface#datapointTypes`);
+    if($own.isEmpty(), $i.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $own.firstElement())
+}]]></value>
+						</computed-column>
+					</columns>
+					<rows>d -> if($d == null, [], deviceObjects($d))</rows>
+				</table>
+				<fields>
+					<value-input
+						type="ehome.physical:ConnectionType"
+						value="kind"
+					>
+						<label>
+							<en>Direction</en>
+							<de>Richtung</de>
+						</label>
+						<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+							display="radio"
+							orientation="horizontal"
+						/>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-link-45deg"
+					input="interface"
+				>
+					<label>
+						<en>Connect</en>
+						<de>Verbinden</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="d -> a -> k -> i -> deviceConnect($d, $i, $a, $k)">
+							<inputs>
+								<input channel="device"/>
+								<input channel="address"/>
+								<input channel="kind"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

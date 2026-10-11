@@ -1,20 +1,77 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The group addresses of a project: the ranges and their addresses, and below each address the
-	devices connected to it. The selected node is shown in a form beside the tree.
+	The group addresses of a project: the ranges and their addresses, and below each address its
+	connections (ehome.physical:Connection), one node per communication object connected to it,
+	labelled with the device, the object and the direction (connectionLabel), the sending ones first.
+	The selected node is shown beside the tree: a range or an address with its connections, the
+	datapoint types that do not fit together and the number of senders, or a connection with its
+	device and the way to it in the device view.
+
+	Objects are connected to the selected address and connections removed with the operations of
+	the device view (deviceConnect, deviceDisconnect), so the rules of a connection hold on both
+	sides. The connections are computed by Java functions (GroupAddressConnections), hence the tree,
+	the table and the channels reading them observe connections and connectors: a connection made in
+	the device view appears here, and the other way round, without reloading.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="selected"/>
+		<!--
+			The selected node; nothing once its object was deleted (a connection removed in the device
+			view), which a script cannot ask about the type of any more.
+		-->
+		<derived-channel name="node"
+			expr="n -> existingObject($n)"
+			inputs="selected"
+			observed-types="ehome.physical:Connection,ehome.logical:GroupAddressDefinition"
+		/>
 		<derived-channel name="selectedDefinition"
 			expr="n -> if($n.instanceOf(`ehome.logical:GroupAddressDefinition`), $n, null)"
-			inputs="selected"
+			inputs="node"
 		/>
 		<derived-channel name="container"
 			expr="p -> n -> if($n.instanceOf(`ehome.logical:GroupRange`), $n, if($n.instanceOf(`ehome.logical:GroupAddress`), $n.container(), $p))"
-			inputs="project, selected"
+			inputs="project, node"
+		/>
+		<!-- The selected address, or the address of the selected connection: where an object is connected to. -->
+		<derived-channel name="address"
+			expr="n -> if($n.instanceOf(`ehome.logical:GroupAddress`), $n, if($n.instanceOf(`ehome.physical:Connection`), $n.get(`ehome.physical:Connection#target`), null))"
+			inputs="node"
+		/>
+		<!-- The connection selected in the table of the selected address. -->
+		<channel name="selectedRow"/>
+		<!-- The selected connection: the node selected in the tree, or the row selected in the table of the selected address. -->
+		<derived-channel name="connection"
+			inputs="node, selectedRow"
+			observed-types="ehome.physical:Connection"
+		>
+			<expr><![CDATA[n -> r -> switch {
+    $n.instanceOf(`ehome.physical:Connection`): $n;
+    $r != null and $n.instanceOf(`ehome.logical:GroupAddress`) and groupAddressConnections($n).containsElement($r): $r;
+    default: null;
+}]]></expr>
+		</derived-channel>
+		<!-- The device of the selected connection. -->
+		<derived-channel name="connectionDevice"
+			expr="c -> connectionDevice($c)"
+			inputs="connection"
+		/>
+		<derived-channel name="connectionText"
+			expr="c -> connectionLabel($c)"
+			inputs="connection"
+		/>
+		<!-- What does not fit together at the selected address; nothing if all fits. -->
+		<derived-channel name="problems"
+			expr="a -> groupAddressProblems($a)"
+			inputs="address"
+			observed-types="ehome.physical:Connection,ehome.physical:Connector"
+		/>
+		<derived-channel name="senders"
+			expr="a -> if($a == null, null, #('Sending objects: {0}'@en, 'Sendende Objekte: {0}'@de).fill(groupAddressSenders($a)).localize())"
+			inputs="address"
+			observed-types="ehome.physical:Connection,ehome.physical:Connector"
 		/>
 	</channels>
 	<split-panel
@@ -105,9 +162,84 @@
 							<delete-object/>
 							<write-channel name="selected"/>
 						</generic-command>
+						<generic-command
+							image="css:bi bi-link-45deg"
+							input="address"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Connect an object</en>
+								<de>Objekt verbinden</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="address"
+								dialog-view="projects/connect-object.view.xml"
+							>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-x-lg"
+							input="connection"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Remove the connection</en>
+								<de>Verbindung entfernen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="c -> #('Remove the connection {0}?'@en, 'Verbindung {0} entfernen?'@de).fill(connectionLabel($c))"/>
+							<with-transaction>
+								<!-- The address of the removed connection is selected afterwards. -->
+								<execute-script>
+									<function><![CDATA[a -> c -> {
+    deviceDisconnect($c);
+    $a
+}]]></function>
+									<inputs>
+										<input channel="address"/>
+									</inputs>
+								</execute-script>
+							</with-transaction>
+							<write-channel name="selected"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-box-arrow-up-right"
+							input="connectionDevice"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Go to the device</en>
+								<de>Zum Gerät</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<show-views>
+								<show view="projects/project.view.xml"
+									label-expr="d -> recursion($d, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+								>
+									<bind
+										channel="project"
+										expr="d -> recursion($d, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+									/>
+								</show>
+								<show view="projects/devices.view.xml">
+									<bind channel="selected"/>
+								</show>
+							</show-views>
+						</generic-command>
 					</commands>
 					<tree
-						observed-types="ehome.logical:GroupAddressDefinition"
+						observed-types="ehome.logical:GroupAddressDefinition,ehome.physical:Connection"
 						selection="selected"
 					>
 						<inputs>
@@ -120,11 +252,13 @@
     $node.instanceOf(`ehome.logical:GroupRange`):
         $node.get(`ehome.logical:GroupRange#parts`);
     $node.instanceOf(`ehome.logical:GroupAddress`):
-        $node.referers(`ehome.physical:Connection#target`)
-            .referers(`ehome.physical:Connector#connections`)
-            .referers(`ehome.physical:Device#connectors`);
+        groupAddressConnections($node);
     default: [];
 }]]></children>
+						<parents>p -> node -> if($node.instanceOf(`ehome.physical:Connection`), $node.get(`ehome.physical:Connection#target`), $node.container())</parents>
+						<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
+							label="x -> if($x.instanceOf(`ehome.physical:Connection`), connectionLabel($x), null)"
+						/>
 					</tree>
 				</panel>
 			</pane>
@@ -132,54 +266,198 @@
 				size="60"
 				unit="%"
 			>
-				<panel>
-					<title>
-						<en>Details</en>
-						<de>Details</de>
-					</title>
-					<switch input="selected">
-						<case test="n -> $n.instanceOf(`ehome.logical:GroupRange`)">
-							<form
-								input="selected"
-								with-inset="true"
-							>
-								<field attribute="name"/>
-								<field attribute="rangeStart"/>
-								<field attribute="rangeEnd"/>
-								<field attribute="unfiltered"/>
-								<field attribute="description"/>
-								<field attribute="extId"/>
-							</form>
-						</case>
-						<case test="n -> $n.instanceOf(`ehome.logical:GroupAddress`)">
-							<form
-								input="selected"
-								with-inset="true"
-							>
-								<field attribute="name"/>
-								<field attribute="address"/>
-								<field attribute="central"/>
-								<field attribute="unfiltered"/>
-								<field attribute="description"/>
-								<field attribute="effectiveDatapointType"/>
-								<field attribute="datapointTypes"/>
-								<field attribute="extId"/>
-							</form>
-						</case>
-						<case test="n -> $n.instanceOf(`ehome.physical:Device`)">
-							<form
-								input="selected"
-								with-inset="true"
-							>
-								<field attribute="name"/>
-								<field attribute="address"/>
-								<field attribute="type"/>
-								<field attribute="location"/>
-								<field attribute="extId"/>
-							</form>
-						</case>
-					</switch>
-				</panel>
+				<!--
+					Above, the selected node; below, the connections of the selected address (or of the
+					address of the selected connection), with what does not fit together at it. The
+					table stays outside of the switch over the selected node: a table in a switch case
+					that disappears on a change of the channel its rows read fails (TL #29580).
+				-->
+				<split-panel
+					orientation="vertical"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="50"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Details</en>
+									<de>Details</de>
+								</title>
+								<switch input="node">
+									<case test="n -> $n.instanceOf(`ehome.logical:GroupRange`)">
+										<form
+											input="node"
+											with-inset="true"
+										>
+											<field attribute="name"/>
+											<field attribute="rangeStart"/>
+											<field attribute="rangeEnd"/>
+											<field attribute="unfiltered"/>
+											<field attribute="description"/>
+											<field attribute="extId"/>
+										</form>
+									</case>
+									<case test="n -> $n.instanceOf(`ehome.logical:GroupAddress`)">
+										<form
+											input="node"
+											with-inset="true"
+										>
+											<field attribute="name"/>
+											<field attribute="address"/>
+											<field attribute="effectiveDatapointType"/>
+											<field attribute="datapointTypes"/>
+											<field attribute="central"/>
+											<field attribute="unfiltered"/>
+											<field attribute="description"/>
+											<field attribute="extId"/>
+										</form>
+									</case>
+									<case test="n -> $n.instanceOf(`ehome.physical:Connection`)">
+										<!--
+											A connection: which object of which device, the direction, and the device; the
+											device is configured in the device view ("Go to the device").
+										-->
+										<stack>
+											<inset>
+												<text
+													input="connectionText"
+													variant="title"
+												/>
+											</inset>
+											<form
+												input="node"
+												with-inset="true"
+												withEditMode="false"
+											>
+												<field attribute="target"/>
+												<field attribute="kind"/>
+											</form>
+											<form
+												input="connectionDevice"
+												with-inset="true"
+												withEditMode="false"
+											>
+												<group>
+													<label>
+														<en>Device</en>
+														<de>Gerät</de>
+													</label>
+													<field attribute="name"/>
+													<field attribute="type"/>
+													<field attribute="location"/>
+													<field attribute="description"/>
+												</group>
+											</form>
+										</stack>
+									</case>
+								</switch>
+							</panel>
+						</pane>
+						<pane
+							size="50"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Connected objects</en>
+									<de>Verbundene Objekte</de>
+								</title>
+								<stack>
+									<inset>
+										<stack gap="compact">
+											<visible-if
+												expr="p -> $p != null"
+												input="problems"
+											>
+												<text
+													input="problems"
+													tone="warning"
+												/>
+											</visible-if>
+											<text
+												input="senders"
+												tone="secondary"
+											/>
+										</stack>
+									</inset>
+									<table
+										observed-types="ehome.physical:Connection,ehome.physical:Connector"
+										selection="selectedRow"
+										types="ehome.physical:Connection"
+									>
+										<inputs>
+											<input channel="address"/>
+										</inputs>
+										<columns>
+											<computed-column name="device"
+												type="tl.core:String"
+												width="200"
+											>
+												<label>
+													<en>Device</en>
+													<de>Gerät</de>
+												</label>
+												<value>c -> deviceLabel(connectionDevice($c))</value>
+											</computed-column>
+											<computed-column name="number"
+												type="tl.core:Integer"
+												width="70"
+											>
+												<label>
+													<en>No.</en>
+													<de>Nr.</de>
+												</label>
+												<value>c -> connectionObject($c).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
+											</computed-column>
+											<computed-column name="object"
+												type="tl.core:String"
+												width="170"
+											>
+												<label>
+													<en>Object</en>
+													<de>Objekt</de>
+												</label>
+												<value>c -> connectionObject($c).get(`ehome.operational:Interface#displayName`)</value>
+											</computed-column>
+											<computed-column name="function"
+												type="tl.core:String"
+												width="130"
+											>
+												<label>
+													<en>Function</en>
+													<de>Funktion</de>
+												</label>
+												<value>c -> connectionFunction($c)</value>
+											</computed-column>
+											<column attribute="kind"
+												width="100"
+											>
+												<label>
+													<en>Direction</en>
+													<de>Richtung</de>
+												</label>
+											</column>
+											<computed-column name="datapointType"
+												type="ehome.datapoint:DatapointType"
+												width="200"
+											>
+												<label>
+													<en>Datapoint type of the object</en>
+													<de>Datenpunkttyp des Objekts</de>
+												</label>
+												<value>c -> connectionDatapointType($c)</value>
+											</computed-column>
+										</columns>
+										<rows>a -> if($a == null, [], groupAddressConnections($a))</rows>
+									</table>
+								</stack>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
 			</pane>
 		</panes>
 	</split-panel>
