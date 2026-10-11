@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.ResourceLocation;
+import de.haumacher.ehome.model.operational.Segment;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -72,6 +74,21 @@ import de.haumacher.ehome.programming.ParameterEncoding;
  * byte of the image's masks must be written by the plan, or the plan is refused. Parameters stored
  * in properties are written by a <code>WriteProp</code> step without inline data; a property value
  * of the image no step writes is listed as not written.
+ * </p>
+ *
+ * <h2>Memory-based procedures (BCU 1)</h2>
+ * <p>
+ * A procedure that allocates no segment (the mask's generic procedure of BCU 1, mask 0012) loads
+ * the device by memory writes alone: it stops the application (<code>WriteMem</code> of 00 into
+ * the mask's <code>RunError</code>), empties the address table (its count 01), writes the ranges of
+ * the image it names, writes the count of the address table from the image, starts the
+ * application (FF into <code>RunError</code>) and restarts the device. Inline data is described by
+ * the mask resource it writes. <code>LoadImageMem</code> sends nothing: ETS does not document what
+ * it does; the procedures of mask 0012 and 0020 take the image of the count of the address table
+ * with it and write that byte from the image at their end, which the plan checks (every byte of the
+ * range must be written from the image by a later step). A byte of the image such a procedure does
+ * not write is listed as not loaded if it is the program's static data (as with ETS, the device
+ * keeps what it has there, e.g. 01FF on BCU 1), and refuses the plan otherwise.
  * </p>
  *
  * <p>
@@ -148,6 +165,12 @@ public class DownloadPlanner {
 
 	/** The memory addresses the plan writes. */
 	private final BitSet _written = new BitSet();
+
+	/** The memory addresses the plan writes with the bytes of the image. */
+	private final BitSet _writtenFromImage = new BitSet();
+
+	/** The ranges whose image a <code>LoadImageMem</code> step takes, by step, written from the image after it. */
+	private final Map<String, int[]> _imageRanges = new LinkedHashMap<>();
 
 	/** The property values of the image the plan writes, by object index and property. */
 	private final Set<List<Integer>> _writtenProperties = new HashSet<>();
@@ -581,6 +604,9 @@ public class DownloadPlanner {
 			case "WriteMem":
 				writeMemory(step);
 				break;
+			case "LoadImageMem":
+				loadImageMemory(step);
+				break;
 			case "CompareMem": {
 				byte[] data = ParameterEncoding.toBytes(load.getInlineData());
 				if (!standardMemory(step)) {
@@ -732,6 +758,9 @@ public class DownloadPlanner {
 				_operations.add(new Operation.WriteMemory(allocation._step, what, address,
 					Arrays.copyOfRange(allocation._content, start, n), _verify));
 				_written.set(address, address + n - start);
+				if (source >= 0) {
+					_writtenFromImage.set(address, address + n - start);
+				}
 			}
 		}
 	}
@@ -800,11 +829,13 @@ public class DownloadPlanner {
 				_problems.add(I18NConstants.ERROR_DATA_SIZE__STEP_DATA_SIZE.fill(step.label(), inline.length, load.getSize()));
 				return;
 			}
+			String what = "inline data" + resourceNames(address, inline.length);
 			for (int n = 0; n < inline.length; n += MAX_CHUNK) {
-				_operations.add(new Operation.WriteMemory(step.label(), "inline data", address + n,
+				_operations.add(new Operation.WriteMemory(step.label(), what, address + n,
 					Arrays.copyOfRange(inline, n, Math.min(inline.length, n + MAX_CHUNK)), verify));
 			}
 			_written.set(address, address + inline.length);
+			_writtenFromImage.clear(address, address + inline.length);
 			return;
 		}
 		// The bytes of the image in the range.
@@ -823,9 +854,53 @@ public class DownloadPlanner {
 			_operations.add(new Operation.WriteMemory(step.label(), block.name(), start,
 				Arrays.copyOfRange(block.data(), start - block.address(), n - block.address()), verify));
 			_written.set(start, n);
+			_writtenFromImage.set(start, n);
 		}
 	}
 
+	/**
+	 * <code>LoadImageMem</code>: nothing is sent; the range must be written from the image by a later
+	 * step (see the class comment).
+	 */
+	private void loadImageMemory(Step step) {
+		LoadStep load = step.step();
+		if (!standardMemory(step)) {
+			return;
+		}
+		int address = (int) value(load.getAddress());
+		int size = (int) value(load.getSize());
+		String range = range(address, size);
+		_imageRanges.put(step.label(), new int[] { address, size });
+		_writtenFromImage.clear(address, address + size);
+		_operations.add(new Operation.Skip(step.label(), "takes the image of the memory " + range
+			+ resourceNames(address, size) + " for ETS; nothing is sent to the device, a later step writes the bytes of"
+			+ " the image there"));
+	}
+
+	private static String range(int address, int size) {
+		return size <= 1 ? String.format("%04X", address) : String.format("%04X-%04X", address, address + size - 1);
+	}
+
+	/**
+	 * The names of the mask's resources in standard memory overlapping the given range, as an
+	 * addition to a description (empty if there are none).
+	 */
+	private String resourceNames(int address, int size) {
+		Set<String> names = new LinkedHashSet<>();
+		for (MaskResource resource : _mask.getResources()) {
+			ResourceLocation location = resource.getLocation();
+			if (location == null || location.getAddressSpace() == null
+				|| !"StandardMemory".equals(location.getAddressSpace().getName()) || location.getStartAddress() == null) {
+				continue;
+			}
+			long start = location.getStartAddress();
+			long length = resource.getLength() == null ? 1 : Math.max(1, resource.getLength());
+			if (start < address + size && address < start + length) {
+				names.add(resource.getName());
+			}
+		}
+		return names.isEmpty() ? "" : " (" + String.join(", ", names) + ")";
+	}
 	private Block blockAt(int address) {
 		for (Block block : _image.getBlocks()) {
 			if (block.stateMachine() == null && block.contains(address)) {
@@ -870,12 +945,41 @@ public class DownloadPlanner {
 		if (_image == null) {
 			return;
 		}
+		boolean memoryBased = _allocations.isEmpty();
 		for (Block block : _image.getBlocks()) {
-			for (int n = 0; n < block.data().length; n++) {
-				if (block.stateMachine() != null
-					|| block.mask()[n] != 0 && !_written.get(block.address() + n) && !_notLoaded.get(block.address() + n)) {
-					_problems.add(I18NConstants.ERROR_NOT_WRITTEN__ADDRESS_BLOCK.fill(
-						String.format("%04X", block.address() + n), block.name()));
+			int unwritten = -1;
+			for (int n = 0; n <= block.data().length; n++) {
+				int address = block.address() + n;
+				boolean missing = n < block.data().length && block.stateMachine() == null && block.mask()[n] != 0
+					&& !_written.get(address) && !_notLoaded.get(address);
+				if (missing && memoryBased && isStatic(block, n)) {
+					// Not written by the mask's procedure, as with ETS: the device keeps its content.
+					if (unwritten < 0) {
+						unwritten = n;
+					}
+					continue;
+				}
+				if (unwritten >= 0) {
+					Block part = new Block(block.name() + ", static data the procedure does not write",
+						block.address() + unwritten, null, Arrays.copyOfRange(block.data(), unwritten, n),
+						Arrays.copyOfRange(block.mask(), unwritten, n));
+					_unloaded.add(part);
+					_notLoaded.set(part.address(), part.end());
+					unwritten = -1;
+				}
+				if (n < block.data().length && (block.stateMachine() != null || missing)) {
+					_problems.add(I18NConstants.ERROR_NOT_WRITTEN__ADDRESS_BLOCK.fill(String.format("%04X", address), block.name()));
+					break;
+				}
+			}
+		}
+		for (Map.Entry<String, int[]> entry : _imageRanges.entrySet()) {
+			int address = entry.getValue()[0];
+			int size = entry.getValue()[1];
+			for (int n = address; n < address + size; n++) {
+				Block block = blockAt(n);
+				if (block != null && block.mask()[n - block.address()] != 0 && !_writtenFromImage.get(n)) {
+					_problems.add(I18NConstants.ERROR_IMAGE_NOT_WRITTEN__STEP_RANGE.fill(entry.getKey(), range(address, size)));
 					break;
 				}
 			}
@@ -889,6 +993,24 @@ public class DownloadPlanner {
 				+ " property " + write.propertyId() + ": the load procedure writes no such property"
 				+ (Objects.equals(write.objectIndex(), DEVICE_OBJECT) ? " (a property of the device itself, e.g. its hardware type)" : "")));
 		}
+	}
+
+	/**
+	 * Whether the byte of the block is the static data of the program's segment there (no parameter
+	 * or table changed it).
+	 */
+	private boolean isStatic(Block block, int index) {
+		int address = block.address() + index;
+		for (Segment segment : _program.getSegments()) {
+			if (segment instanceof CodeSegment code && code.getAddress() != null && address >= code.getAddress()) {
+				byte[] data = ParameterEncoding.toBytes(code.getData());
+				int offset = address - code.getAddress();
+				if (data != null && offset < data.length) {
+					return data[offset] == block.data()[index];
+				}
+			}
+		}
+		return false;
 	}
 
 	// The mask.

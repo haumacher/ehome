@@ -4,6 +4,7 @@
 package de.haumacher.ehome.programming;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -118,7 +119,8 @@ public class DownloadImage {
 	/**
 	 * The memory of the program's segments that carry static data, with the parameter values and the
 	 * object table patched in; the segments of the address and association table are not among them
-	 * (ETS writes the tables, not the template the program has for them).
+	 * (ETS writes the tables, not the template the program has for them), unless they hold more than
+	 * the tables (BCU 1), then the tables are patched in as well.
 	 */
 	public List<Block> getSegments() {
 		return Collections.unmodifiableList(_segments);
@@ -147,19 +149,30 @@ public class DownloadImage {
 	}
 
 	/**
-	 * Everything to be written into memory, by address: the segments and the tables.
+	 * Everything to be written into memory, by address: the segments and the tables. A table lying
+	 * within a segment (BCU 1: the EEPROM holds the tables with the parameters) is part of that
+	 * segment's block, like the object table.
 	 */
 	public List<Block> getBlocks() {
 		List<Block> result = new ArrayList<>(_segments);
-		if (_addressTable != null) {
-			result.add(_addressTable);
-		}
-		if (_associationTable != null) {
-			result.add(_associationTable);
+		for (Block table : Arrays.asList(_addressTable, _associationTable)) {
+			if (table != null && !inSegment(table)) {
+				result.add(table);
+			}
 		}
 		result.sort(Comparator.comparing((Block b) -> b.stateMachine() == null ? -1 : b.stateMachine().intValue())
 			.thenComparingInt(Block::address));
 		return result;
+	}
+
+	private boolean inSegment(Block table) {
+		for (Block segment : _segments) {
+			if (segment.stateMachine() == null && table.stateMachine() == null && segment.address() <= table.address()
+				&& table.end() <= segment.end()) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -226,9 +239,11 @@ public class DownloadImage {
 				out.append(" (load state machine ").append(block.stateMachine()).append(')');
 			}
 			out.append(String.format(", %04X-%04X, %d bytes", block.address(), block.end() - 1, block.data().length));
-			if (_objectTable != null && block != _objectTable && block.contains(_objectTable.address())
-				&& block.stateMachine() == null) {
-				out.append(String.format(", object table at %04X (%d bytes)", _objectTable.address(), _objectTable.data().length));
+			for (Block table : Arrays.asList(_addressTable, _associationTable, _objectTable)) {
+				if (table != null && block != table && block.contains(table.address()) && block.stateMachine() == null) {
+					out.append(String.format(", %s at %04X (%d bytes)", table.name().toLowerCase(), table.address(),
+						table.data().length));
+				}
 			}
 			out.append('\n');
 			dumpBytes(out, block);

@@ -113,6 +113,15 @@ public class DeviceComparison {
 					facts.add("Program version: " + property(reader, resource.getLocation().getInterfaceObject(),
 						resource.getLocation().getPropertyId()) + ", the program's: "
 						+ Operation.hex(DownloadPlanner.applicationId(program)));
+				} else if ("ApplicationId".equals(resource.getName()) && resource.getLocation() != null
+					&& resource.getLocation().getAddressSpace() != null
+					&& "StandardMemory".equals(resource.getLocation().getAddressSpace().getName())
+					&& resource.getLocation().getStartAddress() != null && resource.getLength() != null) {
+					// BCU 1: the identity of the program lies in memory, as the image has it.
+					int address = resource.getLocation().getStartAddress().intValue();
+					int length = resource.getLength().intValue();
+					facts.add(String.format("Program identity (memory %04X): ", address) + memory(reader, address, length)
+						+ ", the image's: " + imageBytes(image, address, length));
 				}
 			}
 			if (propertyMapped(mask)) {
@@ -146,6 +155,26 @@ public class DeviceComparison {
 		} catch (BusException ex) {
 			return "not readable (" + ex.getMessage() + ")";
 		}
+	}
+
+	private static String memory(DeviceReader reader, int address, int length) {
+		try {
+			return Operation.hex(reader.readMemory(address, length));
+		} catch (BusException ex) {
+			return "not readable (" + ex.getMessage() + ")";
+		}
+	}
+
+	private static String imageBytes(DownloadImage image, int address, int length) {
+		StringBuilder result = new StringBuilder();
+		for (int n = 0; n < length; n++) {
+			Integer value = image.byteAt(address + n);
+			if (n > 0) {
+				result.append(' ');
+			}
+			result.append(value == null ? "--" : String.format("%02X", value));
+		}
+		return result.toString();
 	}
 
 	private static boolean propertyMapped(MaskVersion mask) {

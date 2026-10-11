@@ -116,6 +116,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 ERROR_NOT_WRITTEN__ADDRESS_BLOCK;
 
 	/**
+	 * @en Step {0}: the memory {1}, whose image the step takes, is not written from the image by a later step.
+	 */
+	public static ResKey2 ERROR_IMAGE_NOT_WRITTEN__STEP_RANGE;
+
+	/**
 	 * @en Step {0}: the merge point {1} is left in the procedure.
 	 */
 	public static ResKey2 ERROR_MERGE__STEP_ID;

@@ -32,6 +32,7 @@ import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.PropertyLocation;
 import de.haumacher.ehome.model.operational.RelativeSegment;
+import de.haumacher.ehome.model.operational.ResourceLocation;
 import de.haumacher.ehome.model.operational.Segment;
 import de.haumacher.ehome.model.operational.TableLocation;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -58,14 +59,26 @@ import de.haumacher.ehome.programming.GroupTables.Association;
  * <li>The object table is the static data with the configuration bytes computed from the flags of
  * the communication objects; the communication flag only for objects with an association.</li>
  * </ul>
+ *
+ * <p>
+ * A segment holding a table together with other content (BCU 1: the EEPROM 0100-01FF holds the
+ * system header, the tables, the parameters and the application) is written as one block: its
+ * static data (or, without static data, only the bits of the parameters) with the parameters, the
+ * tables and the object table patched in, and the pointers to the tables the mask keeps in that
+ * memory (<code>GroupAssociationTablePtr</code>, <code>GroupObjectTablePtr</code>) set to the
+ * tables' places (see {@link GroupTables}). There the tables stay at the places the program gives
+ * them, also with dynamic table management (the pointers in the static data name these places).
+ * </p>
  */
 class DownloadImageBuilder {
 
 	private static final String ADDRESS_TABLE_FORMAT = "AddressTable_Bcu1";
 
-	private static final String ASSOCIATION_TABLE_FORMAT = "AssociationTable_M112";
+	/** The formats of the association table with the bytes of {@link GroupTables#associationTable(List)}. */
+	private static final List<String> ASSOCIATION_TABLE_FORMATS = List.of("AssociationTable_M112", "AssociationTable_Bcu1");
 
-	private static final String OBJECT_TABLE_FORMAT = "GroupObjectTable_M112";
+	/** The flavour of a mask's pointer to a table: one byte in memory, the table's address minus 0100. */
+	private static final String POINTER_100 = "Ptr_StandardMemory100";
 
 	private final TLObject _device;
 
@@ -84,6 +97,12 @@ class DownloadImageBuilder {
 	/** Segments without static data: their mask holds the bits of the parameters written. */
 	private final Set<Segment> _withoutData = new HashSet<>();
 
+	/**
+	 * Segments holding a table together with other content (BCU 1): the tables are written into
+	 * their blocks.
+	 */
+	private final Set<Segment> _combined = new HashSet<>();
+
 	DownloadImageBuilder(TLObject device) {
 		_device = device;
 		_configuration = new DeviceConfiguration(device);
@@ -100,6 +119,7 @@ class DownloadImageBuilder {
 		parameters();
 		tables();
 		objectTable();
+		checkOverlaps();
 		for (Map.Entry<List<Integer>, byte[]> entry : _properties.entrySet()) {
 			List<Integer> key = entry.getKey();
 			_image.addPropertyWrite(new DownloadImage.PropertyWrite(key.get(0), key.get(1), key.get(2), key.get(3).intValue(),
@@ -115,17 +135,23 @@ class DownloadImageBuilder {
 				tableSegments.add(table.getSegment());
 			}
 		}
+		Segment objectSegment = _program.getObjectTable() == null ? null : _program.getObjectTable().getSegment();
 		List<Segment> segments = new ArrayList<>(_program.getSegments());
 		segments.sort(Comparator.comparingInt(DownloadImageBuilder::sortKey));
 		for (Segment segment : segments) {
+			boolean combined = false;
 			if (tableSegments.contains(segment)) {
-				// The template of a table.
-				continue;
+				if (segment != objectSegment && segment.getPointers().isEmpty()) {
+					// The template of a table.
+					continue;
+				}
+				// The tables share the memory with other content (BCU 1).
+				combined = true;
 			}
 			byte[] data = ParameterEncoding.toBytes(segment.getData());
 			byte[] mask = ParameterEncoding.toBytes(segment.getMask());
 			if (data == null) {
-				if (segment.getPointers().isEmpty() || segment.getSize() == null) {
+				if (!combined && segment.getPointers().isEmpty() || segment.getSize() == null) {
 					// Reserved memory only.
 					continue;
 				}
@@ -145,6 +171,9 @@ class DownloadImageBuilder {
 				block = new Block("Segment " + name(segment), ((CodeSegment) segment).getAddress(), null, data, mask);
 			}
 			_blocks.put(segment, block);
+			if (combined) {
+				_combined.add(segment);
+			}
 			_image.addSegment(block);
 		}
 	}
@@ -254,7 +283,8 @@ class DownloadImageBuilder {
 			}
 			return;
 		}
-		if (!supported("GroupAddressTable", ADDRESS_TABLE_FORMAT) || !supported("GroupAssociationTable", ASSOCIATION_TABLE_FORMAT)) {
+		if (!supported("GroupAddressTable", List.of(ADDRESS_TABLE_FORMAT))
+			|| !supported("GroupAssociationTable", ASSOCIATION_TABLE_FORMATS)) {
 			return;
 		}
 
@@ -281,13 +311,23 @@ class DownloadImageBuilder {
 			_image.addProblem("The place of the group address table is not known.");
 			return;
 		}
-		_image.setAddressTable(new Block("Group address table", addressStart, null, addressTable,
-			mask(addressLocation, addressTable.length)));
+		byte[] addressMask = mask(addressLocation, addressTable.length);
+		boolean addressCombined = combined(addressLocation);
+		if (addressCombined) {
+			fixedPlace("GroupAddressTable", addressStart);
+			excludeIndividualAddress(addressStart, addressMask);
+		}
+		Block addressBlock = new Block("Group address table", addressStart, null, addressTable, addressMask);
+		_image.setAddressTable(addressBlock);
+		if (addressCombined) {
+			patch(addressLocation.getSegment(), addressBlock);
+		}
 
 		byte[] associationTable = GroupTables.associationTable(associations);
 		int associationStart;
 		byte[] associationMask;
-		if (_program.getDynamicTableManagement()) {
+		boolean associationCombined = combined(associationLocation);
+		if (_program.getDynamicTableManagement() && !associationCombined) {
 			// ETS places the association table right after the address table.
 			associationStart = addressStart + addressTable.length;
 			associationMask = full(associationTable.length);
@@ -300,7 +340,131 @@ class DownloadImageBuilder {
 			associationStart = start;
 			associationMask = mask(associationLocation, associationTable.length);
 		}
-		_image.setAssociationTable(new Block("Association table", associationStart, null, associationTable, associationMask));
+		Block associationBlock = new Block("Association table", associationStart, null, associationTable, associationMask);
+		_image.setAssociationTable(associationBlock);
+		if (associationCombined) {
+			pointer("GroupAssociationTablePtr", associationStart);
+			patch(associationLocation.getSegment(), associationBlock);
+		}
+	}
+
+	/**
+	 * Whether the table lies in a segment shared with other content (BCU 1), whose block holds it.
+	 */
+	private boolean combined(TableLocation location) {
+		return location != null && location.getSegment() != null && _combined.contains(location.getSegment());
+	}
+
+	/**
+	 * Writes a table into the block of the segment holding it: its bytes under its mask.
+	 */
+	private void patch(Segment segment, Block table) {
+		Block block = _blocks.get(segment);
+		int offset = table.address() - block.address();
+		if (block.stateMachine() != null || offset < 0 || offset + table.data().length > block.data().length) {
+			_image.addProblem(String.format("The %s (%04X-%04X) exceeds its segment %s.", table.name().toLowerCase(),
+				table.address(), table.end() - 1, name(segment)));
+			return;
+		}
+		for (int n = 0; n < table.data().length; n++) {
+			if (table.mask()[n] != 0) {
+				block.data()[offset + n] = table.data()[n];
+				block.mask()[offset + n] = table.mask()[n];
+			}
+		}
+	}
+
+	/**
+	 * Checks that a table lies at the fixed place the mask gives it (a resource in standard memory),
+	 * if the mask gives one.
+	 */
+	private void fixedPlace(String resourceName, int address) {
+		ResourceLocation location = memoryResource(resourceName);
+		if (location != null && location.getStartAddress().intValue() != address) {
+			_image.addProblem(String.format("The program places the %s at %04X, mask %s at %04X.", resourceName, address,
+				_program.getMask().getName(), location.getStartAddress()));
+		}
+	}
+
+	/**
+	 * Takes the individual address (the mask's resource <code>IndividualAddress</code> in memory) out
+	 * of the mask of the address table: only the programming of the individual address writes it.
+	 */
+	private void excludeIndividualAddress(int tableAddress, byte[] mask) {
+		MaskResource resource = memoryResourceOf("IndividualAddress");
+		if (resource == null) {
+			return;
+		}
+		int start = resource.getLocation().getStartAddress().intValue();
+		int length = resource.getLength() == null ? 2 : resource.getLength().intValue();
+		for (int address = start; address < start + length; address++) {
+			if (address >= tableAddress && address < tableAddress + mask.length) {
+				mask[address - tableAddress] = 0;
+			}
+		}
+	}
+
+	/**
+	 * Sets a pointer the mask keeps in memory (flavour {@value #POINTER_100}: one byte, the address
+	 * minus 0100) to the place of its table, in the block holding it. Static data giving another
+	 * place is a problem.
+	 */
+	private void pointer(String resourceName, int tableAddress) {
+		MaskResource resource = memoryResourceOf(resourceName);
+		if (resource == null || !POINTER_100.equals(resource.getFlavour())) {
+			_image.addProblem("Mask " + _program.getMask().getName() + " has no pointer " + resourceName + " of format "
+				+ POINTER_100 + " in memory; the place of the table is not known to the device.");
+			return;
+		}
+		int address = resource.getLocation().getStartAddress().intValue();
+		int value = tableAddress - 0x100;
+		if (value < 0 || value > 0xFF) {
+			_image.addProblem(String.format("The table at %04X cannot be addressed by the pointer %s (%04X).", tableAddress,
+				resourceName, address));
+			return;
+		}
+		Block block = null;
+		for (Block candidate : _blocks.values()) {
+			if (candidate.stateMachine() == null && candidate.contains(address)) {
+				block = candidate;
+			}
+		}
+		if (block == null) {
+			_image.addProblem(String.format("The pointer %s (%04X) lies in no segment of the program.", resourceName, address));
+			return;
+		}
+		int index = address - block.address();
+		int mask = block.mask()[index] & 0xFF;
+		if (mask == 0) {
+			block.data()[index] = (byte) value;
+			block.mask()[index] = (byte) 0xFF;
+		} else if (mask != 0xFF || (block.data()[index] & 0xFF) != value) {
+			_image.addProblem(String.format("The static data hold %02X (mask %02X) in the pointer %s (%04X), the table lies at %04X.",
+				block.data()[index] & 0xFF, mask, resourceName, address, tableAddress));
+		}
+	}
+
+	private ResourceLocation memoryResource(String name) {
+		MaskResource resource = memoryResourceOf(name);
+		return resource == null ? null : resource.getLocation();
+	}
+
+	/**
+	 * The mask's resource of the given name located in standard memory, <code>null</code> if there is
+	 * none.
+	 */
+	private MaskResource memoryResourceOf(String name) {
+		if (_program.getMask() == null) {
+			return null;
+		}
+		for (MaskResource resource : _program.getMask().getResources()) {
+			ResourceLocation location = resource.getLocation();
+			if (name.equals(resource.getName()) && location != null && location.getAddressSpace() != null
+				&& "StandardMemory".equals(location.getAddressSpace().getName()) && location.getStartAddress() != null) {
+				return resource;
+			}
+		}
+		return null;
 	}
 
 	private void checkSize(String what, int size, TableLocation location) {
@@ -309,24 +473,32 @@ class DownloadImageBuilder {
 		}
 	}
 
-	private boolean supported(String resource, String format) {
+	private boolean supported(String resource, List<String> supported) {
+		return format(resource, supported) != null;
+	}
+
+	/**
+	 * The format of the mask's resource that is one of the supported ones; <code>null</code> (and a
+	 * problem) if there is none.
+	 */
+	private String format(String resource, List<String> supported) {
 		MaskVersion mask = _program.getMask();
 		if (mask == null) {
 			_image.addProblem("The program has no mask version, the format of its tables is not known.");
-			return false;
+			return null;
 		}
 		List<String> formats = new ArrayList<>();
 		for (MaskResource candidate : mask.getResources()) {
 			if (resource.equals(candidate.getName())) {
-				if (format.equals(candidate.getFlavour())) {
-					return true;
+				if (supported.contains(candidate.getFlavour())) {
+					return candidate.getFlavour();
 				}
 				formats.add(candidate.getFlavour());
 			}
 		}
 		_image.addProblem("The " + resource + " of mask " + mask.getName() + " has the format " + formats
-			+ "; supported is " + format + " (verified with mask 7.5).");
-		return false;
+			+ "; supported is " + String.join(", ", supported) + " (verified with mask 7.5).");
+		return null;
 	}
 
 	private Integer start(TableLocation location, String maskResource) {
@@ -379,7 +551,19 @@ class DownloadImageBuilder {
 			_image.addProblem("The object table has no static data in its segment.");
 			return;
 		}
-		if (!supported("GroupObjectTable", OBJECT_TABLE_FORMAT)) {
+		String flavour = format("GroupObjectTable",
+			List.of(GroupTables.ObjectTableFormat.M112.flavour(), GroupTables.ObjectTableFormat.BCU1.flavour()));
+		if (flavour == null) {
+			return;
+		}
+		GroupTables.ObjectTableFormat format = GroupTables.ObjectTableFormat.byFlavour(flavour);
+		int start = value(location.getOffset());
+		if (_combined.contains(location.getSegment())) {
+			pointer("GroupObjectTablePtr", segment.address() + start);
+		}
+		if (_withoutData.contains(location.getSegment())) {
+			// The addresses of the objects' values are part of the program, not of the configuration.
+			_image.addProblem("The object table has no static data in its segment.");
 			return;
 		}
 		if (_program.getObjectTableLengthAlwaysOne()) {
@@ -387,9 +571,12 @@ class DownloadImageBuilder {
 			return;
 		}
 		byte[] data = segment.data();
-		int start = value(location.getOffset());
+		if (start >= data.length) {
+			_image.addProblem("The object table lies outside its segment.");
+			return;
+		}
 		int count = data[start] & 0xFF;
-		int length = GroupTables.OBJECT_TABLE_HEADER + GroupTables.OBJECT_DESCRIPTOR * count;
+		int length = format.header() + format.descriptor() * count;
 		if (start + length > data.length) {
 			_image.addProblem("The object table of " + count + " objects exceeds its segment.");
 			return;
@@ -414,8 +601,7 @@ class DownloadImageBuilder {
 			TLObject connector = connectors.get(port);
 			Interface placed = connector != null ? (Interface) connector.tValueByName("port")
 				: _configuration.getActiveInterfaces().get(port);
-			int position = start + GroupTables.OBJECT_TABLE_HEADER + GroupTables.OBJECT_DESCRIPTOR * number
-				+ GroupTables.OBJECT_CONFIG;
+			int position = start + format.header() + format.descriptor() * number + format.config();
 			data[position] = (byte) GroupTables.objectConfig(data[position] & 0xFF,
 				enabled("update", connector, placed, port),
 				enabled("transmission", connector, placed, port),
@@ -430,15 +616,38 @@ class DownloadImageBuilder {
 			if (_associatedObjects.contains(number)) {
 				int bits = placed != null && placed.getSize() != null ? placed.getSize() : port.getSize();
 				int type = GroupTables.objectType(bits);
-				if (type < 0) {
-					_image.addProblem("Object " + number + " has a size of " + bits + " bits, which has no type code.");
+				if (type < 0 || type > format.maxType()) {
+					_image.addProblem("Object " + number + " has a size of " + bits + " bits, which has no type code in "
+						+ format.flavour() + ".");
 					continue;
 				}
-				data[position - GroupTables.OBJECT_CONFIG + GroupTables.OBJECT_TYPE] = (byte) type;
+				data[position - format.config() + format.type()] = (byte) type;
 			}
 		}
 		_image.setObjectTable(new Block("Object table", segment.address() + start, segment.stateMachine(),
 			Arrays.copyOfRange(data, start, start + length), Arrays.copyOfRange(segment.mask(), start, start + length)));
+	}
+
+	/**
+	 * The tables must not overlap (a table larger than the space the program leaves it).
+	 */
+	private void checkOverlaps() {
+		List<Block> tables = new ArrayList<>();
+		for (Block table : Arrays.asList(_image.getAddressTable(), _image.getAssociationTable(), _image.getObjectTable())) {
+			if (table != null && table.stateMachine() == null) {
+				tables.add(table);
+			}
+		}
+		for (int n = 0; n < tables.size(); n++) {
+			for (int k = n + 1; k < tables.size(); k++) {
+				Block a = tables.get(n);
+				Block b = tables.get(k);
+				if (a.address() < b.end() && b.address() < a.end()) {
+					_image.addProblem(String.format("The %s (%04X-%04X) overlaps the %s (%04X-%04X).", a.name().toLowerCase(),
+						a.address(), a.end() - 1, b.name().toLowerCase(), b.address(), b.end() - 1));
+				}
+			}
+		}
 	}
 
 	private static boolean enabled(String flag, TLObject connector, Interface placed, Port port) {

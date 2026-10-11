@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.TreeSet;
 
 /**
- * The formats of the group communication tables of a device with a mask of the BIM M112 family
- * (mask version 7.x, System 7): the group address table, the association table and the
- * configuration byte of a communication object.
+ * The formats of the group communication tables: the group address table, the association table,
+ * the object table and the configuration byte of a communication object, for the BIM M112 family
+ * (mask version 7.x, System 7) and for BCU 1 (mask version 1.2, <code>MV-0012</code>).
  *
  * <p>
  * Verified against the memory ETS wrote into the devices of the user's test system (mask 0x0705, see
@@ -27,11 +27,39 @@ import java.util.TreeSet;
  * association the index of the group address in the address table (the individual address being
  * index 0) and the number of the communication object, in ascending order of the object
  * number.</li>
- * <li>Object table (<code>GroupObjectTable_M112</code>): the number of objects, the address of the
- * RAM flags (two bytes), then four bytes per object: the address of its value (two bytes), the
- * configuration byte, the type (size) byte. ETS takes the table from the static data of the program
- * and recomputes the configuration byte, and for an object with an association the type byte from
- * the size of the object's reference in effect (a parameter may decide it).</li>
+ * <li>Object table (<code>GroupObjectTable_M112</code>, {@link ObjectTableFormat#M112}): the number
+ * of objects, the address of the RAM flags (two bytes), then four bytes per object: the address of
+ * its value (two bytes), the configuration byte, the type (size) byte. ETS takes the table from the
+ * static data of the program and recomputes the configuration byte, and for an object with an
+ * association the type byte from the size of the object's reference in effect (a parameter may
+ * decide it).</li>
+ * </ul>
+ *
+ * <h2>BCU 1 (mask 0012)</h2>
+ * <p>
+ * Not verified against a device (none on the test system). The sources: the resources of mask
+ * <code>MV-0012</code> in <code>knx_master.xml</code>, and the static data ETS ships with BCU 1
+ * programs (the EEPROM image 0100-01FF of the program's only segment), which holds the tables'
+ * templates at the places the program's <code>AddressTable</code>, <code>AssociationTable</code> and
+ * <code>ComObjectTable</code> name and the pointers to them:
+ * </p>
+ * <ul>
+ * <li>The tables lie in the EEPROM 0100-01FF together with the system header, the parameters and
+ * the application. The address table lies at the fixed address of the mask's resource
+ * <code>GroupAddressTable</code> (0116); the association table and the object table where the
+ * pointers <code>GroupAssociationTablePtr</code> (0111) and <code>GroupObjectTablePtr</code> (0112)
+ * point, one byte each of flavour <code>Ptr_StandardMemory100</code>: the table's address minus
+ * 0100.</li>
+ * <li>Address table: the format <code>AddressTable_Bcu1</code> above. Its individual address
+ * (0117-0118, the mask's resource <code>IndividualAddress</code>) is not written by a download of the
+ * application (the static data masks it out, the mask's load procedure skips it).</li>
+ * <li>Association table (<code>AssociationTable_Bcu1</code>): the same bytes as
+ * <code>AssociationTable_M112</code>.</li>
+ * <li>Object table (<code>GroupObjectTable_Bcu11</code>, {@link ObjectTableFormat#BCU1}): the number
+ * of objects, the address of the RAM flags (one byte), then three bytes per object: the address of
+ * its value (one byte), the configuration byte (the bits of the BIM M112's, as the static data of
+ * BCU 1 programs shows them: D7 for update, transmit, write, communication, low priority), the type
+ * byte (codes 0 to 14 only).</li>
  * </ul>
  */
 public class GroupTables {
@@ -47,6 +75,44 @@ public class GroupTables {
 
 	/** The position of the type (size) byte in an object descriptor of the BIM M112 family. */
 	public static final int OBJECT_TYPE = 3;
+
+	/**
+	 * The layout of an object table.
+	 *
+	 * @param flavour
+	 *        The name of the format as the mask's resource <code>GroupObjectTable</code> gives it.
+	 * @param header
+	 *        The size of the header: the number of objects and the address of the RAM flags.
+	 * @param descriptor
+	 *        The size of the descriptor of an object.
+	 * @param config
+	 *        The position of the configuration byte in a descriptor.
+	 * @param type
+	 *        The position of the type (size) byte in a descriptor.
+	 * @param maxType
+	 *        The largest type code the format knows (see {@link GroupTables#objectType(int)}).
+	 */
+	public record ObjectTableFormat(String flavour, int header, int descriptor, int config, int type, int maxType) {
+
+		/** The object table of the BIM M112 family (mask 7.x). */
+		public static final ObjectTableFormat M112 =
+			new ObjectTableFormat("GroupObjectTable_M112", OBJECT_TABLE_HEADER, OBJECT_DESCRIPTOR, OBJECT_CONFIG, OBJECT_TYPE, 20);
+
+		/** The object table of BCU 1 (mask 1.2): one-byte pointers, no types beyond 14 bytes. */
+		public static final ObjectTableFormat BCU1 = new ObjectTableFormat("GroupObjectTable_Bcu11", 2, 3, 1, 2, 14);
+
+		/**
+		 * The format of the given name, <code>null</code> if it is not supported.
+		 */
+		public static ObjectTableFormat byFlavour(String flavour) {
+			for (ObjectTableFormat format : new ObjectTableFormat[] { M112, BCU1 }) {
+				if (format.flavour().equals(flavour)) {
+					return format;
+				}
+			}
+			return null;
+		}
+	}
 
 	/** Configuration bit: the object's value is updated by responses to a read (ETS: UpdateFlag). */
 	public static final int UPDATE = 0x80;

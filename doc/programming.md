@@ -103,6 +103,55 @@ what the plan computes. Not verified before the first download:
   written up to its end with zeros, so that its stamp's CRC describes the memory (the device held
   zeros there after ETS).
 
+## What a download does (BCU 1, mask 0012; haumacher/ehome #13)
+
+A BCU 1 program (e.g. Gira/Siemens switch actuators, push button interfaces and valve drives of the
+ETS 2/3 era) keeps everything in the EEPROM 0100-01FF: the system header, the tables, the object
+table, the parameters and the application, as the static data of its only segment. The download
+image is that segment with the configuration patched in (`DownloadImageBuilder`, `GroupTables`):
+
+| Address | What | Source |
+|---|---|---|
+| 0100-0115 | system header from the static data (0101-0103 masked out) | the program's segment |
+| 0111, 0112 | pointers to the association table and the object table (address - 0100) | mask resources `GroupAssociationTablePtr`, `GroupObjectTablePtr` (`Ptr_StandardMemory100`) |
+| 0116 | address table (`AddressTable_Bcu1`): count, individual address (0117-0118, not written), group addresses | mask resource `GroupAddressTable`, the program's `AddressTable` |
+| pointer 0111 | association table (`AssociationTable_Bcu1`, the bytes of mask 7.5's) | the program's `AssociationTable` |
+| pointer 0112 | object table (`GroupObjectTable_Bcu11`): count, RAM flags pointer (1 byte), 3 bytes per object (value pointer, configuration, type) | the program's `ComObjectTable`, the static data |
+| elsewhere | parameters | the program's parameters |
+
+The tables stay at the places the program gives them (the pointers in the static data name them),
+also with dynamic table management; a static pointer naming another place, a table at another
+place than the mask's `GroupAddressTable`, overlapping tables or a segment without static data
+holding the object table are problems. A segment without static data yields a block with exactly
+the parameters' bits; bytes nobody writes stay untouched (a byte written only in some bits is still
+refused by the plan).
+
+The plan is the mask's generic procedure (`DefaultProcedure`, `Load`/`all`, remote), memory writes
+only, each verified by reading it back:
+
+1. Connect; read the device descriptor and stop unless it is 0012.
+2. 00 into `RunError` (010D): the application stops.
+3. `LoadImageMem 0116`: nothing is sent (ETS does not document the step; the procedure writes the
+   same byte from the image at its end, which the plan checks).
+4. 01 into 0116: the address table holds only the individual address while the tables change.
+5. The image's bytes of 0100, 0104-010C, 010E-0115, 0119-01FE, in chunks of at most 12 bytes.
+6. Zeros into the RAM 00CE-00DF (inline data of the procedure).
+7. The count of the address table (0116) from the image; FF into `RunError`; restart.
+
+01FF is not written by the procedure: as with ETS the device keeps its content; the plan lists it as
+not loaded (static data). Comparing reads the program identity from memory (0104-0107, mask
+resource `ApplicationId`), as mask 0012 has no properties.
+
+**Not verified against a device.** There is no BCU 1 device on the test line, and the devices of the
+home installation must never be contacted. The tests (`TestBcuImage`, fixture
+`src/test/fixtures/TestBcu1.knxproj`, artificial programs) check the bytes computed by hand from
+the rules above and the executor against a mock. The first BCU 1 download needs a BCU 1 device on
+the test line (compare first; every block identical with the project ETS last programmed it from),
+or the ETS `LoadedImage` of such a device in a project the user exports. Open points it would
+settle: the configuration bits of BCU 1 (taken to be those of mask 7.5, as the static data
+suggests), the communication flag cleared for objects without an association (as ETS does on mask
+7.5), and whether ETS moves the association table with dynamic table management.
+
 ## The first real download (the user runs it)
 
 Start with the actuator 1.3.5: no stamps, no skipped step, the hardware type checked first.
@@ -137,11 +186,15 @@ The device may then be unloaded (its LED or behavior shows no application): reco
 
 ## Not supported (refused with the reason)
 
-- Masks whose load state machines are controlled in memory instead of properties (no feature
-  `PropertyMappedLsms`), and step kinds other than Connect, Disconnect, Unload, Load, AbsSegment
-  (types 0 and 1), TaskSegment, TaskCtrl1, LoadCompleted, LoadImageProp (download stamps),
+- Masks whose load state machines are controlled in memory instead of properties (mask 7.1,
+  `MV-0701`: `PropertyMappedLsms` 0, load controls written to 0104), and step kinds other than
+  Connect, Disconnect, Unload, Load, AbsSegment (types 0 and 1), TaskSegment, TaskCtrl1,
+  LoadCompleted, LoadImageProp (download stamps), LoadImageMem (nothing sent, see BCU 1),
   CompareProp, WriteProp, WriteMem / CompareMem (standard memory), Restart, Delay,
   SetControlVariable (verify, optimistic write), ProgressText.
+- BCU 2 (masks 0020, 0021): its tables (`AssociationTable_Bcu2`, `GroupObjectTable_Bcu2`) and its
+  procedure (TaskPtr, TaskCtrl2, `EnableSegmentWrite`) are refused with their names.
+- Writing only some bits of a byte (a parameter in a segment without static data).
 - The IP router (mask 9.1A): its procedure writes the coupler's slave and filter memories
   (`LcSlave`, `LcFilter`, `ClearLCFilterTable`), and its parameters are bit fields within bytes.
 - The partial download (parameters and tables only), KNX Secure, RF, firmware.
