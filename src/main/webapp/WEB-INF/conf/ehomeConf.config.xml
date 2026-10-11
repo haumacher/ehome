@@ -33,6 +33,10 @@
 					<method name="structureMove" class="de.haumacher.ehome.knx.EhomeFunctions$StructureMove$Builder"/>
 					<method name="programDeleteVeto" class="de.haumacher.ehome.knx.EhomeFunctions$ProgramDeleteVeto$Builder"/>
 					<method name="programDelete" class="de.haumacher.ehome.knx.EhomeFunctions$ProgramDelete$Builder"/>
+					<!-- The parameters and communication objects of a program by the page they are placed on (de.haumacher.ehome.knx.ProgramPages): one builder, the function by its name. -->
+					<method name="programParameterRows" class="de.haumacher.ehome.knx.ProgramPageFunctions$Builder"/>
+					<method name="programPortRows" class="de.haumacher.ehome.knx.ProgramPageFunctions$Builder"/>
+					<method name="programRowOf" class="de.haumacher.ehome.knx.ProgramPageFunctions$Builder"/>
 					<!-- The configuration of a device (de.haumacher.ehome.programming.DeviceConfiguration, DeviceSettings): one builder, the function by its name. -->
 					<method name="deviceValue" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceValueHolder" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>

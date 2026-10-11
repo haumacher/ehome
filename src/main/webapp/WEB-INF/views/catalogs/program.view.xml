@@ -35,10 +35,29 @@
 			expr="p -> $p.get(`ehome.operational:Parameter#type`)"
 			inputs="placedParameter"
 		/>
-		<!-- The parameter selected in the parameters tab. -->
-		<channel name="selectedParameter"/>
-		<!-- The communication object selected in the objects tab. -->
-		<channel name="selectedPort"/>
+		<!--
+			The row selected in the parameters tab (a dictionary of programParameterRows: the page, the
+			parameter, its placement there and its number of placements), and its parameter. A parameter
+			written to "selectedParameter" (a created one, nothing after a delete) selects its first row.
+		-->
+		<channel name="parameterRow"/>
+		<derived-channel name="selectedParameter"
+			expr="r -> if($r == null, null, $r['definition'])"
+			inputs="parameterRow"
+			reverse="p -> if($p == null, null, programRowOf($p))"
+		/>
+		<!-- What the parameters tab lists: the text to look for, and whether only the parameters placed nowhere. -->
+		<channel name="parameterFilter"/>
+		<channel name="unplacedParameters"/>
+		<!-- The row selected in the objects tab (programPortRows), and its communication object. -->
+		<channel name="portRow"/>
+		<derived-channel name="selectedPort"
+			expr="r -> if($r == null, null, $r['definition'])"
+			inputs="portRow"
+			reverse="p -> if($p == null, null, programRowOf($p))"
+		/>
+		<channel name="portFilter"/>
+		<channel name="unplacedPorts"/>
 		<!-- The parameter type selected in the types tab, and the entry selected of an enumeration type. -->
 		<channel name="selectedType"/>
 		<derived-channel name="selectedEnumeration"
@@ -548,7 +567,10 @@
 					<en>Parameters</en>
 					<de>Parameter</de>
 				</label>
-				<!-- The parameters of the program with their types and defaults; the selected one in a form. -->
+				<!--
+					The parameters of the program by the page they are placed on, with their types and defaults,
+					narrowed by a filter; the selected one in a form (haumacher/ehome #20).
+				-->
 				<split-panel
 					orientation="horizontal"
 					resizable="true"
@@ -625,35 +647,103 @@
 										<write-channel name="selectedParameter"/>
 									</generic-command>
 								</commands>
+								<fields
+									max-columns="2"
+									with-inset="true"
+								>
+									<value-input
+										clearable="true"
+										icon="css:bi bi-search"
+										type="tl.core:String"
+										value="parameterFilter"
+									>
+										<label>
+											<en>Filter</en>
+											<de>Filter</de>
+										</label>
+										<placeholder>
+											<en>Name, text or type</en>
+											<de>Name, Text oder Typ</de>
+										</placeholder>
+									</value-input>
+									<value-input
+										type="tl.core:Boolean"
+										value="unplacedParameters"
+									>
+										<label>
+											<en>Only parameters without placement</en>
+											<de>Nur Parameter ohne Platzierung</de>
+										</label>
+									</value-input>
+								</fields>
+								<!--
+									The parameters grouped by the page they are placed on, the pages in the order of the
+									structure (every case of every switch), the parameters placed nowhere last
+									(de.haumacher.ehome.knx.ProgramPages); a parameter placed on several pages is listed
+									on each. The page column does not sort, so that the groups keep the order of the rows
+									(de.haumacher.ehome.view.RowOrderColumn).
+								-->
 								<table
-									observed-types="ehome.operational:Parameter,ehome.operational:Program"
-									selection="selectedParameter"
-									types="ehome.operational:Parameter"
+									group-by="page"
+									observed-types="ehome.operational:Program,ehome.operational:Parameter,ehome.operational:ParameterType,ehome.operational:ParameterView,ehome.operational:Port,ehome.operational:Interface,ehome.operational:Channel,ehome.operational:ChannelIndependent,ehome.operational:ParameterGroup,ehome.operational:Switch,ehome.operational:Case"
+									selection="parameterRow"
 								>
 									<inputs>
 										<input channel="program"/>
+										<input channel="parameterFilter"/>
+										<input channel="unplacedParameters"/>
 									</inputs>
 									<columns>
-										<column attribute="description"
-											width="280"
-										/>
-										<column attribute="name"
+										<computed-column name="text"
+											type="tl.core:String"
+											width="320"
+										>
+											<label>
+												<en>Text</en>
+												<de>Text</de>
+											</label>
+											<value>r -> if($r['placement'] == null, $r['definition'].get(`ehome.operational:Parameter#title`), $r['placement'].get(`ehome.operational:ParameterView#title`))</value>
+										</computed-column>
+										<computed-column name="name"
+											type="tl.core:String"
 											width="160"
-										/>
-										<column attribute="type"
+										>
+											<label>
+												<en>Internal name</en>
+												<de>Interner Name</de>
+											</label>
+											<value>r -> $r['definition'].get(`ehome.operational:Parameter#name`)</value>
+										</computed-column>
+										<computed-column name="type"
+											type="ehome.operational:ParameterType"
 											width="200"
-										/>
-										<column attribute="displayValue"
+										>
+											<label>
+												<en>Type</en>
+												<de>Typ</de>
+											</label>
+											<value>r -> $r['definition'].get(`ehome.operational:Parameter#type`)</value>
+										</computed-column>
+										<computed-column name="default"
+											type="tl.core:String"
 											width="160"
 										>
 											<label>
 												<en>Default</en>
 												<de>Vorgabe</de>
 											</label>
-										</column>
-										<column attribute="access"
+											<value>r -> $r['definition'].get(`ehome.operational:Parameter#displayValue`)</value>
+										</computed-column>
+										<computed-column name="access"
+											type="ehome.operational:AccessKind"
 											width="120"
-										/>
+										>
+											<label>
+												<en>Display</en>
+												<de>Anzeige</de>
+											</label>
+											<value>r -> $r['definition'].get(`ehome.operational:Parameter#access`)</value>
+										</computed-column>
 										<computed-column name="placements"
 											type="tl.core:Integer"
 										>
@@ -661,13 +751,30 @@
 												<en>Placements</en>
 												<de>Platzierungen</de>
 											</label>
-											<value>p -> $p.get(`ehome.operational:Parameter#views`).size()</value>
+											<value>r -> $r['placements']</value>
 										</computed-column>
-										<column attribute="extId"
+										<computed-column name="extId"
+											type="tl.core:String"
 											width="240"
-										/>
+										>
+											<label>
+												<en>External ID</en>
+												<de>Externe ID</de>
+											</label>
+											<value>r -> $r['definition'].get(`ehome.operational:Parameter#extId`)</value>
+										</computed-column>
+										<row-order-column name="page"
+											type="tl.core:String"
+											width="240"
+										>
+											<label>
+												<en>Page</en>
+												<de>Seite</de>
+											</label>
+											<value>r -> $r['page']</value>
+										</row-order-column>
 									</columns>
-									<rows>p -> $p.get(`ehome.operational:Program#parameters`)</rows>
+									<rows>p -> f -> u -> programParameterRows($p, $f, $u)</rows>
 								</table>
 							</panel>
 						</pane>
@@ -714,7 +821,10 @@
 					<en>Objects</en>
 					<de>Objekte</de>
 				</label>
-				<!-- The communication objects of the program; the selected one in a form. -->
+				<!--
+					The communication objects of the program by the page they are placed on, narrowed by a
+					filter; the selected one in a form.
+				-->
 				<split-panel
 					orientation="horizontal"
 					resizable="true"
@@ -801,35 +911,128 @@
 										<write-channel name="selectedPort"/>
 									</generic-command>
 								</commands>
+								<fields
+									max-columns="2"
+									with-inset="true"
+								>
+									<value-input
+										clearable="true"
+										icon="css:bi bi-search"
+										type="tl.core:String"
+										value="portFilter"
+									>
+										<label>
+											<en>Filter</en>
+											<de>Filter</de>
+										</label>
+										<placeholder>
+											<en>Name, text or function</en>
+											<de>Name, Text oder Funktion</de>
+										</placeholder>
+									</value-input>
+									<value-input
+										type="tl.core:Boolean"
+										value="unplacedPorts"
+									>
+										<label>
+											<en>Only objects without placement</en>
+											<de>Nur Objekte ohne Platzierung</de>
+										</label>
+									</value-input>
+								</fields>
+								<!-- The communication objects grouped by the page they are placed on, as the parameters. -->
 								<table
-									observed-types="ehome.operational:Port,ehome.operational:Program"
-									selection="selectedPort"
-									types="ehome.operational:Port"
+									group-by="page"
+									observed-types="ehome.operational:Program,ehome.operational:Parameter,ehome.operational:ParameterType,ehome.operational:ParameterView,ehome.operational:Port,ehome.operational:Interface,ehome.operational:Channel,ehome.operational:ChannelIndependent,ehome.operational:ParameterGroup,ehome.operational:Switch,ehome.operational:Case"
+									selection="portRow"
 								>
 									<inputs>
 										<input channel="program"/>
+										<input channel="portFilter"/>
+										<input channel="unplacedPorts"/>
 									</inputs>
 									<columns>
-										<column attribute="index"
+										<computed-column name="text"
+											type="tl.core:String"
+											width="280"
+										>
+											<label>
+												<en>Text</en>
+												<de>Text</de>
+											</label>
+											<value>r -> if($r['placement'] == null, $r['definition'].get(`ehome.operational:Port#title`), $r['placement'].get(`ehome.operational:Interface#displayName`))</value>
+										</computed-column>
+										<computed-column name="index"
+											type="tl.core:Integer"
 											width="80"
-										/>
-										<column attribute="title"
-											width="200"
-										/>
-										<column attribute="name"
+										>
+											<label>
+												<en>Index</en>
+												<de>Index</de>
+											</label>
+											<value>r -> $r['definition'].get(`ehome.operational:Port#index`)</value>
+										</computed-column>
+										<computed-column name="name"
+											type="tl.core:String"
 											width="160"
-										/>
-										<column attribute="function"
+										>
+											<label>
+												<en>Internal name</en>
+												<de>Interner Name</de>
+											</label>
+											<value>r -> $r['definition'].get(`ehome.operational:Port#name`)</value>
+										</computed-column>
+										<computed-column name="function"
+											type="tl.core:String"
 											width="200"
-										/>
-										<column attribute="size"
+										>
+											<label>
+												<en>Function</en>
+												<de>Funktion</de>
+											</label>
+											<value>r -> $r['placement'].get(`ehome.operational:Interface#function`).localize() || $r['definition'].get(`ehome.operational:Port#function`).localize()</value>
+										</computed-column>
+										<computed-column name="size"
+											type="tl.core:Integer"
 											width="100"
-										/>
-										<column attribute="extId"
+										>
+											<label>
+												<en>Size</en>
+												<de>Größe</de>
+											</label>
+											<value>r -> $r['definition'].get(`ehome.operational:Port#size`)</value>
+										</computed-column>
+										<computed-column name="placements"
+											type="tl.core:Integer"
+										>
+											<label>
+												<en>Placements</en>
+												<de>Platzierungen</de>
+											</label>
+											<value>r -> $r['placements']</value>
+										</computed-column>
+										<computed-column name="extId"
+											type="tl.core:String"
 											width="240"
-										/>
+										>
+											<label>
+												<en>External ID</en>
+												<de>Externe ID</de>
+											</label>
+											<value>r -> $r['definition'].get(`ehome.operational:Port#extId`)</value>
+										</computed-column>
+										<row-order-column name="page"
+											type="tl.core:String"
+											width="240"
+										>
+											<label>
+												<en>Page</en>
+												<de>Seite</de>
+											</label>
+											<value>r -> $r['page']</value>
+										</row-order-column>
 									</columns>
-									<rows>p -> $p.get(`ehome.operational:Program#ports`)</rows>
+									<rows>p -> f -> u -> programPortRows($p, $f, $u)</rows>
 								</table>
 							</panel>
 						</pane>

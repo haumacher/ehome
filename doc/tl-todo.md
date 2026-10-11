@@ -303,6 +303,19 @@ Workaround: none; the labels stay visible.
 
 **When available:** make the chip and hint buttons icon-only with the label as tooltip.
 
+## Groups of a table in row order (TL #29812)
+
+`ListRowSource` orders the groups of a grouped `<table>` with the comparator of the grouping
+column, and every column a view can declare has one, so the pages of a program's parameters
+(`catalogs/program.view.xml`, grouped by the page a parameter is placed on) would appear
+alphabetically instead of in structure order.
+
+Workaround: `de.haumacher.ehome.view.RowOrderColumn` (`<row-order-column>`), a computed column
+without sorting; the row source then keeps the groups in the order of their first row.
+
+**When available:** replace `<row-order-column>` by `<computed-column>` with the row-order option
+and delete `RowOrderColumn`.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -327,3 +340,4 @@ Workaround: none; the labels stay visible.
 - TL #29809: see above (binary value input; when fixed: drop the explicit input control of the export dialog).
 - TL #29810: see above (deleted object in a tree selection).
 - TL #29811: see above (icon-only buttons).
+- TL #29812: see above (groups in row order).

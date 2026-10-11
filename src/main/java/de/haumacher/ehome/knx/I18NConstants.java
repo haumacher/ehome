@@ -94,6 +94,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 ERROR_OBJECT_USED_BY_DEVICES__OBJECT_COUNT;
 
+	/**
+	 * @en Not placed
+	 */
+	public static ResKey NOT_PLACED;
+
 	static {
 		initConstants(I18NConstants.class);
 	}
