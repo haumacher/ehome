@@ -7,6 +7,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.derived;
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -66,6 +67,7 @@ public class TestParameterValuesProbe extends BasicTestCase {
 		importSample("samples/Test.knxproj");
 		assertEquals(counts, counts());
 
+		checkProgramTypes();
 		checkBinaryEnumeration();
 		checkVoidParameters();
 		checkInvariants();
@@ -73,6 +75,21 @@ public class TestParameterValuesProbe extends BasicTestCase {
 		checkEditSurvivesReimport();
 		checkTypeChange();
 		checkDecimalWithoutFormat();
+	}
+
+	/** The types of the typed fixture belong to its program, so the types tab lists them. */
+	private void checkProgramTypes() {
+		TLObject program = byExtId("ehome.operational:Program", TYPED_PROGRAM.substring(0, TYPED_PROGRAM.length() - 1));
+		Collection<?> types = (Collection<?>) program.tValueByName("parameterTypes");
+		Map<String, String> ids = Map.of(
+			"PT-Test.5FFloat", "ehome.operational:FloatingPointType",
+			"PT-Test.5FTime", "ehome.operational:TimeType",
+			"PT-Test.5FPattern", "ehome.operational:TextType",
+			"PT-Test.5FDate", "ehome.operational:DateType",
+			"PT-Test.5FIP", "ehome.operational:IPAddressType");
+		for (Map.Entry<String, String> id : ids.entrySet()) {
+			assertTrue(id.getKey(), types.contains(byExtId(id.getValue(), TYPED_PROGRAM + id.getKey())));
+		}
 	}
 
 	/** An enumeration over binary values: its entry is chosen by the numeric value ETS writes. */
