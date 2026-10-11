@@ -115,6 +115,18 @@
 					<method name="scanReadVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanLedVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanLedConfirmation" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<!-- The group monitor (de.haumacher.ehome.monitor.GroupMonitor, projects/monitor.view.xml): one builder, the function by its name. -->
+					<method name="monitorDisconnect" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorAllowSending" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorSend" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorRead" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorStartRecording" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorStopRecording" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorPauseLog" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorClear" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorTarget" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorSendVeto" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorRecordingCsv" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

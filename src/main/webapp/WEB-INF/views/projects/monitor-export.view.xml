@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Download of a recording of the group monitor (projects/monitor.view.xml) as CSV file. "file" carries
+	the result of monitorRecordingCsv (de.haumacher.ehome.monitor.RecordingCsv): one line per telegram,
+	the columns separated by semicolons, offered by a read-only binary input as a download link.
+-->
+<view>
+	<channels>
+		<channel name="file"/>
+	</channels>
+	<window width="600px">
+		<title>
+			<en>Export the recording</en>
+			<de>Aufzeichnung exportieren</de>
+		</title>
+		<inset>
+			<stack gap="loose">
+				<text>
+					<label>
+						<en>The recording has been exported as CSV file: one line per telegram in the order they were received, the columns separated by semicolons.</en>
+						<de>Die Aufzeichnung wurde als CSV-Datei exportiert: eine Zeile je Telegramm in der Reihenfolge des Empfangs, die Spalten durch Semikolons getrennt.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						readonly="true"
+						type="tl.core:Binary"
+						value="file"
+					>
+						<label>
+							<en>File</en>
+							<de>Datei</de>
+						</label>
+						<!-- A value input picks no control by the type tl.core:Binary (TL #29809, doc/tl-todo.md); the binary field offers the download. -->
+						<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

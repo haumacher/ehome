@@ -51,6 +51,13 @@
 				<property name="gateway"
 					type="tl.core:String"
 				/>
+				<!-- The recordings of the group monitor (haumacher/ehome #10). -->
+				<reference name="recordings"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="ehome.monitor:Recording"
+				/>
 				<!--
 					Devices a scan of the installation found that the catalog could not identify (their
 					program or manufacturer is missing); matched again after an import of product data.

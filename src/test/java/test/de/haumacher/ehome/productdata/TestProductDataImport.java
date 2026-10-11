@@ -144,9 +144,9 @@ public class TestProductDataImport extends BasicTestCase {
 		String summary = (String) report.get(ImportEtsProjectAction.SUMMARY);
 		String manufacturer = label(byExtId("ehome.catalog:Manufacturer", "M-0008"));
 		String program = label(byExtId("ehome.operational:Program", TEST_PROGRAM));
-		assertEquals(summary, en("Imported product data: TestProduct.knxprod (manufacturer already known: "
-			+ manufacturer + "; products already known: Tastsensor 3 Komfort 3fach; "
-			+ "application programs already known: " + program + "). Messages of the import: 0.",
+		assertEquals(summary, en("Imported product data: TestProduct.knxprod (Manufacturer already known: "
+			+ manufacturer + "; Products already known: Tastsensor 3 Komfort 3fach; "
+			+ "Application programs already known: " + program + "). Messages of the import: 0.",
 			"Importierte Produktdaten: TestProduct.knxprod (Hersteller bereits bekannt: " + manufacturer
 				+ "; Produkte bereits bekannt: Tastsensor 3 Komfort 3fach; "
 				+ "Applikationsprogramme bereits bekannt: " + program + "). Meldungen des Imports: 0."),

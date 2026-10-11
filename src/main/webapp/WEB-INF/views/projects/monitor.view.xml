@@ -1,0 +1,823 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The group monitor of a project (haumacher/ehome #10, de.haumacher.ehome.monitor.GroupMonitor): attached
+	to the bus through the gateway of the project, it shows the group telegrams decoded by the datapoint
+	types of their addresses and attributed to the devices that sent them.
+
+	"project" is the project. "state" holds the snapshot of the monitor (GroupMonitor#snapshot()): written
+	by "Connect" (<group-monitor-connect>, ConnectMonitorAction) and the commands calling the monitor
+	functions (MonitorFunctions), and while connected by the monitor itself from the thread receiving
+	the telegrams (WindowPublisher: in the window's interaction, at most every 250 ms, pushed to the
+	browser like the progress of a job).
+
+	- State board (default): one row per group address of the project and per other address seen, with
+	the last value, its sender, the time of the last telegram and the count; a row changed in the last
+	three seconds is marked. The send form below it sends to the selected (or an entered) address, with
+	the input the datapoint type asks for; it is locked until "Allow sending", which connecting resets.
+	- Log: the last 1000 telegrams, newest first, own telegrams marked; it can be held.
+	- Recordings: the telegrams stored while a recording ran, exported as CSV.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="state"/>
+		<channel name="selectedRow"/>
+		<channel name="onlyTraffic"/>
+		<channel name="recordingName"/>
+		<channel name="numberValue"/>
+		<channel name="textValue"/>
+		<channel name="dptText"/>
+		<channel name="selectedRecording"/>
+		<derived-channel name="gateway"
+			expr="p -> if($p == null, null, $p.get(`ehome.project:Project#gateway`))"
+			inputs="project"
+			observed-types="ehome.project:Project"
+		/>
+		<derived-channel name="gatewayText"
+			expr="g -> if($g == null, #('The project has no gateway yet.'@en, 'Das Projekt hat noch kein Gateway.'@de), #('Gateway: {0}'@en, 'Gateway: {0}'@de).fill($g))"
+			inputs="gateway"
+		/>
+		<derived-channel name="status"
+			expr="s -> if($s == null, #('Not connected.'@en, 'Nicht verbunden.'@de), $s['status'])"
+			inputs="state"
+		/>
+		<derived-channel name="sendingStatus"
+			expr="s -> if($s == null, null, $s['sendingStatus'])"
+			inputs="state"
+		/>
+		<derived-channel name="recordingStatus"
+			expr="s -> if($s == null, null, $s['recordingStatus'])"
+			inputs="state"
+		/>
+		<derived-channel name="logStatus"
+			expr="s -> if($s == null, null, $s['logStatus'])"
+			inputs="state"
+		/>
+		<!-- The address the send form sends to: the selected row's, or one entered. -->
+		<derived-channel name="address"
+			expr="r -> if($r == null, null, $r['address'])"
+			inputs="selectedRow"
+			reverse="a -> {'address': $a}"
+		/>
+		<derived-channel name="target"
+			expr="s -> a -> t -> if($s == null, null, monitorTarget($s, $a, $t))"
+			inputs="state, address, dptText"
+		/>
+		<derived-channel name="kind"
+			expr="t -> if($t == null, 'none', $t['kind'])"
+			inputs="target"
+		/>
+		<derived-channel name="targetText"
+			expr="t -> if($t == null, #('Choose an address in the table or enter one.'@en, 'Eine Adresse in der Tabelle wählen oder eingeben.'@de), if($t['problem'] != null, $t['problem'], $t['label']))"
+			inputs="target"
+		/>
+	</channels>
+	<split-panel
+		orientation="vertical"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="160"
+				size="30"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Group monitor</en>
+						<de>Gruppenmonitor</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-broadcast"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Choose the gateway</en>
+								<de>Gateway wählen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="project"
+								dialog-view="projects/choose-gateway.view.xml"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-plug-fill"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Connect</en>
+								<de>Verbinden</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<group-monitor-connect state="state"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-x-circle"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Disconnect</en>
+								<de>Trennen</de>
+							</label>
+							<executability>
+								<disabled-if expr="s -> if($s != null and $s['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
+							</executability>
+							<execute-script function="s -> monitorDisconnect($s)"/>
+							<write-channel name="state"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-unlock"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Allow sending</en>
+								<de>Senden erlauben</de>
+							</label>
+							<executability>
+								<visible-if expr="s -> $s == null or !$s['sending']"/>
+								<disabled-if expr="s -> if($s != null and $s['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
+							</executability>
+							<confirm expr="s -> #('Allow sending for this connection? Send and Read then write telegrams to the bus, which switch what the addresses are connected to.'@en, 'Senden für diese Verbindung erlauben? Senden und Lesen schreiben dann Telegramme auf den Bus, die schalten, was mit den Adressen verbunden ist.'@de)"/>
+							<execute-script function="s -> monitorAllowSending($s, true)"/>
+							<write-channel name="state"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-lock-fill"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Lock sending</en>
+								<de>Senden sperren</de>
+							</label>
+							<executability>
+								<visible-if expr="s -> $s != null and $s['sending']"/>
+							</executability>
+							<execute-script function="s -> monitorAllowSending($s, false)"/>
+							<write-channel name="state"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-record-circle"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Start recording</en>
+								<de>Aufzeichnung starten</de>
+							</label>
+							<executability>
+								<visible-if expr="s -> $s == null or $s['recording'] == null"/>
+								<disabled-if expr="s -> if($s != null and $s['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
+							</executability>
+							<execute-script function="n -> s -> monitorStartRecording($s, $n)">
+								<inputs>
+									<input channel="recordingName"/>
+								</inputs>
+							</execute-script>
+							<write-channel name="state"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-stop-circle"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Stop recording</en>
+								<de>Aufzeichnung beenden</de>
+							</label>
+							<executability>
+								<visible-if expr="s -> $s != null and $s['recording'] != null"/>
+							</executability>
+							<execute-script function="s -> monitorStopRecording($s)"/>
+							<write-channel name="state"/>
+						</generic-command>
+						<generic-command
+							clique="more"
+							image="css:bi bi-eraser"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Clear the values and the log</en>
+								<de>Werte und Protokoll leeren</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<execute-script function="s -> monitorClear($s)"/>
+							<write-channel name="state"/>
+						</generic-command>
+					</commands>
+					<inset>
+						<stack gap="compact">
+							<text input="gatewayText"/>
+							<text input="status"/>
+							<text
+								input="sendingStatus"
+								tone="secondary"
+							/>
+							<text
+								input="recordingStatus"
+								tone="secondary"
+							/>
+							<text
+								input="logStatus"
+								tone="warning"
+							/>
+							<fields>
+								<value-input
+									type="tl.core:Boolean"
+									value="onlyTraffic"
+								>
+									<label>
+										<en>State board: only addresses with traffic</en>
+										<de>Zustandstafel: nur Adressen mit Verkehr</de>
+									</label>
+								</value-input>
+								<value-input
+									type="tl.core:String"
+									value="recordingName"
+								>
+									<label>
+										<en>Name of the next recording</en>
+										<de>Name der nächsten Aufzeichnung</de>
+									</label>
+									<placeholder>
+										<en>Recording of the date and time</en>
+										<de>Aufzeichnung vom Datum und der Uhrzeit</de>
+									</placeholder>
+								</value-input>
+							</fields>
+						</stack>
+					</inset>
+				</panel>
+			</pane>
+			<pane
+				min-size="200"
+				size="70"
+				unit="%"
+			>
+				<tab-bar active-tab="board">
+					<tabs>
+						<tab id="board"
+							icon="css:bi bi-grid-3x3-gap"
+						>
+							<label>
+								<en>State board</en>
+								<de>Zustandstafel</de>
+							</label>
+							<split-panel
+								orientation="horizontal"
+								resizable="true"
+							>
+								<panes>
+									<pane
+										min-size="300"
+										size="65"
+										unit="%"
+									>
+										<table
+											filter-bar="true"
+											selection="selectedRow"
+										>
+											<inputs>
+												<input channel="state"/>
+												<input channel="onlyTraffic"/>
+											</inputs>
+											<columns>
+												<computed-column name="fresh"
+													type="tl.core:String"
+													width="40"
+												>
+													<label>
+														<en>New</en>
+														<de>Neu</de>
+													</label>
+													<value>r -> if($r['fresh'], '●', '')</value>
+												</computed-column>
+												<computed-column name="address"
+													type="tl.core:String"
+													width="90"
+												>
+													<label>
+														<en>Address</en>
+														<de>Adresse</de>
+													</label>
+													<value>r -> $r['address']</value>
+												</computed-column>
+												<computed-column name="name"
+													type="tl.core:String"
+													width="180"
+												>
+													<label>
+														<en>Name</en>
+														<de>Name</de>
+													</label>
+													<value>r -> $r['name']</value>
+												</computed-column>
+												<computed-column name="dpt"
+													type="tl.core:String"
+													width="80"
+												>
+													<label>
+														<en>Type</en>
+														<de>Typ</de>
+													</label>
+													<value>r -> $r['dpt']</value>
+												</computed-column>
+												<computed-column name="value"
+													type="tl.core:String"
+													width="140"
+												>
+													<label>
+														<en>Value</en>
+														<de>Wert</de>
+													</label>
+													<value>r -> $r['value']</value>
+												</computed-column>
+												<computed-column name="sender"
+													type="tl.core:String"
+													width="240"
+												>
+													<label>
+														<en>Sender</en>
+														<de>Absender</de>
+													</label>
+													<value>r -> $r['sender']</value>
+												</computed-column>
+												<computed-column name="time"
+													type="tl.core:String"
+													width="90"
+												>
+													<label>
+														<en>Time</en>
+														<de>Zeit</de>
+													</label>
+													<value>r -> $r['time']</value>
+												</computed-column>
+												<computed-column name="count"
+													type="tl.core:Integer"
+													width="80"
+												>
+													<label>
+														<en>Telegrams</en>
+														<de>Telegramme</de>
+													</label>
+													<value>r -> $r['count']</value>
+												</computed-column>
+											</columns>
+											<rows>s -> only -> if($s == null, [], if($only == true, $s['board'].filter(r -> $r['count'] > 0), $s['board']))</rows>
+										</table>
+									</pane>
+									<pane
+										min-size="240"
+										size="35"
+										unit="%"
+									>
+										<panel>
+											<title>
+												<en>Send</en>
+												<de>Senden</de>
+											</title>
+											<inset>
+												<stack gap="default">
+													<text
+														input="sendingStatus"
+														tone="secondary"
+													/>
+													<fields>
+														<value-input
+															type="tl.core:String"
+															value="address"
+														>
+															<label>
+																<en>Group address</en>
+																<de>Gruppenadresse</de>
+															</label>
+														</value-input>
+														<value-input
+															type="tl.core:String"
+															value="dptText"
+														>
+															<label>
+																<en>Datapoint type (only to replace the one of the project)</en>
+																<de>Datenpunkttyp (nur statt dem des Projekts)</de>
+															</label>
+															<placeholder>
+																<en>e.g. 1.001</en>
+																<de>z. B. 1.001</de>
+															</placeholder>
+														</value-input>
+													</fields>
+													<text input="targetText"/>
+													<switch input="kind">
+														<case test="k -> $k == 'switch'">
+															<stack
+																direction="row"
+																gap="compact"
+															>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-toggle-off"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send 0</en>
+																			<de>0 senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> t -> s -> monitorSend($s, $a, false, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-toggle-on"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send 1</en>
+																			<de>1 senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> t -> s -> monitorSend($s, $a, true, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+														<case test="k -> $k == 'number'">
+															<stack
+																align="end"
+																direction="row"
+																gap="compact"
+															>
+																<fields>
+																	<value-input
+																		type="tl.core:Double"
+																		value="numberValue"
+																	>
+																		<label>
+																			<en>Value</en>
+																			<de>Wert</de>
+																		</label>
+																	</value-input>
+																</fields>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-send"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send</en>
+																			<de>Senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="numberValue"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+														<case test="k -> $k == 'text' or $k == 'raw'">
+															<stack
+																align="end"
+																direction="row"
+																gap="compact"
+															>
+																<fields>
+																	<value-input
+																		type="tl.core:String"
+																		value="textValue"
+																	>
+																		<label>
+																			<en>Value (as the type writes it, or hexadecimal bytes)</en>
+																			<de>Wert (wie der Typ ihn schreibt, oder hexadezimale Bytes)</de>
+																		</label>
+																	</value-input>
+																</fields>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-send"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send</en>
+																			<de>Senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="textValue"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+													</switch>
+													<button>
+														<action class="com.top_logic.layout.view.command.GenericViewCommand"
+															image="css:bi bi-question-circle"
+															input="state"
+														>
+															<label>
+																<en>Read (the answer appears as telegram)</en>
+																<de>Lesen (die Antwort erscheint als Telegramm)</de>
+															</label>
+															<executability>
+																<disabled-if expr="s -> monitorSendVeto($s)"/>
+															</executability>
+															<execute-script function="a -> s -> monitorRead($s, $a)">
+																<inputs>
+																	<input channel="address"/>
+																</inputs>
+															</execute-script>
+															<write-channel name="state"/>
+														</action>
+													</button>
+												</stack>
+											</inset>
+										</panel>
+									</pane>
+								</panes>
+							</split-panel>
+						</tab>
+						<tab id="log"
+							icon="css:bi bi-list-ul"
+						>
+							<label>
+								<en>Log</en>
+								<de>Protokoll</de>
+							</label>
+							<panel>
+								<title>
+									<en>Telegrams, newest first</en>
+									<de>Telegramme, neueste zuerst</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:bi bi-pause-fill"
+										input="state"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Hold</en>
+											<de>Anhalten</de>
+										</label>
+										<executability>
+											<visible-if expr="s -> $s != null and !$s['paused']"/>
+										</executability>
+										<execute-script function="s -> monitorPauseLog($s, true)"/>
+										<write-channel name="state"/>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-play-fill"
+										input="state"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Continue</en>
+											<de>Fortsetzen</de>
+										</label>
+										<executability>
+											<visible-if expr="s -> $s != null and $s['paused']"/>
+										</executability>
+										<execute-script function="s -> monitorPauseLog($s, false)"/>
+										<write-channel name="state"/>
+									</generic-command>
+								</commands>
+								<table filter-bar="true">
+									<inputs>
+										<input channel="state"/>
+									</inputs>
+									<columns>
+										<computed-column name="time"
+											type="tl.core:String"
+											width="110"
+										>
+											<label>
+												<en>Time</en>
+												<de>Zeit</de>
+											</label>
+											<value>r -> $r['time']</value>
+										</computed-column>
+										<computed-column name="own"
+											type="tl.core:String"
+											width="60"
+										>
+											<label>
+												<en>Own</en>
+												<de>Eigen</de>
+											</label>
+											<value>r -> if($r['own'], '►', '')</value>
+										</computed-column>
+										<computed-column name="sender"
+											type="tl.core:String"
+											width="220"
+										>
+											<label>
+												<en>Sender</en>
+												<de>Absender</de>
+											</label>
+											<value>r -> $r['sender']</value>
+										</computed-column>
+										<computed-column name="address"
+											type="tl.core:String"
+											width="90"
+										>
+											<label>
+												<en>Address</en>
+												<de>Adresse</de>
+											</label>
+											<value>r -> $r['address']</value>
+										</computed-column>
+										<computed-column name="name"
+											type="tl.core:String"
+											width="160"
+										>
+											<label>
+												<en>Name</en>
+												<de>Name</de>
+											</label>
+											<value>r -> $r['name']</value>
+										</computed-column>
+										<computed-column name="value"
+											type="tl.core:String"
+											width="130"
+										>
+											<label>
+												<en>Value</en>
+												<de>Wert</de>
+											</label>
+											<value>r -> $r['value']</value>
+										</computed-column>
+										<computed-column name="service"
+											type="ehome.monitor:TelegramService"
+											width="100"
+										>
+											<label>
+												<en>Service</en>
+												<de>Dienst</de>
+											</label>
+											<value>r -> $r['service']</value>
+										</computed-column>
+										<computed-column name="priority"
+											type="ehome.monitor:TelegramPriority"
+											width="90"
+										>
+											<label>
+												<en>Priority</en>
+												<de>Priorität</de>
+											</label>
+											<value>r -> $r['priority']</value>
+										</computed-column>
+										<computed-column name="repeated"
+											type="tl.core:Boolean"
+											width="90"
+										>
+											<label>
+												<en>Repeated</en>
+												<de>Wiederholt</de>
+											</label>
+											<value>r -> $r['repeated']</value>
+										</computed-column>
+										<computed-column name="hops"
+											type="tl.core:Integer"
+											width="70"
+										>
+											<label>
+												<en>Routing</en>
+												<de>Routing</de>
+											</label>
+											<value>r -> $r['hops']</value>
+										</computed-column>
+										<computed-column name="data"
+											type="tl.core:String"
+											width="100"
+										>
+											<label>
+												<en>Data</en>
+												<de>Daten</de>
+											</label>
+											<value>r -> $r['data']</value>
+										</computed-column>
+									</columns>
+									<rows>s -> if($s == null, [], $s['log'])</rows>
+								</table>
+							</panel>
+						</tab>
+						<tab id="recordings"
+							icon="css:bi bi-record-circle"
+						>
+							<label>
+								<en>Recordings</en>
+								<de>Aufzeichnungen</de>
+							</label>
+							<panel>
+								<title>
+									<en>Recordings</en>
+									<de>Aufzeichnungen</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:bi bi-filetype-csv"
+										input="selectedRecording"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Export as CSV</en>
+											<de>Als CSV exportieren</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<execute-script function="r -> monitorRecordingCsv($r)"/>
+										<open-dialog
+											bind-input-to="file"
+											dialog-view="projects/monitor-export.view.xml"
+										/>
+									</generic-command>
+									<generic-command
+										clique="delete"
+										image="css:bi bi-trash"
+										input="selectedRecording"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Delete</en>
+											<de>Löschen</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<confirm expr="r -> #('Delete the recording &quot;{0}&quot; with its telegrams?'@en, 'Die Aufzeichnung „{0}“ mit ihren Telegrammen löschen?'@de).fill($r.get(`ehome.monitor:Recording#name`))"/>
+										<delete-object/>
+										<write-channel name="selectedRecording"/>
+									</generic-command>
+								</commands>
+								<table
+									observed-types="ehome.monitor:Recording"
+									selection="selectedRecording"
+									types="ehome.monitor:Recording"
+								>
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+									<columns>
+										<column attribute="name"
+											width="260"
+										/>
+										<column attribute="start"/>
+										<column attribute="end"/>
+										<column attribute="count"/>
+										<column attribute="gateway"/>
+									</columns>
+									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#recordings`))</rows>
+								</table>
+							</panel>
+						</tab>
+					</tabs>
+				</tab-bar>
+			</pane>
+		</panes>
+	</split-panel>
+</view>
