@@ -3,7 +3,8 @@
 <!--
 	The topology of a project: areas, their lines, the devices on a line and the connectors of a
 	device that are in use. Devices not placed in a line yet follow the areas. The selected node is
-	shown in a form beside the tree.
+	shown in a form beside the tree, a device with its parameter settings; the selected setting is
+	edited by the type of its parameter.
 -->
 <view>
 	<channels>
@@ -16,6 +17,24 @@
 		<derived-channel name="selectedArea"
 			expr="n -> if($n.instanceOf(`ehome.physical:Area`), $n, null)"
 			inputs="selected"
+		/>
+		<!--
+			The parameter setting selected in the settings of a device; the setting shown is the one of the
+			selected device only (the table leaves a selection it has no row for in the channel). Its
+			parameter definition and the type of that.
+		-->
+		<channel name="selectedSetting"/>
+		<derived-channel name="setting"
+			expr="d -> s -> if($s != null and $s.container() == $d, $s, null)"
+			inputs="selected, selectedSetting"
+		/>
+		<derived-channel name="settingParameter"
+			expr="s -> $s.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`)"
+			inputs="setting"
+		/>
+		<derived-channel name="settingType"
+			expr="p -> $p.get(`ehome.operational:Parameter#type`)"
+			inputs="settingParameter"
 		/>
 	</channels>
 	<split-panel
@@ -154,50 +173,184 @@
 							</form>
 						</case>
 						<case test="n -> $n.instanceOf(`ehome.physical:Device`)">
-							<form
-								input="selected"
-								with-inset="true"
+							<!--
+								The device above, its parameter settings below: the parameter values set in the
+								project (all others have their default). The selected setting is edited beside the
+								table by the type of its parameter: only the field fitting the type's kind is
+								shown. Below it, the placed parameter, the encoding of the value in ETS and the
+								type, for information.
+							-->
+							<split-panel
+								orientation="vertical"
+								resizable="true"
 							>
-								<field attribute="title"/>
-								<field attribute="address"/>
-								<field attribute="type"/>
-								<field attribute="program"/>
-								<field attribute="location"/>
-								<field attribute="description"/>
-								<field attribute="installationHints"/>
-								<field attribute="serialNumber"/>
-								<field attribute="loaded"/>
-								<field attribute="lastModified"/>
-								<field attribute="lastDownload"/>
-								<field attribute="downloadPending"/>
-								<field attribute="extId"/>
-							</form>
-							<!-- The parameter values set in the project; all others have their default. -->
-							<table
-								observed-types="ehome.physical:ParameterSetting"
-								types="ehome.physical:ParameterSetting"
-							>
-								<inputs>
-									<input channel="selected"/>
-								</inputs>
-								<columns>
-									<column attribute="name"
-										width="320"
-									/>
-									<column attribute="displayValue"
-										width="220"
+								<panes>
+									<pane
+										size="40"
+										unit="%"
 									>
-										<label>
-											<en>Value</en>
-											<de>Wert</de>
-										</label>
-									</column>
-									<column attribute="displayDefault"
-										width="220"
-									/>
-								</columns>
-								<rows>d -> $d.get(`ehome.physical:Device#settings`)</rows>
-							</table>
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="title"/>
+											<field attribute="address"/>
+											<field attribute="type"/>
+											<field attribute="program"/>
+											<field attribute="location"/>
+											<field attribute="description"/>
+											<field attribute="installationHints"/>
+											<field attribute="serialNumber"/>
+											<field attribute="loaded"/>
+											<field attribute="lastModified"/>
+											<field attribute="lastDownload"/>
+											<field attribute="downloadPending"/>
+											<field attribute="extId"/>
+										</form>
+									</pane>
+									<pane
+										size="60"
+										unit="%"
+									>
+										<split-panel
+											orientation="horizontal"
+											resizable="true"
+										>
+											<panes>
+												<pane
+													min-size="240"
+													size="55"
+													unit="%"
+												>
+													<panel>
+														<title>
+															<en>Parameter settings</en>
+															<de>Parametereinstellungen</de>
+														</title>
+														<table
+															observed-types="ehome.physical:ParameterSetting"
+															selection="selectedSetting"
+															types="ehome.physical:ParameterSetting"
+														>
+															<inputs>
+																<input channel="selected"/>
+															</inputs>
+															<columns>
+																<column attribute="name"
+																	width="240"
+																/>
+																<column attribute="displayValue"
+																	width="120"
+																>
+																	<label>
+																		<en>Value</en>
+																		<de>Wert</de>
+																	</label>
+																</column>
+																<column attribute="displayDefault"
+																	width="120"
+																/>
+															</columns>
+															<rows>d -> $d.get(`ehome.physical:Device#settings`)</rows>
+														</table>
+													</panel>
+												</pane>
+												<pane
+													min-size="240"
+													size="45"
+													unit="%"
+												>
+													<panel>
+														<title>
+															<en>Parameter setting</en>
+															<de>Parametereinstellung</de>
+														</title>
+														<!-- Nothing while no setting of the device is selected. -->
+														<visible-if
+															expr="s -> $s != null"
+															input="setting"
+														>
+															<form
+																input="setting"
+																with-inset="true"
+															>
+																<group>
+																	<label>
+																		<en>Value</en>
+																		<de>Wert</de>
+																	</label>
+																	<field attribute="choice"/>
+																	<field attribute="number"/>
+																	<field attribute="decimal"/>
+																	<field attribute="text"/>
+																</group>
+																<field attribute="displayDefault"/>
+															</form>
+															<form
+																input="setting"
+																with-inset="true"
+																withEditMode="false"
+															>
+																<field attribute="parameter"/>
+																<field attribute="encodedValue"/>
+															</form>
+															<form
+																input="settingType"
+																with-inset="true"
+																withEditMode="false"
+															>
+																<group>
+																	<label>
+																		<en>Type</en>
+																		<de>Typ</de>
+																	</label>
+																	<field attribute="name"/>
+																	<field attribute="bits"/>
+																	<field attribute="kind"/>
+																	<field attribute="min"/>
+																	<field attribute="max"/>
+																	<field attribute="encoding"/>
+																	<field attribute="decimals"/>
+																	<field attribute="unit"/>
+																	<field attribute="pattern"/>
+																	<field attribute="showsYear"/>
+																	<field attribute="addressKind"/>
+																	<field attribute="version"/>
+																</group>
+															</form>
+															<!-- The entries of an enumeration type. -->
+															<switch input="settingType">
+																<case test="t -> $t.instanceOf(`ehome.operational:EnumerationType`)">
+																	<table
+																		observed-types="ehome.operational:EnumerationValue"
+																		types="ehome.operational:EnumerationValue"
+																	>
+																		<inputs>
+																			<input channel="settingType"/>
+																		</inputs>
+																		<columns>
+																			<column attribute="name"
+																				width="200"
+																			/>
+																			<column attribute="value"
+																				width="100"
+																			/>
+																			<column attribute="index"
+																				width="100"
+																			/>
+																		</columns>
+																		<rows>t -> $t.get(`ehome.operational:EnumerationType#values`)</rows>
+																	</table>
+																</case>
+															</switch>
+														</visible-if>
+													</panel>
+												</pane>
+											</panes>
+										</split-panel>
+									</pane>
+								</panes>
+							</split-panel>
 						</case>
 						<case test="n -> $n.instanceOf(`ehome.physical:Connector`)">
 							<form

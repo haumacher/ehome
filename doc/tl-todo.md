@@ -137,6 +137,35 @@ typed attributes are labeled on the interface only.
 
 **When fixed:** nothing to remove; check that such a change applies to an existing database.
 
+## Master-detail of the device settings without `<adaptive-detail>` (TL #29801)
+
+`<adaptive-detail>` splits selector and detail at a fixed 32/68
+(`ReactAdaptiveDetailControl#buildRegularSplit`); its `detail-size` applies only to the drawer
+display. With 32 % the settings table of a device (`projects/devices.view.xml`: name, value, default)
+shows only its first column.
+
+Workaround: `projects/devices.view.xml` arranges the settings table and the detail of the selected
+setting in a `<split-panel>` (55/45) and guards the selection itself (`setting` derived channel:
+the selected setting only if it belongs to the selected device), losing the drill-in on narrow
+screens and `reset-on`.
+
+**When available** (configurable selector share): replace the split panel and the guard by an
+`<adaptive-detail>` with `reset-on="selected"`.
+
+## Error toast when a table in a switch case disappears (TL #29802)
+
+A `<table>` inside a `<switch>` case whose rows read an input channel fails with a
+`NullPointerException` in `RowSourceObserver#deregisterObjectListeners` when that channel changes
+so that the case is removed: the switch disposes the table, and the observer, still in the
+channel's listener snapshot, re-evaluates on a null scope. The user sees an error toast; the change
+itself goes through. In the app: the entries table of an enumeration type in
+`projects/devices.view.xml` (select an enumeration setting, then a line in the tree) and in
+`catalogs/program.view.xml` (select an enumeration parameter, then another node).
+
+Workaround: none; the toast is left visible.
+
+**When fixed:** nothing to remove.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -149,3 +178,5 @@ typed attributes are labeled on the interface only.
 - TL #29798: see above (derived references in the commit check).
 - TL #29799: see above (derived fields and Java script functions in forms).
 - TL #29800: see above (model patch of a new generalization with overrides).
+- TL #29801: see above (adaptive-detail split proportions).
+- TL #29802: see above (table in a switch case disposed during a channel change).
