@@ -106,6 +106,18 @@
 					<method name="compareVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="downloadConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="addressConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<!-- The group monitor (de.haumacher.ehome.monitor.GroupMonitor, projects/monitor.view.xml): one builder, the function by its name. -->
+					<method name="monitorDisconnect" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorAllowSending" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorSend" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorRead" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorStartRecording" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorStopRecording" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorPauseLog" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorClear" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorTarget" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorSendVeto" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorRecordingCsv" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

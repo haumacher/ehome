@@ -53,6 +53,20 @@
 					/>
 				</view-ref>
 			</tab>
+			<tab id="monitor"
+				icon="css:bi bi-activity"
+			>
+				<label>
+					<en>Monitor</en>
+					<de>Monitor</de>
+				</label>
+				<view-ref view="projects/monitor.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="properties"
 				icon="css:fa-solid fa-gear"
 			>

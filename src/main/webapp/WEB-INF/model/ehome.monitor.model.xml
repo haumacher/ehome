@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<!--
+		Recordings of the group monitor (de.haumacher.ehome.monitor.GroupMonitor, haumacher/ehome #10):
+		the group telegrams seen on the bus during a span of time, kept with the project they were
+		recorded for. The live state of the bus is not stored; only a recording the user starts is.
+	-->
+	<module name="ehome.monitor">
+		<!-- The service of a group telegram. -->
+		<enum name="TelegramService">
+			<classifier name="write" default="true"/>
+			<classifier name="read"/>
+			<classifier name="response"/>
+		</enum>
+		<!-- The priority a telegram was sent with. -->
+		<enum name="TelegramPriority">
+			<classifier name="system"/>
+			<classifier name="normal"/>
+			<classifier name="urgent"/>
+			<classifier name="low" default="true"/>
+		</enum>
+		<class name="Recording">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-record-circle"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The gateway the telegrams were received through. -->
+				<property name="gateway"
+					type="tl.core:String"
+				/>
+				<property name="start"
+					type="tl.core:DateTime"
+				/>
+				<!-- Empty while the recording runs. -->
+				<property name="end"
+					type="tl.core:DateTime"
+				/>
+				<!-- The number of telegrams stored so far. -->
+				<property name="count"
+					type="tl.core:Integer"
+				/>
+				<reference name="telegrams"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Telegram"
+				/>
+			</attributes>
+		</class>
+		<class name="Telegram">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- The position of the telegram in its recording, from 1. -->
+				<property name="number"
+					type="tl.core:Integer"
+				/>
+				<property name="time"
+					type="tl.core:DateTime"
+				/>
+				<!-- The individual address of the sender, e.g. 1.3.50. -->
+				<property name="source"
+					type="tl.core:String"
+				/>
+				<!-- The device of the project with the sender's individual address, if there is one. -->
+				<reference name="sender"
+					kind="forwards"
+					type="ehome.physical:Device"
+				/>
+				<!-- The group address the telegram was sent to. -->
+				<property name="address"
+					type="ehome.logical:GA"
+				>
+					<annotations>
+						<ga-style>
+							<style><![CDATA[ga -> recursion($ga, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.project:Project`))
+    .firstElement()
+    .get(`ehome.project:Project#groupAddressStyle`)]]></style>
+						</ga-style>
+					</annotations>
+				</property>
+				<!-- The group address of the project with this address, if the project knows it. -->
+				<reference name="groupAddress"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				/>
+				<reference name="service"
+					kind="forwards"
+					type="TelegramService"
+				/>
+				<reference name="priority"
+					kind="forwards"
+					type="TelegramPriority"
+				/>
+				<!-- Whether the telegram was a repetition of one not acknowledged. -->
+				<property name="repeated"
+					type="tl.core:Boolean"
+				/>
+				<property name="hopCount"
+					type="tl.core:Integer"
+				/>
+				<!-- The data of the telegram as hexadecimal bytes (a value of up to 6 bits as one byte). -->
+				<property name="data"
+					type="tl.core:String"
+				/>
+				<!-- The data decoded by the datapoint type of the address, with its unit. -->
+				<property name="value"
+					type="tl.core:String"
+				/>
+				<!-- Whether E-Home sent the telegram itself. -->
+				<property name="own"
+					type="tl.core:Boolean"
+				/>
+			</attributes>
+		</class>
+	</module>
+</model>
