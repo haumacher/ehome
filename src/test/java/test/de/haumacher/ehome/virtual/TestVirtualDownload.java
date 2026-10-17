@@ -61,7 +61,7 @@ import de.haumacher.ehome.virtual.trace.TraceOperations;
  * plan operation by operation; the memory of the simulated device afterwards holds every block of
  * the download image (under its mask), the blocks the plan does not load hold the program's static
  * data as before; and the comparison of E-Home (read path, {@link CalimeroReader}) finds the device
- * identical to the image.
+ * identical to what the download left (the image, and the procedure's own inline data over it).
  * </p>
  */
 @SuppressWarnings("javadoc")
@@ -174,7 +174,7 @@ public class TestVirtualDownload extends BasicTestCase {
 		manager.start(simulated, endpoint, Map.of("compare", name));
 		try (CalimeroReader reader = CalimeroReader.open(gateway(endpoint), plan.getIndividualAddress())) {
 			DeviceComparison.Result comparison = DeviceComparison.compare(DeviceConfiguration.program(device),
-				plan.getImage(), plan.getUnloadedBlocks(), reader, (number, count, block) -> {
+				plan, reader, (number, count, block) -> {
 					// No progress.
 				});
 			assertEquals(String.format("%02X %02X", simulated.mask() >>> 8, simulated.mask() & 0xFF),
@@ -186,8 +186,8 @@ public class TestVirtualDownload extends BasicTestCase {
 				assertNull(name + ", " + block.name(), block.failure());
 				different.addAll(block.different());
 			}
-			// The comparison does not know the procedure's own writes over the image.
-			assertEquals(name + ": differences found by the comparison", overwritten, different);
+			// The comparison expects the procedure's own writes over the image (haumacher/ehome #29).
+			assertEquals(name + ": differences found by the comparison", List.of(), different);
 			for (String fact : comparison.facts()) {
 				if (fact.startsWith("Program version: ") || fact.startsWith("Program identity ")) {
 					String[] parts = fact.substring(fact.indexOf(':') + 2).split(", the (program|image)'s: ");
@@ -196,6 +196,21 @@ public class TestVirtualDownload extends BasicTestCase {
 					assertTrue(name + ": " + fact, fact.endsWith(": loaded"));
 				}
 			}
+
+			// A device that does not hold the procedure's own data (BCU 1: the application stopped,
+			// RunError not FF) differs there.
+			for (int address : overwritten) {
+				simulated.initMemory(address, new byte[] { (byte) ~simulated.memorySnapshot()[address] });
+			}
+			DeviceComparison.Result stopped = DeviceComparison.compare(DeviceConfiguration.program(device), plan,
+				reader, (number, count, block) -> {
+					// No progress.
+				});
+			List<Integer> differentStopped = new ArrayList<>();
+			for (DeviceComparison.BlockResult block : stopped.blocks()) {
+				differentStopped.addAll(block.different());
+			}
+			assertEquals(name + ": differences where the procedure's data is missing", overwritten, differentStopped);
 		} finally {
 			manager.stop();
 		}

@@ -65,8 +65,8 @@ public class CompareJob implements JobBody {
 		ProgrammingReport report = new ProgrammingReport();
 		DeviceComparison.Result result;
 		try (CalimeroReader reader = CalimeroReader.open(gateway, plan.getIndividualAddress())) {
-			result = DeviceComparison.compare(DeviceConfiguration.program(device), plan.getImage(),
-				plan.getUnloadedBlocks(), reader, (number, count, block) -> {
+			result = DeviceComparison.compare(DeviceConfiguration.program(device), plan, reader,
+				(number, count, block) -> {
 					job.checkCancelled();
 					job.progress(number - 1, count);
 					job.message(I18NConstants.PROGRESS_READING__WHAT.fill(block.name()));

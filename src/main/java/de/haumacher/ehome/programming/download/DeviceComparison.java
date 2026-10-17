@@ -5,7 +5,9 @@ package de.haumacher.ehome.programming.download;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import de.haumacher.ehome.model.operational.MaskFeature;
@@ -19,6 +21,12 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * Compares a device with its download image without writing anything: reads the device descriptor,
  * the program version and the load states, and the memory of every block of the image (only the
  * bytes of its mask), and reports the differences.
+ *
+ * <p>
+ * Compared with a {@link DownloadPlan}, the expected memory is what the download leaves: the image,
+ * except where the load procedure writes inline data of its own over it (BCU 1: FF into
+ * <code>RunError</code> at its end), there the value the plan writes last.
+ * </p>
  */
 public class DeviceComparison {
 
@@ -87,6 +95,32 @@ public class DeviceComparison {
 	}
 
 	/**
+	 * Compares the device with the memory the given download plan leaves in it: the image of the
+	 * plan, where the plan writes over it the value it writes last, without the blocks the plan
+	 * does not load.
+	 *
+	 * @param program
+	 *        The program of the device, for the expected program version and the mask.
+	 * @param plan
+	 *        The full download plan of the device.
+	 * @param reader
+	 *        The access to the device.
+	 */
+	public static Result compare(Program program, DownloadPlan plan, DeviceReader reader, Listener listener)
+			throws BusException {
+		Map<Integer, Byte> written = new HashMap<>();
+		for (Operation operation : plan.getOperations()) {
+			if (operation instanceof Operation.WriteMemory write) {
+				byte[] data = write.data();
+				for (int n = 0; n < data.length; n++) {
+					written.put(write.address() + n, data[n]);
+				}
+			}
+		}
+		return compare(program, plan.getImage(), plan.getUnloadedBlocks(), written, reader, listener);
+	}
+
+	/**
 	 * Compares the device with the image.
 	 *
 	 * @param program
@@ -101,6 +135,12 @@ public class DeviceComparison {
 	 */
 	public static Result compare(Program program, DownloadImage image, Collection<Block> skip, DeviceReader reader,
 			Listener listener)
+			throws BusException {
+		return compare(program, image, skip, Map.of(), reader, listener);
+	}
+
+	private static Result compare(Program program, DownloadImage image, Collection<Block> skip,
+			Map<Integer, Byte> written, DeviceReader reader, Listener listener)
 			throws BusException {
 		String descriptor = Operation.hex(reader.readDescriptor());
 		List<String> facts = new ArrayList<>();
@@ -144,7 +184,7 @@ public class DeviceComparison {
 		int number = 1;
 		for (Block block : blocks) {
 			listener.block(number++, blocks.size(), block);
-			results.add(compare(block, reader));
+			results.add(compare(block, written, reader));
 		}
 		return new Result(descriptor, facts, results);
 	}
@@ -186,7 +226,7 @@ public class DeviceComparison {
 		return false;
 	}
 
-	private static BlockResult compare(Block block, DeviceReader reader) {
+	private static BlockResult compare(Block block, Map<Integer, Byte> written, DeviceReader reader) {
 		byte[] data = block.data();
 		byte[] mask = block.mask();
 		List<Integer> different = new ArrayList<>();
@@ -215,7 +255,8 @@ public class DeviceComparison {
 			for (int k = start; k < n; k++) {
 				compared++;
 				int bits = mask[k] & 0xFF;
-				if (k - start >= read.length || ((read[k - start] ^ data[k]) & bits) != 0) {
+				byte expected = written.getOrDefault(block.address() + k, data[k]);
+				if (k - start >= read.length || ((read[k - start] ^ expected) & bits) != 0) {
 					different.add(block.address() + k);
 				}
 			}
