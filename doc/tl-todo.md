@@ -361,7 +361,7 @@ Workaround: none.
 
 **When available:** declare the column hidden by default.
 
-## A slider's range cannot come from a channel (TL ticket pending)
+## A slider's range cannot come from a channel (TL #29872)
 
 `NumberInputControlProvider.Config` takes `min`, `max` and `step` as fixed numbers; no channel or
 expression can set them. The monitor's send form cannot use the range `GroupMonitor.target`
@@ -374,7 +374,7 @@ Workaround: two fixed slider kinds, `percent` (0–100, DPT 5.001) and `scale` (
 **When available:** one slider kind bound to the target's `min`/`max`/`unit`, and slider kinds for
 5.003 and 5.006.
 
-## A time picker has no seconds (TL ticket pending)
+## A time picker has no seconds (TL #29873)
 
 `ReactDatePickerControl.Kind.TIME` uses the ISO pattern `HH:mm` and has no step option: the
 monitor's DPT 10 input cannot enter or show seconds ("Now" keeps them in the value until the field
@@ -383,6 +383,19 @@ is edited).
 Workaround: none.
 
 **When available:** a time picker with seconds for the DPT 10 input.
+
+## A choice always sorts its options by label (TL #29874)
+
+`SelectControlProvider.createControl` hands `ReactDropdownSelectControl` a `LabelComparator`
+unconditionally and has no setting to keep the order of the options: the monitor's days of the week
+came out alphabetically ("Dienstag, Donnerstag, …, Kein Tag, …").
+
+Workaround: `de.haumacher.ehome.view.OptionOrderSelectControlProvider`, a `SelectControlProvider`
+passing no comparator, as `<input-control>` of the monitor's choices of the step size, the day of
+the week and the enumeration value (`projects/monitor.view.xml`).
+
+**When available:** use the engine's setting in those three inputs and delete
+`OptionOrderSelectControlProvider`.
 
 ## Upstream tickets to follow
 
@@ -413,3 +426,6 @@ Workaround: none.
 - TL #29814: see above (live source push).
 - TL #29815: see above (row CSS class).
 - TL #29816: see above (hidden computed column).
+- TL #29872: see above (slider range from a channel).
+- TL #29873: see above (time picker seconds).
+- TL #29874: see above (option order of a choice; when available: delete `OptionOrderSelectControlProvider`).

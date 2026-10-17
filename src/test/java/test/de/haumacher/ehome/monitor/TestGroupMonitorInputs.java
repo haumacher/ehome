@@ -10,7 +10,9 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -23,10 +25,12 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
+import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.monitor.DatapointCodec;
+import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.GroupMonitor;
 import de.haumacher.ehome.monitor.ProjectIndex;
 
@@ -70,6 +74,7 @@ public class TestGroupMonitorInputs extends BasicTestCase {
 				checkDateTime();
 				checkChoice();
 				checkUnchanged();
+				checkTexts();
 			} finally {
 				_monitor.close();
 			}
@@ -143,18 +148,16 @@ public class TestGroupMonitorInputs extends BasicTestCase {
 	 * the control bit 0, as Calimero writes a break.
 	 */
 	private void checkStep() {
-		Map<String, Object> target = _monitor.target(ADDRESS, "3.007");
+		Map<String, Object> target = inLocale(Locale.ENGLISH, () -> _monitor.target(ADDRESS, "3.007"));
 		assertEquals("step", target.get("kind"));
-		assertEquals("increase", target.get("up"));
-		assertEquals("decrease", target.get("down"));
 		List<?> steps = (List<?>) target.get("steps");
 		assertEquals(7, steps.size());
 		assertTrue(steps.get(0).toString(), steps.get(0).toString().startsWith("1: 100"));
 		assertTrue(steps.get(6).toString(), steps.get(6).toString().startsWith("7: 1"));
-		Map<String, Object> blinds = _monitor.target(ADDRESS, "3.008");
+		Map<String, Object> blinds = inLocale(Locale.ENGLISH, () -> _monitor.target(ADDRESS, "3.008"));
 		assertEquals("step", blinds.get("kind"));
-		assertEquals("up", blinds.get("up"));
-		assertEquals("down", blinds.get("down"));
+		assertContains("\"Up\" sends \"up\" (control bit 0), \"Down\" sends \"down\" (control bit 1).",
+			blinds.get("label"));
 
 		assertSent("00 89", step(DatapointCodec.UP, 1), "3.007");
 		assertSent("00 87", step(DatapointCodec.DOWN, 7), "3.007");
@@ -240,6 +243,81 @@ public class TestGroupMonitorInputs extends BasicTestCase {
 		assertEquals("text", _monitor.target(ADDRESS, "16.000").get("kind"));
 		assertEquals(List.of(), _monitor.target(ADDRESS, "9.001").get("options"));
 		assertNull(_monitor.target(ADDRESS, "9.001").get("steps"));
+	}
+
+	/**
+	 * What the send form shows the user is in the user's language: the words of the step
+	 * directions, the units Calimero writes as words, the days of the week in their order, the day
+	 * "Now" sets (haumacher/ehome #24, browser check).
+	 */
+	private void checkTexts() {
+		Map<String, Object> dimmingDe = inLocale(Locale.GERMAN, () -> _monitor.target(ADDRESS, "3.007"));
+		assertContains("„Auf“ sendet „heller“ (Steuerbit 1), „Ab“ sendet „dunkler“ (Steuerbit 0).",
+			dimmingDe.get("label"));
+		Map<String, Object> blindsDe = inLocale(Locale.GERMAN, () -> _monitor.target(ADDRESS, "3.008"));
+		assertContains("„Auf“ sendet „auf“ (Steuerbit 0), „Ab“ sendet „ab“ (Steuerbit 1).", blindsDe.get("label"));
+		assertContains("\"Up\" sends \"brighter\" (control bit 1), \"Down\" sends \"darker\" (control bit 0).",
+			inLocale(Locale.ENGLISH, () -> _monitor.target(ADDRESS, "3.007")).get("label"));
+
+		// A unit Calimero writes as a word is translated, or left out.
+		Map<String, Object> counterDe = inLocale(Locale.GERMAN, () -> _monitor.target(ADDRESS, "5.010"));
+		assertEquals("Impulse", counterDe.get("unit"));
+		assertContains("Werte von 0 bis 255 Impulse.", counterDe.get("label"));
+		Map<String, Object> counterEn = inLocale(Locale.ENGLISH, () -> _monitor.target(ADDRESS, "5.010"));
+		assertEquals("Pulses", counterEn.get("unit"));
+		assertContains("Values from 0 to 255 pulses.", counterEn.get("label"));
+		Map<String, Object> ratio = inLocale(Locale.GERMAN, () -> _monitor.target(ADDRESS, "5.005"));
+		assertEquals("", ratio.get("unit"));
+		assertContains("Werte von 0 bis 255.", ratio.get("label"));
+		assertEquals("Lüfterstufe", inLocale(Locale.GERMAN, () -> DatapointCodec.unit(new Dpt(5, 100))));
+		assertEquals("Impulse", inLocale(Locale.GERMAN, () -> DatapointCodec.unit(new Dpt(7, 1))));
+		assertEquals("", DatapointCodec.unit(new Dpt(11, 1)));
+		assertEquals("", DatapointCodec.unit(new Dpt(10, 1)));
+		// Symbols stay as they are.
+		assertEquals("%", inLocale(Locale.GERMAN, () -> _monitor.target(ADDRESS, "5.001")).get("unit"));
+		assertEquals("°C", DatapointCodec.unit(new Dpt(9, 1)));
+		assertEquals("min", DatapointCodec.unit(new Dpt(7, 6)));
+		assertEquals("ppm", DatapointCodec.unit(new Dpt(9, 8)));
+		assertEquals("kVARh", DatapointCodec.unit(new Dpt(13, 15)));
+
+		// The days of the week in their order, "no day" first.
+		assertEquals(List.of("Kein Tag", "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag",
+			"Sonntag"), inLocale(Locale.GERMAN, () -> _monitor.target(ADDRESS, "10.001")).get("days"));
+		assertEquals(List.of("No day", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+			"Sunday"), inLocale(Locale.ENGLISH, () -> _monitor.target(ADDRESS, "10.001")).get("days"));
+
+		// "Now" sets the day of the date it sets as time, in the user's time zone.
+		Date saturday = date(2026, 10, 17);
+		assertEquals("Samstag", inLocale(Locale.GERMAN, () -> DatapointCodec.day(saturday)));
+		assertEquals("Saturday", inLocale(Locale.ENGLISH, () -> DatapointCodec.day(saturday)));
+		Calendar lateSunday = calendar();
+		lateSunday.set(2026, Calendar.OCTOBER, 18, 23, 59, 59);
+		assertEquals("Sunday", inLocale(Locale.ENGLISH, () -> DatapointCodec.day(lateSunday.getTime())));
+		// The day it names is one the form sends.
+		String day = inLocale(Locale.GERMAN, () -> DatapointCodec.day(saturday));
+		inLocale(Locale.GERMAN, () -> {
+			_monitor.send(ADDRESS, Map.of(DatapointCodec.DAY, day, DatapointCodec.TIME, time(13, 45, 30)), "10.001");
+			return null;
+		});
+		assertEquals(APDU + "00 80 CD 2D 1E", last());
+	}
+
+	private static void assertContains(String expected, Object text) {
+		assertTrue(text + " does not contain: " + expected, String.valueOf(text).contains(expected));
+	}
+
+	/**
+	 * Runs the given function with the given language as the one of the user.
+	 */
+	private static <T> T inLocale(Locale locale, Supplier<T> function) {
+		TLContext context = TLContext.getContext();
+		Locale before = context.getCurrentLocale();
+		context.setCurrentLocale(locale);
+		try {
+			return function.get();
+		} finally {
+			context.setCurrentLocale(before);
+		}
 	}
 
 	private void assertSent(String apdu, Object value, String type) {

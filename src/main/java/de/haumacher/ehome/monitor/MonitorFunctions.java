@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.monitor;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
@@ -68,7 +69,12 @@ public class MonitorFunctions extends GenericMethod {
 		 */
 		monitorSendVeto(1, 1, true),
 		/** <code>monitorRecordingCsv(recording)</code>: {@link RecordingCsv#export(TLObject, TimeZone)}. */
-		monitorRecordingCsv(1, 1, true);
+		monitorRecordingCsv(1, 1, true),
+		/**
+		 * <code>monitorDay(date)</code>: the day of the week of a point in time as the send form
+		 * offers it, {@link DatapointCodec#day(Date)}.
+		 */
+		monitorDay(1, 1, true);
 
 		private final int _minArguments;
 
@@ -128,6 +134,9 @@ public class MonitorFunctions extends GenericMethod {
 			TimeZone timeZone = session == null ? TimeZone.getDefault() : session.getCurrentTimeZone();
 			return RecordingCsv.export(recording, timeZone);
 		}
+		if (_function == Function.monitorDay) {
+			return arguments[0] instanceof Date date ? DatapointCodec.day(date) : null;
+		}
 		GroupMonitor monitor = monitor(arguments[0]);
 		if (_function == Function.monitorSendVeto) {
 			if (monitor == null || !monitor.isConnected()) {
@@ -169,6 +178,7 @@ public class MonitorFunctions extends GenericMethod {
 			case monitorTarget:
 			case monitorSendVeto:
 			case monitorRecordingCsv:
+			case monitorDay:
 				break;
 		}
 		return monitor.snapshot();

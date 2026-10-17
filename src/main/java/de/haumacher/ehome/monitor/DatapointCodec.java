@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.TimeZone;
 
 import com.top_logic.basic.thread.ThreadContext;
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKey2;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
@@ -244,18 +246,86 @@ public final class DatapointCodec {
 	}
 
 	/**
-	 * The unit of the values of the given type, e.g. "%"; empty if they have none.
+	 * The unit of the values of the given type for the user, e.g. "%", "°C"; empty if they have
+	 * none.
+	 *
+	 * <p>
+	 * Calimero writes most units as symbols, which are the same in every language; where it writes a
+	 * word ("counter pulses", "fan stage"), the word in the user's language, and none where the word
+	 * says nothing a number does not (a "ratio") or is the notation of a value rather than its unit
+	 * ("yyyy-mm-dd").
+	 * </p>
 	 */
 	public static String unit(Dpt dpt) {
-		if (kind(dpt) == Kind.RAW) {
+		String unit = calimeroUnit(dpt);
+		if (unit == null) {
 			return "";
+		}
+		ResKey word = UNIT_WORDS.get(unit);
+		if (word != null) {
+			return Resources.getInstance().getString(word);
+		}
+		return isWord(unit) ? "" : unit;
+	}
+
+	/**
+	 * The sentence telling the user the range of the values of the given type, with its unit.
+	 *
+	 * <p>
+	 * A unit Calimero writes as a word has a sentence of its own, since a word does not fit into the
+	 * sentence of a symbol in every language; a symbol ({@link #unit(Dpt)}) follows the bounds.
+	 * </p>
+	 */
+	public static ResKey rangeText(Dpt dpt, int min, int max) {
+		Integer from = Integer.valueOf(min);
+		Integer to = Integer.valueOf(max);
+		String unit = calimeroUnit(dpt);
+		ResKey2 sentence = unit == null ? null : UNIT_RANGES.get(unit);
+		if (sentence != null) {
+			return sentence.fill(from, to);
+		}
+		String symbol = unit(dpt);
+		return symbol.isEmpty() ? I18NConstants.TARGET_RANGE__MIN_MAX.fill(from, to)
+			: I18NConstants.TARGET_RANGE__MIN_MAX_UNIT.fill(from, to, symbol);
+	}
+
+	/**
+	 * The unit of the given type as Calimero writes it, <code>null</code> if it has none.
+	 */
+	private static String calimeroUnit(Dpt dpt) {
+		if (kind(dpt) == Kind.RAW) {
+			return null;
 		}
 		try {
-			String unit = translator(dpt).getType().getUnit();
-			return unit == null ? "" : unit;
+			return translator(dpt).getType().getUnit();
 		} catch (KNXException ex) {
-			return "";
+			return null;
 		}
+	}
+
+	/**
+	 * The sentences of the ranges of values whose unit Calimero writes as a word.
+	 */
+	private static final Map<String, ResKey2> UNIT_RANGES = Map.of(
+		"counter pulses", I18NConstants.TARGET_RANGE_PULSES__MIN_MAX,
+		"pulses", I18NConstants.TARGET_RANGE_PULSES__MIN_MAX,
+		"fan stage", I18NConstants.TARGET_RANGE_FAN_STAGES__MIN_MAX);
+
+	/**
+	 * The units Calimero writes as words, by their translation.
+	 */
+	private static final Map<String, ResKey> UNIT_WORDS = Map.of(
+		"counter pulses", I18NConstants.UNIT_PULSES,
+		"pulses", I18NConstants.UNIT_PULSES,
+		"fan stage", I18NConstants.UNIT_FAN_STAGE);
+
+	/**
+	 * Whether a unit of Calimero is a word or a notation rather than a symbol: it has four letters
+	 * in a row in lower case (a symbol has at most three, e.g. "min", "ppm") or describes a format
+	 * ("dow, hh:mm:ss").
+	 */
+	private static boolean isWord(String unit) {
+		return unit.contains(":") || unit.matches(".*\\p{Ll}{4,}.*");
 	}
 
 	/**
@@ -295,7 +365,7 @@ public final class DatapointCodec {
 	 * language); each is a step {@link #encodeWrite(Dpt, Object)} takes.
 	 */
 	public static List<String> stepSizes() {
-		NumberFormat format = NumberFormat.getNumberInstance(ThreadContext.getLocale());
+		NumberFormat format = NumberFormat.getNumberInstance(Resources.getInstance().getLocale());
 		format.setMaximumFractionDigits(2);
 		List<String> result = new ArrayList<>();
 		for (int code = 1; code <= MAX_STEP_CODE; code++) {
@@ -305,18 +375,17 @@ public final class DatapointCodec {
 	}
 
 	/**
-	 * What the directions of a step ({@link Kind#STEP}) mean as the type writes them, {@link #UP}
-	 * first, e.g. "increase", "decrease" for a dimmer, "up", "down" for a blind; <code>null</code>
-	 * for another type.
+	 * What the directions of a step ({@link Kind#STEP}) do, for the user: what {@link #UP} and
+	 * {@link #DOWN} send for a dimmer ("brighter", "darker") or a blind ("up", "down"), with the
+	 * control bit each sends; <code>null</code> for another type.
 	 */
-	public static String[] stepDirections(Dpt dpt) {
+	public static ResKey stepDirections(Dpt dpt) {
 		if (kind(dpt) != Kind.STEP) {
 			return null;
 		}
 		try {
 			DPT control = ((DPT3BitControlled) translator(dpt).getType()).getControlDPT();
-			return blinds(control) ? new String[] { control.getLowerValue(), control.getUpperValue() }
-				: new String[] { control.getUpperValue(), control.getLowerValue() };
+			return blinds(control) ? I18NConstants.TARGET_STEP_BLINDS : I18NConstants.TARGET_STEP_DIMMING;
 		} catch (KNXException ex) {
 			return null;
 		}
@@ -335,13 +404,21 @@ public final class DatapointCodec {
 	 * {@link #encodeWrite(Dpt, Object)} takes.
 	 */
 	public static List<String> days() {
-		Locale locale = ThreadContext.getLocale();
+		Locale locale = Resources.getInstance().getLocale();
 		List<String> result = new ArrayList<>();
 		result.add(Resources.getInstance().getString(I18NConstants.NO_DAY));
 		for (DayOfWeek day : DayOfWeek.values()) {
 			result.add(day.getDisplayName(TextStyle.FULL, locale));
 		}
 		return result;
+	}
+
+	/**
+	 * The day of the week of the given point in time in the user's time zone, as {@link #days()}
+	 * offers it.
+	 */
+	public static String day(Date date) {
+		return days().get(local(date).getDayOfWeek().getValue());
 	}
 
 	/**

@@ -176,9 +176,39 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 TARGET_RANGE__MIN_MAX_UNIT;
 
 	/**
-	 * @en "Up" sends "{0}", "Down" sends "{1}".
+	 * @en Values from {0} to {1}.
 	 */
-	public static ResKey2 TARGET_STEP__UP_DOWN;
+	public static ResKey2 TARGET_RANGE__MIN_MAX;
+
+	/**
+	 * @en Values from {0} to {1} pulses.
+	 */
+	public static ResKey2 TARGET_RANGE_PULSES__MIN_MAX;
+
+	/**
+	 * @en Fan stages from {0} to {1}.
+	 */
+	public static ResKey2 TARGET_RANGE_FAN_STAGES__MIN_MAX;
+
+	/**
+	 * @en "Up" sends "brighter" (control bit 1), "Down" sends "darker" (control bit 0).
+	 */
+	public static ResKey TARGET_STEP_DIMMING;
+
+	/**
+	 * @en "Up" sends "up" (control bit 0), "Down" sends "down" (control bit 1).
+	 */
+	public static ResKey TARGET_STEP_BLINDS;
+
+	/**
+	 * @en pulses
+	 */
+	public static ResKey UNIT_PULSES;
+
+	/**
+	 * @en fan stage
+	 */
+	public static ResKey UNIT_FAN_STAGE;
 
 	static {
 		initConstants(I18NConstants.class);
