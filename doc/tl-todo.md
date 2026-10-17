@@ -56,7 +56,7 @@ Workaround: `src/main/webapp/style/ehome.css` (registered as `ClientResources` i
 **When fixed in the engine** (default animations in the theme, no waiting without an animation):
 remove `style/ehome.css` and its `ClientResources` registration.
 
-## ETS import: workarounds for the XML import (TL #29794 to #29797)
+## ETS import: workarounds for the XML import (TL #29794 to #29797, #29880 to #29882)
 
 The ETS import (`de.haumacher.ehome.importer`, `etsImporter.xml`) has handlers of its own for what
 the engine's XML import (`com.top_logic.xio`) cannot do yet:
@@ -74,6 +74,18 @@ the engine's XML import (`com.top_logic.xio`) cannot do yet:
   programs; `<translations>` (`TranslationsImport`) reads the `Languages` sections and ignores
   unknown IDs. **When available:** declare the lookup in `etsImporter.xml`, and express the
   translations with `<with-var>`, `<object-ref>` (optional), `<switch>` and `<set-translation>`.
+- TL #29880: `<dispatch>` skips an unknown element and its subtree silently, so a construct of a newer
+  KNX schema vanishes without a message (found with the ETS 6 import, #32). No workaround: new
+  constructs were found by comparing element paths by hand (`doc/knx/schema-coverage.md`).
+  **When available:** switch the ETS import to warn on unknown elements and list what it reports.
+- TL #29881 (defect): linking an object into a second composite container aborts the whole import
+  ("part of multiple containers") instead of reporting an error at its location. Workaround for the
+  one known case: a `ParameterRefRef` placed in several branches becomes a `SharedPlacement`
+  (`<place-reference>`, `PlaceReference`). **When fixed:** nothing to undo; a new construct of that
+  kind is then reported instead of breaking the import.
+- TL #29882: a `<switch>` case matches one value only, so the flags ETS 6 writes as `true` and ETS 4
+  as `1` need duplicate cases in `etsImporter.xml`. **When available:** merge each pair into one
+  case listing both values.
 
 ## Derived references and the commit check (TL #29798)
 
@@ -459,3 +471,4 @@ configuration should set.
 - TL #29874: see above (option order of a choice; when available: delete `OptionOrderSelectControlProvider`).
 - TL #29876: see above (referrer scans when deleting).
 - TL #29877: see above (developer article on the persistency configuration).
+- TL #29880 to #29882: see above (XML import: unknown elements, a second container, multi-value cases).
