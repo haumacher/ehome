@@ -57,6 +57,16 @@
 			</exclusions>
 		</dependency>
 
+		<!--
+			Reading the password-protected project part of an ETS 5/6 project file (P-xxxx.zip, AES or
+			traditional ZIP encryption, which the JDK cannot read; haumacher/ehome #32). License: Apache 2.0.
+		-->
+		<dependency>
+			<groupId>net.lingala.zip4j</groupId>
+			<artifactId>zip4j</artifactId>
+			<version>2.11.5</version>
+		</dependency>
+
     <dependency>
       <groupId>com.top-logic</groupId>
       <artifactId>tl-contact</artifactId>

@@ -197,7 +197,8 @@ final class ProgramExport {
 						.close();
 				}
 				default -> {
-					// A type the import does not create; written without its definition.
+					// A type without a counterpart in schema 11 (the color of ETS 6); written without its
+					// definition (doc/knx/export.md).
 				}
 			}
 			out.close();
@@ -458,6 +459,15 @@ final class ProgramExport {
 					out.open("ParameterRefRef").attr("RefId", extId(option)).close();
 				case "ehome.operational:Interface" ->
 					out.open("ComObjectRefRef").attr("RefId", extId(option)).close();
+				case "ehome.operational:SharedPlacement" -> {
+					// A further place of a reference (ETS 6): the same placement element once more.
+					TLObject placed = ref(option, "placed");
+					if (placed != null) {
+						out.open(isA(placed, "ehome.operational:Interface") ? "ComObjectRefRef" : "ParameterRefRef")
+							.attr("RefId", extId(placed))
+							.close();
+					}
+				}
 				default -> {
 					// No other structure elements.
 				}

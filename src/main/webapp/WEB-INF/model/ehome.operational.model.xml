@@ -118,6 +118,8 @@
 			<classifier name="Pointer"/>
 			<classifier name="Property"/>
 			<classifier name="RelativeMemory"/>
+			<!-- Relative memory of the interface object of the given type (ETS 6, schema 23). -->
+			<classifier name="RelativeMemoryByObjectType"/>
 		</enum>
 		<!-- Who may read or write a resource (ETS: ResourceAccessRights_t). -->
 		<enum name="AccessRights">
@@ -198,6 +200,8 @@
 			<classifier name="DeclarePropDesc"/>
 			<classifier name="ClearLCFilterTable"/>
 			<classifier name="Merge"/>
+			<!-- A master reset of the device (ETS 6, schema 23): eraseCode, channelNumber. -->
+			<classifier name="MasterReset"/>
 		</enum>
 		<!--
 			A memory segment of an application program: what ETS writes into the device besides the
@@ -862,7 +866,7 @@
         default:
             $obj.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
     };
-    if($t.instanceOf(`ehome.operational:TextType`) or $t.instanceOf(`ehome.operational:DateType`) or $t.instanceOf(`ehome.operational:IPAddressType`) or $obj.get(`ehome.operational:ParameterValue#text`) != null, null, "hidden")
+    if($t.instanceOf(`ehome.operational:TextType`) or $t.instanceOf(`ehome.operational:DateType`) or $t.instanceOf(`ehome.operational:IPAddressType`) or $t.instanceOf(`ehome.operational:ColorType`) or $obj.get(`ehome.operational:ParameterValue#text`) != null, null, "hidden")
 }]]></function>
 							</mode-selector>
 						</dynamic-visibility>
@@ -1037,6 +1041,42 @@
 				<property name="tag"
 					type="tl.core:Integer"
 				/>
+			</attributes>
+		</class>
+		<!--
+			A further place of a parameter or communication object reference that the structure places
+			elsewhere already (ETS 6 places one ParameterRef or ComObjectRef in several cases of a switch):
+			it refers to the reference instead of owning it, so that the reference keeps one identity (its
+			ID, its default, the device settings referring to it). The reference is owned by its first place;
+			deleting it deletes its further places.
+		-->
+		<class name="SharedPlacement">
+			<generalizations>
+				<generalization type="Option"/>
+			</generalizations>
+			<annotations>
+				<id-column value="displayName"/>
+				<instance-presentation icon="css:bi bi-link-45deg"/>
+			</annotations>
+			<attributes>
+				<!-- The parameter or communication object reference placed here once more. -->
+				<reference name="placed"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					mandatory="true"
+					type="Option"
+				/>
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[p -> $p.get(`ehome.operational:SharedPlacement#placed`).label()]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="Switch">
@@ -1479,6 +1519,24 @@
 				</property>
 			</attributes>
 		</class>
+		<!--
+			A color (ETS 6: TypeColor); the value is kept as ETS writes it (#RRGGBB). Its encoding in the
+			device is not known yet: a download of such a parameter is refused.
+		-->
+		<class name="ColorType">
+			<generalizations>
+				<generalization type="ParameterType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+			<attributes>
+				<!-- The color space the value is given in (ETS: Space, e.g. RGB or HSV). -->
+				<property name="space"
+					type="tl.core:String"
+				/>
+			</attributes>
+		</class>
 		<class name="VoidType">
 			<generalizations>
 				<generalization type="ParameterType"/>
@@ -1873,6 +1931,24 @@
 				<property name="ignoreLoadedState"
 					type="tl.core:Boolean"
 				/>
+				<!--
+					How ETS 6 downloads what is not in effect under the current parameter values (ETS:
+					Options@DownloadInvisibleParameters, schema 21 and later, e.g. "Background"; empty for older
+					programs). With a value other than "None", a communication object not in effect keeps the
+					configuration byte of the static data (without communication), as ETS 6 writes it; otherwise
+					the byte is computed from the object's flags, as ETS 4 writes it.
+				-->
+				<property name="downloadInvisibleParameters"
+					type="tl.core:String"
+				/>
+				<!--
+					Whether the program uses dynamic modules (ETS 5.6 and later: ModuleDefs), which E-Home does
+					not import: the parameters and communication objects of its modules are missing, so a
+					download of the program is refused.
+				-->
+				<property name="usesModules"
+					type="tl.core:Boolean"
+				/>
 				<!-- Parameter and communication object references that no structure element places. -->
 				<reference name="unplaced"
 					composite="true"
@@ -2108,6 +2184,14 @@
 					type="tl.core:Boolean"
 				/>
 				<property name="mergeId"
+					type="tl.core:Integer"
+				/>
+				<!-- What a master reset erases (ETS: LdCtrlMasterReset@EraseCode). -->
+				<property name="eraseCode"
+					type="tl.core:Integer"
+				/>
+				<!-- The channel a master reset applies to, 0 for the device (ETS: LdCtrlMasterReset@ChannelNumber). -->
+				<property name="channelNumber"
 					type="tl.core:Integer"
 				/>
 			</attributes>

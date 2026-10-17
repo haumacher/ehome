@@ -2,7 +2,8 @@
 
 <!--
 	The KNX datapoint types: all subtypes, grouped by their main type, and the selected one in a
-	form. They come from the master data of the first imported ETS project.
+	form, with its named values where the master data name them. They come from the master data of
+	the imported ETS projects.
 -->
 <view>
 	<channels>
@@ -61,6 +62,8 @@
 						<field attribute="sizeInBit"/>
 						<field attribute="mainType"/>
 						<field attribute="extId"/>
+						<!-- The named values of an enumerated subtype (master data of ETS 5.5 and later). -->
+						<field attribute="values"/>
 					</form>
 				</panel>
 			</pane>

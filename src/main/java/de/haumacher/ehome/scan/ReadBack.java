@@ -48,6 +48,7 @@ import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.PropertyLocation;
+import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
 import de.haumacher.ehome.model.operational.TextType;
 import de.haumacher.ehome.model.operational.TimeType;
@@ -1137,7 +1138,8 @@ public class ReadBack {
 		}
 
 		private void collectPaths(ConfigFragment fragment, List<Step> stack) {
-			for (Option option : fragment.getContents()) {
+			for (Option content : fragment.getContents()) {
+				Option option = content instanceof SharedPlacement shared ? shared.getPlaced() : content;
 				if (option instanceof Interface placed) {
 					_paths.computeIfAbsent(placed, x -> new ArrayList<>()).add(new ArrayList<>(stack));
 				} else if (option instanceof Switch choice) {
@@ -1179,7 +1181,8 @@ public class ReadBack {
 			}
 			cache.put(fragment, Boolean.FALSE);
 			boolean result = false;
-			for (Option option : fragment.getContents()) {
+			for (Option content : fragment.getContents()) {
+				Option option = content instanceof SharedPlacement shared ? shared.getPlaced() : content;
 				if (option instanceof ParameterView view) {
 					result = differs(view.getParameter(), fit.mismatch());
 				} else if (option instanceof Interface placed) {

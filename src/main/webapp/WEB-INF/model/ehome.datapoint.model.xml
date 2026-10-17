@@ -125,6 +125,55 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
+				<!--
+					The named values of an enumerated subtype (20.102 HVAC mode: 0 "Auto", 1 "Comfort", ...), as the
+					master data of ETS 5.5 and later define them; empty where the master data name none.
+				-->
+				<reference name="values"
+					composite="true"
+					inverse-reference="subtype"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="NamedValue"
+				/>
+			</attributes>
+		</class>
+		<!-- A named value of an enumerated datapoint subtype (ETS: Format/Enumeration/EnumValue). -->
+		<class name="NamedValue">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<id-column value="displayName"/>
+				<instance-presentation icon="css:bi bi-list-ol"/>
+			</annotations>
+			<attributes>
+				<!-- The number the value is encoded as. -->
+				<property name="value"
+					mandatory="true"
+					type="tl.core:Integer"
+				/>
+				<property name="text"
+					type="tl.model.i18n:I18NString"
+				/>
+				<reference name="subtype"
+					aggregate="true"
+					inverse-reference="values"
+					kind="backwards"
+					type="DatapointSubtype"
+				/>
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[v -> "{0} {1}".fill(numberFormat("0").format($v.get(`ehome.datapoint:NamedValue#value`)), $v.get(`ehome.datapoint:NamedValue#text`).localize())]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 	</module>

@@ -197,7 +197,7 @@ public final class DatapointCodec {
 			case 17:
 				return Kind.NUMBER;
 			default:
-				return isEnumeration(dpt) ? Kind.CHOICE : Kind.TEXT;
+				return isEnumeration(dpt) || NamedValues.has(dpt) ? Kind.CHOICE : Kind.TEXT;
 		}
 	}
 
@@ -329,18 +329,25 @@ public final class DatapointCodec {
 	}
 
 	/**
-	 * The named values of an enumeration ({@link Kind#CHOICE}), ordered by their numbers, as the type
-	 * writes them (e.g. "building in use"); each is a value {@link #encodeWrite(Dpt, Object)} takes.
-	 * Empty for another type.
+	 * The named values of an enumeration ({@link Kind#CHOICE}), ordered by their numbers; each is a
+	 * value {@link #encodeWrite(Dpt, Object)} takes. Empty for another type.
 	 *
 	 * <p>
-	 * The values come from the enumerations of the KNX standard that Calimero implements; the
-	 * datapoint types of the project (<code>ehome.datapoint</code>) carry no named values.
+	 * The values are those the imported master data name (<code>ehome.datapoint:NamedValue</code>,
+	 * ETS 5.5 and later), with their texts in the user's language, else in English, else as Calimero
+	 * names the value. For a subtype without named values in the master data (ETS 4), they come from
+	 * the enumerations of the KNX standard that Calimero implements, as Calimero writes them (e.g.
+	 * "building in use").
 	 * </p>
 	 */
 	public static List<String> choices(Dpt dpt) {
 		if (kind(dpt) != Kind.CHOICE) {
 			return Collections.emptyList();
+		}
+		List<NamedValues.Named> named =
+			NamedValues.of(dpt, Resources.getInstance().getLocale(), number -> calimeroName(dpt, number));
+		if (!named.isEmpty()) {
+			return named.stream().map(NamedValues.Named::text).toList();
 		}
 		try {
 			DPTXlator8BitEnum translator = (DPTXlator8BitEnum) translator(dpt);
@@ -357,6 +364,42 @@ public final class DatapointCodec {
 		} catch (KNXException ex) {
 			return Collections.emptyList();
 		}
+	}
+
+	/**
+	 * The name Calimero gives the value with the given number of an enumeration, the number itself if
+	 * Calimero does not know it.
+	 */
+	private static String calimeroName(Dpt dpt, int number) {
+		try {
+			if (translator(dpt) instanceof DPTXlator8BitEnum translator) {
+				translator.setValue(number);
+				return translator.getValue();
+			}
+		} catch (KNXException ex) {
+			// Not known to Calimero.
+		}
+		return Integer.toString(number);
+	}
+
+	/**
+	 * The APDU of a group write of the value of an enumeration named in the master data, <code>null</code>
+	 * if the given text names no such value.
+	 */
+	private static byte[] encodeNamedValue(Dpt dpt, Object value) {
+		if (!(value instanceof String text)) {
+			return null;
+		}
+		Integer number = NamedValues.valueOf(dpt, text);
+		if (number == null) {
+			return null;
+		}
+		Integer size = NamedValues.sizeInBit(dpt);
+		byte[] data = { (byte) number.intValue() };
+		if (size != null && size.intValue() <= 6) {
+			return DataUnitBuilder.createLengthOptimizedAPDU(BusTelegram.Service.WRITE.code(), data);
+		}
+		return DataUnitBuilder.createAPDU(BusTelegram.Service.WRITE.code(), data);
 	}
 
 	/**
@@ -496,6 +539,12 @@ public final class DatapointCodec {
 		if (kind == Kind.RAW) {
 			byte[] data = hex(value.toString());
 			return DataUnitBuilder.createAPDU(BusTelegram.Service.WRITE.code(), data);
+		}
+		if (kind == Kind.CHOICE) {
+			byte[] named = encodeNamedValue(dpt, value);
+			if (named != null) {
+				return named;
+			}
 		}
 		DPTXlator translator;
 		try {

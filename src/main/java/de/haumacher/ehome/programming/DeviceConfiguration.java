@@ -28,6 +28,7 @@ import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
 import de.haumacher.ehome.model.operational.VoidType;
 
@@ -201,7 +202,12 @@ public class DeviceConfiguration {
 	}
 
 	private void walk(Option option, Object page) {
-		if (option instanceof ParameterView view) {
+		if (option instanceof SharedPlacement shared) {
+			// A further place of a reference placed elsewhere: the reference, at this place.
+			if (shared.getPlaced() != null) {
+				walk(shared.getPlaced(), page);
+			}
+		} else if (option instanceof ParameterView view) {
 			addView(view);
 			addItem(page, view);
 		} else if (option instanceof Interface placed) {

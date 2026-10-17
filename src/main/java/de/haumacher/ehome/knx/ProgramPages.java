@@ -29,6 +29,7 @@ import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
 
 /**
@@ -302,7 +303,12 @@ public class ProgramPages {
 	}
 
 	private void walk(Option option, Page page, String path) {
-		if (option instanceof ParameterView view) {
+		if (option instanceof SharedPlacement shared) {
+			// A further place of a reference placed elsewhere: the reference, at this place.
+			if (shared.getPlaced() != null) {
+				walk(shared.getPlaced(), page, path);
+			}
+		} else if (option instanceof ParameterView view) {
 			addParameter(page(page, path), view);
 		} else if (option instanceof Interface placed) {
 			addPort(page(page, path), placed);

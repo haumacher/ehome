@@ -51,3 +51,11 @@ Everything else the model does not hold is left out. The complete list, as rules
 ## Other schema versions
 
 The export writes schema 11 (ETS 4), the version of the samples and of the import. ETS 5 and 6 write schema 12 to 20 (namespace `http://knx.org/xml/project/<n>`), where among others application programs may use modules (`ModuleDefs`), the dynamic part gains elements (`Rename`, `ParameterBlock` layouts), parameter types gain kinds, and devices carry security data (keys, `Security`). An ETS 5 export would need the namespace and these elements (most with no counterpart in the model yet), and ETS would still refuse it for the missing signatures. The import does not check the namespace either; see "Limits of this analysis" in schema-coverage.md.
+
+## Data of newer schemas
+
+The export writes schema 11, also for a project imported from an ETS 6 file (schema 23). What the model holds of schema 23 is written where schema 11 has a place for it and left out otherwise; the round trip compares the samples, which are schema 11, so these items are listed here and in [not-modeled.txt](not-modeled.txt) as comments:
+
+- **Written in schema-11 form:** the communication object links (`Links`) as `Connectors` (first `Send`, then `Receive`), IDs relative to the program or the installation as full IDs, devices of line segments as devices of the line, locations (`Space`) as building parts (`BuildingPart`), and a reference placed in several cases (`SharedPlacement`) as a `ParameterRefRef` or `ComObjectRefRef` in each case.
+- **Written as their values, without a schema-11 counterpart:** the medium `MT-6` (KNX IoT) and the address space `RelativeMemoryByObjectType` of a mask resource (only for a mask the project's programs use).
+- **Left out:** the option `DownloadInvisibleParameters` of a program, the named values of datapoint subtypes (`Format/Enumeration/EnumValue`), the master reset step (`LdCtrlMasterReset`), and the definition of a color parameter type (`TypeColor`: the parameter type is written without its definition, as for any type without a schema-11 element). Dynamic modules are not imported in the first place.

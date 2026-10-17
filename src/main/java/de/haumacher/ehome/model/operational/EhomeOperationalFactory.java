@@ -400,6 +400,11 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	public static final String RELATIVE_MEMORY_ADDRESS_SPACE_CLASSIFIER = "RelativeMemory";
 
 	/**
+	 * Name of the classifier <code>RelativeMemoryByObjectType</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static final String RELATIVE_MEMORY_BY_OBJECT_TYPE_ADDRESS_SPACE_CLASSIFIER = "RelativeMemoryByObjectType";
+
+	/**
 	 * Name of the classifier <code>StandardMemory</code> in enumeration {@value #ADDRESS_SPACE_ENUM}.
 	 */
 	public static final String STANDARD_MEMORY_ADDRESS_SPACE_CLASSIFIER = "StandardMemory";
@@ -653,6 +658,11 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 * Name of the classifier <code>MapError</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
 	 */
 	public static final String MAP_ERROR_LOAD_STEP_KIND_CLASSIFIER = "MapError";
+
+	/**
+	 * Name of the classifier <code>MasterReset</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static final String MASTER_RESET_LOAD_STEP_KIND_CLASSIFIER = "MasterReset";
 
 	/**
 	 * Name of the classifier <code>MaxLength</code> in enumeration {@value #LOAD_STEP_KIND_ENUM}.
@@ -1255,6 +1265,27 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link SharedPlacement} type.
+	 */
+	public static com.top_logic.model.TLClass getSharedPlacementType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(SharedPlacement.SHARED_PLACEMENT_TYPE);
+	}
+
+	/**
+	 * Lookup {@link SharedPlacement#DISPLAY_NAME_ATTR} of {@link SharedPlacement}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameSharedPlacementAttr() {
+		return (com.top_logic.model.TLProperty) getSharedPlacementType().getPart(SharedPlacement.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link SharedPlacement#PLACED_ATTR} of {@link SharedPlacement}.
+	 */
+	public static com.top_logic.model.TLReference getPlacedSharedPlacementAttr() {
+		return (com.top_logic.model.TLReference) getSharedPlacementType().getPart(SharedPlacement.PLACED_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Switch} type.
 	 */
 	public static com.top_logic.model.TLClass getSwitchType() {
@@ -1556,6 +1587,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link ColorType} type.
+	 */
+	public static com.top_logic.model.TLClass getColorTypeType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_STRUCTURE).getType(ColorType.COLOR_TYPE_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ColorType#SPACE_ATTR} of {@link ColorType}.
+	 */
+	public static com.top_logic.model.TLProperty getSpaceColorTypeAttr() {
+		return (com.top_logic.model.TLProperty) getColorTypeType().getPart(ColorType.SPACE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link VoidType} type.
 	 */
 	public static com.top_logic.model.TLClass getVoidTypeType() {
@@ -1801,6 +1846,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Program#DOWNLOAD_INVISIBLE_PARAMETERS_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getDownloadInvisibleParametersProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.DOWNLOAD_INVISIBLE_PARAMETERS_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#DYNAMIC_TABLE_MANAGEMENT_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLProperty getDynamicTableManagementProgramAttr() {
@@ -1983,6 +2035,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Program#USES_MODULES_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getUsesModulesProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.USES_MODULES_ATTR);
+	}
+
+	/**
 	 * Lookup {@link TableLocation} type.
 	 */
 	public static com.top_logic.model.TLClass getTableLocationType() {
@@ -2088,6 +2147,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link LoadStep#CHANNEL_NUMBER_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getChannelNumberLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.CHANNEL_NUMBER_ATTR);
+	}
+
+	/**
 	 * Lookup {@link LoadStep#CONTROL_VALUE_ATTR} of {@link LoadStep}.
 	 */
 	public static com.top_logic.model.TLProperty getControlValueLoadStepAttr() {
@@ -2106,6 +2172,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public static com.top_logic.model.TLProperty getCountLoadStepAttr() {
 		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.COUNT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link LoadStep#ERASE_CODE_ATTR} of {@link LoadStep}.
+	 */
+	public static com.top_logic.model.TLProperty getEraseCodeLoadStepAttr() {
+		return (com.top_logic.model.TLProperty) getLoadStepType().getPart(LoadStep.ERASE_CODE_ATTR);
 	}
 
 	/**
@@ -3201,6 +3274,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup classifier {@value #RELATIVE_MEMORY_BY_OBJECT_TYPE_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getRelativeMemoryByObjectTypeAddressSpaceClassifier() {
+		return getAddressSpaceEnum().getClassifier(RELATIVE_MEMORY_BY_OBJECT_TYPE_ADDRESS_SPACE_CLASSIFIER);
+	}
+
+	/**
 	 * Lookup classifier {@value #STANDARD_MEMORY_ADDRESS_SPACE_CLASSIFIER} of enumeration {@value #ADDRESS_SPACE_ENUM}.
 	 */
 	public static com.top_logic.model.TLClassifier getStandardMemoryAddressSpaceClassifier() {
@@ -3558,6 +3638,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup classifier {@value #MASTER_RESET_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
+	 */
+	public static com.top_logic.model.TLClassifier getMasterResetLoadStepKindClassifier() {
+		return getLoadStepKindEnum().getClassifier(MASTER_RESET_LOAD_STEP_KIND_CLASSIFIER);
+	}
+
+	/**
 	 * Lookup classifier {@value #MAX_LENGTH_LOAD_STEP_KIND_CLASSIFIER} of enumeration {@value #LOAD_STEP_KIND_ENUM}.
 	 */
 	public static com.top_logic.model.TLClassifier getMaxLengthLoadStepKindClassifier() {
@@ -3812,6 +3899,19 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	public static final String KO_NAME_PARAMETER_VIEW = "EHParameterView";
 
 	/**
+	 * Name of type <code>SharedPlacement</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link SharedPlacement#SHARED_PLACEMENT_TYPE}.
+	 */
+	@Deprecated
+	public static final String SHARED_PLACEMENT_NODE = SharedPlacement.SHARED_PLACEMENT_TYPE;
+
+	/**
+	 * Storage table name of {@link #SHARED_PLACEMENT_NODE} objects.
+	 */
+	public static final String KO_NAME_SHARED_PLACEMENT = "GenericObject";
+
+	/**
 	 * Name of type <code>Switch</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
 	 * 
 	 * @deprecated Use {@link Switch#SWITCH_TYPE}.
@@ -3935,6 +4035,19 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 * Storage table name of {@link #TIME_TYPE_NODE} objects.
 	 */
 	public static final String KO_NAME_TIME_TYPE = "EHParameterType";
+
+	/**
+	 * Name of type <code>ColorType</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
+	 * 
+	 * @deprecated Use {@link ColorType#COLOR_TYPE_TYPE}.
+	 */
+	@Deprecated
+	public static final String COLOR_TYPE_NODE = ColorType.COLOR_TYPE_TYPE;
+
+	/**
+	 * Storage table name of {@link #COLOR_TYPE_NODE} objects.
+	 */
+	public static final String KO_NAME_COLOR_TYPE = "EHParameterType";
 
 	/**
 	 * Name of type <code>VoidType</code> in structure {@link #EHOME_OPERATIONAL_STRUCTURE}.
@@ -4267,6 +4380,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Create an instance of {@link SharedPlacement} type.
+	 */
+	public final SharedPlacement createSharedPlacement(com.top_logic.model.TLObject context) {
+		return (SharedPlacement) createObject(getSharedPlacementType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link SharedPlacement} type.
+	 */
+	public final SharedPlacement createSharedPlacement() {
+		return createSharedPlacement(null);
+	}
+
+	/**
 	 * Create an instance of {@link Switch} type.
 	 */
 	public final Switch createSwitch(com.top_logic.model.TLObject context) {
@@ -4390,6 +4517,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	 */
 	public final TimeType createTimeType() {
 		return createTimeType(null);
+	}
+
+	/**
+	 * Create an instance of {@link ColorType} type.
+	 */
+	public final ColorType createColorType(com.top_logic.model.TLObject context) {
+		return (ColorType) createObject(getColorTypeType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link ColorType} type.
+	 */
+	public final ColorType createColorType() {
+		return createColorType(null);
 	}
 
 	/**

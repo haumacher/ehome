@@ -83,6 +83,31 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey ERROR_NO_MANUFACTURER_DATA;
 
+	/**
+	 * @en The application program "{0}" uses dynamic modules (ETS 5.6 and later), which E-Home does not import: the parameters and communication objects of its modules are missing, and a download of the program is refused.
+	 */
+	public static ResKey1 WARN_MODULES_NOT_IMPORTED__PROGRAM;
+
+	/**
+	 * @en The named value "{0}" of a datapoint type is not a number: {1}
+	 */
+	public static ResKey2 WARN_NAMED_VALUE_NOT_A_NUMBER__ID_VALUE;
+
+	/**
+	 * @en The project "{0}" is protected by a password. Enter the project password to import it.
+	 */
+	public static ResKey1 ERROR_PASSWORD_REQUIRED__ENTRY;
+
+	/**
+	 * @en The password does not open the protected project "{0}". Check the project password.
+	 */
+	public static ResKey1 ERROR_WRONG_PASSWORD__ENTRY;
+
+	/**
+	 * @en The project "{0}" cannot be read: {1}
+	 */
+	public static ResKey2 ERROR_INVALID_PROJECT_ARCHIVE__ENTRY_DETAIL;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

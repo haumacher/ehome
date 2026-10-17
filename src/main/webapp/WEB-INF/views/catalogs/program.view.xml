@@ -431,6 +431,18 @@
 											<field attribute="input"/>
 										</form>
 									</case>
+									<!-- A further place of a reference placed elsewhere (ETS 6): the reference it places once more. -->
+									<case test="n -> $n.instanceOf(`ehome.operational:SharedPlacement`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field
+												attribute="placed"
+												readonly="true"
+											/>
+										</form>
+									</case>
 									<case test="n -> $n.instanceOf(`ehome.operational:Case`)">
 										<form
 											input="selected"
@@ -530,6 +542,7 @@
 												<field attribute="showsYear"/>
 												<field attribute="addressKind"/>
 												<field attribute="version"/>
+												<field attribute="space"/>
 											</group>
 										</form>
 										<!-- The entries of an enumeration type. -->
@@ -1499,6 +1512,7 @@
 									<field attribute="showsYear"/>
 									<field attribute="addressKind"/>
 									<field attribute="version"/>
+									<field attribute="space"/>
 									<field attribute="extId"/>
 								</form>
 								<!--

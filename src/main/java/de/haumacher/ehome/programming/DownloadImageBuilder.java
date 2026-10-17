@@ -57,7 +57,9 @@ import de.haumacher.ehome.programming.GroupTables.Association;
  * <li>With dynamic table management the association table follows the address table directly
  * (the device's table pointer then points there).</li>
  * <li>The object table is the static data with the configuration bytes computed from the flags of
- * the communication objects; the communication flag only for objects with an association.</li>
+ * the communication objects; the communication flag only for objects with an association. An object
+ * not in effect of a program with the ETS 6 option <code>DownloadInvisibleParameters</code> keeps
+ * the configuration byte of the static data, without the communication flag.</li>
  * </ul>
  *
  * <p>
@@ -592,6 +594,8 @@ class DownloadImageBuilder {
 				connectors.putIfAbsent(placed.getPort(), connector);
 			}
 		}
+		String invisible = _program.getDownloadInvisibleParameters();
+		boolean keepsStaticConfig = invisible != null && !invisible.isBlank() && !"None".equals(invisible);
 		for (int number = 0; number < count; number++) {
 			Port port = ports.get(number);
 			if (port == null) {
@@ -602,6 +606,14 @@ class DownloadImageBuilder {
 			Interface placed = connector != null ? (Interface) connector.tValueByName("port")
 				: _configuration.getActiveInterfaces().get(port);
 			int position = start + format.header() + format.descriptor() * number + format.config();
+			if (connector == null && placed == null && keepsStaticConfig) {
+				// A program of ETS 6 with the option DownloadInvisibleParameters: an object not in
+				// effect keeps the configuration of the static data, without communication (as ETS 6
+				// writes it, ets6-download-1.3.5.txt). Otherwise its configuration is computed from
+				// its flags, as ETS 4 writes it (the memory of the test system's devices).
+				data[position] = (byte) ((data[position] & 0xFF) & ~GroupTables.COMMUNICATION);
+				continue;
+			}
 			data[position] = (byte) GroupTables.objectConfig(data[position] & 0xFF,
 				enabled("update", connector, placed, port),
 				enabled("transmission", connector, placed, port),

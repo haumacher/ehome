@@ -213,6 +213,7 @@ public final class ExtIds {
 			case "ehome.operational:TimeType":
 			case "ehome.operational:DateType":
 			case "ehome.operational:IPAddressType":
+			case "ehome.operational:ColorType":
 				return Kind.PARAMETER_TYPE;
 			case "ehome.operational:EnumerationValue":
 				return Kind.ENUMERATION_VALUE;

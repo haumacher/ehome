@@ -279,6 +279,10 @@ public class DownloadPlanner {
 			_problems.add(I18NConstants.ERROR_NO_PROGRAM);
 			return result(device, address, kind);
 		}
+		if (_program.getUsesModules()) {
+			_problems.add(I18NConstants.ERROR_PROGRAM_USES_MODULES);
+			return result(device, address, kind);
+		}
 		_image = DownloadImage.compute(_device);
 		for (String problem : _image.getProblems()) {
 			_problems.add(I18NConstants.ERROR_IMAGE__PROBLEM.fill(problem));

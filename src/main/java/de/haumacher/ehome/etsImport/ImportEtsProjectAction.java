@@ -6,8 +6,10 @@ package de.haumacher.ehome.etsImport;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.xml.stream.XMLStreamException;
@@ -29,24 +31,34 @@ import com.top_logic.layout.view.command.ViewAction;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 import com.top_logic.xio.importer.binding.ModelBinding;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.importer.PasswordRequiredException;
 
 /**
  * {@link ViewAction} importing the uploaded ETS project files (<code>.knxproj</code>).
  *
  * <p>
- * The input is the uploaded file, or a collection of them. Each file is imported in a transaction
- * of its own. The result is the report of the import, a dictionary: <code>project</code> is the
+ * The input is the uploaded file, a collection of them, or a dictionary with the uploaded file in
+ * <code>file</code> and the project password in <code>password</code>. Each file is imported in a
+ * transaction of its own. The result is the report of the import, a dictionary: <code>project</code> is the
  * project created by the last import (for a following <code>&lt;write-channel&gt;</code>),
  * <code>messages</code> the warnings and errors the import reported (each a dictionary with
  * <code>file</code>, <code>severity</code>, <code>level</code> and <code>message</code>), and <code>summary</code> a
  * sentence naming the imported projects and the number of messages. The messages do not change the
  * outcome: a file that cannot be imported fails the action.
+ * </p>
+ *
+ * <p>
+ * A single file whose project is protected by a password, uploaded without one, is not imported:
+ * the result is a dictionary with <code>passwordRequired</code> set to <code>true</code>, the file
+ * in <code>file</code> and the reason in <code>message</code>, so that the view can ask for the
+ * password and import the file again. A wrong password fails the action with the reason.
  * </p>
  */
 public class ImportEtsProjectAction implements ViewAction {
@@ -103,6 +115,22 @@ public class ImportEtsProjectAction implements ViewAction {
 	public static final String MESSAGE = "message";
 
 	/**
+	 * Key of the input and of the result holding the uploaded file.
+	 */
+	public static final String FILE_DATA = "file";
+
+	/**
+	 * Key of the input holding the project password.
+	 */
+	public static final String PASSWORD = "password";
+
+	/**
+	 * Key of the result telling that the uploaded project is protected by a password and was not
+	 * imported.
+	 */
+	public static final String PASSWORD_REQUIRED = "passwordRequired";
+
+	/**
 	 * Configuration of {@link ImportEtsProjectAction}.
 	 */
 	@TagName("import-ets-project")
@@ -126,15 +154,30 @@ public class ImportEtsProjectAction implements ViewAction {
 		ImportReport report = new ImportReport(I18NConstants.IMPORT_SUMMARY__IMPORTED_COUNT);
 		if (input instanceof Collection<?> files) {
 			for (Object file : files) {
-				importFile(report, (BinaryData) file);
+				importFile(report, (BinaryData) file, null);
 			}
 		} else if (input instanceof BinaryData file) {
-			importFile(report, file);
+			try {
+				importFile(report, file, null);
+			} catch (PasswordRequiredException ex) {
+				return passwordRequired(file, ex);
+			}
+		} else if (input instanceof Map<?, ?> request && request.get(FILE_DATA) instanceof BinaryData file) {
+			Object password = request.get(PASSWORD);
+			importFile(report, file, password == null ? null : password.toString());
 		}
 		return report.toMap();
 	}
 
-	private static void importFile(ImportReport report, BinaryData data) {
+	private static Map<String, Object> passwordRequired(BinaryData file, PasswordRequiredException ex) {
+		Map<String, Object> result = new HashMap<>();
+		result.put(PASSWORD_REQUIRED, Boolean.TRUE);
+		result.put(FILE_DATA, file);
+		result.put(MESSAGE, Resources.getInstance().getString(ex.getErrorKey()));
+		return result;
+	}
+
+	private static void importFile(ImportReport report, BinaryData data, String password) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		ModelBinding binding = new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false);
 
@@ -142,7 +185,7 @@ public class ImportEtsProjectAction implements ViewAction {
 		Importer importer = new Importer(binding);
 		try (InputStream in = data.getStream()) {
 			try (Transaction tx = kb.beginTransaction()) {
-				importer.importStream(in);
+				importer.importStream(in, password);
 				tx.commit();
 			}
 		} catch (ConfigurationException | IOException | XMLStreamException | KnowledgeBaseException ex) {

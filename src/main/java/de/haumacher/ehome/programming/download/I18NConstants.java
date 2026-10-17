@@ -31,6 +31,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_IMAGE__PROBLEM;
 
 	/**
+	 * @en The program uses dynamic modules (ETS 5.6 and later), which E-Home does not import: the parameters and communication objects of its modules are missing.
+	 */
+	public static ResKey ERROR_PROGRAM_USES_MODULES;
+
+	/**
 	 * @en The program has no mask version; its load procedure is not known.
 	 */
 	public static ResKey ERROR_NO_MASK;

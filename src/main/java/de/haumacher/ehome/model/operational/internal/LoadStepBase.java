@@ -52,6 +52,15 @@ public interface LoadStepBase extends com.top_logic.model.TLObject {
 	String CALLBACK_ATTR = "callback";
 
 	/**
+	 * Part <code>channelNumber</code> of <code>LoadStep</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String CHANNEL_NUMBER_ATTR = "channelNumber";
+
+	/**
 	 * Part <code>controlValue</code> of <code>LoadStep</code>
 	 * 
 	 * <p>
@@ -77,6 +86,15 @@ public interface LoadStepBase extends com.top_logic.model.TLObject {
 	 * </p>
 	 */
 	String COUNT_ATTR = "count";
+
+	/**
+	 * Part <code>eraseCode</code> of <code>LoadStep</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String ERASE_CODE_ATTR = "eraseCode";
 
 	/**
 	 * Part <code>errorFilter</code> of <code>LoadStep</code>
@@ -441,6 +459,20 @@ public interface LoadStepBase extends com.top_logic.model.TLObject {
 	}
 
 	/**
+	 * Getter for part {@link #CHANNEL_NUMBER_ATTR}.
+	 */
+	default Integer getChannelNumber() {
+		return (Integer) tValueByName(CHANNEL_NUMBER_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #CHANNEL_NUMBER_ATTR}.
+	 */
+	default void setChannelNumber(Integer newValue) {
+		tUpdateByName(CHANNEL_NUMBER_ATTR, newValue);
+	}
+
+	/**
 	 * Getter for part {@link #CONTROL_VALUE_ATTR}.
 	 */
 	default boolean getControlValue() {
@@ -480,6 +512,20 @@ public interface LoadStepBase extends com.top_logic.model.TLObject {
 	 */
 	default void setCount(Integer newValue) {
 		tUpdateByName(COUNT_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #ERASE_CODE_ATTR}.
+	 */
+	default Integer getEraseCode() {
+		return (Integer) tValueByName(ERASE_CODE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ERASE_CODE_ATTR}.
+	 */
+	default void setEraseCode(Integer newValue) {
+		tUpdateByName(ERASE_CODE_ATTR, newValue);
 	}
 
 	/**

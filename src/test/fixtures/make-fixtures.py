@@ -62,6 +62,27 @@ Encrypted.knxprod: TestProduct.knxprod with an entry of its manufacturer folder 
 traditional ZIP password protection (password "test"), which Java cannot read; the import refuses
 it. Its content is a short text, not ETS data.
 
+TestEts6.knxproj: the samples are ETS 4 files (project schema 11); this copy is written as ETS 6
+writes a project (schema 23, haumacher/ehome #32), with artificial content marked as test data:
+- Master data: the named values of 20.102 HVAC mode (DatapointSubtype/Format/Enumeration/EnumValue,
+  the English names of the KNX standard, with German translations made up for the test, the value
+  4 without one), a composed format of 10.001 whose enumeration names only the day field (not a
+  named value of the subtype), the medium KNX IoT (MT-6) and an artificial mask version
+  "MV-FFF0" on it with a resource in the address space RelativeMemoryByObjectType and a load
+  procedure with a master reset.
+- The program gets a new ID (version O0023, so that an import does not skip it as known) and a name
+  marking it as test data. It adds a channel independent block whose switch places one parameter
+  reference and one communication object reference in two cases (ETS 6 shares a reference between
+  cases), a parameter block directly in the program with a color parameter (TypeColor), and a
+  dynamic module (ModuleDefs, a module in a case), which E-Home does not import.
+- The project part is the folder P-01A0 with project.xml (lower case, ETS 5/6) and 0.xml: the
+  device lies in a segment of its line, names its communication objects by IDs relative to its
+  program and links them to group addresses by the attribute Links (IDs relative to the
+  installation; one object sends to GA-3 and receives from GA-1), reports its load state as "true"
+  and "false", sets the shared parameter, and the building is a location with spaces.
+The test builds the protected variants (the project part as P-01A0.zip, AES and password, or plain)
+from this file with zip4j.
+
 Usage (from the project root): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -549,6 +570,151 @@ def encrypted(target, source, entry, password, content):
         out.NameToInfo[entry] = info
 
 
+# TestEts6.knxproj: an ETS 6 project file (schema 23), see the module comment.
+ETS6_VERSION = '10D7-11-A0E5-O0023'
+ETS6_PROGRAM = 'M-0008_A-' + ETS6_VERSION
+ETS6_PROGRAM_NAME = 'TEST: ETS 6 (künstliche Testdaten)'
+SCHEMA_11 = 'xmlns="http://knx.org/xml/project/11"'
+SCHEMA_23 = 'xmlns="http://knx.org/xml/project/23"'
+
+# 20.102 HVAC mode: (value, English name of the KNX standard, German text made up for the test).
+HVAC_VALUES = [(0, 'Auto', 'Automatik'), (1, 'Comfort', 'Komfort'), (2, 'Standby', 'Bereitschaft'),
+               (3, 'Economy', 'Sparbetrieb'), (4, 'Building Protection', None)]
+
+
+def replace_once(xml, old, new):
+    assert xml.count(old) == 1, old
+    return xml.replace(old, new, 1)
+
+
+def ets6_master(xml):
+    values = ''.join('<EnumValue Id="DPST-20-102_F-1-%d" Value="%d" Text="%s" />' % (v, v, en)
+        for v, en, _ in HVAC_VALUES)
+    xml = replace_once(xml, '<DatapointSubtype Id="DPST-20-102" Number="102" Name="DPT_HVACMode" Text="HVAC mode" />',
+        '<DatapointSubtype Id="DPST-20-102" Number="102" Name="DPT_HVACMode" Text="HVAC mode"><Format>'
+        '<Enumeration Id="DPST-20-102_F-1" Width="8" Name="HVACMode">' + values + '</Enumeration>'
+        '</Format></DatapointSubtype>')
+    # A composed value: the enumeration names the day field only.
+    xml = replace_once(xml,
+        '<DatapointSubtype Id="DPST-10-1" Number="1" Name="DPT_TimeOfDay" Text="time of day" Default="true" />',
+        '<DatapointSubtype Id="DPST-10-1" Number="1" Name="DPT_TimeOfDay" Text="time of day" Default="true"><Format>'
+        '<Enumeration Id="DPST-10-1_F-1" Width="3" Name="Day"><EnumValue Id="DPST-10-1_F-1-0" Value="0" Text="no day" />'
+        '<EnumValue Id="DPST-10-1_F-1-1" Value="1" Text="Monday" /></Enumeration>'
+        '<UnsignedInteger Id="DPST-10-1_F-2" Width="5" Name="Hour" Unit="h" MinInclusive="0" MaxInclusive="23" />'
+        '</Format></DatapointSubtype>')
+    xml = replace_once(xml, '</MediumTypes>',
+        '  <MediumType Id="MT-6" Number="6" Name="IoT" Text="KNX IoT" DomainAddressLength="32" />\n    </MediumTypes>')
+    xml = replace_once(xml, '</MaskVersions>',
+        '  <MaskVersion Id="MV-FFF0" MaskVersion="65520" Name="TEST IoT (künstliche Testdaten)" ManagementModel="None" '
+        'MediumTypeRefId="MT-6"><HawkConfigurationData><Resources><Resource Name="TestResource" Access="remote" '
+        'MgmtStyle="simple"><Location AddressSpace="RelativeMemoryByObjectType" InterfaceObjectRef="6" '
+        'Occurrence="1" PropertyID="7" StartAddress="0" /><ResourceType Length="4" Flavour="Void" />'
+        '<AccessRights Read="Runtime" Write="Configuration" /></Resource></Resources><Procedures>'
+        '<Procedure ProcedureType="Load" ProcedureSubType="all"><LdCtrlConnect />'
+        '<LdCtrlMasterReset EraseCode="2" ChannelNumber="0" /><LdCtrlDisconnect /></Procedure></Procedures>'
+        '</HawkConfigurationData></MaskVersion>\n    </MaskVersions>')
+    translations = ''.join('<TranslationElement RefId="DPST-20-102_F-1-%d"><Translation AttributeName="Text" '
+        'Text="%s" /></TranslationElement>' % (v, de) for v, _, de in HVAC_VALUES if de)
+    end = '</Language>'
+    first = xml.index(end)
+    return xml[:first] + '<TranslationUnit RefId="DPT-20" Version="1">' + translations + '</TranslationUnit>\n      ' \
+        + xml[first:]
+
+
+def ets6_program(xml):
+    assert xml.count('"' + PROGRAM_NAME + '"') == 2
+    xml = xml.replace('"' + PROGRAM_NAME + '"', '"' + ETS6_PROGRAM_NAME + '"')
+    p = ETS6_PROGRAM + '_'
+    types = ('<ParameterType Id="' + p + 'PT-Test.5FMode" Name="Test_Mode"><TypeRestriction Base="Value" SizeInBit="8">'
+        '<Enumeration Id="' + p + 'PT-Test.5FMode_EN-0" DisplayOrder="0" Text="Aus" Value="0" />'
+        '<Enumeration Id="' + p + 'PT-Test.5FMode_EN-1" DisplayOrder="1" Text="Variante 1" Value="1" />'
+        '<Enumeration Id="' + p + 'PT-Test.5FMode_EN-2" DisplayOrder="2" Text="Variante 2" Value="2" />'
+        '</TypeRestriction></ParameterType>\n'
+        '<ParameterType Id="' + p + 'PT-Test.5FLevel" Name="Test_Level">'
+        '<TypeNumber SizeInBit="8" Type="unsignedInt" minInclusive="0" maxInclusive="100" /></ParameterType>\n'
+        '<ParameterType Id="' + p + 'PT-Test.5FColor" Name="Test_Color"><TypeColor Space="RGB" /></ParameterType>\n')
+    parameters = [('9101', 'Test.5FMode', 'TEST Variante', '0'), ('9102', 'Test.5FLevel', 'TEST geteilt', '10'),
+                  ('9104', 'Test.5FLevel', 'TEST direkt', '20'), ('9105', 'Test.5FColor', 'TEST Farbe', '#FF8000')]
+    params = ''.join('<Parameter Id="' + p + 'P-' + n + '" Name="' + t + '" Text="' + t + '" ParameterType="' + p
+        + 'PT-' + ty + '" Access="ReadWrite" Value="' + v + '" />\n' for n, ty, t, v in parameters)
+    refs = ''.join('<ParameterRef Id="' + p + 'P-' + n + '_R-' + n + '" RefId="' + p + 'P-' + n + '" Tag="' + n
+        + '" />\n' for n, _, _, _ in parameters)
+    obj = ('<ComObject Id="' + p + 'O-9110" Name="TEST geteilt" Text="TEST geteilt" Number="91" ObjectSize="1 Byte" '
+        'Priority="Low" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Enabled" TransmitFlag="Disabled" '
+        'UpdateFlag="Disabled" ReadOnInitFlag="Disabled" DatapointType="DPST-20-102" />\n')
+    objref = '<ComObjectRef Id="' + p + 'O-9110_R-9110" RefId="' + p + 'O-9110" />\n'
+    for end, content in (('</ParameterTypes>', types), ('</Parameters>', params), ('</ParameterRefs>', refs),
+                         ('</ComObjectTable>', obj), ('</ComObjectRefs>', objref)):
+        xml = replace_once(xml, end, content + end)
+    shared = ('<ParameterRefRef RefId="' + p + 'P-9102_R-9102" /><ComObjectRefRef RefId="' + p + 'O-9110_R-9110" />')
+    module = ('<Module Id="' + p + 'MD-1_M-1" RefId="' + p + 'MD-1"><NumericArg RefId="' + p
+        + 'MD-1_A-1" Value="0" /></Module>')
+    block = ('<ChannelIndependentBlock><ParameterBlock Id="' + p + 'PB-9100" Name="Test ETS6" Text="TEST ETS 6">'
+        '<ParameterRefRef RefId="' + p + 'P-9101_R-9101" /><choose ParamRefId="' + p + 'P-9101_R-9101">'
+        '<when test="1">' + shared + '</when><when test="2">' + shared + module + '</when><when default="true" />'
+        '</choose></ParameterBlock></ChannelIndependentBlock>\n'
+        '<ParameterBlock Id="' + p + 'PB-9103" Name="Test direkt" Text="TEST direkt">'
+        '<ParameterRefRef RefId="' + p + 'P-9104_R-9104" /><ParameterRefRef RefId="' + p + 'P-9105_R-9105" />'
+        '</ParameterBlock>\n')
+    xml = replace_once(xml, '<Dynamic>', '<Dynamic>\n' + block)
+    modules = ('<ModuleDefs><ModuleDef Id="' + p + 'MD-1" Name="TestModul"><Arguments><Argument Id="' + p
+        + 'MD-1_A-1" Name="Basis" /></Arguments><Static><Parameters><Parameter Id="' + p + 'MD-1_P-1" Name="Modul" '
+        'Text="TEST Modul" ParameterType="' + p + 'PT-Test.5FLevel" Access="ReadWrite" Value="0" /></Parameters>'
+        '<ParameterRefs><ParameterRef Id="' + p + 'MD-1_P-1_R-1" RefId="' + p + 'MD-1_P-1" /></ParameterRefs>'
+        '</Static><Dynamic><Channel Id="' + p + 'MD-1_CH-1" Name="Modul" Text="TEST Modul" Number="1">'
+        '<ParameterBlock Id="' + p + 'MD-1_PB-1" Name="Modul" Text="TEST Modul"><ParameterRefRef RefId="' + p
+        + 'MD-1_P-1_R-1" /></ParameterBlock></Channel></Dynamic></ModuleDef></ModuleDefs>\n')
+    return replace_once(xml, '<Dynamic>', modules + '<Dynamic>')
+
+
+def ets6_project(xml):
+    program = 'M-0008_A-10D7-11-A0E5-O000A_'
+    assert program not in xml.replace('M-0008_A-10D7-11-A0E5-O000A_O-', '').replace(
+        'M-0008_A-10D7-11-A0E5-O000A_P-', '').replace('M-0008_A-10D7-11-A0E5-O000A_UP-', '')
+    # Communication objects relative to the program; settings keep their full IDs (as ETS 6 writes them).
+    xml = xml.replace('RefId="' + program + 'O-', 'RefId="O-')
+    xml = xml.replace('ParameterInstanceRef RefId="' + program, 'ParameterInstanceRef RefId="' + ETS6_PROGRAM + '_')
+    xml = xml.replace(VERSION, ETS6_VERSION)
+    # Links instead of Connectors, relative to the installation.
+    import re
+    xml = re.sub(r'IsActive="1">\s*<Connectors>\s*<Send GroupAddressRefId="P-01A0-0_(GA-\d+)" />\s*</Connectors>\s*'
+        r'</ComObjectInstanceRef>', r'IsActive="1" Links="\1" />', xml)
+    assert '<Connectors>' not in xml
+    xml = replace_once(xml, 'Links="GA-3"', 'Links="GA-3 GA-1"')
+    # Load state as newer ETS versions write it.
+    xml = xml.replace('Loaded="0"', 'Loaded="false"')
+    xml = replace_once(xml, 'IndividualAddressLoaded="false"', 'IndividualAddressLoaded="true"')
+    # The device in a segment of its line.
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1"')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+    xml = (xml[:start] + '<Segment Id="P-01A0-0_L-1_S-0" Name="" Number="0" MediumTypeRefId="MT-0">'
+        + xml[start:end] + '</Segment>' + xml[end:])
+    # The shared parameter set by the device.
+    xml = replace_once(xml, '<ParameterInstanceRefs>', '<ParameterInstanceRefs>\n<ParameterInstanceRef RefId="'
+        + ETS6_PROGRAM + '_P-9102_R-9102" Value="42" />')
+    return replace_once(xml, '<Buildings />', '<Locations><Space Id="P-01A0-0_BP-1" Name="TEST Haus" Type="Building">'
+        '<Space Id="P-01A0-0_BP-2" Name="TEST Raum" Type="Room"><DeviceInstanceRef RefId="P-01A0-0_DI-1" /></Space>'
+        '</Space></Locations>')
+
+
+def ets6(name, xml):
+    xml = replace_once(xml, SCHEMA_11, SCHEMA_23)
+    if name == 'knx_master.xml':
+        return ets6_master(xml)
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestEts6')
+    if name == PROJECT:
+        return ets6_project(xml)
+    if name.endswith(PROGRAM + '.xml'):
+        return ets6_program(xml.replace(VERSION, ETS6_VERSION))
+    return xml.replace(VERSION, ETS6_VERSION)
+
+
+def ets6_name(name):
+    name = name.replace(VERSION, ETS6_VERSION)
+    return 'P-01A0/project.xml' if name == PROJECT_INFO else name
+
+
 write('src/test/fixtures/TestDetails.knxproj', keep_details)
 write('src/test/fixtures/TestDynamic.knxproj', dynamic,
     rename=lambda name: name.replace(VERSION, NEW_VERSION))
@@ -560,3 +726,4 @@ encrypted('src/test/fixtures/Encrypted.knxprod', 'src/test/fixtures/TestProduct.
 write('src/test/fixtures/TestBcu1.knxproj', bcu1,
     [('M-0008/' + program + '.xml', bcu1_program(program, number, name, with_data))
      for program, _, number, name, with_data in BCU1_PROGRAMS])
+write('src/test/fixtures/TestEts6.knxproj', ets6, rename=ets6_name)

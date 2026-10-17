@@ -22,6 +22,17 @@
 # 'Languages' sections (folded into the texts, see 'text') and translations into languages other
 # than de and en.
 
+# Project schema 23 (ETS 6): the export writes schema 11 and leaves out what schema 11 has no place
+# for (doc/knx/export.md, "Data of newer schemas"): the named values of datapoint subtypes
+# (DatapointSubtype/Format), LdCtrlMasterReset, and the definition of TypeColor. The samples are
+# schema 11, so no rule below matches these; a schema-23 sample in the round trip would need:
+#   skip DatapointSubtype/Format
+#   skip LdCtrlMasterReset
+#   skip ParameterType/TypeColor
+#   skip Options@DownloadInvisibleParameters
+# besides rules for what the import does not read of schema 23 (doc/knx/schema-coverage.md,
+# "Project schema 23").
+
 ## Files
 
 # Signatures: proprietary, created only by an installed ETS; the export is unsigned.

@@ -52,6 +52,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String ASSOCIATION_TABLE_ATTR = "associationTable";
 
 	/**
+	 * Part <code>downloadInvisibleParameters</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String DOWNLOAD_INVISIBLE_PARAMETERS_ATTR = "downloadInvisibleParameters";
+
+	/**
 	 * Part <code>dynamicTableManagement</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -286,6 +295,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String UNPLACED_ATTR = "unplaced";
 
 	/**
+	 * Part <code>usesModules</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String USES_MODULES_ATTR = "usesModules";
+
+	/**
 	 * Getter for part {@link #ADDRESS_TABLE_ATTR}.
 	 */
 	default de.haumacher.ehome.model.operational.TableLocation getAddressTable() {
@@ -339,6 +357,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setAssociationTable(de.haumacher.ehome.model.operational.TableLocation newValue) {
 		tUpdateByName(ASSOCIATION_TABLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #DOWNLOAD_INVISIBLE_PARAMETERS_ATTR}.
+	 */
+	default String getDownloadInvisibleParameters() {
+		return (String) tValueByName(DOWNLOAD_INVISIBLE_PARAMETERS_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #DOWNLOAD_INVISIBLE_PARAMETERS_ATTR}.
+	 */
+	default void setDownloadInvisibleParameters(String newValue) {
+		tUpdateByName(DOWNLOAD_INVISIBLE_PARAMETERS_ATTR, newValue);
 	}
 
 	/**
@@ -885,6 +917,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void removeUnplaced(de.haumacher.ehome.model.operational.Option oldValue) {
 		tRemoveByName(UNPLACED_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #USES_MODULES_ATTR}.
+	 */
+	default boolean getUsesModules() {
+		return (Boolean) tValueByName(USES_MODULES_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #USES_MODULES_ATTR}.
+	 */
+	default void setUsesModules(boolean newValue) {
+		tUpdateByName(USES_MODULES_ATTR, newValue);
 	}
 
 }

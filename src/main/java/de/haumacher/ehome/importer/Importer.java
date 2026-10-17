@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.importer;
 
+import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,15 +12,20 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
 
 import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamReader;
+import javax.xml.stream.util.StreamReaderDelegate;
 
 import com.top_logic.basic.Log;
 import com.top_logic.basic.Logger;
@@ -81,11 +87,32 @@ public class Importer {
 	 */
 	private static final String BAGGAGES = "Baggages";
 
+	/**
+	 * Suffix of the archive holding the project part of an ETS 5/6 project file
+	 * (<code>P-xxxx.zip</code>).
+	 */
+	private static final String ARCHIVE_SUFFIX = ".zip";
+
+	/**
+	 * Beginning of the namespace of the KNX project schema; the schema version follows.
+	 */
+	private static final String SCHEMA_NAMESPACE = "http://knx.org/xml/project/";
+
 	private JoiningModelBinding _binding;
 
 	private Set<String> _manufacturers = new LinkedHashSet<>();
 
 	private BufferingI18NLog _messages = new BufferingI18NLog();
+
+	/**
+	 * The project password for the current import, <code>null</code> if none was given.
+	 */
+	private String _password;
+
+	/**
+	 * The highest project schema version of the files read so far by the current import.
+	 */
+	private int _schema;
 
 	/**
 	 * Creates a {@link Importer}.
@@ -111,6 +138,8 @@ public class Importer {
 			}
 		};
 		_manufacturers = new LinkedHashSet<>();
+		_schema = 0;
+		Map<String, Map<String, byte[]>> projectArchives = new LinkedHashMap<>();
 		String last = null;
 		ZipEntry entry;
 		while ((entry = nextEntry(zip, last)) != null) {
@@ -125,19 +154,79 @@ public class Importer {
 			}
 			if (!entry.isDirectory()) {
 				if (name.endsWith(".xml")) {
-					Logger.info("Reading '" + name + "'.", Importer.class);
-
-					// The entry name is the system ID, so that a message of the import names the file of
-					// the archive. As an absolute URI: the parser resolves a relative one against the
-					// working directory of the server.
-					XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
-						.createXMLStreamReader(ENTRY_SCHEME + name, entryIn);
-					handler.importXml(context, in);
+					importXml(context, handler, name, entryIn);
+				} else if (path.length == 1 && name.startsWith(PROJECT_PREFIX) && name.endsWith(ARCHIVE_SUFFIX)) {
+					// ETS 5/6: the project part is an archive of its own (protected by the project
+					// password or not). It is opened at once, so that a missing or wrong password is
+					// refused before anything else is read, and imported after the master and
+					// manufacturer data it refers to, which may follow it in the file.
+					projectArchives.put(name, ProtectedProject.read(name, zip.readAllBytes(), _schema, _password));
+				}
+			}
+		}
+		for (Entry<String, Map<String, byte[]>> archive : projectArchives.entrySet()) {
+			String archiveName = archive.getKey();
+			String folder = archiveName.substring(0, archiveName.length() - ARCHIVE_SUFFIX.length());
+			for (Entry<String, byte[]> projectEntry : archive.getValue().entrySet()) {
+				String name = projectEntry.getKey();
+				if (name.endsWith(".xml")) {
+					String qualified = name.contains("/") ? name : folder + "/" + name;
+					importXml(context, handler, qualified, new ByteArrayInputStream(projectEntry.getValue()));
 				}
 			}
 		}
 		if (productData && _manufacturers.isEmpty()) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_MANUFACTURER_DATA);
+		}
+	}
+
+	private void importXml(ImportContext context, Handler handler, String name, InputStream content)
+			throws XMLStreamException {
+		Logger.info("Reading '" + name + "'.", Importer.class);
+
+		// The entry name is the system ID, so that a message of the import names the file of the
+		// archive. As an absolute URI: the parser resolves a relative one against the working
+		// directory of the server.
+		XMLStreamReader in = new SchemaVersionReader(XMLStreamUtil.getDefaultInputFactory()
+			.createXMLStreamReader(ENTRY_SCHEME + name, content));
+		handler.importXml(context, in);
+	}
+
+	/**
+	 * Reader recording the version of the project schema from the namespace of the root element.
+	 */
+	private final class SchemaVersionReader extends StreamReaderDelegate {
+
+		private boolean _root = true;
+
+		SchemaVersionReader(XMLStreamReader reader) {
+			super(reader);
+		}
+
+		@Override
+		public int next() throws XMLStreamException {
+			int event = super.next();
+			if (_root && event == XMLStreamConstants.START_ELEMENT) {
+				_root = false;
+				String namespace = getNamespaceURI();
+				if (namespace != null && namespace.startsWith(SCHEMA_NAMESPACE)) {
+					try {
+						_schema = Math.max(_schema, Integer.parseInt(namespace.substring(SCHEMA_NAMESPACE.length())));
+					} catch (NumberFormatException ex) {
+						// Not a version number, no information.
+					}
+				}
+			}
+			return event;
+		}
+
+		@Override
+		public int nextTag() throws XMLStreamException {
+			int event;
+			do {
+				event = next();
+			} while (event != XMLStreamConstants.START_ELEMENT && event != XMLStreamConstants.END_ELEMENT);
+			return event;
 		}
 	}
 
@@ -229,6 +318,26 @@ public class Importer {
 	 */
 	public void importStream(InputStream in)
 			throws IOException, XMLStreamException, ConfigurationException {
+		importStream(in, null);
+	}
+
+	/**
+	 * Imports the ETS project file (<code>.knxproj</code>) read from the given stream, whose project
+	 * may be protected by the given password.
+	 *
+	 * <p>
+	 * A protected project without a password, or with a password that does not open it, is refused
+	 * with a {@link TopLogicException} naming the reason.
+	 * </p>
+	 *
+	 * @param password
+	 *        The project password, <code>null</code> or empty if none was given.
+	 *
+	 * @see #getMessages()
+	 */
+	public void importStream(InputStream in, String password)
+			throws IOException, XMLStreamException, ConfigurationException {
+		_password = password;
 		importStream(in, false);
 	}
 
@@ -249,6 +358,7 @@ public class Importer {
 	 */
 	public void importProductData(InputStream in)
 			throws IOException, XMLStreamException, ConfigurationException {
+		_password = null;
 		importStream(in, true);
 	}
 
@@ -273,6 +383,14 @@ public class Importer {
 		}
 		// Numbers the app allocates for new objects lie above those of the imported ones.
 		ExtIds.raiseImported(_binding.getCreated());
+	}
+
+	/**
+	 * The version of the project schema of the file the last import read (11 for ETS 4, 23 for ETS
+	 * 6.3), 0 if it is not known.
+	 */
+	public int getSchemaVersion() {
+		return _schema;
 	}
 
 	/**

@@ -30,6 +30,12 @@ final class LoadSteps {
 	 */
 	private static final Set<String> VERIFIED = Set.of("WriteMem", "WriteProp", "WriteRelMem");
 
+	/**
+	 * The kinds of steps of newer schemas without a counterpart in schema 11, which the export
+	 * leaves out: the master reset of ETS 6.
+	 */
+	private static final Set<String> SCHEMA_23_ONLY = Set.of("MasterReset");
+
 	private LoadSteps() {
 		// Static helpers.
 	}
@@ -40,6 +46,10 @@ final class LoadSteps {
 	static void write(XmlOut out, TLObject procedure) throws XMLStreamException {
 		for (TLObject step : list(procedure, "steps")) {
 			String kind = ((TLClassifier) step.tValueByName("kind")).getName();
+			if (SCHEMA_23_ONLY.contains(kind)) {
+				// No such step in schema 11 (doc/knx/export.md).
+				continue;
+			}
 			out.open("LdCtrl" + kind)
 				.attr("LsmIdx", number(step, "stateMachine"))
 				.attr("ObjIdx", number(step, "objectIndex"))

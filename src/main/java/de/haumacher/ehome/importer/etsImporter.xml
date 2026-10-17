@@ -40,7 +40,12 @@
 																</case>
 															</switch>
 
-															<dispatch/>
+															<!-- ETS 5.5 and later: the encoding of the subtype; read are the named values of an enumerated subtype. -->
+															<dispatch>
+																<tag name="Format">
+																	<named-values/>
+																</tag>
+															</dispatch>
 														</object>
 													</tag>
 												</dispatch>
@@ -300,6 +305,8 @@
 																							<property name="writable" xml-attribute="Writable" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																							<property name="useFunctionProperty" xml-attribute="UseFunctionProp" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																							<property name="mergeId" xml-attribute="MergeId" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																							<property name="eraseCode" xml-attribute="EraseCode" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																							<property name="channelNumber" xml-attribute="ChannelNumber" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
 																							<dispatch/>
 																						</object>
@@ -492,6 +499,12 @@
 																						<assign target-var="scope" property="kind" value="`ehome.operational:LoadStepKind#Merge`"/>
 																					</chain>
 																				</tag>
+																				<tag name="LdCtrlMasterReset">
+																					<chain>
+																						<ref handler-id="load-step"/>
+																						<assign target-var="scope" property="kind" value="`ehome.operational:LoadStepKind#MasterReset`"/>
+																					</chain>
+																				</tag>
 																			</dispatch>
 																		</object>
 																	</tag>
@@ -567,6 +580,7 @@
 						<translations id="translations">
 							<mappings>
 								<mapping type="ehome.datapoint:DatapointType" xml-attribute="Text" attribute="description"/>
+								<mapping type="ehome.datapoint:NamedValue" xml-attribute="Text" attribute="text"/>
 								<mapping type="ehome.catalog:Catalog" xml-attribute="Name" attribute="name"/>
 								<mapping type="ehome.catalog:Variant" xml-attribute="Text" attribute="name"/>
 								<mapping type="ehome.operational:Program" xml-attribute="Name" attribute="name"/>
@@ -700,6 +714,10 @@
 														</property>
 												
 														<dispatch>
+															<tag name="ModuleDefs">
+																<!-- Dynamic modules (ETS 5.6 and later) are not imported: the program is marked, and the import warns. -->
+																<modules-not-imported/>
+															</tag>
 															<tag name="Static">
 																<dispatch>
 																	<tag name="Code">
@@ -849,6 +867,13 @@
 																								<!-- ETS shows the year unless DisplayTheYear says otherwise. -->
 																								<assign argument-var="this" property="showsYear" value="t -> true"/>
 																								<property name="showsYear" xml-attribute="DisplayTheYear" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+
+																								<dispatch/>
+																							</object>
+																						</tag>
+																						<tag name="TypeColor">
+																							<object model-type="ehome.operational:ColorType">
+																								<property name="space" xml-attribute="Space"/>
 
 																								<dispatch/>
 																							</object>
@@ -1205,6 +1230,7 @@
 																		<property name="keepObjectTableGaps" xml-attribute="LegacyKeepObjectTableGaps" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																		<property name="ignoreRunState" xml-attribute="DeviceInfoIgnoreRunState" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
 																		<property name="ignoreLoadedState" xml-attribute="DeviceInfoIgnoreLoadedState" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+																		<property name="downloadInvisibleParameters" xml-attribute="DownloadInvisibleParameters"/>
 																		<property name="parameterByteOrder" xml-attribute="ParameterByteOrder">
 																			<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
 																				type="ehome.operational:ByteOrder"
@@ -1222,6 +1248,10 @@
 															<tag name="Dynamic">
 																<!-- The configuration structure of the program: channels, the channel independent part, and parts that depend on parameter values. -->
 																<dispatch id="dynamic-contents">
+																	<!-- ETS 6: a parameter block directly in the program or in a case of one of its switches. -->
+																	<tag name="ParameterBlock">
+																		<ref handler-id="parameter-block"/>
+																	</tag>
 																	<tag name="ChannelIndependentBlock">
 																		<object model-type="ehome.operational:ChannelIndependent">
 																			<linking>
@@ -1244,7 +1274,7 @@
 
 																			<dispatch id="channel-contents">
 																				<tag name="ParameterBlock">
-																					<object model-type="ehome.operational:ParameterGroup" id-attribute="Id">
+																					<object model-type="ehome.operational:ParameterGroup" id-attribute="Id" id="parameter-block">
 																						<linking>
 																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
 																						</linking>
@@ -1287,24 +1317,15 @@
 																					</object>
 																				</tag>
 																				<tag name="ParameterRefRef">
-																					<!-- Places the reference here: it becomes part of this structure element. -->
-																					<object-ref id-attribute="RefId">
-																						<linking>
-																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
-																						</linking>
-
-																						<dispatch/>
-																					</object-ref>
+																					<!--
+																						Places the reference here: it becomes part of this structure element, or, if a structure element
+																						placed it before (ETS 6 places a reference in several cases of a switch), a shared placement here
+																						refers to it.
+																					-->
+																					<place-reference id-attribute="RefId"/>
 																				</tag>
 																				<tag name="ComObjectRefRef">
-																					<!-- Places the reference here: it becomes part of this structure element. -->
-																					<object-ref id-attribute="RefId">
-																						<linking>
-																							<list-linking name="ehome.operational:ConfigFragment#contents"/>
-																						</linking>
-
-																						<dispatch/>
-																					</object-ref>
+																					<place-reference id-attribute="RefId"/>
 																				</tag>
 																			</dispatch>
 																		</object>
@@ -1425,6 +1446,14 @@
 																	<property name="address" xml-attribute="Address" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
 																	<dispatch>
+																		<!-- ETS 6: the devices of a line are in its segments (a segment is not modeled). -->
+																		<tag name="Segment">
+																			<dispatch>
+																				<tag name="DeviceInstance">
+																					<ref handler-id="device"/>
+																				</tag>
+																			</dispatch>
+																		</tag>
 																		<tag name="DeviceInstance">
 																			<object model-type="ehome.physical:Device" id-attribute="Id" id="device">
 																				<linking>
@@ -1445,9 +1474,15 @@
 																					<case value="1">
 																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#IndividualAddress`)"/>
 																					</case>
+																					<case value="true">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#IndividualAddress`)"/>
+																					</case>
 																				</switch>
 																				<switch xml-attribute="ApplicationProgramLoaded">
 																					<case value="1">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#ApplicationProgram`)"/>
+																					</case>
+																					<case value="true">
 																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#ApplicationProgram`)"/>
 																					</case>
 																				</switch>
@@ -1455,9 +1490,15 @@
 																					<case value="1">
 																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#Parameters`)"/>
 																					</case>
+																					<case value="true">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#Parameters`)"/>
+																					</case>
 																				</switch>
 																				<switch xml-attribute="CommunicationPartLoaded">
 																					<case value="1">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#GroupAddresses`)"/>
+																					</case>
+																					<case value="true">
 																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#GroupAddresses`)"/>
 																					</case>
 																				</switch>
@@ -1465,111 +1506,121 @@
 																					<case value="1">
 																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#MediumConfig`)"/>
 																					</case>
+																					<case value="true">
+																						<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#MediumConfig`)"/>
+																					</case>
 																				</switch>
 																				<reference name="type" id-attribute="ProductRefId"/>
 																				<reference name="program" id-attribute="Hardware2ProgramRefId"/>
-																				
-																				<dispatch>
-																					<tag name="ParameterInstanceRefs">
-																						<dispatch>
-																							<tag name="ParameterInstanceRef">
-																								<object model-type="ehome.physical:ParameterSetting">
-																									<linking>
-																										<list-linking name="ehome.physical:Device#settings"/>
-																									</linking>
 
-																									<reference name="parameter" id-attribute="RefId"/>
-																									<typed-value xml-attribute="Value"/>
-
-																									<dispatch/>
-																								</object>
-																							</tag>
-																						</dispatch>
-																					</tag>
-																					<tag name="ComObjectInstanceRefs">
-																						<dispatch>
-																							<tag name="ComObjectInstanceRef">
-																								<object model-type="ehome.physical:Connector">
-																									<linking>
-																										<list-linking name="ehome.physical:Device#connectors"/>
-																									</linking>
-																									
-																									<reference name="port" id-attribute="RefId"/>
-									<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
-																									
-																									<property name="text" xml-attribute="Text"/>
-																									<property name="function" xml-attribute="FunctionText"/>
-																									<property name="description" xml-attribute="Description"/>
-																									<property name="active" xml-attribute="IsActive" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
-																									
-																									<property name="priority" xml-attribute="Priority">
-																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																											type="ehome.physical:Priority"
-																										/>
-																									</property>
-																									<property name="canRead" xml-attribute="ReadFlag">
-																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																											type="ehome.common:Enablement"
-																										/>
-																									</property>
-																									<property name="canWrite" xml-attribute="WriteFlag">
-																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																											type="ehome.common:Enablement"
-																										/>
-																									</property>
-																									<property name="communication" xml-attribute="CommunicationFlag">
-																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																											type="ehome.common:Enablement"
-																										/>
-																									</property>
-																									<property name="transmission" xml-attribute="TransmitFlag">
-																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																											type="ehome.common:Enablement"
-																										/>
-																									</property>
-																									<property name="update" xml-attribute="UpdateFlag">
-																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																											type="ehome.common:Enablement"
-																										/>
-																									</property>
-																									<property name="readOnInit" xml-attribute="ReadOnInitFlag">
-																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																											type="ehome.common:Enablement"
-																										/>
-																									</property>
-																									
-																									<dispatch>
-																										<tag name="Connectors">
-																											<dispatch>
-																												<tag name="Send">
-																													<chain>
-																														<object model-type="ehome.physical:Connection" id="create-connection">
-																															<linking>
-																																<list-linking name="ehome.physical:Connector#connections"/>
-																															</linking>
-																															
-																															<reference name="target" id-attribute="GroupAddressRefId"/>
-																															<property name="acknowledge" xml-attribute="Acknowledge" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
-																															
-																															<dispatch/>
-																														</object>
-																														<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#send`"/>
-																													</chain>
-																												</tag>
-																												<tag name="Receive">
-																													<chain>
-																														<ref handler-id="create-connection"/>
-																														<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#receive`"/>
-																													</chain>
-																												</tag>
-																											</dispatch>
-																										</tag>
-																									</dispatch>
-																								</object>
-																							</tag>
-																						</dispatch>
-																					</tag>
-																				</dispatch>
+																				<!-- Newer ETS versions name parts of the program and group addresses by short IDs. -->
+																				<device-scope>
+																					<dispatch>
+																						<tag name="ParameterInstanceRefs">
+																							<dispatch>
+																								<tag name="ParameterInstanceRef">
+																									<object model-type="ehome.physical:ParameterSetting">
+																										<linking>
+																											<list-linking name="ehome.physical:Device#settings"/>
+																										</linking>
+	
+																										<program-reference name="parameter" id-attribute="RefId"/>
+																										<typed-value xml-attribute="Value"/>
+	
+																										<dispatch/>
+																									</object>
+																								</tag>
+																							</dispatch>
+																						</tag>
+																						<tag name="ComObjectInstanceRefs">
+																							<dispatch>
+																								<tag name="ComObjectInstanceRef">
+																									<object model-type="ehome.physical:Connector">
+																										<linking>
+																											<list-linking name="ehome.physical:Device#connectors"/>
+																										</linking>
+																										
+																										<program-reference name="port" id-attribute="RefId"/>
+										<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
+																										
+																										<property name="text" xml-attribute="Text"/>
+																										<property name="function" xml-attribute="FunctionText"/>
+																										<property name="description" xml-attribute="Description"/>
+																										<!-- ETS 6 writes IsActive only where an object is not in use (the device computes its activity, IsActivityCalculated): without it, the object is in use. -->
+																										<assign argument-var="this" property="active" value="c -> true"/>
+																										<property name="active" xml-attribute="IsActive" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+																										<!-- ETS 5.7 and later: the linked group addresses instead of Connectors. -->
+																										<group-links/>
+																										
+																										<property name="priority" xml-attribute="Priority">
+																											<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																												type="ehome.physical:Priority"
+																											/>
+																										</property>
+																										<property name="canRead" xml-attribute="ReadFlag">
+																											<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																												type="ehome.common:Enablement"
+																											/>
+																										</property>
+																										<property name="canWrite" xml-attribute="WriteFlag">
+																											<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																												type="ehome.common:Enablement"
+																											/>
+																										</property>
+																										<property name="communication" xml-attribute="CommunicationFlag">
+																											<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																												type="ehome.common:Enablement"
+																											/>
+																										</property>
+																										<property name="transmission" xml-attribute="TransmitFlag">
+																											<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																												type="ehome.common:Enablement"
+																											/>
+																										</property>
+																										<property name="update" xml-attribute="UpdateFlag">
+																											<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																												type="ehome.common:Enablement"
+																											/>
+																										</property>
+																										<property name="readOnInit" xml-attribute="ReadOnInitFlag">
+																											<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																												type="ehome.common:Enablement"
+																											/>
+																										</property>
+																										
+																										<dispatch>
+																											<tag name="Connectors">
+																												<dispatch>
+																													<tag name="Send">
+																														<chain>
+																															<object model-type="ehome.physical:Connection" id="create-connection">
+																																<linking>
+																																	<list-linking name="ehome.physical:Connector#connections"/>
+																																</linking>
+																																
+																																<reference name="target" id-attribute="GroupAddressRefId"/>
+																																<property name="acknowledge" xml-attribute="Acknowledge" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+																																
+																																<dispatch/>
+																															</object>
+																															<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#send`"/>
+																														</chain>
+																													</tag>
+																													<tag name="Receive">
+																														<chain>
+																															<ref handler-id="create-connection"/>
+																															<assign target-var="scope" property="kind" value="`ehome.physical:ConnectionType#receive`"/>
+																														</chain>
+																													</tag>
+																												</dispatch>
+																											</tag>
+																										</dispatch>
+																									</object>
+																								</tag>
+																							</dispatch>
+																						</tag>
+																					</dispatch>
+																				</device-scope>
 																			</object>
 																		</tag>
 																	</dispatch>
@@ -1582,6 +1633,10 @@
 										</tag>
 										<tag name="Buildings">
 											<dispatch id="building-type">
+												<!-- ETS 5 and later: a space of the locations, with the same types as a building part. -->
+												<tag name="Space">
+													<ref handler-id="building-part"/>
+												</tag>
 												<!-- Only relevant when recursively called in the context of another building part. -->
 												<tag name="DeviceInstanceRef">
 													<object-ref id-attribute="RefId">
@@ -1592,7 +1647,7 @@
 													</object-ref>
 												</tag>
 												<tag name="BuildingPart">
-													<switch xml-attribute="Type">
+													<switch xml-attribute="Type" id="building-part">
 														<case value="Building">
 															<object model-type="ehome.building:Building" id-attribute="Id">
 																<linking>
@@ -1687,6 +1742,10 @@
 													</switch>
 												</tag>
 											</dispatch>
+										</tag>
+										<!-- ETS 5 and later: the buildings are the spaces of the locations. -->
+										<tag name="Locations">
+											<ref handler-id="building-type"/>
 										</tag>
 										<tag name="GroupAddresses">
 											<dispatch id="group-addresses-type">

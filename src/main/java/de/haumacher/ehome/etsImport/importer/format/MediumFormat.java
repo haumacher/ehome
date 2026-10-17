@@ -12,7 +12,7 @@ import com.top_logic.model.util.TLModelUtil;
 /**
  * Format reading the medium (<code>ehome.common:Medium</code>) from the ID of an ETS medium type
  * (<code>MT-0</code>), which is formed from the KNX medium number: 0 twisted pair, 1 power line, 2
- * radio frequency, 5 IP.
+ * radio frequency, 5 IP, 6 KNX IoT (ETS 6).
  */
 public class MediumFormat extends AbstractConfigurationValueProvider<TLClassifier> {
 
@@ -34,6 +34,7 @@ public class MediumFormat extends AbstractConfigurationValueProvider<TLClassifie
 			case PREFIX + "1" -> "PL";
 			case PREFIX + "2" -> "RF";
 			case PREFIX + "5" -> "IP";
+			case PREFIX + "6" -> "IoT";
 			default -> null;
 		};
 		if (name == null) {
@@ -49,6 +50,7 @@ public class MediumFormat extends AbstractConfigurationValueProvider<TLClassifie
 			case "PL" -> "1";
 			case "RF" -> "2";
 			case "IP" -> "5";
+			case "IoT" -> "6";
 			default -> "0";
 		};
 	}
