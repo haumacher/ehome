@@ -27,8 +27,8 @@ import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.monitor.DatapointCodec;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
-import de.haumacher.ehome.monitor.ProjectIndex;
 import de.haumacher.ehome.programming.GroupAddressConnections;
+import de.haumacher.ehome.programming.GroupAddressTypes;
 
 /**
  * The runtime image of a project: the JSON document a HomeControl controller runs
@@ -41,7 +41,8 @@ import de.haumacher.ehome.programming.GroupAddressConnections;
  * <li><code>image</code>: the project's external ID as <code>projectId</code>, its name, the
  * revision of the deployment, the time of the export and E-Home as generator.</li>
  * <li><code>datapoints</code>: one per group address of the project that has a datapoint type (its
- * own, the one of a connected communication object, or a main type its objects' size decides), in
+ * own, the one of a connected communication object, or a main type its objects' size decides: the
+ * rule of {@link GroupAddressTypes#effective(TLObject)}), in
  * the order of the addresses. The id is the address in three levels (<code>1/2/3</code>, stable
  * when the address is renamed), the label its name, the value type and unit follow from the
  * datapoint type. The KNX binding and the flags follow from the communication objects connected to
@@ -253,10 +254,7 @@ public final class RuntimeImage {
 			return null;
 		}
 		String id = threeLevel(ga.getValue());
-		Dpt dpt = ProjectIndex.dpt(ProjectIndex.datapointType(address));
-		if (dpt == null) {
-			dpt = ProjectIndex.bySize(address);
-		}
+		Dpt dpt = GroupAddressTypes.effective(address);
 		if (dpt == null) {
 			_notes.add(message(I18NConstants.NOTE_NO_DATAPOINT_TYPE__ADDRESS.fill(ga.toString() + " "
 				+ String.valueOf(address.tValueByName("name")))));

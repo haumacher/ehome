@@ -3,17 +3,12 @@
  */
 package de.haumacher.ehome.monitor;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.TreeMap;
 
-import com.top_logic.basic.util.ResKey;
-import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
-import com.top_logic.model.util.TLModelUtil;
-import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
@@ -21,6 +16,7 @@ import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
+import de.haumacher.ehome.programming.GroupAddressTypes;
 
 /**
  * What the group monitor knows of a project: its group addresses with their names and datapoint
@@ -98,13 +94,8 @@ public class ProjectIndex {
 			if (!(groupAddress.tValueByName("address") instanceof GA ga)) {
 				continue;
 			}
-			TLObject type = datapointType(groupAddress);
-			Dpt dpt = dpt(type);
-			String label = dptLabel(type);
-			if (dpt == null) {
-				dpt = bySize(groupAddress);
-				label = dpt == null ? "" : dpt.code();
-			}
+			Dpt dpt = GroupAddressTypes.effective(groupAddress);
+			String label = GroupAddressTypes.label(groupAddress);
 			Object name = groupAddress.tValueByName("name");
 			addresses.put(ga.getValue(), new AddressInfo(ga.getValue(), style.format(ga.getValue()),
 				name == null ? "" : name.toString(), groupAddress, dpt, label));
@@ -166,85 +157,6 @@ public class ProjectIndex {
 		} catch (RuntimeException ex) {
 			return GroupAddressStyle.parseAny(text);
 		}
-	}
-
-	/**
-	 * The datapoint type of a group address: its own, else the one of the first connected object
-	 * that has one (as <code>ehome.logical:GroupAddress#effectiveDatapointType</code>, computed
-	 * without the rights of a reader).
-	 */
-	public static TLObject datapointType(TLObject groupAddress) {
-		Object own = groupAddress.tValueByName("datapointTypes");
-		if (own instanceof Collection<?> types && !types.isEmpty()) {
-			return (TLObject) types.iterator().next();
-		}
-		for (TLObject connection : GroupAddressConnections.connections(groupAddress)) {
-			TLObject type = GroupAddressConnections.datapointType(connection);
-			if (type != null) {
-				return type;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * The main type of the values of a group address none of whose objects has a datapoint type, by
-	 * the size of the objects where it decides the main type: 1 bit (DPT 1, a switch), 4 bit (DPT 3,
-	 * a step control); <code>null</code> otherwise.
-	 */
-	public static Dpt bySize(TLObject groupAddress) {
-		Integer size = null;
-		for (TLObject connection : GroupAddressConnections.connections(groupAddress)) {
-			int objectSize = GroupAddressConnections.size(connection);
-			if (size != null && size.intValue() != objectSize) {
-				return null;
-			}
-			size = Integer.valueOf(objectSize);
-		}
-		if (size == null) {
-			return null;
-		}
-		switch (size.intValue()) {
-			case 1:
-				return Dpt.mainType(1);
-			case 4:
-				return Dpt.mainType(3);
-			default:
-				return null;
-		}
-	}
-
-	/**
-	 * The numbers of a datapoint type (<code>ehome.datapoint:DatapointType</code>), <code>null</code>
-	 * for none.
-	 */
-	public static Dpt dpt(TLObject type) {
-		if (type == null || !(type.tValueByName("number") instanceof Integer number)) {
-			return null;
-		}
-		if (isSubtype(type)) {
-			TLObject main = type.tContainer();
-			if (main == null || !(main.tValueByName("number") instanceof Integer mainNumber)) {
-				return null;
-			}
-			return new Dpt(mainNumber, number);
-		}
-		return Dpt.mainType(number);
-	}
-
-	private static String dptLabel(TLObject type) {
-		Dpt dpt = dpt(type);
-		if (dpt == null) {
-			return "";
-		}
-		Object description = type.tValueByName("description");
-		String text = description instanceof ResKey key ? Resources.getInstance().getString(key, null) : null;
-		return text == null || text.isEmpty() ? dpt.code() : dpt.code() + " " + text;
-	}
-
-	private static boolean isSubtype(TLObject type) {
-		return TLModelUtil.isGeneralization((TLClass) TLModelUtil.findType("ehome.datapoint:DatapointSubtype"),
-			type.tType());
 	}
 
 }

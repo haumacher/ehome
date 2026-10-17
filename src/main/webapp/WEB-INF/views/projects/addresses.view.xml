@@ -8,6 +8,12 @@
 	datapoint types that do not fit together and the number of senders, or a connection with its
 	device and the way to it in the device view.
 
+	An address without a datapoint type in effect (GroupAddressTypes: neither the address nor an
+	object names one, and the size of the objects does not decide it) is left out of the runtime
+	image. The tree marks it (ehomeUntyped), the switch above the tree narrows the tree to such
+	addresses and the ranges holding them, the details say why, and "Set the datapoint type" chooses
+	a type for the address (projects/set-datapoint-type.view.xml).
+
 	Objects are connected to the selected address and connections removed with the operations of
 	the device view (deviceConnect, deviceDisconnect), so the rules of a connection hold on both
 	sides. The connections are computed by Java functions (GroupAddressConnections), hence the tree,
@@ -18,6 +24,8 @@
 	<channels>
 		<channel name="project"/>
 		<channel name="selected"/>
+		<!-- Whether the tree shows only the addresses without a datapoint type and the ranges holding them. -->
+		<channel name="untypedOnly"/>
 		<!--
 			The selected node; nothing once its object was deleted (a connection removed in the device
 			view), which a script cannot ask about the type of any more.
@@ -68,6 +76,16 @@
 			inputs="address"
 			observed-types="ehome.physical:Connection,ehome.physical:Connector"
 		/>
+		<!-- Why the selected address has no datapoint type; nothing for an address that has one. -->
+		<derived-channel name="typeHint"
+			inputs="address"
+			observed-types="ehome.logical:GroupAddress,ehome.physical:Connection,ehome.physical:Connector"
+		>
+			<expr><![CDATA[a -> if($a == null or groupAddressHasType($a), null,
+    #("{0} has no datapoint type: neither the address nor its objects name one, and the size of the objects does not decide it. The runtime image leaves the address out until a type is set (“Set the datapoint type”)."@en,
+      "{0} hat keinen Datenpunkttyp: Weder die Adresse noch ihre Objekte nennen einen, und die Größe der Objekte legt ihn nicht fest. Das Laufzeitabbild lässt die Adresse weg, bis ein Typ gesetzt ist („Datenpunkttyp setzen“)."@de)
+        .fill($a.get(`ehome.logical:GroupAddress#displayName`)).localize())]]></expr>
+		</derived-channel>
 		<derived-channel name="senders"
 			expr="a -> if($a == null, null, #('Sending objects: {0}'@en, 'Sendende Objekte: {0}'@de).fill(groupAddressSenders($a)).localize())"
 			inputs="address"
@@ -191,6 +209,28 @@
 							</open-dialog>
 						</generic-command>
 						<generic-command
+							image="css:bi bi-123"
+							input="address"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Set the datapoint type</en>
+								<de>Datenpunkttyp setzen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="address"
+								dialog-view="projects/set-datapoint-type.view.xml"
+							>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
 							image="css:bi bi-x-lg"
 							input="connection"
 							placement="TOOLBAR"
@@ -244,26 +284,47 @@
 							</show-views>
 						</generic-command>
 					</commands>
-					<tree
-						observed-types="ehome.logical:GroupAddressDefinition,ehome.physical:Connection"
-						selection="selected"
-					>
-						<inputs>
-							<input channel="project"/>
-						</inputs>
-						<root>p -> $p</root>
-						<children><![CDATA[p -> node -> switch {
+					<stack>
+						<inset>
+							<fields>
+								<value-input
+									type="tl.core:Boolean"
+									value="untypedOnly"
+								>
+									<label>
+										<en>Only addresses without datapoint type</en>
+										<de>Nur Adressen ohne Datenpunkttyp</de>
+									</label>
+									<input-control class="com.top_logic.layout.view.form.BooleanControlProvider"
+										display="switch"
+									/>
+								</value-input>
+							</fields>
+						</inset>
+						<tree
+							observed-types="ehome.logical:GroupAddressDefinition,ehome.physical:Connection"
+							selection="selected"
+						>
+							<inputs>
+								<input channel="project"/>
+								<input channel="untypedOnly"/>
+							</inputs>
+							<root>p -> f -> $p</root>
+							<children><![CDATA[p -> f -> node -> switch {
     $node.instanceOf(`ehome.project:Project`) or $node.instanceOf(`ehome.logical:GroupRange`):
-        groupAddressParts($node);
+        if($f, groupAddressUntypedParts($node), groupAddressParts($node));
     $node.instanceOf(`ehome.logical:GroupAddress`):
         groupAddressConnections($node);
     default: [];
 }]]></children>
-						<parents>p -> node -> if($node.instanceOf(`ehome.physical:Connection`), $node.get(`ehome.physical:Connection#target`), $node.container())</parents>
-						<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
-							label="x -> if($x.instanceOf(`ehome.physical:Connection`), connectionLabel($x), null)"
-						/>
-					</tree>
+							<parents>p -> f -> node -> if($node.instanceOf(`ehome.physical:Connection`), $node.get(`ehome.physical:Connection#target`), $node.container())</parents>
+							<!-- An address without a datapoint type carries a mark after its label. -->
+							<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
+								css-class="x -> if($x.instanceOf(`ehome.logical:GroupAddress`) and !groupAddressHasType($x), 'ehomeUntyped', null)"
+								label="x -> if($x.instanceOf(`ehome.physical:Connection`), connectionLabel($x), null)"
+							/>
+						</tree>
+					</stack>
 				</panel>
 			</pane>
 			<pane
@@ -305,19 +366,32 @@
 										</form>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.logical:GroupAddress`)">
-										<form
-											input="node"
-											with-inset="true"
-										>
-											<field attribute="name"/>
-											<field attribute="address"/>
-											<field attribute="effectiveDatapointType"/>
-											<field attribute="datapointTypes"/>
-											<field attribute="central"/>
-											<field attribute="unfiltered"/>
-											<field attribute="description"/>
-											<field attribute="extId"/>
-										</form>
+										<stack>
+											<visible-if
+												expr="h -> $h != null"
+												input="typeHint"
+											>
+												<inset>
+													<text
+														input="typeHint"
+														tone="warning"
+													/>
+												</inset>
+											</visible-if>
+											<form
+												input="node"
+												with-inset="true"
+											>
+												<field attribute="name"/>
+												<field attribute="address"/>
+												<field attribute="effectiveDatapointType"/>
+												<field attribute="datapointTypes"/>
+												<field attribute="central"/>
+												<field attribute="unfiltered"/>
+												<field attribute="description"/>
+												<field attribute="extId"/>
+											</form>
+										</stack>
 									</case>
 									<case test="n -> $n.instanceOf(`ehome.physical:Connection`)">
 										<!--

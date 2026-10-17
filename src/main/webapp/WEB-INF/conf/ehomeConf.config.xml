@@ -99,6 +99,14 @@
 					<method name="groupAddressNextFree" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="groupAddressCreateProblem" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="groupAddressCreate" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<!-- The datapoint type of a group address (de.haumacher.ehome.programming.GroupAddressTypes). -->
+					<method name="groupAddressHasType" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressEffectiveType" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressObjectSize" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressTypeChoices" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressTypeVeto" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressSetType" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="groupAddressUntypedParts" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<!-- The programming of a device (de.haumacher.ehome.programming.download.ProgrammingFunctions): one builder, the function by its name. -->
 					<method name="downloadPlanRows" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="downloadSummary" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>

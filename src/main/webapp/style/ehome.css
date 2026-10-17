@@ -78,3 +78,14 @@
 .ehomeChangeGroup {
 	margin-top: 0.5em;
 }
+
+/*
+ * A group address without a datapoint type (haumacher/ehome #46, projects/addresses.view.xml): the
+ * runtime image leaves it out, so its node carries a warning sign after its label.
+ */
+.ehomeUntyped::after {
+	content: "\26A0";
+	color: var(--text-warning);
+	margin-left: 0.4em;
+	font-size: 0.85em;
+}

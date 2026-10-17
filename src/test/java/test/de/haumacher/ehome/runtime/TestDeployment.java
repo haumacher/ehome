@@ -29,7 +29,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.monitor.ProjectIndex;
+import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.runtime.ControllerStatus;
 import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.I18NConstants;
@@ -167,7 +167,7 @@ public class TestDeployment extends BasicTestCase {
 					.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
 				copy.tUpdateByName("name", "Copy");
 				copy.tUpdateByName("address", original.tValueByName("address"));
-				copy.tUpdateByName("datapointTypes", List.of(ProjectIndex.datapointType(original)));
+				copy.tUpdateByName("datapointTypes", List.of(GroupAddressTypes.declaredType(original)));
 				List<Object> addresses = new ArrayList<>((java.util.Collection<?>) project.tValueByName("groupAddresses"));
 				addresses.add(copy);
 				project.tUpdateByName("groupAddresses", addresses);

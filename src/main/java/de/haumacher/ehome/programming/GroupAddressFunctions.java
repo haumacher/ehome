@@ -35,6 +35,14 @@ import com.top_logic.util.Resources;
  * <code>groupAddressCreate</code> create a group address from the connect dialog, see
  * {@link GroupAddresses}.
  * </p>
+ *
+ * <p>
+ * The functions <code>groupAddressHasType</code>, <code>groupAddressEffectiveType</code>,
+ * <code>groupAddressObjectSize</code>, <code>groupAddressTypeChoices</code>,
+ * <code>groupAddressTypeVeto</code>, <code>groupAddressSetType</code> and
+ * <code>groupAddressUntypedParts</code> read and set the datapoint type of an address, see
+ * {@link GroupAddressTypes}.
+ * </p>
  */
 public class GroupAddressFunctions extends GenericMethod {
 
@@ -93,7 +101,31 @@ public class GroupAddressFunctions extends GenericMethod {
 		 * <code>groupAddressCreate(range, address, name, datapointType)</code>:
 		 * {@link GroupAddresses#create(TLObject, Object, String, TLObject)}.
 		 */
-		groupAddressCreate(4, false);
+		groupAddressCreate(4, false),
+		/** <code>groupAddressHasType(address)</code>: {@link GroupAddressTypes#hasType(TLObject)}. */
+		groupAddressHasType(1, true),
+		/** <code>groupAddressEffectiveType(address)</code>: {@link GroupAddressTypes#effectiveType(TLObject)}. */
+		groupAddressEffectiveType(1, true),
+		/** <code>groupAddressObjectSize(address)</code>: {@link GroupAddressTypes#objectSize(TLObject)}. */
+		groupAddressObjectSize(1, true),
+		/**
+		 * <code>groupAddressTypeChoices(address, all)</code>:
+		 * {@link GroupAddressTypes#choices(TLObject, boolean)}.
+		 */
+		groupAddressTypeChoices(2, true),
+		/**
+		 * <code>groupAddressTypeVeto(address, type)</code>: the reason of
+		 * {@link GroupAddressTypes#veto(TLObject, TLObject)} as text, <code>null</code> if the type can
+		 * be set.
+		 */
+		groupAddressTypeVeto(2, true),
+		/**
+		 * <code>groupAddressSetType(address, type)</code>:
+		 * {@link GroupAddressTypes#setType(TLObject, TLObject)}.
+		 */
+		groupAddressSetType(2, false),
+		/** <code>groupAddressUntypedParts(node)</code>: {@link GroupAddressTypes#untypedParts(TLObject)}. */
+		groupAddressUntypedParts(1, true);
 
 		private final int _arguments;
 
@@ -152,6 +184,8 @@ public class GroupAddressFunctions extends GenericMethod {
 				ResKey veto = GroupAddresses.veto(object(arguments[0]), arguments[1]);
 				return veto == null ? null : Resources.getInstance().getString(veto);
 			}
+			case groupAddressHasType:
+				return Boolean.valueOf(object(arguments[0]) != null && GroupAddressTypes.hasType(object(arguments[0])));
 			default:
 				break;
 		}
@@ -190,9 +224,26 @@ public class GroupAddressFunctions extends GenericMethod {
 				return GroupAddresses.defaultRange(obj, object(arguments[1]));
 			case groupAddressNextFree:
 				return GroupAddresses.nextFree(obj);
+			case groupAddressEffectiveType:
+				return GroupAddressTypes.effectiveType(obj);
+			case groupAddressObjectSize: {
+				Integer size = GroupAddressTypes.objectSize(obj);
+				return size == null ? null : SearchExpression.toNumber(size.intValue());
+			}
+			case groupAddressTypeChoices:
+				return GroupAddressTypes.choices(obj, Boolean.TRUE.equals(SearchExpression.asBoolean(arguments[1])));
+			case groupAddressTypeVeto: {
+				ResKey veto = GroupAddressTypes.veto(obj, object(arguments[1]));
+				return veto == null ? null : Resources.getInstance().getString(veto);
+			}
+			case groupAddressSetType:
+				return GroupAddressTypes.setType(obj, object(arguments[1]));
+			case groupAddressUntypedParts:
+				return GroupAddressTypes.untypedParts(obj);
 			case existingObject:
 			case groupAddressCreateProblem:
 			case groupAddressCreate:
+			case groupAddressHasType:
 				return obj;
 		}
 		return null;

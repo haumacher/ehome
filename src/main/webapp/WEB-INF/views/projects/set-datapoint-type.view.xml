@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog setting the datapoint type of a group address (ehome.logical:GroupAddress#datapointTypes),
+	opened from the group address view (projects/addresses.view.xml).
+
+	"address" carries the address. The types offered are those the connected objects suggest by
+	their size (groupAddressTypeChoices: 16 bits offer 7.*, 8.*, 9.001 temperature, ...), or all types
+	of the master data when the objects suggest none or "All datapoint types" is on. "Set" sets the
+	chosen type as the address's own (groupAddressSetType, the same function a test calls), refusing
+	a type whose size differs from the objects' with the reason; "Remove the own type" leaves the
+	address to the type of its objects. The address stays selected ("selection" is written with it).
+-->
+<view>
+	<channels>
+		<channel name="address"/>
+		<channel name="selection"/>
+		<!-- The chosen datapoint type. -->
+		<channel name="type"/>
+		<!-- Whether all datapoint types are offered instead of the ones the objects suggest. -->
+		<channel name="all"/>
+		<derived-channel name="hint"
+			inputs="address"
+			observed-types="ehome.logical:GroupAddress,ehome.physical:Connection,ehome.physical:Connector"
+		>
+			<expr><![CDATA[a -> {
+    name = $a.get(`ehome.logical:GroupAddress#displayName`);
+    own = $a.get(`ehome.logical:GroupAddress#datapointTypes`).firstElement();
+    effective = groupAddressEffectiveType($a);
+    size = groupAddressObjectSize($a);
+    state = switch {
+        $own != null: #("{0} has the datapoint type {1}."@en, "{0} hat den Datenpunkttyp {1}."@de).fill($name, $own.label());
+        $effective != null: #("{0} takes the datapoint type {1} from its objects."@en, "{0} übernimmt den Datenpunkttyp {1} von seinen Objekten."@de).fill($name, $effective.label());
+        default: #("{0} has no datapoint type."@en, "{0} hat keinen Datenpunkttyp."@de).fill($name);
+    };
+    offer = if($size == null,
+        #("No objects of one size are connected: all datapoint types are offered."@en, "Es sind keine Objekte einer Größe verbunden: Alle Datenpunkttypen werden angeboten."@de),
+        #("The connected objects have {0} bits: the datapoint types of that size are offered."@en, "Die verbundenen Objekte haben {0} Bit: Die Datenpunkttypen dieser Größe werden angeboten."@de).fill($size));
+    $state.localize() + " " + $offer.localize()
+}]]></expr>
+		</derived-channel>
+		<!-- Why the chosen type cannot be set; nothing if it can. -->
+		<derived-channel name="veto"
+			inputs="address, type"
+		>
+			<expr><![CDATA[a -> t -> if($t == null, null, groupAddressTypeVeto($a, $t))]]></expr>
+		</derived-channel>
+		<!-- The chosen type if it can be set: the input of "Set", which the veto above explains otherwise. -->
+		<derived-channel name="settable"
+			inputs="address, type"
+		>
+			<expr><![CDATA[a -> t -> if($t == null or groupAddressTypeVeto($a, $t) != null, null, $t)]]></expr>
+		</derived-channel>
+	</channels>
+	<window width="560px">
+		<title>
+			<en>Set the datapoint type</en>
+			<de>Datenpunkttyp setzen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text
+					input="hint"
+					tone="secondary"
+				/>
+				<fields max-columns="1">
+					<value-input
+						type="ehome.datapoint:DatapointType"
+						value="type"
+					>
+						<label>
+							<en>Datapoint type</en>
+							<de>Datenpunkttyp</de>
+						</label>
+						<inputs>
+							<input channel="address"/>
+							<input channel="all"/>
+						</inputs>
+						<options>a -> all -> groupAddressTypeChoices($a, $all)</options>
+					</value-input>
+					<value-input
+						type="tl.core:Boolean"
+						value="all"
+					>
+						<label>
+							<en>All datapoint types</en>
+							<de>Alle Datenpunkttypen</de>
+						</label>
+					</value-input>
+				</fields>
+				<visible-if
+					expr="v -> $v != null"
+					input="veto"
+				>
+					<text
+						input="veto"
+						tone="warning"
+					/>
+				</visible-if>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-check-lg"
+					input="settable"
+				>
+					<label>
+						<en>Set</en>
+						<de>Setzen</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="a -> t -> groupAddressSetType($a, $t)">
+							<inputs>
+								<input channel="address"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-eraser"
+					input="address"
+					observed-types="ehome.logical:GroupAddress"
+				>
+					<label>
+						<en>Remove the own type</en>
+						<de>Eigenen Typ entfernen</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr="a -> if($a.get(`ehome.logical:GroupAddress#datapointTypes`).isEmpty(), #('The address has no datapoint type of its own.'@en, 'Die Adresse hat keinen eigenen Datenpunkttyp.'@de))"/>
+					</executability>
+					<with-transaction>
+						<execute-script function="a -> groupAddressSetType($a, null)"/>
+					</with-transaction>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

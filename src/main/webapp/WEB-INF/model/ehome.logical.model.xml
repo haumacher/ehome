@@ -100,7 +100,10 @@
 				/>
 				<!--
 					The datapoint type of the values sent to this address: its own one if set in the
-					project, otherwise the one of the first communication object connected to it.
+					project or by the user, otherwise the one of the first communication object connected
+					to it, otherwise the main type the size of the objects decides (1 bit, 4 bits). The
+					rule is the one of the runtime image and the group monitor
+					(de.haumacher.ehome.programming.GroupAddressTypes); empty for an untyped address.
 				-->
 				<reference name="effectiveDatapointType"
 					kind="forwards"
@@ -109,15 +112,7 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[ga -> {
-    own = $ga.get(`ehome.logical:GroupAddress#datapointTypes`);
-    if(!$own.isEmpty(), $own.firstElement(),
-        $ga.referers(`ehome.physical:Connection#target`)
-            .referers(`ehome.physical:Connector#connections`)
-            .map(c -> $c.get(`ehome.physical:Connector#effectiveDatapointType`))
-            .filter(t -> $t != null)
-            .firstElement())
-}]]></expr>
+								<expr><![CDATA[ga -> groupAddressEffectiveType($ga)]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

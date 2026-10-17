@@ -201,6 +201,16 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 ERROR_CANNOT_CONTAIN__TYPE_CONTAINER;
 
+	/**
+	 * @en "{0}" is no datapoint type.
+	 */
+	public static ResKey1 ERROR_NO_DATAPOINT_TYPE__VALUE;
+
+	/**
+	 * @en The values of {0} have {1} bits, the objects connected to the address have {2} bits.
+	 */
+	public static ResKey3 ERROR_TYPE_SIZE_DIFFERS__TYPE_TYPE_SIZE_OBJECT_SIZE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

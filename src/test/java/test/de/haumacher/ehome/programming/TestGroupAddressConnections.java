@@ -196,7 +196,7 @@ public class TestGroupAddressConnections extends BasicTestCase {
 	}
 
 	private static List<Object> children(QueryExecutor children, TLObject project, TLObject node) {
-		return new ArrayList<>((Collection<?>) asRoot(Locale.ENGLISH, () -> children.execute(project, node)));
+		return new ArrayList<>((Collection<?>) asRoot(Locale.ENGLISH, () -> children.execute(project, Boolean.FALSE, node)));
 	}
 
 	private static TLObject groupAddress(TLObject device, int number) {
