@@ -400,8 +400,9 @@ the week and the enumeration value (`projects/monitor.view.xml`).
 ## Deleting objects scans the referrer tables (TL #29876)
 
 When objects are deleted, `ReferenceDeletionHelper` looks for the objects referencing them with
-`ref IN (...)` queries, which H2 evaluates by reading the whole referrer table (the composition
-link tables hold every link). Deleting about 400 projects, manufacturers, datapoint types and mask
+`(BRANCH, rev, SOURCE_ID) IN (...)` queries on the association tables (`HAS_STRUCTURE_CHILD`,
+`HAS_WRAPPER_ATT_VALUE`). Their indexes start with `BRANCH`, and H2 seeks an IN list only on the
+first column of an index, so it seeks `BRANCH = 1` and reads every row. Deleting about 400 projects, manufacturers, datapoint types and mask
 versions takes 15–30 s; in the test suite this was 45 % of the CPU time.
 
 Workaround: `TestRoundTrip.clearData` deletes everything with one `KnowledgeBase.deleteAll`
