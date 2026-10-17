@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The runtime image of a project for download. "result" carries the result of <export-runtime-image>
+	(de.haumacher.ehome.runtime.ExportRuntimeImageAction): a sentence whether the image is valid, the
+	image as JSON file (none for a refused image), the refusals with the objects of the project their
+	paths lead to, and what the export left out (group addresses without datapoint type).
+-->
+<view>
+	<channels>
+		<channel name="result"/>
+		<derived-channel name="summary"
+			expr='r -> if($r == null, null, $r["summary"])'
+			inputs="result"
+		/>
+		<derived-channel name="file"
+			expr='r -> if($r == null, null, $r["file"])'
+			inputs="result"
+		/>
+		<derived-channel name="notes"
+			expr='r -> if($r == null, null, $r["notes"])'
+			inputs="result"
+		/>
+	</channels>
+	<window width="800px">
+		<title>
+			<en>Runtime image</en>
+			<de>Laufzeitabbild</de>
+		</title>
+		<inset>
+			<stack gap="loose">
+				<text input="summary"/>
+				<visible-if
+					expr='r -> $r["file"] != null'
+					input="result"
+				>
+					<fields>
+						<value-input
+							readonly="true"
+							type="tl.core:Binary"
+							value="file"
+						>
+							<label>
+								<en>File</en>
+								<de>Datei</de>
+							</label>
+							<!-- A value input picks no control by the type tl.core:Binary (TL #29809, doc/tl-todo.md); the binary field offers the download. -->
+							<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
+						</value-input>
+					</fields>
+				</visible-if>
+				<visible-if
+					expr='r -> !$r["refusals"].isEmpty()'
+					input="result"
+				>
+					<table>
+						<inputs>
+							<input channel="result"/>
+						</inputs>
+						<columns>
+							<computed-column name="path"
+								type="tl.core:String"
+							>
+								<label>
+									<en>Path</en>
+									<de>Pfad</de>
+								</label>
+								<value>row -> $row["path"]</value>
+							</computed-column>
+							<computed-column name="reason"
+								type="tl.core:String"
+							>
+								<label>
+									<en>Reason</en>
+									<de>Grund</de>
+								</label>
+								<value>row -> $row["reason"]</value>
+							</computed-column>
+							<computed-column name="element"
+								type="tl.core:String"
+							>
+								<label>
+									<en>Element</en>
+									<de>Element</de>
+								</label>
+								<value>row -> if($row["element"] == null, "", $row["element"].label())</value>
+							</computed-column>
+						</columns>
+						<rows>r -> if($r == null, [], $r["refusals"])</rows>
+					</table>
+				</visible-if>
+				<visible-if
+					expr='r -> $r["notes"] != ""'
+					input="result"
+				>
+					<text input="notes"/>
+				</visible-if>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

@@ -294,6 +294,18 @@ public final class DatapointCodec {
 	}
 
 	/**
+	 * The unit of the values of the given type as a symbol, the same in every language ("%",
+	 * "°C"); <code>null</code> if the type has none or Calimero writes it as a word or a notation.
+	 */
+	public static String unitSymbol(Dpt dpt) {
+		String unit = calimeroUnit(dpt);
+		if (unit == null || unit.isEmpty() || UNIT_WORDS.containsKey(unit) || isWord(unit)) {
+			return null;
+		}
+		return unit;
+	}
+
+	/**
 	 * The sentence telling the user the range of the values of the given type, with its unit.
 	 *
 	 * <p>

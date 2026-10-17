@@ -69,6 +69,29 @@
 					ordered="true"
 					type="UnidentifiedDevice"
 				/>
+				<!-- The HomeControl controller the runtime image of the project is deployed to (haumacher/ehome #39). -->
+				<reference name="controller"
+					kind="forwards"
+					type="ehome.runtime:Controller"
+				/>
+				<!-- The revision of the runtime image last loaded by a controller; the next deployment carries the next one. -->
+				<property name="imageRevision"
+					type="tl.core:Long"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The deployments of the runtime image, newest first. -->
+				<reference name="deployments"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:Deployment"
+				/>
 			</attributes>
 		</class>
 		<!--

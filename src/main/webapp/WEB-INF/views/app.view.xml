@@ -51,6 +51,17 @@
 							<de>Datenpunkttypen</de>
 						</label>
 					</nav-item>
+					<nav-item id="controllers"
+						config:position="before"
+						config:reference="system-separator"
+						icon="css:bi bi-cpu"
+					>
+						<view-ref view="controllers.view.xml"/>
+						<label>
+							<en>Controllers</en>
+							<de>Controller</de>
+						</label>
+					</nav-item>
 					<nav-item id="discover"
 						config:position="before"
 						config:reference="system-separator"

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Sets the bearer token of the controller in "controller": the token created on the controller's
+	console with "web token create e-home" (hct_ and 32 hex digits). The input is masked, and the
+	stored token is never shown; an empty input removes the token.
+-->
+<view>
+	<channels>
+		<channel name="controller"/>
+		<channel name="token"/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>Set token</en>
+			<de>Token setzen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text>
+					<label>
+						<en>Enter the token created on the controller's console with "web token create e-home". It is stored with the controller and not shown again.</en>
+						<de>Das Token eingeben, das auf der Konsole des Controllers mit "web token create e-home" erzeugt wurde. Es wird beim Controller gespeichert und nicht wieder angezeigt.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						type="tl.core:String"
+						value="token"
+					>
+						<label>
+							<en>Token</en>
+							<de>Token</de>
+						</label>
+						<input-control class="com.top_logic.layout.view.form.PasswordInputControlProvider"/>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-check-lg"
+					input="controller"
+				>
+					<label>
+						<en>Set</en>
+						<de>Setzen</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function='t -> c -> $c.set(`ehome.runtime:Controller#token`, if($t == null or $t.trim() == "", null, $t.trim()))'>
+							<inputs>
+								<input channel="token"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

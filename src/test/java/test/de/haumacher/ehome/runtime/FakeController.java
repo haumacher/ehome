@@ -1,0 +1,363 @@
+/*
+ * Copyright (c) 2026 Bernhard Haumacher
+ */
+package test.de.haumacher.ehome.runtime;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpServer;
+
+import de.haumacher.ehome.runtime.ImageReport;
+import de.haumacher.ehome.runtime.ImageReport.Refusal;
+import de.haumacher.ehome.runtime.ImageValidator;
+import de.haumacher.ehome.runtime.Json;
+import de.haumacher.ehome.runtime.Json.JsonException;
+
+/**
+ * An in-process stand-in for a HomeControl controller speaking the deployment protocol (homecontrol
+ * <code>spec/api.md</code>, "Runtime image" and "Status") on <code>127.0.0.1</code>.
+ *
+ * <p>
+ * It authenticates by a bearer token (401 <code>auth.required</code>, <code>auth.token_invalid</code>),
+ * refuses a body above its limit before reading it (413 <code>api.body_too_large</code>), checks an
+ * image with {@link ImageValidator} (the checks of the controller's loader, pinned by the same
+ * conformance cases) and answers 400 <code>image.bad_json</code>, 422 <code>image.version</code> /
+ * <code>image.invalid</code>, 413 <code>image.too_large</code>, or loads the image and answers 200. A
+ * test can script the next answer to <code>PUT /api/image</code> ({@link #refuseNext}), e.g. 507
+ * <code>image.no_memory</code> or 500 <code>image.apply_failed</code>, which no image provokes. The
+ * status (<code>GET /api/status</code>) reports the loaded image. For a manual check, the next refusal
+ * is scripted with <code>PUT /fake/refuse-next</code>.
+ * </p>
+ *
+ * <p>
+ * Started from the command line (<code>java -cp target/classes:target/test-classes
+ * test.de.haumacher.ehome.runtime.FakeController &lt;port&gt; &lt;token&gt;</code>), it serves until it is
+ * stopped, for trying the deployment in the running application.
+ * </p>
+ */
+public class FakeController {
+
+	private final HttpServer _server;
+
+	private final String _token;
+
+	private final int _limit;
+
+	private Map<String, Object> _loaded;
+
+	private String _storedText;
+
+	private int _nextStatus;
+
+	private Map<String, Object> _nextBody;
+
+	private int _puts;
+
+	/**
+	 * Creates and starts a {@link FakeController} on a free port.
+	 *
+	 * @param token
+	 *        The only token it accepts.
+	 * @param limit
+	 *        The largest body of <code>PUT /api/image</code> it reads.
+	 */
+	public FakeController(String token, int limit) throws IOException {
+		this(0, token, limit);
+	}
+
+	/**
+	 * Creates and starts a {@link FakeController} on the given port of <code>127.0.0.1</code>.
+	 */
+	public FakeController(int port, String token, int limit) throws IOException {
+		_token = token;
+		_limit = limit;
+		_server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), port), 0);
+		_server.createContext("/api/image", this::image);
+		_server.createContext("/api/status", this::status);
+		_server.createContext("/fake/refuse-next", this::script);
+		_server.start();
+	}
+
+	/**
+	 * The port it listens on.
+	 */
+	public int getPort() {
+		return _server.getAddress().getPort();
+	}
+
+	/**
+	 * Stops it.
+	 */
+	public void stop() {
+		_server.stop(0);
+	}
+
+	/**
+	 * The number of images it was sent.
+	 */
+	public synchronized int getPuts() {
+		return _puts;
+	}
+
+	/**
+	 * The text of the image it runs, <code>null</code> for none.
+	 */
+	public synchronized String getStoredText() {
+		return _storedText;
+	}
+
+	/**
+	 * Answers the next <code>PUT /api/image</code> with a refusal of the given status and code,
+	 * whatever the image (after the authentication).
+	 */
+	public synchronized void refuseNext(int status, String code, String error, List<Refusal> refusals) {
+		Map<String, Object> body = refusal(error, code, refusals, refusals.size());
+		_nextStatus = status;
+		_nextBody = body;
+	}
+
+	/**
+	 * <code>PUT /fake/refuse-next</code> with <code>{"status", "code", "error", "refusals": [{"path",
+	 * "reason"}]}</code>: {@link #refuseNext} for a manual check in the running application.
+	 */
+	private void script(HttpExchange exchange) throws IOException {
+		Map<?, ?> body;
+		try (InputStream in = exchange.getRequestBody()) {
+			body = (Map<?, ?>) Json.parse(new String(in.readAllBytes(), StandardCharsets.UTF_8), 10);
+		} catch (JsonException ex) {
+			answer(exchange, 400, error(ex.getMessage(), "fake.bad_json"));
+			return;
+		}
+		List<Refusal> refusals = new ArrayList<>();
+		if (body.get("refusals") instanceof List<?> list) {
+			for (Object entry : list) {
+				Map<?, ?> refusal = (Map<?, ?>) entry;
+				refusals.add(new Refusal(String.valueOf(refusal.get("path")), String.valueOf(refusal.get("reason"))));
+			}
+		}
+		refuseNext(((Number) body.get("status")).intValue(), String.valueOf(body.get("code")),
+			String.valueOf(body.get("error")), refusals);
+		answer(exchange, 200, error("scripted", "fake.ok"));
+	}
+
+	private void status(HttpExchange exchange) throws IOException {
+		if (!"GET".equals(exchange.getRequestMethod())) {
+			answer(exchange, 405, error("method not allowed", "api.method_not_allowed"));
+			return;
+		}
+		if (!authorized(exchange)) {
+			return;
+		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		Map<String, Object> device = new LinkedHashMap<>();
+		device.put("name", "homecontrol-fake");
+		device.put("version", "0.0.0-fake");
+		body.put("device", device);
+		body.put("image", imageStatus());
+		answer(exchange, 200, body);
+	}
+
+	private synchronized Map<String, Object> imageStatus() {
+		Map<String, Object> image = new LinkedHashMap<>();
+		if (_loaded == null) {
+			image.put("loaded", Boolean.FALSE);
+			return image;
+		}
+		Map<?, ?> info = (Map<?, ?>) _loaded.get("image");
+		image.put("loaded", Boolean.TRUE);
+		image.put("project", info.get("projectId"));
+		image.put("revision", info.get("revision"));
+		image.put("name", info.get("name"));
+		image.put("source", "api");
+		image.put("datapoints", Integer.valueOf(size(_loaded.get("datapoints"))));
+		image.put("rules", Integer.valueOf(size(_loaded.get("rules"))));
+		image.put("schedules", Integer.valueOf(size(_loaded.get("schedules"))));
+		image.put("degraded", Boolean.FALSE);
+		return image;
+	}
+
+	private void image(HttpExchange exchange) throws IOException {
+		if (!"PUT".equals(exchange.getRequestMethod())) {
+			answer(exchange, 405, error("method not allowed", "api.method_not_allowed"));
+			return;
+		}
+		if (!authorized(exchange)) {
+			return;
+		}
+		String length = exchange.getRequestHeaders().getFirst("Content-Length");
+		if (length != null && Long.parseLong(length) > _limit) {
+			answer(exchange, 413, error("the body exceeds " + _limit + " bytes", "api.body_too_large"));
+			return;
+		}
+		byte[] bytes;
+		try (InputStream in = exchange.getRequestBody()) {
+			bytes = in.readAllBytes();
+		}
+		if (bytes.length > _limit) {
+			answer(exchange, 413, error("the body exceeds " + _limit + " bytes", "api.body_too_large"));
+			return;
+		}
+		synchronized (this) {
+			_puts++;
+			if (_nextBody != null) {
+				int status = _nextStatus;
+				Map<String, Object> body = _nextBody;
+				_nextBody = null;
+				body.put("loaded", Boolean.valueOf(_loaded != null));
+				body.put("revision", revision());
+				answer(exchange, status, body);
+				return;
+			}
+		}
+		if (bytes.length == 0) {
+			answer(exchange, 400, error("the body is empty", "image.missing"));
+			return;
+		}
+		String text = new String(bytes, StandardCharsets.UTF_8);
+		ImageReport report = ImageValidator.validate(text);
+		if (!report.isValid()) {
+			int status;
+			String code;
+			String message;
+			switch (report.getKind()) {
+				case SYNTAX:
+					status = 400;
+					code = "image.bad_json";
+					message = "the image is not JSON";
+					break;
+				case VERSION:
+					status = 422;
+					code = "image.version";
+					message = "the image has a newer schema version";
+					break;
+				case TOO_LARGE:
+					status = 413;
+					code = "image.too_large";
+					message = "the image is too large";
+					break;
+				default:
+					status = 422;
+					code = "image.invalid";
+					message = "the image is invalid";
+			}
+			List<Refusal> refusals = report.getRefusals();
+			Map<String, Object> body = refusal(message, code, refusals.subList(0, Math.min(12, refusals.size())),
+				refusals.size());
+			synchronized (this) {
+				body.put("loaded", Boolean.valueOf(_loaded != null));
+				body.put("revision", revision());
+			}
+			answer(exchange, status, body);
+			return;
+		}
+		Map<String, Object> image;
+		try {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> parsed = (Map<String, Object>) Json.parse(text, ImageValidator.MAX_NESTING);
+			image = parsed;
+		} catch (JsonException ex) {
+			throw new IOException(ex);
+		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("ok", Boolean.TRUE);
+		Map<String, Object> info = new LinkedHashMap<>((Map<String, Object>) image.get("image"));
+		info.put("bytes", Integer.valueOf(bytes.length));
+		body.put("image", info);
+		Map<String, Object> counts = new LinkedHashMap<>();
+		counts.put("datapoints", Integer.valueOf(size(image.get("datapoints"))));
+		counts.put("locations", Integer.valueOf(size(image.get("locations"))));
+		counts.put("functions", Integer.valueOf(size(image.get("functions"))));
+		counts.put("rules", Integer.valueOf(size(image.get("rules"))));
+		counts.put("schedules", Integer.valueOf(size(image.get("schedules"))));
+		body.put("counts", counts);
+		body.put("source", "api");
+		body.put("stored", Boolean.TRUE);
+		synchronized (this) {
+			_loaded = image;
+			_storedText = text;
+		}
+		answer(exchange, 200, body);
+	}
+
+	private Object revision() {
+		return _loaded == null ? null : ((Map<?, ?>) _loaded.get("image")).get("revision");
+	}
+
+	private boolean authorized(HttpExchange exchange) throws IOException {
+		String header = exchange.getRequestHeaders().getFirst("Authorization");
+		if (header == null) {
+			drain(exchange);
+			answer(exchange, 401, error("authentication required", "auth.required"));
+			return false;
+		}
+		if (!header.equals("Bearer " + _token)) {
+			drain(exchange);
+			answer(exchange, 401, error("unknown or revoked token", "auth.token_invalid"));
+			return false;
+		}
+		return true;
+	}
+
+	private static void drain(HttpExchange exchange) throws IOException {
+		try (InputStream in = exchange.getRequestBody()) {
+			in.readAllBytes();
+		}
+	}
+
+	private static Map<String, Object> error(String error, String code) {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("error", error);
+		body.put("code", code);
+		return body;
+	}
+
+	private static Map<String, Object> refusal(String error, String code, List<Refusal> refusals, int total) {
+		Map<String, Object> body = error(error, code);
+		List<Object> list = new ArrayList<>();
+		for (Refusal refusal : refusals) {
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put("path", refusal.path());
+			entry.put("reason", refusal.reason());
+			list.add(entry);
+		}
+		body.put("refusals", list);
+		body.put("total", Integer.valueOf(total));
+		return body;
+	}
+
+	private static int size(Object list) {
+		return list instanceof List<?> elements ? elements.size() : 0;
+	}
+
+	private static void answer(HttpExchange exchange, int status, Map<String, Object> body) throws IOException {
+		byte[] bytes = Json.write(body).getBytes(StandardCharsets.UTF_8);
+		exchange.getResponseHeaders().set("Content-Type", "application/json");
+		exchange.getResponseHeaders().set("Cache-Control", "no-store");
+		exchange.sendResponseHeaders(status, bytes.length);
+		try (OutputStream out = exchange.getResponseBody()) {
+			out.write(bytes);
+		}
+	}
+
+	/**
+	 * Runs a {@link FakeController} on <code>127.0.0.1</code> until the process is stopped.
+	 *
+	 * @param args
+	 *        The port and the token.
+	 */
+	public static void main(String[] args) throws IOException {
+		FakeController controller = new FakeController(Integer.parseInt(args[0]), args[1], 262144);
+		System.out.println("Fake controller on 127.0.0.1:" + controller.getPort());
+	}
+
+}

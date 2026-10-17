@@ -67,6 +67,20 @@
 					/>
 				</view-ref>
 			</tab>
+			<tab id="deployment"
+				icon="css:bi bi-cloud-upload"
+			>
+				<label>
+					<en>Deployment</en>
+					<de>Bereitstellung</de>
+				</label>
+				<view-ref view="projects/deployment.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="properties"
 				icon="css:fa-solid fa-gear"
 			>

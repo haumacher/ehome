@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<!--
+		Deployment of a project to a HomeControl controller (haumacher/ehome #39): the controllers E-Home
+		knows and the deployments of a project's runtime image to one of them. The runtime image itself
+		is not stored: it is derived from the project when it is exported or deployed
+		(de.haumacher.ehome.runtime.RuntimeImage, format: homecontrol spec/runtime-image.md).
+	-->
+	<module name="ehome.runtime">
+		<!--
+			A HomeControl controller reachable over HTTP. The bearer token (hct_..., created on the
+			controller's console with "web token create e-home") authenticates E-Home; it is entered once
+			and never shown again (the views show whether one is set).
+		-->
+		<class name="Controller">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-cpu"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The host name or IP address of the controller. -->
+				<property name="host"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The HTTP port of the controller's web API. -->
+				<property name="port"
+					mandatory="true"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<!-- Written without thousands separator. -->
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<default-value>
+							<int value="80"/>
+						</default-value>
+						<value-range
+							max="65535"
+							min="1"
+						/>
+					</annotations>
+				</property>
+				<!-- The bearer token E-Home authenticates with; never displayed. -->
+				<property name="token"
+					type="tl.core:String"
+				>
+					<annotations>
+						<visibility value="hidden"/>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- One attempt to deploy the runtime image of a project to a controller, with its outcome. -->
+		<class name="Deployment">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-cloud-upload"/>
+			</annotations>
+			<attributes>
+				<!-- The revision the image carried (image.revision). -->
+				<property name="revision"
+					type="tl.core:Long"
+				>
+					<annotations>
+						<!-- Written without thousands separator. -->
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<property name="time"
+					type="tl.core:DateTime"
+				/>
+				<reference name="controller"
+					kind="forwards"
+					type="Controller"
+				/>
+				<!-- The controller as it was addressed: name and host:port. -->
+				<property name="target"
+					type="tl.core:String"
+				/>
+				<!-- Whether the controller accepted and loaded the image. -->
+				<property name="accepted"
+					type="tl.core:Boolean"
+				/>
+				<!-- The HTTP status of the answer; empty where no answer came (or E-Home refused itself). -->
+				<property name="status"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<!-- Written without thousands separator. -->
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The refusal code (image.invalid, auth.token_invalid, ...); empty for an accepted image. -->
+				<property name="code"
+					type="tl.core:String"
+				/>
+				<!-- What happened, in the words of the controller or E-Home. -->
+				<property name="message"
+					type="tl.core:Text"
+				/>
+				<!-- What the controller had loaded before (GET /api/status). -->
+				<property name="before"
+					type="tl.core:String"
+				/>
+				<!-- The size of the image in bytes. -->
+				<property name="bytes"
+					type="tl.core:Integer"
+				/>
+				<!-- The number of refusals; the list holds up to the number reported. -->
+				<property name="total"
+					type="tl.core:Integer"
+				/>
+				<reference name="refusals"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Refusal"
+				/>
+			</attributes>
+		</class>
+		<!-- A reason why an image was refused, at a path of the image's JSON structure. -->
+		<class name="Refusal">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-exclamation-triangle"/>
+			</annotations>
+			<attributes>
+				<!-- The JSON path (datapoints[3].knx.send); empty for the document as a whole. -->
+				<property name="path"
+					type="tl.core:String"
+				/>
+				<property name="reason"
+					type="tl.core:Text"
+				/>
+				<!-- The object of the project the path leads to: a group address, a part of a building. -->
+				<reference name="element"
+					kind="forwards"
+					type="tl.model:TLObject"
+				/>
+			</attributes>
+		</class>
+	</module>
+</model>

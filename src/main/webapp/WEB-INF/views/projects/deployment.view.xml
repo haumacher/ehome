@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Deployment of the project's runtime image to a HomeControl controller (haumacher/ehome #39,
+	de.haumacher.ehome.runtime): the controller the project is deployed to, the revision a controller
+	last loaded, and the deployments, newest first, with the refusals of the selected one against the
+	objects of the project their paths lead to.
+
+	"Download image" checks the image as the controller would and offers it as a JSON file, or shows
+	why it would be refused (runtime-image.view.xml). "Deploy" sends it (PUT /api/image) with the
+	revision after the last loaded one and records the outcome; a refusal is an outcome, shown in the
+	table, not a failure. "Status" compares what the controller runs (GET /api/status) with the last
+	deployment.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="deployment"/>
+	</channels>
+	<split-panel
+		orientation="vertical"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				size="45"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Deployment</en>
+						<de>Bereitstellung</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:fa-solid fa-download"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Download image</en>
+								<de>Abbild herunterladen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<export-runtime-image/>
+							<open-dialog
+								bind-input-to="result"
+								dialog-view="projects/runtime-image.view.xml"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-cloud-upload"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Deploy</en>
+								<de>Bereitstellen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="p -> deploymentVeto($p)"/>
+							</executability>
+							<confirm expr="p -> #('Deploy revision {0} of the runtime image to {1}?'@en, 'Revision {0} des Laufzeitabbilds in {1} laden?'@de).fill(nextImageRevision($p), $p.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`))"/>
+							<deploy-runtime-image/>
+							<write-channel name="deployment"/>
+							<if test="d -> $d.get(`ehome.runtime:Deployment#accepted`)">
+								<then>
+									<notify
+										expr="d -> $d.get(`ehome.runtime:Deployment#message`)"
+										kind="info"
+									/>
+								</then>
+								<else>
+									<notify
+										expr="d -> $d.get(`ehome.runtime:Deployment#message`)"
+										kind="warning"
+									/>
+								</else>
+							</if>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-activity"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Status</en>
+								<de>Status</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="p -> if($p.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), null)"/>
+							</executability>
+							<controller-status/>
+							<notify
+								display="dialog"
+								expr="t -> $t"
+							/>
+						</generic-command>
+					</commands>
+					<form
+						input="project"
+						with-inset="true"
+					>
+						<field attribute="controller"/>
+						<field attribute="imageRevision"
+							readonly="true"
+						/>
+					</form>
+					<table
+						observed-types="ehome.runtime:Deployment"
+						selection="deployment"
+						types="ehome.runtime:Deployment"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<columns>
+							<column attribute="time"/>
+							<column attribute="revision"/>
+							<column attribute="target"/>
+							<column attribute="accepted"/>
+							<column attribute="status"/>
+							<column attribute="code"/>
+							<column attribute="message"/>
+						</columns>
+						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#deployments`))</rows>
+					</table>
+				</panel>
+			</pane>
+			<pane
+				size="55"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Outcome</en>
+						<de>Ergebnis</de>
+					</title>
+					<form
+						input="deployment"
+						with-inset="true"
+						withEditMode="false"
+					>
+						<field attribute="message"/>
+						<field attribute="before"/>
+						<field attribute="bytes"/>
+						<field attribute="total"/>
+					</form>
+					<table
+						observed-types="ehome.runtime:Refusal"
+						types="ehome.runtime:Refusal"
+					>
+						<inputs>
+							<input channel="deployment"/>
+						</inputs>
+						<columns>
+							<column attribute="path"/>
+							<column attribute="reason"/>
+							<column attribute="element"/>
+						</columns>
+						<rows>d -> if($d == null, [], $d.get(`ehome.runtime:Deployment#refusals`))</rows>
+					</table>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

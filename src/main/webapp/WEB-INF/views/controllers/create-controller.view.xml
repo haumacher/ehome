@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Create dialog of a HomeControl controller. "model" carries the transient controller bound by the
+	opening command; the created controller is written to "selection". The bearer token (created on
+	the controller's console with "web token create e-home") may be entered right away; it is masked
+	and stored with the controller.
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="selection"/>
+		<channel name="token"/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>New controller</en>
+			<de>Neuer Controller</de>
+		</title>
+		<form
+			initial-edit-mode="true"
+			input="model"
+			mode-switch="false"
+			with-inset="true"
+		>
+			<field attribute="name"/>
+			<field attribute="host"/>
+			<field attribute="port"/>
+			<commands>
+				<generic-command
+					image="css:bi bi-check-lg"
+					input="model"
+					placement="BUTTON_BAR"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<store-form-state/>
+					<persist-transient/>
+					<with-transaction>
+						<execute-script function='t -> c -> {
+	if($t != null and $t.trim() != "", $c.set(`ehome.runtime:Controller#token`, $t.trim()));
+	$c
+}'>
+							<inputs>
+								<input channel="token"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</generic-command>
+			</commands>
+		</form>
+		<inset>
+			<fields>
+				<value-input
+					type="tl.core:String"
+					value="token"
+				>
+					<label>
+						<en>Token</en>
+						<de>Token</de>
+					</label>
+					<input-control class="com.top_logic.layout.view.form.PasswordInputControlProvider"/>
+				</value-input>
+			</fields>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

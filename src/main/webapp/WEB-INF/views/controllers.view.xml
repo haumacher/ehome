@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The HomeControl controllers the runtime images of projects are deployed to (haumacher/ehome #39):
+	all controllers, and the selected one in a form. The bearer token of a controller is entered in a
+	dialog of its own (controllers/controller-token.view.xml) and never shown again: the table and the
+	form say only whether one is set (controllerTokenHint, de.haumacher.ehome.runtime.RuntimeFunctions).
+	"Status" asks the controller what it runs (GET /api/status, de.haumacher.ehome.runtime.ControllerStatusAction).
+-->
+<view>
+	<channels>
+		<channel name="controller"/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="320"
+				size="60"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>HomeControl controllers</en>
+						<de>HomeControl-Controller</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-plus-lg"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>New controller</en>
+								<de>Neuer Controller</de>
+							</label>
+							<create-transient type="ehome.runtime:Controller"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="controllers/create-controller.view.xml"
+							>
+								<bind
+									channel="selection"
+									to="controller"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-key"
+							input="controller"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Set token</en>
+								<de>Token setzen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="controller"
+								dialog-view="controllers/controller-token.view.xml"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-activity"
+							input="controller"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Status</en>
+								<de>Status</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<controller-status/>
+							<notify
+								display="dialog"
+								expr="t -> $t"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							input="controller"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="c -> #('Delete controller {0}?'@en, 'Controller {0} löschen?'@de).fill($c.get(`ehome.runtime:Controller#name`))"/>
+							<delete-object/>
+							<write-channel name="controller"/>
+						</generic-command>
+					</commands>
+					<table
+						observed-types="ehome.runtime:Controller"
+						selection="controller"
+						types="ehome.runtime:Controller"
+					>
+						<columns>
+							<column attribute="name"/>
+							<column attribute="host"/>
+							<column attribute="port"/>
+							<computed-column name="token"
+								type="tl.core:String"
+							>
+								<label>
+									<en>Token</en>
+									<de>Token</de>
+								</label>
+								<value>c -> controllerTokenHint($c)</value>
+							</computed-column>
+						</columns>
+						<rows>all(`ehome.runtime:Controller`)</rows>
+					</table>
+				</panel>
+			</pane>
+			<pane
+				size="40"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Controller</en>
+						<de>Controller</de>
+					</title>
+					<form
+						input="controller"
+						with-inset="true"
+					>
+						<field attribute="name"/>
+						<field attribute="host"/>
+						<field attribute="port"/>
+					</form>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>
