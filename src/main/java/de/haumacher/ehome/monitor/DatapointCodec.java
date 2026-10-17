@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.monitor;
 
+import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.time.format.TextStyle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
@@ -27,13 +29,9 @@ import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.KNXIllegalArgumentException;
 import tuwien.auto.calimero.dptxlator.DPT;
 import tuwien.auto.calimero.dptxlator.DPTXlator;
-import tuwien.auto.calimero.dptxlator.DPTXlator3BitControlled;
 import tuwien.auto.calimero.dptxlator.DPTXlator3BitControlled.DPT3BitControlled;
 import tuwien.auto.calimero.dptxlator.DPTXlator8BitEnum;
 import tuwien.auto.calimero.dptxlator.DPTXlatorBoolean;
-import tuwien.auto.calimero.dptxlator.DPTXlatorDate;
-import tuwien.auto.calimero.dptxlator.DPTXlatorDateTime;
-import tuwien.auto.calimero.dptxlator.DPTXlatorTime;
 import tuwien.auto.calimero.dptxlator.TranslatorTypes;
 
 /**
@@ -98,20 +96,39 @@ public final class DatapointCodec {
 	 * @param main
 	 *        The main number, e.g. 9.
 	 * @param sub
-	 *        The sub number, e.g. 1; 0 for a main type without a subtype.
+	 *        The sub number, e.g. 1 (0 is a subtype of its own, e.g. 16.000); {@link #MAIN_TYPE} for a
+	 *        main type without a subtype.
 	 */
 	public record Dpt(int main, int sub) {
+
+		/** The {@link #sub()} number of a main type without a subtype. */
+		public static final int MAIN_TYPE = -1;
+
+		/**
+		 * The main type with the given number, without a subtype.
+		 */
+		public static Dpt mainType(int main) {
+			return new Dpt(main, MAIN_TYPE);
+		}
+
+		/**
+		 * Whether this is a main type without a subtype.
+		 */
+		public boolean isMainType() {
+			return sub == MAIN_TYPE;
+		}
 
 		/**
 		 * The code of the type, e.g. <code>9.001</code>, or <code>9.*</code> for a main type.
 		 */
 		public String code() {
-			return sub == 0 ? main + ".*" : String.format(Locale.ROOT, "%d.%03d", main, sub);
+			return isMainType() ? main + ".*" : String.format(Locale.ROOT, "%d.%03d", main, sub);
 		}
 
 		/**
-		 * Reads a datapoint type written as <code>9.001</code>, <code>9</code>, <code>DPST-9-1</code> or
-		 * <code>DPT-9</code>.
+		 * Reads a datapoint type written as <code>9.001</code>, <code>9</code>, <code>9.*</code>,
+		 * <code>DPST-9-1</code> or <code>DPT-9</code>; <code>16.000</code> is the subtype 0, not the main
+		 * type.
 		 *
 		 * @return The type, <code>null</code> for an empty text.
 		 * @throws TopLogicException
@@ -125,14 +142,14 @@ public final class DatapointCodec {
 			try {
 				if (value.startsWith("DPST-") || value.startsWith("DPT-")) {
 					String[] parts = value.split("-");
-					return new Dpt(Integer.parseInt(parts[1]), parts.length > 2 ? Integer.parseInt(parts[2]) : 0);
+					return new Dpt(Integer.parseInt(parts[1]), parts.length > 2 ? Integer.parseInt(parts[2]) : MAIN_TYPE);
 				}
 				int dot = value.indexOf('.');
 				if (dot < 0) {
-					return new Dpt(Integer.parseInt(value), 0);
+					return mainType(Integer.parseInt(value));
 				}
 				String sub = value.substring(dot + 1);
-				return new Dpt(Integer.parseInt(value.substring(0, dot)), sub.equals("*") ? 0 : Integer.parseInt(sub));
+				return new Dpt(Integer.parseInt(value.substring(0, dot)), sub.equals("*") ? MAIN_TYPE : Integer.parseInt(sub));
 			} catch (NumberFormatException | ArrayIndexOutOfBoundsException ex) {
 				throw new TopLogicException(I18NConstants.ERROR_INVALID_DATAPOINT_TYPE__TEXT.fill(text));
 			}
@@ -171,7 +188,8 @@ public final class DatapointCodec {
 	 * How a value of the given type is entered.
 	 */
 	public static Kind kind(Dpt dpt) {
-		if (dpt == null || !TranslatorTypes.getAllMainTypes().containsKey(dpt.main())) {
+		if (dpt == null
+			|| !TranslatorTypes.getAllMainTypes().containsKey(dpt.main()) && !DatapointValues.supports(dpt)) {
 			return Kind.RAW;
 		}
 		switch (dpt.main()) {
@@ -203,9 +221,13 @@ public final class DatapointCodec {
 
 	/**
 	 * The kind of an unsigned byte (DPT 5): a percentage, a number of the full byte range, or a
-	 * number of another range (an angle, a tariff), entered as number.
+	 * number of another range (an angle, a tariff), entered as number. The main type alone is a
+	 * number of the full byte range, unscaled.
 	 */
 	private static Kind byteKind(Dpt dpt) {
+		if (dpt.isMainType()) {
+			return Kind.SCALE;
+		}
 		try {
 			DPT type = translator(dpt).getType();
 			if (type.getID().equals("5.001")) {
@@ -236,6 +258,9 @@ public final class DatapointCodec {
 		Kind kind = kind(dpt);
 		if (kind != Kind.PERCENT && kind != Kind.SCALE) {
 			return null;
+		}
+		if (dpt.isMainType()) {
+			return new int[] { 0, 255 };
 		}
 		try {
 			DPT type = translator(dpt).getType();
@@ -290,10 +315,11 @@ public final class DatapointCodec {
 	}
 
 	/**
-	 * The unit of the given type as Calimero writes it, <code>null</code> if it has none.
+	 * The unit of the given type as Calimero writes it, <code>null</code> if it has none. A main type
+	 * alone has none: its values are unscaled, without the unit of a subtype.
 	 */
 	private static String calimeroUnit(Dpt dpt) {
-		if (kind(dpt) == Kind.RAW) {
+		if (kind(dpt) == Kind.RAW || dpt.isMainType()) {
 			return null;
 		}
 		try {
@@ -500,17 +526,90 @@ public final class DatapointCodec {
 		if (kind(dpt) == Kind.RAW) {
 			return hex;
 		}
+		if (DatapointValues.supports(dpt)) {
+			Object value;
+			try {
+				value = DatapointValues.decode(dpt, data);
+			} catch (DatapointValues.Refusal ex) {
+				return refused(hex, ex.status() == DatapointValues.Status.WRONG_LENGTH
+					? I18NConstants.DECODED_WRONG_LENGTH__TYPE.fill(dpt.code())
+					: I18NConstants.DECODED_INVALID__TYPE.fill(dpt.code()));
+			}
+			return text(dpt, value);
+		}
 		try {
 			DPTXlator translator = translator(dpt);
 			int size = Math.max(1, translator.getTypeSize());
 			if (data.length != size) {
-				return hex + " (?)";
+				return refused(hex, I18NConstants.DECODED_WRONG_LENGTH__TYPE.fill(dpt.code()));
 			}
 			translator.setData(data);
 			return translator.getValue();
-		} catch (KNXException | KNXIllegalArgumentException ex) {
-			return hex + " (?)";
+		} catch (KNXException | KNXIllegalArgumentException | IllegalStateException ex) {
+			return refused(hex, I18NConstants.DECODED_INVALID__TYPE.fill(dpt.code()));
 		}
+	}
+
+	/**
+	 * The data that could not be decoded, with the reason.
+	 */
+	private static String refused(String hex, ResKey reason) {
+		return hex + " (" + Resources.getInstance().getString(reason) + ")";
+	}
+
+	/**
+	 * The value of a telegram decoded by the given type, see {@link DatapointValues#decode(Dpt, byte[])}.
+	 *
+	 * @throws DatapointValues.Refusal
+	 *         If the data is no value of the type.
+	 * @throws IllegalArgumentException
+	 *         If the values of the type are not decoded by {@link DatapointValues}, see
+	 *         {@link DatapointValues#supports(Dpt)}.
+	 */
+	public static Object decodeValue(Dpt dpt, byte[] data) {
+		return DatapointValues.decode(dpt, data);
+	}
+
+	/**
+	 * The data of a telegram with the given value, see {@link DatapointValues#encode(Dpt, Object)}.
+	 *
+	 * @throws DatapointValues.Refusal
+	 *         If the value is no value of the type.
+	 * @throws IllegalArgumentException
+	 *         If the values of the type are not encoded by {@link DatapointValues}, see
+	 *         {@link DatapointValues#supports(Dpt)}.
+	 */
+	public static byte[] encodeValue(Dpt dpt, Object value) {
+		return DatapointValues.encode(dpt, value);
+	}
+
+	/**
+	 * The text of a value decoded by {@link DatapointValues}: as Calimero writes it with its unit,
+	 * from the data the value encodes to (without reserved bits); a number of a main type alone
+	 * without a unit, a character string as it is.
+	 */
+	private static String text(Dpt dpt, Object value) {
+		if (value instanceof String string) {
+			return string;
+		}
+		if (value instanceof Number number && dpt.isMainType()) {
+			return numberText(dpt, number);
+		}
+		try {
+			DPTXlator translator = translator(dpt);
+			translator.setData(DatapointValues.encode(dpt, value));
+			return translator.getValue();
+		} catch (KNXException | KNXIllegalArgumentException | IllegalStateException ex) {
+			return value instanceof Number number ? numberText(dpt, number) : String.valueOf(value);
+		}
+	}
+
+	private static String numberText(Dpt dpt, Number number) {
+		if (number instanceof Long) {
+			return number.toString();
+		}
+		String digits = dpt.main() == 14 ? Float.toString(number.floatValue()) : Double.toString(number.doubleValue());
+		return new BigDecimal(digits).stripTrailingZeros().toPlainString();
 	}
 
 	/**
@@ -524,12 +623,13 @@ public final class DatapointCodec {
 	 *        the name of a value of an enumeration ({@link #choices(Dpt)}), a {@link Date} for a date
 	 *        or a time of day (read in the user's time zone), a dictionary with {@link #DAY} (one of
 	 *        {@link #days()} or its number 0 to 7) and {@link #TIME} (a {@link Date}) for a time of day
-	 *        with its day, and a dictionary with {@link #DIRECTION} ({@link #UP}, {@link #DOWN},
+	 *        with its day, a dictionary with {@link #DIRECTION} ({@link #UP}, {@link #DOWN},
 	 *        {@link #STOP}) and {@link #STEP} (the step code 1 to 7, or one of
-	 *        {@link #stepSizes()}) for a step.
+	 *        {@link #stepSizes()}) for a step, or a value as {@link DatapointValues} codes it.
 	 * @return The APDU: the service and the data, a value of up to 6 bits in the short form.
 	 * @throws TopLogicException
-	 *         If the value is no value of the type.
+	 *         If the value is no value of the type; a value outside the range of the type is
+	 *         refused, never clamped, rounded to an integer or replaced.
 	 */
 	public static byte[] encodeWrite(Dpt dpt, Object value) {
 		if (value == null || value.toString().isBlank()) {
@@ -546,27 +646,21 @@ public final class DatapointCodec {
 				return named;
 			}
 		}
-		DPTXlator translator;
-		try {
-			translator = translator(dpt);
-		} catch (KNXException ex) {
-			throw new TopLogicException(I18NConstants.ERROR_UNSUPPORTED_DATAPOINT_TYPE__TYPE.fill(dpt.code()), ex);
+		if (DatapointValues.supports(dpt)) {
+			byte[] data;
+			try {
+				data = DatapointValues.encode(dpt, toValue(dpt, kind, value));
+			} catch (DatapointValues.Refusal ex) {
+				throw new TopLogicException(I18NConstants.ERROR_OUT_OF_RANGE__VALUE_TYPE.fill(text(value), dpt.code()), ex);
+			}
+			if (dpt.main() <= 3) {
+				return DataUnitBuilder.createLengthOptimizedAPDU(BusTelegram.Service.WRITE.code(), data);
+			}
+			return DataUnitBuilder.createAPDU(BusTelegram.Service.WRITE.code(), data);
 		}
+		DPTXlator translator = calimero(dpt);
 		try {
-			if (kind == Kind.SWITCH) {
-				translator.setData(new byte[] { (byte) (bit(translator, value) ? 1 : 0) });
-			} else if (value instanceof Map<?, ?> map && translator instanceof DPTXlator3BitControlled step) {
-				setStep(step, map);
-			} else if (value instanceof Map<?, ?> map && translator instanceof DPTXlatorTime time) {
-				setTime(time, map.get(DAY), map.get(TIME));
-			} else if (value instanceof Date date && translator instanceof DPTXlatorTime time) {
-				setTime(time, null, date);
-			} else if (value instanceof Date date && translator instanceof DPTXlatorDate day) {
-				LocalDateTime local = local(date);
-				day.setValue(local.getYear(), local.getMonthValue(), local.getDayOfMonth());
-			} else if (value instanceof Date date && translator instanceof DPTXlatorDateTime dateTime) {
-				dateTime.setValue(local(date).withNano(0));
-			} else if (value instanceof Number number) {
+			if (value instanceof Number number) {
 				translator.setValue(number.doubleValue());
 			} else {
 				String text = value.toString().trim();
@@ -576,8 +670,7 @@ public final class DatapointCodec {
 				translator.setValue(text);
 			}
 		} catch (KNXException | KNXIllegalArgumentException ex) {
-			throw new TopLogicException(
-				I18NConstants.ERROR_INVALID_VALUE__VALUE_TYPE_DETAIL.fill(text(value), dpt.code(), ex.getMessage()), ex);
+			throw invalidValue(dpt, value, ex);
 		}
 		byte[] data = translator.getData();
 		if (translator.getTypeSize() == 0) {
@@ -586,25 +679,120 @@ public final class DatapointCodec {
 		return DataUnitBuilder.createAPDU(BusTelegram.Service.WRITE.code(), data);
 	}
 
+	private static DPTXlator calimero(Dpt dpt) {
+		try {
+			return translator(dpt);
+		} catch (KNXException ex) {
+			throw new TopLogicException(I18NConstants.ERROR_UNSUPPORTED_DATAPOINT_TYPE__TYPE.fill(dpt.code()), ex);
+		}
+	}
+
+	private static TopLogicException invalidValue(Dpt dpt, Object value, Exception ex) {
+		return new TopLogicException(
+			I18NConstants.ERROR_INVALID_VALUE__VALUE_TYPE_DETAIL.fill(text(value), dpt.code(), ex.getMessage()), ex);
+	}
+
 	/**
-	 * Sets a step: the direction {@link #UP} is the upper value of the control (increase) for a
-	 * dimmer and the lower one (up) for a blind, whose control (DPT 1.008) counts downwards; a
-	 * {@link #STOP} is the step code 0 with the control bit 0, as Calimero writes a break.
+	 * The value of the send form as {@link DatapointValues} codes it.
 	 */
-	private static void setStep(DPTXlator3BitControlled translator, Map<?, ?> value) {
+	private static Object toValue(Dpt dpt, Kind kind, Object value) {
+		switch (dpt.main()) {
+			case 1:
+				if (value instanceof Boolean) {
+					return value;
+				}
+				try {
+					return Boolean.valueOf(bit(calimero(dpt), value));
+				} catch (KNXException ex) {
+					throw invalidValue(dpt, value, ex);
+				}
+			case 3:
+				if (value instanceof Map<?, ?> map && map.containsKey(DIRECTION)) {
+					return step(dpt, map);
+				}
+				break;
+			case 10:
+				if (value instanceof Map<?, ?> map && (map.containsKey(DAY) || map.containsKey(TIME))) {
+					return time(map.get(DAY), map.get(TIME));
+				}
+				if (value instanceof Date date) {
+					return time(null, date);
+				}
+				break;
+			case 11:
+				if (value instanceof Date date) {
+					LocalDateTime local = local(date);
+					return Map.of("year", local.getYear(), "month", local.getMonthValue(), "day", local.getDayOfMonth());
+				}
+				break;
+			case 19:
+				if (value instanceof Date date) {
+					return dateTime(date);
+				}
+				break;
+			case 4:
+			case 16:
+				return value.toString();
+			default:
+				break;
+		}
+		if (value instanceof Map || value instanceof Number || value instanceof Boolean) {
+			return value;
+		}
+		String text = value.toString().trim();
+		if (kind == Kind.NUMBER || kind == Kind.PERCENT || kind == Kind.SCALE || kind == Kind.CHOICE) {
+			BigDecimal number = number(dpt, text);
+			if (number != null) {
+				return Double.valueOf(number.doubleValue());
+			}
+			if (kind != Kind.CHOICE) {
+				throw invalidValue(dpt, value, new NumberFormatException(text));
+			}
+		}
+		// A text in the notation of Calimero.
+		DPTXlator translator = calimero(dpt);
+		try {
+			translator.setValue(text);
+			return DatapointValues.decode(dpt, translator.getData());
+		} catch (KNXException | KNXIllegalArgumentException ex) {
+			throw invalidValue(dpt, value, ex);
+		}
+	}
+
+	/**
+	 * The number written in the given text, with a decimal point or comma and optionally the unit of
+	 * the type; <code>null</code> if the text is no number.
+	 */
+	private static BigDecimal number(Dpt dpt, String text) {
+		String unit = calimeroUnit(dpt);
+		String digits = unit != null && !unit.isEmpty() && text.endsWith(unit)
+			? text.substring(0, text.length() - unit.length()).trim()
+			: text;
+		try {
+			return new BigDecimal(digits.replace(',', '.'));
+		} catch (NumberFormatException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * A step: the direction {@link #UP} is the upper value of the control (increase) for a dimmer and
+	 * the lower one (up) for a blind, whose control (DPT 1.008) counts downwards; a {@link #STOP} is
+	 * the step code 0 with the control bit 0, as Calimero writes a break.
+	 */
+	private static Map<String, Object> step(Dpt dpt, Map<?, ?> value) {
 		Object direction = value.get(DIRECTION);
 		if (STOP.equals(direction)) {
-			translator.setValue(false, 0);
-			return;
+			return Map.of(DatapointValues.CONTROL, Boolean.FALSE, DatapointValues.VALUE, Integer.valueOf(0));
 		}
 		boolean up = UP.equals(direction);
 		if (!up && !DOWN.equals(direction)) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_DIRECTION);
 		}
 		int code = stepCode(value.get(STEP));
-		DPT control = ((DPT3BitControlled) translator.getType()).getControlDPT();
+		DPT control = ((DPT3BitControlled) calimero(dpt).getType()).getControlDPT();
 		boolean controlBit = blinds(control) ? !up : up;
-		translator.setValue(controlBit, code);
+		return Map.of(DatapointValues.CONTROL, Boolean.valueOf(controlBit), DatapointValues.VALUE, Integer.valueOf(code));
 	}
 
 	private static int stepCode(Object step) {
@@ -632,12 +820,32 @@ public final class DatapointCodec {
 		return code;
 	}
 
-	private static void setTime(DPTXlatorTime translator, Object day, Object time) {
+	private static Map<String, Object> time(Object day, Object time) {
 		if (!(time instanceof Date date)) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_VALUE);
 		}
 		LocalDateTime local = local(date);
-		translator.setValue(day(day), local.getHour(), local.getMinute(), local.getSecond());
+		return Map.of("dayOfWeek", day(day), "hour", local.getHour(), "minute", local.getMinute(), "second",
+			local.getSecond());
+	}
+
+	/**
+	 * A date with a time of day (DPT 19) of the given point in time in the user's time zone: with its
+	 * day of the week and whether it is in summer time; whether it is a working day is not known.
+	 */
+	private static Map<String, Object> dateTime(Date date) {
+		LocalDateTime local = local(date);
+		Map<String, Object> result = new HashMap<>();
+		result.put("year", local.getYear());
+		result.put("month", local.getMonthValue());
+		result.put("day", local.getDayOfMonth());
+		result.put("dayOfWeek", local.getDayOfWeek().getValue());
+		result.put("hour", local.getHour());
+		result.put("minute", local.getMinute());
+		result.put("second", local.getSecond());
+		result.put("noWorkingDay", Boolean.TRUE);
+		result.put("summerTime", Boolean.valueOf(ThreadContext.getTimeZone().inDaylightTime(date)));
+		return result;
 	}
 
 	/**
@@ -739,7 +947,7 @@ public final class DatapointCodec {
 	static DPTXlator translator(Dpt dpt) throws KNXException {
 		for (int sub : new int[] { dpt.sub(), 1 }) {
 			String id = String.format(Locale.ROOT, "%d.%03d", dpt.main(), sub);
-			if (sub != 0 && TranslatorTypes.hasTranslator(dpt.main(), id)) {
+			if (sub >= 0 && TranslatorTypes.hasTranslator(dpt.main(), id)) {
 				return TranslatorTypes.createTranslator(dpt.main(), id);
 			}
 		}

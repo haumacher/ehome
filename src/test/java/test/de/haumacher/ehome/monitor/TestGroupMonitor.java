@@ -83,7 +83,7 @@ public class TestGroupMonitor extends BasicTestCase {
 		int percent = addressOfType(index, 5, 1);
 		assertEquals("Szene3", index.address(percent).name());
 		// The keys of the Tastsensor have objects of 1 bit without a datapoint type.
-		assertEquals(new Dpt(1, 0), index.address(1).dpt());
+		assertEquals(Dpt.mainType(1), index.address(1).dpt());
 
 		// The room temperature of the Tastsensor has no datapoint type in the program; the project gives
 		// the address its own.

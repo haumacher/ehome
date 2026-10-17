@@ -109,7 +109,7 @@ public class NamedValues {
 	}
 
 	private static TLObject subtype(Dpt dpt) {
-		if (dpt == null || dpt.sub() == 0) {
+		if (dpt == null || dpt.isMainType()) {
 			return null;
 		}
 		String id = "DPST-" + dpt.main() + "-" + dpt.sub();

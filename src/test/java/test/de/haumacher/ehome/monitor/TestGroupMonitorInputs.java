@@ -6,6 +6,7 @@ package test.de.haumacher.ehome.monitor;
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -29,6 +30,7 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.monitor.BusTelegram;
 import de.haumacher.ehome.monitor.DatapointCodec;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.GroupMonitor;
@@ -73,6 +75,7 @@ public class TestGroupMonitorInputs extends BasicTestCase {
 				checkDate();
 				checkDateTime();
 				checkChoice();
+				checkStrict();
 				checkUnchanged();
 				checkTexts();
 			} finally {
@@ -232,6 +235,44 @@ public class TestGroupMonitorInputs extends BasicTestCase {
 		assertSent("00 80 03", Integer.valueOf(3), "20.102");
 		assertRefused("warm", "20.102");
 		assertRefused(Integer.valueOf(9), "20.102");
+	}
+
+	/**
+	 * A value outside the range of the type is refused with a message, never clamped, truncated or
+	 * replaced; data that is no value of the type is shown with the reason (haumacher/ehome #33, the
+	 * DPT conformance corpus, see {@link TestDptCorpus}).
+	 */
+	private void checkStrict() {
+		// 16.000 is ASCII, 16.001 ISO 8859-1.
+		assertRefused("Grüße", "16.000");
+		assertSent("00 80 47 72 FC DF 65 00 00 00 00 00 00 00 00 00", "Grüße", "16.001");
+		assertRefused("€", "16.001");
+		assertRefused("ABCDEFGHIJKLMNO", "16.000");
+		// DPT 4 has an input of its own, Calimero has no translator for it.
+		assertEquals("text", _monitor.target(ADDRESS, "4.001").get("kind"));
+		assertSent("00 80 41", "A", "4.001");
+		assertRefused("ä", "4.001");
+		// No fractions of an integer type, no clamping.
+		assertRefused(Double.valueOf(7.5), "5.010");
+		assertRefused("1,5", "13.001");
+		assertRefused(Long.valueOf(2147483648L), "13.001");
+		assertRefused(Integer.valueOf(255), "5.006");
+		assertRefused(Double.valueOf(-273.01), "9.001");
+		assertSent("00 80 00 00", "-0,004", "9.002");
+		// The main type alone is its format: unscaled.
+		assertEquals("scale", _monitor.target(ADDRESS, "5").get("kind"));
+		assertSent("00 80 80", Integer.valueOf(128), "5");
+
+		Dpt temperature = Dpt.parse("9.001");
+		assertEquals("21.5 °C", DatapointCodec.decode(temperature, BusTelegram.Service.WRITE, new byte[] { 0x0C, 0x33 }));
+		assertEquals("7F FF (No value of 9.001)", inLocale(Locale.ENGLISH,
+			() -> DatapointCodec.decode(temperature, BusTelegram.Service.WRITE, new byte[] { 0x7F, (byte) 0xFF })));
+		assertEquals("0C (Falsche Länge für 9.001)", inLocale(Locale.GERMAN,
+			() -> DatapointCodec.decode(temperature, BusTelegram.Service.WRITE, new byte[] { 0x0C })));
+		assertEquals("Hello", DatapointCodec.decode(Dpt.parse("16.000"), BusTelegram.Service.WRITE,
+			"Hello\0\0\0\0\0\0\0\0\0".getBytes(StandardCharsets.ISO_8859_1)));
+		assertEquals("A", DatapointCodec.decode(Dpt.parse("4.001"), BusTelegram.Service.WRITE, new byte[] { 0x41 }));
+		assertEquals("128", DatapointCodec.decode(Dpt.parse("5"), BusTelegram.Service.WRITE, new byte[] { (byte) 0x80 }));
 	}
 
 	/**

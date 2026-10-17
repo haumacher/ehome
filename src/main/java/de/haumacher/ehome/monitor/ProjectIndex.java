@@ -206,9 +206,9 @@ public class ProjectIndex {
 		}
 		switch (size.intValue()) {
 			case 1:
-				return new Dpt(1, 0);
+				return Dpt.mainType(1);
 			case 4:
-				return new Dpt(3, 0);
+				return Dpt.mainType(3);
 			default:
 				return null;
 		}
@@ -229,7 +229,7 @@ public class ProjectIndex {
 			}
 			return new Dpt(mainNumber, number);
 		}
-		return new Dpt(number, 0);
+		return Dpt.mainType(number);
 	}
 
 	private static String dptLabel(TLObject type) {

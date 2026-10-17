@@ -36,6 +36,31 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_INVALID_VALUE__VALUE_TYPE_DETAIL;
 
 	/**
+	 * @en "{0}" lies outside the range of the datapoint type {1}.
+	 */
+	public static ResKey2 ERROR_OUT_OF_RANGE__VALUE_TYPE;
+
+	/**
+	 * @en The data {0} is no valid value of the datapoint type {1}.
+	 */
+	public static ResKey2 ERROR_INVALID_DATA__DATA_TYPE;
+
+	/**
+	 * @en The data {0} does not have the length of the datapoint type {1}.
+	 */
+	public static ResKey2 ERROR_WRONG_LENGTH__DATA_TYPE;
+
+	/**
+	 * @en No value of {0}
+	 */
+	public static ResKey1 DECODED_INVALID__TYPE;
+
+	/**
+	 * @en Wrong length for {0}
+	 */
+	public static ResKey1 DECODED_WRONG_LENGTH__TYPE;
+
+	/**
 	 * @en Choose the size of the step.
 	 */
 	public static ResKey ERROR_NO_STEP;
