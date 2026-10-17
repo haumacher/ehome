@@ -3,21 +3,47 @@
  */
 package de.haumacher.ehome.monitor;
 
+import java.text.NumberFormat;
+import java.time.DayOfWeek;
+import java.time.LocalDateTime;
+import java.time.format.TextStyle;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
 
+import com.top_logic.basic.thread.ThreadContext;
+import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import tuwien.auto.calimero.DataUnitBuilder;
 import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.KNXIllegalArgumentException;
+import tuwien.auto.calimero.dptxlator.DPT;
 import tuwien.auto.calimero.dptxlator.DPTXlator;
+import tuwien.auto.calimero.dptxlator.DPTXlator3BitControlled;
+import tuwien.auto.calimero.dptxlator.DPTXlator3BitControlled.DPT3BitControlled;
+import tuwien.auto.calimero.dptxlator.DPTXlator8BitEnum;
+import tuwien.auto.calimero.dptxlator.DPTXlatorBoolean;
+import tuwien.auto.calimero.dptxlator.DPTXlatorDate;
+import tuwien.auto.calimero.dptxlator.DPTXlatorDateTime;
+import tuwien.auto.calimero.dptxlator.DPTXlatorTime;
 import tuwien.auto.calimero.dptxlator.TranslatorTypes;
 
 /**
  * The values of group telegrams by the datapoint type of their address: decoding the data of a
  * received telegram into a text with its unit ("21.5 °C", "on", "73 %") and encoding a value to send
  * into the telegram's data, with the DPT translators of Calimero.
+ *
+ * <p>
+ * The {@link Kind} of a type decides the input of the send form; whatever the input produces (a
+ * number, a text, a choice, a point in time, a step) is encoded here by the translator of the type,
+ * the one path every value takes to the bus.
+ * </p>
  */
 public final class DatapointCodec {
 
@@ -27,6 +53,22 @@ public final class DatapointCodec {
 	public enum Kind {
 		/** A value of one bit (DPT 1): two values to choose from. */
 		SWITCH("switch"),
+		/**
+		 * A step of a dimmer or a blind (DPT 3): up or down by a step code of 1 to 7, or a stop.
+		 */
+		STEP("step"),
+		/** A percentage of 0 to 100 % in one byte (DPT 5.001). */
+		PERCENT("percent"),
+		/** A number of 0 to 255 in one byte (DPT 5.004, 5.005, 5.010). */
+		SCALE("scale"),
+		/** One of the named values of an enumeration (DPT 20). */
+		CHOICE("choice"),
+		/** A time of day with an optional day of the week (DPT 10). */
+		TIME("time"),
+		/** A date (DPT 11). */
+		DATE("date"),
+		/** A date with a time of day (DPT 19). */
+		DATE_TIME("datetime"),
 		/** A number, possibly with a unit (DPT 5 to 9, 12 to 14, 17). */
 		NUMBER("number"),
 		/** A value written as text in the notation of the datapoint type. */
@@ -95,6 +137,30 @@ public final class DatapointCodec {
 		}
 	}
 
+	/** The step codes of a step (DPT 3): 1 (100 %) to 7 (1.56 %). */
+	public static final int MAX_STEP_CODE = 7;
+
+	/** The value of a step (DPT 3), see {@link #encodeWrite(Dpt, Object)}: the direction. */
+	public static final String DIRECTION = "direction";
+
+	/** The value of a step (DPT 3), see {@link #encodeWrite(Dpt, Object)}: the step code. */
+	public static final String STEP = "step";
+
+	/** {@link #DIRECTION} of a step upwards: brighter for a dimmer, up for a blind. */
+	public static final String UP = "up";
+
+	/** {@link #DIRECTION} of a step downwards: darker for a dimmer, down for a blind. */
+	public static final String DOWN = "down";
+
+	/** {@link #DIRECTION} of a stop (the step code 0). */
+	public static final String STOP = "stop";
+
+	/** The value of a time of day (DPT 10), see {@link #encodeWrite(Dpt, Object)}: the day. */
+	public static final String DAY = "day";
+
+	/** The value of a time of day (DPT 10), see {@link #encodeWrite(Dpt, Object)}: the time. */
+	public static final String TIME = "time";
+
 	private DatapointCodec() {
 		// Functions only.
 	}
@@ -109,7 +175,16 @@ public final class DatapointCodec {
 		switch (dpt.main()) {
 			case 1:
 				return Kind.SWITCH;
+			case 3:
+				return Kind.STEP;
 			case 5:
+				return byteKind(dpt);
+			case 10:
+				return Kind.TIME;
+			case 11:
+				return Kind.DATE;
+			case 19:
+				return Kind.DATE_TIME;
 			case 6:
 			case 7:
 			case 8:
@@ -120,8 +195,153 @@ public final class DatapointCodec {
 			case 17:
 				return Kind.NUMBER;
 			default:
-				return Kind.TEXT;
+				return isEnumeration(dpt) ? Kind.CHOICE : Kind.TEXT;
 		}
+	}
+
+	/**
+	 * The kind of an unsigned byte (DPT 5): a percentage, a number of the full byte range, or a
+	 * number of another range (an angle, a tariff), entered as number.
+	 */
+	private static Kind byteKind(Dpt dpt) {
+		try {
+			DPT type = translator(dpt).getType();
+			if (type.getID().equals("5.001")) {
+				return Kind.PERCENT;
+			}
+			if (type.getLowerValue().equals("0") && type.getUpperValue().equals("255")) {
+				return Kind.SCALE;
+			}
+		} catch (KNXException ex) {
+			// Entered as number.
+		}
+		return Kind.NUMBER;
+	}
+
+	private static boolean isEnumeration(Dpt dpt) {
+		try {
+			return translator(dpt) instanceof DPTXlator8BitEnum;
+		} catch (KNXException ex) {
+			return false;
+		}
+	}
+
+	/**
+	 * The range of a value of the given type entered with a slider ({@link Kind#PERCENT},
+	 * {@link Kind#SCALE}): the smallest and the largest value; <code>null</code> for another type.
+	 */
+	public static int[] range(Dpt dpt) {
+		Kind kind = kind(dpt);
+		if (kind != Kind.PERCENT && kind != Kind.SCALE) {
+			return null;
+		}
+		try {
+			DPT type = translator(dpt).getType();
+			return new int[] { Integer.parseInt(type.getLowerValue()), Integer.parseInt(type.getUpperValue()) };
+		} catch (KNXException | NumberFormatException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * The unit of the values of the given type, e.g. "%"; empty if they have none.
+	 */
+	public static String unit(Dpt dpt) {
+		if (kind(dpt) == Kind.RAW) {
+			return "";
+		}
+		try {
+			String unit = translator(dpt).getType().getUnit();
+			return unit == null ? "" : unit;
+		} catch (KNXException ex) {
+			return "";
+		}
+	}
+
+	/**
+	 * The named values of an enumeration ({@link Kind#CHOICE}), ordered by their numbers, as the type
+	 * writes them (e.g. "building in use"); each is a value {@link #encodeWrite(Dpt, Object)} takes.
+	 * Empty for another type.
+	 *
+	 * <p>
+	 * The values come from the enumerations of the KNX standard that Calimero implements; the
+	 * datapoint types of the project (<code>ehome.datapoint</code>) carry no named values.
+	 * </p>
+	 */
+	public static List<String> choices(Dpt dpt) {
+		if (kind(dpt) != Kind.CHOICE) {
+			return Collections.emptyList();
+		}
+		try {
+			DPTXlator8BitEnum translator = (DPTXlator8BitEnum) translator(dpt);
+			List<String> result = new ArrayList<>();
+			for (int element = 0; element <= 255; element++) {
+				try {
+					translator.setValue(element);
+				} catch (KNXException ex) {
+					continue;
+				}
+				result.add(translator.getValue());
+			}
+			return result;
+		} catch (KNXException ex) {
+			return Collections.emptyList();
+		}
+	}
+
+	/**
+	 * The step sizes of a step ({@link Kind#STEP}) to choose from, one per step code 1 to
+	 * {@value #MAX_STEP_CODE}, e.g. "1: 100 %", "4: 12.5 %" (the percentage in the user's
+	 * language); each is a step {@link #encodeWrite(Dpt, Object)} takes.
+	 */
+	public static List<String> stepSizes() {
+		NumberFormat format = NumberFormat.getNumberInstance(ThreadContext.getLocale());
+		format.setMaximumFractionDigits(2);
+		List<String> result = new ArrayList<>();
+		for (int code = 1; code <= MAX_STEP_CODE; code++) {
+			result.add(code + ": " + format.format(100.0 / (1 << (code - 1))) + " %");
+		}
+		return result;
+	}
+
+	/**
+	 * What the directions of a step ({@link Kind#STEP}) mean as the type writes them, {@link #UP}
+	 * first, e.g. "increase", "decrease" for a dimmer, "up", "down" for a blind; <code>null</code>
+	 * for another type.
+	 */
+	public static String[] stepDirections(Dpt dpt) {
+		if (kind(dpt) != Kind.STEP) {
+			return null;
+		}
+		try {
+			DPT control = ((DPT3BitControlled) translator(dpt).getType()).getControlDPT();
+			return blinds(control) ? new String[] { control.getLowerValue(), control.getUpperValue() }
+				: new String[] { control.getUpperValue(), control.getLowerValue() };
+		} catch (KNXException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * Whether the control of a step is the one of a blind (DPT 1.008), whose value 1 is "down".
+	 */
+	private static boolean blinds(DPT control) {
+		return control.getID().equals(DPTXlatorBoolean.DPT_UPDOWN.getID());
+	}
+
+	/**
+	 * The days of a time of day ({@link Kind#TIME}) to choose from, in the user's language: "no
+	 * day" (the day 0), then Monday (1) to Sunday (7); each is a day
+	 * {@link #encodeWrite(Dpt, Object)} takes.
+	 */
+	public static List<String> days() {
+		Locale locale = ThreadContext.getLocale();
+		List<String> result = new ArrayList<>();
+		result.add(Resources.getInstance().getString(I18NConstants.NO_DAY));
+		for (DayOfWeek day : DayOfWeek.values()) {
+			result.add(day.getDisplayName(TextStyle.FULL, locale));
+		}
+		return result;
 	}
 
 	/**
@@ -180,7 +400,13 @@ public final class DatapointCodec {
 	 *        The datapoint type of the address, <code>null</code> to send the value as hexadecimal
 	 *        bytes.
 	 * @param value
-	 *        The value: a text in the notation of the type, a number, or a boolean for a one-bit type.
+	 *        The value: a text in the notation of the type, a number, a boolean for a one-bit type,
+	 *        the name of a value of an enumeration ({@link #choices(Dpt)}), a {@link Date} for a date
+	 *        or a time of day (read in the user's time zone), a dictionary with {@link #DAY} (one of
+	 *        {@link #days()} or its number 0 to 7) and {@link #TIME} (a {@link Date}) for a time of day
+	 *        with its day, and a dictionary with {@link #DIRECTION} ({@link #UP}, {@link #DOWN},
+	 *        {@link #STOP}) and {@link #STEP} (the step code 1 to 7, or one of
+	 *        {@link #stepSizes()}) for a step.
 	 * @return The APDU: the service and the data, a value of up to 6 bits in the short form.
 	 * @throws TopLogicException
 	 *         If the value is no value of the type.
@@ -189,7 +415,8 @@ public final class DatapointCodec {
 		if (value == null || value.toString().isBlank()) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_VALUE);
 		}
-		if (kind(dpt) == Kind.RAW) {
+		Kind kind = kind(dpt);
+		if (kind == Kind.RAW) {
 			byte[] data = hex(value.toString());
 			return DataUnitBuilder.createAPDU(BusTelegram.Service.WRITE.code(), data);
 		}
@@ -200,26 +427,127 @@ public final class DatapointCodec {
 			throw new TopLogicException(I18NConstants.ERROR_UNSUPPORTED_DATAPOINT_TYPE__TYPE.fill(dpt.code()), ex);
 		}
 		try {
-			if (kind(dpt) == Kind.SWITCH) {
+			if (kind == Kind.SWITCH) {
 				translator.setData(new byte[] { (byte) (bit(translator, value) ? 1 : 0) });
+			} else if (value instanceof Map<?, ?> map && translator instanceof DPTXlator3BitControlled step) {
+				setStep(step, map);
+			} else if (value instanceof Map<?, ?> map && translator instanceof DPTXlatorTime time) {
+				setTime(time, map.get(DAY), map.get(TIME));
+			} else if (value instanceof Date date && translator instanceof DPTXlatorTime time) {
+				setTime(time, null, date);
+			} else if (value instanceof Date date && translator instanceof DPTXlatorDate day) {
+				LocalDateTime local = local(date);
+				day.setValue(local.getYear(), local.getMonthValue(), local.getDayOfMonth());
+			} else if (value instanceof Date date && translator instanceof DPTXlatorDateTime dateTime) {
+				dateTime.setValue(local(date).withNano(0));
 			} else if (value instanceof Number number) {
 				translator.setValue(number.doubleValue());
 			} else {
 				String text = value.toString().trim();
-				if (kind(dpt) == Kind.NUMBER) {
+				if (kind == Kind.NUMBER || kind == Kind.PERCENT || kind == Kind.SCALE) {
 					text = text.replace(',', '.');
 				}
 				translator.setValue(text);
 			}
 		} catch (KNXException | KNXIllegalArgumentException ex) {
 			throw new TopLogicException(
-				I18NConstants.ERROR_INVALID_VALUE__VALUE_TYPE_DETAIL.fill(value, dpt.code(), ex.getMessage()), ex);
+				I18NConstants.ERROR_INVALID_VALUE__VALUE_TYPE_DETAIL.fill(text(value), dpt.code(), ex.getMessage()), ex);
 		}
 		byte[] data = translator.getData();
 		if (translator.getTypeSize() == 0) {
 			return DataUnitBuilder.createLengthOptimizedAPDU(BusTelegram.Service.WRITE.code(), data);
 		}
 		return DataUnitBuilder.createAPDU(BusTelegram.Service.WRITE.code(), data);
+	}
+
+	/**
+	 * Sets a step: the direction {@link #UP} is the upper value of the control (increase) for a
+	 * dimmer and the lower one (up) for a blind, whose control (DPT 1.008) counts downwards; a
+	 * {@link #STOP} is the step code 0 with the control bit 0, as Calimero writes a break.
+	 */
+	private static void setStep(DPTXlator3BitControlled translator, Map<?, ?> value) {
+		Object direction = value.get(DIRECTION);
+		if (STOP.equals(direction)) {
+			translator.setValue(false, 0);
+			return;
+		}
+		boolean up = UP.equals(direction);
+		if (!up && !DOWN.equals(direction)) {
+			throw new TopLogicException(I18NConstants.ERROR_NO_DIRECTION);
+		}
+		int code = stepCode(value.get(STEP));
+		DPT control = ((DPT3BitControlled) translator.getType()).getControlDPT();
+		boolean controlBit = blinds(control) ? !up : up;
+		translator.setValue(controlBit, code);
+	}
+
+	private static int stepCode(Object step) {
+		if (step instanceof Number number) {
+			return checkStepCode(number.intValue(), step);
+		}
+		if (step == null || step.toString().isBlank()) {
+			throw new TopLogicException(I18NConstants.ERROR_NO_STEP);
+		}
+		String text = step.toString().trim();
+		int end = 0;
+		while (end < text.length() && Character.isDigit(text.charAt(end))) {
+			end++;
+		}
+		if (end == 0) {
+			throw new TopLogicException(I18NConstants.ERROR_INVALID_STEP__VALUE.fill(text));
+		}
+		return checkStepCode(Integer.parseInt(text.substring(0, end)), text);
+	}
+
+	private static int checkStepCode(int code, Object step) {
+		if (code < 1 || code > MAX_STEP_CODE) {
+			throw new TopLogicException(I18NConstants.ERROR_INVALID_STEP__VALUE.fill(step));
+		}
+		return code;
+	}
+
+	private static void setTime(DPTXlatorTime translator, Object day, Object time) {
+		if (!(time instanceof Date date)) {
+			throw new TopLogicException(I18NConstants.ERROR_NO_VALUE);
+		}
+		LocalDateTime local = local(date);
+		translator.setValue(day(day), local.getHour(), local.getMinute(), local.getSecond());
+	}
+
+	/**
+	 * The number of a day of a time of day: 0 for no day, 1 (Monday) to 7 (Sunday).
+	 */
+	private static int day(Object day) {
+		if (day == null || day.toString().isBlank()) {
+			return 0;
+		}
+		if (day instanceof Number number && number.intValue() >= 0 && number.intValue() <= 7) {
+			return number.intValue();
+		}
+		int index = days().indexOf(day.toString().trim());
+		if (index < 0) {
+			throw new TopLogicException(I18NConstants.ERROR_INVALID_DAY__VALUE.fill(day));
+		}
+		return index;
+	}
+
+	/**
+	 * The given point in time in the user's time zone, the one the date and time pickers write it
+	 * in.
+	 */
+	private static LocalDateTime local(Date date) {
+		TimeZone zone = ThreadContext.getTimeZone();
+		return LocalDateTime.ofInstant(date.toInstant(), zone.toZoneId());
+	}
+
+	/**
+	 * The value for a message: a point in time in the user's time zone, else its text.
+	 */
+	private static Object text(Object value) {
+		if (value instanceof Date date) {
+			return local(date).withNano(0).toString().replace('T', ' ');
+		}
+		return value;
 	}
 
 	/**

@@ -36,6 +36,31 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_INVALID_VALUE__VALUE_TYPE_DETAIL;
 
 	/**
+	 * @en Choose the size of the step.
+	 */
+	public static ResKey ERROR_NO_STEP;
+
+	/**
+	 * @en "{0}" is no step size; choose a step code of 1 (100 %) to 7 (1.56 %).
+	 */
+	public static ResKey1 ERROR_INVALID_STEP__VALUE;
+
+	/**
+	 * @en A step goes up or down, or stops.
+	 */
+	public static ResKey ERROR_NO_DIRECTION;
+
+	/**
+	 * @en "{0}" is no day of the week.
+	 */
+	public static ResKey1 ERROR_INVALID_DAY__VALUE;
+
+	/**
+	 * @en No day
+	 */
+	public static ResKey NO_DAY;
+
+	/**
 	 * @en "{0}" are no hexadecimal bytes (e.g. 0C 33).
 	 */
 	public static ResKey1 ERROR_INVALID_HEX__VALUE;
@@ -144,6 +169,16 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en 0 sends "{0}", 1 sends "{1}".
 	 */
 	public static ResKey2 TARGET_VALUES__OFF_ON;
+
+	/**
+	 * @en Values from {0} to {1} {2}.
+	 */
+	public static ResKey3 TARGET_RANGE__MIN_MAX_UNIT;
+
+	/**
+	 * @en "Up" sends "{0}", "Down" sends "{1}".
+	 */
+	public static ResKey2 TARGET_STEP__UP_DOWN;
 
 	static {
 		initConstants(I18NConstants.class);

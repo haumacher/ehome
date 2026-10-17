@@ -26,6 +26,14 @@
 		<channel name="onlyTraffic"/>
 		<channel name="recordingName"/>
 		<channel name="numberValue"/>
+		<channel name="percentValue"/>
+		<channel name="scaleValue"/>
+		<channel name="stepSize"/>
+		<channel name="dayValue"/>
+		<channel name="timeValue"/>
+		<channel name="dateValue"/>
+		<channel name="dateTimeValue"/>
+		<channel name="choiceValue"/>
 		<channel name="textValue"/>
 		<channel name="dptText"/>
 		<channel name="selectedRecording"/>
@@ -463,6 +471,407 @@
 																		<execute-script function="a -> t -> s -> monitorSend($s, $a, true, $t)">
 																			<inputs>
 																				<input channel="address"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+														<!-- DPT 5.001: a slider of 0 to 100 %; sent on "Send". -->
+														<case test="k -> $k == 'percent'">
+															<stack
+																align="end"
+																direction="row"
+																gap="compact"
+															>
+																<fields>
+																	<value-input
+																		type="tl.core:Integer"
+																		value="percentValue"
+																	>
+																		<label>
+																			<en>Value (%)</en>
+																			<de>Wert (%)</de>
+																		</label>
+																		<input-control class="com.top_logic.layout.view.form.NumberInputControlProvider"
+																			display="slider"
+																			max="100.0"
+																			min="0.0"
+																			step="1.0"
+																		/>
+																	</value-input>
+																</fields>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-send"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send</en>
+																			<de>Senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="percentValue"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+														<!-- DPT 5 of 0 to 255 (e.g. 5.010 counter): a slider over the byte. -->
+														<case test="k -> $k == 'scale'">
+															<stack
+																align="end"
+																direction="row"
+																gap="compact"
+															>
+																<fields>
+																	<value-input
+																		type="tl.core:Integer"
+																		value="scaleValue"
+																	>
+																		<label>
+																			<en>Value (0 to 255)</en>
+																			<de>Wert (0 bis 255)</de>
+																		</label>
+																		<input-control class="com.top_logic.layout.view.form.NumberInputControlProvider"
+																			display="slider"
+																			max="255.0"
+																			min="0.0"
+																			step="1.0"
+																		/>
+																	</value-input>
+																</fields>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-send"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send</en>
+																			<de>Senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="scaleValue"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+														<!-- DPT 3 (dimming, blinds): a step up or down by the chosen step size, or a stop (DatapointCodec#encodeWrite). -->
+														<case test="k -> $k == 'step'">
+															<stack
+																align="end"
+																direction="row"
+																gap="compact"
+															>
+																<fields>
+																	<value-input
+																		inputs="target"
+																		options="t -> if($t == null, [], $t['steps'])"
+																		value="stepSize"
+																	>
+																		<label>
+																			<en>Step size</en>
+																			<de>Schrittweite</de>
+																		</label>
+																	</value-input>
+																</fields>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-arrow-up"
+																		input="state"
+																	>
+																		<label>
+																			<en>Up</en>
+																			<de>Auf</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> c -> t -> s -> monitorSend($s, $a, {'direction': 'up', 'step': $c}, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="stepSize"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-arrow-down"
+																		input="state"
+																	>
+																		<label>
+																			<en>Down</en>
+																			<de>Ab</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> c -> t -> s -> monitorSend($s, $a, {'direction': 'down', 'step': $c}, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="stepSize"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-stop-fill"
+																		input="state"
+																	>
+																		<label>
+																			<en>Stop</en>
+																			<de>Stopp</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> t -> s -> monitorSend($s, $a, {'direction': 'stop'}, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+														<!-- DPT 10: a time of day with an optional day of the week. -->
+														<case test="k -> $k == 'time'">
+															<stack
+																align="end"
+																direction="row"
+																gap="compact"
+															>
+																<fields>
+																	<value-input
+																		inputs="target"
+																		options="t -> if($t == null, [], $t['days'])"
+																		value="dayValue"
+																	>
+																		<label>
+																			<en>Day of the week</en>
+																			<de>Wochentag</de>
+																		</label>
+																	</value-input>
+																	<value-input
+																		type="tl.core:Time"
+																		value="timeValue"
+																	>
+																		<label>
+																			<en>Time</en>
+																			<de>Uhrzeit</de>
+																		</label>
+																	</value-input>
+																</fields>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-clock"
+																		input="state"
+																	>
+																		<label>
+																			<en>Now</en>
+																			<de>Jetzt</de>
+																		</label>
+																		<execute-script function="s -> now()"/>
+																		<write-channel name="timeValue"/>
+																	</action>
+																</button>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-send"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send</en>
+																			<de>Senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> d -> v -> t -> s -> monitorSend($s, $a, {'day': $d, 'time': $v}, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="dayValue"/>
+																				<input channel="timeValue"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+														<!-- DPT 11: a date. -->
+														<case test="k -> $k == 'date'">
+															<stack
+																align="end"
+																direction="row"
+																gap="compact"
+															>
+																<fields>
+																	<value-input
+																		type="tl.core:Date"
+																		value="dateValue"
+																	>
+																		<label>
+																			<en>Date</en>
+																			<de>Datum</de>
+																		</label>
+																	</value-input>
+																</fields>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-clock"
+																		input="state"
+																	>
+																		<label>
+																			<en>Now</en>
+																			<de>Jetzt</de>
+																		</label>
+																		<execute-script function="s -> today()"/>
+																		<write-channel name="dateValue"/>
+																	</action>
+																</button>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-send"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send</en>
+																			<de>Senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="dateValue"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+														<!-- DPT 19: a date with a time of day; the day of the week is the one of the date. -->
+														<case test="k -> $k == 'datetime'">
+															<stack
+																align="end"
+																direction="row"
+																gap="compact"
+															>
+																<fields>
+																	<value-input
+																		type="tl.core:DateTime"
+																		value="dateTimeValue"
+																	>
+																		<label>
+																			<en>Date and time</en>
+																			<de>Datum und Uhrzeit</de>
+																		</label>
+																	</value-input>
+																</fields>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-clock"
+																		input="state"
+																	>
+																		<label>
+																			<en>Now</en>
+																			<de>Jetzt</de>
+																		</label>
+																		<execute-script function="s -> now()"/>
+																		<write-channel name="dateTimeValue"/>
+																	</action>
+																</button>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-send"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send</en>
+																			<de>Senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="dateTimeValue"/>
+																				<input channel="dptText"/>
+																			</inputs>
+																		</execute-script>
+																		<write-channel name="state"/>
+																	</action>
+																</button>
+															</stack>
+														</case>
+														<!-- DPT 20: one of the named values of the enumeration (DatapointCodec#choices). -->
+														<case test="k -> $k == 'choice'">
+															<stack
+																align="end"
+																direction="row"
+																gap="compact"
+															>
+																<fields>
+																	<value-input
+																		inputs="target"
+																		options="t -> if($t == null, [], $t['options'])"
+																		value="choiceValue"
+																	>
+																		<label>
+																			<en>Value</en>
+																			<de>Wert</de>
+																		</label>
+																	</value-input>
+																</fields>
+																<button>
+																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																		image="css:bi bi-send"
+																		input="state"
+																	>
+																		<label>
+																			<en>Send</en>
+																			<de>Senden</de>
+																		</label>
+																		<executability>
+																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																		</executability>
+																		<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<inputs>
+																				<input channel="address"/>
+																				<input channel="choiceValue"/>
 																				<input channel="dptText"/>
 																			</inputs>
 																		</execute-script>

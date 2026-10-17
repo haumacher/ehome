@@ -361,6 +361,29 @@ Workaround: none.
 
 **When available:** declare the column hidden by default.
 
+## A slider's range cannot come from a channel (TL ticket pending)
+
+`NumberInputControlProvider.Config` takes `min`, `max` and `step` as fixed numbers; no channel or
+expression can set them. The monitor's send form cannot use the range `GroupMonitor.target`
+computes for the datapoint type.
+
+Workaround: two fixed slider kinds, `percent` (0–100, DPT 5.001) and `scale` (0–255, DPT
+5.004/5.005/5.010); DPT 5.003 (0–360) and 5.006 (0–254) keep the number field
+(`DatapointCodec.kind`, `projects/monitor.view.xml`).
+
+**When available:** one slider kind bound to the target's `min`/`max`/`unit`, and slider kinds for
+5.003 and 5.006.
+
+## A time picker has no seconds (TL ticket pending)
+
+`ReactDatePickerControl.Kind.TIME` uses the ISO pattern `HH:mm` and has no step option: the
+monitor's DPT 10 input cannot enter or show seconds ("Now" keeps them in the value until the field
+is edited).
+
+Workaround: none.
+
+**When available:** a time picker with seconds for the DPT 10 input.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not

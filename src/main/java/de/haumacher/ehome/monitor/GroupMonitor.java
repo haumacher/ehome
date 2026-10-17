@@ -509,6 +509,23 @@ public class GroupMonitor {
 	 * What the send form shows for an address: its text, name, datapoint type, the kind of input, its
 	 * current value and, for an address the project does not know, the hint how to send to it.
 	 *
+	 * <p>
+	 * Besides <code>address</code>, <code>name</code>, <code>dpt</code>, <code>kind</code>
+	 * ({@link DatapointCodec.Kind#externalName()}), <code>value</code>, <code>label</code> and
+	 * <code>hint</code>, the dictionary carries what the input of the kind needs:
+	 * </p>
+	 * <ul>
+	 * <li><code>off</code>, <code>on</code>: the two values of a switch ("0", "1" for another
+	 * kind),</li>
+	 * <li><code>unit</code>: the unit of the values, empty if none,</li>
+	 * <li><code>min</code>, <code>max</code>: the range of a percentage or a byte,</li>
+	 * <li><code>up</code>, <code>down</code>, <code>steps</code>: what the directions of a step mean
+	 * and the step sizes to choose from ({@link DatapointCodec#stepSizes()}),</li>
+	 * <li><code>options</code>: the named values of an enumeration, empty for another kind
+	 * ({@link DatapointCodec#choices(Dpt)}),</li>
+	 * <li><code>days</code>: the days of a time of day ({@link DatapointCodec#days()}).</li>
+	 * </ul>
+	 *
 	 * @param address
 	 *        The group address as number or text; <code>null</code> for none.
 	 * @param type
@@ -550,6 +567,26 @@ public class GroupMonitor {
 				current == null || current.toString().isEmpty() ? "–" : current));
 			if (values != null) {
 				label += " " + resources.getString(I18NConstants.TARGET_VALUES__OFF_ON.fill(values[0], values[1]));
+			}
+			String unit = DatapointCodec.unit(dpt);
+			result.put("unit", unit);
+			int[] range = DatapointCodec.range(dpt);
+			if (range != null) {
+				result.put("min", Integer.valueOf(range[0]));
+				result.put("max", Integer.valueOf(range[1]));
+				label += " " + resources.getString(I18NConstants.TARGET_RANGE__MIN_MAX_UNIT.fill(
+					Integer.valueOf(range[0]), Integer.valueOf(range[1]), unit));
+			}
+			String[] directions = DatapointCodec.stepDirections(dpt);
+			if (directions != null) {
+				result.put("up", directions[0]);
+				result.put("down", directions[1]);
+				result.put("steps", DatapointCodec.stepSizes());
+				label += " " + resources.getString(I18NConstants.TARGET_STEP__UP_DOWN.fill(directions[0], directions[1]));
+			}
+			result.put("options", DatapointCodec.choices(dpt));
+			if (DatapointCodec.kind(dpt) == DatapointCodec.Kind.TIME) {
+				result.put("days", DatapointCodec.days());
 			}
 			if (info == null && (type == null || type.isBlank())) {
 				String hint = resources.getString(I18NConstants.TARGET_UNKNOWN__ADDRESS.fill(_index.format(destination)));
