@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 import tuwien.auto.calimero.DataUnitBuilder;
 import tuwien.auto.calimero.FrameEvent;
+import tuwien.auto.calimero.GroupAddress;
 import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.KNXAddress;
 import tuwien.auto.calimero.KNXException;
@@ -32,6 +33,7 @@ import de.haumacher.ehome.knx.transport.Tpdu;
 import de.haumacher.ehome.virtual.device.SimulatedDevice;
 import de.haumacher.ehome.virtual.trace.TraceEntry;
 import de.haumacher.ehome.virtual.trace.TraceEntry.Direction;
+import de.haumacher.ehome.virtual.trace.TraceFormat;
 import de.haumacher.ehome.virtual.trace.TraceRecorder;
 
 /**
@@ -62,8 +64,12 @@ import de.haumacher.ehome.virtual.trace.TraceRecorder;
  * <p>
  * Services answered: device descriptor (type 0), memory read and write (with the answer in verify
  * mode), property value read and write, property description (always "no such property"), restart
- * (no answer for a basic restart; the confirmation for a master reset), authorize (access level 0:
- * no keys are modeled). Every other service is recorded and not answered.
+ * (no answer for a basic restart; the confirmation for a master reset; a restart ends the
+ * programming mode), authorize (access level 0: no keys are modeled). In programming mode (the
+ * button, {@link #pressProgrammingButton()}): the broadcasts individual address read (answered with
+ * the device's address) and write (the device takes the address, see
+ * {@link SimulatedDevice#changeAddress(int)}); outside of it the device ignores them, as real
+ * hardware does. Every other service is recorded and not answered.
  * </p>
  */
 public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
@@ -79,6 +85,12 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 	private final TransportTiming _timing;
 
 	private final ScheduledExecutorService _executor;
+
+	/**
+	 * The address of the coupler that routes frames to the device (area.line.0, area.0.0 for an
+	 * area), -1 if every address is reachable.
+	 */
+	private final int _coupler;
 
 	/** The partner of the open connection, {@link #NO_PARTNER} if none is open. */
 	private int _partner = NO_PARTNER;
@@ -104,6 +116,19 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 	 * Creates a {@link DeviceStack} serving the device on the given link, recording its events.
 	 */
 	public DeviceStack(SimulatedDevice device, KNXNetworkLink link, TraceRecorder recorder, TransportTiming timing) {
+		this(device, link, recorder, timing, -1);
+	}
+
+	/**
+	 * Creates a {@link DeviceStack} behind a coupler that routes only the frames of its line (area);
+	 * a new address outside of it is recorded as not reachable.
+	 *
+	 * @param coupler
+	 *        The coupler's address (area.line.0, area.0.0 for an area coupler), -1 for none.
+	 */
+	public DeviceStack(SimulatedDevice device, KNXNetworkLink link, TraceRecorder recorder, TransportTiming timing,
+			int coupler) {
+		_coupler = coupler;
 		_device = device;
 		_link = link;
 		_recorder = recorder;
@@ -120,6 +145,11 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 	@Override
 	public void indication(FrameEvent e) {
 		if (e.getFrame() instanceof CEMILData frame) {
+			if (frame.getSource().getRawAddress() == _device.address()) {
+				// The device's own frame (a broadcast the virtual subnet indicates to every device link,
+				// the sender's included): a real device does not receive what it sends.
+				return;
+			}
 			// Recorded on the receiving thread before the device handles it, a frame the device sends
 			// before it leaves (see send()): the trace is in causal order.
 			record(frame, true);
@@ -188,8 +218,10 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		int source = frame.getSource().getRawAddress();
 		KNXAddress destination = frame.getDestination();
 		if (!(destination instanceof IndividualAddress)) {
-			// A broadcast (no service the device answers: it is never in programming mode) or a group
-			// telegram (no process communication).
+			if (destination.getRawAddress() == 0 && !Tpdu.isControl(tpdu)) {
+				onBroadcast(tpdu);
+			}
+			// A group telegram: no process communication.
 			return;
 		}
 		if (destination.getRawAddress() != _device.address()) {
@@ -245,6 +277,75 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		if (answer != null) {
 			send(source, Priority.LOW, answer);
 		}
+	}
+
+	/**
+	 * A broadcast: the services of programming the individual address, served in programming mode
+	 * only.
+	 */
+	private void onBroadcast(byte[] tpdu) {
+		if (tpdu.length < 2 || !_device.programmingMode()) {
+			return;
+		}
+		int service = Tpdu.service(tpdu);
+		if (service == Tpdu.INDIVIDUAL_ADDRESS_READ) {
+			sendBroadcast(DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.INDIVIDUAL_ADDRESS_RESPONSE));
+		} else if (service == Tpdu.INDIVIDUAL_ADDRESS_WRITE) {
+			byte[] asdu = Tpdu.asdu(tpdu);
+			if (asdu.length < 2) {
+				return;
+			}
+			int previous = _device.address();
+			int address = (asdu[0] & 0xFF) << 8 | asdu[1] & 0xFF;
+			if (address == previous || !_device.changeAddress(address)) {
+				return;
+			}
+			// The frames to the new address reach the device from now on, and it sends from it.
+			_link.getKNXMedium().setDeviceAddress(new IndividualAddress(address));
+			Map<String, String> fields = new LinkedHashMap<>();
+			fields.put(TraceEntry.INDIVIDUAL, TraceFormat.individual(address));
+			fields.put(TraceEntry.PREVIOUS, TraceFormat.individual(previous));
+			fields.put(TraceEntry.REASON, (reachable(address) ? "the project keeps " + TraceFormat.individual(_device.initialAddress())
+				: "not reachable through the interface, which routes only " + TraceFormat.individual(_coupler)
+					+ ", the project keeps " + TraceFormat.individual(_device.initialAddress())).replace(' ', '_'));
+			_recorder.record(new TraceEntry(Instant.now(), Direction.EVENT, address, 0, TraceEntry.DEV_ADDRESS_CHANGED, null,
+				fields, null));
+		}
+	}
+
+	private boolean reachable(int address) {
+		return _coupler < 0 || routes(_coupler, address);
+	}
+
+	/**
+	 * Whether a coupler routes the frames to the given address: an address of its line, or of its
+	 * area for an area coupler (area.0.0), as Calimero's server gateway decides.
+	 */
+	public static boolean routes(int coupler, int address) {
+		if ((coupler & 0x0F00) == 0) {
+			return (address & 0xF000) == (coupler & 0xF000);
+		}
+		return (address & 0xFF00) == (coupler & 0xFF00);
+	}
+
+	/**
+	 * Presses the programming button of the device: programming mode on, or off if it is on; recorded
+	 * as an event.
+	 *
+	 * @return Whether the device is in programming mode now.
+	 */
+	public boolean pressProgrammingButton() {
+		boolean on = _device.pressProgrammingButton();
+		programmingModeEvent(on, "button");
+		return on;
+	}
+
+	private void programmingModeEvent(boolean on, String reason) {
+		Map<String, String> fields = new LinkedHashMap<>();
+		fields.put(TraceEntry.MODE, on ? "on" : "off");
+		fields.put(TraceEntry.REASON, reason);
+		_recorder.record(new TraceEntry(Instant.now(), Direction.EVENT, _device.address(), 0,
+			TraceEntry.DEV_PROGRAMMING_MODE, null, fields, null));
 	}
 
 	private void onConnect(int source) {
@@ -379,6 +480,17 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		}
 	}
 
+	private void sendBroadcast(byte[] tpdu) {
+		GroupAddress broadcast = GroupAddress.Broadcast;
+		try {
+			record(new CEMILData(CEMILData.MC_LDATA_REQ, new IndividualAddress(_device.address()), broadcast, tpdu,
+				Priority.SYSTEM), false);
+			_link.sendRequest(broadcast, Priority.SYSTEM, tpdu);
+		} catch (KNXException ex) {
+			Logger.error("The virtual device " + _device.name() + " could not send a broadcast.", ex, DeviceStack.class);
+		}
+	}
+
 	private void sendControl(int destination, byte[] tpdu) {
 		send(destination, Priority.SYSTEM, tpdu);
 	}
@@ -427,7 +539,9 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 			return DataUnitBuilder.createAPDU(Tpdu.DESCRIPTOR_RESPONSE, _device.descriptor());
 		}
 		if ((service & 0x3C0) == Tpdu.RESTART) {
-			_device.reset();
+			if (_device.reset()) {
+				programmingModeEvent(false, "restart");
+			}
 			if ((tpdu[1] & 0x01) == 0) {
 				return null;
 			}

@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -46,6 +47,14 @@ import de.haumacher.ehome.programming.download.LoadControls;
  * are counted by {@link #unknownReads()} so that a person sees what a tool asked for beyond the
  * project data.
  * </p>
+ *
+ * <p>
+ * Programming mode (the programming button of a real device): off at the start; the button
+ * ({@link #pressProgrammingButton()}) switches it on and off, a restart ({@link #reset()}) ends it.
+ * Only in programming mode does the device answer <code>A_IndividualAddress_Read</code> and take the
+ * address of <code>A_IndividualAddress_Write</code> ({@link #changeAddress(int)}); the address is the
+ * device's address on the virtual bus from then on, nothing of it goes back into the project.
+ * </p>
  */
 public class SimulatedDevice {
 
@@ -66,6 +75,12 @@ public class SimulatedDevice {
 
 	/** The interface object property of the device control (device object). */
 	public static final int PID_DEVICE_CONTROL = 14;
+
+	/** The interface object property of the serial number (device object). */
+	public static final int PID_SERIAL_NUMBER = 11;
+
+	/** The interface object property of the maximum length of an APDU (device object). */
+	public static final int PID_MAX_APDU_LENGTH = 56;
 
 	/** The interface object property of the hardware type (device object). */
 	public static final int PID_HARDWARE_TYPE = 78;
@@ -94,7 +109,16 @@ public class SimulatedDevice {
 
 	private final String _name;
 
-	private final int _address;
+	/** The individual address, changed by {@link #changeAddress(int)}. */
+	private int _address;
+
+	/** The individual address the device was created with (the project's). */
+	private final int _initialAddress;
+
+	private boolean _programmingMode;
+
+	/** Where values of the device come from that the project does not hold, by subject. */
+	private final Map<String, String> _notes = new LinkedHashMap<>();
 
 	private final int _descriptor;
 
@@ -132,6 +156,7 @@ public class SimulatedDevice {
 	public SimulatedDevice(String name, int address, int descriptor, LoadControlKind kind, MappedLoadStateRule rule) {
 		_name = name;
 		_address = address;
+		_initialAddress = address;
 		_descriptor = descriptor;
 		_kind = kind;
 		_rule = rule;
@@ -151,10 +176,68 @@ public class SimulatedDevice {
 	}
 
 	/**
-	 * The individual address.
+	 * The individual address on the virtual bus.
 	 */
-	public int address() {
+	public synchronized int address() {
 		return _address;
+	}
+
+	/**
+	 * The individual address the device was created with (the one of the project).
+	 */
+	public int initialAddress() {
+		return _initialAddress;
+	}
+
+	/**
+	 * Whether the device is in programming mode.
+	 */
+	public synchronized boolean programmingMode() {
+		return _programmingMode;
+	}
+
+	/**
+	 * Presses the programming button: switches the programming mode on, or off if it is on.
+	 *
+	 * @return Whether the device is in programming mode now.
+	 */
+	public synchronized boolean pressProgrammingButton() {
+		_programmingMode = !_programmingMode;
+		return _programmingMode;
+	}
+
+	/**
+	 * Takes a new individual address (A_IndividualAddress_Write), only in programming mode.
+	 *
+	 * @return Whether the device took it: it is in programming mode.
+	 */
+	public synchronized boolean changeAddress(int address) {
+		if (!_programmingMode) {
+			return false;
+		}
+		_address = address;
+		return true;
+	}
+
+	/**
+	 * Records where a value of the device comes from that the project does not hold (a substitute),
+	 * for the header of a trace.
+	 *
+	 * @param subject
+	 *        What the value is, e.g. <code>property 0/11</code>.
+	 * @param text
+	 *        The value and its source.
+	 */
+	public synchronized SimulatedDevice note(String subject, String text) {
+		_notes.put(subject, text);
+		return this;
+	}
+
+	/**
+	 * The notes of {@link #note(String, String)}, by subject.
+	 */
+	public synchronized Map<String, String> notes() {
+		return new LinkedHashMap<>(_notes);
 	}
 
 	/**
@@ -347,10 +430,16 @@ public class SimulatedDevice {
 	}
 
 	/**
-	 * Restarts the device (A_Restart): memory, properties and load states stay.
+	 * Restarts the device (A_Restart): memory, properties and load states stay, the programming mode
+	 * ends (as on a real device, whose programming LED goes off with the restart that ends the
+	 * programming of its address).
+	 *
+	 * @return Whether the restart ended the programming mode.
 	 */
-	public void reset() {
-		// A basic restart keeps the loaded state.
+	public synchronized boolean reset() {
+		boolean wasOn = _programmingMode;
+		_programmingMode = false;
+		return wasOn;
 	}
 
 	private boolean objectExists(int object) {

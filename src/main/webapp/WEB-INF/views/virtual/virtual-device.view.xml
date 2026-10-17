@@ -11,6 +11,11 @@
 	de.haumacher.ehome.virtual.VirtualFunctions; they are not model data, so the commands write the new
 	status into "refresh", which every display reads. Only one virtual interface runs at a time; it is
 	stopped when the application shuts down (de.haumacher.ehome.virtual.VirtualInterfaces).
+
+	The programming button (haumacher/ehome #35) switches the programming mode of the running device on
+	and off; while it is on, the device answers A_IndividualAddress_Read and takes the address of
+	A_IndividualAddress_Write, and "programming" holds the text that says so. The new address holds on
+	the virtual bus until the interface stops; the project is not changed.
 -->
 <view>
 	<channels>
@@ -24,6 +29,10 @@
 		/>
 		<derived-channel name="status"
 			expr="r -> virtualStatus($r)"
+			inputs="refresh"
+		/>
+		<derived-channel name="programming"
+			expr="r -> virtualProgramming($r)"
 			inputs="refresh"
 		/>
 	</channels>
@@ -72,6 +81,21 @@
 					<write-channel name="refresh"/>
 				</generic-command>
 				<generic-command
+					image="css:bi bi-record-circle"
+					input="state"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Programming button</en>
+						<de>Programmiertaste</de>
+					</label>
+					<executability>
+						<disabled-if expr='s -> virtualStopVeto($s["status"])'/>
+					</executability>
+					<execute-script function="s -> virtualProgrammingButton()"/>
+					<write-channel name="refresh"/>
+				</generic-command>
+				<generic-command
 					image="css:bi bi-arrow-clockwise"
 					placement="TOOLBAR"
 				>
@@ -86,6 +110,15 @@
 			<inset>
 				<stack gap="compact">
 					<text input="status"/>
+					<visible-if
+						expr="p -> $p != null"
+						input="programming"
+					>
+						<text
+							input="programming"
+							tone="warning"
+						/>
+					</visible-if>
 					<text tone="helper"
 						variant="caption"
 					>

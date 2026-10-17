@@ -19,7 +19,9 @@ import de.haumacher.ehome.virtual.trace.TraceFormat;
 
 /**
  * Decodes a frame of the virtual subnet into a {@link TraceEntry}: the transport-layer control
- * (connect, disconnect) and the application-layer service with its parameters.
+ * (connect, disconnect) and the application-layer service with its parameters: device descriptor,
+ * memory, property value, restart, individual address (write, read, response) and authorize; any
+ * other service as <code>A_Other</code> with its APCI.
  *
  * <p>
  * Group telegrams are not recorded.
@@ -54,6 +56,14 @@ class FrameDecoder {
 	private static final int PROPERTY_WRITE = 0x03D7;
 
 	private static final int INDIVIDUAL_ADDRESS_WRITE = 0x00C0;
+
+	private static final int INDIVIDUAL_ADDRESS_READ = 0x0100;
+
+	private static final int INDIVIDUAL_ADDRESS_RESPONSE = 0x0140;
+
+	private static final int AUTHORIZE_REQUEST = 0x03D1;
+
+	private static final int AUTHORIZE_RESPONSE = 0x03D2;
 
 	/**
 	 * The entry of a frame, <code>null</code> if it is not recorded.
@@ -140,6 +150,19 @@ class FrameDecoder {
 		} else if (service == INDIVIDUAL_ADDRESS_WRITE && asdu.length >= 2) {
 			name = TraceEntry.INDIVIDUAL_ADDRESS_WRITE;
 			fields.put(TraceEntry.INDIVIDUAL, TraceFormat.individual((asdu[0] & 0xFF) << 8 | asdu[1] & 0xFF));
+		} else if (service == INDIVIDUAL_ADDRESS_READ && tpdu.length == 2) {
+			// No data: Calimero's ASDU are the 6 low bits of the APCI, always 0.
+			name = TraceEntry.INDIVIDUAL_ADDRESS_READ;
+		} else if (service == INDIVIDUAL_ADDRESS_RESPONSE && tpdu.length == 2) {
+			// The address answered is the sender.
+			name = TraceEntry.INDIVIDUAL_ADDRESS_RESPONSE;
+		} else if (service == AUTHORIZE_REQUEST && asdu.length == 5) {
+			name = TraceEntry.AUTHORIZE_REQUEST;
+			// A reserved byte, then the key.
+			fields.put(TraceEntry.KEY, TraceFormat.hex(Arrays.copyOfRange(asdu, 1, 5)));
+		} else if (service == AUTHORIZE_RESPONSE && asdu.length == 1) {
+			name = TraceEntry.AUTHORIZE_RESPONSE;
+			fields.put(TraceEntry.LEVEL, Integer.toString(asdu[0] & 0xFF));
 		} else {
 			return other(time, direction, source, destination, sequence, service, asdu);
 		}

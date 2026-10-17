@@ -110,6 +110,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey STATUS_STOPPED;
 
+	/**
+	 * @en Programming mode is on: the device {0} answers A_IndividualAddress_Read and takes the address of A_IndividualAddress_Write. It ends with the next restart of the device or another press of the programming button.
+	 */
+	public static ResKey1 STATUS_PROGRAMMING_MODE__ADDRESS;
+
+	/**
+	 * @en A programming tool wrote the address {0}: the device answers there on the virtual bus until the virtual device is stopped. The project keeps {1}, the virtual device does not change the project.
+	 */
+	public static ResKey2 STATUS_ADDRESS_CHANGED__ADDRESS_PROJECT;
+
+	/**
+	 * @en The interface (coupler {1}) does not route frames to {0}: the device cannot be reached through it at its new address.
+	 */
+	public static ResKey2 STATUS_ADDRESS_UNREACHABLE__ADDRESS_COUPLER;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

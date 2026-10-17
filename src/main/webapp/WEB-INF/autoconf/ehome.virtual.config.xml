@@ -36,6 +36,8 @@
 					<method name="virtualStart" class="de.haumacher.ehome.virtual.VirtualFunctions$Builder"/>
 					<method name="virtualStopVeto" class="de.haumacher.ehome.virtual.VirtualFunctions$Builder"/>
 					<method name="virtualStop" class="de.haumacher.ehome.virtual.VirtualFunctions$Builder"/>
+					<method name="virtualProgramming" class="de.haumacher.ehome.virtual.VirtualFunctions$Builder"/>
+					<method name="virtualProgrammingButton" class="de.haumacher.ehome.virtual.VirtualFunctions$Builder"/>
 					<method name="virtualTraces" class="de.haumacher.ehome.virtual.VirtualFunctions$Builder"/>
 					<method name="virtualTraceFile" class="de.haumacher.ehome.virtual.VirtualFunctions$Builder"/>
 					<method name="virtualRules" class="de.haumacher.ehome.virtual.VirtualFunctions$Builder"/>

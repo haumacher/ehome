@@ -47,6 +47,15 @@ public final class Tpdu {
 	/** A_DeviceDescriptor_Response. */
 	public static final int DESCRIPTOR_RESPONSE = 0x0340;
 
+	/** A_IndividualAddress_Write (broadcast). */
+	public static final int INDIVIDUAL_ADDRESS_WRITE = 0x00C0;
+
+	/** A_IndividualAddress_Read (broadcast). */
+	public static final int INDIVIDUAL_ADDRESS_READ = 0x0100;
+
+	/** A_IndividualAddress_Response (broadcast). */
+	public static final int INDIVIDUAL_ADDRESS_RESPONSE = 0x0140;
+
 	/** A_Restart. */
 	public static final int RESTART = 0x0380;
 

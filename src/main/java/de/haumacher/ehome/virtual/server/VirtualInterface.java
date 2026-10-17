@@ -98,6 +98,9 @@ public final class VirtualInterface implements AutoCloseable {
 
 	private final int _serverAddress;
 
+	/** The name announced, with the address the device had at the start. */
+	private final String _name;
+
 	private KNXNetworkLink _deviceLink;
 
 	private DeviceStack _stack;
@@ -112,6 +115,7 @@ public final class VirtualInterface implements AutoCloseable {
 		_recorder = recorder;
 		_launcher = launcher;
 		_serverAddress = serverAddress;
+		_name = NAME_PREFIX + TraceFormat.individual(device.address());
 		_thread = new Thread(launcher, SERVER_NAME + " " + endpoint);
 		_thread.setDaemon(true);
 	}
@@ -176,7 +180,7 @@ public final class VirtualInterface implements AutoCloseable {
 		}
 		int address = _device.address();
 		_deviceLink = subnet.createDeviceLink(new IndividualAddress(address));
-		_stack = new DeviceStack(_device, _deviceLink, _recorder, _timing);
+		_stack = new DeviceStack(_device, _deviceLink, _recorder, _timing, _serverAddress);
 	}
 
 	private VirtualLink awaitSubnet() {
@@ -202,7 +206,28 @@ public final class VirtualInterface implements AutoCloseable {
 	 * The name the interface announces (at most 30 characters, as KNXnet/IP allows).
 	 */
 	public String name() {
-		return NAME_PREFIX + TraceFormat.individual(_device.address());
+		return _name;
+	}
+
+	/**
+	 * Presses the programming button of the device (see {@link DeviceStack#pressProgrammingButton()}).
+	 *
+	 * @return Whether the device is in programming mode now.
+	 */
+	public boolean pressProgrammingButton() {
+		DeviceStack stack = _stack;
+		if (stack == null) {
+			throw new TopLogicException(I18NConstants.ERROR_NOT_RUNNING);
+		}
+		return stack.pressProgrammingButton();
+	}
+
+	/**
+	 * Whether the interface routes frames to the device at its current address (its line, or its
+	 * area for an area coupler): a device that took an address on another line cannot be reached.
+	 */
+	public boolean reachable() {
+		return DeviceStack.routes(_serverAddress, _device.address());
 	}
 
 	/**

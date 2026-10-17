@@ -104,6 +104,8 @@ public class VirtualInterfaceManager {
 		all.put(HEADER_INTERFACE, endpoint.toString());
 		all.put(HEADER_TRANSPORT, timing.describe());
 		all.put(HEADER_STARTED, Instant.now().toString());
+		// Where the values the project does not hold come from (the substitutes).
+		all.putAll(device.notes());
 		all.putAll(header);
 		TraceRecorder recorder;
 		try {

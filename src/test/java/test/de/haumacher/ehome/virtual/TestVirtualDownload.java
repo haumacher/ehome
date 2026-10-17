@@ -256,7 +256,7 @@ public class TestVirtualDownload extends BasicTestCase {
 		return plan.getUnloadedBlocks().stream().anyMatch(b -> b.contains(address));
 	}
 
-	private static TLObject importProject(String sample) throws Exception {
+	static TLObject importProject(String sample) throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
 		importSample(sample);
 		List<TLObject> projects = new ArrayList<>(instances("ehome.project:Project"));
@@ -265,14 +265,14 @@ public class TestVirtualDownload extends BasicTestCase {
 		return projects.get(0);
 	}
 
-	private static void delete(TLObject project) throws Exception {
+	static void delete(TLObject project) throws Exception {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			project.tDelete();
 			tx.commit();
 		}
 	}
 
-	private static TLObject device(TLObject project, int address) {
+	static TLObject device(TLObject project, int address) {
 		for (TLObject device : devices(project)) {
 			if (Integer.valueOf(address & 0xFF).equals(device.tValueByName("address"))
 				&& DeviceConfiguration.program(device) != null) {

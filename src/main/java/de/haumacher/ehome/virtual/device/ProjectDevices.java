@@ -4,6 +4,8 @@
 package de.haumacher.ehome.virtual.device;
 
 import java.util.Arrays;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Objects;
 
 import com.top_logic.basic.util.ResKey;
@@ -40,11 +42,20 @@ import de.haumacher.ehome.virtual.device.SimulatedDevice.LoadControlKind;
  * objects 0 to 4, the manufacturer of the program (device object, property 12), and the hardware
  * type (device object, property 78) - the program's static value for that property if it has one,
  * else the value its load procedure compares the property with (<code>CompareProp</code>): the
- * hardware the program declares it runs on.</li>
+ * hardware the program declares it runs on; the serial number (property 11) of the project device
+ * (<code>serialNumber</code>, ETS's base64 form); the device control (property 14) and the maximum
+ * APDU length (property 56).</li>
  * </ul>
  * <p>
- * Everything else a tool may read (serial number, security, ...) is not known and answered as not
- * present.
+ * The values the project does not hold are substitutes, each named with its source in the notes of
+ * the device (the header of the trace): a serial number of the program's manufacturer with the
+ * number of the MDT actuator 1.3.5 of the test system, the device control 00 and the maximum APDU
+ * length 47 that this actuator answers (read on 2026-10-18; the Gira Tastsensor 1.3.50 answers the
+ * same device control and has no property 56). These are the properties ETS 6 reads before a
+ * download (<code>src/test/fixtures/ets-traces/ets6-download-1.3.5.txt</code>).
+ * </p>
+ * <p>
+ * Everything else a tool may read (security, ...) is not known and answered as not present.
  * </p>
  */
 public class ProjectDevices {
@@ -54,6 +65,18 @@ public class ProjectDevices {
 
 	/** The masks of BIM M112 whose load state machines are controlled through memory. */
 	private static final int[] MEMORY_MAPPED_MASKS = { 0x0700, 0x0701 };
+
+	/** The number of the serial number substitute after the manufacturer: the one of the MDT actuator 1.3.5 of the test system. */
+	private static final byte[] SUBSTITUTE_SERIAL = { 0x65, (byte) 0xAE, (byte) 0xF0, 0x6D };
+
+	/** The device control substitute: nothing set (no verify mode), as the test system's devices answer. */
+	private static final byte SUBSTITUTE_DEVICE_CONTROL = 0x00;
+
+	/** The maximum APDU length substitute, as the MDT actuator 1.3.5 of the test system answers. */
+	private static final int SUBSTITUTE_MAX_APDU = 47;
+
+	/** The length of a serial number. */
+	private static final int SERIAL_LENGTH = 6;
 
 	/** The length of the hardware type (PDT_GENERIC_06). */
 	private static final int HARDWARE_TYPE_LENGTH = 6;
@@ -95,8 +118,62 @@ public class ProjectDevices {
 			if (hardware != null) {
 				result.initProperty(0, SimulatedDevice.PID_HARDWARE_TYPE, hardware);
 			}
+			deviceObject(result, id, device.tValueByName("serialNumber"));
 		}
 		return result;
+	}
+
+	/**
+	 * The serial number, device control and maximum APDU length of the device object, each noted with
+	 * its source.
+	 *
+	 * @param applicationId
+	 *        The application ID of the program, starting with the manufacturer (2 bytes).
+	 * @param serialNumber
+	 *        The serial number of the project device in ETS's form (base64 of 6 bytes),
+	 *        <code>null</code> if it has none.
+	 */
+	public static void deviceObject(SimulatedDevice device, byte[] applicationId, Object serialNumber) {
+		byte[] serial = serial(serialNumber);
+		String subject = "property 0/" + SimulatedDevice.PID_SERIAL_NUMBER;
+		if (serial != null) {
+			device.note(subject, "serial number " + serialText(serial) + " from the project");
+		} else {
+			serial = new byte[SERIAL_LENGTH];
+			System.arraycopy(applicationId, 0, serial, 0, 2);
+			System.arraycopy(SUBSTITUTE_SERIAL, 0, serial, 2, SUBSTITUTE_SERIAL.length);
+			device.note(subject, "serial number " + serialText(serial)
+				+ ", a substitute: the project has none (or none readable); the manufacturer of the program with the number of the MDT actuator 1.3.5 of the test system");
+		}
+		device.initProperty(0, SimulatedDevice.PID_SERIAL_NUMBER, serial);
+		device.initProperty(0, SimulatedDevice.PID_DEVICE_CONTROL, new byte[] { SUBSTITUTE_DEVICE_CONTROL });
+		device.note("property 0/" + SimulatedDevice.PID_DEVICE_CONTROL, String.format(
+			"device control %02X, a substitute: as the devices of the test system answer (no verify mode until a tool sets it)",
+			SUBSTITUTE_DEVICE_CONTROL));
+		device.initProperty(0, SimulatedDevice.PID_MAX_APDU_LENGTH,
+			new byte[] { (byte) (SUBSTITUTE_MAX_APDU >>> 8), (byte) SUBSTITUTE_MAX_APDU });
+		device.note("property 0/" + SimulatedDevice.PID_MAX_APDU_LENGTH, "max APDU length " + SUBSTITUTE_MAX_APDU
+			+ ", a substitute: as the MDT actuator 1.3.5 of the test system answers (the interface itself announces 15)");
+	}
+
+	private static byte[] serial(Object stored) {
+		if (!(stored instanceof String text) || text.isBlank()) {
+			return null;
+		}
+		try {
+			byte[] result = Base64.getDecoder().decode(text.strip());
+			return result.length == SERIAL_LENGTH ? result : null;
+		} catch (IllegalArgumentException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * A serial number as KNX writes it: <code>0083:65AEF06D</code>.
+	 */
+	public static String serialText(byte[] serial) {
+		String hex = HexFormat.of().withUpperCase().formatHex(serial);
+		return hex.substring(0, 4) + ":" + hex.substring(4);
 	}
 
 	/**

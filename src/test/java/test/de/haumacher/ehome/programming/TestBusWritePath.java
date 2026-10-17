@@ -43,6 +43,11 @@ public class TestBusWritePath extends TestCase {
 					if (file.getFileName().toString().equals(CalimeroWriter.class.getSimpleName() + ".java")) {
 						continue;
 					}
+					if (virtualDeviceTest(file)) {
+						// A programming tool's session against the virtual device (haumacher/ehome #35):
+						// the tests of that package reach only the loopback address (VirtualTesting).
+						continue;
+					}
 					if (WRITES.matcher(source).find()) {
 						offenders.add(file.toString());
 					}
@@ -50,6 +55,14 @@ public class TestBusWritePath extends TestCase {
 			}
 		}
 		assertEquals("Calimero writes outside CalimeroWriter", List.of(), offenders);
+	}
+
+	/**
+	 * Whether the file is a test of the virtual device, which acts as a programming tool against a
+	 * virtual interface on the loopback address only ({@link test.de.haumacher.ehome.virtual.VirtualTesting}).
+	 */
+	private static boolean virtualDeviceTest(Path file) {
+		return file.toString().replace('\\', '/').startsWith("src/test/java/test/de/haumacher/ehome/virtual/");
 	}
 
 	/**

@@ -93,6 +93,31 @@ public record TraceEntry(Instant time, Direction direction, int source, int dest
 	/** Event: a connect of another partner while a connection is open; refused with a disconnect. */
 	public static final String TL_REJECTED = "TL_Rejected";
 
+	/**
+	 * Event: the programming mode of the device switched (field {@link #MODE}, <code>on</code> or
+	 * <code>off</code>, and {@link #REASON}: the button, a restart).
+	 */
+	public static final String DEV_PROGRAMMING_MODE = "DEV_ProgrammingMode";
+
+	/**
+	 * Event: the device took a new individual address (fields {@link #INDIVIDUAL}, the new one,
+	 * {@link #PREVIOUS} and {@link #REASON}); it is the device's address on the virtual bus from
+	 * then on, the project is not changed.
+	 */
+	public static final String DEV_ADDRESS_CHANGED = "DEV_AddressChanged";
+
+	/** Field: the programming mode, <code>on</code> or <code>off</code>. */
+	public static final String MODE = "mode";
+
+	/** Field: the individual address before a change. */
+	public static final String PREVIOUS = "previous";
+
+	/** Field: the key of A_Authorize_Request (hexadecimal). */
+	public static final String KEY = "key";
+
+	/** Field: the access level of A_Authorize_Response. */
+	public static final String LEVEL = "level";
+
 	/** Field: the number of a repetition. */
 	public static final String REPEAT = "repeat";
 
@@ -161,6 +186,18 @@ public record TraceEntry(Instant time, Direction direction, int source, int dest
 
 	/** Service: restart. */
 	public static final String RESTART = "A_Restart";
+
+	/** Service: read the individual addresses of the devices in programming mode (broadcast). */
+	public static final String INDIVIDUAL_ADDRESS_READ = "A_IndividualAddress_Read";
+
+	/** Service: the individual address of a device in programming mode (broadcast, the address is the sender). */
+	public static final String INDIVIDUAL_ADDRESS_RESPONSE = "A_IndividualAddress_Response";
+
+	/** Service: authorize with a key (field {@link #KEY}). */
+	public static final String AUTHORIZE_REQUEST = "A_Authorize_Request";
+
+	/** Service: the access level granted (field {@link #LEVEL}). */
+	public static final String AUTHORIZE_RESPONSE = "A_Authorize_Response";
 
 	/** Service: write the individual address (broadcast). */
 	public static final String INDIVIDUAL_ADDRESS_WRITE = "A_IndividualAddress_Write";

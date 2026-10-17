@@ -33,6 +33,7 @@ import de.haumacher.ehome.virtual.device.ProjectDevices;
 import de.haumacher.ehome.virtual.device.SimulatedDevice;
 import de.haumacher.ehome.virtual.server.VirtualInterface;
 import de.haumacher.ehome.virtual.server.VirtualInterface.Endpoint;
+import de.haumacher.ehome.virtual.trace.TraceFormat;
 import de.haumacher.ehome.virtual.trace.TraceStore;
 import de.haumacher.ehome.virtual.trace.TraceStore.TraceInfo;
 
@@ -71,6 +72,16 @@ public class VirtualFunctions extends GenericMethod {
 		virtualStopVeto(0, 1, true),
 		/** <code>virtualStop()</code>: stops the virtual interface; the result is the status. */
 		virtualStop(0, 1, false),
+		/**
+		 * <code>virtualProgramming(refresh?)</code>: what the programming mode of the running device
+		 * means, for a person; <code>null</code> if it is off or no virtual interface runs.
+		 */
+		virtualProgramming(0, 1, true),
+		/**
+		 * <code>virtualProgrammingButton()</code>: presses the programming button of the running device
+		 * (programming mode on, or off if it is on); the result is the status.
+		 */
+		virtualProgrammingButton(0, 1, false),
 		/**
 		 * <code>virtualTraces(refresh?)</code>: the recorded traces, the newest first, as rows with
 		 * <code>name</code>, <code>device</code>, <code>mask</code>, <code>interface</code>,
@@ -153,6 +164,22 @@ public class VirtualFunctions extends GenericMethod {
 				}
 				manager.stop();
 				return status(manager);
+			case virtualProgramming: {
+				VirtualInterface running = manager.running();
+				if (running == null || !running.device().programmingMode()) {
+					return null;
+				}
+				return text(I18NConstants.STATUS_PROGRAMMING_MODE__ADDRESS
+					.fill(TraceFormat.individual(running.device().address())));
+			}
+			case virtualProgrammingButton: {
+				VirtualInterface running = manager.running();
+				if (running == null) {
+					throw new TopLogicException(I18NConstants.ERROR_NOT_RUNNING);
+				}
+				running.pressProgrammingButton();
+				return status(manager);
+			}
 			case virtualTraces:
 				return traces(manager.traces());
 			case virtualTraceFile:
@@ -213,8 +240,19 @@ public class VirtualFunctions extends GenericMethod {
 		if (running == null) {
 			return text(I18NConstants.STATUS_STOPPED);
 		}
-		return text(I18NConstants.STATUS_RUNNING__NAME_ENDPOINT_DEVICE_SERVICES.fill(running.name(),
-			running.endpoint().toString(), running.device().name(), Integer.valueOf(running.recorder().size())));
+		SimulatedDevice device = running.device();
+		String result = text(I18NConstants.STATUS_RUNNING__NAME_ENDPOINT_DEVICE_SERVICES.fill(running.name(),
+			running.endpoint().toString(), device.name(), Integer.valueOf(running.recorder().size())));
+		if (device.address() != device.initialAddress()) {
+			String address = TraceFormat.individual(device.address());
+			String initial = TraceFormat.individual(device.initialAddress());
+			result += " " + text(I18NConstants.STATUS_ADDRESS_CHANGED__ADDRESS_PROJECT.fill(address, initial));
+			if (!running.reachable()) {
+				result += " " + text(I18NConstants.STATUS_ADDRESS_UNREACHABLE__ADDRESS_COUPLER.fill(address,
+					TraceFormat.individual(running.serverAddress())));
+			}
+		}
+		return result;
 	}
 
 	private static List<Map<String, Object>> traces(TraceStore store) {
