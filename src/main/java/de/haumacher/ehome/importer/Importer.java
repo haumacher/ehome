@@ -105,6 +105,11 @@ public class Importer {
 	private BufferingI18NLog _messages = new BufferingI18NLog();
 
 	/**
+	 * The languages of the application programs the last import read.
+	 */
+	private ProgramLanguages _programLanguages = new ProgramLanguages();
+
+	/**
 	 * The project password for the current import, <code>null</code> if none was given.
 	 */
 	private String _password;
@@ -381,6 +386,8 @@ public class Importer {
 			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)).tee(_messages), _binding)) {
 			MasterDataUpdates updates = new MasterDataUpdates(_binding);
 			importContext.set(MasterDataUpdates.PROPERTY, updates);
+			_programLanguages = new ProgramLanguages();
+			importContext.set(ProgramLanguages.PROPERTY, _programLanguages);
 			importETS(zip, importContext, handler, productData);
 			updates.apply(importContext);
 		}
@@ -411,6 +418,15 @@ public class Importer {
 	 */
 	public List<TLObject> getCreated(String typeName) {
 		return ofType(_binding.getCreated(), typeName);
+	}
+
+	/**
+	 * The languages the last import added to the texts of known application programs (the
+	 * languages a program imported earlier did not have), per program; programs without a new
+	 * language are left out (haumacher/ehome #38).
+	 */
+	public Map<TLObject, Set<Locale>> getAddedLanguages() {
+		return _programLanguages.getAdded();
 	}
 
 	/**

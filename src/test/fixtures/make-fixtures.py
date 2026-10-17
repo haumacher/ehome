@@ -90,6 +90,17 @@ writes a project (schema 23, haumacher/ehome #32), with artificial content marke
 The test builds the protected variants (the project part as P-01A0.zip, AES and password, or plain)
 from this file with zip4j.
 
+TestLanguagesA.knxprod and TestLanguagesB.knxprod: product files holding the master data (trimmed) and
+two artificial programs of the BCU 1 kind (as in TestBcu1.knxproj), marked as test data by their
+names, without catalog and hardware (haumacher/ehome #38). Each program is written once in German
+(DefaultLanguage de-DE, with a de-DE translation of every text equal to it, as Test.knxproj writes its
+program) and once in English (DefaultLanguage en-US, with de-DE translations giving the same German
+texts, and en-US translations equal to the English texts but one: the parameter "Delay" is translated
+as "Switch-on delay"). TestLanguagesA holds M-0008_A-FFF3-01-0000 in German and M-0008_A-FFF4-01-0000
+in English, TestLanguagesB the other way round: importing A, then B imports each program in one of
+the two orders, the German file first (B adds the English texts) or the English one first (B adds
+nothing).
+
 TestMasterDataOld.knxproj and TestMasterDataNew.knxproj: master data only (knx_master.xml, no
 manufacturer, no project), of the artificial versions 1001 and 1002, for the mask versions by the
 version of their master data (haumacher/ehome #34). They hold the medium TP and two artificial mask
@@ -418,6 +429,56 @@ def bcu1_program(program, number, name, with_data):
         + '</ParameterBlock></Channel></Dynamic>\n'
         '</ApplicationProgram>\n</ApplicationPrograms></Manufacturer></ManufacturerData>\n</KNX>\n')
     return xml.replace('{p}', program)
+
+
+# The programs of TestLanguagesA/B: (ID, application number, German name, English name).
+LANGUAGE_PROGRAMS = [
+    ('M-0008_A-FFF3-01-0000', 65523, 'TEST: Sprachen 1 (künstliche Testdaten)', 'TEST: languages 1 (artificial test data)'),
+    ('M-0008_A-FFF4-01-0000', 65524, 'TEST: Sprachen 2 (künstliche Testdaten)', 'TEST: languages 2 (artificial test data)'),
+]
+
+# The English texts of the BCU 1 program, by its German texts.
+ENGLISH_TEXTS = {'Aus': 'Off', 'Schalten': 'Switching', 'Treppenlicht': 'Staircase lighting', 'Unverändert': 'Unchanged',
+    'Ein': 'On', 'Betriebsart': 'Operating mode', 'Verzögerung': 'Delay', 'Verhalten': 'Behaviour', 'Zeit': 'Time',
+    'Rückmeldung': 'Feedback', 'Wert': 'Value', 'Kanal A': 'Channel A', 'Allgemein': 'General'}
+
+# The en-US translations of the English file that differ from its texts.
+ENGLISH_TRANSLATIONS = {'Delay': 'Switch-on delay'}
+
+
+def language_program(program, number, german, english, in_english):
+    """A BCU 1 program written in German or in English, with its Languages section."""
+    xml = bcu1_program(program, number, german, False)
+    texts = []
+    for match in re.finditer(r'<(\w+) ([^>]*?)/?>', xml):
+        attributes = dict(re.findall(r'(\w+)="([^"]*)"', match.group(2)))
+        if 'Id' in attributes:
+            for name in ('Name', 'Text') if match.group(1) == 'ApplicationProgram' else ('Text',):
+                if name in attributes:
+                    texts.append((attributes['Id'], name, attributes[name]))
+    english_of = dict(ENGLISH_TEXTS, **{german: english})
+
+    def translations(identifier, text_of):
+        return ('<Language Identifier="' + identifier + '"><TranslationUnit RefId="' + program + '" Version="0">'
+            + ''.join('<TranslationElement RefId="' + ident + '"><Translation AttributeName="' + name + '" Text="'
+                + text_of(text) + '" /></TranslationElement>' for ident, name, text in texts)
+            + '</TranslationUnit></Language>')
+
+    if in_english:
+        xml = re.sub(r' Text="([^"]*)"', lambda m: ' Text="' + english_of[m.group(1)] + '"', xml)
+        xml = replace_once(xml, 'Name="' + german + '"', 'Name="' + english + '"')
+        xml = replace_once(xml, 'DefaultLanguage="de-DE"', 'DefaultLanguage="en-US"')
+        languages = (translations('de-DE', lambda text: text)
+            + translations('en-US', lambda text: ENGLISH_TRANSLATIONS.get(english_of[text], english_of[text])))
+    else:
+        languages = translations('de-DE', lambda text: text)
+    return replace_once(xml, '</ApplicationPrograms>', '</ApplicationPrograms><Languages>' + languages + '</Languages>')
+
+
+def languages_fixture(target, english):
+    """TestLanguagesA/B: the master data and the language programs, those named in English."""
+    write(target, unchanged, [('M-0008/' + program + '.xml', language_program(program, number, german, en, program in english))
+        for program, number, german, en in LANGUAGE_PROGRAMS], keep=lambda name: name == 'knx_master.xml')
 
 
 def bcu1_hardware(xml):
@@ -845,5 +906,7 @@ write('src/test/fixtures/TestBcu1.knxproj', bcu1,
     [('M-0008/' + program + '.xml', bcu1_program(program, number, name, with_data))
      for program, _, number, name, with_data in BCU1_PROGRAMS])
 write('src/test/fixtures/TestEts6.knxproj', ets6, rename=ets6_name, master=('MV-FFF0', 'DPT-10', 'DPT-20'))
+languages_fixture('src/test/fixtures/TestLanguagesA.knxprod', {LANGUAGE_PROGRAMS[1][0]})
+languages_fixture('src/test/fixtures/TestLanguagesB.knxprod', {LANGUAGE_PROGRAMS[0][0]})
 master_data_only('src/test/fixtures/TestMasterDataOld.knxproj', 1001, False)
 master_data_only('src/test/fixtures/TestMasterDataNew.knxproj', 1002, True)

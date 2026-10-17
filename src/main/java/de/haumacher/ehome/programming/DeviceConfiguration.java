@@ -62,9 +62,122 @@ import de.haumacher.ehome.model.operational.VoidType;
  */
 public class DeviceConfiguration {
 
+	/**
+	 * The parts of a program's structure a {@link DeviceConfiguration} reads, each read once: the
+	 * contents of the fragments, the inputs and cases of the switches, the parameters and the
+	 * defaults of the placements.
+	 *
+	 * <p>
+	 * Shared by the configurations computed one after the other while only the values of a device
+	 * change (the read-back's search of values, which computes the configuration after every move):
+	 * reading the model is what a configuration costs. A {@link Structure} must not outlive a change
+	 * of the program.
+	 * </p>
+	 */
+	public static final class Structure {
+
+		/** A switch with its input and cases. */
+		private record SwitchInfo(ParameterView input, List<Case> alternatives, List<String> patterns,
+				List<Boolean> defaults) {
+			// Value.
+		}
+
+		private final Map<ConfigFragment, List<Option>> _contents = new HashMap<>();
+
+		private final Map<Switch, SwitchInfo> _switches = new HashMap<>();
+
+		private final Map<ParameterView, Parameter> _parameters = new HashMap<>();
+
+		private final Map<ParameterView, String> _defaults = new HashMap<>();
+
+		/**
+		 * The object an option refers to: the port of a placed object, the placement of a shared one,
+		 * the title of a block.
+		 */
+		private final Map<Option, Object> _refs = new HashMap<>();
+
+		/** The encoded default of a placement: {@link ParameterEncoding.Bits}, {@link #NO_BITS} or the
+		 * {@link IllegalArgumentException} of its encoding. */
+		private final Map<ParameterView, Object> _defaultBits = new HashMap<>();
+
+		private static final Object NO_BITS = new Object();
+
+		ParameterEncoding.Bits defaultBits(ParameterView view, Program program) {
+			Object result = _defaultBits.get(view);
+			if (result == null) {
+				Parameter parameter = parameter(view);
+				try {
+					ParameterEncoding.Bits bits =
+						ParameterEncoding.encode(parameter.getType(), defaultHolder(view), program);
+					result = bits == null ? NO_BITS : bits;
+				} catch (IllegalArgumentException ex) {
+					result = ex;
+				}
+				_defaultBits.put(view, result);
+			}
+			if (result instanceof IllegalArgumentException ex) {
+				throw new IllegalArgumentException(ex.getMessage(), ex);
+			}
+			return result == NO_BITS ? null : (ParameterEncoding.Bits) result;
+		}
+
+		private Object ref(Option option) {
+			Object result = _refs.get(option);
+			if (result == null && !_refs.containsKey(option)) {
+				if (option instanceof Interface placed) {
+					result = placed.getPort();
+				} else if (option instanceof SharedPlacement shared) {
+					result = shared.getPlaced();
+				} else if (option instanceof ParameterGroup group) {
+					result = group.getInput();
+				}
+				_refs.put(option, result);
+			}
+			return result;
+		}
+
+		List<Option> contents(ConfigFragment fragment) {
+			return _contents.computeIfAbsent(fragment, f -> new ArrayList<>(f.getContents()));
+		}
+
+		Parameter parameter(ParameterView view) {
+			Parameter result = _parameters.get(view);
+			if (result == null && !_parameters.containsKey(view)) {
+				result = view.getParameter();
+				_parameters.put(view, result);
+			}
+			return result;
+		}
+
+		String defaultValue(ParameterView view) {
+			String result = _defaults.get(view);
+			if (result == null && !_defaults.containsKey(view)) {
+				result = ParameterValues.encode(defaultHolder(view));
+				_defaults.put(view, result);
+			}
+			return result;
+		}
+
+		private SwitchInfo info(Switch choice) {
+			return _switches.computeIfAbsent(choice, c -> {
+				List<Case> alternatives = new ArrayList<>(c.getAlternatives());
+				List<String> patterns = new ArrayList<>();
+				List<Boolean> defaults = new ArrayList<>();
+				for (Case alternative : alternatives) {
+					patterns.add(alternative.getPattern());
+					defaults.add(Boolean.valueOf(alternative.getIsDefault()));
+				}
+				return new SwitchInfo(c.getInput(), alternatives, patterns, defaults);
+			});
+		}
+
+	}
+
 	private final TLObject _device;
 
 	private final Program _program;
+
+	private final Structure _structure;
 
 	private final Map<ParameterView, TLObject> _settings = new HashMap<>();
 
@@ -73,6 +186,8 @@ public class DeviceConfiguration {
 	private final Map<Port, Interface> _activeInterfaces = new LinkedHashMap<>();
 
 	private final List<Case> _selectedCases = new ArrayList<>();
+
+	private final List<Switch> _switches = new ArrayList<>();
 
 	private final Map<Object, Set<ConfigFragment>> _pages = new HashMap<>();
 
@@ -84,7 +199,16 @@ public class DeviceConfiguration {
 	 * Creates the {@link DeviceConfiguration} of the given device.
 	 */
 	public DeviceConfiguration(TLObject device) {
+		this(device, new Structure());
+	}
+
+	/**
+	 * Creates the {@link DeviceConfiguration} of the given device, reading the program's structure
+	 * through the given {@link Structure}.
+	 */
+	public DeviceConfiguration(TLObject device, Structure structure) {
 		_device = device;
+		_structure = structure;
 		_program = program(device);
 		for (Object setting : (Collection<?>) device.tValueByName("settings")) {
 			TLObject value = (TLObject) setting;
@@ -176,7 +300,8 @@ public class DeviceConfiguration {
 	 * The effective value of the given placement in ETS notation, <code>null</code> if it has none.
 	 */
 	public String value(ParameterView view) {
-		return ParameterValues.encode(valueHolder(view));
+		TLObject setting = _settings.get(view);
+		return setting != null ? ParameterValues.encode(setting) : _structure.defaultValue(view);
 	}
 
 	/**
@@ -196,24 +321,25 @@ public class DeviceConfiguration {
 	}
 
 	private void walk(ConfigFragment fragment, Object page) {
-		for (Option option : fragment.getContents()) {
+		for (Option option : _structure.contents(fragment)) {
 			walk(option, page);
 		}
 	}
 
 	private void walk(Option option, Object page) {
-		if (option instanceof SharedPlacement shared) {
+		if (option instanceof SharedPlacement) {
 			// A further place of a reference placed elsewhere: the reference, at this place.
-			if (shared.getPlaced() != null) {
-				walk(shared.getPlaced(), page);
+			if (_structure.ref(option) instanceof Option placed) {
+				walk(placed, page);
 			}
 		} else if (option instanceof ParameterView view) {
 			addView(view);
 			addItem(page, view);
 		} else if (option instanceof Interface placed) {
-			_activeInterfaces.putIfAbsent(placed.getPort(), placed);
+			_activeInterfaces.putIfAbsent((Port) _structure.ref(placed), placed);
 			addItem(page, placed);
 		} else if (option instanceof Switch choice) {
+			_switches.add(choice);
 			Case selected = select(choice);
 			if (selected != null) {
 				_selectedCases.add(selected);
@@ -226,10 +352,10 @@ public class DeviceConfiguration {
 				_parents.put(fragment, page);
 				inner = fragment;
 			}
-			if (option instanceof ParameterGroup group && group.getInput() != null) {
+			if (option instanceof ParameterGroup && _structure.ref(option) instanceof ParameterView input) {
 				// The parameter a block shows as its title is in effect with the block.
-				addView(group.getInput());
-				addItem(inner, group.getInput());
+				addView(input);
+				addItem(inner, input);
 			}
 			walk(fragment, inner);
 		}
@@ -245,7 +371,7 @@ public class DeviceConfiguration {
 	}
 
 	private void addView(ParameterView view) {
-		Parameter parameter = view.getParameter();
+		Parameter parameter = _structure.parameter(view);
 		if (parameter != null) {
 			_activeViews.putIfAbsent(parameter, view);
 		}
@@ -257,6 +383,44 @@ public class DeviceConfiguration {
 	 */
 	public List<Case> getSelectedCases() {
 		return Collections.unmodifiableList(_selectedCases);
+	}
+
+	/**
+	 * The binary form of the effective value of the given placement for the device, see
+	 * {@link ParameterEncoding#encode(de.haumacher.ehome.model.operational.ParameterType, TLObject, Program)}
+	 * (the encoding of a default is computed once per {@link Structure}).
+	 *
+	 * @throws IllegalArgumentException
+	 *         If the value cannot be encoded.
+	 */
+	public ParameterEncoding.Bits encode(ParameterView view) {
+		TLObject setting = _settings.get(view);
+		if (setting != null) {
+			return ParameterEncoding.encode(_structure.parameter(view).getType(), setting, _program);
+		}
+		return _structure.defaultBits(view, _program);
+	}
+
+	/**
+	 * The input of the given switch (read through the {@link Structure}).
+	 */
+	public ParameterView input(Switch choice) {
+		return _structure.info(choice).input();
+	}
+
+	/**
+	 * The parameter of the given placement (read through the {@link Structure}).
+	 */
+	public Parameter parameter(ParameterView view) {
+		return _structure.parameter(view);
+	}
+
+	/**
+	 * The switches in effect: those on the pages and in the cases taken, in the order of the
+	 * structure.
+	 */
+	public List<Switch> getActiveSwitches() {
+		return Collections.unmodifiableList(_switches);
 	}
 
 	/**
@@ -415,14 +579,16 @@ public class DeviceConfiguration {
 	 * value of the switch's input, else the default case; <code>null</code> if none.
 	 */
 	public Case select(Switch choice) {
-		String value = choice.getInput() == null ? null : value(choice.getInput());
+		Structure.SwitchInfo info = _structure.info(choice);
+		String value = info.input() == null ? null : value(info.input());
 		Case fallback = null;
-		for (Case alternative : choice.getAlternatives()) {
-			if (alternative.getPattern() != null && matches(alternative.getPattern(), value)) {
-				return alternative;
+		for (int n = 0, cnt = info.alternatives().size(); n < cnt; n++) {
+			String pattern = info.patterns().get(n);
+			if (pattern != null && matches(pattern, value)) {
+				return info.alternatives().get(n);
 			}
-			if (alternative.getIsDefault() && fallback == null) {
-				fallback = alternative;
+			if (info.defaults().get(n).booleanValue() && fallback == null) {
+				fallback = info.alternatives().get(n);
 			}
 		}
 		return fallback;

@@ -72,12 +72,16 @@ the engine's XML import (`com.top_logic.xio`) cannot do yet:
   data for `<versioned-master-data>`). **When available:** use the engine handler.
 - TL #29797: import into existing data. Workarounds: `Importer.registerSharedObjects()` registers
   the shared objects under their `extId`; `<unless-known>` (`UnlessKnown`) skips known application
-  programs; `<versioned-master-data>` (`VersionedMasterData`, `MasterDataUpdates`, `ObjectMerge`)
+  programs, except for the texts of the languages a known program lacks (`texts="translations"`,
+  `ProgramLanguages`, `TranslationsImport#importBaseTexts`, #38: ETS writes a program in the language
+  of the installation exporting it); `<versioned-master-data>` (`VersionedMasterData`, `MasterDataUpdates`, `ObjectMerge`)
   imports a known mask version as a transient candidate (`JoiningModelBinding#setTransient`) and, at
   the end of the import, updates the known one in place from it (newer master data) or compares and
   warns (older or the same); `<translations>` (`TranslationsImport`) reads the `Languages` sections and ignores
   unknown IDs. **When available:** declare the lookup in `etsImporter.xml`, and express the
-  translations with `<with-var>`, `<object-ref>` (optional), `<switch>` and `<set-translation>`.
+  translations with `<with-var>`, `<object-ref>` (optional), `<switch>` and `<set-translation>`; the
+  texts of a known program need a way to import the attributes of a known element without its
+  structure, and a condition on the languages the known object records.
 - TL #29880: `<dispatch>` skips an unknown element and its subtree silently, so a construct of a newer
   KNX schema vanishes without a message (found with the ETS 6 import, #32). No workaround: new
   constructs were found by comparing element paths by hand (`doc/knx/schema-coverage.md`).

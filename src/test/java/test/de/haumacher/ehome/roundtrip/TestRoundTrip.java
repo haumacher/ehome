@@ -14,10 +14,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import junit.framework.Test;
 
@@ -27,6 +30,8 @@ import test.com.top_logic.knowledge.KBSetup;
 
 import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.logging.Level;
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKeyUtil;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.objects.KnowledgeItem;
@@ -60,11 +65,14 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * </p>
  *
  * <p>
- * A sample must be imported into a database holding no shared data but its own (see
- * {@link #clearData()}), which costs the import of its programs. The samples are therefore checked
- * once per class, in a fixed order, the first test running them all ({@link #GROUPS}); each test
- * reports the result of its sample. It is the longest test of the suite, beyond the budget of a
- * test class (5 s): two deletions of the shared data and the imports of the programs of the samples
+ * The samples are imported one after the other into a database emptied once (see
+ * {@link #clearData()}), in a fixed order ({@link #SAMPLES}), the first test running them all; each
+ * test reports the result of its sample. A sample whose application program is known already from an
+ * earlier sample exports the program as it is stored: with the definition of the file that brought
+ * it first, and the texts of the languages the later file added (haumacher/ehome #38). Of the file
+ * of such a program only the texts of the added languages are compared (see
+ * {@link #ownDifferences(List, Importer)}). It is the longest test of the suite, beyond the budget of
+ * a test class (5 s): a deletion of the shared data and the imports of the programs of the samples
  * into the emptied database.
  * </p>
  */
@@ -86,19 +94,31 @@ public class TestRoundTrip extends BasicTestCase {
 	private static final String TESTSYSTEM = "samples/KNX-Testsystem.knxproj";
 
 	/**
-	 * The samples, in groups imported into a database emptied before each group. The samples of a
-	 * group hold the same shared data: <code>Test.knxproj</code> and <code>KNX-Testsystem.knxproj</code>
-	 * have the same master data and the same files of the manufacturer M-0008 (catalog, hardware and
-	 * the program of the Tastsensor), so the second finds its shared data as an import into an empty
-	 * database creates it. The demo holds the same program from a different file. The last group
-	 * leaves the shared data of the two first samples, which most tests import.
+	 * The samples, in the order of their import into a database emptied before the first.
+	 * <code>Test.knxproj</code> and <code>KNX-Testsystem.knxproj</code> have the same master data and
+	 * the same files of the manufacturer M-0008 (catalog, hardware and the program of the
+	 * Tastsensor), so the second finds its shared data as an import into an empty database creates
+	 * it. The demo holds the same programs from files of another ETS installation: the Tastsensor's
+	 * in English with German translations, where the test system's is German only. It adds the
+	 * English texts to the known program, and its older master data leave the known mask versions as
+	 * they are.
 	 */
-	private static final List<List<String>> GROUPS = List.of(List.of(DEMO), List.of(TEST, TESTSYSTEM));
+	private static final List<String> SAMPLES = List.of(TEST, TESTSYSTEM, DEMO);
+
+	/**
+	 * The program of the Tastsensor, which all samples hold.
+	 */
+	private static final String TASTSENSOR = "M-0008_A-10D7-11-A0E5-O000A";
 
 	/**
 	 * The failure of the round trip of each sample, <code>null</code> before the first test ran them.
 	 */
 	private static Map<String, Throwable> _failures;
+
+	/**
+	 * The languages the import of each sample added to known programs, by the program's ID.
+	 */
+	private static Map<String, Map<String, Set<String>>> _added = new TreeMap<>();
 
 	public void testTest() throws Throwable {
 		check(TEST);
@@ -108,26 +128,58 @@ public class TestRoundTrip extends BasicTestCase {
 		check(DEMO);
 	}
 
+	/**
+	 * The demo, imported after the Tastsensor's program is known in German only, adds the English
+	 * texts and keeps the German ones (haumacher/ehome #38).
+	 */
+	public void testDemoAddsEnglish() throws Throwable {
+		check(DEMO);
+		assertEquals(Map.of(TASTSENSOR, Set.of("en")), _added.get(DEMO));
+		assertEquals(Map.of(), _added.get(TESTSYSTEM));
+
+		TLObject program = shared("ehome.operational:Program", TASTSENSOR);
+		// German from Test.knxproj (the demo writes "komfort").
+		assertTexts("Tastsensor 3 Komfort 3fach 10D711", "Push button sensor 3 comfort 3-gang 10D711",
+			program, "name");
+		assertTexts("Kanal 1 oder Kanal 2", "Channel 1 or channel 2",
+			shared("ehome.operational:EnumerationValue", TASTSENSOR + "_PT-2Kanal.5FBedienkonzept_EN-0"), "name");
+		TLObject function = shared("ehome.operational:Interface", TASTSENSOR + "_O-0_R-1031");
+		assertTexts("Kanal 1 Schalten", "Channel 1 switching", function, "function");
+		assertTexts("Wippe 1", "Rocker 1", shared("ehome.operational:Interface", TASTSENSOR + "_O-0_R-1662"), "name");
+		assertTexts("Funktion_SNST", "SNST_function",
+			shared("ehome.operational:ParameterView", TASTSENSOR + "_P-147_R-231"), "description");
+	}
+
+	private static TLObject shared(String type, String extId) {
+		List<TLObject> result = instances(type).stream().filter(obj -> extId.equals(obj.tValueByName("extId"))).toList();
+		assertEquals(extId, 1, result.size());
+		return result.get(0);
+	}
+
+	private static void assertTexts(String german, String english, TLObject obj, String attribute) {
+		ResKey value = (ResKey) obj.tValueByName(attribute);
+		assertEquals(german, ResKeyUtil.getTranslation(value, Locale.GERMAN));
+		assertEquals(english, ResKeyUtil.getTranslation(value, Locale.ENGLISH));
+	}
+
 	public void testTestsystem() throws Throwable {
 		check(TESTSYSTEM);
 	}
 
-	private void check(String sample) throws Throwable {
+	private void check(String name) throws Throwable {
 		if (_failures == null) {
 			Map<String, Throwable> failures = new TreeMap<>();
-			for (List<String> group : GROUPS) {
-				clearData();
-				for (String member : group) {
-					try {
-						roundTrip(member);
-					} catch (Throwable ex) {
-						failures.put(member, ex);
-					}
+			clearData();
+			for (String sample : SAMPLES) {
+				try {
+					roundTrip(sample);
+				} catch (Throwable ex) {
+					failures.put(sample, ex);
 				}
 			}
 			_failures = failures;
 		}
-		Throwable failure = _failures.get(sample);
+		Throwable failure = _failures.get(name);
 		if (failure != null) {
 			throw failure;
 		}
@@ -137,13 +189,15 @@ public class TestRoundTrip extends BasicTestCase {
 		byte[] original = Files.readAllBytes(Path.of(sample));
 		List<TLObject> projects = new ArrayList<>();
 		try {
-			TLObject first = importProject(original, projects);
+			Importer importer = importArchive(original, projects);
+			_added.put(sample, added(importer));
+			TLObject first = projects.get(projects.size() - 1);
 			byte[] exported = export(first);
 			String name = Path.of(sample).getFileName().toString().replace(".knxproj", "");
 			Files.createDirectories(OUTPUT);
 			Files.write(OUTPUT.resolve(name + ".knxproj"), exported);
 
-			List<KnxprojDiff.Difference> differences = diff(original, exported);
+			List<KnxprojDiff.Difference> differences = ownDifferences(diff(original, exported), importer);
 			String summary = KnxprojDiff.summary(differences, 3);
 			Files.writeString(OUTPUT.resolve(name + "-diff.txt"), summary + "\n" + all(differences),
 				StandardCharsets.UTF_8);
@@ -160,6 +214,51 @@ public class TestRoundTrip extends BasicTestCase {
 				tx.commit();
 			}
 		}
+	}
+
+	/**
+	 * The differences of a sample's round trip without those in the files of application programs
+	 * known before its import, except for the texts of the languages the import added.
+	 *
+	 * <p>
+	 * A known program keeps the definition of the file it was imported from first (ETS installations
+	 * may write the same program differently: the Tastsensor's of the demo has other German texts,
+	 * other names of two communication objects, and leaves out defaults that of the test system
+	 * writes), and gains the texts of the languages it lacked (haumacher/ehome #38). Its own round
+	 * trip is checked with the sample that brought it.
+	 * </p>
+	 */
+	static List<KnxprojDiff.Difference> ownDifferences(List<KnxprojDiff.Difference> differences, Importer importer) {
+		Map<String, Set<String>> known = new HashMap<>();
+		Map<String, Set<String>> added = added(importer);
+		for (TLObject program : importer.getKnown("ehome.operational:Program")) {
+			String id = (String) program.tValueByName("extId");
+			known.put(id.substring(0, id.indexOf('_')) + "/" + id + ".xml", added.getOrDefault(id, Set.of()));
+		}
+		List<KnxprojDiff.Difference> result = new ArrayList<>();
+		for (KnxprojDiff.Difference difference : differences) {
+			Set<String> languages = known.get(difference.file());
+			if (languages == null || languages.stream().anyMatch(language -> difference.kind().startsWith("text ")
+				&& difference.kind().endsWith("(" + language + ") differs"))) {
+				result.add(difference);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The languages the given import added to known programs, by the program's ID.
+	 */
+	private static Map<String, Set<String>> added(Importer importer) {
+		Map<String, Set<String>> result = new TreeMap<>();
+		for (Map.Entry<TLObject, Set<Locale>> entry : importer.getAddedLanguages().entrySet()) {
+			Set<String> languages = new TreeSet<>();
+			for (Locale locale : entry.getValue()) {
+				languages.add(locale.getLanguage());
+			}
+			result.put((String) entry.getKey().tValueByName("extId"), languages);
+		}
+		return result;
 	}
 
 	/**
@@ -200,12 +299,11 @@ public class TestRoundTrip extends BasicTestCase {
 	 *
 	 * <p>
 	 * The shared data is imported once and reused by later imports (by its IDs); a program known
-	 * from another sample keeps the texts and names of the file it was first imported from (ETS
-	 * writes the texts of a program in the language of its installation), newer master data update
-	 * the mask versions, and the export writes every known subtype of a datapoint type it uses. The
-	 * round trip of a sample therefore needs the shared data of that sample alone. The other tests
-	 * delete only their projects (see <code>SharedData</code>); they must not rely on shared data
-	 * imported by an earlier test.
+	 * from another sample keeps the definition of the file it was first imported from, newer master
+	 * data update the mask versions, and the export writes every known subtype of a datapoint type it
+	 * uses. The round trip of the samples therefore starts from no shared data, in the order of
+	 * {@link #SAMPLES}. The other tests delete only their projects (see <code>SharedData</code>);
+	 * they must not rely on shared data imported by an earlier test.
 	 * </p>
 	 */
 	static void clearData() throws Exception {
@@ -254,6 +352,15 @@ public class TestRoundTrip extends BasicTestCase {
 	 * Imports the given archive and returns the project it created, adding it to the given list.
 	 */
 	public static TLObject importProject(byte[] archive, List<TLObject> projects) throws Exception {
+		importArchive(archive, projects);
+		return projects.get(projects.size() - 1);
+	}
+
+	/**
+	 * Imports the given archive, adding the project it created to the given list, and returns the
+	 * importer, which tells what the import found known.
+	 */
+	public static Importer importArchive(byte[] archive, List<TLObject> projects) throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		Importer importer = new Importer(new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false));
@@ -271,7 +378,7 @@ public class TestRoundTrip extends BasicTestCase {
 			assertFalse(ResourcesModule.getInstance().getBundle(Locale.ENGLISH).getString(entry.getMessage()),
 				entry.getLevel().is(Level.ERROR));
 		}
-		return created.get(0);
+		return importer;
 	}
 
 	/**

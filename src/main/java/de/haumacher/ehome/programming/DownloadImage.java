@@ -102,6 +102,14 @@ public class DownloadImage {
 	}
 
 	/**
+	 * Computes the image of the device of the given configuration, which must describe the device's
+	 * current settings (saves walking the program's structure again).
+	 */
+	public static DownloadImage compute(DeviceConfiguration configuration) {
+		return new DownloadImageBuilder(configuration).build();
+	}
+
+	/**
 	 * The individual address of a device (<code>ehome.physical:Device</code>): area, line and device
 	 * number in 4, 4 and 8 bits; <code>null</code> if one of them is missing.
 	 */

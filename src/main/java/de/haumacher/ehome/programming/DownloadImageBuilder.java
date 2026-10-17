@@ -106,10 +106,14 @@ class DownloadImageBuilder {
 	private final Set<Segment> _combined = new HashSet<>();
 
 	DownloadImageBuilder(TLObject device) {
-		_device = device;
-		_configuration = new DeviceConfiguration(device);
+		this(new DeviceConfiguration(device));
+	}
+
+	DownloadImageBuilder(DeviceConfiguration configuration) {
+		_device = configuration.getDevice();
+		_configuration = configuration;
 		_program = _configuration.getProgram();
-		_image = new DownloadImage(describe(device));
+		_image = new DownloadImage(describe(_device));
 	}
 
 	DownloadImage build() {
@@ -206,7 +210,7 @@ class DownloadImageBuilder {
 			}
 			ParameterEncoding.Bits bits;
 			try {
-				bits = ParameterEncoding.encode(parameter.getType(), _configuration.valueHolder(entry.getValue()), _program);
+				bits = _configuration.encode(entry.getValue());
 			} catch (IllegalArgumentException ex) {
 				_image.addProblem("Parameter " + label(parameter) + ": " + ex.getMessage());
 				continue;

@@ -694,8 +694,8 @@
 								<tag name="ApplicationPrograms">
 									<dispatch>
 										<tag name="ApplicationProgram">
-											<!-- An application program never changes under its ID, which includes its version. -->
-											<unless-known id-attribute="Id">
+											<!-- An application program never changes under its ID, which includes its version; a known one gains the texts of the languages it lacks. -->
+											<unless-known id-attribute="Id" texts="translations">
 												<default-language>
 													<object model-type="ehome.operational:Program" id-attribute="Id" var="program">
 														<linking>

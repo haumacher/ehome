@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -27,6 +28,14 @@ import com.top_logic.util.Resources;
  * manufacturer wrote first; so every file gets a fixed default language, and a translation is
  * written for each other application language whose text differs from the default one.
  * </p>
+ *
+ * <p>
+ * An application program records the languages of its texts (<code>Program#languages</code>, see
+ * <code>ProgramLanguages</code>); in another language, its text is a stand-in, the text of the base
+ * language of the file it was imported from. Its file is written with translations of its own
+ * languages only; if it lacks the application's fallback language, the attribute holds the stand-in
+ * text of that language, which is the base text of the original file.
+ * </p>
  */
 final class Texts {
 
@@ -36,6 +45,11 @@ final class Texts {
 	private static final Map<String, String> IDENTIFIERS = Map.of("de", "de-DE", "en", "en-US");
 
 	private final String _defaultLanguage;
+
+	/**
+	 * The languages the texts are written in, <code>null</code> for all application languages.
+	 */
+	private final Set<String> _languages;
 
 	/** Language identifier to translation unit to element ID to attribute name and text pairs. */
 	private final Map<String, Map<String, Map<String, List<String[]>>>> _translations = new LinkedHashMap<>();
@@ -47,7 +61,20 @@ final class Texts {
 	 * (<code>de</code> or <code>en</code>).
 	 */
 	Texts(String defaultLanguage) {
+		this(defaultLanguage, null);
+	}
+
+	/**
+	 * Creates a {@link Texts} for a file whose texts are written in the given language, with
+	 * translations into the given languages only.
+	 *
+	 * @param languages
+	 *        The languages of the texts (of an application program), <code>null</code> or empty for
+	 *        all application languages.
+	 */
+	Texts(String defaultLanguage, Set<String> languages) {
 		_defaultLanguage = defaultLanguage;
+		_languages = languages == null || languages.isEmpty() ? null : languages;
 	}
 
 	/**
@@ -78,15 +105,12 @@ final class Texts {
 		if (texts.isEmpty()) {
 			return null;
 		}
-		String text = texts.get(_defaultLanguage);
-		if (text == null) {
-			text = texts.values().iterator().next();
-		}
+		String text = baseText(texts);
 		String id = Values.extId(obj);
 		for (Map.Entry<String, String> entry : texts.entrySet()) {
 			String identifier = IDENTIFIERS.get(entry.getKey());
-			if (identifier == null || entry.getKey().equals(_defaultLanguage) || entry.getValue().equals(text)
-				|| id == null) {
+			if (identifier == null || entry.getValue().equals(text) || id == null
+				|| (_languages != null && !_languages.contains(entry.getKey()))) {
 				continue;
 			}
 			_translations.computeIfAbsent(identifier, x -> new LinkedHashMap<>())
@@ -106,7 +130,25 @@ final class Texts {
 		if (texts.isEmpty()) {
 			return null;
 		}
-		String text = texts.get(_defaultLanguage);
+		return baseText(texts);
+	}
+
+	/**
+	 * The text of an attribute: the one of the default language; of a program lacking the
+	 * application's fallback language, the stand-in in that language (the base text of the original
+	 * file); else the first.
+	 */
+	private String baseText(Map<String, String> texts) {
+		String text = null;
+		if (_languages != null) {
+			String fallback = ResourcesModule.getInstance().getFallbackLocale().getLanguage();
+			if (!_languages.contains(fallback)) {
+				text = texts.get(fallback);
+			}
+		}
+		if (text == null) {
+			text = texts.get(_defaultLanguage);
+		}
 		return text != null ? text : texts.values().iterator().next();
 	}
 

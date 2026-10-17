@@ -222,18 +222,6 @@ public class InstallationBuilder {
 	}
 
 	/**
-	 * Whether the project has a group address with the given value.
-	 */
-	public static boolean hasGroupAddress(TLObject project, int value) {
-		for (TLObject address : DeviceSettings.groupAddresses(project)) {
-			if (address.tValueByName("address") instanceof GA ga && ga.getValue() == value) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
 	 * The group address of the project with the given value, created where the project has none:
 	 * in the group range taking it, or in ranges created for it (named by their prefix), in the
 	 * notation of the project. A new address is named by its address.

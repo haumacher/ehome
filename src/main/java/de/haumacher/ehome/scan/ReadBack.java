@@ -361,9 +361,10 @@ public class ReadBack {
 	public static Report apply(TLObject device, Memory memory) {
 		Program program = DeviceConfiguration.program(device);
 		List<String> problems = new ArrayList<>(memory.notes());
-		List<String> inferred = parametersWithoutMemory(device, program, memory, links(memory, new ArrayList<>()).keySet(),
+		Decoder decoder = new Decoder(device, program, memory);
+		List<String> inferred = parametersWithoutMemory(decoder, links(memory, new ArrayList<>()).keySet(),
 			unloaded(device), problems);
-		for (Map.Entry<Parameter, String> failure : parameters(device, program, memory, problems).entrySet()) {
+		for (Map.Entry<Parameter, String> failure : parameters(decoder, problems).entrySet()) {
 			problems.add("Parameter " + failure.getKey().getName() + " (" + failure.getKey().getExtId() + "): "
 				+ failure.getValue() + ".");
 		}
@@ -410,73 +411,195 @@ public class ReadBack {
 	}
 
 	/**
+	 * What the memory read holds for a parameter: its bits, the value they decode to, or why the
+	 * parameter cannot be decoded. Depends on the memory and the program only, so it is computed
+	 * once per parameter.
+	 *
+	 * @param skip
+	 *        Whether the parameter has nothing to decode: no place, no type, no value, or a place in
+	 *        memory not loaded.
+	 * @param failure
+	 *        Why the parameter cannot be read, <code>null</code> if it can.
+	 * @param size
+	 *        The size of its values in bits.
+	 * @param actual
+	 *        The bits at its place.
+	 * @param value
+	 *        The value the bits decode to.
+	 * @param valueFailure
+	 *        Why the bits decode to no value, <code>null</code> if they do.
+	 */
+	private record Reading(boolean skip, String failure, int size, BigInteger actual, Object value,
+			String valueFailure) {
+
+		static final Reading SKIP = new Reading(true, null, 0, null, null, null);
+
+		static Reading failure(String failure) {
+			return new Reading(false, failure, 0, null, null, null);
+		}
+	}
+
+	/**
+	 * The decoding of the memory read from a device, kept over the many configurations the search for
+	 * the values of the parameters without memory tries: the program's structure is read once (see
+	 * {@link DeviceConfiguration.Structure}), each parameter's place in memory once, and a placement
+	 * whose value was found to match the memory is not encoded again while it keeps that value.
+	 */
+	private static final class Decoder {
+
+		final TLObject _device;
+
+		final Program _program;
+
+		final Memory _memory;
+
+		final DeviceConfiguration.Structure _structure = new DeviceConfiguration.Structure();
+
+		private final boolean _littleEndian;
+
+		private final Map<Parameter, Reading> _readings = new HashMap<>();
+
+		/** The value (ETS notation) of a placement whose encoding equals the memory. */
+		private final Map<ParameterView, String> _verified = new HashMap<>();
+
+		Decoder(TLObject device, Program program, Memory memory) {
+			_device = device;
+			_program = program;
+			_memory = memory;
+			_littleEndian = program.getParameterByteOrder() != null
+				&& "LittleEndian".equals(program.getParameterByteOrder().getName());
+		}
+
+		DeviceConfiguration configuration() {
+			return new DeviceConfiguration(_device, _structure);
+		}
+
+		Reading reading(Parameter parameter) {
+			Reading result = _readings.get(parameter);
+			if (result == null) {
+				result = read(parameter);
+				_readings.put(parameter, result);
+			}
+			return result;
+		}
+
+		private Reading read(Parameter parameter) {
+			Location location = parameter.getAddress();
+			ParameterType type = parameter.getType();
+			if (location == null || type == null || type instanceof VoidType) {
+				return Reading.SKIP;
+			}
+			int size = size(type);
+			if (size <= 0) {
+				return Reading.failure("the size of its type is not known");
+			}
+			BigInteger actual;
+			try {
+				actual = bits(location, parameter, size, _memory, _littleEndian);
+			} catch (IllegalArgumentException ex) {
+				return Reading.failure(ex.getMessage());
+			}
+			if (actual == null) {
+				return unloadedMemory(location, parameter, _memory) ? Reading.SKIP
+					: Reading.failure("its memory was not read");
+			}
+			try {
+				Object value = decode(type, new ParameterEncoding.Bits(size, actual),
+					ParameterEncoding.textEncoding(_program));
+				return new Reading(false, null, size, actual, value, null);
+			} catch (IllegalArgumentException ex) {
+				return new Reading(false, null, size, actual, null, ex.getMessage());
+			}
+		}
+
+		/**
+		 * Whether the value of the given placement in the given configuration is the one in memory.
+		 */
+		boolean matches(DeviceConfiguration configuration, Parameter parameter, ParameterView view, Reading reading) {
+			String text = configuration.value(view);
+			if (text != null && text.equals(_verified.get(view))) {
+				return true;
+			}
+			ParameterEncoding.Bits current;
+			try {
+				current = configuration.encode(view);
+			} catch (IllegalArgumentException ex) {
+				current = null;
+			}
+			if (current != null && current.size() == reading.size() && current.value().equals(reading.actual())) {
+				if (text != null) {
+					_verified.put(view, text);
+				}
+				return true;
+			}
+			return false;
+		}
+	}
+
+	/**
 	 * Decodes the values of the parameters in effect that lie in memory or properties, until the
 	 * parameters in effect no longer change.
 	 *
 	 * @return Why parameters could not be decoded, by parameter.
 	 */
-	private static Map<Parameter, String> parameters(TLObject device, Program program, Memory memory,
-			List<String> problems) {
-		boolean littleEndian = program.getParameterByteOrder() != null
-			&& "LittleEndian".equals(program.getParameterByteOrder().getName());
+	private static Map<Parameter, String> parameters(Decoder decoder, List<String> problems) {
+		return decodeParameters(decoder, problems).failures();
+	}
+
+	/**
+	 * The outcome of {@link ReadBack#decodeParameters(Decoder, List)}.
+	 *
+	 * @param failures
+	 *        Why parameters could not be decoded, by parameter.
+	 * @param configuration
+	 *        The configuration of the device after the decoding; <code>null</code> if it is to be
+	 *        computed again.
+	 */
+	private record Decoding(Map<Parameter, String> failures, DeviceConfiguration configuration) {
+		// Value.
+	}
+
+	/**
+	 * Decodes the values of the parameters in effect that lie in memory or properties, until the
+	 * parameters in effect no longer change, see {@link #parameters(Decoder, List)}.
+	 */
+	private static Decoding decodeParameters(Decoder decoder, List<String> problems) {
+		TLObject device = decoder._device;
 		Map<Parameter, String> failures = new LinkedHashMap<>();
+		DeviceConfiguration unchanged = null;
 		for (int pass = 0; pass < MAX_PASSES; pass++) {
-			DeviceConfiguration configuration = new DeviceConfiguration(device);
+			DeviceConfiguration configuration = decoder.configuration();
 			boolean changed = false;
 			failures.clear();
 			for (Map.Entry<Parameter, ParameterView> entry : configuration.getActiveViews().entrySet()) {
 				Parameter parameter = entry.getKey();
 				ParameterView view = entry.getValue();
-				Location location = parameter.getAddress();
-				ParameterType type = parameter.getType();
-				if (location == null || type == null || type instanceof VoidType) {
+				Reading reading = decoder.reading(parameter);
+				if (reading.skip()) {
 					continue;
 				}
-				int size = size(type);
-				if (size <= 0) {
-					failures.put(parameter, "the size of its type is not known");
+				if (reading.failure() != null) {
+					failures.put(parameter, reading.failure());
 					continue;
 				}
-				BigInteger actual;
-				try {
-					actual = bits(location, parameter, size, memory, littleEndian);
-				} catch (IllegalArgumentException ex) {
-					failures.put(parameter, ex.getMessage());
+				if (decoder.matches(configuration, parameter, view, reading)) {
 					continue;
 				}
-				if (actual == null) {
-					if (!unloadedMemory(location, parameter, memory)) {
-						failures.put(parameter, "its memory was not read");
-					}
-					continue;
-				}
-				ParameterEncoding.Bits current;
-				try {
-					current = ParameterEncoding.encode(type, configuration.valueHolder(view), program);
-				} catch (IllegalArgumentException ex) {
-					current = null;
-				}
-				if (current != null && current.size() == size && current.value().equals(actual)) {
-					continue;
-				}
-				Object value;
-				try {
-					value = decode(type, new ParameterEncoding.Bits(size, actual), ParameterEncoding.textEncoding(program));
-				} catch (IllegalArgumentException ex) {
-					failures.put(parameter, ex.getMessage());
+				if (reading.valueFailure() != null) {
+					failures.put(parameter, reading.valueFailure());
 					continue;
 				}
 				try {
-					DeviceSettings.restoreValue(device, view, value);
+					DeviceSettings.restoreValue(device, view, reading.value());
 					changed = true;
 				} catch (TopLogicException ex) {
 					failures.put(parameter, Resources.getInstance().getString(ex.getErrorKey()));
 				}
 			}
 			// A switch may read the parameter through another placement than the one in effect first.
-			for (Switch choice : activeSwitches(configuration, program)) {
-				ParameterView input = choice.getInput();
-				Parameter parameter = input == null ? null : input.getParameter();
+			for (Switch choice : configuration.getActiveSwitches()) {
+				ParameterView input = configuration.input(choice);
+				Parameter parameter = input == null ? null : configuration.parameter(input);
 				ParameterView first = parameter == null ? null : configuration.getActiveViews().get(parameter);
 				if (first == null || first == input || parameter.getAddress() == null) {
 					continue;
@@ -488,6 +611,7 @@ public class ReadBack {
 				}
 			}
 			if (!changed) {
+				unchanged = configuration;
 				break;
 			}
 			if (pass == MAX_PASSES - 1) {
@@ -496,15 +620,16 @@ public class ReadBack {
 		}
 
 		// Settings of parameters no longer in effect.
-		DeviceConfiguration configuration = new DeviceConfiguration(device);
+		DeviceConfiguration configuration = unchanged != null ? unchanged : decoder.configuration();
 		Set<Object> active = new HashSet<>(configuration.getActiveViews().keySet());
 		for (Object setting : new ArrayList<>((Collection<?>) device.tValueByName("settings"))) {
 			TLObject value = (TLObject) setting;
 			if (!(value.tValueByName("parameter") instanceof ParameterView view) || !active.contains(view.getParameter())) {
 				value.tDelete();
+				configuration = null;
 			}
 		}
-		return failures;
+		return new Decoding(failures, configuration);
 	}
 
 	/**
@@ -517,9 +642,10 @@ public class ReadBack {
 	 *
 	 * @return The values chosen, for a person.
 	 */
-	private static List<String> parametersWithoutMemory(TLObject device, Program program, Memory memory,
-			Set<Integer> associated, Set<Integer> unloaded, List<String> problems) {
-		Search search = new Search(device, program, memory, associated, unloaded, problems);
+	private static List<String> parametersWithoutMemory(Decoder decoder, Set<Integer> associated, Set<Integer> unloaded,
+			List<String> problems) {
+		TLObject device = decoder._device;
+		Search search = new Search(decoder, associated, unloaded, problems);
 		List<String> chosen = new ArrayList<>();
 		Fit fit = search.placeObjects(search.evaluate(), chosen);
 		for (int round = 0; round < MAX_PASSES && fit.score() > 0; round++) {
@@ -606,8 +732,9 @@ public class ReadBack {
 		}
 	}
 
-	private static Fit fit(TLObject device, Memory memory, Set<Integer> associated, int failures, Set<Integer> unloaded) {
-		DeviceConfiguration configuration = new DeviceConfiguration(device);
+	private static Fit fit(DeviceConfiguration configuration, Memory memory, Set<Integer> associated, int failures,
+			Set<Integer> unloaded) {
+		TLObject device = configuration.getDevice();
 		Set<Integer> active = new HashSet<>();
 		for (Port port : configuration.getActiveInterfaces().keySet()) {
 			active.add(port.getIndex());
@@ -621,7 +748,7 @@ public class ReadBack {
 			}
 		}
 		BitSet mismatch = new BitSet();
-		DownloadImage image = DownloadImage.compute(device);
+		DownloadImage image = DownloadImage.compute(configuration);
 		Block objectTable = image.getObjectTable();
 		ObjectTable table = ObjectTable.of(device, image);
 		for (Block block : image.getBlocks()) {
@@ -684,7 +811,7 @@ public class ReadBack {
 
 	/**
 	 * The search for the values of the parameters without memory, see
-	 * {@link ReadBack#parametersWithoutMemory(TLObject, Program, Memory, Set, Set, List)}.
+	 * {@link ReadBack#parametersWithoutMemory(Decoder, Set, Set, List)}.
 	 *
 	 * <p>
 	 * Only a value whose case holds evidence is tried: an associated object out of effect, or a
@@ -700,11 +827,22 @@ public class ReadBack {
 		/** The number of ways to a placement the search tries. */
 		private static final int MAX_PATHS = 4;
 
+		private final Decoder _decoder;
+
 		private final TLObject _device;
 
 		private final Program _program;
 
 		private final Memory _memory;
+
+		/** The communication objects of the program. */
+		private final List<Port> _ports;
+
+		/** The communication objects of the program by their numbers (the first of a number). */
+		private final Map<Integer, Port> _portByNumber = new HashMap<>();
+
+		/** The numbers of the communication objects. */
+		private final Map<Port, Integer> _numbers = new HashMap<>();
 
 		private final Set<Integer> _associated;
 
@@ -721,36 +859,43 @@ public class ReadBack {
 		/** Whether the parameters with memory are decoded for the current values. */
 		private boolean _decoded;
 
-		Search(TLObject device, Program program, Memory memory, Set<Integer> associated, Set<Integer> unloaded,
-				List<String> problems) {
-			_device = device;
-			_program = program;
-			_memory = memory;
+		/** The number of parameters in effect whose memory holds no value of their type, when decoded. */
+		private int _failures;
+
+		Search(Decoder decoder, Set<Integer> associated, Set<Integer> unloaded, List<String> problems) {
+			_decoder = decoder;
+			_device = decoder._device;
+			_program = decoder._program;
+			_memory = decoder._memory;
 			_associated = associated;
 			_unloaded = unloaded;
 			_problems = problems;
-			_objectTable = ObjectTable.of(device, DownloadImage.compute(device));
+			_objectTable = ObjectTable.of(_device, DownloadImage.compute(configuration()));
+			_ports = new ArrayList<>(_program.getPorts());
+			for (Port port : _ports) {
+				Integer number = Integer.valueOf(port.getIndex());
+				_numbers.put(port, number);
+				_portByNumber.putIfAbsent(number, port);
+			}
 		}
 
 		private DeviceConfiguration configuration() {
 			if (_configuration == null) {
-				_configuration = new DeviceConfiguration(_device);
+				_configuration = _decoder.configuration();
 			}
 			return _configuration;
 		}
 
 		List<Switch> switches() {
-			return activeSwitches(configuration(), _program);
+			return new ArrayList<>(configuration().getActiveSwitches());
 		}
 
 		/**
 		 * Decodes the parameters with memory for the current values and scores the outcome.
 		 */
 		Fit evaluate() {
-			int failures = parameters(_device, _program, _memory, _problems).size();
-			_configuration = null;
-			_decoded = true;
-			return fit(_device, _memory, _associated, failures, _unloaded);
+			decode();
+			return fit(configuration(), _memory, _associated, _failures, _unloaded);
 		}
 
 		/**
@@ -809,6 +954,7 @@ public class ReadBack {
 		private Fit tryValue(ParameterView input, Object entry, int depth, List<String> chosen) {
 			Set<Switch> before = new HashSet<>(switches());
 			DeviceSettings.restoreValue(_device, input, entry);
+			_configuration = null;
 			_decoded = false;
 			Fit fit = evaluate();
 			List<Switch> opened = new ArrayList<>(switches());
@@ -931,8 +1077,8 @@ public class ReadBack {
 		private List<Integer> badObjects(Fit fit) {
 			decode();
 			List<Integer> result = new ArrayList<>();
-			for (Port port : _program.getPorts()) {
-				int object = port.getIndex();
+			for (Port port : _ports) {
+				int object = _numbers.get(port).intValue();
 				boolean associated = _associated.contains(object);
 				boolean configDiffers = _objectTable != null && object < _objectTable.count()
 					&& fit.mismatch().get(_objectTable.configAddress(object));
@@ -993,20 +1139,32 @@ public class ReadBack {
 		}
 
 		private Port port(int object) {
-			for (Port port : _program.getPorts()) {
-				if (port.getIndex() == object) {
-					return port;
-				}
-			}
-			return null;
+			return _portByNumber.get(Integer.valueOf(object));
 		}
 
 		/**
 		 * Puts the given placement of a port into effect along the given way through the structure.
 		 */
 		private boolean place(Port port, Interface candidate, List<Step> path, List<String> moves) {
+			// The values without memory on the way are set at once, then decoded once: a switch with
+			// memory takes its case by the values decoded.
 			for (Step step : path) {
-				if (!select(step, moves)) {
+				ParameterView input = step.choice().getInput();
+				if (!withoutMemory(input)) {
+					continue;
+				}
+				EnumerationValue entry = entry(step);
+				if (entry == null) {
+					return false;
+				}
+				String current = ParameterValues.encode(DeviceConfiguration.valueHolder(_device, input));
+				if (caseFor(step.choice(), current) != step.alternative()) {
+					set(input, entry, moves);
+				}
+			}
+			decode();
+			for (Step step : path) {
+				if (configuration().select(step.choice()) != step.alternative()) {
 					return false;
 				}
 			}
@@ -1025,25 +1183,25 @@ public class ReadBack {
 		}
 
 		/**
-		 * Makes the switch of a step take its case.
+		 * Whether the given switch input is a parameter without memory, whose value the search chooses.
 		 */
-		private boolean select(Step step, List<String> moves) {
-			decode();
-			if (configuration().select(step.choice()) == step.alternative()) {
-				return true;
-			}
-			ParameterView input = step.choice().getInput();
-			if (input == null || input.getParameter() == null || input.getParameter().getAddress() != null
-				|| !(input.getParameter().getType() instanceof EnumerationType type)) {
-				return false;
-			}
+		private static boolean withoutMemory(ParameterView input) {
+			return input != null && input.getParameter() != null && input.getParameter().getAddress() == null
+				&& input.getParameter().getType() instanceof EnumerationType;
+		}
+
+		/**
+		 * The value of the input of the switch of a step (without memory) that takes the case of the
+		 * step, <code>null</code> if none does.
+		 */
+		private static EnumerationValue entry(Step step) {
+			EnumerationType type = (EnumerationType) step.choice().getInput().getParameter().getType();
 			for (EnumerationValue entry : type.getValues()) {
 				if (caseFor(step.choice(), Integer.toString(entry.getValue())) == step.alternative()) {
-					set(input, entry, moves);
-					return true;
+					return entry;
 				}
 			}
-			return false;
+			return null;
 		}
 
 		/**
@@ -1089,8 +1247,9 @@ public class ReadBack {
 			if (_decoded) {
 				return;
 			}
-			parameters(_device, _program, _memory, _problems);
-			_configuration = null;
+			Decoding decoding = decodeParameters(_decoder, _problems);
+			_failures = decoding.failures().size();
+			_configuration = decoding.configuration();
 			_decoded = true;
 		}
 
@@ -1243,43 +1402,28 @@ public class ReadBack {
 		 * Sets the values of the device back to a {@link #snapshot()}.
 		 */
 		private void restore(Map<ParameterView, Object> state) {
-			Map<ParameterView, Object> now = snapshot();
-			for (ParameterView view : now.keySet()) {
-				if (!state.containsKey(view)) {
-					DeviceSettings.restoreValue(_device, view, null);
+			Map<ParameterView, TLObject> now = new HashMap<>();
+			List<TLObject> removed = new ArrayList<>();
+			for (Object element : (Collection<?>) _device.tValueByName("settings")) {
+				TLObject setting = (TLObject) element;
+				if (setting.tValueByName("parameter") instanceof ParameterView view) {
+					if (state.containsKey(view)) {
+						now.put(view, setting);
+					} else {
+						removed.add(setting);
+					}
 				}
 			}
+			DeviceSettings.removeSettings(_device, removed);
 			for (Map.Entry<ParameterView, Object> entry : state.entrySet()) {
-				if (!java.util.Objects.equals(now.get(entry.getKey()), entry.getValue())) {
+				TLObject setting = now.get(entry.getKey());
+				Object value = setting == null ? null : ParameterValues.value(setting);
+				if (!java.util.Objects.equals(value, entry.getValue())) {
 					DeviceSettings.restoreValue(_device, entry.getKey(), entry.getValue());
 				}
 			}
 			_configuration = null;
 			_decoded = false;
-		}
-	}
-
-	/**
-	 * The switches in effect: those on the pages and in the cases taken, in the order of the
-	 * structure.
-	 */
-	private static List<Switch> activeSwitches(DeviceConfiguration configuration, Program program) {
-		List<Switch> result = new ArrayList<>();
-		collectSwitches(configuration, program, result);
-		return result;
-	}
-
-	private static void collectSwitches(DeviceConfiguration configuration, ConfigFragment fragment, List<Switch> result) {
-		for (Option option : fragment.getContents()) {
-			if (option instanceof Switch choice) {
-				result.add(choice);
-				Case selected = configuration.select(choice);
-				if (selected != null) {
-					collectSwitches(configuration, selected, result);
-				}
-			} else if (option instanceof ConfigFragment inner) {
-				collectSwitches(configuration, inner, result);
-			}
 		}
 	}
 
@@ -1475,6 +1619,12 @@ public class ReadBack {
 			ports.put(port.getIndex(), port);
 		}
 		TLObject project = project(device);
+		Map<Integer, TLObject> groupAddresses = new HashMap<>();
+		for (TLObject address : DeviceSettings.groupAddresses(device)) {
+			if (address.tValueByName("address") instanceof GA ga) {
+				groupAddresses.putIfAbsent(Integer.valueOf(ga.getValue()), address);
+			}
+		}
 		TLClassifier send = (TLClassifier) TLModelUtil.findPart("ehome.physical:ConnectionType#send");
 		TLClassifier receive = (TLClassifier) TLModelUtil.findPart("ehome.physical:ConnectionType#receive");
 
@@ -1514,13 +1664,14 @@ public class ReadBack {
 				if (existing.contains(entry.getKey() + "/" + addresses.get(k) + "/" + kind)) {
 					continue;
 				}
-				boolean known = InstallationBuilder.hasGroupAddress(project, addresses.get(k));
-				TLObject groupAddress = InstallationBuilder.groupAddress(project, addresses.get(k));
-				if (!known) {
+				TLObject groupAddress = groupAddresses.get(addresses.get(k));
+				if (groupAddress == null) {
+					groupAddress = InstallationBuilder.groupAddress(project, addresses.get(k));
+					groupAddresses.put(addresses.get(k), groupAddress);
 					created.add(String.valueOf(groupAddress.tValueByName("address")));
 				}
 				try {
-					DeviceSettings.connect(device, placed, groupAddress, k == 0 ? send : receive);
+					DeviceSettings.connect(configuration, placed, groupAddress, k == 0 ? send : receive);
 				} catch (TopLogicException ex) {
 					problems.add("Object " + entry.getKey() + ": " + Resources.getInstance().getString(ex.getErrorKey()));
 				}

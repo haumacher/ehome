@@ -176,7 +176,11 @@ public class TestDownloadImageProbe extends BasicTestCase {
 
 			Program program = factory.createProgram();
 			program.tUpdateByName("name", text("Probe program", "Probeprogramm"));
-			program.setMask(((Program) instances("ehome.operational:Program").get(0)).getMask());
+			// The mask of the program of the Test project (0705), whose tables the image writes; not
+			// any program's: the shared data hold masks with tables of other formats (the router's).
+			program.setMask(((Program) instances("ehome.operational:Program").stream()
+				.filter(p -> "M-0008_A-10D7-11-A0E5-O000A".equals(p.tValueByName("extId"))).findFirst().orElseThrow())
+				.getMask());
 			add(manufacturer, "programs", program);
 
 			CodeSegment segment = factory.createCodeSegment();

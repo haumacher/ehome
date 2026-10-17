@@ -29,6 +29,7 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.knx.ParameterValues;
 
 /**
@@ -40,10 +41,11 @@ final class ProgramExport {
 
 	private final TLObject _program;
 
-	private final Texts _texts = new Texts("de");
+	private final Texts _texts;
 
 	ProgramExport(TLObject program) {
 		_program = program;
+		_texts = new Texts("de", ProgramLanguages.languages(program));
 	}
 
 	void write(XmlOut out) throws XMLStreamException {

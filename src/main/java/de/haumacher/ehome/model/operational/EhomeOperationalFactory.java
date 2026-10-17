@@ -1881,6 +1881,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link Program#LANGUAGES_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getLanguagesProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.LANGUAGES_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#LOAD_PROCEDURE_STYLE_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getLoadProcedureStyleProgramAttr() {

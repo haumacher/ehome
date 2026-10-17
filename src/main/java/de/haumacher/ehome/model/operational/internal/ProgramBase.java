@@ -97,6 +97,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String KEEP_OBJECT_TABLE_GAPS_ATTR = "keepObjectTableGaps";
 
 	/**
+	 * Part <code>languages</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String LANGUAGES_ATTR = "languages";
+
+	/**
 	 * Part <code>loadProcedureStyle</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -427,6 +436,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setKeepObjectTableGaps(boolean newValue) {
 		tUpdateByName(KEEP_OBJECT_TABLE_GAPS_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #LANGUAGES_ATTR}.
+	 */
+	default String getLanguages() {
+		return (String) tValueByName(LANGUAGES_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #LANGUAGES_ATTR}.
+	 */
+	default void setLanguages(String newValue) {
+		tUpdateByName(LANGUAGES_ATTR, newValue);
 	}
 
 	/**

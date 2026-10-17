@@ -60,9 +60,9 @@ import de.haumacher.ehome.scan.ScanBus;
  * the devices were programmed from.
  *
  * <p>
- * The test takes longer than the budget of a test class (5 s): reading back the configuration of the
- * Tastsensor searches the values of its parameters without memory (<code>ReadBack.apply</code>,
- * several seconds for its program of 2187 parameters).
+ * Reading back the configuration of the Tastsensor searches the values of its parameters without
+ * memory (<code>ReadBack.apply</code>, about two seconds for its program of 2187 parameters,
+ * haumacher/ehome #37).
  * </p>
  */
 @SuppressWarnings("javadoc")

@@ -1781,6 +1781,15 @@
 				<property name="name"
 					type="tl.model.i18n:I18NString"
 				/>
+				<!--
+					The languages of the program's texts, as language codes separated by spaces (e.g. "de en"):
+					the base language and the translations of the file it was imported from, and the languages a
+					later file with the same program added. In another language, a text of the program is the one
+					of the base language. Empty for a program not imported from a file.
+				-->
+				<property name="languages"
+					type="tl.core:String"
+				/>
 				<reference name="manufacturer"
 					aggregate="true"
 					inverse-reference="programs"

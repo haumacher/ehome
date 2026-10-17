@@ -405,7 +405,19 @@ public class DeviceSettings {
 	 * @return The new connection (<code>ehome.physical:Connection</code>).
 	 */
 	public static TLObject connect(TLObject device, Interface placed, TLObject groupAddress, TLObject kind) {
-		DeviceConfiguration configuration = new DeviceConfiguration(device);
+		return connect(new DeviceConfiguration(device), placed, groupAddress, kind);
+	}
+
+	/**
+	 * Connects a communication object of the device of the given configuration to a group address,
+	 * see {@link #connect(TLObject, Interface, TLObject, TLObject)}.
+	 *
+	 * @param configuration
+	 *        The current configuration of the device (a connection does not change it).
+	 */
+	public static TLObject connect(DeviceConfiguration configuration, Interface placed, TLObject groupAddress,
+			TLObject kind) {
+		TLObject device = configuration.getDevice();
 		if (!configuration.getActiveInterfaces().containsKey(placed.getPort())) {
 			throw new TopLogicException(I18NConstants.ERROR_NOT_IN_CONFIGURATION__ELEMENT.fill(placed));
 		}
@@ -472,6 +484,20 @@ public class DeviceSettings {
 
 	private static TLClassifier kind(String name) {
 		return ((TLEnumeration) TLModelUtil.findType("ehome.physical:ConnectionType")).getClassifier(name);
+	}
+
+	/**
+	 * Removes settings of the device (<code>ehome.physical:ParameterSetting</code>): their placements
+	 * take their defaults again.
+	 */
+	public static void removeSettings(TLObject device, Collection<TLObject> settings) {
+		if (settings.isEmpty()) {
+			return;
+		}
+		for (TLObject setting : settings) {
+			setting.tDelete();
+		}
+		touch(device);
 	}
 
 	private static void touch(TLObject device) {
