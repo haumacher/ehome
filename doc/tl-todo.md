@@ -275,7 +275,9 @@ maps no control to the type `tl.core:Binary`, and the fallback builds a text dis
 input offers no download (and an editable one no upload).
 
 Workaround: the download dialog of the `.knxproj` export (`projects/export-knxproj.view.xml`) names
-the control explicitly (`<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>`).
+the control explicitly (`<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>`),
+as do the exports of a monitor recording (`projects/monitor-export.view.xml`) and of a trace of the
+virtual device (`virtual/export-trace.view.xml`).
 
 **When fixed:** remove the `<input-control>` from that `<value-input>`.
 
@@ -341,7 +343,15 @@ Workaround: `de.haumacher.ehome.monitor.WindowPublisher` calls that internal API
 session context, throttled to one update per 250 ms, and disconnects the monitor when the page is
 gone.
 
-**When available:** replace `WindowPublisher` by the layer's live-source element.
+The virtual device (`virtual/virtual-device.view.xml`) has the same need: its status and the number of
+services recorded change while a programming tool downloads into it. No workaround there: the view
+recomputes them when it is displayed and on its "Refresh" command, and its start and stop commands
+take a derived channel of the device and the last status as input, so that their executability is
+checked again after a start or stop (an `<executability>` rule cannot observe state outside the
+model).
+
+**When available:** replace `WindowPublisher` by the layer's live-source element, and let the virtual
+device's status follow the recording.
 
 ## A table row cannot carry a CSS class (TL #29815)
 

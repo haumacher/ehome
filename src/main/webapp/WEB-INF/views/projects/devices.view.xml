@@ -677,6 +677,21 @@
 											/>
 										</view-ref>
 									</tab>
+									<!-- Development tooling (haumacher/ehome #27): the virtual device, all of it in virtual/. -->
+									<tab id="virtual"
+										icon="css:bi bi-pc-display"
+									>
+										<label>
+											<en>Virtual device</en>
+											<de>Virtuelles Gerät</de>
+										</label>
+										<view-ref view="virtual/virtual-device.view.xml">
+											<bind
+												channel="device"
+												to="device"
+											/>
+										</view-ref>
+									</tab>
 								</tabs>
 							</tab-bar>
 						</case>

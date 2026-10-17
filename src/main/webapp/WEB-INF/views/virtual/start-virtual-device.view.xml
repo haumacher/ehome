@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog starting the virtual device of a device (virtual/virtual-device.view.xml): the local address
+	the virtual KNXnet/IP interface listens on (the options of knxNetworkInterfaces(), as in the gateway
+	search), its UDP port, whether it answers search requests, and for a device of mask 0700/0701 how
+	it answers the reads of its load states.
+
+	"model" is the map of the device ("device") and the status; "refresh" receives the new status.
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="refresh"/>
+		<channel name="networkInterface"/>
+		<channel name="localHost"/>
+		<channel name="port"/>
+		<channel name="noDiscovery"/>
+		<channel name="rule"/>
+	</channels>
+	<window width="700px">
+		<title>
+			<en>Start the virtual device</en>
+			<de>Virtuelles Gerät starten</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text tone="secondary">
+					<label>
+						<en>The virtual interface listens on a local address of this computer. A programming tool finds it by its name "E-Home virtual" followed by the address of the device. It never connects to a real bus or gateway.</en>
+						<de>Die virtuelle Schnittstelle wartet auf einer lokalen Adresse dieses Rechners. Ein Programmierwerkzeug findet sie unter dem Namen „E-Home virtual“ gefolgt von der Adresse des Geräts. Sie verbindet sich nie mit einem echten Bus oder Gateway.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						options="knxNetworkInterfaces()"
+						value="networkInterface"
+					>
+						<label>
+							<en>Network interface</en>
+							<de>Netzwerkschnittstelle</de>
+						</label>
+					</value-input>
+					<value-input
+						inputs="networkInterface"
+						options="networkInterface -> knxNetworkInterfaces(if($networkInterface == null, '', $networkInterface))"
+						value="localHost"
+					>
+						<label>
+							<en>Local address (IPv4)</en>
+							<de>Lokale Adresse (IPv4)</de>
+						</label>
+					</value-input>
+					<value-input
+						type="tl.core:Integer"
+						value="port"
+					>
+						<label>
+							<en>UDP port (3671 if empty)</en>
+							<de>UDP-Port (3671, wenn leer)</de>
+						</label>
+					</value-input>
+					<value-input
+						type="tl.core:Boolean"
+						value="noDiscovery"
+					>
+						<label>
+							<en>Do not answer search requests</en>
+							<de>Suchanfragen nicht beantworten</de>
+						</label>
+					</value-input>
+					<value-input
+						options="virtualRules()"
+						value="rule"
+					>
+						<label>
+							<en>Load states of mask 0700/0701 (echo if empty)</en>
+							<de>Ladezustände der Maske 0700/0701 (Echo, wenn leer)</de>
+						</label>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-play-circle"
+					input="model"
+				>
+					<label>
+						<en>Start</en>
+						<de>Starten</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<execute-script>
+						<function><![CDATA[h -> p -> r -> n -> m -> virtualStart($m["device"], $h, $p, $r, $n != true)]]></function>
+						<inputs>
+							<input channel="localHost"/>
+							<input channel="port"/>
+							<input channel="rule"/>
+							<input channel="noDiscovery"/>
+						</inputs>
+					</execute-script>
+					<write-channel name="refresh"/>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

@@ -80,8 +80,9 @@ contains, in order:
   belongs in every brief that touches shared objects (catalogs, programs, translations).
 - **The build discipline block** (the point is not wasting runs, not avoiding them):
   - The test gate is **one command and fast**: `./mvnw test -DskipTests=false` runs the whole
-    suite (`test.TestAll` plus the conformance checks) in **about 85 s** on an idle machine
-    (85 tests in October 2026; nearly every test class imports a sample). Concurrent Maven runs on
+    suite (`test.TestAll` plus the conformance checks) in **about 110 s** on an idle machine
+    (99 tests in October 2026, about 25 s of them the virtual device; nearly every test class
+    imports a sample). Concurrent Maven runs on
     the same machine roughly double that. If it suddenly takes minutes, check that the single-branch
     configuration is still in `metaConf.txt` (TL #29876). Run the full suite as the gate; while iterating on
     one area, `-Dtest=<Class>` is fine, but the gate before a commit is always the full suite. Without `-DskipTests=false` **nothing runs
@@ -229,7 +230,7 @@ user edited after the previous import.
 
 ```bash
 ./mvnw checkstyle:check                              # header, tabs, imports, braces
-./mvnw install -DskipTests=false                     # compile, full suite (~85 s of tests), app self-test
+./mvnw install -DskipTests=false                     # compile, full suite (~110 s of tests), app self-test
 git status --short                                   # only the files of this change; no .playwright-mcp, no tmp/
 ```
 

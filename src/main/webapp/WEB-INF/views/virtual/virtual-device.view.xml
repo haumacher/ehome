@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The virtual device of a device of a project (haumacher/ehome #27, tab "Virtual device" of
+	projects/devices.view.xml): a KNXnet/IP interface of E-Home whose KNX subnet holds only a simulated
+	copy of the device, configured from the project data, and nothing else - nothing is forwarded to a
+	bus. A programming tool (ETS) downloading into it is recorded service by service; each run of the
+	interface is a trace in the application's data directory, exported here as a file.
+
+	"device" is the device. The status and the traces are computed by the TL-Script functions of
+	de.haumacher.ehome.virtual.VirtualFunctions; they are not model data, so the commands write the new
+	status into "refresh", which every display reads. Only one virtual interface runs at a time; it is
+	stopped when the application shuts down (de.haumacher.ehome.virtual.VirtualInterfaces).
+-->
+<view>
+	<channels>
+		<channel name="device"/>
+		<channel name="refresh"/>
+		<channel name="selectedTrace"/>
+		<!-- The device together with the status, so that the commands are checked again after a start or stop. -->
+		<derived-channel name="state"
+			expr='d -> r -> {"device": $d, "status": $r}'
+			inputs="device, refresh"
+		/>
+		<derived-channel name="status"
+			expr="r -> virtualStatus($r)"
+			inputs="refresh"
+		/>
+	</channels>
+	<stack gap="default">
+		<panel>
+			<title>
+				<en>Virtual device</en>
+				<de>Virtuelles Gerät</de>
+			</title>
+			<commands>
+				<generic-command
+					image="css:bi bi-play-circle"
+					input="state"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Start virtual device</en>
+						<de>Virtuelles Gerät starten</de>
+					</label>
+					<executability>
+						<disabled-if expr='s -> virtualStartVeto($s["device"], $s["status"])'/>
+					</executability>
+					<open-dialog
+						bind-input-to="model"
+						dialog-view="virtual/start-virtual-device.view.xml"
+					>
+						<bind
+							channel="refresh"
+							to="refresh"
+						/>
+					</open-dialog>
+				</generic-command>
+				<generic-command
+					image="css:bi bi-stop-circle"
+					input="state"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Stop virtual device</en>
+						<de>Virtuelles Gerät anhalten</de>
+					</label>
+					<executability>
+						<disabled-if expr='s -> virtualStopVeto($s["status"])'/>
+					</executability>
+					<execute-script function="s -> virtualStop()"/>
+					<write-channel name="refresh"/>
+				</generic-command>
+				<generic-command
+					image="css:bi bi-arrow-clockwise"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Refresh</en>
+						<de>Aktualisieren</de>
+					</label>
+					<execute-script function="x -> virtualStatus()"/>
+					<write-channel name="refresh"/>
+				</generic-command>
+			</commands>
+			<inset>
+				<stack gap="compact">
+					<text input="status"/>
+					<text tone="helper"
+						variant="caption"
+					>
+						<label>
+							<en>A KNXnet/IP interface of E-Home whose bus holds only a simulated copy of this device: its address, its mask version, the static memory of its program. Nothing is forwarded to a real bus or gateway. Every service a programming tool sends to the device is recorded in a trace.</en>
+							<de>Eine KNXnet/IP-Schnittstelle von E-Home, an deren Bus nur eine simulierte Kopie dieses Geräts hängt: seine Adresse, seine Maskenversion, der statische Speicher seines Programms. Nichts wird an einen echten Bus oder ein Gateway weitergeleitet. Jeder Dienst, den ein Programmierwerkzeug an das Gerät sendet, wird in einer Aufzeichnung festgehalten.</de>
+						</label>
+					</text>
+				</stack>
+			</inset>
+		</panel>
+		<panel>
+			<title>
+				<en>Traces</en>
+				<de>Aufzeichnungen</de>
+			</title>
+			<commands>
+				<generic-command
+					image="css:bi bi-file-earmark-text"
+					input="selectedTrace"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Export the trace</en>
+						<de>Aufzeichnung exportieren</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<execute-script function="t -> virtualTraceFile($t)"/>
+					<open-dialog
+						bind-input-to="file"
+						dialog-view="virtual/export-trace.view.xml"
+					/>
+				</generic-command>
+			</commands>
+			<table selection="selectedTrace">
+				<inputs>
+					<input channel="refresh"/>
+				</inputs>
+				<columns>
+					<computed-column name="started"
+						type="tl.core:String"
+						width="230"
+					>
+						<label>
+							<en>Started (UTC)</en>
+							<de>Gestartet (UTC)</de>
+						</label>
+						<value>row -> $row["started"]</value>
+					</computed-column>
+					<computed-column name="device"
+						type="tl.core:String"
+						width="200"
+					>
+						<label>
+							<en>Device</en>
+							<de>Gerät</de>
+						</label>
+						<value>row -> $row["device"]</value>
+					</computed-column>
+					<computed-column name="project"
+						type="tl.core:String"
+						width="160"
+					>
+						<label>
+							<en>Project</en>
+							<de>Projekt</de>
+						</label>
+						<value>row -> $row["project"]</value>
+					</computed-column>
+					<computed-column name="mask"
+						type="tl.core:String"
+						width="80"
+					>
+						<label>
+							<en>Mask</en>
+							<de>Maske</de>
+						</label>
+						<value>row -> $row["mask"]</value>
+					</computed-column>
+					<computed-column name="interface"
+						type="tl.core:String"
+						width="170"
+					>
+						<label>
+							<en>Interface</en>
+							<de>Schnittstelle</de>
+						</label>
+						<value>row -> $row["interface"]</value>
+					</computed-column>
+					<computed-column name="services"
+						type="tl.core:Integer"
+						width="100"
+					>
+						<label>
+							<en>Services</en>
+							<de>Dienste</de>
+						</label>
+						<value>row -> $row["services"]</value>
+					</computed-column>
+					<computed-column name="name"
+						type="tl.core:String"
+						width="300"
+					>
+						<label>
+							<en>File</en>
+							<de>Datei</de>
+						</label>
+						<value>row -> $row["name"]</value>
+					</computed-column>
+				</columns>
+				<rows>r -> virtualTraces($r)</rows>
+			</table>
+		</panel>
+	</stack>
+</view>

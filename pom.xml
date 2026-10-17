@@ -34,6 +34,29 @@
 			<version>2.6</version>
 		</dependency>
 
+		<!--
+			The virtual device only (package de.haumacher.ehome.virtual, haumacher/ehome #27): the KNXnet/IP
+			server side of Calimero, same version and license (GPL 2.0 with Classpath Exception) as
+			calimero-core. Development tooling, to move into an optional module of its own.
+		-->
+		<dependency>
+			<groupId>com.github.calimero</groupId>
+			<artifactId>calimero-server</artifactId>
+			<version>2.6</version>
+			<exclusions>
+				<!-- TopLogic logs through log4j (log4j-slf4j2-impl is on the classpath). -->
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-simple</artifactId>
+				</exclusion>
+				<!-- Calimero logs through slf4j; this binding would redirect the JDK's platform logging of the whole application. -->
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-jdk-platform-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
     <dependency>
       <groupId>com.top-logic</groupId>
       <artifactId>tl-contact</artifactId>
