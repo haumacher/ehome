@@ -27,6 +27,7 @@ import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.virtual.VirtualTesting;
 
 import com.top_logic.basic.Logger;
@@ -69,6 +70,11 @@ import net.lingala.zip4j.io.inputstream.ZipInputStream;
  * <code>Options@DownloadInvisibleParameters="Background"</code>: with it, a communication object not
  * in effect keeps the configuration byte of the static data (without the communication flag), where
  * the ETS 4 edition's object gets the byte computed from its flags.
+ * </p>
+ *
+ * <p>
+ * The test takes longer than the budget of a test class (5 s): it imports the ETS 6 editions of the
+ * three programs of the test system (once per test run) and the master data of both exports twice.
  * </p>
  */
 @SuppressWarnings("javadoc")
@@ -179,7 +185,7 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 	 */
 	public void testProtected() throws Exception {
 		byte[] file = Files.readAllBytes(Path.of(PROTECTED));
-		Ets6Files.clearData();
+		List<TLObject> before = instances("ehome.project:Project");
 		try {
 			try {
 				Ets6Files.importFile(file, null);
@@ -193,9 +199,9 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 			} catch (TopLogicException ex) {
 				assertEquals(I18NConstants.ERROR_WRONG_PASSWORD__ENTRY.fill("P-0563.zip"), ex.getErrorKey());
 			}
-			assertEquals(0, instances("ehome.project:Project").size());
+			assertEquals(List.of(), SharedData.newProjects(before));
 		} finally {
-			Ets6Files.clearData();
+			SharedData.deleteProjects(SharedData.newProjects(before));
 		}
 
 		// The password of the archive is the one ETS 6 derives, not the project password itself.
@@ -216,8 +222,8 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 	 * other tests make anyway: the ETS 6 export (master data version 198) imported onto the ETS 4
 	 * export (version 92, see {@link #ets6Plans()}) updates MV-091A and the other mask versions its
 	 * master data define differently, so its plans are those of the (protected) ETS 6 export imported
-	 * into the empty database. The ETS 4 export imported onto that keeps them, warning about MV-091A,
-	 * and the plans of the ETS 6 project stay.
+	 * with the mask versions of its own master data only. The ETS 4 export imported onto that keeps
+	 * them, warning about MV-091A, and the plans of the ETS 6 project stay.
 	 */
 	public void testImportOrder() throws Exception {
 		Map<Integer, Plan> empty = protectedPlans();
@@ -252,7 +258,7 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 		}
 	}
 
-	/** The numbers of projects, devices and group addresses of the last import. */
+	/** The numbers of projects, devices and group addresses the last import created. */
 	record Counts(int projects, int devices, int groupAddresses) {
 		// Pure data.
 	}
@@ -261,12 +267,13 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 
 	/**
 	 * The plans from the two unprotected exports, computed once for all tests (a plan is pure data,
-	 * it outlives the emptied database).
+	 * it outlives the deleted projects).
 	 */
 	private static Map<Integer, Plan> _ets4Plans, _ets6Plans;
 
 	/**
-	 * The plans of the protected ETS 6 export imported into the empty database, and its counts.
+	 * The plans of the protected ETS 6 export imported with the mask versions of its own master data,
+	 * and its counts.
 	 */
 	private static Map<Integer, Plan> _protectedPlans;
 
@@ -283,7 +290,7 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 	private Map<Integer, Plan> ets4Plans() throws Exception {
 		if (_ets4Plans == null) {
 			_ets4Plans = plans(Files.readAllBytes(Path.of(ETS4)), null, first -> {
-				// The ETS 6 export onto the ETS 4 export, saving an import into the empty database.
+				// The ETS 6 export onto the ETS 4 export, saving a reset of the mask versions.
 				Importer importer = Ets6Files.importFile(Files.readAllBytes(Path.of(ETS6)), null);
 				assertEquals(List.of(), Ets6Files.errors(importer.getMessages()));
 				_ets6Plans = plans(devices(importer.getCreated("ehome.project:Project")));
@@ -314,7 +321,7 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 	}
 
 	/**
-	 * What is done in the database of an import before it is emptied again.
+	 * What is done in the database of an import before its projects are deleted again.
 	 */
 	interface FollowUp {
 		/**
@@ -346,32 +353,28 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 	}
 
 	/**
-	 * Imports the given project file into the emptied database and plans the full download of each
-	 * device, by its address on the line.
-	 */
-	private Map<Integer, Plan> plans(byte[] file, String password) throws Exception {
-		return plans(file, password, null);
-	}
-
-	/**
-	 * Imports the given project file into the emptied database and plans the full download of each
-	 * device, by its address on the line; then runs the given follow-up (if any) on that database.
+	 * Imports the given project file with the mask versions of its own master data (as into an empty
+	 * database, see {@link SharedData#resetMaskVersions(byte[])}) and plans the full download of each
+	 * device of the project, by its address on the line; then runs the given follow-up (if any) on
+	 * that database. The projects imported are deleted again; the shared data stays.
 	 */
 	private Map<Integer, Plan> plans(byte[] file, String password, FollowUp followUp) throws Exception {
-		Ets6Files.clearData();
+		List<TLObject> before = instances("ehome.project:Project");
+		SharedData.resetMaskVersions(file);
 		try {
 			Importer importer = Ets6Files.importFile(file, password);
 			assertEquals(List.of(), Ets6Files.errors(importer.getMessages()));
-			List<TLObject> devices = devices(instances("ehome.project:Project"));
-			_lastCounts = new Counts(instances("ehome.project:Project").size(), devices.size(),
-				instances("ehome.logical:GroupAddress").size());
+			List<TLObject> created = SharedData.newProjects(before);
+			List<TLObject> devices = devices(created);
+			_lastCounts = new Counts(created.size(), devices.size(),
+				SharedData.within("ehome.logical:GroupAddress", created).size());
 			Map<Integer, Plan> result = plans(devices);
 			if (followUp != null) {
 				followUp.run(importer);
 			}
 			return result;
 		} finally {
-			Ets6Files.clearData();
+			SharedData.deleteProjects(SharedData.newProjects(before));
 		}
 	}
 

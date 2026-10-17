@@ -77,10 +77,12 @@ public class TestProgramPagesProbe extends BasicTestCase {
 			// The sum of the placement counts is the number of parameter placements in the program,
 			// and a parameter placed nowhere is unplaced exactly when its count is zero.
 			int placements = 0;
+			// The unplaced parameters once: the list is computed and sorted on each call.
+			Set<Parameter> unplaced = new HashSet<>(pages.getUnplacedParameters());
 			for (Parameter parameter : program.getParameters()) {
 				int count = pages.placements(parameter);
 				placements += count;
-				assertEquals(parameter.getName(), count == 0, pages.getUnplacedParameters().contains(parameter));
+				assertEquals(parameter.getName(), count == 0, unplaced.contains(parameter));
 			}
 			assertEquals(placements, instances("ehome.operational:ParameterView").stream()
 				.filter(v -> program.getParameters().contains(((ParameterView) v).getParameter()))

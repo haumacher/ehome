@@ -5,10 +5,16 @@ package test.de.haumacher.ehome.importer;
 
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Stream;
 
 import junit.framework.Test;
@@ -54,23 +60,58 @@ import de.haumacher.ehome.model.operational.Program;
 
 /**
  * Test case for {@link Importer} importing the ETS sample project <code>samples/Test.knxproj</code>.
+ *
+ * <p>
+ * The test shares the database with the other tests of the suite, which may have imported the same
+ * shared data (master data, catalogs, programs) before: it checks the objects of the projects it
+ * imports, and the shared objects by the IDs the imported files define, and deletes its projects
+ * again (see {@link SharedData}).
+ * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestEtsImport extends BasicTestCase {
 
-	public void testImportSample() throws Exception {
-		importSample("samples/Test.knxproj");
+	private static final String TEST = "samples/Test.knxproj";
 
-		List<TLObject> projects = instances("ehome.project:Project");
-		assertEquals(1, projects.size());
-		TLObject project = projects.get(0);
+	private static final String DEMO = "samples/EHomeDemo.knxproj";
+
+	private static final String MASTER = "knx_master.xml";
+
+	/** The projects that existed before the test. */
+	private List<TLObject> _before;
+
+	/** The projects this test imported so far. */
+	private List<TLObject> _projects;
+
+	/** The project of the first import of the Test sample. */
+	private TLObject _first;
+
+	public void testImportSample() throws Exception {
+		_before = instances("ehome.project:Project");
+		try {
+			importSamples(_before);
+		} finally {
+			SharedData.deleteProjects(SharedData.newProjects(_before));
+		}
+	}
+
+	private void importSamples(List<TLObject> before) throws Exception {
+		// The mask versions as the sample's master data define them, whatever other tests imported
+		// before: the demo updates them (checkDemo).
+		SharedData.resetMaskVersions(Files.readAllBytes(Path.of(TEST)));
+		importSample(TEST);
+
+		_projects = SharedData.newProjects(before);
+		assertEquals(1, _projects.size());
+		TLObject project = _projects.get(0);
+		_first = project;
 		assertEquals("Test", project.tValueByName("name"));
 		assertEquals("P-01A0", project.tValueByName("extId"));
 		Object style = project.tValueByName("groupAddressStyle");
 		assertNotNull("Group address style not imported.", style);
 		assertEquals("ThreeLevel", ((TLClassifier) style).getName());
 
-		List<TLObject> addresses = instances("ehome.logical:GroupAddress");
+		List<TLObject> addresses = SharedData.within("ehome.logical:GroupAddress", _projects);
 		assertFalse("No group address imported.", addresses.isEmpty());
 		for (TLObject address : addresses) {
 			Object value = address.tValueByName("address");
@@ -92,24 +133,30 @@ public class TestEtsImport extends BasicTestCase {
 			assertInstanceof("Generated binding not used.", program, Program.class);
 		}
 
-		checkDatapointTypes(37, 273);
-		checkParameterSettings();
+		checkDatapointTypes(project, List.of(TEST));
+		checkParameterSettings(project);
 
 		// Further imports reuse the standardized datapoint types and add only those missing so far
 		// (the master data of the demo project is newer).
-		importSample("samples/EHomeDemo.knxproj");
-		checkDatapointTypes(38, 279);
+		importSample(DEMO);
+		checkDatapointTypes(project, List.of(TEST, DEMO));
 		TestDownloadDataImport.checkDemo();
-		importSample("samples/Test.knxproj");
-		assertEquals(3, instances("ehome.project:Project").size());
-		checkDatapointTypes(38, 279);
+		Map<String, Integer> shared = sharedCounts();
+		importSample(TEST);
+		_projects = SharedData.newProjects(before);
+		assertEquals(3, _projects.size());
+		checkDatapointTypes(project, List.of(TEST, DEMO));
+		assertEquals(shared, sharedCounts());
 
 		// The manufacturer data is shared as well: the program of the Test device is part of both
 		// samples and exists only once.
-		assertEquals(318, instances("ehome.catalog:Manufacturer").size());
-		assertEquals(3, instances("ehome.catalog:Product").size());
-		assertEquals(3, instances("ehome.operational:Program").size());
-		for (TLObject device : instances("ehome.physical:Device")) {
+		for (String sample : List.of(TEST, DEMO)) {
+			SharedData.assertOnce("ehome.catalog:Manufacturer", SharedData.ids(sample, MASTER, "Manufacturer"));
+			SharedData.assertOnce("ehome.catalog:Product", SharedData.ids(sample, "M-[^/]+/Hardware\\.xml", "Hardware"));
+			SharedData.assertOnce("ehome.operational:Program",
+				SharedData.ids(sample, "M-[^/]+/M-[^/]+_A-[^/]+\\.xml", "ApplicationProgram"));
+		}
+		for (TLObject device : SharedData.within("ehome.physical:Device", _projects)) {
 			assertNotNull(device.tValueByName("program"));
 		}
 
@@ -120,7 +167,7 @@ public class TestEtsImport extends BasicTestCase {
 
 	/** A connection is labeled by its group address as displayed and by its direction (issue #3). */
 	private void checkConnections() {
-		List<TLObject> connections = instances("ehome.physical:Connection");
+		List<TLObject> connections = SharedData.within("ehome.physical:Connection", _projects);
 		assertFalse(connections.isEmpty());
 		for (TLObject connection : connections) {
 			String name = (String) derived(connection, "name");
@@ -130,13 +177,14 @@ public class TestEtsImport extends BasicTestCase {
 
 	private void checkDeviceDetails() throws Exception {
 		// The device of the Test sample was never downloaded.
-		TLObject plain = byExtId("ehome.physical:Device", "P-01A0-0_DI-1", 0);
+		TLObject plain = projectObject("ehome.physical:Device", "P-01A0-0_DI-1", _first);
 		assertTrue(((Collection<?>) plain.tValueByName("loaded")).isEmpty());
 		assertEquals(Boolean.TRUE, derived(plain, "downloadPending"));
 
 		// The fixture adds names, descriptions, the download state, an inactive communication object
 		// and an unassigned device to it.
 		importSample("src/test/fixtures/TestDetails.knxproj");
+		_projects = SharedData.newProjects(_before);
 		TLObject device = byTitle("Taster Küche");
 		assertEquals("Taster Küche", derived(device, "name"));
 		assertEquals("Neben der Tür", device.tValueByName("description"));
@@ -251,6 +299,19 @@ public class TestEtsImport extends BasicTestCase {
 		assertEquals(1, ((List<?>) program.tValueByName("contents")).size());
 	}
 
+	/**
+	 * The numbers of the objects of the data shared between projects, by type.
+	 */
+	private static Map<String, Integer> sharedCounts() {
+		Map<String, Integer> result = new TreeMap<>();
+		for (String type : List.of("ehome.datapoint:DatapointMainType", "ehome.datapoint:DatapointSubtype",
+			"ehome.operational:MaskVersion", "ehome.catalog:Manufacturer", "ehome.catalog:Product",
+			"ehome.operational:Program")) {
+			result.put(type, instances(type).size());
+		}
+		return result;
+	}
+
 	private static List<TLObject> descendants(TLObject node) {
 		List<TLObject> result = new ArrayList<>();
 		List<TLObject> todo = new ArrayList<>(List.of(node));
@@ -295,16 +356,16 @@ public class TestEtsImport extends BasicTestCase {
 		}
 	}
 
-	private static TLObject byDescription(String typeName, String description) {
-		List<TLObject> result = instances(typeName).stream()
+	private TLObject byDescription(String typeName, String description) {
+		List<TLObject> result = SharedData.within(typeName, _projects).stream()
 			.filter(obj -> description.equals(obj.tValueByName("description")))
 			.toList();
 		assertEquals(1, result.size());
 		return result.get(0);
 	}
 
-	private static TLObject byTitle(String title) {
-		List<TLObject> result = instances("ehome.physical:Device").stream()
+	private TLObject byTitle(String title) {
+		List<TLObject> result = SharedData.within("ehome.physical:Device", _projects).stream()
 			.filter(d -> title.equals(d.tValueByName("title")))
 			.toList();
 		assertEquals(1, result.size());
@@ -331,6 +392,17 @@ public class TestEtsImport extends BasicTestCase {
 	}
 
 	/**
+	 * The object with the given ID in the given project.
+	 */
+	private static TLObject projectObject(String typeName, String extId, TLObject project) {
+		List<TLObject> result = SharedData.within(typeName, List.of(project)).stream()
+			.filter(obj -> extId.equals(obj.tValueByName("extId")))
+			.toList();
+		assertEquals(1, result.size());
+		return result.get(0);
+	}
+
+	/**
 	 * The object of a project that was imported several times, from the import with the given
 	 * index.
 	 */
@@ -344,9 +416,9 @@ public class TestEtsImport extends BasicTestCase {
 			.toList();
 	}
 
-	private void checkParameterSettings() {
+	private void checkParameterSettings(TLObject project) {
 		// ETS stores only the values that differ from the default of the application program.
-		List<TLObject> settings = instances("ehome.physical:ParameterSetting");
+		List<TLObject> settings = SharedData.within("ehome.physical:ParameterSetting", List.of(project));
 		assertEquals(15, settings.size());
 
 		// An enumeration value is the entry of the parameter's own type, written by its number.
@@ -384,11 +456,24 @@ public class TestEtsImport extends BasicTestCase {
 		return result.get(0);
 	}
 
-	private void checkDatapointTypes(int mainTypes, int subtypes) throws Exception {
-		assertEquals(mainTypes, instances("ehome.datapoint:DatapointMainType").size());
-		assertEquals(subtypes, instances("ehome.datapoint:DatapointSubtype").size());
+	/**
+	 * Checks the datapoint types after imports of the given samples: each type of their master data
+	 * exists exactly once (and in the list of all types), and the communication objects of the
+	 * projects imported refer to them.
+	 */
+	private void checkDatapointTypes(TLObject project, List<String> samples) throws Exception {
+		Set<String> mainTypes = new TreeSet<>();
+		Set<String> subtypes = new TreeSet<>();
+		for (String sample : samples) {
+			mainTypes.addAll(SharedData.ids(sample, MASTER, "DatapointType"));
+			subtypes.addAll(SharedData.ids(sample, MASTER, "DatapointSubtype"));
+		}
+		SharedData.assertOnce("ehome.datapoint:DatapointMainType", mainTypes);
+		SharedData.assertOnce("ehome.datapoint:DatapointSubtype", subtypes);
 		TLObject root = TLModelUtil.findType("ehome.datapoint:DatapointTypes").getModule().getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
-		assertEquals(mainTypes, ((List<?>) root.tValueByName("types")).size());
+		List<?> types = (List<?>) root.tValueByName("types");
+		assertEquals(Set.copyOf(instances("ehome.datapoint:DatapointMainType")), Set.copyOf(types));
+		assertEquals(types.size(), Set.copyOf(types).size());
 
 		TLObject temperature = datapointType("DPST-9-1");
 		assertEquals("9.001", temperature.tValueByName("code"));
@@ -400,7 +485,8 @@ public class TestEtsImport extends BasicTestCase {
 		assertEquals(datapointType("DPST-1-1"), datapointType("DPT-1").tValueByName("defaultSubtype"));
 
 		// The temperature object of the sample device has its datapoint type set in the project.
-		List<TLObject> connectors = instances("ehome.physical:Connector").stream()
+		assertTrue(_projects.contains(project));
+		List<TLObject> connectors = SharedData.within("ehome.physical:Connector", _projects).stream()
 			.filter(c -> !((List<?>) c.tValueByName("datapointTypes")).isEmpty())
 			.toList();
 		assertFalse("No datapoint type of a communication object imported.", connectors.isEmpty());

@@ -54,6 +54,11 @@ import de.haumacher.ehome.virtual.trace.TraceOperations;
  * program of <code>samples/EHomeDemo.knxproj</code>, each downloaded twice into the same simulated
  * device (the second time into a loaded device). Each trace equals the plan, and the memory holds
  * what the plan wrote last.
+ *
+ * <p>
+ * The test may take longer than the budget of a test class (5 s): each download runs over KNXnet/IP
+ * on the loopback interface in real time.
+ * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestVirtualDeviceProbe extends BasicTestCase {

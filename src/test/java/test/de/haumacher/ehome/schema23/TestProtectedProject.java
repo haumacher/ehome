@@ -26,6 +26,7 @@ import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.PasswordRequiredException;
 import de.haumacher.ehome.importer.ProtectedProject;
 
+import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.schema23.Ets6Files.Protection;
 
 /**
@@ -53,7 +54,7 @@ public class TestProtectedProject extends BasicTestCase {
 	 * instead of failing, and imports the file with the password given.
 	 */
 	public void testProtected() throws Exception {
-		Ets6Files.clearData();
+		List<TLObject> before = instances("ehome.project:Project");
 		try {
 			byte[] content = Ets6Files.withProjectArchive(Protection.AES_DERIVED, PASSWORD);
 
@@ -64,7 +65,7 @@ public class TestProtectedProject extends BasicTestCase {
 			} catch (PasswordRequiredException ex) {
 				assertEquals(I18NConstants.ERROR_PASSWORD_REQUIRED__ENTRY.fill("P-01A0.zip"), ex.getErrorKey());
 			}
-			assertEquals(0, projects());
+			assertEquals(0, projects(before));
 
 			// With a wrong password: refused with the reason.
 			try {
@@ -73,7 +74,7 @@ public class TestProtectedProject extends BasicTestCase {
 			} catch (TopLogicException ex) {
 				assertEquals(I18NConstants.ERROR_WRONG_PASSWORD__ENTRY.fill("P-01A0.zip"), ex.getErrorKey());
 			}
-			assertEquals(0, projects());
+			assertEquals(0, projects(before));
 
 			BinaryData file = BinaryDataFactory.createBinaryData(content, "application/zip", "Protected.knxproj");
 			ImportEtsProjectAction action = new ImportEtsProjectAction(null, null);
@@ -81,14 +82,14 @@ public class TestProtectedProject extends BasicTestCase {
 			assertEquals(Boolean.TRUE, request.get(ImportEtsProjectAction.PASSWORD_REQUIRED));
 			assertSame(file, request.get(ImportEtsProjectAction.FILE_DATA));
 			assertTrue(String.valueOf(request.get(ImportEtsProjectAction.MESSAGE)).contains("P-01A0.zip"));
-			assertEquals(0, projects());
+			assertEquals(0, projects(before));
 			try {
 				action.execute(null, Map.of(ImportEtsProjectAction.FILE_DATA, file, ImportEtsProjectAction.PASSWORD, "falsch"));
 				fail("A wrong password must be refused.");
 			} catch (TopLogicException ex) {
 				assertEquals(I18NConstants.ERROR_WRONG_PASSWORD__ENTRY.fill("P-01A0.zip"), ex.getErrorKey());
 			}
-			assertEquals(0, projects());
+			assertEquals(0, projects(before));
 
 			// With the right one: imported, although the archive comes before the manufacturer data.
 			Map<?, ?> report = (Map<?, ?>) action.execute(null,
@@ -100,12 +101,12 @@ public class TestProtectedProject extends BasicTestCase {
 			TLObject project = (TLObject) report.get(ImportEtsProjectAction.PROJECT);
 			assertNotNull(project);
 			assertEquals("TestEts6", project.tValueByName("name"));
-			assertEquals(1, projects());
-			assertEquals(1, instances("ehome.physical:Device").size());
-			assertEquals(10, instances("ehome.logical:GroupAddress").size());
-			assertEquals(11, instances("ehome.physical:Connection").size());
+			assertEquals(List.of(project), SharedData.newProjects(before));
+			assertEquals(1, SharedData.within("ehome.physical:Device", List.of(project)).size());
+			assertEquals(10, SharedData.within("ehome.logical:GroupAddress", List.of(project)).size());
+			assertEquals(11, SharedData.within("ehome.physical:Connection", List.of(project)).size());
 		} finally {
-			Ets6Files.clearData();
+			SharedData.deleteProjects(SharedData.newProjects(before));
 		}
 	}
 
@@ -114,22 +115,25 @@ public class TestProtectedProject extends BasicTestCase {
 	 * project archive without a password.
 	 */
 	public void testOtherArchives() throws Exception {
-		Ets6Files.clearData();
+		List<TLObject> before = instances("ehome.project:Project");
 		try {
 			assertEquals(List.of(), Ets6Files.errors(
 				Ets6Files.importFile(Ets6Files.withProjectArchive(Protection.ZIP_CRYPTO, PASSWORD), PASSWORD).getMessages()));
-			assertEquals(1, projects());
+			assertEquals(1, projects(before));
 			assertEquals(List.of(), Ets6Files.errors(
 				Ets6Files.importFile(Ets6Files.withProjectArchive(Protection.PLAIN, null), null).getMessages()));
-			assertEquals(2, projects());
-			assertEquals(2, instances("ehome.physical:Device").size());
+			assertEquals(2, projects(before));
+			assertEquals(2, SharedData.within("ehome.physical:Device", SharedData.newProjects(before)).size());
 		} finally {
-			Ets6Files.clearData();
+			SharedData.deleteProjects(SharedData.newProjects(before));
 		}
 	}
 
-	private static int projects() {
-		return instances("ehome.project:Project").size();
+	/**
+	 * The number of projects imported since the given ones existed.
+	 */
+	private static int projects(List<TLObject> before) {
+		return SharedData.newProjects(before).size();
 	}
 
 	public static Test suite() {

@@ -20,11 +20,9 @@ import java.util.zip.ZipOutputStream;
 
 import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.logging.Level;
-import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
-import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
@@ -35,7 +33,6 @@ import net.lingala.zip4j.model.ZipParameters;
 import net.lingala.zip4j.model.enums.AesKeyStrength;
 import net.lingala.zip4j.model.enums.CompressionMethod;
 import net.lingala.zip4j.model.enums.EncryptionMethod;
-import test.de.haumacher.ehome.importer.TestEtsImport;
 
 /**
  * Builds variants of ETS project files in memory and imports them, for the tests of project schema
@@ -187,28 +184,6 @@ final class Ets6Files {
 			}
 		}
 		return result;
-	}
-
-	/**
-	 * Deletes all E-Home data of the shared test database: projects and the shared data (as the round
-	 * trip test does before each sample), so that the counts of a test are exact and the tests after
-	 * it find no data of it.
-	 */
-	static void clearData() throws Exception {
-		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-		try (Transaction tx = kb.beginTransaction()) {
-			List<KnowledgeItem> items = new ArrayList<>();
-			for (String type : List.of("ehome.project:Project", "ehome.catalog:Manufacturer",
-				"ehome.datapoint:DatapointMainType", "ehome.operational:MaskVersion")) {
-				for (TLObject obj : TestEtsImport.instances(type)) {
-					if (obj.tValid()) {
-						items.add(obj.tHandle());
-					}
-				}
-			}
-			kb.deleteAll(items);
-			tx.commit();
-		}
 	}
 
 }

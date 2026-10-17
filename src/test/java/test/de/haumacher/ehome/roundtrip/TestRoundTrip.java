@@ -58,6 +58,15 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * <p>
  * The export and the differences of each sample are written to <code>target/roundtrip/</code>.
  * </p>
+ *
+ * <p>
+ * A sample must be imported into a database holding no shared data but its own (see
+ * {@link #clearData()}), which costs the import of its programs. The samples are therefore checked
+ * once per class, in a fixed order, the first test running them all ({@link #GROUPS}); each test
+ * reports the result of its sample. It is the longest test of the suite, beyond the budget of a
+ * test class (5 s): two deletions of the shared data and the imports of the programs of the samples
+ * into the emptied database.
+ * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestRoundTrip extends BasicTestCase {
@@ -70,21 +79,62 @@ public class TestRoundTrip extends BasicTestCase {
 
 	private static final Path OUTPUT = Path.of("target/roundtrip");
 
-	public void testTest() throws Exception {
-		roundTrip("samples/Test.knxproj");
+	private static final String TEST = "samples/Test.knxproj";
+
+	private static final String DEMO = "samples/EHomeDemo.knxproj";
+
+	private static final String TESTSYSTEM = "samples/KNX-Testsystem.knxproj";
+
+	/**
+	 * The samples, in groups imported into a database emptied before each group. The samples of a
+	 * group hold the same shared data: <code>Test.knxproj</code> and <code>KNX-Testsystem.knxproj</code>
+	 * have the same master data and the same files of the manufacturer M-0008 (catalog, hardware and
+	 * the program of the Tastsensor), so the second finds its shared data as an import into an empty
+	 * database creates it. The demo holds the same program from a different file. The last group
+	 * leaves the shared data of the two first samples, which most tests import.
+	 */
+	private static final List<List<String>> GROUPS = List.of(List.of(DEMO), List.of(TEST, TESTSYSTEM));
+
+	/**
+	 * The failure of the round trip of each sample, <code>null</code> before the first test ran them.
+	 */
+	private static Map<String, Throwable> _failures;
+
+	public void testTest() throws Throwable {
+		check(TEST);
 	}
 
-	public void testDemo() throws Exception {
-		roundTrip("samples/EHomeDemo.knxproj");
+	public void testDemo() throws Throwable {
+		check(DEMO);
 	}
 
-	public void testTestsystem() throws Exception {
-		roundTrip("samples/KNX-Testsystem.knxproj");
+	public void testTestsystem() throws Throwable {
+		check(TESTSYSTEM);
+	}
+
+	private void check(String sample) throws Throwable {
+		if (_failures == null) {
+			Map<String, Throwable> failures = new TreeMap<>();
+			for (List<String> group : GROUPS) {
+				clearData();
+				for (String member : group) {
+					try {
+						roundTrip(member);
+					} catch (Throwable ex) {
+						failures.put(member, ex);
+					}
+				}
+			}
+			_failures = failures;
+		}
+		Throwable failure = _failures.get(sample);
+		if (failure != null) {
+			throw failure;
+		}
 	}
 
 	private void roundTrip(String sample) throws Exception {
 		byte[] original = Files.readAllBytes(Path.of(sample));
-		clearData();
 		List<TLObject> projects = new ArrayList<>();
 		try {
 			TLObject first = importProject(original, projects);
@@ -151,9 +201,11 @@ public class TestRoundTrip extends BasicTestCase {
 	 * <p>
 	 * The shared data is imported once and reused by later imports (by its IDs); a program known
 	 * from another sample keeps the texts and names of the file it was first imported from (ETS
-	 * writes the texts of a program in the language of its installation). The round trip of a sample
-	 * therefore needs the shared data of that sample. This test must remain the last one to use the
-	 * E-Home data of the shared test database.
+	 * writes the texts of a program in the language of its installation), newer master data update
+	 * the mask versions, and the export writes every known subtype of a datapoint type it uses. The
+	 * round trip of a sample therefore needs the shared data of that sample alone. The other tests
+	 * delete only their projects (see <code>SharedData</code>); they must not rely on shared data
+	 * imported by an earlier test.
 	 * </p>
 	 */
 	static void clearData() throws Exception {

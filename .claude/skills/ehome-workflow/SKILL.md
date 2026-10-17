@@ -80,11 +80,20 @@ contains, in order:
   belongs in every brief that touches shared objects (catalogs, programs, translations).
 - **The build discipline block** (the point is not wasting runs, not avoiding them):
   - The test gate is **one command and fast**: `./mvnw test -DskipTests=false` runs the whole
-    suite (`test.TestAll` plus the conformance checks) in **about 110 s** on an idle machine
-    (99 tests in October 2026, about 25 s of them the virtual device; nearly every test class
-    imports a sample). Concurrent Maven runs on
-    the same machine roughly double that. If it suddenly takes minutes, check that the single-branch
-    configuration is still in `metaConf.txt` (TL #29876). Run the full suite as the gate; while iterating on
+    suite (`test.TestAll` plus the conformance checks). **Budget: the whole suite at most 120 s on
+    an idle machine; a new test class at most 5 s, or its javadoc names why it needs more.** After
+    haumacher/ehome #36 (123 tests, October 2026) it took 176 s at a load average of 10 (the shared
+    machine is rarely idle; the same suite took 331 s at that load before). `bin/slowest-tests.py`
+    prints the suite time and the 10 slowest tests and classes from the surefire report; read it
+    after every gate. The cost of a test is its imports: all classes share one database in one JVM,
+    the shared data (master data, catalogs, programs) stays, and an import of a sample costs seconds
+    per program the first time and about one second after that; deleting shared data costs as much
+    as importing it. So a test deletes only its projects, asserts project-relative state or shared
+    objects by ID (never the counts of a fresh database), shares one import between its methods,
+    and establishes a mask-version state with `SharedData.resetMaskVersions` instead of emptying
+    the database (`test.de.haumacher.ehome.importer.SharedData`, CLAUDE.md). Concurrent Maven runs
+    on the same machine roughly double the time. If it suddenly takes minutes, check that the
+    single-branch configuration is still in `metaConf.txt` (TL #29876), then the slowest tests. Run the full suite as the gate; while iterating on
     one area, `-Dtest=<Class>` is fine, but the gate before a commit is always the full suite. Without `-DskipTests=false` **nothing runs
     and the build is green** (the TopLogic parent skips tests by default).
   - `./mvnw checkstyle:check` after every Java edit (not bound to the build).
@@ -230,7 +239,8 @@ user edited after the previous import.
 
 ```bash
 ./mvnw checkstyle:check                              # header, tabs, imports, braces
-./mvnw install -DskipTests=false                     # compile, full suite (~110 s of tests), app self-test
+./mvnw install -DskipTests=false                     # compile, full suite (budget 120 s idle), app self-test
+bin/slowest-tests.py                                 # suite time and the 10 slowest tests: within budget?
 git status --short                                   # only the files of this change; no .playwright-mcp, no tmp/
 ```
 

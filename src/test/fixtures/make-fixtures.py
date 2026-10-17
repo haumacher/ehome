@@ -46,6 +46,13 @@ parameters Betriebsart = 2 and Verhalten = 2 set, and their objects 0 (send 0/0/
 
 The projects of all fixtures are named after the fixture, not "Test".
 
+The master data (knx_master.xml) of the fixtures derived from the Test project are trimmed to what
+the fixture uses (trim_master): the datapoint types it names, the mask versions of its programs with
+those they are downward compatible to, their media, and the manufacturers it names (haumacher/ehome
+#36). ETS writes its whole master data into every file; the trimmed part keeps an import of a fixture
+cheap, also into an empty database, and a test of the master data import compares with what its
+fixture defines, not with the whole master data of ETS.
+
 TestProduct.knxprod: a product file of a manufacturer, as ETS imports it into its catalog: the Test
 project without its project part (the folder P-01A0 and its signature), that is, the master data and
 the data of the manufacturer M-0008 (catalog, hardware, application program). Its IDs are those of
@@ -94,6 +101,7 @@ with a changed feature value and a further load step, and which is downward comp
 Usage (from the project root): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
+import re
 import struct
 import zipfile
 import zlib
@@ -499,12 +507,54 @@ def is_product_data(name):
     return not name.startswith('P-')
 
 
-def write(target, modify, additions=(), keep=lambda name: True, rename=lambda name: name):
-    with zipfile.ZipFile(SOURCE) as source, zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as out:
-        for name, text in additions:
-            info = zipfile.ZipInfo(name, date_time=(2026, 10, 11, 12, 0, 0))
-            info.compress_type = zipfile.ZIP_DEFLATED
-            out.writestr(info, text.encode('utf-8'))
+def element(tag, id_attribute, ident):
+    """A pattern matching the element with the given ID, empty or with content."""
+    return re.compile(r'[ \t]*<' + tag + r' ' + id_attribute + r'="' + re.escape(ident) + r'"[^>]*?(?:/>|(?<!/)>.*?</'
+        + tag + r'>)\n?', re.S)
+
+
+def trim_master(xml, others, extra=()):
+    """The master data trimmed to what the other entries of the archive use.
+
+    Kept are the datapoint types the other entries name (each main type with all its subtypes and
+    its translations), the mask versions their programs run on with the masks these are downward
+    compatible to, the media of these masks, and the manufacturers the other entries name; the
+    given extra IDs (of mask versions or main datapoint types) are kept as well. ETS writes its whole
+    master data into every file; an import of a fixture with its own part only is cheap, also into
+    an empty database. The signature no longer fits and is left out.
+    """
+    used = set(extra)
+    for text in others:
+        used.update('DPT-' + n for n in re.findall(r'\bDPS?T-(\d+)', text))
+        used.update(re.findall(r'MaskVersion="(MV-[0-9A-F]+)"', text))
+        used.update(re.findall(r'\b(M-[0-9A-F]{4})', text))
+    masks = set(m for m in used if m.startswith('MV-'))
+    todo = list(masks)
+    while todo:
+        mask = element('MaskVersion', 'Id', todo.pop()).search(xml)
+        if mask is None:
+            continue
+        for compatible in re.findall(r'<DownwardCompatibleMask RefId="(MV-[0-9A-F]+)"', mask.group(0)):
+            if compatible not in masks:
+                masks.add(compatible)
+                todo.append(compatible)
+        used.update(re.findall(r'MediumTypeRefId="(MT-\d+)"', mask.group(0)))
+    used |= masks
+    for tag, id_attribute, prefix in [('DatapointType', 'Id', 'DPT-'), ('MaskVersion', 'Id', 'MV-'),
+            ('MediumType', 'Id', 'MT-'), ('Manufacturer', 'Id', 'M-'), ('TranslationUnit', 'RefId', 'DPT-')]:
+        for ident in re.findall('<' + tag + ' ' + id_attribute + '="(' + prefix + '[^"]+)"', xml):
+            if ident not in used:
+                xml = element(tag, id_attribute, ident).sub('', xml, count=1)
+    return re.sub(r' Signature="[^"]*"', '', xml, count=1)
+
+
+def write(target, modify, additions=(), keep=lambda name: True, rename=lambda name: name, master=()):
+    """Writes a copy of the Test project, modified per entry, with master data trimmed to its use.
+
+    @param master: IDs of master data the fixture keeps although no other entry names them.
+    """
+    entries = []
+    with zipfile.ZipFile(SOURCE) as source:
         for info in source.infolist():
             if not keep(info.filename):
                 continue
@@ -515,6 +565,17 @@ def write(target, modify, additions=(), keep=lambda name: True, rename=lambda na
                 if modified != text:
                     data = modified.encode('utf-8')
             info.filename = rename(info.filename)
+            entries.append((info, data))
+    others = [text for _, text in additions] + [data.decode('utf-8-sig') for info, data in entries
+        if info.filename.endswith('.xml') and info.filename != 'knx_master.xml']
+    with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as out:
+        for name, text in additions:
+            info = zipfile.ZipInfo(name, date_time=(2026, 10, 11, 12, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            out.writestr(info, text.encode('utf-8'))
+        for info, data in entries:
+            if info.filename == 'knx_master.xml':
+                data = trim_master(data.decode('utf-8-sig'), others, master).encode('utf-8')
             out.writestr(info, data)
 
 
@@ -783,6 +844,6 @@ encrypted('src/test/fixtures/Encrypted.knxprod', 'src/test/fixtures/TestProduct.
 write('src/test/fixtures/TestBcu1.knxproj', bcu1,
     [('M-0008/' + program + '.xml', bcu1_program(program, number, name, with_data))
      for program, _, number, name, with_data in BCU1_PROGRAMS])
-write('src/test/fixtures/TestEts6.knxproj', ets6, rename=ets6_name)
+write('src/test/fixtures/TestEts6.knxproj', ets6, rename=ets6_name, master=('MV-FFF0', 'DPT-10', 'DPT-20'))
 master_data_only('src/test/fixtures/TestMasterDataOld.knxproj', 1001, False)
 master_data_only('src/test/fixtures/TestMasterDataNew.knxproj', 1002, True)

@@ -58,6 +58,12 @@ import de.haumacher.ehome.scan.ScanBus;
  * matched against the catalog of <code>samples/KNX-Testsystem.knxproj</code>, created in a new
  * project, and their configuration read back from their memory, which must reproduce the project
  * the devices were programmed from.
+ *
+ * <p>
+ * The test takes longer than the budget of a test class (5 s): reading back the configuration of the
+ * Tastsensor searches the values of its parameters without memory (<code>ReadBack.apply</code>,
+ * several seconds for its program of 2187 parameters).
+ * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestBusScan extends BasicTestCase {
@@ -127,9 +133,11 @@ public class TestBusScan extends BasicTestCase {
 				ExtIds.assign(scanned);
 				tx.commit();
 			}
+			// The programs of the project the devices were programmed from: the shared catalog may hold
+			// other editions of them as well (the ETS 6 export of the test system).
 			try (Transaction tx = kb.beginTransaction()) {
 				assertEquals(InstallationBuilder.Action.CREATED,
-					InstallationBuilder.apply(scanned, actuator, actuatorMatch.candidates().get(0)).action());
+					InstallationBuilder.apply(scanned, actuator, candidate(actuatorMatch,"M-0083_A-000C-21-83B5")).action());
 				assertEquals(InstallationBuilder.Action.CREATED,
 					InstallationBuilder.apply(scanned, tastsensor, candidate(tastsensorMatch, "M-0008_A-10D7-11-A0E5-O000A")).action());
 				assertEquals(InstallationBuilder.Action.CREATED,
@@ -150,11 +158,11 @@ public class TestBusScan extends BasicTestCase {
 			// A second scan updates, a different program is a conflict.
 			try (Transaction tx = kb.beginTransaction()) {
 				assertEquals(InstallationBuilder.Action.UPDATED,
-					InstallationBuilder.apply(scanned, actuator, actuatorMatch.candidates().get(0)).action());
+					InstallationBuilder.apply(scanned, actuator, candidate(actuatorMatch, "M-0083_A-000C-21-83B5")).action());
 				FoundDevice moved = new FoundDevice(TASTSENSOR, FoundDevice.Source.BUS, 0x0705, 0x83, null,
 					actuator.programVersion(), null, null, List.of(), List.of());
 				assertEquals(InstallationBuilder.Action.CONFLICT,
-					InstallationBuilder.apply(scanned, moved, actuatorMatch.candidates().get(0)).action());
+					InstallationBuilder.apply(scanned, moved, candidate(actuatorMatch, "M-0083_A-000C-21-83B5")).action());
 				tx.commit();
 			}
 			assertEquals(3, list(line, "devices").size());

@@ -30,6 +30,12 @@ import de.haumacher.ehome.monitor.ProjectIndex;
  * project itself: the kind comes from the project's datapoint type when none is entered, an entered
  * type replaces it, and the values the controls deliver (a slider's fraction, a choice's number as
  * text) produce the frames of the type.
+ *
+ * <p>
+ * With its own service setup, the test runs before the other tests of the database and pays for the
+ * first import of the test system's programs (the shared data the later tests reuse); it then takes
+ * longer than the budget of a test class (5 s).
+ * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestGroupMonitorInputsProbe extends BasicTestCase {

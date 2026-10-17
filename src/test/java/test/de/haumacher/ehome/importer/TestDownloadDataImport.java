@@ -8,6 +8,8 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
@@ -72,6 +74,9 @@ public class TestDownloadDataImport extends BasicTestCase {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		List<TLObject> projectsBefore = new ArrayList<>(instances("ehome.project:Project"));
 		try {
+			// The mask version checked is the one of the sample's master data, whatever other tests
+			// imported before.
+			SharedData.resetMaskVersions(Files.readAllBytes(Path.of("samples/Test.knxproj")));
 			importSample("samples/Test.knxproj");
 			checkTastsensor();
 
@@ -153,7 +158,7 @@ public class TestDownloadDataImport extends BasicTestCase {
 		assertEquals("BimM112", mask.getManagementModel().getName());
 		assertEquals("TP", mask.getMedium().getName());
 		assertTrue(maskRoot().contains(mask));
-		assertEquals(29, maskRoot().size());
+		checkMaskRoot("samples/Test.knxproj");
 		MaskResource applicationId = resource(mask, "ApplicationId");
 		ResourceLocation location = applicationId.getLocation();
 		assertEquals("SystemProperty", location.getAddressSpace().getName());
@@ -434,7 +439,17 @@ public class TestDownloadDataImport extends BasicTestCase {
 				assertEquals(segment.getSize().intValue(), bytes(segment.getData()).length);
 			}
 		}
-		assertEquals(29, maskRoot().size());
+		checkMaskRoot("samples/EHomeDemo.knxproj");
+	}
+
+	/**
+	 * The list of all mask versions holds each mask version once, those of the master data of the
+	 * given sample among them.
+	 */
+	private static void checkMaskRoot(String sample) throws IOException {
+		SharedData.assertOnce("ehome.operational:MaskVersion", SharedData.ids(sample, "knx_master.xml", "MaskVersion"));
+		assertEquals(Set.copyOf(instances("ehome.operational:MaskVersion")), Set.copyOf(maskRoot()));
+		assertEquals(maskRoot().size(), Set.copyOf(maskRoot()).size());
 	}
 
 	private static Program program(String extId) {

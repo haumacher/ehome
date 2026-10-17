@@ -21,6 +21,8 @@ import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.importer.SharedData;
+import test.de.haumacher.ehome.importer.TestEtsImport;
 import test.de.haumacher.ehome.roundtrip.TestRoundTrip;
 
 import com.top_logic.basic.i18n.log.BufferingI18NLog;
@@ -53,8 +55,8 @@ import de.haumacher.ehome.programming.download.DownloadPlanner;
  * datapoint types and their use in the send form of the group monitor, and the re-import.
  *
  * <p>
- * Runs after the round trip test (by its package) on a database emptied of E-Home data, and empties
- * it again.
+ * Runs in the database shared with the other tests: it checks the objects of its project and the
+ * shared objects of its fixture by their IDs, and deletes its projects again.
  * </p>
  */
 @SuppressWarnings("javadoc")
@@ -69,14 +71,15 @@ public class TestEts6Import extends BasicTestCase {
 	private static final HexFormat HEX = HexFormat.ofDelimiter(" ").withUpperCase();
 
 	public void testImport() throws Exception {
-		Ets6Files.clearData();
+		List<TLObject> before = instances("ehome.project:Project");
 		try {
 			Importer importer = Ets6Files.importFile(Files.readAllBytes(Path.of(Ets6Files.FIXTURE)), null);
 			assertEquals(23, importer.getSchemaVersion());
 			List<BufferingI18NLog.Entry> messages = importer.getMessages();
 			assertEquals(List.of(), Ets6Files.errors(messages));
-			// The only warning: the dynamic module of the program.
-			List<String> warnings = messages.stream().filter(m -> m.getLevel() == Level.WARN)
+			// The only warning: the dynamic module of the program (besides those about mask versions the
+			// database holds from other master data, see TestEtsImport.withoutMasterData).
+			List<String> warnings = TestEtsImport.withoutMasterData(messages).stream().filter(m -> m.getLevel() == Level.WARN)
 				.map(m -> String.valueOf(m.getMessage())).toList();
 			assertEquals(warnings.toString(), 1, warnings.size());
 			assertTrue(warnings.get(0), warnings.get(0).contains(
@@ -114,7 +117,7 @@ public class TestEts6Import extends BasicTestCase {
 			assertTrue(again.getCreated("ehome.datapoint:NamedValue").isEmpty());
 			checkNamedValues();
 		} finally {
-			Ets6Files.clearData();
+			SharedData.deleteProjects(SharedData.newProjects(before));
 		}
 	}
 
@@ -153,7 +156,7 @@ public class TestEts6Import extends BasicTestCase {
 		assertEquals("P-01A0", project.tValueByName("extId"));
 
 		// The device lies in a segment of its line (ETS 6); the model has no segment.
-		List<TLObject> devices = instances("ehome.physical:Device");
+		List<TLObject> devices = SharedData.within("ehome.physical:Device", projects);
 		assertEquals(1, devices.size());
 		TLObject device = devices.get(0);
 		assertEquals("P-01A0-0_L-1", ((TLObject) device.tContainer()).tValueByName("extId"));
@@ -170,7 +173,7 @@ public class TestEts6Import extends BasicTestCase {
 			assertNotNull(connector.tValueByName("port"));
 		}
 		assertEquals(10, connectors.stream().filter(c -> !list(c, "connections").isEmpty()).count());
-		assertEquals(11, instances("ehome.physical:Connection").size());
+		assertEquals(11, SharedData.within("ehome.physical:Connection", projects).size());
 		TLObject twoLinks = connectors.stream()
 			.filter(c -> "M-0008_A-10D7-11-A0E5-O0023_O-0_R-81".equals(((TLObject) c.tValueByName("port")).tValueByName("extId")))
 			.findFirst().orElseThrow();
@@ -180,7 +183,7 @@ public class TestEts6Import extends BasicTestCase {
 			.map(c -> ((TLClassifier) c.tValueByName("kind")).getName() + " "
 				+ ((TLObject) c.tValueByName("target")).tValueByName("extId"))
 			.collect(Collectors.toSet()));
-		assertEquals(10, instances("ehome.logical:GroupAddress").size());
+		assertEquals(10, SharedData.within("ehome.logical:GroupAddress", projects).size());
 
 		// The location of the device: a room in a building (ETS 5/6: Locations with spaces).
 		TLObject room = (TLObject) device.tValueByName("location");
@@ -245,7 +248,7 @@ public class TestEts6Import extends BasicTestCase {
 		assertEquals("ehome.operational:Channel", TLModelUtil.qualifiedName(((TLObject) contents.get(2)).tType()));
 
 		// A download of a program with modules is refused with the reason.
-		TLObject device = instances("ehome.physical:Device").get(0);
+		TLObject device = SharedData.within("ehome.physical:Device", projects()).get(0);
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
 		assertTrue(plan.getProblems().toString(), plan.getProblems().contains(
 			de.haumacher.ehome.programming.download.I18NConstants.ERROR_PROGRAM_USES_MODULES));
@@ -283,7 +286,11 @@ public class TestEts6Import extends BasicTestCase {
 			texts(values, Locale.ENGLISH));
 		assertEquals("Komfort", ResKeyUtil.getTranslation((ResKey) values.get(1).tValueByName("text"), Locale.GERMAN));
 		assertEquals("DPST-20-102_F-1-1", values.get(1).tValueByName("extId"));
-		assertEquals(5, instances("ehome.datapoint:NamedValue").size());
+		// The named values of the fixture's master data are those of 20.102, each once.
+		assertEquals(5, instances("ehome.datapoint:NamedValue").stream()
+			.filter(v -> String.valueOf(v.tValueByName("extId")).startsWith("DPST-20-102_")).count());
+		assertEquals(List.of(), instances("ehome.datapoint:NamedValue").stream()
+			.filter(v -> String.valueOf(v.tValueByName("extId")).startsWith("DPST-10-1_")).toList());
 
 		// An enumeration naming one field of a composed value is no named value of the subtype.
 		assertTrue(list(subtype("DPST-10-1"), "values").isEmpty());
