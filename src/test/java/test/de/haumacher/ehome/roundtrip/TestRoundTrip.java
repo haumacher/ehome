@@ -29,6 +29,7 @@ import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.element.meta.MetaElementUtil;
+import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
@@ -154,17 +155,26 @@ public class TestRoundTrip extends BasicTestCase {
 	 * therefore needs the shared data of that sample. This test must remain the last one to use the
 	 * E-Home data of the shared test database.
 	 * </p>
+	 *
+	 * <p>
+	 * All objects are deleted in one bulk deletion: the engine looks up the referrers of deleted
+	 * objects by scanning their tables (TL #29876), which a bulk deletion does once per chunk
+	 * instead of once per object.
+	 * </p>
 	 */
 	static void clearData() throws Exception {
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		try (Transaction tx = kb.beginTransaction()) {
+			List<KnowledgeItem> items = new ArrayList<>();
 			for (String type : List.of("ehome.project:Project", "ehome.catalog:Manufacturer",
 				"ehome.datapoint:DatapointMainType", "ehome.operational:MaskVersion")) {
 				for (TLObject obj : instances(type)) {
 					if (obj.tValid()) {
-						obj.tDelete();
+						items.add(obj.tHandle());
 					}
 				}
 			}
+			kb.deleteAll(items);
 			tx.commit();
 		}
 	}

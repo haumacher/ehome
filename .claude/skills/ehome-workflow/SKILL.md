@@ -80,9 +80,11 @@ contains, in order:
   belongs in every brief that touches shared objects (catalogs, programs, translations).
 - **The build discipline block** (the point is not wasting runs, not avoiding them):
   - The test gate is **one command and fast**: `./mvnw test -DskipTests=false` runs the whole
-    suite (`test.TestAll` plus the conformance checks) in **about 17 s**; a targeted
-    `-Dtest=TestEtsImport` saves two seconds because the KB setup dominates — so there is no
-    reason to target, run the full suite every time. Without `-DskipTests=false` **nothing runs
+    suite (`test.TestAll` plus the conformance checks) in **about 2.5–3 minutes** on an idle
+    machine (85 tests in October 2026; nearly every test class imports a sample, and
+    `TestRoundTrip` alone takes about half, mostly deleting data, TL #29876). Concurrent Maven runs
+    on the same machine roughly double that. Run the full suite as the gate; while iterating on
+    one area, `-Dtest=<Class>` is fine, but the gate before a commit is always the full suite. Without `-DskipTests=false` **nothing runs
     and the build is green** (the TopLogic parent skips tests by default).
   - `./mvnw checkstyle:check` after every Java edit (not bound to the build).
   - A **model change** costs a cycle: `./mvnw install -DskipTests` (add `-Dmaven.main.skip` when
@@ -227,7 +229,7 @@ user edited after the previous import.
 
 ```bash
 ./mvnw checkstyle:check                              # header, tabs, imports, braces
-./mvnw install -DskipTests=false                     # compile, full suite (~17 s of tests), app self-test
+./mvnw install -DskipTests=false                     # compile, full suite (~3 min of tests), app self-test
 git status --short                                   # only the files of this change; no .playwright-mcp, no tmp/
 ```
 

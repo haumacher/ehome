@@ -397,6 +397,20 @@ the week and the enumeration value (`projects/monitor.view.xml`).
 **When available:** use the engine's setting in those three inputs and delete
 `OptionOrderSelectControlProvider`.
 
+## Deleting objects scans the referrer tables (TL #29876)
+
+When objects are deleted, `ReferenceDeletionHelper` looks for the objects referencing them with
+`ref IN (...)` queries, which H2 evaluates by reading the whole referrer table (the composition
+link tables hold every link). Deleting about 400 projects, manufacturers, datapoint types and mask
+versions takes 15–30 s; in the test suite this was 45 % of the CPU time.
+
+Workaround: `TestRoundTrip.clearData` deletes everything with one `KnowledgeBase.deleteAll`
+instead of `tDelete()` per object, which halves the later clears but not the first one. The app's
+own deletions (a project in the UI) are not changed and stay slow for large projects.
+
+**When available:** measure `TestRoundTrip` again (Flight Recorder, see the ticket); the bulk
+deletion can stay.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -429,3 +443,4 @@ the week and the enumeration value (`projects/monitor.view.xml`).
 - TL #29872: see above (slider range from a channel).
 - TL #29873: see above (time picker seconds).
 - TL #29874: see above (option order of a choice; when available: delete `OptionOrderSelectControlProvider`).
+- TL #29876: see above (referrer scans when deleting).
