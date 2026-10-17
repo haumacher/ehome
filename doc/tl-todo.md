@@ -397,20 +397,23 @@ the week and the enumeration value (`projects/monitor.view.xml`).
 **When available:** use the engine's setting in those three inputs and delete
 `OptionOrderSelectControlProvider`.
 
-## Deleting objects scans the referrer tables (TL #29876)
+## Deleting objects scans the referrer tables (TL #29876, #29877)
 
-When objects are deleted, `ReferenceDeletionHelper` looks for the objects referencing them with
+With branch support (the engine's default), every index starts with the column `BRANCH`. When
+objects are deleted, `ReferenceDeletionHelper` looks for their referrers with
 `(BRANCH, rev, SOURCE_ID) IN (...)` queries on the association tables (`HAS_STRUCTURE_CHILD`,
-`HAS_WRAPPER_ATT_VALUE`). Their indexes start with `BRANCH`, and H2 seeks an IN list only on the
-first column of an index, so it seeks `BRANCH = 1` and reads every row. Deleting about 400 projects, manufacturers, datapoint types and mask
-versions takes 15–30 s; in the test suite this was 45 % of the CPU time.
+`HAS_WRAPPER_ATT_VALUE`); H2 seeks an IN list only on the first column of an index, so it seeks
+`BRANCH = 1` and reads every row. Deleting about 400 projects, manufacturers, datapoint types and
+mask versions took 15–30 s.
 
-Workaround: `TestRoundTrip.clearData` deletes everything with one `KnowledgeBase.deleteAll`
-instead of `tDelete()` per object, which halves the later clears but not the first one. The app's
-own deletions (a project in the UI) are not changed and stay slow for large projects.
+Workaround: E-Home runs without branches: `top-logic.singleBranch.config.xml` (from tl-core) in
+`WEB-INF/conf/metaConf.txt` drops `BRANCH` from the tables and their keys. The same deletions take
+1–2 s, and the test suite halved (163 s to 85 s). The switch changes the table layout; a database
+created before it (an old `tmp/`) does not fit and is not migrated. No developer article covers
+this configuration (TL #29877).
 
-**When available:** measure `TestRoundTrip` again (Flight Recorder, see the ticket); the bulk
-deletion can stay.
+**When available:** nothing to undo; read the article of TL #29877 for anything else the persistency
+configuration should set.
 
 ## Upstream tickets to follow
 
@@ -445,3 +448,4 @@ deletion can stay.
 - TL #29873: see above (time picker seconds).
 - TL #29874: see above (option order of a choice; when available: delete `OptionOrderSelectControlProvider`).
 - TL #29876: see above (referrer scans when deleting).
+- TL #29877: see above (developer article on the persistency configuration).

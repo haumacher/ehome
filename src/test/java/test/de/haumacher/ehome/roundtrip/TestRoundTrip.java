@@ -155,12 +155,6 @@ public class TestRoundTrip extends BasicTestCase {
 	 * therefore needs the shared data of that sample. This test must remain the last one to use the
 	 * E-Home data of the shared test database.
 	 * </p>
-	 *
-	 * <p>
-	 * All objects are deleted in one bulk deletion: the engine looks up the referrers of deleted
-	 * objects by scanning their tables (TL #29876), which a bulk deletion does once per chunk
-	 * instead of once per object.
-	 * </p>
 	 */
 	static void clearData() throws Exception {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();

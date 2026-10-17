@@ -1,3 +1,4 @@
 top-logic.cluster.xml
+top-logic.singleBranch.config.xml
 db-default.xml
 ehomeConf.xml
