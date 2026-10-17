@@ -42,10 +42,10 @@ public class TestImportMessages extends BasicTestCase {
 		// Other tests of the suite may have imported the fixture into the same database before.
 		boolean programKnown = !programs().isEmpty();
 
-		List<BufferingI18NLog.Entry> sample = importSample("samples/Test.knxproj");
+		List<BufferingI18NLog.Entry> sample = TestEtsImport.withoutMasterData(importSample("samples/Test.knxproj"));
 		assertEquals(texts(sample), 0, sample.size());
 
-		List<BufferingI18NLog.Entry> messages = importSample(FIXTURE);
+		List<BufferingI18NLog.Entry> messages = TestEtsImport.withoutMasterData(importSample(FIXTURE));
 		// The setting of the device is imported with every project; the value of the parameter
 		// only with the program, which an import skips when it is known.
 		assertEquals(texts(messages), programKnown ? 1 : 2, messages.size());
@@ -85,7 +85,7 @@ public class TestImportMessages extends BasicTestCase {
 		assertEquals(1, programs().size());
 
 		// The program is known now: a second import skips it and reports the setting only.
-		List<BufferingI18NLog.Entry> again = importSample(FIXTURE);
+		List<BufferingI18NLog.Entry> again = TestEtsImport.withoutMasterData(importSample(FIXTURE));
 		assertEquals(texts(again), 1, again.size());
 		assertEquals(setting, text(again.get(0)));
 		assertEquals(1, programs().size());

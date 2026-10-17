@@ -27,6 +27,7 @@ import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.importer.TestEtsImport;
 
 import com.top_logic.basic.io.binary.BinaryDataFactory;
 import com.top_logic.basic.util.ResKey;
@@ -122,7 +123,7 @@ public class TestProductDataImport extends BasicTestCase {
 		Importer importer = importProduct(FIXTURES + "TestProduct.knxprod");
 		assertEquals(before, counts());
 		assertEquals(Set.of("M-0008"), importer.getManufacturerIds());
-		assertTrue(importer.getMessages().isEmpty());
+		assertEquals(List.of(), TestEtsImport.withoutMasterData(importer.getMessages()));
 
 		assertEquals(List.of(), importer.getCreated("ehome.catalog:Product"));
 		assertEquals(List.of(), importer.getCreated("ehome.operational:Program"));
@@ -132,7 +133,7 @@ public class TestProductDataImport extends BasicTestCase {
 			importer.getKnown("ehome.catalog:Product"));
 
 		// Twice: nothing changes.
-		importProduct(FIXTURES + "TestProduct.knxprod");
+		int masterData = importProduct(FIXTURES + "TestProduct.knxprod").getMessages().size();
 		assertEquals(before, counts());
 
 		// The report of the view action.
@@ -140,16 +141,17 @@ public class TestProductDataImport extends BasicTestCase {
 		assertEquals(before, counts());
 		assertSame(byExtId("ehome.catalog:Manufacturer", "M-0008"), report.get(ImportProductDataAction.MANUFACTURER));
 		assertNull(report.get(ImportEtsProjectAction.PROJECT));
-		assertEquals(List.of(), report.get(ImportEtsProjectAction.MESSAGES));
+		// Only the messages about the mask versions the database holds from other tests' imports.
+		assertEquals(masterData, ((List<?>) report.get(ImportEtsProjectAction.MESSAGES)).size());
 		String summary = (String) report.get(ImportEtsProjectAction.SUMMARY);
 		String manufacturer = label(byExtId("ehome.catalog:Manufacturer", "M-0008"));
 		String program = label(byExtId("ehome.operational:Program", TEST_PROGRAM));
 		assertEquals(summary, en("Imported product data: TestProduct.knxprod (Manufacturer already known: "
 			+ manufacturer + "; Products already known: Tastsensor 3 Komfort 3fach; "
-			+ "Application programs already known: " + program + "). Messages of the import: 0.",
+			+ "Application programs already known: " + program + "). Messages of the import: " + masterData + ".",
 			"Importierte Produktdaten: TestProduct.knxprod (Hersteller bereits bekannt: " + manufacturer
 				+ "; Produkte bereits bekannt: Tastsensor 3 Komfort 3fach; "
-				+ "Applikationsprogramme bereits bekannt: " + program + "). Meldungen des Imports: 0."),
+				+ "Applikationsprogramme bereits bekannt: " + program + "). Meldungen des Imports: " + masterData + "."),
 			summary);
 	}
 
@@ -162,7 +164,7 @@ public class TestProductDataImport extends BasicTestCase {
 		assertTrue("Fixture already imported.", withExtId("ehome.operational:Program", NEW_PROGRAM).isEmpty());
 		Map<String, Integer> before = counts();
 		Importer importer = importProduct(FIXTURES + "TestNewProduct.knxprod");
-		assertTrue(importer.getMessages().isEmpty());
+		assertEquals(List.of(), TestEtsImport.withoutMasterData(importer.getMessages()));
 
 		TLObject testProgram = byExtId("ehome.operational:Program", TEST_PROGRAM);
 		TLObject program = byExtId("ehome.operational:Program", NEW_PROGRAM);

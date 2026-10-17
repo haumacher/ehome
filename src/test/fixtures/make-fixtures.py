@@ -83,6 +83,14 @@ writes a project (schema 23, haumacher/ehome #32), with artificial content marke
 The test builds the protected variants (the project part as P-01A0.zip, AES and password, or plain)
 from this file with zip4j.
 
+TestMasterDataOld.knxproj and TestMasterDataNew.knxproj: master data only (knx_master.xml, no
+manufacturer, no project), of the artificial versions 1001 and 1002, for the mask versions by the
+version of their master data (haumacher/ehome #34). They hold the medium TP and two artificial mask
+versions marked as test data by their names: "MV-FFF1" with two configurations, whose legacy marking
+and order the new master data swap (as ETS 6 does for the IP router mask MV-091A against ETS 4),
+with a changed feature value and a further load step, and which is downward compatible to MV-FFF2
+(a forward reference); "MV-FFF2" with a management descriptor, the same in both versions.
+
 Usage (from the project root): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -715,6 +723,55 @@ def ets6_name(name):
     return 'P-01A0/project.xml' if name == PROJECT_INFO else name
 
 
+MASTER_DATA_HEADER = ('<?xml version="1.0" encoding="UTF-8"?>\n<KNX xmlns="http://knx.org/xml/project/11">\n'
+    '  <MasterData Version="%d">\n'
+    '    <MediumTypes><MediumType Id="MT-0" Number="0" Name="TP" Text="Twisted Pair" DomainAddressLength="0" />'
+    '</MediumTypes>\n    <MaskVersions>\n')
+MASTER_DATA_FOOTER = '    </MaskVersions>\n  </MasterData>\n</KNX>\n'
+
+# The configuration of MV-FFF1 by properties (the current one of the old master data).
+TEST_MASK_PROPERTIES = ('<Features><Feature Name="FirstAppObjectIdx" Value="%d" /><Feature Name="VerifyMode" Value="1" />'
+    '</Features><Resources><Resource Name="ApplicationId" Access="remote"><Location AddressSpace="SystemProperty" '
+    'InterfaceObjectRef="3" PropertyID="13" /><ResourceType Length="5" /><AccessRights Read="Runtime" '
+    'Write="Configuration" /></Resource><Resource Name="ManagementStyle" Access="remote"><Location '
+    'AddressSpace="Constant" StartAddress="2" /><ResourceType Length="1" /></Resource></Resources><Procedures>'
+    '<Procedure ProcedureType="Load" ProcedureSubType="all" Access="remote"><LdCtrlConnect /><LdCtrlUnload '
+    'LsmIdx="4" />%s<LdCtrlDisconnect /></Procedure></Procedures>')
+
+# The configuration of MV-FFF1 by memory (the legacy one of the old master data).
+TEST_MASK_MEMORY = ('<Resources><Resource Name="ManagementStyle" Access="remote"><Location AddressSpace="Constant" '
+    'StartAddress="1" /><ResourceType Length="1" /></Resource></Resources><Procedures><Procedure ProcedureType="Load" '
+    'ProcedureSubType="all" Access="remote"><LdCtrlConnect /><LdCtrlWriteMem Address="256" Size="4" Verify="true" '
+    'InlineData="01020304" /><LdCtrlDisconnect /></Procedure></Procedures><MemorySegments><MemorySegment '
+    'MemoryType="EEPROM" Length="256"><Location AddressSpace="StandardMemory" StartAddress="256" /></MemorySegment>'
+    '</MemorySegments>')
+
+
+def test_masks(new):
+    properties = TEST_MASK_PROPERTIES % ((5, '<LdCtrlLoadCompleted LsmIdx="4" />') if new else (4, ''))
+    if new:
+        configurations = ('<HawkConfigurationData>' + properties + '</HawkConfigurationData>'
+            '<HawkConfigurationData LegacyVersion="true">' + TEST_MASK_MEMORY + '</HawkConfigurationData>')
+    else:
+        configurations = ('<HawkConfigurationData>' + TEST_MASK_MEMORY + '</HawkConfigurationData>'
+            '<HawkConfigurationData LegacyVersion="true">' + properties + '</HawkConfigurationData>')
+    return ('      <MaskVersion Id="MV-FFF1" MaskVersion="65521" Name="TEST Maske A (künstliche Testdaten)" '
+        'ManagementModel="BimM112" MediumTypeRefId="MT-0"><DownwardCompatibleMasks><DownwardCompatibleMask '
+        'RefId="MV-FFF2" /></DownwardCompatibleMasks><MaskEntries><MaskEntry Id="MV-FFF1_ME-Test" Name="Test" '
+        'Address="4660" /></MaskEntries>' + configurations + '</MaskVersion>\n'
+        '      <MaskVersion Id="MV-FFF2" MaskVersion="65522" Name="TEST Maske B (künstliche Testdaten)" '
+        'ManagementModel="BimM112" MediumTypeRefId="MT-0" MgmtDescriptor01="0102"><HawkConfigurationData>'
+        '<Features><Feature Name="FirstAppObjectIdx" Value="1" /></Features></HawkConfigurationData>'
+        '</MaskVersion>\n')
+
+
+def master_data_only(target, version, new):
+    with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as out:
+        info = zipfile.ZipInfo('knx_master.xml', date_time=(2026, 10, 17, 12, 0, 0))
+        info.compress_type = zipfile.ZIP_DEFLATED
+        out.writestr(info, (MASTER_DATA_HEADER % version + test_masks(new) + MASTER_DATA_FOOTER).encode('utf-8'))
+
+
 write('src/test/fixtures/TestDetails.knxproj', keep_details)
 write('src/test/fixtures/TestDynamic.knxproj', dynamic,
     rename=lambda name: name.replace(VERSION, NEW_VERSION))
@@ -727,3 +784,5 @@ write('src/test/fixtures/TestBcu1.knxproj', bcu1,
     [('M-0008/' + program + '.xml', bcu1_program(program, number, name, with_data))
      for program, _, number, name, with_data in BCU1_PROGRAMS])
 write('src/test/fixtures/TestEts6.knxproj', ets6, rename=ets6_name)
+master_data_only('src/test/fixtures/TestMasterDataOld.knxproj', 1001, False)
+master_data_only('src/test/fixtures/TestMasterDataNew.knxproj', 1002, True)

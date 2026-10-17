@@ -44,12 +44,35 @@ final class MasterDataExport {
 	}
 
 	void write(XmlOut out) throws XMLStreamException {
-		out.open("MasterData");
+		out.open("MasterData").attr("Version", version());
 		writeDatapointTypes(out);
 		writeMasks(out);
 		writeManufacturers(out);
 		_texts.writeLanguages(out);
 		out.close();
+	}
+
+	/**
+	 * The version of the master data written: the lowest version of the master data the exported
+	 * mask versions come from, <code>null</code> if one of them is not known.
+	 *
+	 * <p>
+	 * An import of the export compares the mask versions with those it knows by this version, see
+	 * {@link de.haumacher.ehome.importer.VersionedMasterData}.
+	 * </p>
+	 */
+	private Integer version() {
+		Integer result = null;
+		for (TLObject mask : _usage._masks) {
+			Integer version = (Integer) mask.tValueByName("masterDataVersion");
+			if (version == null) {
+				return null;
+			}
+			if (result == null || version.intValue() < result.intValue()) {
+				result = version;
+			}
+		}
+		return result;
 	}
 
 	private void writeDatapointTypes(XmlOut out) throws XMLStreamException {

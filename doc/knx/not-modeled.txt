@@ -85,7 +85,6 @@ text Channel@Text
 
 ## Master data (knx_master.xml)
 
-skip MasterData@Version
 skip MasterData@Signature
 # The export writes the master data the project uses, not all of ETS's.
 subset MasterData/DatapointTypes

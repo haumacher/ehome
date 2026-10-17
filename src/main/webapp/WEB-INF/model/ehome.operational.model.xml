@@ -2235,6 +2235,13 @@
 				<property name="managementDescriptor"
 					type="tl.core:Binary"
 				/>
+				<!--
+					The version of the KNX master data this definition comes from (ETS: MasterData@Version), empty if
+					it is not known. An import with master data of a higher version updates the mask version in place.
+				-->
+				<property name="masterDataVersion"
+					type="tl.core:Integer"
+				/>
 				<!-- Mask versions whose programs run on a device of this one, too. -->
 				<reference name="compatibleMasks"
 					kind="forwards"

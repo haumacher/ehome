@@ -30,6 +30,9 @@ import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.virtual.VirtualTesting;
 
 import com.top_logic.basic.Logger;
+import com.top_logic.basic.i18n.log.BufferingI18NLog;
+import com.top_logic.basic.logging.Level;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
@@ -203,11 +206,39 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 			ProtectedProject.read("P-0563.zip", archive, 23, PASSWORD).get("0.xml").length);
 
 		Map<Integer, Plan> plain = ets6Plans();
-		Counts plainCounts = _ets6Counts;
-		Map<Integer, Plan> decrypted = plans(file, PASSWORD);
-		assertEquals(plainCounts, _lastCounts);
-		assertEquals(new Counts(1, 3, 54), _lastCounts);
+		Map<Integer, Plan> decrypted = protectedPlans();
+		assertEquals(new Counts(1, 3, 54), _protectedCounts);
 		assertEquals(normalized(plain.get(5).operations()), normalized(decrypted.get(5).operations()));
+	}
+
+	/**
+	 * The mask versions by the version of the master data (haumacher/ehome #34), with the imports the
+	 * other tests make anyway: the ETS 6 export (master data version 198) imported onto the ETS 4
+	 * export (version 92, see {@link #ets6Plans()}) updates MV-091A and the other mask versions its
+	 * master data define differently, so its plans are those of the (protected) ETS 6 export imported
+	 * into the empty database. The ETS 4 export imported onto that keeps them, warning about MV-091A,
+	 * and the plans of the ETS 6 project stay.
+	 */
+	public void testImportOrder() throws Exception {
+		Map<Integer, Plan> empty = protectedPlans();
+		assertEquals(summary(empty), summary(ets6Plans()));
+		assertEquals(summary(empty), summary(_ets6BeforeEts4));
+		// The mask versions the two master data define differently, each reported once.
+		List<ResKey> expected = new ArrayList<>();
+		for (String mask : List.of("MV-0012", "MV-0705", "MV-07B0", "MV-0912", "MV-091A", "MV-17B0", "MV-1900",
+			"MV-5705", "MV-57B0")) {
+			expected.add(I18NConstants.WARN_MASTER_DATA_DIFFER__ID_VERSION_KNOWN.fill(mask, "92", "198"));
+		}
+		List<ResKey> warnings = new ArrayList<>();
+		for (BufferingI18NLog.Entry entry : _ets4AfterEts6Messages) {
+			Object[] arguments = entry.getMessage().arguments();
+			Object detail = arguments.length == 0 ? null : arguments[arguments.length - 1];
+			if (String.valueOf(detail).contains("_MASTER_DATA_")) {
+				assertEquals(Level.WARN, entry.getLevel());
+				warnings.add((ResKey) detail);
+			}
+		}
+		assertEquals(expected, warnings);
 	}
 
 	private static boolean opens(byte[] archive, String password) {
@@ -234,21 +265,76 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 	 */
 	private static Map<Integer, Plan> _ets4Plans, _ets6Plans;
 
-	private static Counts _ets6Counts;
+	/**
+	 * The plans of the protected ETS 6 export imported into the empty database, and its counts.
+	 */
+	private static Map<Integer, Plan> _protectedPlans;
+
+	private static Counts _protectedCounts;
+
+	/**
+	 * The plans of the ETS 6 project after the ETS 4 export was imported onto it, with the messages of
+	 * that import.
+	 */
+	private static Map<Integer, Plan> _ets6BeforeEts4;
+
+	private static List<BufferingI18NLog.Entry> _ets4AfterEts6Messages;
 
 	private Map<Integer, Plan> ets4Plans() throws Exception {
 		if (_ets4Plans == null) {
-			_ets4Plans = plans(Files.readAllBytes(Path.of(ETS4)), null);
+			_ets4Plans = plans(Files.readAllBytes(Path.of(ETS4)), null, first -> {
+				// The ETS 6 export onto the ETS 4 export, saving an import into the empty database.
+				Importer importer = Ets6Files.importFile(Files.readAllBytes(Path.of(ETS6)), null);
+				assertEquals(List.of(), Ets6Files.errors(importer.getMessages()));
+				_ets6Plans = plans(devices(importer.getCreated("ehome.project:Project")));
+			});
 		}
 		return _ets4Plans;
 	}
 
+	/**
+	 * The plans of the ETS 6 export imported onto the ETS 4 export.
+	 */
 	private Map<Integer, Plan> ets6Plans() throws Exception {
-		if (_ets6Plans == null) {
-			_ets6Plans = plans(Files.readAllBytes(Path.of(ETS6)), null);
-			_ets6Counts = _lastCounts;
-		}
+		ets4Plans();
 		return _ets6Plans;
+	}
+
+	private Map<Integer, Plan> protectedPlans() throws Exception {
+		if (_protectedPlans == null) {
+			_protectedPlans = plans(Files.readAllBytes(Path.of(PROTECTED)), PASSWORD, first -> {
+				_protectedCounts = _lastCounts;
+				Importer importer = Ets6Files.importFile(Files.readAllBytes(Path.of(ETS4)), null);
+				assertEquals(List.of(), Ets6Files.errors(importer.getMessages()));
+				_ets4AfterEts6Messages = importer.getMessages();
+				_ets6BeforeEts4 = plans(devices(first.getCreated("ehome.project:Project")));
+			});
+		}
+		return _protectedPlans;
+	}
+
+	/**
+	 * What is done in the database of an import before it is emptied again.
+	 */
+	interface FollowUp {
+		/**
+		 * @param first
+		 *        The import before.
+		 */
+		void run(Importer first) throws Exception;
+	}
+
+	/**
+	 * The problems and the normalized operations of the plans by device.
+	 */
+	private static Map<Integer, List<String>> summary(Map<Integer, Plan> plans) {
+		Map<Integer, List<String>> result = new TreeMap<>();
+		plans.forEach((device, plan) -> {
+			List<String> lines = new ArrayList<>(plan.problems());
+			lines.addAll(normalized(plan.operations()));
+			result.put(device, lines);
+		});
+		return result;
 	}
 
 	/**
@@ -264,24 +350,40 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 	 * device, by its address on the line.
 	 */
 	private Map<Integer, Plan> plans(byte[] file, String password) throws Exception {
+		return plans(file, password, null);
+	}
+
+	/**
+	 * Imports the given project file into the emptied database and plans the full download of each
+	 * device, by its address on the line; then runs the given follow-up (if any) on that database.
+	 */
+	private Map<Integer, Plan> plans(byte[] file, String password, FollowUp followUp) throws Exception {
 		Ets6Files.clearData();
 		try {
 			Importer importer = Ets6Files.importFile(file, password);
 			assertEquals(List.of(), Ets6Files.errors(importer.getMessages()));
-			List<TLObject> devices = devices();
+			List<TLObject> devices = devices(instances("ehome.project:Project"));
 			_lastCounts = new Counts(instances("ehome.project:Project").size(), devices.size(),
 				instances("ehome.logical:GroupAddress").size());
-			Map<Integer, Plan> result = new LinkedHashMap<>();
-			for (TLObject device : devices) {
-				DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
-				List<String> problems = plan.getProblems().stream().map(p -> normalized(String.valueOf(p))).toList();
-				result.put((Integer) device.tValueByName("address"),
-					new Plan(problems, plan.getOperations(), inactiveConfigs(device, written(plan.getOperations()))));
+			Map<Integer, Plan> result = plans(devices);
+			if (followUp != null) {
+				followUp.run(importer);
 			}
 			return result;
 		} finally {
 			Ets6Files.clearData();
 		}
+	}
+
+	private static Map<Integer, Plan> plans(List<TLObject> devices) throws IOException {
+		Map<Integer, Plan> result = new LinkedHashMap<>();
+		for (TLObject device : devices) {
+			DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
+			List<String> problems = plan.getProblems().stream().map(p -> normalized(String.valueOf(p))).toList();
+			result.put((Integer) device.tValueByName("address"),
+				new Plan(problems, plan.getOperations(), inactiveConfigs(device, written(plan.getOperations()))));
+		}
+		return result;
 	}
 
 	/**
@@ -353,9 +455,9 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 		return result;
 	}
 
-	private static List<TLObject> devices() {
+	private static List<TLObject> devices(List<TLObject> projects) {
 		List<TLObject> result = new ArrayList<>();
-		for (TLObject project : instances("ehome.project:Project")) {
+		for (TLObject project : projects) {
 			for (Object area : (Collection<?>) project.tValueByName("areas")) {
 				for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 					for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {

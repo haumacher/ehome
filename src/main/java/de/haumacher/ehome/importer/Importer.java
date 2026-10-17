@@ -379,7 +379,10 @@ public class Importer {
 		ZipInputStream zip = new ZipInputStream(in);
 		try (ImportContext importContext = new DefaultImportContext(
 			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)).tee(_messages), _binding)) {
+			MasterDataUpdates updates = new MasterDataUpdates(_binding);
+			importContext.set(MasterDataUpdates.PROPERTY, updates);
 			importETS(zip, importContext, handler, productData);
+			updates.apply(importContext);
 		}
 		// Numbers the app allocates for new objects lie above those of the imported ones.
 		ExtIds.raiseImported(_binding.getCreated());

@@ -56,7 +56,7 @@ Workaround: `src/main/webapp/style/ehome.css` (registered as `ClientResources` i
 **When fixed in the engine** (default animations in the theme, no waiting without an animation):
 remove `style/ehome.css` and its `ClientResources` registration.
 
-## ETS import: workarounds for the XML import (TL #29794 to #29797, #29880 to #29882)
+## ETS import: workarounds for the XML import (TL #29794 to #29797, #29880 to #29883)
 
 The ETS import (`de.haumacher.ehome.importer`, `etsImporter.xml`) has handlers of its own for what
 the engine's XML import (`com.top_logic.xio`) cannot do yet:
@@ -67,11 +67,15 @@ the engine's XML import (`com.top_logic.xio`) cannot do yet:
 - TL #29795: `set-translation` only takes a fixed language. Workaround: `<i18n-property>`
   (`I18NPropertyImport`, `I18NTexts`), language from the variable `language`, fills the fallback
   language. **When available:** use `<set-translation>` with the language from the variable.
-- TL #29796: no handler binds a variable to an XML attribute. Workaround: `<default-language>`
-  (`DefaultLanguage`). **When available:** use the engine handler.
+- TL #29796: no handler binds a variable to an XML attribute. Workarounds: `<default-language>`
+  (`DefaultLanguage`) and `<master-data-version>` (`MasterDataVersion`, the version of the master
+  data for `<versioned-master-data>`). **When available:** use the engine handler.
 - TL #29797: import into existing data. Workarounds: `Importer.registerSharedObjects()` registers
   the shared objects under their `extId`; `<unless-known>` (`UnlessKnown`) skips known application
-  programs; `<translations>` (`TranslationsImport`) reads the `Languages` sections and ignores
+  programs; `<versioned-master-data>` (`VersionedMasterData`, `MasterDataUpdates`, `ObjectMerge`)
+  imports a known mask version as a transient candidate (`JoiningModelBinding#setTransient`) and, at
+  the end of the import, updates the known one in place from it (newer master data) or compares and
+  warns (older or the same); `<translations>` (`TranslationsImport`) reads the `Languages` sections and ignores
   unknown IDs. **When available:** declare the lookup in `etsImporter.xml`, and express the
   translations with `<with-var>`, `<object-ref>` (optional), `<switch>` and `<set-translation>`.
 - TL #29880: `<dispatch>` skips an unknown element and its subtree silently, so a construct of a newer
@@ -83,6 +87,11 @@ the engine's XML import (`com.top_logic.xio`) cannot do yet:
   one known case: a `ParameterRefRef` placed in several branches becomes a `SharedPlacement`
   (`<place-reference>`, `PlaceReference`). **When fixed:** nothing to undo; a new construct of that
   kind is then reported instead of breaking the import.
+- TL #29883 (defect): an unset boolean attribute reads as `false` on a stored object and as `null` on
+  a transient one. Workaround: `ObjectMerge` treats `null` and `false` as equal when it compares a
+  known mask version with its transient candidate (#34). **When fixed:** drop that case.
+- Deleting the parts the import drops one at a time took about 13 s per import of a real sample (the
+  referrer scans of TL #29876). Workaround: `MasterDataUpdates` deletes them in one `deleteAll`.
 - TL #29882: a `<switch>` case matches one value only, so the flags ETS 6 writes as `true` and ETS 4
   as `1` need duplicate cases in `etsImporter.xml`. **When available:** merge each pair into one
   case listing both values.
@@ -472,3 +481,4 @@ configuration should set.
 - TL #29876: see above (referrer scans when deleting).
 - TL #29877: see above (developer article on the persistency configuration).
 - TL #29880 to #29882: see above (XML import: unknown elements, a second container, multi-value cases).
+- TL #29883: see above (an unset boolean on stored and transient objects).

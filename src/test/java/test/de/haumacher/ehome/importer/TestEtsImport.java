@@ -447,6 +447,15 @@ public class TestEtsImport extends BasicTestCase {
 	}
 
 	/**
+	 * The given messages of an import without those about the mask versions of its master data (see
+	 * <code>MasterDataUpdates</code>): which mask versions a database holds depends on the projects
+	 * other tests of the suite imported into it before.
+	 */
+	public static List<BufferingI18NLog.Entry> withoutMasterData(List<BufferingI18NLog.Entry> messages) {
+		return messages.stream().filter(m -> !String.valueOf(m.getMessage()).contains("_MASTER_DATA_")).toList();
+	}
+
+	/**
 	 * Imports the given ETS project file in a transaction of its own.
 	 *
 	 * @return The messages of the import, see {@link Importer#getMessages()}.

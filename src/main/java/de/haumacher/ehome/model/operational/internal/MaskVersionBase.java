@@ -61,6 +61,15 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	String MANAGEMENT_MODEL_ATTR = "managementModel";
 
 	/**
+	 * Part <code>masterDataVersion</code> of <code>MaskVersion</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * </p>
+	 */
+	String MASTER_DATA_VERSION_ATTR = "masterDataVersion";
+
+	/**
 	 * Part <code>medium</code> of <code>MaskVersion</code>
 	 * 
 	 * <p>
@@ -251,6 +260,20 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	 */
 	default void setManagementModel(com.top_logic.model.TLClassifier newValue) {
 		tUpdateByName(MANAGEMENT_MODEL_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #MASTER_DATA_VERSION_ATTR}.
+	 */
+	default Integer getMasterDataVersion() {
+		return (Integer) tValueByName(MASTER_DATA_VERSION_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #MASTER_DATA_VERSION_ATTR}.
+	 */
+	default void setMasterDataVersion(Integer newValue) {
+		tUpdateByName(MASTER_DATA_VERSION_ATTR, newValue);
 	}
 
 	/**

@@ -12,8 +12,11 @@ import java.util.function.Consumer;
 
 import javax.xml.stream.Location;
 
+import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.impl.TransientModelFactory;
 import com.top_logic.model.search.expr.config.dom.Expr;
+import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.xio.importer.binding.ModelBinding;
 import com.top_logic.xio.importer.handlers.ImportPart;
 
@@ -34,6 +37,11 @@ public class JoiningModelBinding implements ModelBinding {
 	private Set<Object> _resolved = new LinkedHashSet<>();
 
 	/**
+	 * Whether objects are created transiently, see {@link #setTransient(boolean)}.
+	 */
+	private boolean _transient;
+
+	/**
 	 * Creates a {@link JoiningModelBinding}.
 	 *
 	 * @param impl
@@ -43,8 +51,35 @@ public class JoiningModelBinding implements ModelBinding {
 		_impl = impl;
 	}
 
+	/**
+	 * Whether the objects created from now on are transient: a candidate of known master data that is
+	 * compared with the known object and never stored (see {@link VersionedMasterData}).
+	 *
+	 * <p>
+	 * A transient object is not linked to a persistent one, and is not reported as created.
+	 * </p>
+	 */
+	public void setTransient(boolean value) {
+		_transient = value;
+	}
+
+	/**
+	 * Whether objects are created transiently, see {@link #setTransient(boolean)}.
+	 */
+	public boolean isTransient() {
+		return _transient;
+	}
+
+	private static boolean linksTransientToPersistent(Object obj, Object value) {
+		return obj instanceof TLObject self && !self.tTransient() && value instanceof TLObject other
+			&& other.tTransient();
+	}
+
 	@Override
 	public void addValue(ImportPart handler, Object obj, String part, Object element) {
+		if (linksTransientToPersistent(obj, element)) {
+			return;
+		}
 		Object value = ((TLObject) obj).tValueByName(part);
 		if (value instanceof Collection<?> collection && collection.contains(element)) {
 			return;
@@ -63,6 +98,10 @@ public class JoiningModelBinding implements ModelBinding {
 
 	@Override
 	public Object createObject(ImportPart handler, Location location, String modelType, String id) {
+		if (_transient) {
+			// Never registered under an ID: references to the ID resolve to the persistent object.
+			return TransientModelFactory.createTransientObject((TLClass) TLModelUtil.findType(modelType));
+		}
 		Object result = _impl.createObject(handler, location, modelType, id);
 		_created.add(result);
 		return result;
@@ -110,6 +149,9 @@ public class JoiningModelBinding implements ModelBinding {
 
 	@Override
 	public void setReference(ImportPart handler, Object obj, String name, Object value) {
+		if (linksTransientToPersistent(obj, value)) {
+			return;
+		}
 		_impl.setReference(handler, obj, name, value);
 	}
 

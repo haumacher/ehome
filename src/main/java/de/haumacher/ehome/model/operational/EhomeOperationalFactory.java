@@ -2462,6 +2462,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.meta.kbbased.
 	}
 
 	/**
+	 * Lookup {@link MaskVersion#MASTER_DATA_VERSION_ATTR} of {@link MaskVersion}.
+	 */
+	public static com.top_logic.model.TLProperty getMasterDataVersionMaskVersionAttr() {
+		return (com.top_logic.model.TLProperty) getMaskVersionType().getPart(MaskVersion.MASTER_DATA_VERSION_ATTR);
+	}
+
+	/**
 	 * Lookup {@link MaskVersion#MEDIUM_ATTR} of {@link MaskVersion}.
 	 */
 	public static com.top_logic.model.TLReference getMediumMaskVersionAttr() {
