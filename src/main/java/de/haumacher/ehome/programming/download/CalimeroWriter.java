@@ -4,20 +4,22 @@
 package de.haumacher.ehome.programming.download;
 
 import java.net.InetSocketAddress;
+import java.util.Arrays;
 
 import tuwien.auto.calimero.DataUnitBuilder;
 import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.KNXException;
-import tuwien.auto.calimero.KNXRemoteException;
-import tuwien.auto.calimero.link.KNXLinkClosedException;
-import tuwien.auto.calimero.link.KNXNetworkLink;
-import tuwien.auto.calimero.mgmt.Destination;
-import tuwien.auto.calimero.mgmt.ManagementClientImpl;
 import tuwien.auto.calimero.mgmt.ManagementProceduresImpl;
 
+import com.top_logic.basic.Logger;
+
+import de.haumacher.ehome.knx.transport.Tpdu;
+import de.haumacher.ehome.knx.transport.TransportClient;
+import de.haumacher.ehome.knx.transport.TransportClient.TransportException;
+
 /**
- * The one class that changes a device on the bus: {@link DeviceAccess} through a KNXnet/IP gateway
- * with Calimero.
+ * The one class that changes a device on the bus: {@link DeviceAccess} through a KNXnet/IP gateway,
+ * on the transport connection of {@link CalimeroReader}.
  *
  * <p>
  * Writing is switched off unless the application runs with the system property
@@ -33,12 +35,6 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 	 * The system property switching on writes to the bus.
 	 */
 	public static final String WRITE_ENABLED = "ehome.programming.writeEnabled";
-
-	/** KNX application service A_PropertyValue_Write. */
-	private static final int PROPERTY_WRITE = 0x03D7;
-
-	/** KNX application service A_PropertyValue_Response. */
-	private static final int PROPERTY_RESPONSE = 0x03D6;
 
 	/**
 	 * Whether writing to the bus is switched on for this installation.
@@ -61,53 +57,76 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 	}
 
 	private CalimeroWriter(InetSocketAddress gateway, int device) throws BusException {
-		super(gateway, device, LoadControlClient::new);
+		super(gateway, device);
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>
+	 * The answer to a load control (10 bytes) is the load state (1 byte), not the value written.
+	 * </p>
+	 */
 	@Override
 	public Integer writeLoadControl(int objectIndex, byte[] control) throws BusException {
-		try {
-			return ((LoadControlClient) management()).writeLoadControl(destination(), objectIndex, control);
-		} catch (KNXException ex) {
-			throw failure("The load control " + LoadControls.describe(control) + " of object " + objectIndex, ex);
-		} catch (InterruptedException ex) {
-			throw interrupted(ex);
+		String what = "The load control " + LoadControls.describe(control) + " of object " + objectIndex;
+		byte[] answer = request(what, propertyService(Tpdu.PROPERTY_WRITE, objectIndex, LoadControls.PID_LOAD_STATE_CONTROL,
+			1, 1, control), propertyAnswer(objectIndex, LoadControls.PID_LOAD_STATE_CONTROL, 1));
+		byte[] asdu = Tpdu.asdu(answer);
+		if ((asdu[2] & 0xF0) == 0) {
+			throw failure(what, new BusException("the device refused the load control"));
 		}
+		// A load state of one byte, or something else (e.g. the control repeated): then the state is
+		// to be read.
+		return asdu.length == 5 ? Integer.valueOf(asdu[4] & 0xFF) : null;
 	}
 
 	@Override
 	public void writeProperty(int objectIndex, int propertyId, int start, int count, byte[] data) throws BusException {
-		try {
-			management().writeProperty(destination(), objectIndex, propertyId, start, count, data);
-		} catch (KNXException ex) {
-			throw failure("Writing object " + objectIndex + " property " + propertyId, ex);
-		} catch (InterruptedException ex) {
-			throw interrupted(ex);
+		String what = "Writing object " + objectIndex + " property " + propertyId;
+		byte[] answer = request(what, propertyService(Tpdu.PROPERTY_WRITE, objectIndex, propertyId, start, count, data),
+			propertyAnswer(objectIndex, propertyId, start));
+		byte[] value = propertyValue(what, answer);
+		if (!Arrays.equals(value, data)) {
+			throw failure(what, new BusException("the device answered with " + Operation.hex(value) + ", written was "
+				+ Operation.hex(data)));
 		}
 	}
 
 	@Override
 	public void writeMemory(int address, byte[] data) throws BusException {
-		try {
-			management().writeMemory(destination(), address, data);
-		} catch (KNXException ex) {
-			throw failure(String.format("Writing memory %04X (%d bytes)", address, data.length), ex);
-		} catch (InterruptedException ex) {
-			throw interrupted(ex);
-		}
+		byte[] asdu = new byte[3 + data.length];
+		asdu[0] = (byte) data.length;
+		asdu[1] = (byte) (address >>> 8);
+		asdu[2] = (byte) address;
+		System.arraycopy(data, 0, asdu, 3, data.length);
+		// No answer awaited: a device in verify mode answers with the memory written, which the
+		// transport acknowledges and ignores (the plan reads it back itself).
+		request(String.format("Writing memory %04X (%d bytes)", address, data.length),
+			DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.MEMORY_WRITE, asdu), null);
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>
+	 * A basic restart has no answer, and the device may or may not end the connection (KNX allows
+	 * both). As soon as the device has acknowledged the restart, E-Home ends the connection itself
+	 * (haumacher/ehome #30); a device that disconnects first ends it as well.
+	 * </p>
+	 */
 	@Override
 	public void restart() throws BusException {
+		TransportClient.End end;
 		try {
-			management().restart(destination());
-		} catch (KNXException ex) {
+			end = connection().requestAndEnd(DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.RESTART));
+		} catch (TransportException ex) {
 			throw failure("The restart", ex);
 		} catch (InterruptedException ex) {
 			throw interrupted(ex);
 		}
-		// The device ends the connection with the restart; the next access opens a new one.
-		disconnect();
+		Logger.info("Restart of " + connection().device() + ": the connection was ended by the " + end + ".",
+			CalimeroWriter.class);
 	}
 
 	@Override
@@ -127,42 +146,6 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 			if (procedures != null) {
 				procedures.detach();
 			}
-		}
-	}
-
-	/**
-	 * Management client writing load controls.
-	 *
-	 * <p>
-	 * {@link ManagementClientImpl#writeProperty(Destination, int, int, int, int, byte[])} expects the
-	 * answer to a property write to have the length of the value written; the answer to a load
-	 * control (10 bytes) is the load state (1 byte).
-	 * </p>
-	 */
-	private static final class LoadControlClient extends ManagementClientImpl {
-
-		LoadControlClient(KNXNetworkLink link) throws KNXLinkClosedException {
-			super(link);
-		}
-
-		Integer writeLoadControl(Destination destination, int objectIndex, byte[] control)
-				throws KNXException, InterruptedException {
-			byte[] asdu = new byte[4 + control.length];
-			asdu[0] = (byte) objectIndex;
-			asdu[1] = (byte) LoadControls.PID_LOAD_STATE_CONTROL;
-			// One element from element 1.
-			asdu[2] = (byte) (1 << 4);
-			asdu[3] = 1;
-			System.arraycopy(control, 0, asdu, 4, control.length);
-			byte[] apdu = sendWait(destination, getPriority(), DataUnitBuilder.createAPDU(PROPERTY_WRITE, asdu),
-				PROPERTY_RESPONSE, 4, 4 + LoadControls.LENGTH, responseTimeout());
-			int elements = (apdu[4] & 0xFF) >> 4;
-			if (elements == 0) {
-				throw new KNXRemoteException("the device refused the load control");
-			}
-			// A load state of one byte, or something else (e.g. the control repeated): then the
-			// state is to be read.
-			return apdu.length == 7 ? Integer.valueOf(apdu[6] & 0xFF) : null;
 		}
 	}
 

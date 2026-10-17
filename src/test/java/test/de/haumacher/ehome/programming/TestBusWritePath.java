@@ -52,6 +52,29 @@ public class TestBusWritePath extends TestCase {
 		assertEquals("Calimero writes outside CalimeroWriter", List.of(), offenders);
 	}
 
+	/**
+	 * E-Home's own transport connection ({@link de.haumacher.ehome.knx.transport.TransportClient}) sends
+	 * what it is given: the application services changing a device are built only by
+	 * {@link CalimeroWriter} (and recognized by the virtual device, which answers them).
+	 */
+	public void testWriteServicesOnlyInWriter() throws IOException {
+		Pattern writes = Pattern.compile("Tpdu\\.(MEMORY_WRITE|PROPERTY_WRITE|RESTART)\\b|\\.requestAndEnd\\s*\\(");
+		List<String> offenders = new ArrayList<>();
+		try (Stream<Path> files = Files.walk(Path.of("src/main/java"))) {
+			for (Path file : (Iterable<Path>) files.filter(f -> f.toString().endsWith(".java"))::iterator) {
+				String name = file.toString().replace('\\', '/');
+				if (name.endsWith("/" + CalimeroWriter.class.getSimpleName() + ".java")
+					|| name.contains("/de/haumacher/ehome/virtual/")) {
+					continue;
+				}
+				if (writes.matcher(Files.readString(file, StandardCharsets.UTF_8)).find()) {
+					offenders.add(file.toString());
+				}
+			}
+		}
+		assertEquals("Write services built outside CalimeroWriter", List.of(), offenders);
+	}
+
 	public void testWritesSwitchedOffByDefault() {
 		assertFalse(CalimeroWriter.writeEnabled());
 		try {

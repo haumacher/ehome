@@ -10,6 +10,7 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +27,8 @@ import tuwien.auto.calimero.link.NetworkLinkListener;
 
 import com.top_logic.basic.Logger;
 
+import de.haumacher.ehome.knx.transport.ConnectionSequence;
+import de.haumacher.ehome.knx.transport.Tpdu;
 import de.haumacher.ehome.virtual.device.SimulatedDevice;
 import de.haumacher.ehome.virtual.trace.TraceEntry;
 import de.haumacher.ehome.virtual.trace.TraceEntry.Direction;
@@ -43,7 +46,9 @@ import de.haumacher.ehome.virtual.trace.TraceRecorder;
  * that arrive between the end of its wait for an acknowledgement and the end of the send are left in
  * its queue until the next send (a race of <code>TransportLayerImpl</code> 2.6, seen under load as a
  * request answered only after the tool's repetition, followed by a disconnect for an acknowledgement
- * out of sequence). Here every frame and every timer is handled on one thread, in order.
+ * out of sequence). Here every frame and every timer is handled on one thread, in order. The rules of
+ * the sequence numbers and the units are those of E-Home's client side
+ * ({@link de.haumacher.ehome.knx.transport.ConnectionSequence}, {@link Tpdu}).
  * </p>
  *
  * <p>
@@ -63,42 +68,6 @@ import de.haumacher.ehome.virtual.trace.TraceRecorder;
  */
 public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 
-	private static final int T_CONNECT = 0x80;
-
-	private static final int T_DISCONNECT = 0x81;
-
-	private static final int T_ACK = 0xC2;
-
-	private static final int T_NAK = 0xC3;
-
-	private static final int DATA_CONNECTED = 0x40;
-
-	private static final int MEMORY_READ = 0x0200;
-
-	private static final int MEMORY_RESPONSE = 0x0240;
-
-	private static final int MEMORY_WRITE = 0x0280;
-
-	private static final int DESCRIPTOR_READ = 0x0300;
-
-	private static final int DESCRIPTOR_RESPONSE = 0x0340;
-
-	private static final int RESTART = 0x0380;
-
-	private static final int AUTHORIZE_REQUEST = 0x03D1;
-
-	private static final int AUTHORIZE_RESPONSE = 0x03D2;
-
-	private static final int PROPERTY_READ = 0x03D5;
-
-	private static final int PROPERTY_RESPONSE = 0x03D6;
-
-	private static final int PROPERTY_WRITE = 0x03D7;
-
-	private static final int PROPERTY_DESCRIPTION_READ = 0x03D8;
-
-	private static final int PROPERTY_DESCRIPTION_RESPONSE = 0x03D9;
-
 	private static final int NO_PARTNER = -1;
 
 	private final SimulatedDevice _device;
@@ -114,9 +83,7 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 	/** The partner of the open connection, {@link #NO_PARTNER} if none is open. */
 	private int _partner = NO_PARTNER;
 
-	private int _sequenceSend;
-
-	private int _sequenceReceive;
+	private final ConnectionSequence _sequence = new ConnectionSequence();
 
 	/** The service sent in the connection and not acknowledged yet, <code>null</code> if none. */
 	private byte[] _pending;
@@ -200,13 +167,17 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		if (_executor.isShutdown()) {
 			return;
 		}
-		_executor.execute(() -> {
-			try {
-				task.run();
-			} catch (RuntimeException ex) {
-				Logger.error("The virtual device " + _device.name() + " failed.", ex, DeviceStack.class);
-			}
-		});
+		try {
+			_executor.execute(() -> {
+				try {
+					task.run();
+				} catch (RuntimeException ex) {
+					Logger.error("The virtual device " + _device.name() + " failed.", ex, DeviceStack.class);
+				}
+			});
+		} catch (RejectedExecutionException ex) {
+			// Closed meanwhile (a timer firing while the interface stops).
+		}
 	}
 
 	private void handle(CEMILData frame) {
@@ -224,45 +195,48 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		if (destination.getRawAddress() != _device.address()) {
 			return;
 		}
-		int control = tpdu[0] & 0xFF;
-		if ((control & 0x80) != 0) {
-			int sequence = (control >>> 2) & 0x0F;
-			if (control == T_CONNECT) {
+		if (Tpdu.isControl(tpdu)) {
+			int sequence = Tpdu.sequence(tpdu);
+			if (Tpdu.is(tpdu, Tpdu.CONNECT)) {
 				onConnect(source);
-			} else if (control == T_DISCONNECT) {
+			} else if (Tpdu.is(tpdu, Tpdu.DISCONNECT)) {
 				if (source == _partner) {
 					closeConnection(false);
 				}
-			} else if ((control & 0xC3) == T_ACK) {
+			} else if (Tpdu.isAcknowledgement(tpdu, Tpdu.ACK)) {
 				onAck(source, sequence);
-			} else if ((control & 0xC3) == T_NAK) {
+			} else if (Tpdu.isAcknowledgement(tpdu, Tpdu.NAK)) {
 				onNak(source, sequence);
 			}
 			return;
 		}
-		if ((control & DATA_CONNECTED) != 0) {
-			int sequence = (control >>> 2) & 0x0F;
+		if (Tpdu.isConnectedData(tpdu)) {
+			int sequence = Tpdu.sequence(tpdu);
 			if (source != _partner) {
 				event(source, TraceEntry.TL_PROTOCOL_ERROR, sequence, "data outside a connection");
-				sendControl(source, T_DISCONNECT);
+				sendControl(source, Tpdu.control(Tpdu.DISCONNECT));
 				return;
 			}
 			restartConnectionTimer();
-			if (sequence == _sequenceReceive) {
-				sendControl(source, T_ACK | sequence << 2);
-				_sequenceReceive = (sequence + 1) & 0x0F;
-				byte[] answer = answer(tpdu);
-				if (answer != null) {
-					sendConnected(answer);
+			switch (_sequence.received(sequence)) {
+				case NEW: {
+					sendControl(source, Tpdu.acknowledgement(Tpdu.ACK, sequence));
+					byte[] answer = answer(tpdu);
+					if (answer != null) {
+						sendConnected(answer);
+					}
+					if (restart(tpdu) && _timing.disconnectOnRestart()) {
+						closeConnection(true);
+					}
+					break;
 				}
-				if (restart(tpdu) && _timing.disconnectOnRestart()) {
-					closeConnection(true);
-				}
-			} else if (sequence == ((_sequenceReceive - 1) & 0x0F)) {
-				// A repetition of the service just received: acknowledged again, not executed again.
-				sendControl(source, T_ACK | sequence << 2);
-			} else {
-				sendControl(source, T_NAK | sequence << 2);
+				case REPEAT:
+					// A repetition of the service just received: acknowledged again, not executed again.
+					sendControl(source, Tpdu.acknowledgement(Tpdu.ACK, sequence));
+					break;
+				case OUT_OF_SEQUENCE:
+					sendControl(source, Tpdu.acknowledgement(Tpdu.NAK, sequence));
+					break;
 			}
 			return;
 		}
@@ -276,13 +250,12 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 	private void onConnect(int source) {
 		if (_partner != NO_PARTNER && _partner != source) {
 			event(source, TraceEntry.TL_REJECTED, null, "connected to " + new IndividualAddress(_partner));
-			sendControl(source, T_DISCONNECT);
+			sendControl(source, Tpdu.control(Tpdu.DISCONNECT));
 			return;
 		}
 		// A new connection, or the partner connects again: sequence numbers start over.
 		_partner = source;
-		_sequenceSend = 0;
-		_sequenceReceive = 0;
+		_sequence.reset();
 		_pending = null;
 		_queue.clear();
 		cancelAckTimer();
@@ -291,29 +264,32 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 
 	private void onAck(int source, int sequence) {
 		if (source != _partner) {
-			sendControl(source, T_DISCONNECT);
+			sendControl(source, Tpdu.control(Tpdu.DISCONNECT));
 			return;
 		}
-		if (_pending != null && sequence == _sequenceSend) {
-			cancelAckTimer();
-			_pending = null;
-			_sequenceSend = (_sequenceSend + 1) & 0x0F;
-			restartConnectionTimer();
-			sendNext();
-		} else if (sequence == ((_sequenceSend - 1) & 0x0F)) {
-			event(source, TraceEntry.TL_STALE_ACK, sequence, "acknowledged before, ignored");
-		} else {
-			event(source, TraceEntry.TL_PROTOCOL_ERROR, sequence, "T_Ack out of sequence, expected " + _sequenceSend);
-			closeConnection(true);
+		switch (_sequence.acknowledged(sequence, _pending != null)) {
+			case CURRENT:
+				cancelAckTimer();
+				_pending = null;
+				restartConnectionTimer();
+				sendNext();
+				break;
+			case STALE:
+				event(source, TraceEntry.TL_STALE_ACK, sequence, "acknowledged before, ignored");
+				break;
+			case OUT_OF_SEQUENCE:
+				event(source, TraceEntry.TL_PROTOCOL_ERROR, sequence, "T_Ack out of sequence, expected " + _sequence.send());
+				closeConnection(true);
+				break;
 		}
 	}
 
 	private void onNak(int source, int sequence) {
 		if (source != _partner) {
-			sendControl(source, T_DISCONNECT);
+			sendControl(source, Tpdu.control(Tpdu.DISCONNECT));
 			return;
 		}
-		if (_pending != null && sequence == _sequenceSend && _repeat < _timing.repetitions()) {
+		if (_pending != null && sequence == _sequence.send() && _repeat < _timing.repetitions()) {
 			_repeat++;
 			transmitPending();
 		} else {
@@ -334,9 +310,7 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		if (apdu == null || _partner == NO_PARTNER) {
 			return;
 		}
-		byte[] tpdu = apdu.clone();
-		tpdu[0] = (byte) (apdu[0] & 0x03 | DATA_CONNECTED | _sequenceSend << 2);
-		_pending = tpdu;
+		_pending = Tpdu.connected(apdu, _sequence.send());
 		_repeat = 0;
 		transmitPending();
 	}
@@ -355,10 +329,10 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		}
 		if (_repeat < _timing.repetitions()) {
 			_repeat++;
-			event(_partner, TraceEntry.TL_ACK_TIMEOUT, _sequenceSend, null);
+			event(_partner, TraceEntry.TL_ACK_TIMEOUT, _sequence.send(), null);
 			transmitPending();
 		} else {
-			event(_partner, TraceEntry.TL_REPETITIONS_EXHAUSTED, _sequenceSend, null);
+			event(_partner, TraceEntry.TL_REPETITIONS_EXHAUSTED, _sequence.send(), null);
 			closeConnection(true);
 		}
 	}
@@ -393,7 +367,7 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 			return;
 		}
 		if (sendDisconnect) {
-			sendControl(_partner, T_DISCONNECT);
+			sendControl(_partner, Tpdu.control(Tpdu.DISCONNECT));
 		}
 		_partner = NO_PARTNER;
 		_pending = null;
@@ -405,8 +379,8 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		}
 	}
 
-	private void sendControl(int destination, int control) {
-		send(destination, Priority.SYSTEM, new byte[] { (byte) control });
+	private void sendControl(int destination, byte[] tpdu) {
+		send(destination, Priority.SYSTEM, tpdu);
 	}
 
 	private void send(int destination, Priority priority, byte[] tpdu) {
@@ -434,7 +408,7 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 	}
 
 	private static boolean restart(byte[] tpdu) {
-		return tpdu.length >= 2 && (DataUnitBuilder.getAPDUService(tpdu) & 0x3C0) == RESTART && (tpdu[1] & 0x01) == 0;
+		return tpdu.length >= 2 && (Tpdu.service(tpdu) & 0x3C0) == Tpdu.RESTART && (tpdu[1] & 0x01) == 0;
 	}
 
 	/**
@@ -444,24 +418,24 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		if (tpdu.length < 2) {
 			return null;
 		}
-		int service = DataUnitBuilder.getAPDUService(tpdu);
-		byte[] asdu = DataUnitBuilder.extractASDU(tpdu);
-		if ((service & 0x3C0) == DESCRIPTOR_READ) {
+		int service = Tpdu.service(tpdu);
+		byte[] asdu = Tpdu.asdu(tpdu);
+		if ((service & 0x3C0) == Tpdu.DESCRIPTOR_READ) {
 			if (asdu.length < 1 || (asdu[0] & 0x3F) != 0) {
 				return null;
 			}
-			return DataUnitBuilder.createAPDU(DESCRIPTOR_RESPONSE, _device.descriptor());
+			return DataUnitBuilder.createAPDU(Tpdu.DESCRIPTOR_RESPONSE, _device.descriptor());
 		}
-		if ((service & 0x3C0) == RESTART) {
+		if ((service & 0x3C0) == Tpdu.RESTART) {
 			_device.reset();
 			if ((tpdu[1] & 0x01) == 0) {
 				return null;
 			}
 			// Master reset: confirmed with no error and no process time.
-			return DataUnitBuilder.createLengthOptimizedAPDU(RESTART, (byte) 0x21, (byte) 0, (byte) 0, (byte) 0);
+			return DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.RESTART, (byte) 0x21, (byte) 0, (byte) 0, (byte) 0);
 		}
 		switch (service) {
-			case MEMORY_READ: {
+			case Tpdu.MEMORY_READ: {
 				if (asdu.length != 3) {
 					return null;
 				}
@@ -469,7 +443,7 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 				byte[] data = _device.memory(address(asdu), count);
 				return memoryResponse(data == null ? 0 : count, asdu, data);
 			}
-			case MEMORY_WRITE: {
+			case Tpdu.MEMORY_WRITE: {
 				if (asdu.length < 3) {
 					return null;
 				}
@@ -481,7 +455,7 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 				boolean accepted = _device.putMemory(address(asdu), data);
 				return _device.verifyMode() ? memoryResponse(accepted ? count : 0, asdu, accepted ? data : null) : null;
 			}
-			case PROPERTY_READ: {
+			case Tpdu.PROPERTY_READ: {
 				if (asdu.length != 4) {
 					return null;
 				}
@@ -490,7 +464,7 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 				byte[] value = _device.property(asdu[0] & 0xFF, asdu[1] & 0xFF, start, count);
 				return propertyResponse(asdu, value == null ? 0 : start == 0 ? 1 : count, value);
 			}
-			case PROPERTY_WRITE: {
+			case Tpdu.PROPERTY_WRITE: {
 				if (asdu.length < 5) {
 					return null;
 				}
@@ -500,16 +474,16 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 					Arrays.copyOfRange(asdu, 4, asdu.length));
 				return propertyResponse(asdu, answer == null ? 0 : count, answer);
 			}
-			case PROPERTY_DESCRIPTION_READ:
+			case Tpdu.PROPERTY_DESCRIPTION_READ:
 				if (asdu.length != 3) {
 					return null;
 				}
 				// No such property: type 0, no elements, no access.
-				return DataUnitBuilder.createAPDU(PROPERTY_DESCRIPTION_RESPONSE, asdu[0], asdu[1], asdu[2], (byte) 0,
+				return DataUnitBuilder.createAPDU(Tpdu.PROPERTY_DESCRIPTION_RESPONSE, asdu[0], asdu[1], asdu[2], (byte) 0,
 					(byte) 0, (byte) 0, (byte) 0);
-			case AUTHORIZE_REQUEST:
+			case Tpdu.AUTHORIZE_REQUEST:
 				// No keys are modeled: every key gives access level 0.
-				return DataUnitBuilder.createAPDU(AUTHORIZE_RESPONSE, (byte) 0);
+				return DataUnitBuilder.createAPDU(Tpdu.AUTHORIZE_RESPONSE, (byte) 0);
 			default:
 				return null;
 		}
@@ -527,7 +501,7 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		if (asdu.length > 3) {
 			System.arraycopy(data, 0, asdu, 3, data.length);
 		}
-		return DataUnitBuilder.createLengthOptimizedAPDU(MEMORY_RESPONSE, asdu);
+		return DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.MEMORY_RESPONSE, asdu);
 	}
 
 	private static byte[] propertyResponse(byte[] request, int count, byte[] value) {
@@ -538,7 +512,7 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 		asdu[2] = (byte) (count << 4 | request[2] & 0x0F);
 		asdu[3] = request[3];
 		System.arraycopy(data, 0, asdu, 4, data.length);
-		return DataUnitBuilder.createAPDU(PROPERTY_RESPONSE, asdu);
+		return DataUnitBuilder.createAPDU(Tpdu.PROPERTY_RESPONSE, asdu);
 	}
 
 }

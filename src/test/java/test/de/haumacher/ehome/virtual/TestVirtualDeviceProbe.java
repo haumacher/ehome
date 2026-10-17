@@ -43,6 +43,7 @@ import de.haumacher.ehome.virtual.VirtualInterfaceManager;
 import de.haumacher.ehome.virtual.device.MappedLoadStateRule;
 import de.haumacher.ehome.virtual.device.ProjectDevices;
 import de.haumacher.ehome.virtual.device.SimulatedDevice;
+import de.haumacher.ehome.virtual.server.TransportTiming;
 import de.haumacher.ehome.virtual.server.VirtualInterface;
 import de.haumacher.ehome.virtual.server.VirtualInterface.Endpoint;
 import de.haumacher.ehome.virtual.trace.TraceFormat;
@@ -102,14 +103,12 @@ public class TestVirtualDeviceProbe extends BasicTestCase {
 	private static void download(DownloadPlan plan, SimulatedDevice simulated, String name) throws Exception {
 		VirtualInterfaceManager manager = manager("probe");
 		Endpoint endpoint = loopback();
-		VirtualInterface running = manager.start(simulated, endpoint, TestVirtualDownload.RESTART_DISCONNECTS, Map.of("probe", name));
+		VirtualInterface running = manager.start(simulated, endpoint, TransportTiming.DEFAULT, Map.of("probe", name));
 		File file = running.recorder().file();
 		try {
 			writing(() -> {
 				try (CalimeroWriter writer = CalimeroWriter.open(gateway(endpoint), plan.getIndividualAddress())) {
-					DownloadExecutor.Result result = new DownloadExecutor(ms -> {
-						// No waiting.
-					}).execute(plan, writer, (number, count, operation) -> {
+					DownloadExecutor.Result result = new DownloadExecutor().execute(plan, writer, (number, count, operation) -> {
 						// No progress.
 					});
 					assertTrue(name + ": " + result.failure(), result.success());
@@ -119,6 +118,7 @@ public class TestVirtualDeviceProbe extends BasicTestCase {
 			manager.stop();
 		}
 		TraceFormat.Trace trace = read(file);
+		TestVirtualDownload.assertRestartEndsAtOnce(name, trace.entries(), TransportTiming.DEFAULT);
 		List<Operation> recorded = TraceOperations.operations(trace.entries());
 		assertEquals(name + ": trace differs from the plan", List.of(),
 			TraceOperations.compare(plan.getOperations(), recorded));

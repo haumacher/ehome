@@ -47,6 +47,7 @@ import de.haumacher.ehome.virtual.device.SimulatedDevice;
 import de.haumacher.ehome.virtual.server.TransportTiming;
 import de.haumacher.ehome.virtual.server.VirtualInterface;
 import de.haumacher.ehome.virtual.server.VirtualInterface.Endpoint;
+import de.haumacher.ehome.virtual.trace.TraceEntry;
 import de.haumacher.ehome.virtual.trace.TraceFormat;
 import de.haumacher.ehome.virtual.trace.TraceOperations;
 
@@ -70,10 +71,11 @@ public class TestVirtualDownload extends BasicTestCase {
 	public void testTestsystem() throws Exception {
 		TLObject project = importProject("samples/KNX-Testsystem.knxproj");
 		try {
-			// The device ends the connection after the restart: the tool does not wait for its own idle
-			// timeout (6 s with Calimero); the header of the trace says so.
+			// The option of the virtual device: it ends the connection itself after the restart (the
+			// header of the trace says so).
 			download(device(project, 0x1305), "actuator", RESTART_DISCONNECTS);
-			download(device(project, 0x1332), "tastsensor", RESTART_DISCONNECTS);
+			// The default: the device stays silent after the restart, E-Home ends the connection.
+			download(device(project, 0x1332), "tastsensor", TransportTiming.DEFAULT);
 		} finally {
 			delete(project);
 		}
@@ -87,14 +89,14 @@ public class TestVirtualDownload extends BasicTestCase {
 					&& (DeviceConfiguration.program(d).getMask().getNumber() & 0xFFF0) == 0x0010)
 				.toList();
 			assertFalse("A BCU 1 device in Tastsensor2.knxproj.", devices.isEmpty());
-			// The default timing: the device keeps the connection after the restart, the tool ends it.
+			// The default timing: the device keeps the connection after the restart, E-Home ends it.
 			download(devices.get(0), "bcu1", TransportTiming.DEFAULT);
 		} finally {
 			delete(project);
 		}
 	}
 
-	/** The timing of the tests: the device ends the connection after a restart. */
+	/** The option of the virtual device: it ends the connection after a restart. */
 	static final TransportTiming RESTART_DISCONNECTS = TransportTiming.DEFAULT.withDisconnectOnRestart(true);
 
 	private void download(TLObject device, String name, TransportTiming timing) throws Exception {
@@ -109,9 +111,8 @@ public class TestVirtualDownload extends BasicTestCase {
 		try {
 			writing(() -> {
 				try (CalimeroWriter writer = CalimeroWriter.open(gateway(endpoint), plan.getIndividualAddress())) {
-					DownloadExecutor.Result result = new DownloadExecutor(ms -> {
-						// No real waiting: the virtual device answers at once.
-					}).execute(plan, writer, (number, count, operation) -> {
+					// Real waits (the delays of the load procedure).
+					DownloadExecutor.Result result = new DownloadExecutor().execute(plan, writer, (number, count, operation) -> {
 						// No progress.
 					});
 					assertTrue(name + ": " + result.failure(), result.success());
@@ -123,6 +124,7 @@ public class TestVirtualDownload extends BasicTestCase {
 
 		// The trace equals the plan.
 		TraceFormat.Trace trace = read(file);
+		assertRestartEndsAtOnce(name, trace.entries(), timing);
 		assertEquals(timing.describe(), trace.header().get(VirtualInterfaceManager.HEADER_TRANSPORT));
 		List<Operation> recorded = TraceOperations.operations(trace.entries());
 		List<String> differences = TraceOperations.compare(plan.getOperations(), recorded);
@@ -221,6 +223,33 @@ public class TestVirtualDownload extends BasicTestCase {
 	 */
 	private static List<Integer> overwritten(String name) {
 		return "bcu1".equals(name) ? List.of(0x010D) : List.of();
+	}
+
+	/**
+	 * After each restart, the connection ends at once (haumacher/ehome #30): by E-Home right after
+	 * the device's acknowledgement, or by the device; no wait for an idle timeout.
+	 */
+	static void assertRestartEndsAtOnce(String name, List<TraceEntry> entries, TransportTiming timing) {
+		int restarts = 0;
+		for (int n = 0; n < entries.size(); n++) {
+			TraceEntry restart = entries.get(n);
+			if (!restart.incoming() || !TraceEntry.RESTART.equals(restart.service())) {
+				continue;
+			}
+			restarts++;
+			TraceEntry end = null;
+			for (TraceEntry entry : entries.subList(n + 1, entries.size())) {
+				if (TraceEntry.T_DISCONNECT.equals(entry.service())) {
+					end = entry;
+					break;
+				}
+			}
+			assertNotNull(name + ": no disconnect after the restart", end);
+			assertEquals(name + ": who ends the connection", timing.disconnectOnRestart(), end.outgoing());
+			long millis = java.time.Duration.between(restart.time(), end.time()).toMillis();
+			assertTrue(name + ": the connection ended " + millis + " ms after the restart", millis < 2000);
+		}
+		assertTrue(name + ": a restart in the trace", restarts > 0);
 	}
 
 	private static boolean inUnloaded(DownloadPlan plan, int address) {
