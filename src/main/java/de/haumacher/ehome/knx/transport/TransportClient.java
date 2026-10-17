@@ -92,7 +92,14 @@ public final class TransportClient implements NetworkLinkListener, AutoCloseable
 		CLIENT,
 
 		/** The device (it disconnected before or instead of acknowledging). */
-		DEVICE;
+		DEVICE,
+
+		/**
+		 * The client, after the device acknowledged none of the repetitions: a device may restart
+		 * before acknowledging (the MDT actuator AKK-0416.03 does), which KNX does not treat as an
+		 * error.
+		 */
+		UNACKNOWLEDGED;
 	}
 
 	/**
@@ -214,7 +221,8 @@ public final class TransportClient implements NetworkLinkListener, AutoCloseable
 	 * Sends a last application unit in the connection (A_Restart) and ends the connection: when the
 	 * device has acknowledged it, the client disconnects at once instead of waiting for the device to
 	 * do so (it may or may not, haumacher/ehome #30). A device that disconnects before or instead of
-	 * acknowledging ends it as well.
+	 * acknowledging ends it as well. A device that acknowledges none of the repetitions has
+	 * restarted before acknowledging: the client ends the connection, and that is no failure.
 	 */
 	public End requestAndEnd(byte[] apdu) throws TransportException, InterruptedException {
 		return (End) await(new Request(apdu, null, true));
@@ -506,6 +514,10 @@ public final class TransportClient implements NetworkLinkListener, AutoCloseable
 			return;
 		}
 		close(true);
+		if (request._final) {
+			complete(End.UNACKNOWLEDGED);
+			return;
+		}
 		fail("The device " + _device + " did not acknowledge (" + (_timing.repetitions() + 1) + " times sent).");
 	}
 

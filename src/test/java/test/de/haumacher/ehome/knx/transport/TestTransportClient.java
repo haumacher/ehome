@@ -321,6 +321,23 @@ public class TestTransportClient extends TestCase {
 		}
 	}
 
+	/**
+	 * A restart, the device acknowledging none of the repetitions (it restarts before
+	 * acknowledging, as the MDT actuator of the test line does): no failure, the client ends the
+	 * connection.
+	 */
+	public void testRestartUnacknowledged() throws Exception {
+		TransportClient.Timing fast = new TransportClient.Timing(Duration.ofMillis(50), 3, Duration.ofMillis(500),
+			Duration.ofMillis(500));
+		try (TransportClient client = new TransportClient(_link, DEVICE, fast)) {
+			device(tpdu -> List.of());
+			assertEquals(TransportClient.End.UNACKNOWLEDGED, client.requestAndEnd(restart()));
+			assertEquals("Sent four times, then disconnected.", List.of("80", "4380", "4380", "4380", "4380", "81"),
+				_sent);
+			assertFalse(client.isConnected());
+		}
+	}
+
 	private static boolean waitsForAnswer(Thread client) {
 		if (client.getState() != Thread.State.TIMED_WAITING) {
 			return false;

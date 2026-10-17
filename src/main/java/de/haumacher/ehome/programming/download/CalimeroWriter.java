@@ -112,7 +112,9 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 	 * <p>
 	 * A basic restart has no answer, and the device may or may not end the connection (KNX allows
 	 * both). As soon as the device has acknowledged the restart, E-Home ends the connection itself
-	 * (haumacher/ehome #30); a device that disconnects first ends it as well.
+	 * (haumacher/ehome #30); a device that disconnects first ends it as well. A device may restart
+	 * without acknowledging (the MDT actuator AKK-0416.03 of the test line does): after the
+	 * repetitions, E-Home ends the connection, as Calimero did.
 	 * </p>
 	 */
 	@Override
@@ -125,8 +127,11 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 		} catch (InterruptedException ex) {
 			throw interrupted(ex);
 		}
-		Logger.info("Restart of " + connection().device() + ": the connection was ended by the " + end + ".",
-			CalimeroWriter.class);
+		Logger.info("Restart of " + connection().device() + ": " + switch (end) {
+			case CLIENT -> "acknowledged, E-Home ended the connection.";
+			case DEVICE -> "the device ended the connection.";
+			case UNACKNOWLEDGED -> "none of the repetitions acknowledged, E-Home ended the connection.";
+		}, CalimeroWriter.class);
 	}
 
 	@Override
