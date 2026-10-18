@@ -402,6 +402,17 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 	private void sendConnected(byte[] apdu) {
 		_queue.add(apdu);
 		if (_pending == null) {
+			long delay = _timing.responseDelay().toMillis();
+			if (delay > 0) {
+				_executor.schedule(() -> execute(this::sendNextIfIdle), delay, TimeUnit.MILLISECONDS);
+			} else {
+				sendNext();
+			}
+		}
+	}
+
+	private void sendNextIfIdle() {
+		if (_pending == null) {
 			sendNext();
 		}
 	}

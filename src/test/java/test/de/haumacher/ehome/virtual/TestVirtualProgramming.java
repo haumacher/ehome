@@ -115,7 +115,8 @@ public class TestVirtualProgramming extends BasicTestCase {
 		Endpoint endpoint = loopback();
 		// The device ends the connection after the restart: the tool does not wait for its own timeout.
 		VirtualInterface running =
-			manager.start(simulated, endpoint, TestVirtualDownload.RESTART_DISCONNECTS, Map.of("session", "ETS-like"));
+			manager.start(simulated, endpoint,
+				TestVirtualDownload.RESTART_DISCONNECTS.withResponseDelay(Duration.ofMillis(20)), Map.of("session", "ETS-like"));
 		File file = running.recorder().file();
 		try {
 			InetSocketAddress gateway = gateway(endpoint);

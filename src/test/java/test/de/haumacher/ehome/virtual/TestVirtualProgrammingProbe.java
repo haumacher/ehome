@@ -61,7 +61,8 @@ public class TestVirtualProgrammingProbe extends BasicTestCase {
 		VirtualInterfaceManager manager = manager("probe");
 		Endpoint endpoint = loopback();
 		VirtualInterface running =
-			manager.start(simulated, endpoint, TestVirtualDownload.RESTART_DISCONNECTS, Map.of("probe", "button"));
+			manager.start(simulated, endpoint,
+				TestVirtualDownload.RESTART_DISCONNECTS.withResponseDelay(Duration.ofMillis(20)), Map.of("probe", "button"));
 		try {
 			InetSocketAddress gateway = gateway(endpoint);
 			KNXNetworkLink link = KNXNetworkLinkIP.newTunnelingLink(new InetSocketAddress(gateway.getAddress(), 0),
