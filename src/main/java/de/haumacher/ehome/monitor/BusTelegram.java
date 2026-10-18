@@ -28,9 +28,24 @@ import java.util.HexFormat;
  *        with the value, empty for a read.
  * @param own
  *        Whether E-Home sent this telegram.
+ * @param name
+ *        The name of the datapoint the link reports for the address (a HomeControl controller names the
+ *        datapoint of its runtime image), <code>null</code> if none.
+ * @param value
+ *        The value the link reports (a HomeControl controller decodes the telegram by the datapoint
+ *        of its runtime image) in the JSON form of {@link DatapointValues}, <code>null</code> if
+ *        none.
  */
 public record BusTelegram(long time, int source, int destination, Service service, int priority, boolean repeated,
-		int hopCount, byte[] data, boolean own) {
+		int hopCount, byte[] data, boolean own, String name, Object value) {
+
+	/**
+	 * Creates a {@link BusTelegram} the link reports no datapoint for.
+	 */
+	public BusTelegram(long time, int source, int destination, Service service, int priority, boolean repeated,
+			int hopCount, byte[] data, boolean own) {
+		this(time, source, destination, service, priority, repeated, hopCount, data, own, null, null);
+	}
 
 	/** The priority of telegrams of the system. */
 	public static final int PRIORITY_SYSTEM = 0;

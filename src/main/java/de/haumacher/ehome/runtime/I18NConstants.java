@@ -331,6 +331,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 UNLOAD_REFUSED__STATUS_ERROR;
 
+	/**
+	 * @en The search for controllers needs a network interface that is up and supports multicast; there is none.
+	 */
+	public static ResKey ERROR_DISCOVERY_NO_NETWORK;
+
+	/**
+	 * @en The search for controllers failed: {0}
+	 */
+	public static ResKey1 ERROR_DISCOVERY_FAILED__DETAIL;
+
+	/**
+	 * @en There is no network interface "{0}".
+	 */
+	public static ResKey1 ERROR_DISCOVERY_UNKNOWN_INTERFACE__NAME;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

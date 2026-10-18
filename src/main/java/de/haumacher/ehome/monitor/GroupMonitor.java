@@ -55,6 +55,14 @@ import de.haumacher.ehome.programming.download.BusException;
  * </ul>
  *
  * <p>
+ * Through a HomeControl controller ({@link ControllerBusLink}) the telegrams carry the name and
+ * value of the controller's datapoint: its value wins over the decoding by the project, since it is
+ * what the house actually runs; its name fills the name of an address the project does not know.
+ * The controller's other events (Zigbee, rules, commands, image loads, gaps) are rows of the log of
+ * their own ({@link LinkEvent}); they do not change the state board and are not recorded.
+ * </p>
+ *
+ * <p>
  * Sending a value ({@link #send(Object, Object, String)}) or a read request ({@link #read(Object)})
  * is refused until sending is allowed explicitly ({@link #setSending(boolean)}); connecting locks it
  * again.
@@ -100,6 +108,8 @@ public class GroupMonitor {
 	private String _gateway;
 
 	private String _lostReason;
+
+	private boolean _viaController;
 
 	private boolean _sending;
 
@@ -225,6 +235,7 @@ public class GroupMonitor {
 			}
 			_link = link;
 			_gateway = link.description();
+			_viaController = link.viaController();
 			_lostReason = null;
 			_sending = false;
 			link.setListener(new BusLink.Listener() {
@@ -246,6 +257,20 @@ public class GroupMonitor {
 					} catch (RuntimeException ex) {
 						Logger.error("Closing the monitor failed.", ex, GroupMonitor.class);
 					}
+				}
+
+				@Override
+				public void event(LinkEvent event) {
+					try {
+						inContext(() -> receive(event));
+					} catch (RuntimeException ex) {
+						Logger.error("Receiving an event failed: " + event, ex, GroupMonitor.class);
+					}
+				}
+
+				@Override
+				public void stateChanged() {
+					changed();
 				}
 			});
 		}
@@ -299,6 +324,15 @@ public class GroupMonitor {
 		}
 		inContext(this::stopRecording);
 		changed();
+	}
+
+	/**
+	 * Whether the monitor is attached through a link with the given {@link BusLink#description()}.
+	 */
+	public boolean isConnectedTo(String description) {
+		synchronized (_lock) {
+			return _link != null && _link.description().equals(description);
+		}
 	}
 
 	/**
@@ -384,11 +418,16 @@ public class GroupMonitor {
 			_received++;
 			String value = type == null ? decode(telegram)
 				: DatapointCodec.decode(type, telegram.service(), telegram.data());
+			AddressInfo address = _index.address(telegram.destination());
+			String name = address != null ? address.name() : telegram.name() == null ? "" : telegram.name();
 			MonitorRow row = _board.get(telegram.destination());
 			if (row == null) {
 				row = new MonitorRow(Integer.valueOf(telegram.destination()));
 				describe(row, telegram.destination());
 				_board.put(telegram.destination(), row);
+			}
+			if (address == null && !name.isEmpty()) {
+				row.put("name", name);
 			}
 			int count = row.get("count") instanceof Integer n ? n.intValue() : 0;
 			row.put("count", Integer.valueOf(count + 1));
@@ -406,9 +445,9 @@ public class GroupMonitor {
 			entry.put("sender", senderLabel(telegram));
 			entry.put("source", telegram.sourceText());
 			entry.put("address", _index.format(telegram.destination()));
-			AddressInfo address = _index.address(telegram.destination());
-			entry.put("name", address == null ? "" : address.name());
+			entry.put("name", name);
 			entry.put("value", value);
+			entry.put("kind", Resources.getInstance().getString(I18NConstants.EVENT_KIND_KNX));
 			entry.put("service", classifier("ehome.monitor:TelegramService#" + telegram.service().classifier()));
 			entry.put("priority", classifier("ehome.monitor:TelegramPriority#" + telegram.priorityName()));
 			entry.put("repeated", Boolean.valueOf(telegram.repeated()));
@@ -427,6 +466,102 @@ public class GroupMonitor {
 			schedule(this::changed, FRESH_MILLIS + 50);
 		}
 		changed();
+	}
+
+	/**
+	 * Takes an event of the link that is no group telegram: a row of the log of its own.
+	 */
+	public void receive(LinkEvent event) {
+		synchronized (_lock) {
+			MonitorRow entry = new MonitorRow(Long.valueOf(++_sequence));
+			entry.put("number", Long.valueOf(_sequence));
+			entry.put("time", format(event.time(), "HH:mm:ss.SSS"));
+			entry.put("kind", Resources.getInstance().getString(kindLabel(event.kind())));
+			entry.put("event", event.kind().externalName());
+			entry.put("sender", Resources.getInstance().getString(describe(event)));
+			entry.put("source", "");
+			entry.put("address", "");
+			entry.put("name", event.name() == null ? "" : event.name());
+			entry.put("value", DatapointCodec.valueText(null, event.value()));
+			entry.put("data", "");
+			entry.put("own", Boolean.FALSE);
+			_log.addFirst(entry);
+			while (_log.size() > LOG_LIMIT) {
+				_log.removeLast();
+			}
+		}
+		changed();
+	}
+
+	private static ResKey kindLabel(LinkEvent.Kind kind) {
+		switch (kind) {
+			case ZIGBEE:
+				return I18NConstants.EVENT_KIND_ZIGBEE;
+			case RULE:
+				return I18NConstants.EVENT_KIND_RULE;
+			case COMMAND:
+				return I18NConstants.EVENT_KIND_COMMAND;
+			case IMAGE:
+				return I18NConstants.EVENT_KIND_IMAGE;
+			case GAP:
+				return I18NConstants.EVENT_KIND_GAP;
+			case RESET:
+				return I18NConstants.EVENT_KIND_RESET;
+			default:
+				return I18NConstants.EVENT_KIND_OTHER;
+		}
+	}
+
+	/**
+	 * What happened, for a person.
+	 */
+	private static ResKey describe(LinkEvent event) {
+		Map<String, Object> fields = event.fields();
+		switch (event.kind()) {
+			case ZIGBEE: {
+				Object device = text(fields.get("ieee"));
+				Object endpoint = text(fields.get("ep"));
+				Object cluster = text(fields.get("cluster"));
+				switch (text(fields.get("event"))) {
+					case "report":
+						return I18NConstants.EVENT_ZIGBEE_REPORT__DEVICE_ENDPOINT_CLUSTER_ATTRIBUTE.fill(device, endpoint,
+							cluster, text(fields.get("attr")));
+					case "action":
+						return I18NConstants.EVENT_ZIGBEE_ACTION__DEVICE_ENDPOINT_CLUSTER_COMMAND.fill(device, endpoint,
+							cluster, text(fields.get("cmd")));
+					default:
+						return I18NConstants.EVENT_ZIGBEE_COMMAND__DEVICE_ENDPOINT_CLUSTER_COMMAND.fill(device, endpoint,
+							cluster, text(fields.get("cmd")));
+				}
+			}
+			case RULE:
+				return I18NConstants.EVENT_RULE__RULE.fill(text(fields.get("rule")));
+			case COMMAND: {
+				String via = text(fields.get("via"));
+				return I18NConstants.EVENT_COMMAND__ORIGIN
+					.fill(text(fields.get("origin")) + (via.isEmpty() ? "" : " (" + via + ")"));
+			}
+			case IMAGE:
+				switch (text(fields.get("event"))) {
+					case "unload":
+						return I18NConstants.EVENT_IMAGE_UNLOAD;
+					case "reload":
+						return I18NConstants.EVENT_IMAGE_RELOAD;
+					default:
+						return I18NConstants.EVENT_IMAGE_LOAD__PROJECT_REVISION_SOURCE.fill(text(fields.get("project")),
+							text(fields.get("revision")), text(fields.get("source")));
+				}
+			case GAP:
+				return I18NConstants.EVENT_GAP__COUNT.fill(text(fields.get("count")));
+			case RESET:
+				return I18NConstants.EVENT_RESET;
+			default:
+				return I18NConstants.EVENT_OTHER__KIND.fill(text(fields.get("kind")));
+		}
+	}
+
+	private static String text(Object value) {
+		return value == null ? "" : value.toString();
 	}
 
 	/**
@@ -473,6 +608,10 @@ public class GroupMonitor {
 			link.send(destination, apdu);
 		} catch (BusException ex) {
 			throw new TopLogicException(I18NConstants.ERROR_SEND_FAILED__DETAIL.fill(ex.getMessage()), ex);
+		}
+		if (link.reportsOwnTelegrams()) {
+			// The telegram comes back from the link.
+			return;
 		}
 		BusTelegram.Service service =
 			BusTelegram.Service.ofCode(tuwien.auto.calimero.DataUnitBuilder.getAPDUService(apdu));
@@ -761,14 +900,29 @@ public class GroupMonitor {
 			result.put("recording", _recording);
 			result.put("paused", Boolean.valueOf(_pausedLog != null));
 			ResKey status;
-			if (_link != null) {
+			String problem = _link == null ? null : _link.problem();
+			if (problem != null) {
+				status = _viaController
+					? I18NConstants.STATUS_CONTROLLER_INTERRUPTED__CONTROLLER_REASON.fill(_gateway, problem)
+					: I18NConstants.STATUS_INTERRUPTED__GATEWAY_REASON.fill(_gateway, problem);
+			} else if (_link != null) {
 				int local = _link.localAddress();
-				status = local == 0
-					? I18NConstants.STATUS_CONNECTED__GATEWAY_COUNT.fill(_gateway, Long.valueOf(_received))
-					: I18NConstants.STATUS_CONNECTED__GATEWAY_ADDRESS_COUNT.fill(_gateway,
-						BusTelegram.individualAddress(local), Long.valueOf(_received));
+				Long count = Long.valueOf(_received);
+				if (_viaController) {
+					status = local == 0
+						? I18NConstants.STATUS_CONTROLLER_CONNECTED__CONTROLLER_COUNT.fill(_gateway, count)
+						: I18NConstants.STATUS_CONTROLLER_CONNECTED__CONTROLLER_ADDRESS_COUNT.fill(_gateway,
+							BusTelegram.individualAddress(local), count);
+				} else {
+					status = local == 0
+						? I18NConstants.STATUS_CONNECTED__GATEWAY_COUNT.fill(_gateway, count)
+						: I18NConstants.STATUS_CONNECTED__GATEWAY_ADDRESS_COUNT.fill(_gateway,
+							BusTelegram.individualAddress(local), count);
+				}
 			} else if (_lostReason != null) {
-				status = I18NConstants.STATUS_LOST__GATEWAY_REASON.fill(_gateway, _lostReason);
+				status = _viaController
+					? I18NConstants.STATUS_CONTROLLER_LOST__CONTROLLER_REASON.fill(_gateway, _lostReason)
+					: I18NConstants.STATUS_LOST__GATEWAY_REASON.fill(_gateway, _lostReason);
 			} else {
 				status = I18NConstants.STATUS_DISCONNECTED;
 			}
@@ -814,10 +968,17 @@ public class GroupMonitor {
 		row.put("kind", DatapointCodec.kind(info == null ? null : info.dpt()).externalName());
 	}
 
-	/** Called while holding {@link #_lock}. */
+	/**
+	 * The value of a telegram: the one the link reports, else decoded by the type of its address.
+	 * Called while holding {@link #_lock}.
+	 */
 	private String decode(BusTelegram telegram) {
 		AddressInfo info = _index.address(telegram.destination());
-		return DatapointCodec.decode(info == null ? null : info.dpt(), telegram.service(), telegram.data());
+		Dpt dpt = info == null ? null : info.dpt();
+		if (telegram.value() != null && telegram.service() != BusTelegram.Service.READ) {
+			return DatapointCodec.valueText(dpt, telegram.value());
+		}
+		return DatapointCodec.decode(dpt, telegram.service(), telegram.data());
 	}
 
 	/** Called while holding {@link #_lock}. */

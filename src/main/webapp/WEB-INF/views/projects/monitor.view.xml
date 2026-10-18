@@ -2,7 +2,8 @@
 
 <!--
 	The group monitor of a project (haumacher/ehome #10, de.haumacher.ehome.monitor.GroupMonitor): attached
-	to the bus through the gateway of the project, it shows the group telegrams decoded by the datapoint
+	to the bus through the gateway of the project, or to the monitor stream of the project's HomeControl
+	controller (haumacher/ehome #41, "Connect to the controller", ControllerBusLink), it shows the group telegrams decoded by the datapoint
 	types of their addresses and attributed to the devices that sent them.
 
 	"project" is the project. "state" holds the snapshot of the monitor (GroupMonitor#snapshot()): written
@@ -15,7 +16,9 @@
 	the last value, its sender, the time of the last telegram and the count; a row changed in the last
 	three seconds is marked. The send form below it sends to the selected (or an entered) address, with
 	the input the datapoint type asks for; it is locked until "Allow sending", which connecting resets.
-	- Log: the last 1000 telegrams, newest first, own telegrams marked; it can be held.
+	- Log: the last 1000 telegrams, newest first, own telegrams marked; it can be held. Through a controller
+	it also shows the controller's other events (Zigbee, rules, commands, image loads, gaps of the stream),
+	named in the column "Source"; these are not recorded.
 	- Recordings: the telegrams stored while a recording ran, exported as CSV.
 -->
 <view>
@@ -45,6 +48,11 @@
 		<derived-channel name="gatewayText"
 			expr="g -> if($g == null, #('The project has no gateway yet.'@en, 'Das Projekt hat noch kein Gateway.'@de), #('Gateway: {0}'@en, 'Gateway: {0}'@de).fill($g))"
 			inputs="gateway"
+		/>
+		<derived-channel name="controllerText"
+			expr="p -> if($p == null or $p.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), #('Controller: {0}'@en, 'Controller: {0}'@de).fill($p.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`)))"
+			inputs="project"
+			observed-types="ehome.project:Project"
 		/>
 		<derived-channel name="status"
 			expr="s -> if($s == null, #('Not connected.'@en, 'Nicht verbunden.'@de), $s['status'])"
@@ -128,6 +136,24 @@
 								<null-input-disabled/>
 							</executability>
 							<group-monitor-connect state="state"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-cpu"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Connect to the controller</en>
+								<de>Mit dem Controller verbinden</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="p -> if($p.get(`ehome.project:Project#controller`) == null, #('The project has no controller; choose one in the deployment tab.'@en, 'Das Projekt hat keinen Controller; einen im Reiter Bereitstellung wählen.'@de))"/>
+							</executability>
+							<group-monitor-connect
+								source="controller"
+								state="state"
+							/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-x-circle"
@@ -239,6 +265,10 @@
 					<inset>
 						<stack gap="compact">
 							<text input="gatewayText"/>
+							<text
+								input="controllerText"
+								tone="secondary"
+							/>
 							<text input="status"/>
 							<text
 								input="sendingStatus"
@@ -1080,6 +1110,16 @@
 												<de>Zeit</de>
 											</label>
 											<value>r -> $r['time']</value>
+										</computed-column>
+										<computed-column name="kind"
+											type="tl.core:String"
+											width="120"
+										>
+											<label>
+												<en>Source</en>
+												<de>Quelle</de>
+											</label>
+											<value>r -> $r['kind']</value>
 										</computed-column>
 										<computed-column name="own"
 											type="tl.core:String"

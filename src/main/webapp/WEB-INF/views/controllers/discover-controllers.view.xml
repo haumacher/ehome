@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog searching the local networks for HomeControl controllers (haumacher/ehome #42): the controllers
+	announcing the DNS-SD service _homecontrol._tcp over multicast DNS (<discover-controllers>,
+	de.haumacher.ehome.runtime.DiscoverControllersAction), with the version of their announcement.
+	"Create" makes a controller (ehome.runtime:Controller) of the selected row - its name, address and
+	port - and writes it to "selection"; the token is set afterwards with "Set token". A controller with
+	the same address and port that exists already is not created again. Without a network interface the
+	search runs on all interfaces that are up and support multicast, except the loopback interface.
+-->
+<view>
+	<channels>
+		<channel name="selection"/>
+		<channel name="found"/>
+		<channel name="selected"/>
+		<channel name="networkInterface"/>
+	</channels>
+	<window width="900px">
+		<title>
+			<en>Search controllers</en>
+			<de>Controller suchen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text tone="secondary">
+					<label>
+						<en>Controllers in the local networks announce themselves over mDNS (_homecontrol._tcp). Choose one and create it; then set its token.</en>
+						<de>Controller in den lokalen Netzen kündigen sich über mDNS an (_homecontrol._tcp). Einen wählen und anlegen; danach sein Token setzen.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						options="knxNetworkInterfaces()"
+						value="networkInterface"
+					>
+						<label>
+							<en>Network interface (empty: all)</en>
+							<de>Netzwerkschnittstelle (leer: alle)</de>
+						</label>
+					</value-input>
+				</fields>
+				<button>
+					<action class="com.top_logic.layout.view.command.GenericViewCommand"
+						image="css:bi bi-broadcast"
+					>
+						<label>
+							<en>Search</en>
+							<de>Suchen</de>
+						</label>
+						<execute-script function="i -> x -> {'interface': $i}">
+							<inputs>
+								<input channel="networkInterface"/>
+							</inputs>
+						</execute-script>
+						<discover-controllers/>
+						<write-channel name="found"/>
+						<notify expr="rows -> if($rows.isEmpty(), #('No controller answered.'@en, 'Kein Controller hat geantwortet.'@de))"
+							kind="warning"
+						/>
+					</action>
+				</button>
+				<table selection="selected">
+					<inputs>
+						<input channel="found"/>
+					</inputs>
+					<columns>
+						<computed-column name="name"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Name</en>
+								<de>Name</de>
+							</label>
+							<value>row -> $row["name"]</value>
+						</computed-column>
+						<computed-column name="host"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Address</en>
+								<de>Adresse</de>
+							</label>
+							<value>row -> $row["host"]</value>
+						</computed-column>
+						<computed-column name="port"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Port</en>
+								<de>Port</de>
+							</label>
+							<value>row -> $row["portText"]</value>
+						</computed-column>
+						<computed-column name="version"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Version</en>
+								<de>Version</de>
+							</label>
+							<value>row -> $row["version"]</value>
+						</computed-column>
+						<computed-column name="build"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Build</en>
+								<de>Build</de>
+							</label>
+							<value>row -> $row["build"]</value>
+						</computed-column>
+						<computed-column name="known"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Known as</en>
+								<de>Bekannt als</de>
+							</label>
+							<value>row -> all(`ehome.runtime:Controller`).filter(c -> $c.get(`ehome.runtime:Controller#host`) == $row["host"] and $c.get(`ehome.runtime:Controller#port`) == $row["port"]).map(c -> $c.get(`ehome.runtime:Controller#name`)).firstElement()</value>
+						</computed-column>
+					</columns>
+					<rows>found -> if($found == null, [], $found)</rows>
+				</table>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-plus-lg"
+					input="selected"
+				>
+					<label>
+						<en>Create</en>
+						<de>Anlegen</de>
+					</label>
+					<executability>
+						<model-access
+							operation="Create"
+							type="ehome.runtime:Controller"
+						/>
+					</executability>
+					<with-transaction>
+						<execute-script>
+							<function><![CDATA[row -> if($row == null,
+    throw(#("Choose a controller the search found."@en, "Bitte einen gefundenen Controller wählen."@de)),
+    {
+        known = all(`ehome.runtime:Controller`)
+            .filter(c -> $c.get(`ehome.runtime:Controller#host`) == $row["host"] and $c.get(`ehome.runtime:Controller#port`) == $row["port"])
+            .firstElement();
+        if($known != null,
+            throw(#("The controller {0} has this address already."@en, "Der Controller {0} hat diese Adresse bereits."@de).fill($known.get(`ehome.runtime:Controller#name`))),
+            {
+                created = new(`ehome.runtime:Controller`);
+                $created.set(`ehome.runtime:Controller#name`, $row["name"]);
+                $created.set(`ehome.runtime:Controller#host`, $row["host"]);
+                $created.set(`ehome.runtime:Controller#port`, $row["port"]);
+                $created
+            })
+    })]]></function>
+						</execute-script>
+					</with-transaction>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

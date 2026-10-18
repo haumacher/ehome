@@ -235,6 +235,141 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey UNIT_FAN_STAGE;
 
+	/**
+	 * @en The project has no HomeControl controller; choose one in the deployment tab.
+	 */
+	public static ResKey ERROR_NO_CONTROLLER;
+
+	/**
+	 * @en The controller {0} has no token: set the token created on its console in the controllers view.
+	 */
+	public static ResKey1 ERROR_NO_CONTROLLER_TOKEN__CONTROLLER;
+
+	/**
+	 * @en No connection to the controller {0}: {1}
+	 */
+	public static ResKey2 ERROR_CONTROLLER_CONNECT_FAILED__CONTROLLER_DETAIL;
+
+	/**
+	 * @en Connected to the controller {0} (its tunnel sends as {1}), {2} telegrams received.
+	 */
+	public static ResKey3 STATUS_CONTROLLER_CONNECTED__CONTROLLER_ADDRESS_COUNT;
+
+	/**
+	 * @en Connected to the controller {0}, {1} telegrams received.
+	 */
+	public static ResKey2 STATUS_CONTROLLER_CONNECTED__CONTROLLER_COUNT;
+
+	/**
+	 * @en The connection to the controller {0} was lost: {1}
+	 */
+	public static ResKey2 STATUS_CONTROLLER_LOST__CONTROLLER_REASON;
+
+	/**
+	 * @en The connection to the controller {0} is interrupted: {1}
+	 */
+	public static ResKey2 STATUS_CONTROLLER_INTERRUPTED__CONTROLLER_REASON;
+
+	/**
+	 * @en The connection to the gateway {0} is interrupted: {1}
+	 */
+	public static ResKey2 STATUS_INTERRUPTED__GATEWAY_REASON;
+
+	/**
+	 * @en KNX
+	 */
+	public static ResKey EVENT_KIND_KNX;
+
+	/**
+	 * @en Zigbee
+	 */
+	public static ResKey EVENT_KIND_ZIGBEE;
+
+	/**
+	 * @en Rule
+	 */
+	public static ResKey EVENT_KIND_RULE;
+
+	/**
+	 * @en Command
+	 */
+	public static ResKey EVENT_KIND_COMMAND;
+
+	/**
+	 * @en Runtime image
+	 */
+	public static ResKey EVENT_KIND_IMAGE;
+
+	/**
+	 * @en Gap
+	 */
+	public static ResKey EVENT_KIND_GAP;
+
+	/**
+	 * @en Restart
+	 */
+	public static ResKey EVENT_KIND_RESET;
+
+	/**
+	 * @en Other
+	 */
+	public static ResKey EVENT_KIND_OTHER;
+
+	/**
+	 * @en Report of {0} endpoint {1}, cluster {2}, attribute {3}
+	 */
+	public static ResKey4 EVENT_ZIGBEE_REPORT__DEVICE_ENDPOINT_CLUSTER_ATTRIBUTE;
+
+	/**
+	 * @en Command {3} of {0} endpoint {1}, cluster {2}
+	 */
+	public static ResKey4 EVENT_ZIGBEE_ACTION__DEVICE_ENDPOINT_CLUSTER_COMMAND;
+
+	/**
+	 * @en Command {3} to {0} endpoint {1}, cluster {2}
+	 */
+	public static ResKey4 EVENT_ZIGBEE_COMMAND__DEVICE_ENDPOINT_CLUSTER_COMMAND;
+
+	/**
+	 * @en Rule {0}
+	 */
+	public static ResKey1 EVENT_RULE__RULE;
+
+	/**
+	 * @en Commanded through {0}
+	 */
+	public static ResKey1 EVENT_COMMAND__ORIGIN;
+
+	/**
+	 * @en Runtime image {0}, revision {1}, loaded ({2})
+	 */
+	public static ResKey3 EVENT_IMAGE_LOAD__PROJECT_REVISION_SOURCE;
+
+	/**
+	 * @en Model rebuilt for the datapoints of new devices
+	 */
+	public static ResKey EVENT_IMAGE_RELOAD;
+
+	/**
+	 * @en Runtime image unloaded
+	 */
+	public static ResKey EVENT_IMAGE_UNLOAD;
+
+	/**
+	 * @en {0} events lost: the monitor fell behind the controller.
+	 */
+	public static ResKey1 EVENT_GAP__COUNT;
+
+	/**
+	 * @en The controller restarted; the events start with the oldest it holds.
+	 */
+	public static ResKey EVENT_RESET;
+
+	/**
+	 * @en Event {0}
+	 */
+	public static ResKey1 EVENT_OTHER__KIND;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

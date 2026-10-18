@@ -563,6 +563,41 @@ public final class DatapointCodec {
 	}
 
 	/**
+	 * A value in the JSON form of {@link DatapointValues} (as a HomeControl controller reports it) as
+	 * text, as {@link #decode(Dpt, BusTelegram.Service, byte[])} writes the value of the same data.
+	 *
+	 * @param dpt
+	 *        The datapoint type of the address, <code>null</code> if unknown.
+	 * @param value
+	 *        The value; <code>null</code> for none.
+	 * @return The text; empty for no value.
+	 */
+	public static String valueText(Dpt dpt, Object value) {
+		if (value == null) {
+			return "";
+		}
+		if (dpt != null && kind(dpt) != Kind.RAW && DatapointValues.supports(dpt)) {
+			try {
+				return text(dpt, value);
+			} catch (RuntimeException ex) {
+				// Not a value of the type the project gives the address: shown as it is.
+			}
+		}
+		if (value instanceof Boolean flag) {
+			String[] values = switchValues(new Dpt(1, 1));
+			return values == null ? flag.toString() : values[flag.booleanValue() ? 1 : 0];
+		}
+		if (value instanceof Number number) {
+			return number instanceof Long || number instanceof Integer ? number.toString()
+				: new BigDecimal(Double.toString(number.doubleValue())).stripTrailingZeros().toPlainString();
+		}
+		if (value instanceof String text) {
+			return text;
+		}
+		return String.valueOf(value);
+	}
+
+	/**
 	 * The data that could not be decoded, with the reason.
 	 */
 	private static String refused(String hex, ResKey reason) {

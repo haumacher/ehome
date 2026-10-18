@@ -44,6 +44,12 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * </p>
  *
  * <p>
+ * The monitor stream (haumacher/ehome #41) is a WebSocket on a port of its own
+ * ({@link FakeMonitorStream}), named by <code>GET /api/auth/session</code> (<code>ws_port</code>);
+ * for a manual check an event is scripted with <code>POST /fake/monitor</code>.
+ * </p>
+ *
+ * <p>
  * Started from the command line (<code>java -cp target/classes:target/test-classes
  * test.de.haumacher.ehome.runtime.FakeController &lt;port&gt; &lt;token&gt;</code>), it serves until it is
  * stopped, for trying the deployment in the running application.
@@ -71,6 +77,8 @@ public class FakeController {
 
 	private boolean _storageError;
 
+	private final FakeMonitorStream _monitor;
+
 	/**
 	 * Creates and starts a {@link FakeController} on a free port.
 	 *
@@ -93,6 +101,9 @@ public class FakeController {
 		_server.createContext("/api/image", this::image);
 		_server.createContext("/api/status", this::status);
 		_server.createContext("/fake/refuse-next", this::script);
+		_server.createContext("/api/auth/session", this::session);
+		_server.createContext("/fake/monitor", this::scriptMonitor);
+		_monitor = new FakeMonitorStream(token);
 		_server.start();
 	}
 
@@ -108,6 +119,53 @@ public class FakeController {
 	 */
 	public void stop() {
 		_server.stop(0);
+		_monitor.stop();
+	}
+
+	/**
+	 * The WebSocket with the monitor stream.
+	 */
+	public FakeMonitorStream getMonitor() {
+		return _monitor;
+	}
+
+	/**
+	 * <code>GET /api/auth/session</code> (open): the WebSocket is on a port of its own, as in the
+	 * POSIX build.
+	 */
+	private void session(HttpExchange exchange) throws IOException {
+		drain(exchange);
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("onboarded", Boolean.TRUE);
+		body.put("authenticated", Boolean.FALSE);
+		body.put("via", null);
+		body.put("device", "homecontrol-fake");
+		body.put("version", "0.0.0-fake");
+		body.put("ws_port", Integer.valueOf(_monitor.getPort()));
+		answer(exchange, 200, body);
+	}
+
+	/**
+	 * <code>POST /fake/monitor</code> with an event (the members of a monitor event without
+	 * <code>seq</code> and <code>ms</code>): {@link FakeMonitorStream#emit(Map)} for a manual check in
+	 * the running application; <code>{"drop": true}</code> drops the connections.
+	 */
+	private void scriptMonitor(HttpExchange exchange) throws IOException {
+		Map<String, Object> body;
+		try (InputStream in = exchange.getRequestBody()) {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> parsed = (Map<String, Object>) Json.parse(new String(in.readAllBytes(), StandardCharsets.UTF_8), 10);
+			body = parsed;
+		} catch (JsonException ex) {
+			answer(exchange, 400, error(ex.getMessage(), "fake.bad_json"));
+			return;
+		}
+		if (Boolean.TRUE.equals(body.get("drop"))) {
+			_monitor.dropConnections();
+		} else {
+			_monitor.emit(body);
+		}
+		answer(exchange, 200, error("emitted", "fake.ok"));
 	}
 
 	/**

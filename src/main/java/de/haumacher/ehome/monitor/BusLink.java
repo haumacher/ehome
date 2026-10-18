@@ -10,7 +10,8 @@ import de.haumacher.ehome.programming.download.BusException;
  * group telegrams.
  *
  * <p>
- * {@link CalimeroBusLink} is the link through a KNXnet/IP gateway; tests use a link of their own.
+ * {@link CalimeroBusLink} is the link through a KNXnet/IP gateway, {@link ControllerBusLink} the
+ * monitor stream of a HomeControl controller; tests use a link of their own.
  * </p>
  */
 public interface BusLink extends AutoCloseable {
@@ -32,6 +33,21 @@ public interface BusLink extends AutoCloseable {
 		 *        Why, for a person.
 		 */
 		void closed(String reason);
+
+		/**
+		 * An event that is no group telegram was reported (a HomeControl controller reports the
+		 * Zigbee traffic, its rules' commands, ...).
+		 */
+		default void event(LinkEvent event) {
+			// Ignored by default.
+		}
+
+		/**
+		 * The state of the link changed (see {@link BusLink#problem()}).
+		 */
+		default void stateChanged() {
+			// Ignored by default.
+		}
 	}
 
 	/**
@@ -49,6 +65,30 @@ public interface BusLink extends AutoCloseable {
 	 * What the link is connected to, for a person (the gateway's address).
 	 */
 	String description();
+
+	/**
+	 * Why the link does not deliver right now although it is not closed (it reconnects),
+	 * <code>null</code> if it does.
+	 */
+	default String problem() {
+		return null;
+	}
+
+	/**
+	 * Whether the link is the monitor stream of a HomeControl controller rather than a connection to
+	 * a gateway (the monitor names it so).
+	 */
+	default boolean viaController() {
+		return false;
+	}
+
+	/**
+	 * Whether the link reports the telegrams sent through it as received telegrams (marked
+	 * {@link BusTelegram#own()}); otherwise the monitor shows a sent telegram itself.
+	 */
+	default boolean reportsOwnTelegrams() {
+		return false;
+	}
 
 	/**
 	 * Sends a group telegram.

@@ -19,7 +19,9 @@ import de.haumacher.ehome.runtime.Json.JsonException;
 /**
  * The client side of the deployment protocol of a HomeControl controller (homecontrol
  * <code>spec/api.md</code>, "Runtime image" and "Status"): <code>PUT</code>, <code>GET</code> and
- * <code>DELETE /api/image</code> and <code>GET /api/status</code>, authenticated by a bearer token.
+ * <code>DELETE /api/image</code> and <code>GET /api/status</code>, authenticated by a bearer token,
+ * and the open <code>GET /api/auth/session</code>. The monitor stream over the WebSocket is
+ * {@link de.haumacher.ehome.monitor.ControllerBusLink}.
  */
 public final class ControllerClient {
 
@@ -89,6 +91,42 @@ public final class ControllerClient {
 	 */
 	public String address() {
 		return (_host.contains(":") ? "[" + _host + "]" : _host) + ":" + _port;
+	}
+
+	/**
+	 * The host name or address of the controller.
+	 */
+	public String host() {
+		return _host;
+	}
+
+	/**
+	 * The port of its web API.
+	 */
+	public int port() {
+		return _port;
+	}
+
+	/**
+	 * The bearer token, <code>null</code> if none is sent.
+	 */
+	public String token() {
+		return _token == null || _token.isBlank() ? null : _token.trim();
+	}
+
+	/**
+	 * The time to wait for the connection and for an answer.
+	 */
+	public Duration timeout() {
+		return _timeout;
+	}
+
+	/**
+	 * <code>GET /api/auth/session</code> (open): whether the controller is onboarded, its name and
+	 * version, and the port of its WebSocket (<code>ws_port</code>, 0 for the port of the web API).
+	 */
+	public Answer session() throws IOException {
+		return send(request("/api/auth/session").GET());
 	}
 
 	/**
