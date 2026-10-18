@@ -9,8 +9,10 @@ import java.io.Reader;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.virtual.VirtualInterfaceManager;
@@ -46,13 +48,31 @@ public class VirtualTesting {
 	}
 
 	/**
+	 * The ports {@link #loopback()} hands out, below the ephemeral range of the operating system (Linux:
+	 * from 32768): a port taken from that range and closed again could be given to another socket
+	 * (a client's local port) before the virtual interface binds it.
+	 */
+	private static final int FIRST_PORT = 20000;
+
+	private static final int PORT_COUNT = 10000;
+
+	private static final AtomicInteger NEXT_PORT =
+		new AtomicInteger((int) (ProcessHandle.current().pid() % PORT_COUNT));
+
+	/**
 	 * An endpoint on the loopback address at a free port, without discovery.
 	 */
 	public static Endpoint loopback() throws IOException {
 		InetAddress loopback = InetAddress.getByName("127.0.0.1");
-		try (DatagramSocket socket = new DatagramSocket(new InetSocketAddress(loopback, 0))) {
-			return new Endpoint(loopback, socket.getLocalPort(), false);
+		for (int attempt = 0; attempt < PORT_COUNT; attempt++) {
+			int port = FIRST_PORT + Math.floorMod(NEXT_PORT.getAndIncrement(), PORT_COUNT);
+			try (DatagramSocket socket = new DatagramSocket(new InetSocketAddress(loopback, port))) {
+				return new Endpoint(loopback, port, false);
+			} catch (SocketException ex) {
+				// In use, try the next one.
+			}
 		}
+		throw new IOException("No free UDP port on the loopback address.");
 	}
 
 	/**
