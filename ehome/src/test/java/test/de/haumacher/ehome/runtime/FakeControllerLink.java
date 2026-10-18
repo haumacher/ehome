@@ -27,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
+import de.haumacher.ehome.connection.Signatures;
+import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Json.JsonException;
 
@@ -48,6 +50,15 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * can delay the answers ({@link #setDelay(long)}), replace the HMAC of the next authentication
  * ({@link #setMac(String)}, e.g. a replayed one), and send feed messages ({@link #send(Map)}).
  * </p>
+ *
+ * <p>
+ * The installation key (homecontrol issue #35): the <code>auth</code> names the fingerprint of the
+ * fake's key ({@link FakeController#getKey()}); a request's <code>signature</code> is passed to the
+ * route as the header <code>X-Image-Signature</code>, and a <code>PUT /api/image</code> with an inline
+ * <code>body</code> and a <code>signature</code> is refused 400 <code>image.bad_request</code> as the
+ * device refuses it. An offered key is kept pending ({@link #getPendingKey()}) until the test accepts
+ * it as the owner would ({@link #acceptKey()}).
+ * </p>
  */
 public class FakeControllerLink implements WebSocket.Listener {
 
@@ -68,8 +79,10 @@ public class FakeControllerLink implements WebSocket.Listener {
 	 *        The body, <code>null</code> for none.
 	 * @param binary
 	 *        Whether the body came as binary frames.
+	 * @param signature
+	 *        The member <code>signature</code> of the request, <code>null</code> for none.
 	 */
-	public record Request(String method, String path, byte[] body, boolean binary) {
+	public record Request(String method, String path, byte[] body, boolean binary, String signature) {
 		// A record.
 	}
 
@@ -120,6 +133,8 @@ public class FakeControllerLink implements WebSocket.Listener {
 	private ByteArrayOutputStream _body;
 
 	private int _bodyLength;
+
+	private String _pendingKey;
 
 	/**
 	 * Creates a {@link FakeControllerLink} of the given fake.
@@ -196,6 +211,38 @@ public class FakeControllerLink implements WebSocket.Listener {
 	 */
 	public synchronized int getBinaryFrames() {
 		return _binaryFrames;
+	}
+
+	/**
+	 * The public key E-Home offered (its <code>key</code> message) that waits for the owner's
+	 * acceptance, <code>null</code> if none.
+	 */
+	public synchronized String getPendingKey() {
+		return _pendingKey;
+	}
+
+	/**
+	 * The owner accepts the pending key on the device: it becomes the fake's installation key
+	 * ({@link FakeController#setKey(String)}) and E-Home is told with <code>key_accepted</code>.
+	 *
+	 * @return The fingerprint of the accepted key.
+	 */
+	public String acceptKey() throws Exception {
+		String key;
+		synchronized (this) {
+			key = _pendingKey;
+			_pendingKey = null;
+		}
+		if (key == null) {
+			throw new IllegalStateException("No key is pending.");
+		}
+		_fake.setKey(key);
+		String fingerprint = Signatures.fingerprint(key);
+		Map<String, Object> accepted = new LinkedHashMap<>();
+		accepted.put("type", "key_accepted");
+		accepted.put("fingerprint", fingerprint);
+		send(accepted);
+		return fingerprint;
 	}
 
 	/**
@@ -308,12 +355,22 @@ public class FakeControllerLink implements WebSocket.Listener {
 				auth.put("mac", mac);
 				auth.put("version", "0.1.0-fake");
 				auth.put("build", "fake123");
+				String key = _fake.getKey();
+				if (key != null) {
+					auth.put("key", Signatures.fingerprint(key));
+				}
 				webSocket.sendText(Json.compact(auth), true);
 				return;
 			}
 			case "ready":
 			case "refused":
 				_outcome.complete(message);
+				return;
+			case "key":
+				synchronized (this) {
+					_received.add(message);
+				}
+				offered(message);
 				return;
 			case "request":
 				synchronized (this) {
@@ -325,6 +382,17 @@ public class FakeControllerLink implements WebSocket.Listener {
 					}
 				}
 				String body = Json.member(text, "body", 32);
+				if (body != null && message.get("signature") != null && "PUT".equals(message.get("method"))
+					&& "/api/image".equals(message.get("path"))) {
+					// As the device: the inline body is parsed JSON, not the signed bytes.
+					synchronized (this) {
+						_requests.add(new Request("PUT", "/api/image", body.getBytes(StandardCharsets.UTF_8), false,
+							String.valueOf(message.get("signature"))));
+						respond(message.get("id"), 400, "{\"error\":\"a signed image is sent with length and binary "
+							+ "frames: the signature covers its exact bytes\",\"code\":\"image.bad_request\"}", false);
+					}
+					return;
+				}
 				serve(message, body == null ? null : body.getBytes(StandardCharsets.UTF_8), false);
 				return;
 			default:
@@ -345,9 +413,38 @@ public class FakeControllerLink implements WebSocket.Listener {
 		}
 	}
 
+	/**
+	 * E-Home offers a key (<code>{"type": "key", "public_key", "fingerprint"}</code>): as the device, a
+	 * malformed key or a fingerprint that is not the key's is answered with the error
+	 * <code>ehome.bad_key</code>, the key in force with <code>key_accepted</code> at once, another one
+	 * is kept pending with <code>key_pending</code>.
+	 */
+	private void offered(Map<String, Object> message) throws Exception {
+		Object key = message.get("public_key");
+		Object fingerprint = message.get("fingerprint");
+		Map<String, Object> answer = new LinkedHashMap<>();
+		if (key == null || !Signatures.isKey(key.toString())
+			|| (fingerprint != null && !fingerprint.equals(Signatures.fingerprint(key.toString())))) {
+			answer.put("type", "error");
+			answer.put("code", "ehome.bad_key");
+			answer.put("error", "the offered key is malformed or does not match its fingerprint");
+		} else if (key.toString().equalsIgnoreCase(String.valueOf(_fake.getKey()))) {
+			answer.put("type", "key_accepted");
+			answer.put("fingerprint", Signatures.fingerprint(key.toString()));
+		} else {
+			synchronized (this) {
+				_pendingKey = key.toString().toLowerCase();
+			}
+			answer.put("type", "key_pending");
+			answer.put("fingerprint", Signatures.fingerprint(key.toString()));
+		}
+		send(answer);
+	}
+
 	private synchronized void serve(Map<String, Object> request, byte[] body, boolean binary) {
+		Object signature = request.get("signature");
 		_requests.add(new Request(String.valueOf(request.get("method")), String.valueOf(request.get("path")), body,
-			binary));
+			binary, signature == null ? null : signature.toString()));
 		Object id = request.get("id");
 		if (_busy) {
 			_overlaps++;
@@ -363,9 +460,12 @@ public class FakeControllerLink implements WebSocket.Listener {
 				}
 				HttpRequest.Builder http = HttpRequest.newBuilder(
 					URI.create("http://127.0.0.1:" + _fake.getPort() + request.get("path")))
-					.header("Authorization", "Bearer " + _token)
-					.method(String.valueOf(request.get("method")), body == null ? HttpRequest.BodyPublishers.noBody()
-						: HttpRequest.BodyPublishers.ofByteArray(body));
+					.header("Authorization", "Bearer " + _token);
+				if (signature != null) {
+					http.header(ControllerClient.SIGNATURE_HEADER, signature.toString());
+				}
+				http.method(String.valueOf(request.get("method")), body == null ? HttpRequest.BodyPublishers.noBody()
+					: HttpRequest.BodyPublishers.ofByteArray(body));
 				HttpResponse<String> response = _http.send(http.build(), HttpResponse.BodyHandlers.ofString());
 				boolean stream = "GET".equals(request.get("method")) && "/api/image".equals(request.get("path"))
 					&& response.statusCode() == 200;

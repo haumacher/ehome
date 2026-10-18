@@ -6,8 +6,10 @@
 	last loaded, and the deployments, newest first, with the refusals of the selected one against the
 	objects of the project their paths lead to.
 
-	"Download image" checks the image as the controller would and offers it as a JSON file, or shows
-	why it would be refused (runtime-image.view.xml). "Deploy" first compares the image with the one
+	"Download image" checks the image as the controller would and offers it as a JSON file with its
+	detached signature (the .sig file, when the project has an installation key), or shows why it
+	would be refused (runtime-image.view.xml). Each deployment is signed with the key its controller
+	holds and records the signature and the key's fingerprint (homecontrol issue #35). "Deploy" first compares the image with the one
 	the controller stores (GET /api/image, de.haumacher.ehome.runtime.ImageComparison, haumacher/ehome
 	#47) and asks, naming what differs or that nothing does; it then sends the image (PUT /api/image)
 	with the revision after the last loaded one and records the outcome; a refusal is an outcome, shown
@@ -227,6 +229,7 @@
 										<column attribute="accepted"/>
 										<column attribute="status"/>
 										<column attribute="code"/>
+										<column attribute="keyFingerprint"/>
 										<column attribute="message"/>
 									</columns>
 									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#deployments`))</rows>
@@ -248,6 +251,8 @@
 									withEditMode="false"
 								>
 									<field attribute="message"/>
+									<field attribute="keyFingerprint"/>
+									<field attribute="signature"/>
 									<field attribute="before"/>
 									<field attribute="bytes"/>
 									<field attribute="total"/>

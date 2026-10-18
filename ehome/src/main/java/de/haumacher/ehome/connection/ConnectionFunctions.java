@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.util.List;
 
 import com.top_logic.basic.config.ConfigurationException;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLType;
@@ -46,7 +47,28 @@ public class ConnectionFunctions extends GenericMethod {
 		 * <code>forgetConfirmation(controller)</code>: the question before forgetting the controller
 		 * ({@link I18NConstants#CONFIRM_FORGET__CONTROLLER}).
 		 */
-		forgetConfirmation;
+		forgetConfirmation,
+		/**
+		 * <code>installationKeyState(project)</code>: the project's installation key and a rotation
+		 * under way, as text ({@link InstallationKeys#state(TLObject)}).
+		 */
+		installationKeyState,
+		/**
+		 * <code>controllerKeyState(controller)</code>: the key the controller's device holds and how it
+		 * relates to the project's, as text; <code>null</code> for a controller on the LAN
+		 * ({@link InstallationKeys#controllerState(TLObject)}).
+		 */
+		controllerKeyState,
+		/**
+		 * <code>installationKeyCreateVeto(project)</code>: why no installation key can be created for
+		 * the project, as text; <code>null</code> if one can ({@link InstallationKeys#createVeto(TLObject)}).
+		 */
+		installationKeyCreateVeto,
+		/**
+		 * <code>installationKeyRenewVeto(project)</code>: why the project's installation key cannot be
+		 * renewed now, as text; <code>null</code> if it can ({@link InstallationKeys#renewVeto(TLObject)}).
+		 */
+		installationKeyRenewVeto;
 	}
 
 	private final Function _function;
@@ -96,6 +118,18 @@ public class ConnectionFunctions extends GenericMethod {
 				return Boolean.valueOf(Controllers.online(obj));
 			case enrollmentCodeState:
 				return Controllers.codeState(obj, Instant.now());
+			case installationKeyState:
+				return InstallationKeys.state(obj);
+			case controllerKeyState:
+				return InstallationKeys.controllerState(obj);
+			case installationKeyCreateVeto: {
+				ResKey veto = InstallationKeys.createVeto(obj);
+				return veto == null ? null : Resources.getInstance().getString(veto);
+			}
+			case installationKeyRenewVeto: {
+				ResKey veto = InstallationKeys.renewVeto(obj);
+				return veto == null ? null : Resources.getInstance().getString(veto);
+			}
 			case forgetConfirmation:
 				return Resources.getInstance()
 					.getString(I18NConstants.CONFIRM_FORGET__CONTROLLER.fill(String.valueOf(obj.tValueByName("name"))));

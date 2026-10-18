@@ -34,8 +34,11 @@ and gets
 
 ```
 {"controller": "<32 hex>", "installation": "<project name>", "secret": "<64 hex>",
- "socket": "wss://ehome.example/ehome/api/controllers/<id>/socket"}
+ "socket": "wss://ehome.example/ehome/api/controllers/<id>/socket", "public_key": "<64 hex>"}
 ```
+
+`public_key` is the project's installation key (section "Signatures"), present when the project has
+one; the first controller of a project creates it.
 
 E-Home creates the controller under the project (`Project#controllers`; the first one also becomes
 the project's deployment target `Project#controller`) with a stable id of 128 random bits, a secret
@@ -65,9 +68,10 @@ The controller opens the socket URL it got. E-Home sends
 {"type": "challenge", "nonce": "<32 hex, 128 random bits, new for every connection>"}
 ```
 
-and the controller answers `{"type": "auth", "controller": "<id>", "mac": "<64 hex>"}` with
+and the controller answers `{"type": "auth", "controller": "<id>", "mac": "<64 hex>", "key": "<fingerprint>"}` with
 `HMAC-SHA256` keyed with the 32 bytes the secret's hex encodes, over the 16 bytes the nonce's hex
-encodes, in lower-case hex (as homecontrol's `ehome_mac` computes it). E-Home compares it in constant
+encodes, in lower-case hex (as homecontrol's `ehome_mac` computes it). `key`, only while the device
+holds an installation key, is that key's fingerprint (section "Signatures"). E-Home compares it in constant
 time with the HMAC of the stored secret and answers `{"type": "ready", "installation": ...}` followed
 by `{"type": "subscribe"}`, or `{"type": "refused", "code": ..., "error": ...}` and closes with 1008:
 
@@ -138,6 +142,64 @@ not authenticate in time; the container closes a socket idle for 90 s (the contr
   closed"; it is not repeated.
 - A forgotten controller is refused (`ehome.unknown_controller`) and must be enrolled again with a
   new code; it then is a new controller.
+
+## Signatures
+
+Every runtime image E-Home deploys or exports is signed (homecontrol issue #35, `spec/api.md`
+"Signed runtime images"); a controller holding the installation key refuses any other image, so a
+token alone cannot push one. The code is `connection.Signatures` (the construction and the
+encodings) and `connection.InstallationKeys` (the keys of a project and the rotation).
+
+- **One key pair per project.** An Ed25519 pair from the JDK (`KeyPairGenerator.getInstance("Ed25519")`),
+  generated at the enrollment of the project's first controller, or by "Create key" in the tab
+  "Controller" for a project whose controllers were enrolled before it had one (until then it
+  deploys unsigned, as before). Further controllers get the same key.
+- **Where the private key lives.** In the knowledge base with the project, as the 32-byte seed in
+  64 hex digits: `Project#installationKey` (and `#newInstallationKey` during a rotation), hidden, with
+  a read grant without roles (`ehome.security.config.xml`): nobody but an administrator reads it
+  through the model, like the controller's secret (section "Security", which also says why it is not
+  encrypted at rest). It never leaves E-Home: it is neither sent, nor shown, nor logged (the key's
+  `toString` names only the fingerprint). The public keys (`#installationPublicKey`,
+  `#newInstallationPublicKey`) are not secret.
+- **Encodings.** The public key travels as the 32 bytes of RFC 8032 in 64 lower-case hex digits (the
+  enrollment answer's `public_key`, the `key` message): the JDK's X.509 `SubjectPublicKeyInfo` of an
+  Ed25519 key is a fixed 12-byte prefix followed by those 32 bytes, and its PKCS #8 encoding a fixed
+  16-byte prefix followed by the seed, so `Signatures` cuts or adds the prefix. The **fingerprint** is
+  the first 8 bytes of SHA-256 over the 32 public-key bytes, 16 hex digits in four groups:
+  `ce7d 4a41 a476 9ee3`.
+- **The construction.** Plain Ed25519 (`Signature.getInstance("Ed25519")`, RFC 8032 "pure") over
+  `M = "homecontrol-image-v1" || SHA-256(image)`, the 20 ASCII bytes followed by the digest of the
+  image's exact bytes; the signature is the 64 bytes `R || S` in 128 lower-case hex digits. Ed25519 is
+  deterministic: `TestImageSignatures` reproduces the controller's fixtures (RFC 8032 test 1, the
+  fingerprints, `example.json.sig`) byte for byte.
+- **Where it travels.** `Deployer` signs the exported bytes and `ControllerClient.putImage(image,
+  signature)` sends them: over the socket the request carries `"signature"` next to `"length"` and the
+  image goes as binary frames (never the inline body, which the device refuses for a signed image),
+  over HTTP on the LAN the header `X-Image-Signature`. The deployment records the signature and the
+  key's fingerprint (column "Signed with"). "Download image" offers `<image>.sig` (128 hex digits and
+  a line end) beside the image, which the controller's Settings page installs with it.
+- **Refusals.** A device refuses an image without signature (403 `image.unsigned`) or one that does
+  not verify under its key (403 `image.bad_signature`) and names the fingerprint it expects; the
+  recorded message adds the key E-Home signed with, or that the project has no key.
+- **The device's key.** The enrollment records the key given to the controller; each connection's
+  `auth` (member `key`) and each `key_accepted` update `Controller#deviceKey`. The detail of the tab
+  "Controller" says which key the device holds, that it holds none (it accepts unsigned images), and
+  warns when it holds a key that is not the project's.
+- **The rotation.** "Renew key" generates a new pair and keeps the old one. After `ready`, every
+  controller that does not hold the key the project wants (the new key during a rotation, the
+  installation key otherwise; also a device that holds no key or a foreign one) is offered it:
+  `{"type": "key", "public_key": ..., "fingerprint": ...}`, and connected controllers at once. The
+  device answers `key_pending` and keeps it for its owner, who compares the fingerprint and accepts
+  on the device; then it sends `key_accepted` (or names the new key in the `auth` of a later
+  connection). An `ehome.bad_key` error is shown in the controller's detail. Each image is signed with
+  the key its controller holds: the new key for one that accepted it, the old one otherwise. The new
+  key becomes the installation key, and the old one is forgotten, when no enrolled controller of the
+  project holds the old key any more, so the rotation never leaves a device with a key E-Home no
+  longer signs with. A controller enrolled during a rotation gets the new key at once. "Renew key"
+  again replaces an unaccepted new key, and is refused while a controller holds it.
+- **What the owner compares.** The fingerprint below the controller table (the project's key, and
+  during a rotation the new one) with the one the controller's Settings page shows before accepting
+  a key; the device's key in the controller's detail.
 
 ## Forgetting a controller
 

@@ -17,6 +17,8 @@ import java.util.Map;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
+import de.haumacher.ehome.connection.Signatures;
+import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.ImageValidator;
@@ -40,7 +42,8 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * /api/image</code> unloads it (200 <code>{"ok": true, "loaded": false}</code>; a test can script the
  * storage error of the next one, {@link #storageErrorOnNextDelete()}: 500
  * <code>image.storage_error</code>, the image unloaded anyway). For a manual check, the next refusal
- * is scripted with <code>PUT /fake/refuse-next</code>.
+ * is scripted with <code>PUT /fake/refuse-next</code>. Given an installation key ({@link #setKey(String)},
+ * homecontrol issue #35), it accepts only images whose signature verifies under it.
  * </p>
  *
  * <p>
@@ -95,6 +98,10 @@ public class FakeController {
 	private int _zigbeeRefusal;
 
 	private Integer _permitSeconds;
+
+	private String _key;
+
+	private String _lastSignature;
 
 	/**
 	 * Creates and starts a {@link FakeController} on a free port.
@@ -288,6 +295,33 @@ public class FakeController {
 	}
 
 	/**
+	 * Gives the controller an installation key (homecontrol issue #35, <code>spec/api.md</code>, "Signed
+	 * runtime images"), the public key in 64 hex digits; <code>null</code> takes it away. While it holds
+	 * one, <code>PUT /api/image</code> needs the header <code>X-Image-Signature</code> with a signature
+	 * of the body that verifies under it: 403 <code>image.unsigned</code> without, 400
+	 * <code>image.bad_signature</code> for one that is not 128 hex digits, 403
+	 * <code>image.bad_signature</code> for one that does not verify; the reason names the key's
+	 * fingerprint, as the device's does.
+	 */
+	public synchronized void setKey(String publicKey) {
+		_key = publicKey;
+	}
+
+	/**
+	 * The installation key it holds, <code>null</code> for none.
+	 */
+	public synchronized String getKey() {
+		return _key;
+	}
+
+	/**
+	 * The signature the last <code>PUT /api/image</code> came with, <code>null</code> for none.
+	 */
+	public synchronized String getLastSignature() {
+		return _lastSignature;
+	}
+
+	/**
 	 * The number of images it was sent.
 	 */
 	public synchronized int getPuts() {
@@ -454,8 +488,31 @@ public class FakeController {
 			answer(exchange, 413, error("the body exceeds " + _limit + " bytes", "api.body_too_large"));
 			return;
 		}
+		String signature = exchange.getRequestHeaders().getFirst(ControllerClient.SIGNATURE_HEADER);
+		String key;
 		synchronized (this) {
 			_puts++;
+			_lastSignature = signature;
+			key = _key;
+		}
+		if (key != null) {
+			String fingerprint = Signatures.fingerprint(key);
+			if (signature == null) {
+				answer(exchange, 403, error("the image is not signed; the device accepts only images signed with the "
+					+ "installation key " + fingerprint, "image.unsigned"));
+				return;
+			}
+			if (!signature.trim().matches("[0-9a-fA-F]{128}")) {
+				answer(exchange, 400, error("the signature is not 128 hex digits", "image.bad_signature"));
+				return;
+			}
+			if (!Signatures.verifyImage(key, bytes, signature.trim())) {
+				answer(exchange, 403, error("the signature does not verify under the installation key " + fingerprint,
+					"image.bad_signature"));
+				return;
+			}
+		}
+		synchronized (this) {
 			if (_nextBody != null) {
 				int status = _nextStatus;
 				Map<String, Object> body = _nextBody;

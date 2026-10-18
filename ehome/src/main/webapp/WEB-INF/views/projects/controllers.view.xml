@@ -12,6 +12,12 @@
 	when, without the code. "Forget" deletes the selected controller after a confirmation and closes its
 	connection, which is refused from then on (ForgetControllerAction).
 
+	The installation key (homecontrol issue #35, de.haumacher.ehome.connection.InstallationKeys, doc/controllers.md
+	"Signatures"): below the table the fingerprint of the project's key and a rotation under way, which the
+	owner compares with the controller's Settings page; "Create key" makes one for a project without (it
+	is generated at the enrollment of the first controller), "Renew key" starts a rotation. The detail
+	shows the key the selected controller holds and a mismatch with the project's.
+
 	The connection state is held in memory, not in the knowledge base: the table shows it as of its
 	last refresh; the last contact, stored at the connection and at its end, refreshes it.
 -->
@@ -23,6 +29,16 @@
 			expr="p -> if($p == null, null, enrollmentCodeState($p))"
 			inputs="project"
 			observed-types="ehome.project:Project"
+		/>
+		<derived-channel name="keyState"
+			expr="p -> if($p == null, null, installationKeyState($p))"
+			inputs="project"
+			observed-types="ehome.project:Project"
+		/>
+		<derived-channel name="controllerKey"
+			expr="c -> if($c == null, null, controllerKeyState($c))"
+			inputs="controller"
+			observed-types="ehome.runtime:Controller,ehome.project:Project"
 		/>
 		<derived-channel name="connection"
 			expr="c -> if($c == null, null, controllerConnection($c))"
@@ -60,6 +76,47 @@
 								<null-input-disabled/>
 							</executability>
 							<create-enrollment-code/>
+							<notify
+								display="dialog"
+								expr="t -> $t"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-key"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Create key</en>
+								<de>Schlüssel erzeugen</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="p -> installationKeyCreateVeto($p)"/>
+							</executability>
+							<create-installation-key/>
+							<notify
+								display="dialog"
+								expr="t -> $t"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-arrow-repeat"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Renew key</en>
+								<de>Schlüssel erneuern</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="p -> installationKeyRenewVeto($p)"/>
+							</executability>
+							<confirm expr="p -> #('Renew the installation key? A new key is offered to the controllers; each owner accepts it on the device after comparing its fingerprint. Until then images are signed with the current key.'@en, 'Den Installationsschlüssel erneuern? Den Controllern wird ein neuer Schlüssel angeboten; jeder Besitzer nimmt ihn am Gerät an, nachdem er den Fingerabdruck verglichen hat. Bis dahin werden die Abbilder mit dem bisherigen Schlüssel signiert.'@de)"/>
+							<renew-installation-key/>
 							<notify
 								display="dialog"
 								expr="t -> $t"
@@ -109,10 +166,14 @@
 								<column attribute="lastContact"/>
 								<column attribute="firmwareVersion"/>
 								<column attribute="firmwareBuild"/>
+								<column attribute="deviceKey"/>
 								<column attribute="enrolled"/>
 							</columns>
 							<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#controllers`))</rows>
 						</table>
+						<inset>
+							<text input="keyState"/>
+						</inset>
 						<inset>
 							<text
 								input="codeState"
@@ -136,6 +197,9 @@
 						<inset>
 							<text input="connection"/>
 						</inset>
+						<inset>
+							<text input="controllerKey"/>
+						</inset>
 						<form
 							input="controller"
 							with-inset="true"
@@ -154,6 +218,9 @@
 								readonly="true"
 							/>
 							<field attribute="firmwareBuild"
+								readonly="true"
+							/>
+							<field attribute="deviceKey"
 								readonly="true"
 							/>
 							<field attribute="enrolled"

@@ -107,6 +107,21 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 DEPLOY_NOT_STORED__ERROR;
 
 	/**
+	 * @en E-Home signed the image with the installation key {0}, and the device expects another key (its reason names it): compare the fingerprints in the tab Controller of the project; the owner accepts the project's key on the device.
+	 */
+	public static ResKey1 DEPLOY_REFUSED_SIGNED__FINGERPRINT;
+
+	/**
+	 * @en The project has no installation key, so E-Home sent the image unsigned, and the device holds a key and accepts only images signed with it: create the project's key in the tab Controller and have the owner accept it on the device.
+	 */
+	public static ResKey DEPLOY_REFUSED_UNSIGNED;
+
+	/**
+	 * @en Signed with the installation key {0}.
+	 */
+	public static ResKey1 EXPORT_SIGNED__FINGERPRINT;
+
+	/**
 	 * @en E-Home did not send the image: it has {0} refusals.
 	 */
 	public static ResKey1 DEPLOY_REFUSED_LOCALLY__COUNT;

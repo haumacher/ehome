@@ -5,6 +5,7 @@ package de.haumacher.ehome.connection;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey1;
+import com.top_logic.basic.util.ResKey2;
 import com.top_logic.basic.util.ResKey3;
 import com.top_logic.layout.I18NConstantsBase;
 
@@ -57,6 +58,81 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The controller {0} was forgotten.
 	 */
 	public static ResKey1 FORGOTTEN__CONTROLLER;
+
+	/**
+	 * @en The project has an installation key already; renew it instead.
+	 */
+	public static ResKey KEY_EXISTS;
+
+	/**
+	 * @en The project has no installation key to renew; create one.
+	 */
+	public static ResKey KEY_NONE_TO_RENEW;
+
+	/**
+	 * @en The new key {0} of the rotation under way is held by {1} already: renewing now would leave them with a key E-Home forgets. The rotation ends when the other controllers accept the new key too.
+	 */
+	public static ResKey2 KEY_ROTATION_ACCEPTED__FINGERPRINT_CONTROLLERS;
+
+	/**
+	 * @en No installation key: runtime images are deployed unsigned.
+	 */
+	public static ResKey KEY_STATE_NONE;
+
+	/**
+	 * @en Installation key {0}: every runtime image is signed with it. Compare the fingerprint with the one the Settings page of the controller shows.
+	 */
+	public static ResKey1 KEY_STATE__FINGERPRINT;
+
+	/**
+	 * @en New key offered, awaiting the owner's acceptance on the device: fingerprint {0}. Until a controller accepts it, its images are signed with {1}.
+	 */
+	public static ResKey2 KEY_STATE_ROTATION__NEW_OLD;
+
+	/**
+	 * @en Installation key {0} created; the connected controllers are offered it now, the others at their next connection. Each owner accepts it on the Settings page of the device after comparing the fingerprint.
+	 */
+	public static ResKey1 KEY_CREATED__FINGERPRINT;
+
+	/**
+	 * @en New key {0} offered to the controllers: images are signed with the old key until the owner accepts the new one on the device after comparing the fingerprint.
+	 */
+	public static ResKey1 KEY_RENEWED__FINGERPRINT;
+
+	/**
+	 * @en The device holds no key: it accepts unsigned images.
+	 */
+	public static ResKey DEVICE_KEY_NONE;
+
+	/**
+	 * @en The device holds the key {0}.
+	 */
+	public static ResKey1 DEVICE_KEY__FINGERPRINT;
+
+	/**
+	 * @en Warning: the device holds the key {0}, but the project's key is {1}. The device refuses the images of this project until its owner accepts the key offered to it.
+	 */
+	public static ResKey2 DEVICE_KEY_MISMATCH__DEVICE_PROJECT;
+
+	/**
+	 * @en Warning: the device holds the key {0}, but the project has no installation key. The device refuses the unsigned images of this project; create a key and have the owner accept it on the device.
+	 */
+	public static ResKey1 DEVICE_KEY_MISMATCH_NO_KEY__DEVICE;
+
+	/**
+	 * @en New key offered, awaiting the owner's acceptance on the device: fingerprint {0}.
+	 */
+	public static ResKey1 DEVICE_KEY_PENDING__FINGERPRINT;
+
+	/**
+	 * @en The key {0} is offered to the device at each connection until its owner accepts it.
+	 */
+	public static ResKey1 DEVICE_KEY_OFFERED__FINGERPRINT;
+
+	/**
+	 * @en The device refused the offered key: {0}
+	 */
+	public static ResKey1 DEVICE_KEY_REFUSED__ERROR;
 
 	static {
 		initConstants(I18NConstants.class);

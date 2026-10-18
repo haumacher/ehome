@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.runtime;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -21,6 +22,9 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.connection.InstallationKeys;
+import de.haumacher.ehome.connection.Signatures;
+import de.haumacher.ehome.connection.Signatures.Keys;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 
 /**
@@ -30,14 +34,23 @@ import de.haumacher.ehome.runtime.ImageReport.Refusal;
  * <p>
  * The image carries the revision the next deployment would carry. The result is a map for a
  * dialog: <code>file</code> (the image as JSON file named after the project, <code>null</code> for a
- * refused image), <code>summary</code> (whether the image is valid; for a valid one what it holds, see
- * {@link #summary(RuntimeImage)}),
+ * refused image), <code>signature</code> (the detached signature <code>&lt;file&gt;.sig</code>, 128 hex
+ * digits and a line end, made with the key the project's controller holds, see
+ * {@link InstallationKeys#signer(TLObject, TLObject)}; <code>null</code> for a project without a key or
+ * a refused image), <code>summary</code> (whether the image is valid; for a valid one what it holds, see
+ * {@link #summary(RuntimeImage)}, and the key it is signed with),
  * <code>refusals</code> (one map per refusal with <code>path</code>, <code>reason</code> and the
  * <code>element</code> of the project the path leads to) and <code>notes</code> (what the export left
  * out, one line each).
  * </p>
  */
 public class ExportRuntimeImageAction implements ViewAction {
+
+	/** The suffix of the detached signature file beside the image (homecontrol issue #35). */
+	public static final String SIGNATURE_SUFFIX = ".sig";
+
+	/** The content type of the signature file: 128 hex digits and a line end. */
+	public static final String SIGNATURE_CONTENT_TYPE = "text/plain";
 
 	/**
 	 * Configuration of {@link ExportRuntimeImageAction}.
@@ -87,9 +100,20 @@ public class ExportRuntimeImageAction implements ViewAction {
 		if (report.isValid()) {
 			result.put("file", BinaryDataFactory.createBinaryData(image.getBytes(), RuntimeImage.CONTENT_TYPE,
 				RuntimeImage.fileName(project)));
-			result.put("summary", summary(image));
+			Keys signer = InstallationKeys.signer(project, Deployer.controller(project));
+			if (signer != null) {
+				result.put("signature", BinaryDataFactory.createBinaryData(
+					(Signatures.signImage(signer.seed(), image.getBytes()) + "\n").getBytes(StandardCharsets.US_ASCII),
+					SIGNATURE_CONTENT_TYPE, RuntimeImage.fileName(project) + SIGNATURE_SUFFIX));
+			} else {
+				result.put("signature", null);
+			}
+			// A project without a key exports as before: no signature, no sentence about it.
+			result.put("summary", signer == null ? summary(image)
+				: summary(image) + " " + resources.getString(I18NConstants.EXPORT_SIGNED__FINGERPRINT.fill(signer.fingerprint())));
 		} else {
 			result.put("file", null);
+			result.put("signature", null);
 			result.put("summary",
 				resources.getString(I18NConstants.EXPORT_INVALID__COUNT.fill(Integer.valueOf(refusals.size()))));
 		}

@@ -35,7 +35,10 @@
 	only whether a token is set. The secret of an enrolled controller (ehome.runtime:Controller#secret,
 	haumacher/ehome #54) is handled the same way: E-Home generates it at the enrollment and checks the
 	controller's authentication with it in Java (de.haumacher.ehome.connection); nobody enters or reads
-	it. The open enrollment code of a project (ehome.project:Project#enrollmentCode) is read by
+	it. The private installation keys of a project (ehome.project:Project#installationKey and
+	#newInstallationKey, homecontrol issue #35) are handled the same way: E-Home generates them and signs
+	the runtime images with them in Java (de.haumacher.ehome.connection.InstallationKeys); the views show
+	only the fingerprints of the public keys. The open enrollment code of a project (ehome.project:Project#enrollmentCode) is read by
 	installers only: whoever knows it can enroll a controller for the project.
 -->
 <application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
@@ -169,6 +172,16 @@
 					</part>
 					<!-- The same for the secret of an enrolled controller (haumacher/ehome #54). -->
 					<part name="ehome.runtime:Controller#secret">
+						<grant operation="Read"/>
+					</part>
+					<!--
+						The private installation keys of a project (homecontrol issue #35): nobody but an
+						administrator reads them; E-Home signs with them in Java.
+					-->
+					<part name="ehome.project:Project#installationKey">
+						<grant operation="Read"/>
+					</part>
+					<part name="ehome.project:Project#newInstallationKey">
 						<grant operation="Read"/>
 					</part>
 					<!-- The open enrollment code of a project: installers only, a viewer must not enroll a controller. -->

@@ -38,7 +38,9 @@ import com.top_logic.util.model.ModelService;
  * <code>POST /api/controllers/enroll</code> ({@link ControllerServlet}, {@link #enroll(Map, String, Instant)}):
  * E-Home creates the controller under the project with a new id and a new secret of 256 random bits,
  * consumes the code and answers the id, the installation's name, the secret and the URL of the
- * socket. A wrong or used code is 404 <code>ehome.code_unknown</code>, an expired one 410
+ * socket, and the public key of the project's installation key ({@link InstallationKeys#enrollmentKey(TLObject,
+ * boolean)}: generated for the project's first controller), which the controller from then on
+ * requires every runtime image to be signed with. A wrong or used code is 404 <code>ehome.code_unknown</code>, an expired one 410
  * <code>ehome.code_expired</code> (it stays until it is replaced, so it keeps answering 410). A
  * request naming the id of a controller E-Home knows (member <code>controller</code>, sent by a
  * controller that is enrolled already) is 409 <code>ehome.enrolled</code>, and the code stays.
@@ -184,6 +186,7 @@ public final class Enrollment {
 			String id = hex(16);
 			String secret = hex(32);
 			String installation = Objects.toString(project.tValueByName("name"), "");
+			Signatures.Keys key;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				TLObject controller = ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
@@ -199,6 +202,8 @@ public final class Enrollment {
 				if (project.tValueByName("controllers") instanceof Collection<?> before) {
 					controllers.addAll(before);
 				}
+				key = InstallationKeys.enrollmentKey(project, controllers.isEmpty());
+				controller.tUpdateByName(InstallationKeys.DEVICE_KEY, key == null ? null : key.fingerprint());
 				controllers.add(controller);
 				project.tUpdateByName("controllers", controllers);
 				if (project.tValueByName("controller") == null) {
@@ -214,6 +219,9 @@ public final class Enrollment {
 			body.put("installation", installation);
 			body.put("secret", secret);
 			body.put("socket", socketUrl(base, id));
+			if (key != null) {
+				body.put("public_key", key.publicKey());
+			}
 			return new Answer(200, body);
 		}
 	}

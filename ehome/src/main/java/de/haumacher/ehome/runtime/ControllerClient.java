@@ -195,15 +195,35 @@ public final class ControllerClient {
 		return call("GET", "/api/status", null, null, null);
 	}
 
+	/** The HTTP header carrying the signature of a runtime image (homecontrol issue #35). */
+	public static final String SIGNATURE_HEADER = "X-Image-Signature";
+
 	/**
-	 * <code>PUT /api/image</code> with the given image.
+	 * <code>PUT /api/image</code> with the given image, unsigned.
 	 */
 	public Answer putImage(byte[] image) throws IOException {
+		return putImage(image, null);
+	}
+
+	/**
+	 * <code>PUT /api/image</code> with the given image and its signature (homecontrol
+	 * <code>spec/api.md</code>, "Where the signature travels"): over the E-Home connection the member
+	 * <code>signature</code> of the request next to <code>length</code>, the image in binary frames;
+	 * over HTTP the header {@value #SIGNATURE_HEADER}.
+	 *
+	 * @param signature
+	 *        The signature (128 hex digits) of the exact bytes, <code>null</code> for an unsigned image.
+	 */
+	public Answer putImage(byte[] image, String signature) throws IOException {
+		Map<String, Object> members = signature == null ? Collections.emptyMap() : Map.of("signature", signature);
 		if (_connection != null && _offline == null) {
-			// Byte for byte, whatever its size: the controller stores the image as it comes.
-			return _connection.request("PUT", "/api/image", image, true, _timeout);
+			// Byte for byte, whatever its size: the controller stores the image as it comes, and the
+			// signature covers these bytes.
+			return _connection.request("PUT", "/api/image", image, true, members, _timeout);
 		}
-		return call("PUT", "/api/image", null, RuntimeImage.CONTENT_TYPE, image);
+		Map<String, String> headers =
+			signature == null ? Collections.emptyMap() : Map.of(SIGNATURE_HEADER, signature);
+		return call("PUT", "/api/image", null, RuntimeImage.CONTENT_TYPE, image, headers);
 	}
 
 	/**
@@ -252,6 +272,11 @@ public final class ControllerClient {
 	 *        The body, <code>null</code> for none.
 	 */
 	public Answer call(String method, String path, String query, String contentType, byte[] body) throws IOException {
+		return call(method, path, query, contentType, body, Collections.emptyMap());
+	}
+
+	private Answer call(String method, String path, String query, String contentType, byte[] body,
+			Map<String, String> headers) throws IOException {
 		if (_offline != null) {
 			throw new IOException(_offline);
 		}
@@ -262,6 +287,7 @@ public final class ControllerClient {
 		if (contentType != null) {
 			request.header("Content-Type", contentType);
 		}
+		headers.forEach(request::header);
 		request.method(method, body == null ? HttpRequest.BodyPublishers.noBody()
 			: HttpRequest.BodyPublishers.ofByteArray(body));
 		return send(request);

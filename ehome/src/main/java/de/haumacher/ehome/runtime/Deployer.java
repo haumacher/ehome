@@ -25,6 +25,9 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.connection.ControllerConnections;
+import de.haumacher.ehome.connection.InstallationKeys;
+import de.haumacher.ehome.connection.Signatures;
+import de.haumacher.ehome.connection.Signatures.Keys;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 
@@ -43,6 +46,14 @@ import de.haumacher.ehome.runtime.ImageReport.Refusal;
  * </p>
  *
  * <p>
+ * The image is signed with the key the controller holds ({@link InstallationKeys#signer(TLObject,
+ * TLObject)}, homecontrol issue #35) and sent with its signature; the deployment records the signature
+ * and the key's fingerprint. A project without a key deploys unsigned. A device refusing the signature
+ * ({@value #CODE_UNSIGNED}, {@value #CODE_BAD_SIGNATURE}) names the key it expects in its reason, which
+ * the recorded message keeps beside the key E-Home signed with.
+ * </p>
+ *
+ * <p>
  * The image a controller runs is unloaded with {@link #unload(TLObject, Instant)}
  * (<code>DELETE /api/image</code>, haumacher/ehome #47): the controller removes it with its persisted
  * values and history and returns to setup. An unload is recorded as a deployment as well, marked as
@@ -56,6 +67,12 @@ public final class Deployer {
 
 	/** The code of a deployment whose controller did not answer. */
 	public static final String CODE_UNREACHABLE = "ehome.unreachable";
+
+	/** The device's refusal of an image without signature while it holds an installation key. */
+	public static final String CODE_UNSIGNED = "image.unsigned";
+
+	/** The device's refusal of an image whose signature does not verify under its key. */
+	public static final String CODE_BAD_SIGNATURE = "image.bad_signature";
 
 	/** How long to wait for the controller. */
 	public static final Duration TIMEOUT = Duration.ofSeconds(10);
@@ -181,6 +198,11 @@ public final class Deployer {
 			outcome._total = report.getRefusals().size();
 		} else {
 			outcome._before = ControllerStatus.describe(client);
+			Keys signer = InstallationKeys.signer(project, controller);
+			if (signer != null) {
+				outcome._signature = Signatures.signImage(signer.seed(), image.getBytes());
+				outcome._fingerprint = signer.fingerprint();
+			}
 			send(client, image, revision, outcome);
 		}
 		return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
@@ -230,7 +252,7 @@ public final class Deployer {
 	private static void send(ControllerClient client, RuntimeImage image, long revision, Outcome outcome) {
 		Answer answer;
 		try {
-			answer = client.putImage(image.getBytes());
+			answer = client.putImage(image.getBytes(), outcome._signature);
 		} catch (IOException ex) {
 			outcome._code = CODE_UNREACHABLE;
 			outcome._message = text(I18NConstants.DEPLOY_UNREACHABLE__ADDRESS_ERROR.fill(client.address(), reason(ex)));
@@ -254,6 +276,10 @@ public final class Deployer {
 		outcome._code = code != null ? code : "http." + answer.status();
 		outcome._message = text(I18NConstants.DEPLOY_REFUSED__STATUS_ERROR.fill(Integer.valueOf(answer.status()),
 			error != null ? error : answer.text().strip()));
+		if (CODE_UNSIGNED.equals(code) || CODE_BAD_SIGNATURE.equals(code)) {
+			outcome._message += " " + text(outcome._fingerprint == null ? I18NConstants.DEPLOY_REFUSED_UNSIGNED
+				: I18NConstants.DEPLOY_REFUSED_SIGNED__FINGERPRINT.fill(outcome._fingerprint));
+		}
 		if (answer.body().get("refusals") instanceof List<?> refusals) {
 			for (Object entry : refusals) {
 				if (entry instanceof Map<?, ?> refusal) {
@@ -281,6 +307,8 @@ public final class Deployer {
 			deployment.tUpdateByName("before", outcome._before);
 			deployment.tUpdateByName("bytes", image == null ? null : Integer.valueOf(outcome._bytes));
 			deployment.tUpdateByName("total", Integer.valueOf(outcome._total));
+			deployment.tUpdateByName("signature", outcome._signature);
+			deployment.tUpdateByName("keyFingerprint", outcome._fingerprint);
 			List<TLObject> refusals = new ArrayList<>();
 			for (Refusal refusal : outcome._refusals) {
 				TLObject stored = create("ehome.runtime:Refusal");
@@ -340,6 +368,10 @@ public final class Deployer {
 		int _bytes;
 
 		int _total;
+
+		String _signature;
+
+		String _fingerprint;
 
 		final List<Refusal> _refusals = new ArrayList<>();
 	}

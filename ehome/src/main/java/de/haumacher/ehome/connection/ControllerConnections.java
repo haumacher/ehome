@@ -68,8 +68,15 @@ public final class ControllerConnections {
 	 *        The name of the controller in E-Home.
 	 * @param installation
 	 *        The installation's name sent in <code>ready</code>.
+	 * @param publicKey
+	 *        The public key the controller should hold ({@link InstallationKeys#target(TLObject)} of its
+	 *        project), offered to it after <code>ready</code> when it holds another; <code>null</code>
+	 *        for a project without a key.
+	 * @param keyFingerprint
+	 *        The fingerprint of that key, <code>null</code> for none.
 	 */
-	public record Credentials(String secret, String name, String installation) {
+	public record Credentials(String secret, String name, String installation, String publicKey,
+			String keyFingerprint) {
 		// A record.
 	}
 
@@ -273,8 +280,10 @@ public final class ControllerConnections {
 			if (secret == null || !secret.toString().matches("[0-9a-fA-F]{64}")) {
 				return null;
 			}
+			Signatures.Keys target = InstallationKeys.target(controller.tContainer());
 			return new Credentials(secret.toString(), Objects.toString(controller.tValueByName("name"), ""),
-				Objects.toString(controller.tValueByName("installation"), ""));
+				Objects.toString(controller.tValueByName("installation"), ""),
+				target == null ? null : target.publicKey(), target == null ? null : target.fingerprint());
 		});
 	}
 
@@ -309,6 +318,7 @@ public final class ControllerConnections {
 		String version = connection.version();
 		String build = connection.build();
 		execute(() -> store(connection.controllerId(), now, version, build));
+		deviceKey(connection);
 		for (Listener listener : LISTENERS) {
 			try {
 				listener.connected(connection);
@@ -316,6 +326,16 @@ public final class ControllerConnections {
 				Logger.error("A listener of the controller connections failed.", ex, ControllerConnections.class);
 			}
 		}
+	}
+
+	/**
+	 * The controller named the installation key it holds (its <code>auth</code> or
+	 * <code>key_accepted</code>): stored, and a rotation it completes ends
+	 * ({@link InstallationKeys#deviceKey(String, String)}).
+	 */
+	static void deviceKey(ControllerConnection connection) {
+		String fingerprint = connection.deviceKey();
+		execute(() -> InstallationKeys.deviceKey(connection.controllerId(), fingerprint));
 	}
 
 	/**

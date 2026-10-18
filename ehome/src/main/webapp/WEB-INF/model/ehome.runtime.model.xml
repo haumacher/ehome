@@ -132,6 +132,19 @@
 					</annotations>
 				</reference>
 				<!--
+					The fingerprint of the installation key the controller holds (homecontrol issue #35): given to
+					it at the enrollment, then as it reports it in its authentication (the member "key") and when
+					it accepts a new key. Empty for a controller that holds no key (it accepts unsigned images)
+					or one on the LAN, which never reports it.
+				-->
+				<property name="deviceKey"
+					type="tl.core:String"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!--
 					The Zigbee network of the controller as its last export read by E-Home said (haumacher/ehome
 					#64, de.haumacher.ehome.zigbee.ZigbeeController#storeNetwork): stored at every read, on
 					request or live after the controller's events; a file import does not touch them.
@@ -271,6 +284,14 @@
 				<!-- The size of the image in bytes. -->
 				<property name="bytes"
 					type="tl.core:Integer"
+				/>
+				<!-- The signature the image was sent with (128 hex digits, homecontrol issue #35); empty for an unsigned image. -->
+				<property name="signature"
+					type="tl.core:String"
+				/>
+				<!-- The fingerprint of the installation key the image was signed with; empty for an unsigned image. -->
+				<property name="keyFingerprint"
+					type="tl.core:String"
 				/>
 				<!-- The number of refusals; the list holds up to the number reported. -->
 				<property name="total"

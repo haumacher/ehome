@@ -17,6 +17,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -179,6 +180,12 @@ public final class ControllerConnection {
 
 	private volatile Map<String, Object> _status = Collections.emptyMap();
 
+	private volatile String _deviceKey;
+
+	private volatile String _keyPending;
+
+	private volatile String _keyError;
+
 	private final Map<Object, Map<String, Object>> _datapoints = new ConcurrentHashMap<>();
 
 	private final List<Listener> _listeners = new CopyOnWriteArrayList<>();
@@ -258,6 +265,47 @@ public final class ControllerConnection {
 	 */
 	public boolean isReady() {
 		return _state == State.READY;
+	}
+
+	/**
+	 * The fingerprint of the installation key the device holds (homecontrol issue #35): named in its
+	 * <code>auth</code>, then by its <code>key_accepted</code>; <code>null</code> for a device holding
+	 * none.
+	 */
+	public String deviceKey() {
+		return _deviceKey;
+	}
+
+	/**
+	 * The fingerprint of the key the device keeps pending for its owner's acceptance (its
+	 * <code>key_pending</code>), <code>null</code> if none.
+	 */
+	public String keyPending() {
+		return _keyPending;
+	}
+
+	/**
+	 * The device's reason for refusing the offered key (its error {@link InstallationKeys#BAD_KEY}),
+	 * <code>null</code> if it did not.
+	 */
+	public String keyError() {
+		return _keyError;
+	}
+
+	/**
+	 * Offers the device a new installation key (<code>{"type": "key", "public_key", "fingerprint"}</code>,
+	 * homecontrol <code>spec/api.md</code>, "Rotation"): it keeps the key pending until its owner accepts
+	 * it.
+	 */
+	public void offerKey(String publicKey, String fingerprint) throws IOException {
+		Map<String, Object> offer = new LinkedHashMap<>();
+		offer.put("type", "key");
+		offer.put("public_key", publicKey);
+		offer.put("fingerprint", fingerprint);
+		_keyError = null;
+		send(offer);
+		Logger.info("Offered the installation key " + fingerprint + " to controller " + _pathId + ".",
+			ControllerConnection.class);
 	}
 
 	/**
@@ -355,6 +403,23 @@ public final class ControllerConnection {
 				break;
 			case "datapoints":
 				datapoints(message);
+				break;
+			case "key_pending":
+				_keyPending = text(message.get("fingerprint"));
+				_keyError = null;
+				break;
+			case "key_accepted":
+				_keyPending = null;
+				_keyError = null;
+				_deviceKey = text(message.get("fingerprint"));
+				ControllerConnections.deviceKey(this);
+				break;
+			case "error":
+				if (InstallationKeys.BAD_KEY.equals(message.get("code"))) {
+					_keyError = Objects.toString(message.get("error"), InstallationKeys.BAD_KEY);
+					Logger.warn("Controller " + _pathId + " refused the offered key: " + _keyError,
+						ControllerConnection.class);
+				}
 				break;
 			case "auth":
 				Logger.warn("Controller " + _pathId + " sent auth again; ignored.", ControllerConnection.class);
@@ -460,6 +525,7 @@ public final class ControllerConnection {
 		_installation = credentials.installation();
 		_version = text(message.get("version"));
 		_build = text(message.get("build"));
+		_deviceKey = text(message.get("key"));
 		_since = Instant.now();
 		_state = State.READY;
 		Map<String, Object> ready = new LinkedHashMap<>();
@@ -469,6 +535,9 @@ public final class ControllerConnection {
 			sendText(Json.compact(ready));
 			ControllerConnections.ready(this);
 			sendText("{\"type\":\"subscribe\"}");
+			if (credentials.keyFingerprint() != null && !credentials.keyFingerprint().equals(_deviceKey)) {
+				offerKey(credentials.publicKey(), credentials.keyFingerprint());
+			}
 		} catch (IOException ex) {
 			_peer.close(CLOSE_GOING_AWAY, "send failed");
 		}
@@ -587,6 +656,21 @@ public final class ControllerConnection {
 	 */
 	public Answer request(String method, String path, byte[] body, boolean binary, Duration timeout)
 			throws IOException {
+		return request(method, path, body, binary, Collections.emptyMap(), timeout);
+	}
+
+	/**
+	 * Sends a request as {@link #request(String, String, byte[], boolean, Duration)} does, with further
+	 * members of the request message.
+	 *
+	 * @param members
+	 *        Members put into the request message after <code>length</code>, such as the
+	 *        <code>signature</code> of a runtime image (homecontrol <code>spec/api.md</code>, "Where the
+	 *        signature travels"). A request with members sends its body as binary frames: the members
+	 *        belong to the exact bytes.
+	 */
+	public Answer request(String method, String path, byte[] body, boolean binary, Map<String, Object> members,
+			Duration timeout) throws IOException {
 		if (!isReady()) {
 			throw new IOException("The controller is not connected.");
 		}
@@ -607,7 +691,7 @@ public final class ControllerConnection {
 			CompletableFuture<Answer> result = new CompletableFuture<>();
 			_pendingId = id;
 			_pending = result;
-			sendRequest(id, method, path, body, binary);
+			sendRequest(id, method, path, body, binary || (body != null && !members.isEmpty()), members);
 			return result.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
 		} catch (TimeoutException ex) {
 			throw new IOException("The controller did not answer within " + timeout.toSeconds() + " s.", ex);
@@ -625,7 +709,8 @@ public final class ControllerConnection {
 		}
 	}
 
-	private void sendRequest(long id, String method, String path, byte[] body, boolean binary) throws IOException {
+	private void sendRequest(long id, String method, String path, byte[] body, boolean binary,
+			Map<String, Object> members) throws IOException {
 		Map<String, Object> header = new LinkedHashMap<>();
 		header.put("type", "request");
 		header.put("id", Long.valueOf(id));
@@ -642,12 +727,14 @@ public final class ControllerConnection {
 		}
 		synchronized (_sendLock) {
 			if (body == null) {
+				header.putAll(members);
 				sendText(Json.compact(header));
 			} else if (inline != null) {
 				String head = Json.compact(header);
 				sendText(head.substring(0, head.length() - 1) + ",\"body\":" + inline + "}");
 			} else {
 				header.put("length", Integer.valueOf(body.length));
+				header.putAll(members);
 				sendText(Json.compact(header));
 				for (int offset = 0; offset < body.length; offset += BINARY_CHUNK) {
 					int length = Math.min(BINARY_CHUNK, body.length - offset);

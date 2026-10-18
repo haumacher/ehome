@@ -3,7 +3,8 @@
 <!--
 	The runtime image of a project for download. "result" carries the result of <export-runtime-image>
 	(de.haumacher.ehome.runtime.ExportRuntimeImageAction): a sentence whether the image is valid, the
-	image as JSON file (none for a refused image), the refusals with the objects of the project their
+	image as JSON file (none for a refused image), its detached signature as <image>.sig (none for a
+	project without an installation key; the controller's Settings page installs the file with it), the refusals with the objects of the project their
 	paths lead to, and what the export left out (group addresses without datapoint type).
 -->
 <view>
@@ -15,6 +16,10 @@
 		/>
 		<derived-channel name="file"
 			expr='r -> if($r == null, null, $r["file"])'
+			inputs="result"
+		/>
+		<derived-channel name="signature"
+			expr='r -> if($r == null, null, $r["signature"])'
 			inputs="result"
 		/>
 		<derived-channel name="notes"
@@ -45,6 +50,24 @@
 								<de>Datei</de>
 							</label>
 							<!-- A value input picks no control by the type tl.core:Binary (TL #29809, doc/tl-todo.md); the binary field offers the download. -->
+							<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
+						</value-input>
+					</fields>
+				</visible-if>
+				<visible-if
+					expr='r -> $r["signature"] != null'
+					input="result"
+				>
+					<fields>
+						<value-input
+							readonly="true"
+							type="tl.core:Binary"
+							value="signature"
+						>
+							<label>
+								<en>Signature</en>
+								<de>Signatur</de>
+							</label>
 							<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
 						</value-input>
 					</fields>

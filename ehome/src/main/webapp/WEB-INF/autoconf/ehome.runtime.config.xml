@@ -41,6 +41,11 @@
 					<method name="controllerOnline" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
 					<method name="enrollmentCodeState" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
 					<method name="forgetConfirmation" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
+					<!-- The installation key of a project and the keys the controllers hold (homecontrol issue #35, de.haumacher.ehome.connection.InstallationKeys). -->
+					<method name="installationKeyState" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
+					<method name="controllerKeyState" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
+					<method name="installationKeyCreateVeto" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
+					<method name="installationKeyRenewVeto" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
 					<!-- Functions and runtime settings (haumacher/ehome #43, #45). -->
 					<method name="runtimeGroupAddresses" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<!-- The options of a function's roles: group addresses and application datapoints (haumacher/ehome #61). -->

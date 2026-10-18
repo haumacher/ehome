@@ -1,8 +1,10 @@
 # HomeControl fixtures
 
-Verbatim copies of `spec/fixtures/images/` and `spec/fixtures/rules/` of the HomeControl
-repository (haumacher/homecontrol, private), commit `935e8ffc06fa309ef7031fb96a8f7b7296a43c70`
-(2026-10-18). The image fixtures last changed in `1a317bece91857c6aad9160d50c021095a1781ab`
+Verbatim copies of `spec/fixtures/images/`, `spec/fixtures/rules/` and of
+`spec/fixtures/signatures/vectors.json` of the HomeControl repository (haumacher/homecontrol,
+private), commit `0b2bb2997a790163b1b67b14ffffd4c4472d8322` (2026-10-19, "Ed25519 signatures: the
+installation key paired at enrollment, signed runtime images, signed update manifests", which added
+`images/example.json.sig` and `signatures/vectors.json` and changed nothing else of the copies). Before that, the image fixtures last changed in `1a317bece91857c6aad9160d50c021095a1781ab`
 (2026-10-18, "Zigbee bindings carry reporting overrides": `images/zigbee-bindings.json` and the
 cases `accept-zigbee-reporting.json`, `refuse-zigbee-reporting.json`), the rule
 corpus with the spec decisions of round two (`8d901491e7c3ded8d0880830b7ebc0be6013ddc8`,
@@ -12,6 +14,13 @@ The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/
 that commit.
 
 - `images/example.json`, `images/minimal.json`: complete and minimal images.
+- `images/example.json.sig`: the detached signature of `images/example.json` with the test
+  installation key (homecontrol `spec/api.md`, "Signed runtime images"), and
+  `signatures/vectors.json`: the test keys (TEST KEYS ONLY: their seeds are public), their
+  fingerprints, the digest, message and signatures of `example.json` and RFC 8032 section 7.1 test 1;
+  E-Home's signing reproduces them byte for byte in
+  `test.de.haumacher.ehome.connection.TestImageSignatures`. The update manifest and its signature
+  (`signatures/manifest.*`, the release key's) are HomeControl's release process and not copied.
 - `images/zigbee-bindings.json`: Zigbee bindings without reporting overrides (an image written
   before the member existed), valid in `test.de.haumacher.ehome.runtime.TestImageFixtures`.
 - `images/test-system.template.json`: the hand-written template for the KNX test system
