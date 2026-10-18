@@ -8,9 +8,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -18,7 +20,9 @@ import com.top_logic.basic.io.binary.BinaryDataSource;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLReference;
+import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.TLStructuredTypePart;
+import com.top_logic.model.TLType;
 import com.top_logic.util.model.ModelService;
 
 /**
@@ -34,9 +38,11 @@ import com.top_logic.util.model.ModelService;
  */
 final class ObjectMerge {
 
-	private ObjectMerge() {
-		// Static helpers.
-	}
+	/**
+	 * The stored parts of each type compared or updated so far, see {@link #storedParts(TLObject, Set)}:
+	 * the master data of a file compare thousands of objects of a few types.
+	 */
+	private final Map<TLType, List<TLStructuredTypePart>> _storedParts = new HashMap<>();
 
 	/**
 	 * Whether the two objects are of the same type and have the same content.
@@ -44,7 +50,7 @@ final class ObjectMerge {
 	 * @param ignored
 	 *        Names of attributes of the two objects themselves (not of their parts) not to compare.
 	 */
-	static boolean equal(TLObject a, TLObject b, Set<String> ignored) {
+	boolean equal(TLObject a, TLObject b, Set<String> ignored) {
 		if (a.tType() != b.tType()) {
 			return false;
 		}
@@ -62,7 +68,7 @@ final class ObjectMerge {
 		return true;
 	}
 
-	private static boolean equalParts(List<TLObject> x, List<TLObject> y) {
+	private boolean equalParts(List<TLObject> x, List<TLObject> y) {
 		if (x.size() != y.size()) {
 			return false;
 		}
@@ -87,7 +93,7 @@ final class ObjectMerge {
 	 *        Where to put the parts of the target that are to be deleted (all at once: a deletion
 	 *        checks the references to the deleted objects).
 	 */
-	static void update(TLObject target, TLObject source, Set<String> ignored, List<TLObject> garbage) {
+	void update(TLObject target, TLObject source, Set<String> ignored, List<TLObject> garbage) {
 		for (TLStructuredTypePart part : storedParts(target, ignored)) {
 			Object value = source.tValue(part);
 			if (isComposite(part)) {
@@ -102,7 +108,7 @@ final class ObjectMerge {
 		}
 	}
 
-	private static void updateParts(TLObject target, TLObject source, TLStructuredTypePart part,
+	private void updateParts(TLObject target, TLObject source, TLStructuredTypePart part,
 			List<TLObject> garbage) {
 		List<TLObject> targets = asList(target.tValue(part));
 		List<TLObject> sources = asList(source.tValue(part));
@@ -129,7 +135,7 @@ final class ObjectMerge {
 		garbage.addAll(dropped);
 	}
 
-	private static void updatePart(TLObject target, TLObject source, TLStructuredTypePart part,
+	private void updatePart(TLObject target, TLObject source, TLStructuredTypePart part,
 			List<TLObject> garbage) {
 		TLObject kept = (TLObject) target.tValue(part);
 		TLObject given = (TLObject) source.tValue(part);
@@ -146,16 +152,30 @@ final class ObjectMerge {
 	/**
 	 * A new persistent object with the content of the given one.
 	 */
-	private static TLObject copy(TLObject source, List<TLObject> garbage) {
+	private TLObject copy(TLObject source, List<TLObject> garbage) {
 		TLObject result = ModelService.getInstance().getFactory().createObject((TLClass) source.tType());
 		update(result, source, Set.of(), garbage);
 		return result;
 	}
 
-	private static List<TLStructuredTypePart> storedParts(TLObject obj, Set<String> ignored) {
+	private List<TLStructuredTypePart> storedParts(TLObject obj, Set<String> ignored) {
+		List<TLStructuredTypePart> stored = _storedParts.computeIfAbsent(obj.tType(), ObjectMerge::storedParts);
+		if (ignored.isEmpty()) {
+			return stored;
+		}
 		List<TLStructuredTypePart> result = new ArrayList<>();
-		for (TLStructuredTypePart part : obj.tType().getAllParts()) {
-			if (part.isDerived() || ignored.contains(part.getName())) {
+		for (TLStructuredTypePart part : stored) {
+			if (!ignored.contains(part.getName())) {
+				result.add(part);
+			}
+		}
+		return result;
+	}
+
+	private static List<TLStructuredTypePart> storedParts(TLType type) {
+		List<TLStructuredTypePart> result = new ArrayList<>();
+		for (TLStructuredTypePart part : ((TLStructuredType) type).getAllParts()) {
+			if (part.isDerived()) {
 				continue;
 			}
 			if (part instanceof TLReference reference && reference.isBackwards()) {

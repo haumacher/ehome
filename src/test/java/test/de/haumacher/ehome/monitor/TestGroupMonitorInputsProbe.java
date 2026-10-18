@@ -18,6 +18,8 @@ import test.com.top_logic.knowledge.KBSetup;
 
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.knowledge.wrap.person.PersonManager;
+import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
@@ -30,12 +32,6 @@ import de.haumacher.ehome.monitor.ProjectIndex;
  * project itself: the kind comes from the project's datapoint type when none is entered, an entered
  * type replaces it, and the values the controls deliver (a slider's fraction, a choice's number as
  * text) produce the frames of the type.
- *
- * <p>
- * With its own service setup, the test runs before the other tests of the database and pays for the
- * first import of the test system's programs (the shared data the later tests reuse); it then takes
- * longer than the budget of a test class (5 s).
- * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestGroupMonitorInputsProbe extends BasicTestCase {
@@ -105,7 +101,7 @@ public class TestGroupMonitorInputsProbe extends BasicTestCase {
 
 	public static Test suite() {
 		return KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(TestGroupMonitorInputsProbe.class,
-			ModelService.Module.INSTANCE));
+			ModelService.Module.INSTANCE, LabelProviderService.Module.INSTANCE, PersonManager.Module.INSTANCE));
 	}
 
 }

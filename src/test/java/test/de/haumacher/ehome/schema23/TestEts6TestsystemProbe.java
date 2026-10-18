@@ -71,11 +71,6 @@ import net.lingala.zip4j.io.inputstream.ZipInputStream;
  * in effect keeps the configuration byte of the static data (without the communication flag), where
  * the ETS 4 edition's object gets the byte computed from its flags.
  * </p>
- *
- * <p>
- * The test takes longer than the budget of a test class (5 s): it imports the ETS 6 editions of the
- * three programs of the test system (once per test run) and the master data of both exports twice.
- * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestEts6TestsystemProbe extends BasicTestCase {

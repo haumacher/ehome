@@ -9,13 +9,13 @@ import java.util.List;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.layout.provider.MetaLabelProvider;
-import com.top_logic.model.TLClass;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 
 /**
@@ -314,7 +314,7 @@ public final class GroupAddressTypes {
 	}
 
 	private static boolean isA(TLObject obj, String typeName) {
-		return TLModelUtil.isGeneralization((TLClass) TLModelUtil.findType(typeName), obj.tType());
+		return ExtIds.isA(obj, typeName);
 	}
 
 }

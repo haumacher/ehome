@@ -7,6 +7,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 
 import javax.xml.stream.Location;
 import javax.xml.stream.XMLStreamConstants;
@@ -109,6 +110,17 @@ public class TranslationsImport<C extends TranslationsImport.Config<?>> extends 
 	private final Map<String, TLType> _types = new HashMap<>();
 
 	/**
+	 * The model attribute an XML attribute is imported into, by the type of the target object and the
+	 * XML attribute (empty if there is none, see {@link #attribute(TLObject, String)}).
+	 *
+	 * <p>
+	 * The answer depends on the type only, and the compatibility check of the engine is expensive (it
+	 * looks up a module by its name on every call): a program file holds thousands of translations.
+	 * </p>
+	 */
+	private final Map<TLType, Map<String, Optional<String>>> _attributes = new HashMap<>();
+
+	/**
 	 * Creates a {@link TranslationsImport} from configuration.
 	 */
 	@CalledByReflection
@@ -209,6 +221,12 @@ public class TranslationsImport<C extends TranslationsImport.Config<?>> extends 
 	}
 
 	private String attribute(TLObject target, String xmlAttribute) {
+		return _attributes.computeIfAbsent(target.tType(), type -> new HashMap<>())
+			.computeIfAbsent(xmlAttribute, name -> Optional.ofNullable(lookupAttribute(target, name)))
+			.orElse(null);
+	}
+
+	private String lookupAttribute(TLObject target, String xmlAttribute) {
 		for (Mapping mapping : getConfig().getMappings()) {
 			if (mapping.getXmlAttribute().equals(xmlAttribute)) {
 				TLType type = _types.computeIfAbsent(mapping.getType(), TLModelUtil::findType);

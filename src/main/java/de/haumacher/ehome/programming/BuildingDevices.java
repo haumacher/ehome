@@ -12,13 +12,13 @@ import java.util.Set;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.layout.provider.MetaLabelProvider;
-import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 
 /**
@@ -226,7 +226,7 @@ public class BuildingDevices {
 	}
 
 	private static boolean isA(TLObject obj, String typeName) {
-		return TLModelUtil.isGeneralization((TLClass) TLModelUtil.findType(typeName), obj.tType());
+		return ExtIds.isA(obj, typeName);
 	}
 
 }

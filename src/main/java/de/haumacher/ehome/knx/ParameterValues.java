@@ -9,8 +9,6 @@ import java.util.regex.PatternSyntaxException;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
-import com.top_logic.model.TLStructuredType;
-import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
@@ -98,7 +96,7 @@ public class ParameterValues {
 	}
 
 	private static boolean isA(TLObject obj, String typeName) {
-		return TLModelUtil.isGeneralization((TLStructuredType) TLModelUtil.findType(typeName), obj.tType());
+		return ExtIds.isA(obj, typeName);
 	}
 
 	/**

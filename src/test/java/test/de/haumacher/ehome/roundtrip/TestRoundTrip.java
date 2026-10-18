@@ -12,8 +12,10 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -38,11 +40,11 @@ import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
-import com.top_logic.knowledge.wrap.person.PersonManager;
-import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLReference;
+import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
@@ -71,9 +73,18 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * earlier sample exports the program as it is stored: with the definition of the file that brought
  * it first, and the texts of the languages the later file added (haumacher/ehome #38). Of the file
  * of such a program only the texts of the added languages are compared (see
- * {@link #ownDifferences(List, Importer)}). It is the longest test of the suite, beyond the budget of
- * a test class (5 s): a deletion of the shared data and the imports of the programs of the samples
- * into the emptied database.
+ * {@link #ownDifferences(List, Importer)}).
+ * </p>
+ *
+ * <p>
+ * The test runs first in the database of the suite: its setup starts the model service only, and the
+ * test framework runs the tests with fewer services first (<code>TestUtils.rearrange</code>; no other
+ * test of the database has this setup). The deletion then finds nothing to delete, and the programs
+ * of the samples imported here stay for the tests after it, which reuse them. It is the longest test
+ * of the suite, beyond the budget of a test class (5 s): the first import of the suite (which pays
+ * for loading and compiling the import) and the imports of the programs of the samples into the
+ * empty database. Run after other tests, the deletion of their shared data costs as much as
+ * importing it.
  * </p>
  */
 @SuppressWarnings("javadoc")
@@ -268,17 +279,19 @@ public class TestRoundTrip extends BasicTestCase {
 	 */
 	static void checkReimport(TLObject first, byte[] exported, List<TLObject> projects) throws Exception {
 		Map<String, Integer> countsBefore = counts();
-		Map<String, Integer> owned = owned(first);
-		List<String> ids = extIds(first);
-		Map<String, DownloadImage> images = images(first);
+		List<TLObject> firstContents = contents(first);
+		Map<String, Integer> owned = owned(firstContents);
+		List<String> ids = extIds(firstContents);
+		Map<String, DownloadImage> images = images(firstContents);
 
 		int imported = projects.size();
 		TLObject second = importProject(exported, projects);
 		assertEquals(imported + 1, projects.size());
 
 		// The same objects with the same IDs, and nothing more of the shared data.
-		assertEquals(owned, owned(second));
-		assertEquals(ids, extIds(second));
+		List<TLObject> secondContents = contents(second);
+		assertEquals(owned, owned(secondContents));
+		assertEquals(ids, extIds(secondContents));
 		Map<String, Integer> countsAfter = counts();
 		for (Map.Entry<String, Integer> entry : countsAfter.entrySet()) {
 			int expected = countsBefore.getOrDefault(entry.getKey(), 0) + owned.getOrDefault(entry.getKey(), 0);
@@ -286,7 +299,7 @@ public class TestRoundTrip extends BasicTestCase {
 				entry.getValue().intValue());
 		}
 
-		Map<String, DownloadImage> reimported = images(second);
+		Map<String, DownloadImage> reimported = images(secondContents);
 		assertEquals(images.keySet(), reimported.keySet());
 		for (String device : images.keySet()) {
 			assertSameImage(device, images.get(device), reimported.get(device));
@@ -401,22 +414,22 @@ public class TestRoundTrip extends BasicTestCase {
 	}
 
 	/**
-	 * The number of instances per class within the given project.
+	 * The number of instances per class of the given contents of a project.
 	 */
-	private static Map<String, Integer> owned(TLObject project) {
+	private static Map<String, Integer> owned(List<TLObject> contents) {
 		Map<String, Integer> result = new TreeMap<>();
-		for (TLObject obj : contents(project)) {
+		for (TLObject obj : contents) {
 			result.merge(TLModelUtil.qualifiedName(obj.tType()), 1, Integer::sum);
 		}
 		return result;
 	}
 
 	/**
-	 * The external IDs of the objects within the given project, sorted, with their types.
+	 * The external IDs of the given contents of a project, sorted, with their types.
 	 */
-	private static List<String> extIds(TLObject project) {
+	private static List<String> extIds(List<TLObject> contents) {
 		List<String> result = new ArrayList<>();
-		for (TLObject obj : contents(project)) {
+		for (TLObject obj : contents) {
 			if (obj.tType().getPart("extId") != null) {
 				result.add(TLModelUtil.qualifiedName(obj.tType()) + " " + obj.tValueByName("extId"));
 			}
@@ -425,16 +438,28 @@ public class TestRoundTrip extends BasicTestCase {
 		return result;
 	}
 
+	/**
+	 * The objects within the given project, the project included: the parts reached from it by
+	 * composite references (whose container chain leads to the project).
+	 */
 	private static List<TLObject> contents(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (TLModule module : ModelService.getApplicationModel().getModules()) {
-			if (!module.getName().startsWith("ehome.")) {
-				continue;
+		ArrayDeque<TLObject> todo = new ArrayDeque<>(List.of(project));
+		while (!todo.isEmpty()) {
+			TLObject obj = todo.removeFirst();
+			if (TLModelUtil.qualifiedName(obj.tType()).startsWith("ehome.")) {
+				result.add(obj);
 			}
-			for (TLClass type : module.getClasses()) {
-				for (TLObject obj : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
-					if (isWithin(obj, project)) {
-						result.add(obj);
+			for (TLStructuredTypePart part : obj.tType().getAllParts()) {
+				if (part instanceof TLReference reference && reference.isComposite() && !reference.isBackwards()
+					&& !reference.isDerived()) {
+					Object value = obj.tValue(reference);
+					if (value instanceof Collection<?> parts) {
+						for (Object element : parts) {
+							todo.add((TLObject) element);
+						}
+					} else if (value != null) {
+						todo.add((TLObject) value);
 					}
 				}
 			}
@@ -442,18 +467,9 @@ public class TestRoundTrip extends BasicTestCase {
 		return result;
 	}
 
-	private static boolean isWithin(TLObject obj, TLObject project) {
-		for (TLObject current = obj; current != null; current = current.tContainer()) {
-			if (current == project) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	private static Map<String, DownloadImage> images(TLObject project) {
+	private static Map<String, DownloadImage> images(List<TLObject> contents) {
 		Map<String, DownloadImage> result = new TreeMap<>();
-		for (TLObject obj : contents(project)) {
+		for (TLObject obj : contents) {
 			if (TLModelUtil.qualifiedName(obj.tType()).equals("ehome.physical:Device")) {
 				result.put((String) obj.tValueByName("extId"), DownloadImage.compute(obj));
 			}
@@ -478,8 +494,9 @@ public class TestRoundTrip extends BasicTestCase {
 	}
 
 	public static Test suite() {
+		// The model service only: the test runs first in the database (see the class comment).
 		return KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(TestRoundTrip.class,
-			ModelService.Module.INSTANCE, LabelProviderService.Module.INSTANCE, PersonManager.Module.INSTANCE));
+			ModelService.Module.INSTANCE));
 	}
 
 }

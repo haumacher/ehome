@@ -126,6 +126,7 @@ public class MasterDataUpdates {
 	 */
 	public void apply(XMLStreamLog log) {
 		List<TLObject> garbage = new ArrayList<>();
+		ObjectMerge merge = new ObjectMerge();
 		for (Pending pending : _pending) {
 			TLObject known = pending.known();
 			TLObject candidate = pending.candidate();
@@ -133,11 +134,11 @@ public class MasterDataUpdates {
 			Integer knownVersion = (Integer) known.tValueByName(versionAttribute);
 			Integer version = pending.version();
 			Set<String> ignored = Set.of(versionAttribute);
-			boolean same = ObjectMerge.equal(known, candidate, ignored);
+			boolean same = merge.equal(known, candidate, ignored);
 			boolean newer = version != null && (knownVersion == null || version.intValue() > knownVersion.intValue());
 			if (newer) {
 				if (!same) {
-					ObjectMerge.update(known, candidate, ignored, garbage);
+					merge.update(known, candidate, ignored, garbage);
 					log.log(Level.INFO, pending.position(),
 						I18NConstants.INFO_MASTER_DATA_UPDATED__ID_KNOWN_VERSION.fill(pending.id(),
 							text(knownVersion), text(version)));

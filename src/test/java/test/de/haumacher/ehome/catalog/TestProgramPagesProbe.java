@@ -84,8 +84,10 @@ public class TestProgramPagesProbe extends BasicTestCase {
 				placements += count;
 				assertEquals(parameter.getName(), count == 0, unplaced.contains(parameter));
 			}
+			// The parameters once: reading them resolves the whole set.
+			Set<Parameter> parameters = new HashSet<>(program.getParameters());
 			assertEquals(placements, instances("ehome.operational:ParameterView").stream()
-				.filter(v -> program.getParameters().contains(((ParameterView) v).getParameter()))
+				.filter(v -> parameters.contains(((ParameterView) v).getParameter()))
 				.count());
 
 			// The rows of the view: one per page and parameter, pages in order, the row of a

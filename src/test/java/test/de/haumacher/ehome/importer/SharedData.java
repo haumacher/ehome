@@ -28,7 +28,6 @@ import java.util.zip.ZipOutputStream;
 
 import junit.framework.Assert;
 
-import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
@@ -156,59 +155,64 @@ public final class SharedData {
 	}
 
 	/**
-	 * Replaces the mask versions of the database by those of the master data of the given project
-	 * file, as an import of the file into an empty database creates them.
+	 * Gives the mask versions the master data of the given project file define the definition and the
+	 * version of these master data, as an import of the file into an empty database creates them.
 	 *
 	 * <p>
 	 * Newer master data update a known mask version in place and older ones keep it (haumacher/ehome
 	 * #34), so the mask versions in the database depend on the files imported before. Of the master
-	 * data, the download of a device depends on the mask versions only. A program refers to its mask
-	 * version by its ID (and nothing else outside the mask versions refers to them); the programs keep
-	 * their mask versions by the ID after the replacement. This costs about two seconds;
-	 * deleting the shared data (to import the file into an empty database) costs as much as importing
-	 * its programs again.
+	 * data, the download of a device depends on the mask versions only. The reset forgets the version
+	 * the file's mask versions were imported from and imports the file's master data again: master
+	 * data of a known version update a mask version of an unknown one in place
+	 * (<code>MasterDataUpdates</code>), keeping its identity and the references of the programs to it.
+	 * Mask versions the file does not define are left as they are. Only the mask versions the file
+	 * defines differently are changed, which costs a fraction of a second; deleting the shared data (to
+	 * import the file into an empty database) costs as much as importing its programs again.
 	 * </p>
 	 */
 	public static void resetMaskVersions(byte[] projectFile) throws Exception {
+		byte[] masterData = masterData(projectFile);
+		Set<String> defined = maskIds(masterData);
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-		Map<TLObject, String> masks = new HashMap<>();
 		try (Transaction tx = kb.beginTransaction()) {
-			List<KnowledgeItem> items = new ArrayList<>();
-			for (TLObject program : instances("ehome.operational:Program")) {
-				TLObject mask = (TLObject) program.tValueByName("mask");
-				if (mask != null) {
-					masks.put(program, (String) mask.tValueByName("extId"));
-					program.tUpdateByName("mask", null);
+			for (TLObject mask : instances("ehome.operational:MaskVersion")) {
+				if (defined.contains(mask.tValueByName("extId"))) {
+					mask.tUpdateByName("masterDataVersion", null);
 				}
 			}
-			for (TLObject mask : instances("ehome.operational:MaskVersion")) {
-				items.add(mask.tHandle());
-			}
-			kb.deleteAll(items);
 			tx.commit();
 		}
 
 		Importer importer = new Importer(new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false));
-		try (InputStream in = new ByteArrayInputStream(masterData(projectFile))) {
+		try (InputStream in = new ByteArrayInputStream(masterData)) {
 			try (Transaction tx = kb.beginTransaction()) {
 				importer.importStream(in);
 				tx.commit();
 			}
 		}
-
-		Map<String, TLObject> byId = new HashMap<>();
 		for (TLObject mask : instances("ehome.operational:MaskVersion")) {
-			byId.put((String) mask.tValueByName("extId"), mask);
-		}
-		try (Transaction tx = kb.beginTransaction()) {
-			for (Map.Entry<TLObject, String> entry : masks.entrySet()) {
-				TLObject mask = byId.get(entry.getValue());
-				Assert.assertNotNull("Mask version " + entry.getValue() + " of a program is missing in the master data.",
-					mask);
-				entry.getKey().tUpdateByName("mask", mask);
+			if (defined.contains(mask.tValueByName("extId"))) {
+				Assert.assertNotNull("Mask version " + mask.tValueByName("extId") + " not reset.",
+					mask.tValueByName("masterDataVersion"));
 			}
-			tx.commit();
 		}
+	}
+
+	/**
+	 * The IDs of the mask versions in the given archive holding master data.
+	 */
+	private static Set<String> maskIds(byte[] masterData) throws IOException {
+		Pattern id = Pattern.compile("<MaskVersion Id=\"([^\"]+)\"");
+		Set<String> result = new HashSet<>();
+		try (ZipInputStream in = new ZipInputStream(new ByteArrayInputStream(masterData))) {
+			while (in.getNextEntry() != null) {
+				Matcher matcher = id.matcher(new String(in.readAllBytes(), StandardCharsets.UTF_8));
+				while (matcher.find()) {
+					result.add(matcher.group(1));
+				}
+			}
+		}
+		return result;
 	}
 
 	/**

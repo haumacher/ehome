@@ -31,6 +31,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.ProgramLanguages;
+import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.EnumerationValue;
@@ -819,7 +820,7 @@ public final class FunctionProposal {
 	}
 
 	private static boolean isA(TLObject obj, String typeName) {
-		return TLModelUtil.isGeneralization((TLClass) TLModelUtil.findType(typeName), obj.tType());
+		return ExtIds.isA(obj, typeName);
 	}
 
 }

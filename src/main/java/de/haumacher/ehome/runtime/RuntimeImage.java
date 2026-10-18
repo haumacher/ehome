@@ -23,9 +23,8 @@ import java.util.regex.Pattern;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey.LiteralKey;
 import com.top_logic.model.TLObject;
-import com.top_logic.model.TLStructuredType;
-import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressTypes;
@@ -740,7 +739,7 @@ public final class RuntimeImage {
 	}
 
 	private static boolean isA(TLObject obj, String typeName) {
-		return TLModelUtil.isGeneralization((TLStructuredType) TLModelUtil.findType(typeName), obj.tType());
+		return ExtIds.isA(obj, typeName);
 	}
 
 }

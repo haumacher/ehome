@@ -666,10 +666,31 @@ public final class ExtIds {
 	}
 
 	/**
-	 * Whether the given object is an instance of the type with the given qualified name.
+	 * Whether the given object is an instance of the class with the given qualified name (the class
+	 * itself or a specialization of it).
+	 *
+	 * <p>
+	 * Compares the names of the object's class and its generalizations: resolving the name to a type
+	 * (<code>TLModelUtil.findType</code>) and the compatibility check of the engine look up the module
+	 * by its name among all modules on every call, which is expensive where it is asked for every
+	 * object of a program.
+	 * </p>
 	 */
 	public static boolean isA(TLObject obj, String typeName) {
-		return TLModelUtil.isCompatibleInstance(TLModelUtil.findType(typeName), obj);
+		if (obj == null || !(obj.tType() instanceof TLClass type)) {
+			return false;
+		}
+		int separator = typeName.indexOf(':');
+		String moduleName = typeName.substring(0, separator);
+		String localName = typeName.substring(separator + 1);
+		// The generalizations from the model cache of the engine.
+		for (TLClass generalization : TLModelUtil.getReflexiveTransitiveGeneralizations(type)) {
+			if (generalization.getName().equals(localName)
+				&& generalization.getModule().getName().equals(moduleName)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static String ownerId(TLObject owner) {

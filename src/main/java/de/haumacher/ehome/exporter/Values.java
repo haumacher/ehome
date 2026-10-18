@@ -4,6 +4,7 @@
 package de.haumacher.ehome.exporter;
 
 import java.text.SimpleDateFormat;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -100,8 +101,16 @@ final class Values {
 	 * The given objects sorted by their external IDs.
 	 */
 	static List<TLObject> sortedById(Collection<? extends TLObject> objects) {
-		List<TLObject> result = new ArrayList<>(objects);
-		result.sort(Comparator.comparing(Values::extId, Values::compareIds));
+		// Each ID read once, not once per comparison: reading an attribute is expensive.
+		List<Map.Entry<String, TLObject>> keyed = new ArrayList<>(objects.size());
+		for (TLObject obj : objects) {
+			keyed.add(new AbstractMap.SimpleImmutableEntry<>(extId(obj), obj));
+		}
+		keyed.sort(Map.Entry.comparingByKey(Values::compareIds));
+		List<TLObject> result = new ArrayList<>(keyed.size());
+		for (Map.Entry<String, TLObject> entry : keyed) {
+			result.add(entry.getValue());
+		}
 		return result;
 	}
 
