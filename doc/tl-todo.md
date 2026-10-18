@@ -500,7 +500,7 @@ line is a full sentence. No workaround.
 
 **When fixed:** nothing to change; the lines show as written.
 
-## Rule editor: no suggestions in a text field, no normalizing of input (TL #29887, #29888)
+## Rule editor: no suggestions in a text field, no normalizing of input (TL #29887, #29888, #29892)
 
 The rule editor (haumacher/ehome #57) stores expressions as text. A text field cannot offer the
 project's datapoints while typing (TL #29887); workaround: a read-only "Datenpunkte" table beside the
@@ -508,11 +508,12 @@ form lists them as `@"1/2/3"`. A form cannot store an entered expression in its 
 (TL #29888); workaround (haumacher/ehome #60): the forms of the rule views (`rules.view.xml`,
 `rule-actions.view.xml`, `schedules.view.xml`) replace the form's save by a `<save-action>` chain that
 stores the form state, calls `ruleNormalize` (`RuleNormalization`) in the same transaction and leaves
-edit mode with `<discard-form-state/>`. Texts written another way (a script, the API) are stored as
+edit mode with `<discard-form-state/>` (no action only leaves edit mode, TL #29892). Texts written another way (a script, the API) are stored as
 given and canonicalized on export.
 
 **When available:** offer the datapoints as suggestions in the expression fields and drop the table;
-normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`.
+normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`; until then, replace
+`<discard-form-state/>` by the action of TL #29892 once it exists.
 
 ## Upstream tickets to follow
 
@@ -534,7 +535,9 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`.
 - TL #29805: see above (mandatory `<value-input>`).
 - TL #29884, #29885: see above (access coverage of engine modules, hidden instead of disabled commands).
 - TL #29886: see above (line breaks in confirmations).
-- TL #29887, #29888: see above (suggestions and normalizing in text fields).
+- TL #29887, #29888, #29892: see above (suggestions and normalizing in text fields, leaving edit mode).
+- TL #29893: the model upgrade's log does not name a reference whose target type changed (the
+  retargeted function roles of haumacher/ehome #61 were checked in the database instead). No workaround.
 - TL #29806: see above (singleton and generated wrappers; when available: dissolve `ehome.mask`).
 - TL #29807: see above (classifier constant names).
 - TL #29808: see above (apply on Enter only).
