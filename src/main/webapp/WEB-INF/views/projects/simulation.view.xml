@@ -1,0 +1,755 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The simulation of a project (haumacher/ehome #58, de.haumacher.ehome.simulation): the runtime image of the
+	project (its rules, schedules and datapoints) run against a virtual installation of its devices on the
+	loopback address, on a simulated clock that moves only by "Step" (to the next timer, schedule firing or
+	midnight) and "Fast-forward" (by the duration entered). At most one simulation runs per project, shared by
+	everybody looking at the project; it is stopped when the application shuts down. The virtual installation
+	is a KNXnet/IP gateway (the status names it), which the group monitor reaches like a real one.
+
+	"project" is the project. "state" is the state of the simulation (simulationState, SimulationFunctions),
+	recomputed from "refresh", which every command writes. The clock does not run by itself and telegrams
+	arriving from the bus are shown after "Refresh" or the next command.
+
+	- Rules: per rule the diagnostics of the engine - enabled, state, firings, last trigger and last action
+	with their simulated times, errors and the last error, the remaining time of its timers and the values
+	of its parameters (* an override).
+	- Parameters: every parameter of every rule (the enable switch included) with its value, default and
+	whether it is an override; "Set" and "Reset" change the selected one as a controller's UI does. The
+	overrides are stored with the rules of the project (simulationValue, simulationEnabled) and are the values
+	the next simulation starts with.
+	- Datapoints: the datapoints of the image with value, quality, time of the last update and binding.
+	"Send" lets a device of the installation send the value to the datapoint's group address (the device whose
+	object sends there, else an input device of the installation); "Command" commands the datapoint as a
+	controller's UI does.
+	- Timeline: what happened, newest first: telegrams received and sent, commands of the rules, logs of the
+	rules and the scheduler, parameter changes, the clock and the problems.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="refresh"/>
+		<channel name="startTime"/>
+		<channel name="duration"/>
+		<channel name="selectedParameter"/>
+		<channel name="parameterValue"/>
+		<channel name="selectedDatapoint"/>
+		<channel name="datapointValue"/>
+		<derived-channel name="state"
+			expr="p -> r -> simulationState($p, $r)"
+			inputs="project, refresh"
+		/>
+		<derived-channel name="status"
+			expr="s -> $s['status']"
+			inputs="state"
+		/>
+		<derived-channel name="next"
+			expr="s -> $s['next']"
+			inputs="state"
+		/>
+	</channels>
+	<split-panel
+		orientation="vertical"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="160"
+				size="25"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Simulation</en>
+						<de>Simulation</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-play-circle"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Start</en>
+								<de>Starten</de>
+							</label>
+							<executability>
+								<model-access
+									object="project"
+									operation="Write"
+								/>
+								<disabled-if expr="s -> simulationStartVeto($s['project'], $s)"/>
+							</executability>
+							<execute-script function="t -> s -> simulationStart($s['project'], $t)">
+								<inputs>
+									<input channel="startTime"/>
+								</inputs>
+							</execute-script>
+							<write-channel name="refresh"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-skip-end"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Step</en>
+								<de>Schritt</de>
+							</label>
+							<executability>
+								<model-access
+									object="project"
+									operation="Write"
+								/>
+								<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+							</executability>
+							<execute-script function="s -> simulationStep($s['project'])"/>
+							<write-channel name="refresh"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-fast-forward"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Fast-forward</en>
+								<de>Vorspulen</de>
+							</label>
+							<executability>
+								<model-access
+									object="project"
+									operation="Write"
+								/>
+								<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+							</executability>
+							<execute-script function="d -> s -> simulationAdvance($s['project'], if($d == null, '30min', $d))">
+								<inputs>
+									<input channel="duration"/>
+								</inputs>
+							</execute-script>
+							<write-channel name="refresh"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-stop-circle"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Stop</en>
+								<de>Anhalten</de>
+							</label>
+							<executability>
+								<model-access
+									object="project"
+									operation="Write"
+								/>
+								<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+							</executability>
+							<execute-script function="s -> simulationStop($s['project'])"/>
+							<write-channel name="refresh"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-arrow-clockwise"
+							input="state"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Refresh</en>
+								<de>Aktualisieren</de>
+							</label>
+							<execute-script function="s -> simulationState($s['project'])"/>
+							<write-channel name="refresh"/>
+						</generic-command>
+					</commands>
+					<inset>
+						<stack gap="compact">
+							<text input="status"/>
+							<text
+								input="next"
+								tone="secondary"
+							/>
+							<fields>
+								<value-input
+									type="tl.core:DateTime"
+									value="startTime"
+								>
+									<label>
+										<en>Start of the simulated clock</en>
+										<de>Beginn der simulierten Uhr</de>
+									</label>
+									<placeholder>
+										<en>Now</en>
+										<de>Jetzt</de>
+									</placeholder>
+								</value-input>
+								<value-input
+									type="tl.core:String"
+									value="duration"
+								>
+									<label>
+										<en>Fast-forward by</en>
+										<de>Vorspulen um</de>
+									</label>
+									<placeholder>
+										<en>30min</en>
+										<de>30min</de>
+									</placeholder>
+								</value-input>
+							</fields>
+						</stack>
+					</inset>
+				</panel>
+			</pane>
+			<pane
+				min-size="200"
+				size="75"
+				unit="%"
+			>
+				<tab-bar active-tab="rules">
+					<tabs>
+						<tab id="rules"
+							icon="css:bi bi-diagram-3"
+						>
+							<label>
+								<en>Rules</en>
+								<de>Regeln</de>
+							</label>
+							<table filter-bar="true">
+								<inputs>
+									<input channel="state"/>
+								</inputs>
+								<columns>
+									<computed-column name="id"
+										type="tl.core:String"
+										width="160"
+									>
+										<label>
+											<en>Rule</en>
+											<de>Regel</de>
+										</label>
+										<value>r -> $r['id']</value>
+									</computed-column>
+									<computed-column name="enabled"
+										type="tl.core:Boolean"
+										width="90"
+									>
+										<label>
+											<en>Enabled</en>
+											<de>Aktiv</de>
+										</label>
+										<value>r -> $r['enabled']</value>
+									</computed-column>
+									<computed-column name="ruleState"
+										type="tl.core:String"
+										width="110"
+									>
+										<label>
+											<en>State</en>
+											<de>Zustand</de>
+										</label>
+										<value>r -> $r['state']</value>
+									</computed-column>
+									<computed-column name="firings"
+										type="tl.core:Integer"
+										width="90"
+									>
+										<label>
+											<en>Firings</en>
+											<de>Auslösungen</de>
+										</label>
+										<value>r -> $r['firings']</value>
+									</computed-column>
+									<computed-column name="trigger"
+										type="tl.core:String"
+										width="280"
+									>
+										<label>
+											<en>Last trigger</en>
+											<de>Letzter Auslöser</de>
+										</label>
+										<value>r -> $r['trigger']</value>
+									</computed-column>
+									<computed-column name="action"
+										type="tl.core:String"
+										width="300"
+									>
+										<label>
+											<en>Last action</en>
+											<de>Letzte Aktion</de>
+										</label>
+										<value>r -> $r['action']</value>
+									</computed-column>
+									<computed-column name="timers"
+										type="tl.core:String"
+										width="160"
+									>
+										<label>
+											<en>Timers</en>
+											<de>Timer</de>
+										</label>
+										<value>r -> $r['timers']</value>
+									</computed-column>
+									<computed-column name="parameters"
+										type="tl.core:String"
+										width="220"
+									>
+										<label>
+											<en>Parameters</en>
+											<de>Parameter</de>
+										</label>
+										<value>r -> $r['parameters']</value>
+									</computed-column>
+									<computed-column name="errors"
+										type="tl.core:Integer"
+										width="80"
+									>
+										<label>
+											<en>Errors</en>
+											<de>Fehler</de>
+										</label>
+										<value>r -> $r['errors']</value>
+									</computed-column>
+									<computed-column name="error"
+										type="tl.core:String"
+										width="300"
+									>
+										<label>
+											<en>Last error</en>
+											<de>Letzter Fehler</de>
+										</label>
+										<value>r -> $r['error']</value>
+									</computed-column>
+								</columns>
+								<rows>s -> $s['rules']</rows>
+							</table>
+						</tab>
+						<tab id="parameters"
+							icon="css:bi bi-sliders"
+						>
+							<label>
+								<en>Parameters</en>
+								<de>Parameter</de>
+							</label>
+							<split-panel
+								orientation="horizontal"
+								resizable="true"
+							>
+								<panes>
+									<pane
+										min-size="300"
+										size="65"
+										unit="%"
+									>
+										<table
+											filter-bar="true"
+											selection="selectedParameter"
+										>
+											<inputs>
+												<input channel="state"/>
+											</inputs>
+											<columns>
+												<computed-column name="rule"
+													type="tl.core:String"
+													width="160"
+												>
+													<label>
+														<en>Rule</en>
+														<de>Regel</de>
+													</label>
+													<value>r -> $r['rule']</value>
+												</computed-column>
+												<computed-column name="parameter"
+													type="tl.core:String"
+													width="140"
+												>
+													<label>
+														<en>Parameter</en>
+														<de>Parameter</de>
+													</label>
+													<value>r -> $r['parameter']</value>
+												</computed-column>
+												<computed-column name="type"
+													type="tl.core:String"
+													width="100"
+												>
+													<label>
+														<en>Type</en>
+														<de>Typ</de>
+													</label>
+													<value>r -> $r['type']</value>
+												</computed-column>
+												<computed-column name="value"
+													type="tl.core:String"
+													width="120"
+												>
+													<label>
+														<en>Value</en>
+														<de>Wert</de>
+													</label>
+													<value>r -> $r['value']</value>
+												</computed-column>
+												<computed-column name="default"
+													type="tl.core:String"
+													width="120"
+												>
+													<label>
+														<en>Default</en>
+														<de>Vorgabe</de>
+													</label>
+													<value>r -> $r['default']</value>
+												</computed-column>
+												<computed-column name="overridden"
+													type="tl.core:Boolean"
+													width="110"
+												>
+													<label>
+														<en>Override</en>
+														<de>Überschrieben</de>
+													</label>
+													<value>r -> $r['overridden']</value>
+												</computed-column>
+												<computed-column name="adjustable"
+													type="tl.core:Boolean"
+													width="110"
+												>
+													<label>
+														<en>Adjustable</en>
+														<de>Einstellbar</de>
+													</label>
+													<value>r -> $r['adjustable']</value>
+												</computed-column>
+											</columns>
+											<rows>s -> $s['parameters']</rows>
+										</table>
+									</pane>
+									<pane
+										min-size="240"
+										size="35"
+										unit="%"
+									>
+										<panel>
+											<title>
+												<en>Set the parameter</en>
+												<de>Parameter setzen</de>
+											</title>
+											<inset>
+												<stack gap="default">
+													<fields max-columns="1">
+														<value-input
+															type="tl.core:String"
+															value="parameterValue"
+														>
+															<label>
+																<en>Value (a literal: true, 21.5, 3min, 06:30)</en>
+																<de>Wert (ein Literal: true, 21.5, 3min, 06:30)</de>
+															</label>
+														</value-input>
+													</fields>
+													<stack
+														direction="row"
+														gap="compact"
+													>
+														<button>
+															<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																image="css:bi bi-check2"
+																input="state"
+															>
+																<label>
+																	<en>Set</en>
+																	<de>Setzen</de>
+																</label>
+																<executability>
+																	<model-access
+																		object="project"
+																		operation="Write"
+																	/>
+																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</executability>
+																<execute-script function="r -> v -> s -> simulationSetParameter($s['project'], $r, $v)">
+																	<inputs>
+																		<input channel="selectedParameter"/>
+																		<input channel="parameterValue"/>
+																	</inputs>
+																</execute-script>
+																<write-channel name="refresh"/>
+															</action>
+														</button>
+														<button>
+															<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																image="css:bi bi-arrow-counterclockwise"
+																input="state"
+															>
+																<label>
+																	<en>Reset to the default</en>
+																	<de>Auf die Vorgabe zurücksetzen</de>
+																</label>
+																<executability>
+																	<model-access
+																		object="project"
+																		operation="Write"
+																	/>
+																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</executability>
+																<execute-script function="r -> s -> simulationResetParameter($s['project'], $r)">
+																	<inputs>
+																		<input channel="selectedParameter"/>
+																	</inputs>
+																</execute-script>
+																<write-channel name="refresh"/>
+															</action>
+														</button>
+													</stack>
+												</stack>
+											</inset>
+										</panel>
+									</pane>
+								</panes>
+							</split-panel>
+						</tab>
+						<tab id="datapoints"
+							icon="css:bi bi-list-ul"
+						>
+							<label>
+								<en>Datapoints</en>
+								<de>Datenpunkte</de>
+							</label>
+							<split-panel
+								orientation="horizontal"
+								resizable="true"
+							>
+								<panes>
+									<pane
+										min-size="300"
+										size="65"
+										unit="%"
+									>
+										<table
+											filter-bar="true"
+											selection="selectedDatapoint"
+										>
+											<inputs>
+												<input channel="state"/>
+											</inputs>
+											<columns>
+												<computed-column name="id"
+													type="tl.core:String"
+													width="160"
+												>
+													<label>
+														<en>Datapoint</en>
+														<de>Datenpunkt</de>
+													</label>
+													<value>r -> $r['id']</value>
+												</computed-column>
+												<computed-column name="type"
+													type="tl.core:String"
+													width="100"
+												>
+													<label>
+														<en>Type</en>
+														<de>Typ</de>
+													</label>
+													<value>r -> $r['type']</value>
+												</computed-column>
+												<computed-column name="value"
+													type="tl.core:String"
+													width="140"
+												>
+													<label>
+														<en>Value</en>
+														<de>Wert</de>
+													</label>
+													<value>r -> $r['value']</value>
+												</computed-column>
+												<computed-column name="quality"
+													type="tl.core:String"
+													width="100"
+												>
+													<label>
+														<en>Quality</en>
+														<de>Qualität</de>
+													</label>
+													<value>r -> $r['quality']</value>
+												</computed-column>
+												<computed-column name="updated"
+													type="tl.core:String"
+													width="220"
+												>
+													<label>
+														<en>Last update</en>
+														<de>Letzte Änderung</de>
+													</label>
+													<value>r -> $r['updated']</value>
+												</computed-column>
+												<computed-column name="binding"
+													type="tl.core:String"
+													width="220"
+												>
+													<label>
+														<en>Binding</en>
+														<de>Anbindung</de>
+													</label>
+													<value>r -> $r['binding']</value>
+												</computed-column>
+											</columns>
+											<rows>s -> $s['datapoints']</rows>
+										</table>
+									</pane>
+									<pane
+										min-size="240"
+										size="35"
+										unit="%"
+									>
+										<panel>
+											<title>
+												<en>Value of the datapoint</en>
+												<de>Wert des Datenpunkts</de>
+											</title>
+											<inset>
+												<stack gap="default">
+													<fields max-columns="1">
+														<value-input
+															type="tl.core:String"
+															value="datapointValue"
+														>
+															<label>
+																<en>Value (a literal: true, 21.5, 06:30)</en>
+																<de>Wert (ein Literal: true, 21.5, 06:30)</de>
+															</label>
+														</value-input>
+													</fields>
+													<stack
+														direction="row"
+														gap="compact"
+														wrap="true"
+													>
+														<button>
+															<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																image="css:bi bi-send"
+																input="state"
+															>
+																<label>
+																	<en>Send from the installation</en>
+																	<de>Aus der Installation senden</de>
+																</label>
+																<executability>
+																	<model-access
+																		object="project"
+																		operation="Write"
+																	/>
+																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</executability>
+																<execute-script function="d -> v -> s -> simulationSend($s['project'], $d, $v)">
+																	<inputs>
+																		<input channel="selectedDatapoint"/>
+																		<input channel="datapointValue"/>
+																	</inputs>
+																</execute-script>
+																<write-channel name="refresh"/>
+															</action>
+														</button>
+														<button>
+															<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																image="css:bi bi-pencil"
+																input="state"
+															>
+																<label>
+																	<en>Command</en>
+																	<de>Befehlen</de>
+																</label>
+																<executability>
+																	<model-access
+																		object="project"
+																		operation="Write"
+																	/>
+																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</executability>
+																<execute-script function="d -> v -> s -> simulationCommand($s['project'], $d, $v)">
+																	<inputs>
+																		<input channel="selectedDatapoint"/>
+																		<input channel="datapointValue"/>
+																	</inputs>
+																</execute-script>
+																<write-channel name="refresh"/>
+															</action>
+														</button>
+													</stack>
+													<text
+														tone="helper"
+														variant="caption"
+													>
+														<label>
+															<en>"Send from the installation": the device whose object sends to the address of the datapoint sends the value as a group telegram, as a push button or sensor would. "Command": the value is commanded as the UI of a controller does; a datapoint that transmits sends it to the bus.</en>
+															<de>„Aus der Installation senden“: Das Gerät, dessen Objekt an die Adresse des Datenpunkts sendet, sendet den Wert als Gruppentelegramm, wie es ein Taster oder Sensor täte. „Befehlen“: Der Wert wird befohlen, wie es die Oberfläche eines Controllers tut; ein Datenpunkt, der überträgt, sendet ihn auf den Bus.</de>
+														</label>
+													</text>
+												</stack>
+											</inset>
+										</panel>
+									</pane>
+								</panes>
+							</split-panel>
+						</tab>
+						<tab id="timeline"
+							icon="css:bi bi-clock-history"
+						>
+							<label>
+								<en>Timeline</en>
+								<de>Zeitleiste</de>
+							</label>
+							<table filter-bar="true">
+								<inputs>
+									<input channel="state"/>
+								</inputs>
+								<columns>
+									<computed-column name="time"
+										type="tl.core:String"
+										width="210"
+									>
+										<label>
+											<en>Simulated time</en>
+											<de>Simulierte Zeit</de>
+										</label>
+										<value>r -> $r['time']</value>
+									</computed-column>
+									<computed-column name="kind"
+										type="tl.core:String"
+										width="100"
+									>
+										<label>
+											<en>Kind</en>
+											<de>Art</de>
+										</label>
+										<value>r -> $r['kind']</value>
+									</computed-column>
+									<computed-column name="source"
+										type="tl.core:String"
+										width="160"
+									>
+										<label>
+											<en>Source</en>
+											<de>Quelle</de>
+										</label>
+										<value>r -> $r['source']</value>
+									</computed-column>
+									<computed-column name="text"
+										type="tl.core:String"
+										width="600"
+									>
+										<label>
+											<en>What happened</en>
+											<de>Was geschah</de>
+										</label>
+										<value>r -> $r['text']</value>
+									</computed-column>
+								</columns>
+								<rows>s -> $s['timeline']</rows>
+							</table>
+						</tab>
+					</tabs>
+				</tab-bar>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

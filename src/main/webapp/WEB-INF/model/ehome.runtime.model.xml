@@ -858,6 +858,14 @@
 						</default-value>
 					</annotations>
 				</property>
+				<!--
+					The enable switch in the simulation of the project (its persisted override,
+					de.haumacher.ehome.simulation.Overrides), the literal true or false; empty: the default.
+					A text rather than a Boolean, which reads an unset value as false.
+				-->
+				<property name="simulationEnabled"
+					type="tl.core:String"
+				/>
 				<!-- The adjustable parameters of the rule. -->
 				<reference name="parameters"
 					composite="true"
@@ -990,6 +998,13 @@
 						</constraints>
 					</annotations>
 				</property>
+				<!--
+					The value the simulation of the project runs the parameter with (its persisted override,
+					de.haumacher.ehome.simulation.Overrides), a literal of its type; empty: the default.
+				-->
+				<property name="simulationValue"
+					type="tl.core:String"
+				/>
 				<!-- The display unit (at most 15 bytes); for a duration the unit the controller edits in (s, min, h). -->
 				<property name="unit"
 					type="tl.core:String"

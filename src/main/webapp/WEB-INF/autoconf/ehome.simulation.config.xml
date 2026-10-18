@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+	The simulation of the rules against a virtual installation (haumacher/ehome #58, package
+	de.haumacher.ehome.simulation): its service (the running simulations, at most one per project, stopped
+	when the application shuts down; the directory of the KNXnet/IP servers) and its TL-Script functions,
+	used by WEB-INF/views/projects/simulation.view.xml.
+-->
+<application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<services>
+		<config service-class="com.top_logic.basic.module.ModuleSystem">
+			<instance class="com.top_logic.basic.module.ModuleSystem">
+				<modules>
+					<module key="de.haumacher.ehome.simulation.Simulations$Module"
+						value="true"
+					/>
+				</modules>
+			</instance>
+		</config>
+
+		<config service-class="de.haumacher.ehome.simulation.Simulations">
+			<instance class="de.haumacher.ehome.simulation.Simulations"
+				directory="%STORAGE_PATH%/simulation"
+			/>
+		</config>
+
+		<config service-class="com.top_logic.model.search.expr.config.SearchBuilder">
+			<instance>
+				<methods>
+					<!-- The simulation (de.haumacher.ehome.simulation.SimulationFunctions): one builder, the function by its name. -->
+					<method name="simulationState" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationStartVeto" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationRunVeto" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationStart" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationStop" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationAdvance" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationStep" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationSend" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationCommand" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationSetParameter" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationResetParameter" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+				</methods>
+			</instance>
+		</config>
+	</services>
+</application>

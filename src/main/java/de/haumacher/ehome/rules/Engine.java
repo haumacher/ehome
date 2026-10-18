@@ -1907,6 +1907,49 @@ public final class Engine implements DatapointModel.Listener {
 	}
 
 	/**
+	 * The diagnostics of a rule (<code>spec/rules.md</code> 9.1).
+	 *
+	 * @param firings
+	 *        The firings since the rules started at boot.
+	 * @param lastTrigger
+	 *        What fired the rule last (<code>datapoint hall.presence</code>, <code>timer off</code>,
+	 *        ...), <code>null</code> if it never fired.
+	 * @param lastTriggerMs
+	 *        When, on the monotonic clock.
+	 * @param lastAction
+	 *        The last action executed (<code>write hall.light = true</code>, ...), <code>null</code>
+	 *        if none.
+	 * @param lastActionMs
+	 *        When, on the monotonic clock.
+	 * @param errors
+	 *        The number of logged errors and warnings.
+	 * @param lastErrorCode
+	 *        The code of the last one, <code>null</code> if none.
+	 * @param lastErrorText
+	 *        Its detail.
+	 * @param lastErrorMs
+	 *        When, on the monotonic clock.
+	 * @param peakCascadeFirings
+	 *        The most derived firings of the rule in one cascade.
+	 * @param loopGuards
+	 *        How often the loop guard aborted a cascade of the rule.
+	 */
+	public record RuleStatus(int firings, String lastTrigger, long lastTriggerMs, String lastAction, long lastActionMs,
+			int errors, LogCode lastErrorCode, String lastErrorText, long lastErrorMs, int peakCascadeFirings,
+			int loopGuards) {
+		// A value.
+	}
+
+	/**
+	 * The diagnostics of the rule with the given index.
+	 */
+	public RuleStatus status(int rule) {
+		RuleRuntime rr = _rules[rule];
+		return new RuleStatus(rr._firings, rr._lastTrigger, rr._lastTriggerMs, rr._lastAction, rr._lastActionMs,
+			rr._errors, rr._lastErrorCode, rr._lastErrorText, rr._lastErrorMs, rr._peakCascadeFirings, rr._loopGuards);
+	}
+
+	/**
 	 * The diagnostics of the rule (<code>spec/rules.md</code> 9.1) as text lines: firings, last
 	 * trigger, last action, errors and last error.
 	 */

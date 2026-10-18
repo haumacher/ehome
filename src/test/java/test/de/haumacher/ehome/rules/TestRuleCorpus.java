@@ -76,7 +76,7 @@ public class TestRuleCorpus extends TestCase {
 		Map<?, ?> json = (Map<?, ?>) Json.parse(Files.readString(_file.toPath(), StandardCharsets.UTF_8), 100);
 		CaseRun run = new CaseRun(json);
 		run.run();
-		if (!run._failures.isEmpty()) {
+		if (!run.failures().isEmpty()) {
 			fail(_file.getName() + ": " + json.get("title") + "\n" + String.join("\n", run._failures));
 		}
 	}
@@ -94,15 +94,21 @@ public class TestRuleCorpus extends TestCase {
 	}
 
 	/**
-	 * One run of a case.
+	 * One run of a case: the datapoints of the case owned by a technology accepting (or refusing)
+	 * every command, the reports of the timeline given to the model directly. A subclass may wire
+	 * the model to something else ({@link #loadModel()}, {@link #report(String, Object)},
+	 * {@link #deliverLocal()}, {@link #finish()}).
 	 */
-	private static final class CaseRun {
+	public static class CaseRun {
 
-		private final Map<?, ?> _case;
+		/** The case. */
+		protected final Map<?, ?> _case;
 
-		final List<String> _failures = new ArrayList<>();
+		/** The differences found. */
+		protected final List<String> _failures = new ArrayList<>();
 
-		private final long[] _now = { BASE };
+		/** The monotonic clock. */
+		protected final long[] _now = { BASE };
 
 		private final ParameterStore _store = new ParameterStore();
 
@@ -118,17 +124,31 @@ public class TestRuleCorpus extends TestCase {
 
 		private final List<String> _commands = new ArrayList<>();
 
-		private DatapointModel _model;
+		/** The model of the current boot. */
+		protected DatapointModel _model;
 
 		private Engine _engine;
 
 		private Object _image;
 
-		CaseRun(Map<?, ?> json) {
+		/**
+		 * Creates a {@link CaseRun} of the given case.
+		 */
+		public CaseRun(Map<?, ?> json) {
 			_case = json;
 		}
 
-		void run() {
+		/**
+		 * The differences found by {@link #run()}.
+		 */
+		public List<String> failures() {
+			return _failures;
+		}
+
+		/**
+		 * Runs the case and compares its outcome.
+		 */
+		public void run() throws Exception {
 			Map<?, ?> clock = (Map<?, ?>) _case.get("clock");
 			if (clock != null) {
 				String[] parts = ((String) clock.get("start")).split("[-T:]");
@@ -192,6 +212,7 @@ public class TestRuleCorpus extends TestCase {
 				advance(at);
 			}
 			advance(((Number) _case.get("end")).longValue());
+			finish();
 			compareOutputs(expected);
 			if (expected.get("final") instanceof Map<?, ?> state) {
 				compareState(state, "final");
@@ -233,7 +254,17 @@ public class TestRuleCorpus extends TestCase {
 			return engine;
 		}
 
-		private void loadModel() {
+		/**
+		 * Called after the end of the timeline, before the outputs are compared.
+		 */
+		protected void finish() throws Exception {
+			// Nothing by default.
+		}
+
+		/**
+		 * Creates the {@link #_model} of a boot with the datapoints of the case.
+		 */
+		protected void loadModel() {
 			_model = new DatapointModel(() -> _now[0]);
 			DatapointModel.Technology accepting = (datapoint, value) -> true;
 			DatapointModel.Technology refusing = (datapoint, value) -> false;
@@ -246,14 +277,29 @@ public class TestRuleCorpus extends TestCase {
 			}
 		}
 
-		private Val datapointValue(String name, Object json) {
+		/**
+		 * The value of the case's JSON notation for the datapoint, in its type.
+		 */
+		protected Val datapointValue(String name, Object json) {
 			Datapoint datapoint = _model.get(name);
 			Val value = expectedValue(datapoint.type().expressionType(), json);
 			return Values.convertForDatapoint(value, datapoint.type());
 		}
 
-		private void report(String name, Object json) {
+		/**
+		 * The technology reports the value of a datapoint.
+		 */
+		protected void report(String name, Object json) throws Exception {
 			_model.report(name, datapointValue(name, json));
+		}
+
+		/**
+		 * Delivers what the technology holds back until the cascade is done.
+		 *
+		 * @return Whether there was something.
+		 */
+		protected boolean deliverLocal() {
+			return false;
 		}
 
 		/** Runs up to the time: the queued events, then every timer at its own deadline. */
@@ -262,6 +308,9 @@ public class TestRuleCorpus extends TestCase {
 			while (true) {
 				if (_engine.hasPending()) {
 					_engine.drain();
+					continue;
+				}
+				if (deliverLocal()) {
 					continue;
 				}
 				long deadline = _engine.nextDeadline();
@@ -274,7 +323,7 @@ public class TestRuleCorpus extends TestCase {
 			_now[0] = target;
 		}
 
-		private void apply(Map<?, ?> step, long at) {
+		private void apply(Map<?, ?> step, long at) throws Exception {
 			if (step.get("report") instanceof Map<?, ?> report) {
 				report((String) report.get("datapoint"), report.get("value"));
 			} else if (step.get("stale") instanceof String name) {

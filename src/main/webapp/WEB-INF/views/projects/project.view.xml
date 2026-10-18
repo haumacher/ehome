@@ -109,6 +109,20 @@
 					/>
 				</view-ref>
 			</tab>
+			<tab id="simulation"
+				icon="css:bi bi-play-btn"
+			>
+				<label>
+					<en>Simulation</en>
+					<de>Simulation</de>
+				</label>
+				<view-ref view="projects/simulation.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="deployment"
 				icon="css:bi bi-cloud-upload"
 			>

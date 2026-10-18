@@ -4,27 +4,13 @@
 package de.haumacher.ehome.virtual.server;
 
 import java.io.File;
-import java.io.IOException;
-import java.net.DatagramSocket;
-import java.net.Inet4Address;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.NetworkInterface;
-import java.net.ServerSocket;
-import java.net.SocketException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.util.Collections;
-import java.util.Optional;
+import java.util.List;
 
 import tuwien.auto.calimero.IndividualAddress;
-import tuwien.auto.calimero.device.ios.InterfaceObject;
 import tuwien.auto.calimero.link.KNXNetworkLink;
-import tuwien.auto.calimero.mgmt.PropertyAccess.PID;
 import tuwien.auto.calimero.server.Launcher;
 import tuwien.auto.calimero.server.VirtualLink;
-import tuwien.auto.calimero.server.gateway.KnxServerGateway;
-import tuwien.auto.calimero.server.gateway.SubnetConnector;
 
 import com.top_logic.util.error.TopLogicException;
 
@@ -38,34 +24,19 @@ import de.haumacher.ehome.virtual.trace.TraceRecorder;
  * search and description, tunnelling (no KNX Secure, no routing), on one local address.
  *
  * <p>
- * Built on calimero-server: its {@link Launcher} sets up a {@link tuwien.auto.calimero.server.knxnetip.KNXnetIPServer}
- * with one service container whose subnet is a {@link VirtualLink} - a subnet in memory without a
- * connection to any bus or gateway, so nothing a client sends is forwarded anywhere. The only
- * device on it is the {@link SimulatedDevice} behind a transport and application layer of E-Home
- * ({@link DeviceStack}, with the timing of {@link TransportTiming}). Every frame the device receives or sends is recorded
+ * Built on calimero-server ({@link KnxServer}): its {@link Launcher} sets up a
+ * {@link tuwien.auto.calimero.server.knxnetip.KNXnetIPServer} with one service container whose
+ * subnet is a {@link VirtualLink} - a subnet in memory without a connection to any bus or gateway,
+ * so nothing a client sends is forwarded anywhere. The only device on it is the
+ * {@link SimulatedDevice} behind a transport and application layer of E-Home ({@link DeviceStack},
+ * with the timing of {@link TransportTiming}). Every frame the device receives or sends is recorded
  * by the {@link DeviceStack} ({@link FrameDecoder}, {@link TraceRecorder}).
- * </p>
- *
- * <p>
- * The {@link Launcher} is configured by an XML file (Calimero's server configuration format), which
- * is written into the working directory together with the interface objects the server stores
- * there on shutdown (deleted before every start, so that no state of an earlier run is loaded):
- * the container setup of the server (tunnelling addresses, router object) is not available
- * otherwise.
  * </p>
  */
 public final class VirtualInterface implements AutoCloseable {
 
 	/** The prefix of the name the interface announces. */
 	public static final String NAME_PREFIX = "E-Home virtual ";
-
-	/** How long to wait for the server to come up or go down, in milliseconds. */
-	private static final long TIMEOUT = 10_000;
-
-	private static final String SERVER_NAME = "ehome-virtual";
-
-	/** The maximum APDU length of a standard frame on TP1. */
-	private static final int TP1_MAX_APDU = 15;
 
 	/**
 	 * Where the interface listens.
@@ -92,9 +63,7 @@ public final class VirtualInterface implements AutoCloseable {
 
 	private final TraceRecorder _recorder;
 
-	private final Launcher _launcher;
-
-	private final Thread _thread;
+	private final KnxServer _server;
 
 	private final int _serverAddress;
 
@@ -108,16 +77,14 @@ public final class VirtualInterface implements AutoCloseable {
 	private final TransportTiming _timing;
 
 	private VirtualInterface(Endpoint endpoint, SimulatedDevice device, TraceRecorder recorder, TransportTiming timing,
-			Launcher launcher, int serverAddress) {
+			KnxServer server, int serverAddress, String name) {
 		_endpoint = endpoint;
 		_timing = timing;
 		_device = device;
 		_recorder = recorder;
-		_launcher = launcher;
+		_server = server;
 		_serverAddress = serverAddress;
-		_name = NAME_PREFIX + TraceFormat.individual(device.address());
-		_thread = new Thread(launcher, SERVER_NAME + " " + endpoint);
-		_thread.setDaemon(true);
+		_name = name;
 	}
 
 	/**
@@ -130,29 +97,11 @@ public final class VirtualInterface implements AutoCloseable {
 	 */
 	public static VirtualInterface start(Endpoint endpoint, SimulatedDevice device, TraceRecorder recorder,
 			TransportTiming timing, File workDir) {
-		NetworkInterface networkInterface = checkAddress(endpoint.address());
-		if (!portFree(endpoint)) {
-			throw new TopLogicException(I18NConstants.ERROR_PORT_IN_USE__ENDPOINT.fill(endpoint.toString()));
-		}
 		int serverAddress = serverAddress(device.address());
-		File config = new File(workDir, SERVER_NAME + ".xml");
-		try {
-			Files.createDirectories(workDir.toPath());
-			Files.deleteIfExists(new File(workDir, SERVER_NAME + "-ios.xml").toPath());
-			Files.writeString(config.toPath(), configuration(endpoint, networkInterface, device, serverAddress, workDir),
-				StandardCharsets.UTF_8);
-		} catch (IOException ex) {
-			throw new TopLogicException(I18NConstants.ERROR_START__ENDPOINT_DETAIL.fill(endpoint.toString(), ex.getMessage()),
-				ex);
-		}
-		Launcher launcher;
-		try {
-			launcher = new Launcher(config.toURI().toString());
-		} catch (RuntimeException ex) {
-			throw new TopLogicException(I18NConstants.ERROR_START__ENDPOINT_DETAIL.fill(endpoint.toString(), ex.getMessage()),
-				ex);
-		}
-		VirtualInterface result = new VirtualInterface(endpoint, device, recorder, timing, launcher, serverAddress);
+		String name = NAME_PREFIX + TraceFormat.individual(device.address());
+		KnxServer server = KnxServer.start(endpoint, name, serverAddress,
+			List.of(tunnelAddress(serverAddress, device.address())), workDir);
+		VirtualInterface result = new VirtualInterface(endpoint, device, recorder, timing, server, serverAddress, name);
 		try {
 			result.connect();
 		} catch (RuntimeException ex) {
@@ -163,43 +112,9 @@ public final class VirtualInterface implements AutoCloseable {
 	}
 
 	private void connect() {
-		_thread.start();
-		VirtualLink subnet = awaitSubnet();
-		// A TP1 interface without extended frames: the server's own maximum APDU length is that of
-		// its subnet (15), not that of its KNX IP side (254), which a client reads to size the frames
-		// it sends (and with a larger value asks every device for its own maximum first).
-		_launcher.getGateway().getServer().getInterfaceObjectServer().setProperty(InterfaceObject.DEVICE_OBJECT, 1,
-			PID.MAX_APDULENGTH, 1, 1, (byte) 0, (byte) TP1_MAX_APDU);
-		long deadline = System.currentTimeMillis() + TIMEOUT;
-		while (!listening(_endpoint)) {
-			if (System.currentTimeMillis() > deadline || !_thread.isAlive()) {
-				throw new TopLogicException(I18NConstants.ERROR_START__ENDPOINT_DETAIL.fill(_endpoint.toString(),
-					"the server does not listen on the port"));
-			}
-			pause();
-		}
 		int address = _device.address();
-		_deviceLink = subnet.createDeviceLink(new IndividualAddress(address));
+		_deviceLink = _server.subnet().createDeviceLink(new IndividualAddress(address));
 		_stack = new DeviceStack(_device, _deviceLink, _recorder, _timing, _serverAddress);
-	}
-
-	private VirtualLink awaitSubnet() {
-		long deadline = System.currentTimeMillis() + TIMEOUT;
-		while (true) {
-			KnxServerGateway gateway = _launcher.getGateway();
-			if (gateway != null) {
-				for (SubnetConnector connector : gateway.getSubnetConnectors()) {
-					if (connector.getSubnetLink() instanceof VirtualLink link) {
-						return link;
-					}
-				}
-			}
-			if (System.currentTimeMillis() > deadline || !_thread.isAlive()) {
-				throw new TopLogicException(I18NConstants.ERROR_START__ENDPOINT_DETAIL.fill(_endpoint.toString(),
-					"the virtual subnet did not come up"));
-			}
-			pause();
-		}
 	}
 
 	/**
@@ -279,45 +194,14 @@ public final class VirtualInterface implements AutoCloseable {
 			_deviceLink.close();
 			_deviceLink = null;
 		}
-		_launcher.quit();
-		try {
-			_thread.join(TIMEOUT);
-		} catch (InterruptedException ex) {
-			Thread.currentThread().interrupt();
-		}
-		long deadline = System.currentTimeMillis() + TIMEOUT;
-		while (!portFree(_endpoint) && System.currentTimeMillis() < deadline) {
-			pause();
-		}
+		_server.close();
 	}
 
 	/**
 	 * Whether the interface is up.
 	 */
 	public boolean isRunning() {
-		return _thread.isAlive();
-	}
-
-	private static NetworkInterface checkAddress(InetAddress address) {
-		if (!(address instanceof Inet4Address)) {
-			throw new TopLogicException(I18NConstants.ERROR_NOT_IPV4__ADDRESS.fill(address.getHostAddress()));
-		}
-		NetworkInterface networkInterface;
-		try {
-			networkInterface = NetworkInterface.getByInetAddress(address);
-		} catch (SocketException ex) {
-			networkInterface = null;
-		}
-		if (networkInterface == null) {
-			throw new TopLogicException(I18NConstants.ERROR_NOT_LOCAL__ADDRESS.fill(address.getHostAddress()));
-		}
-		Optional<InetAddress> first = Collections.list(networkInterface.getInetAddresses()).stream()
-			.filter(Inet4Address.class::isInstance).findFirst();
-		if (first.isEmpty() || !first.get().equals(address)) {
-			throw new TopLogicException(I18NConstants.ERROR_NOT_FIRST_ADDRESS__ADDRESS_INTERFACE_FIRST.fill(
-				address.getHostAddress(), networkInterface.getName(), first.map(InetAddress::getHostAddress).orElse("-")));
-		}
-		return networkInterface;
+		return _server.isRunning();
 	}
 
 	/**
@@ -325,43 +209,7 @@ public final class VirtualInterface implements AutoCloseable {
 	 * KNXnet/IP server uses both).
 	 */
 	public static boolean portFree(Endpoint endpoint) {
-		InetSocketAddress address = new InetSocketAddress(endpoint.address(), endpoint.port());
-		try (DatagramSocket socket = new DatagramSocket(null)) {
-			socket.setReuseAddress(false);
-			socket.bind(address);
-		} catch (IOException ex) {
-			return false;
-		}
-		try (ServerSocket socket = new ServerSocket()) {
-			// As the server binds it: a connection of an earlier run in TIME_WAIT does not block.
-			socket.setReuseAddress(true);
-			socket.bind(address);
-		} catch (IOException ex) {
-			return false;
-		}
-		return true;
-	}
-
-	/**
-	 * Whether the server listens on the port of the endpoint, for UDP and for TCP.
-	 */
-	private static boolean listening(Endpoint endpoint) {
-		InetSocketAddress address = new InetSocketAddress(endpoint.address(), endpoint.port());
-		boolean udp;
-		try (DatagramSocket socket = new DatagramSocket(null)) {
-			socket.setReuseAddress(false);
-			socket.bind(address);
-			udp = false;
-		} catch (IOException ex) {
-			udp = true;
-		}
-		try (ServerSocket socket = new ServerSocket()) {
-			socket.setReuseAddress(true);
-			socket.bind(address);
-			return false;
-		} catch (IOException ex) {
-			return udp;
-		}
+		return KnxServer.portFree(endpoint);
 	}
 
 	/**
@@ -389,39 +237,6 @@ public final class VirtualInterface implements AutoCloseable {
 	private static int tunnelAddress(int server, int device) {
 		int result = server | 0xFF;
 		return result == device ? result - 1 : result;
-	}
-
-	private static String configuration(Endpoint endpoint, NetworkInterface networkInterface, SimulatedDevice device,
-			int serverAddress, File workDir) {
-		String netif = networkInterface.getName();
-		return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-			+ "<!-- The virtual KNXnet/IP interface of E-Home: one simulated device, no connection to any bus. -->\n"
-			+ "<knxServer name=\"" + SERVER_NAME + "\" friendlyName=\"" + NAME_PREFIX
-			+ TraceFormat.individual(device.address()) + "\" appData=\"" + xml(workDir.getAbsolutePath()) + "\">\n"
-			+ "\t<discovery activate=\"" + endpoint.discovery() + "\" listenNetIf=\"" + xml(netif) + "\" outgoingNetIf=\""
-			+ xml(netif) + "\"/>\n"
-			+ "\t<serviceContainer activate=\"true\" routing=\"false\" networkMonitoring=\"false\" reuseCtrlEP=\"false\""
-			+ " udpPort=\"" + endpoint.port() + "\" listenNetIf=\"" + xml(netif) + "\">\n"
-			+ "\t\t<knxAddress type=\"individual\">" + TraceFormat.individual(serverAddress) + "</knxAddress>\n"
-			+ "\t\t<knxSubnet type=\"virtual\" medium=\"tp1\">" + SERVER_NAME + "-subnet</knxSubnet>\n"
-			+ "\t\t<additionalAddresses>\n"
-			+ "\t\t\t<knxAddress type=\"individual\">" + TraceFormat.individual(tunnelAddress(serverAddress, device.address())) + "</knxAddress>\n"
-			+ "\t\t</additionalAddresses>\n"
-			+ "\t</serviceContainer>\n"
-			+ "</knxServer>\n";
-	}
-
-	private static String xml(String text) {
-		return text.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;");
-	}
-
-	private static void pause() {
-		try {
-			Thread.sleep(20);
-		} catch (InterruptedException ex) {
-			Thread.currentThread().interrupt();
-			throw new TopLogicException(I18NConstants.ERROR_INTERRUPTED);
-		}
 	}
 
 }
