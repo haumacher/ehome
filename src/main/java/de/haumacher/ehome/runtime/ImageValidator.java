@@ -12,6 +12,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import de.haumacher.ehome.rules.RuleLoader;
+import de.haumacher.ehome.rules.RuleLoader.LoadException;
+import de.haumacher.ehome.rules.Schedule;
+import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.runtime.ImageReport.Kind;
 import de.haumacher.ehome.runtime.Json.JsonException;
 
@@ -28,10 +32,12 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * </p>
  *
  * <p>
- * Not checked: the members <code>rules</code> and <code>schedules</code> (their checks belong to the
- * rule loader and the scheduler of the controller, which E-Home does not have yet; E-Home exports
- * neither) and the contents of <code>external</code>. An image holding them gets a
- * {@link ImageReport#note(String) note} saying so.
+ * The members <code>schedules</code> and <code>rules</code> are checked by the loaders of the
+ * reference interpreter ({@link Schedule#load(Object, Schedule.Datapoints)},
+ * {@link RuleLoader}), the rules only when everything else is valid (as the controller does: their
+ * references are checked against the datapoints and schedules). Not checked: the contents of
+ * <code>external</code>; an image holding them gets a {@link ImageReport#note(String) note} saying
+ * so.
  * </p>
  */
 public final class ImageValidator {
@@ -99,6 +105,9 @@ public final class ImageValidator {
 
 	private final List<Integer> _sends = new ArrayList<>();
 
+	/** Per datapoint: what owns it (the KNX adapter, ...), null for nothing. */
+	private final List<String> _owners = new ArrayList<>();
+
 	private long _historyBytes;
 
 	private ImageValidator() {
@@ -152,11 +161,71 @@ public final class ImageValidator {
 			}
 			leave();
 		}
-		if (image.containsKey("schedules")) {
-			_report.note("The schedules are not checked by E-Home; the controller checks them.");
+		Set<String> schedules = schedules(image);
+		rules(image, schedules);
+	}
+
+	// ---- schedules and rules -----------------------------------------------------------------
+
+	private int datapointIndex(String name) {
+		for (int i = 0; i < _ids.size(); i++) {
+			if (name.equals(_ids.get(i))) {
+				return i;
+			}
 		}
-		if (image.containsKey("rules")) {
-			_report.note("The rules are not checked by E-Home; the controller checks them.");
+		return -1;
+	}
+
+	private ValueType datapointType(String name) {
+		int index = datapointIndex(name);
+		return index < 0 || _types.get(index) == null ? null : ValueType.fromName(_types.get(index));
+	}
+
+	private Set<String> schedules(Map<?, ?> root) {
+		if (!root.containsKey("schedules")) {
+			return Set.of();
+		}
+		Schedule.Loaded loaded = Schedule.load(root.get("schedules"), new Schedule.Datapoints() {
+			@Override
+			public ValueType type(String name) {
+				return datapointType(name);
+			}
+
+			@Override
+			public String owner(String name) {
+				int index = datapointIndex(name);
+				return index < 0 ? null : _owners.get(index);
+			}
+		});
+		for (Schedule.Refusal refusal : loaded.refusals()) {
+			_report.add(Kind.INVALID, refusal.path(), refusal.reason());
+		}
+		return loaded.ids();
+	}
+
+	private void rules(Map<?, ?> root, Set<String> schedules) {
+		if (!root.containsKey("rules") || !_report.isValid()) {
+			// The rules are checked against the datapoints and schedules; with refusals there the
+			// check would only repeat them.
+			return;
+		}
+		try {
+			RuleLoader.load(root.get("rules"), new RuleLoader.DatapointDirectory() {
+				@Override
+				public ValueType type(String name) {
+					return datapointType(name);
+				}
+
+				@Override
+				public boolean writable(String name) {
+					int index = datapointIndex(name);
+					return index >= 0 && _writable.get(index).booleanValue();
+				}
+			}, schedules::contains);
+		} catch (LoadException ex) {
+			RuleLoader.Refusal refusal = ex.getRefusal();
+			_report.add(Kind.INVALID, refusal.path(),
+				"rule '" + refusal.rule() + "': " + refusal.error().externalName() + ": " + refusal.text());
 		}
 	}
 
@@ -435,6 +504,7 @@ public final class ImageValidator {
 				{ "date", "knx.date", ValueTypes.DATE }, { "dateTime", "knx.datetime", ValueTypes.DATE_TIME } };
 			for (String[] datapoint : implied) {
 				if (_timeMaster.containsKey(datapoint[0])) {
+					_owners.add("the time master");
 					_ids.add(datapoint[1]);
 					_types.add(datapoint[2]);
 					_writable.add(Boolean.FALSE);
@@ -478,6 +548,7 @@ public final class ImageValidator {
 		_types.add(null);
 		_writable.add(Boolean.FALSE);
 		_sends.add(null);
+		_owners.add(null);
 		int index = _ids.size() - 1;
 		if (!object(item, "a datapoint")) {
 			return;
@@ -545,6 +616,7 @@ public final class ImageValidator {
 			} else if (dp.containsKey("knx")) {
 				refuse("a datapoint is either knx or zigbee");
 			} else {
+				_owners.set(index, "the Zigbee adapter");
 				_report.note("The Zigbee binding at " + path() + " is not checked by E-Home.");
 			}
 			leave();
@@ -562,6 +634,7 @@ public final class ImageValidator {
 			if (!object(dp.get("knx"), "knx")) {
 				return;
 			}
+			_owners.set(index, "the KNX adapter");
 			Map<?, ?> knx = (Map<?, ?>) dp.get("knx");
 			enter(".dpt");
 			if (!knx.containsKey("dpt")) {

@@ -28,10 +28,8 @@ import de.haumacher.ehome.runtime.Json;
  * and a part of its reason.
  *
  * <p>
- * The cases of the rules and the schedules ({@link #NOT_CHECKED}) need the rule loader and the
- * scheduler of the controller, which E-Home does not have; E-Home exports neither member. For them
- * the test asserts that the validator says it did not check them, so a new case of such a member
- * fails here instead of passing unnoticed.
+ * The cases of the rules and the schedules ({@link #RULES_AND_SCHEDULES}) are checked by the loaders
+ * of E-Home's reference interpreter (<code>de.haumacher.ehome.rules</code>) like every other case.
  * </p>
  */
 public class TestImageConformance extends TestCase {
@@ -40,11 +38,10 @@ public class TestImageConformance extends TestCase {
 	public static final File IMAGES = new File("src/test/fixtures/homecontrol/images");
 
 	/**
-	 * The cases E-Home does not check, with the member it leaves to the controller.
+	 * The cases of the members rules and schedules, which the loaders of the reference interpreter
+	 * check.
 	 */
-	static final Map<String, String> NOT_CHECKED = Map.of(
-		"refuse-rules.json", "rules",
-		"refuse-schedules.json", "schedules");
+	static final Set<String> RULES_AND_SCHEDULES = Set.of("refuse-rules.json", "refuse-schedules.json");
 
 	private final File _file;
 
@@ -62,12 +59,6 @@ public class TestImageConformance extends TestCase {
 		Map<?, ?> doc = (Map<?, ?>) Json.parse(text, 100);
 		Map<?, ?> expect = (Map<?, ?>) doc.get("expect");
 		ImageReport report = ImageValidator.validate(text);
-		String member = NOT_CHECKED.get(_file.getName());
-		if (member != null) {
-			assertTrue("E-Home does not check " + member + ", and says so: " + report.getNotes(),
-				report.getNotes().stream().anyMatch(note -> note.contains("The " + member + " are not checked")));
-			return;
-		}
 		assertEquals(report.toString(), expect.get("valid"), Boolean.valueOf(report.isValid()));
 		if (report.isValid()) {
 			return;
@@ -101,7 +92,7 @@ public class TestImageConformance extends TestCase {
 			suite.addTest(new TestImageConformance(file));
 			names.add(file.getName());
 		}
-		assertTrue("Every case left to the controller exists.", names.containsAll(NOT_CHECKED.keySet()));
+		assertTrue("The cases of the rules and schedules exist.", names.containsAll(RULES_AND_SCHEDULES));
 		return suite;
 	}
 

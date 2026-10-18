@@ -24,8 +24,8 @@ import de.haumacher.ehome.runtime.ImageValidator;
 
 /**
  * The image fixtures of the specification (<code>src/test/fixtures/homecontrol/images/</code>)
- * checked by {@link ImageValidator}: the example and the minimal image are valid; the example's rules
- * and schedules are left to the controller.
+ * checked by {@link ImageValidator}: the example and the minimal image are valid, the example with its
+ * rules and schedules checked by the loaders of the reference interpreter.
  */
 @SuppressWarnings("javadoc")
 public class TestImageFixtures extends TestCase {
@@ -33,7 +33,7 @@ public class TestImageFixtures extends TestCase {
 	public void testExample() throws IOException {
 		ImageReport report = ImageValidator.validate(read("example.json"));
 		assertTrue(report.toString(), report.isValid());
-		assertEquals(2, report.getNotes().size());
+		assertEquals(List.of(), report.getNotes());
 	}
 
 	public void testMinimal() throws IOException {
