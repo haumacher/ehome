@@ -56,7 +56,7 @@ Workaround: `src/main/webapp/style/ehome.css` (registered as `ClientResources` i
 **When fixed in the engine** (default animations in the theme, no waiting without an animation):
 remove `style/ehome.css` and its `ClientResources` registration.
 
-## ETS import: workarounds for the XML import (TL #29794 to #29797, #29880 to #29883)
+## ETS import: workarounds for the XML import (TL #29794 to #29797, #29880 to #29883, #29889 to #29891)
 
 The ETS import (`de.haumacher.ehome.importer`, `etsImporter.xml`) has handlers of its own for what
 the engine's XML import (`com.top_logic.xio`) cannot do yet:
@@ -99,6 +99,17 @@ the engine's XML import (`com.top_logic.xio`) cannot do yet:
 - TL #29882: a `<switch>` case matches one value only, so the flags ETS 6 writes as `true` and ETS 4
   as `1` need duplicate cases in `etsImporter.xml`. **When available:** merge each pair into one
   case listing both values.
+- TL #29889 (defect): adding one element to a set reference reads the whole set, so building a
+  program's thousands of parameters one by one is quadratic. Workaround: `JoiningModelBinding`
+  buffers additions to unordered multiple references of persistent objects and stores each set in
+  one update at the end of the import (`flush()`). **When fixed:** add directly again and drop the
+  buffering.
+- TL #29890 (defect): `TLModelUtil.findType` and the compatibility check scan all modules by name on
+  every call. Workaround: `JoiningModelBinding` caches types per import; `ExtIds.isA` compares the
+  names of the cached generalizations. **When fixed:** use `TLModelUtil.isCompatibleInstance` again.
+- TL #29891 (defect): default values looked up per created transient object, overhead per attribute
+  read, deletion as expensive as import. No workaround; the tests avoid deleting shared data
+  (`TestRoundTrip` runs first, `SharedData.resetMaskVersions` updates in place).
 
 ## Derived references and the commit check (TL #29798)
 
@@ -538,3 +549,4 @@ store expressions canonically on save (haumacher/ehome #60).
 - TL #29877: see above (developer article on the persistency configuration).
 - TL #29880 to #29882: see above (XML import: unknown elements, a second container, multi-value cases).
 - TL #29883: see above (an unset boolean on stored and transient objects).
+- TL #29889 to #29891: see above (import performance: set additions, type lookups, defaults, reads, deletion).

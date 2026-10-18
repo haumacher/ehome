@@ -38,7 +38,7 @@ import com.top_logic.xio.importer.handlers.ImportPart;
  *
  * <p>
  * The elements added to an unordered multiple reference of a persistent object (a set, such as the
- * parameters of a program) are stored at once by {@link #flush()}: the engine reads the whole set to
+ * parameters of a program) are stored at once by {@link #flush()}: the engine reads the whole set (TL #29889) to
  * add one element, which makes adding the thousands of parameters of a program one by one
  * quadratic. Until then, reading such a reference through this binding (or evaluating an expression)
  * stores its elements first; code reading it directly sees the elements stored so far.
@@ -318,7 +318,7 @@ public class JoiningModelBinding implements ModelBinding {
 	 * The model type with the given qualified name.
 	 *
 	 * <p>
-	 * Looked up once per import: the engine looks up the module by its name among all modules.
+	 * Looked up once per import: the engine looks up the module by its name among all modules (TL #29890).
 	 * </p>
 	 */
 	private TLType type(String name) {

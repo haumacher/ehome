@@ -672,7 +672,7 @@ public final class ExtIds {
 	 * <p>
 	 * Compares the names of the object's class and its generalizations: resolving the name to a type
 	 * (<code>TLModelUtil.findType</code>) and the compatibility check of the engine look up the module
-	 * by its name among all modules on every call, which is expensive where it is asked for every
+	 * by its name among all modules on every call (TL #29890), which is expensive where it is asked for every
 	 * object of a program.
 	 * </p>
 	 */
