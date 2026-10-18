@@ -450,6 +450,36 @@ this configuration (TL #29877).
 **When available:** nothing to undo; read the article of TL #29877 for anything else the persistency
 configuration should set.
 
+## Access coverage of engine modules (TL #29884)
+
+The engine (8.0.0-alpha10) ships model modules whose types have no complete access definition: at
+the start of E-Home, `SecurityCoverageCheck` reports 36 engine types in 15 modules (`Contacts`,
+`SearchExpressionStructure`, `SecurityStructure`, `Tag`, `mandatorStructure`, `orgStructure`,
+`tl.accounts`, `tl.comments`, `tl.contact.ui`, `tl.core`, `tl.folder`, `tl.model`, `tl.reporting`,
+`tl.search`, `tl.units`; e.g. `tl.accounts:Group`, `tl.model:TLClass`, `tl.core:Revision`: no role
+source and no read grant). An application that switches `TestSecurityCoverage` on
+(`test-security-coverage` of `ElementTestCollector`) fails on them although it does not grant them
+to its users, and the startup log reports them on every start. The check has no way to analyze only
+the modules of the application except by listing every engine module as excluded.
+
+Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: `SecurityCoverageCheck` excludes these
+15 modules.
+
+**When fixed** (the engine covers or marks its own modules, or the check can be limited to the
+application's modules): remove `excluded-modules`.
+
+## A refused command on a composition part is hidden, not disabled (TL #29885)
+
+`ModelAccessPolicy.grantedToNoRole` decides "hide" from the grants of the object's own type. A type
+that delegates to its access parent has no grants of its own, so every refused `<model-access>`
+check on such an object (a device, a group address, a catalog entry) hides the command instead of
+disabling it with the reason: a viewer does not see "Download" or "Compare with the device" at all,
+while "Choose the gateway" (checked on the project, which has grants) is disabled with its reason.
+No workaround (the behavior is safe, only less informative).
+
+**When fixed** (the decision follows the access parent): nothing to change; the commands show
+disabled with the reason.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -468,6 +498,7 @@ configuration should set.
 - TL #29776: see above (drag and drop for trees; when available: replace the position choice and the
   move commands by the tree's drag and drop).
 - TL #29805: see above (mandatory `<value-input>`).
+- TL #29884, #29885: see above (access coverage of engine modules, hidden instead of disabled commands).
 - TL #29806: see above (singleton and generated wrappers; when available: dissolve `ehome.mask`).
 - TL #29807: see above (classifier constant names).
 - TL #29808: see above (apply on Enter only).

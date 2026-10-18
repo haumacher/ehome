@@ -123,6 +123,7 @@
 								<de>Gruppenbereich</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.logical:GroupRange"/>
@@ -151,6 +152,7 @@
 								<de>Gruppenadresse</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.logical:GroupAddress"/>
@@ -200,6 +202,7 @@
 								<de>Objekt verbinden</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -222,6 +225,7 @@
 								<de>Datenpunkttyp setzen</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -244,6 +248,7 @@
 								<de>Verbindung entfernen</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<confirm expr="c -> #('Remove the connection {0}?'@en, 'Verbindung {0} entfernen?'@de).fill(connectionLabel($c))"/>

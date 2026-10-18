@@ -118,6 +118,14 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- The access coverage test (TestSecurityCoverage, ehome-testSettings.config.xml). -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-element</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
   </dependencies>
 
   <build>

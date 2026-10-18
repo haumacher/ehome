@@ -127,6 +127,7 @@
 								<de>Bereich</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.physical:Area"/>
@@ -155,6 +156,7 @@
 								<de>Linie</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.physical:Line"/>
@@ -199,6 +201,7 @@
 								<de>Alle Änderungen aller Geräte seit dem letzten Download verwerfen</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 								<disabled-if expr="p -> projectDiscardVeto($p)"/>
 							</executability>
@@ -290,6 +293,7 @@
 														<de>Standort wählen</de>
 													</label>
 													<executability>
+														<model-access operation="Write"/>
 														<null-input-disabled/>
 													</executability>
 													<open-dialog
@@ -505,6 +509,10 @@
 																	<de>Gruppenadresse verbinden</de>
 																</label>
 																<executability>
+																	<model-access
+																		object="device"
+																		operation="Write"
+																	/>
 																	<null-input-disabled/>
 																</executability>
 																<open-dialog
@@ -531,6 +539,7 @@
 																	<de>Verbindung entfernen</de>
 																</label>
 																<executability>
+																	<model-access operation="Write"/>
 																	<null-input-disabled/>
 																</executability>
 																<with-transaction>
@@ -594,6 +603,7 @@
 														<de>Alle Änderungen seit dem letzten Download verwerfen</de>
 													</label>
 													<executability>
+														<model-access operation="Write"/>
 														<null-input-disabled/>
 														<disabled-if expr="d -> deviceDiscardVeto($d)"/>
 													</executability>

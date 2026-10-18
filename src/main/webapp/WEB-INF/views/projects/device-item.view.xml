@@ -298,6 +298,7 @@
 											<de>Verbindung entfernen</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<with-transaction>
@@ -325,6 +326,10 @@
 								<de>Gruppenadresse verbinden</de>
 							</label>
 							<executability>
+								<model-access
+									object="device"
+									operation="Write"
+								/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -378,6 +383,7 @@
 							<de>Auf Vorgabe zurücksetzen</de>
 						</label>
 						<executability>
+							<model-access operation="Write"/>
 							<null-input-disabled/>
 						</executability>
 						<with-transaction>
@@ -415,6 +421,10 @@
 							<de>Auf den Stand des Geräts zurücksetzen</de>
 						</label>
 						<executability>
+							<model-access
+								object="device"
+								operation="Write"
+							/>
 							<null-input-disabled/>
 						</executability>
 						<with-transaction>

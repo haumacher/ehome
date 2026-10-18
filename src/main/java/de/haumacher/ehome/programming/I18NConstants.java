@@ -21,6 +21,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_NOT_IN_CONFIGURATION__ELEMENT;
 
 	/**
+	 * @en You may not change the device "{0}".
+	 */
+	public static ResKey1 ERROR_NOT_ALLOWED__DEVICE;
+
+	/**
 	 * @en The parameter "{0}" can only be read.
 	 */
 	public static ResKey1 ERROR_READ_ONLY__PARAMETER;

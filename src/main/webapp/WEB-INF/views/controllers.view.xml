@@ -56,6 +56,7 @@
 								<de>Token setzen</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog

@@ -103,6 +103,7 @@
 											<de>Kanal</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:Channel`)"/>
 										</executability>
@@ -135,6 +136,7 @@
 											<de>Kanalunabhängiger Teil</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:ChannelIndependent`)"/>
 										</executability>
@@ -167,6 +169,7 @@
 											<de>Parameterblock</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:ParameterGroup`)"/>
 										</executability>
@@ -199,6 +202,7 @@
 											<de>Fallunterscheidung</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:Switch`)"/>
 										</executability>
@@ -231,6 +235,7 @@
 											<de>Fall</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:Case`)"/>
 										</executability>
@@ -263,6 +268,7 @@
 											<de>Parameter platzieren</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:ParameterView`)"/>
 										</executability>
@@ -295,6 +301,7 @@
 											<de>Kommunikationsobjekt platzieren</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:Interface`)"/>
 										</executability>
@@ -327,6 +334,7 @@
 											<de>Nach oben</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="n -> structureMoveVeto($n, -1)"/>
 										</executability>
@@ -345,6 +353,7 @@
 											<de>Nach unten</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="n -> structureMoveVeto($n, 1)"/>
 										</executability>
@@ -628,6 +637,7 @@
 											<de>Neuer Parameter</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -659,6 +669,7 @@
 											<de>Löschen</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<if test="p -> programDeleteVeto($p) != null">
@@ -882,6 +893,7 @@
 											<de>Neues Kommunikationsobjekt</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -923,6 +935,7 @@
 											<de>Löschen</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<if test="o -> programDeleteVeto($o) != null">
@@ -1148,6 +1161,7 @@
 											<de>Ohne Wert</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -1180,6 +1194,7 @@
 											<de>Text</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -1212,6 +1227,7 @@
 											<de>Zahl</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -1244,6 +1260,7 @@
 											<de>Gleitkommazahl</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -1276,6 +1293,7 @@
 											<de>Aufzählung</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -1308,6 +1326,7 @@
 											<de>Zeit</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -1340,6 +1359,7 @@
 											<de>Datum</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -1372,6 +1392,7 @@
 											<de>IP-Adresse</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
@@ -1403,6 +1424,7 @@
 											<de>Löschen</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<if test="t -> programDeleteVeto($t) != null">
@@ -1536,6 +1558,7 @@
 												<de>Neuer Eintrag</de>
 											</label>
 											<executability>
+												<model-access operation="Write"/>
 												<null-input-disabled/>
 											</executability>
 											<create-transient
@@ -1579,6 +1602,7 @@
 												<de>Eintrag löschen</de>
 											</label>
 											<executability>
+												<model-access operation="Write"/>
 												<null-input-disabled/>
 											</executability>
 											<if test="e -> programDeleteVeto($e) != null">

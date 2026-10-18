@@ -51,6 +51,7 @@
 						<de>Gateway wählen</de>
 					</label>
 					<executability>
+						<model-access operation="Write"/>
 						<null-input-disabled/>
 					</executability>
 					<open-dialog
@@ -107,6 +108,7 @@
 						<de>Mit dem Gerät vergleichen</de>
 					</label>
 					<executability>
+						<model-access operation="Write"/>
 						<null-input-disabled/>
 						<disabled-if expr="d -> compareVeto($d)"/>
 					</executability>
@@ -139,6 +141,7 @@
 						<de>Herunterladen</de>
 					</label>
 					<executability>
+						<model-access operation="Write"/>
 						<null-input-disabled/>
 						<disabled-if expr="d -> downloadVeto($d)"/>
 					</executability>
@@ -172,6 +175,7 @@
 						<de>Physikalische Adresse programmieren</de>
 					</label>
 					<executability>
+						<model-access operation="Write"/>
 						<null-input-disabled/>
 						<disabled-if expr="d -> addressVeto($d)"/>
 					</executability>

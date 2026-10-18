@@ -107,6 +107,7 @@
 								<de>Gateway wählen</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -153,6 +154,10 @@
 								<de>Senden erlauben</de>
 							</label>
 							<executability>
+								<model-access
+									object="project"
+									operation="Write"
+								/>
 								<visible-if expr="s -> $s == null or !$s['sending']"/>
 								<disabled-if expr="s -> if($s != null and $s['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
 							</executability>
@@ -185,6 +190,10 @@
 								<de>Aufzeichnung starten</de>
 							</label>
 							<executability>
+								<model-access
+									object="project"
+									operation="Write"
+								/>
 								<visible-if expr="s -> $s == null or $s['recording'] == null"/>
 								<disabled-if expr="s -> if($s != null and $s['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
 							</executability>

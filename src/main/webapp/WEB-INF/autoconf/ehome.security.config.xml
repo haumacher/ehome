@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+	Who may see and change what in E-Home (haumacher/ehome #48): the roles, the groups that hold them,
+	and the grants on the ehome.* modules. Administrators (root) bypass all of it.
+
+	Two roles, both global (held on the security root and passed on to every E-Home object):
+	- ehome.Installer: the installer who builds and maintains KNX installations. Reads and edits the
+	  projects with everything in them (buildings, group addresses, devices, functions), the shared
+	  master data (KNX master data, datapoint types, manufacturers with their catalogs and application
+	  programs), imports ETS projects and product data, programs devices on the bus, registers
+	  controllers, sets their tokens and deploys runtime images to them.
+	- ehome.Viewer: reads the projects, the master data and the controllers, changes nothing and
+	  neither programs devices nor deploys.
+
+	An account holds a role through its membership in the group of the same purpose, "ehome.installers"
+	or "ehome.viewers"; an administrator adds the account to the group (Administration, Access control,
+	Groups or Accounts).
+
+	The roles reach the objects in two steps (access-configuration article):
+	- The groups hold their roles on the security root (singleton rules), and the five types whose
+	  objects no composition holds name the security root as their role parent: the projects, the
+	  controllers and the three singletons of the shared master data (manufacturers, datapoint types,
+	  mask versions). These five types decide by the grants below.
+	- Every other E-Home type is held in a composition of one of them and delegates the whole decision
+	  to its container (the default access parent of a composition part): a device, a group address, a
+	  function or a deployment is read where its project is read and changed where the project is
+	  written; a catalog entry or an application program where the manufacturers are.
+
+	The bearer token of a controller (ehome.runtime:Controller#token) is never readable through the
+	model: its read grant lists no role, which denies the read for every user but an administrator.
+	An installer sets it (the write follows the controller); the deployment reads it in Java
+	(de.haumacher.ehome.runtime.Deployer), which the model access check does not cover. The views show
+	only whether a token is set.
+-->
+<application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<services>
+		<config service-class="com.top_logic.base.services.InitialRolesManager">
+			<instance>
+				<roles>
+					<role name="ehome.Installer"/>
+					<role name="ehome.Viewer"/>
+				</roles>
+			</instance>
+		</config>
+
+		<config service-class="com.top_logic.base.services.InitialGroupManager">
+			<instance>
+				<groups>
+					<group name="ehome.installers"/>
+					<group name="ehome.viewers"/>
+				</groups>
+			</instance>
+		</config>
+
+		<config service-class="com.top_logic.tool.boundsec.manager.AccessManager">
+			<instance>
+				<role-rules>
+					<rules>
+						<singleton-rule id="ehomeInstallersOnRoot"
+							role="ehome.Installer"
+							target="SecurityStructure#ROOT"
+						>
+							<group-with-name name="ehome.installers"/>
+						</singleton-rule>
+						<singleton-rule id="ehomeViewersOnRoot"
+							role="ehome.Viewer"
+							target="SecurityStructure#ROOT"
+						>
+							<group-with-name name="ehome.viewers"/>
+						</singleton-rule>
+					</rules>
+				</role-rules>
+				<security-parents>
+					<rule id="ehomeRootForProject"
+						inherit="true"
+						meta-element="ehome.project:Project"
+					>
+						<singleton module="SecurityStructure"/>
+					</rule>
+					<rule id="ehomeRootForController"
+						inherit="true"
+						meta-element="ehome.runtime:Controller"
+					>
+						<singleton module="SecurityStructure"/>
+					</rule>
+					<rule id="ehomeRootForManufacturers"
+						inherit="true"
+						meta-element="ehome.catalog:ManufacturerRoot"
+					>
+						<singleton module="SecurityStructure"/>
+					</rule>
+					<rule id="ehomeRootForDatapointTypes"
+						inherit="true"
+						meta-element="ehome.datapoint:DatapointTypes"
+					>
+						<singleton module="SecurityStructure"/>
+					</rule>
+					<rule id="ehomeRootForMaskVersions"
+						inherit="true"
+						meta-element="ehome.mask:MaskVersions"
+					>
+						<singleton module="SecurityStructure"/>
+					</rule>
+				</security-parents>
+			</instance>
+		</config>
+
+		<config service-class="com.top_logic.model.security.SecurityConfigurationService">
+			<instance>
+				<security-config>
+					<!--
+						The modules of the five types deciding for themselves. The types of the other
+						modules (ehome.building, ehome.logical, ehome.physical, ehome.operational,
+						ehome.monitor) are composition parts and delegate to their containers.
+					-->
+					<module name="ehome.project">
+						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
+						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
+					</module>
+					<module name="ehome.runtime">
+						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
+						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
+					</module>
+					<module name="ehome.catalog">
+						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
+						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
+					</module>
+					<module name="ehome.datapoint">
+						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
+						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
+					</module>
+					<module name="ehome.mask">
+						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
+						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
+					</module>
+					<!-- A read grant without roles: nobody but an administrator reads the token. -->
+					<part name="ehome.runtime:Controller#token">
+						<grant operation="Read"/>
+					</part>
+				</security-config>
+			</instance>
+		</config>
+
+		<!--
+			The check covers the E-Home modules only: the modules of the engine have no complete access
+			definition of their own (8.0.0-alpha10), and E-Home neither shows nor grants their types to
+			its users (see doc/tl-todo.md, "Access coverage of engine modules").
+		-->
+		<config service-class="com.top_logic.element.boundsec.manager.coverage.SecurityCoverageCheck">
+			<instance excluded-modules="Contacts,SearchExpressionStructure,SecurityStructure,Tag,mandatorStructure,orgStructure,tl.accounts,tl.comments,tl.contact.ui,tl.core,tl.folder,tl.model,tl.reporting,tl.search,tl.units"/>
+		</config>
+	</services>
+</application>

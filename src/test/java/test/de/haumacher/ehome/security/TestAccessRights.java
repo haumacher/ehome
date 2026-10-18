@@ -1,0 +1,368 @@
+/*
+ * Copyright (c) 2026 Bernhard Haumacher
+ */
+package test.de.haumacher.ehome.security;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Supplier;
+
+import junit.framework.Test;
+
+import test.com.top_logic.basic.BasicTestCase;
+import test.com.top_logic.basic.module.ServiceTestSetup;
+import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.importer.SharedData;
+import test.de.haumacher.ehome.importer.TestEtsImport;
+
+import com.top_logic.base.security.device.TLSecurityDeviceManager;
+import com.top_logic.base.services.InitialGroupManager;
+import com.top_logic.base.services.InitialRolesManager;
+import com.top_logic.basic.thread.ThreadContext;
+import com.top_logic.knowledge.service.KnowledgeBase;
+import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.knowledge.wrap.person.Person;
+import com.top_logic.knowledge.wrap.person.PersonManager;
+import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.model.TLClass;
+import com.top_logic.model.TLEnumeration;
+import com.top_logic.model.TLModule;
+import com.top_logic.model.TLObject;
+import com.top_logic.model.TLStructuredTypePart;
+import com.top_logic.model.security.ModelAccessRights;
+import com.top_logic.model.security.SecurityConfigurationService;
+import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.tool.boundsec.BoundCommandGroup;
+import com.top_logic.tool.boundsec.manager.AccessManager;
+import com.top_logic.tool.boundsec.simple.SimpleBoundCommandGroup;
+import com.top_logic.tool.boundsec.wrap.Group;
+import com.top_logic.util.TLContext;
+import com.top_logic.util.model.ModelService;
+
+import de.haumacher.ehome.programming.DeviceSettings;
+import de.haumacher.ehome.programming.I18NConstants;
+
+/**
+ * The access definition of E-Home (<code>WEB-INF/autoconf/ehome.security.config.xml</code>, haumacher/ehome
+ * #48) checked through the model access rights for an installer, a viewer and an account without
+ * an E-Home group: on a project with a group address, a device, a function and a deployment, on a
+ * controller and its token, on a manufacturer with a catalog and an application program, and on the
+ * singletons of the master data.
+ *
+ * <p>
+ * The test builds the objects it checks itself (no import) and deletes them, and the accounts, again.
+ * </p>
+ */
+@SuppressWarnings("javadoc")
+public class TestAccessRights extends BasicTestCase {
+
+	private static final BoundCommandGroup READ = SimpleBoundCommandGroup.READ;
+
+	private static final BoundCommandGroup WRITE = SimpleBoundCommandGroup.WRITE;
+
+	private static final BoundCommandGroup CREATE = SimpleBoundCommandGroup.CREATE;
+
+	private static final BoundCommandGroup DELETE = SimpleBoundCommandGroup.DELETE;
+
+	private final List<TLObject> _created = new ArrayList<>();
+
+	private Person _installer;
+
+	private Person _viewer;
+
+	private Person _stranger;
+
+	private TLObject _project;
+
+	private TLObject _groupRange;
+
+	private TLObject _groupAddress;
+
+	private TLObject _device;
+
+	private TLObject _function;
+
+	private TLObject _deployment;
+
+	private TLObject _controller;
+
+	private TLObject _manufacturer;
+
+	private TLObject _catalog;
+
+	private TLObject _program;
+
+	private TLObject _variant;
+
+	@Override
+	protected void setUp() throws Exception {
+		super.setUp();
+		inTransaction(() -> {
+			_installer = person("ehomeTestInstaller", "ehome.installers");
+			_viewer = person("ehomeTestViewer", "ehome.viewers");
+			_stranger = person("ehomeTestStranger", null);
+
+			_controller = create("ehome.runtime:Controller");
+			_controller.tUpdateByName("name", "Access test");
+			_controller.tUpdateByName("host", "localhost");
+			_controller.tUpdateByName("token", "hct_0123456789abcdef0123456789abcdef");
+
+			_project = create("ehome.project:Project");
+			_project.tUpdateByName("name", "Access test");
+			_project.tUpdateByName("controller", _controller);
+
+			_groupAddress = create("ehome.logical:GroupAddress");
+			_groupAddress.tUpdateByName("name", "Light");
+			_groupRange = create("ehome.logical:GroupRange");
+			_groupRange.tUpdateByName("parts", List.of(_groupAddress));
+			_project.tUpdateByName("groupAddresses", List.of(_groupRange));
+
+			_manufacturer = create("ehome.catalog:Manufacturer");
+			_catalog = create("ehome.catalog:Catalog");
+			_manufacturer.tUpdateByName("catalogs", List.of(_catalog));
+			_program = create("ehome.operational:Program");
+			_manufacturer.tUpdateByName("programs", List.of(_program));
+			TLObject product = create("ehome.catalog:Product");
+			_variant = create("ehome.catalog:Variant");
+			product.tUpdateByName("variants", List.of(_variant));
+			TLObject assignment = create("ehome.catalog:ProgramAssignment");
+			assignment.tUpdateByName("program", _program);
+			product.tUpdateByName("programs", List.of(assignment));
+			_manufacturer.tUpdateByName("products", List.of(product));
+			_catalog.tUpdateByName("variants", List.of(_variant));
+			TLObject manufacturers = singleton("ehome.catalog:ManufacturerRoot");
+			List<Object> all = new ArrayList<>((Collection<?>) manufacturers.tValueByName("manufacturers"));
+			all.add(_manufacturer);
+			manufacturers.tUpdateByName("manufacturers", all);
+
+			_device = create("ehome.physical:Device");
+			_device.tUpdateByName("type", _variant);
+			_device.tUpdateByName("program", assignment);
+			TLObject line = create("ehome.physical:Line");
+			line.tUpdateByName("devices", List.of(_device));
+			TLObject area = create("ehome.physical:Area");
+			area.tUpdateByName("lines", List.of(line));
+			_project.tUpdateByName("areas", List.of(area));
+
+			_function = create("ehome.runtime:Function");
+			_function.tUpdateByName("name", "Light");
+			_function.tUpdateByName("kind",
+				((TLEnumeration) TLModelUtil.findType("ehome.runtime:FunctionKind")).getClassifier("light"));
+			_project.tUpdateByName("functions", List.of(_function));
+
+			_deployment = create("ehome.runtime:Deployment");
+			_deployment.tUpdateByName("controller", _controller);
+			_project.tUpdateByName("deployments", List.of(_deployment));
+		});
+	}
+
+	@Override
+	protected void tearDown() throws Exception {
+		inTransaction(() -> {
+			Collections.reverse(_created);
+			for (TLObject object : _created) {
+				if (object.tValid()) {
+					object.tDelete();
+				}
+			}
+			for (Person person : List.of(_installer, _viewer, _stranger)) {
+				if (person != null && person.tValid()) {
+					person.tDelete();
+				}
+			}
+		});
+		_created.clear();
+		super.tearDown();
+	}
+
+	public void testInstallerReadsAndEditsEverything() {
+		for (TLObject object : objects()) {
+			assertTrue(label(object), allowed(_installer, object, READ));
+			assertTrue(label(object), allowed(_installer, object, WRITE));
+		}
+		assertTrue(allowed(_installer, _project, DELETE));
+		assertTrue(allowed(_installer, _controller, DELETE));
+		assertTrue(allowed(_installer, _device, DELETE));
+		assertTrue(rights().isAllowedCreate(_installer, type("ehome.project:Project"), (TLObject) null));
+		assertTrue(rights().isAllowedCreate(_installer, type("ehome.runtime:Controller"), (TLObject) null));
+		assertTrue("An installer creates a group address in a project.",
+			rights().isAllowedCreate(_installer, _groupRange, part("ehome.logical:GroupRange#parts")));
+		assertTrue("Import creates manufacturers.",
+			rights().isAllowedCreate(_installer, singleton("ehome.catalog:ManufacturerRoot"),
+				part("ehome.catalog:ManufacturerRoot#manufacturers")));
+	}
+
+	public void testViewerReadsOnly() {
+		for (TLObject object : objects()) {
+			assertTrue(label(object), allowed(_viewer, object, READ));
+			assertFalse(label(object), allowed(_viewer, object, WRITE));
+			assertFalse(label(object), allowed(_viewer, object, DELETE));
+		}
+		assertFalse(rights().isAllowedCreate(_viewer, type("ehome.project:Project"), (TLObject) null));
+		assertFalse(rights().isAllowedCreate(_viewer, type("ehome.runtime:Controller"), (TLObject) null));
+		assertFalse(rights().isAllowedCreate(_viewer, _groupRange, part("ehome.logical:GroupRange#parts")));
+		assertFalse(rights().isAllowedCreate(_viewer, singleton("ehome.catalog:ManufacturerRoot"),
+			part("ehome.catalog:ManufacturerRoot#manufacturers")));
+		assertTrue(rights().isAllowed(_viewer, _controller, part("ehome.runtime:Controller#name"), READ));
+	}
+
+	public void testWithoutGroupNothing() {
+		for (TLObject object : objects()) {
+			assertFalse(label(object), allowed(_stranger, object, READ));
+			assertFalse(label(object), allowed(_stranger, object, WRITE));
+		}
+		assertFalse(rights().isAllowedCreate(_stranger, type("ehome.project:Project"), (TLObject) null));
+	}
+
+	public void testTokenUnreadable() {
+		TLStructuredTypePart token = part("ehome.runtime:Controller#token");
+		assertFalse(rights().isAllowed(_viewer, _controller, token, READ));
+		assertFalse(rights().isAllowed(_installer, _controller, token, READ));
+		assertFalse(rights().isAllowed(_stranger, _controller, token, READ));
+		assertTrue("An installer sets the token.", rights().isAllowed(_installer, _controller, token, WRITE));
+		assertFalse(rights().isAllowed(_viewer, _controller, token, WRITE));
+	}
+
+	public void testDeviceValuesFollowTheDevice() {
+		assertNull(as(_installer, () -> DeviceSettings.writeVeto(_device)));
+		assertEquals(I18NConstants.ERROR_NOT_ALLOWED__DEVICE.fill(_device),
+			as(_viewer, () -> DeviceSettings.writeVeto(_device)));
+	}
+
+	/**
+	 * Probe: every object of every type of the E-Home modules in the database, after an ETS import,
+	 * is readable and not writable for a viewer and writable for an installer (a type without grants
+	 * and without an access parent would fail).
+	 */
+	public void testEveryTypeAfterImport() throws Exception {
+		List<TLObject> before = TestEtsImport.instances("ehome.project:Project");
+		TestEtsImport.importSample("samples/Test.knxproj");
+		List<TLObject> projects = SharedData.newProjects(before);
+		try {
+			List<String> problems = new ArrayList<>();
+			int checked = 0;
+			for (TLModule module : ModelService.getApplicationModel().getModules()) {
+				if (!module.getName().startsWith("ehome.")) {
+					continue;
+				}
+				for (TLClass type : module.getClasses()) {
+					if (type.isAbstract()) {
+						continue;
+					}
+					List<TLObject> objects = TestEtsImport.instances(TLModelUtil.qualifiedName(type));
+					for (TLObject object : objects.subList(0, Math.min(3, objects.size()))) {
+						if (object.tType() != type) {
+							continue;
+						}
+						checked++;
+						String name = label(object);
+						if (!allowed(_viewer, object, READ)) {
+							problems.add(name + ": viewer cannot read");
+						}
+						if (allowed(_viewer, object, WRITE)) {
+							problems.add(name + ": viewer can write");
+						}
+						if (!allowed(_installer, object, WRITE)) {
+							problems.add(name + ": installer cannot write");
+						}
+					}
+				}
+			}
+			assertEquals(List.of(), problems);
+			assertTrue(String.valueOf(checked), checked > 30);
+		} finally {
+			SharedData.deleteProjects(projects);
+		}
+	}
+
+	private static <T> T as(Person person, Supplier<T> computation) {
+		TLContext context = TLContext.getContext();
+		Person before = context.getPerson();
+		String contextId = context.getContextId();
+		context.setPerson(person);
+		try {
+			return computation.get();
+		} finally {
+			context.setPerson(before);
+			if (before == null) {
+				context.setContextId(contextId);
+			}
+		}
+	}
+
+	private List<TLObject> objects() {
+		return List.of(_project, _groupAddress, _device, _function, _deployment, _controller, _manufacturer,
+			_catalog, _variant, _program, singleton("ehome.catalog:ManufacturerRoot"), singleton("ehome.datapoint:DatapointTypes"),
+			singleton("ehome.mask:MaskVersions"));
+	}
+
+	private static String label(TLObject object) {
+		return TLModelUtil.qualifiedName(object.tType());
+	}
+
+	private static boolean allowed(Person person, TLObject object, BoundCommandGroup operation) {
+		return rights().isAllowed(person, object, operation);
+	}
+
+	private static ModelAccessRights rights() {
+		return ModelAccessRights.getInstance();
+	}
+
+	private TLObject create(String typeName) {
+		TLObject result = ModelService.getInstance().getFactory().createObject(type(typeName));
+		_created.add(result);
+		return result;
+	}
+
+	private static TLObject singleton(String typeName) {
+		TLModule module = type(typeName).getModule();
+		return module.getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
+	}
+
+	private static TLClass type(String typeName) {
+		return (TLClass) TLModelUtil.findType(typeName);
+	}
+
+	private static TLStructuredTypePart part(String partName) {
+		return (TLStructuredTypePart) TLModelUtil.findPart(partName);
+	}
+
+	private static Person person(String name, String group) {
+		Person existing = Person.byName(name);
+		if (existing != null) {
+			existing.tDelete();
+		}
+		Person result =
+			Person.create(kb(), name, TLSecurityDeviceManager.getInstance().getAuthenticationDevice("dbSecurity"));
+		if (group != null) {
+			Group.getGroupByName(kb(), group).addMember(result);
+		}
+		return result;
+	}
+
+	private static KnowledgeBase kb() {
+		return PersistencyLayer.getKnowledgeBase();
+	}
+
+	private static void inTransaction(Runnable modification) {
+		ThreadContext.pushSuperUser();
+		try (Transaction tx = kb().beginTransaction()) {
+			modification.run();
+			tx.commit();
+		} finally {
+			ThreadContext.popSuperUser();
+		}
+	}
+
+	public static Test suite() {
+		return KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(TestAccessRights.class,
+			ModelService.Module.INSTANCE, LabelProviderService.Module.INSTANCE, PersonManager.Module.INSTANCE,
+			TLSecurityDeviceManager.Module.INSTANCE,
+			InitialRolesManager.Module.INSTANCE, InitialGroupManager.Module.INSTANCE, AccessManager.Module.INSTANCE,
+			SecurityConfigurationService.Module.INSTANCE));
+	}
+
+}

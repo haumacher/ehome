@@ -79,9 +79,14 @@
 								<de>Produktdaten importieren</de>
 							</label>
 							<executability>
+								<!--
+									An import adds manufacturers, catalogs and programs: a write of the
+									manufacturers. (A type-level check of the creation of a product, a
+									composition part, is no check at all: see doc/tl-todo.md.)
+								-->
 								<model-access
-									operation="Create"
-									type="ehome.catalog:Product"
+									object="root"
+									operation="Write"
 								/>
 							</executability>
 							<import-product-data/>
@@ -103,6 +108,7 @@
 								<de>Hersteller</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.catalog:Manufacturer"/>
@@ -131,6 +137,7 @@
 								<de>Katalog</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.catalog:Catalog"/>
@@ -159,6 +166,7 @@
 								<de>Abschnitt</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.catalog:Catalog"/>
@@ -187,6 +195,7 @@
 								<de>Applikationsprogramm</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.operational:Program"/>
@@ -215,6 +224,7 @@
 								<de>Produkt</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient
@@ -246,6 +256,7 @@
 								<de>Variante</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient
@@ -277,6 +288,7 @@
 								<de>Programmzuweisung</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient

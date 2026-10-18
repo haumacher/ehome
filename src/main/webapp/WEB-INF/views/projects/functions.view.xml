@@ -42,6 +42,7 @@
 								<de>Funktionen vorschlagen</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<propose-functions/>
@@ -60,6 +61,7 @@
 								<de>Neue Funktion</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-function/>

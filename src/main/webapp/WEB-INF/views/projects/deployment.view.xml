@@ -124,6 +124,7 @@
 											<de>Bereitstellen</de>
 										</label>
 										<executability>
+											<model-access operation="Write"/>
 											<null-input-disabled/>
 											<disabled-if expr="p -> deploymentVeto($p)"/>
 										</executability>

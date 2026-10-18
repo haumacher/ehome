@@ -113,7 +113,8 @@ contains, in order:
   constants in `I18NConstants` with an `@en` javadoc tag; **never hand-edit generated code**
   (`internal/*Base.java`, `*Constants.java`, `*Factory.java`) — edit the model XML; the plain
   `X.java`/`XImpl.java` wrappers are hand-written code; a changed `.view.xml` needs an app
-  restart; access rights are deny-by-default (test as `root`); do NOT commit; **nothing
+  restart; access rights are deny-by-default (`ehome.security.config.xml`; a test without a person
+  reads derived attributes as `root`); do NOT commit; **nothing
   half-done — cut whole items only, refuse in-app with a visible reason, and report every cut**;
   an engine limitation is not silently worked around: name it in the report so it becomes a TL
   ticket and a `doc/tl-todo.md` entry (§8).
@@ -305,9 +306,12 @@ app is the shared reference for bug reports.
   with an `@en` tag; the German is the hand-maintained bundle (`i18n` article). ETS texts are
   `I18NString`s imported per language, with the project's default language as fallback. Umlauts
   are written as characters, never as `\uXXXX`.
-- **Access is deny-by-default.** A new type or module needs grants before a non-admin user can see
-  it (`access-configuration` article); until a `<security-config>` exists, only `root` sees data —
-  say so in every UI report.
+- **Access is deny-by-default.** `WEB-INF/autoconf/ehome.security.config.xml` (haumacher/ehome #48)
+  gives the groups `ehome.installers` and `ehome.viewers` their roles; a new type that no
+  composition holds needs a role parent rule and grants there, or `TestSecurityCoverage` fails
+  (`access-configuration` article). Java code is not access checked: a view command changing data
+  through Java or an E-Home TL-Script function carries `<model-access operation="Write"/>`. Check a
+  UI change as `root` and, where it edits, as a viewer.
 - **Engine gaps are bookkept, never buried.** When the TopLogic engine in use cannot do something
   out of the box (the view layer, the XML import, the generator) or has a proven defect, the
   sequence is fixed: (1) **search Trac before filing** — several `search_tickets` queries with

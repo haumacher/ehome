@@ -109,6 +109,7 @@
 								<de>Gebäude</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Building`)"/>
 							</executability>
@@ -138,6 +139,7 @@
 								<de>Gebäudeteil</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:BuildingPart`)"/>
 							</executability>
@@ -167,6 +169,7 @@
 								<de>Etage</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Floor`)"/>
 							</executability>
@@ -196,6 +199,7 @@
 								<de>Raum</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Room`)"/>
 							</executability>
@@ -225,6 +229,7 @@
 								<de>Flur</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Corridor`)"/>
 							</executability>
@@ -254,6 +259,7 @@
 								<de>Treppenhaus</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Stairway`)"/>
 							</executability>
@@ -283,6 +289,7 @@
 								<de>Verteiler</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:DistributionBoard`)"/>
 							</executability>
@@ -312,6 +319,7 @@
 								<de>Ort</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Location`)"/>
 							</executability>
@@ -356,6 +364,7 @@
 								<de>Gerät zuordnen</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -378,6 +387,7 @@
 								<de>Zuordnung entfernen</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<confirm expr="d -> #('Remove {0} from {1}?'@en, '{0} aus {1} entfernen?'@de).fill(deviceLabel($d), buildingPath($d.get(`ehome.physical:Device#location`)))"/>

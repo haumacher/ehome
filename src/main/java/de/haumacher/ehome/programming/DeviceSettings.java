@@ -13,11 +13,15 @@ import java.util.Map;
 import java.util.Objects;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.security.ModelAccessRights;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.tool.boundsec.simple.SimpleBoundCommandGroup;
+import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
@@ -79,7 +83,32 @@ public class DeviceSettings {
 	 * can.
 	 */
 	public static ResKey editVeto(TLObject device, ParameterView view) {
+		ResKey denied = writeVeto(device);
+		if (denied != null) {
+			return denied;
+		}
 		return editVeto(new DeviceConfiguration(device), view);
+	}
+
+	/**
+	 * Why the current user may not change the given device (the model access rights, see
+	 * <code>WEB-INF/autoconf/ehome.security.config.xml</code>), <code>null</code> if the user may.
+	 *
+	 * <p>
+	 * The values of a device are changed by Java code, which the model access check of TL-Script does
+	 * not cover, so the operations check the right themselves. Code running without a user (a test, a
+	 * background job) is not checked.
+	 * </p>
+	 */
+	public static ResKey writeVeto(TLObject device) {
+		Person person = TLContext.getContext() == null ? null : TLContext.getContext().getPerson();
+		if (person == null || device.tTransient()) {
+			return null;
+		}
+		if (ModelAccessRights.getInstance().isAllowed(person, device, SimpleBoundCommandGroup.WRITE)) {
+			return null;
+		}
+		return I18NConstants.ERROR_NOT_ALLOWED__DEVICE.fill(device);
 	}
 
 	private static ResKey editVeto(DeviceConfiguration configuration, ParameterView view) {
@@ -136,6 +165,10 @@ public class DeviceSettings {
 	 * @return The setting holding the value, <code>null</code> if the device has the default now.
 	 */
 	public static TLObject setValue(TLObject device, ParameterView view, Object value) {
+		ResKey denied = writeVeto(device);
+		if (denied != null) {
+			throw new TopLogicException(denied);
+		}
 		List<TLObject> settings = settings(device, view);
 		if (value == null) {
 			// Back to the default is always possible, also for a setting the structure no longer shows.
