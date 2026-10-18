@@ -33,8 +33,10 @@ import de.haumacher.ehome.runtime.ApplicationDatapoints;
  * <p>
  * The IEEE address identifies a device, the endpoint number an endpoint of it and the endpoint with
  * the function's key a function: importing an export again updates the known objects in place and
- * creates only what is new, so the same file imported twice changes nothing. What the user adds is
- * kept: the device's name (set from the controller's label, else manufacturer and model, only for a
+ * creates only what is new, so the same file imported twice changes nothing. The effective reporting
+ * of a function goes to its <code>reportedMin</code>, <code>reportedMax</code> and
+ * <code>reportedChange</code> (empty where the export gives none); the installer's override
+ * (<code>reportingMin</code>, ...) is never touched. What the user adds is kept: the device's name (set from the controller's label, else manufacturer and model, only for a
  * new device), its room and the datapoints bound to its functions. An endpoint the export no longer
  * lists is removed; a function only if no datapoint is bound to it, else it is kept and marked as
  * absent (a note says so). A device the export does not list stays (it may have been paired with
@@ -202,6 +204,10 @@ public final class ZigbeeImport {
 			set(obj, "writable", Boolean.valueOf(function.writable()));
 			set(obj, "genericName", function.name());
 			set(obj, "absent", null);
+			ZigbeeExport.Reporting reporting = function.reporting();
+			set(obj, "reportedMin", reporting == null ? null : reporting.min());
+			set(obj, "reportedMax", reporting == null ? null : reporting.max());
+			set(obj, "reportedChange", reporting == null ? null : reporting.change());
 			after.add(obj);
 		}
 		String deviceName = String.valueOf(device.tValueByName("name"));
@@ -250,6 +256,9 @@ public final class ZigbeeImport {
 	}
 
 	private static Object normalized(Object value) {
+		if (value instanceof Double || value instanceof Float) {
+			return Double.valueOf(((Number) value).doubleValue());
+		}
 		if (value instanceof Number number) {
 			return Long.valueOf(number.longValue());
 		}
