@@ -5,7 +5,9 @@
 	3.3): datapoints of the runtime image that no technology owns, values of the application that rules
 	and the user interface command (a holiday mode, a counter) and the outputs of schedule entries
 	(spec/schedules.md 5). They are part of the image after the datapoints of the group addresses and
-	are listed with them in the rules' "Datapoints" table. Shown in the rules' tab-bar
+	are listed with them in the rules' "Datapoints" table. One bound to a function of a Zigbee device
+	(zigbeeFunction, haumacher/ehome #40; created and bound in projects/zigbee.view.xml) is the
+	datapoint of that function instead. Shown in the rules' tab-bar
 	(rules.view.xml), where they are used.
 -->
 <view>
@@ -102,7 +104,7 @@
 					unit="%"
 				>
 					<table
-						observed-types="ehome.runtime:ApplicationDatapoint,ehome.project:Project"
+						observed-types="ehome.runtime:ApplicationDatapoint,ehome.project:Project,ehome.zigbee:ZigbeeFunction"
 						selection="datapoint"
 						types="ehome.runtime:ApplicationDatapoint"
 					>
@@ -115,6 +117,7 @@
 							<column attribute="type"/>
 							<column attribute="writable"/>
 							<column attribute="persist"/>
+							<column attribute="zigbeeFunction"/>
 						</columns>
 						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#applicationDatapoints`))</rows>
 					</table>
@@ -135,6 +138,7 @@
 						<field attribute="unit"/>
 						<field attribute="historyRetention"/>
 						<field attribute="historySpacing"/>
+						<field attribute="zigbeeFunction"/>
 					</form>
 				</pane>
 			</panes>

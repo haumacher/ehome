@@ -20,7 +20,8 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * The client side of the deployment protocol of a HomeControl controller (homecontrol
  * <code>spec/api.md</code>, "Runtime image" and "Status"): <code>PUT</code>, <code>GET</code> and
  * <code>DELETE /api/image</code> and <code>GET /api/status</code>, authenticated by a bearer token,
- * and the open <code>GET /api/auth/session</code>. The monitor stream over the WebSocket is
+ * and the open <code>GET /api/auth/session</code>; of its Zigbee coordinator ("Zigbee", haumacher/ehome
+ * #40): <code>GET /api/zigbee/export</code> and <code>POST /api/zigbee/permit</code>. The monitor stream over the WebSocket is
  * {@link de.haumacher.ehome.monitor.ControllerBusLink}.
  */
 public final class ControllerClient {
@@ -161,10 +162,33 @@ public final class ControllerClient {
 		return send(request("/api/image").DELETE());
 	}
 
+	/**
+	 * <code>GET /api/zigbee/export?from=n</code>: a page of the Zigbee devices with their interview
+	 * results and functions (homecontrol <code>spec/zigbee.md</code>, "Export"); <code>next</code> is
+	 * the <code>from</code> of the next page or <code>null</code>.
+	 */
+	public Answer zigbeeExport(int from) throws IOException {
+		return send(request("/api/zigbee/export", from == 0 ? null : "from=" + from).GET());
+	}
+
+	/**
+	 * <code>POST /api/zigbee/permit</code>: opens the Zigbee network for joining for the given number
+	 * of seconds (1..254); 0 closes it.
+	 */
+	public Answer zigbeePermit(int seconds) throws IOException {
+		return send(request("/api/zigbee/permit")
+			.header("Content-Type", "application/json")
+			.POST(HttpRequest.BodyPublishers.ofString("{\"seconds\": " + seconds + "}", StandardCharsets.UTF_8)));
+	}
+
 	private HttpRequest.Builder request(String path) throws IOException {
+		return request(path, null);
+	}
+
+	private HttpRequest.Builder request(String path, String query) throws IOException {
 		URI uri;
 		try {
-			uri = new URI("http", null, _host, _port, path, null, null);
+			uri = new URI("http", null, _host, _port, path, query, null);
 		} catch (URISyntaxException ex) {
 			throw new IOException("Invalid controller address " + address() + ": " + ex.getMessage(), ex);
 		}

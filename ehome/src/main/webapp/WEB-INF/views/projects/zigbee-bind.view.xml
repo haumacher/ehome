@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog binding an existing datapoint of the project to a function of a Zigbee device (haumacher/ehome
+	#40, projects/zigbee.view.xml): "function" carries the function; the table offers the application
+	datapoints bound to no function whose value type fits the function's (zigbeeCandidates); "Bind"
+	binds the chosen one (zigbeeBind).
+-->
+<view>
+	<channels>
+		<channel name="function"/>
+		<channel name="datapoint"/>
+	</channels>
+	<window width="640px">
+		<title>
+			<en>Bind a datapoint</en>
+			<de>Datenpunkt binden</de>
+		</title>
+		<inset>
+			<table
+				observed-types="ehome.runtime:ApplicationDatapoint"
+				selection="datapoint"
+				types="ehome.runtime:ApplicationDatapoint"
+			>
+				<inputs>
+					<input channel="function"/>
+				</inputs>
+				<columns>
+					<column attribute="identifier"/>
+					<column attribute="label"/>
+					<column attribute="type"/>
+					<column attribute="unit"/>
+					<column attribute="writable"/>
+				</columns>
+				<rows>f -> if($f == null, [], zigbeeCandidates($f))</rows>
+			</table>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-link-45deg"
+					input="datapoint"
+				>
+					<label>
+						<en>Bind</en>
+						<de>Binden</de>
+					</label>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="f -> d -> zigbeeBind($f, $d)">
+							<inputs>
+								<input channel="function"/>
+							</inputs>
+						</execute-script>
+					</with-transaction>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

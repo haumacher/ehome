@@ -15,6 +15,7 @@ import com.top_logic.model.TLFormObjectBase;
 import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.zigbee.ZigbeeBindings;
 
 /**
  * The application datapoints of a project (<code>ehome.runtime:ApplicationDatapoint</code>,
@@ -26,7 +27,12 @@ import de.haumacher.ehome.knx.GA;
  * <p>
  * In the image, an application datapoint follows the datapoints of the group addresses: its id, its
  * label in the languages it has, its value type, unit, the flags writable and persist, the history,
- * and an empty <code>virtual</code> member in place of a technology binding. Its id is checked as it
+ * and an empty <code>virtual</code> member in place of a technology binding. An application datapoint
+ * bound to a function of a Zigbee device (<code>zigbeeFunction</code>, haumacher/ehome #40) carries
+ * the <code>zigbee</code> member instead ({@link ZigbeeBindings#json(TLObject)}): a writable one
+ * transmits, with the function's cluster as the command cluster where the function can be commanded
+ * (else the controller refuses it, saying so); a server attribute but the multistate input is read
+ * on start, as the controller's generic datapoint of the function is. Its id is checked as it
  * is entered ({@link #idProblem(Object, Object)}): an id of the image (1..63 bytes without control
  * characters), unique among the project's datapoints, not of the three-level form of a group
  * address, not one the controller adds itself.
@@ -105,8 +111,16 @@ public final class ApplicationDatapoints {
 		if (unit != null && !unit.toString().isBlank()) {
 			result.put("unit", unit.toString().trim());
 		}
+		TLObject function = ZigbeeBindings.function(datapoint);
 		if (writable(datapoint)) {
 			result.put("writable", Boolean.TRUE);
+			if (function != null) {
+				// A commanded value goes to the device; without a command cluster the controller refuses.
+				result.put("transmit", Boolean.TRUE);
+			}
+		}
+		if (function != null && ZigbeeBindings.readOnStart(function)) {
+			result.put("readOnStart", Boolean.TRUE);
 		}
 		if (Boolean.TRUE.equals(datapoint.tValueByName("persist"))) {
 			result.put("persist", Boolean.TRUE);
@@ -123,7 +137,15 @@ public final class ApplicationDatapoints {
 			}
 			result.put("history", history);
 		}
-		result.put("virtual", new LinkedHashMap<>());
+		if (function != null) {
+			Map<String, Object> zigbee = ZigbeeBindings.json(function);
+			if (writable(datapoint) && Boolean.TRUE.equals(function.tValueByName("writable"))) {
+				zigbee.put("command", zigbee.get("cluster"));
+			}
+			result.put("zigbee", zigbee);
+		} else {
+			result.put("virtual", new LinkedHashMap<>());
+		}
 		return result;
 	}
 

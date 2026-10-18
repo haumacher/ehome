@@ -20,6 +20,7 @@ import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.runtime.ImageReport.Kind;
 import de.haumacher.ehome.runtime.Json.JsonException;
+import de.haumacher.ehome.zigbee.ZigbeeFunctionTable;
 
 /**
  * The checks the controller makes before it loads a runtime image (spec/runtime-image.md, sections
@@ -71,6 +72,9 @@ public final class ImageValidator {
 	/** The most listening addresses of a datapoint. */
 	public static final int MAX_LISTEN = 8;
 
+	/** The most Zigbee bindings of an image (spec/zigbee.md, "Bindings"). */
+	public static final int MAX_ZIGBEE_BINDINGS = 512;
+
 	/** The most history memory a controller (an ESP32-C6) allows. */
 	public static final int HISTORY_CAP = 65536;
 
@@ -109,6 +113,9 @@ public final class ImageValidator {
 
 	/** Per datapoint: what owns it (the KNX adapter, ...), null for nothing. */
 	private final List<String> _owners = new ArrayList<>();
+
+	/** The valid Zigbee bindings, in the order of their datapoints. */
+	private final List<ZigbeeDraft> _zigbee = new ArrayList<>();
 
 	/** The outputs of the schedule entries: the scheduler owns them. */
 	private final Set<String> _scheduleOutputs = new HashSet<>();
@@ -609,6 +616,7 @@ public final class ImageValidator {
 						datapoint(list.get(i));
 						leave();
 					}
+					zigbeeBindings();
 				}
 			} finally {
 				leave();
@@ -746,7 +754,7 @@ public final class ImageValidator {
 				refuse("a datapoint is either knx or zigbee");
 			} else {
 				_owners.set(index, "the Zigbee adapter");
-				_report.note("The Zigbee binding at " + path() + " is not checked by E-Home.");
+				zigbee(dp.get("zigbee"), index, type, transmit);
 			}
 			leave();
 			return;
@@ -833,6 +841,141 @@ public final class ImageValidator {
 		} finally {
 			leave();
 		}
+	}
+
+	/**
+	 * The <code>zigbee</code> member of a datapoint (spec/zigbee.md "Bindings"; homecontrol
+	 * <code>parse_zigbee</code>): the device function it stands for. Checks the address, the endpoint,
+	 * the cluster/attribute against the function table ({@link ZigbeeFunctionTable}), the command
+	 * cluster, the function's value type against the datapoint's and that a transmitting datapoint can
+	 * be commanded.
+	 */
+	private void zigbee(Object value, int index, String type, boolean transmit) {
+		if (!object(value, "zigbee")) {
+			return;
+		}
+		Map<?, ?> binding = (Map<?, ?>) value;
+		boolean ok = true;
+		String ieee = null;
+		enter(".ieee");
+		if (!binding.containsKey("ieee")) {
+			refuse("ieee is missing");
+			ok = false;
+		} else {
+			String text = string(binding.get("ieee"), 1, 23, "ieee");
+			ieee = text == null ? null : ZigbeeFunctionTable.normalizeIeee(text);
+			if (text != null && ieee == null) {
+				refuse("\"" + text + "\" is not an IEEE address (16 hex digits, colons allowed; not 0 and not all ones)");
+			}
+			ok &= ieee != null;
+		}
+		leave();
+		Long endpoint = null;
+		enter(".endpoint");
+		if (!binding.containsKey("endpoint")) {
+			refuse("endpoint is missing");
+		} else {
+			endpoint = integer(binding.get("endpoint"), 1, 240, "endpoint");
+		}
+		ok &= endpoint != null;
+		leave();
+		boolean client = false;
+		if (binding.containsKey("client")) {
+			ok &= binding.get("client") instanceof Boolean;
+			client = flag(binding, "client");
+		}
+		Long cluster = null;
+		enter(".cluster");
+		if (!binding.containsKey("cluster")) {
+			refuse("cluster is missing");
+		} else {
+			cluster = integer(binding.get("cluster"), 0, 65535, "cluster");
+		}
+		ok &= cluster != null;
+		leave();
+		Long attribute = null;
+		if (binding.containsKey("attribute")) {
+			enter(".attribute");
+			attribute = integer(binding.get("attribute"), 0, 65535, "attribute");
+			ok &= attribute != null;
+			leave();
+		} else if (!client) {
+			refuse("attribute is missing (only a client binding, a button's commands, has none)");
+			ok = false;
+		}
+		Long command = null;
+		if (binding.containsKey("command")) {
+			enter(".command");
+			command = integer(binding.get("command"), 0, 65534, "command (the cluster commands go to)");
+			ok &= command != null;
+			leave();
+		}
+		if (!ok) {
+			return;
+		}
+		String why = null;
+		ZigbeeFunctionTable.Info function = null;
+		if (client) {
+			if (cluster.intValue() != ZigbeeFunctionTable.ON_OFF && cluster.intValue() != ZigbeeFunctionTable.LEVEL_CONTROL) {
+				why = "a client binding (button commands) needs cluster 6 (On/Off) or 8 (Level Control)";
+			} else if (command != null) {
+				why = "a client binding (button commands) cannot be commanded";
+			} else {
+				function = ZigbeeFunctionTable.byKey(ZigbeeFunctionTable.ACTION);
+			}
+		} else {
+			function = ZigbeeFunctionTable.byAttribute(cluster.intValue(), attribute.intValue());
+			if (function == null) {
+				why = "no known function for this cluster and attribute (doc/zigbee.md lists them)";
+			} else if (command != null && !function.canCommand(command.intValue())) {
+				why = "the command cluster cannot set this attribute";
+			}
+		}
+		if (why != null) {
+			refuse((client ? "client cluster " + cluster : "cluster " + cluster + " attribute " + attribute) + ": " + why);
+			return;
+		}
+		String carried = function.valueType();
+		if (type != null && !carried.equals(type) && !(ValueTypes.isNumeric(carried) && ValueTypes.isNumeric(type))) {
+			refuse("the function " + function.key() + " carries " + carried + " values, the datapoint is " + type);
+			return;
+		}
+		if (transmit && command == null) {
+			refuse("a transmitting Zigbee datapoint needs the cluster its commands go to (command); "
+				+ (client ? "a client binding (button commands) cannot be commanded" : "without it the binding is read-only"));
+			return;
+		}
+		if (_ids.get(index) != null) {
+			_zigbee.add(new ZigbeeDraft(index, ieee, endpoint.longValue(), function.key(), _ids.get(index)));
+		}
+	}
+
+	/**
+	 * The checks of all Zigbee bindings together: at most {@link #MAX_ZIGBEE_BINDINGS}, no function
+	 * of an endpoint bound twice. The path is the one of the datapoints.
+	 */
+	private void zigbeeBindings() {
+		if (_zigbee.size() > MAX_ZIGBEE_BINDINGS) {
+			refuse(_zigbee.size() + " Zigbee bindings exceed the limit of " + MAX_ZIGBEE_BINDINGS);
+			return;
+		}
+		for (int i = 0; i < _zigbee.size(); i++) {
+			ZigbeeDraft d = _zigbee.get(i);
+			for (int k = 0; k < i; k++) {
+				ZigbeeDraft e = _zigbee.get(k);
+				if (e.ieee().equals(d.ieee()) && e.endpoint() == d.endpoint() && e.function().equals(d.function())) {
+					_report.add(Kind.INVALID, "datapoints[" + d.index() + "].zigbee", "device " + d.ieee() + " endpoint "
+						+ d.endpoint() + ": the function " + d.function() + " is bound twice (also datapoints[" + e.index()
+						+ "] '" + e.name() + "')");
+					break;
+				}
+			}
+		}
+	}
+
+	/** A valid Zigbee binding of the datapoint with the given index. */
+	private record ZigbeeDraft(int index, String ieee, long endpoint, String function, String name) {
+		// A record.
 	}
 
 	private void history(Object value, String type) {

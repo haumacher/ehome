@@ -456,6 +456,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey BINDING_RULE_PARAMETER;
 
+	/**
+	 * @en Zigbee
+	 */
+	public static ResKey BINDING_ZIGBEE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

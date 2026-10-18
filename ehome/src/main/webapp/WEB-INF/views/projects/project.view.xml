@@ -53,6 +53,20 @@
 					/>
 				</view-ref>
 			</tab>
+			<tab id="zigbee"
+				icon="css:bi bi-broadcast-pin"
+			>
+				<label>
+					<en>Zigbee</en>
+					<de>Zigbee</de>
+				</label>
+				<view-ref view="projects/zigbee.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="monitor"
 				icon="css:bi bi-activity"
 			>

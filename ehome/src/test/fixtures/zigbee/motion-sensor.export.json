@@ -1,0 +1,111 @@
+{
+	"format": "homecontrol-zigbee-export",
+	"version": 1,
+	"controller": "example",
+	"exported": 1792332189,
+	"network": {
+		"up": true,
+		"pan_id": 4660,
+		"channel": 15,
+		"extended_pan_id": "00124b0000000001",
+		"permit_join_s": 0
+	},
+	"devices": [
+		{
+			"ieee": "0017880106498a49",
+			"manufacturer": "Philips",
+			"model": "SML002",
+			"label": "",
+			"interviewed": true,
+			"endpoints": [
+				{
+					"id": 2,
+					"profile": 260,
+					"device": 263,
+					"in": [
+						0,
+						1,
+						3,
+						1030,
+						1024,
+						1026
+					],
+					"out": [
+						25
+					]
+				},
+				{
+					"id": 1,
+					"profile": 49246,
+					"device": 2128,
+					"in": [
+						0
+					],
+					"out": [
+						0,
+						3,
+						6,
+						8,
+						768,
+						4,
+						5
+					]
+				}
+			],
+			"functions": [
+				{
+					"name": "zigbee.0017880106498a49.2.temperature",
+					"function": "temperature",
+					"endpoint": 2,
+					"cluster": 1026,
+					"attribute": 0,
+					"type": "real",
+					"unit": "°C",
+					"writable": false,
+					"datapoint": "zigbee.0017880106498a49.2.temperature"
+				},
+				{
+					"name": "zigbee.0017880106498a49.2.illuminance",
+					"function": "illuminance",
+					"endpoint": 2,
+					"cluster": 1024,
+					"attribute": 0,
+					"type": "real",
+					"unit": "lx",
+					"writable": false,
+					"datapoint": "zigbee.0017880106498a49.2.illuminance"
+				},
+				{
+					"name": "zigbee.0017880106498a49.2.occupancy",
+					"function": "occupancy",
+					"endpoint": 2,
+					"cluster": 1030,
+					"attribute": 0,
+					"type": "boolean",
+					"writable": false,
+					"datapoint": "zigbee.0017880106498a49.2.occupancy"
+				},
+				{
+					"name": "zigbee.0017880106498a49.2.battery",
+					"function": "battery",
+					"endpoint": 2,
+					"cluster": 1,
+					"attribute": 33,
+					"type": "real",
+					"unit": "%",
+					"writable": false,
+					"datapoint": "zigbee.0017880106498a49.2.battery"
+				},
+				{
+					"name": "zigbee.0017880106498a49.1.action",
+					"function": "action",
+					"endpoint": 1,
+					"cluster": 6,
+					"type": "enumeration",
+					"writable": false,
+					"datapoint": "zigbee.0017880106498a49.1.action"
+				}
+			]
+		}
+	]
+}

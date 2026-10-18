@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The Zigbee devices of a project (haumacher/ehome #40, de.haumacher.ehome.zigbee): what the
+	project's HomeControl controller paired and interviewed in the field, named and placed here, their
+	functions bound to datapoints of the project, which the runtime image carries as Zigbee bindings.
+
+	Two ways to get the devices in, both the same import, idempotent by the IEEE address
+	(ZigbeeImport): "Import Zigbee devices" takes the file the controller's Zigbee page downloads
+	(homecontrol spec/zigbee.md "Export"); "Read Zigbee devices" reads the same export from the
+	project's controller (GET /api/zigbee/export). "Open network for pairing" opens the controller's
+	network for 254 s (POST /api/zigbee/permit), "Close network" closes it; the user puts the device
+	into pairing mode and reads the devices afterwards. Refusals of the controller show as errors.
+
+	A function of the selected device gets a new datapoint with "Create datapoint" (an application
+	datapoint bound to it, its id derived from the device's name and the function), or an existing
+	unbound datapoint of a fitting type with "Bind datapoint" (projects/zigbee-bind.view.xml);
+	"Unbind" keeps the datapoint as a value of the application. The datapoints themselves are edited
+	with the application datapoints (application-datapoints.view.xml, the rules' tab); whether the
+	bindings are valid is checked with the image (Deployment tab).
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="device"/>
+		<channel name="function"/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="320"
+				size="40"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Zigbee devices</en>
+						<de>Zigbee-Geräte</de>
+					</title>
+					<commands>
+						<upload-command
+							accept=".json,application/json"
+							image="css:fa-solid fa-upload"
+							input="project"
+							multiple="false"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Import Zigbee devices</en>
+								<de>Zigbee-Geräte importieren</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<with-transaction>
+								<execute-script function="p -> file -> zigbeeImport($p, $file)">
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+								</execute-script>
+							</with-transaction>
+							<notify
+								expr="t -> $t"
+								kind="info"
+							/>
+						</upload-command>
+						<generic-command
+							image="css:bi bi-broadcast"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Open network for pairing</en>
+								<de>Netz zum Koppeln öffnen</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="p -> deploymentVeto($p)"/>
+							</executability>
+							<zigbee-permit seconds="254"/>
+							<notify
+								expr="t -> $t"
+								kind="info"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-x-octagon"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Close network</en>
+								<de>Netz schließen</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="p -> deploymentVeto($p)"/>
+							</executability>
+							<zigbee-permit seconds="0"/>
+							<notify
+								expr="t -> $t"
+								kind="info"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-cloud-download"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Read Zigbee devices</en>
+								<de>Zigbee-Geräte lesen</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="p -> deploymentVeto($p)"/>
+							</executability>
+							<read-zigbee-devices/>
+							<notify
+								expr="t -> $t"
+								kind="info"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							input="device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="d -> #('Delete the Zigbee device {0} from the project? Datapoints bound to its functions stay as values of the application. The controller keeps the device.'@en, 'Das Zigbee-Gerät {0} aus dem Projekt löschen? An seine Funktionen gebundene Datenpunkte bleiben als Werte der Anwendung erhalten. Der Controller behält das Gerät.'@de).fill($d.get(`ehome.zigbee:ZigbeeDevice#name`))"/>
+							<delete-object/>
+							<write-channel name="device"/>
+						</generic-command>
+					</commands>
+					<table
+						observed-types="ehome.zigbee:ZigbeeDevice,ehome.project:Project"
+						selection="device"
+						types="ehome.zigbee:ZigbeeDevice"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<columns>
+							<column attribute="name"/>
+							<column attribute="location"/>
+							<column attribute="manufacturer"/>
+							<column attribute="model"/>
+							<column attribute="ieee"/>
+						</columns>
+						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#zigbeeDevices`))</rows>
+					</table>
+				</panel>
+			</pane>
+			<pane
+				size="60"
+				unit="%"
+			>
+				<split-panel
+					orientation="vertical"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="40"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Zigbee device</en>
+									<de>Zigbee-Gerät</de>
+								</title>
+								<form
+									input="device"
+									with-inset="true"
+								>
+									<field attribute="name"/>
+									<field attribute="location"/>
+									<field attribute="label"
+										readonly="true"
+									/>
+									<field attribute="manufacturer"
+										readonly="true"
+									/>
+									<field attribute="model"
+										readonly="true"
+									/>
+									<field attribute="ieee"
+										readonly="true"
+									/>
+									<field attribute="interviewed"
+										readonly="true"
+									/>
+									<field attribute="controllerName"
+										readonly="true"
+									/>
+								</form>
+							</panel>
+						</pane>
+						<pane
+							size="60"
+							unit="%"
+						>
+							<tab-bar active-tab="functions">
+								<tabs>
+									<tab id="functions"
+										icon="css:bi bi-sliders"
+									>
+										<label>
+											<en>Functions</en>
+											<de>Funktionen</de>
+										</label>
+										<panel>
+											<title>
+												<en>Functions</en>
+												<de>Funktionen</de>
+											</title>
+											<commands>
+												<generic-command
+													image="css:bi bi-plus-lg"
+													input="function"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Create datapoint</en>
+														<de>Datenpunkt anlegen</de>
+													</label>
+													<executability>
+														<model-access operation="Write"/>
+														<null-input-disabled/>
+														<disabled-if expr="f -> zigbeeBindVeto($f)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="f -> zigbeeCreateDatapoint($f)"/>
+													</with-transaction>
+													<notify
+														expr="d -> #('Datapoint {0} created.'@en, 'Datenpunkt {0} angelegt.'@de).fill($d.get(`ehome.runtime:ApplicationDatapoint#identifier`))"
+														kind="info"
+													/>
+												</generic-command>
+												<generic-command
+													image="css:bi bi-link-45deg"
+													input="function"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Bind datapoint</en>
+														<de>Datenpunkt binden</de>
+													</label>
+													<executability>
+														<model-access operation="Write"/>
+														<null-input-disabled/>
+														<disabled-if expr="f -> zigbeeBindVeto($f)"/>
+													</executability>
+													<open-dialog
+														bind-input-to="function"
+														dialog-view="projects/zigbee-bind.view.xml"
+													/>
+												</generic-command>
+												<generic-command
+													image="css:bi bi-x-lg"
+													input="function"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Unbind</en>
+														<de>Bindung lösen</de>
+													</label>
+													<executability>
+														<model-access operation="Write"/>
+														<null-input-disabled/>
+														<disabled-if expr="f -> zigbeeUnbindVeto($f)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="f -> zigbeeUnbind($f)"/>
+													</with-transaction>
+												</generic-command>
+											</commands>
+											<table
+												observed-types="ehome.zigbee:ZigbeeFunction,ehome.zigbee:ZigbeeDevice,ehome.runtime:ApplicationDatapoint"
+												selection="function"
+												types="ehome.zigbee:ZigbeeFunction"
+											>
+												<inputs>
+													<input channel="device"/>
+												</inputs>
+												<columns>
+													<column attribute="function"/>
+													<column attribute="endpoint"/>
+													<column attribute="valueType"/>
+													<column attribute="unit"/>
+													<column attribute="writable"/>
+													<column attribute="datapoints"/>
+													<column attribute="cluster"/>
+													<column attribute="attribute"/>
+													<column attribute="absent"/>
+												</columns>
+												<rows>d -> if($d == null, [], $d.get(`ehome.zigbee:ZigbeeDevice#functions`))</rows>
+											</table>
+										</panel>
+									</tab>
+									<tab id="endpoints"
+										icon="css:bi bi-diagram-2"
+									>
+										<label>
+											<en>Endpoints</en>
+											<de>Endpunkte</de>
+										</label>
+										<table
+											observed-types="ehome.zigbee:ZigbeeEndpoint,ehome.zigbee:ZigbeeDevice"
+											types="ehome.zigbee:ZigbeeEndpoint"
+										>
+											<inputs>
+												<input channel="device"/>
+											</inputs>
+											<columns>
+												<column attribute="endpoint"/>
+												<column attribute="profile"/>
+												<column attribute="deviceType"/>
+												<column attribute="inputClusters"/>
+												<column attribute="outputClusters"/>
+												<column attribute="zoneType"/>
+											</columns>
+											<rows>d -> if($d == null, [], $d.get(`ehome.zigbee:ZigbeeDevice#endpoints`))</rows>
+										</table>
+									</tab>
+								</tabs>
+							</tab-bar>
+						</pane>
+					</panes>
+				</split-panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

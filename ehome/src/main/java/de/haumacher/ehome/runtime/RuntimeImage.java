@@ -55,7 +55,8 @@ import de.haumacher.ehome.rules.RuleLoader;
  * sends and answers on its address (<code>send</code>), any other <code>listen</code>s on it. After
  * them the project's application datapoints (haumacher/ehome #59, {@link ApplicationDatapoints}),
  * owned by no technology: their own id, label, value type and flags, an empty <code>virtual</code>
- * member in place of a binding.</li>
+ * member in place of a binding; one bound to a function of a Zigbee device (haumacher/ehome #40) with
+ * its <code>zigbee</code> binding instead.</li>
  * <li><code>locations</code>: the parts of the project's buildings, each with its parent; buildings,
  * floors and rooms by their kind, every other part (corridor, stairway, distribution board, ...) as
  * an area.</li>

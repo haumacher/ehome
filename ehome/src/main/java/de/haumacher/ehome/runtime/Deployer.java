@@ -259,7 +259,7 @@ public final class Deployer {
 		return Integer.valueOf(list instanceof Collection<?> collection ? collection.size() : 0);
 	}
 
-	static String reason(IOException ex) {
+	public static String reason(IOException ex) {
 		String message = ex.getMessage();
 		return message == null || message.isBlank() ? ex.getClass().getSimpleName() : message;
 	}

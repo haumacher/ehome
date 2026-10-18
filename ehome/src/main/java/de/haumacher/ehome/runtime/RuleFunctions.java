@@ -502,7 +502,8 @@ public class RuleFunctions extends GenericMethod {
 	/**
 	 * The datapoints of the project's image, each a copy of its map in the image with its label in
 	 * the language of the user and its <code>binding</code>: KNX for the datapoint of a group
-	 * address, application for an application datapoint ({@link ApplicationDatapoints}).
+	 * address, application for an application datapoint ({@link ApplicationDatapoints}), Zigbee for
+	 * one bound to a function of a Zigbee device.
 	 */
 	public static List<Object> datapoints(TLObject project) {
 		RuntimeImage image = RuntimeImage.build(project, 0, Instant.EPOCH, false);
@@ -519,7 +520,7 @@ public class RuleFunctions extends GenericMethod {
 				datapoint.put("label", resources.getString(label, null));
 			}
 			datapoint.put("binding", resources.getString(datapoint.containsKey("knx") ? I18NConstants.BINDING_KNX
-				: I18NConstants.BINDING_APPLICATION));
+				: datapoint.containsKey("zigbee") ? I18NConstants.BINDING_ZIGBEE : I18NConstants.BINDING_APPLICATION));
 			result.add(datapoint);
 		}
 		// The datapoints of the rule parameters (spec/rules.md 8.6), which the controller derives from the

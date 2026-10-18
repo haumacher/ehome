@@ -733,7 +733,8 @@
 			spec/runtime-image.md 3.3, "virtual"): a value of the application that rules and the user
 			interface command (a holiday mode, a counter), or the output of a schedule entry, which the
 			scheduler owns (spec/schedules.md 5). Exported after the datapoints of the group addresses,
-			without a KNX binding.
+			without a KNX binding. Bound to a function of a Zigbee device (zigbeeFunction, haumacher/ehome
+			#40), it is the datapoint of that function instead, owned by the controller's Zigbee adapter.
 		-->
 		<class name="ApplicationDatapoint">
 			<generalizations>
@@ -824,6 +825,24 @@
 						</constraints>
 					</annotations>
 				</property>
+				<!--
+					The function of a Zigbee device the datapoint stands for (haumacher/ehome #40, homecontrol
+					spec/zigbee.md "Bindings"): with one, the image carries the datapoint with a zigbee binding
+					instead of the virtual member, and the Zigbee adapter owns it; the options are the
+					project's functions bound to no other datapoint whose value type fits.
+				-->
+				<reference name="zigbeeFunction"
+					kind="forwards"
+					type="ehome.zigbee:ZigbeeFunction"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[d -> zigbeeFunctionOptions($d)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
 		<!--

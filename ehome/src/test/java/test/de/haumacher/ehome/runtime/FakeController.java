@@ -50,9 +50,18 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * </p>
  *
  * <p>
+ * The Zigbee coordinator (haumacher/ehome #40, <code>spec/api.md</code> "Zigbee"): without a device
+ * list ({@link #setZigbeeExport(String, int)}) every route answers 501 <code>system.unavailable</code> as
+ * the POSIX build does; with one, <code>GET /api/zigbee/export</code> serves it in pages and
+ * <code>POST /api/zigbee/permit</code> records the time the network was opened for
+ * ({@link #getPermitSeconds()}).
+ * </p>
+ *
+ * <p>
  * Started from the command line (<code>java -cp target/classes:target/test-classes
- * test.de.haumacher.ehome.runtime.FakeController &lt;port&gt; &lt;token&gt;</code>), it serves until it is
- * stopped, for trying the deployment in the running application.
+ * test.de.haumacher.ehome.runtime.FakeController &lt;port&gt; &lt;token&gt; [&lt;zigbee export&gt;]</code>), it
+ * serves until it is stopped, for trying the deployment (and the Zigbee pairing) in the running
+ * application.
  * </p>
  */
 public class FakeController {
@@ -79,6 +88,12 @@ public class FakeController {
 
 	private final FakeMonitorStream _monitor;
 
+	private Map<String, Object> _zigbee;
+
+	private int _zigbeePage;
+
+	private Integer _permitSeconds;
+
 	/**
 	 * Creates and starts a {@link FakeController} on a free port.
 	 *
@@ -103,6 +118,8 @@ public class FakeController {
 		_server.createContext("/fake/refuse-next", this::script);
 		_server.createContext("/api/auth/session", this::session);
 		_server.createContext("/fake/monitor", this::scriptMonitor);
+		_server.createContext("/api/zigbee/export", this::zigbeeExport);
+		_server.createContext("/api/zigbee/permit", this::zigbeePermit);
 		_monitor = new FakeMonitorStream(token);
 		_server.start();
 	}
@@ -166,6 +183,90 @@ public class FakeController {
 			_monitor.emit(body);
 		}
 		answer(exchange, 200, error("emitted", "fake.ok"));
+	}
+
+	/**
+	 * Gives the controller a Zigbee coordinator with the device list of the given export (the file
+	 * format of <code>spec/zigbee.md</code>, "Export"), served in pages of the given number of devices;
+	 * <code>null</code> takes the coordinator away.
+	 */
+	public synchronized void setZigbeeExport(String export, int pageSize) throws JsonException {
+		@SuppressWarnings("unchecked")
+		Map<String, Object> parsed = export == null ? null : (Map<String, Object>) Json.parse(export, 16);
+		_zigbee = parsed;
+		_zigbeePage = pageSize;
+	}
+
+	/**
+	 * The time the network was last opened for (0: closed), <code>null</code> if it never was.
+	 */
+	public synchronized Integer getPermitSeconds() {
+		return _permitSeconds;
+	}
+
+	private void zigbeeExport(HttpExchange exchange) throws IOException {
+		if (!"GET".equals(exchange.getRequestMethod())) {
+			answer(exchange, 405, error("method not allowed", "api.method_not_allowed"));
+			return;
+		}
+		if (!authorized(exchange) || !coordinator(exchange)) {
+			return;
+		}
+		String query = exchange.getRequestURI().getQuery();
+		int from = query != null && query.startsWith("from=") ? Integer.parseInt(query.substring(5)) : 0;
+		Map<String, Object> body = new LinkedHashMap<>();
+		synchronized (this) {
+			for (String member : List.of("format", "version", "controller", "exported", "network")) {
+				body.put(member, _zigbee.get(member));
+			}
+			List<?> devices = (List<?>) _zigbee.get("devices");
+			int to = Math.min(devices.size(), from + _zigbeePage);
+			body.put("count", Integer.valueOf(devices.size()));
+			body.put("max_devices", Integer.valueOf(32));
+			body.put("from", Integer.valueOf(from));
+			body.put("devices", new ArrayList<>(devices.subList(Math.min(from, to), to)));
+			body.put("next", to < devices.size() ? Integer.valueOf(to) : null);
+		}
+		answer(exchange, 200, body);
+	}
+
+	private void zigbeePermit(HttpExchange exchange) throws IOException {
+		if (!"POST".equals(exchange.getRequestMethod())) {
+			answer(exchange, 405, error("method not allowed", "api.method_not_allowed"));
+			return;
+		}
+		if (!authorized(exchange) || !coordinator(exchange)) {
+			return;
+		}
+		Object seconds;
+		try (InputStream in = exchange.getRequestBody()) {
+			seconds = ((Map<?, ?>) Json.parse(new String(in.readAllBytes(), StandardCharsets.UTF_8), 4)).get("seconds");
+		} catch (JsonException | ClassCastException ex) {
+			answer(exchange, 400, error("bad JSON", "api.bad_json"));
+			return;
+		}
+		if (!(seconds instanceof Long value) || value.longValue() < 0 || value.longValue() > 254) {
+			answer(exchange, 422, error("seconds must be 0..254", "zigbee.invalid"));
+			return;
+		}
+		synchronized (this) {
+			_permitSeconds = Integer.valueOf(value.intValue());
+		}
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("ok", Boolean.TRUE);
+		body.put("seconds", value);
+		answer(exchange, 200, body);
+	}
+
+	private boolean coordinator(HttpExchange exchange) throws IOException {
+		synchronized (this) {
+			if (_zigbee != null) {
+				return true;
+			}
+		}
+		drain(exchange);
+		answer(exchange, 501, error("Zigbee is not available on this platform", "system.unavailable"));
+		return false;
 	}
 
 	/**
@@ -484,10 +585,14 @@ public class FakeController {
 	 * Runs a {@link FakeController} on <code>127.0.0.1</code> until the process is stopped.
 	 *
 	 * @param args
-	 *        The port and the token.
+	 *        The port and the token; optionally the file of a Zigbee export it serves as its device
+	 *        list.
 	 */
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, JsonException {
 		FakeController controller = new FakeController(Integer.parseInt(args[0]), args[1], 262144);
+		if (args.length > 2) {
+			controller.setZigbeeExport(java.nio.file.Files.readString(java.nio.file.Path.of(args[2])), 16);
+		}
 		System.out.println("Fake controller on 127.0.0.1:" + controller.getPort());
 	}
 

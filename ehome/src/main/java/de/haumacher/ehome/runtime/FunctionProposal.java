@@ -410,7 +410,7 @@ public final class FunctionProposal {
 	 * An identifier for the runtime image derived from the given name, not among the given ones (which
 	 * it is added to).
 	 */
-	static String uniqueIdentifier(String name, Set<String> identifiers) {
+	public static String uniqueIdentifier(String name, Set<String> identifiers) {
 		String base = slug(name);
 		String result = base;
 		for (int n = 2; !identifiers.add(result); n++) {

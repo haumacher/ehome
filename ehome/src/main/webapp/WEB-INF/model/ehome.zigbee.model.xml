@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<!--
+		Zigbee devices of a project (haumacher/ehome #40): the HomeControl controller is the coordinator
+		that pairs and interviews them in the field and keeps their database (keys, addresses); E-Home
+		stores what the controller's export carries (homecontrol spec/zigbee.md, "Export") and what the
+		user adds: a name, the room, and the bindings of the device's functions to datapoints of the
+		project (ehome.runtime:ApplicationDatapoint#zigbeeFunction), which the runtime image carries as
+		the datapoints' zigbee member. The IEEE address identifies a device: importing the export again
+		updates the device, its endpoints and its functions in place (de.haumacher.ehome.zigbee.ZigbeeImport).
+	-->
+	<module name="ehome.zigbee">
+		<!-- A device joined to the network of a controller, as its export describes it. -->
+		<class name="ZigbeeDevice">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-broadcast-pin"/>
+				<id-column value="name"/>
+			</annotations>
+			<attributes>
+				<!-- The name of the device in the project; the import sets it once (from the controller's label, else manufacturer and model), the user changes it. -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The IEEE address: 16 lower-case hex digits; the identity of the device across imports. -->
+				<property name="ieee"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The manufacturer the device names (Basic cluster). -->
+				<property name="manufacturer"
+					type="tl.core:String"
+				/>
+				<!-- The model identifier the device names (Basic cluster). -->
+				<property name="model"
+					type="tl.core:String"
+				/>
+				<!-- The label the controller gives the device (its Zigbee page or "zigbee label"). -->
+				<property name="label"
+					type="tl.core:String"
+				/>
+				<!-- Whether the controller's interview of the device finished (its endpoints are known). -->
+				<property name="interviewed"
+					type="tl.core:Boolean"
+				/>
+				<!-- The controller whose export described the device last. -->
+				<property name="controllerName"
+					type="tl.core:String"
+				/>
+				<!-- The part of the building the device is in. -->
+				<reference name="location"
+					kind="forwards"
+					type="ehome.building:BuildingDefinition"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[d -> runtimeBuildingParts($d)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The endpoints of the interview, in the order of the export. -->
+				<reference name="endpoints"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ZigbeeEndpoint"
+				/>
+				<!-- The functions the controller derives from the endpoints, in the order of the export. -->
+				<reference name="functions"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ZigbeeFunction"
+				/>
+			</attributes>
+		</class>
+		<!-- An endpoint of a device: its simple descriptor as the controller's interview read it. -->
+		<class name="ZigbeeEndpoint">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-diagram-2"/>
+			</annotations>
+			<attributes>
+				<!-- The endpoint number (1..240). -->
+				<property name="endpoint"
+					mandatory="true"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The application profile (260 Home Automation, 49246 Light Link). -->
+				<property name="profile"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The device type of the profile. -->
+				<property name="deviceType"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The server clusters (input clusters), decimal, separated by commas. -->
+				<property name="inputClusters"
+					type="tl.core:String"
+				/>
+				<!-- The client clusters (output clusters), decimal, separated by commas. -->
+				<property name="outputClusters"
+					type="tl.core:String"
+				/>
+				<!-- The zone type of an IAS zone endpoint; empty for any other. -->
+				<property name="zoneType"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!--
+			A function of a device endpoint as the controller's cluster mapping derives it (homecontrol
+			doc/zigbee.md, the function table): what a datapoint of the project can be bound to.
+		-->
+		<class name="ZigbeeFunction">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-sliders"/>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<!-- The key of the function table (temperature, occupancy, on_off, action, ...). -->
+				<property name="function"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The endpoint the function belongs to (1..240). -->
+				<property name="endpoint"
+					mandatory="true"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The cluster of the function (decimal). -->
+				<property name="cluster"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The attribute of the cluster; empty for the commands of a client cluster (action). -->
+				<property name="attribute"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The value type the function carries; a bound datapoint's type must fit it. -->
+				<reference name="valueType"
+					kind="forwards"
+					type="ehome.runtime:DatapointValueType"
+				/>
+				<!-- The unit of the values, where the function has one. -->
+				<property name="unit"
+					type="tl.core:String"
+				/>
+				<!-- Whether a bound datapoint may command the device. -->
+				<property name="writable"
+					type="tl.core:Boolean"
+				/>
+				<!-- The name the controller gives the datapoint of the function without a binding (zigbee.<ieee>.<endpoint>.<suffix>). -->
+				<property name="genericName"
+					type="tl.core:String"
+				/>
+				<!-- Whether the last export no longer listed the function; it is kept because a datapoint is bound to it. -->
+				<property name="absent"
+					type="tl.core:Boolean"
+				/>
+				<!-- The datapoints of the project bound to the function (at most one in a valid image). -->
+				<reference name="datapoints"
+					inverse-reference="zigbeeFunction"
+					kind="backwards"
+					multiple="true"
+					type="ehome.runtime:ApplicationDatapoint"
+				/>
+				<!-- The label the function is listed with: the device's name, the function and the endpoint. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[f -> "{0} {1} ({2})".fill(
+    $f.container().get(`ehome.zigbee:ZigbeeDevice#name`),
+    $f.get(`ehome.zigbee:ZigbeeFunction#function`),
+    $f.get(`ehome.zigbee:ZigbeeFunction#endpoint`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+	</module>
+</model>

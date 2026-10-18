@@ -28,6 +28,14 @@
 					ordered="true"
 					type="ehome.physical:Device"
 				/>
+				<!-- The Zigbee devices of the project, imported from the export of a controller (haumacher/ehome #40). -->
+				<reference name="zigbeeDevices"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.zigbee:ZigbeeDevice"
+				/>
 				<reference name="buildings"
 					composite="true"
 					kind="forwards"

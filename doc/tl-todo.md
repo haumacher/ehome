@@ -93,7 +93,9 @@ the engine's XML import (`com.top_logic.xio`) cannot do yet:
   kind is then reported instead of breaking the import.
 - TL #29883 (defect): an unset boolean attribute reads as `false` on a stored object and as `null` on
   a transient one. Workaround: `ObjectMerge` treats `null` and `false` as equal when it compares a
-  known mask version with its transient candidate (#34). **When fixed:** drop that case.
+  known mask version with its transient candidate (#34); the Zigbee import (`ZigbeeImport#set`, #40)
+  does the same when it compares a stored value with the export's, and a stored flag reset to `null`
+  reads `false`. **When fixed:** drop those cases.
 - Deleting the parts the import drops one at a time took about 13 s per import of a real sample (the
   referrer scans of TL #29876). Workaround: `MasterDataUpdates` deletes them in one `deleteAll`.
 - TL #29882: a `<switch>` case matches one value only, so the flags ETS 6 writes as `true` and ETS 4
