@@ -1,6 +1,6 @@
 ---
 name: ehome-workflow
-description: The working method for developing E-Home — orchestrating sub-agents in the single TopLogic Maven module, adversarial probe reviews, the verification gate (checkstyle plus the full test run), the run loop against the local app with browser checks, GitHub-issue triage, TopLogic-gap bookkeeping (Trac tickets and doc/tl-todo.md), the commit discipline, and the model/import doctrines. Load at the start of any session doing feature or bug work on this repository.
+description: The working method for developing E-Home — orchestrating sub-agents in the two TopLogic Maven modules (the app ehome/ and the development tooling ehome-virtual/), adversarial probe reviews, the verification gate (checkstyle plus the full test run), the run loop against the local app with browser checks, GitHub-issue triage, TopLogic-gap bookkeeping (Trac tickets and doc/tl-todo.md), the commit discipline, and the model/import doctrines. Load at the start of any session doing feature or bug work on this repository.
 ---
 
 # The E-Home working method
@@ -18,7 +18,7 @@ Work is a pipeline, not a pile:
 
 0. **Engine upgrade — only when the user asks for it.** Do not look for a newer TopLogic version
    or poll the TL tickets at the start of a session. When the user requests an upgrade, it is a
-   package of its own: set the new version in `pom.xml`, go through every entry of
+   package of its own: set the new version in the parents of `ehome/pom.xml` and `ehome-virtual/pom.xml`, go through every entry of
    `doc/tl-todo.md` (§8) and check whether its ticket has shipped (`get_ticket`), undo the
    workarounds that have, re-run the gate, and tell the user which entries remain.
 1. **Intake**: user reports (chat, screenshots, ETS XML snippets, GitHub issues) and the open
@@ -26,15 +26,15 @@ Work is a pipeline, not a pile:
    diagnosis comment *before* fixing; use the repository's labels (`bug`, `enhancement`,
    `question`, `documentation` — the GitHub defaults; do not invent new ones without the user).
 2. **Reproduce before dispatching.** An import or model report gets a headless reproduction
-   first: a JUnit test in the `TestEtsImport` harness against `samples/Test.knxproj` or a fixture
-   in `src/test/fixtures/` (§4 for the traps). A UI report gets a look at the running app
+   first: a JUnit test in the `TestEtsImport` harness against `ehome/samples/Test.knxproj` or a fixture
+   in `ehome/src/test/fixtures/` (§4 for the traps). A UI report gets a look at the running app
    (§7) — a Playwright snapshot of the view, not a guess from the `.view.xml`. Know whether it is
    a real bug, an engine gap already recorded in `doc/tl-todo.md`, or your own probe error before
    an agent burns tokens. If the main tree is agent-owned, reproduce in a git worktree at HEAD
    (`git worktree add <scratch>/repro <commit>`), never in the live tree.
 3. **Dispatch** one sub-agent per coherent package (§2). Sequential by default; parallel only with
    disjoint file ownership stated in both briefs (§3). The natural split is importer/Java versus
-   views/configuration — but see §3 on why one Maven module makes parallel work rare.
+   views/configuration — but see §3 on why one app module makes parallel work rare.
 4. **Review with a novel probe** (§4). Non-negotiable.
 5. **Gate** (§5), **commit to master and push** (§6), **restart the app and check it** (§7),
    close the issue with the fixing commit plus a summary comment naming the regression test.
@@ -55,7 +55,8 @@ contains, in order:
   specific packages, classes, model files, views and tests that are the behavioral contract>."
   Name where the work lives — `de.haumacher.ehome.importer` and `etsImporter.xml` (the ETS
   import), `de.haumacher.ehome.knx` (group addresses, styles), `de.haumacher.ehome.discover`
-  (Calimero gateway discovery), `WEB-INF/model/ehome.*.model.xml` (the model),
+  (Calimero gateway discovery), `de.haumacher.ehome.virtual.tooling` (module `ehome-virtual`: the
+  programmable virtual device, the ETS recorder and its traces), `WEB-INF/model/ehome.*.model.xml` (the model),
   `WEB-INF/views/**` (the UI), `WEB-INF/conf/ehomeConf.config.xml` (TL-Script functions, command
   cliques, client resources) — and **whether a model file is in scope**, because that decides the
   regeneration cycle (CLAUDE.md "Generated code"). For view work the brief must say: read the
@@ -69,7 +70,7 @@ contains, in order:
   terms (schema-coverage.md), never as a copy of the ETS XML.
 - **User fixtures embedded verbatim** as required regression tests: the ETS XML fragment, the
   expected label, the screenshot's content, the group address notation — whatever the report
-  contained. Extend the fixture projects only through `src/test/fixtures/make-fixtures.py` (it
+  contained. Extend the fixture projects only through `ehome/src/test/fixtures/make-fixtures.py` (it
   derives `TestDetails.knxproj` and `TestDynamic.knxproj` from `samples/Test.knxproj` and names
   them as artificial test data); never hand-edit a `.knxproj` zip, never add a real customer
   project.
@@ -79,13 +80,15 @@ contains, in order:
   brief; "import the same project twice → no duplicated shared objects" (TL #29797 workarounds)
   belongs in every brief that touches shared objects (catalogs, programs, translations).
 - **The build discipline block** (the point is not wasting runs, not avoiding them):
-  - The test gate is **one command and fast**: `./mvnw test -DskipTests=false` runs the whole
-    suite (`test.TestAll` plus the conformance checks). **Budget: the whole suite at most 120 s on
-    an idle machine; a new test class at most 5 s, or its javadoc names why it needs more.** After
-    haumacher/ehome #36 (123 tests, October 2026) it took 176 s at a load average of 10 (the shared
-    machine is rarely idle; the same suite took 331 s at that load before). `bin/slowest-tests.py`
-    prints the suite time and the 10 slowest tests and classes from the surefire report; read it
-    after every gate. The cost of a test is its imports: all classes share one database in one JVM,
+  - The test gate is **one command and fast**: `./mvnw test -DskipTests=false` in the repository
+    root runs the suite of each module (`test.TestAll` plus the conformance checks, once in `ehome/`
+    and once in `ehome-virtual/`, each in a JVM and a database of its own). **Budget: both suites
+    together at most 95 s; a new test class at most 5 s, or its javadoc names why it needs more.**
+    After the split into modules (haumacher/ehome #28, October 2026) the app's suite took 68 s and
+    the tooling's 24 s (345 tests) at a load average of about 3; the tooling's own database means
+    its tests import their samples once more. `bin/slowest-tests.py` prints the time of each
+    suite, the total and the 10 slowest tests and classes from the surefire reports; read it
+    after every gate. The cost of a test is its imports: all classes of a module share one database in one JVM,
     the shared data (master data, catalogs, programs) stays, and an import of a sample costs seconds
     per program the first time and about one second after that; deleting shared data costs as much
     as importing it. So a test deletes only its projects, asserts project-relative state or shared
@@ -96,12 +99,18 @@ contains, in order:
     single-branch configuration is still in `metaConf.txt` (TL #29876), then the slowest tests. Run the full suite as the gate; while iterating on
     one area, `-Dtest=<Class>` is fine, but the gate before a commit is always the full suite. Without `-DskipTests=false` **nothing runs
     and the build is green** (the TopLogic parent skips tests by default).
-  - `./mvnw checkstyle:check` after every Java edit (not bound to the build).
-  - A **model change** costs a cycle: `./mvnw install -DskipTests` (add `-Dmaven.main.skip` when
-    the old wrappers no longer compile), `./mvnw tl:generate-java`, build again. The generator
+  - `./mvnw checkstyle:check` in the root after every Java edit (both modules; not bound to the build).
+  - Where a change goes: the product (including the rules simulation and its virtual
+    installation) is the app `ehome/`; the programmable virtual device and the ETS recorder are the
+    tooling `ehome-virtual/`, which depends on the app and never the other way round (CLAUDE.md,
+    "Modules"). A test of the app must not need the tooling: `./mvnw install -DskipTests=false
+    -Pproduction` builds and tests the app alone.
+  - A **model change** costs a cycle: `./mvnw install -DskipTests` in the root (add
+    `-Dmaven.main.skip` when the old wrappers no longer compile), `cd ehome && ../mvnw
+    tl:generate-java`, build again. The generator
     reads the model from the artifact in `~/.m2`, not from the sources — an install *before*
     generating is not optional. Only `ehome.core` and `ehome.operational` have generated Java
-    bindings (`pom.xml`, `tl-maven-plugin`); the other modules are reached through
+    bindings (`ehome/pom.xml`, `tl-maven-plugin`); the other modules are reached through
     `tValueByName`/`tUpdateByName` and the test harness does the same.
   - `mvn` and `./mvnw` are the same Maven here (3.9.16, installed in `~/tools/maven` and first on
     the PATH); the distribution's 3.8.7 is below TopLogic 8's minimum, so if `mvn -v` ever shows
@@ -156,12 +165,13 @@ the crash are untriaged.
   that every tree's generator reads. Whoever changes a model file owns the regeneration and the
   compile fallout; the other agent must not touch any model file and must not run `install`
   while the model is mid-edit. Model changes happen **only in the main tree**.
-- **One Maven module means one `target/`.** Concurrent `./mvnw` runs in one tree collide. Never
-  run Maven in a tree an agent is mid-edit in; give a second agent its own git worktree (§10) and
-  have it use `./mvnw test -DskipTests=false` (never `install`) so it cannot overwrite the main
-  tree's installed artifact.
-- **One app instance per tree.** The running app holds the H2 database in `tmp/` and port 8080;
-  a worktree that needs its own app starts it with `-Dtl.port=8081` and gets its own `tmp/`.
+- **One tree means one set of `target/` directories** (`ehome/target/`, `ehome-virtual/target/`).
+  Concurrent `./mvnw` runs in one tree collide. Never run Maven in a tree an agent is mid-edit in;
+  give a second agent its own git worktree (§10) and have it use `./mvnw test -DskipTests=false`
+  in the worktree's root (never `install`) so it cannot overwrite the main tree's installed
+  artifacts (the tooling resolves the app from the reactor there).
+- **One app instance per tree.** The running app holds the H2 database in the root `tmp/` and port
+  8080; a worktree that needs its own app starts it with `-Dtl.port=8081` and gets its own `tmp/`.
 - A commit made while an agent has uncommitted work in the tree must be **selective**
   (`git add <files>`).
 
@@ -193,13 +203,13 @@ delivery:
 - **The app shows the old view.** A changed `.view.xml` (and `ehomeConf.config.xml`) is not
   picked up by a running app; restart before probing the UI (§7).
 - **Hygiene failures look like feature failures.** `test.TestAll` adds TopLogic conformance
-  checks: copyright comment (`TestComment`, pattern in `src/test/webapp/WEB-INF/conf/
+  checks, in each module: copyright comment (`TestComment`, pattern in `ehome/src/test/webapp/WEB-INF/conf/
   ehome-testSettings.config.xml`), normalized layouts, JSPs, I18N completeness. A red suite after
   a feature may be a missing header, an `@en` tag, or an unused resource key — fix the hygiene,
   then judge the feature.
 - **The fixtures are generated.** `TestDetails.knxproj` and `TestDynamic.knxproj` come from
   `make-fixtures.py`; a probe that needs a new ETS construct extends the script (and re-runs it
-  from the project root), never edits the zip. A fixture that changes an application program must
+  from the app module `ehome/`), never edits the zip. A fixture that changes an application program must
   give it a new ID and a name marking it as test data (as `TestDynamic` does), or the import
   skips the program as already known and the probe tests the old one.
 - **Re-import is a feature, not a bug.** Importing a project again into existing data must reuse
@@ -239,13 +249,15 @@ user edited after the previous import.
 ## 5. The verification gate (before every commit)
 
 ```bash
-./mvnw checkstyle:check                              # header, tabs, imports, braces
-./mvnw install -DskipTests=false                     # compile, full suite (budget 120 s idle), app self-test
-bin/slowest-tests.py                                 # suite time and the 10 slowest tests: within budget?
+./mvnw checkstyle:check                              # both modules: header, tabs, imports, braces
+./mvnw install -DskipTests=false                     # both modules, both suites (budget 95 s together); read every "Tests run:" line
+bin/slowest-tests.py                                 # time of each suite, the total and the 10 slowest tests: within budget?
 git status --short                                   # only the files of this change; no .playwright-mcp, no tmp/
 ```
 
-All green or no commit. If the model changed, the gate runs **after** the install → generate →
+All commands run in the repository root. When a change touches the boundary between the modules
+(a hook, a class moved, a dependency), also run the app alone: `./mvnw install -DskipTests=false
+-Pproduction`. All green or no commit. If the model changed, the gate runs **after** the install → generate →
 build cycle, and the regenerated bindings ride the same commit as the model change. Never trust a
 green result from a tree with uncommitted foreign edits; check `git status` first.
 
@@ -266,15 +278,19 @@ green result from a tree with uncommitted foreign edits; check `git status` firs
 ## 7. The run loop
 
 ```bash
-(tl_initial_password=root1234 nohup ./mvnw -B exec:java > tmp/tl-app.log 2>&1 &)
-# Jetty on 8080, context /ehome (tl.contextPath in pom.xml), dev mode (pom.xml); "up and running" in
-# tmp/tl-app.log after ~10 s on a warm tmp/ (the first start of a fresh tmp/ is slow)
+cd ehome && (tl_initial_password=root1234 tl_browser=none nohup ../mvnw -B exec:java > ../tmp/tl-app.log 2>&1 &)
+# In the app module (the deploy aspect deploy/local applies only there), with the tooling built by the last
+# ./mvnw install in the root (-Pproduction: without it). Jetty on 8080, context /ehome (tl.contextPath
+# in ehome/pom.xml), dev mode, data in the root tmp/ (ehome.dataDir in ehome/pom.xml); "up and
+# running" in tmp/tl-app.log after ~10 s on a warm tmp/ (the first start of a fresh tmp/ is slow)
 curl -sf http://localhost:8080/admin/stop               # stop; the port is free ~2 s later
 ```
 
-The `tl-app` skill (`tl-app.sh start|stop|restart .`) does the same with its own port and
-`tmp/tl-app.log`; use it when the port does not matter, the command above when the user expects
-8080.
+The `tl-app` skill (`tl-app.sh start|stop|restart ehome`) does the same with its own port and
+`ehome/tmp/tl-app.log`; but its start keeps the data in the root `tmp/` only through the
+`ehome.dataDir` of the POM — use it when the port does not matter, the command above when the user
+expects 8080. To start on a copy of the data: `-Dehome.dataDir=<dir>` (the environment variables
+`h2_name` and `tl_storage_path` are overridden by the POM).
 
 Open `http://localhost:8080/ehome/view/` and log in through the in-app dialog as
 `root` / `root1234` (the initial password is read from `tl_initial_password` — environment
@@ -283,8 +299,10 @@ variable or `-D` system property — and applies only to a fresh `tmp/`). The cl
 Run the start outside the sandbox (`dangerouslyDisableSandbox`), or the JVM dies with the shell.
 
 The app does not hot-reload Java, views or configuration; after a change, rebuild and restart it.
-For an import feature, import `samples/Test.knxproj` (one device, quick) and, when the change
-touches catalogs or many devices, `samples/EHomeDemo.knxproj`. Delegate the browser interaction to
+For an import feature, import `ehome/samples/Test.knxproj` (one device, quick) and, when the change
+touches catalogs or many devices, `ehome/samples/EHomeDemo.knxproj`. The tab "Virtual device" of a
+device exists only with the tooling (development start); a production start (`-Pproduction`) must not
+show it. Delegate the browser interaction to
 a Playwright sub-agent with a self-contained brief (URL, login, path to the view, steps, expected
 outcome per step) and prefer `browser_snapshot` over screenshots, as the `tl-app` skill describes.
 Tell the user the commit hash and what to try. Never leave a broken build running — the running
@@ -356,8 +374,9 @@ Parallel packages work when, and only when, they are physically separated:
 
 - **One agent in the main tree, the other in a git worktree**
   (`git worktree add -b <branch> <scratch>/wt-x HEAD`, run **from this repo**), each with a FILE
-  BOUNDARY paragraph. Separate trees keep their `target/` and `tmp/` apart. The worktree agent
-  runs `./mvnw test -DskipTests=false` and `./mvnw checkstyle:check`, never `install` and never
+  BOUNDARY paragraph. Separate trees keep their `target/` directories and `tmp/` apart. The
+  worktree agent runs `./mvnw test -DskipTests=false` and `./mvnw checkstyle:check` in the
+  worktree's root, never `install` and never
   `tl:generate-java`, so it cannot overwrite the main tree's `~/.m2` artifact or regenerate from
   the wrong model.
 - **The model has one writer** (§3), and that writer is in the main tree. If both packages need
@@ -367,7 +386,7 @@ Parallel packages work when, and only when, they are physically separated:
   bindings, `ehomeConf.config.xml` and the resource bundles are exactly where merges break — then
   push.
 - After a merge, `git ls-files` the new directories the report names; the `.gitignore` rules
-  (`/tmp/`, `/target/`) can swallow a wrongly placed source directory.
+  (`/tmp/`, `target/` and `tmp/` of the modules) can swallow a wrongly placed source directory.
 - **A session limit kills every running agent at once** (HTTP 429 mid-flight). Their uncommitted
   work is in the trees; when the limit resets, `SendMessage` each one "Resume exactly where you
   left off: <its last visible step, read from the transcript's last tool calls>" rather than

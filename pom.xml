@@ -1,183 +1,53 @@
 <?xml version="1.0"?>
+<!--
+	The build of E-Home (haumacher/ehome #28): an aggregator of its modules, not their parent (each
+	module has the TopLogic parent it needs).
+
+	- ehome: the app (artifact de.haumacher.ehome, war ehome.war, context path ehome).
+	- ehome-virtual: the development tooling (artifact de.haumacher.ehome.virtual), a TopLogic web
+	  fragment depending on the app: the programmable virtual device and the recorder of ETS downloads.
+
+	The profile "development" (active unless another profile of this POM is chosen) builds both; the
+	production build (-Pproduction) builds the app alone. The app module has the same two profiles:
+	"development" puts the tooling on the classpath of its exec:java start, "production" leaves it out.
+	The deployable war (ehome/target/ehome.war) never contains the tooling.
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
-  <parent>
-    <groupId>com.top-logic</groupId>
-    <artifactId>tl-parent-app</artifactId>
-    <version>8.0.0-alpha10</version>
-  </parent>
-  <artifactId>de.haumacher.ehome</artifactId>
+  <groupId>com.top-logic</groupId>
+  <artifactId>de.haumacher.ehome.build</artifactId>
   <version>1.0.0-SNAPSHOT</version>
-  <properties>
-    <!-- The context path of the app: in development mode (exec:java) and the name of the deployable war (target/ehome.war). -->
-    <tl.contextPath>ehome</tl.contextPath>
-  </properties>
-  <repositories>
-    <repository>
-      <id>tl-releases</id>
-      <url>https://dev.top-logic.com/nexus/repository/toplogic/</url>
-      <releases><enabled>true</enabled></releases>
-      <snapshots><enabled>false</enabled></snapshots>
-    </repository>
-    <repository>
-      <id>tl-snapshots</id>
-      <url>https://dev.top-logic.com/nexus/repository/toplogic-snapshots/</url>
-      <releases><enabled>false</enabled></releases>
-      <snapshots><enabled>true</enabled></snapshots>
-    </repository>
-  </repositories>
-  <dependencies>
+  <packaging>pom</packaging>
 
-		<dependency>
-			<groupId>com.github.calimero</groupId>
-			<artifactId>calimero-core</artifactId>
-			<version>2.6</version>
-		</dependency>
+  <modules>
+    <module>ehome</module>
+  </modules>
 
-		<!--
-			The virtual device only (package de.haumacher.ehome.virtual, haumacher/ehome #27): the KNXnet/IP
-			server side of Calimero, same version and license (GPL 2.0 with Classpath Exception) as
-			calimero-core. Development tooling, to move into an optional module of its own.
-		-->
-		<dependency>
-			<groupId>com.github.calimero</groupId>
-			<artifactId>calimero-server</artifactId>
-			<version>2.6</version>
-			<exclusions>
-				<!-- TopLogic logs through log4j (log4j-slf4j2-impl is on the classpath). -->
-				<exclusion>
-					<groupId>org.slf4j</groupId>
-					<artifactId>slf4j-simple</artifactId>
-				</exclusion>
-				<!-- Calimero logs through slf4j; this binding would redirect the JDK's platform logging of the whole application. -->
-				<exclusion>
-					<groupId>org.slf4j</groupId>
-					<artifactId>slf4j-jdk-platform-logging</artifactId>
-				</exclusion>
-			</exclusions>
-		</dependency>
-
-		<!--
-			Reading the password-protected project part of an ETS 5/6 project file (P-xxxx.zip, AES or
-			traditional ZIP encryption, which the JDK cannot read; haumacher/ehome #32). License: Apache 2.0.
-		-->
-		<dependency>
-			<groupId>net.lingala.zip4j</groupId>
-			<artifactId>zip4j</artifactId>
-			<version>2.11.5</version>
-		</dependency>
-
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-contact</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-layout-scripting-template</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-layout-formeditor</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-graph-diagramjs-server</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-monitoring</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-themes-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-model-search</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-xio</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-layout-view</artifactId>
-    </dependency>
-	
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-basic</artifactId>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-core</artifactId>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-
-    <!-- The access coverage test (TestSecurityCoverage, ehome-testSettings.config.xml). -->
-    <dependency>
-      <groupId>com.top-logic</groupId>
-      <artifactId>tl-element</artifactId>
-      <type>test-jar</type>
-      <scope>test</scope>
-    </dependency>
-
-  </dependencies>
+  <profiles>
+    <profile>
+      <id>development</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <modules>
+        <module>ehome-virtual</module>
+      </modules>
+    </profile>
+    <profile>
+      <!-- The app without the development tooling. -->
+      <id>production</id>
+    </profile>
+  </profiles>
 
   <build>
     <plugins>
+      <!-- The aggregator has no sources; the modules check theirs against ../checkstyle.xml. -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>3.6.0</version>
         <configuration>
-          <configLocation>checkstyle.xml</configLocation>
-          <consoleOutput>true</consoleOutput>
-          <includeTestSourceDirectory>true</includeTestSourceDirectory>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>com.top-logic</groupId>
-        <artifactId>tl-maven-plugin</artifactId>
-        <!-- Not bound to the lifecycle: run "mvn tl:generate-java" after "mvn install" when the model changes. -->
-        <configuration>
-          <modules>ehome.core,ehome.operational</modules>
-          <languages>en,de</languages>
-          <copyrightHeader>Copyright (c) 2018 Bernhard Haumacher</copyrightHeader>
-        </configuration>
-      </plugin>
-      <plugin>
-        <groupId>com.top-logic</groupId>
-        <artifactId>tl-maven-plugin</artifactId>
-        <executions>
-          <execution>
-            <id>build-app</id>
-            <configuration>
-              <warName>${tl.contextPath}.war</warName>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <configuration>
-          <arguments combine.self="override">
-            <argument>-port</argument>
-            <argument>${tl.port}</argument>
-            <argument>-contextPath</argument>
-            <argument>${tl.contextPath}</argument>
-          </arguments>
-          <systemProperties>
-            <systemProperty>
-              <key>tl_operation_mode</key>
-              <value>development</value>
-            </systemProperty>
-          </systemProperties>
+          <skip>true</skip>
         </configuration>
       </plugin>
     </plugins>

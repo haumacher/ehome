@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The topology of a project: areas, their lines and the devices on a line; devices not placed in a
+	line yet follow the areas. A device changed since its last download is marked (DeviceChangeFunctions,
+	haumacher/ehome #15). The selected node is shown beside the tree; a device in the tabs of
+	projects/device-tabs.view.xml: its data, its configuration by the structure of its program, its
+	communication objects with the group addresses they are connected to, its changes against the state
+	of the last download or the defaults, and its programming.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="selected"/>
+		<derived-channel name="selectedNode"
+			expr="n -> if($n.instanceOf(`ehome.project:Project`), null, $n)"
+			inputs="selected"
+		/>
+		<derived-channel name="selectedArea"
+			expr="n -> if($n.instanceOf(`ehome.physical:Area`), $n, null)"
+			inputs="selected"
+		/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="240"
+				size="40"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Devices</en>
+						<de>Geräte</de>
+					</title>
+					<commands>
+						<generic-command
+							clique="new"
+							image="css:bi bi-diagram-3"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Area</en>
+								<de>Bereich</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.physical:Area"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="project"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-dash-lg"
+							input="selectedArea"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Line</en>
+								<de>Linie</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<create-transient type="ehome.physical:Line"/>
+							<open-dialog
+								bind-input-to="model"
+								dialog-view="create-node.view.xml"
+							>
+								<bind
+									channel="container"
+									to="selectedArea"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							input="selectedNode"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="n -> #('Delete {0}?'@en, '{0} löschen?'@de).fill($n.label())"/>
+							<delete-object/>
+							<write-channel name="selected"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-arrow-counterclockwise"
+							input="project"
+							observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Discard all changes of all devices since their last download</en>
+								<de>Alle Änderungen aller Geräte seit dem letzten Download verwerfen</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="p -> projectDiscardVeto($p)"/>
+							</executability>
+							<confirm expr="p -> projectDiscardConfirmation($p)"/>
+							<with-transaction>
+								<execute-script function="p -> projectDiscardChanges($p)"/>
+							</with-transaction>
+						</generic-command>
+					</commands>
+					<tree
+						observed-types="ehome.physical:Area,ehome.physical:Line,ehome.physical:Device"
+						selection="selected"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<root>p -> $p</root>
+						<children><![CDATA[p -> node -> switch {
+    $node.instanceOf(`ehome.project:Project`):
+        concat(
+            $node.get(`ehome.project:Project#areas`),
+            $node.get(`ehome.project:Project#unassignedDevices`));
+    $node.instanceOf(`ehome.physical:Area`):
+        $node.get(`ehome.physical:Area#lines`);
+    $node.instanceOf(`ehome.physical:Line`):
+        $node.get(`ehome.physical:Line#devices`);
+    default: [];
+}]]></children>
+						<parents>p -> node -> $node.container()</parents>
+						<!-- A device changed since its last download is marked (it changes with every change of its configuration). -->
+						<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
+							css-class="x -> if($x.instanceOf(`ehome.physical:Device`) and deviceChanged($x, $x), 'ehomeChanged', null)"
+						/>
+					</tree>
+				</panel>
+			</pane>
+			<pane
+				size="60"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Details</en>
+						<de>Details</de>
+					</title>
+					<switch input="selected">
+						<case test="n -> $n.instanceOf(`ehome.physical:Area`) or $n.instanceOf(`ehome.physical:Line`)">
+							<form
+								input="selected"
+								with-inset="true"
+							>
+								<field attribute="name"/>
+								<field attribute="address"/>
+								<field attribute="extId"/>
+							</form>
+						</case>
+						<case test="n -> $n.instanceOf(`ehome.physical:Device`)">
+							<!--
+								A device: its data, its configuration by the structure of its program, its
+								communication objects with their group addresses, and the values the project
+								changed.
+							-->
+							<view-ref view="projects/device-tabs.view.xml">
+								<bind
+									channel="project"
+									to="project"
+								/>
+								<bind
+									channel="selected"
+									to="selected"
+								/>
+							</view-ref>
+						</case>
+					</switch>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

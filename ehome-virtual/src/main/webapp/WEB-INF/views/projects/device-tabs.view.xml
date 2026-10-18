@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Development tooling (haumacher/ehome #27, #28): the tab "Virtual device" of a device of a project,
+	added to the device tabs of the app (projects/device-tabs.view.xml of the module de.haumacher.ehome)
+	by this same-path overlay. The view layer merges it onto the app's view, after the app's tabs. All
+	of the virtual device is in virtual/.
+-->
+<view>
+	<tab-bar>
+		<tabs>
+			<tab id="virtual"
+				icon="css:bi bi-pc-display"
+			>
+				<label>
+					<en>Virtual device</en>
+					<de>Virtuelles Gerät</de>
+				</label>
+				<view-ref view="virtual/virtual-device.view.xml">
+					<bind
+						channel="device"
+						to="device"
+					/>
+				</view-ref>
+			</tab>
+		</tabs>
+	</tab-bar>
+</view>

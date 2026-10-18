@@ -1,6 +1,6 @@
 # Waiting for TopLogic
 
-Gaps of the React UI (`src/main/webapp/WEB-INF/views/`) compared with the classic layouts, and
+Gaps of the React UI (`ehome/src/main/webapp/WEB-INF/views/`; paths below are relative to the app module `ehome/` unless they name `ehome-virtual/`) compared with the classic layouts, and
 workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha10) cannot close yet.
 Check each item when upgrading TopLogic (an upgrade happens only when the user asks for one). Every
 entry names its TL ticket and what to remove once the engine covers it; a gap whose workaround would
@@ -315,7 +315,7 @@ input offers no download (and an editable one no upload).
 Workaround: the download dialog of the `.knxproj` export (`projects/export-knxproj.view.xml`) names
 the control explicitly (`<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>`),
 as do the exports of a monitor recording (`projects/monitor-export.view.xml`) and of a trace of the
-virtual device (`virtual/export-trace.view.xml`).
+virtual device (`ehome-virtual/src/main/webapp/WEB-INF/views/virtual/export-trace.view.xml`).
 
 **When fixed:** remove the `<input-control>` from that `<value-input>`.
 
@@ -386,7 +386,7 @@ gone), the simulation of a project (haumacher/ehome #62) through
 simulation and writes the view's `refresh` channel on every change (a telegram, the clock running in
 real time, a rule acting).
 
-The virtual device (`virtual/virtual-device.view.xml`) has the same need: its status and the number of
+The virtual device (`ehome-virtual/src/main/webapp/WEB-INF/views/virtual/virtual-device.view.xml`) has the same need: its status and the number of
 services recorded change while a programming tool downloads into it. No workaround there: the view
 recomputes them when it is displayed and on its "Refresh" command, and its start and stop commands
 take a derived channel of the device and the last status as input, so that their executability is

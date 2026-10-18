@@ -1,0 +1,234 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.top-logic</groupId>
+    <artifactId>tl-parent-app</artifactId>
+    <version>8.0.0-alpha10</version>
+    <relativePath/>
+  </parent>
+  <artifactId>de.haumacher.ehome</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <properties>
+    <!-- The context path of the app: in development mode (exec:java) and the name of the deployable war (target/ehome.war). -->
+    <tl.contextPath>ehome</tl.contextPath>
+    <!--
+      The data of the development start (exec:java, run in this directory): the H2 database and the
+      application data stay in tmp/ of the repository root, where they were before the app became a
+      module of its own (haumacher/ehome #28). -Dehome.dataDir=<directory> starts on other data.
+    -->
+    <ehome.dataDir>${project.basedir}/../tmp</ehome.dataDir>
+  </properties>
+  <repositories>
+    <repository>
+      <id>tl-releases</id>
+      <url>https://dev.top-logic.com/nexus/repository/toplogic/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+    <repository>
+      <id>tl-snapshots</id>
+      <url>https://dev.top-logic.com/nexus/repository/toplogic-snapshots/</url>
+      <releases><enabled>false</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
+  </repositories>
+  <dependencies>
+
+		<dependency>
+			<groupId>com.github.calimero</groupId>
+			<artifactId>calimero-core</artifactId>
+			<version>2.6</version>
+		</dependency>
+
+		<!--
+			The KNXnet/IP server side of Calimero (with calimero-device, which it brings along), same version
+			and license (GPL 2.0 with Classpath Exception) as calimero-core: the virtual installation the
+			rules simulation runs on (package de.haumacher.ehome.virtual, haumacher/ehome #58), and the
+			programmable virtual device of the development tooling (module ehome-virtual, #27, #28).
+		-->
+		<dependency>
+			<groupId>com.github.calimero</groupId>
+			<artifactId>calimero-server</artifactId>
+			<version>2.6</version>
+			<exclusions>
+				<!-- TopLogic logs through log4j (log4j-slf4j2-impl is on the classpath). -->
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-simple</artifactId>
+				</exclusion>
+				<!-- Calimero logs through slf4j; this binding would redirect the JDK's platform logging of the whole application. -->
+				<exclusion>
+					<groupId>org.slf4j</groupId>
+					<artifactId>slf4j-jdk-platform-logging</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+
+		<!--
+			Reading the password-protected project part of an ETS 5/6 project file (P-xxxx.zip, AES or
+			traditional ZIP encryption, which the JDK cannot read; haumacher/ehome #32). License: Apache 2.0.
+		-->
+		<dependency>
+			<groupId>net.lingala.zip4j</groupId>
+			<artifactId>zip4j</artifactId>
+			<version>2.11.5</version>
+		</dependency>
+
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-contact</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-layout-scripting-template</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-layout-formeditor</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-graph-diagramjs-server</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-monitoring</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-themes-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-model-search</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-xio</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-layout-view</artifactId>
+    </dependency>
+	
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-basic</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-core</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- The access coverage test (TestSecurityCoverage, ehome-testSettings.config.xml). -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-element</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.6.0</version>
+        <configuration>
+          <configLocation>${project.basedir}/../checkstyle.xml</configLocation>
+          <consoleOutput>true</consoleOutput>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.top-logic</groupId>
+        <artifactId>tl-maven-plugin</artifactId>
+        <!-- Not bound to the lifecycle: run "mvn tl:generate-java" after "mvn install" when the model changes. -->
+        <configuration>
+          <modules>ehome.core,ehome.operational</modules>
+          <languages>en,de</languages>
+          <copyrightHeader>Copyright (c) 2018 Bernhard Haumacher</copyrightHeader>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.top-logic</groupId>
+        <artifactId>tl-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>build-app</id>
+            <configuration>
+              <warName>${tl.contextPath}.war</warName>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <configuration>
+          <arguments combine.self="override">
+            <argument>-port</argument>
+            <argument>${tl.port}</argument>
+            <argument>-contextPath</argument>
+            <argument>${tl.contextPath}</argument>
+          </arguments>
+          <systemProperties>
+            <systemProperty>
+              <key>tl_operation_mode</key>
+              <value>development</value>
+            </systemProperty>
+            <systemProperty>
+              <key>h2_name</key>
+              <value>${ehome.dataDir}/h2;DB_CLOSE_ON_EXIT=FALSE</value>
+            </systemProperty>
+            <systemProperty>
+              <key>tl_storage_path</key>
+              <value>${ehome.dataDir}/app-data</value>
+            </systemProperty>
+          </systemProperties>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!--
+      The development start includes the development tooling (module ehome-virtual, haumacher/ehome #28):
+      its classes and, through them, its web fragment (src/main/webapp of the module) are put on the
+      classpath of exec:java. The tooling depends on the app, so the app cannot depend on it; the
+      classpath of the start is the only place the app names it. Build it first (./mvnw install in the
+      repository root). Active unless another profile of this POM is chosen.
+    -->
+    <profile>
+      <id>development</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <configuration>
+              <additionalClasspathElements>
+                <additionalClasspathElement>${project.basedir}/../ehome-virtual/target/classes</additionalClasspathElement>
+              </additionalClasspathElements>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <!-- The app without the development tooling. -->
+      <id>production</id>
+    </profile>
+  </profiles>
+</project>

@@ -4,7 +4,7 @@
 Prints, as Markdown, every element path of the schema starting at <KNX> and, for each element,
 whether the import handles it, which model types it creates and which attributes it reads.
 
-Usage: schema-coverage.py KNXSchema.xsd src/main/java/de/haumacher/ehome/importer/etsImporter.xml
+Usage: schema-coverage.py KNXSchema.xsd ehome/src/main/java/de/haumacher/ehome/importer/etsImporter.xml
 
 Recursive schema types are expanded once. Import handlers are matched by the last two path
 segments (parent and element name), because the mapping reuses handlers (<ref handler-id>) at

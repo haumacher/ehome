@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+<!--
+	The development tooling of E-Home (haumacher/ehome #27, #28, #35): the programmable virtual device
+	(memory, properties, programming button, load state machines) behind a virtual KNXnet/IP interface,
+	and the recorder of what a programming tool (ETS) sends to it, with the views of the tab "Virtual
+	device" and their configuration. A TopLogic web fragment depending on the app; the app never depends
+	on it. The development start of the app includes it (profile "development" of ../ehome/pom.xml), a
+	production build (-Pproduction in the repository root) leaves it out.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>com.top-logic</groupId>
+    <artifactId>tl-parent-core</artifactId>
+    <version>8.0.0-alpha10</version>
+    <relativePath/>
+  </parent>
+  <artifactId>de.haumacher.ehome.virtual</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <repositories>
+    <repository>
+      <id>tl-releases</id>
+      <url>https://dev.top-logic.com/nexus/repository/toplogic/</url>
+      <releases><enabled>true</enabled></releases>
+      <snapshots><enabled>false</enabled></snapshots>
+    </repository>
+    <repository>
+      <id>tl-snapshots</id>
+      <url>https://dev.top-logic.com/nexus/repository/toplogic-snapshots/</url>
+      <releases><enabled>false</enabled></releases>
+      <snapshots><enabled>true</enabled></snapshots>
+    </repository>
+  </repositories>
+  <dependencies>
+
+    <!-- The app; the group ID is written out, the workspace resolver of TopLogic reads it from this file. -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>de.haumacher.ehome</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <!-- The test harness of the app (TestEtsImport, SharedData, MockDevice, LoopbackEndpoints) and its test settings. -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>de.haumacher.ehome</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-basic</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-core</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- The access coverage test the test settings of the app switch on. -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-element</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-checkstyle-plugin</artifactId>
+        <version>3.6.0</version>
+        <configuration>
+          <configLocation>${project.basedir}/../checkstyle.xml</configLocation>
+          <consoleOutput>true</consoleOutput>
+          <includeTestSourceDirectory>true</includeTestSourceDirectory>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

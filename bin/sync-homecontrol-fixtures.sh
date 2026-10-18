@@ -1,7 +1,7 @@
 #!/bin/sh
 # Copies the runtime image fixtures and the rule conformance corpus of HomeControl into the test
 # fixtures of E-Home and prints the HomeControl commit they come from (to be written into
-# src/test/fixtures/homecontrol/README.md). The DPT corpus has its own script, sync-dpt-corpus.sh.
+# ehome/src/test/fixtures/homecontrol/README.md). The DPT corpus has its own script, sync-dpt-corpus.sh.
 #
 # Usage: bin/sync-homecontrol-fixtures.sh <homecontrol checkout>
 set -e
@@ -12,7 +12,7 @@ if [ $# -ne 1 ]; then
 fi
 
 source="$1/spec/fixtures"
-target="$(dirname "$0")/../src/test/fixtures/homecontrol"
+target="$(dirname "$0")/../ehome/src/test/fixtures/homecontrol"
 
 for dir in images rules; do
 	if [ ! -d "$source/$dir" ]; then

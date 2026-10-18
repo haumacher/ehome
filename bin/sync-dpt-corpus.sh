@@ -1,6 +1,6 @@
 #!/bin/sh
 # Copies the DPT conformance corpus of HomeControl into the test fixtures of E-Home and prints the
-# HomeControl commit it comes from (to be written into src/test/fixtures/dpt-corpus/README.md).
+# HomeControl commit it comes from (to be written into ehome/src/test/fixtures/dpt-corpus/README.md).
 #
 # Usage: bin/sync-dpt-corpus.sh <homecontrol checkout>
 set -e
@@ -11,7 +11,7 @@ if [ $# -ne 1 ]; then
 fi
 
 source="$1/spec/fixtures/dpt"
-target="$(dirname "$0")/../src/test/fixtures/dpt-corpus"
+target="$(dirname "$0")/../ehome/src/test/fixtures/dpt-corpus"
 
 if [ ! -d "$source" ]; then
 	echo "No corpus in $source" >&2

@@ -48,7 +48,7 @@ Project → tab "Geräte" → a device → tab "Programmierung":
 2. Set the project's gateway to `192.168.178.81:3671`.
 3. On a device's tab "Programmierung" press "Mit dem Gerät vergleichen".
 
-Result of 2026-10-11 against the test system with `samples/EHomeDemo.knxproj` (the devices hold the
+Result of 2026-10-11 against the test system with `ehome/samples/EHomeDemo.knxproj` (the devices hold the
 configuration of another ETS project, so differences are expected):
 
 - Actuator 1.3.5 (MDT AKK-0416.03): mask 07 05, program version 00 83 00 0C 21 equal to the
@@ -60,7 +60,7 @@ configuration of another ETS project, so differences are expected):
   segments 41E5 38, 435C 4, 4369 3, 436F 115, 4439 1, 444E 50 differing bytes; 454E not compared
   (ETS does not load it).
 
-With the project the devices were programmed from (`samples/KNX-Testsystem.knxproj`), the
+With the project the devices were programmed from (`ehome/samples/KNX-Testsystem.knxproj`), the
 comparison must report every block identical (once the image rules found with that project, the
 type byte of the object table, are in the download image). That is the check before the first
 download: a difference there is a defect of the image, and the download must wait for its fix.
@@ -144,7 +144,7 @@ resource `ApplicationId`), as mask 0012 has no properties.
 
 **Not verified against a device.** There is no BCU 1 device on the test line, and the devices of the
 home installation must never be contacted. The tests (`TestBcuImage`, fixture
-`src/test/fixtures/TestBcu1.knxproj`, artificial programs) check the bytes computed by hand from
+`ehome/src/test/fixtures/TestBcu1.knxproj`, artificial programs) check the bytes computed by hand from
 the rules above and the executor against a mock. The first BCU 1 download needs a BCU 1 device on
 the test line (compare first; every block identical with the project ETS last programmed it from),
 or the ETS `LoadedImage` of such a device in a project the user exports. Open points it would
@@ -162,7 +162,7 @@ Start with the actuator 1.3.5: no stamps, no skipped step, the hardware type che
 3. Start an app with writing switched on, e.g.
    `./mvnw exec:java -Dtl.port=8081 -Dehome.programming.writeEnabled=true` (with its own data dir:
    environment `h2_name` and `tl_storage_path`).
-4. Import `samples/KNX-Testsystem.knxproj`; set the project's gateway to `192.168.178.81:3671`.
+4. Import `ehome/samples/KNX-Testsystem.knxproj`; set the project's gateway to `192.168.178.81:3671`.
 5. Actuator → "Programmierung" → "Mit dem Gerät vergleichen": every block identical.
 6. Read the plan; then "Herunterladen", confirm the dialog naming 1.3.5 and 192.168.178.81:3671.
    The download takes about 20-40 s. During it, the actuator does not switch.
@@ -227,7 +227,7 @@ Projects → a project → "Installation einlesen" (`projects/scan.view.xml`, pa
   toggle is the user's decision.
 
 Result of 2026-10-11 on the test system (gateway 192.168.178.81:3671, line 1.3, into an empty
-project on an own app instance with the catalog of `samples/KNX-Testsystem.knxproj`):
+project on an own app instance with the catalog of `ehome/samples/KNX-Testsystem.knxproj`):
 
 - 1.3.1 through local device management: EIBMARKT (M-006A), serial 00C5:0101BC95, order info
   N000402000, no application object, no readable hardware type; matched to "KNX / EIB IP Router

@@ -1,4 +1,8 @@
 /tmp/
 /tmp.bak-*/
 /target/
+/ehome/target/
+/ehome/tmp/
+/ehome-virtual/target/
+/ehome-virtual/tmp/
 /.playwright-mcp/
