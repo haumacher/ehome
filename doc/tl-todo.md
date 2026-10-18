@@ -489,6 +489,16 @@ line is a full sentence. No workaround.
 
 **When fixed:** nothing to change; the lines show as written.
 
+## Rule editor: no suggestions in a text field, no normalizing of input (TL #29887, #29888)
+
+The rule editor (haumacher/ehome #57) stores expressions as text. A text field cannot offer the
+project's datapoints while typing (TL #29887); workaround: a read-only "Datenpunkte" table beside the
+form lists them as `@"1/2/3"`. A form cannot store an entered expression in its canonical form
+(TL #29888); workaround: the text is stored as typed and canonicalized on export.
+
+**When available:** offer the datapoints as suggestions in the expression fields and drop the table;
+store expressions canonically on save (haumacher/ehome #60).
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -509,6 +519,7 @@ line is a full sentence. No workaround.
 - TL #29805: see above (mandatory `<value-input>`).
 - TL #29884, #29885: see above (access coverage of engine modules, hidden instead of disabled commands).
 - TL #29886: see above (line breaks in confirmations).
+- TL #29887, #29888: see above (suggestions and normalizing in text fields).
 - TL #29806: see above (singleton and generated wrappers; when available: dissolve `ehome.mask`).
 - TL #29807: see above (classifier constant names).
 - TL #29808: see above (apply on Enter only).
