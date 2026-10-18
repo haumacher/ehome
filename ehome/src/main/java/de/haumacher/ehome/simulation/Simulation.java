@@ -63,7 +63,10 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * telegrams), the outputs of schedule entries belong to the {@link Scheduler}, every other
  * datapoint is a value of the application that every command sets (it lives in the simulation
  * only). The datapoints of the time master belong to the {@link TimeMaster}, which broadcasts the
- * simulated time on their addresses; Zigbee datapoints refuse their commands.</li>
+ * simulated time on their addresses. The Zigbee datapoints belong to the {@link VirtualZigbee virtual
+ * Zigbee devices}: the user makes a device report a value ({@link #zigbeeReport(String, Val)}), a
+ * command to a function that takes one is reported back by the device after the cascade, a rule's
+ * read is answered with the device's value.</li>
  * <li>The {@link Engine} and the {@link Scheduler} run on a simulated clock: it starts at a given
  * instant and moves by {@link #advance(long)} (fast-forward: every timer and every schedule
  * firing on the way at its own time), {@link #step(long)} (to the next timer or firing) and, while it
@@ -76,8 +79,8 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * <li>The parameter overrides are those of the given {@link ParameterStore}, as a controller's
  * persisted ones at a boot.</li>
  * <li>Everything that happens is written to the {@link #timeline()}: telegrams received and sent,
- * the commands of the rules, the logs of the rules and the scheduler, parameter changes and the
- * problems of the binding.</li>
+ * the reports, button presses and commands of the Zigbee devices, the commands of the rules, the logs
+ * of the rules and the scheduler, parameter changes and the problems of the bindings.</li>
  * <li>The {@link #setListener(Runnable) listener} is told about every change: an entry of the
  * timeline, a telegram processed, the clock moved. It is called holding the simulation's lock and
  * must only take note.</li>
@@ -109,6 +112,18 @@ public final class Simulation implements AutoCloseable {
 		SENT("sent"),
 		/** A rule commanded a datapoint. */
 		COMMAND("command"),
+		/**
+		 * A Zigbee device reported the value of an attribute, also as the answer to a read (the
+		 * controller's monitor event <code>zigbee</code> <code>report</code>).
+		 */
+		ZIGBEE_REPORT("zigbee report"),
+		/**
+		 * A Zigbee device sent the command of a button: an <code>action</code> (the monitor event
+		 * <code>zigbee</code> <code>action</code>).
+		 */
+		ZIGBEE_ACTION("zigbee action"),
+		/** A command was sent to a Zigbee device (the monitor event <code>zigbee</code> <code>command</code>). */
+		ZIGBEE_COMMAND("zigbee command"),
 		/** A log entry of a rule (<code>spec/rules.md</code> 9.2). */
 		RULE("rule"),
 		/** A log line of the scheduler. */
@@ -157,6 +172,8 @@ public final class Simulation implements AutoCloseable {
 	private final DatapointModel _model;
 
 	private final KnxBinding _binding;
+
+	private final VirtualZigbee _zigbee;
 
 	private final Scheduler _scheduler;
 
@@ -258,6 +275,7 @@ public final class Simulation implements AutoCloseable {
 		_binding = new KnxBinding(_model, this::send, text -> problem("-", text));
 		// Not connected until connect(): the rules' reads are refused (readRefused) without a bus.
 		_binding.setConnected(false);
+		_zigbee = new VirtualZigbee(_model, this::add);
 		_scheduler = new Scheduler(new Scheduler.TimeSource() {
 			@Override
 			public Long nowUtc() {
@@ -333,8 +351,15 @@ public final class Simulation implements AutoCloseable {
 					_owners.put(id, "the KNX adapter, without a coding of " + mapping.dpt().code());
 					_model.add(id, type, writable, _notSimulated);
 				}
-			} else if (dp.containsKey("zigbee")) {
-				_model.add(id, type, writable, _notSimulated);
+			} else if (dp.get("zigbee") instanceof Map<?, ?>) {
+				VirtualZigbee.Point point = VirtualZigbee.point(id, dp);
+				if (point != null) {
+					_model.add(id, type, writable, _zigbee);
+					_zigbee.bind(point);
+				} else {
+					_owners.put(id, "the Zigbee adapter, without a function of the binding");
+					_model.add(id, type, writable, _notSimulated);
+				}
 			} else if (outputs.contains(id)) {
 				_model.add(id, type, writable, _scheduler);
 			} else {
@@ -490,6 +515,7 @@ public final class Simulation implements AutoCloseable {
 		add(Kind.CLOCK, "-", "started at " + timeText(_now));
 		_engine.start(StartReason.BOOT);
 		_binding.startReads();
+		_zigbee.startReports();
 		if (_timeMaster != null) {
 			_timeMaster.start(utc(), new TimeMaster.Output() {
 				@Override
@@ -767,9 +793,10 @@ public final class Simulation implements AutoCloseable {
 	}
 
 	private void settle() {
-		while (_engine.hasPending() || _binding.hasSent()) {
+		while (_engine.hasPending() || _binding.hasSent() || _zigbee.hasPending()) {
 			_engine.drain();
 			_binding.deliverSent();
+			_zigbee.deliver();
 		}
 		_engine.drain();
 	}
@@ -933,6 +960,32 @@ public final class Simulation implements AutoCloseable {
 	}
 
 	/**
+	 * The virtual Zigbee device of the datapoint reports the value (a reading, a state, a press of a
+	 * button as an <code>action</code>): coded and decoded as the device and the controller do
+	 * ({@link VirtualZigbee#normalize(String, Val)}), an update of the datapoint at the simulated time,
+	 * also for the value it has already. Before {@link #start()} the device only takes the value and
+	 * reports it when the controller reads it at the start.
+	 *
+	 * @return <code>null</code>, or why the value is refused (also written to the timeline).
+	 */
+	public synchronized String zigbeeReport(String datapoint, Val value) {
+		if (_closed) {
+			throw new IllegalStateException("The simulation does not run.");
+		}
+		String refusal = _zigbee.report(datapoint, value, _started);
+		if (refusal != null) {
+			VirtualZigbee.Point point = _zigbee.point(datapoint);
+			problem(point == null ? datapoint : point.source(),
+				"report " + Values.format(value) + " of '" + datapoint + "' refused: " + refusal);
+			return refusal;
+		}
+		if (_started) {
+			settle();
+		}
+		return null;
+	}
+
+	/**
 	 * Sets a parameter as the UI or the API of the controller does (<code>spec/rules.md</code> 8.2).
 	 */
 	public synchronized ParameterStatus setParameter(String rule, String parameter, Val value) {
@@ -966,6 +1019,13 @@ public final class Simulation implements AutoCloseable {
 	 */
 	public KnxBinding binding() {
 		return _binding;
+	}
+
+	/**
+	 * The virtual Zigbee devices (call it only holding the simulation's lock).
+	 */
+	public VirtualZigbee zigbee() {
+		return _zigbee;
 	}
 
 	/**

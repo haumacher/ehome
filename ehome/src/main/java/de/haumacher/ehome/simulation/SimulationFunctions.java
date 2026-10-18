@@ -226,6 +226,7 @@ public class SimulationFunctions extends GenericMethod {
 			result.put("rules", List.of());
 			result.put("parameters", List.of());
 			result.put("datapoints", List.of());
+			result.put("zigbee", List.of());
 			result.put("timeline", List.of());
 			return result;
 		}

@@ -84,7 +84,51 @@ its KNX devices: in the tree, in the tab "Zigbee devices" of the part, and selec
 "Go to the Zigbee device". The part reaches them through the backwards reference
 `ehome.building:BuildingDefinition#zigbeeDevices` (the inverse of `ZigbeeDevice#location`).
 
+## Simulation
+
+The rules simulation (`de.haumacher.ehome.simulation`, the project's tab "Simulation") makes every
+Zigbee function bound to a datapoint of the image a function of a **virtual Zigbee device**
+(`VirtualZigbee`), which behaves towards the rules as the controller's adapter sees a real device
+(homecontrol `doc/zigbee.md` "Datapoints", `core/src/zigbee/adapter.cpp`). Its state is held in
+memory only.
+
+- **Reports.** The tab "Zigbee devices" of the simulation lists one row per bound function (the
+  device's name and IEEE address, the endpoint, the function by `ZigbeeStatus.functionLabel`, the
+  datapoint, its value, the time of the last report). "Report from the device" (the same
+  `simulationSend` as "Send from the installation" for a KNX datapoint, which also works for a
+  Zigbee datapoint in the tab "Datapoints") makes the device report the value: an update of the
+  datapoint (origin report) at the simulated time, a timeline entry `zigbee report` (`zigbee
+  action` for a button), source `zigbee.<ieee>.<endpoint>`, like the monitor events `report` and
+  `action`. The value is coded as the device codes the attribute and decoded as the controller does
+  (a level in steps of 1/254, a temperature in hundredths, a battery in halves of a percent, ...)
+  and refused outside the range, with the reason in the timeline and the message: level, humidity
+  and battery 0..100 %, colour temperature 16..1000000 K, temperature -327.67..327.67 °C,
+  illuminance 0 lux up to the largest coded value, multistate 0..65535, action 0 off, 1 on, 2
+  toggle, 3 dim up, 4 dim down, 5 dim stop.
+- **Every press is an event.** Each report is an update of the datapoint, also with the value it
+  has already, as the controller reports every command a button sends. A rule's datapoint trigger
+  with `on: update` fires for each press; the default `on: change` only when the value changes
+  (homecontrol `spec/rules.md` 2.3) — on the controller exactly the same.
+- **Commands.** A command (a rule's write, the simulation's "Command") to a function with a command
+  cluster (`on_off`, `level`, `color_temperature` bound writable) is checked against the controller's
+  range, logged as `zigbee command` and reported back by the device after the cascade (a commanded
+  level of 33 % comes back as 33.1 %, the device's level 84 of 254). A datapoint that is not writable
+  is refused by the model (`not writable`); a writable one whose binding has no command cluster by
+  the device (`read-only`, as the controller says); both show as problems in the timeline.
+  Every function keeps a value of its own: switching a light does not change its level.
+- **Reads.** A rule's `read` (`spec/rules.md` 7.12) makes the device report its value after the
+  cascade (`zigbee report ... (read, <datapoint>)`); a device without a value yet leaves the
+  datapoint unknown and says so as a problem. An `action` or a `multistate` input refuses the read
+  (no attribute value), as the controller does.
+- **Start.** Every Zigbee datapoint is unknown at the start. The controller reads the server
+  functions but the multistate input at its start; the virtual devices keep their values from the
+  last simulation of the project (in memory, until the application stops, as real devices keep
+  their state while the controller restarts) and report them at the start. The first simulation of
+  a project starts with devices without values.
+- **Not simulated.** Functions bound to no datapoint are not in the image and so not in the
+  simulation; nor are joins, leaves, the stale rule, reporting intervals and the interplay of
+  functions of one device (a level command that switches the light on).
+
 ## Not done yet
 
-The device catalog and quirks, reporting overrides (they need a change of homecontrol's spec), a
-simulation of Zigbee devices.
+The device catalog and quirks, reporting overrides (they need a change of homecontrol's spec).

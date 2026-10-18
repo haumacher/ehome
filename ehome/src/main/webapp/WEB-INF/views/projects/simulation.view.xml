@@ -27,9 +27,17 @@
 	- Datapoints: the datapoints of the image with value, quality, time of the last update and binding.
 	"Send" lets a device of the installation send the value to the datapoint's group address (the device whose
 	object sends there, else an input device of the installation); "Command" commands the datapoint as a
-	controller's UI does.
-	- Timeline: what happened, newest first: telegrams received and sent, commands of the rules, logs of the
-	rules and the scheduler, parameter changes, the clock and the problems.
+	controller's UI does. For a Zigbee datapoint "Send" makes its virtual device report the value.
+	- Zigbee devices: the functions of the Zigbee devices bound to datapoints of the image (VirtualZigbee), one
+	row each with the device, the endpoint, the function, the datapoint, its value and the time of the last
+	report. "Report from the device" makes the virtual device report the value (simulationSend; for a button,
+	an "action", a press); "Command" commands the datapoint as the controller's UI does: a function with a
+	command cluster takes the value and reports it back, any other refuses it (read-only). The devices keep
+	their values for the next simulation of the project (in memory) and report them at its start. Functions
+	bound to no datapoint are not in the image and so not in the simulation.
+	- Timeline: what happened, newest first: telegrams received and sent, the Zigbee reports, presses and
+	commands, commands of the rules, logs of the rules and the scheduler, parameter changes, the clock and the
+	problems.
 	- Device behaviour: the object followers of the project (ehome.runtime:ObjectFollower): which object of a
 	device takes the values another object of the device receives (a channel's state following its switching
 	object), inverted for an object of one bit. The program data of a device does not say this, so the user
@@ -45,6 +53,8 @@
 		<channel name="parameterValue"/>
 		<channel name="selectedDatapoint"/>
 		<channel name="datapointValue"/>
+		<channel name="selectedZigbee"/>
+		<channel name="zigbeeValue"/>
 		<channel name="follower"/>
 		<derived-channel name="state"
 			expr="p -> r -> simulationState($p, $r)"
@@ -778,8 +788,192 @@
 															variant="caption"
 														>
 															<label>
-																<en>"Send from the installation": the device whose object sends to the address of the datapoint sends the value as a group telegram, as a push button or sensor would. "Command": the value is commanded as the UI of a controller does; a datapoint that transmits sends it to the bus.</en>
-																<de>„Aus der Installation senden“: Das Gerät, dessen Objekt an die Adresse des Datenpunkts sendet, sendet den Wert als Gruppentelegramm, wie es ein Taster oder Sensor täte. „Befehlen“: Der Wert wird befohlen, wie es die Oberfläche eines Controllers tut; ein Datenpunkt, der überträgt, sendet ihn auf den Bus.</de>
+																<en>"Send from the installation": the device whose object sends to the address of the datapoint sends the value as a group telegram, as a push button or sensor would; for a Zigbee datapoint its virtual device reports the value. "Command": the value is commanded as the UI of a controller does; a datapoint that transmits sends it to the bus or to its Zigbee device.</en>
+																<de>„Aus der Installation senden“: Das Gerät, dessen Objekt an die Adresse des Datenpunkts sendet, sendet den Wert als Gruppentelegramm, wie es ein Taster oder Sensor täte; bei einem Zigbee-Datenpunkt meldet sein virtuelles Gerät den Wert. „Befehlen“: Der Wert wird befohlen, wie es die Oberfläche eines Controllers tut; ein Datenpunkt, der überträgt, sendet ihn auf den Bus oder an sein Zigbee-Gerät.</de>
+															</label>
+														</text>
+													</stack>
+												</inset>
+											</panel>
+										</pane>
+									</panes>
+								</split-panel>
+							</tab>
+							<tab id="zigbee"
+								icon="css:bi bi-broadcast"
+							>
+								<label>
+									<en>Zigbee devices</en>
+									<de>Zigbee-Geräte</de>
+								</label>
+								<split-panel
+									orientation="horizontal"
+									resizable="true"
+								>
+									<panes>
+										<pane
+											min-size="300"
+											size="65"
+											unit="%"
+										>
+											<table
+												filter-bar="true"
+												selection="selectedZigbee"
+											>
+												<inputs>
+													<input channel="state"/>
+												</inputs>
+												<columns>
+													<computed-column name="device"
+														type="tl.core:String"
+														width="220"
+													>
+														<label>
+															<en>Device</en>
+															<de>Gerät</de>
+														</label>
+														<value>r -> $r['device']</value>
+													</computed-column>
+													<computed-column name="endpoint"
+														type="tl.core:Integer"
+														width="90"
+													>
+														<label>
+															<en>Endpoint</en>
+															<de>Endpunkt</de>
+														</label>
+														<value>r -> $r['endpoint']</value>
+													</computed-column>
+													<computed-column name="function"
+														type="tl.core:String"
+														width="140"
+													>
+														<label>
+															<en>Function</en>
+															<de>Funktion</de>
+														</label>
+														<value>r -> $r['function']</value>
+													</computed-column>
+													<computed-column name="id"
+														type="tl.core:String"
+														width="160"
+													>
+														<label>
+															<en>Datapoint</en>
+															<de>Datenpunkt</de>
+														</label>
+														<value>r -> $r['id']</value>
+													</computed-column>
+													<computed-column name="value"
+														type="tl.core:String"
+														width="120"
+													>
+														<label>
+															<en>Value</en>
+															<de>Wert</de>
+														</label>
+														<value>r -> $r['value']</value>
+													</computed-column>
+													<computed-column name="reported"
+														type="tl.core:String"
+														width="220"
+													>
+														<label>
+															<en>Last report</en>
+															<de>Letzte Meldung</de>
+														</label>
+														<value>r -> $r['reported']</value>
+													</computed-column>
+												</columns>
+												<rows>s -> $s['zigbee']</rows>
+											</table>
+										</pane>
+										<pane
+											min-size="240"
+											size="35"
+											unit="%"
+										>
+											<panel>
+												<title>
+													<en>Operate the device</en>
+													<de>Gerät bedienen</de>
+												</title>
+												<inset>
+													<stack gap="default">
+														<fields max-columns="1">
+															<value-input
+																type="tl.core:String"
+																value="zigbeeValue"
+															>
+																<label>
+																	<en>Value (a literal: true, 21.5; for a button 0 off, 1 on, 2 toggle, 3 dim up, 4 dim down, 5 dim stop)</en>
+																	<de>Wert (ein Literal: true, 21.5; für einen Taster 0 aus, 1 ein, 2 umschalten, 3 heller, 4 dunkler, 5 Dimmen stopp)</de>
+																</label>
+															</value-input>
+														</fields>
+														<stack
+															direction="row"
+															gap="compact"
+															wrap="true"
+														>
+															<button>
+																<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																	image="css:bi bi-broadcast"
+																	input="state"
+																>
+																	<label>
+																		<en>Report from the device</en>
+																		<de>Vom Gerät melden</de>
+																	</label>
+																	<executability>
+																		<model-access
+																			object="project"
+																			operation="Write"
+																		/>
+																		<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																	</executability>
+																	<execute-script function="d -> v -> s -> simulationSend($s['project'], $d, $v)">
+																		<inputs>
+																			<input channel="selectedZigbee"/>
+																			<input channel="zigbeeValue"/>
+																		</inputs>
+																	</execute-script>
+																	<write-channel name="refresh"/>
+																</action>
+															</button>
+															<button>
+																<action class="com.top_logic.layout.view.command.GenericViewCommand"
+																	image="css:bi bi-pencil"
+																	input="state"
+																>
+																	<label>
+																		<en>Command</en>
+																		<de>Befehlen</de>
+																	</label>
+																	<executability>
+																		<model-access
+																			object="project"
+																			operation="Write"
+																		/>
+																		<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																	</executability>
+																	<execute-script function="d -> v -> s -> simulationCommand($s['project'], $d, $v)">
+																		<inputs>
+																			<input channel="selectedZigbee"/>
+																			<input channel="zigbeeValue"/>
+																		</inputs>
+																	</execute-script>
+																	<write-channel name="refresh"/>
+																</action>
+															</button>
+														</stack>
+														<text
+															tone="helper"
+															variant="caption"
+														>
+															<label>
+																<en>"Report from the device": the virtual device reports the value, as the real one reports a reading or a state; for a button (Action) it is a press, and every press is an update of the datapoint, also with the value it has already. The value is refused outside the range of the function (a level 0..100 %, a battery 0..100 %, a colour temperature 16..1000000 K). "Command": the value is commanded as the UI of a controller does; a light (switch, level, colour temperature) takes it and reports it back, any other function refuses it as read-only. The timeline shows the reports, presses and commands. The devices keep their values for the next simulation of the project and report them at its start.</en>
+																<de>„Vom Gerät melden“: Das virtuelle Gerät meldet den Wert, wie das echte einen Messwert oder Zustand meldet; bei einem Taster (Aktion) ist es ein Tastendruck, und jeder Druck ist eine Aktualisierung des Datenpunkts, auch mit dem Wert, den er schon hat. Ein Wert außerhalb des Bereichs der Funktion wird abgelehnt (Helligkeit 0..100 %, Batterie 0..100 %, Farbtemperatur 16..1000000 K). „Befehlen“: Der Wert wird befohlen, wie es die Oberfläche eines Controllers tut; eine Leuchte (Schalten, Helligkeit, Farbtemperatur) übernimmt ihn und meldet ihn zurück, jede andere Funktion lehnt ihn als nur lesbar ab. Die Zeitleiste zeigt die Meldungen, Tastendrücke und Befehle. Die Geräte behalten ihre Werte für die nächste Simulation des Projekts und melden sie bei deren Start.</de>
 															</label>
 														</text>
 													</stack>

@@ -60,6 +60,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_INVALID_VALUE__TEXT_DATAPOINT_DETAIL;
 
 	/**
+	 * @en The Zigbee device of the datapoint {1} cannot report "{0}": {2}.
+	 */
+	public static ResKey3 ERROR_ZIGBEE_REPORT_REFUSED__TEXT_DATAPOINT_REASON;
+
+	/**
 	 * @en "{0}" is no value of the parameter {1}. Enter a literal of its type, e.g. true, 21.5, 3min or 06:30.
 	 */
 	public static ResKey2 ERROR_INVALID_PARAMETER_VALUE__TEXT_PARAMETER;

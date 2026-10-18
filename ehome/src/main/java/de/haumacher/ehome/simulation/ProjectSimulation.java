@@ -10,6 +10,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,7 @@ import de.haumacher.ehome.rules.RuleText.SyntaxError;
 import de.haumacher.ehome.rules.Type;
 import de.haumacher.ehome.rules.Val;
 import de.haumacher.ehome.rules.Values;
+import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.simulation.KnxValues.CodingException;
@@ -43,6 +45,9 @@ import de.haumacher.ehome.virtual.device.GroupObject;
 import de.haumacher.ehome.virtual.device.ProjectGroupDevices;
 import de.haumacher.ehome.virtual.server.Endpoint;
 import de.haumacher.ehome.virtual.server.VirtualInstallation;
+import de.haumacher.ehome.zigbee.ZigbeeBindings;
+import de.haumacher.ehome.zigbee.ZigbeeImport;
+import de.haumacher.ehome.zigbee.ZigbeeStatus;
 
 /**
  * The simulation of a project: its runtime image run by a {@link Simulation} against a
@@ -54,6 +59,13 @@ import de.haumacher.ehome.virtual.server.VirtualInstallation;
  * monitor of the project with that gateway shows its traffic). Beside the devices of the project it
  * holds an input device ({@link #INPUT_ADDRESS}) that sends a value to an address no device of the
  * project sends to ({@link #send(String, String)}).
+ * </p>
+ *
+ * <p>
+ * The Zigbee devices of the image are virtual devices of the simulation ({@link VirtualZigbee}):
+ * {@link #send(String, String)} makes the device of a Zigbee datapoint report the value. They keep
+ * their values from one simulation of the project to the next (in memory, as real devices keep their
+ * state while the controller restarts) and report them when the controller reads them at the start.
  * </p>
  */
 public final class ProjectSimulation implements AutoCloseable {
@@ -82,12 +94,45 @@ public final class ProjectSimulation implements AutoCloseable {
 
 	private final GroupDevice _input = new GroupDevice("E-Home input", INPUT_ADDRESS);
 
+	/** The function of the project's Zigbee device each Zigbee datapoint of the image is bound to. */
+	private final Map<String, TLObject> _zigbeeFunctions;
+
 	private ProjectSimulation(TLObject project, VirtualInstallation installation, Simulation simulation,
 			ParameterStore store) {
 		_project = project;
 		_installation = installation;
 		_simulation = simulation;
 		_store = store;
+		_zigbeeFunctions = zigbeeFunctions(project);
+	}
+
+	private static Map<String, TLObject> zigbeeFunctions(TLObject project) {
+		Map<String, TLObject> result = new LinkedHashMap<>();
+		for (TLObject device : ZigbeeImport.devices(project)) {
+			if (!(device.tValueByName("functions") instanceof Collection<?> functions)) {
+				continue;
+			}
+			for (Object function : functions) {
+				if (function instanceof TLObject f) {
+					for (TLObject datapoint : ZigbeeBindings.boundDatapoints(f)) {
+						String id = ApplicationDatapoints.id(datapoint);
+						if (id != null) {
+							result.put(id, f);
+						}
+					}
+				}
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Starts the simulation of the project, its virtual Zigbee devices without values.
+	 *
+	 * @see #start(TLObject, long, File, Map)
+	 */
+	public static ProjectSimulation start(TLObject project, long startUtc, File workDir) {
+		return start(project, startUtc, workDir, Map.of());
 	}
 
 	/**
@@ -97,11 +142,15 @@ public final class ProjectSimulation implements AutoCloseable {
 	 *        The instant the simulated clock starts at, in seconds since the epoch.
 	 * @param workDir
 	 *        The directory for the files of the KNXnet/IP server.
+	 * @param zigbeeValues
+	 *        The values the virtual Zigbee devices hold at the start, by datapoint (those of the last
+	 *        simulation of the project, {@link #zigbeeValues()}); reported when the controller reads
+	 *        them at the start.
 	 * @throws TopLogicException
 	 *         If the image of the project is not valid, its rules or schedules are refused, or the
 	 *         installation cannot be started.
 	 */
-	public static ProjectSimulation start(TLObject project, long startUtc, File workDir) {
+	public static ProjectSimulation start(TLObject project, long startUtc, File workDir, Map<String, Val> zigbeeValues) {
 		RuntimeImage image = RuntimeImage.build(project, 1, Instant.ofEpochSecond(startUtc));
 		ImageReport report = image.validate();
 		if (!report.isValid()) {
@@ -124,6 +173,11 @@ public final class ProjectSimulation implements AutoCloseable {
 			simulation.setLanguage(Resources.getInstance().getLocale().getLanguage());
 			for (String problem : problems) {
 				simulation.reportProblem("-", problem);
+			}
+			for (Map.Entry<String, Val> entry : zigbeeValues.entrySet()) {
+				if (simulation.zigbee().point(entry.getKey()) != null) {
+					simulation.zigbeeReport(entry.getKey(), entry.getValue());
+				}
 			}
 			simulation.connect(CalimeroBusLink.open(new InetSocketAddress(installation.endpoint().address(),
 				installation.endpoint().port())));
@@ -231,12 +285,21 @@ public final class ProjectSimulation implements AutoCloseable {
 
 	/**
 	 * A device of the installation sends the value to the address of the datapoint: the device whose
-	 * object sends to the address, else the input device.
+	 * object sends to the address, else the input device. For a Zigbee datapoint its virtual device
+	 * reports the value (a press of a button for an <code>action</code>).
 	 *
 	 * @param value
 	 *        A literal of the datapoint's type (<code>true</code>, <code>21.5</code>).
 	 */
 	public void send(String datapoint, String value) {
+		if (_simulation.zigbee().point(datapoint) != null) {
+			String refusal = _simulation.zigbeeReport(datapoint, datapointValue(datapoint, value));
+			if (refusal != null) {
+				throw new TopLogicException(I18NConstants.ERROR_ZIGBEE_REPORT_REFUSED__TEXT_DATAPOINT_REASON.fill(value,
+					datapoint, refusal));
+			}
+			return;
+		}
 		KnxBinding.Mapping mapping = _simulation.binding().mapping(datapoint);
 		if (mapping == null || mapping.addresses().isEmpty()) {
 			throw new TopLogicException(I18NConstants.ERROR_NOT_ON_BUS__DATAPOINT.fill(datapoint));
@@ -324,6 +387,15 @@ public final class ProjectSimulation implements AutoCloseable {
 	}
 
 	/**
+	 * The values the virtual Zigbee devices hold, by datapoint.
+	 */
+	public Map<String, Val> zigbeeValues() {
+		synchronized (_simulation) {
+			return _simulation.zigbee().deviceValues();
+		}
+	}
+
+	/**
 	 * Writes the overrides the simulation holds to the project.
 	 */
 	public void saveOverrides() {
@@ -365,9 +437,9 @@ public final class ProjectSimulation implements AutoCloseable {
 	 * What the view shows of the simulation: <code>time</code>, <code>next</code>, <code>speed</code>
 	 * (of the clock running by itself, 0 while it does not), <code>endpoint</code>,
 	 * <code>devices</code>, the rows <code>rules</code>, <code>parameters</code>,
-	 * <code>datapoints</code> and <code>timeline</code> (newest first). A row is a {@link MonitorRow}
-	 * standing for its rule, parameter, datapoint or entry, so that a table keeps its selection across
-	 * updates.
+	 * <code>datapoints</code>, <code>zigbee</code> (the functions of the virtual Zigbee devices) and
+	 * <code>timeline</code> (newest first). A row is a {@link MonitorRow} standing for its rule,
+	 * parameter, datapoint or entry, so that a table keeps its selection across updates.
 	 */
 	public Map<String, Object> snapshot() {
 		Map<String, Object> result = new LinkedHashMap<>();
@@ -382,6 +454,7 @@ public final class ProjectSimulation implements AutoCloseable {
 			result.put("rules", rules(s));
 			result.put("parameters", parameters(s));
 			result.put("datapoints", datapoints(s));
+			result.put("zigbee", zigbee(s));
 			List<Object> timeline = new ArrayList<>();
 			long number = s.dropped();
 			for (Simulation.Entry entry : s.timeline()) {
@@ -493,6 +566,29 @@ public final class ProjectSimulation implements AutoCloseable {
 			row.put("binding", binding);
 			row.put("writable", Boolean.valueOf(dp.writable()));
 			row.put("bus", Boolean.valueOf(mapping != null && !mapping.addresses().isEmpty()));
+			result.add(row);
+		}
+		return result;
+	}
+
+	private List<Object> zigbee(Simulation s) {
+		List<Object> result = new ArrayList<>();
+		VirtualZigbee devices = s.zigbee();
+		for (VirtualZigbee.Point point : devices.points()) {
+			Datapoint dp = s.model().get(point.datapoint());
+			TLObject function = _zigbeeFunctions.get(point.datapoint());
+			boolean known = function != null && function.tValid();
+			Object name = known ? ZigbeeBindings.device(function).tValueByName("name") : null;
+			Map<String, Object> row = new MonitorRow(point.datapoint());
+			row.put("id", point.datapoint());
+			row.put("device", name == null ? point.ieee() : name + " (" + point.ieee() + ")");
+			row.put("endpoint", Integer.valueOf(point.endpoint()));
+			row.put("function", known ? ZigbeeStatus.functionLabel(function) : ZigbeeStatus.functionLabel(point.function()));
+			String value = dp.quality() == Quality.UNKNOWN ? "" : Values.format(dp.value());
+			row.put("value", point.action() && dp.quality() != Quality.UNKNOWN ? VirtualZigbee.actionText(dp.value()) : value);
+			Long reported = devices.reported(point.datapoint());
+			row.put("reported", reported == null ? "" : s.timeText(reported.longValue()));
+			row.put("commandable", Boolean.valueOf(point.commandable()));
 			result.add(row);
 		}
 		return result;

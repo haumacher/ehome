@@ -20,10 +20,14 @@ import com.top_logic.dob.identifier.ObjectKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.rules.Val;
+
 /**
  * The running simulations of the application: at most one per project, shared by everybody who
  * looks at the project, all stopped when the application shuts down. A simulation is transient:
- * only its parameter overrides are kept with the project ({@link Overrides}).
+ * only its parameter overrides are kept with the project ({@link Overrides}). The values of its
+ * virtual Zigbee devices are kept in memory until the application stops: the next simulation of the
+ * project starts with them, as real devices keep their state while the controller restarts.
  *
  * <p>
  * Whoever shows a simulation registers a listener for its project
@@ -56,6 +60,9 @@ public class Simulations extends ConfiguredManagedClass<Simulations.Config> {
 	private final Map<ObjectKey, ProjectSimulation> _running = new HashMap<>();
 
 	private final Map<ObjectKey, List<Runnable>> _listeners = new HashMap<>();
+
+	/** The values of the virtual Zigbee devices of the last simulation of each project. */
+	private final Map<ObjectKey, Map<String, Val>> _zigbeeValues = new HashMap<>();
 
 	private File _directory;
 
@@ -107,7 +114,11 @@ public class Simulations extends ConfiguredManagedClass<Simulations.Config> {
 			}
 		}
 		File workDir = new File(_directory, "server-" + project.tId().getObjectName());
-		ProjectSimulation result = ProjectSimulation.start(project, startUtc, workDir);
+		Map<String, Val> zigbeeValues;
+		synchronized (this) {
+			zigbeeValues = _zigbeeValues.getOrDefault(project.tId(), Map.of());
+		}
+		ProjectSimulation result = ProjectSimulation.start(project, startUtc, workDir, zigbeeValues);
 		synchronized (this) {
 			if (_running.putIfAbsent(project.tId(), result) != null) {
 				result.close();
@@ -165,6 +176,11 @@ public class Simulations extends ConfiguredManagedClass<Simulations.Config> {
 		}
 		if (stopped == null) {
 			throw new TopLogicException(I18NConstants.ERROR_NOT_RUNNING);
+		}
+		// Outside the lock of the service: the simulation tells its listener (fire) holding its own.
+		Map<String, Val> zigbeeValues = stopped.zigbeeValues();
+		synchronized (this) {
+			_zigbeeValues.put(project.tId(), zigbeeValues);
 		}
 		try {
 			stopped.saveOverrides();
