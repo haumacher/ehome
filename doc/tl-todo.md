@@ -577,3 +577,12 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29880 to #29882: see above (XML import: unknown elements, a second container, multi-value cases).
 - TL #29883: see above (an unset boolean on stored and transient objects).
 - TL #29889 to #29891: see above (import performance: set additions, type lookups, defaults, reads, deletion).
+
+## The generator rewrites the header of hand-written wrappers (TL #29897)
+
+`tl:generate-java` (8.0.0-alpha10) regenerates `internal/*Base.java` and `*Factory.java` as
+documented, but after the model change of haumacher/ehome #40 it also replaced the copyright
+header of the hand-written `MaskConfigurationImpl.java`, which the generator creates once and is
+not supposed to touch again. Workaround: after every generation run, `git diff --stat` and revert
+hand-written wrappers that show only a header change (`git checkout -- <file>`). Remove this entry
+once the ticket has shipped.
