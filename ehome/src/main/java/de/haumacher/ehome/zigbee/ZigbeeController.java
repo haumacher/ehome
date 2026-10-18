@@ -5,17 +5,23 @@ package de.haumacher.ehome.zigbee;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.Deployer;
@@ -76,28 +82,91 @@ public final class ZigbeeController {
 	/**
 	 * Reads the Zigbee devices of the project's controller (all pages of
 	 * <code>GET /api/zigbee/export</code>) and imports them into the project, in a transaction of its
-	 * own.
+	 * own; the network facts of the export are stored on the controller ({@link #storeNetwork}).
 	 *
 	 * @return The sentence saying what was imported, followed by the notes of the import.
 	 */
 	public static String read(TLObject project) {
 		TLObject controller = controller(project);
 		ZigbeeExport.Export export = ZigbeeExport.read(fetch(controller));
+		String result;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			ZigbeeImport.Result result = ZigbeeImport.importExport(project, export);
+			result = ZigbeeImport.importExport(project, export).summary();
+			storeNetwork(controller, export, false);
 			tx.commit();
-			return result.summary();
+		}
+		ZigbeeLive.imported(ControllerConnections.controllerId(controller), export, false);
+		return result;
+	}
+
+	/**
+	 * Stores the network of the export and the time of the read on the controller; must run in a
+	 * transaction. Only what changes is written.
+	 *
+	 * @param live
+	 *        Whether the read followed the controller's events ({@link ZigbeeLive}), not a user's request.
+	 */
+	public static void storeNetwork(TLObject controller, ZigbeeExport.Export export, boolean live) {
+		ZigbeeExport.Network network = export.network();
+		set(controller, "zigbeeNetworkUp", network == null ? null : network.up());
+		set(controller, "zigbeePanId", network == null ? null : network.panId());
+		set(controller, "zigbeeChannel", network == null ? null : network.channel());
+		set(controller, "zigbeeExtendedPanId", network == null ? null : network.extendedPanId());
+		set(controller, "zigbeePermitJoin", network == null ? null : network.permitJoinSeconds());
+		Date exported = export.exported() != null ? new Date(export.exported().longValue() * 1000) : new Date();
+		set(controller, "zigbeeExported", exported);
+		set(controller, "zigbeeReadLive", Boolean.valueOf(live));
+	}
+
+	private static void set(TLObject obj, String attribute, Object value) {
+		Object before = obj.tValueByName(attribute);
+		Object a = before instanceof Number number ? Long.valueOf(number.longValue()) : before;
+		Object b = value instanceof Number number ? Long.valueOf(number.longValue()) : value;
+		if (!Objects.equals(a, b)) {
+			obj.tUpdateByName(attribute, value);
 		}
 	}
 
 	/**
+	 * The projects deploying to the controller (whose <code>controller</code> it is), in no particular
+	 * order.
+	 */
+	public static List<TLObject> projects(TLObject controller) {
+		List<TLObject> result = new ArrayList<>();
+		TLClass type = (TLClass) TLModelUtil.findType("ehome.project:Project");
+		for (TLObject project : MetaElementUtil.getAllInstancesOf(type, TLObject.class)) {
+			if (project.tValid() && project.tValueByName("controller") == controller) {
+				result.add(project);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The address a controller reached over its E-Home connection is shown with.
+	 */
+	public static String connectionLabel() {
+		return Resources.getInstance().getString(de.haumacher.ehome.runtime.I18NConstants.ADDRESS_CONNECTION);
+	}
+
+	/**
 	 * The pages of the controller's export joined into one export, as the controller's Zigbee page
-	 * downloads it: <code>format</code>, <code>version</code>, <code>controller</code>,
-	 * <code>exported</code> and <code>network</code> of the first page, the devices of all.
+	 * downloads it, see {@link #fetch(String, ControllerClient)}.
 	 */
 	public static Map<String, Object> fetch(TLObject controller) {
-		String name = String.valueOf(controller.tValueByName("name"));
-		ControllerClient client = Deployer.client(controller);
+		return fetch(String.valueOf(controller.tValueByName("name")), Deployer.client(controller));
+	}
+
+	/**
+	 * The pages of the export of the controller of the given name, read through the client, joined
+	 * into one export as the controller's Zigbee page downloads it: <code>format</code>,
+	 * <code>version</code>, <code>controller</code>, <code>exported</code> and <code>network</code> of
+	 * the first page, the devices of all.
+	 *
+	 * @throws TopLogicException
+	 *         If the controller cannot be reached or refuses, with the reason.
+	 */
+	public static Map<String, Object> fetch(String name, ControllerClient client) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		List<Object> devices = new ArrayList<>();
 		int from = 0;

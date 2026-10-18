@@ -120,6 +120,176 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey ERROR_BIND_OTHER_PROJECT;
 
+	/**
+	 * @en The Zigbee devices could not be imported: {0}
+	 */
+	public static ResKey1 ERROR_LIVE_IMPORT__DETAIL;
+
+	/**
+	 * @en Network: no controller chosen for the project.
+	 */
+	public static ResKey NETWORK_NO_CONTROLLER;
+
+	/**
+	 * @en Network: not read yet.
+	 */
+	public static ResKey NETWORK_UNKNOWN;
+
+	/**
+	 * @en Network: not formed.
+	 */
+	public static ResKey NETWORK_DOWN;
+
+	/**
+	 * @en Network: PAN {0}, channel {1}, joining open for {2} s more
+	 */
+	public static ResKey3 NETWORK_OPEN__PAN_CHANNEL_SECONDS;
+
+	/**
+	 * @en Network: PAN {0}, channel {1}, joining closed
+	 */
+	public static ResKey2 NETWORK_CLOSED__PAN_CHANNEL;
+
+	/**
+	 * @en Last read: {0} (on request)
+	 */
+	public static ResKey1 READ_ON_REQUEST__TIME;
+
+	/**
+	 * @en Last read: {0} (live from the controller)
+	 */
+	public static ResKey1 READ_LIVE__TIME;
+
+	/**
+	 * @en The live import from {0} failed at {1}: {2}
+	 */
+	public static ResKey3 LIVE_IMPORT_FAILED__CONTROLLER_TIME_REASON;
+
+	/**
+	 * @en Interviewing
+	 */
+	public static ResKey DEVICE_INTERVIEWING;
+
+	/**
+	 * @en Interview failed
+	 */
+	public static ResKey DEVICE_INTERVIEW_FAILED;
+
+	/**
+	 * @en Left the network
+	 */
+	public static ResKey DEVICE_LEFT;
+
+	/**
+	 * @en Paired
+	 */
+	public static ResKey DEVICE_PAIRED;
+
+	/**
+	 * @en Not interviewed
+	 */
+	public static ResKey DEVICE_NOT_INTERVIEWED;
+
+	/**
+	 * @en On/Off
+	 */
+	public static ResKey FUNCTION_ON_OFF;
+
+	/**
+	 * @en Brightness
+	 */
+	public static ResKey FUNCTION_LEVEL;
+
+	/**
+	 * @en Color temperature
+	 */
+	public static ResKey FUNCTION_COLOR_TEMPERATURE;
+
+	/**
+	 * @en Temperature
+	 */
+	public static ResKey FUNCTION_TEMPERATURE;
+
+	/**
+	 * @en Humidity
+	 */
+	public static ResKey FUNCTION_HUMIDITY;
+
+	/**
+	 * @en Illuminance
+	 */
+	public static ResKey FUNCTION_ILLUMINANCE;
+
+	/**
+	 * @en Occupancy
+	 */
+	public static ResKey FUNCTION_OCCUPANCY;
+
+	/**
+	 * @en Alarm zone
+	 */
+	public static ResKey FUNCTION_IAS_ZONE;
+
+	/**
+	 * @en Contact
+	 */
+	public static ResKey FUNCTION_CONTACT;
+
+	/**
+	 * @en Motion
+	 */
+	public static ResKey FUNCTION_MOTION;
+
+	/**
+	 * @en Smoke
+	 */
+	public static ResKey FUNCTION_SMOKE;
+
+	/**
+	 * @en Water
+	 */
+	public static ResKey FUNCTION_WATER;
+
+	/**
+	 * @en Alarm
+	 */
+	public static ResKey FUNCTION_ALARM;
+
+	/**
+	 * @en Battery
+	 */
+	public static ResKey FUNCTION_BATTERY;
+
+	/**
+	 * @en Multistate
+	 */
+	public static ResKey FUNCTION_MULTISTATE;
+
+	/**
+	 * @en Action
+	 */
+	public static ResKey FUNCTION_ACTION;
+
+	/**
+	 * @en No function of the device is absent from the last export.
+	 */
+	public static ResKey VETO_NOTHING_ABSENT;
+
+	/**
+	 * @en {0} removed, {1} kept: {2}
+	 */
+	public static ResKey3 ABSENT_REMOVED__REMOVED_KEPT_DETAILS;
+
+	/**
+	 * @en {0} removed.
+	 */
+	public static ResKey1 ABSENT_REMOVED__REMOVED;
+
+	/**
+	 * @en {0} is bound to {1}
+	 */
+	public static ResKey2 ABSENT_KEPT__FUNCTION_DATAPOINTS;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

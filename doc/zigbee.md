@@ -1,0 +1,90 @@
+# Zigbee devices
+
+The HomeControl controller is the Zigbee coordinator: it pairs and interviews the devices in the
+field and keeps their database (keys, addresses). E-Home stores what the controller's export carries
+(homecontrol `spec/zigbee.md`, "Export") and what the installer adds: a name, the room, and the
+bindings of the devices' functions to datapoints of the project, which the runtime image carries as
+the datapoints' `zigbee` member. Package `de.haumacher.ehome.zigbee`, model
+`WEB-INF/model/ehome.zigbee.model.xml`, view `WEB-INF/views/projects/zigbee.view.xml` (tab "Zigbee"
+of a project).
+
+## Getting the devices in (round one, haumacher/ehome #40)
+
+All ways run the same import (`ZigbeeImport`), idempotent by the IEEE address: a device, its
+endpoints and functions are updated in place; the user's name, room and bindings survive. A function
+the export no longer lists is removed, unless a datapoint is bound to it: then it stays, marked
+`absent`. A device the export no longer lists stays (it may belong to another controller).
+
+- **Import Zigbee devices**: the file the controller's Zigbee page downloads.
+- **Read Zigbee devices**: the same export read from the project's controller, all pages of
+  `GET /api/zigbee/export?from=n` (over the E-Home connection when the controller is connected,
+  else over HTTP with host and token; `ZigbeeController`).
+- **Open network for pairing** / **Close network**: `POST /api/zigbee/permit` (254 s / 0).
+
+## Live import (round two, haumacher/ehome #64)
+
+While a controller is connected to E-Home (`doc/controllers.md`), its `zigbee` messages
+(homecontrol `spec/api.md`, "WebSocket /ws") reach `ZigbeeLive`, a listener of the controller
+connections registered at startup (`ZigbeeLiveRegistration` in `WEB-INF/web.xml`):
+
+- `joined`, `interviewed`, `interview_failed`, `left`, `removed`, `changed`, `network` schedule a
+  read of the export and the same import as "Read" into every project whose `controller` the
+  controller is; the network facts are stored with it (below). The reads of a controller are
+  debounced: the first runs 300 ms after the event, the next no earlier than 2 s after the start of
+  the previous one, and every event until then is part of it; an event during a read asks for one
+  more afterwards.
+- `permit` updates only the live state (the countdown).
+- Events of a controller no project deploys to are ignored (logged at debug level).
+- A failure (the controller refuses, the export cannot be read, the commit fails) is logged with the
+  controller's name and the reason and shown in the tab until the next successful read; the devices
+  stay as they were.
+
+Threads: the socket thread only updates the live state and schedules. The read runs on the single
+thread of `ZigbeeLive` (a request blocks until the socket thread delivers the response, so it must
+not run there; on the connections' writer thread it would stall the last-contact updates of every
+controller). The import, a write of the knowledge base, runs on the connections' writer thread
+(`ControllerConnections.executeAndWait`), the one thread writing what the connections learn.
+
+A controller that connects is not read on its own: the first event reads it, or "Read Zigbee devices".
+
+## What the tab shows
+
+- Above the device table: the network of the project's controller ("Network: PAN 0x1234, channel 15,
+  joining open for 83 s more" / "joining closed" / "not formed" / "not read yet"), when the devices
+  were last read and whether live or on request, and in red why the last live import failed.
+- The column "Status": what the events tell (Interviewing after `joined`/`interviewing`, Interview
+  failed, Left the network; `interviewed` and `removed` clear it, `changed` clears a leave), else
+  whether the last export said the interview finished (Paired, Not interviewed).
+- The functions by their names in the user's language (`ZigbeeStatus.functionLabel`, also in the
+  function's `displayName`): on_off, level, color_temperature, temperature, humidity, illuminance,
+  occupancy, battery, multistate, action; an IAS zone by the datapoint its zone type gives (contact,
+  motion, smoke, water, alarm). A key E-Home does not know (a newer controller's) shows as it is;
+  the import never refuses it.
+- **Remove absent functions** deletes the selected device's absent functions no datapoint is bound
+  to and names the bound ones it keeps; it is disabled, with the reason, when nothing is absent.
+
+Stored and held: the network facts of the last read are attributes of the controller
+(`ehome.runtime:Controller#zigbeeNetworkUp`, `zigbeePanId`, `zigbeeChannel`, `zigbeeExtendedPanId`,
+`zigbeePermitJoin`, `zigbeeExported` — the export's time, `zigbeeReadLive`); a file import does not
+touch them. The live state (the last `permit` with its arrival time, the devices' states, the last
+read, the failure) is held in memory per controller, like its online state, and cleared at a
+disconnect; the countdown is computed when it is shown.
+
+The tab updates by itself: `<zigbee-updates>` (`ZigbeeUpdatesElement`, built on
+`view.ProjectUpdatesElement` like the simulation's `<simulation-updates>`) writes the channel
+`refresh` on every change of the live state, at most once a second, and once a second while the
+network is open for joining; the texts and the device table are computed again from it, after a
+refetch of the knowledge base (the import commits on another thread). The view layer has no
+declared way for this (TL #29814, `doc/tl-todo.md`, `view.WindowUpdates`).
+
+## Rooms
+
+The buildings view (`projects/buildings.view.xml`) lists the Zigbee devices placed in a part after
+its KNX devices: in the tree, in the tab "Zigbee devices" of the part, and selected with a form and
+"Go to the Zigbee device". The part reaches them through the backwards reference
+`ehome.building:BuildingDefinition#zigbeeDevices` (the inverse of `ZigbeeDevice#location`).
+
+## Not done yet
+
+The device catalog and quirks, reporting overrides (they need a change of homecontrol's spec), a
+simulation of Zigbee devices.

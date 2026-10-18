@@ -100,6 +100,14 @@
 		<listener-class>de.haumacher.ehome.connection.ControllerSocketRegistration</listener-class>
 	</listener>
 
+	<!--
+		The Zigbee devices of the projects follow their connected controllers (haumacher/ehome #64):
+		the controllers' zigbee events re-read the export (de.haumacher.ehome.zigbee.ZigbeeLive).
+	-->
+	<listener>
+		<listener-class>de.haumacher.ehome.zigbee.ZigbeeLiveRegistration</listener-class>
+	</listener>
+
 <!-- ======================================================================= -->
 <!--  Custom servlet definitions                                             -->
 <!-- ======================================================================= -->

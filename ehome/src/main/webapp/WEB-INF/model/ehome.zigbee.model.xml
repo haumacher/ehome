@@ -218,7 +218,7 @@
 					multiple="true"
 					type="ehome.runtime:ApplicationDatapoint"
 				/>
-				<!-- The label the function is listed with: the device's name, the function and the endpoint. -->
+				<!-- The label the function is listed with: the device's name, the function's name in the user's language (its key if E-Home does not know it) and the endpoint. -->
 				<property name="displayName"
 					type="tl.core:String"
 				>
@@ -227,7 +227,7 @@
 							<query>
 								<expr><![CDATA[f -> "{0} {1} ({2})".fill(
     $f.container().get(`ehome.zigbee:ZigbeeDevice#name`),
-    $f.get(`ehome.zigbee:ZigbeeFunction#function`),
+    zigbeeFunctionLabel($f),
     $f.get(`ehome.zigbee:ZigbeeFunction#endpoint`))]]></expr>
 							</query>
 						</storage-algorithm>

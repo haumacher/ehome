@@ -225,10 +225,11 @@ public final class ControllerClient {
 	/**
 	 * <code>GET /api/zigbee/export?from=n</code>: a page of the Zigbee devices with their interview
 	 * results and functions (homecontrol <code>spec/zigbee.md</code>, "Export"); <code>next</code> is
-	 * the <code>from</code> of the next page or <code>null</code>.
+	 * the <code>from</code> of the next page or <code>null</code>. The first page is asked for with
+	 * <code>from=0</code> as well, so every page's request names its position.
 	 */
 	public Answer zigbeeExport(int from) throws IOException {
-		return call("GET", "/api/zigbee/export", from == 0 ? null : "from=" + from, null, null);
+		return call("GET", "/api/zigbee/export", "from=" + from, null, null);
 	}
 
 	/**

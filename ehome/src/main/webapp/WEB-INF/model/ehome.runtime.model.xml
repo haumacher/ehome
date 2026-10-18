@@ -131,6 +131,76 @@
 						<visibility value="read-only"/>
 					</annotations>
 				</reference>
+				<!--
+					The Zigbee network of the controller as its last export read by E-Home said (haumacher/ehome
+					#64, de.haumacher.ehome.zigbee.ZigbeeController#storeNetwork): stored at every read, on
+					request or live after the controller's events; a file import does not touch them.
+				-->
+				<!-- Whether the controller's Zigbee network was formed. -->
+				<property name="zigbeeNetworkUp"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!-- The PAN ID of the network. -->
+				<property name="zigbeePanId"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The radio channel of the network (11..26). -->
+				<property name="zigbeeChannel"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The extended PAN ID of the network, 16 hex digits. -->
+				<property name="zigbeeExtendedPanId"
+					type="tl.core:String"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!-- For how many seconds after the export the network accepted joining devices (0: closed). -->
+				<property name="zigbeePermitJoin"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- When the controller exported its devices last read by E-Home (the time of the read if the export does not say). -->
+				<property name="zigbeeExported"
+					type="tl.core:DateTime"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!-- Whether the last read followed the controller's events, not a user's request. -->
+				<property name="zigbeeReadLive"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!-- One attempt to deploy the runtime image of a project to a controller, with its outcome. -->

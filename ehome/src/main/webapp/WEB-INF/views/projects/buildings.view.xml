@@ -16,6 +16,12 @@
 	(BuildingFunctions), hence the tree, the tables and the channels reading them observe the
 	devices: a device placed in the device view appears here, and the other way round, without
 	reloading.
+
+	The Zigbee devices placed in a part (ehome.zigbee:ZigbeeDevice#location, haumacher/ehome #64) appear
+	the same way, after the KNX devices: in the tree under the part, in the tab "Zigbee devices" of the
+	part (the backwards reference BuildingDefinition#zigbeeDevices) and, selected, with a form of their
+	own and the way to them in the Zigbee tab ("Go to the Zigbee device"). They are placed in the
+	Zigbee tab.
 -->
 <view>
 	<channels>
@@ -25,7 +31,7 @@
 		<derived-channel name="node"
 			expr="n -> existingObject($n)"
 			inputs="selected"
-			observed-types="ehome.building:BuildingDefinition,ehome.physical:Device"
+			observed-types="ehome.building:BuildingDefinition,ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
 		/>
 		<!--
 			Where the devices of the project are placed; an input of the tree, which is built anew when
@@ -34,19 +40,36 @@
 			nowhere before) is no such object (engine gap, see doc/tl-todo.md).
 		-->
 		<derived-channel name="placements"
-			expr="p -> groupAddressDevices($p).map(d -> $d.get(`ehome.physical:Device#location`))"
+			expr="p -> concat(groupAddressDevices($p).map(d -> $d.get(`ehome.physical:Device#location`)), $p.get(`ehome.project:Project#zigbeeDevices`).map(d -> $d.get(`ehome.zigbee:ZigbeeDevice#location`)))"
 			inputs="project"
-			observed-types="ehome.physical:Device"
+			observed-types="ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
 		/>
 		<derived-channel name="selectedPart"
 			expr="n -> if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, null)"
 			inputs="node"
 		/>
-		<!-- The selected part, or the part the selected device is placed in. -->
+		<!-- The selected part, or the part the selected (KNX or Zigbee) device is placed in. -->
 		<derived-channel name="part"
-			expr="n -> if($n.instanceOf(`ehome.physical:Device`), $n.get(`ehome.physical:Device#location`), if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, null))"
 			inputs="node"
-			observed-types="ehome.physical:Device"
+			observed-types="ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
+		>
+			<expr><![CDATA[n -> switch {
+    $n.instanceOf(`ehome.physical:Device`): $n.get(`ehome.physical:Device#location`);
+    $n.instanceOf(`ehome.zigbee:ZigbeeDevice`): $n.get(`ehome.zigbee:ZigbeeDevice#location`);
+    $n.instanceOf(`ehome.building:BuildingDefinition`): $n;
+    default: null;
+}]]></expr>
+		</derived-channel>
+		<!-- The selected Zigbee device node. -->
+		<derived-channel name="zigbeeDevice"
+			expr="n -> if($n.instanceOf(`ehome.zigbee:ZigbeeDevice`), $n, null)"
+			inputs="node"
+		/>
+		<!-- Where the selected Zigbee device node is placed, as the path of its building part. -->
+		<derived-channel name="zigbeeLocationPath"
+			expr="n -> if($n.instanceOf(`ehome.zigbee:ZigbeeDevice`), buildingPath($n.get(`ehome.zigbee:ZigbeeDevice#location`)), null)"
+			inputs="node"
+			observed-types="ehome.zigbee:ZigbeeDevice,ehome.building:BuildingDefinition"
 		/>
 		<derived-channel name="partPath"
 			expr="p -> buildingPath($p)"
@@ -431,9 +454,35 @@
 								</show>
 							</show-views>
 						</generic-command>
+						<generic-command
+							image="css:bi bi-box-arrow-up-right"
+							input="zigbeeDevice"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Go to the Zigbee device</en>
+								<de>Zum Zigbee-Gerät</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<show-views>
+								<show view="projects/project.view.xml"
+									label-expr="d -> $d.container().get(`ehome.project:Project#name`)"
+								>
+									<bind
+										channel="project"
+										expr="d -> $d.container()"
+									/>
+								</show>
+								<show view="projects/zigbee.view.xml">
+									<bind channel="device"/>
+								</show>
+							</show-views>
+						</generic-command>
 					</commands>
 					<tree
-						observed-types="ehome.building:BuildingDefinition,ehome.physical:Device"
+						observed-types="ehome.building:BuildingDefinition,ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
 						selection="selected"
 					>
 						<inputs>
@@ -447,10 +496,15 @@
     $node.instanceOf(`ehome.building:BuildingDefinition`):
         concat(
             $node.get(`ehome.building:BuildingDefinition#parts`),
-            buildingDevices($node));
+            buildingDevices($node),
+            $node.get(`ehome.building:BuildingDefinition#zigbeeDevices`).sort(a -> b -> compare($a.get(`ehome.zigbee:ZigbeeDevice#name`), $b.get(`ehome.zigbee:ZigbeeDevice#name`))));
     default: [];
 }]]></children>
-						<parents>p -> m -> node -> if($node.instanceOf(`ehome.physical:Device`), $node.get(`ehome.physical:Device#location`), $node.container())</parents>
+						<parents><![CDATA[p -> m -> node -> switch {
+    $node.instanceOf(`ehome.physical:Device`): $node.get(`ehome.physical:Device#location`);
+    $node.instanceOf(`ehome.zigbee:ZigbeeDevice`): $node.get(`ehome.zigbee:ZigbeeDevice#location`);
+    default: $node.container();
+}]]></parents>
 						<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
 							label="x -> if($x.instanceOf(`ehome.physical:Device`), deviceLabel($x), null)"
 						/>
@@ -530,6 +584,29 @@
 											</form>
 										</stack>
 									</case>
+									<case test="n -> $n.instanceOf(`ehome.zigbee:ZigbeeDevice`)">
+										<!-- A placed Zigbee device; it is named, placed and bound in the Zigbee tab ("Go to the Zigbee device"). -->
+										<form
+											input="node"
+											with-inset="true"
+											withEditMode="false"
+										>
+											<field attribute="name"/>
+											<value-input
+												readonly="true"
+												type="tl.core:String"
+												value="zigbeeLocationPath"
+											>
+												<label>
+													<en>Location</en>
+													<de>Standort</de>
+												</label>
+											</value-input>
+											<field attribute="manufacturer"/>
+											<field attribute="model"/>
+											<field attribute="ieee"/>
+										</form>
+									</case>
 								</switch>
 							</panel>
 						</pane>
@@ -578,6 +655,37 @@
 													/>
 												</columns>
 												<rows>p -> if($p == null, [], buildingDevices($p))</rows>
+											</table>
+										</tab>
+										<tab id="zigbeeDevices"
+											icon="css:bi bi-broadcast-pin"
+										>
+											<label>
+												<en>Zigbee devices</en>
+												<de>Zigbee-Geräte</de>
+											</label>
+											<table
+												observed-types="ehome.zigbee:ZigbeeDevice"
+												types="ehome.zigbee:ZigbeeDevice"
+											>
+												<inputs>
+													<input channel="part"/>
+												</inputs>
+												<columns>
+													<column attribute="name"
+														width="240"
+													/>
+													<column attribute="manufacturer"
+														width="160"
+													/>
+													<column attribute="model"
+														width="160"
+													/>
+													<column attribute="ieee"
+														width="160"
+													/>
+												</columns>
+												<rows>p -> if($p == null, [], $p.get(`ehome.building:BuildingDefinition#zigbeeDevices`).sort(a -> b -> compare($a.get(`ehome.zigbee:ZigbeeDevice#name`), $b.get(`ehome.zigbee:ZigbeeDevice#name`))))</rows>
 											</table>
 										</tab>
 										<tab id="addresses"

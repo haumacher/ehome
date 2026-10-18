@@ -41,10 +41,35 @@ public final class ZigbeeExport {
 	 *
 	 * @param controller
 	 *        The name of the controller that exported it, <code>null</code> if not given.
+	 * @param exported
+	 *        When it was exported, in seconds since the epoch; <code>null</code> if not given (a
+	 *        controller without a synchronized clock).
+	 * @param network
+	 *        The controller's Zigbee network at the time of the export, <code>null</code> if not given.
 	 * @param devices
 	 *        Its devices.
 	 */
-	public record Export(String controller, List<Device> devices) {
+	public record Export(String controller, Long exported, Network network, List<Device> devices) {
+		// A record.
+	}
+
+	/**
+	 * The Zigbee network of the controller at the time of an export (<code>network</code>). Each
+	 * member is <code>null</code> when the export does not give it.
+	 *
+	 * @param up
+	 *        Whether the network is formed.
+	 * @param panId
+	 *        The PAN ID (16 bits).
+	 * @param channel
+	 *        The radio channel (11..26).
+	 * @param extendedPanId
+	 *        The extended PAN ID, 16 hex digits.
+	 * @param permitJoinSeconds
+	 *        For how many seconds after the export the network accepts joining devices (0: closed).
+	 */
+	public record Network(Boolean up, Integer panId, Integer channel, String extendedPanId,
+			Integer permitJoinSeconds) {
 		// A record.
 	}
 
@@ -148,7 +173,21 @@ public final class ZigbeeExport {
 			devices.add(device(list.get(i)));
 			leave();
 		}
-		return new Export(controller, devices);
+		Long exported = map.get("exported") instanceof Long seconds && seconds.longValue() > 0 ? seconds : null;
+		return new Export(controller, exported, network(map.get("network")), devices);
+	}
+
+	/**
+	 * The network of the export; members of another type than the specification's are taken as not
+	 * given, since the import does not need them.
+	 */
+	private static Network network(Object item) {
+		if (!(item instanceof Map<?, ?> network)) {
+			return null;
+		}
+		return new Network(network.get("up") instanceof Boolean up ? up : null, optionalInteger(network, "pan_id"),
+			optionalInteger(network, "channel"), text(network, "extended_pan_id"),
+			optionalInteger(network, "permit_join_s"));
 	}
 
 	private Device device(Object item) {

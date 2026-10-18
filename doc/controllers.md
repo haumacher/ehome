@@ -86,8 +86,9 @@ when it changes), `datapoints`, `zigbee` and `monitor` messages. They go to
   `#datapoints()`),
 - the group monitor: a project whose controller is connected monitors through the socket
   (`monitor.SocketBusLink`, the same events as over the controller's own `/ws`),
-- the listeners of `ControllerConnections` (the hook for Zigbee events; nothing re-imports the
-  Zigbee devices automatically yet).
+- the listeners of `ControllerConnections`: `zigbee.ZigbeeLive` re-reads the controller's Zigbee
+  export after the events that change the device list and imports it into the projects deploying
+  to the controller, debounced, and keeps the live state the Zigbee tab shows (`doc/zigbee.md`).
 
 E-Home's requests to the controller's API go over the socket as
 `{"type": "request", "id": n, "method": ..., "path": ..., "body": ...}` and come back as
@@ -117,7 +118,8 @@ authentication reads the knowledge base on that thread (in a system interaction,
 Every write of the connection to the knowledge base (the last contact, the firmware) goes to one
 thread of `ControllerConnections`, so a socket thread never waits for a commit; forgetting a
 controller deletes it on that thread too, after the writes queued before. A request blocks its caller
-(the thread of a view command) until the response arrives. A watchdog thread refuses sockets that do
+(the thread of a view command, or the Zigbee live import's own thread) until the response arrives.
+A watchdog thread refuses sockets that do
 not authenticate in time; the container closes a socket idle for 90 s (the controller pings every
 30 s).
 

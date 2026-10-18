@@ -18,13 +18,45 @@
 	"Unbind" keeps the datapoint as a value of the application. The datapoints themselves are edited
 	with the application datapoints (application-datapoints.view.xml, the rules' tab); whether the
 	bindings are valid is checked with the image (Deployment tab).
+
+	Live (haumacher/ehome #64, ZigbeeLive): while the project's controller is connected to E-Home, its
+	zigbee events (a device joined, interviewed, failed, left, removed, changed, the network changed)
+	read the export again, debounced, with the same import as "Read Zigbee devices". Above the table,
+	the network of the controller (PAN ID, channel, joining open with the seconds left, or closed),
+	when the devices were last read (live or on request) and, in red, why the last live import failed.
+	The column "Status" shows what the events tell of each device (interviewing, interview failed, left
+	the network), else whether its interview finished. <zigbee-updates> (ZigbeeUpdatesElement) writes
+	"refresh" on every change of the live state, at most once a second, and once a second while the
+	network is open for joining; the texts and the table are computed again from it.
+	"Remove absent functions" deletes the functions of the selected device the controller no longer
+	exports that no datapoint is bound to and names the bound ones it keeps.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="device"/>
 		<channel name="function"/>
+		<channel name="refresh"/>
+		<derived-channel name="networkState"
+			expr="p -> r -> if($p == null, null, zigbeeNetworkState($p, $r))"
+			inputs="project, refresh"
+			observed-types="ehome.runtime:Controller,ehome.project:Project"
+		/>
+		<derived-channel name="readState"
+			expr="p -> r -> if($p == null, null, zigbeeReadState($p, $r))"
+			inputs="project, refresh"
+			observed-types="ehome.runtime:Controller,ehome.project:Project"
+		/>
+		<derived-channel name="liveProblem"
+			expr="p -> r -> if($p == null, null, zigbeeLiveProblem($p, $r))"
+			inputs="project, refresh"
+			observed-types="ehome.runtime:Controller,ehome.project:Project"
+		/>
 	</channels>
+	<zigbee-updates
+		project="project"
+		refresh="refresh"
+	>
 	<split-panel
 		orientation="horizontal"
 		resizable="true"
@@ -129,6 +161,28 @@
 							/>
 						</generic-command>
 						<generic-command
+							image="css:bi bi-eraser"
+							input="device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Remove absent functions</en>
+								<de>Fehlende Funktionen entfernen</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="d -> zigbeeRemoveAbsentVeto($d)"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="d -> zigbeeRemoveAbsent($d)"/>
+							</with-transaction>
+							<notify
+								expr="t -> $t"
+								kind="info"
+							/>
+						</generic-command>
+						<generic-command
 							image="css:bi bi-trash"
 							input="device"
 							placement="TOOLBAR"
@@ -145,23 +199,47 @@
 							<write-channel name="device"/>
 						</generic-command>
 					</commands>
-					<table
-						observed-types="ehome.zigbee:ZigbeeDevice,ehome.project:Project"
-						selection="device"
-						types="ehome.zigbee:ZigbeeDevice"
-					>
-						<inputs>
-							<input channel="project"/>
-						</inputs>
-						<columns>
-							<column attribute="name"/>
-							<column attribute="location"/>
-							<column attribute="manufacturer"/>
-							<column attribute="model"/>
-							<column attribute="ieee"/>
-						</columns>
-						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#zigbeeDevices`))</rows>
-					</table>
+					<stack>
+						<inset>
+							<text input="networkState"/>
+							<text
+								input="readState"
+								tone="helper"
+								variant="caption"
+							/>
+							<text
+								input="liveProblem"
+								tone="error"
+							/>
+						</inset>
+						<table
+							observed-types="ehome.zigbee:ZigbeeDevice,ehome.project:Project"
+							selection="device"
+							types="ehome.zigbee:ZigbeeDevice"
+						>
+							<inputs>
+								<input channel="project"/>
+								<input channel="refresh"/>
+							</inputs>
+							<columns>
+								<column attribute="name"/>
+								<computed-column name="state"
+									type="tl.core:String"
+								>
+									<label>
+										<en>Status</en>
+										<de>Status</de>
+									</label>
+									<value>d -> zigbeeDeviceState($d)</value>
+								</computed-column>
+								<column attribute="location"/>
+								<column attribute="manufacturer"/>
+								<column attribute="model"/>
+								<column attribute="ieee"/>
+							</columns>
+							<rows>p -> r -> if($p == null, [], $p.get(`ehome.project:Project#zigbeeDevices`))</rows>
+						</table>
+					</stack>
 				</panel>
 			</pane>
 			<pane
@@ -297,7 +375,15 @@
 													<input channel="device"/>
 												</inputs>
 												<columns>
-													<column attribute="function"/>
+													<computed-column name="label"
+														type="tl.core:String"
+													>
+														<label>
+															<en>Function</en>
+															<de>Funktion</de>
+														</label>
+														<value>f -> zigbeeFunctionLabel($f)</value>
+													</computed-column>
 													<column attribute="endpoint"/>
 													<column attribute="valueType"/>
 													<column attribute="unit"/>
@@ -306,6 +392,12 @@
 													<column attribute="cluster"/>
 													<column attribute="attribute"/>
 													<column attribute="absent"/>
+													<column attribute="function">
+														<label>
+															<en>Key</en>
+															<de>Schlüssel</de>
+														</label>
+													</column>
 												</columns>
 												<rows>d -> if($d == null, [], $d.get(`ehome.zigbee:ZigbeeDevice#functions`))</rows>
 											</table>
@@ -344,4 +436,5 @@
 			</pane>
 		</panes>
 	</split-panel>
+	</zigbee-updates>
 </view>

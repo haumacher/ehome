@@ -92,6 +92,8 @@ public class FakeController {
 
 	private int _zigbeePage;
 
+	private int _zigbeeRefusal;
+
 	private Integer _permitSeconds;
 
 	/**
@@ -198,6 +200,14 @@ public class FakeController {
 	}
 
 	/**
+	 * Answers every <code>GET /api/zigbee/export</code> with the given status and an error body until
+	 * called with 0.
+	 */
+	public synchronized void refuseZigbeeExport(int status) {
+		_zigbeeRefusal = status;
+	}
+
+	/**
 	 * The time the network was last opened for (0: closed), <code>null</code> if it never was.
 	 */
 	public synchronized Integer getPermitSeconds() {
@@ -210,6 +220,14 @@ public class FakeController {
 			return;
 		}
 		if (!authorized(exchange) || !coordinator(exchange)) {
+			return;
+		}
+		int refusal;
+		synchronized (this) {
+			refusal = _zigbeeRefusal;
+		}
+		if (refusal != 0) {
+			answer(exchange, refusal, error("the coordinator is busy", "zigbee.busy"));
 			return;
 		}
 		String query = exchange.getRequestURI().getQuery();

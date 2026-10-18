@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.zigbee;
 
+import java.time.Instant;
 import java.util.List;
 
 import com.top_logic.basic.config.ConfigurationException;
@@ -72,7 +73,44 @@ public class ZigbeeFunctions extends GenericMethod {
 		 * <code>zigbeeFunctionOptions(datapoint)</code>: the functions an application datapoint may be
 		 * bound to, the options of its field.
 		 */
-		zigbeeFunctionOptions(1, true);
+		zigbeeFunctionOptions(1, true),
+		/**
+		 * <code>zigbeeFunctionLabel(function)</code>: the name of the function in the user's language
+		 * ({@link ZigbeeStatus#functionLabel(TLObject)}); an unknown key as it is.
+		 */
+		zigbeeFunctionLabel(1, true),
+		/**
+		 * <code>zigbeeDeviceState(device)</code>: the state of the device, live from the controller's
+		 * events or as the last export said ({@link ZigbeeStatus#deviceState(TLObject)}).
+		 */
+		zigbeeDeviceState(1, true),
+		/**
+		 * <code>zigbeeNetworkState(project, refresh)</code>: the network of the project's controller
+		 * with the permit countdown ({@link ZigbeeStatus#networkState(TLObject, java.time.Instant)});
+		 * the second argument only makes the caller compute it again.
+		 */
+		zigbeeNetworkState(2, true),
+		/**
+		 * <code>zigbeeReadState(project, refresh)</code>: when the devices were last read, live or on
+		 * request ({@link ZigbeeStatus#readState(TLObject)}); <code>null</code> before the first read.
+		 */
+		zigbeeReadState(2, true),
+		/**
+		 * <code>zigbeeLiveProblem(project, refresh)</code>: why the last live import failed
+		 * ({@link ZigbeeStatus#liveProblem(TLObject)}); <code>null</code> if it did not.
+		 */
+		zigbeeLiveProblem(2, true),
+		/**
+		 * <code>zigbeeRemoveAbsent(device)</code>: deletes the absent functions of the device no
+		 * datapoint is bound to ({@link ZigbeeStatus#removeAbsent(TLObject)}); the sentence saying what
+		 * was removed and kept.
+		 */
+		zigbeeRemoveAbsent(1, false),
+		/**
+		 * <code>zigbeeRemoveAbsentVeto(device)</code>: why the device has no absent function to remove,
+		 * as text; <code>null</code> if it has.
+		 */
+		zigbeeRemoveAbsentVeto(1, true);
 
 		private final int _arity;
 
@@ -143,6 +181,20 @@ public class ZigbeeFunctions extends GenericMethod {
 				return text(ZigbeeBindings.unbindVeto(obj));
 			case zigbeeCandidates:
 				return ZigbeeBindings.candidates(obj);
+			case zigbeeFunctionLabel:
+				return ZigbeeStatus.functionLabel(obj);
+			case zigbeeDeviceState:
+				return ZigbeeStatus.deviceState(obj);
+			case zigbeeNetworkState:
+				return ZigbeeStatus.networkState(obj, Instant.now());
+			case zigbeeReadState:
+				return ZigbeeStatus.readState(obj);
+			case zigbeeLiveProblem:
+				return ZigbeeStatus.liveProblem(obj);
+			case zigbeeRemoveAbsent:
+				return ZigbeeStatus.removeAbsent(obj);
+			case zigbeeRemoveAbsentVeto:
+				return text(ZigbeeStatus.removeAbsentVeto(obj));
 			default:
 				return null;
 		}
