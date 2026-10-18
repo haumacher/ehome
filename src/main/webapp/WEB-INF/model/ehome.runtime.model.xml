@@ -70,6 +70,13 @@
 				<instance-presentation icon="css:bi bi-cloud-upload"/>
 			</annotations>
 			<attributes>
+				<!--
+					Whether the entry records an unload (DELETE /api/image, haumacher/ehome #47) instead of a
+					deployment; its revision is the one the controller ran.
+				-->
+				<property name="unload"
+					type="tl.core:Boolean"
+				/>
 				<!-- The revision the image carried (image.revision). -->
 				<property name="revision"
 					type="tl.core:Long"
@@ -92,7 +99,7 @@
 				<property name="target"
 					type="tl.core:String"
 				/>
-				<!-- Whether the controller accepted and loaded the image. -->
+				<!-- Whether the controller accepted and loaded the image; for an unload, whether it unloaded its image. -->
 				<property name="accepted"
 					type="tl.core:Boolean"
 				/>

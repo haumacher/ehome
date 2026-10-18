@@ -85,6 +85,28 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 		}
 	}
 
+	/**
+	 * TestBcu1 (haumacher/ehome #50): two devices of an artificial BCU 1 program whose objects have no
+	 * datapoint type, the input "Schalten" (1 bit) and the output "Rückmeldung" (1 bit), on untyped
+	 * addresses. The input is a switching command by its name, so the devices get a light; both
+	 * switch on the same address, so the second gets none. The feedback alone is no function.
+	 */
+	public void testUntypedSwitch() throws Exception {
+		List<TLObject> before = instances("ehome.project:Project");
+		importSample("src/test/fixtures/TestBcu1.knxproj");
+		List<TLObject> projects = SharedData.newProjects(before);
+		try {
+			TLObject project = projects.get(0);
+			List<TLObject> added = apply(project);
+			assertEquals(List.of("light command=0/0/3"), summary(project));
+			assertEquals("Schalten", TestFunctionProposal.name(added.get(0)));
+			assertEquals(List.of(), apply(project));
+			valid(project);
+		} finally {
+			SharedData.deleteProjects(projects);
+		}
+	}
+
 	private static Map<?, ?> valid(TLObject project) {
 		RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 		ImageReport report = image.validate();

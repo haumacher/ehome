@@ -7,10 +7,13 @@
 	objects of the project their paths lead to.
 
 	"Download image" checks the image as the controller would and offers it as a JSON file, or shows
-	why it would be refused (runtime-image.view.xml). "Deploy" sends it (PUT /api/image) with the
-	revision after the last loaded one and records the outcome; a refusal is an outcome, shown in the
-	table, not a failure. "Status" compares what the controller runs (GET /api/status) with the last
-	deployment.
+	why it would be refused (runtime-image.view.xml). "Deploy" first compares the image with the one
+	the controller stores (GET /api/image, de.haumacher.ehome.runtime.ImageComparison, haumacher/ehome
+	#47) and asks, naming what differs or that nothing does; it then sends the image (PUT /api/image)
+	with the revision after the last loaded one and records the outcome; a refusal is an outcome, shown
+	in the table, not a failure. "Unload" removes the image from the controller (DELETE /api/image)
+	after a confirmation naming what it runs, recorded as a deployment marked as an unload. "Status"
+	compares what the controller runs (GET /api/status) with the last deployment.
 
 	Beside it, the runtime settings of the project (haumacher/ehome #45). The functions are edited in
 	their own tab (functions.view.xml), the settings of each datapoint with its group address
@@ -128,8 +131,40 @@
 											<null-input-disabled/>
 											<disabled-if expr="p -> deploymentVeto($p)"/>
 										</executability>
-										<confirm expr="p -> #('Deploy revision {0} of the runtime image to {1}?'@en, 'Revision {0} des Laufzeitabbilds in {1} laden?'@de).fill(nextImageRevision($p), $p.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`))"/>
+										<confirm expr="p -> deploymentConfirmation($p)"/>
 										<deploy-runtime-image/>
+										<write-channel name="deployment"/>
+										<if test="d -> $d.get(`ehome.runtime:Deployment#accepted`)">
+											<then>
+												<notify
+													expr="d -> $d.get(`ehome.runtime:Deployment#message`)"
+													kind="info"
+												/>
+											</then>
+											<else>
+												<notify
+													expr="d -> $d.get(`ehome.runtime:Deployment#message`)"
+													kind="warning"
+												/>
+											</else>
+										</if>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-eject"
+										input="project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Unload</en>
+											<de>Entladen</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+											<disabled-if expr="p -> deploymentVeto($p)"/>
+										</executability>
+										<confirm expr="p -> unloadConfirmation($p)"/>
+										<unload-runtime-image/>
 										<write-channel name="deployment"/>
 										<if test="d -> $d.get(`ehome.runtime:Deployment#accepted`)">
 											<then>
@@ -186,6 +221,7 @@
 									<columns>
 										<column attribute="time"/>
 										<column attribute="revision"/>
+										<column attribute="unload"/>
 										<column attribute="target"/>
 										<column attribute="accepted"/>
 										<column attribute="status"/>

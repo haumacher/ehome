@@ -14,8 +14,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.top_logic.basic.util.ResKey;
@@ -30,8 +32,14 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.operational.EnumerationValue;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.operational.NumericType;
+import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
+import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
@@ -62,12 +70,33 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * <li><code>light</code>, or <code>switch</code> where the channel is named for a socket
  * (Steckdose/socket/outlet): an input of DPT 1.001 (switch) is the command; an output of DPT 1.011
  * (state), or a truth value named Status/state/Rückmeldung, is the state. A channel named
- * central/Zentral (a central object commanding several channels) gets no function.</li>
+ * central/Zentral (a central object commanding several channels) gets no function. Without a 1.001
+ * input, an input whose address has no datapoint type but the main type 1 its size decides (1 bit,
+ * {@link GroupAddressTypes#bySize(TLObject)}) is the command where the rest of the channel says it
+ * switches: the channel has a state, or it is named for a switched output
+ * (Schalten/switch/Licht/light/Leuchte/Lampe/Steckdose/socket/Ausgang/output/Relais/relay), and is
+ * no key; an input named for a lock (Sperre/lock/block) is never the command. Such an untyped
+ * input is the switching command of a dimmer as well. (A push-button sensor's status LEDs, inputs
+ * of 1 bit named "Status-LED 1", stay without a function.)</li>
  * <li><code>button</code>: an output of a truth value in a channel named for a key
  * (Taste/Taster/Wippe/button/rocker/push) is the press.</li>
  * <li><code>sensor</code>, one per object: an output of a measured value (DPT 9.x, 14.x) or of an
  * alarm, open/closed, occupancy or window contact (1.005, 1.009, 1.018, 1.019).</li>
  * </ol>
+ * <p>
+ * Besides the kind of its channel, a scene input of a channel (DPT 17.001 scene number or 18.001
+ * scene control) gives a <code>scene</code> function for each scene number the project gives the
+ * input: a parameter in effect with the device's values whose text names a scene number
+ * (Szenennummer/scene number), in the smallest part of the program's structure around the scene
+ * input that has one (its channel, parameter block or case; the actuator of the test system keeps
+ * the scene object and the active scenes' numbers in the block "Scenes" of each channel), unless
+ * that part holds another object's scene input as well. The number is the one its value's text
+ * shows (an enumeration such as "1" ... "64" for the codes 0 ... 63) or its value (a numeric
+ * parameter counting from 1, or from 0 up to 63 as the datapoint does). A scene input without such
+ * a parameter gives no function: the scene number is mandatory in the runtime image. Scene
+ * functions are named after the channel and the number ("Channel A: scene 1").
+ * </p>
+ *
  * <p>
  * An input is an object receiving from its address (write flag, see
  * {@link DatapointSettings#receives(TLObject)}) whose datapoint is writable; an output transmits on
@@ -87,7 +116,9 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * <p>
  * The proposal never changes a function the project has: it adds a function only for a channel no
  * function of the project was proposed for, and none whose main role an existing function of the
- * same kind already binds. Running it again therefore adds nothing. A proposed function the user
+ * same kind already binds (a scene: the same address with the same scene number), nor a second one
+ * for a main role another proposal of the same run binds (two devices switched on one address).
+ * Running it again therefore adds nothing. A proposed function the user
  * deletes is remembered as dismissed for its channel and kind (<code>Project#dismissedProposals</code>,
  * #49, {@link #dismiss(TLObject)}), and the proposal does not bring it back until the dismissal is
  * deleted.
@@ -109,10 +140,20 @@ public final class FunctionProposal {
 
 	private static final Pattern SOCKET = words("steckdose", "socket", "outlet");
 
+	private static final Pattern SWITCHED = words("schalt", "switch", "licht", "light", "leuchte", "lampe", "lamp",
+		"steckdose", "socket", "outlet", "ausgang", "output", "relais", "relay");
+
+	private static final Pattern LOCK = words("sperr", "lock", "block");
+
+	private static final Pattern SCENE_NUMBER =
+		Pattern.compile("(?<![\\p{L}])(szenennummer|szenen-nummer|(scene|szene)\\s*(number|nummer|no\\b|nr\\b))");
+
+	private static final Pattern NUMBER = Pattern.compile("^\\D*?(\\d{1,2})\\D*$");
+
 	/**
 	 * A communication object of a channel with the group address it sends on.
 	 */
-	private record Obj(TLObject connection, TLObject address, Dpt dpt, String type, boolean input,
+	private record Obj(Interface placed, TLObject connection, TLObject address, Dpt dpt, String type, boolean input,
 			boolean output, String text, Map<String, Resources> languages) {
 
 		int addressValue() {
@@ -125,6 +166,18 @@ public final class FunctionProposal {
 
 		boolean bool() {
 			return ValueTypes.BOOLEAN.equals(type);
+		}
+
+		/**
+		 * Whether the address has no datapoint type but the given main type its objects' size
+		 * decides.
+		 */
+		boolean untyped(int main) {
+			return dpt.isMainType() && dpt.main() == main;
+		}
+
+		boolean scene() {
+			return dpt.main() == 17 || dpt.main() == 18;
 		}
 
 		boolean named(Pattern pattern) {
@@ -154,10 +207,13 @@ public final class FunctionProposal {
 	 * @param device
 	 *        The device it was proposed for.
 	 * @param channel
-	 *        The key of the channel it was proposed for.
+	 *        The key of the channel it was proposed for; for a scene function the key of the channel
+	 *        with the scene number.
+	 * @param scene
+	 *        The scene number of a scene function, <code>null</code> for another kind.
 	 */
 	public record Proposal(String kind, Map<String, String> label, Map<String, TLObject> roles, TLObject device,
-			String channel) {
+			String channel, Integer scene) {
 
 		/**
 		 * The name as multilingual text.
@@ -188,7 +244,7 @@ public final class FunctionProposal {
 			String kind = kind(function);
 			String main = FunctionKinds.mainRole(kind);
 			if (main != null && function.tValueByName(main) instanceof TLObject address) {
-				boundMainRoles.add(kind + " " + address.tId());
+				boundMainRoles.add(mainKey(kind, address, function.tValueByName("scene")));
 			}
 			if (function.tValueByName("identifier") != null) {
 				identifiers.add(function.tValueByName("identifier").toString());
@@ -211,7 +267,7 @@ public final class FunctionProposal {
 				continue;
 			}
 			TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
-			if (boundMainRoles.contains(proposal.kind() + " " + main.tId())) {
+			if (!boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()))) {
 				continue;
 			}
 			added.add(create(proposal, identifiers));
@@ -283,6 +339,15 @@ public final class FunctionProposal {
 		return function.tValueByName("kind") instanceof TLClassifier kind ? kind.getName() : null;
 	}
 
+	/**
+	 * What a function binds with its main role: the kind and the address, for a scene also the scene
+	 * number.
+	 */
+	private static String mainKey(String kind, TLObject address, Object scene) {
+		String key = kind + " " + address.tId();
+		return "scene".equals(kind) && scene instanceof Number number ? key + " " + number.intValue() : key;
+	}
+
 	private static String channelKey(TLObject device, String channel) {
 		return device.tId() + " " + channel;
 	}
@@ -297,6 +362,9 @@ public final class FunctionProposal {
 		function.tUpdateByName("room", proposal.device().tValueByName("location"));
 		function.tUpdateByName("device", proposal.device());
 		function.tUpdateByName("channel", proposal.channel());
+		if (proposal.scene() != null) {
+			function.tUpdateByName("scene", proposal.scene());
+		}
 		for (Map.Entry<String, TLObject> role : proposal.roles().entrySet()) {
 			function.tUpdateByName(role.getKey(), role.getValue());
 		}
@@ -442,7 +510,7 @@ public final class FunctionProposal {
 				+ String.join(" ", texts(languages, r -> GroupAddressConnections.function(connection, r)).values())
 				+ " " + address.tValueByName("name")).toLowerCase(Locale.ROOT);
 			channels.computeIfAbsent(key, k -> new Channel(k, label, new ArrayList<>()))
-				.objects().add(new Obj(connection, address, dpt, type, input, output, text, languages));
+				.objects().add(new Obj(placed, connection, address, dpt, type, input, output, text, languages));
 		}
 		return new ArrayList<>(channels.values());
 	}
@@ -532,6 +600,8 @@ public final class FunctionProposal {
 		List<Obj> objects = new ArrayList<>(channel.objects());
 		objects.sort(Comparator.comparingInt(Obj::addressValue));
 
+		scenes(device, channel, objects, result);
+
 		Map<String, TLObject> roles = new LinkedHashMap<>();
 		Obj move = first(objects, o -> o.input() && o.is(1, 8));
 		if (move != null) {
@@ -541,19 +611,22 @@ public final class FunctionProposal {
 			put(roles, "positionCommand", first(objects, o -> o.input() && o.is(5, 1) && !o.named(SLAT)));
 			put(roles, "slat", first(objects, o -> o.output() && o.is(5, 1) && o.named(SLAT)));
 			put(roles, "slatCommand", first(objects, o -> o.input() && o.is(5, 1) && o.named(SLAT)));
-			result.add(new Proposal("blind", channel.label(), roles, device, channel.key()));
+			result.add(new Proposal("blind", channel.label(), roles, device, channel.key(), null));
 			return;
 		}
 
-		Obj command = first(objects, o -> o.input() && o.is(1, 1));
 		Obj state = first(objects, o -> o.output() && !o.input() && o.bool() && (o.is(1, 11) || o.named(STATE)));
+		Obj command = first(objects, o -> o.input() && o.is(1, 1));
+		if (command == null && !channel.named(KEY) && (state != null || channel.named(SWITCHED))) {
+			command = first(objects, o -> o.input() && o.untyped(1) && !o.named(LOCK) && !o.named(CENTRAL));
+		}
 		Obj levelCommand = first(objects, o -> o.input() && o.is(5, 1));
 		if (levelCommand != null) {
 			roles.put("levelCommand", levelCommand.address());
 			put(roles, "level", first(objects, o -> o.output() && !o.input() && o.is(5, 1)));
 			put(roles, "command", command);
 			put(roles, "state", state);
-			result.add(new Proposal("dimmer", channel.label(), roles, device, channel.key()));
+			result.add(new Proposal("dimmer", channel.label(), roles, device, channel.key(), null));
 			return;
 		}
 
@@ -570,7 +643,7 @@ public final class FunctionProposal {
 			put(roles, "mode", mode);
 			put(roles, "modeCommand", modeCommand);
 			put(roles, "heating", first(objects, o -> o.output() && !o.input() && o.bool() && o.named(HEATING)));
-			result.add(new Proposal("climate", channel.label(), roles, device, channel.key()));
+			result.add(new Proposal("climate", channel.label(), roles, device, channel.key(), null));
 			return;
 		}
 
@@ -581,14 +654,14 @@ public final class FunctionProposal {
 			roles.put("command", command.address());
 			put(roles, "state", state);
 			String kind = channel.named(SOCKET) || command.named(SOCKET) ? "switch" : "light";
-			result.add(new Proposal(kind, channel.label(), roles, device, channel.key()));
+			result.add(new Proposal(kind, channel.label(), roles, device, channel.key(), null));
 			return;
 		}
 
 		Obj press = channel.named(KEY) ? first(objects, o -> o.output() && !o.input() && o.bool()) : null;
 		if (press != null) {
 			roles.put("press", press.address());
-			result.add(new Proposal("button", channel.label(), roles, device, channel.key()));
+			result.add(new Proposal("button", channel.label(), roles, device, channel.key(), null));
 			return;
 		}
 
@@ -597,8 +670,124 @@ public final class FunctionProposal {
 			Map<String, String> label = values.size() == 1 ? channel.label()
 				: texts(value.languages(), r -> channel.label().getOrDefault(language(r), "") + " "
 					+ GroupAddressConnections.function(value.connection(), r));
-			result.add(new Proposal("sensor", label, Map.of("value", value.address()), device, channel.key()));
+			result.add(new Proposal("sensor", label, Map.of("value", value.address()), device, channel.key(), null));
 		}
+	}
+
+	/**
+	 * Adds a scene function for each scene number the project gives the channel's scene input.
+	 */
+	private static void scenes(TLObject device, Channel channel, List<Obj> objects, List<Proposal> result) {
+		Obj scene = first(objects, o -> o.input() && o.scene());
+		if (scene == null) {
+			return;
+		}
+		for (Integer number : sceneNumbers(device, scene)) {
+			Map<String, String> label = new TreeMap<>();
+			for (Map.Entry<String, String> entry : channel.label().entrySet()) {
+				Resources resources = scene.languages().get(entry.getKey());
+				if (resources != null) {
+					label.put(entry.getKey(), RuntimeImage.truncate(resources.getString(
+						I18NConstants.SCENE_FUNCTION__CHANNEL_NUMBER.fill(entry.getValue(), number)), ImageValidator.MAX_NAME));
+				}
+			}
+			result.add(new Proposal("scene", label, Map.of("command", scene.address()), device,
+				channel.key() + " scene " + number, number));
+		}
+	}
+
+	/**
+	 * The scene numbers (1 ... 64) the parameters of the scene input's part of the program give with
+	 * the device's values: the parameters in effect whose text names a scene number, in the smallest
+	 * part of the program's structure around the scene input that has any (a channel, a parameter
+	 * block, a case), unless that part holds the scene input of another object as well; never the
+	 * parameters of the whole program.
+	 */
+	private static Set<Integer> sceneNumbers(TLObject device, Obj scene) {
+		DeviceConfiguration configuration = new DeviceConfiguration(device);
+		List<ParameterView> numbered = new ArrayList<>();
+		for (ParameterView view : configuration.getActiveViews().values()) {
+			Parameter parameter = configuration.parameter(view);
+			ResKey text = view.getDescription() != null ? view.getDescription()
+				: parameter == null ? null : parameter.getDescription();
+			if (text != null && texts(scene.languages(), r -> r.getString(text, null)).values().stream()
+				.anyMatch(t -> SCENE_NUMBER.matcher(t.toLowerCase(Locale.ROOT)).find())) {
+				numbered.add(view);
+			}
+		}
+		Set<Integer> result = new TreeSet<>();
+		for (TLObject scope = scene.placed().tContainer(); scope != null && !isA(scope, "ehome.operational:Program")
+			&& !isA(scope, "ehome.operational:ChannelIndependent"); scope = scope.tContainer()) {
+			for (ParameterView view : numbered) {
+				if (within(view, scope)) {
+					Integer number = sceneNumber(ParameterValues.value(configuration.valueHolder(view)),
+						configuration.parameter(view), scene.languages());
+					if (number != null) {
+						result.add(number);
+					}
+				}
+			}
+			if (!result.isEmpty()) {
+				for (Interface other : configuration.getActiveInterfaces().values()) {
+					Dpt dpt = placementType(other);
+					if (other.getPort() != scene.placed().getPort() && within(other, scope) && dpt != null
+						&& (dpt.main() == 17 || dpt.main() == 18)) {
+						// The part is shared with the scenes of another object: whose numbers are whose is
+						// not known.
+						return Set.of();
+					}
+				}
+				return result;
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The scene number (1 ... 64) of a value of a parameter naming one: the number the text of an
+	 * enumeration value shows; a number counting from 1, or from 0 for a parameter of the range 0 ...
+	 * 63 (the codes of the datapoint); <code>null</code> for none ("not active").
+	 */
+	private static Integer sceneNumber(Object value, Parameter parameter, Map<String, Resources> languages) {
+		Integer result = null;
+		if (value instanceof EnumerationValue choice && choice.tValueByName("name") instanceof ResKey name) {
+			for (String text : texts(languages, r -> r.getString(name, null)).values()) {
+				Matcher matcher = NUMBER.matcher(text);
+				if (matcher.matches()) {
+					result = Integer.valueOf(matcher.group(1));
+					break;
+				}
+			}
+		} else if (value instanceof Number number && parameter != null
+			&& parameter.getType() instanceof NumericType type) {
+			if (type.getMin() >= 1) {
+				result = Integer.valueOf(number.intValue());
+			} else if (type.getMin() == 0 && type.getMax() == 63) {
+				result = Integer.valueOf(number.intValue() + 1);
+			}
+		}
+		return result != null && result.intValue() >= 1 && result.intValue() <= 64 ? result : null;
+	}
+
+	/**
+	 * The datapoint type of a placed object: the placement's, else the object's; <code>null</code>
+	 * for none.
+	 */
+	private static Dpt placementType(Interface placed) {
+		List<TLObject> types = list(placed, "datapointTypes");
+		if (types.isEmpty()) {
+			types = list(placed.getPort(), "datapointTypes");
+		}
+		return types.isEmpty() ? null : GroupAddressTypes.dpt(types.get(0));
+	}
+
+	private static boolean within(TLObject node, TLObject ancestor) {
+		for (TLObject current = node; current != null; current = current.tContainer()) {
+			if (current == ancestor) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static String language(Resources resources) {

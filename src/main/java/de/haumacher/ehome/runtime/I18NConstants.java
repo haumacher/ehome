@@ -246,6 +246,91 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey NEW_FUNCTION_NAME;
 
+	/**
+	 * @en {0}: scene {1}
+	 */
+	public static ResKey2 SCENE_FUNCTION__CHANNEL_NUMBER;
+
+	/**
+	 * @en The stored image could not be read from {0}: {1}
+	 */
+	public static ResKey2 COMPARE_UNREACHABLE__ADDRESS_ERROR;
+
+	/**
+	 * @en The controller stores no image yet.
+	 */
+	public static ResKey COMPARE_NO_IMAGE;
+
+	/**
+	 * @en The controller did not give its image (HTTP {0}): {1}
+	 */
+	public static ResKey2 COMPARE_FAILED__STATUS_ERROR;
+
+	/**
+	 * @en The image the controller stores is no runtime image E-Home can read.
+	 */
+	public static ResKey COMPARE_UNREADABLE;
+
+	/**
+	 * @en Nothing to deploy: the controller stores revision {0} of this project, identical to its current image.
+	 */
+	public static ResKey1 COMPARE_IDENTICAL__REVISION;
+
+	/**
+	 * @en The controller stores revision {0} of this project; the image to deploy is revision {1}.
+	 */
+	public static ResKey2 COMPARE_REVISION__STORED_NEXT;
+
+	/**
+	 * @en The controller stores the image of another project ({0} "{1}", revision {2}); deploying replaces it.
+	 */
+	public static ResKey3 COMPARE_OTHER_PROJECT__PROJECT_NAME_REVISION;
+
+	/**
+	 * @en Stored image: {0} datapoints, {1} locations, {2} functions.
+	 */
+	public static ResKey3 COMPARE_STORED_COUNTS__DATAPOINTS_LOCATIONS_FUNCTIONS;
+
+	/**
+	 * @en Image to deploy: {0} datapoints, {1} locations, {2} functions.
+	 */
+	public static ResKey3 COMPARE_NEW_COUNTS__DATAPOINTS_LOCATIONS_FUNCTIONS;
+
+	/**
+	 * @en Changed parts of the image: {0}.
+	 */
+	public static ResKey1 COMPARE_CHANGED_PARTS__PARTS;
+
+	/**
+	 * @en The stored image has {0} rules and {1} schedules, which E-Home does not author; deploying removes them.
+	 */
+	public static ResKey2 COMPARE_RULES_REMOVED__RULES_SCHEDULES;
+
+	/**
+	 * @en Deploy revision {0} of the runtime image to {1}?
+	 */
+	public static ResKey2 CONFIRM_DEPLOY__REVISION_CONTROLLER;
+
+	/**
+	 * @en Deploy it again as revision {0}?
+	 */
+	public static ResKey1 CONFIRM_DEPLOY_AGAIN__REVISION;
+
+	/**
+	 * @en Unload the runtime image from {0}? The controller deletes it with its persisted values and history and returns to setup.
+	 */
+	public static ResKey1 CONFIRM_UNLOAD__CONTROLLER;
+
+	/**
+	 * @en The controller {0} unloaded its image and returned to setup.
+	 */
+	public static ResKey1 UNLOAD_DONE__CONTROLLER;
+
+	/**
+	 * @en The controller did not unload its image (HTTP {0}): {1}
+	 */
+	public static ResKey2 UNLOAD_REFUSED__STATUS_ERROR;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

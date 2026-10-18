@@ -35,7 +35,11 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * <code>image.invalid</code>, 413 <code>image.too_large</code>, or loads the image and answers 200. A
  * test can script the next answer to <code>PUT /api/image</code> ({@link #refuseNext}), e.g. 507
  * <code>image.no_memory</code> or 500 <code>image.apply_failed</code>, which no image provokes. The
- * status (<code>GET /api/status</code>) reports the loaded image. For a manual check, the next refusal
+ * status (<code>GET /api/status</code>) reports the loaded image. <code>GET /api/image</code> answers
+ * the stored image byte for byte (404 <code>image.none</code> without one), <code>DELETE
+ * /api/image</code> unloads it (200 <code>{"ok": true, "loaded": false}</code>; a test can script the
+ * storage error of the next one, {@link #storageErrorOnNextDelete()}: 500
+ * <code>image.storage_error</code>, the image unloaded anyway). For a manual check, the next refusal
  * is scripted with <code>PUT /fake/refuse-next</code>.
  * </p>
  *
@@ -62,6 +66,10 @@ public class FakeController {
 	private Map<String, Object> _nextBody;
 
 	private int _puts;
+
+	private int _deletes;
+
+	private boolean _storageError;
 
 	/**
 	 * Creates and starts a {@link FakeController} on a free port.
@@ -107,6 +115,39 @@ public class FakeController {
 	 */
 	public synchronized int getPuts() {
 		return _puts;
+	}
+
+	/**
+	 * The number of unloads it was asked for.
+	 */
+	public synchronized int getDeletes() {
+		return _deletes;
+	}
+
+	/**
+	 * Answers the next <code>DELETE /api/image</code> with 500 <code>image.storage_error</code>: the
+	 * image is unloaded, its stored copy could not be removed.
+	 */
+	public synchronized void storageErrorOnNextDelete() {
+		_storageError = true;
+	}
+
+	/**
+	 * Stores the given text as the image, as if it had been deployed (by another tool); a text that is
+	 * no JSON object is stored, but runs no image.
+	 */
+	public synchronized void store(String text) {
+		Map<String, Object> image;
+		try {
+			@SuppressWarnings("unchecked")
+			Map<String, Object> parsed = Json.parse(text, ImageValidator.MAX_NESTING) instanceof Map<?, ?> map
+				? (Map<String, Object>) map : null;
+			image = parsed;
+		} catch (JsonException ex) {
+			image = null;
+		}
+		_loaded = image;
+		_storedText = text;
 	}
 
 	/**
@@ -187,11 +228,40 @@ public class FakeController {
 	}
 
 	private void image(HttpExchange exchange) throws IOException {
-		if (!"PUT".equals(exchange.getRequestMethod())) {
+		String method = exchange.getRequestMethod();
+		if (!"PUT".equals(method) && !"GET".equals(method) && !"DELETE".equals(method)) {
 			answer(exchange, 405, error("method not allowed", "api.method_not_allowed"));
 			return;
 		}
 		if (!authorized(exchange)) {
+			return;
+		}
+		if ("GET".equals(method)) {
+			String stored = getStoredText();
+			if (stored == null) {
+				answer(exchange, 404, error("no image is stored", "image.none"));
+			} else {
+				answer(exchange, 200, stored.getBytes(StandardCharsets.UTF_8));
+			}
+			return;
+		}
+		if ("DELETE".equals(method)) {
+			boolean storageError;
+			synchronized (this) {
+				_deletes++;
+				_loaded = null;
+				_storedText = null;
+				storageError = _storageError;
+				_storageError = false;
+			}
+			if (storageError) {
+				answer(exchange, 500, error("the stored image could not be removed", "image.storage_error"));
+			} else {
+				Map<String, Object> body = new LinkedHashMap<>();
+				body.put("ok", Boolean.TRUE);
+				body.put("loaded", Boolean.FALSE);
+				answer(exchange, 200, body);
+			}
 			return;
 		}
 		String length = exchange.getRequestHeaders().getFirst("Content-Length");
@@ -340,7 +410,10 @@ public class FakeController {
 	}
 
 	private static void answer(HttpExchange exchange, int status, Map<String, Object> body) throws IOException {
-		byte[] bytes = Json.write(body).getBytes(StandardCharsets.UTF_8);
+		answer(exchange, status, Json.write(body).getBytes(StandardCharsets.UTF_8));
+	}
+
+	private static void answer(HttpExchange exchange, int status, byte[] bytes) throws IOException {
 		exchange.getResponseHeaders().set("Content-Type", "application/json");
 		exchange.getResponseHeaders().set("Cache-Control", "no-store");
 		exchange.sendResponseHeaders(status, bytes.length);

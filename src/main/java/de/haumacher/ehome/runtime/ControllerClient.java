@@ -18,8 +18,8 @@ import de.haumacher.ehome.runtime.Json.JsonException;
 
 /**
  * The client side of the deployment protocol of a HomeControl controller (homecontrol
- * <code>spec/api.md</code>, "Runtime image" and "Status"): <code>PUT /api/image</code> and
- * <code>GET /api/status</code>, authenticated by a bearer token.
+ * <code>spec/api.md</code>, "Runtime image" and "Status"): <code>PUT</code>, <code>GET</code> and
+ * <code>DELETE /api/image</code> and <code>GET /api/status</code>, authenticated by a bearer token.
  */
 public final class ControllerClient {
 
@@ -105,6 +105,22 @@ public final class ControllerClient {
 		return send(request("/api/image")
 			.header("Content-Type", RuntimeImage.CONTENT_TYPE)
 			.PUT(HttpRequest.BodyPublishers.ofByteArray(image)));
+	}
+
+	/**
+	 * <code>GET /api/image</code>: the stored image, byte for byte as it was deployed (404
+	 * <code>image.none</code> when none is stored).
+	 */
+	public Answer getImage() throws IOException {
+		return send(request("/api/image").GET());
+	}
+
+	/**
+	 * <code>DELETE /api/image</code>: unloads the image and removes it with its persisted values and
+	 * history.
+	 */
+	public Answer deleteImage() throws IOException {
+		return send(request("/api/image").DELETE());
 	}
 
 	private HttpRequest.Builder request(String path) throws IOException {

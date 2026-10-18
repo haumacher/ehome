@@ -38,6 +38,13 @@ import de.haumacher.ehome.runtime.ImageReport.Refusal;
  * controller is read, and what it ran is recorded with the deployment. Each refusal is recorded
  * with the object of the project its path leads to ({@link RuntimeImage#elementAt(String)}).
  * </p>
+ *
+ * <p>
+ * The image a controller runs is unloaded with {@link #unload(TLObject, Instant)}
+ * (<code>DELETE /api/image</code>, haumacher/ehome #47): the controller removes it with its persisted
+ * values and history and returns to setup. An unload is recorded as a deployment as well, marked as
+ * one (<code>unload</code>), with the revision the controller ran.
+ * </p>
  */
 public final class Deployer {
 
@@ -123,7 +130,48 @@ public final class Deployer {
 			outcome._before = ControllerStatus.describe(client);
 			send(client, image, revision, outcome);
 		}
-		return record(project, controller, client, image, revision, now, outcome);
+		return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+	}
+
+	/**
+	 * Unloads the image the controller of the project runs (<code>DELETE /api/image</code>) and
+	 * records it as a deployment marked as an unload, in a transaction of its own.
+	 *
+	 * @return The recorded unload.
+	 * @throws TopLogicException
+	 *         If the project cannot be deployed ({@link #veto(TLObject)}), and so not unloaded.
+	 */
+	public static TLObject unload(TLObject project, Instant now) {
+		ResKey veto = veto(project);
+		if (veto != null) {
+			throw new TopLogicException(veto);
+		}
+		TLObject controller = controller(project);
+		ControllerClient client = client(controller);
+		Outcome outcome = new Outcome();
+		outcome._unload = true;
+		ControllerStatus.Loaded loaded = ControllerStatus.read(client);
+		outcome._before = loaded.text();
+		Answer answer;
+		try {
+			answer = client.deleteImage();
+		} catch (IOException ex) {
+			outcome._code = CODE_UNREACHABLE;
+			outcome._message = text(I18NConstants.DEPLOY_UNREACHABLE__ADDRESS_ERROR.fill(client.address(), reason(ex)));
+			return record(project, controller, client, null, loaded.revision(), now, outcome);
+		}
+		outcome._status = Integer.valueOf(answer.status());
+		if (answer.status() == 200) {
+			outcome._accepted = true;
+			outcome._message = text(I18NConstants.UNLOAD_DONE__CONTROLLER.fill(controller.tValueByName("name")));
+		} else {
+			String code = answer.string("code");
+			String error = answer.string("error");
+			outcome._code = code != null ? code : "http." + answer.status();
+			outcome._message = text(I18NConstants.UNLOAD_REFUSED__STATUS_ERROR.fill(Integer.valueOf(answer.status()),
+				error != null ? error : answer.text().strip()));
+		}
+		return record(project, controller, client, null, loaded.revision(), now, outcome);
 	}
 
 	private static void send(ControllerClient client, RuntimeImage image, long revision, Outcome outcome) {
@@ -165,10 +213,11 @@ public final class Deployer {
 	}
 
 	private static TLObject record(TLObject project, TLObject controller, ControllerClient client, RuntimeImage image,
-			long revision, Instant now, Outcome outcome) {
+			Long revision, Instant now, Outcome outcome) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject deployment = create("ehome.runtime:Deployment");
-			deployment.tUpdateByName("revision", Long.valueOf(revision));
+			deployment.tUpdateByName("unload", Boolean.valueOf(outcome._unload));
+			deployment.tUpdateByName("revision", revision);
 			deployment.tUpdateByName("time", Date.from(now));
 			deployment.tUpdateByName("controller", controller);
 			deployment.tUpdateByName("target", controller.tValueByName("name") + " (" + client.address() + ")");
@@ -177,7 +226,7 @@ public final class Deployer {
 			deployment.tUpdateByName("code", outcome._code);
 			deployment.tUpdateByName("message", outcome._message);
 			deployment.tUpdateByName("before", outcome._before);
-			deployment.tUpdateByName("bytes", Integer.valueOf(outcome._bytes));
+			deployment.tUpdateByName("bytes", image == null ? null : Integer.valueOf(outcome._bytes));
 			deployment.tUpdateByName("total", Integer.valueOf(outcome._total));
 			List<TLObject> refusals = new ArrayList<>();
 			for (Refusal refusal : outcome._refusals) {
@@ -194,8 +243,8 @@ public final class Deployer {
 				deployments.addAll(before);
 			}
 			project.tUpdateByName("deployments", deployments);
-			if (outcome._accepted) {
-				project.tUpdateByName("imageRevision", Long.valueOf(revision));
+			if (outcome._accepted && !outcome._unload) {
+				project.tUpdateByName("imageRevision", revision);
 			}
 			tx.commit();
 			return deployment;
@@ -223,6 +272,8 @@ public final class Deployer {
 	 * What came of a deployment, before it is recorded.
 	 */
 	private static final class Outcome {
+		boolean _unload;
+
 		boolean _accepted;
 
 		Integer _status;

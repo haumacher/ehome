@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.runtime;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -58,6 +59,18 @@ public class RuntimeFunctions extends GenericMethod {
 		 * <code>nextImageRevision(project)</code>: the revision the next deployment carries.
 		 */
 		nextImageRevision,
+		/**
+		 * <code>deploymentConfirmation(project)</code>: the question asked before the project is
+		 * deployed, with what differs from the image its controller stores
+		 * ({@link ImageComparison#confirmation(TLObject, Instant)}).
+		 */
+		deploymentConfirmation,
+		/**
+		 * <code>unloadConfirmation(project)</code>: the question asked before the image of the
+		 * project's controller is unloaded, with what the controller runs
+		 * ({@link ControllerStatus#drift(TLObject)}).
+		 */
+		unloadConfirmation,
 		/**
 		 * <code>runtimeGroupAddresses(obj)</code>: the group addresses of the project of the given
 		 * object (a project, a function), by their address: the options of a function's roles and of
@@ -185,6 +198,13 @@ public class RuntimeFunctions extends GenericMethod {
 			}
 			case nextImageRevision:
 				return SearchExpression.toNumber(Deployer.nextRevision(obj));
+			case deploymentConfirmation:
+				return Deployer.veto(obj) != null ? resources.getString(Deployer.veto(obj))
+					: ImageComparison.confirmation(obj, Instant.now());
+			case unloadConfirmation:
+				return Deployer.veto(obj) != null ? resources.getString(Deployer.veto(obj))
+					: resources.getString(I18NConstants.CONFIRM_UNLOAD__CONTROLLER
+						.fill(Deployer.controller(obj).tValueByName("name"))) + "\n\n" + ControllerStatus.drift(obj);
 			case runtimeGroupAddresses:
 				return groupAddresses(project(obj));
 			case runtimeBuildingParts:

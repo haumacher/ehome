@@ -126,6 +126,10 @@ public class TestRuntimeImageProbe extends BasicTestCase {
 				text.append(' ').append(role).append('=').append(((TLObject) address).tValueByName("name"));
 			}
 		}
+		if (function.tValueByName("scene") != null) {
+			// The scenes of one scene input differ in their number only.
+			text.append(" scene=").append(function.tValueByName("scene"));
+		}
 		return text.toString();
 	}
 

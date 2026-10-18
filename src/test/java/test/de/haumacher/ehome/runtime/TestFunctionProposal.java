@@ -58,8 +58,12 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * </p>
  *
  * <p>
- * The proposal then matches the template's eleven functions in kind and role bindings. The
- * differences, each asserted:
+ * The proposal then matches the template's eleven functions in kind and role bindings, and adds
+ * two scene functions the template lacks (haumacher/ehome #50): the actuator's channel A has a scene
+ * input (0/0/36, DPT 17.001) and the project activates its scenes A and B with the scene numbers 1
+ * and 2 (the parameters "Scene number" in the block "Scenes" holding the scene object). Channel B
+ * has a scene input as well, but no active scene, so it gives no scene function. The differences,
+ * each asserted:
  * </p>
  * <ul>
  * <li>Names and identifiers come from the objects of the devices, in the user's language from the
@@ -99,15 +103,32 @@ public class TestFunctionProposal extends BasicTestCase {
 			update(device(project, "1.3.50"), "location", panel);
 
 			List<TLObject> added = apply(project);
-			assertEquals(11, added.size());
+			assertEquals(13, added.size());
 			assertEquals(added, FunctionProposal.functions(project));
+
+			// The scenes of channel A, each with its number.
+			List<TLObject> scenes = added.stream().filter(f -> "scene".equals(FunctionProposal.kind(f))).toList();
+			assertEquals(2, scenes.size());
+			for (int n = 1; n <= 2; n++) {
+				TLObject scene = scenes.get(n - 1);
+				assertEquals(Integer.valueOf(n), scene.tValueByName("scene"));
+				assertEquals("0/0/36", text((TLObject) scene.tValueByName("command")));
+				assertSame(device(project, "1.3.5"), scene.tValueByName("device"));
+				assertTrue(String.valueOf(scene.tValueByName("channel")).endsWith(" scene " + n));
+				ResKey sceneName = (ResKey) scene.tValueByName("name");
+				assertEquals("Channel A: scene " + n, Resources.getInstance(java.util.Locale.ENGLISH).getString(sceneName));
+				assertEquals("Kanal A: Szene " + n, Resources.getInstance(java.util.Locale.GERMAN).getString(sceneName));
+				assertEquals(FunctionProposal.slug(name(scene)), scene.tValueByName("identifier"));
+			}
+			List<TLObject> templateFunctions = new ArrayList<>(added);
+			templateFunctions.removeAll(scenes);
 
 			Map<?, ?> template = template();
 			Map<String, String> templateRooms = Map.of("lab", "Test system", "panel", "Push-button sensor");
 			// The proposed functions by kind and main role: their names (and identifiers) are the
 			// texts of the objects in the language of the user, from the languages the program has.
 			Map<String, TLObject> byMainRole = new HashMap<>();
-			for (TLObject function : added) {
+			for (TLObject function : templateFunctions) {
 				String kind = FunctionProposal.kind(function);
 				String main = FunctionKinds.mainRole(kind);
 				byMainRole.put(kind + " " + text((TLObject) function.tValueByName(main)), function);
@@ -160,7 +181,7 @@ public class TestFunctionProposal extends BasicTestCase {
 				tx.commit();
 			}
 			assertEquals(List.of(), apply(project));
-			assertEquals(11, FunctionProposal.functions(project).size());
+			assertEquals(13, FunctionProposal.functions(project).size());
 			assertEquals("Deckenlicht", name(channelA));
 			assertEquals("switch", FunctionProposal.kind(channelA));
 			assertNull(channelC.tValueByName("state"));
@@ -184,7 +205,7 @@ public class TestFunctionProposal extends BasicTestCase {
 				tx.commit();
 			}
 			assertEquals(List.of(), apply(project));
-			assertEquals(11, FunctionProposal.functions(project).size());
+			assertEquals(13, FunctionProposal.functions(project).size());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				project.tUpdateByName("functions", added.stream().filter(TLObject::tValid).toList());
 				own.tDelete();
@@ -250,7 +271,13 @@ public class TestFunctionProposal extends BasicTestCase {
 
 			// The functions as the template has them, by the datapoint ids of the export.
 			List<?> functions = (List<?>) json.get("functions");
-			assertEquals(11, functions.size());
+			assertEquals(13, functions.size());
+			for (TLObject scene : scenes) {
+				Map<?, ?> entry = function(functions, (String) scene.tValueByName("identifier"));
+				assertEquals("scene", entry.get("kind"));
+				assertEquals(((Integer) scene.tValueByName("scene")).longValue(), ((Number) entry.get("scene")).longValue());
+				assertEquals(Map.of("command", "0/0/36"), entry.get("datapoints"));
+			}
 			Map<String, String> addressOf = new HashMap<>(TestRuntimeImage.TEMPLATE_ADDRESSES);
 			for (Object entry : (List<?>) template.get("functions")) {
 				Map<?, ?> expected = (Map<?, ?>) entry;
@@ -282,6 +309,14 @@ public class TestFunctionProposal extends BasicTestCase {
 			assertEquals(labLocation.get("id"), function(functions, identifiers.get("channel-a")).get("room"));
 			assertEquals(panelLocation.get("id"), function(functions, identifiers.get("key-1")).get("room"));
 			assertEquals(project, image.elementAt("knx.timeMaster.time"));
+
+			// A dismissed scene stays dismissed; the other scene of the channel is no reason to bring it back.
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				FunctionProposal.dismiss(scenes.get(1));
+				tx.commit();
+			}
+			assertEquals(List.of(), apply(project));
+			assertEquals(12, FunctionProposal.functions(project).size());
 		} finally {
 			SharedData.deleteProjects(projects);
 		}
