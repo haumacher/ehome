@@ -61,7 +61,8 @@ public final class ZigbeeStatus {
 
 	/**
 	 * The name of the function (<code>ehome.zigbee:ZigbeeFunction</code>) in the user's language: the
-	 * name of its key, for an IAS zone the name of the datapoint its zone type gives (the last segment
+	 * name the device's type in the Zigbee catalog gives it ({@link ZigbeeCatalog#name(TLObject)}), else
+	 * the name of its key, for an IAS zone the name of the datapoint its zone type gives (the last segment
 	 * of the generic name: contact, motion, smoke, water, alarm). A key E-Home does not know (a newer
 	 * controller's) is shown as it is.
 	 */
@@ -69,6 +70,10 @@ public final class ZigbeeStatus {
 		Object key = function.tValueByName("function");
 		if (key == null) {
 			return null;
+		}
+		ResKey catalogName = ZigbeeCatalog.name(function);
+		if (catalogName != null) {
+			return Resources.getInstance().getString(catalogName);
 		}
 		String name = key.toString();
 		if (IAS_ZONE.equals(name) && function.tValueByName("genericName") instanceof String generic) {

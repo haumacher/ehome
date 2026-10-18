@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Download of device types of the Zigbee catalog (zigbee-catalog.view.xml) as a catalog file. "file"
+	carries the result of zigbeeCatalogExport (de.haumacher.ehome.zigbee.ZigbeeCatalogJson), offered
+	by a read-only binary input as a download link. Another installation reads it with "Import".
+-->
+<view>
+	<channels>
+		<channel name="file"/>
+	</channels>
+	<window width="600px">
+		<title>
+			<en>Export device types</en>
+			<de>Gerätetypen exportieren</de>
+		</title>
+		<inset>
+			<stack gap="loose">
+				<text>
+					<label>
+						<en>The device types have been exported as catalog file (JSON); "Import" in the Zigbee catalog of another installation reads it.</en>
+						<de>Die Gerätetypen wurden als Katalogdatei (JSON) exportiert; „Importieren“ im Zigbee-Katalog einer anderen Installation liest sie.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						readonly="true"
+						type="tl.core:Binary"
+						value="file"
+					>
+						<label>
+							<en>File</en>
+							<de>Datei</de>
+						</label>
+						<!-- A value input picks no control by the type tl.core:Binary (TL #29809, doc/tl-todo.md); the binary field offers the download. -->
+						<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

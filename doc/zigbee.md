@@ -178,6 +178,99 @@ memory only.
   simulation; nor are joins, leaves, the stale rule, reporting intervals and the interplay of
   functions of one device (a level command that switches the light on).
 
+## Catalog (haumacher/ehome #64)
+
+The controller knows nothing of brands: its export names the manufacturer and model a device
+reports (Basic cluster) and the functions its cluster mapping derives. What a device of a
+manufacturer and model *is* lives in E-Home, as master data the installer extends: the Zigbee
+catalog (module `ehome.zigbee.catalog`, `ZigbeeCatalog`, sidebar "Zigbee catalog",
+`zigbee-catalog.view.xml`).
+
+- **Master data.** The catalog is the module's singleton, shared by all projects, with the grants of
+  the other master data (`ehome.security.config.xml`: installers read and change it, viewers read
+  it). A **device type** (`ZigbeeDeviceType`) has the `manufacturer` and `model` as the device
+  reports them (matched exactly; the KNX catalog has no pattern match either, so neither has this
+  one), a `name` and a `description` in both languages, and its **function entries**
+  (`ZigbeeFunctionEntry`), one per function of the device (endpoint and the controller's function
+  key): a `name` for the installer, the recommended datapoint `type` and `unit`, `hidden` for a
+  function that means nothing to the installer (a quirk), and a reporting recommendation
+  (`reportingMin`, `reportingMax`, `reportingChange`, in the datapoint's unit).
+- **Constraints**, checked when saved and at every commit: one type per manufacturer and model, one
+  entry per endpoint and function key, the recommended type fits the value type the function
+  carries as a binding must (`CatalogTypeConstraint`, `ZigbeeBindings.fits`: the same type, or both
+  numeric), and the reporting recommendation passes `ZigbeeReporting.check` like an override
+  (`ReportingConstraint` on the same attribute names).
+- **Derived, not copied.** A project's device is matched to its type whenever it is read
+  (`ZigbeeDevice#deviceType`, `ZigbeeCatalog.type`): a type added or changed later applies to the
+  devices imported before, and nothing of the catalog is stored on a device. The tab "Zigbee"
+  shows the type (column and field "Type"), the functions by the catalog's names
+  (`ZigbeeStatus.functionLabel`, also in `displayName`: "Philips SML002 Bewegung (2)"); the
+  function table starts with the preset "Visible functions", which leaves out the hidden ones
+  (`ZigbeeFunction#hidden`); dropping the preset shows them. A device without a type shows its
+  functions by their keys as before.
+- **Create datapoints** (on the device, `ZigbeeBindings.createDatapoints`) creates a datapoint for
+  every function the controller still exports that is bound to none and not hidden, each as "Create
+  datapoint" does (`createDatapoint`): with a catalog entry the id is formed from the device's name
+  and the catalog's name in the user's language (`philips-sml002-bewegung`), the label from the
+  same in every language, the type and unit are the recommended ones (else the function's), and the
+  reporting recommendation becomes the function's override unless the installer has set one (a
+  member set by the installer keeps the whole override as it is). Nothing is created twice: the
+  command is disabled, with the reason, when every visible function is bound. "Create datapoint" on
+  a single function, hidden or not, applies the same catalog knowledge.
+- **Shipped device types.** E-Home ships the device types it has real data for, as catalog files in
+  `WEB-INF/zigbee-catalog/` (`philips-sml002.json`, the Hue motion sensor of the fixture
+  `motion-sensor.export.json`: endpoint 2 occupancy "Bewegung"/"Motion" boolean, temperature
+  "Temperatur" real °C, illuminance "Helligkeit"/"Illuminance" real lx, battery "Batterie"/"Battery"
+  real %; endpoint 1 `action` hidden, the ZLL controller endpoint, no button). Its reporting
+  recommendation spares the battery of the sensor: temperature every 60..3600 s at 0.5 °C,
+  illuminance 60..3600 s, battery 3600..43200 s (the controller's defaults are for any device,
+  mains-powered ones included); it is a judgement, not a measurement. `ZigbeeCatalogSeed` (a
+  service, `ehome.zigbee.catalog.config.xml`) loads each file once per database, as the engine
+  loads its initial data, and marks it in the database's properties (`ehome.zigbee-catalog.<file>`):
+  only unknown types are created, a known one stays as the user keeps it, a type the user deletes
+  does not come back, a file a later release adds is loaded once.
+- **Adding a device.** Pair it, read the devices, and note manufacturer and model from the device's
+  form; "New device type" in the Zigbee catalog with exactly these, then add a row per function
+  (endpoint and key as the device's function table shows them) with its name, type, unit, hidden
+  and reporting. The project's devices show the type at once.
+- **Sharing (JSON).** "Export" writes the selected type, "Export all" every type, as a catalog file;
+  "Import" reads one (`ZigbeeCatalogJson`). Matched by manufacturer and model: an unknown type is
+  created, a known one takes the file's content (function entries matched by endpoint and key,
+  entries the file leaves out removed), an equal one is left alone; the same file twice creates no
+  duplicate. Everything the constraints refuse is refused before anything is written, with the path
+  and the reason ("The catalog file is refused at types[0].functions[1].type: ..."). The format:
+
+  ```json
+  {
+  	"format": "ehome-zigbee-catalog",
+  	"version": 1,
+  	"types": [
+  		{
+  			"manufacturer": "Philips",
+  			"model": "SML002",
+  			"name": { "de": "Hue Bewegungsmelder", "en": "Hue motion sensor" },
+  			"description": { "de": "...", "en": "..." },
+  			"functions": [
+  				{ "endpoint": 2, "function": "temperature", "name": { "de": "Temperatur", "en": "Temperature" },
+  				  "type": "real", "unit": "°C", "reporting": { "min": 60, "max": 3600, "change": 0.5 } },
+  				{ "endpoint": 1, "function": "action", "hidden": true }
+  			]
+  		}
+  	]
+  }
+  ```
+
+  `format` and `version` are required (a newer version is refused with the advice to update
+  E-Home); per type `manufacturer`, `model` and `name` are required; a text is an object of texts by
+  language or one text for every language (a language of the application left out takes the first
+  text given); per function `endpoint` (1..240) and `function` are required, `name`, `type` (the
+  runtime image's value types), `unit`, `hidden` (`true`) and `reporting` (`min`, `max` in seconds,
+  `change` in the datapoint's unit) are optional and left out when empty. A file holds one type
+  or many.
+
 ## Not done yet
 
-The device catalog and quirks.
+Quirks beyond names and hidden functions: manufacturer-specific clusters and attributes and value
+scaling need the controller's device database to support them first (it maps only the standard
+clusters of its function table); the catalog's entries are then the place to say which device
+needs which.

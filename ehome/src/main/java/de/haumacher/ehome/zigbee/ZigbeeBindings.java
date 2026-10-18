@@ -7,15 +7,19 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLFormObjectBase;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
@@ -113,12 +117,34 @@ public final class ZigbeeBindings {
 	 * name and the function, its type and unit the function's, writable where the function can be
 	 * commanded. Must run in a transaction.
 	 *
+	 * <p>
+	 * Where the device's type in the Zigbee catalog lists the function ({@link ZigbeeCatalog#entry(TLObject)}),
+	 * the function is named by the catalog's name (the id in the user's language, the label in every
+	 * language), the type and unit are the ones the catalog recommends, and the catalog's reporting
+	 * recommendation becomes the function's override, unless the installer has set one.
+	 * </p>
+	 *
 	 * @return The new datapoint.
 	 */
 	public static TLObject createDatapoint(TLObject function) {
 		TLObject project = RuntimeFunctions.project(function);
 		TLObject device = device(function);
-		String name = device.tValueByName("name") + " " + function.tValueByName("function");
+		TLObject entry = ZigbeeCatalog.entry(function);
+		String deviceName = String.valueOf(device.tValueByName("name"));
+		ResKey friendly = entry != null && entry.tValueByName("name") instanceof ResKey key ? key : null;
+		String name;
+		ResKey label;
+		if (friendly != null) {
+			name = deviceName + " " + Resources.getInstance().getString(friendly);
+			Map<String, String> texts = new TreeMap<>();
+			for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+				texts.put(locale.getLanguage(), deviceName + " " + Resources.getInstance(locale).getString(friendly));
+			}
+			label = FunctionProposal.text(texts);
+		} else {
+			name = deviceName + " " + function.tValueByName("function");
+			label = FunctionProposal.text(ResKey.text(name));
+		}
 		Set<String> ids = new HashSet<>();
 		for (TLObject other : ApplicationDatapoints.of(project)) {
 			String id = ApplicationDatapoints.id(other);
@@ -129,15 +155,77 @@ public final class ZigbeeBindings {
 		TLObject datapoint = RuleFunctions.create(project, ApplicationDatapoints.REFERENCE,
 			(TLClass) TLModelUtil.findType("ehome.runtime:" + ApplicationDatapoints.TYPE));
 		datapoint.tUpdateByName("identifier", FunctionProposal.uniqueIdentifier(name, ids));
-		datapoint.tUpdateByName("label", FunctionProposal.text(ResKey.text(name)));
-		String type = valueType(function);
+		datapoint.tUpdateByName("label", label);
+		String type = ZigbeeCatalog.recommendedType(entry);
+		if (type == null) {
+			type = valueType(function);
+		}
 		if (type != null) {
 			datapoint.tUpdateByName("type", ZigbeeImport.valueType(type));
 		}
-		datapoint.tUpdateByName("unit", function.tValueByName("unit"));
+		String unit = ZigbeeCatalog.recommendedUnit(entry);
+		datapoint.tUpdateByName("unit", unit != null ? unit : function.tValueByName("unit"));
 		datapoint.tUpdateByName("writable", Boolean.valueOf(Boolean.TRUE.equals(function.tValueByName("writable"))));
 		datapoint.tUpdateByName("zigbeeFunction", function);
+		if (entry != null && function.tValueByName(ZigbeeReporting.MIN) == null
+			&& function.tValueByName(ZigbeeReporting.MAX) == null
+			&& function.tValueByName(ZigbeeReporting.CHANGE) == null) {
+			for (String member : new String[] { ZigbeeReporting.MIN, ZigbeeReporting.MAX, ZigbeeReporting.CHANGE }) {
+				Object value = entry.tValueByName(member);
+				if (value != null) {
+					function.tUpdateByName(member, value);
+				}
+			}
+		}
 		return datapoint;
+	}
+
+	/**
+	 * The functions of the device "Create datapoints" creates datapoints for: those the controller
+	 * still exports, bound to no datapoint, and not hidden by the device's type in the catalog.
+	 */
+	public static List<TLObject> datapointCandidates(TLObject device) {
+		List<TLObject> result = new ArrayList<>();
+		for (TLObject function : ZigbeeImport.objects(device.tValueByName("functions"))) {
+			if (!Boolean.TRUE.equals(function.tValueByName("absent")) && bindVeto(function) == null
+				&& !ZigbeeCatalog.hidden(function)) {
+				result.add(function);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Why "Create datapoints" has nothing to do for the device, <code>null</code> if it has.
+	 */
+	public static ResKey createDatapointsVeto(TLObject device) {
+		return datapointCandidates(device).isEmpty() ? I18NConstants.VETO_NOTHING_TO_CREATE : null;
+	}
+
+	/**
+	 * Creates a datapoint ({@link #createDatapoint(TLObject)}) for every function of the device
+	 * {@link #datapointCandidates(TLObject)} names. Must run in a transaction.
+	 *
+	 * @return The new datapoints, in the order of the functions.
+	 */
+	public static List<TLObject> createDatapoints(TLObject device) {
+		List<TLObject> result = new ArrayList<>();
+		for (TLObject function : datapointCandidates(device)) {
+			result.add(createDatapoint(function));
+		}
+		return result;
+	}
+
+	/**
+	 * The sentence saying which datapoints {@link #createDatapoints(TLObject)} created.
+	 */
+	public static String createdSummary(List<TLObject> datapoints) {
+		List<String> ids = new ArrayList<>();
+		for (TLObject datapoint : datapoints) {
+			ids.add(ApplicationDatapoints.id(datapoint));
+		}
+		return Resources.getInstance().getString(
+			I18NConstants.DATAPOINTS_CREATED__COUNT_IDS.fill(Integer.valueOf(ids.size()), String.join(", ", ids)));
 	}
 
 	/**

@@ -4,6 +4,8 @@
 package de.haumacher.ehome.zigbee;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import com.top_logic.basic.config.ConfigurationException;
@@ -17,6 +19,7 @@ import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 import com.top_logic.util.Resources;
+import com.top_logic.util.error.TopLogicException;
 
 /**
  * The TL-Script functions of the Zigbee devices of a project (haumacher/ehome #40): the import of a
@@ -115,7 +118,40 @@ public class ZigbeeFunctions extends GenericMethod {
 		 * <code>zigbeeRemoveAbsentVeto(device)</code>: why the device has no absent function to remove,
 		 * as text; <code>null</code> if it has.
 		 */
-		zigbeeRemoveAbsentVeto(1, true);
+		zigbeeRemoveAbsentVeto(1, true),
+		/**
+		 * <code>zigbeeDeviceType(device)</code>: the type of the Zigbee catalog the device is, by its
+		 * manufacturer and model ({@link ZigbeeCatalog#type(TLObject)}); <code>null</code> for an
+		 * unknown device.
+		 */
+		zigbeeDeviceType(1, true),
+		/**
+		 * <code>zigbeeFunctionHidden(function)</code>: whether the device's type in the catalog hides
+		 * the function ({@link ZigbeeCatalog#hidden(TLObject)}).
+		 */
+		zigbeeFunctionHidden(1, true),
+		/**
+		 * <code>zigbeeCreateDatapoints(device)</code>: creates a datapoint for every function of the
+		 * device that is exported, unbound and not hidden ({@link ZigbeeBindings#createDatapoints(TLObject)});
+		 * the sentence naming them; refused with the reason when there is none.
+		 */
+		zigbeeCreateDatapoints(1, false),
+		/**
+		 * <code>zigbeeCreateDatapointsVeto(device)</code>: why there is no datapoint to create for the
+		 * device, as text; <code>null</code> if there is.
+		 */
+		zigbeeCreateDatapointsVeto(1, true),
+		/**
+		 * <code>zigbeeCatalogImport(catalog, file)</code>: imports the uploaded catalog file into the
+		 * catalog ({@link ZigbeeCatalogJson#importFile(TLObject, Object)}); the sentence saying what was
+		 * imported.
+		 */
+		zigbeeCatalogImport(2, false),
+		/**
+		 * <code>zigbeeCatalogExport(types)</code>: the device types (one or a list) as a catalog file
+		 * to download ({@link ZigbeeCatalogJson#export(java.util.Collection)}).
+		 */
+		zigbeeCatalogExport(1, true);
 
 		private final int _arity;
 
@@ -167,6 +203,19 @@ public class ZigbeeFunctions extends GenericMethod {
 		if (_function == Function.zigbeeFunctionOptions) {
 			return ZigbeeBindings.functionOptions(arguments[0]);
 		}
+		if (_function == Function.zigbeeCatalogExport) {
+			List<TLObject> types = new ArrayList<>();
+			if (arguments[0] instanceof Collection<?> list) {
+				for (Object element : list) {
+					if (element instanceof TLObject type && type.tValid()) {
+						types.add(type);
+					}
+				}
+			} else if (arguments[0] instanceof TLObject type && type.tValid()) {
+				types.add(type);
+			}
+			return ZigbeeCatalogJson.export(types);
+		}
 		if (!(arguments[0] instanceof TLObject obj) || !obj.tValid()) {
 			return _function == Function.zigbeeCandidates ? List.of() : null;
 		}
@@ -202,6 +251,22 @@ public class ZigbeeFunctions extends GenericMethod {
 				return ZigbeeStatus.removeAbsent(obj);
 			case zigbeeRemoveAbsentVeto:
 				return text(ZigbeeStatus.removeAbsentVeto(obj));
+			case zigbeeDeviceType:
+				return ZigbeeCatalog.type(obj);
+			case zigbeeFunctionHidden:
+				return Boolean.valueOf(ZigbeeCatalog.hidden(obj));
+			case zigbeeCreateDatapoints: {
+				// The command's executability is not computed again after it ran: refuse with the reason.
+				ResKey veto = ZigbeeBindings.createDatapointsVeto(obj);
+				if (veto != null) {
+					throw new TopLogicException(veto);
+				}
+				return ZigbeeBindings.createdSummary(ZigbeeBindings.createDatapoints(obj));
+			}
+			case zigbeeCreateDatapointsVeto:
+				return text(ZigbeeBindings.createDatapointsVeto(obj));
+			case zigbeeCatalogImport:
+				return ZigbeeCatalogJson.importFile(obj, arguments[1]);
 			default:
 				return null;
 		}

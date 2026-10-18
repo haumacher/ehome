@@ -400,6 +400,106 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey REPORTING_NOT_CONFIGURED;
 
+	/**
+	 * @en The function {0} of endpoint {1} is listed twice.
+	 */
+	public static ResKey2 CATALOG_DUPLICATE_FUNCTION__FUNCTION_ENDPOINT;
+
+	/**
+	 * @en The device type {0} {1} is listed twice.
+	 */
+	public static ResKey2 CATALOG_DUPLICATE_TYPE__MANUFACTURER_MODEL;
+
+	/**
+	 * @en {0} device types imported: {1} new, {2} updated, {3} unchanged.
+	 */
+	public static ResKey4 CATALOG_IMPORTED__TYPES_CREATED_UPDATED_UNCHANGED;
+
+	/**
+	 * @en The endpoint must be an integer 1..240.
+	 */
+	public static ResKey CATALOG_INVALID_ENDPOINT;
+
+	/**
+	 * @en The functions must be an array.
+	 */
+	public static ResKey CATALOG_INVALID_FUNCTIONS;
+
+	/**
+	 * @en Hidden must be true or false.
+	 */
+	public static ResKey CATALOG_INVALID_HIDDEN;
+
+	/**
+	 * @en An integer is expected.
+	 */
+	public static ResKey CATALOG_INVALID_INTEGER;
+
+	/**
+	 * @en A number is expected.
+	 */
+	public static ResKey CATALOG_INVALID_NUMBER;
+
+	/**
+	 * @en An object is expected.
+	 */
+	public static ResKey CATALOG_INVALID_OBJECT;
+
+	/**
+	 * @en A text (or an object of texts by language) is expected.
+	 */
+	public static ResKey CATALOG_INVALID_TEXT;
+
+	/**
+	 * @en {0} is no datapoint type of the runtime image.
+	 */
+	public static ResKey1 CATALOG_INVALID_TYPE__TYPE;
+
+	/**
+	 * @en The types must be an array.
+	 */
+	public static ResKey CATALOG_INVALID_TYPES;
+
+	/**
+	 * @en The version must be a positive integer.
+	 */
+	public static ResKey CATALOG_INVALID_VERSION;
+
+	/**
+	 * @en Device types of the Zigbee catalog shipped with E-Home ({0})
+	 */
+	public static ResKey1 CATALOG_SEED__FILE;
+
+	/**
+	 * @en The datapoint type {0} does not fit the function {1}, which carries the value type {2}.
+	 */
+	public static ResKey3 CATALOG_TYPE_MISFIT__TYPE_FUNCTION_VALUE_TYPE;
+
+	/**
+	 * @en {0} datapoints created: {1}
+	 */
+	public static ResKey2 DATAPOINTS_CREATED__COUNT_IDS;
+
+	/**
+	 * @en The file is no Zigbee catalog file of E-Home (format "{0}", expected "ehome-zigbee-catalog").
+	 */
+	public static ResKey1 ERROR_CATALOG_FORMAT__FORMAT;
+
+	/**
+	 * @en The catalog file is refused at {0}: {1}
+	 */
+	public static ResKey2 ERROR_CATALOG_INVALID__PATH_REASON;
+
+	/**
+	 * @en The catalog file has version {0}, which is newer than the version E-Home reads ({1}): update E-Home.
+	 */
+	public static ResKey2 ERROR_CATALOG_VERSION__VERSION_SUPPORTED;
+
+	/**
+	 * @en Every function of the device that is not hidden has a datapoint already.
+	 */
+	public static ResKey VETO_NOTHING_TO_CREATE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

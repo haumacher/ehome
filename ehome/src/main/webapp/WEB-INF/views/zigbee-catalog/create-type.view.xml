@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Create dialog of a device type of the Zigbee catalog (zigbee-catalog.view.xml). "model" carries
+	the transient type bound by the opening command, "catalog" the catalog it is added to; the created
+	type is written to "selection". Manufacturer and model are entered as the device reports them (the
+	device's form in the tab "Zigbee" of a project shows them); its functions are added in the form
+	afterwards.
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="catalog"/>
+		<channel name="selection"/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>New device type</en>
+			<de>Neuer Gerätetyp</de>
+		</title>
+		<form
+			initial-edit-mode="true"
+			input="model"
+			mode-switch="false"
+			with-inset="true"
+		>
+			<field attribute="name"/>
+			<field attribute="manufacturer"/>
+			<field attribute="model"/>
+			<field attribute="description"/>
+			<commands>
+				<generic-command
+					image="css:bi bi-check-lg"
+					input="model"
+					placement="BUTTON_BAR"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<store-form-state/>
+					<persist-transient
+						container="catalog"
+						reference="types"
+					/>
+					<write-channel name="selection"/>
+					<close-dialog/>
+				</generic-command>
+			</commands>
+		</form>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

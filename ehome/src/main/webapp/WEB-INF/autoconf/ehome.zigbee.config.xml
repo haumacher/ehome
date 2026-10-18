@@ -45,6 +45,13 @@
 					<method name="zigbeeLiveProblem" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
 					<method name="zigbeeRemoveAbsent" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
 					<method name="zigbeeRemoveAbsentVeto" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
+					<!-- The catalog of known devices (haumacher/ehome #64, ehome.zigbee.catalog.config.xml). -->
+					<method name="zigbeeDeviceType" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
+					<method name="zigbeeFunctionHidden" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
+					<method name="zigbeeCreateDatapoints" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
+					<method name="zigbeeCreateDatapointsVeto" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
+					<method name="zigbeeCatalogImport" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
+					<method name="zigbeeCatalogExport" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

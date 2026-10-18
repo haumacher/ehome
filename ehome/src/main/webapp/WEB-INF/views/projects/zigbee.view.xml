@@ -36,6 +36,15 @@
 	last export, else the defaults of its function table); the form edits the installer's override
 	(minimum and maximum interval, reportable change in the function's unit), which the runtime image
 	carries as the binding's reporting, refused when saved as the controller's loader would refuse it.
+
+	Catalog (haumacher/ehome #64, ZigbeeCatalog, zigbee-catalog.view.xml): a device whose manufacturer
+	and model the Zigbee catalog knows shows its type (column and field "Type"), its functions the
+	catalog's names; functions the catalog hides (a quirk such as a controller endpoint that is no
+	button) are left out of the function table by its preset "Visible functions", which the user
+	drops to see them. "Create datapoints" on the device creates a datapoint for every function that
+	is exported, unbound and not hidden, named, typed and with the reporting the catalog recommends
+	(an override the installer set is kept). The match is computed whenever the device is shown, so a
+	type added later applies; a device without a type shows the functions by their keys as before.
 -->
 <view>
 	<channels>
@@ -167,6 +176,28 @@
 							/>
 						</generic-command>
 						<generic-command
+							image="css:bi bi-plus-square"
+							input="device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Create datapoints</en>
+								<de>Datenpunkte anlegen</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="d -> zigbeeCreateDatapointsVeto($d)"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="d -> zigbeeCreateDatapoints($d)"/>
+							</with-transaction>
+							<notify
+								expr="t -> $t"
+								kind="info"
+							/>
+						</generic-command>
+						<generic-command
 							image="css:bi bi-eraser"
 							input="device"
 							placement="TOOLBAR"
@@ -239,6 +270,7 @@
 									<value>d -> zigbeeDeviceState($d)</value>
 								</computed-column>
 								<column attribute="location"/>
+								<column attribute="deviceType"/>
 								<column attribute="manufacturer"/>
 								<column attribute="model"/>
 								<column attribute="ieee"/>
@@ -272,6 +304,9 @@
 								>
 									<field attribute="name"/>
 									<field attribute="location"/>
+									<field attribute="deviceType"
+										readonly="true"
+									/>
 									<field attribute="label"
 										readonly="true"
 									/>
@@ -382,10 +417,22 @@
 														unit="%"
 													>
 														<table
-															observed-types="ehome.zigbee:ZigbeeFunction,ehome.zigbee:ZigbeeDevice,ehome.runtime:ApplicationDatapoint"
+															observed-types="ehome.zigbee:ZigbeeFunction,ehome.zigbee:ZigbeeDevice,ehome.runtime:ApplicationDatapoint,ehome.zigbee.catalog:ZigbeeFunctionEntry"
 															selection="function"
 															types="ehome.zigbee:ZigbeeFunction"
 														>
+															<presets initial="visible">
+																<preset name="visible">
+																	<label>
+																		<en>Visible functions</en>
+																		<de>Sichtbare Funktionen</de>
+																	</label>
+																	<criterion
+																		column="hidden"
+																		expr="false"
+																	/>
+																</preset>
+															</presets>
 															<inputs>
 																<input channel="device"/>
 															</inputs>
@@ -408,6 +455,7 @@
 																<column attribute="cluster"/>
 																<column attribute="attribute"/>
 																<column attribute="absent"/>
+																<column attribute="hidden"/>
 																<column attribute="function">
 																	<label>
 																		<en>Key</en>

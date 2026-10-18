@@ -252,6 +252,9 @@ public class TestAccessRights extends BasicTestCase {
 		assertTrue("Import creates manufacturers.",
 			rights().isAllowedCreate(_installer, singleton("ehome.catalog:ManufacturerRoot"),
 				part("ehome.catalog:ManufacturerRoot#manufacturers")));
+		assertTrue("An installer adds a device type to the Zigbee catalog.",
+			rights().isAllowedCreate(_installer, singleton("ehome.zigbee.catalog:ZigbeeCatalog"),
+				part("ehome.zigbee.catalog:ZigbeeCatalog#types")));
 	}
 
 	public void testViewerReadsOnly() {
@@ -268,6 +271,8 @@ public class TestAccessRights extends BasicTestCase {
 		assertFalse(rights().isAllowedCreate(_viewer, _project, part("ehome.project:Project#applicationDatapoints")));
 		assertFalse(rights().isAllowedCreate(_viewer, singleton("ehome.catalog:ManufacturerRoot"),
 			part("ehome.catalog:ManufacturerRoot#manufacturers")));
+		assertFalse(rights().isAllowedCreate(_viewer, singleton("ehome.zigbee.catalog:ZigbeeCatalog"),
+			part("ehome.zigbee.catalog:ZigbeeCatalog#types")));
 		assertTrue(rights().isAllowed(_viewer, _controller, part("ehome.runtime:Controller#name"), READ));
 	}
 
@@ -370,7 +375,7 @@ public class TestAccessRights extends BasicTestCase {
 		return List.of(_project, _groupAddress, _device, _function, _dismissal, _deployment, _controller, _rule, _reaction,
 			_trigger, _action, _parameter, _schedule, _applicationDatapoint, _manufacturer,
 			_catalog, _variant, _program, singleton("ehome.catalog:ManufacturerRoot"), singleton("ehome.datapoint:DatapointTypes"),
-			singleton("ehome.mask:MaskVersions"));
+			singleton("ehome.mask:MaskVersions"), singleton("ehome.zigbee.catalog:ZigbeeCatalog"));
 	}
 
 	private static String label(TLObject object) {

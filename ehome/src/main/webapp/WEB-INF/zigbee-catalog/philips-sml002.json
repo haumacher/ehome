@@ -1,0 +1,77 @@
+{
+	"format": "ehome-zigbee-catalog",
+	"version": 1,
+	"types": [
+		{
+			"manufacturer": "Philips",
+			"model": "SML002",
+			"name": {
+				"de": "Hue Bewegungsmelder",
+				"en": "Hue motion sensor"
+			},
+			"description": {
+				"de": "Philips Hue Bewegungsmelder für innen, batteriebetrieben: Bewegung, Temperatur und Helligkeit auf Endpunkt 2. Endpunkt 1 ist der Controller-Endpunkt des ZLL-Profils (On/Off-Client), keine Taste; seine Funktion action ist ausgeblendet. Die empfohlenen Berichte schonen die Batterie.",
+				"en": "Philips Hue indoor motion sensor, battery powered: motion, temperature and illuminance on endpoint 2. Endpoint 1 is the controller endpoint of the ZLL profile (On/Off client), no button; its function action is hidden. The recommended reporting spares the battery."
+			},
+			"functions": [
+				{
+					"endpoint": 2,
+					"function": "occupancy",
+					"name": {
+						"de": "Bewegung",
+						"en": "Motion"
+					},
+					"type": "boolean"
+				},
+				{
+					"endpoint": 2,
+					"function": "temperature",
+					"name": {
+						"de": "Temperatur",
+						"en": "Temperature"
+					},
+					"type": "real",
+					"unit": "°C",
+					"reporting": {
+						"min": 60,
+						"max": 3600,
+						"change": 0.5
+					}
+				},
+				{
+					"endpoint": 2,
+					"function": "illuminance",
+					"name": {
+						"de": "Helligkeit",
+						"en": "Illuminance"
+					},
+					"type": "real",
+					"unit": "lx",
+					"reporting": {
+						"min": 60,
+						"max": 3600
+					}
+				},
+				{
+					"endpoint": 2,
+					"function": "battery",
+					"name": {
+						"de": "Batterie",
+						"en": "Battery"
+					},
+					"type": "real",
+					"unit": "%",
+					"reporting": {
+						"min": 3600,
+						"max": 43200
+					}
+				},
+				{
+					"endpoint": 1,
+					"function": "action",
+					"hidden": true
+				}
+			]
+		}
+	]
+}

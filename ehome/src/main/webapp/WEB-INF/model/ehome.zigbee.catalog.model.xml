@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<!--
+		The catalog of known Zigbee devices (haumacher/ehome #64): shared master data, not part of a
+		project, that says what a device of a manufacturer and model is and what its functions mean to
+		the installer. The controller knows nothing of brands; it exports the manufacturer and model a
+		device reports and the functions its cluster mapping derives (homecontrol spec/zigbee.md). E-Home
+		matches a project's device to its type whenever it shows it (ehome.zigbee:ZigbeeDevice#deviceType,
+		de.haumacher.ehome.zigbee.ZigbeeCatalog), so a type added later applies to the devices imported
+		before; nothing of the catalog is copied into a project until the installer creates datapoints
+		from it. E-Home ships the device types it has real data for (WEB-INF/zigbee-catalog/*.json,
+		loaded once per database by de.haumacher.ehome.zigbee.ZigbeeCatalogSeed); the user adds more and
+		exchanges them as JSON files (de.haumacher.ehome.zigbee.ZigbeeCatalogJson, doc/zigbee.md
+		"Catalog").
+	-->
+	<module name="ehome.zigbee.catalog">
+		<annotations>
+			<singletons>
+				<singleton type="ZigbeeCatalog"/>
+			</singletons>
+		</annotations>
+		<!-- The catalog: the device types known to the installation. -->
+		<class name="ZigbeeCatalog">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- The device types, each identified by manufacturer and model. -->
+				<reference name="types"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ZigbeeDeviceType"
+				/>
+			</attributes>
+		</class>
+		<!-- What a device of a manufacturer and model is, and what its functions mean. -->
+		<class name="ZigbeeDeviceType">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-upc-scan"/>
+			</annotations>
+			<attributes>
+				<!-- The name of the device type for the installer ("Hue Bewegungsmelder"). -->
+				<property name="name"
+					mandatory="true"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The manufacturer as the device reports it (Basic cluster), matched exactly. -->
+				<property name="manufacturer"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The model identifier as the device reports it (Basic cluster), matched exactly; manufacturer and model identify the type. -->
+				<property name="model"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> if($value != null
+        and !$obj.container().get(`ehome.zigbee.catalog:ZigbeeCatalog#types`)
+            .filter(t -> $t != $obj
+                and $t.get(`ehome.zigbee.catalog:ZigbeeDeviceType#manufacturer`) == $obj.get(`ehome.zigbee.catalog:ZigbeeDeviceType#manufacturer`)
+                and $t.get(`ehome.zigbee.catalog:ZigbeeDeviceType#model`) == $value)
+            .isEmpty(),
+    #("The catalog has another device type of the manufacturer {0} with the model {1}."@en, "Der Katalog hat einen anderen Gerätetyp des Herstellers {0} mit dem Modell {1}."@de)
+        .fill($obj.get(`ehome.zigbee.catalog:ZigbeeDeviceType#manufacturer`), $value),
+    null)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- What the installer should know of the device type. -->
+				<property name="description"
+					type="tl.model.i18n:I18NString"
+				>
+					<annotations>
+						<multi-line/>
+					</annotations>
+				</property>
+				<!-- The functions of the device the catalog says something about. -->
+				<reference name="functions"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ZigbeeFunctionEntry"
+				/>
+			</attributes>
+		</class>
+		<!-- What a function of the device (endpoint and function key) means to the installer. -->
+		<class name="ZigbeeFunctionEntry">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-sliders"/>
+			</annotations>
+			<attributes>
+				<!-- The endpoint of the function (1..240). -->
+				<property name="endpoint"
+					mandatory="true"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The key of the controller's function table (temperature, occupancy, on_off, action, ...); a type lists each function of an endpoint once. -->
+				<property name="function"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> if($value != null
+        and !$obj.container().get(`ehome.zigbee.catalog:ZigbeeDeviceType#functions`)
+            .filter(e -> $e != $obj
+                and $e.get(`ehome.zigbee.catalog:ZigbeeFunctionEntry#endpoint`) == $obj.get(`ehome.zigbee.catalog:ZigbeeFunctionEntry#endpoint`)
+                and $e.get(`ehome.zigbee.catalog:ZigbeeFunctionEntry#function`) == $value)
+            .isEmpty(),
+    #("The device type lists the function {0} of endpoint {1} twice."@en, "Der Gerätetyp führt die Funktion {0} des Endpunkts {1} doppelt auf."@de)
+        .fill($value, $obj.get(`ehome.zigbee.catalog:ZigbeeFunctionEntry#endpoint`)),
+    null)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The name of the function for the installer ("Bewegung"): its label in the device's function table and the last part of the name of a datapoint created for it. -->
+				<property name="name"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The datapoint type recommended for the function; it must fit the value type the function carries. Empty: the function's value type. -->
+				<reference name="type"
+					kind="forwards"
+					type="ehome.runtime:DatapointValueType"
+				>
+					<annotations>
+						<constraints>
+							<constraint class="de.haumacher.ehome.zigbee.CatalogTypeConstraint"/>
+						</constraints>
+					</annotations>
+				</reference>
+				<!-- The unit recommended for the datapoint. Empty: the function's unit. -->
+				<property name="unit"
+					type="tl.core:String"
+				/>
+				<!-- Whether the function means nothing to the installer (a quirk of the device, such as a controller endpoint that is no button): hidden in the device's function table by default and left out by "Create datapoints". -->
+				<property name="hidden"
+					type="tl.core:Boolean"
+				/>
+				<!-- The recommended minimum reporting interval in seconds (0..65534), refused as the controller refuses an override; it becomes the function's override when a datapoint is created for it from the catalog. -->
+				<property name="reportingMin"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<constraints>
+							<constraint class="de.haumacher.ehome.zigbee.ReportingConstraint"/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The recommended maximum reporting interval in seconds (0..65535, not below the minimum; 0: no periodic reports, 65535: no reports). -->
+				<property name="reportingMax"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<constraints>
+							<constraint class="de.haumacher.ehome.zigbee.ReportingConstraint"/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The recommended reportable change in the datapoint's unit (°C, %); not for on_off, occupancy, illuminance and color_temperature. -->
+				<property name="reportingChange"
+					type="tl.core:Double"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0.0#" result-type="double"/>
+						</format>
+						<constraints>
+							<constraint class="de.haumacher.ehome.zigbee.ReportingConstraint"/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+	</module>
+</model>

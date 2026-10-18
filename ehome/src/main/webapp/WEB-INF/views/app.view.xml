@@ -40,6 +40,17 @@
 							<de>Kataloge</de>
 						</label>
 					</nav-item>
+					<nav-item id="zigbeeCatalog"
+						config:position="before"
+						config:reference="system-separator"
+						icon="css:bi bi-upc-scan"
+					>
+						<view-ref view="zigbee-catalog.view.xml"/>
+						<label>
+							<en>Zigbee catalog</en>
+							<de>Zigbee-Katalog</de>
+						</label>
+					</nav-item>
 					<nav-item id="datapoints"
 						config:position="before"
 						config:reference="system-separator"

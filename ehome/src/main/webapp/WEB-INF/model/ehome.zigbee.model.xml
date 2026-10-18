@@ -63,6 +63,19 @@
 						</options>
 					</annotations>
 				</reference>
+				<!-- The type of the Zigbee catalog the device is, by the manufacturer and model it reports (ehome.zigbee.catalog, haumacher/ehome #64); derived whenever it is read, so a type added later applies; empty for an unknown device. -->
+				<reference name="deviceType"
+					kind="forwards"
+					type="ehome.zigbee.catalog:ZigbeeDeviceType"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[d -> zigbeeDeviceType($d)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</reference>
 				<!-- The endpoints of the interview, in the order of the export. -->
 				<reference name="endpoints"
 					composite="true"
@@ -299,7 +312,19 @@
 					multiple="true"
 					type="ehome.runtime:ApplicationDatapoint"
 				/>
-				<!-- The label the function is listed with: the device's name, the function's name in the user's language (its key if E-Home does not know it) and the endpoint. -->
+				<!-- Whether the device's type in the Zigbee catalog marks the function as meaning nothing to the installer (a quirk such as a controller endpoint that is no button); derived whenever it is read. -->
+				<property name="hidden"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[f -> zigbeeFunctionHidden($f)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The label the function is listed with: the device's name, the function's name in the user's language (the catalog's name for it, else the name of its key, the key itself if E-Home does not know it) and the endpoint. -->
 				<property name="displayName"
 					type="tl.core:String"
 				>
