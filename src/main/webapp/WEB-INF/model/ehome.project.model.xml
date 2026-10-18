@@ -92,6 +92,14 @@
 					ordered="true"
 					type="ehome.runtime:Function"
 				/>
+				<!-- The proposed functions the user deleted, which the proposal does not bring back (haumacher/ehome #49). -->
+				<reference name="dismissedProposals"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:DismissedProposal"
+				/>
 				<!--
 					The time zone of the controller as POSIX TZ string, e.g. CET-1CEST,M3.5.0,M10.5.0/3 for
 					Central Europe; empty: the controller keeps its own.
@@ -166,6 +174,11 @@
 					type="ehome.logical:GroupAddress"
 				>
 					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeTimeMasterProblem($value, $obj, 'timeMasterTime')]]></check>
+							</constraint-by-expression>
+						</constraints>
 						<options>
 							<options-by-expression>
 								<function><![CDATA[p -> runtimeGroupAddresses($p)]]></function>
@@ -179,6 +192,11 @@
 					type="ehome.logical:GroupAddress"
 				>
 					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeTimeMasterProblem($value, $obj, 'timeMasterDate')]]></check>
+							</constraint-by-expression>
+						</constraints>
 						<options>
 							<options-by-expression>
 								<function><![CDATA[p -> runtimeGroupAddresses($p)]]></function>
@@ -192,6 +210,11 @@
 					type="ehome.logical:GroupAddress"
 				>
 					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeTimeMasterProblem($value, $obj, 'timeMasterDateTime')]]></check>
+							</constraint-by-expression>
+						</constraints>
 						<options>
 							<options-by-expression>
 								<function><![CDATA[p -> runtimeGroupAddresses($p)]]></function>

@@ -13,10 +13,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
@@ -25,6 +28,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
@@ -74,10 +78,19 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  *
  * <p>
  * Each function is named after its channel, gets an identifier derived from the name and the room the
- * device is placed in. The proposal never changes a function the project has: it adds a function only
- * for a channel no function of the project was proposed for, and none whose main role an existing
- * function of the same kind already binds. Running it again therefore adds nothing; a deleted
- * proposal comes back.
+ * device is placed in. The name has a text for each application language the device's program has
+ * texts in (<code>Program#languages</code>, haumacher/ehome #51): a program written in German only
+ * gives a German name, not the German text standing in for English. The kind is decided on the texts
+ * of all these languages, so it does not depend on the language of the user.
+ * </p>
+ *
+ * <p>
+ * The proposal never changes a function the project has: it adds a function only for a channel no
+ * function of the project was proposed for, and none whose main role an existing function of the
+ * same kind already binds. Running it again therefore adds nothing. A proposed function the user
+ * deletes is remembered as dismissed for its channel and kind (<code>Project#dismissedProposals</code>,
+ * #49, {@link #dismiss(TLObject)}), and the proposal does not bring it back until the dismissal is
+ * deleted.
  * </p>
  */
 public final class FunctionProposal {
@@ -100,7 +113,7 @@ public final class FunctionProposal {
 	 * A communication object of a channel with the group address it sends on.
 	 */
 	private record Obj(TLObject connection, TLObject address, Dpt dpt, String type, boolean input,
-			boolean output, String text) {
+			boolean output, String text, Map<String, Resources> languages) {
 
 		int addressValue() {
 			return address.tValueByName("address") instanceof GA ga ? ga.getValue() : Integer.MAX_VALUE;
@@ -122,9 +135,9 @@ public final class FunctionProposal {
 	/**
 	 * The objects of one channel of a device.
 	 */
-	private record Channel(String key, String label, List<Obj> objects) {
+	private record Channel(String key, Map<String, String> label, List<Obj> objects) {
 		boolean named(Pattern pattern) {
-			return pattern.matcher(label.toLowerCase(Locale.ROOT)).find();
+			return pattern.matcher(String.join(" ", label.values()).toLowerCase(Locale.ROOT)).find();
 		}
 	}
 
@@ -134,7 +147,8 @@ public final class FunctionProposal {
 	 * @param kind
 	 *        The function kind.
 	 * @param label
-	 *        Its name.
+	 *        Its name by language (<code>de</code>, <code>en</code>), in the languages of the
+	 *        device's program.
 	 * @param roles
 	 *        The group addresses by role, in the order of the kind's roles.
 	 * @param device
@@ -142,8 +156,15 @@ public final class FunctionProposal {
 	 * @param channel
 	 *        The key of the channel it was proposed for.
 	 */
-	public record Proposal(String kind, String label, Map<String, TLObject> roles, TLObject device, String channel) {
-		// A record.
+	public record Proposal(String kind, Map<String, String> label, Map<String, TLObject> roles, TLObject device,
+			String channel) {
+
+		/**
+		 * The name as multilingual text.
+		 */
+		public ResKey name() {
+			return FunctionProposal.text(label);
+		}
 	}
 
 	private FunctionProposal() {
@@ -174,9 +195,19 @@ public final class FunctionProposal {
 			}
 		}
 
+		Set<String> dismissed = new HashSet<>();
+		for (TLObject dismissal : list(project, DISMISSED)) {
+			if (dismissal.tValueByName("device") instanceof TLObject device && dismissal.tValueByName("channel") != null) {
+				dismissed.add(kind(dismissal) + " " + channelKey(device, dismissal.tValueByName("channel").toString()));
+			}
+		}
+
 		List<TLObject> added = new ArrayList<>();
 		for (Proposal proposal : propose(project)) {
 			if (proposedChannels.contains(channelKey(proposal.device(), proposal.channel()))) {
+				continue;
+			}
+			if (dismissed.contains(proposal.kind() + " " + channelKey(proposal.device(), proposal.channel()))) {
 				continue;
 			}
 			TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
@@ -192,6 +223,45 @@ public final class FunctionProposal {
 		}
 		return added;
 	}
+
+	/**
+	 * Deletes the given function of its project; must run in a transaction. A function the proposal
+	 * made (one with a device and a channel) is remembered as dismissed, so the proposal does not
+	 * bring it back: a {@link #DISMISSED dismissal} with its name, kind, device and channel, unless the
+	 * project has one for them already.
+	 *
+	 * @return The dismissal recorded, <code>null</code> for none.
+	 */
+	public static TLObject dismiss(TLObject function) {
+		TLObject project = function.tContainer();
+		TLObject result = null;
+		if (project != null && function.tValueByName("device") instanceof TLObject device
+			&& function.tValueByName("channel") instanceof String channel && function.tValueByName("kind") != null) {
+			boolean known = false;
+			for (TLObject dismissal : list(project, DISMISSED)) {
+				known |= dismissal.tValueByName("device") == device && channel.equals(dismissal.tValueByName("channel"))
+					&& dismissal.tValueByName("kind") == function.tValueByName("kind");
+			}
+			if (!known) {
+				result = ModelService.getInstance().getFactory()
+					.createObject((TLClass) TLModelUtil.findType("ehome.runtime:DismissedProposal"));
+				result.tUpdateByName("name", function.tValueByName("name"));
+				result.tUpdateByName("kind", function.tValueByName("kind"));
+				result.tUpdateByName("device", device);
+				result.tUpdateByName("channel", channel);
+				List<TLObject> dismissals = list(project, DISMISSED);
+				dismissals.add(result);
+				project.tUpdateByName(DISMISSED, dismissals);
+			}
+		}
+		function.tDelete();
+		return result;
+	}
+
+	/**
+	 * The attribute of a project holding the dismissed proposals.
+	 */
+	public static final String DISMISSED = "dismissedProposals";
 
 	/**
 	 * The functions of the project.
@@ -220,8 +290,9 @@ public final class FunctionProposal {
 	private static TLObject create(Proposal proposal, Set<String> identifiers) {
 		TLObject function = ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Function"));
-		function.tUpdateByName("name", RuntimeImage.truncate(proposal.label(), ImageValidator.MAX_NAME));
-		function.tUpdateByName("identifier", uniqueIdentifier(proposal.label(), identifiers));
+		ResKey name = proposal.name();
+		function.tUpdateByName("name", name);
+		function.tUpdateByName("identifier", uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
 		function.tUpdateByName("kind", classifier(proposal.kind()));
 		function.tUpdateByName("room", proposal.device().tValueByName("location"));
 		function.tUpdateByName("device", proposal.device());
@@ -230,6 +301,32 @@ public final class FunctionProposal {
 			function.tUpdateByName(role.getKey(), role.getValue());
 		}
 		return function;
+	}
+
+	/**
+	 * The given texts by language as multilingual text, <code>null</code> for none.
+	 */
+	public static ResKey text(Map<String, String> texts) {
+		if (texts.isEmpty()) {
+			return null;
+		}
+		ResKey.Builder builder = ResKey.builder();
+		for (Map.Entry<String, String> entry : texts.entrySet()) {
+			builder.add(new Locale(entry.getKey()), entry.getValue());
+		}
+		return builder.build();
+	}
+
+	/**
+	 * The texts of the application languages, each in its language: the given text for every
+	 * language (a user's text, which has no language of its own).
+	 */
+	public static ResKey text(ResKey key) {
+		Map<String, String> texts = new TreeMap<>();
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			texts.put(locale.getLanguage(), Resources.getInstance(locale).getString(key));
+		}
+		return text(texts);
 	}
 
 	/**
@@ -325,23 +422,27 @@ public final class FunctionProposal {
 			if (type == null) {
 				continue;
 			}
-			String objectName = GroupAddressConnections.objectName(placed);
+			Map<String, Resources> languages = languages(placed);
+			Map<String, String> objectName = texts(languages, r -> GroupAddressConnections.objectName(placed, r));
 			TLObject programChannel = programChannel(placed);
 			String key;
-			String label;
+			Map<String, String> label;
 			if (programChannel != null) {
 				key = "channel:" + programChannel.tValueByName("extId");
-				label = channelLabel(programChannel);
+				label = texts(languages, r -> channelLabel(programChannel, r));
 			} else {
-				key = "object:" + objectName;
+				// Keyed by a text that does not depend on the user's language.
+				key = "object:" + GroupAddressConnections.objectName(placed,
+					Resources.getInstance(ResourcesModule.getInstance().getFallbackLocale()));
 				label = objectName;
 			}
 			boolean input = DatapointSettings.receives(connection) && DatapointSettings.writable(address);
 			boolean output = DatapointSettings.transmits(connection);
-			String text = (objectName + " " + GroupAddressConnections.function(connection) + " "
-				+ address.tValueByName("name")).toLowerCase(Locale.ROOT);
+			String text = (String.join(" ", objectName.values()) + " "
+				+ String.join(" ", texts(languages, r -> GroupAddressConnections.function(connection, r)).values())
+				+ " " + address.tValueByName("name")).toLowerCase(Locale.ROOT);
 			channels.computeIfAbsent(key, k -> new Channel(k, label, new ArrayList<>()))
-				.objects().add(new Obj(connection, address, dpt, type, input, output, text));
+				.objects().add(new Obj(connection, address, dpt, type, input, output, text, languages));
 		}
 		return new ArrayList<>(channels.values());
 	}
@@ -378,9 +479,49 @@ public final class FunctionProposal {
 		return null;
 	}
 
-	private static String channelLabel(TLObject channel) {
+	/**
+	 * The application languages the texts of the program of the given placement are written in, with
+	 * the resources of each: the languages the program records, all application languages for a
+	 * program recording none.
+	 */
+	private static Map<String, Resources> languages(Interface placed) {
+		Set<String> recorded = Set.of();
+		for (TLObject node = placed.tContainer(); node != null; node = node.tContainer()) {
+			if (isA(node, "ehome.operational:Program")) {
+				recorded = ProgramLanguages.languages(node);
+				break;
+			}
+		}
+		Map<String, Resources> result = new TreeMap<>();
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			if (recorded.isEmpty() || recorded.contains(locale.getLanguage())) {
+				result.put(locale.getLanguage(), Resources.getInstance(locale));
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The texts the given function gives in the given languages, each without control characters and
+	 * cut to the longest label of the runtime image; empty texts left out.
+	 */
+	private static Map<String, String> texts(Map<String, Resources> languages, Function<Resources, String> text) {
+		Map<String, String> result = new TreeMap<>();
+		for (Map.Entry<String, Resources> language : languages.entrySet()) {
+			String value = text.apply(language.getValue());
+			if (value != null) {
+				value = value.replaceAll("\\p{Cntrl}", " ").trim();
+				if (!value.isEmpty()) {
+					result.put(language.getKey(), RuntimeImage.truncate(value, ImageValidator.MAX_NAME));
+				}
+			}
+		}
+		return result;
+	}
+
+	private static String channelLabel(TLObject channel, Resources resources) {
 		String text = channel.tValueByName("description") instanceof ResKey description
-			? Resources.getInstance().getString(description, null) : null;
+			? resources.getString(description, null) : null;
 		if (text == null || text.isBlank()) {
 			text = String.valueOf(channel.tValueByName("name"));
 		}
@@ -453,10 +594,15 @@ public final class FunctionProposal {
 
 		List<Obj> values = objects.stream().filter(o -> o.output() && !o.input() && measured(o)).toList();
 		for (Obj value : values) {
-			String label = values.size() == 1 ? channel.label()
-				: channel.label() + " " + GroupAddressConnections.function(value.connection());
+			Map<String, String> label = values.size() == 1 ? channel.label()
+				: texts(value.languages(), r -> channel.label().getOrDefault(language(r), "") + " "
+					+ GroupAddressConnections.function(value.connection(), r));
 			result.add(new Proposal("sensor", label, Map.of("value", value.address()), device, channel.key()));
 		}
+	}
+
+	private static String language(Resources resources) {
+		return resources.getLocale().getLanguage();
 	}
 
 	private static boolean measured(Obj obj) {

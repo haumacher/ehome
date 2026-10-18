@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 import junit.framework.Test;
@@ -21,6 +22,7 @@ import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.base.services.InitialGroupManager;
 import com.top_logic.base.services.InitialRolesManager;
 import com.top_logic.basic.thread.ThreadContext;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
@@ -85,6 +87,8 @@ public class TestAccessRights extends BasicTestCase {
 
 	private TLObject _function;
 
+	private TLObject _dismissal;
+
 	private TLObject _deployment;
 
 	private TLObject _controller;
@@ -148,10 +152,17 @@ public class TestAccessRights extends BasicTestCase {
 			_project.tUpdateByName("areas", List.of(area));
 
 			_function = create("ehome.runtime:Function");
-			_function.tUpdateByName("name", "Light");
+			_function.tUpdateByName("name", ResKey.builder().add(Locale.ENGLISH, "Light").build());
 			_function.tUpdateByName("kind",
 				((TLEnumeration) TLModelUtil.findType("ehome.runtime:FunctionKind")).getClassifier("light"));
 			_project.tUpdateByName("functions", List.of(_function));
+
+			_dismissal = create("ehome.runtime:DismissedProposal");
+			_dismissal.tUpdateByName("kind",
+				((TLEnumeration) TLModelUtil.findType("ehome.runtime:FunctionKind")).getClassifier("button"));
+			_dismissal.tUpdateByName("device", _device);
+			_dismissal.tUpdateByName("channel", "object:Taste 1");
+			_project.tUpdateByName("dismissedProposals", List.of(_dismissal));
 
 			_deployment = create("ehome.runtime:Deployment");
 			_deployment.tUpdateByName("controller", _controller);
@@ -294,7 +305,7 @@ public class TestAccessRights extends BasicTestCase {
 	}
 
 	private List<TLObject> objects() {
-		return List.of(_project, _groupAddress, _device, _function, _deployment, _controller, _manufacturer,
+		return List.of(_project, _groupAddress, _device, _function, _dismissal, _deployment, _controller, _manufacturer,
 			_catalog, _variant, _program, singleton("ehome.catalog:ManufacturerRoot"), singleton("ehome.datapoint:DatapointTypes"),
 			singleton("ehome.mask:MaskVersions"));
 	}

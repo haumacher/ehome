@@ -30,7 +30,8 @@ import de.haumacher.ehome.runtime.ImageReport.Refusal;
  * <p>
  * The image carries the revision the next deployment would carry. The result is a map for a
  * dialog: <code>file</code> (the image as JSON file named after the project, <code>null</code> for a
- * refused image), <code>summary</code> (a sentence saying whether the image is valid),
+ * refused image), <code>summary</code> (whether the image is valid; for a valid one what it holds, see
+ * {@link #summary(RuntimeImage)}),
  * <code>refusals</code> (one map per refusal with <code>path</code>, <code>reason</code> and the
  * <code>element</code> of the project the path leads to) and <code>notes</code> (what the export left
  * out, one line each).
@@ -86,9 +87,7 @@ public class ExportRuntimeImageAction implements ViewAction {
 		if (report.isValid()) {
 			result.put("file", BinaryDataFactory.createBinaryData(image.getBytes(), RuntimeImage.CONTENT_TYPE,
 				RuntimeImage.fileName(project)));
-			result.put("summary", resources.getString(I18NConstants.EXPORT_VALID__DATAPOINTS_LOCATIONS_BYTES.fill(
-				size(image.getJson().get("datapoints")), size(image.getJson().get("locations")),
-				Integer.valueOf(image.getBytes().length))));
+			result.put("summary", summary(image));
 		} else {
 			result.put("file", null);
 			result.put("summary",
@@ -99,8 +98,33 @@ public class ExportRuntimeImageAction implements ViewAction {
 		return result;
 	}
 
-	private static Integer size(Object list) {
-		return Integer.valueOf(list instanceof List<?> elements ? elements.size() : 0);
+	/**
+	 * The sentences saying what a valid image holds: its datapoints, locations, functions and
+	 * settings (the controller's settings and the history budget, each counted as one), its size,
+	 * and the addresses of its time master.
+	 */
+	public static String summary(RuntimeImage image) {
+		Map<String, Object> json = image.getJson();
+		int settings = size(json.get("settings")).intValue() + (json.containsKey("history") ? 1 : 0);
+		Resources resources = Resources.getInstance();
+		String result = resources.getString(I18NConstants.EXPORT_VALID__DATAPOINTS_LOCATIONS_FUNCTIONS_SETTINGS_BYTES.fill(
+			size(json.get("datapoints")), size(json.get("locations")), size(json.get("functions")),
+			Integer.valueOf(settings), Integer.valueOf(image.getBytes().length)));
+		List<String> addresses = new ArrayList<>();
+		if (json.get("knx") instanceof Map<?, ?> knx && knx.get("timeMaster") instanceof Map<?, ?> timeMaster) {
+			for (String member : List.of("time", "date", "dateTime")) {
+				if (timeMaster.get(member) != null) {
+					addresses.add(timeMaster.get(member).toString());
+				}
+			}
+		}
+		return result + " " + resources.getString(addresses.isEmpty() ? I18NConstants.EXPORT_NO_TIME_MASTER
+			: I18NConstants.EXPORT_TIME_MASTER__ADDRESSES.fill(String.join(", ", addresses)));
+	}
+
+	private static Integer size(Object value) {
+		int size = value instanceof List<?> elements ? elements.size() : value instanceof Map<?, ?> map ? map.size() : 0;
+		return Integer.valueOf(size);
 	}
 
 }

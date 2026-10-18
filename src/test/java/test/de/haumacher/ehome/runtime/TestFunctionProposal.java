@@ -22,6 +22,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -29,6 +30,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
@@ -109,7 +111,7 @@ public class TestFunctionProposal extends BasicTestCase {
 				String kind = FunctionProposal.kind(function);
 				String main = FunctionKinds.mainRole(kind);
 				byMainRole.put(kind + " " + text((TLObject) function.tValueByName(main)), function);
-				assertEquals(FunctionProposal.slug((String) function.tValueByName("name")),
+				assertEquals(FunctionProposal.slug(name(function)),
 					function.tValueByName("identifier"));
 			}
 			Map<String, TLObject> byIdentifier = new HashMap<>();
@@ -149,8 +151,9 @@ public class TestFunctionProposal extends BasicTestCase {
 			// Idempotent: a second run adds nothing, and the user's edits survive it.
 			TLObject channelA = byIdentifier.get("channel-a");
 			TLObject channelC = byIdentifier.get("channel-c");
+			Object channelAName = channelA.tValueByName("name");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				channelA.tUpdateByName("name", "Deckenlicht");
+				channelA.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Deckenlicht")));
 				channelA.tUpdateByName("kind", FunctionProposal.classifier("switch"));
 				channelC.tUpdateByName("state", null);
 				channelC.tUpdateByName("room", null);
@@ -158,7 +161,7 @@ public class TestFunctionProposal extends BasicTestCase {
 			}
 			assertEquals(List.of(), apply(project));
 			assertEquals(11, FunctionProposal.functions(project).size());
-			assertEquals("Deckenlicht", channelA.tValueByName("name"));
+			assertEquals("Deckenlicht", name(channelA));
 			assertEquals("switch", FunctionProposal.kind(channelA));
 			assertNull(channelC.tValueByName("state"));
 			assertNull(channelC.tValueByName("room"));
@@ -170,7 +173,7 @@ public class TestFunctionProposal extends BasicTestCase {
 			TLObject own;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				own = create("ehome.runtime:Function");
-				own.tUpdateByName("name", "Klingel");
+				own.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Klingel")));
 				own.tUpdateByName("kind", FunctionProposal.classifier("button"));
 				own.tUpdateByName("press", key1.tValueByName("press"));
 				List<TLObject> functions = FunctionProposal.functions(project);
@@ -192,7 +195,7 @@ public class TestFunctionProposal extends BasicTestCase {
 			assertEquals(1, again.size());
 			assertEquals(key1Identifier, again.get(0).tValueByName("identifier"));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				channelA.tUpdateByName("name", "Channel A");
+				channelA.tUpdateByName("name", channelAName);
 				channelA.tUpdateByName("kind", FunctionProposal.classifier("light"));
 				channelC.tUpdateByName("state", address(project, "0/0/47"));
 				channelC.tUpdateByName("room", lab);
@@ -282,6 +285,13 @@ public class TestFunctionProposal extends BasicTestCase {
 		} finally {
 			SharedData.deleteProjects(projects);
 		}
+	}
+
+	/**
+	 * The name of the function in the user's language.
+	 */
+	static String name(TLObject function) {
+		return Resources.getInstance().getString((ResKey) function.tValueByName("name"));
 	}
 
 	static String text(TLObject address) {

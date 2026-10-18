@@ -155,8 +155,9 @@ public class TestRuntimeSettings extends BasicTestCase {
 			assertNull(((Map<?, ?>) image.getJson().get("settings")).get("location"));
 			assertEquals(2, image.getNotes().size());
 
-			// A time master on the address of an actuator input: the address is the time master's, not
-			// a datapoint the controller would send on, and the type that does not fit is named.
+			// A time master on the address of an actuator input, set outside a form (the form refuses it,
+			// TestTimeMasterCheck): the address is the time master's, not a datapoint the controller
+			// would send on, and the type that does not fit is named in the notes.
 			TLObject date = createAddress(project, "0/0/61", "Datum", "DPST-11-1");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				project.tUpdateByName("timeMasterTime", address(project, "0/0/40"));
@@ -181,11 +182,11 @@ public class TestRuntimeSettings extends BasicTestCase {
 			// role is bound to an untyped address is refused against the function.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				TLObject clock = TestFunctionProposal.create("ehome.runtime:Function");
-				clock.tUpdateByName("name", "Uhr");
+				clock.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Uhr")));
 				clock.tUpdateByName("kind", FunctionProposal.classifier("sensor"));
 				clock.tUpdateByName("value", date);
 				TLObject temperature = TestFunctionProposal.create("ehome.runtime:Function");
-				temperature.tUpdateByName("name", "Temperatur");
+				temperature.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Temperatur")));
 				temperature.tUpdateByName("kind", FunctionProposal.classifier("sensor"));
 				temperature.tUpdateByName("value", address(project, "0/0/28"));
 				project.tUpdateByName("functions", List.of(clock, temperature));

@@ -11,6 +11,7 @@ import java.util.List;
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.model.TLFormObjectBase;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.TLType;
@@ -23,6 +24,8 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
+import de.haumacher.ehome.programming.GroupAddressTypes;
 
 /**
  * The TL-Script functions of the controllers, the deployment of a project (haumacher/ehome #39), its
@@ -86,6 +89,12 @@ public class RuntimeFunctions extends GenericMethod {
 		 * group address; <code>null</code> if they fit ({@link DatapointSettings#historyProblem}).
 		 */
 		runtimeHistoryProblem,
+		/**
+		 * <code>runtimeTimeMasterProblem(address, project, attribute)</code>: the constraint of the
+		 * time master's addresses (<code>timeMasterTime</code>, <code>timeMasterDate</code>,
+		 * <code>timeMasterDateTime</code>), see {@link #timeMasterConstraint(Object, Object, String)}.
+		 */
+		runtimeTimeMasterProblem,
 		/**
 		 * <code>datapointWritable(address)</code>: whether the datapoint of the group address is
 		 * writable in the runtime image ({@link DatapointSettings#writable(TLObject)}).
@@ -153,6 +162,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return problem(argument, RuntimeFunctions::timeZoneProblem);
 			case runtimeHostNameProblem:
 				return problem(argument, RuntimeFunctions::hostNameProblem);
+			case runtimeTimeMasterProblem:
+				return timeMasterConstraint(argument, arguments[1], String.valueOf(arguments[2]));
 			default:
 				break;
 		}
@@ -225,6 +236,62 @@ public class RuntimeFunctions extends GenericMethod {
 	}
 
 	/**
+	 * The datapoint main type the time master sends on the address of the given attribute of a
+	 * project; <code>0</code> for another attribute.
+	 */
+	public static int timeMasterType(String attribute) {
+		switch (attribute) {
+			case "timeMasterTime":
+				return 10;
+			case "timeMasterDate":
+				return 11;
+			case "timeMasterDateTime":
+				return 19;
+			default:
+				return 0;
+		}
+	}
+
+	/**
+	 * Why the group address entered in a form for the given time master attribute of a project is
+	 * refused (haumacher/ehome #53): its datapoint type does not fit
+	 * ({@link #timeMasterProblem(TLObject, int)}).
+	 *
+	 * <p>
+	 * The check refuses the address when it is set: in a form (the project is the form's editing
+	 * buffer, {@link TLFormObjectBase}) whose value differs from the stored one. An address stored
+	 * earlier whose datapoint type changed afterwards is not refused (the check would then refuse every
+	 * change of the project, the deployment's included); the export names it in its notes. A check of
+	 * the stored project, which the knowledge base runs on every commit, refuses nothing for the same
+	 * reason.
+	 * </p>
+	 */
+	public static ResKey timeMasterConstraint(Object value, Object project, String attribute) {
+		if (!(value instanceof TLObject address) || !(project instanceof TLFormObjectBase form)) {
+			return null;
+		}
+		TLObject stored = form.getEditedObject();
+		if (stored != null && stored.tValid() && stored.tValueByName(attribute) == value) {
+			return null;
+		}
+		return timeMasterProblem(address, timeMasterType(attribute));
+	}
+
+	/**
+	 * Why the group address cannot be the time master's address of the given datapoint main type:
+	 * its datapoint type (its own or the one its connected objects give,
+	 * {@link GroupAddressTypes#effective(TLObject)}) has another main type; <code>null</code> if it
+	 * has none or the given one.
+	 */
+	public static ResKey timeMasterProblem(TLObject address, int mainType) {
+		Dpt dpt = GroupAddressTypes.effective(address);
+		if (dpt == null || dpt.main() == mainType) {
+			return null;
+		}
+		return I18NConstants.INVALID_TIME_MASTER_TYPE__TYPE_EXPECTED.fill(dpt.code(), mainType + ".001");
+	}
+
+	/**
 	 * The project the given object belongs to (itself for a project), <code>null</code> for none.
 	 */
 	public static TLObject project(TLObject obj) {
@@ -294,7 +361,8 @@ public class RuntimeFunctions extends GenericMethod {
 
 		@Override
 		public RuntimeFunctions build(Expr expr, SearchExpression[] args) throws ConfigurationException {
-			checkArgs(expr, args, 1, 1);
+			int arity = _function == Function.runtimeTimeMasterProblem ? 3 : 1;
+			checkArgs(expr, args, arity, arity);
 			return new RuntimeFunctions(getConfig().getName(), _function, args);
 		}
 

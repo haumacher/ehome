@@ -10,11 +10,16 @@
 	existing function, so it can run again after devices were added. "New function" adds an empty
 	one. The form of the selected function shows the roles of its kind only; the options of a role are
 	the group addresses of the project.
+
+	Deleting a proposed function remembers it as dismissed (haumacher/ehome #49), so the next proposal
+	does not bring it back; the dismissed proposals are listed below the functions, and "Restore
+	proposal" deletes the dismissal, so the next proposal adds the function again.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="function"/>
+		<channel name="dismissal"/>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -26,82 +31,145 @@
 				size="50"
 				unit="%"
 			>
-				<panel>
-					<title>
-						<en>Functions</en>
-						<de>Funktionen</de>
-					</title>
-					<commands>
-						<generic-command
-							image="css:bi bi-magic"
-							input="project"
-							placement="TOOLBAR"
+				<split-panel
+					orientation="vertical"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="70"
+							unit="%"
 						>
-							<label>
-								<en>Propose functions</en>
-								<de>Funktionen vorschlagen</de>
-							</label>
-							<executability>
-								<model-access operation="Write"/>
-								<null-input-disabled/>
-							</executability>
-							<propose-functions/>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-plus-lg"
-							input="project"
-							placement="TOOLBAR"
+							<panel>
+								<title>
+									<en>Functions</en>
+									<de>Funktionen</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:bi bi-magic"
+										input="project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Propose functions</en>
+											<de>Funktionen vorschlagen</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+										</executability>
+										<propose-functions/>
+										<notify
+											expr="t -> $t"
+											kind="info"
+										/>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-plus-lg"
+										input="project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>New function</en>
+											<de>Neue Funktion</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+										</executability>
+										<create-function/>
+										<write-channel name="function"/>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-trash"
+										input="function"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Delete</en>
+											<de>Löschen</de>
+										</label>
+										<executability>
+											<model-access operation="Delete"/>
+											<model-access operation="Write"/>
+											<delete-veto-disabled/>
+											<null-input-disabled/>
+										</executability>
+										<confirm expr="f -> if($f.get(`ehome.runtime:Function#device`) == null, #('Delete the function {0}?'@en, 'Funktion {0} löschen?'@de), #('Delete the function {0}? The proposal will not add it again unless it is restored.'@en, 'Funktion {0} löschen? Der Vorschlag fügt sie nicht wieder hinzu, solange sie nicht zurückgeholt wird.'@de)).fill($f.get(`ehome.runtime:Function#name`))"/>
+										<delete-function/>
+										<write-channel name="function"/>
+									</generic-command>
+								</commands>
+								<table
+									observed-types="ehome.runtime:Function"
+									selection="function"
+									types="ehome.runtime:Function"
+								>
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+									<columns>
+										<column attribute="name"/>
+										<column attribute="kind"/>
+										<column attribute="room"/>
+										<column attribute="identifier"/>
+										<column attribute="device"/>
+									</columns>
+									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#functions`))</rows>
+								</table>
+							</panel>
+						</pane>
+						<pane
+							size="30"
+							unit="%"
 						>
-							<label>
-								<en>New function</en>
-								<de>Neue Funktion</de>
-							</label>
-							<executability>
-								<model-access operation="Write"/>
-								<null-input-disabled/>
-							</executability>
-							<create-function/>
-							<write-channel name="function"/>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-trash"
-							input="function"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Delete</en>
-								<de>Löschen</de>
-							</label>
-							<executability>
-								<null-input-disabled/>
-							</executability>
-							<confirm expr="f -> #('Delete the function {0}?'@en, 'Funktion {0} löschen?'@de).fill($f.get(`ehome.runtime:Function#name`))"/>
-							<delete-object/>
-							<write-channel name="function"/>
-						</generic-command>
-					</commands>
-					<table
-						observed-types="ehome.runtime:Function"
-						selection="function"
-						types="ehome.runtime:Function"
-					>
-						<inputs>
-							<input channel="project"/>
-						</inputs>
-						<columns>
-							<column attribute="name"/>
-							<column attribute="kind"/>
-							<column attribute="room"/>
-							<column attribute="identifier"/>
-							<column attribute="device"/>
-						</columns>
-						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#functions`))</rows>
-					</table>
-				</panel>
+							<panel>
+								<title>
+									<en>Dismissed proposals</en>
+									<de>Verworfene Vorschläge</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:bi bi-arrow-counterclockwise"
+										input="dismissal"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Restore proposal</en>
+											<de>Vorschlag zurückholen</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<delete-object/>
+										<write-channel name="dismissal"/>
+										<notify
+											expr="x -> #('The next run of &quot;Propose functions&quot; adds the function again.'@en, 'Der nächste Lauf von „Funktionen vorschlagen“ fügt die Funktion wieder hinzu.'@de)"
+											kind="info"
+										/>
+									</generic-command>
+								</commands>
+								<table
+									observed-types="ehome.runtime:DismissedProposal"
+									selection="dismissal"
+									types="ehome.runtime:DismissedProposal"
+								>
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+									<columns>
+										<column attribute="name"/>
+										<column attribute="kind"/>
+										<column attribute="device"/>
+										<column attribute="channel"/>
+									</columns>
+									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#dismissedProposals`))</rows>
+								</table>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
 			</pane>
 			<pane
 				size="50"

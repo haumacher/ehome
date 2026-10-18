@@ -8,6 +8,7 @@ import com.top_logic.basic.util.ResKey1;
 import com.top_logic.basic.util.ResKey2;
 import com.top_logic.basic.util.ResKey3;
 import com.top_logic.basic.util.ResKey4;
+import com.top_logic.basic.util.ResKey5;
 import com.top_logic.layout.I18NConstantsBase;
 
 /**
@@ -46,9 +47,24 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_EXPORT_FAILED__DETAIL;
 
 	/**
-	 * @en The runtime image is valid: {0} datapoints, {1} locations, {2} bytes.
+	 * @en The runtime image is valid: {0} datapoints, {1} locations, {2} functions, {3} settings, {4} bytes.
 	 */
-	public static ResKey3 EXPORT_VALID__DATAPOINTS_LOCATIONS_BYTES;
+	public static ResKey5 EXPORT_VALID__DATAPOINTS_LOCATIONS_FUNCTIONS_SETTINGS_BYTES;
+
+	/**
+	 * @en The time master sends on {0}.
+	 */
+	public static ResKey1 EXPORT_TIME_MASTER__ADDRESSES;
+
+	/**
+	 * @en The image has no time master.
+	 */
+	public static ResKey EXPORT_NO_TIME_MASTER;
+
+	/**
+	 * @en The group address has the datapoint type {0}; the time master sends {1} on it.
+	 */
+	public static ResKey2 INVALID_TIME_MASTER_TYPE__TYPE_EXPECTED;
 
 	/**
 	 * @en The runtime image is not valid ({0} refusals); the controller would refuse it.

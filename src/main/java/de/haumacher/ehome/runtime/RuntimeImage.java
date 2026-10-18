@@ -16,10 +16,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKey.LiteralKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.util.TLModelUtil;
@@ -44,7 +46,9 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * rule of {@link GroupAddressTypes#effective(TLObject)}), in
  * the order of the addresses, except the addresses of the time master (whose datapoints the
  * controller adds itself). The id is the address in three levels (<code>1/2/3</code>, stable
- * when the address is renamed), the label its name, the value type and unit follow from the
+ * when the address is renamed), the label its name (a text of the project in the one language it is
+ * written in, so a plain string, which the specification reads as the same label in every language),
+ * the value type and unit follow from the
  * datapoint type. The flags are the address's runtime settings ({@link DatapointSettings}): writable
  * and read on start derived from the connected objects unless the user set them, readable, persist,
  * history and unit as set. A writable datapoint <code>transmit</code>s; a writable or readable one
@@ -53,7 +57,9 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * floors and rooms by their kind, every other part (corridor, stairway, distribution board, ...) as
  * an area.</li>
  * <li><code>functions</code>: the project's functions (<code>ehome.runtime:Function</code>), each
- * with its identifier (derived from its name where it has none), its room and the datapoints of the
+ * with its identifier (derived from its name where it has none), its label (its name as a map of the
+ * languages it has to its texts, haumacher/ehome #51: <code>{"de": "Taste 1", "en": "Button 1"}</code>;
+ * a name of a program written only in German has only the German text), its room and the datapoints of the
  * roles of its kind; a role bound to an address of the time master names the controller's datapoint
  * of it (<code>knx.time</code>, ...). The unit of a function without one is the one of its main
  * datapoint.</li>
@@ -526,8 +532,8 @@ public final class RuntimeImage {
 			Map<String, Object> entry = new LinkedHashMap<>();
 			Object identifier = function.tValueByName("identifier");
 			entry.put("id", identifier != null && !identifier.toString().isBlank() ? identifier.toString()
-				: FunctionProposal.uniqueIdentifier(String.valueOf(function.tValueByName("name")), ids));
-			String label = label(function.tValueByName("name"));
+				: FunctionProposal.uniqueIdentifier(String.valueOf(text(function.tValueByName("name"))), ids));
+			Object label = labels(function.tValueByName("name"));
 			entry.put("label", label != null ? label : entry.get("id"));
 			if (kind != null) {
 				entry.put("kind", kind);
@@ -601,7 +607,29 @@ public final class RuntimeImage {
 		return truncate(text, ImageValidator.MAX_NAME);
 	}
 
+	/**
+	 * A label of the image from a multilingual text: the map of its languages (<code>de</code>,
+	 * <code>en</code>) to its texts, each a {@link #label(Object) label}, in the order of the
+	 * languages; a plain text as {@link #label(Object) label}; <code>null</code> for none.
+	 */
+	static Object labels(Object value) {
+		if (value instanceof LiteralKey literal) {
+			Map<String, String> result = new TreeMap<>();
+			for (Map.Entry<Locale, String> entry : literal.getTranslations().entrySet()) {
+				String text = label(entry.getValue());
+				if (text != null) {
+					result.putIfAbsent(entry.getKey().getLanguage(), text);
+				}
+			}
+			return result.isEmpty() ? null : result;
+		}
+		return label(text(value));
+	}
+
 	private static String text(Object value) {
+		if (value instanceof ResKey key) {
+			return text(com.top_logic.util.Resources.getInstance().getString(key, null));
+		}
 		return value == null || value.toString().isBlank() ? null : value.toString().trim();
 	}
 

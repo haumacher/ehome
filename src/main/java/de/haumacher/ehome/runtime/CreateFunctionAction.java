@@ -17,7 +17,6 @@ import com.top_logic.layout.view.command.ViewAction;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
-import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 /**
@@ -51,7 +50,7 @@ public class CreateFunctionAction implements ViewAction {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject function = ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Function"));
-			function.tUpdateByName("name", Resources.getInstance().getString(I18NConstants.NEW_FUNCTION_NAME));
+			function.tUpdateByName("name", FunctionProposal.text(I18NConstants.NEW_FUNCTION_NAME));
 			function.tUpdateByName("kind", FunctionProposal.classifier("light"));
 			List<TLObject> functions = FunctionProposal.functions(project);
 			functions.add(function);

@@ -161,10 +161,13 @@
 				<instance-presentation icon="css:bi bi-lightbulb"/>
 			</annotations>
 			<attributes>
-				<!-- The label the controller shows. -->
+				<!--
+					The label the controller shows, in the languages it has (haumacher/ehome #51): a proposed
+					function has the languages of the texts of its device's program.
+				-->
 				<property name="name"
 					mandatory="true"
-					type="tl.core:String"
+					type="tl.model.i18n:I18NString"
 				/>
 				<!-- The id of the function in the runtime image (letters, digits, _ . -, at most 32); derived from the name where empty. -->
 				<property name="identifier"
@@ -546,6 +549,39 @@
 					type="ehome.physical:Device"
 				/>
 				<!-- The channel of the device the function was proposed for (its program channel or the name of its objects); a proposal adds no second function for it. -->
+				<property name="channel"
+					type="tl.core:String"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A proposed function the user deleted (haumacher/ehome #49): "Propose functions" proposes no
+			function of this kind for this channel of the device again. Deleting the dismissal brings
+			the proposal back on the next run.
+		-->
+		<class name="DismissedProposal">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-eye-slash"/>
+			</annotations>
+			<attributes>
+				<!-- The name of the deleted function. -->
+				<property name="name"
+					type="tl.model.i18n:I18NString"
+				/>
+				<reference name="kind"
+					kind="forwards"
+					mandatory="true"
+					type="FunctionKind"
+				/>
+				<!-- The device the function was proposed for. -->
+				<reference name="device"
+					kind="forwards"
+					type="ehome.physical:Device"
+				/>
+				<!-- The channel of the device the function was proposed for (Function#channel). -->
 				<property name="channel"
 					type="tl.core:String"
 				/>

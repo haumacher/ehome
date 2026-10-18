@@ -122,10 +122,18 @@ public class GroupAddressConnections {
 	 * object's text, else its name).
 	 */
 	public static String objectName(Interface placed) {
+		return objectName(placed, Resources.getInstance());
+	}
+
+	/**
+	 * The text of a communication object as its program shows it in the language of the given
+	 * resources, see {@link #objectName(Interface)}.
+	 */
+	public static String objectName(Interface placed, Resources resources) {
 		Port port = placed.getPort();
-		String result = placed.tValueByName("name") instanceof ResKey name ? localize(name) : null;
+		String result = placed.tValueByName("name") instanceof ResKey name ? localize(resources, name) : null;
 		if (result == null) {
-			result = localize(port.getText());
+			result = localize(resources, port.getText());
 		}
 		if (result == null) {
 			result = port.getName();
@@ -138,13 +146,21 @@ public class GroupAddressConnections {
 	 * placement, else the object's.
 	 */
 	public static String function(TLObject connection) {
+		return function(connection, Resources.getInstance());
+	}
+
+	/**
+	 * The function text of the object of a connection in the language of the given resources, see
+	 * {@link #function(TLObject)}.
+	 */
+	public static String function(TLObject connection, Resources resources) {
 		Object own = connection.tContainer().tValueByName("function");
 		if (own != null && !own.toString().isEmpty()) {
 			return own.toString();
 		}
 		Interface placed = object(connection);
-		String result = localize(placed.getFunction());
-		return result != null ? result : localize(placed.getPort().getFunction());
+		String result = localize(resources, placed.getFunction());
+		return result != null ? result : localize(resources, placed.getPort().getFunction());
 	}
 
 	/**
@@ -306,11 +322,11 @@ public class GroupAddressConnections {
 		return null;
 	}
 
-	private static String localize(ResKey key) {
+	private static String localize(Resources resources, ResKey key) {
 		if (key == null) {
 			return null;
 		}
-		String result = Resources.getInstance().getString(key, null);
+		String result = resources.getString(key, null);
 		return result == null || result.isEmpty() ? null : result;
 	}
 
