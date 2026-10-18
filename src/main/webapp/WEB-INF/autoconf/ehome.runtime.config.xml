@@ -38,6 +38,8 @@
 					<method name="unloadConfirmation" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<!-- Functions and runtime settings (haumacher/ehome #43, #45). -->
 					<method name="runtimeGroupAddresses" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<!-- The options of a function's roles: group addresses and application datapoints (haumacher/ehome #61). -->
+					<method name="runtimeDatapoints" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeBuildingParts" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeIdentifierProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeTimeZoneProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
@@ -57,6 +59,10 @@
 					<method name="ruleMove" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleMoveVeto" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleDatapoints" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<!-- The canonical texts on save (haumacher/ehome #60). -->
+					<method name="ruleNormalize" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<!-- The import of rules from a runtime image (haumacher/ehome #60). -->
+					<method name="ruleImportImage" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

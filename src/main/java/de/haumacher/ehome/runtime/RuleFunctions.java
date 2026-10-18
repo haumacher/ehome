@@ -3,6 +3,9 @@
  */
 package de.haumacher.ehome.runtime;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -13,6 +16,7 @@ import java.util.Set;
 
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
+import com.top_logic.basic.io.binary.BinaryData;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
@@ -24,7 +28,11 @@ import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 import com.top_logic.util.Resources;
+import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
+
+import de.haumacher.ehome.rules.RuleText;
+import de.haumacher.ehome.rules.Type;
 
 /**
  * The TL-Script functions of the rules and schedules of a project (haumacher/ehome #57): the summaries
@@ -65,7 +73,18 @@ public class RuleFunctions extends GenericMethod {
 		 * each a map with <code>id</code>, <code>label</code>, <code>type</code>, <code>writable</code>
 		 * and <code>binding</code> ({@link RuleFunctions#datapoints(TLObject)}).
 		 */
-		ruleDatapoints(1, true);
+		ruleDatapoints(1, true),
+		/**
+		 * <code>ruleNormalize(obj)</code>: stores the canonical form of the texts of the rule language
+		 * the part of a rule or schedule entry holds ({@link RuleNormalization}); the object.
+		 */
+		ruleNormalize(1, false),
+		/**
+		 * <code>ruleImportImage(project, file)</code>: adds the rules and schedule entries of the
+		 * uploaded runtime image (JSON) to the project ({@link RuleImport#importImage(TLObject, String)});
+		 * the sentence saying what was imported, followed by what the import did not keep.
+		 */
+		ruleImportImage(2, false);
 
 		private final int _arity;
 
@@ -131,9 +150,39 @@ public class RuleFunctions extends GenericMethod {
 				return moveVeto(obj, ((Number) arguments[1]).intValue());
 			case ruleDatapoints:
 				return datapoints(obj);
+			case ruleNormalize:
+				return RuleNormalization.normalize(obj);
+			case ruleImportImage:
+				return importImage(obj, arguments[1]);
 			default:
 				return null;
 		}
+	}
+
+	/**
+	 * Adds the rules and schedule entries of the given file (a runtime image) to the project; must run
+	 * in a transaction.
+	 *
+	 * @return The sentence saying what was imported, followed by the notes of the import.
+	 */
+	public static String importImage(TLObject project, Object file) {
+		if (!(file instanceof BinaryData data)) {
+			throw new TopLogicException(I18NConstants.ERROR_RULE_IMPORT_NO_RULES);
+		}
+		String text;
+		try (InputStream in = data.getStream()) {
+			text = new String(in.readAllBytes(), StandardCharsets.UTF_8);
+		} catch (IOException ex) {
+			throw new TopLogicException(I18NConstants.ERROR_RULE_IMPORT_NO_JSON__REASON.fill(ex.getMessage()), ex);
+		}
+		RuleImport importer = new RuleImport();
+		RuleImport.Imported imported = importer.importImage(project, text);
+		StringBuilder result = new StringBuilder(Resources.getInstance().getString(
+			I18NConstants.RULES_IMPORTED__RULES_SCHEDULES.fill(imported.rules().size(), imported.schedules().size())));
+		for (String note : importer.getNotes()) {
+			result.append('\n').append(note);
+		}
+		return result.toString();
 	}
 
 	// ---- summaries ---------------------------------------------------------------------------
@@ -320,6 +369,15 @@ public class RuleFunctions extends GenericMethod {
 				result.tUpdateByName("default", "0.0");
 				result.tUpdateByName("adjustable", Boolean.TRUE);
 				break;
+			case "RuleChoice": {
+				Object parameterType = owner.tValueByName("type");
+				String typeName = parameterType instanceof TLClassifier classifier ? classifier.getName() : "integer";
+				Type valueType = Type.fromName(typeName);
+				result.tUpdateByName("value", valueType == null ? "0"
+					: RuleText.printValue(RuleExport.stubValue(typeName), valueType));
+				result.tUpdateByName("label", Resources.getInstance().getString(I18NConstants.NEW_CHOICE_LABEL));
+				break;
+			}
 			case "RuleTimer":
 				result.tUpdateByName("identifier", unique("t", parts, ""));
 				result.tUpdateByName("duration", "1min");

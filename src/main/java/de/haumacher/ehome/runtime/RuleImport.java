@@ -17,6 +17,7 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.rules.RuleText;
@@ -81,6 +82,47 @@ public final class RuleImport {
 		all.addAll(result);
 		project.tUpdateByName("schedules", all);
 		return result;
+	}
+
+	/**
+	 * Adds the rules and schedule entries of a runtime image (the JSON text of an image, or of any
+	 * object with the members <code>rules</code> and <code>schedules</code>, such as a case of the rule
+	 * corpus) to the project (haumacher/ehome #60): the rules behind the project's rules, the entries
+	 * behind its entries. The caller provides the transaction.
+	 *
+	 * @return What was imported: the rules and the schedule entries.
+	 * @throws TopLogicException
+	 *         If the text is no JSON object, or has neither rules nor schedule entries, or a rule or
+	 *         entry cannot be read.
+	 */
+	public Imported importImage(TLObject project, String text) {
+		Object json;
+		try {
+			json = Json.parse(text, 100);
+		} catch (Json.JsonException ex) {
+			throw new TopLogicException(I18NConstants.ERROR_RULE_IMPORT_NO_JSON__REASON.fill(ex.getMessage()), ex);
+		}
+		if (!(json instanceof Map<?, ?> image)
+			|| !(image.get("rules") instanceof List<?> || image.get("schedules") instanceof List<?>)) {
+			throw new TopLogicException(I18NConstants.ERROR_RULE_IMPORT_NO_RULES);
+		}
+		try {
+			List<TLObject> rules = image.get("rules") instanceof List<?> list ? importRules(project, list) : List.of();
+			List<TLObject> schedules =
+				image.get("schedules") instanceof List<?> list ? importSchedules(project, list) : List.of();
+			return new Imported(rules, schedules);
+		} catch (RuntimeException ex) {
+			throw new TopLogicException(I18NConstants.ERROR_RULE_IMPORT_UNREADABLE__REASON.fill(String.valueOf(ex.getMessage())),
+				ex);
+		}
+	}
+
+	/**
+	 * The result of {@link RuleImport#importImage(TLObject, String)}: the rules and schedule entries
+	 * created.
+	 */
+	public record Imported(List<TLObject> rules, List<TLObject> schedules) {
+		// A record.
 	}
 
 	// ---- rules -------------------------------------------------------------------------------
@@ -151,9 +193,15 @@ public final class RuleImport {
 						: Type.REAL;
 				result.tUpdateByName("step", RuleText.printValue(step, stepType));
 			}
-			if (json.get("choices") instanceof List<?> choices) {
-				result.tUpdateByName("choices", RuleExport.choicesText(choices, type));
+			List<TLObject> choices = new ArrayList<>();
+			for (Object item : list(json.get("choices"))) {
+				Map<?, ?> choice = (Map<?, ?>) item;
+				TLObject created = create("RuleChoice");
+				created.tUpdateByName("value", RuleText.printValue(choice.get("value"), type));
+				created.tUpdateByName("label", choice.get("label"));
+				choices.add(created);
 			}
+			result.tUpdateByName("choices", choices);
 		}
 		result.tUpdateByName("unit", json.get("unit"));
 		result.tUpdateByName("adjustable", Boolean.valueOf(!Boolean.FALSE.equals(json.get("adjustable"))));

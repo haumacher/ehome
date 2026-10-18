@@ -12,17 +12,22 @@
 	parameter values are literals (3min, 21.5, 06:30). Each field is checked while it is edited as the
 	controller would check it (de.haumacher.ehome.runtime.RuleExport): a text that is not in the
 	language is an error, a refusal of the controller (a type error, an unknown timer, a datapoint that
-	is not writable) a warning with the controller's reason. "Datapoints" lists the datapoints of the
-	project's image that expressions and actions may name: those of the group addresses (KNX) and the
-	application datapoints (haumacher/ehome #59), which no technology owns and which are edited in the
-	tab "Application datapoints" (application-datapoints.view.xml): they are the rules' and the
-	schedule's own values, so they are edited where they are used.
+	is not writable) a warning with the controller's reason; each field is checked on its own, so two
+	refused fields of an object both show their refusal (haumacher/ehome #60). Saving a form stores
+	the texts in their canonical form (ruleNormalize, the form the image carries). "Import rules"
+	adds the rules and schedule entries of a runtime image (a JSON file) to the project. "Datapoints"
+	lists the datapoints of the project's image that expressions and actions may name: those of the
+	group addresses (KNX) and the application datapoints (haumacher/ehome #59), which no technology
+	owns and which are edited in the tab "Application datapoints" (application-datapoints.view.xml):
+	they are the rules' and the schedule's own values, so they are edited where they are used. The
+	choices of a parameter are listed beside its form, each with its value and label.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="rule"/>
 		<channel name="parameter"/>
+		<channel name="choice"/>
 		<channel name="timer"/>
 		<channel name="state"/>
 		<channel name="reaction"/>
@@ -86,6 +91,33 @@
 										</with-transaction>
 										<write-channel name="rule"/>
 									</generic-command>
+									<upload-command
+										accept=".json,application/json"
+										image="css:bi bi-box-arrow-in-down"
+										input="project"
+										multiple="false"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Import rules</en>
+											<de>Regeln importieren</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+										</executability>
+										<with-transaction>
+											<execute-script function="p -> file -> ruleImportImage($p, $file)">
+												<inputs>
+													<input channel="project"/>
+												</inputs>
+											</execute-script>
+										</with-transaction>
+										<notify
+											expr="t -> $t"
+											kind="info"
+										/>
+									</upload-command>
 									<generic-command
 										image="css:bi bi-trash"
 										input="rule"
@@ -354,6 +386,14 @@
 															input="reaction"
 															with-inset="true"
 														>
+															<save-action>
+																<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
+																<with-transaction>
+																	<store-form-state/>
+																	<execute-script function="x -> ruleNormalize($x)"/>
+																</with-transaction>
+																<discard-form-state/>
+															</save-action>
 															<field attribute="condition"/>
 															<field attribute="from"/>
 															<field attribute="to"/>
@@ -590,6 +630,14 @@
 																		input="trigger"
 																		with-inset="true"
 																	>
+																		<save-action>
+																			<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
+																			<with-transaction>
+																				<store-form-state/>
+																				<execute-script function="x -> ruleNormalize($x)"/>
+																			</with-transaction>
+																			<discard-form-state/>
+																		</save-action>
 																		<field attribute="datapoint"/>
 																		<field attribute="on"/>
 																		<field attribute="origin"/>
@@ -764,21 +812,170 @@
 											size="55"
 											unit="%"
 										>
-											<form
-												input="parameter"
-												with-inset="true"
+											<split-panel
+												orientation="horizontal"
+												resizable="true"
 											>
-												<field attribute="identifier"/>
-												<field attribute="label"/>
-												<field attribute="type"/>
-												<field attribute="default"/>
-												<field attribute="min"/>
-												<field attribute="max"/>
-												<field attribute="step"/>
-												<field attribute="unit"/>
-												<field attribute="choices"/>
-												<field attribute="adjustable"/>
-											</form>
+												<panes>
+													<pane
+														size="55"
+														unit="%"
+													>
+														<form
+															input="parameter"
+															with-inset="true"
+														>
+															<save-action>
+																<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
+																<with-transaction>
+																	<store-form-state/>
+																	<execute-script function="x -> ruleNormalize($x)"/>
+																</with-transaction>
+																<discard-form-state/>
+															</save-action>
+															<field attribute="identifier"/>
+															<field attribute="label"/>
+															<field attribute="type"/>
+															<field attribute="default"/>
+															<field attribute="min"/>
+															<field attribute="max"/>
+															<field attribute="step"/>
+															<field attribute="unit"/>
+															<field attribute="adjustable"/>
+														</form>
+													</pane>
+													<pane
+														size="45"
+														unit="%"
+													>
+														<panel>
+															<title>
+																<en>Choices</en>
+																<de>Auswahlwerte</de>
+															</title>
+															<commands>
+																<generic-command
+																	image="css:bi bi-plus-lg"
+																	input="parameter"
+																	placement="TOOLBAR"
+																>
+																	<label>
+																		<en>New choice</en>
+																		<de>Neuer Auswahlwert</de>
+																	</label>
+																	<executability>
+																		<model-access operation="Write"/>
+																		<null-input-disabled/>
+																	</executability>
+																	<with-transaction>
+																		<execute-script function="o -> ruleCreate($o, 'choices', `ehome.runtime:RuleChoice`)"/>
+																	</with-transaction>
+																	<write-channel name="choice"/>
+																</generic-command>
+																<generic-command
+																	image="css:bi bi-trash"
+																	input="choice"
+																	placement="TOOLBAR"
+																>
+																	<label>
+																		<en>Delete</en>
+																		<de>Löschen</de>
+																	</label>
+																	<executability>
+																		<null-input-disabled/>
+																	</executability>
+																	<delete-object/>
+																	<write-channel name="choice"/>
+																</generic-command>
+																<generic-command
+																	clique="edit"
+																	image="css:bi bi-arrow-up"
+																	input="choice"
+																	placement="TOOLBAR"
+																>
+																	<label>
+																		<en>Move up</en>
+																		<de>Nach oben</de>
+																	</label>
+																	<executability>
+																		<model-access operation="Write"/>
+																		<null-input-disabled/>
+																		<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+																	</executability>
+																	<with-transaction>
+																		<execute-script function="x -> ruleMove($x, -1)"/>
+																	</with-transaction>
+																</generic-command>
+																<generic-command
+																	clique="edit"
+																	image="css:bi bi-arrow-down"
+																	input="choice"
+																	placement="TOOLBAR"
+																>
+																	<label>
+																		<en>Move down</en>
+																		<de>Nach unten</de>
+																	</label>
+																	<executability>
+																		<model-access operation="Write"/>
+																		<null-input-disabled/>
+																		<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+																	</executability>
+																	<with-transaction>
+																		<execute-script function="x -> ruleMove($x, 1)"/>
+																	</with-transaction>
+																</generic-command>
+															</commands>
+															<split-panel
+																orientation="vertical"
+																resizable="true"
+															>
+																<panes>
+																	<pane
+																		size="50"
+																		unit="%"
+																	>
+																		<table
+																			observed-types="ehome.runtime:RuleChoice,ehome.runtime:RuleParameter"
+																			selection="choice"
+																			types="ehome.runtime:RuleChoice"
+																		>
+																			<inputs>
+																				<input channel="parameter"/>
+																			</inputs>
+																			<columns>
+																				<column attribute="value"/>
+																				<column attribute="label"/>
+																			</columns>
+																			<rows>p -> if($p == null, [], $p.get(`ehome.runtime:RuleParameter#choices`))</rows>
+																		</table>
+																	</pane>
+																	<pane
+																		size="50"
+																		unit="%"
+																	>
+																		<form
+																			input="choice"
+																			with-inset="true"
+																		>
+																			<save-action>
+																				<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
+																				<with-transaction>
+																					<store-form-state/>
+																					<execute-script function="x -> ruleNormalize($x)"/>
+																				</with-transaction>
+																				<discard-form-state/>
+																			</save-action>
+																			<field attribute="value"/>
+																			<field attribute="label"/>
+																		</form>
+																	</pane>
+																</panes>
+															</split-panel>
+														</panel>
+													</pane>
+												</panes>
+											</split-panel>
 										</pane>
 									</panes>
 								</split-panel>
@@ -902,6 +1099,14 @@
 												input="timer"
 												with-inset="true"
 											>
+												<save-action>
+													<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
+													<with-transaction>
+														<store-form-state/>
+														<execute-script function="x -> ruleNormalize($x)"/>
+													</with-transaction>
+													<discard-form-state/>
+												</save-action>
 												<field attribute="identifier"/>
 												<field attribute="duration"/>
 											</form>

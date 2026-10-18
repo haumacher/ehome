@@ -505,10 +505,14 @@ line is a full sentence. No workaround.
 The rule editor (haumacher/ehome #57) stores expressions as text. A text field cannot offer the
 project's datapoints while typing (TL #29887); workaround: a read-only "Datenpunkte" table beside the
 form lists them as `@"1/2/3"`. A form cannot store an entered expression in its canonical form
-(TL #29888); workaround: the text is stored as typed and canonicalized on export.
+(TL #29888); workaround (haumacher/ehome #60): the forms of the rule views (`rules.view.xml`,
+`rule-actions.view.xml`, `schedules.view.xml`) replace the form's save by a `<save-action>` chain that
+stores the form state, calls `ruleNormalize` (`RuleNormalization`) in the same transaction and leaves
+edit mode with `<discard-form-state/>`. Texts written another way (a script, the API) are stored as
+given and canonicalized on export.
 
 **When available:** offer the datapoints as suggestions in the expression fields and drop the table;
-store expressions canonically on save (haumacher/ehome #60).
+normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`.
 
 ## Upstream tickets to follow
 

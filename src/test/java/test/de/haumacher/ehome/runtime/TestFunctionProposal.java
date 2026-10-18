@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -38,6 +39,7 @@ import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.runtime.FunctionKinds;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.ImageComparison;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
@@ -85,6 +87,12 @@ import de.haumacher.ehome.runtime.RuntimeImage;
 public class TestFunctionProposal extends BasicTestCase {
 
 	private static final Instant NOW = Instant.parse("2026-10-18T12:00:00Z");
+
+	/**
+	 * The image of this test as E-Home exported it before the roles of a function referred to any
+	 * datapoint of the project (haumacher/ehome #61), when they were references to group addresses.
+	 */
+	private static final File BEFORE_61 = new File("src/test/fixtures/runtime/KNX-Testsystem.functions.before-61.json");
 
 	/** The time address the test adds; the test system has none. */
 	static final String TIME_ADDRESS = "0/0/60";
@@ -247,6 +255,16 @@ public class TestFunctionProposal extends BasicTestCase {
 			assertTrue(report.toString(), report.isValid());
 			assertEquals(List.of(), image.getNotes());
 			Map<String, Object> json = image.getJson();
+
+			// The image as E-Home exported it before the roles referred to any datapoint of the
+			// project (haumacher/ehome #61): group-address roles export identically. The ids and
+			// labels of the proposed functions follow the languages the shared program has gained
+			// from the imports before this test (English in the full suite), so they are left out.
+			Map<?, ?> before61 = (Map<?, ?>) Json.parse(Files.readString(BEFORE_61.toPath(), StandardCharsets.UTF_8), 100);
+			Set<String> changed = ImageComparison.changedParts(before61, json);
+			changed.remove("functions");
+			assertEquals(Set.of(), changed);
+			assertEquals(withoutNames(before61.get("functions")), withoutNames(json.get("functions")));
 
 			// The time address is the time master's, no datapoint of the image.
 			List<?> datapoints = (List<?>) json.get("datapoints");
@@ -432,6 +450,22 @@ public class TestFunctionProposal extends BasicTestCase {
 
 	static TLObject create(String type) {
 		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
+	}
+
+	/**
+	 * The functions of an image without their ids and labels, the numbers as doubles.
+	 */
+	private static List<Map<String, Object>> withoutNames(Object functions) {
+		List<Map<String, Object>> result = new ArrayList<>();
+		for (Object function : (List<?>) functions) {
+			Map<String, Object> entry = new LinkedHashMap<>();
+			((Map<?, ?>) function).forEach((key, value) -> entry.put((String) key,
+				value instanceof Number number ? Double.valueOf(number.doubleValue()) : value));
+			entry.remove("id");
+			entry.remove("label");
+			result.add(entry);
+		}
+		return result;
 	}
 
 	public static Test suite() {

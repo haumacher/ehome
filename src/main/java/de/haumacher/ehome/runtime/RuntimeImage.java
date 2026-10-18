@@ -63,7 +63,8 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * languages it has to its texts, haumacher/ehome #51: <code>{"de": "Taste 1", "en": "Button 1"}</code>;
  * a name of a program written only in German has only the German text), its room and the datapoints of the
  * roles of its kind; a role bound to an address of the time master names the controller's datapoint
- * of it (<code>knx.time</code>, ...). The unit of a function without one is the one of its main
+ * of it (<code>knx.time</code>, ...), one bound to an application datapoint its id (haumacher/ehome
+ * #61). The unit of a function without one is the one of its main
  * datapoint.</li>
  * <li><code>knx.timeMaster</code>: the project's time, date and date-time addresses with the
  * interval and the flags (unset flags are written as the specification's default, true).</li>
@@ -605,8 +606,8 @@ public final class RuntimeImage {
 			}
 			Map<String, Object> roles = new LinkedHashMap<>();
 			for (String role : FunctionKinds.roles(kind)) {
-				if (function.tValueByName(role) instanceof TLObject address) {
-					String datapoint = datapointId(address);
+				if (function.tValueByName(role) instanceof TLObject bound) {
+					String datapoint = datapointId(bound);
 					if (datapoint != null) {
 						roles.put(role, datapoint);
 					}
@@ -630,16 +631,20 @@ public final class RuntimeImage {
 	}
 
 	/**
-	 * The id of the datapoint of the given address in the image: the datapoint's, the controller's
-	 * datapoint of a time master address, else the address in three levels (which the controller then
-	 * refuses as unknown, naming the function).
+	 * The id of the datapoint a role of a function refers to in the image (haumacher/ehome #61): for
+	 * an application datapoint its id; for a group address the datapoint's, the controller's datapoint
+	 * of a time master address, else the address in three levels (which the controller then refuses
+	 * as unknown, naming the function).
 	 */
-	private String datapointId(TLObject address) {
-		String id = _timeMaster.get(address);
-		if (id == null) {
-			id = _datapointIds.get(address);
+	private String datapointId(TLObject datapoint) {
+		if (ApplicationDatapoints.isApplicationDatapoint(datapoint)) {
+			return ApplicationDatapoints.id(datapoint);
 		}
-		if (id == null && address.tValueByName("address") instanceof GA ga) {
+		String id = _timeMaster.get(datapoint);
+		if (id == null) {
+			id = _datapointIds.get(datapoint);
+		}
+		if (id == null && datapoint.tValueByName("address") instanceof GA ga) {
 			id = threeLevel(ga.getValue());
 		}
 		return id;

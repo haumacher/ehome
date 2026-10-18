@@ -2,14 +2,15 @@
 
 <!--
 	The functions of a project (haumacher/ehome #43): what the inhabitant operates on the HomeControl
-	controller - a light, a dimmer, a blind, a sensor, a button -, each with the group addresses of the
+	controller - a light, a dimmer, a blind, a sensor, a button -, each with the datapoints of the
 	roles of its kind and its room. They are part of the runtime image (Deployment tab).
 
 	"Propose functions" adds a function for each device channel the proposal recognizes and the
 	project has none for yet (de.haumacher.ehome.runtime.FunctionProposal); it never changes an
 	existing function, so it can run again after devices were added. "New function" adds an empty
 	one. The form of the selected function shows the roles of its kind only; the options of a role are
-	the group addresses of the project.
+	the datapoints of the project, its group addresses and its application datapoints
+	(haumacher/ehome #61).
 
 	Deleting a proposed function remembers it as dismissed (haumacher/ehome #49), so the next proposal
 	does not bring it back; the dismissed proposals are listed below the functions, and "Restore

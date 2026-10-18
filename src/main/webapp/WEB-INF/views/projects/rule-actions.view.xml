@@ -253,6 +253,14 @@
 						input="action"
 						with-inset="true"
 					>
+						<save-action>
+							<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
+							<with-transaction>
+								<store-form-state/>
+								<execute-script function="x -> ruleNormalize($x)"/>
+							</with-transaction>
+							<discard-form-state/>
+						</save-action>
 						<field attribute="datapoint"/>
 						<field attribute="value"/>
 						<field attribute="onlyOnChange"/>

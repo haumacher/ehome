@@ -166,7 +166,7 @@ public final class ImageComparison {
 	 * The top level members of the image (its parts: <code>settings</code>, <code>datapoints</code>,
 	 * ...) that differ, the header compared without its revision and time.
 	 */
-	static Set<String> changedParts(Map<?, ?> stored, Map<?, ?> image) {
+	public static Set<String> changedParts(Map<?, ?> stored, Map<?, ?> image) {
 		Set<String> result = new LinkedHashSet<>();
 		Set<Object> members = new LinkedHashSet<>(image.keySet());
 		members.addAll(stored.keySet());

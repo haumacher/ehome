@@ -30,9 +30,12 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageReport;
+import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleFunctions;
+import de.haumacher.ehome.runtime.RuntimeFunctions;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
@@ -211,6 +214,167 @@ public class TestApplicationDatapoints extends BasicTestCase {
 				dpt.tDelete();
 				tx.commit();
 			}
+		}
+	}
+
+	/**
+	 * Roles of functions bound to application datapoints (haumacher/ehome #61): the image binds them
+	 * to the datapoint's id, the validator accepts a fitting one and refuses one of a value type the
+	 * role does not take or a read-only one where the role commands; the options of a role offer the
+	 * group addresses and the application datapoints.
+	 */
+	public void testFunctionRoles() throws Exception {
+		TLObject project;
+		TLObject address;
+		TLObject virtualSwitch;
+		TLObject level;
+		TLObject light;
+		TLObject dimmer;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			project = create("ehome.project:Project");
+			project.tUpdateByName("name", "Function roles");
+			project.tUpdateByName("extId", "P-TEST-61");
+			address = create("ehome.logical:GroupAddress");
+			address.tUpdateByName("name", "Licht");
+			address.tUpdateByName("address", new GA(0x0801, GroupAddressStyle.ThreeLevel));
+			project.tUpdateByName("groupAddresses", List.of(address));
+
+			virtualSwitch = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			virtualSwitch.tUpdateByName("identifier", "virtual.switch");
+			virtualSwitch.tUpdateByName("writable", Boolean.TRUE);
+			level = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			level.tUpdateByName("identifier", "virtual.level");
+			level.tUpdateByName("type", valueType("unsigned"));
+			level.tUpdateByName("unit", "%");
+
+			light = create("ehome.runtime:Function");
+			light.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Virtueller Schalter").build());
+			light.tUpdateByName("identifier", "virtual-light");
+			light.tUpdateByName("kind", FunctionProposal.classifier("switch"));
+			light.tUpdateByName("command", virtualSwitch);
+			light.tUpdateByName("state", virtualSwitch);
+			dimmer = create("ehome.runtime:Function");
+			dimmer.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Virtueller Dimmer").build());
+			dimmer.tUpdateByName("identifier", "virtual-dimmer");
+			dimmer.tUpdateByName("kind", FunctionProposal.classifier("dimmer"));
+			dimmer.tUpdateByName("levelCommand", virtualSwitch);
+			dimmer.tUpdateByName("level", level);
+			project.tUpdateByName("functions", List.of(light, dimmer));
+			tx.commit();
+		}
+		try {
+			assertEquals(List.of(address, virtualSwitch, level), RuntimeFunctions.datapoints(project));
+
+			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
+			List<?> functions = (List<?>) image.getJson().get("functions");
+			Map<?, ?> exportedLight = (Map<?, ?>) functions.get(0);
+			assertEquals(map("command", "virtual.switch", "state", "virtual.switch"), exportedLight.get("datapoints"));
+			Map<?, ?> exportedDimmer = (Map<?, ?>) functions.get(1);
+			assertEquals(map("levelCommand", "virtual.switch", "level", "virtual.level"),
+				exportedDimmer.get("datapoints"));
+			// The unit of the main datapoint; the main role of the dimmer is a truth value without unit.
+			assertNull(exportedDimmer.get("unit"));
+
+			// The level command of a dimmer takes a number, and it must be writable.
+			ImageReport report = image.validate();
+			assertFalse(report.isValid());
+			assertEquals(1, report.getRefusals().size());
+			ImageReport.Refusal refusal = report.getRefusals().get(0);
+			assertEquals("functions[1].datapoints.levelCommand", refusal.path());
+			assertTrue(refusal.reason(), refusal.reason().contains("'virtual.switch' is boolean"));
+			assertSame(dimmer, image.elementAt(refusal.path()));
+
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				dimmer.tUpdateByName("levelCommand", level);
+				tx.commit();
+			}
+			image = RuntimeImage.build(project, 1, NOW);
+			report = image.validate();
+			assertFalse(report.isValid());
+			assertEquals(1, report.getRefusals().size());
+			refusal = report.getRefusals().get(0);
+			assertEquals("functions[1].datapoints.levelCommand", refusal.path());
+			assertTrue(refusal.reason(), refusal.reason().contains("needs a writable datapoint"));
+
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				level.tUpdateByName("writable", Boolean.TRUE);
+				tx.commit();
+			}
+			image = RuntimeImage.build(project, 1, NOW);
+			report = image.validate();
+			assertTrue(report.toString(), report.isValid());
+			exportedDimmer = (Map<?, ?>) ((List<?>) image.getJson().get("functions")).get(1);
+			assertEquals(map("levelCommand", "virtual.level", "level", "virtual.level"), exportedDimmer.get("datapoints"));
+			assertEquals("%", exportedDimmer.get("unit"));
+		} finally {
+			SharedData.deleteProjects(List.of(project));
+		}
+	}
+
+	/**
+	 * Probe (#61): a role follows its application datapoint: a changed id shows in the image, a
+	 * datapoint of another project is refused, a deleted datapoint leaves the role unbound.
+	 */
+	public void testRolesFollowTheDatapoint() throws Exception {
+		TLObject project;
+		TLObject other;
+		TLObject virtualSwitch;
+		TLObject foreign;
+		TLObject light;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			project = create("ehome.project:Project");
+			project.tUpdateByName("name", "Roles follow");
+			project.tUpdateByName("extId", "P-PROBE-61A");
+			other = create("ehome.project:Project");
+			other.tUpdateByName("name", "Other");
+			other.tUpdateByName("extId", "P-PROBE-61B");
+			virtualSwitch = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			virtualSwitch.tUpdateByName("identifier", "virtual.switch");
+			virtualSwitch.tUpdateByName("writable", Boolean.TRUE);
+			foreign = RuleFunctions.create(other, "applicationDatapoints", runtime("ApplicationDatapoint"));
+			foreign.tUpdateByName("identifier", "foreign.switch");
+			foreign.tUpdateByName("writable", Boolean.TRUE);
+			light = create("ehome.runtime:Function");
+			light.tUpdateByName("name", ResKey.builder().add(Locale.GERMAN, "Licht").build());
+			light.tUpdateByName("identifier", "light");
+			light.tUpdateByName("kind", FunctionProposal.classifier("switch"));
+			light.tUpdateByName("command", virtualSwitch);
+			project.tUpdateByName("functions", List.of(light));
+			tx.commit();
+		}
+		try {
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				virtualSwitch.tUpdateByName("identifier", "virtual.renamed");
+				tx.commit();
+			}
+			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
+			assertTrue(image.validate().toString(), image.validate().isValid());
+			Map<?, ?> exported = (Map<?, ?>) ((List<?>) image.getJson().get("functions")).get(0);
+			assertEquals(map("command", "virtual.renamed"), exported.get("datapoints"));
+
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				light.tUpdateByName("command", foreign);
+				tx.commit();
+			}
+			image = RuntimeImage.build(project, 1, NOW);
+			assertFalse("Datapoint of another project accepted: " + Json.write(image.getJson().get("functions")),
+				image.validate().isValid());
+
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				light.tUpdateByName("command", virtualSwitch);
+				tx.commit();
+			}
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				virtualSwitch.tDelete();
+				tx.commit();
+			}
+			assertNull(light.tValueByName("command"));
+			image = RuntimeImage.build(project, 1, NOW);
+			exported = (Map<?, ?>) ((List<?>) image.getJson().get("functions")).get(0);
+			Object datapoints = exported.get("datapoints");
+			assertTrue(String.valueOf(datapoints), datapoints == null || ((Map<?, ?>) datapoints).isEmpty());
+		} finally {
+			SharedData.deleteProjects(List.of(project, other));
 		}
 	}
 

@@ -147,6 +147,8 @@ public final class RuleExport {
 		switch (obj.tType().getName()) {
 			case "RuleParameter":
 				return "default";
+			case "RuleChoice":
+				return "value";
 			case "RuleTimer":
 				return "duration";
 			case "Reaction":
@@ -443,14 +445,19 @@ public final class RuleExport {
 			result.put("unit", unit);
 		}
 		source(path + ".choices", parameter, "choices");
-		String choices = text(parameter, "choices");
-		if (choices != null) {
-			try {
-				result.put("choices", choices(choices, type));
-			} catch (SyntaxError ex) {
-				problem(path + ".choices", parameter, "choices", ex);
-				result.put("choices", choices);
-			}
+		List<Object> choices = new ArrayList<>();
+		for (TLObject choice : list(parameter, "choices")) {
+			String choicePath = path + ".choices[" + choices.size() + "]";
+			source(choicePath, choice, null);
+			Map<String, Object> item = new LinkedHashMap<>();
+			Object choiceValue = value(choice, "value", choicePath + ".value", type);
+			item.put("value", choiceValue == null ? "" : choiceValue);
+			source(choicePath + ".label", choice, "label");
+			item.put("label", orEmpty(text(choice, "label")));
+			choices.add(item);
+		}
+		if (!choices.isEmpty()) {
+			result.put("choices", choices);
 		}
 		if (!flag(parameter, "adjustable", true)) {
 			result.put("adjustable", Boolean.FALSE);
@@ -474,64 +481,6 @@ public final class RuleExport {
 		}
 	}
 
-	/**
-	 * Reads the choices of a parameter: one per line, the value as a literal, <code>=</code>, the
-	 * label.
-	 */
-	public static List<Object> choices(String text, Type type) throws SyntaxError {
-		List<Object> result = new ArrayList<>();
-		int offset = 0;
-		for (String line : text.split("\n", -1)) {
-			String trimmed = line.trim();
-			if (!trimmed.isEmpty()) {
-				int separator = separator(trimmed);
-				if (separator < 0) {
-					throw new SyntaxError("a choice is written as: value = label", offset);
-				}
-				Object value;
-				try {
-					value = RuleText.parseValue(trimmed.substring(0, separator).trim(), type);
-				} catch (SyntaxError ex) {
-					throw new SyntaxError(ex.getMessage(), offset + ex.getOffset());
-				}
-				Map<String, Object> choice = new LinkedHashMap<>();
-				choice.put("value", value);
-				choice.put("label", trimmed.substring(separator + 1).trim());
-				result.add(choice);
-			}
-			offset += line.length() + 1;
-		}
-		return result;
-	}
-
-	/** The position of the "=" after the value of a choice (a string value may contain one). */
-	private static int separator(String line) {
-		int pos = 0;
-		if (line.startsWith("\"")) {
-			pos = 1;
-			while (pos < line.length() && line.charAt(pos) != '"') {
-				pos += line.charAt(pos) == '\\' ? 2 : 1;
-			}
-		}
-		return line.indexOf('=', pos);
-	}
-
-	/**
-	 * The text of the choices of a parameter (see {@link #choices(String, Type)}).
-	 */
-	public static String choicesText(List<?> choices, Type type) {
-		StringBuilder out = new StringBuilder();
-		for (Object item : choices) {
-			if (item instanceof Map<?, ?> choice) {
-				if (out.length() > 0) {
-					out.append('\n');
-				}
-				out.append(RuleText.printValue(choice.get("value"), type)).append(" = ").append(choice.get("label"));
-			}
-		}
-		return out.toString();
-	}
-
 	private Map<String, Object> parameterStub(TLObject parameter) {
 		String typeName = classifier(parameter, "type", "real");
 		Map<String, Object> result = new LinkedHashMap<>();
@@ -542,7 +491,10 @@ public final class RuleExport {
 		return result;
 	}
 
-	private static Object stubValue(String type) {
+	/**
+	 * A value of the given parameter type the loader accepts.
+	 */
+	static Object stubValue(String type) {
 		switch (type) {
 			case "boolean":
 				return Boolean.FALSE;
@@ -1028,17 +980,252 @@ public final class RuleExport {
 				schedules.add(id);
 			}
 		}
-		try {
-			RuleLoader.load(rules, directory, schedules::contains);
-			return null;
-		} catch (LoadException ex) {
-			RuleLoader.Refusal refusal = ex.getRefusal();
-			if (field.equals(sourceAt(refusal.path(), refusal.text()))) {
-				return refusal.error().externalName() + ": " + refusal.text();
+		List<Object> isolated = mutable(rules);
+		for (int attempt = 0; attempt < MAX_ISOLATION; attempt++) {
+			try {
+				RuleLoader.load(isolated, directory, schedules::contains);
+				return null;
+			} catch (LoadException ex) {
+				RuleLoader.Refusal refusal = ex.getRefusal();
+				Source source = sourceAt(refusal.path(), refusal.text());
+				if (field.equals(source)) {
+					return refusal.error().externalName() + ": " + refusal.text();
+				}
+				// The loader stops at its first refusal; one of another field must not hide the
+				// field's own (haumacher/ehome #60): that field is neutralized and the rule loaded
+				// again.
+				String member = memberPath(refusal.path());
+				if (source == null || member == null || !neutralize(isolated, member)) {
+					// The field's check depends on the refused field.
+					return null;
+				}
 			}
-			return null;
+		}
+		return null;
+	}
+
+	/** How often a field's check neutralizes a refused field of another before it gives up. */
+	private static final int MAX_ISOLATION = 16;
+
+	/** The prefix of the ids a neutralized declaration gets. */
+	private static final String ISOLATED = "_isolated";
+
+	private int _isolatedIds;
+
+	/**
+	 * A copy of the JSON whose objects and arrays can be changed.
+	 */
+	@SuppressWarnings("unchecked")
+	private static <T> T mutable(T json) {
+		if (json instanceof Map<?, ?> map) {
+			Map<String, Object> result = new LinkedHashMap<>();
+			map.forEach((key, value) -> result.put((String) key, mutable(value)));
+			return (T) result;
+		}
+		if (json instanceof List<?> list) {
+			List<Object> result = new ArrayList<>();
+			for (Object item : list) {
+				result.add(mutable(item));
+			}
+			return (T) result;
+		}
+		return json;
+	}
+
+	/**
+	 * The path of the member of an object a refusal at the given path is shown at: the longest
+	 * written path the refusal's path starts with, if it names a member (not an object as a whole);
+	 * <code>null</code> otherwise.
+	 */
+	private String memberPath(String path) {
+		String current = path;
+		while (current != null && !current.isEmpty()) {
+			Source source = _sources.get(current);
+			if (source != null) {
+				return source.attribute() == null || current.endsWith("]") ? null : current;
+			}
+			int cut = Math.max(current.lastIndexOf('.'), current.lastIndexOf('['));
+			if (cut <= 0) {
+				return null;
+			}
+			current = current.substring(0, cut);
+		}
+		return null;
+	}
+
+	/**
+	 * Replaces the member at the given path of the rules by a value the loader accepts, so that the
+	 * refusals of the other fields show: an optional member is left out, an id or name replaced by a
+	 * valid one, a trigger whose only field is refused by a start trigger, a write or parameter action
+	 * whose target is refused by a log action of its value (the value is checked without the
+	 * conversion to the target), a timer reference by a timer added to the rule.
+	 *
+	 * @return Whether the member could be neutralized.
+	 */
+	@SuppressWarnings("unchecked")
+	private boolean neutralize(List<Object> rules, String path) {
+		int dot = path.lastIndexOf('.');
+		if (dot < 0) {
+			return false;
+		}
+		String member = path.substring(dot + 1);
+		Object parentValue = navigate(rules, path.substring(0, dot));
+		if (!(parentValue instanceof Map<?, ?>)) {
+			return false;
+		}
+		Map<String, Object> parent = (Map<String, Object>) parentValue;
+		Matcher choice = CHOICE.matcher(path);
+		if (choice.matches()) {
+			// A refused choice: the parameter is checked without its choices.
+			return navigate(rules, choice.group(1)) instanceof Map<?, ?> parameter
+				&& ((Map<String, Object>) parameter).remove("choices") != null;
+		}
+		String kind = parent.get("kind") instanceof String text ? text : null;
+		Source source = _sources.get(path);
+		switch (member) {
+			case "id":
+				parent.put("id", ISOLATED + (++_isolatedIds));
+				return true;
+			case "name":
+			case "label":
+				parent.put(member, "x");
+				return true;
+			case "default":
+				parent.put("default", stubValue(parent.get("type") instanceof String type ? type : "real"));
+				parent.remove("min");
+				parent.remove("max");
+				return true;
+			case "initialState":
+				if (parent.get("states") instanceof List<?> states && !states.isEmpty()
+					&& states.get(0) instanceof Map<?, ?> first) {
+					parent.put("initialState", first.get("id"));
+				} else {
+					parent.remove("initialState");
+				}
+				return true;
+			case "min":
+			case "max":
+			case "step":
+			case "unit":
+			case "choices":
+			case "from":
+			case "to":
+			case "on":
+			case "origin":
+			case "onlyOnChange":
+			case "reasons":
+			case "enabled":
+			case "enabledAdjustable":
+			case "adjustable":
+				return parent.remove(member) != null;
+			case "condition":
+				if ("match".equals(kind)) {
+					return start(parent);
+				}
+				return parent.remove(member) != null;
+			case "duration":
+				if (kind == null) {
+					// The duration of a timer declaration.
+					parent.put("duration", RuleText.literal("duration", Long.valueOf(100)));
+					return true;
+				}
+				return parent.remove(member) != null;
+			case "datapoint":
+			case "parameter":
+				if ("write".equals(kind) || "setParameter".equals(kind)) {
+					return log(parent, path.substring(0, dot), source);
+				}
+				return kind != null && start(parent);
+			case "schedule":
+				return kind != null && start(parent);
+			case "timer":
+				if ("timer".equals(kind)) {
+					return start(parent);
+				}
+				return kind != null && isolatedTimer(rules, path, parent);
+			default:
+				return false;
 		}
 	}
+
+	/** Makes the trigger a start trigger. */
+	private static boolean start(Map<String, Object> trigger) {
+		trigger.clear();
+		trigger.put("kind", "start");
+		return true;
+	}
+
+	/**
+	 * Makes the write or parameter action a log action of its value, whose refusals are shown at the
+	 * value.
+	 */
+	private boolean log(Map<String, Object> action, String path, Source source) {
+		Object value = action.get("value");
+		action.clear();
+		action.put("kind", "log");
+		action.put("level", "info");
+		List<Object> message = new ArrayList<>();
+		if (value != null) {
+			message.add(value);
+			if (source != null) {
+				source(path + ".message[0]", source.object(), "value");
+			}
+		}
+		action.put("message", message);
+		_sources.remove(path + ".datapoint");
+		_sources.remove(path + ".parameter");
+		return true;
+	}
+
+	/**
+	 * Lets the timer action at the given path refer to a timer added to its rule.
+	 */
+	@SuppressWarnings("unchecked")
+	private boolean isolatedTimer(List<Object> rules, String path, Map<String, Object> action) {
+		int end = path.indexOf(']');
+		if (!path.startsWith("rules[") || end < 0 || !(navigate(rules, path.substring(0, end + 1)) instanceof Map<?, ?> found)) {
+			return false;
+		}
+		Map<String, Object> rule = (Map<String, Object>) found;
+		String id = ISOLATED + (++_isolatedIds);
+		Map<String, Object> timer = new LinkedHashMap<>();
+		timer.put("id", id);
+		timer.put("duration", RuleText.literal("duration", Long.valueOf(100)));
+		List<Object> timers = rule.get("timers") instanceof List<?> list ? (List<Object>) list : new ArrayList<>();
+		timers.add(timer);
+		rule.put("timers", timers);
+		action.put("timer", id);
+		return true;
+	}
+
+	/**
+	 * The value at the given path (<code>rules[0].reactions[1].actions[0]</code>) of the rules.
+	 */
+	private static Object navigate(List<Object> rules, String path) {
+		Object current = Map.of("rules", rules);
+		Matcher segment = SEGMENT.matcher(path);
+		int pos = 0;
+		while (pos < path.length()) {
+			if (!segment.find(pos) || segment.start() != pos) {
+				return null;
+			}
+			if (segment.group(1) != null) {
+				current = current instanceof Map<?, ?> map ? map.get(segment.group(1)) : null;
+			} else {
+				int index = Integer.parseInt(segment.group(2));
+				current = current instanceof List<?> list && index < list.size() ? list.get(index) : null;
+			}
+			if (current == null) {
+				return null;
+			}
+			pos = segment.end();
+		}
+		return current;
+	}
+
+	private static final Pattern CHOICE = Pattern.compile("(.*)\\.choices\\[\\d+\\]\\.(?:value|label)");
+
+	private static final Pattern SEGMENT = Pattern.compile("\\.?([A-Za-z]+)|\\[(\\d+)\\]");
 
 	private Map<String, Object> ruleStub(TLObject rule, String id) {
 		Map<String, Object> result = new LinkedHashMap<>();

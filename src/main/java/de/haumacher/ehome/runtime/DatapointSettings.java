@@ -160,9 +160,14 @@ public final class DatapointSettings {
 
 	/**
 	 * The unit of the datapoint: the setting, else the one of its datapoint type;
-	 * <code>null</code> for none (or one longer than the image allows).
+	 * <code>null</code> for none (or one longer than the image allows). For an application datapoint
+	 * (a role of a function may refer to one, haumacher/ehome #61) its unit.
 	 */
 	public static String unit(TLObject address) {
+		if (ApplicationDatapoints.isApplicationDatapoint(address)) {
+			Object unit = address.tValueByName("unit");
+			return unit == null || unit.toString().isBlank() ? null : unit.toString().trim();
+		}
 		Object set = address.tValueByName("runtimeUnit");
 		if (set != null && !set.toString().isBlank()) {
 			return set.toString().trim();

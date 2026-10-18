@@ -78,6 +78,12 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		runtimeGroupAddresses,
 		/**
+		 * <code>runtimeDatapoints(obj)</code>: the datapoints of the project of the given object (a
+		 * function), the options of a function's roles (haumacher/ehome #61): its group addresses by
+		 * their address, then its application datapoints in their order.
+		 */
+		runtimeDatapoints,
+		/**
 		 * <code>runtimeBuildingParts(obj)</code>: the parts of the buildings of the project of the
 		 * given object, the options of a function's room.
 		 */
@@ -222,6 +228,8 @@ public class RuntimeFunctions extends GenericMethod {
 						.fill(Deployer.controller(obj).tValueByName("name"))) + "\n\n" + ControllerStatus.drift(obj);
 			case runtimeGroupAddresses:
 				return groupAddresses(project(obj));
+			case runtimeDatapoints:
+				return datapoints(project(obj));
 			case runtimeBuildingParts:
 				return buildingParts(project(obj));
 			case runtimeHistoryProblem:
@@ -348,6 +356,18 @@ public class RuntimeFunctions extends GenericMethod {
 		}
 		result.sort(Comparator.comparingInt(
 			(TLObject a) -> a.tValueByName("address") instanceof GA ga ? ga.getValue() : Integer.MAX_VALUE));
+		return result;
+	}
+
+	/**
+	 * The datapoints of the project a role of a function can refer to: its group addresses by their
+	 * address, then its application datapoints in their order (haumacher/ehome #61).
+	 */
+	public static List<TLObject> datapoints(TLObject project) {
+		List<TLObject> result = groupAddresses(project);
+		if (project != null) {
+			result.addAll(ApplicationDatapoints.of(project));
+		}
 		return result;
 	}
 

@@ -9,7 +9,9 @@ import java.util.Map;
 /**
  * The kinds of functions of the runtime image and their roles, in the order the image writes them
  * (homecontrol <code>spec/runtime-image.md</code> 3.5). Each role is an attribute of
- * <code>ehome.runtime:Function</code> of the same name, referring to a group address.
+ * <code>ehome.runtime:Function</code> of the same name, referring to a datapoint of the project
+ * (<code>ehome.logical:ProjectDatapoint</code>): a group address or an application datapoint
+ * (haumacher/ehome #61).
  */
 public final class FunctionKinds {
 

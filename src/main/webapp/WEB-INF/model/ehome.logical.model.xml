@@ -46,9 +46,20 @@
 				/>
 			</attributes>
 		</interface>
+		<!--
+			A datapoint of the project in the runtime image (haumacher/ehome #61): a group address or an
+			application datapoint (ehome.runtime:ApplicationDatapoint), what a role of a function refers
+			to. The runtime image binds the role to the id of the datapoint either way.
+		-->
+		<interface name="ProjectDatapoint">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+		</interface>
 		<class name="GroupAddress">
 			<generalizations>
 				<generalization type="GroupAddressDefinition"/>
+				<generalization type="ProjectDatapoint"/>
 			</generalizations>
 			<annotations>
 				<table name="EHGroupAddress"/>

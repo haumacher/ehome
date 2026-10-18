@@ -357,6 +357,31 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey NEW_SCHEDULE_LABEL;
 
 	/**
+	 * @en Choice
+	 */
+	public static ResKey NEW_CHOICE_LABEL;
+
+	/**
+	 * @en The file is no JSON document: {0}
+	 */
+	public static ResKey1 ERROR_RULE_IMPORT_NO_JSON__REASON;
+
+	/**
+	 * @en The file has neither rules nor schedule entries (the members "rules" and "schedules" of a runtime image).
+	 */
+	public static ResKey ERROR_RULE_IMPORT_NO_RULES;
+
+	/**
+	 * @en The rules of the file cannot be read: {0}
+	 */
+	public static ResKey1 ERROR_RULE_IMPORT_UNREADABLE__REASON;
+
+	/**
+	 * @en {0} rules and {1} schedule entries imported.
+	 */
+	public static ResKey2 RULES_IMPORTED__RULES_SCHEDULES;
+
+	/**
 	 * @en The image holds {0} rules and {1} schedule entries.
 	 */
 	public static ResKey2 EXPORT_AUTOMATION__RULES_SCHEDULES;

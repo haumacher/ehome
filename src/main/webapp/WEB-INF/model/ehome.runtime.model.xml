@@ -145,10 +145,11 @@
 		</class>
 		<!--
 			What the inhabitant operates (haumacher/ehome #43): a light, a blind, a sensor, as the runtime
-			image names it (homecontrol spec/runtime-image.md 3.5). The roles of its kind name the group
-			addresses whose datapoints it consists of; the roles of the other kinds are hidden. "Propose
-			functions" derives functions from the device channels of the project
-			(de.haumacher.ehome.runtime.FunctionProposal); the user edits them afterwards.
+			image names it (homecontrol spec/runtime-image.md 3.5). The roles of its kind name the datapoints
+			it consists of, group addresses or application datapoints (#61); the roles of the other kinds
+			are hidden. "Propose functions" derives functions from the device channels of the project
+			(de.haumacher.ehome.runtime.FunctionProposal), bound to group addresses; the user edits them
+			afterwards.
 		-->
 		<enum name="FunctionKind">
 			<classifier name="light" default="true"/>
@@ -229,12 +230,12 @@
 				<!-- The datapoint the function is commanded with (light, switch: on/off; dimmer: on/off; scene: the scene number); writable. -->
 				<reference name="command"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -247,12 +248,12 @@
 				<!-- The datapoint reporting the state (on/off). -->
 				<reference name="state"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -265,12 +266,12 @@
 				<!-- The datapoint the brightness is set with; writable. -->
 				<reference name="levelCommand"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -283,12 +284,12 @@
 				<!-- The datapoint reporting the brightness. -->
 				<reference name="level"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -301,12 +302,12 @@
 				<!-- The datapoint moving the blind up or down; writable. -->
 				<reference name="move"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -319,12 +320,12 @@
 				<!-- The datapoint stopping the blind; writable. -->
 				<reference name="stop"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -337,12 +338,12 @@
 				<!-- The datapoint reporting the position of the blind. -->
 				<reference name="position"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -355,12 +356,12 @@
 				<!-- The datapoint the position of the blind is set with; writable. -->
 				<reference name="positionCommand"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -373,12 +374,12 @@
 				<!-- The datapoint reporting the position of the slats. -->
 				<reference name="slat"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -391,12 +392,12 @@
 				<!-- The datapoint the position of the slats is set with; writable. -->
 				<reference name="slatCommand"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -409,12 +410,12 @@
 				<!-- The datapoint of the measured or reported value. -->
 				<reference name="value"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -427,12 +428,12 @@
 				<!-- The datapoint of the measured temperature. -->
 				<reference name="temperature"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -445,12 +446,12 @@
 				<!-- The datapoint reporting the setpoint. -->
 				<reference name="setpoint"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -463,12 +464,12 @@
 				<!-- The datapoint the setpoint is set with; writable. -->
 				<reference name="setpointCommand"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -481,12 +482,12 @@
 				<!-- The datapoint reporting the operating mode. -->
 				<reference name="mode"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -499,12 +500,12 @@
 				<!-- The datapoint the operating mode is set with; writable. -->
 				<reference name="modeCommand"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -517,12 +518,12 @@
 				<!-- The datapoint reporting whether the room is heated. -->
 				<reference name="heating"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -535,12 +536,12 @@
 				<!-- The datapoint the button sends when pressed. -->
 				<reference name="press"
 					kind="forwards"
-					type="ehome.logical:GroupAddress"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
 							</options-by-expression>
 						</options>
 						<dynamic-visibility>
@@ -641,7 +642,7 @@
 		-->
 		<class name="ApplicationDatapoint">
 			<generalizations>
-				<generalization type="tl.model:TLObject"/>
+				<generalization type="ehome.logical:ProjectDatapoint"/>
 			</generalizations>
 			<annotations>
 				<instance-presentation icon="css:bi bi-box"/>
@@ -999,17 +1000,20 @@
 						</constraints>
 					</annotations>
 				</property>
-				<!-- The values allowed (integer, string, enumeration), one per line: the value as a literal, "=", the label. -->
-				<property name="choices"
-					type="tl.core:Text"
+				<!-- The values allowed (integer, string, enumeration), each with its label (haumacher/ehome #60). -->
+				<reference name="choices"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="RuleChoice"
 				>
 					<annotations>
 						<constraints>
-							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
 					</annotations>
-				</property>
+				</reference>
 				<!-- Whether the inhabitant may change the value on the controller. -->
 				<property name="adjustable"
 					type="tl.core:Boolean"
@@ -1018,6 +1022,41 @@
 						<default-value>
 							<boolean value="true"/>
 						</default-value>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- A value a parameter allows, with the label the controller shows for it (spec/rules.md 8.1). -->
+		<class name="RuleChoice">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-list-check"/>
+				<id-column value="label"/>
+			</annotations>
+			<attributes>
+				<!-- The value, a literal of the parameter's type (3, "eco", 21.5). -->
+				<property name="value"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The label the controller shows for the value. -->
+				<property name="label"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
 					</annotations>
 				</property>
 			</attributes>
@@ -1103,8 +1142,21 @@
 			</generalizations>
 			<annotations>
 				<instance-presentation icon="css:bi bi-arrow-right-circle"/>
+				<id-column value="summary"/>
 			</annotations>
 			<attributes>
+				<!-- What the reaction does, derived from its content: its label, e.g. in a refusal of the image (haumacher/ehome #60). -->
+				<property name="summary"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[x -> ruleSummary($x)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<!-- The triggers; any one matching activates the reaction. -->
 				<reference name="triggers"
 					composite="true"
@@ -1182,7 +1234,22 @@
 			</generalizations>
 			<annotations>
 				<instance-presentation icon="css:bi bi-lightning-charge"/>
+				<id-column value="summary"/>
 			</annotations>
+			<attributes>
+				<!-- What the trigger does, derived from its content: its label, e.g. in a refusal of the image (haumacher/ehome #60). -->
+				<property name="summary"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[x -> ruleSummary($x)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
 		</class>
 		<!-- An update of a datapoint. -->
 		<class name="DatapointTrigger">
@@ -1330,7 +1397,22 @@
 			</generalizations>
 			<annotations>
 				<instance-presentation icon="css:bi bi-play"/>
+				<id-column value="summary"/>
 			</annotations>
+			<attributes>
+				<!-- What the action does, derived from its content: its label, e.g. in a refusal of the image (haumacher/ehome #60). -->
+				<property name="summary"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[x -> ruleSummary($x)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
 		</class>
 		<!-- Commands a datapoint. -->
 		<class name="WriteAction">
