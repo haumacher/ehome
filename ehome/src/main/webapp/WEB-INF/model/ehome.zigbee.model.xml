@@ -211,6 +211,87 @@
 				<property name="absent"
 					type="tl.core:Boolean"
 				/>
+				<!-- The installer's override of the minimum reporting interval in seconds (0..65534); empty: the function table's default. The image carries it as the binding's reporting.min (homecontrol spec/zigbee.md "Reporting overrides"); the import never touches it. -->
+				<property name="reportingMin"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<constraints>
+							<constraint class="de.haumacher.ehome.zigbee.ReportingConstraint"/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The installer's override of the maximum reporting interval in seconds (0..65535, not below the minimum; 0: no periodic reports, 65535: no reports); empty: the default. -->
+				<property name="reportingMax"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<constraints>
+							<constraint class="de.haumacher.ehome.zigbee.ReportingConstraint"/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The installer's override of the reportable change in the datapoint's unit (°C, %), at least 0; not for on_off, occupancy, illuminance and color_temperature; empty: the default. -->
+				<property name="reportingChange"
+					type="tl.core:Double"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0.0#" result-type="double"/>
+						</format>
+						<constraints>
+							<constraint class="de.haumacher.ehome.zigbee.ReportingConstraint"/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The minimum reporting interval the controller uses, as its last export said; empty when the export gave none (a function without reporting, an older controller). -->
+				<property name="reportedMin"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The maximum reporting interval the controller uses, as its last export said. -->
+				<property name="reportedMax"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The reportable change the controller uses, in the datapoint's unit, as its last export said; empty where a binding cannot set it. -->
+				<property name="reportedChange"
+					type="tl.core:Double"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0.0#" result-type="double"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- What the controller does with the reporting of the function, for the user: the effective values of the last export, else the function table's defaults. -->
+				<property name="reportingSummary"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[f -> zigbeeReporting($f)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<!-- The datapoints of the project bound to the function (at most one in a valid image). -->
 				<reference name="datapoints"
 					inverse-reference="zigbeeFunction"

@@ -290,6 +290,116 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 ABSENT_KEPT__FUNCTION_DATAPOINTS;
 
+	/**
+	 * @en the function action (a client binding, button commands) configures no reporting
+	 */
+	public static ResKey REPORTING_NONE_ACTION;
+
+	/**
+	 * @en the function multistate configures no reporting (its reports are events)
+	 */
+	public static ResKey REPORTING_NONE_MULTISTATE;
+
+	/**
+	 * @en the function ias_zone configures no reporting (zone status change notifications)
+	 */
+	public static ResKey REPORTING_NONE_IAS_ZONE;
+
+	/**
+	 * @en the function configures no reporting
+	 */
+	public static ResKey REPORTING_NONE;
+
+	/**
+	 * @en min must be 0..65534
+	 */
+	public static ResKey REPORTING_MIN_RANGE;
+
+	/**
+	 * @en max must be 0..65535
+	 */
+	public static ResKey REPORTING_MAX_RANGE;
+
+	/**
+	 * @en max must not be below min (an absent min is the function's default); 0: no periodic reports, 65535: no reports
+	 */
+	public static ResKey REPORTING_MAX_BELOW_MIN;
+
+	/**
+	 * @en min must not exceed max (an absent max is the function's default); max 0: no periodic reports, max 65535: no reports
+	 */
+	public static ResKey REPORTING_MIN_ABOVE_MAX;
+
+	/**
+	 * @en the function {0} has no reportable change (a discrete value reports every change)
+	 */
+	public static ResKey1 REPORTING_NO_CHANGE_DISCRETE__FUNCTION;
+
+	/**
+	 * @en the function illuminance has no reportable change in lux (its attribute is logarithmic: a lux step has no fixed attribute step); min and max are allowed
+	 */
+	public static ResKey REPORTING_NO_CHANGE_ILLUMINANCE;
+
+	/**
+	 * @en the function color_temperature has no reportable change in K (its attribute counts mireds, 1000000 / K: a kelvin step has no fixed attribute step); min and max are allowed
+	 */
+	public static ResKey REPORTING_NO_CHANGE_COLOR_TEMPERATURE;
+
+	/**
+	 * @en the function has no reportable change
+	 */
+	public static ResKey REPORTING_NO_CHANGE;
+
+	/**
+	 * @en change must be 0..327.67 (°C)
+	 */
+	public static ResKey REPORTING_CHANGE_TEMPERATURE;
+
+	/**
+	 * @en change must be 0..100 (%)
+	 */
+	public static ResKey REPORTING_CHANGE_PERCENT;
+
+	/**
+	 * @en Reports: every {0}..{1} s
+	 */
+	public static ResKey2 REPORTING_EVERY__MIN_MAX;
+
+	/**
+	 * @en Reports: on a change only, at most every {0} s
+	 */
+	public static ResKey1 REPORTING_ON_CHANGE__MIN;
+
+	/**
+	 * @en Reports: none, the value only from reads
+	 */
+	public static ResKey REPORTING_OFF;
+
+	/**
+	 * @en {0}, change {1} {2}
+	 */
+	public static ResKey3 REPORTING_CHANGE__REPORTS_CHANGE_UNIT;
+
+	/**
+	 * @en {0}, change as the controller's default
+	 */
+	public static ResKey1 REPORTING_CHANGE_DEFAULT__REPORTS;
+
+	/**
+	 * @en {0} (default)
+	 */
+	public static ResKey1 REPORTING_DEFAULT__REPORTS;
+
+	/**
+	 * @en {0} (as the controller reports)
+	 */
+	public static ResKey1 REPORTING_CONTROLLER__REPORTS;
+
+	/**
+	 * @en Reports: not configured (events or notifications of the device)
+	 */
+	public static ResKey REPORTING_NOT_CONFIGURED;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

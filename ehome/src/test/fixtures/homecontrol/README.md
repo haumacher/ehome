@@ -1,9 +1,10 @@
 # HomeControl fixtures
 
 Verbatim copies of `spec/fixtures/images/` and `spec/fixtures/rules/` of the HomeControl
-repository (haumacher/homecontrol, private), commit `cf700148aa4a788ce8dd0439cfaccf5ded2794fc`
-(2026-10-18). The image fixtures last changed in `90b7b747d694734a0283192a8a0ec03118eb94f0`
-(2026-10-17, "Runtime image: the deployment descriptor, its loader and the push API"), the rule
+repository (haumacher/homecontrol, private), commit `935e8ffc06fa309ef7031fb96a8f7b7296a43c70`
+(2026-10-18). The image fixtures last changed in `1a317bece91857c6aad9160d50c021095a1781ab`
+(2026-10-18, "Zigbee bindings carry reporting overrides": `images/zigbee-bindings.json` and the
+cases `accept-zigbee-reporting.json`, `refuse-zigbee-reporting.json`), the rule
 corpus with the spec decisions of round two (`8d901491e7c3ded8d0880830b7ebc0be6013ddc8`,
 2026-10-18, "Rule spec decisions, round two: the read action, the silence trigger, parameters as
 datapoints").
@@ -11,6 +12,8 @@ The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/
 that commit.
 
 - `images/example.json`, `images/minimal.json`: complete and minimal images.
+- `images/zigbee-bindings.json`: Zigbee bindings without reporting overrides (an image written
+  before the member existed), valid in `test.de.haumacher.ehome.runtime.TestImageFixtures`.
 - `images/test-system.template.json`: the hand-written template for the KNX test system
   (`samples/KNX-Testsystem.knxproj`), compared with E-Home's export in
   `test.de.haumacher.ehome.runtime.TestRuntimeImage`.

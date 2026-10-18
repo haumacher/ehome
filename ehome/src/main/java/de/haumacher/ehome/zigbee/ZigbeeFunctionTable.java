@@ -14,7 +14,10 @@ import de.haumacher.ehome.runtime.ValueTypes;
  *
  * <p>
  * The table decides what a Zigbee binding of the runtime image may name
- * ({@link de.haumacher.ehome.runtime.ImageValidator}, as the controller's loader does).
+ * ({@link de.haumacher.ehome.runtime.ImageValidator}, as the controller's loader does), and holds the
+ * reporting the controller configures for a function when no binding overrides it (the defaults of
+ * homecontrol <code>spec/zigbee.md</code> "Reporting overrides", in the units of the image), which
+ * E-Home shows before an export carries the effective reporting ({@link ZigbeeReporting}).
  * </p>
  */
 public final class ZigbeeFunctionTable {
@@ -28,8 +31,27 @@ public final class ZigbeeFunctionTable {
 	/** The key of the function of a client binding: the commands of a button. */
 	public static final String ACTION = "action";
 
+	/** The key of the IAS zone (a contact, motion or smoke sensor, ...). */
+	public static final String IAS_ZONE = "ias_zone";
+
 	/** The key of the multistate input, which the controller does not read at start. */
 	public static final String MULTISTATE = "multistate";
+
+	/**
+	 * The reporting the controller configures for a function by default.
+	 *
+	 * @param min
+	 *        The minimum reporting interval in seconds.
+	 * @param max
+	 *        The maximum reporting interval in seconds.
+	 * @param change
+	 *        The reportable change in the datapoint's unit; <code>null</code> where it has none in the
+	 *        unit (a discrete value reports every change; the steps of illuminance and colour
+	 *        temperature are fixed by the controller, {@link ZigbeeReporting#changeKind(String)}).
+	 */
+	public record Reporting(int min, int max, Double change) {
+		// A record.
+	}
 
 	/**
 	 * A function of the table.
@@ -46,9 +68,13 @@ public final class ZigbeeFunctionTable {
 	 *        Whether it is an attribute of a server cluster (not the commands of a client cluster).
 	 * @param commandCluster
 	 *        The cluster its commands go to; <code>null</code> for a read-only function.
+	 * @param reporting
+	 *        The reporting the controller configures by default; <code>null</code> for a function
+	 *        whose reporting the controller does not configure (<code>action</code>,
+	 *        <code>multistate</code>, <code>ias_zone</code>), which takes no override either.
 	 */
 	public record Info(String key, int cluster, Integer attribute, String valueType, boolean server,
-			Integer commandCluster) {
+			Integer commandCluster, Reporting reporting) {
 
 		/**
 		 * Whether a binding of the function may send its commands to the given cluster: its own
@@ -67,17 +93,18 @@ public final class ZigbeeFunctionTable {
 
 	/** The functions in the order of the controller's table. */
 	public static final List<Info> FUNCTIONS = List.of(
-		new Info("on_off", ON_OFF, 0x0000, ValueTypes.BOOLEAN, true, ON_OFF),
-		new Info("level", LEVEL_CONTROL, 0x0000, ValueTypes.REAL, true, LEVEL_CONTROL),
-		new Info("color_temperature", 0x0300, 0x0007, ValueTypes.UNSIGNED, true, 0x0300),
-		new Info("temperature", 0x0402, 0x0000, ValueTypes.REAL, true, null),
-		new Info("humidity", 0x0405, 0x0000, ValueTypes.REAL, true, null),
-		new Info("illuminance", 0x0400, 0x0000, ValueTypes.REAL, true, null),
-		new Info("occupancy", 0x0406, 0x0000, ValueTypes.BOOLEAN, true, null),
-		new Info("ias_zone", 0x0500, 0x0002, ValueTypes.BOOLEAN, true, null),
-		new Info("battery", 0x0001, 0x0021, ValueTypes.REAL, true, null),
-		new Info(MULTISTATE, 0x0012, 0x0055, ValueTypes.UNSIGNED, true, null),
-		new Info(ACTION, ON_OFF, null, ValueTypes.ENUMERATION, false, null));
+		new Info("on_off", ON_OFF, 0x0000, ValueTypes.BOOLEAN, true, ON_OFF, new Reporting(0, 300, null)),
+		new Info("level", LEVEL_CONTROL, 0x0000, ValueTypes.REAL, true, LEVEL_CONTROL,
+			new Reporting(1, 300, Double.valueOf(0.4))),
+		new Info("color_temperature", 0x0300, 0x0007, ValueTypes.UNSIGNED, true, 0x0300, new Reporting(1, 300, null)),
+		new Info("temperature", 0x0402, 0x0000, ValueTypes.REAL, true, null, new Reporting(30, 600, Double.valueOf(0.1))),
+		new Info("humidity", 0x0405, 0x0000, ValueTypes.REAL, true, null, new Reporting(30, 600, Double.valueOf(1))),
+		new Info("illuminance", 0x0400, 0x0000, ValueTypes.REAL, true, null, new Reporting(10, 600, null)),
+		new Info("occupancy", 0x0406, 0x0000, ValueTypes.BOOLEAN, true, null, new Reporting(0, 600, null)),
+		new Info(IAS_ZONE, 0x0500, 0x0002, ValueTypes.BOOLEAN, true, null, null),
+		new Info("battery", 0x0001, 0x0021, ValueTypes.REAL, true, null, new Reporting(3600, 21600, Double.valueOf(1))),
+		new Info(MULTISTATE, 0x0012, 0x0055, ValueTypes.UNSIGNED, true, null, null),
+		new Info(ACTION, ON_OFF, null, ValueTypes.ENUMERATION, false, null, null));
 
 	private ZigbeeFunctionTable() {
 		// Static table.

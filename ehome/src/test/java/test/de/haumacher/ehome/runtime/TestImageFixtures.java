@@ -24,8 +24,9 @@ import de.haumacher.ehome.runtime.ImageValidator;
 
 /**
  * The image fixtures of the specification (<code>src/test/fixtures/homecontrol/images/</code>)
- * checked by {@link ImageValidator}: the example and the minimal image are valid, the example with its
- * rules and schedules checked by the loaders of the reference interpreter.
+ * checked by {@link ImageValidator}: the example, the minimal image and the Zigbee bindings are
+ * valid, the example with its rules and schedules checked by the loaders of the reference
+ * interpreter.
  */
 @SuppressWarnings("javadoc")
 public class TestImageFixtures extends TestCase {
@@ -40,6 +41,12 @@ public class TestImageFixtures extends TestCase {
 		ImageReport report = ImageValidator.validate(read("minimal.json"));
 		assertTrue(report.toString(), report.isValid());
 		assertEquals(List.of(), report.getNotes());
+	}
+
+	/** Zigbee bindings without a reporting override, an image written before the member existed. */
+	public void testZigbeeBindings() throws IOException {
+		ImageReport report = ImageValidator.validate(read("zigbee-bindings.json"));
+		assertTrue(report.toString(), report.isValid());
 	}
 
 	/**

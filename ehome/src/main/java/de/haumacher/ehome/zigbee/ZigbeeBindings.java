@@ -231,7 +231,9 @@ public final class ZigbeeBindings {
 	/**
 	 * The <code>zigbee</code> member of the datapoint bound to the function in the image: the device's
 	 * IEEE address, the endpoint, the cluster and the attribute, or for the commands of a client
-	 * cluster (<code>action</code>, no attribute) the client binding.
+	 * cluster (<code>action</code>, no attribute) the client binding; the installer's reporting
+	 * override as <code>reporting</code> with the members set, no member at all without one
+	 * ({@link ZigbeeReporting#json(TLObject)}).
 	 */
 	public static Map<String, Object> json(TLObject function) {
 		Map<String, Object> result = new LinkedHashMap<>();
@@ -243,6 +245,10 @@ public final class ZigbeeBindings {
 			result.put("attribute", number(attribute));
 		} else {
 			result.put("client", Boolean.TRUE);
+		}
+		Map<String, Object> reporting = ZigbeeReporting.json(function);
+		if (reporting != null) {
+			result.put("reporting", reporting);
 		}
 		return result;
 	}

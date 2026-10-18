@@ -21,6 +21,7 @@ import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.runtime.ImageReport.Kind;
 import de.haumacher.ehome.runtime.Json.JsonException;
 import de.haumacher.ehome.zigbee.ZigbeeFunctionTable;
+import de.haumacher.ehome.zigbee.ZigbeeReporting;
 
 /**
  * The checks the controller makes before it loads a runtime image (spec/runtime-image.md, sections
@@ -847,8 +848,8 @@ public final class ImageValidator {
 	 * The <code>zigbee</code> member of a datapoint (spec/zigbee.md "Bindings"; homecontrol
 	 * <code>parse_zigbee</code>): the device function it stands for. Checks the address, the endpoint,
 	 * the cluster/attribute against the function table ({@link ZigbeeFunctionTable}), the command
-	 * cluster, the function's value type against the datapoint's and that a transmitting datapoint can
-	 * be commanded.
+	 * cluster, the function's value type against the datapoint's, that a transmitting datapoint can
+	 * be commanded, and the reporting override ({@link #reporting(Object, ZigbeeFunctionTable.Info)}).
 	 */
 	private void zigbee(Object value, int index, String type, boolean transmit) {
 		if (!object(value, "zigbee")) {
@@ -945,9 +946,74 @@ public final class ImageValidator {
 				+ (client ? "a client binding (button commands) cannot be commanded" : "without it the binding is read-only"));
 			return;
 		}
+		if (binding.containsKey("reporting")) {
+			enter(".reporting");
+			boolean valid = reporting(binding.get("reporting"), function);
+			leave();
+			if (!valid) {
+				return;
+			}
+		}
 		if (_ids.get(index) != null) {
 			_zigbee.add(new ZigbeeDraft(index, ieee, endpoint.longValue(), function.key(), _ids.get(index)));
 		}
+	}
+
+	/**
+	 * The <code>reporting</code> member of a Zigbee binding of the function (spec/zigbee.md "Reporting
+	 * overrides"; homecontrol <code>parse_zigbee_reporting</code>): an object, of a function that
+	 * takes an override, whose members have the right types, then the check of the override
+	 * ({@link ZigbeeReporting#check(ZigbeeFunctionTable.Info, Long, Long, Double)}), refused at the
+	 * member it concerns.
+	 *
+	 * @return Whether the member is valid.
+	 */
+	private boolean reporting(Object value, ZigbeeFunctionTable.Info function) {
+		if (!object(value, "reporting")) {
+			return false;
+		}
+		ZigbeeReporting.Refusal whole = ZigbeeReporting.wholeRefusal(function);
+		if (whole != null) {
+			refuse(whole.text());
+			return false;
+		}
+		Map<?, ?> reporting = (Map<?, ?>) value;
+		boolean ok = true;
+		Long min = null;
+		if (reporting.containsKey("min")) {
+			enter(".min");
+			min = integer(reporting.get("min"), 0, ZigbeeReporting.MAX_MIN, "min");
+			ok &= min != null;
+			leave();
+		}
+		Long max = null;
+		if (reporting.containsKey("max")) {
+			enter(".max");
+			max = integer(reporting.get("max"), 0, ZigbeeReporting.NO_REPORTS, "max");
+			ok &= max != null;
+			leave();
+		}
+		Double change = null;
+		if (reporting.containsKey("change")) {
+			enter(".change");
+			if (number(reporting.get("change"), -Double.MAX_VALUE, Double.MAX_VALUE, "change")) {
+				change = Double.valueOf(((Number) reporting.get("change")).doubleValue());
+			} else {
+				ok = false;
+			}
+			leave();
+		}
+		if (!ok) {
+			return false;
+		}
+		ZigbeeReporting.Refusal refusal = ZigbeeReporting.check(function, min, max, change);
+		if (refusal != null) {
+			enter(refusal.member().path());
+			refuse(refusal.text());
+			leave();
+			return false;
+		}
+		return true;
 	}
 
 	/**

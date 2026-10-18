@@ -80,6 +80,11 @@ public class ZigbeeFunctions extends GenericMethod {
 		 */
 		zigbeeFunctionLabel(1, true),
 		/**
+		 * <code>zigbeeReporting(function)</code>: what the controller does with the reporting of the
+		 * function, for the user ({@link ZigbeeReporting#summary(TLObject)}).
+		 */
+		zigbeeReporting(1, true),
+		/**
 		 * <code>zigbeeDeviceState(device)</code>: the state of the device, live from the controller's
 		 * events or as the last export said ({@link ZigbeeStatus#deviceState(TLObject)}).
 		 */
@@ -183,6 +188,8 @@ public class ZigbeeFunctions extends GenericMethod {
 				return ZigbeeBindings.candidates(obj);
 			case zigbeeFunctionLabel:
 				return ZigbeeStatus.functionLabel(obj);
+			case zigbeeReporting:
+				return ZigbeeReporting.summary(obj);
 			case zigbeeDeviceState:
 				return ZigbeeStatus.deviceState(obj);
 			case zigbeeNetworkState:

@@ -38,6 +38,7 @@
 					<method name="zigbeeFunctionOptions" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
 					<!-- The live state of the devices and the network, the names of the functions, the cleanup (haumacher/ehome #64). -->
 					<method name="zigbeeFunctionLabel" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
+					<method name="zigbeeReporting" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
 					<method name="zigbeeDeviceState" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
 					<method name="zigbeeNetworkState" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>
 					<method name="zigbeeReadState" class="de.haumacher.ehome.zigbee.ZigbeeFunctions$Builder"/>

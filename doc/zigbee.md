@@ -77,6 +77,55 @@ network is open for joining; the texts and the device table are computed again f
 refetch of the knowledge base (the import commits on another thread). The view layer has no
 declared way for this (TL #29814, `doc/tl-todo.md`, `view.WindowUpdates`).
 
+## Reporting (haumacher/ehome #64)
+
+How often a device reports a function is the controller's business, with the defaults of its
+function table; the installer tunes it per function in E-Home, and the runtime image carries the
+override as the binding's `reporting` (homecontrol `spec/zigbee.md` "Reporting overrides").
+
+- **Two sets of attributes.** The installer's override is `ZigbeeFunction#reportingMin`,
+  `reportingMax` (seconds) and `reportingChange` (in the datapoint's unit, °C or %), each optional:
+  an empty one keeps the controller's default. What the controller does is mirrored from its export
+  into `reportedMin`, `reportedMax`, `reportedChange` (read-only; empty for `action`, `multistate`,
+  `ias_zone`, and when an older controller exports no `reporting`). The import writes only the
+  mirror, never the override; an export without `reporting` empties the mirror.
+- **The image.** `ZigbeeBindings.json` writes `reporting` with exactly the members the installer set
+  (`ZigbeeReporting.json`), and no member at all without an override: the image of a project
+  without overrides is the same as before.
+- **One check.** `ZigbeeReporting.check` is the controller's `resolve_reporting`, in its order: the
+  function takes no override at all (`action`, `multistate`, `ias_zone`); `min` 0..65534; `max`
+  0..65535; the effective `max` (an empty member is the function's default) not below the effective
+  `min`, except 0 (reports on a change only) and 65535 (no reports, the value only from reads); no
+  `change` for `on_off`, `occupancy` (discrete), `illuminance`, `color_temperature` (no fixed step in
+  lux or kelvin); `change` ≥ 0 and, rounded to the attribute's step as the controller rounds it, at
+  most 327.67 °C (temperature) or 100 % (level, humidity, battery). Each refusal carries the
+  controller's text and a `ResKey` whose English text is the same (the doclet capitalizes its first
+  letter).
+  - `ImageValidator` refuses a binding's `reporting` with it, at the controller's path
+    (`datapoints[i].zigbee.reporting`, `.min`, `.max`, `.change`) after the member types (`reporting
+    must be an object`, `min must be an integer`, `change must be a number`); the controller's
+    corpus `refuse-zigbee-reporting.json` / `accept-zigbee-reporting.json` runs in
+    `TestImageConformance`.
+  - `ReportingConstraint`, the constraint of the three override attributes, refuses the edit when it
+    is saved, at the field of the member (a refusal of the whole at every field with a value), in the
+    user's language; the three depend on each other, so each is checked again when another changes.
+    The model checks the constraints at every commit as well, so no override the controller refuses
+    can be stored, from the UI or from code.
+- **The defaults** are in `ZigbeeFunctionTable` (`Info#reporting`), from homecontrol `doc/zigbee.md`:
+  on_off 0..300 s; level 1..300 s, 0.4 %; color_temperature 1..300 s (10 mireds, no change in K);
+  temperature 30..600 s, 0.1 °C; humidity 30..600 s, 1 %; illuminance 10..600 s (attribute step 500,
+  no change in lux); occupancy 0..600 s; battery 3600..21600 s, 1 %; none for ias_zone, multistate,
+  action.
+- **What the tab shows.** The function table's column "Reports" and the form below it
+  (`ZigbeeFunction#reportingSummary`, `ZigbeeReporting.summary`): "Reports: every 30..600 s, change
+  0.1 °C (default)" — the export's effective values ("as the controller reports") where present, else
+  the defaults; "on a change only, at most every 0 s" for a maximum of 0, "none, the value only from
+  reads" for 65535, "change as the controller's default" where the change has no fixed step in the
+  unit. The form edits the override (the unit of the function beside it) and shows the mirror.
+
+The controller configures the override when the image is applied (homecontrol "Reporting
+overrides"); the simulation ignores reporting.
+
 ## Rooms
 
 The buildings view (`projects/buildings.view.xml`) lists the Zigbee devices placed in a part after
@@ -131,4 +180,4 @@ memory only.
 
 ## Not done yet
 
-The device catalog and quirks, reporting overrides (they need a change of homecontrol's spec).
+The device catalog and quirks.

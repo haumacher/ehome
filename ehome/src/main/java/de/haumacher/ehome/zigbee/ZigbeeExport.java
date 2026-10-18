@@ -107,9 +107,27 @@ public final class ZigbeeExport {
 	 *        The value type the function carries.
 	 * @param unit
 	 *        The unit, <code>null</code> for none.
+	 * @param reporting
+	 *        The reporting the controller uses for the function, <code>null</code> where the export
+	 *        gives none (a function without reporting, an older controller).
 	 */
 	public record Function(String name, String function, int endpoint, int cluster, Integer attribute, String type,
-			String unit, boolean writable) {
+			String unit, boolean writable, Reporting reporting) {
+		// A record.
+	}
+
+	/**
+	 * The effective reporting of a function (<code>reporting</code>, in the image's units). Each
+	 * member is <code>null</code> when the export does not give it.
+	 *
+	 * @param min
+	 *        The minimum interval in seconds.
+	 * @param max
+	 *        The maximum interval in seconds (0: no periodic reports, 65535: no reports).
+	 * @param change
+	 *        The reportable change in the datapoint's unit; absent where a binding cannot set it.
+	 */
+	public record Reporting(Integer min, Integer max, Double change) {
 		// A record.
 	}
 
@@ -252,7 +270,21 @@ public final class ZigbeeExport {
 				+ String.join(", ", ValueTypes.ALL) + ")");
 		}
 		return new Function(text(function, "name"), key, endpoint, cluster, attribute, type, text(function, "unit"),
-			Boolean.TRUE.equals(function.get("writable")));
+			Boolean.TRUE.equals(function.get("writable")), reporting(function.get("reporting")));
+	}
+
+	/**
+	 * The reporting of a function; members of another type than the specification's are taken as not
+	 * given, since the import only shows them.
+	 */
+	private static Reporting reporting(Object item) {
+		if (!(item instanceof Map<?, ?> reporting)) {
+			return null;
+		}
+		Integer min = optionalInteger(reporting, "min");
+		Integer max = optionalInteger(reporting, "max");
+		Double change = reporting.get("change") instanceof Number number ? Double.valueOf(number.doubleValue()) : null;
+		return min == null && max == null && change == null ? null : new Reporting(min, max, change);
 	}
 
 	private int integer(Map<?, ?> object, String member, int min, int max) {

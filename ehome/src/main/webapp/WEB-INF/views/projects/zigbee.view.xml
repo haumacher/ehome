@@ -30,6 +30,12 @@
 	network is open for joining; the texts and the table are computed again from it.
 	"Remove absent functions" deletes the functions of the selected device the controller no longer
 	exports that no datapoint is bound to and names the bound ones it keeps.
+
+	Reporting (haumacher/ehome #64, ZigbeeReporting): the column "Reports" and the form below the
+	functions show what the controller does with a function's reporting (the effective values of its
+	last export, else the defaults of its function table); the form edits the installer's override
+	(minimum and maximum interval, reportable change in the function's unit), which the runtime image
+	carries as the binding's reporting, refused when saved as the controller's loader would refuse it.
 -->
 <view>
 	<channels>
@@ -366,41 +372,106 @@
 													</with-transaction>
 												</generic-command>
 											</commands>
-											<table
-												observed-types="ehome.zigbee:ZigbeeFunction,ehome.zigbee:ZigbeeDevice,ehome.runtime:ApplicationDatapoint"
-												selection="function"
-												types="ehome.zigbee:ZigbeeFunction"
+											<split-panel
+												orientation="vertical"
+												resizable="true"
 											>
-												<inputs>
-													<input channel="device"/>
-												</inputs>
-												<columns>
-													<computed-column name="label"
-														type="tl.core:String"
+												<panes>
+													<pane
+														size="55"
+														unit="%"
 													>
-														<label>
-															<en>Function</en>
-															<de>Funktion</de>
-														</label>
-														<value>f -> zigbeeFunctionLabel($f)</value>
-													</computed-column>
-													<column attribute="endpoint"/>
-													<column attribute="valueType"/>
-													<column attribute="unit"/>
-													<column attribute="writable"/>
-													<column attribute="datapoints"/>
-													<column attribute="cluster"/>
-													<column attribute="attribute"/>
-													<column attribute="absent"/>
-													<column attribute="function">
-														<label>
-															<en>Key</en>
-															<de>Schlüssel</de>
-														</label>
-													</column>
-												</columns>
-												<rows>d -> if($d == null, [], $d.get(`ehome.zigbee:ZigbeeDevice#functions`))</rows>
-											</table>
+														<table
+															observed-types="ehome.zigbee:ZigbeeFunction,ehome.zigbee:ZigbeeDevice,ehome.runtime:ApplicationDatapoint"
+															selection="function"
+															types="ehome.zigbee:ZigbeeFunction"
+														>
+															<inputs>
+																<input channel="device"/>
+															</inputs>
+															<columns>
+																<computed-column name="label"
+																	type="tl.core:String"
+																>
+																	<label>
+																		<en>Function</en>
+																		<de>Funktion</de>
+																	</label>
+																	<value>f -> zigbeeFunctionLabel($f)</value>
+																</computed-column>
+																<column attribute="endpoint"/>
+																<column attribute="valueType"/>
+																<column attribute="unit"/>
+																<column attribute="writable"/>
+																<column attribute="datapoints"/>
+																<column attribute="reportingSummary"/>
+																<column attribute="cluster"/>
+																<column attribute="attribute"/>
+																<column attribute="absent"/>
+																<column attribute="function">
+																	<label>
+																		<en>Key</en>
+																		<de>Schlüssel</de>
+																	</label>
+																</column>
+															</columns>
+															<rows>d -> if($d == null, [], $d.get(`ehome.zigbee:ZigbeeDevice#functions`))</rows>
+														</table>
+													</pane>
+													<pane
+														size="45"
+														unit="%"
+													>
+														<!--
+															The reporting of the selected function (haumacher/ehome #64): what the
+															controller does (from its last export, else the defaults of its function
+															table) and the installer's override, which the image carries as the
+															binding's reporting. ReportingConstraint refuses what the controller's
+															loader would refuse, with its reason.
+														-->
+														<panel>
+															<title>
+																<en>Reporting</en>
+																<de>Berichte</de>
+															</title>
+															<form
+																input="function"
+																with-inset="true"
+															>
+																<field attribute="displayName"/>
+																<field attribute="reportingSummary"/>
+																<group>
+																	<label>
+																		<en>Reporting override</en>
+																		<de>Vorgabe für die Berichte</de>
+																	</label>
+																	<field attribute="reportingMin"/>
+																	<field attribute="reportingMax"/>
+																	<field attribute="reportingChange"/>
+																	<field attribute="unit"
+																		readonly="true"
+																	/>
+																</group>
+																<group>
+																	<label>
+																		<en>Reported by the controller</en>
+																		<de>Vom Controller gemeldet</de>
+																	</label>
+																	<field attribute="reportedMin"
+																		readonly="true"
+																	/>
+																	<field attribute="reportedMax"
+																		readonly="true"
+																	/>
+																	<field attribute="reportedChange"
+																		readonly="true"
+																	/>
+																</group>
+															</form>
+														</panel>
+													</pane>
+												</panes>
+											</split-panel>
 										</panel>
 									</tab>
 									<tab id="endpoints"

@@ -59,10 +59,11 @@ public class TestRuleCorpus extends TestCase {
 	public static final File CORPUS = new File("src/test/fixtures/homecontrol/rules");
 
 	/**
-	 * Cases of the corpus its index (the table "Cases" of its README) does not list: a defect of the
-	 * corpus at haumacher/homecontrol 8d90149, where case 54 came without its line in the index.
+	 * Cases of the corpus its index (the table "Cases" of its README) does not list (a defect of the
+	 * corpus to be reported at haumacher/homecontrol; case 54 came without its line at 8d90149, fixed
+	 * at 1a317be).
 	 */
-	private static final Set<String> NOT_INDEXED = Set.of("54-silence-read-parameter-datapoint.json");
+	private static final Set<String> NOT_INDEXED = Set.of();
 
 	/** The monotonic time of the corpus' time 0. */
 	private static final long BASE = 1000000;
