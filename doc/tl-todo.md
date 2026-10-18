@@ -544,6 +544,9 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29884, #29885: see above (access coverage of engine modules, hidden instead of disabled commands).
 - TL #29886: see above (line breaks in confirmations).
 - TL #29887, #29888, #29892: see above (suggestions and normalizing in text fields, leaving edit mode).
+- TL #29894: the model upgrade logs an ERROR with stack trace when a stored annotation of the old
+  model no longer instantiates (an options expression whose script function changed its arity);
+  the upgrade itself succeeds. No workaround.
 - TL #29893: the model upgrade's log does not name a reference whose target type changed (the
   retargeted function roles of haumacher/ehome #61 were checked in the database instead). No workaround.
 - TL #29806: see above (singleton and generated wrappers; when available: dissolve `ehome.mask`).
