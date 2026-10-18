@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -63,8 +64,30 @@ public final class RuleSet {
 	/** The longest timer duration in ms. */
 	public static final long TIMER_MAX_MS = 30L * 86400000L;
 
-	/** The longest formatted log message in bytes. */
+	/** The longest formatted log message in bytes; also the longest text part of a log message. */
 	public static final int MAX_MESSAGE = 200;
+
+	/** Choices per parameter. */
+	public static final int MAX_CHOICES = 16;
+
+	/** Bytes of a label text. */
+	public static final int MAX_LABEL = 63;
+
+	/** Entries of a label's language map. */
+	public static final int MAX_LABEL_LANGUAGES = 16;
+
+	/**
+	 * The prefix of the datapoints that mirror the rule parameters (<code>spec/rules.md</code> 8.6):
+	 * <code>rule/&lt;ruleId&gt;/&lt;parameterId&gt;</code>. A declared datapoint of an image may not
+	 * start with it.
+	 */
+	public static final String PARAMETER_DATAPOINT_PREFIX = "rule/";
+
+	/**
+	 * The pseudo parameter id under which the current state of a rule is persisted
+	 * (<code>spec/rules.md</code> 8.5): <code>&lt;ruleId&gt;/.state</code>.
+	 */
+	public static final String STATE_KEY = ".state";
 
 	/**
 	 * A rule (<code>spec/rules.md</code> 2.2).
@@ -73,6 +96,9 @@ public final class RuleSet {
 		final String _id;
 
 		final String _name;
+
+		/** The name's language map, <code>null</code> when the image gave a plain string. */
+		final Map<String, String> _nameMap;
 
 		/** Parameter 0 is the enable switch <code>enabled</code>. */
 		final List<Parameter> _parameters = new ArrayList<>();
@@ -85,9 +111,10 @@ public final class RuleSet {
 
 		final List<Reaction> _reactions = new ArrayList<>();
 
-		Rule(String id, String name) {
+		Rule(String id, String name, Map<String, String> nameMap) {
 			_id = id;
 			_name = name;
+			_nameMap = nameMap;
 		}
 
 		/** The stable id. */
@@ -95,9 +122,17 @@ public final class RuleSet {
 			return _id;
 		}
 
-		/** The name. */
+		/** The name, resolved in the language of the load (<code>spec/rules.md</code> 2.2). */
 		public String name() {
 			return _name;
+		}
+
+		/**
+		 * The name's language map as the image gives it, <code>null</code> when the image gave a plain
+		 * string.
+		 */
+		public Map<String, String> nameMap() {
+			return _nameMap;
 		}
 
 		/** The parameters, the enable switch first. */
@@ -164,6 +199,8 @@ public final class RuleSet {
 
 		final String _label;
 
+		final Map<String, String> _labelMap;
+
 		final String _unit;
 
 		final Type _type;
@@ -178,10 +215,14 @@ public final class RuleSet {
 
 		final List<Val> _choices;
 
-		Parameter(String id, String label, String unit, Type type, boolean adjustable, Val defaultValue, Val min, Val max,
-				List<Val> choices) {
+		final List<String> _choiceLabels;
+
+		Parameter(String id, String label, Map<String, String> labelMap, String unit, Type type, boolean adjustable,
+				Val defaultValue, Val min, Val max, List<Val> choices, List<String> choiceLabels) {
 			_id = id;
 			_label = label;
+			_labelMap = labelMap;
+			_choiceLabels = choiceLabels;
 			_unit = unit;
 			_type = type;
 			_adjustable = adjustable;
@@ -196,9 +237,19 @@ public final class RuleSet {
 			return _id;
 		}
 
-		/** The label. */
+		/** The label, resolved in the language of the load (<code>spec/rules.md</code> 2.2). */
 		public String label() {
 			return _label;
+		}
+
+		/** The label's language map, <code>null</code> when the image gave a plain string. */
+		public Map<String, String> labelMap() {
+			return _labelMap;
+		}
+
+		/** The resolved labels of the {@link #choices()}. */
+		public List<String> choiceLabels() {
+			return _choiceLabels;
 		}
 
 		/** The display unit, empty without one. */
@@ -334,7 +385,9 @@ public final class RuleSet {
 		/** The rule starts. */
 		START,
 		/** A parameter of the rule changed. */
-		PARAMETER;
+		PARAMETER,
+		/** A datapoint had no update for a period. */
+		SILENCE;
 	}
 
 	/**
@@ -390,8 +443,11 @@ public final class RuleSet {
 		/** match: the parameter indices the condition reads. */
 		final Set<Integer> _matchParameters = new LinkedHashSet<>();
 
-		/** timer, parameter: the index in the rule. */
+		/** timer, parameter: the index in the rule; silence: the index in {@link RuleSet#_silences}. */
 		int _ref = -1;
+
+		/** silence: the period (a duration of literals and the rule's parameters). */
+		Node _after;
 
 		Trigger(TriggerKind kind) {
 			_kind = kind;
@@ -418,7 +474,9 @@ public final class RuleSet {
 		/** Set a parameter. */
 		SET_PARAMETER("setParameter"),
 		/** Write a log line. */
-		LOG("log");
+		LOG("log"),
+		/** Ask the technology for a datapoint's value. */
+		READ("read");
 
 		private final String _name;
 
@@ -461,7 +519,10 @@ public final class RuleSet {
 	public static final class Action {
 		final ActionKind _kind;
 
-		/** write: the datapoint. */
+		/** The index among all actions of the rule set. */
+		int _index;
+
+		/** write, read: the datapoint. */
 		String _datapoint;
 
 		/** write: the datapoint's type. */
@@ -510,6 +571,18 @@ public final class RuleSet {
 
 	/** The expression roots, by {@link Node#_root}. */
 	final List<Node> _roots = new ArrayList<>();
+
+	/** The JSON path of each root in the <code>rules</code> member, by {@link Node#_root}. */
+	final List<String> _rootPaths = new ArrayList<>();
+
+	/** The silence triggers in rule order. */
+	final List<Trigger> _silences = new ArrayList<>();
+
+	/** The index of the rule of each silence trigger. */
+	final List<Integer> _silenceRules = new ArrayList<>();
+
+	/** The number of actions of all rules. */
+	int _actionCount;
 
 	/** The rules in image order. */
 	public List<Rule> rules() {

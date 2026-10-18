@@ -45,6 +45,29 @@
 			</generic-command>
 			<generic-command
 				clique="new"
+				image="css:bi bi-arrow-down-circle"
+				input="owner"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Read</en>
+					<de>Lesen</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+				</executability>
+				<with-transaction>
+					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:ReadAction`)">
+						<inputs>
+							<input channel="listName"/>
+						</inputs>
+					</execute-script>
+				</with-transaction>
+				<write-channel name="action"/>
+			</generic-command>
+			<generic-command
+				clique="new"
 				image="css:bi bi-play"
 				input="owner"
 				placement="TOOLBAR"

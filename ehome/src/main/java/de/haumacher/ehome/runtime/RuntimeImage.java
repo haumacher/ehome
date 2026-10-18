@@ -28,6 +28,7 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.rules.RuleLoader;
 
 /**
  * The runtime image of a project: the JSON document a HomeControl controller runs
@@ -660,6 +661,44 @@ public final class RuntimeImage {
 		List<Object> rules = _automation.rules(project);
 		if (rules != null) {
 			_json.put("rules", rules);
+			_json.put("rules", normalized(rules, schedules));
+		}
+	}
+
+	/**
+	 * The rules with their expressions in the normalized form of spec/rules.md 4.8 (an integer literal
+	 * partnering an enumeration as an enumeration literal), as the controller's loader normalizes
+	 * them; unchanged when the loader refuses them (the validation reports why).
+	 */
+	private List<Object> normalized(List<Object> rules, List<Object> schedules) {
+		ImageValidator.Directory directory = ImageValidator.directory(Json.write(_json));
+		Set<String> ids = new HashSet<>();
+		if (schedules != null) {
+			for (Object entry : schedules) {
+				if (entry instanceof Map<?, ?> map && map.get("id") instanceof String id) {
+					ids.add(id);
+				}
+			}
+		}
+		try {
+			return RuleLoader.normalized(rules, directory, new RuleLoader.ScheduleDirectory() {
+				@Override
+				public boolean hasSchedule(String id) {
+					return ids.contains(id);
+				}
+
+				@Override
+				public boolean ownsOutput(String datapoint) {
+					return directory.ownsOutput(datapoint);
+				}
+
+				@Override
+				public boolean technologyReads(String datapoint) {
+					return directory.technologyReads(datapoint);
+				}
+			});
+		} catch (RuleLoader.LoadException ex) {
+			return rules;
 		}
 	}
 

@@ -29,7 +29,11 @@ import de.haumacher.ehome.rules.DatapointModel.Quality;
 import de.haumacher.ehome.rules.Engine;
 import de.haumacher.ehome.rules.Engine.LogCode;
 import de.haumacher.ehome.rules.ParameterStore;
+import de.haumacher.ehome.rules.PosixZone;
+import de.haumacher.ehome.rules.RuleLoader;
+import de.haumacher.ehome.rules.RuleLoader.ParameterDatapoint;
 import de.haumacher.ehome.rules.RuleLoader.Refusal;
+import de.haumacher.ehome.rules.RuleLoader.ScheduleDirectory;
 import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.RuleSet.Level;
 import de.haumacher.ehome.rules.RuleSet.StartReason;
@@ -53,6 +57,12 @@ public class TestRuleCorpus extends TestCase {
 
 	/** The directory of the corpus copy. */
 	public static final File CORPUS = new File("src/test/fixtures/homecontrol/rules");
+
+	/**
+	 * Cases of the corpus its index (the table "Cases" of its README) does not list: a defect of the
+	 * corpus at haumacher/homecontrol 8d90149, where case 54 came without its line in the index.
+	 */
+	private static final Set<String> NOT_INDEXED = Set.of("54-silence-read-parameter-datapoint.json");
 
 	/** The monotonic time of the corpus' time 0. */
 	private static final long BASE = 1000000;
@@ -90,6 +100,10 @@ public class TestRuleCorpus extends TestCase {
 		}
 		Set<String> present = new TreeSet<>(Arrays.asList(CORPUS.list((dir, name) -> name.endsWith(".json"))));
 		assertFalse("The index lists cases.", indexed.isEmpty());
+		for (String name : NOT_INDEXED) {
+			assertFalse("The corpus index lists " + name + " now: remove it from NOT_INDEXED.", indexed.contains(name));
+			indexed.add(name);
+		}
 		assertEquals("The copy holds exactly the cases of the corpus index.", indexed, present);
 	}
 
@@ -114,15 +128,44 @@ public class TestRuleCorpus extends TestCase {
 
 		private boolean _synchronized;
 
-		private long _startSeconds;
+		/** The UTC instant of the corpus' time 0. */
+		private long _startUtc;
+
+		private PosixZone _zone = PosixZone.UTC;
+
+		private String _language = "en";
 
 		private final Map<SunEvent, TimeOfDay> _sun = new LinkedHashMap<>();
 
 		private final Set<String> _schedules = new TreeSet<>();
 
+		private final Set<String> _outputs = new TreeSet<>();
+
+		private final Set<String> _unreadable = new TreeSet<>();
+
+		/** The schedules of the case as the loader sees them. */
+		private final ScheduleDirectory _directory = new ScheduleDirectory() {
+			@Override
+			public boolean hasSchedule(String id) {
+				return _schedules.contains(id);
+			}
+
+			@Override
+			public boolean ownsOutput(String datapoint) {
+				return _outputs.contains(datapoint);
+			}
+
+			@Override
+			public boolean technologyReads(String datapoint) {
+				return !_unreadable.contains(datapoint);
+			}
+		};
+
 		private final List<String> _logs = new ArrayList<>();
 
 		private final List<String> _commands = new ArrayList<>();
+
+		private final List<String> _reads = new ArrayList<>();
 
 		/** The model of the current boot. */
 		protected DatapointModel _model;
@@ -151,11 +194,19 @@ public class TestRuleCorpus extends TestCase {
 		public void run() throws Exception {
 			Map<?, ?> clock = (Map<?, ?>) _case.get("clock");
 			if (clock != null) {
+				if (clock.get("zone") instanceof String zone) {
+					_zone = PosixZone.parse(zone);
+				}
 				String[] parts = ((String) clock.get("start")).split("[-T:]");
-				_startSeconds = Values.daysOf(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]),
+				long local = Values.daysOf(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]),
 					Integer.parseInt(parts[2])) * 86400 + Integer.parseInt(parts[3]) * 3600
 					+ Integer.parseInt(parts[4]) * 60 + Integer.parseInt(parts[5]);
+				// A time that occurs twice is its first occurrence: the one in summer time.
+				_startUtc = _zone.utc(local, true);
 				_synchronized = !Boolean.FALSE.equals(clock.get("synchronized"));
+			}
+			if (_case.get("ui") instanceof Map<?, ?> ui && ui.get("lang") instanceof String lang) {
+				_language = lang;
 			}
 			Map<?, ?> astro = (Map<?, ?>) _case.get("astro");
 			if (astro != null) {
@@ -166,16 +217,31 @@ public class TestRuleCorpus extends TestCase {
 				}
 			}
 			if (_case.get("schedules") instanceof List<?> schedules) {
-				for (Object id : schedules) {
-					_schedules.add((String) id);
+				for (Object item : schedules) {
+					if (item instanceof Map<?, ?> schedule) {
+						_schedules.add((String) schedule.get("id"));
+						if (schedule.get("output") instanceof String output) {
+							_outputs.add(output);
+						}
+					} else {
+						_schedules.add((String) item);
+					}
 				}
 			}
-			loadModel();
+			for (Object item : (List<?>) _case.get("datapoints")) {
+				Map<?, ?> dp = (Map<?, ?>) item;
+				if (Boolean.FALSE.equals(dp.get("readable"))) {
+					_unreadable.add((String) dp.get("name"));
+				}
+			}
+			loadModel(_case.get("rules"));
 			if (_case.get("persisted") instanceof Map<?, ?> persisted) {
 				for (Map.Entry<?, ?> entry : persisted.entrySet()) {
 					String key = (String) entry.getKey();
 					Map<?, ?> stored = (Map<?, ?>) entry.getValue();
-					Val value = Values.fromJson(Type.fromName((String) stored.get("type")), stored.get("value")).value();
+					// A persisted rule state (spec/rules.md 8.5) is "<ruleId>/.state" with the state id.
+					Val value = "state".equals(stored.get("type")) ? Val.ofString((String) stored.get("value"))
+						: Values.fromJson(Type.fromName((String) stored.get("type")), stored.get("value")).value();
 					int slash = key.indexOf('/');
 					_store.write(key.substring(0, slash), key.substring(slash + 1), value);
 				}
@@ -188,7 +254,7 @@ public class TestRuleCorpus extends TestCase {
 			_image = _case.get("rules");
 			Map<?, ?> expected = (Map<?, ?>) _case.get("expected");
 			_engine = newEngine();
-			Refusal refusal = _engine.load(_image, _schedules::contains);
+			Refusal refusal = _engine.load(_image, _directory);
 			if (expected.containsKey("loadRefused")) {
 				if (refusal == null) {
 					_failures.add("the load must be refused with " + expected.get("loadRefused"));
@@ -223,22 +289,25 @@ public class TestRuleCorpus extends TestCase {
 			Engine engine = new Engine(_model, () -> _now[0], _store, new Engine.TimeSource() {
 				@Override
 				public DateTime localNow() {
-					if (!_synchronized) {
-						return null;
-					}
-					long s = _startSeconds + (_now[0] - BASE) / 1000;
-					long days = Math.floorDiv(s, 86400L);
-					long rest = s - days * 86400;
-					Val.Date date = Values.civilOf(days);
-					return new DateTime(date.year(), date.month(), date.day(), (int) (rest / 3600), (int) (rest % 3600 / 60),
-						(int) (rest % 60), Values.weekdayOf(date.year(), date.month(), date.day()), 0);
+					return _synchronized ? _zone.local(_startUtc + Math.floorDiv(_now[0] - BASE, 1000L)) : null;
 				}
 
 				@Override
 				public TimeOfDay sunTime(SunEvent event) {
 					return _sun.get(event);
 				}
+
+				@Override
+				public long localToUtc(DateTime local) {
+					return _zone.utc(local);
+				}
+
+				@Override
+				public DateTime utcToLocal(long utc) {
+					return _zone.local(utc);
+				}
 			});
+			engine.setLanguage(_language);
 			engine.setObserver(new Engine.Observer() {
 				@Override
 				public void ruleLogged(String rule, LogCode code, Level level, String text) {
@@ -247,8 +316,19 @@ public class TestRuleCorpus extends TestCase {
 				}
 
 				@Override
+				public void loopGuard(String rule, String culprit, int firings) {
+					int last = _logs.size() - 1;
+					_logs.set(last, _logs.get(last) + " culprit " + culprit + " " + firings);
+				}
+
+				@Override
 				public void ruleCommanded(String rule, Datapoint datapoint, Val value) {
-					_commands.add((_now[0] - BASE) + " " + rule + " " + datapoint.name() + " = " + value);
+					_commands.add((_now[0] - BASE) + " " + rule + " " + datapoint.name() + " = " + text(value));
+				}
+
+				@Override
+				public void ruleRead(String rule, Datapoint datapoint) {
+					_reads.add((_now[0] - BASE) + " " + rule + " " + datapoint.name());
 				}
 			});
 			return engine;
@@ -262,18 +342,46 @@ public class TestRuleCorpus extends TestCase {
 		}
 
 		/**
+		 * Creates the {@link #_model} of a boot with the datapoints of the case and the parameter
+		 * datapoints of the rules (<code>spec/rules.md</code> 8.6) as the image loader derives them,
+		 * unbound: the engine binds them.
+		 */
+		private void loadModel(Object rules) {
+			createModel();
+			addParameterDatapoints(rules);
+		}
+
+		/** Adds the parameter datapoints of the rules the model lacks (an image swap keeps the others). */
+		private void addParameterDatapoints(Object rules) {
+			for (ParameterDatapoint dp : RuleLoader.parameterDatapoints(rules)) {
+				if (_model.get(dp.name()) == null) {
+					_model.add(dp.name(), dp.type(), dp.writable(), null);
+				}
+			}
+		}
+
+		/**
 		 * Creates the {@link #_model} of a boot with the datapoints of the case.
 		 */
-		protected void loadModel() {
+		protected void createModel() {
 			_model = new DatapointModel(() -> _now[0]);
-			DatapointModel.Technology accepting = (datapoint, value) -> true;
-			DatapointModel.Technology refusing = (datapoint, value) -> false;
 			for (Object item : (List<?>) _case.get("datapoints")) {
 				Map<?, ?> dp = (Map<?, ?>) item;
 				ValueType type = ValueType.fromName((String) dp.get("type"));
 				boolean writable = !Boolean.FALSE.equals(dp.get("writable"));
 				boolean refuse = Boolean.TRUE.equals(dp.get("refuseCommands"));
-				_model.add((String) dp.get("name"), type, writable, refuse ? refusing : accepting);
+				boolean refuseReads = Boolean.TRUE.equals(dp.get("refuseReads"));
+				_model.add((String) dp.get("name"), type, writable, new DatapointModel.Technology() {
+					@Override
+					public boolean command(Datapoint datapoint, Val value) {
+						return !refuse;
+					}
+
+					@Override
+					public boolean read(Datapoint datapoint) {
+						return !refuseReads;
+					}
+				});
 			}
 		}
 
@@ -330,7 +438,12 @@ public class TestRuleCorpus extends TestCase {
 				_model.reportStale(name);
 			} else if (step.get("command") instanceof Map<?, ?> command) {
 				String name = (String) command.get("datapoint");
-				_model.command(name, datapointValue(name, command.get("value")));
+				DatapointModel.CommandStatus status = _model.command(name, datapointValue(name, command.get("value")));
+				boolean refused = Boolean.TRUE.equals(command.get("refused"));
+				if (refused != (status != DatapointModel.CommandStatus.OK)) {
+					_failures.add("the command at " + at + " must " + (refused ? "" : "not ") + "be refused: "
+						+ status.text());
+				}
 			} else if (step.get("schedule") instanceof String id) {
 				_engine.scheduleFired(id);
 			} else if (step.get("setParameter") instanceof Map<?, ?> p) {
@@ -338,7 +451,11 @@ public class TestRuleCorpus extends TestCase {
 			} else if (step.get("clockSync") instanceof Boolean sync) {
 				_synchronized = sync.booleanValue();
 			} else if (step.get("image") instanceof Map<?, ?> image) {
-				Refusal refusal = _engine.load(image.get("rules"), _schedules::contains);
+				// The model is loaded again with the values kept: the parameter datapoints follow the
+				// new rules (spec/rules.md 7.6).
+				_engine.flush();
+				addParameterDatapoints(image.get("rules"));
+				Refusal refusal = _engine.load(image.get("rules"), _directory);
 				if (refusal != null) {
 					_failures.add("image at " + at + " refused: " + refusal);
 					return;
@@ -347,9 +464,9 @@ public class TestRuleCorpus extends TestCase {
 				_engine.start(StartReason.IMAGE);
 			} else if (step.containsKey("reboot")) {
 				_engine.close();
-				loadModel();
+				loadModel(_image);
 				_engine = newEngine();
-				Refusal refusal = _engine.load(_image, _schedules::contains);
+				Refusal refusal = _engine.load(_image, _directory);
 				if (refusal != null) {
 					_failures.add("reboot at " + at + ": load refused: " + refusal);
 					return;
@@ -366,21 +483,34 @@ public class TestRuleCorpus extends TestCase {
 			if (json == null) {
 				return Val.none(type);
 			}
-			if (type == Type.DATE_TIME && json instanceof Map<?, ?> map && map.containsKey("dayOfWeek")) {
-				// The corpus notation adds the day of the week to a date-time (README "Values").
+			if (type == Type.DATE_TIME && json instanceof Map<?, ?> map
+				&& (map.containsKey("dayOfWeek") || map.containsKey("summerTime"))) {
+				// The corpus notation adds the day of the week and the summer-time flag to a date-time
+				// (README "Values").
 				Map<Object, Object> copy = new LinkedHashMap<>(map);
 				copy.remove("dayOfWeek");
-				Val value = Values.fromJson(type, copy).value();
-				if (value.dateTime().dayOfWeek() != ((Number) map.get("dayOfWeek")).intValue()) {
+				copy.remove("summerTime");
+				DateTime value = Values.fromJson(type, copy).value().dateTime();
+				if (map.containsKey("dayOfWeek") && value.dayOfWeek() != ((Number) map.get("dayOfWeek")).intValue()) {
 					_failures.add("day of week of the expected date-time " + json);
 				}
-				return value;
+				return Val.ofDateTime(new DateTime(value.year(), value.month(), value.day(), value.hour(), value.minute(),
+					value.second(), value.dayOfWeek(), Boolean.TRUE.equals(map.get("summerTime")) ? DateTime.SUMMER_TIME : 0));
 			}
 			Values.Literal literal = Values.fromJson(type, json);
 			if (!literal.isOk()) {
 				throw new AssertionError("Expected value " + json + " of type " + type + ": " + literal.reason());
 			}
 			return literal.value();
+		}
+
+		/** A value as the outputs are compared: its literal, a summer-time flag of a date-time noted. */
+		private static String text(Val value) {
+			String text = String.valueOf(value);
+			if (value.has() && value.type() == Type.DATE_TIME && value.dateTime().summerTime()) {
+				text += " (summer time)";
+			}
+			return text;
 		}
 
 		private static boolean same(Val actual, Val expected) {
@@ -457,6 +587,26 @@ public class TestRuleCorpus extends TestCase {
 					}
 				}
 			}
+			if (expected.get("names") instanceof Map<?, ?> names) {
+				for (Map.Entry<?, ?> entry : names.entrySet()) {
+					String have = _engine.rules().rules().get(rule((String) entry.getKey())).name();
+					if (!entry.getValue().equals(have)) {
+						_failures.add(where + ": name of " + entry.getKey() + " is " + have + ", expected " + entry.getValue());
+					}
+				}
+			}
+			if (expected.get("labels") instanceof Map<?, ?> labels) {
+				for (Map.Entry<?, ?> entry : labels.entrySet()) {
+					String key = (String) entry.getKey();
+					int slash = key.indexOf('/');
+					RuleSet.Rule decl = _engine.rules().rules().get(rule(key.substring(0, slash)));
+					int p = decl.findParameter(key.substring(slash + 1));
+					String have = p < 0 ? null : decl.parameters().get(p).label();
+					if (!entry.getValue().equals(have)) {
+						_failures.add(where + ": label of " + key + " is " + have + ", expected " + entry.getValue());
+					}
+				}
+			}
 			if (expected.get("firings") instanceof Map<?, ?> firings) {
 				for (Map.Entry<?, ?> entry : firings.entrySet()) {
 					int have = _engine.firings(rule((String) entry.getKey()));
@@ -496,7 +646,7 @@ public class TestRuleCorpus extends TestCase {
 				String name = (String) c.get("datapoint");
 				Datapoint datapoint = _model.get(name);
 				Val want = expectedValue(datapoint.type().expressionType(), c.get("value"));
-				String line = c.get("at") + " " + c.get("rule") + " " + name + " = " + want;
+				String line = c.get("at") + " " + c.get("rule") + " " + name + " = " + text(want);
 				wantCommands.add(line);
 				commandsOk &= i < _commands.size() && sameCommand(_commands.get(i), line, want);
 			}
@@ -505,13 +655,37 @@ public class TestRuleCorpus extends TestCase {
 				_failures.add("commands differ\nexpected:\n  " + String.join("\n  ", wantCommands) + "\nactual:\n  "
 					+ String.join("\n  ", _commands));
 			}
-			List<String> wantLogs = new ArrayList<>();
-			for (Object item : (List<?>) expected.get("logs")) {
-				Map<?, ?> l = (Map<?, ?>) item;
-				String line = l.get("at") + " " + l.get("rule") + " " + l.get("code");
-				wantLogs.add("log".equals(l.get("code")) ? line + " " + l.get("level") + " \"" + l.get("message") + "\"" : line);
+			List<String> wantReads = new ArrayList<>();
+			if (expected.get("reads") instanceof List<?> reads) {
+				for (Object item : reads) {
+					Map<?, ?> r = (Map<?, ?>) item;
+					wantReads.add(r.get("at") + " " + r.get("rule") + " " + r.get("datapoint"));
+				}
 			}
-			if (!wantLogs.equals(_logs)) {
+			if (!wantReads.equals(_reads)) {
+				_failures.add("reads differ\nexpected:\n  " + String.join("\n  ", wantReads) + "\nactual:\n  "
+					+ String.join("\n  ", _reads));
+			}
+			List<String> wantLogs = new ArrayList<>();
+			List<String> haveLogs = new ArrayList<>();
+			List<?> logs = (List<?>) expected.get("logs");
+			for (int i = 0; i < logs.size(); i++) {
+				Map<?, ?> l = (Map<?, ?>) logs.get(i);
+				String line = l.get("at") + " " + l.get("rule") + " " + l.get("code");
+				line = "log".equals(l.get("code")) ? line + " " + l.get("level") + " \"" + l.get("message") + "\"" : line;
+				if (l.containsKey("culprit")) {
+					line += " culprit " + l.get("culprit") + " " + ((Number) l.get("firings")).intValue();
+				}
+				wantLogs.add(line);
+			}
+			for (int i = 0; i < _logs.size(); i++) {
+				// The culprit of a loop guard is compared only where the case names it.
+				String have = _logs.get(i);
+				int culprit = have.indexOf(" culprit ");
+				boolean named = i < logs.size() && ((Map<?, ?>) logs.get(i)).containsKey("culprit");
+				haveLogs.add(culprit >= 0 && !named ? have.substring(0, culprit) : have);
+			}
+			if (!wantLogs.equals(haveLogs)) {
 				_failures.add("logs differ\nexpected:\n  " + String.join("\n  ", wantLogs) + "\nactual:\n  "
 					+ String.join("\n  ", _logs));
 			}

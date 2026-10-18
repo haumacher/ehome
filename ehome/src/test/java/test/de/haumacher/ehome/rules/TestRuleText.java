@@ -87,10 +87,12 @@ public class TestRuleText extends TestCase {
 	}
 
 	private static void checkExpression(String where, Map<?, ?> ast, List<String> failures) {
-		String text = RuleText.print(ast);
+		// The round trip holds on normalized trees (spec/rules.md 4.8).
+		Object normalized = RuleText.normalize(ast);
+		String text = RuleText.print(normalized);
 		try {
 			Map<String, Object> parsed = RuleText.parse(text);
-			if (!same(ast, parsed)) {
+			if (!same(normalized, parsed)) {
 				failures.add(where + ": '" + text + "' reads back as " + Json.write(parsed).trim());
 			}
 			String again = RuleText.print(parsed);
@@ -106,7 +108,11 @@ public class TestRuleText extends TestCase {
 		String text = RuleText.printMessage(message);
 		try {
 			List<Object> parsed = RuleText.parseMessage(text);
-			if (!same(message, parsed)) {
+			List<Object> normalized = new ArrayList<>();
+			for (Object part : message) {
+				normalized.add(RuleText.normalize(part));
+			}
+			if (!same(normalized, parsed)) {
 				failures.add(where + ": '" + text + "' reads back as " + Json.write(parsed).trim());
 			}
 		} catch (SyntaxError ex) {
@@ -161,10 +167,19 @@ public class TestRuleText extends TestCase {
 		assertCanonical("@a - @b - @c", "(@a - @b) - @c");
 		assertCanonical("@a or (@b or @c)", "@a or (@b or @c)");
 		assertCanonical("(@a == @b) == @c", "(@a == @b) == @c");
-		assertCanonical("-(-5)", "-(-5)");
+		// A minus over a number literal folds, also through parentheses and chains (spec 4.8).
+		assertCanonical("5", "-(-5)");
 		assertCanonical("-5", "- 5");
 		assertCanonical("@a - -5", "@a - -5");
-		assertCanonical("-(5)", "-(5)");
+		assertCanonical("-5", "-(5)");
+		assertCanonical("-1.5", "-(1.5)");
+		assertCanonical("-1h", "--(-1h)");
+		assertCanonical("-(-@x)", "-(-@x)");
+		// A time of day with a day of the week (spec 4.2).
+		assertCanonical("time() == mon 07:30", "time()==mon 7:30");
+		assertCanonical("sun 23:59:59", "sun 23:59:59");
+		assertCanonical("running(mon)", "running( mon )");
+		assertEquals(Long.valueOf(1), ((Map<?, ?>) RuleText.parse("mon 07:30").get("value")).get("dayOfWeek"));
 		assertCanonical("(not @a) == @b", "(not @a) == @b");
 		assertCanonical("@a and not @b", "@a and (not @b)");
 		assertCanonical("not not @a", "not (not @a)");

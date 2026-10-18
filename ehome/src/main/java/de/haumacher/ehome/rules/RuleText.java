@@ -33,10 +33,12 @@ import java.util.Map;
  * </p>
  *
  * <p>
- * Three ASTs have no text of their own and do not survive a print: a literal of the type
- * <code>enumeration</code> (printed as its number, which reads back as an integer), a literal of the
- * type <code>controlled</code> (printed as the call <code>controlled(bit, n)</code>) and a time of day
- * with a day of the week (printed without it). The parser never produces them.
+ * The round trip holds on normalized trees (<code>spec/rules.md</code> 4.8, {@link #normalize(Object)}):
+ * a minus over a number literal, also through a chain of minus nodes, is a negative literal; a
+ * literal of the type <code>controlled</code> is the call <code>controlled(bit, n)</code>; a literal
+ * of the type <code>enumeration</code> prints as its number and reads back as an integer literal (the
+ * {@link RuleLoader} gives it back its type where it partners an enumeration). A time of day with a
+ * day of the week is written <code>mon 07:30</code>. The parser produces only normalized trees.
  * </p>
  */
 public final class RuleText {
@@ -192,6 +194,62 @@ public final class RuleText {
 			return Long.toString(number.longValue());
 		}
 		return print(literal(type.externalName(), json));
+	}
+
+	/**
+	 * The structural normalization of an expression's JSON AST (<code>spec/rules.md</code> 4.8, the
+	 * part that needs no types): a unary minus over an integer, real or duration literal, also through
+	 * a chain of minus nodes, becomes the literal with the sign applied; a controlled literal the call
+	 * <code>controlled(b, n)</code>; an enumeration literal an integer literal. Other nodes are copied.
+	 */
+	public static Object normalize(Object node) {
+		if (!(node instanceof Map<?, ?> map)) {
+			return node;
+		}
+		Map<String, Object> result = new LinkedHashMap<>();
+		String kind = String.valueOf(map.get("kind"));
+		if (kind.equals("literal")) {
+			String type = String.valueOf(map.get("type"));
+			if (type.equals("enumeration")) {
+				return literal("integer", map.get("value"));
+			}
+			if (type.equals("controlled") && map.get("value") instanceof Map<?, ?> value) {
+				result.put("kind", "call");
+				result.put("function", "controlled");
+				List<Object> args = new ArrayList<>();
+				args.add(literal("boolean", value.get("control")));
+				args.add(literal("integer", value.get("value")));
+				result.put("args", args);
+				return result;
+			}
+		}
+		if (kind.equals("unary") && "-".equals(map.get("op"))) {
+			Object operand = normalize(map.get("operand"));
+			if (operand instanceof Map<?, ?> o && "literal".equals(o.get("kind")) && isSigned(String.valueOf(o.get("type")))) {
+				return literal(String.valueOf(o.get("type")), negate(o.get("value")));
+			}
+		}
+		for (Map.Entry<?, ?> entry : map.entrySet()) {
+			Object value = entry.getValue();
+			if (value instanceof List<?> list) {
+				List<Object> copy = new ArrayList<>();
+				for (Object item : list) {
+					copy.add(normalize(item));
+				}
+				value = copy;
+			} else if (value instanceof Map<?, ?> && !"value".equals(entry.getKey())) {
+				value = normalize(value);
+			}
+			result.put(String.valueOf(entry.getKey()), value);
+		}
+		return result;
+	}
+
+	private static Object negate(Object value) {
+		if (value instanceof Double d) {
+			return Double.valueOf(-d.doubleValue());
+		}
+		return Long.valueOf(-((Number) value).longValue());
 	}
 
 	/**
@@ -406,6 +464,11 @@ public final class RuleText {
 				return;
 			case "timeOfDay":
 				if (value instanceof Map<?, ?> t) {
+					long day = number(t, "dayOfWeek");
+					if (day >= 1 && day <= 7) {
+						// A day of the week precedes the time (spec 4.2): "mon 07:30".
+						out.append(Values.WEEKDAYS.get((int) day - 1)).append(' ');
+					}
 					time(out, t);
 					return;
 				}
@@ -662,6 +725,24 @@ public final class RuleText {
 			}
 			if (isLetter(c) || c == '_') {
 				String word = word();
+				int day = Values.WEEKDAYS.indexOf(word);
+				if (day >= 0 && at(_pos) == ' ' && isDigit(at(_pos + 1))) {
+					// A weekday word is a literal only when one space and a time follow it: mon 07:30.
+					int wordEnd = _pos;
+					Token time;
+					try {
+						time = number(_pos + 1);
+					} catch (SyntaxError ex) {
+						time = null;
+					}
+					if (time != null && time.text.equals("timeOfDay")) {
+						@SuppressWarnings("unchecked")
+						Map<String, Object> value = new LinkedHashMap<>((Map<String, Object>) time.value);
+						value.put("dayOfWeek", Long.valueOf(day + 1));
+						return new Token(TokenKind.LITERAL, start, time.end, "timeOfDay", value);
+					}
+					_pos = wordEnd;
+				}
 				if (isKeyword(word)) {
 					if (word.equals("true") || word.equals("false")) {
 						return new Token(TokenKind.LITERAL, start, _pos, "boolean", Boolean.valueOf(word.equals("true")));
@@ -1018,7 +1099,7 @@ public final class RuleText {
 			return negation()._node;
 		}
 
-		/** A unary expression and whether it is a literal written directly, which a minus folds. */
+		/** A unary expression and whether it is a number literal, which a minus folds (4.8). */
 		private record Operand(Map<String, Object> _node, boolean _foldable) {
 			// A record.
 		}
@@ -1029,14 +1110,8 @@ public final class RuleText {
 				Operand operand = negation();
 				Map<String, Object> node = operand._node;
 				if (operand._foldable) {
-					Object value = node.get("value");
-					Object negated;
-					if (value instanceof Double d) {
-						negated = Double.valueOf(-d.doubleValue());
-					} else {
-						negated = Long.valueOf(-((Long) value).longValue());
-					}
-					return new Operand(literal((String) node.get("type"), negated), false);
+					// Also through a chain of minus signs and parentheses: -(-5) is the literal 5.
+					return new Operand(literal((String) node.get("type"), negate(node.get("value"))), true);
 				}
 				return new Operand(unary("-", node), false);
 			}
@@ -1046,7 +1121,8 @@ public final class RuleText {
 				advance();
 				return new Operand(node, foldable);
 			}
-			return new Operand(primary(), false);
+			Map<String, Object> node = primary();
+			return new Operand(node, "literal".equals(node.get("kind")) && isSigned(String.valueOf(node.get("type"))));
 		}
 
 		private Map<String, Object> primary() throws SyntaxError {

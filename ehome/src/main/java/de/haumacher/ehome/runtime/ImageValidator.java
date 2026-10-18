@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -14,6 +15,7 @@ import java.util.Set;
 
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleLoader.LoadException;
+import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.runtime.ImageReport.Kind;
@@ -108,6 +110,9 @@ public final class ImageValidator {
 	/** Per datapoint: what owns it (the KNX adapter, ...), null for nothing. */
 	private final List<String> _owners = new ArrayList<>();
 
+	/** The outputs of the schedule entries: the scheduler owns them. */
+	private final Set<String> _scheduleOutputs = new HashSet<>();
+
 	private long _historyBytes;
 
 	private ImageValidator() {
@@ -172,7 +177,12 @@ public final class ImageValidator {
 	 * those of its time master.
 	 */
 	public interface Directory extends RuleLoader.DatapointDirectory, Schedule.Datapoints {
-		// Both views.
+
+		/** Whether the datapoint is the output of a schedule entry of the image. */
+		boolean ownsOutput(String datapoint);
+
+		/** Whether a technology owns the datapoint that can be asked for its value. */
+		boolean technologyReads(String datapoint);
 	}
 
 	/**
@@ -180,6 +190,15 @@ public final class ImageValidator {
 	 * them (a datapoint the validator refuses has no type there).
 	 */
 	public static Directory directory(String text) {
+		return directory(text, null);
+	}
+
+	/**
+	 * The {@link Directory} of the datapoints of the given image text with the given rules instead of
+	 * the image's (<code>null</code>: the image's): the rules imply the datapoints of their parameters
+	 * (spec/rules.md 8.6).
+	 */
+	public static Directory directory(String text, Object rules) {
 		ImageValidator validator = new ImageValidator();
 		Object root;
 		try {
@@ -187,15 +206,35 @@ public final class ImageValidator {
 		} catch (JsonException ex) {
 			root = Map.of();
 		}
-		if (root instanceof Map<?, ?> image) {
-			validator.knx(image);
-			validator.datapoints(image);
+		Map<Object, Object> image = new LinkedHashMap<>();
+		if (root instanceof Map<?, ?> map) {
+			image.putAll(map);
 		}
-		return validator.directory();
+		if (rules != null) {
+			image.put("rules", rules);
+		}
+		validator.knx(image);
+		validator.datapoints(image);
+		validator.schedules(image);
+		return validator.directory(image);
 	}
 
 	private Directory directory() {
+		return directory(Map.of());
+	}
+
+	private Directory directory(Map<?, ?> root) {
 		return new Directory() {
+			@Override
+			public boolean ownsOutput(String datapoint) {
+				return _scheduleOutputs.contains(datapoint);
+			}
+
+			@Override
+			public boolean technologyReads(String datapoint) {
+				return reads(root, datapoint);
+			}
+
 			@Override
 			public ValueType type(String name) {
 				return datapointType(name);
@@ -237,6 +276,11 @@ public final class ImageValidator {
 		for (Schedule.Refusal refusal : loaded.refusals()) {
 			_report.add(Kind.INVALID, refusal.path(), refusal.reason());
 		}
+		for (Schedule entry : loaded.entries()) {
+			if (entry.output() != null) {
+				_scheduleOutputs.add(entry.output());
+			}
+		}
 		return loaded.ids();
 	}
 
@@ -247,12 +291,58 @@ public final class ImageValidator {
 			return;
 		}
 		try {
-			RuleLoader.load(root.get("rules"), directory(), schedules::contains);
+			RuleLoader.load(root.get("rules"), directory(), new RuleLoader.ScheduleDirectory() {
+				@Override
+				public boolean hasSchedule(String id) {
+					return schedules.contains(id);
+				}
+
+				@Override
+				public boolean ownsOutput(String datapoint) {
+					return _scheduleOutputs.contains(datapoint);
+				}
+
+				@Override
+				public boolean technologyReads(String datapoint) {
+					return reads(root, datapoint);
+				}
+			});
 		} catch (LoadException ex) {
 			RuleLoader.Refusal refusal = ex.getRefusal();
 			_report.add(Kind.INVALID, refusal.path(),
 				"rule '" + refusal.rule() + "': " + refusal.error().externalName() + ": " + refusal.text());
 		}
+	}
+
+	/**
+	 * Whether a technology owns the datapoint that can be asked for its value (spec/rules.md 7.12): a
+	 * KNX or Zigbee binding, or a binding of an external source
+	 * (<code>external.sources[].bindings[].datapoint</code>); not a virtual datapoint, the time
+	 * master's or a rule parameter's.
+	 */
+	private boolean reads(Map<?, ?> root, String datapoint) {
+		int index = datapointIndex(datapoint);
+		if (index < 0) {
+			return true;
+		}
+		String owner = _owners.get(index);
+		if ("the KNX adapter".equals(owner) || "the Zigbee adapter".equals(owner)) {
+			return true;
+		}
+		if (owner != null || !(root.get("external") instanceof Map<?, ?> external)
+			|| !(external.get("sources") instanceof List<?> sources)) {
+			return false;
+		}
+		for (Object source : sources) {
+			if (source instanceof Map<?, ?> map && map.get("bindings") instanceof List<?> bindings) {
+				for (Object binding : bindings) {
+					if (binding instanceof Map<?, ?> b && datapoint.equals(b.get("datapoint"))) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 
 	// ---- image -------------------------------------------------------------------------------
@@ -538,6 +628,15 @@ public final class ImageValidator {
 				}
 			}
 		}
+		// The datapoints of the rule parameters (spec/rules.md 8.6), after the time master's: the
+		// rules, functions and schedules may name them.
+		for (RuleLoader.ParameterDatapoint datapoint : RuleLoader.parameterDatapoints(root.get("rules"))) {
+			_owners.add("the rule engine");
+			_ids.add(datapoint.name());
+			_types.add(datapoint.type().externalName());
+			_writable.add(Boolean.valueOf(datapoint.writable()));
+			_sends.add(null);
+		}
 		// Unique ids.
 		Map<String, Integer> first = new HashMap<>();
 		for (int i = 0; i < _ids.size(); i++) {
@@ -587,6 +686,10 @@ public final class ImageValidator {
 			String id = string(dp.get("id"), 1, MAX_NAME, "id");
 			if (id != null && _hasTimeMaster && List.of(RESERVED).contains(id)) {
 				refuse("id '" + id + "' is reserved for the datapoints of knx.timeMaster");
+				id = null;
+			} else if (id != null && id.startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX)) {
+				refuse("id '" + id + "': the prefix '" + RuleSet.PARAMETER_DATAPOINT_PREFIX
+					+ "' is reserved for the datapoints of rule parameters");
 				id = null;
 			}
 			_ids.set(index, id);
@@ -969,7 +1072,8 @@ public final class ImageValidator {
 	private static final Map<String, List<Role>> FUNCTION_KINDS = Map.of(
 		"light", List.of(new Role("command", BOOL, true, true), new Role("state", BOOL, false, false)),
 		"dimmer", List.of(new Role("levelCommand", NUMBER, true, true), new Role("level", NUMBER, false, false),
-			new Role("command", BOOL, true, false), new Role("state", BOOL, false, false)),
+			new Role("command", BOOL, true, false), new Role("state", BOOL, false, false),
+			new Role("step", List.of(ValueTypes.CONTROLLED), true, false)),
 		"blind", List.of(new Role("move", BOOL, true, true), new Role("stop", BOOL, true, false),
 			new Role("position", NUMBER, false, false), new Role("positionCommand", NUMBER, true, false),
 			new Role("slat", NUMBER, false, false), new Role("slatCommand", NUMBER, true, false)),

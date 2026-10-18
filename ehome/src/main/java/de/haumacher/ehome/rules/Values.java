@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -464,7 +465,9 @@ public final class Values {
 				return durationText(v.integer());
 			case TIME_OF_DAY: {
 				TimeOfDay t = v.time();
-				return time(t.hour(), t.minute(), t.second());
+				String text = time(t.hour(), t.minute(), t.second());
+				// A day of the week precedes the time (spec 4.2): "mon 07:30".
+				return t.dayOfWeek() >= 1 && t.dayOfWeek() <= 7 ? WEEKDAYS.get(t.dayOfWeek() - 1) + " " + text : text;
 			}
 			case DATE: {
 				Date d = v.date();
@@ -493,6 +496,93 @@ public final class Values {
 				return "controlled(" + v.controlled().control() + ", " + v.controlled().value() + ")";
 			default:
 				return "?";
+		}
+	}
+
+	/**
+	 * The names of the days of the week in the text of a time of day (<code>spec/rules.md</code>
+	 * 4.2), Monday first.
+	 */
+	public static final List<String> WEEKDAYS = List.of("mon", "tue", "wed", "thu", "fri", "sat", "sun");
+
+	/**
+	 * The JSON literal value of a value (<code>spec/rules.md</code> 3.1; the inverse of
+	 * {@link #fromJson(Type, Object)}); <code>null</code> for no value.
+	 */
+	public static Object toJson(Val value) {
+		if (!value.has()) {
+			return null;
+		}
+		switch (value.type()) {
+			case BOOLEAN:
+				return Boolean.valueOf(value.bool());
+			case INTEGER:
+			case DURATION:
+			case ENUMERATION:
+				return Long.valueOf(value.integer());
+			case REAL:
+				return Double.valueOf(value.real());
+			case STRING:
+				return value.text();
+			case RAW: {
+				StringBuilder out = new StringBuilder();
+				for (byte b : value.bytes()) {
+					if (out.length() > 0) {
+						out.append(' ');
+					}
+					out.append(String.format(Locale.ROOT, "%02X", b & 0xFF));
+				}
+				return out.toString();
+			}
+			case TIME_OF_DAY: {
+				TimeOfDay t = value.time();
+				Map<String, Object> result = new LinkedHashMap<>();
+				result.put("hour", Long.valueOf(t.hour()));
+				result.put("minute", Long.valueOf(t.minute()));
+				result.put("second", Long.valueOf(t.second()));
+				if (t.dayOfWeek() != 0) {
+					result.put("dayOfWeek", Long.valueOf(t.dayOfWeek()));
+				}
+				return result;
+			}
+			case DATE: {
+				Date d = value.date();
+				Map<String, Object> result = new LinkedHashMap<>();
+				result.put("year", Long.valueOf(d.year()));
+				result.put("month", Long.valueOf(d.month()));
+				result.put("day", Long.valueOf(d.day()));
+				return result;
+			}
+			case DATE_TIME: {
+				DateTime d = value.dateTime();
+				Map<String, Object> result = new LinkedHashMap<>();
+				result.put("year", Long.valueOf(d.year()));
+				result.put("month", Long.valueOf(d.month()));
+				result.put("day", Long.valueOf(d.day()));
+				result.put("hour", Long.valueOf(d.hour()));
+				result.put("minute", Long.valueOf(d.minute()));
+				result.put("second", Long.valueOf(d.second()));
+				return result;
+			}
+			case CONTROLLED: {
+				Map<String, Object> result = new LinkedHashMap<>();
+				result.put("control", Boolean.valueOf(value.controlled().control()));
+				result.put("value", Long.valueOf(value.controlled().value()));
+				return result;
+			}
+			case COLOR: {
+				Color c = value.color();
+				Map<String, Object> result = new LinkedHashMap<>();
+				result.put("red", Long.valueOf(c.red()));
+				result.put("green", Long.valueOf(c.green()));
+				result.put("blue", Long.valueOf(c.blue()));
+				if ((c.valid() & Color.WHITE) != 0) {
+					result.put("white", Long.valueOf(c.white()));
+				}
+				return result;
+			}
+			default:
+				return null;
 		}
 	}
 

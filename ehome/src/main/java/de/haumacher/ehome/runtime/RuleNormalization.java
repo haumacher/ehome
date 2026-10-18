@@ -75,6 +75,9 @@ public final class RuleNormalization {
 			case "MatchTrigger":
 				expression(obj, "condition");
 				break;
+			case "SilenceTrigger":
+				expression(obj, "after");
+				break;
 			case "WriteAction":
 			case "SetParameterAction":
 				expression(obj, "value");

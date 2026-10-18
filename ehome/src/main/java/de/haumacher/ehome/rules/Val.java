@@ -51,6 +51,17 @@ public final class Val {
 	 */
 	public record DateTime(int year, int month, int day, int hour, int minute, int second, int dayOfWeek, int flags) {
 
+		/**
+		 * The flag summer time (KNX DPT 19 SUTI, in the order of the DPT 19 flags from bit 0): which of
+		 * the two occurrences of an ambiguous local time is meant (<code>spec/rules.md</code> 3.1).
+		 */
+		public static final int SUMMER_TIME = 1 << 7;
+
+		/** Whether the summer-time flag is set. */
+		public boolean summerTime() {
+			return (flags & SUMMER_TIME) != 0;
+		}
+
 		/** Seconds since 1970-01-01T00:00 of the local fields. */
 		public long seconds() {
 			return Values.daysOf(year, month, day) * 86400 + hour * 3600 + minute * 60 + second;

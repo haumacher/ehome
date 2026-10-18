@@ -321,7 +321,7 @@
 											<value>row -> if($row["writable"] == true, '✓', '')</value>
 										</computed-column>
 									</columns>
-									<rows>p -> ruleDatapoints($p).filter(d -> $d["type"] == "boolean" &amp;&amp; $d["knx"] == null)</rows>
+									<rows>p -> ruleDatapoints($p).filter(d -> $d["type"] == "boolean" &amp;&amp; $d["knx"] == null &amp;&amp; $d["parameter"] == null)</rows>
 								</table>
 							</panel>
 						</pane>

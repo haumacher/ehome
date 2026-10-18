@@ -20,7 +20,6 @@ import de.haumacher.ehome.rules.DatapointModel.Quality;
 import de.haumacher.ehome.rules.DatapointModel.Update;
 import de.haumacher.ehome.rules.Node.Fn;
 import de.haumacher.ehome.rules.Node.Op;
-import de.haumacher.ehome.rules.RuleLoader.LoadError;
 import de.haumacher.ehome.rules.RuleLoader.LoadException;
 import de.haumacher.ehome.rules.RuleLoader.Refusal;
 import de.haumacher.ehome.rules.RuleLoader.ScheduleDirectory;
@@ -63,8 +62,9 @@ public final class Engine implements DatapointModel.Listener {
 	public interface TimeSource {
 
 		/**
-		 * The current local time with its day of the week and no flags; <code>null</code> while the
-		 * wall clock is not synchronized.
+		 * The current local time with its day of the week; its only flag is
+		 * {@link DateTime#SUMMER_TIME} while daylight saving time is in effect. <code>null</code> while
+		 * the wall clock is not synchronized.
 		 */
 		DateTime localNow();
 
@@ -73,6 +73,26 @@ public final class Engine implements DatapointModel.Listener {
 		 * occur today.
 		 */
 		TimeOfDay sunTime(SunEvent event);
+
+		/**
+		 * The instant (seconds since the epoch, UTC) of the local civil time (<code>spec/rules.md</code>
+		 * 4.6): a time that occurs twice is its daylight-saving occurrence when
+		 * {@link DateTime#SUMMER_TIME} is set and its standard-time occurrence otherwise; a time that
+		 * does not exist (a spring-forward gap) is the instant the gap ends. The other flags and the
+		 * day of the week are ignored. The default is the zone UTC.
+		 */
+		default long localToUtc(DateTime local) {
+			return local.seconds();
+		}
+
+		/**
+		 * The local civil time of an instant, with its day of the week and
+		 * {@link DateTime#SUMMER_TIME} while daylight saving time is in effect; <code>null</code> if
+		 * the year lies outside 1900..2155. The default is the zone UTC.
+		 */
+		default DateTime utcToLocal(long utc) {
+			return PosixZone.UTC.local(utc);
+		}
 	}
 
 	/**
@@ -100,7 +120,9 @@ public final class Engine implements DatapointModel.Listener {
 		/** A cascade exceeded 32 derived firings. */
 		LOOP_GUARD("loopGuard"),
 		/** An event queue was full. */
-		QUEUE_OVERFLOW("queueOverflow");
+		QUEUE_OVERFLOW("queueOverflow"),
+		/** The technology refused a read. */
+		READ_REFUSED("readRefused");
 
 		private final String _name;
 
@@ -137,7 +159,24 @@ public final class Engine implements DatapointModel.Listener {
 		default void parameterChanged(String rule, String parameter, Val value) {
 			// Nothing by default.
 		}
+
+		/** A read request of a rule that the owning technology accepted. */
+		default void ruleRead(String rule, Datapoint datapoint) {
+			// Nothing by default.
+		}
+
+		/**
+		 * Right after the <code>loopGuard</code> entry of the refused rule: the rule with the most
+		 * derived firings in the aborted cascade (the first in rule order on a tie) and that count
+		 * (<code>spec/rules.md</code> 9.2).
+		 */
+		default void loopGuard(String rule, String culprit, int firings) {
+			// Nothing by default.
+		}
 	}
+
+	/** The name of the technology that owns the parameter datapoints (<code>spec/rules.md</code> 8.6). */
+	public static final String TECHNOLOGY_NAME = "rules";
 
 	/**
 	 * Outcome of a parameter change from the UI or API (<code>spec/rules.md</code> 8.2).
@@ -156,7 +195,7 @@ public final class Engine implements DatapointModel.Listener {
 	}
 
 	private enum EventKind {
-		DATAPOINT, SCHEDULE, TIMER, START, PARAMETER, START_ALL;
+		DATAPOINT, SCHEDULE, TIMER, START, PARAMETER, START_ALL, SILENCE;
 	}
 
 	private record Event(EventKind kind, String name, int rule, int index, boolean changed, Origin origin,
@@ -184,6 +223,10 @@ public final class Engine implements DatapointModel.Listener {
 
 		static Event startAll(StartReason reason) {
 			return new Event(EventKind.START_ALL, null, -1, -1, false, null, reason, false);
+		}
+
+		static Event silence(int index) {
+			return new Event(EventKind.SILENCE, null, -1, index, false, null, null, false);
 		}
 	}
 
@@ -246,7 +289,30 @@ public final class Engine implements DatapointModel.Listener {
 		Val _value;
 
 		boolean _overridden;
+
+		/** The parameter datapoint bound to the engine (spec 8.6), <code>null</code> if none. */
+		String _datapoint;
 	}
+
+	private static final class SilenceRuntime {
+		/** Monotonic time the silent period counts from. */
+		long _base;
+
+		long _deadline;
+
+		/** Arming order, for equal deadlines. */
+		long _sequence;
+
+		boolean _armed;
+
+		/** Fired for this period: armed again by the next update. */
+		boolean _fired;
+
+		boolean _refusedLogged;
+	}
+
+	/** The technology of the parameter datapoints: their commands go to {@link #parameterCommand}. */
+	private final DatapointModel.Technology _technology = this::parameterCommand;
 
 	private static final class TimerRuntime {
 		long _deadline;
@@ -285,6 +351,20 @@ public final class Engine implements DatapointModel.Listener {
 	private byte[] _flags;
 
 	private Map<String, ChangeRecord> _changes = new HashMap<>();
+
+	private SilenceRuntime[] _silences = new SilenceRuntime[0];
+
+	/** Per action: a readRefused was logged. */
+	private boolean[] _readRefusedLogged = new boolean[0];
+
+	/** Publishing at load: no events. */
+	private boolean _quiet;
+
+	/** When the rules started at boot (silence counts from it). */
+	private long _bootStartMs;
+
+	/** The language labels are resolved in (the device's <code>ui.lang</code>). */
+	private String _language = "en";
 
 	private boolean _booted;
 
@@ -340,6 +420,14 @@ public final class Engine implements DatapointModel.Listener {
 		_observer = observer;
 	}
 
+	/**
+	 * Sets the language the labels of the next {@link #load(Object, ScheduleDirectory) loads} are
+	 * resolved in (<code>spec/rules.md</code> 2.2; the device's setting <code>ui.lang</code>).
+	 */
+	public void setLanguage(String language) {
+		_language = language == null || language.isEmpty() ? "en" : language;
+	}
+
 	/** The loaded rules, <code>null</code> before the first load. */
 	public RuleSet rules() {
 		return _set;
@@ -379,31 +467,11 @@ public final class Engine implements DatapointModel.Listener {
 		flush();
 		RuleSet next;
 		try {
-			next = RuleLoader.load(rules, _model, schedules);
+			next = RuleLoader.load(rules, _model, schedules, _language);
 		} catch (LoadException ex) {
 			return ex.getRefusal();
 		}
-		Refusal collision = checkParameterKeys(next);
-		if (collision != null) {
-			return collision;
-		}
 		install(next);
-		return null;
-	}
-
-	private static Refusal checkParameterKeys(RuleSet next) {
-		Map<Long, String> seen = new HashMap<>();
-		for (Rule rule : next._rules) {
-			for (Parameter parameter : rule._parameters) {
-				Long hash = Long.valueOf(ParameterStore.hash(rule._id, parameter._id));
-				String key = ParameterStore.key(rule._id, parameter._id);
-				String before = seen.putIfAbsent(hash, key);
-				if (before != null) {
-					return new Refusal(LoadError.LIMIT_EXCEEDED, rule._id, "",
-						"the storage keys of " + before + " and " + key + " collide; rename one");
-				}
-			}
-		}
 		return null;
 	}
 
@@ -447,6 +515,24 @@ public final class Engine implements DatapointModel.Listener {
 						nt._deadline = oldTimers[o][ot]._deadline;
 						nt._sequence = oldTimers[o][ot]._sequence;
 						nt._running = true;
+					}
+				}
+			}
+			if (o < 0 && boot) {
+				// A reboot: the rule enters its persisted state when the image still declares it; its
+				// entry actions do not run again (spec 8.5).
+				Val stored = _store.read(rule._id, RuleSet.STATE_KEY);
+				if (stored != null) {
+					String storedId = stored.type() == Type.STRING ? stored.text() : "?";
+					int s = stored.type() == Type.STRING && !rule._states.isEmpty() ? rule.findState(storedId) : -1;
+					if (s >= 0) {
+						nr._state = s;
+						nr._hasState = true;
+					} else {
+						logCode(rule._id, nr, LogCode.STATE_RESET, Level.WARNING, "persisted state not in the image",
+							rule._states.isEmpty()
+								? "persisted state '" + storedId + "' discarded: the rule has no states"
+								: "persisted state '" + storedId + "' is not in the image; the rule enters its initial state");
 					}
 				}
 			}
@@ -498,15 +584,23 @@ public final class Engine implements DatapointModel.Listener {
 			}
 		}
 
+		SilenceRuntime[] silences = new SilenceRuntime[next._silences.size()];
+		for (int i = 0; i < silences.length; i++) {
+			silences[i] = new SilenceRuntime();
+		}
+
 		_set = next;
 		_rules = rules;
 		_params = params;
 		_timers = timers;
 		_flags = new byte[next._roots.size()];
 		_changes = changes;
+		_silences = silences;
+		_readRefusedLogged = new boolean[next._actionCount];
 		_booted = true;
 
-		// Delete the stored overrides that no parameter holds any more.
+		// Delete the stored overrides that no parameter holds any more and the stored states the image
+		// does not declare.
 		_store.prune((logical, value) -> {
 			int slash = logical.indexOf('/');
 			if (slash < 0) {
@@ -516,9 +610,15 @@ public final class Engine implements DatapointModel.Listener {
 			if (r < 0) {
 				return false;
 			}
-			int p = _set._rules.get(r).findParameter(logical.substring(slash + 1));
+			Rule rule = _set._rules.get(r);
+			String key = logical.substring(slash + 1);
+			if (key.equals(RuleSet.STATE_KEY)) {
+				return !rule._states.isEmpty() && value.type() == Type.STRING && rule.findState(value.text()) >= 0;
+			}
+			int p = rule.findParameter(key);
 			return p >= 0 && _params[r][p]._overridden;
 		});
+		bindParameters();
 		for (int r = 0; r < count; r++) {
 			Rule rule = _set._rules.get(r);
 			for (int p = 0; p < rule._parameters.size(); p++) {
@@ -590,6 +690,11 @@ public final class Engine implements DatapointModel.Listener {
 					_flags[root] = (byte) (v.has() && v.bool() ? _flags[root] | MATCH_MEMORY : _flags[root] & ~MATCH_MEMORY);
 				}
 				endCascade();
+				if (event.reason() == StartReason.BOOT) {
+					_bootStartMs = _clock.getAsLong();
+				}
+				// After the start cascades, overdue silence periods fire (spec 7.11).
+				startSilences();
 				for (int r = 0; r < _set._rules.size(); r++) {
 					beginCascade();
 					runStart(r, event.reason());
@@ -605,7 +710,8 @@ public final class Engine implements DatapointModel.Listener {
 	}
 
 	/**
-	 * The earliest deadline of a running rule timer (monotonic ms), {@link Long#MAX_VALUE} if none.
+	 * The earliest deadline of a running rule timer or an armed silence period (monotonic ms),
+	 * {@link Long#MAX_VALUE} if none.
 	 */
 	public long nextDeadline() {
 		long earliest = Long.MAX_VALUE;
@@ -616,6 +722,11 @@ public final class Engine implements DatapointModel.Listener {
 						earliest = t._deadline;
 					}
 				}
+			}
+		}
+		for (SilenceRuntime silence : _silences) {
+			if (silence._armed && silence._deadline < earliest) {
+				earliest = silence._deadline;
 			}
 		}
 		return earliest;
@@ -651,6 +762,29 @@ public final class Engine implements DatapointModel.Listener {
 						bestTimer = t;
 					}
 				}
+			}
+			// Silence periods take part in the same order (spec 7.11).
+			int bestSilence = -1;
+			for (int i = 0; i < _silences.length; i++) {
+				SilenceRuntime silence = _silences[i];
+				if (!silence._armed || silence._deadline > now) {
+					continue;
+				}
+				long deadline = bestSilence >= 0 ? _silences[bestSilence]._deadline
+					: bestRule >= 0 ? _timers[bestRule][bestTimer]._deadline : Long.MAX_VALUE;
+				long sequence = bestSilence >= 0 ? _silences[bestSilence]._sequence
+					: bestRule >= 0 ? _timers[bestRule][bestTimer]._sequence : Long.MAX_VALUE;
+				if (silence._deadline < deadline || (silence._deadline == deadline && silence._sequence < sequence)) {
+					bestSilence = i;
+				}
+			}
+			if (bestSilence >= 0) {
+				SilenceRuntime silence = _silences[bestSilence];
+				silence._armed = false;
+				// Once per silent period.
+				silence._fired = true;
+				runCascade(Event.silence(bestSilence));
+				continue;
 			}
 			if (bestRule < 0) {
 				return;
@@ -694,6 +828,23 @@ public final class Engine implements DatapointModel.Listener {
 			if (record != null) {
 				record._time = _clock.getAsLong();
 				record._known = true;
+			}
+		}
+		if (_quiet) {
+			// The parameter datapoints take their values at load: not an event (spec 8.6).
+			return;
+		}
+		if (update.origin() != Origin.STALE) {
+			// A sign of life re-arms the silence triggers of the datapoint (spec 7.11); a stale report is
+			// none.
+			long now = _clock.getAsLong();
+			for (int i = 0; i < _silences.length; i++) {
+				if (_set._silences.get(i)._name.equals(name)) {
+					SilenceRuntime silence = _silences[i];
+					silence._base = now;
+					silence._fired = false;
+					armSilence(i, now);
+				}
 			}
 		}
 		if (!_set._interest.contains(name)) {
@@ -783,7 +934,7 @@ public final class Engine implements DatapointModel.Listener {
 			refuseParameter(rule, parameter, reason);
 			return statusOf(reason);
 		}
-		applyParameter(found[0], found[1], converted, false);
+		applyParameter(found[0], found[1], converted, false, true);
 		return ParameterStatus.OK;
 	}
 
@@ -807,29 +958,53 @@ public final class Engine implements DatapointModel.Listener {
 		_store.erase(decl._id, decl._parameters.get(p)._id);
 		if (!Val.identical(old, pr._value)) {
 			_observer.parameterChanged(decl._id, decl._parameters.get(p)._id, pr._value);
-			if (p == 0 && !pr._value.bool()) {
-				stopTimers(r);
+			publishParameter(r, p);
+			if (p == 0) {
+				enableChanged(r, pr._value.bool());
+			} else {
+				rearmSilences(r);
 			}
 			pushInbound(Event.parameter(r, p));
 		}
 		return ParameterStatus.OK;
 	}
 
-	private void applyParameter(int rule, int index, Val value, boolean derived) {
+	/**
+	 * Sets a parameter.
+	 *
+	 * @param publish
+	 *        Whether to tell the parameter's datapoint (not when the change came as its command: the
+	 *        model stores the commanded value itself).
+	 */
+	private void applyParameter(int rule, int index, Val value, boolean derived, boolean publish) {
 		Rule r = _set._rules.get(rule);
 		Parameter decl = r._parameters.get(index);
 		ParamRuntime pr = _params[rule][index];
 		Val old = pr._value;
+		boolean wasOverridden = pr._overridden;
 		pr._value = value;
-		pr._overridden = true;
-		_store.write(r._id, decl._id, value);
+		if (Val.identical(value, decl._default)) {
+			// The default is a reset, not an override: the parameter follows later defaults (8.2).
+			pr._overridden = false;
+			if (wasOverridden) {
+				_store.erase(r._id, decl._id);
+			}
+		} else {
+			pr._overridden = true;
+			if (!wasOverridden || !Val.identical(old, value)) {
+				_store.write(r._id, decl._id, value);
+			}
+		}
 		if (Val.identical(old, value)) {
 			return;
 		}
 		_observer.parameterChanged(r._id, decl._id, value);
-		if (index == 0 && !value.bool()) {
+		if (index == 0) {
 			// Disabling cancels the running timers (7.9).
-			stopTimers(rule);
+			enableChanged(rule, value.bool());
+		} else {
+			// A silence period may depend on the parameter.
+			rearmSilences(rule);
 		}
 		Event event = Event.parameter(rule, index);
 		if (derived) {
@@ -837,11 +1012,209 @@ public final class Engine implements DatapointModel.Listener {
 		} else {
 			pushInbound(event);
 		}
+		// The datapoint's update follows the parameter's event (8.6).
+		if (publish) {
+			publishParameter(rule, index);
+		}
 	}
 
 	private void stopTimers(int rule) {
 		for (TimerRuntime timer : _timers[rule]) {
 			timer._running = false;
+		}
+		for (int i = 0; i < _silences.length; i++) {
+			if (_set._silenceRules.get(i).intValue() == rule) {
+				_silences[i]._armed = false;
+			}
+		}
+	}
+
+	private void enableChanged(int rule, boolean enabled) {
+		if (!enabled) {
+			stopTimers(rule);
+			return;
+		}
+		// Enabling arms the silence triggers anew: the period counts from the later of the last update
+		// and the enabling (7.11).
+		long now = _clock.getAsLong();
+		for (int i = 0; i < _silences.length; i++) {
+			if (_set._silenceRules.get(i).intValue() == rule) {
+				SilenceRuntime silence = _silences[i];
+				silence._base = Math.max(silence._base, now);
+				silence._fired = false;
+				armSilence(i, silence._base);
+			}
+		}
+	}
+
+	// ---- Silence triggers -------------------------------------------------------------------
+
+	private void armSilence(int index, long base) {
+		Trigger trigger = _set._silences.get(index);
+		int rule = _set._silenceRules.get(index).intValue();
+		SilenceRuntime silence = _silences[index];
+		silence._armed = false;
+		if (!enabled(rule)) {
+			return;
+		}
+		Val d = evaluate(trigger._after, rule);
+		if (!d.has() || d.integer() < RuleSet.TIMER_MIN_MS || d.integer() > RuleSet.TIMER_MAX_MS) {
+			if (!silence._refusedLogged) {
+				silence._refusedLogged = true;
+				logRule(rule, LogCode.TIMER_REFUSED, Level.ERROR,
+					"silence duration has no value or lies outside 100ms..30d",
+					"silence trigger of '" + trigger._name + "' not armed: the duration "
+						+ (d.has() ? Values.durationText(d.integer()) : "none") + " is not in 100ms..30d");
+			}
+			return;
+		}
+		silence._refusedLogged = false;
+		silence._armed = true;
+		silence._deadline = base + d.integer();
+		silence._sequence = ++_timerSequence;
+	}
+
+	private void rearmSilences(int rule) {
+		for (int i = 0; i < _silences.length; i++) {
+			SilenceRuntime silence = _silences[i];
+			if (_set._silenceRules.get(i).intValue() == rule && !silence._fired) {
+				armSilence(i, silence._base);
+			}
+		}
+	}
+
+	private void startSilences() {
+		for (int i = 0; i < _silences.length; i++) {
+			Datapoint datapoint = _model.get(_set._silences.get(i)._name);
+			long updated = datapoint != null && datapoint.quality() != Quality.UNKNOWN ? datapoint.updatedMs() : 0;
+			SilenceRuntime silence = _silences[i];
+			silence._base = Math.max(updated, _bootStartMs);
+			silence._fired = false;
+			armSilence(i, silence._base);
+		}
+	}
+
+	// ---- Parameters as datapoints -----------------------------------------------------------
+
+	/**
+	 * Binds the parameter datapoints of the loaded rules that the model holds to the engine and
+	 * publishes the parameters' values where the datapoints differ (<code>spec/rules.md</code> 8.6).
+	 * {@link #load(Object, ScheduleDirectory)} does it; call it again after datapoints were added to
+	 * the model without a rule load. The publishes are no events for the rules.
+	 */
+	public void bindParameters() {
+		if (_set == null) {
+			return;
+		}
+		_quiet = true;
+		try {
+			for (int r = 0; r < _set._rules.size(); r++) {
+				Rule rule = _set._rules.get(r);
+				for (int p = 0; p < rule._parameters.size(); p++) {
+					Parameter decl = rule._parameters.get(p);
+					ParamRuntime pr = _params[r][p];
+					pr._datapoint = null;
+					String name = RuleLoader.parameterDatapointName(rule._id, decl._id);
+					Datapoint datapoint = _model.get(name);
+					if (datapoint == null || datapoint.type() != RuleLoader.parameterDatapointType(decl._type)) {
+						continue;
+					}
+					_model.bind(name, _technology);
+					pr._datapoint = name;
+					publishParameter(r, p);
+				}
+			}
+		} finally {
+			_quiet = false;
+		}
+	}
+
+	/**
+	 * The technology that owns the parameter datapoints (named {@link #TECHNOLOGY_NAME}).
+	 */
+	public DatapointModel.Technology technology() {
+		return _technology;
+	}
+
+	private void publishParameter(int rule, int index) {
+		ParamRuntime pr = _params[rule][index];
+		Datapoint datapoint = pr._datapoint != null ? _model.get(pr._datapoint) : null;
+		if (datapoint == null) {
+			return;
+		}
+		Val value;
+		if (pr._value.type() == Type.DURATION) {
+			long ms = pr._value.integer();
+			value = ms >= 0 && ms <= 0xFFFFFFFFL ? Val.ofInt(ms) : null;
+		} else {
+			value = Values.convertForDatapoint(pr._value, datapoint.type());
+		}
+		if (value == null) {
+			// Not mirrored: the datapoint keeps its previous value (spec 8.6).
+			return;
+		}
+		if (datapoint.quality() == Quality.GOOD && Val.identical(datapoint.value(), value)) {
+			return;
+		}
+		_model.publish(pr._datapoint, value);
+	}
+
+	/**
+	 * A command to a parameter datapoint: a parameter change as from the API (spec 8.6).
+	 */
+	private boolean parameterCommand(Datapoint datapoint, Val value) {
+		int rule = -1;
+		int index = -1;
+		for (int r = 0; _params != null && r < _params.length && rule < 0; r++) {
+			for (int p = 0; p < _params[r].length; p++) {
+				if (datapoint.name().equals(_params[r][p]._datapoint)) {
+					rule = r;
+					index = p;
+					break;
+				}
+			}
+		}
+		if (rule < 0) {
+			return false;
+		}
+		Rule r = _set._rules.get(rule);
+		Parameter decl = r._parameters.get(index);
+		String reason = null;
+		Val converted = null;
+		if (!decl._adjustable) {
+			reason = "not adjustable";
+		} else if (decl._type == Type.DURATION) {
+			converted = Val.ofDuration(value.integer());
+		} else {
+			converted = Values.convertForParameter(value, decl._type);
+			if (converted == null) {
+				reason = "not a value of the parameter's type";
+			}
+		}
+		if (reason == null && !decl.valid(converted)) {
+			reason = decl._choices.isEmpty() ? "outside min..max" : "not one of the choices";
+		}
+		if (reason != null) {
+			refuseParameter(r._id, decl._id, reason);
+			return false;
+		}
+		// Within a cascade (a rule's write) the parameter change is a derived event.
+		applyParameter(rule, index, converted, _inCascade, false);
+		return true;
+	}
+
+	private void stateChanged(int rule) {
+		// The writes of the controller are delayed and coalesced (spec 8.5); written through here, the
+		// store holds what an orderly shutdown leaves.
+		RuleRuntime rr = _rules[rule];
+		if (!rr._hasState) {
+			return;
+		}
+		Rule r = _set._rules.get(rule);
+		String state = r._states.get(rr._state)._id;
+		Val stored = _store.read(r._id, RuleSet.STATE_KEY);
+		if (stored == null || stored.type() != Type.STRING || !stored.text().equals(state)) {
+			_store.write(r._id, RuleSet.STATE_KEY, Val.ofString(state));
 		}
 	}
 
@@ -885,6 +1258,7 @@ public final class Engine implements DatapointModel.Listener {
 		if (!r._states.isEmpty() && !rr._hasState) {
 			rr._state = r._initialState;
 			rr._hasState = true;
+			stateChanged(rule);
 			if (enabled(rule)) {
 				_currentRule = rule;
 				runActions(rule, r._states.get(r._initialState)._entry);
@@ -929,6 +1303,8 @@ public final class Engine implements DatapointModel.Listener {
 				return e.kind() == EventKind.START && e.rule() == rule && t._reasons.contains(e.reason());
 			case PARAMETER:
 				return e.kind() == EventKind.PARAMETER && e.rule() == rule && e.index() == t._ref;
+			case SILENCE:
+				return e.kind() == EventKind.SILENCE && e.index() == t._ref;
 			default:
 				return false;
 		}
@@ -989,8 +1365,9 @@ public final class Engine implements DatapointModel.Listener {
 			}
 			if (derived) {
 				if (_derivedFirings + 1 > RuleSet.MAX_DERIVED_FIRINGS) {
-					int culprit = r;
-					for (int i = 0; i < _rules.length; i++) {
+					// The rule that fired most in this cascade, the first in rule order on a tie (9.2).
+					int culprit = 0;
+					for (int i = 1; i < _rules.length; i++) {
 						if (_rules[i]._cascadeFirings > _rules[culprit]._cascadeFirings) {
 							culprit = i;
 						}
@@ -1000,6 +1377,7 @@ public final class Engine implements DatapointModel.Listener {
 						"cascade refused after " + RuleSet.MAX_DERIVED_FIRINGS + " derived firings (most: "
 							+ _set._rules.get(culprit)._id + " with " + _rules[culprit]._cascadeFirings
 							+ "); the queue is emptied");
+					_observer.loopGuard(rule._id, _set._rules.get(culprit)._id, _rules[culprit]._cascadeFirings);
 					_aborted = true;
 					_queue.clear();
 					break;
@@ -1047,6 +1425,7 @@ public final class Engine implements DatapointModel.Listener {
 						runActions(r, reaction._actions);
 						rr._state = reaction._to;
 						rr._hasState = true;
+						stateChanged(r);
 						runActions(r, rule._states.get(reaction._to)._entry);
 						break;
 					}
@@ -1079,6 +1458,8 @@ public final class Engine implements DatapointModel.Listener {
 				return "timer " + rule._timers.get(trigger._ref)._id;
 			case START:
 				return "start " + e.reason().externalName();
+			case SILENCE:
+				return "silence " + trigger._name;
 			default:
 				return "parameter " + rule._parameters.get(trigger._ref)._id;
 		}
@@ -1094,6 +1475,7 @@ public final class Engine implements DatapointModel.Listener {
 				case START_TIMER, RESTART_TIMER, CANCEL_TIMER -> actionTimer(rule, action);
 				case SET_PARAMETER -> actionSetParameter(rule, action);
 				case LOG -> actionLog(rule, action);
+				case READ -> actionRead(rule, action);
 				default -> throw new IllegalStateException(action._kind.toString());
 			}
 		}
@@ -1143,6 +1525,29 @@ public final class Engine implements DatapointModel.Listener {
 		recordAction(rule, "write " + name + " = " + Values.format(v));
 	}
 
+	private void actionRead(int rule, Action action) {
+		String name = action._datapoint;
+		Datapoint datapoint = _model.get(name);
+		String reason = null;
+		if (datapoint == null) {
+			reason = "the datapoint is not in the model";
+		} else if (datapoint.technology() == null) {
+			reason = "no technology owns it";
+		} else if (_model.read(name) != CommandStatus.OK) {
+			reason = "the technology refused";
+		}
+		if (reason != null) {
+			if (!_readRefusedLogged[action._index]) {
+				_readRefusedLogged[action._index] = true;
+				logRule(rule, LogCode.READ_REFUSED, Level.WARNING, reason, "read of '" + name + "' refused: " + reason);
+			}
+			return;
+		}
+		_readRefusedLogged[action._index] = false;
+		_observer.ruleRead(_set._rules.get(rule)._id, datapoint);
+		recordAction(rule, "read " + name);
+	}
+
 	private void actionTimer(int rule, Action action) {
 		Rule r = _set._rules.get(rule);
 		TimerRuntime t = _timers[rule][action._ref];
@@ -1190,7 +1595,7 @@ public final class Engine implements DatapointModel.Listener {
 				"parameter '" + decl._id + "' refused: " + reason);
 			return;
 		}
-		applyParameter(rule, action._ref, converted, true);
+		applyParameter(rule, action._ref, converted, true, true);
 		recordAction(rule, "setParameter " + decl._id + " = " + Values.format(converted));
 	}
 
@@ -1331,17 +1736,17 @@ public final class Engine implements DatapointModel.Listener {
 		}
 		switch (op) {
 			case EQ:
-				return Val.ofBool(Evaluator.equal(a, b));
+				return Val.ofBool(equal(a, b));
 			case NE:
-				return Val.ofBool(!Evaluator.equal(a, b));
+				return Val.ofBool(!equal(a, b));
 			case LT:
-				return Val.ofBool(Evaluator.order(a, b) < 0);
+				return Val.ofBool(order(a, b) < 0);
 			case LE:
-				return Val.ofBool(Evaluator.order(a, b) <= 0);
+				return Val.ofBool(order(a, b) <= 0);
 			case GT:
-				return Val.ofBool(Evaluator.order(a, b) > 0);
+				return Val.ofBool(order(a, b) > 0);
 			case GE:
-				return Val.ofBool(Evaluator.order(a, b) >= 0);
+				return Val.ofBool(order(a, b) >= 0);
 			default:
 				break;
 		}
@@ -1370,22 +1775,24 @@ public final class Engine implements DatapointModel.Listener {
 					return Val.ofTime(new TimeOfDay((int) (s / 3600), (int) (s % 3600 / 60), (int) (s % 60), t.dayOfWeek()));
 				}
 				if (a.type() == Type.DATE_TIME && b.type() == Type.DURATION) {
+					// On the instant: a duration is elapsed time, also across a change of summer time (4.6).
 					long seconds = b.integer() / 1000;
-					long s = a.dateTime().seconds() + (add ? seconds : -seconds);
-					long days = Math.floorDiv(s, 86400L);
-					long rest = s - days * 86400;
-					Date date = Values.civilOf(days);
-					if (date.year() < 1900 || date.year() > 2155) {
+					long utc = _time.localToUtc(a.dateTime()) + (add ? seconds : -seconds);
+					if (utc < Values.daysOf(1899, 12, 31) * 86400 || utc > Values.daysOf(2156, 1, 2) * 86400) {
 						return fail(n, "date-time out of range");
 					}
-					return Val.ofDateTime(new DateTime(date.year(), date.month(), date.day(), (int) (rest / 3600),
-						(int) (rest % 3600 / 60), (int) (rest % 60), Values.weekdayOf(date.year(), date.month(), date.day()), 0));
+					DateTime d = _time.utcToLocal(utc);
+					if (d == null || d.year() < 1900 || d.year() > 2155) {
+						return fail(n, "date-time out of range");
+					}
+					return Val.ofDateTime(new DateTime(d.year(), d.month(), d.day(), d.hour(), d.minute(), d.second(),
+						d.dayOfWeek(), d.flags() & DateTime.SUMMER_TIME));
 				}
 				if (a.type() == Type.TIME_OF_DAY) {
 					return Val.ofDuration((secondsOfDay(a.time()) - secondsOfDay(b.time())) * 1000);
 				}
 				if (a.type() == Type.DATE_TIME) {
-					return Val.ofDuration((a.dateTime().seconds() - b.dateTime().seconds()) * 1000);
+					return Val.ofDuration((_time.localToUtc(a.dateTime()) - _time.localToUtc(b.dateTime())) * 1000);
 				}
 				if (a.type() == Type.DATE) {
 					return Val.ofDuration((a.date().days() - b.date().days()) * 86400000L);
@@ -1452,6 +1859,22 @@ public final class Engine implements DatapointModel.Listener {
 		return fail(n, "unsupported operands");
 	}
 
+	/** Ordering of the language; date-times as instants through the time zone (4.5). */
+	private int order(Val a, Val b) {
+		if (a.type() == Type.DATE_TIME && b.type() == Type.DATE_TIME) {
+			return Long.compare(_time.localToUtc(a.dateTime()), _time.localToUtc(b.dateTime()));
+		}
+		return Evaluator.order(a, b);
+	}
+
+	/** Equality of the language; date-times as instants through the time zone (4.5). */
+	private boolean equal(Val a, Val b) {
+		if (a.type() == Type.DATE_TIME && b.type() == Type.DATE_TIME && a.has() && b.has()) {
+			return _time.localToUtc(a.dateTime()) == _time.localToUtc(b.dateTime());
+		}
+		return Evaluator.equal(a, b);
+	}
+
 	private Val realResult(Node n, double r) {
 		return Double.isFinite(r) ? Val.ofReal(r) : fail(n, "a result that is not a finite real");
 	}
@@ -1494,10 +1917,10 @@ public final class Engine implements DatapointModel.Listener {
 				if (!x.has() || !low.has() || !high.has()) {
 					return Val.none(n._type);
 				}
-				if (Evaluator.order(low, high) > 0) {
+				if (order(low, high) > 0) {
 					return Val.ofBool(false);
 				}
-				return Val.ofBool(Evaluator.order(low, x) <= 0 && Evaluator.order(x, high) <= 0);
+				return Val.ofBool(order(low, x) <= 0 && order(x, high) <= 0);
 			}
 			case HYSTERESIS: {
 				Val x = eval(args.get(0), rule);
@@ -1506,13 +1929,13 @@ public final class Engine implements DatapointModel.Listener {
 				if (!x.has() || !low.has() || !high.has()) {
 					return Val.none(n._type);
 				}
-				if (Evaluator.order(low, high) >= 0) {
+				if (order(low, high) >= 0) {
 					return fail(n, "hysteresis with low >= high");
 				}
-				if (Evaluator.order(x, high) >= 0) {
+				if (order(x, high) >= 0) {
 					return Val.ofBool(true);
 				}
-				if (Evaluator.order(x, low) <= 0) {
+				if (order(x, low) <= 0) {
 					return Val.ofBool(false);
 				}
 				return eval(args.get(3), rule);
@@ -1541,7 +1964,7 @@ public final class Engine implements DatapointModel.Listener {
 						missing = true;
 						continue;
 					}
-					if (best == null || (n._fn == Fn.MIN ? Evaluator.order(x, best) < 0 : Evaluator.order(x, best) > 0)) {
+					if (best == null || (n._fn == Fn.MIN ? order(x, best) < 0 : order(x, best) > 0)) {
 						best = x;
 					}
 				}
@@ -1554,11 +1977,11 @@ public final class Engine implements DatapointModel.Listener {
 				if (!x.has() || !low.has() || !high.has()) {
 					return Val.none(n._type);
 				}
-				if (Evaluator.order(low, high) > 0) {
+				if (order(low, high) > 0) {
 					return fail(n, "clamp with low > high");
 				}
-				Val result = Evaluator.order(x, high) > 0 ? high : x;
-				if (Evaluator.order(result, low) < 0) {
+				Val result = order(x, high) > 0 ? high : x;
+				if (order(result, low) < 0) {
 					result = low;
 				}
 				return Evaluator.promote(result, n._type);

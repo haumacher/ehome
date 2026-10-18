@@ -299,6 +299,24 @@
 						</dynamic-visibility>
 					</annotations>
 				</reference>
+				<!-- The datapoint dimming relatively (KNX DPT 3.007: the control bit the direction, 1 brighter, the value the step code 1..7, 0 stops); writable. -->
+				<reference name="step"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#dimmer`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
 				<!-- The datapoint moving the blind up or down; writable. -->
 				<reference name="move"
 					kind="forwards"
@@ -890,7 +908,7 @@
 						</constraints>
 					</annotations>
 				</property>
-				<!-- The name the controller shows; the image carries it in one language. -->
+				<!-- The name the controller shows; the image carries it as a language map when its languages differ (spec/rules.md 2.2). -->
 				<property name="name"
 					mandatory="true"
 					type="tl.model.i18n:I18NString"
@@ -941,6 +959,15 @@
 					A text rather than a Boolean, which reads an unset value as false.
 				-->
 				<property name="simulationEnabled"
+					type="tl.core:String"
+				/>
+				<!--
+					The state of the rule in the simulation of the project as a controller persists it
+					(spec/rules.md 8.5, de.haumacher.ehome.simulation.Overrides): the id of the state the
+					rule was in when the simulation stopped; empty: none (the next start enters the initial
+					state).
+				-->
+				<property name="simulationState"
 					type="tl.core:String"
 				/>
 				<!-- The adjustable parameters of the rule. -->
@@ -1014,10 +1041,9 @@
 						</constraints>
 					</annotations>
 				</property>
-				<!-- The label the controller shows (1..63 bytes). -->
-				<property name="label"
-					mandatory="true"
-					type="tl.core:String"
+				<!-- The label the controller shows (1..63 bytes per language), in its UI language (spec/rules.md 2.2). -->
+				<property name="title"
+					type="tl.model.i18n:I18NString"
 				>
 					<annotations>
 						<constraints>
@@ -1025,6 +1051,10 @@
 						</constraints>
 					</annotations>
 				</property>
+				<!-- The label in one language of a parameter authored before labels became multilingual (haumacher/ehome #63); the image takes it while the title is empty. -->
+				<property name="label"
+					type="tl.core:String"
+				/>
 				<reference name="type"
 					kind="forwards"
 					mandatory="true"
@@ -1125,7 +1155,7 @@
 			</generalizations>
 			<annotations>
 				<instance-presentation icon="css:bi bi-list-check"/>
-				<id-column value="label"/>
+				<id-column value="value"/>
 			</annotations>
 			<attributes>
 				<!-- The value, a literal of the parameter's type (3, "eco", 21.5). -->
@@ -1140,10 +1170,9 @@
 						</constraints>
 					</annotations>
 				</property>
-				<!-- The label the controller shows for the value. -->
-				<property name="label"
-					mandatory="true"
-					type="tl.core:String"
+				<!-- The label the controller shows for the value, in its UI language (spec/rules.md 2.2). -->
+				<property name="title"
+					type="tl.model.i18n:I18NString"
 				>
 					<annotations>
 						<constraints>
@@ -1151,6 +1180,10 @@
 						</constraints>
 					</annotations>
 				</property>
+				<!-- The label in one language of a choice authored before labels became multilingual (haumacher/ehome #63); the image takes it while the title is empty. -->
+				<property name="label"
+					type="tl.core:String"
+				/>
 			</attributes>
 		</class>
 		<!-- A timer of a rule (spec/rules.md 2.5). -->
@@ -1482,6 +1515,35 @@
 				</property>
 			</attributes>
 		</class>
+		<!-- A datapoint without an update for a period (spec/rules.md 2.3, 7.11): fires once per silent period. -->
+		<class name="SilenceTrigger">
+			<generalizations>
+				<generalization type="Trigger"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of the datapoint watched. -->
+				<property name="datapoint"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The period: an expression of type duration of literals and the rule's parameters (10min, $timeout). -->
+				<property name="after"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
 		<!-- What a reaction or a state does (spec/rules.md 2.7). -->
 		<class name="Action" abstract="true">
 			<generalizations>
@@ -1537,6 +1599,24 @@
 				<property name="onlyOnChange"
 					type="tl.core:Boolean"
 				/>
+			</attributes>
+		</class>
+		<!-- Asks the technology for a datapoint's current value (spec/rules.md 7.12; KNX: a GroupValueRead); the answer arrives as an update. -->
+		<class name="ReadAction">
+			<generalizations>
+				<generalization type="Action"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of the datapoint read (bound to a technology that reads values). -->
+				<property name="datapoint"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!-- Starts a timer if it is stopped. -->

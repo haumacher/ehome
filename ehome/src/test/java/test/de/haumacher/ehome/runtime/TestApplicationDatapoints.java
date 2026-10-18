@@ -135,8 +135,12 @@ public class TestApplicationDatapoints extends BasicTestCase {
 
 			// The rules' table of datapoints.
 			List<Object> table = RuleFunctions.datapoints(project);
-			assertEquals(4, table.size());
+			assertEquals(5, table.size());
 			Resources resources = Resources.getInstance();
+			// The datapoint of the rule's enable switch (spec/rules.md 8.6), after the image's own.
+			assertEquals(map("id", "rule/rule-1/enabled", "label", resources.getString(I18NConstants.NEW_RULE_NAME),
+				"type", "boolean", "writable", Boolean.TRUE, "binding", resources.getString(I18NConstants.BINDING_RULE_PARAMETER),
+				"parameter", Map.of("rule", "rule-1", "parameter", "enabled")), table.get(4));
 			assertEquals(resources.getString(I18NConstants.BINDING_KNX), ((Map<?, ?>) table.get(0)).get("binding"));
 			assertEquals(resources.getString(I18NConstants.BINDING_APPLICATION), ((Map<?, ?>) table.get(1)).get("binding"));
 			assertEquals("Holiday", ((Map<?, ?>) table.get(1)).get("label"));

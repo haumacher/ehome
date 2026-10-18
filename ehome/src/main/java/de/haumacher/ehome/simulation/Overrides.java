@@ -14,6 +14,7 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.rules.ParameterStore;
+import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.RuleText.SyntaxError;
 import de.haumacher.ehome.rules.Type;
@@ -31,6 +32,8 @@ import de.haumacher.ehome.rules.Values;
  * <li>Every other parameter: <code>ehome.runtime:RuleParameter#simulationValue</code>, a literal of
  * the parameter's type as the rule editor writes it (<code>1min</code>, <code>21.5</code>), empty
  * for the default.</li>
+ * <li>The state of a rule with states (<code>spec/rules.md</code> 8.5):
+ * <code>ehome.runtime:Rule#simulationState</code>, the id of the state, empty for none.</li>
  * </ul>
  *
  * <p>
@@ -51,6 +54,9 @@ public final class Overrides {
 	/** The attribute of a parameter holding its override. */
 	public static final String SIMULATION_VALUE = "simulationValue";
 
+	/** The attribute of a rule holding its persisted state. */
+	public static final String SIMULATION_STATE = "simulationState";
+
 	private Overrides() {
 		// Functions only.
 	}
@@ -69,6 +75,10 @@ public final class Overrides {
 			Val parsedEnabled = enabled == null ? null : parse(enabled, Type.BOOLEAN);
 			if (parsedEnabled != null) {
 				store.write(ruleId, ENABLED, parsedEnabled);
+			}
+			String state = text(rule.tValueByName(SIMULATION_STATE));
+			if (state != null) {
+				store.write(ruleId, RuleSet.STATE_KEY, Val.ofString(state));
 			}
 			for (TLObject parameter : objects(rule.tValueByName("parameters"))) {
 				String id = text(parameter.tValueByName("identifier"));
@@ -104,6 +114,11 @@ public final class Overrides {
 			String wanted = enabled == null || enabled.type() != Type.BOOLEAN ? null : text(enabled, Type.BOOLEAN);
 			if (!Objects.equals(wanted, text(rule.tValueByName(SIMULATION_ENABLED)))) {
 				changes.computeIfAbsent(rule, x -> new LinkedHashMap<>()).put(SIMULATION_ENABLED, wanted);
+			}
+			Val state = overrides.get(ParameterStore.key(ruleId, RuleSet.STATE_KEY));
+			String wantedState = state == null || state.type() != Type.STRING ? null : state.text();
+			if (!Objects.equals(wantedState, text(rule.tValueByName(SIMULATION_STATE)))) {
+				changes.computeIfAbsent(rule, x -> new LinkedHashMap<>()).put(SIMULATION_STATE, wantedState);
 			}
 			for (TLObject parameter : objects(rule.tValueByName("parameters"))) {
 				String id = text(parameter.tValueByName("identifier"));

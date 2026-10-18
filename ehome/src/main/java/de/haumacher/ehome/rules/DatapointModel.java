@@ -61,11 +61,16 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 		/** The technology reported the datapoint stale. */
 		STALE,
 		/** Commanded by the application. */
-		COMMAND;
+		COMMAND,
+		/**
+		 * The owner published a value of its own (the rule engine the value of a parameter,
+		 * <code>spec/rules.md</code> 8.6); for the triggers an update that is no command.
+		 */
+		PUBLISH;
 	}
 
 	/**
-	 * The owner of a datapoint: receives the commands.
+	 * The owner of a datapoint: receives the commands and the requests to read.
 	 */
 	public interface Technology {
 
@@ -73,6 +78,16 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 		 * Transmits a command; <code>false</code> refuses it.
 		 */
 		boolean command(Datapoint datapoint, Val value);
+
+		/**
+		 * Asks the source of the datapoint for its current value (a rule's <code>read</code> action,
+		 * <code>spec/rules.md</code> 7.12): <code>true</code> when the request was sent or queued; the
+		 * answer arrives later as a {@link DatapointModel#report(String, Val) report}. By default a
+		 * technology cannot read.
+		 */
+		default boolean read(Datapoint datapoint) {
+			return false;
+		}
 	}
 
 	/**
@@ -135,7 +150,7 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 
 		private final boolean _writable;
 
-		private final Technology _technology;
+		Technology _technology;
 
 		Val _value;
 
@@ -307,6 +322,52 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 		}
 		store(datapoint, converted, Origin.COMMAND);
 		return CommandStatus.OK;
+	}
+
+	/**
+	 * Asks the owning technology for the datapoint's current value (<code>spec/rules.md</code> 7.12);
+	 * stores nothing and tells no listener.
+	 *
+	 * @return {@link CommandStatus#OK} when the technology took the request,
+	 *         {@link CommandStatus#UNKNOWN_DATAPOINT}, or {@link CommandStatus#REFUSED} when no
+	 *         technology owns the datapoint or the technology refused.
+	 */
+	public CommandStatus read(String name) {
+		checkNotNotifying();
+		Datapoint datapoint = _datapoints.get(name);
+		if (datapoint == null) {
+			return CommandStatus.UNKNOWN_DATAPOINT;
+		}
+		if (datapoint._technology == null || !datapoint._technology.read(datapoint)) {
+			return CommandStatus.REFUSED;
+		}
+		return CommandStatus.OK;
+	}
+
+	/**
+	 * The owning technology publishes a value of its own (origin publish): it becomes the value with
+	 * quality good.
+	 *
+	 * @throws IllegalArgumentException
+	 *         For an unknown datapoint or a value that does not convert to its type.
+	 */
+	public void publish(String name, Val value) {
+		checkNotNotifying();
+		Datapoint datapoint = require(name);
+		Val converted = convert(datapoint, value);
+		if (converted == null) {
+			throw new IllegalArgumentException("A " + value.type() + " value for the " + datapoint._type
+				+ " datapoint '" + name + "'.");
+		}
+		store(datapoint, converted, Origin.PUBLISH);
+	}
+
+	/**
+	 * Makes the technology the owner of the datapoint (the rule engine binds the datapoints of the
+	 * rule parameters, <code>spec/rules.md</code> 8.6).
+	 */
+	public void bind(String name, Technology technology) {
+		require(name)._technology = technology;
 	}
 
 	private static Val convert(Datapoint datapoint, Val value) {

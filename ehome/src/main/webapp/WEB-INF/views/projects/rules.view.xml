@@ -519,6 +519,25 @@
 															</generic-command>
 															<generic-command
 																clique="new"
+																image="css:bi bi-hourglass-split"
+																input="reaction"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Silence trigger</en>
+																	<de>Stille-Auslöser</de>
+																</label>
+																<executability>
+																	<model-access operation="Write"/>
+																	<null-input-disabled/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:SilenceTrigger`)"/>
+																</with-transaction>
+																<write-channel name="trigger"/>
+															</generic-command>
+															<generic-command
+																clique="new"
 																image="css:bi bi-power"
 																input="reaction"
 																placement="TOOLBAR"
@@ -645,6 +664,7 @@
 																		<field attribute="timer"/>
 																		<field attribute="schedule"/>
 																		<field attribute="parameter"/>
+																		<field attribute="after"/>
 																		<field attribute="onBoot"/>
 																		<field attribute="onImage"/>
 																		<field attribute="onEnable"/>
@@ -801,7 +821,7 @@
 												</inputs>
 												<columns>
 													<column attribute="identifier"/>
-													<column attribute="label"/>
+													<column attribute="title"/>
 													<column attribute="type"/>
 													<column attribute="default"/>
 												</columns>
@@ -834,7 +854,7 @@
 																<discard-form-state/>
 															</save-action>
 															<field attribute="identifier"/>
-															<field attribute="label"/>
+															<field attribute="title"/>
 															<field attribute="type"/>
 															<field attribute="default"/>
 															<field attribute="min"/>
@@ -945,7 +965,7 @@
 																			</inputs>
 																			<columns>
 																				<column attribute="value"/>
-																				<column attribute="label"/>
+																				<column attribute="title"/>
 																			</columns>
 																			<rows>p -> if($p == null, [], $p.get(`ehome.runtime:RuleParameter#choices`))</rows>
 																		</table>
@@ -967,7 +987,7 @@
 																				<discard-form-state/>
 																			</save-action>
 																			<field attribute="value"/>
-																			<field attribute="label"/>
+																			<field attribute="title"/>
 																		</form>
 																	</pane>
 																</panes>

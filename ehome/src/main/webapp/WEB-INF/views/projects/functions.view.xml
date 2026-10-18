@@ -200,6 +200,7 @@
 							<field attribute="state"/>
 							<field attribute="levelCommand"/>
 							<field attribute="level"/>
+							<field attribute="step"/>
 							<field attribute="move"/>
 							<field attribute="stop"/>
 							<field attribute="position"/>

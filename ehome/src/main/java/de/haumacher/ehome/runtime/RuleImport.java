@@ -5,6 +5,7 @@ package de.haumacher.ehome.runtime;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -20,6 +21,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.Type;
 
@@ -130,7 +132,7 @@ public final class RuleImport {
 	private TLObject rule(Map<?, ?> json) {
 		TLObject rule = create("Rule");
 		rule.tUpdateByName("identifier", json.get("id"));
-		rule.tUpdateByName("name", allLanguages(String.valueOf(json.get("name"))));
+		rule.tUpdateByName("name", label(json.get("name"), "rule " + json.get("id")));
 		rule.tUpdateByName("description", json.get("description"));
 		rule.tUpdateByName("enabled", Boolean.valueOf(!Boolean.FALSE.equals(json.get("enabled"))));
 		rule.tUpdateByName("enabledAdjustable", Boolean.valueOf(!Boolean.FALSE.equals(json.get("enabledAdjustable"))));
@@ -177,7 +179,7 @@ public final class RuleImport {
 	private TLObject parameter(Map<?, ?> json) {
 		TLObject result = create("RuleParameter");
 		result.tUpdateByName("identifier", json.get("id"));
-		result.tUpdateByName("label", json.get("label"));
+		result.tUpdateByName("title", label(json.get("label"), "parameter " + json.get("id")));
 		String typeName = String.valueOf(json.get("type"));
 		Type type = Type.fromName(typeName);
 		result.tUpdateByName("type", classifier("RuleParameterType", typeName));
@@ -198,7 +200,7 @@ public final class RuleImport {
 				Map<?, ?> choice = (Map<?, ?>) item;
 				TLObject created = create("RuleChoice");
 				created.tUpdateByName("value", RuleText.printValue(choice.get("value"), type));
-				created.tUpdateByName("label", choice.get("label"));
+				created.tUpdateByName("title", label(choice.get("label"), "choice of parameter " + json.get("id")));
 				choices.add(created);
 			}
 			result.tUpdateByName("choices", choices);
@@ -260,6 +262,11 @@ public final class RuleImport {
 				result = create("ParameterTrigger");
 				result.tUpdateByName("parameter", json.get("parameter"));
 				break;
+			case "silence":
+				result = create("SilenceTrigger");
+				result.tUpdateByName("datapoint", json.get("datapoint"));
+				result.tUpdateByName("after", text(json.get("after")));
+				break;
 			case "start": {
 				result = create("StartTrigger");
 				Object reasons = json.get("reasons");
@@ -304,6 +311,10 @@ public final class RuleImport {
 				result = create("CancelTimerAction");
 				result.tUpdateByName("timer", json.get("timer"));
 				break;
+			case "read":
+				result = create("ReadAction");
+				result.tUpdateByName("datapoint", json.get("datapoint"));
+				break;
 			case "setParameter":
 				result = create("SetParameterAction");
 				result.tUpdateByName("parameter", json.get("parameter"));
@@ -312,7 +323,11 @@ public final class RuleImport {
 			case "log":
 				result = create("LogAction");
 				result.tUpdateByName("level", classifier("LogLevel", json.get("level")));
-				result.tUpdateByName("message", RuleText.printMessage(list(json.get("message"))));
+				List<Object> message = new ArrayList<>();
+				for (Object part : list(json.get("message"))) {
+					message.add(RuleText.normalize(part));
+				}
+				result.tUpdateByName("message", RuleText.printMessage(message));
 				break;
 			default:
 				throw new IllegalArgumentException("Unknown action kind '" + kind + "'.");
@@ -385,8 +400,42 @@ public final class RuleImport {
 		}
 	}
 
+	/** The canonical text of an expression: its normalized tree printed (spec/rules.md 4.8). */
 	private static String text(Object expression) {
-		return expression == null ? null : RuleText.print(expression);
+		return expression == null ? null : RuleText.print(RuleText.normalize(expression));
+	}
+
+	/**
+	 * A label of the image (spec/rules.md 2.2) as a multilingual text: a plain string in every
+	 * application language; a language map with, for each application language, the text the
+	 * controller shows in that language (the exact tag, the base language, en, the first entry). The
+	 * texts of other languages are named in the {@link #getNotes() notes}.
+	 */
+	private ResKey label(Object json, String what) {
+		if (!(json instanceof Map<?, ?> map)) {
+			return allLanguages(String.valueOf(json));
+		}
+		Map<String, String> languages = new LinkedHashMap<>();
+		for (Map.Entry<?, ?> entry : map.entrySet()) {
+			languages.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
+		}
+		Map<String, String> texts = new TreeMap<>();
+		List<String> kept = new ArrayList<>();
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			texts.put(locale.getLanguage(), RuleLoader.resolveLabel(languages, locale.getLanguage()));
+			kept.add(locale.getLanguage());
+		}
+		List<String> dropped = new ArrayList<>();
+		for (String tag : languages.keySet()) {
+			if (kept.stream().noneMatch(tag::equalsIgnoreCase)) {
+				dropped.add(tag);
+			}
+		}
+		if (!dropped.isEmpty()) {
+			_notes.add(what + ": the label's texts in " + String.join(", ", dropped) + " are not kept (the languages of E-Home: "
+				+ String.join(", ", kept) + ")");
+		}
+		return FunctionProposal.text(texts);
 	}
 
 	private static List<?> list(Object json) {

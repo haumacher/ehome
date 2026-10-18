@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.top_logic.model.TLObject;
+import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.monitor.CalimeroBusLink;
@@ -120,6 +121,7 @@ public final class ProjectSimulation implements AutoCloseable {
 				installation.attach(device);
 			}
 			simulation = new Simulation(image.getJson(), startUtc, store);
+			simulation.setLanguage(Resources.getInstance().getLocale().getLanguage());
 			for (String problem : problems) {
 				simulation.reportProblem("-", problem);
 			}

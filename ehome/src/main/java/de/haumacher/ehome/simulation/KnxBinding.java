@@ -37,6 +37,9 @@ import de.haumacher.ehome.simulation.KnxValues.CodingException;
  * reaches the other datapoints of the address, as it reaches the other devices on the bus: after
  * the cascade that sent it ({@link #deliverSent()}).</li>
  * <li>A read on the sending address of a readable datapoint with a good value is answered.</li>
+ * <li>A read request of a rule ({@link #read(Datapoint)}, <code>spec/rules.md</code> 7.12) is a
+ * GroupValueRead to the sending address, else the first listening address; the answer arrives as an
+ * ordinary report. Refused while the binding is not connected ({@link #setConnected(boolean)}).</li>
  * <li>{@link #startReads()}: the addresses to read for the datapoints read on start; the loss of
  * the link makes every datapoint stale ({@link #linkLost()}).</li>
  * <li>A datapoint another technology owns (the time master's) can be bound for transmission only
@@ -132,6 +135,8 @@ public final class KnxBinding implements DatapointModel.Technology {
 	private final Set<String> _publishers = new HashSet<>();
 
 	private final Deque<Sent> _sent = new ArrayDeque<>();
+
+	private boolean _connected = true;
 
 	/**
 	 * Creates a {@link KnxBinding} without datapoints.
@@ -290,6 +295,29 @@ public final class KnxBinding implements DatapointModel.Technology {
 		_bus.send(mapping.send(), apdu(Service.WRITE, mapping.dpt(), data));
 		_sent.add(new Sent(mapping.send(), Service.WRITE, data, datapoint.name()));
 		return true;
+	}
+
+	@Override
+	public boolean read(Datapoint datapoint) {
+		Mapping mapping = _mappings.get(datapoint.name());
+		if (mapping == null || _publishers.contains(datapoint.name()) || mapping.addresses().isEmpty()) {
+			_log.problem("refusing the read of '" + datapoint.name() + "': not bound to a group address");
+			return false;
+		}
+		if (!_connected) {
+			_log.problem("refusing the read of '" + datapoint.name() + "': no connection to the bus");
+			return false;
+		}
+		_bus.send(mapping.addresses().get(0).intValue(), apdu(Service.READ, mapping.dpt(), null));
+		return true;
+	}
+
+	/**
+	 * Tells the binding whether the bus is reachable: while it is not, it refuses the read requests
+	 * of the rules (the controller's KNX adapter refuses them while the tunnel is down).
+	 */
+	public void setConnected(boolean connected) {
+		_connected = connected;
 	}
 
 	/**

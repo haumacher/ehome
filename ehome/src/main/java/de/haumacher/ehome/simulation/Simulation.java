@@ -38,6 +38,7 @@ import de.haumacher.ehome.rules.Engine.LogCode;
 import de.haumacher.ehome.rules.Engine.ParameterStatus;
 import de.haumacher.ehome.rules.Engine.RuleStatus;
 import de.haumacher.ehome.rules.ParameterStore;
+import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.PosixZone;
 import de.haumacher.ehome.rules.RuleLoader.Refusal;
 import de.haumacher.ehome.rules.RuleSet;
@@ -185,6 +186,12 @@ public final class Simulation implements AutoCloseable {
 
 	private final Map<String, String> _owners = new LinkedHashMap<>();
 
+	/** The outputs of the schedule entries: the scheduler owns them. */
+	private final Set<String> _outputs = new HashSet<>();
+
+	/** The datapoints bound to an external source of the image (spec/external-values.md). */
+	private final Set<String> _external = new HashSet<>();
+
 	private final Deque<Entry> _timeline = new ArrayDeque<>();
 
 	private long _dropped;
@@ -249,6 +256,8 @@ public final class Simulation implements AutoCloseable {
 		}
 		_model = new DatapointModel(() -> _now);
 		_binding = new KnxBinding(_model, this::send, text -> problem("-", text));
+		// Not connected until connect(): the rules' reads are refused (readRefused) without a bus.
+		_binding.setConnected(false);
 		_scheduler = new Scheduler(new Scheduler.TimeSource() {
 			@Override
 			public Long nowUtc() {
@@ -342,6 +351,24 @@ public final class Simulation implements AutoCloseable {
 					List.of(), true, true, false));
 			}
 		}
+		// The datapoints of the rule parameters (spec/rules.md 8.6), after the time master's: the rule
+		// engine binds them when it loads the rules.
+		for (RuleLoader.ParameterDatapoint datapoint : RuleLoader.parameterDatapoints(image.get("rules"))) {
+			_model.add(datapoint.name(), datapoint.type(), datapoint.writable(), null);
+			_owners.put(datapoint.name(), "the rule engine");
+		}
+		_outputs.addAll(outputs);
+		if (image.get("external") instanceof Map<?, ?> external && external.get("sources") instanceof List<?> sources) {
+			for (Object source : sources) {
+				if (source instanceof Map<?, ?> map && map.get("bindings") instanceof List<?> bindings) {
+					for (Object binding : bindings) {
+						if (binding instanceof Map<?, ?> b && b.get("datapoint") instanceof String datapoint) {
+							_external.add(datapoint);
+						}
+					}
+				}
+			}
+		}
 
 		_engine = new Engine(_model, () -> _now, store, new Engine.TimeSource() {
 			@Override
@@ -352,6 +379,16 @@ public final class Simulation implements AutoCloseable {
 			@Override
 			public TimeOfDay sunTime(SunEvent event) {
 				return _scheduler.sunTime(utc(), event);
+			}
+
+			@Override
+			public long localToUtc(DateTime local) {
+				return _zone.utc(local);
+			}
+
+			@Override
+			public DateTime utcToLocal(long utc) {
+				return _zone.local(utc);
 			}
 		});
 		_engine.setObserver(new Engine.Observer() {
@@ -368,6 +405,11 @@ public final class Simulation implements AutoCloseable {
 			@Override
 			public void parameterChanged(String rule, String parameter, Val value) {
 				add(Kind.PARAMETER, rule, parameter + " = " + Values.format(value));
+			}
+
+			@Override
+			public void ruleRead(String rule, Datapoint datapoint) {
+				add(Kind.COMMAND, rule, "read " + datapoint.name());
 			}
 		});
 		_scheduler.addListener(_engine::scheduleFired);
@@ -386,6 +428,7 @@ public final class Simulation implements AutoCloseable {
 	 */
 	public synchronized void connect(BusLink link) {
 		_link = link;
+		_binding.setConnected(true);
 		link.setListener(new BusLink.Listener() {
 			@Override
 			public void received(BusTelegram telegram) {
@@ -421,7 +464,24 @@ public final class Simulation implements AutoCloseable {
 		for (Schedule entry : _schedules) {
 			ids.add(entry.id());
 		}
-		Refusal refusal = _engine.load(_rules, ids::contains);
+		Refusal refusal = _engine.load(_rules, new RuleLoader.ScheduleDirectory() {
+			@Override
+			public boolean hasSchedule(String id) {
+				return ids.contains(id);
+			}
+
+			@Override
+			public boolean ownsOutput(String datapoint) {
+				return _outputs.contains(datapoint);
+			}
+
+			@Override
+			public boolean technologyReads(String datapoint) {
+				String owner = _owners.get(datapoint);
+				return owner != null && (owner.startsWith("the KNX adapter") || owner.equals("the Zigbee adapter"))
+					|| owner == null && _external.contains(datapoint);
+			}
+		});
 		if (refusal != null) {
 			return refuse("rules refused: " + refusal);
 		}
@@ -727,13 +787,16 @@ public final class Simulation implements AutoCloseable {
 	 * The local time at the simulated time, with its day of the week.
 	 */
 	public synchronized DateTime localTime(long ms) {
-		long utc = _startUtc + Math.floorDiv(ms, 1000L);
-		long s = utc + _zone.offset(utc);
-		long days = Math.floorDiv(s, 86400L);
-		long rest = s - days * 86400;
-		Val.Date date = Values.civilOf(days);
-		return new DateTime(date.year(), date.month(), date.day(), (int) (rest / 3600), (int) (rest % 3600 / 60),
-			(int) (rest % 60), Values.weekdayOf(date.year(), date.month(), date.day()), 0);
+		return _zone.local(_startUtc + Math.floorDiv(ms, 1000L));
+	}
+
+	/**
+	 * Sets the language the labels of the rules are resolved in (<code>spec/rules.md</code> 2.2: the
+	 * engineer's language, as a controller resolves them in its <code>ui.lang</code>); before
+	 * {@link #start()}.
+	 */
+	public synchronized void setLanguage(String language) {
+		_engine.setLanguage(language);
 	}
 
 	/**
@@ -785,6 +848,7 @@ public final class Simulation implements AutoCloseable {
 		}
 		problem("-", "the bus link was closed: " + reason);
 		_link = null;
+		_binding.setConnected(false);
 		_binding.linkLost();
 		settle();
 	}

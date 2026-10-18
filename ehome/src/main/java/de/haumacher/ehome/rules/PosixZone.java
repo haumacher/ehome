@@ -3,6 +3,8 @@
  */
 package de.haumacher.ehome.rules;
 
+import de.haumacher.ehome.rules.Val.DateTime;
+
 /**
  * A time zone given as a POSIX TZ rule, the form of the image's setting <code>tz</code>
  * (<code>CET-1CEST,M3.5.0,M10.5.0/3</code>, <code>UTC0</code>, <code>&lt;+0330&gt;-3:30</code>):
@@ -83,6 +85,69 @@ public final class PosixZone {
 	 */
 	public boolean summerTime(long utc) {
 		return _start != null && _dst != _std && offset(utc) == _dst;
+	}
+
+	/**
+	 * The local civil time of a UTC instant with its day of the week and the flag
+	 * {@link DateTime#SUMMER_TIME} while daylight saving time is in effect; <code>null</code> for a
+	 * year outside 1900..2155.
+	 */
+	public DateTime local(long utc) {
+		long local = utc + offset(utc);
+		long days = Math.floorDiv(local, 86400L);
+		long rest = local - days * 86400;
+		Val.Date date = Values.civilOf(days);
+		if (date.year() < 1900 || date.year() > 2155) {
+			return null;
+		}
+		return new DateTime(date.year(), date.month(), date.day(), (int) (rest / 3600), (int) (rest % 3600 / 60),
+			(int) (rest % 60), Values.weekdayOf(date.year(), date.month(), date.day()),
+			summerTime(utc) ? DateTime.SUMMER_TIME : 0);
+	}
+
+	/**
+	 * The UTC instant of a local civil time (<code>spec/rules.md</code> 4.6): a time that occurs twice
+	 * (the hour before the end of summer time) is its summer-time occurrence when the flag
+	 * {@link DateTime#SUMMER_TIME} is set, its standard-time occurrence otherwise; a time in the gap
+	 * at the start of summer time is the end of the gap.
+	 */
+	public long utc(DateTime local) {
+		return utc(local.seconds(), local.summerTime());
+	}
+
+	/**
+	 * The UTC instant of local seconds since the epoch (see {@link #utc(DateTime)}).
+	 */
+	public long utc(long local, boolean summer) {
+		long asStd = local - _std;
+		if (_start == null || _std == _dst) {
+			return asStd;
+		}
+		long asDst = local - _dst;
+		boolean std = offset(asStd) == _std;
+		boolean dst = offset(asDst) == _dst;
+		if (std && dst) {
+			return summer ? asDst : asStd;
+		}
+		if (std) {
+			return asStd;
+		}
+		if (dst) {
+			return asDst;
+		}
+		// In the gap: the transition between the two readings.
+		long low = Math.min(asStd, asDst);
+		long high = Math.max(asStd, asDst);
+		int before = offset(low);
+		while (high - low > 1) {
+			long middle = low + (high - low) / 2;
+			if (offset(middle) == before) {
+				low = middle;
+			} else {
+				high = middle;
+			}
+		}
+		return high;
 	}
 
 	/**

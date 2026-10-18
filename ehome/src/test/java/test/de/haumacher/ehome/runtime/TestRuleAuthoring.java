@@ -8,9 +8,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 
 import junit.framework.Test;
@@ -21,6 +24,7 @@ import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.rules.TestRuleCorpus;
 import test.de.haumacher.ehome.rules.TestRuleText;
 
+import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
@@ -30,6 +34,8 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.rules.RuleLoader;
+import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleExport;
 import de.haumacher.ehome.runtime.RuleFunctions;
@@ -224,7 +230,10 @@ public class TestRuleAuthoring extends BasicTestCase {
 
 	/**
 	 * The JSON with the members at their default left out (the export leaves them out, the corpus
-	 * sometimes writes them) and the start reasons as a set.
+	 * sometimes writes them), the start reasons as a set, the expressions in their normalized form
+	 * (spec/rules.md 4.8, {@link RuleText#normalize(Object)}: the round trip holds on normalized trees)
+	 * and the labels as E-Home keeps them: the text a controller shows in each language of E-Home, a
+	 * plain string where they are all the same.
 	 */
 	@SuppressWarnings("unchecked")
 	static Object normalize(Object json) {
@@ -242,6 +251,22 @@ public class TestRuleAuthoring extends BasicTestCase {
 		for (Map.Entry<?, ?> entry : map.entrySet()) {
 			String key = (String) entry.getKey();
 			Object value = entry.getValue();
+			if (EXPRESSIONS.contains(key) && value instanceof Map<?, ?> node && node.containsKey("kind")) {
+				result.put(key, RuleText.normalize(node));
+				continue;
+			}
+			if (key.equals("message") && value instanceof List<?> parts) {
+				List<Object> message = new ArrayList<>();
+				for (Object part : parts) {
+					message.add(RuleText.normalize(part));
+				}
+				result.put(key, message);
+				continue;
+			}
+			if ((key.equals("name") || key.equals("label")) && value instanceof Map<?, ?> languages) {
+				result.put(key, keptLabel((Map<String, String>) languages));
+				continue;
+			}
 			boolean dropped = switch (key) {
 				case "enabled", "enabledAdjustable", "adjustable" -> Boolean.TRUE.equals(value);
 				case "onlyOnChange" -> Boolean.FALSE.equals(value);
@@ -262,6 +287,17 @@ public class TestRuleAuthoring extends BasicTestCase {
 			result.put(key, normalize(value));
 		}
 		return result;
+	}
+
+	private static final Set<String> EXPRESSIONS = Set.of("condition", "duration", "value", "after");
+
+	/** A label map as E-Home keeps it: the text in each of its languages. */
+	private static Object keptLabel(Map<String, String> languages) {
+		Map<String, String> texts = new LinkedHashMap<>();
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			texts.put(locale.getLanguage(), RuleLoader.resolveLabel(languages, locale.getLanguage()));
+		}
+		return new HashSet<>(texts.values()).size() == 1 ? texts.values().iterator().next() : texts;
 	}
 
 	static TLObject createProject() {

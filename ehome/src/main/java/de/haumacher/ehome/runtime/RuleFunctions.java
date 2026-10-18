@@ -31,6 +31,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.Type;
 
@@ -236,6 +237,13 @@ public class RuleFunctions extends GenericMethod {
 			case "match":
 				append(out, " ", text(obj, "condition"));
 				break;
+			case "silence":
+				append(out, " ", text(obj, "datapoint"));
+				append(out, " after ", text(obj, "after"));
+				break;
+			case "read":
+				append(out, " ", text(obj, "datapoint"));
+				break;
 			case "schedule":
 			case "parameter":
 			case "timer":
@@ -364,7 +372,7 @@ public class RuleFunctions extends GenericMethod {
 			}
 			case "RuleParameter":
 				result.tUpdateByName("identifier", unique("p", parts, ""));
-				result.tUpdateByName("label", "Parameter");
+				result.tUpdateByName("title", FunctionProposal.text(I18NConstants.NEW_PARAMETER_LABEL));
 				result.tUpdateByName("type", RuleImport.classifier("RuleParameterType", "real"));
 				result.tUpdateByName("default", "0.0");
 				result.tUpdateByName("adjustable", Boolean.TRUE);
@@ -375,7 +383,7 @@ public class RuleFunctions extends GenericMethod {
 				Type valueType = Type.fromName(typeName);
 				result.tUpdateByName("value", valueType == null ? "0"
 					: RuleText.printValue(RuleExport.stubValue(typeName), valueType));
-				result.tUpdateByName("label", Resources.getInstance().getString(I18NConstants.NEW_CHOICE_LABEL));
+				result.tUpdateByName("title", FunctionProposal.text(I18NConstants.NEW_CHOICE_LABEL));
 				break;
 			}
 			case "RuleTimer":
@@ -388,6 +396,9 @@ public class RuleFunctions extends GenericMethod {
 			case "DatapointTrigger":
 				result.tUpdateByName("on", RuleImport.classifier("UpdateKind", "change"));
 				result.tUpdateByName("origin", RuleImport.classifier("UpdateOrigin", "any"));
+				break;
+			case "SilenceTrigger":
+				result.tUpdateByName("after", "10min");
 				break;
 			case "StartTrigger":
 				result.tUpdateByName("onBoot", Boolean.TRUE);
@@ -511,7 +522,55 @@ public class RuleFunctions extends GenericMethod {
 				: I18NConstants.BINDING_APPLICATION));
 			result.add(datapoint);
 		}
+		// The datapoints of the rule parameters (spec/rules.md 8.6), which the controller derives from the
+		// rules: another rule may read, trigger on and write them.
+		List<Object> rules = new RuleExport().rules(project);
+		Map<String, TLObject> byId = new LinkedHashMap<>();
+		for (TLObject rule : RuleExport.objects(project.tValueByName("rules"))) {
+			if (rule.tValueByName("identifier") instanceof String id) {
+				byId.putIfAbsent(id, rule);
+			}
+		}
+		for (RuleLoader.ParameterDatapoint parameter : RuleLoader.parameterDatapoints(rules)) {
+			Map<String, Object> datapoint = new LinkedHashMap<>();
+			datapoint.put("id", parameter.name());
+			datapoint.put("label", parameterLabel(byId.get(parameter.rule()), parameter.parameter(), resources));
+			datapoint.put("type", parameter.type().externalName());
+			if (parameter.writable()) {
+				datapoint.put("writable", Boolean.TRUE);
+			}
+			datapoint.put("binding", resources.getString(I18NConstants.BINDING_RULE_PARAMETER));
+			datapoint.put("parameter", Map.of("rule", parameter.rule(), "parameter", parameter.parameter()));
+			result.add(datapoint);
+		}
 		return result;
+	}
+
+	/**
+	 * The label of a parameter datapoint in the language of the user: the parameter's label, the
+	 * rule's name for the enable switch.
+	 */
+	private static String parameterLabel(TLObject rule, String parameter, Resources resources) {
+		if (rule == null) {
+			return null;
+		}
+		if (parameter.equals("enabled")) {
+			return text(rule.tValueByName("name"), resources);
+		}
+		for (TLObject candidate : RuleExport.objects(rule.tValueByName("parameters"))) {
+			if (parameter.equals(candidate.tValueByName("identifier"))) {
+				String title = text(candidate.tValueByName("title"), resources);
+				return title != null ? title : text(candidate.tValueByName("label"), resources);
+			}
+		}
+		return null;
+	}
+
+	private static String text(Object value, Resources resources) {
+		if (value instanceof ResKey key) {
+			return resources.getString(key, null);
+		}
+		return value == null || value.toString().isBlank() ? null : value.toString();
 	}
 
 	/**

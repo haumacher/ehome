@@ -58,7 +58,9 @@ public final class MdnsBrowser {
 	 * A service instance found.
 	 *
 	 * @param instance
-	 *        The instance name (the first label of the full name), e.g. <code>HomeControl</code>.
+	 *        The instance name (the first label of the full name): the host name of the controller,
+	 *        unique per device, e.g. <code>homecontrol-a1b2c3</code> (firmware before haumacher/homecontrol
+	 *        a5db51a announced <code>HomeControl</code> for every device).
 	 * @param host
 	 *        The host name the instance runs on, e.g. <code>homecontrol-a1b2c3.local</code>.
 	 * @param address

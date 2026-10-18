@@ -5,9 +5,14 @@ package de.haumacher.ehome.rules;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import de.haumacher.ehome.rules.Node.Fn;
 import de.haumacher.ehome.rules.Node.Kind;
@@ -52,8 +57,10 @@ public final class RuleLoader {
 		INVALID_LITERAL("invalidLiteral"),
 		/** A default that is not valid, min above max, choices on a type without them. */
 		INVALID_PARAMETER("invalidParameter"),
-		/** A write to a datapoint without the writable flag. */
+		/** A write to a datapoint without the writable flag, or to the output of a schedule entry. */
 		NOT_WRITABLE("notWritable"),
+		/** A read of a datapoint no technology can be asked for. */
+		NOT_READABLE("notReadable"),
 		/** A construct the specification forbids at its position. */
 		FORBIDDEN("forbidden"),
 		/** A limit of <code>spec/rules.md</code> 10.2. */
@@ -120,6 +127,34 @@ public final class RuleLoader {
 
 		/** Whether the image has a schedule entry with the id. */
 		boolean hasSchedule(String id);
+
+		/**
+		 * Whether the datapoint is the <code>output</code> of a schedule entry: the scheduler owns it,
+		 * a rule's <code>write</code> to it is refused (<code>notWritable</code>), a
+		 * <code>read</code> of it too (<code>notReadable</code>).
+		 */
+		default boolean ownsOutput(String datapoint) {
+			return false;
+		}
+
+		/**
+		 * Whether a technology owns the datapoint that can be asked for its value (a KNX group object,
+		 * a Zigbee attribute, an external source): a rule's <code>read</code> of a datapoint bound to
+		 * no such technology is refused (<code>notReadable</code>). <code>true</code> when the
+		 * directory cannot tell; the technology's refusal at run time speaks then.
+		 */
+		default boolean technologyReads(String datapoint) {
+			return true;
+		}
+	}
+
+	/**
+	 * A datapoint mirroring a rule parameter (<code>spec/rules.md</code> 8.6), as an image loader
+	 * derives it from the <code>rules</code> member: its name, value type and whether it is writable
+	 * (exactly when the parameter is adjustable).
+	 */
+	public record ParameterDatapoint(String name, ValueType type, boolean writable, String rule, String parameter) {
+		// A value.
 	}
 
 	private static final int MAX_NAME = 63;
@@ -145,11 +180,25 @@ public final class RuleLoader {
 
 	private int _expressionNodes;
 
-	private boolean _match;
+	/** The kind of the expression being compiled. */
+	private RootKind _rootKind = RootKind.NORMAL;
 
-	private RuleLoader(DatapointDirectory datapoints, ScheduleDirectory schedules) {
+	private final String _language;
+
+	/** How an expression root may be used. */
+	private enum RootKind {
+		/** Anything. */
+		NORMAL,
+		/** A match condition: pure functions only. */
+		MATCH,
+		/** The period of a silence trigger: pure functions and no datapoints. */
+		CONSTANT;
+	}
+
+	private RuleLoader(DatapointDirectory datapoints, ScheduleDirectory schedules, String language) {
 		_datapoints = datapoints;
 		_schedules = schedules;
+		_language = language == null || language.isEmpty() ? "en" : language;
 	}
 
 	/**
@@ -166,9 +215,92 @@ public final class RuleLoader {
 	 */
 	public static RuleSet load(Object rules, DatapointDirectory datapoints, ScheduleDirectory schedules)
 			throws LoadException {
-		RuleLoader loader = new RuleLoader(datapoints, schedules);
+		return load(rules, datapoints, schedules, "en");
+	}
+
+	/**
+	 * Validates and compiles the <code>rules</code> member, the labels resolved in the given language
+	 * (<code>spec/rules.md</code> 2.2).
+	 *
+	 * @param language
+	 *        A language tag, the device's setting <code>ui.lang</code>.
+	 * @see #load(Object, DatapointDirectory, ScheduleDirectory)
+	 */
+	public static RuleSet load(Object rules, DatapointDirectory datapoints, ScheduleDirectory schedules,
+			String language) throws LoadException {
+		RuleLoader loader = new RuleLoader(datapoints, schedules, language);
 		loader.run(rules);
+		loader.checkStorageKeys();
 		return loader._set;
+	}
+
+	/**
+	 * The <code>rules</code> member with every expression in its normalized form
+	 * (<code>spec/rules.md</code> 4.8): a minus folded into a number literal, an integer literal
+	 * partnering an enumeration as an enumeration literal (and an enumeration literal elsewhere as an
+	 * integer literal), a controlled literal as the call <code>controlled(b, n)</code>. Everything
+	 * else is copied.
+	 *
+	 * @throws LoadException
+	 *         When the rules are refused.
+	 */
+	public static List<Object> normalized(Object rules, DatapointDirectory datapoints, ScheduleDirectory schedules)
+			throws LoadException {
+		RuleSet set = load(rules, datapoints, schedules);
+		@SuppressWarnings("unchecked")
+		List<Object> result = (List<Object>) copy(rules);
+		for (Node root : set._roots) {
+			replace(result, set._rootPaths.get(root._root), root.toJson());
+		}
+		return result;
+	}
+
+	private static Object copy(Object json) {
+		if (json instanceof Map<?, ?> map) {
+			Map<String, Object> result = new LinkedHashMap<>();
+			map.forEach((key, value) -> result.put((String) key, copy(value)));
+			return result;
+		}
+		if (json instanceof List<?> list) {
+			List<Object> result = new ArrayList<>();
+			for (Object item : list) {
+				result.add(copy(item));
+			}
+			return result;
+		}
+		return json;
+	}
+
+	/** Replaces the value at the path (<code>rules[0].reactions[1].condition</code>). */
+	@SuppressWarnings("unchecked")
+	private static void replace(List<Object> rules, String path, Object value) {
+		Object container = null;
+		Object key = null;
+		Object current = rules;
+		int pos = path.startsWith("rules") ? "rules".length() : 0;
+		while (pos < path.length()) {
+			container = current;
+			if (path.charAt(pos) == '[') {
+				int end = path.indexOf(']', pos);
+				int index = Integer.parseInt(path.substring(pos + 1, end));
+				key = Integer.valueOf(index);
+				current = ((List<Object>) current).get(index);
+				pos = end + 1;
+			} else {
+				int end = pos + 1;
+				while (end < path.length() && path.charAt(end) != '.' && path.charAt(end) != '[') {
+					end++;
+				}
+				key = path.substring(pos + 1, end);
+				current = ((Map<String, Object>) current).get(key);
+				pos = end;
+			}
+		}
+		if (key instanceof Integer index) {
+			((List<Object>) container).set(index.intValue(), value);
+		} else if (key != null) {
+			((Map<String, Object>) container).put((String) key, value);
+		}
 	}
 
 	// ---- Failures and members ---------------------------------------------------------------
@@ -228,6 +360,100 @@ public final class RuleLoader {
 		}
 		leave(mark);
 		return text;
+	}
+
+	/** A label: the text resolved in the language of the load and the language map (or none). */
+	private record Label(String text, Map<String, String> map) {
+		// A value.
+	}
+
+	/**
+	 * Whether the text is a language tag of a label: 2..8 characters of <code>A-Z a-z 0-9 -</code>.
+	 */
+	public static boolean validLanguageTag(String tag) {
+		int n = tag.length();
+		if (n < 2 || n > 8) {
+			return false;
+		}
+		for (int i = 0; i < n; i++) {
+			char c = tag.charAt(i);
+			if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-')) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * The text of a label's language map in the given language (<code>spec/rules.md</code> 2.2): the
+	 * entry whose tag equals the language (letters compared without case), else the entry of its base
+	 * language (the part before <code>-</code>), else <code>en</code>, else the first entry;
+	 * <code>null</code> for an empty map.
+	 */
+	public static String resolveLabel(Map<String, String> map, String language) {
+		String base = language.indexOf('-') >= 0 ? language.substring(0, language.indexOf('-')) : language;
+		String exact = null;
+		String baseText = null;
+		String english = null;
+		String first = null;
+		for (Map.Entry<String, String> entry : map.entrySet()) {
+			String tag = entry.getKey();
+			if (first == null) {
+				first = entry.getValue();
+			}
+			if (exact == null && tag.equalsIgnoreCase(language)) {
+				exact = entry.getValue();
+			}
+			if (baseText == null && tag.equalsIgnoreCase(base)) {
+				baseText = entry.getValue();
+			}
+			if (english == null && tag.equalsIgnoreCase("en")) {
+				english = entry.getValue();
+			}
+		}
+		return exact != null ? exact : baseText != null ? baseText : english != null ? english : first;
+	}
+
+	private Label labelMember(Map<?, ?> object, String name) throws LoadException {
+		if (!object.containsKey(name)) {
+			throw fail(LoadError.MALFORMED, "member '" + name + "' missing");
+		}
+		int mark = enter("." + name);
+		Object member = object.get(name);
+		if (member instanceof String text) {
+			int length = bytes(text);
+			if (length < 1 || length > RuleSet.MAX_LABEL || text.indexOf('\0') >= 0) {
+				throw fail(LoadError.MALFORMED, "'" + name + "' must have 1.." + RuleSet.MAX_LABEL + " bytes");
+			}
+			leave(mark);
+			return new Label(text, null);
+		}
+		if (!(member instanceof Map<?, ?> languages)) {
+			throw fail(LoadError.MALFORMED, "'" + name + "' must be a string or an object of language tags to strings");
+		}
+		Map<String, String> map = new LinkedHashMap<>();
+		for (Map.Entry<?, ?> entry : languages.entrySet()) {
+			String tag = (String) entry.getKey();
+			if (!validLanguageTag(tag)) {
+				throw fail(LoadError.MALFORMED,
+					"a language tag of '" + name + "' must have 2..8 characters of A-Z a-z 0-9 -");
+			}
+			int tagMark = enter("." + tag);
+			if (map.size() >= RuleSet.MAX_LABEL_LANGUAGES) {
+				throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_LABEL_LANGUAGES + " languages in a label");
+			}
+			if (!(entry.getValue() instanceof String text) || bytes(text) < 1 || bytes(text) > RuleSet.MAX_LABEL
+				|| text.indexOf('\0') >= 0) {
+				throw fail(LoadError.MALFORMED, "a label text must be a string of 1.." + RuleSet.MAX_LABEL + " bytes");
+			}
+			map.put(tag, text);
+			leave(tagMark);
+		}
+		if (map.isEmpty()) {
+			throw fail(LoadError.MALFORMED, "'" + name + "' names no language");
+		}
+		leave(mark);
+		return new Label(resolveLabel(map, _language), Collections.unmodifiableMap(map));
 	}
 
 	private boolean boolMember(Map<?, ?> object, String name, boolean fallback) throws LoadException {
@@ -297,6 +523,120 @@ public final class RuleLoader {
 		return true;
 	}
 
+	// ---- Storage keys and parameter datapoints ----------------------------------------------
+
+	/**
+	 * Checks the storage keys of every parameter and rule state (spec 8.4, 8.5,
+	 * {@link ParameterStore#hash(String, String)}): two that hash alike refuse the set.
+	 */
+	private void checkStorageKeys() throws LoadException {
+		Map<Long, String> seen = new HashMap<>();
+		for (int r = 0; r < _set._rules.size(); r++) {
+			Rule rule = _set._rules.get(r);
+			List<String> keys = new ArrayList<>();
+			for (Parameter parameter : rule._parameters) {
+				keys.add(parameter._id);
+			}
+			if (!rule._states.isEmpty()) {
+				keys.add(RuleSet.STATE_KEY);
+			}
+			for (String key : keys) {
+				String logical = ParameterStore.key(rule._id, key);
+				String before = seen.putIfAbsent(Long.valueOf(ParameterStore.hash(rule._id, key)), logical);
+				if (before != null) {
+					throw new LoadException(new Refusal(LoadError.LIMIT_EXCEEDED, rule._id, "rules[" + r + "]",
+						"the storage keys of " + before + " and " + logical + " collide; rename one"));
+				}
+			}
+		}
+	}
+
+	/**
+	 * The name of the datapoint mirroring a rule parameter (<code>spec/rules.md</code> 8.6):
+	 * <code>rule/&lt;ruleId&gt;/&lt;parameterId&gt;</code>.
+	 */
+	public static String parameterDatapointName(String rule, String parameter) {
+		return RuleSet.PARAMETER_DATAPOINT_PREFIX + rule + "/" + parameter;
+	}
+
+	/**
+	 * The datapoint value type that mirrors a parameter of the type (<code>spec/rules.md</code> 8.6):
+	 * boolean, signed (integer), real, string, unsigned (duration in ms), time of day, enumeration,
+	 * color; <code>null</code> for another type.
+	 */
+	public static ValueType parameterDatapointType(Type type) {
+		if (type == null) {
+			return null;
+		}
+		switch (type) {
+			case BOOLEAN:
+				return ValueType.BOOLEAN;
+			case INTEGER:
+				return ValueType.SIGNED;
+			case REAL:
+				return ValueType.REAL;
+			case STRING:
+				return ValueType.STRING;
+			case DURATION:
+				return ValueType.UNSIGNED;
+			case TIME_OF_DAY:
+				return ValueType.TIME_OF_DAY;
+			case ENUMERATION:
+				return ValueType.ENUMERATION;
+			case COLOR:
+				return ValueType.COLOR;
+			default:
+				return null;
+		}
+	}
+
+	/**
+	 * The parameter datapoints of the <code>rules</code> member (<code>spec/rules.md</code> 8.6), in
+	 * rule order, <code>enabled</code> first in each rule. Lenient: a rule or parameter that is not
+	 * well-formed (an invalid or repeated id, an unknown type) is skipped, since {@link #load} refuses
+	 * it with the precise reason.
+	 */
+	public static List<ParameterDatapoint> parameterDatapoints(Object rules) {
+		List<ParameterDatapoint> result = new ArrayList<>();
+		if (!(rules instanceof List<?> list)) {
+			return result;
+		}
+		Set<String> ruleIds = new HashSet<>();
+		for (Object item : list) {
+			if (ruleIds.size() >= RuleSet.MAX_RULES) {
+				break;
+			}
+			if (!(item instanceof Map<?, ?> rule) || !(rule.get("id") instanceof String id) || !validRuleId(id)
+				|| !ruleIds.add(id)) {
+				continue;
+			}
+			boolean adjustable = !(rule.get("enabledAdjustable") instanceof Boolean b) || b.booleanValue();
+			result.add(new ParameterDatapoint(parameterDatapointName(id, "enabled"), ValueType.BOOLEAN, adjustable, id,
+				"enabled"));
+			if (!(rule.get("parameters") instanceof List<?> parameters)) {
+				continue;
+			}
+			Set<String> seen = new HashSet<>();
+			for (Object p : parameters) {
+				if (seen.size() + 1 >= RuleSet.MAX_PARAMETERS) {
+					break;
+				}
+				if (!(p instanceof Map<?, ?> parameter) || !(parameter.get("id") instanceof String pid)
+					|| !validIdentifier(pid) || pid.equals("enabled") || !(parameter.get("type") instanceof String typeText)) {
+					continue;
+				}
+				Type type = Type.fromName(typeText);
+				ValueType valueType = type != null && isParameterType(type) ? parameterDatapointType(type) : null;
+				if (valueType == null || !seen.add(pid)) {
+					continue;
+				}
+				boolean writable = !(parameter.get("adjustable") instanceof Boolean b) || b.booleanValue();
+				result.add(new ParameterDatapoint(parameterDatapointName(id, pid), valueType, writable, id, pid));
+			}
+		}
+		return result;
+	}
+
 	// ---- Rules ------------------------------------------------------------------------------
 
 	private void run(Object rules) throws LoadException {
@@ -340,16 +680,16 @@ public final class RuleLoader {
 	private void rule(Object json) throws LoadException {
 		Map<?, ?> map = only(json, "id", "name", "enabled", "enabledAdjustable", "parameters", "timers", "states",
 			"initialState", "reactions");
-		String name = stringMember(map, "name", true, 1, 63);
+		Label name = labelMember(map, "name");
 		boolean enabled = boolMember(map, "enabled", true);
 		boolean enabledAdjustable = boolMember(map, "enabledAdjustable", true);
-		Rule rule = new Rule(_ruleIds.get(_rule), name);
+		Rule rule = new Rule(_ruleIds.get(_rule), name.text(), name.map());
 		_current = rule;
 
 		// Parameters: `enabled` first, then the declared ones.
 		List<?> parameters = arrayMember(map, "parameters", false);
-		rule._parameters.add(new Parameter("enabled", "Enabled", "", Type.BOOLEAN, enabledAdjustable,
-			Val.ofBool(enabled), null, null, List.of()));
+		rule._parameters.add(new Parameter("enabled", "Enabled", null, "", Type.BOOLEAN, enabledAdjustable,
+			Val.ofBool(enabled), null, null, List.of(), List.of()));
 		if (parameters != null) {
 			int scope = enter(".parameters");
 			for (int i = 0; i < parameters.size(); i++) {
@@ -505,7 +845,7 @@ public final class RuleLoader {
 			enter(".id");
 			throw fail(LoadError.DUPLICATE_ID, "parameter id '" + id + "' is used twice");
 		}
-		String label = stringMember(map, "label", true, 1, 63);
+		Label label = labelMember(map, "label");
 		String typeText = stringMember(map, "type", true, 1, 23);
 		Type type = Type.fromName(typeText);
 		if (type == null) {
@@ -556,6 +896,7 @@ public final class RuleLoader {
 		}
 		List<?> choices = arrayMember(map, "choices", false);
 		List<Val> choiceValues = new ArrayList<>();
+		List<String> choiceLabels = new ArrayList<>();
 		if (choices != null) {
 			int scope = enter(".choices");
 			if (type != Type.INTEGER && type != Type.STRING && type != Type.ENUMERATION) {
@@ -564,8 +905,8 @@ public final class RuleLoader {
 			for (int i = 0; i < choices.size(); i++) {
 				int mark = enter("[" + i + "]");
 				Map<?, ?> item = only(choices.get(i), "value", "label");
-				if (choiceValues.size() >= 16) {
-					throw fail(LoadError.INVALID_PARAMETER, "more than 16 choices");
+				if (choiceValues.size() >= RuleSet.MAX_CHOICES) {
+					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_CHOICES + " choices");
 				}
 				if (!item.containsKey("value")) {
 					throw fail(LoadError.MALFORMED, "member 'value' missing");
@@ -573,7 +914,7 @@ public final class RuleLoader {
 				int value = enter(".value");
 				Val choice = literalValue(item.get("value"), type);
 				leave(value);
-				stringMember(item, "label", true, 1, 63);
+				choiceLabels.add(labelMember(item, "label").text());
 				choiceValues.add(choice);
 				leave(mark);
 			}
@@ -594,7 +935,8 @@ public final class RuleLoader {
 			throw fail(LoadError.INVALID_PARAMETER, "the default is not one of the choices");
 		}
 		leave(mark);
-		return new Parameter(id, label, unit, type, adjustable, value, min, max, List.copyOf(choiceValues));
+		return new Parameter(id, label.text(), label.map(), unit, type, adjustable, value, min, max,
+			List.copyOf(choiceValues), List.copyOf(choiceLabels));
 	}
 
 	private static boolean isParameterType(Type t) {
@@ -620,7 +962,9 @@ public final class RuleLoader {
 		}
 		for (int i = 0; i < array.size(); i++) {
 			int mark = enter("[" + i + "]");
-			out.add(action(array.get(i)));
+			Action action = action(array.get(i));
+			action._index = _set._actionCount++;
+			out.add(action);
 			leave(mark);
 		}
 	}
@@ -633,15 +977,16 @@ public final class RuleLoader {
 		switch (kind) {
 			case "write": {
 				only(map, "kind", "datapoint", "value", "onlyOnChange");
-				String name = stringMember(map, "datapoint", true, 1, MAX_NAME);
+				String name = datapointMember(map);
 				ValueType target = _datapoints.type(name);
-				if (target == null) {
-					enter(".datapoint");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'");
-				}
 				if (!_datapoints.writable(name)) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_WRITABLE, "datapoint '" + name + "' is not writable");
+				}
+				if (_schedules != null && _schedules.ownsOutput(name)) {
+					enter(".datapoint");
+					throw fail(LoadError.NOT_WRITABLE,
+						"datapoint '" + name + "' is the output of a schedule entry; the scheduler owns it");
 				}
 				boolean onlyOnChange = boolMember(map, "onlyOnChange", false);
 				if (!map.containsKey("value")) {
@@ -659,6 +1004,21 @@ public final class RuleLoader {
 				action._datapointType = target;
 				action._onlyOnChange = onlyOnChange;
 				action._expr = value;
+				return action;
+			}
+			case "read": {
+				only(map, "kind", "datapoint");
+				String name = datapointMember(map);
+				if (name.startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX)) {
+					enter(".datapoint");
+					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a rule parameter: no technology reads it");
+				}
+				if (_schedules != null && (_schedules.ownsOutput(name) || !_schedules.technologyReads(name))) {
+					enter(".datapoint");
+					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' is bound to no technology that reads values");
+				}
+				Action action = new Action(ActionKind.READ);
+				action._datapoint = name;
 				return action;
 			}
 			case "startTimer":
@@ -709,6 +1069,10 @@ public final class RuleLoader {
 				int mark = enter(".value");
 				Node value = root(map.get("value"), false);
 				Type target = _current._parameters.get(p)._type;
+				if (target == Type.ENUMERATION) {
+					// The value takes the type of the parameter it is assigned to (4.8).
+					value = retypeRoot(value);
+				}
 				if (!Values.assignAllowed(value._type, target)) {
 					throw fail(LoadError.TYPE_ERROR, "a " + typeName(value._type) + " value cannot be assigned to the "
 						+ target.externalName() + " parameter '" + id + "'");
@@ -767,11 +1131,7 @@ public final class RuleLoader {
 		switch (kind) {
 			case "datapoint": {
 				only(map, "kind", "datapoint", "on", "origin");
-				String name = stringMember(map, "datapoint", true, 1, MAX_NAME);
-				if (_datapoints.type(name) == null) {
-					enter(".datapoint");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'");
-				}
+				String name = datapointMember(map);
 				Trigger trigger = new Trigger(TriggerKind.DATAPOINT);
 				trigger._name = name;
 				String on = stringMember(map, "on", false, 1, 15);
@@ -888,6 +1248,26 @@ public final class RuleLoader {
 				trigger._ref = p;
 				return trigger;
 			}
+			case "silence": {
+				only(map, "kind", "datapoint", "after");
+				String name = datapointMember(map);
+				if (!map.containsKey("after")) {
+					throw fail(LoadError.MALFORMED, "member 'after' missing");
+				}
+				int mark = enter(".after");
+				Node after = root(map.get("after"), RootKind.CONSTANT);
+				if (after._type != Type.DURATION) {
+					throw fail(LoadError.TYPE_ERROR, "a silence duration must be a duration, not " + typeName(after._type));
+				}
+				leave(mark);
+				Trigger trigger = new Trigger(TriggerKind.SILENCE);
+				trigger._name = name;
+				trigger._after = after;
+				trigger._ref = _set._silences.size();
+				_set._silences.add(trigger);
+				_set._silenceRules.add(Integer.valueOf(_rule));
+				return trigger;
+			}
 			default:
 				enter(".kind");
 				throw fail(LoadError.MALFORMED, "unknown trigger kind '" + kind + "'");
@@ -988,13 +1368,117 @@ public final class RuleLoader {
 	}
 
 	private Node root(Object json, boolean match) throws LoadException {
-		_match = match;
+		return root(json, match ? RootKind.MATCH : RootKind.NORMAL);
+	}
+
+	private Node root(Object json, RootKind kind) throws LoadException {
+		_rootKind = kind;
 		_expressionNodes = 0;
 		allocNodes(1);
+		String path = _path.toString();
 		Node node = expr(json, 1, false);
 		node._root = _set._roots.size();
 		_set._roots.add(node);
+		_set._rootPaths.add(path);
 		return node;
+	}
+
+	/**
+	 * An integer literal in 0..2^32-1 as an enumeration literal (spec 4.8: the partner of an
+	 * enumeration); <code>null</code> for another node.
+	 */
+	private static Node retyped(Node node) {
+		if (node._kind != Kind.LITERAL || node._type != Type.INTEGER || node._literal.integer() < 0
+			|| node._literal.integer() > 4294967295L) {
+			return null;
+		}
+		return new Node(Kind.LITERAL, null, null, Type.ENUMERATION, List.of(), Val.ofEnum(node._literal.integer()), null,
+			-1);
+	}
+
+	/** The root retyped as an enumeration literal if it is an integer literal in range. */
+	private Node retypeRoot(Node root) {
+		Node retyped = retyped(root);
+		if (retyped == null) {
+			return root;
+		}
+		retyped._root = root._root;
+		_set._roots.set(root._root, retyped);
+		return retyped;
+	}
+
+	/**
+	 * Whether the datapoint is a parameter datapoint of the rule being compiled
+	 * (<code>rule/&lt;its id&gt;/...</code>): the rule names its own parameters as parameters (8.6).
+	 */
+	private boolean ownParameterDatapoint(String name) {
+		if (_rule < 0 || _rule >= _ruleIds.size() || !name.startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX)) {
+			return false;
+		}
+		String prefix = RuleSet.PARAMETER_DATAPOINT_PREFIX + _ruleIds.get(_rule) + "/";
+		return name.startsWith(prefix);
+	}
+
+	/**
+	 * The member <code>datapoint</code> of an action or trigger: refused when there is no such
+	 * datapoint (<code>unknownReference</code>) or it is a parameter datapoint of the rule itself
+	 * (<code>forbidden</code>).
+	 */
+	private String datapointMember(Map<?, ?> map) throws LoadException {
+		String name = stringMember(map, "datapoint", true, 1, MAX_NAME);
+		int mark = enter(".datapoint");
+		if (_datapoints.type(name) == null) {
+			throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'");
+		}
+		if (ownParameterDatapoint(name)) {
+			throw fail(LoadError.FORBIDDEN,
+				"'" + name + "' is a parameter of this rule: use the parameter (setParameter, $id)");
+		}
+		leave(mark);
+		return name;
+	}
+
+	/**
+	 * A minus applied directly to an integer, real or duration literal is part of the literal (spec
+	 * 4.8): a chain of unary minus nodes ending in such a literal compiles to one literal;
+	 * <code>null</code> for another operand.
+	 */
+	private Node foldedNegation(Object operand, int depth) throws LoadException {
+		Object inner = operand;
+		int minus = 1;
+		while (true) {
+			if (!(inner instanceof Map<?, ?> map) || !(map.get("kind") instanceof String kind)) {
+				return null;
+			}
+			if (!kind.equals("unary")) {
+				break;
+			}
+			if (!"-".equals(map.get("op"))) {
+				return null;
+			}
+			only(map, "kind", "op", "operand");
+			if (!map.containsKey("operand")) {
+				return null;
+			}
+			minus++;
+			inner = map.get("operand");
+		}
+		Map<?, ?> literal = (Map<?, ?>) inner;
+		Object type = literal.get("type");
+		if (!"literal".equals(literal.get("kind"))
+			|| !("integer".equals(type) || "real".equals(type) || "duration".equals(type))) {
+			return null;
+		}
+		int mark = enter(".operand");
+		Node node = expr(inner, depth, false);
+		leave(mark);
+		if (minus % 2 == 0) {
+			return node;
+		}
+		Val value = node._literal;
+		Val negated = node._type == Type.REAL ? Val.ofReal(-value.real())
+			: node._type == Type.DURATION ? Val.ofDuration(-value.integer()) : Val.ofInt(-value.integer());
+		return new Node(Kind.LITERAL, null, null, node._type, List.of(), negated, null, -1);
 	}
 
 	private Node expr(Object json, int depth, boolean timerAllowed) throws LoadException {
@@ -1020,15 +1504,41 @@ public final class RuleLoader {
 				int mark = enter(".value");
 				Val value = literalValue(map.get("value"), type);
 				leave(mark);
+				// Normalization (spec 4.8): an enumeration literal is the integer of its element number
+				// (its partner gives it back the type, retyped()); a controlled literal is the call
+				// controlled(bit, n).
+				if (type == Type.ENUMERATION) {
+					return new Node(Kind.LITERAL, null, null, Type.INTEGER, List.of(), Val.ofInt(value.integer()), null, -1);
+				}
+				if (type == Type.CONTROLLED) {
+					if (depth + 1 > RuleSet.MAX_DEPTH) {
+						throw fail(LoadError.LIMIT_EXCEEDED,
+							"an expression deeper than " + RuleSet.MAX_DEPTH + " (a controlled literal is a call)");
+					}
+					allocNodes(2);
+					Node bit = new Node(Kind.LITERAL, null, null, Type.BOOLEAN, List.of(),
+						Val.ofBool(value.controlled().control()), null, -1);
+					Node number = new Node(Kind.LITERAL, null, null, Type.INTEGER, List.of(),
+						Val.ofInt(value.controlled().value()), null, -1);
+					return new Node(Kind.CALL, null, Fn.CONTROLLED, Type.CONTROLLED, List.of(bit, number), null, null, -1);
+				}
 				return new Node(Kind.LITERAL, null, null, type, List.of(), value, null, -1);
 			}
 			case "datapoint": {
 				only(map, "kind", "name");
 				String name = stringMember(map, "name", true, 1, MAX_NAME);
+				if (_rootKind == RootKind.CONSTANT) {
+					throw fail(LoadError.FORBIDDEN, "a datapoint in a silence duration (it may use the rule's parameters)");
+				}
 				ValueType type = _datapoints.type(name);
 				if (type == null) {
 					enter(".name");
 					throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'");
+				}
+				if (ownParameterDatapoint(name)) {
+					enter(".name");
+					throw fail(LoadError.FORBIDDEN,
+						"'" + name + "' is a parameter of this rule: reference it as a parameter ($id)");
 				}
 				return new Node(Kind.DATAPOINT, null, null, type.expressionType(), List.of(), null, name, -1);
 			}
@@ -1074,6 +1584,12 @@ public final class RuleLoader {
 				if (!map.containsKey("operand")) {
 					throw fail(LoadError.MALFORMED, "member 'operand' missing");
 				}
+				if (op == Op.NEG) {
+					Node folded = foldedNegation(map.get("operand"), depth);
+					if (folded != null) {
+						return folded;
+					}
+				}
 				allocNodes(1);
 				int mark = enter(".operand");
 				Node operand = expr(map.get("operand"), depth + 1, false);
@@ -1105,6 +1621,15 @@ public final class RuleLoader {
 				mark = enter(".right");
 				Node right = expr(map.get("right"), depth + 1, false);
 				leave(mark);
+				if (op == Op.EQ || op == Op.NE) {
+					// An integer literal compared with an enumeration is an enumeration literal (4.8).
+					Node retyped;
+					if (left._type == Type.ENUMERATION && (retyped = retyped(right)) != null) {
+						right = retyped;
+					} else if (right._type == Type.ENUMERATION && (retyped = retyped(left)) != null) {
+						left = retyped;
+					}
+				}
 				Type t = binaryType(op, left._type, right._type);
 				if (t == null) {
 					throw fail(LoadError.TYPE_ERROR,
@@ -1227,8 +1752,10 @@ public final class RuleLoader {
 			enter(".function");
 			throw fail(LoadError.MALFORMED, "unknown function '" + name + "'");
 		}
-		if (_match && (fn.isTime() || fn.isHistory() || fn == Fn.RUNNING || fn == Fn.REMAINING || fn == Fn.STATE)) {
-			throw fail(LoadError.FORBIDDEN, name + "() in a match condition");
+		if (_rootKind != RootKind.NORMAL
+			&& (fn.isTime() || fn.isHistory() || fn == Fn.RUNNING || fn == Fn.REMAINING || fn == Fn.STATE)) {
+			throw fail(LoadError.FORBIDDEN,
+				name + "() in a " + (_rootKind == RootKind.MATCH ? "match condition" : "silence duration"));
 		}
 		List<?> args = arrayMember(map, "args", true);
 		enter(".args");
@@ -1291,6 +1818,19 @@ public final class RuleLoader {
 			t[i] = arg._type;
 			leave(argsPath);
 		}
+		// An integer literal next to an enumeration in if() and coalesce(), and the argument of
+		// toInt(), is an enumeration literal (4.8).
+		if (fn == Fn.IF) {
+			partners(nodes, t, 1, 2);
+		} else if (fn == Fn.COALESCE) {
+			partners(nodes, t, 0, 1);
+		} else if (fn == Fn.TO_INT) {
+			Node retyped = retyped(nodes.get(0));
+			if (retyped != null) {
+				nodes.set(0, retyped);
+				t[0] = Type.ENUMERATION;
+			}
+		}
 		if (fn == Fn.SINCE_CHANGE || fn == Fn.CHANGED_WITHIN) {
 			_set._tracked.add(nodes.get(0)._name);
 		}
@@ -1305,6 +1845,17 @@ public final class RuleLoader {
 		}
 		_path.setLength(argsPath - ".args".length());
 		return new Node(Kind.CALL, null, fn, result, List.copyOf(nodes), null, null, fn == Fn.STATE ? stateRule : -1);
+	}
+
+	private static void partners(List<Node> nodes, Type[] t, int x, int y) {
+		Node retyped;
+		if (t[x] == Type.ENUMERATION && (retyped = retyped(nodes.get(y))) != null) {
+			nodes.set(y, retyped);
+			t[y] = Type.ENUMERATION;
+		} else if (t[y] == Type.ENUMERATION && (retyped = retyped(nodes.get(x))) != null) {
+			nodes.set(x, retyped);
+			t[x] = Type.ENUMERATION;
+		}
 	}
 
 	private static int[] arity(Fn fn) {

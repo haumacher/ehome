@@ -21,7 +21,7 @@ public final class FunctionKinds {
 	 */
 	public static final Map<String, List<String>> ROLES = Map.of(
 		"light", List.of("command", "state"),
-		"dimmer", List.of("levelCommand", "level", "command", "state"),
+		"dimmer", List.of("levelCommand", "level", "command", "state", "step"),
 		"blind", List.of("move", "stop", "position", "positionCommand", "slat", "slatCommand"),
 		"switch", List.of("command", "state"),
 		"sensor", List.of("value"),

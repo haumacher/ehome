@@ -352,7 +352,7 @@ public final class RuleExport {
 		source(path + ".id", rule, "identifier");
 		result.put("id", orEmpty(text(rule, "identifier")));
 		source(path + ".name", rule, "name");
-		result.put("name", orEmpty(text(rule, "name")));
+		result.put("name", label(rule, "name", null));
 		String description = text(rule, "description");
 		if (description != null && _chain == null) {
 			result.put("description", description);
@@ -409,6 +409,39 @@ public final class RuleExport {
 		return result;
 	}
 
+	/**
+	 * A label of the image (spec/rules.md 2.2) from a multilingual text: a plain string when every
+	 * application language has the same text (or the text has only one), else the map of the
+	 * languages to their texts, in the order of the application languages; the text of the fallback
+	 * attribute (a label in one language of a project authored before labels were multilingual) while
+	 * the attribute is empty; "" for none.
+	 */
+	private Object label(TLObject obj, String attribute, String fallback) {
+		Object value = get(obj, attribute);
+		if (value instanceof LiteralKey literal) {
+			Map<String, String> texts = new LinkedHashMap<>();
+			Map<Locale, String> translations = literal.getTranslations();
+			for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+				String text = translations.get(locale);
+				if (text == null) {
+					text = translations.get(new Locale(locale.getLanguage()));
+				}
+				if (text != null && !text.isBlank()) {
+					texts.putIfAbsent(locale.getLanguage(), text);
+				}
+			}
+			if (texts.size() > 1 && new HashSet<>(texts.values()).size() > 1) {
+				return texts;
+			}
+			if (!texts.isEmpty()) {
+				return texts.values().iterator().next();
+			}
+		} else if (value != null && !value.toString().isBlank()) {
+			return text(value);
+		}
+		return fallback == null ? "" : orEmpty(text(obj, fallback));
+	}
+
 	private static String orEmpty(String text) {
 		return text == null ? "" : text;
 	}
@@ -418,8 +451,8 @@ public final class RuleExport {
 		Map<String, Object> result = new LinkedHashMap<>();
 		source(path + ".id", parameter, "identifier");
 		result.put("id", orEmpty(text(parameter, "identifier")));
-		source(path + ".label", parameter, "label");
-		result.put("label", orEmpty(text(parameter, "label")));
+		source(path + ".label", parameter, "title");
+		result.put("label", label(parameter, "title", "label"));
 		String typeName = classifier(parameter, "type", "real");
 		source(path + ".type", parameter, "type");
 		result.put("type", typeName);
@@ -452,8 +485,8 @@ public final class RuleExport {
 			Map<String, Object> item = new LinkedHashMap<>();
 			Object choiceValue = value(choice, "value", choicePath + ".value", type);
 			item.put("value", choiceValue == null ? "" : choiceValue);
-			source(choicePath + ".label", choice, "label");
-			item.put("label", orEmpty(text(choice, "label")));
+			source(choicePath + ".label", choice, "title");
+			item.put("label", label(choice, "title", "label"));
 			choices.add(item);
 		}
 		if (!choices.isEmpty()) {
@@ -613,6 +646,10 @@ public final class RuleExport {
 				return "start";
 			case "ParameterTrigger":
 				return "parameter";
+			case "SilenceTrigger":
+				return "silence";
+			case "ReadAction":
+				return "read";
 			case "WriteAction":
 				return "write";
 			case "StartTimerAction":
@@ -681,6 +718,14 @@ public final class RuleExport {
 			case "parameter":
 				id(result, trigger, "parameter", "parameter", path);
 				break;
+			case "silence": {
+				id(result, trigger, "datapoint", "datapoint", path);
+				Object after = expression(trigger, "after", path + ".after");
+				if (after != null) {
+					result.put("after", after);
+				}
+				break;
+			}
 			case "start": {
 				List<Object> reasons = new ArrayList<>();
 				String[][] flags = { { "onBoot", "boot" }, { "onImage", "image" }, { "onEnable", "enable" } };
@@ -729,6 +774,9 @@ public final class RuleExport {
 			}
 			case "cancelTimer":
 				id(result, action, "timer", "timer", path);
+				break;
+			case "read":
+				id(result, action, "datapoint", "datapoint", path);
 				break;
 			case "setParameter": {
 				id(result, action, "parameter", "parameter", path);
@@ -980,10 +1028,26 @@ public final class RuleExport {
 				schedules.add(id);
 			}
 		}
+		RuleLoader.ScheduleDirectory scheduleDirectory = new RuleLoader.ScheduleDirectory() {
+			@Override
+			public boolean hasSchedule(String id) {
+				return schedules.contains(id);
+			}
+
+			@Override
+			public boolean ownsOutput(String datapoint) {
+				return directory.ownsOutput(datapoint);
+			}
+
+			@Override
+			public boolean technologyReads(String datapoint) {
+				return directory.technologyReads(datapoint);
+			}
+		};
 		List<Object> isolated = mutable(rules);
 		for (int attempt = 0; attempt < MAX_ISOLATION; attempt++) {
 			try {
-				RuleLoader.load(isolated, directory, schedules::contains);
+				RuleLoader.load(isolated, directory, scheduleDirectory);
 				return null;
 			} catch (LoadException ex) {
 				RuleLoader.Refusal refusal = ex.getRefusal();
@@ -1132,10 +1196,12 @@ public final class RuleExport {
 				return parent.remove(member) != null;
 			case "datapoint":
 			case "parameter":
-				if ("write".equals(kind) || "setParameter".equals(kind)) {
+				if ("write".equals(kind) || "setParameter".equals(kind) || "read".equals(kind)) {
 					return log(parent, path.substring(0, dot), source);
 				}
 				return kind != null && start(parent);
+			case "after":
+				return "silence".equals(kind) && start(parent);
 			case "schedule":
 				return kind != null && start(parent);
 			case "timer":
@@ -1266,7 +1332,9 @@ public final class RuleExport {
 	 * The datapoints of the project's image as the loaders see them.
 	 */
 	static ImageValidator.Directory directory(TLObject project) {
-		return ImageValidator.directory(RuntimeImage.build(project, 0, Instant.EPOCH, false).getText());
+		// With the rules of the project: they imply the datapoints of their parameters (spec/rules.md 8.6).
+		return ImageValidator.directory(RuntimeImage.build(project, 0, Instant.EPOCH, false).getText(),
+			new RuleExport().rules(project));
 	}
 
 }

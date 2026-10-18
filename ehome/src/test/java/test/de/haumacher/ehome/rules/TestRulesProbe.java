@@ -247,10 +247,15 @@ public class TestRulesProbe extends TestCase {
 		assertEquals("rules[0].reactions[0].actions[0].value", timer.path());
 		assertEquals("r", timer.rule());
 
-		String deep = "{\"kind\": \"literal\", \"type\": \"real\", \"value\": 1}";
+		// The limits apply to the normalized tree (spec/rules.md 4.8): a chain of minus signs over a
+		// number literal is one literal, a chain of negated sums is not.
+		String chain = "{\"kind\": \"literal\", \"type\": \"real\", \"value\": 1}";
+		String deep = "{\"kind\": \"datapoint\", \"name\": \"x\"}";
 		for (int i = 0; i < 12; i++) {
+			chain = "{\"kind\": \"unary\", \"op\": \"-\", \"operand\": " + chain + "}";
 			deep = "{\"kind\": \"unary\", \"op\": \"-\", \"operand\": " + deep + "}";
 		}
+		assertNull(refusal(start + "{\"kind\": \"write\", \"datapoint\": \"x\", \"value\": " + chain + "}" + end, "x"));
 		Refusal depth = refusal(start + "{\"kind\": \"write\", \"datapoint\": \"x\", \"value\": " + deep + "}" + end, "x");
 		assertEquals("limitExceeded", depth.error().externalName());
 

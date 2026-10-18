@@ -34,6 +34,7 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.rules.RuleText;
+import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleExport;
 import de.haumacher.ehome.runtime.RuleFunctions;
@@ -228,11 +229,11 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 				parameter.tUpdateByName("default", "1");
 				eco = RuleFunctions.create(parameter, "choices", runtime("RuleChoice"));
 				eco.tUpdateByName("value", "1");
-				eco.tUpdateByName("label", "Eco");
+				eco.tUpdateByName("title", FunctionProposal.text(Map.of("de", "Eco", "en", "Eco")));
 				comfort = RuleFunctions.create(parameter, "choices", runtime("RuleChoice"));
 				assertEquals("0", comfort.tValueByName("value"));
 				comfort.tUpdateByName("value", "2");
-				comfort.tUpdateByName("label", "Comfort");
+				comfort.tUpdateByName("title", FunctionProposal.text(Map.of("de", "Comfort", "en", "Comfort")));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
 				tx.commit();

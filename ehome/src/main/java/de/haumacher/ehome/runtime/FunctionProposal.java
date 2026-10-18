@@ -65,7 +65,8 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * <li><code>blind</code>: an input of DPT 1.008 (up/down) moves; 1.007/1.010 stops; 5.001 objects
  * are the position or, named slat/Lamelle, the slats; inputs set, outputs report.</li>
  * <li><code>dimmer</code>: an input of DPT 5.001 sets the level; a 5.001 output reports it; a 1.001
- * input switches, a state (below) reports.</li>
+ * input switches, a state (below) reports; a 3.007 input dims relatively (the role
+ * <code>step</code>).</li>
  * <li><code>climate</code>: an output of DPT 9.001 (the temperature) together with a setpoint
  * (9.001 named Soll/setpoint) or an operating mode (20.102); an output named Heiz/heat is heating.</li>
  * <li><code>light</code>, or <code>switch</code> where the channel is named for a socket
@@ -627,6 +628,7 @@ public final class FunctionProposal {
 			put(roles, "level", first(objects, o -> o.output() && !o.input() && o.is(5, 1)));
 			put(roles, "command", command);
 			put(roles, "state", state);
+			put(roles, "step", first(objects, o -> o.input() && o.is(3, 7)));
 			result.add(new Proposal("dimmer", channel.label(), roles, device, channel.key(), null));
 			return;
 		}

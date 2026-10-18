@@ -362,6 +362,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey NEW_CHOICE_LABEL;
 
 	/**
+	 * @en Parameter
+	 */
+	public static ResKey NEW_PARAMETER_LABEL;
+
+	/**
 	 * @en The file is no JSON document: {0}
 	 */
 	public static ResKey1 ERROR_RULE_IMPORT_NO_JSON__REASON;
@@ -445,6 +450,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Application
 	 */
 	public static ResKey BINDING_APPLICATION;
+
+	/**
+	 * @en Rule parameter
+	 */
+	public static ResKey BINDING_RULE_PARAMETER;
 
 	static {
 		initConstants(I18NConstants.class);

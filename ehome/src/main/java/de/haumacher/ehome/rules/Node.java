@@ -3,7 +3,10 @@
  */
 package de.haumacher.ehome.rules;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -318,6 +321,54 @@ public final class Node {
 		for (Node arg : _args) {
 			arg.visit(visitor);
 		}
+	}
+
+	/**
+	 * The JSON AST of this node (<code>spec/rules.md</code> 5), in the normalized form the loader
+	 * compiled it to (<code>spec/rules.md</code> 4.8).
+	 */
+	public Map<String, Object> toJson() {
+		Map<String, Object> result = new LinkedHashMap<>();
+		switch (_kind) {
+			case LITERAL:
+				result.put("kind", "literal");
+				result.put("type", _type.externalName());
+				result.put("value", Values.toJson(_literal));
+				break;
+			case DATAPOINT:
+				result.put("kind", "datapoint");
+				result.put("name", _name);
+				break;
+			case PARAMETER:
+				result.put("kind", "parameter");
+				result.put("id", _name);
+				break;
+			case TIMER:
+				result.put("kind", "timer");
+				result.put("id", _name);
+				break;
+			case UNARY:
+				result.put("kind", "unary");
+				result.put("op", _op.text());
+				result.put("operand", _args.get(0).toJson());
+				break;
+			case BINARY:
+				result.put("kind", "binary");
+				result.put("op", _op.text());
+				result.put("left", _args.get(0).toJson());
+				result.put("right", _args.get(1).toJson());
+				break;
+			default: {
+				result.put("kind", "call");
+				result.put("function", _fn.externalName());
+				List<Object> args = new ArrayList<>();
+				for (Node arg : _args) {
+					args.add(arg.toJson());
+				}
+				result.put("args", args);
+			}
+		}
+		return result;
 	}
 
 	/**

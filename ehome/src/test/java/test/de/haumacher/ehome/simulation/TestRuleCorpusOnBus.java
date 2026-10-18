@@ -33,8 +33,10 @@ import de.haumacher.ehome.monitor.CalimeroBusLink;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.rules.DatapointModel;
+import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.Type;
 import de.haumacher.ehome.rules.Val;
+import de.haumacher.ehome.rules.Val.DateTime;
 import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.rules.Values;
 import de.haumacher.ehome.runtime.Json;
@@ -82,8 +84,11 @@ public class TestRuleCorpusOnBus extends TestCase {
 	}
 
 	/**
-	 * The cases replayed on the bus. Not replayed: 02, 03, 13, 14 (a single datapoint reported stale),
-	 * 12 (a string command of 18 characters), 19 (the humidity 69.9 arrives as the float 69.90000153).
+	 * The cases replayed on the bus. Not replayed: 02, 03, 13, 14, 46 (a single datapoint reported
+	 * stale), 12 (a string command of 18 characters), 19 (the humidity 69.9 arrives as the float
+	 * 69.90000153), 44 (the reads of a single datapoint refused). A read of a rule travels the bus as a
+	 * GroupValueRead the device of the case does not answer (its objects have no read flag); the
+	 * datapoints of the rule parameters are the engine's, not on the bus.
 	 */
 	private static final List<String> MAPPABLE = List.of(
 		"01-trigger-datapoint-change.json",
@@ -114,7 +119,24 @@ public class TestRuleCorpusOnBus extends TestCase {
 		"32-load-refused-match-time.json",
 		"33-load-refused-unknown-timer.json",
 		"34-example-heating-setback.json",
-		"35-example-blind-sun-wind.json");
+		"35-example-blind-sun-wind.json",
+		"36-parameter-reset-to-default.json",
+		"37-state-persistence-reboot.json",
+		"38-date-time-across-dst.json",
+		"39-load-refused-schedule-output.json",
+		"40-labels-language.json",
+		"41-canonical-normalization.json",
+		"42-state-override-fold-labels.json",
+		"43-action-read.json",
+		"45-load-refused-not-readable.json",
+		"47-silence-enable-parameter.json",
+		"48-silence-image-swap.json",
+		"49-silence-reboot.json",
+		"50-parameter-datapoint-change.json",
+		"51-parameter-datapoint-command.json",
+		"52-parameter-datapoint-other-rule.json",
+		"53-parameter-datapoint-enabled.json",
+		"54-silence-read-parameter-datapoint.json");
 
 	private static final long TIMEOUT = 5000;
 
@@ -181,6 +203,9 @@ public class TestRuleCorpusOnBus extends TestCase {
 			if (!DPTS.containsKey(type)) {
 				return "no datapoint type for " + type;
 			}
+			if (Boolean.TRUE.equals(dp.get("refuseReads"))) {
+				return "the reads of a single datapoint refused (a bus refuses all of them or none)";
+			}
 			types.put((String) dp.get("name"), type);
 		}
 		List<Object[]> reported = new ArrayList<>();
@@ -211,6 +236,9 @@ public class TestRuleCorpusOnBus extends TestCase {
 				commanded.add(new Object[] { command.get("datapoint"), command.get("value") });
 			}
 		}
+		// The datapoints of the rule parameters are the rule engine's, not on the bus.
+		reported.removeIf(report -> ((String) report[0]).startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX));
+		commanded.removeIf(command -> ((String) command[0]).startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX));
 		for (Object[] report : reported) {
 			ValueType type = types.get(report[0]);
 			Val value = value(type, report[1]);
@@ -238,15 +266,22 @@ public class TestRuleCorpusOnBus extends TestCase {
 
 	private static Val value(ValueType type, Object json) {
 		Object plain = json;
-		if (json instanceof Map<?, ?> map && type == ValueType.DATE_TIME && map.containsKey("dayOfWeek")) {
+		boolean summer = false;
+		if (json instanceof Map<?, ?> map && type == ValueType.DATE_TIME) {
 			Map<Object, Object> copy = new LinkedHashMap<>(map);
 			copy.remove("dayOfWeek");
+			summer = Boolean.TRUE.equals(copy.remove("summerTime"));
 			plain = copy;
 		}
 		Type expression = type.expressionType();
 		Values.Literal literal =
 			Values.fromJson(expression == Type.INTEGER && json instanceof Double ? Type.REAL : expression, plain);
 		Val result = json == null || !literal.isOk() ? null : Values.convertForDatapoint(literal.value(), type);
+		if (result != null && summer) {
+			DateTime d = result.dateTime();
+			result = Val.ofDateTime(new DateTime(d.year(), d.month(), d.day(), d.hour(), d.minute(), d.second(),
+				d.dayOfWeek(), d.flags() | DateTime.SUMMER_TIME));
+		}
 		return result == null ? Val.none(expression) : result;
 	}
 
@@ -312,7 +347,7 @@ public class TestRuleCorpusOnBus extends TestCase {
 		}
 
 		@Override
-		protected void loadModel() {
+		protected void createModel() {
 			_model = new DatapointModel(() -> _now[0]);
 			_binding = new KnxBinding(_model, this::send, text -> {
 				// The refusals show as the engine's writeRefused.

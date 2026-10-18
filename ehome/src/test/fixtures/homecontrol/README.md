@@ -1,10 +1,12 @@
 # HomeControl fixtures
 
 Verbatim copies of `spec/fixtures/images/` and `spec/fixtures/rules/` of the HomeControl
-repository (haumacher/homecontrol, private), commit `078075d59d5bdeb3036f0bb2ec1b54c2ecb23bf4`
+repository (haumacher/homecontrol, private), commit `cf700148aa4a788ce8dd0439cfaccf5ded2794fc`
 (2026-10-18). The image fixtures last changed in `90b7b747d694734a0283192a8a0ec03118eb94f0`
 (2026-10-17, "Runtime image: the deployment descriptor, its loader and the push API"), the rule
-corpus with the rule interpreter (merge `6e683816b2cf874544808e12b74cb73b7517b12b`, 2026-10-17).
+corpus with the spec decisions of round two (`8d901491e7c3ded8d0880830b7ebc0be6013ddc8`,
+2026-10-18, "Rule spec decisions, round two: the read action, the silence trigger, parameters as
+datapoints").
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 
