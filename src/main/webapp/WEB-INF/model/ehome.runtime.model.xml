@@ -5,7 +5,9 @@
 		Deployment of a project to a HomeControl controller (haumacher/ehome #39): the controllers E-Home
 		knows and the deployments of a project's runtime image to one of them. The runtime image itself
 		is not stored: it is derived from the project when it is exported or deployed
-		(de.haumacher.ehome.runtime.RuntimeImage, format: homecontrol spec/runtime-image.md).
+		(de.haumacher.ehome.runtime.RuntimeImage, format: homecontrol spec/runtime-image.md), from the
+		group addresses with their runtime settings, the building structure, the functions of the
+		project (#43) and its runtime settings (#45).
 	-->
 	<module name="ehome.runtime">
 		<!--
@@ -131,6 +133,421 @@
 					multiple="true"
 					ordered="true"
 					type="Refusal"
+				/>
+			</attributes>
+		</class>
+		<!--
+			What the inhabitant operates (haumacher/ehome #43): a light, a blind, a sensor, as the runtime
+			image names it (homecontrol spec/runtime-image.md 3.5). The roles of its kind name the group
+			addresses whose datapoints it consists of; the roles of the other kinds are hidden. "Propose
+			functions" derives functions from the device channels of the project
+			(de.haumacher.ehome.runtime.FunctionProposal); the user edits them afterwards.
+		-->
+		<enum name="FunctionKind">
+			<classifier name="light" default="true"/>
+			<classifier name="dimmer"/>
+			<classifier name="blind"/>
+			<classifier name="switch"/>
+			<classifier name="sensor"/>
+			<classifier name="climate"/>
+			<classifier name="scene"/>
+			<classifier name="button"/>
+		</enum>
+		<class name="Function">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-lightbulb"/>
+			</annotations>
+			<attributes>
+				<!-- The label the controller shows. -->
+				<property name="name"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The id of the function in the runtime image (letters, digits, _ . -, at most 32); derived from the name where empty. -->
+				<property name="identifier"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeIdentifierProblem($value)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<reference name="kind"
+					kind="forwards"
+					mandatory="true"
+					type="FunctionKind"
+				/>
+				<!-- The part of the building the function is in. -->
+				<reference name="room"
+					kind="forwards"
+					type="ehome.building:BuildingDefinition"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeBuildingParts($f)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The unit the controller shows; empty for the unit of the function's main datapoint. -->
+				<property name="unit"
+					type="tl.core:String"
+				/>
+				<!-- The scene number a scene function sends (1..64). -->
+				<property name="scene"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<value-range
+							max="64"
+							min="1"
+						/>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if($f.get(`ehome.runtime:Function#kind`) == `ehome.runtime:FunctionKind#scene`, null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</property>
+				<!-- The datapoint the function is commanded with (light, switch: on/off; dimmer: on/off; scene: the scene number); writable. -->
+				<reference name="command"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#light`, `ehome.runtime:FunctionKind#dimmer`, `ehome.runtime:FunctionKind#switch`, `ehome.runtime:FunctionKind#scene`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint reporting the state (on/off). -->
+				<reference name="state"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#light`, `ehome.runtime:FunctionKind#dimmer`, `ehome.runtime:FunctionKind#switch`, `ehome.runtime:FunctionKind#button`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint the brightness is set with; writable. -->
+				<reference name="levelCommand"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#dimmer`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint reporting the brightness. -->
+				<reference name="level"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#dimmer`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint moving the blind up or down; writable. -->
+				<reference name="move"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#blind`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint stopping the blind; writable. -->
+				<reference name="stop"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#blind`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint reporting the position of the blind. -->
+				<reference name="position"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#blind`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint the position of the blind is set with; writable. -->
+				<reference name="positionCommand"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#blind`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint reporting the position of the slats. -->
+				<reference name="slat"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#blind`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint the position of the slats is set with; writable. -->
+				<reference name="slatCommand"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#blind`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint of the measured or reported value. -->
+				<reference name="value"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#sensor`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint of the measured temperature. -->
+				<reference name="temperature"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#climate`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint reporting the setpoint. -->
+				<reference name="setpoint"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#climate`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint the setpoint is set with; writable. -->
+				<reference name="setpointCommand"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#climate`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint reporting the operating mode. -->
+				<reference name="mode"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#climate`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint the operating mode is set with; writable. -->
+				<reference name="modeCommand"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#climate`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint reporting whether the room is heated. -->
+				<reference name="heating"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#climate`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint the button sends when pressed. -->
+				<reference name="press"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeGroupAddresses($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#button`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The device the function was proposed for; empty for a function the user created. -->
+				<reference name="device"
+					kind="forwards"
+					type="ehome.physical:Device"
+				/>
+				<!-- The channel of the device the function was proposed for (its program channel or the name of its objects); a proposal adds no second function for it. -->
+				<property name="channel"
+					type="tl.core:String"
 				/>
 			</attributes>
 		</class>

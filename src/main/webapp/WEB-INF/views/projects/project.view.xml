@@ -67,6 +67,20 @@
 					/>
 				</view-ref>
 			</tab>
+			<tab id="functions"
+				icon="css:bi bi-lightbulb"
+			>
+				<label>
+					<en>Functions</en>
+					<de>Funktionen</de>
+				</label>
+				<view-ref view="projects/functions.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="deployment"
 				icon="css:bi bi-cloud-upload"
 			>

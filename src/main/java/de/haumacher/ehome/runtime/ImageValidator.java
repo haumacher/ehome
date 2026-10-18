@@ -74,7 +74,7 @@ public final class ImageValidator {
 
 	private static final int MAX_RETENTION = 31 * 86400;
 
-	private static final int MAX_SAMPLES = 2048;
+	static final int MAX_SAMPLES = 2048;
 
 	private static final int SAMPLE_BYTES = 8;
 
@@ -317,7 +317,7 @@ public final class ImageValidator {
 		}
 	}
 
-	private static String hostNameError(String name) {
+	static String hostNameError(String name) {
 		int label = 0;
 		for (int n = 0; n < name.length(); n++) {
 			char c = name.charAt(n);
@@ -427,6 +427,19 @@ public final class ImageValidator {
 				}
 			} finally {
 				leave();
+			}
+		}
+		// The time master's datapoints, after the image's own: functions may name them.
+		if (_hasTimeMaster) {
+			String[][] implied = { { "time", "knx.time", ValueTypes.TIME_OF_DAY },
+				{ "date", "knx.date", ValueTypes.DATE }, { "dateTime", "knx.datetime", ValueTypes.DATE_TIME } };
+			for (String[] datapoint : implied) {
+				if (_timeMaster.containsKey(datapoint[0])) {
+					_ids.add(datapoint[1]);
+					_types.add(datapoint[2]);
+					_writable.add(Boolean.FALSE);
+					_sends.add(null);
+				}
 			}
 		}
 		// Unique ids.

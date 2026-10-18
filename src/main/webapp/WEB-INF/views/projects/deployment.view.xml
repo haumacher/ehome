@@ -11,6 +11,10 @@
 	revision after the last loaded one and records the outcome; a refusal is an outcome, shown in the
 	table, not a failure. "Status" compares what the controller runs (GET /api/status) with the last
 	deployment.
+
+	Beside it, the runtime settings of the project (haumacher/ehome #45). The functions are edited in
+	their own tab (functions.view.xml), the settings of each datapoint with its group address
+	(addresses.view.xml).
 -->
 <view>
 	<channels>
@@ -18,153 +22,216 @@
 		<channel name="deployment"/>
 	</channels>
 	<split-panel
-		orientation="vertical"
+		orientation="horizontal"
 		resizable="true"
 	>
 		<panes>
 			<pane
-				size="45"
+				min-size="280"
+				size="35"
 				unit="%"
 			>
+				<!--
+					The settings of the controller the project fixes (time zone, location, NTP server), the
+					KNX time master and the history budget (#45); each part of the image only where set.
+				-->
 				<panel>
 					<title>
-						<en>Deployment</en>
-						<de>Bereitstellung</de>
+						<en>Runtime settings</en>
+						<de>Laufzeiteinstellungen</de>
 					</title>
-					<commands>
-						<generic-command
-							image="css:fa-solid fa-download"
-							input="project"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Download image</en>
-								<de>Abbild herunterladen</de>
-							</label>
-							<executability>
-								<null-input-disabled/>
-							</executability>
-							<export-runtime-image/>
-							<open-dialog
-								bind-input-to="result"
-								dialog-view="projects/runtime-image.view.xml"
-							/>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-cloud-upload"
-							input="project"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Deploy</en>
-								<de>Bereitstellen</de>
-							</label>
-							<executability>
-								<null-input-disabled/>
-								<disabled-if expr="p -> deploymentVeto($p)"/>
-							</executability>
-							<confirm expr="p -> #('Deploy revision {0} of the runtime image to {1}?'@en, 'Revision {0} des Laufzeitabbilds in {1} laden?'@de).fill(nextImageRevision($p), $p.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`))"/>
-							<deploy-runtime-image/>
-							<write-channel name="deployment"/>
-							<if test="d -> $d.get(`ehome.runtime:Deployment#accepted`)">
-								<then>
-									<notify
-										expr="d -> $d.get(`ehome.runtime:Deployment#message`)"
-										kind="info"
-									/>
-								</then>
-								<else>
-									<notify
-										expr="d -> $d.get(`ehome.runtime:Deployment#message`)"
-										kind="warning"
-									/>
-								</else>
-							</if>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-activity"
-							input="project"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Status</en>
-								<de>Status</de>
-							</label>
-							<executability>
-								<null-input-disabled/>
-								<disabled-if expr="p -> if($p.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), null)"/>
-							</executability>
-							<controller-status/>
-							<notify
-								display="dialog"
-								expr="t -> $t"
-							/>
-						</generic-command>
-					</commands>
 					<form
 						input="project"
 						with-inset="true"
 					>
-						<field attribute="controller"/>
-						<field attribute="imageRevision"
-							readonly="true"
-						/>
+						<group>
+							<label>
+								<en>Controller</en>
+								<de>Controller</de>
+							</label>
+							<field attribute="timeZone"/>
+							<field attribute="latitude"/>
+							<field attribute="longitude"/>
+							<field attribute="elevation"/>
+							<field attribute="ntpServer"/>
+						</group>
+						<group>
+							<label>
+								<en>KNX time master</en>
+								<de>KNX-Zeitgeber</de>
+							</label>
+							<field attribute="timeMasterTime"/>
+							<field attribute="timeMasterDate"/>
+							<field attribute="timeMasterDateTime"/>
+							<field attribute="timeMasterInterval"/>
+							<field attribute="timeMasterAtMidnight"/>
+							<field attribute="timeMasterOnSynchronized"/>
+						</group>
+						<group>
+							<label>
+								<en>History</en>
+								<de>Verlauf</de>
+							</label>
+							<field attribute="historyBudget"/>
+						</group>
 					</form>
-					<table
-						observed-types="ehome.runtime:Deployment"
-						selection="deployment"
-						types="ehome.runtime:Deployment"
-					>
-						<inputs>
-							<input channel="project"/>
-						</inputs>
-						<columns>
-							<column attribute="time"/>
-							<column attribute="revision"/>
-							<column attribute="target"/>
-							<column attribute="accepted"/>
-							<column attribute="status"/>
-							<column attribute="code"/>
-							<column attribute="message"/>
-						</columns>
-						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#deployments`))</rows>
-					</table>
 				</panel>
 			</pane>
 			<pane
-				size="55"
+				size="65"
 				unit="%"
 			>
-				<panel>
-					<title>
-						<en>Outcome</en>
-						<de>Ergebnis</de>
-					</title>
-					<form
-						input="deployment"
-						with-inset="true"
-						withEditMode="false"
-					>
-						<field attribute="message"/>
-						<field attribute="before"/>
-						<field attribute="bytes"/>
-						<field attribute="total"/>
-					</form>
-					<table
-						observed-types="ehome.runtime:Refusal"
-						types="ehome.runtime:Refusal"
-					>
-						<inputs>
-							<input channel="deployment"/>
-						</inputs>
-						<columns>
-							<column attribute="path"/>
-							<column attribute="reason"/>
-							<column attribute="element"/>
-						</columns>
-						<rows>d -> if($d == null, [], $d.get(`ehome.runtime:Deployment#refusals`))</rows>
-					</table>
-				</panel>
+				<split-panel
+					orientation="vertical"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="45"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Deployment</en>
+									<de>Bereitstellung</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:fa-solid fa-download"
+										input="project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Download image</en>
+											<de>Abbild herunterladen</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<export-runtime-image/>
+										<open-dialog
+											bind-input-to="result"
+											dialog-view="projects/runtime-image.view.xml"
+										/>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-cloud-upload"
+										input="project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Deploy</en>
+											<de>Bereitstellen</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+											<disabled-if expr="p -> deploymentVeto($p)"/>
+										</executability>
+										<confirm expr="p -> #('Deploy revision {0} of the runtime image to {1}?'@en, 'Revision {0} des Laufzeitabbilds in {1} laden?'@de).fill(nextImageRevision($p), $p.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`))"/>
+										<deploy-runtime-image/>
+										<write-channel name="deployment"/>
+										<if test="d -> $d.get(`ehome.runtime:Deployment#accepted`)">
+											<then>
+												<notify
+													expr="d -> $d.get(`ehome.runtime:Deployment#message`)"
+													kind="info"
+												/>
+											</then>
+											<else>
+												<notify
+													expr="d -> $d.get(`ehome.runtime:Deployment#message`)"
+													kind="warning"
+												/>
+											</else>
+										</if>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-activity"
+										input="project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Status</en>
+											<de>Status</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+											<disabled-if expr="p -> if($p.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), null)"/>
+										</executability>
+										<controller-status/>
+										<notify
+											display="dialog"
+											expr="t -> $t"
+										/>
+									</generic-command>
+								</commands>
+								<form
+									input="project"
+									with-inset="true"
+								>
+									<field attribute="controller"/>
+									<field attribute="imageRevision"
+										readonly="true"
+									/>
+								</form>
+								<table
+									observed-types="ehome.runtime:Deployment"
+									selection="deployment"
+									types="ehome.runtime:Deployment"
+								>
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+									<columns>
+										<column attribute="time"/>
+										<column attribute="revision"/>
+										<column attribute="target"/>
+										<column attribute="accepted"/>
+										<column attribute="status"/>
+										<column attribute="code"/>
+										<column attribute="message"/>
+									</columns>
+									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#deployments`))</rows>
+								</table>
+							</panel>
+						</pane>
+						<pane
+							size="55"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Outcome</en>
+									<de>Ergebnis</de>
+								</title>
+								<form
+									input="deployment"
+									with-inset="true"
+									withEditMode="false"
+								>
+									<field attribute="message"/>
+									<field attribute="before"/>
+									<field attribute="bytes"/>
+									<field attribute="total"/>
+								</form>
+								<table
+									observed-types="ehome.runtime:Refusal"
+									types="ehome.runtime:Refusal"
+								>
+									<inputs>
+										<input channel="deployment"/>
+									</inputs>
+									<columns>
+										<column attribute="path"/>
+										<column attribute="reason"/>
+										<column attribute="element"/>
+									</columns>
+									<rows>d -> if($d == null, [], $d.get(`ehome.runtime:Deployment#refusals`))</rows>
+								</table>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
 			</pane>
 		</panes>
 	</split-panel>

@@ -9,25 +9,23 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.knx.GA;
-import de.haumacher.ehome.model.operational.Interface;
-import de.haumacher.ehome.model.operational.Port;
-import de.haumacher.ehome.monitor.DatapointCodec;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
-import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 
 /**
@@ -40,25 +38,30 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * <ul>
  * <li><code>image</code>: the project's external ID as <code>projectId</code>, its name, the
  * revision of the deployment, the time of the export and E-Home as generator.</li>
+ * <li><code>settings</code>: the project's time zone, location and NTP server, each where set.</li>
  * <li><code>datapoints</code>: one per group address of the project that has a datapoint type (its
  * own, the one of a connected communication object, or a main type its objects' size decides: the
  * rule of {@link GroupAddressTypes#effective(TLObject)}), in
- * the order of the addresses. The id is the address in three levels (<code>1/2/3</code>, stable
+ * the order of the addresses, except the addresses of the time master (whose datapoints the
+ * controller adds itself). The id is the address in three levels (<code>1/2/3</code>, stable
  * when the address is renamed), the label its name, the value type and unit follow from the
- * datapoint type. The KNX binding and the flags follow from the communication objects connected to
- * the address, each with its flags in effect (the device's own, else those of the object's placement,
- * else those of the object): an object that receives from the address (write flag) without
- * transmitting on it (transmit flag on its sending address) is an actuator input, which the
- * controller may command: the datapoint is <code>writable</code> and <code>transmit</code>s on
- * <code>send</code>. Otherwise the controller <code>listen</code>s on the address. A datapoint is
- * <code>readOnStart</code> where an object transmits its value on the address and answers a read
- * there (read flag): a status or a measured value.</li>
+ * datapoint type. The flags are the address's runtime settings ({@link DatapointSettings}): writable
+ * and read on start derived from the connected objects unless the user set them, readable, persist,
+ * history and unit as set. A writable datapoint <code>transmit</code>s; a writable or readable one
+ * sends and answers on its address (<code>send</code>), any other <code>listen</code>s on it.</li>
  * <li><code>locations</code>: the parts of the project's buildings, each with its parent; buildings,
  * floors and rooms by their kind, every other part (corridor, stairway, distribution board, ...) as
  * an area.</li>
- * <li><code>functions</code>, <code>schedules</code>, <code>rules</code>, the time master,
- * <code>settings</code> and <code>history</code> are not authored in E-Home yet and left out (the
- * specification makes every one optional; a missing one means "none").</li>
+ * <li><code>functions</code>: the project's functions (<code>ehome.runtime:Function</code>), each
+ * with its identifier (derived from its name where it has none), its room and the datapoints of the
+ * roles of its kind; a role bound to an address of the time master names the controller's datapoint
+ * of it (<code>knx.time</code>, ...). The unit of a function without one is the one of its main
+ * datapoint.</li>
+ * <li><code>knx.timeMaster</code>: the project's time, date and date-time addresses with the
+ * interval and the flags (unset flags are written as the specification's default, true).</li>
+ * <li><code>history</code>: the project's history budget, where set.</li>
+ * <li><code>schedules</code> and <code>rules</code> are not authored in E-Home yet and left out (the
+ * specification makes every member optional; a missing one means "none").</li>
  * </ul>
  *
  * <p>
@@ -75,13 +78,26 @@ public final class RuntimeImage {
 	/** The content type of an image. */
 	public static final String CONTENT_TYPE = "application/json";
 
-	private static final Pattern INDEXED = Pattern.compile("^(datapoints|locations)\\[(\\d+)\\]");
+	private static final Pattern INDEXED = Pattern.compile("^(datapoints|locations|functions)\\[(\\d+)\\]");
 
 	private final Map<String, Object> _json = new LinkedHashMap<>();
 
 	private final List<TLObject> _datapointSources = new ArrayList<>();
 
 	private final List<TLObject> _locationSources = new ArrayList<>();
+
+	private final List<TLObject> _functionSources = new ArrayList<>();
+
+	/** The ids of the locations by the building part they stand for. */
+	private final Map<TLObject, String> _locationIds = new HashMap<>();
+
+	/** The ids of the datapoints by the group address they stand for. */
+	private final Map<TLObject, String> _datapointIds = new HashMap<>();
+
+	/** The time master's addresses with the id of the datapoint the controller adds for each. */
+	private final Map<TLObject, String> _timeMaster = new LinkedHashMap<>();
+
+	private TLObject _project;
 
 	private final List<String> _notes = new ArrayList<>();
 
@@ -103,9 +119,15 @@ public final class RuntimeImage {
 	 */
 	public static RuntimeImage build(TLObject project, long revision, Instant generatedAt) {
 		RuntimeImage result = new RuntimeImage();
+		result._project = project;
 		result.image(project, revision, generatedAt);
+		result.settings(project);
+		result.timeMasterAddresses(project);
 		result.datapoints(project);
 		result.locations(project);
+		result.functions(project);
+		result.knx(project);
+		result.history(project);
 		result._text = Json.write(result._json);
 		return result;
 	}
@@ -146,19 +168,34 @@ public final class RuntimeImage {
 	}
 
 	/**
+	 * The functions of the project by the index of the function in the image.
+	 */
+	public List<TLObject> getFunctionSources() {
+		return _functionSources;
+	}
+
+	/**
 	 * The object of the project a path of the image leads to: the group address of
-	 * <code>datapoints[n]...</code>, the part of a building of <code>locations[n]...</code>;
-	 * <code>null</code> for another path.
+	 * <code>datapoints[n]...</code>, the part of a building of <code>locations[n]...</code>, the
+	 * function of <code>functions[n]...</code>, the project for its settings, time master and history
+	 * budget; <code>null</code> for another path.
 	 */
 	public TLObject elementAt(String path) {
 		if (path == null) {
 			return null;
 		}
+		if (path.startsWith("settings") || path.startsWith("knx") || path.startsWith("history")) {
+			return _project;
+		}
 		Matcher matcher = INDEXED.matcher(path);
 		if (!matcher.find()) {
 			return null;
 		}
-		List<TLObject> sources = matcher.group(1).equals("datapoints") ? _datapointSources : _locationSources;
+		List<TLObject> sources = switch (matcher.group(1)) {
+			case "datapoints" -> _datapointSources;
+			case "locations" -> _locationSources;
+			default -> _functionSources;
+		};
 		int index;
 		try {
 			index = Integer.parseInt(matcher.group(2));
@@ -219,10 +256,14 @@ public final class RuntimeImage {
 			.thenComparing(a -> String.valueOf(a.tValueByName("name"))));
 		List<Object> datapoints = new ArrayList<>();
 		for (TLObject address : addresses) {
+			if (_timeMaster.containsKey(address)) {
+				continue;
+			}
 			Map<String, Object> datapoint = datapoint(address);
 			if (datapoint != null) {
 				datapoints.add(datapoint);
 				_datapointSources.add(address);
+				_datapointIds.put(address, (String) datapoint.get("id"));
 			}
 		}
 		_json.put("datapoints", datapoints);
@@ -268,27 +309,8 @@ public final class RuntimeImage {
 			return null;
 		}
 
-		boolean receiver = false;
-		boolean reporter = false;
-		for (TLObject connection : GroupAddressConnections.connections(address)) {
-			TLObject connector = connection.tContainer();
-			if (Boolean.FALSE.equals(connector.tValueByName("active"))) {
-				continue;
-			}
-			Interface placed = GroupAddressConnections.object(connection);
-			Port port = placed.getPort();
-			if (!enabled("communication", connector, placed, port)) {
-				continue;
-			}
-			boolean send = connection.tValueByName("kind") instanceof TLClassifier kind && "send".equals(kind.getName());
-			boolean transmits = send && enabled("transmission", connector, placed, port);
-			if (enabled("canWrite", connector, placed, port) && !transmits) {
-				receiver = true;
-			}
-			if (transmits && enabled("canRead", connector, placed, port)) {
-				reporter = true;
-			}
-		}
+		boolean writable = DatapointSettings.writable(address);
+		boolean readable = DatapointSettings.readable(address);
 
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("id", id);
@@ -297,20 +319,38 @@ public final class RuntimeImage {
 			result.put("label", label);
 		}
 		result.put("type", type);
-		String unit = DatapointCodec.unitSymbol(dpt);
-		if (unit != null && unit.getBytes(StandardCharsets.UTF_8).length <= 15) {
+		String unit = DatapointSettings.unit(address);
+		if (unit != null) {
 			result.put("unit", unit);
 		}
-		if (receiver) {
+		if (readable) {
+			result.put("readable", Boolean.TRUE);
+		}
+		if (writable) {
 			result.put("writable", Boolean.TRUE);
 			result.put("transmit", Boolean.TRUE);
 		}
-		if (reporter) {
+		if (DatapointSettings.readOnStart(address)) {
 			result.put("readOnStart", Boolean.TRUE);
+		}
+		if (DatapointSettings.persist(address)) {
+			result.put("persist", Boolean.TRUE);
+		}
+		Integer retention = DatapointSettings.historyRetention(address);
+		Integer spacing = DatapointSettings.historySpacing(address);
+		if (retention != null || spacing != null) {
+			Map<String, Object> history = new LinkedHashMap<>();
+			if (retention != null) {
+				history.put("retention", Long.valueOf(retention.longValue()));
+			}
+			if (spacing != null) {
+				history.put("spacing", Long.valueOf(spacing.longValue()));
+			}
+			result.put("history", history);
 		}
 		Map<String, Object> knx = new LinkedHashMap<>();
 		knx.put("dpt", String.format(Locale.ROOT, "%d.%03d", Integer.valueOf(dpt.main()), Integer.valueOf(sub)));
-		if (receiver) {
+		if (writable || readable) {
 			knx.put("send", id);
 		} else {
 			knx.put("listen", List.of(id));
@@ -324,15 +364,6 @@ public final class RuntimeImage {
 	 */
 	public static String threeLevel(int address) {
 		return ((address >>> 11) & 0x1F) + "/" + ((address >>> 8) & 0x07) + "/" + (address & 0xFF);
-	}
-
-	private static boolean enabled(String flag, TLObject connector, Interface placed, Port port) {
-		for (TLObject holder : new TLObject[] { connector, placed, port }) {
-			if (holder != null && holder.tValueByName(flag) instanceof TLClassifier classifier) {
-				return "Enabled".equals(classifier.getName());
-			}
-		}
-		return false;
 	}
 
 	// ---- locations ---------------------------------------------------------------------------
@@ -367,6 +398,7 @@ public final class RuntimeImage {
 			}
 			result.add(location);
 			_locationSources.add(part);
+			_locationIds.put(part, id);
 			addLocations(part.tValueByName("parts"), id, result);
 		}
 	}
@@ -400,6 +432,159 @@ public final class RuntimeImage {
 		}
 	}
 
+	// ---- settings ----------------------------------------------------------------------------
+
+	private void settings(TLObject project) {
+		Map<String, Object> settings = new LinkedHashMap<>();
+		String tz = text(project.tValueByName("timeZone"));
+		if (tz != null) {
+			settings.put("tz", tz);
+		}
+		Object lat = project.tValueByName("latitude");
+		Object lon = project.tValueByName("longitude");
+		if (lat instanceof Number latitude && lon instanceof Number longitude) {
+			Map<String, Object> location = new LinkedHashMap<>();
+			location.put("lat", Double.valueOf(latitude.doubleValue()));
+			location.put("lon", Double.valueOf(longitude.doubleValue()));
+			if (project.tValueByName("elevation") instanceof Number elevation) {
+				location.put("elev", Long.valueOf(elevation.longValue()));
+			}
+			settings.put("location", location);
+		} else if (lat != null || lon != null) {
+			_notes.add(message(I18NConstants.NOTE_LOCATION_INCOMPLETE));
+		}
+		String ntp = text(project.tValueByName("ntpServer"));
+		if (ntp != null) {
+			settings.put("ntp", Map.of("server", ntp));
+		}
+		if (!settings.isEmpty()) {
+			_json.put("settings", settings);
+		}
+	}
+
+	// ---- time master -------------------------------------------------------------------------
+
+	private static final String[][] TIME_MASTER = {
+		{ "timeMasterTime", "time", "knx.time", "10" },
+		{ "timeMasterDate", "date", "knx.date", "11" },
+		{ "timeMasterDateTime", "dateTime", "knx.datetime", "19" },
+	};
+
+	private void timeMasterAddresses(TLObject project) {
+		for (String[] member : TIME_MASTER) {
+			if (project.tValueByName(member[0]) instanceof TLObject address) {
+				_timeMaster.putIfAbsent(address, member[2]);
+			}
+		}
+	}
+
+	private void knx(TLObject project) {
+		Map<String, Object> timeMaster = new LinkedHashMap<>();
+		for (String[] member : TIME_MASTER) {
+			if (!(project.tValueByName(member[0]) instanceof TLObject address)) {
+				continue;
+			}
+			if (!(address.tValueByName("address") instanceof GA ga)) {
+				_notes.add(message(I18NConstants.NOTE_NO_ADDRESS__NAME.fill(String.valueOf(address.tValueByName("name")))));
+				continue;
+			}
+			Dpt dpt = GroupAddressTypes.effective(address);
+			if (dpt != null && dpt.main() != Integer.parseInt(member[3])) {
+				_notes.add(message(I18NConstants.NOTE_TIME_MASTER_TYPE__ADDRESS_TYPE_EXPECTED.fill(
+					ga.toString() + " " + address.tValueByName("name"), dpt.code(), member[3] + ".001")));
+			}
+			timeMaster.put(member[1], threeLevel(ga.getValue()));
+		}
+		if (timeMaster.isEmpty()) {
+			return;
+		}
+		Object interval = project.tValueByName("timeMasterInterval");
+		timeMaster.put("interval", Long.valueOf(interval instanceof Number number ? number.longValue() : 600));
+		timeMaster.put("atMidnight", Boolean.valueOf(!Boolean.FALSE.equals(project.tValueByName("timeMasterAtMidnight"))));
+		timeMaster.put("onSynchronized",
+			Boolean.valueOf(!Boolean.FALSE.equals(project.tValueByName("timeMasterOnSynchronized"))));
+		_json.put("knx", Map.of("timeMaster", timeMaster));
+	}
+
+	// ---- functions ---------------------------------------------------------------------------
+
+	private void functions(TLObject project) {
+		List<TLObject> functions = FunctionProposal.functions(project);
+		if (functions.isEmpty()) {
+			return;
+		}
+		Set<String> ids = new HashSet<>();
+		for (TLObject function : functions) {
+			Object identifier = function.tValueByName("identifier");
+			if (identifier != null && !identifier.toString().isBlank()) {
+				ids.add(identifier.toString());
+			}
+		}
+		List<Object> result = new ArrayList<>();
+		for (TLObject function : functions) {
+			String kind = FunctionProposal.kind(function);
+			Map<String, Object> entry = new LinkedHashMap<>();
+			Object identifier = function.tValueByName("identifier");
+			entry.put("id", identifier != null && !identifier.toString().isBlank() ? identifier.toString()
+				: FunctionProposal.uniqueIdentifier(String.valueOf(function.tValueByName("name")), ids));
+			String label = label(function.tValueByName("name"));
+			entry.put("label", label != null ? label : entry.get("id"));
+			if (kind != null) {
+				entry.put("kind", kind);
+			}
+			if (function.tValueByName("room") instanceof TLObject room && _locationIds.containsKey(room)) {
+				entry.put("room", _locationIds.get(room));
+			}
+			Map<String, Object> roles = new LinkedHashMap<>();
+			for (String role : FunctionKinds.roles(kind)) {
+				if (function.tValueByName(role) instanceof TLObject address) {
+					String datapoint = datapointId(address);
+					if (datapoint != null) {
+						roles.put(role, datapoint);
+					}
+				}
+			}
+			String unit = text(function.tValueByName("unit"));
+			if (unit == null && roles.get(FunctionKinds.mainRole(kind)) != null) {
+				unit = DatapointSettings.unit((TLObject) function.tValueByName(FunctionKinds.mainRole(kind)));
+			}
+			if (unit != null) {
+				entry.put("unit", unit);
+			}
+			if ("scene".equals(kind) && function.tValueByName("scene") instanceof Number scene) {
+				entry.put("scene", Long.valueOf(scene.longValue()));
+			}
+			entry.put("datapoints", roles);
+			result.add(entry);
+			_functionSources.add(function);
+		}
+		_json.put("functions", result);
+	}
+
+	/**
+	 * The id of the datapoint of the given address in the image: the datapoint's, the controller's
+	 * datapoint of a time master address, else the address in three levels (which the controller then
+	 * refuses as unknown, naming the function).
+	 */
+	private String datapointId(TLObject address) {
+		String id = _timeMaster.get(address);
+		if (id == null) {
+			id = _datapointIds.get(address);
+		}
+		if (id == null && address.tValueByName("address") instanceof GA ga) {
+			id = threeLevel(ga.getValue());
+		}
+		return id;
+	}
+
+	// ---- history -----------------------------------------------------------------------------
+
+	private void history(TLObject project) {
+		if (project.tValueByName("historyBudget") instanceof Number budget) {
+			_json.put("history", Map.of("budget", Long.valueOf(budget.longValue())));
+		}
+	}
+
 	// ---- texts -------------------------------------------------------------------------------
 
 	/**
@@ -414,6 +599,10 @@ public final class RuntimeImage {
 			return null;
 		}
 		return truncate(text, ImageValidator.MAX_NAME);
+	}
+
+	private static String text(Object value) {
+		return value == null || value.toString().isBlank() ? null : value.toString().trim();
 	}
 
 	private static String text(Object value, String fallback) {

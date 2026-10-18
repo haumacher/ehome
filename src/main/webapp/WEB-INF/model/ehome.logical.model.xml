@@ -117,6 +117,113 @@
 						</storage-algorithm>
 					</annotations>
 				</reference>
+				<!--
+					The runtime settings of the address's datapoint in the runtime image of a HomeControl
+					controller (haumacher/ehome #45). Writable and read on start are derived from the flags of
+					the connected objects (an actuator input makes the datapoint writable, a status answering
+					reads makes it read on start); set, they override the derivation.
+				-->
+				<!-- Whether rules, the user interface and the API may command the datapoint; empty: derived from the connected objects. -->
+				<property name="runtimeWritable"
+					type="tl.core:Tristate"
+				/>
+				<!-- Whether the controller reads the value after a start or reconnect; empty: derived from the connected objects. -->
+				<property name="runtimeReadOnStart"
+					type="tl.core:Tristate"
+				/>
+				<!-- Whether the controller answers a read of the address with the datapoint's value. -->
+				<property name="runtimeReadable"
+					type="tl.core:Boolean"
+				/>
+				<!-- Whether the controller keeps the last value across restarts. -->
+				<property name="runtimePersist"
+					type="tl.core:Boolean"
+				/>
+				<!-- How long the controller keeps the history of the value, in seconds (with the spacing; numbers and truth values only). -->
+				<property name="historyRetention"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<value-range
+							max="2678400"
+							min="10"
+						/>
+					</annotations>
+				</property>
+				<!-- The time between two samples of the history in seconds (10 to 86400). -->
+				<property name="historySpacing"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<value-range
+							max="86400"
+							min="10"
+						/>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeHistoryProblem($obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The unit the controller shows (at most 15 bytes); empty: the unit of the datapoint type. -->
+				<property name="runtimeUnit"
+					type="tl.core:String"
+				/>
+				<!-- Whether the datapoint is writable in the runtime image: the setting, else the derivation. -->
+				<property name="effectiveWritable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[ga -> datapointWritable($ga)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- Whether the datapoint is read on start in the runtime image: the setting, else the derivation. -->
+				<property name="effectiveReadOnStart"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[ga -> datapointReadOnStart($ga)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The unit of the datapoint in the runtime image: the setting, else the one of the datapoint type. -->
+				<property name="effectiveUnit"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[ga -> datapointUnit($ga)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- Where the runtime flags come from: derived from the connected objects or set for the address. -->
+				<property name="runtimeFlagsSource"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[ga -> datapointFlagsSource($ga)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<class name="GroupRange">

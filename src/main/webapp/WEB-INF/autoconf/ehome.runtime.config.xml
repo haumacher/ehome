@@ -2,8 +2,9 @@
 
 <!--
 	Deployment of runtime images to HomeControl controllers (haumacher/ehome #39, package
-	de.haumacher.ehome.runtime): the model of the controllers and deployments, and the TL-Script
-	functions of the views controllers.view.xml and projects/deployment.view.xml.
+	de.haumacher.ehome.runtime): the model of the controllers, deployments and functions, and the
+	TL-Script functions of the views controllers.view.xml, projects/deployment.view.xml,
+	projects/functions.view.xml and of the runtime settings in the model.
 -->
 <application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
@@ -31,6 +32,17 @@
 					<method name="controllerAddress" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="deploymentVeto" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="nextImageRevision" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<!-- Functions and runtime settings (haumacher/ehome #43, #45). -->
+					<method name="runtimeGroupAddresses" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="runtimeBuildingParts" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="runtimeIdentifierProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="runtimeTimeZoneProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="runtimeHostNameProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="runtimeHistoryProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="datapointWritable" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="datapointReadOnStart" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="datapointUnit" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="datapointFlagsSource" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

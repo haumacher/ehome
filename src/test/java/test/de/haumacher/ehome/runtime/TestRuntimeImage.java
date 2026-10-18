@@ -56,12 +56,14 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * number it does not distinguish as its main type), the template <code>1.001</code>.</li>
  * <li>Channel D has no status address in the project: <code>chD.state</code> has no counterpart.</li>
  * <li><code>persist</code> and <code>history</code> of the room temperature are choices of the
- * template's author; E-Home has no settings for them yet. The unit (°C) is the datapoint type's.</li>
+ * template's author, settings of the address in E-Home that this test leaves unset
+ * (<code>TestFunctionProposal</code> enters them). The unit (°C) is the datapoint type's.</li>
  * <li>Labels: the template's are hand-written in English, the export's are the names of the group
  * addresses (<code>Taste1</code>, <code>KanalA</code>).</li>
  * <li>Locations, functions, the time master, schedules, rules and the history budget are authored in
- * the template; the project has no building structure and E-Home no functions, rules or schedules
- * yet, so the export has no locations and none of the others.</li>
+ * the template; the project has no building structure, no functions and no runtime settings, and
+ * E-Home no rules or schedules yet, so the export has no locations and none of the others
+ * (<code>TestFunctionProposal</code> adds the locations, functions and settings).</li>
  * <li><code>image</code>: <code>projectId</code> is the project's ID (<code>P-0563</code>), the
  * revision the one given, <code>generatedAt</code> the time of the export and the generator
  * E-Home; the template has no <code>generatedAt</code>.</li>

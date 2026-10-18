@@ -150,6 +150,86 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey TOKEN_NOT_SET;
 
+	/**
+	 * @en The location (latitude and longitude) is incomplete and not part of the runtime image.
+	 */
+	public static ResKey NOTE_LOCATION_INCOMPLETE;
+
+	/**
+	 * @en The group address {0} of the time master has the datapoint type {1}; the controller sends {2} on it.
+	 */
+	public static ResKey3 NOTE_TIME_MASTER_TYPE__ADDRESS_TYPE_EXPECTED;
+
+	/**
+	 * @en Writable and read on start are derived from the connected objects.
+	 */
+	public static ResKey FLAGS_DERIVED;
+
+	/**
+	 * @en Writable and read on start are set for the address.
+	 */
+	public static ResKey FLAGS_SET;
+
+	/**
+	 * @en Writable is set for the address, read on start is derived from the connected objects.
+	 */
+	public static ResKey FLAGS_WRITABLE_SET;
+
+	/**
+	 * @en Read on start is set for the address, writable is derived from the connected objects.
+	 */
+	public static ResKey FLAGS_READ_ON_START_SET;
+
+	/**
+	 * @en A history needs both the retention and the spacing.
+	 */
+	public static ResKey HISTORY_INCOMPLETE;
+
+	/**
+	 * @en A history is kept only of numbers and truth values, not of values of the type {0}.
+	 */
+	public static ResKey1 HISTORY_WRONG_TYPE__TYPE;
+
+	/**
+	 * @en The retention of a history is at least its spacing.
+	 */
+	public static ResKey HISTORY_RETENTION_BELOW_SPACING;
+
+	/**
+	 * @en The history would hold {0} samples; the controller keeps at most {1} per datapoint.
+	 */
+	public static ResKey2 HISTORY_TOO_MANY_SAMPLES__SAMPLES_MAX;
+
+	/**
+	 * @en An identifier has 1 to 32 letters, digits and the characters _ . -
+	 */
+	public static ResKey INVALID_IDENTIFIER;
+
+	/**
+	 * @en This is no POSIX TZ string (e.g. CET-1CEST,M3.5.0,M10.5.0/3): {0}
+	 */
+	public static ResKey1 INVALID_TIME_ZONE__DETAIL;
+
+	/**
+	 * @en This is no host name: {0}
+	 */
+	public static ResKey1 INVALID_HOST_NAME__DETAIL;
+
+	/**
+	 * @en {0} functions were proposed and added.
+	 */
+	public static ResKey1 PROPOSAL_ADDED__COUNT;
+
+	/**
+	 * @en The project has a function for every channel the proposal recognizes; nothing was added.
+	 */
+	public static ResKey PROPOSAL_NOTHING_NEW;
+
+	/**
+	 * @en New function
+	 */
+	public static ResKey NEW_FUNCTION_NAME;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

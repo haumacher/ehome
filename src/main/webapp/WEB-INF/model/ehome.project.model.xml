@@ -84,6 +84,157 @@
 						</format>
 					</annotations>
 				</property>
+				<!-- What the inhabitant operates: the functions of the runtime image (haumacher/ehome #43). -->
+				<reference name="functions"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:Function"
+				/>
+				<!--
+					The time zone of the controller as POSIX TZ string, e.g. CET-1CEST,M3.5.0,M10.5.0/3 for
+					Central Europe; empty: the controller keeps its own.
+				-->
+				<property name="timeZone"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeTimeZoneProblem($value)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The latitude of the installation in degrees (north positive), for the sun times of astronomical schedules. -->
+				<property name="latitude"
+					type="tl.core:Double"
+				>
+					<annotations>
+						<!-- Up to six decimals (about 0.1 m): the default format would round to two. -->
+						<format>
+							<decimal pattern="0.0#####" result-type="double"/>
+						</format>
+						<value-range
+							max="90.0"
+							min="-90.0"
+						/>
+					</annotations>
+				</property>
+				<!-- The longitude of the installation in degrees (east positive), for the sun times of astronomical schedules. -->
+				<property name="longitude"
+					type="tl.core:Double"
+				>
+					<annotations>
+						<!-- Up to six decimals (about 0.1 m): the default format would round to two. -->
+						<format>
+							<decimal pattern="0.0#####" result-type="double"/>
+						</format>
+						<value-range
+							max="180.0"
+							min="-180.0"
+						/>
+					</annotations>
+				</property>
+				<!-- The elevation of the installation in metres. -->
+				<property name="elevation"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<value-range
+							max="9000"
+							min="-500"
+						/>
+					</annotations>
+				</property>
+				<!-- The host name of the NTP server the controller synchronizes its clock with; empty: the controller keeps its own. -->
+				<property name="ntpServer"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeHostNameProblem($value)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The group address the controller sends the time of day on as KNX time master (DPT 10.001). -->
+				<reference name="timeMasterTime"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[p -> runtimeGroupAddresses($p)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The group address the controller sends the date on as KNX time master (DPT 11.001). -->
+				<reference name="timeMasterDate"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[p -> runtimeGroupAddresses($p)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The group address the controller sends date and time on as KNX time master (DPT 19.001). -->
+				<reference name="timeMasterDateTime"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[p -> runtimeGroupAddresses($p)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The period of the time master's broadcasts in seconds (60 to 86400); empty: 600. -->
+				<property name="timeMasterInterval"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<value-range
+							max="86400"
+							min="60"
+						/>
+					</annotations>
+				</property>
+				<!-- Whether the time master also sends right after local midnight; empty: yes. -->
+				<property name="timeMasterAtMidnight"
+					type="tl.core:Tristate"
+				/>
+				<!-- Whether the time master also sends when the controller's clock becomes synchronized; empty: yes. -->
+				<property name="timeMasterOnSynchronized"
+					type="tl.core:Tristate"
+				/>
+				<!-- The memory in bytes the history rings of the datapoints may use on the controller (at most 65536); empty: what the rings need. -->
+				<property name="historyBudget"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<value-range
+							max="65536"
+							min="0"
+						/>
+					</annotations>
+				</property>
 				<!-- The deployments of the runtime image, newest first. -->
 				<reference name="deployments"
 					composite="true"

@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The functions of a project (haumacher/ehome #43): what the inhabitant operates on the HomeControl
+	controller - a light, a dimmer, a blind, a sensor, a button -, each with the group addresses of the
+	roles of its kind and its room. They are part of the runtime image (Deployment tab).
+
+	"Propose functions" adds a function for each device channel the proposal recognizes and the
+	project has none for yet (de.haumacher.ehome.runtime.FunctionProposal); it never changes an
+	existing function, so it can run again after devices were added. "New function" adds an empty
+	one. The form of the selected function shows the roles of its kind only; the options of a role are
+	the group addresses of the project.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="function"/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="300"
+				size="50"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Functions</en>
+						<de>Funktionen</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-magic"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Propose functions</en>
+								<de>Funktionen vorschlagen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<propose-functions/>
+							<notify
+								expr="t -> $t"
+								kind="info"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-plus-lg"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>New function</en>
+								<de>Neue Funktion</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<create-function/>
+							<write-channel name="function"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							input="function"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="f -> #('Delete the function {0}?'@en, 'Funktion {0} löschen?'@de).fill($f.get(`ehome.runtime:Function#name`))"/>
+							<delete-object/>
+							<write-channel name="function"/>
+						</generic-command>
+					</commands>
+					<table
+						observed-types="ehome.runtime:Function"
+						selection="function"
+						types="ehome.runtime:Function"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<columns>
+							<column attribute="name"/>
+							<column attribute="kind"/>
+							<column attribute="room"/>
+							<column attribute="identifier"/>
+							<column attribute="device"/>
+						</columns>
+						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#functions`))</rows>
+					</table>
+				</panel>
+			</pane>
+			<pane
+				size="50"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Function</en>
+						<de>Funktion</de>
+					</title>
+					<form
+						input="function"
+						with-inset="true"
+					>
+						<field attribute="name"/>
+						<field attribute="kind"/>
+						<field attribute="room"/>
+						<field attribute="identifier"/>
+						<field attribute="unit"/>
+						<field attribute="scene"/>
+						<group>
+							<label>
+								<en>Datapoints</en>
+								<de>Datenpunkte</de>
+							</label>
+							<field attribute="command"/>
+							<field attribute="state"/>
+							<field attribute="levelCommand"/>
+							<field attribute="level"/>
+							<field attribute="move"/>
+							<field attribute="stop"/>
+							<field attribute="position"/>
+							<field attribute="positionCommand"/>
+							<field attribute="slat"/>
+							<field attribute="slatCommand"/>
+							<field attribute="value"/>
+							<field attribute="temperature"/>
+							<field attribute="setpoint"/>
+							<field attribute="setpointCommand"/>
+							<field attribute="mode"/>
+							<field attribute="modeCommand"/>
+							<field attribute="heating"/>
+							<field attribute="press"/>
+						</group>
+						<group>
+							<label>
+								<en>Proposed for</en>
+								<de>Vorgeschlagen für</de>
+							</label>
+							<field attribute="device"
+								readonly="true"
+							/>
+							<field attribute="channel"
+								readonly="true"
+							/>
+						</group>
+					</form>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

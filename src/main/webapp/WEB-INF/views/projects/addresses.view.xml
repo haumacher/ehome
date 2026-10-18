@@ -14,6 +14,10 @@
 	addresses and the ranges holding them, the details say why, and "Set the datapoint type" chooses
 	a type for the address (projects/set-datapoint-type.view.xml).
 
+	The details of an address include the settings of its datapoint in the runtime image (#45):
+	writable and read on start (derived from the connected objects unless set), readable, persistence,
+	history and unit.
+
 	Objects are connected to the selected address and connections removed with the operations of
 	the device view (deviceConnect, deviceDisconnect), so the rules of a connection hold on both
 	sides. The connections are computed by Java functions (GroupAddressConnections), hence the tree,
@@ -390,6 +394,27 @@
 												<field attribute="unfiltered"/>
 												<field attribute="description"/>
 												<field attribute="extId"/>
+												<!--
+													The settings of the address's datapoint in the runtime image (#45): the
+													effective flags beside the settings that override their derivation.
+												-->
+												<group>
+													<label>
+														<en>Runtime (HomeControl)</en>
+														<de>Laufzeit (HomeControl)</de>
+													</label>
+													<field attribute="runtimeFlagsSource"/>
+													<field attribute="runtimeWritable"/>
+													<field attribute="effectiveWritable"/>
+													<field attribute="runtimeReadOnStart"/>
+													<field attribute="effectiveReadOnStart"/>
+													<field attribute="runtimeReadable"/>
+													<field attribute="runtimePersist"/>
+													<field attribute="historyRetention"/>
+													<field attribute="historySpacing"/>
+													<field attribute="runtimeUnit"/>
+													<field attribute="effectiveUnit"/>
+												</group>
 											</form>
 										</stack>
 									</case>
