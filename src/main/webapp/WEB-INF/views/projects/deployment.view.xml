@@ -16,7 +16,8 @@
 	compares what the controller runs (GET /api/status) with the last deployment.
 
 	Beside it, the runtime settings of the project (haumacher/ehome #45). The functions are edited in
-	their own tab (functions.view.xml), the settings of each datapoint with its group address
+	their own tab (functions.view.xml), the rules and the schedule in theirs (rules.view.xml,
+	schedules.view.xml, haumacher/ehome #57), the settings of each datapoint with its group address
 	(addresses.view.xml).
 -->
 <view>

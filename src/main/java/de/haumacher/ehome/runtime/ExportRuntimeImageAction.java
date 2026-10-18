@@ -101,7 +101,7 @@ public class ExportRuntimeImageAction implements ViewAction {
 	/**
 	 * The sentences saying what a valid image holds: its datapoints, locations, functions and
 	 * settings (the controller's settings and the history budget, each counted as one), its size,
-	 * and the addresses of its time master.
+	 * the addresses of its time master, and its rules and schedule entries.
 	 */
 	public static String summary(RuntimeImage image) {
 		Map<String, Object> json = image.getJson();
@@ -118,8 +118,13 @@ public class ExportRuntimeImageAction implements ViewAction {
 				}
 			}
 		}
-		return result + " " + resources.getString(addresses.isEmpty() ? I18NConstants.EXPORT_NO_TIME_MASTER
+		result += " " + resources.getString(addresses.isEmpty() ? I18NConstants.EXPORT_NO_TIME_MASTER
 			: I18NConstants.EXPORT_TIME_MASTER__ADDRESSES.fill(String.join(", ", addresses)));
+		if (json.containsKey("rules") || json.containsKey("schedules")) {
+			result += " " + resources.getString(
+				I18NConstants.EXPORT_AUTOMATION__RULES_SCHEDULES.fill(size(json.get("rules")), size(json.get("schedules"))));
+		}
+		return result;
 	}
 
 	private static Integer size(Object value) {

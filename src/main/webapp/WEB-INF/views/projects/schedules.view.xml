@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The schedule of a project (haumacher/ehome #57, homecontrol spec/schedules.md): moments in local
+	time at which the HomeControl controller fires an entry, and the rules with a schedule trigger on
+	the entry's id react. Six kinds: weekly, yearly, on dates, at a sun event, at intervals, once.
+	Times are written as 06:30, dates as 2027-01-08, durations as 15min; each field is checked while
+	it is edited as the controller would check it. The entries are part of the runtime image.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="entry"/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				size="50"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Schedule</en>
+						<de>Zeitplan</de>
+					</title>
+					<commands>
+						<generic-command
+							clique="new"
+							image="css:bi bi-calendar-week"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Weekly</en>
+								<de>Wöchentlich</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<with-transaction>
+								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:WeeklySchedule`)"/>
+							</with-transaction>
+							<write-channel name="entry"/>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-calendar-heart"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Yearly</en>
+								<de>Jährlich</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<with-transaction>
+								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:YearlySchedule`)"/>
+							</with-transaction>
+							<write-channel name="entry"/>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-calendar3"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>On dates</en>
+								<de>An Daten</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<with-transaction>
+								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:DatesSchedule`)"/>
+							</with-transaction>
+							<write-channel name="entry"/>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-sunset"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Sun</en>
+								<de>Sonne</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<with-transaction>
+								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:AstroSchedule`)"/>
+							</with-transaction>
+							<write-channel name="entry"/>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-clock-history"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Interval</en>
+								<de>Intervall</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<with-transaction>
+								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:IntervalSchedule`)"/>
+							</with-transaction>
+							<write-channel name="entry"/>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-calendar-check"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Once</en>
+								<de>Einmalig</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<with-transaction>
+								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:OnceSchedule`)"/>
+							</with-transaction>
+							<write-channel name="entry"/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							input="entry"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="x -> #('Delete the schedule entry?'@en, 'Den Zeitplaneintrag löschen?'@de)"/>
+							<delete-object/>
+							<write-channel name="entry"/>
+						</generic-command>
+						<generic-command
+							clique="edit"
+							image="css:bi bi-arrow-up"
+							input="entry"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Move up</en>
+								<de>Nach oben</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="x -> ruleMove($x, -1)"/>
+							</with-transaction>
+						</generic-command>
+						<generic-command
+							clique="edit"
+							image="css:bi bi-arrow-down"
+							input="entry"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Move down</en>
+								<de>Nach unten</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+								<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="x -> ruleMove($x, 1)"/>
+							</with-transaction>
+						</generic-command>
+					</commands>
+					<table
+						observed-types="ehome.runtime:ScheduleEntry,ehome.project:Project"
+						selection="entry"
+						types="ehome.runtime:ScheduleEntry"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<columns>
+							<column attribute="label"/>
+							<column attribute="identifier"/>
+							<column attribute="enabled"/>
+							<computed-column name="summary"
+								type="tl.core:String"
+							>
+								<label>
+									<en>When</en>
+									<de>Wann</de>
+								</label>
+								<value>x -> ruleSummary($x)</value>
+							</computed-column>
+						</columns>
+						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#schedules`))</rows>
+					</table>
+				</panel>
+			</pane>
+			<pane
+				size="50"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Schedule entry</en>
+						<de>Zeitplaneintrag</de>
+					</title>
+					<form
+						input="entry"
+						with-inset="true"
+					>
+						<field attribute="label"/>
+						<field attribute="identifier"/>
+						<field attribute="enabled"/>
+						<field attribute="enabledAdjustable"/>
+						<field attribute="missed"/>
+						<field attribute="output"/>
+						<field attribute="time"/>
+						<field attribute="month"/>
+						<field attribute="day"/>
+						<field attribute="dates"/>
+						<field attribute="sun"/>
+						<field attribute="offset"/>
+						<field attribute="notBefore"/>
+						<field attribute="notAfter"/>
+						<field attribute="every"/>
+						<field attribute="from"/>
+						<field attribute="until"/>
+						<field attribute="at"/>
+						<field attribute="days"/>
+					</form>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

@@ -167,6 +167,54 @@ public final class ImageValidator {
 
 	// ---- schedules and rules -----------------------------------------------------------------
 
+	/**
+	 * The datapoints of an image as the rule and schedule loaders see them: the image's own and
+	 * those of its time master.
+	 */
+	public interface Directory extends RuleLoader.DatapointDirectory, Schedule.Datapoints {
+		// Both views.
+	}
+
+	/**
+	 * The {@link Directory} of the datapoints of the given image text, read as the validator reads
+	 * them (a datapoint the validator refuses has no type there).
+	 */
+	public static Directory directory(String text) {
+		ImageValidator validator = new ImageValidator();
+		Object root;
+		try {
+			root = Json.parse(text, MAX_NESTING);
+		} catch (JsonException ex) {
+			root = Map.of();
+		}
+		if (root instanceof Map<?, ?> image) {
+			validator.knx(image);
+			validator.datapoints(image);
+		}
+		return validator.directory();
+	}
+
+	private Directory directory() {
+		return new Directory() {
+			@Override
+			public ValueType type(String name) {
+				return datapointType(name);
+			}
+
+			@Override
+			public boolean writable(String name) {
+				int index = datapointIndex(name);
+				return index >= 0 && _writable.get(index).booleanValue();
+			}
+
+			@Override
+			public String owner(String name) {
+				int index = datapointIndex(name);
+				return index < 0 ? null : _owners.get(index);
+			}
+		};
+	}
+
 	private int datapointIndex(String name) {
 		for (int i = 0; i < _ids.size(); i++) {
 			if (name.equals(_ids.get(i))) {
@@ -185,18 +233,7 @@ public final class ImageValidator {
 		if (!root.containsKey("schedules")) {
 			return Set.of();
 		}
-		Schedule.Loaded loaded = Schedule.load(root.get("schedules"), new Schedule.Datapoints() {
-			@Override
-			public ValueType type(String name) {
-				return datapointType(name);
-			}
-
-			@Override
-			public String owner(String name) {
-				int index = datapointIndex(name);
-				return index < 0 ? null : _owners.get(index);
-			}
-		});
+		Schedule.Loaded loaded = Schedule.load(root.get("schedules"), directory());
 		for (Schedule.Refusal refusal : loaded.refusals()) {
 			_report.add(Kind.INVALID, refusal.path(), refusal.reason());
 		}
@@ -210,18 +247,7 @@ public final class ImageValidator {
 			return;
 		}
 		try {
-			RuleLoader.load(root.get("rules"), new RuleLoader.DatapointDirectory() {
-				@Override
-				public ValueType type(String name) {
-					return datapointType(name);
-				}
-
-				@Override
-				public boolean writable(String name) {
-					int index = datapointIndex(name);
-					return index >= 0 && _writable.get(index).booleanValue();
-				}
-			}, schedules::contains);
+			RuleLoader.load(root.get("rules"), directory(), schedules::contains);
 		} catch (LoadException ex) {
 			RuleLoader.Refusal refusal = ex.getRefusal();
 			_report.add(Kind.INVALID, refusal.path(),

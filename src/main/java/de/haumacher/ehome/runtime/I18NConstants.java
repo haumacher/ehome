@@ -346,6 +346,31 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 ERROR_DISCOVERY_UNKNOWN_INTERFACE__NAME;
 
+	/**
+	 * @en New rule
+	 */
+	public static ResKey NEW_RULE_NAME;
+
+	/**
+	 * @en New schedule entry
+	 */
+	public static ResKey NEW_SCHEDULE_LABEL;
+
+	/**
+	 * @en The image holds {0} rules and {1} schedule entries.
+	 */
+	public static ResKey2 EXPORT_AUTOMATION__RULES_SCHEDULES;
+
+	/**
+	 * @en The controller would refuse this: {0}
+	 */
+	public static ResKey1 RULE_REFUSED__REASON;
+
+	/**
+	 * @en Not in the rule language: {0}
+	 */
+	public static ResKey1 RULE_SYNTAX__REASON;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

@@ -92,6 +92,22 @@
 					ordered="true"
 					type="ehome.runtime:Function"
 				/>
+				<!-- The rules of the runtime image (haumacher/ehome #57), ordered by their attribute order. -->
+				<reference name="rules"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:Rule"
+				/>
+				<!-- The entries of the schedule of the runtime image (haumacher/ehome #57), in the image order. -->
+				<reference name="schedules"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:ScheduleEntry"
+				/>
 				<!-- The proposed functions the user deleted, which the proposal does not bring back (haumacher/ehome #49). -->
 				<reference name="dismissedProposals"
 					composite="true"

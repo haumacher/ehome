@@ -1,0 +1,1087 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The rules of a project (haumacher/ehome #57, homecontrol spec/rules.md): what the HomeControl
+	controller does on its own. A rule has adjustable parameters, timers, optional states (a state
+	machine) and reactions; a reaction has triggers, an optional condition, actions and else actions,
+	and in a rule with states the states it applies in and the state it leads to. The rules are part
+	of the runtime image (Deployment tab), in the order of their "Order".
+
+	Conditions, values, durations and log messages are expressions of the rule language, written as
+	text (@"1/2/3" names the datapoint of a group address, $id a parameter, running(t) a timer);
+	parameter values are literals (3min, 21.5, 06:30). Each field is checked while it is edited as the
+	controller would check it (de.haumacher.ehome.runtime.RuleExport): a text that is not in the
+	language is an error, a refusal of the controller (a type error, an unknown timer, a datapoint that
+	is not writable) a warning with the controller's reason. "Datapoints" lists the datapoints of the
+	project's image that expressions and actions may name.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="rule"/>
+		<channel name="parameter"/>
+		<channel name="timer"/>
+		<channel name="state"/>
+		<channel name="reaction"/>
+		<channel name="trigger"/>
+		<derived-channel name="thenList"
+			expr="x -> 'actions'"
+			inputs="reaction"
+		/>
+		<derived-channel name="elseList"
+			expr="x -> 'elseActions'"
+			inputs="reaction"
+		/>
+		<derived-channel name="entryList"
+			expr="x -> 'entry'"
+			inputs="state"
+		/>
+		<derived-channel name="exitList"
+			expr="x -> 'exit'"
+			inputs="state"
+		/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				size="30"
+				unit="%"
+			>
+				<split-panel
+					orientation="vertical"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="55"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Rules</en>
+									<de>Regeln</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:bi bi-plus-lg"
+										input="project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>New rule</en>
+											<de>Neue Regel</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+										</executability>
+										<with-transaction>
+											<execute-script function="o -> ruleCreate($o, 'rules', `ehome.runtime:Rule`)"/>
+										</with-transaction>
+										<write-channel name="rule"/>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-trash"
+										input="rule"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Delete</en>
+											<de>Löschen</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<confirm expr="x -> #('Delete the rule with its reactions?'@en, 'Die Regel mit ihren Reaktionen löschen?'@de)"/>
+										<delete-object/>
+										<write-channel name="rule"/>
+									</generic-command>
+								</commands>
+								<table
+									observed-types="ehome.runtime:Rule"
+									selection="rule"
+									types="ehome.runtime:Rule"
+								>
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+									<columns>
+										<column attribute="order"/>
+										<column attribute="name"/>
+										<column attribute="identifier"/>
+										<column attribute="enabled"/>
+									</columns>
+									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#rules`))</rows>
+								</table>
+							</panel>
+						</pane>
+						<pane
+							size="45"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Datapoints</en>
+									<de>Datenpunkte</de>
+								</title>
+								<table>
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+									<columns>
+										<computed-column name="id"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Id</en>
+												<de>Id</de>
+											</label>
+											<value>row -> toString('@"', $row["id"], '"')</value>
+										</computed-column>
+										<computed-column name="label"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Name</en>
+												<de>Name</de>
+											</label>
+											<value>row -> $row["label"]</value>
+										</computed-column>
+										<computed-column name="type"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Type</en>
+												<de>Typ</de>
+											</label>
+											<value>row -> $row["type"]</value>
+										</computed-column>
+										<computed-column name="writable"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Writable</en>
+												<de>Schreibbar</de>
+											</label>
+											<value>row -> if($row["writable"] == true, '✓', '')</value>
+										</computed-column>
+									</columns>
+									<rows>p -> ruleDatapoints($p)</rows>
+								</table>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
+			</pane>
+			<pane
+				size="70"
+				unit="%"
+			>
+				<tab-bar active-tab="reactions">
+					<tabs>
+						<tab id="rule"
+							icon="css:bi bi-diagram-3"
+						>
+							<label>
+								<en>Rule</en>
+								<de>Regel</de>
+							</label>
+							<panel>
+								<title>
+									<en>Rule</en>
+									<de>Regel</de>
+								</title>
+								<form
+									input="rule"
+									with-inset="true"
+								>
+									<field attribute="name"/>
+									<field attribute="identifier"/>
+									<field attribute="order"/>
+									<field attribute="enabled"/>
+									<field attribute="enabledAdjustable"/>
+									<field attribute="initialState"/>
+									<field attribute="description"/>
+								</form>
+							</panel>
+						</tab>
+						<tab id="reactions"
+							icon="css:bi bi-arrow-right-circle"
+						>
+							<label>
+								<en>Reactions</en>
+								<de>Reaktionen</de>
+							</label>
+							<split-panel
+								orientation="horizontal"
+								resizable="true"
+							>
+								<panes>
+									<pane
+										size="45"
+										unit="%"
+									>
+										<panel>
+											<title>
+												<en>Reactions</en>
+												<de>Reaktionen</de>
+											</title>
+											<commands>
+												<generic-command
+													image="css:bi bi-plus-lg"
+													input="rule"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>New reaction</en>
+														<de>Neue Reaktion</de>
+													</label>
+													<executability>
+														<model-access operation="Write"/>
+														<null-input-disabled/>
+													</executability>
+													<with-transaction>
+														<execute-script function="o -> ruleCreate($o, 'reactions', `ehome.runtime:Reaction`)"/>
+													</with-transaction>
+													<write-channel name="reaction"/>
+												</generic-command>
+												<generic-command
+													image="css:bi bi-trash"
+													input="reaction"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Delete</en>
+														<de>Löschen</de>
+													</label>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<confirm expr="x -> #('Delete the reaction?'@en, 'Die Reaktion löschen?'@de)"/>
+													<delete-object/>
+													<write-channel name="reaction"/>
+												</generic-command>
+												<generic-command
+													clique="edit"
+													image="css:bi bi-arrow-up"
+													input="reaction"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Move up</en>
+														<de>Nach oben</de>
+													</label>
+													<executability>
+														<model-access operation="Write"/>
+														<null-input-disabled/>
+														<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="x -> ruleMove($x, -1)"/>
+													</with-transaction>
+												</generic-command>
+												<generic-command
+													clique="edit"
+													image="css:bi bi-arrow-down"
+													input="reaction"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Move down</en>
+														<de>Nach unten</de>
+													</label>
+													<executability>
+														<model-access operation="Write"/>
+														<null-input-disabled/>
+														<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="x -> ruleMove($x, 1)"/>
+													</with-transaction>
+												</generic-command>
+											</commands>
+											<split-panel
+												orientation="vertical"
+												resizable="true"
+											>
+												<panes>
+													<pane
+														size="55"
+														unit="%"
+													>
+														<table
+															observed-types="ehome.runtime:Reaction,ehome.runtime:Trigger,ehome.runtime:Rule"
+															selection="reaction"
+															types="ehome.runtime:Reaction"
+														>
+															<inputs>
+																<input channel="rule"/>
+															</inputs>
+															<columns>
+																<computed-column name="summary"
+																	type="tl.core:String"
+																>
+																	<label>
+																		<en>Reaction</en>
+																		<de>Reaktion</de>
+																	</label>
+																	<value>x -> ruleSummary($x)</value>
+																</computed-column>
+															</columns>
+															<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Rule#reactions`))</rows>
+														</table>
+													</pane>
+													<pane
+														size="45"
+														unit="%"
+													>
+														<form
+															input="reaction"
+															with-inset="true"
+														>
+															<field attribute="condition"/>
+															<field attribute="from"/>
+															<field attribute="to"/>
+														</form>
+													</pane>
+												</panes>
+											</split-panel>
+										</panel>
+									</pane>
+									<pane
+										size="55"
+										unit="%"
+									>
+										<tab-bar active-tab="triggers">
+											<tabs>
+												<tab id="triggers"
+													icon="css:bi bi-lightning-charge"
+												>
+													<label>
+														<en>Triggers</en>
+														<de>Auslöser</de>
+													</label>
+													<panel>
+														<title>
+															<en>Triggers</en>
+															<de>Auslöser</de>
+														</title>
+														<commands>
+															<generic-command
+																clique="new"
+																image="css:bi bi-broadcast"
+																input="reaction"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Datapoint trigger</en>
+																	<de>Datenpunkt-Auslöser</de>
+																</label>
+																<executability>
+																	<model-access operation="Write"/>
+																	<null-input-disabled/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:DatapointTrigger`)"/>
+																</with-transaction>
+																<write-channel name="trigger"/>
+															</generic-command>
+															<generic-command
+																clique="new"
+																image="css:bi bi-check2-square"
+																input="reaction"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Condition trigger</en>
+																	<de>Bedingungs-Auslöser</de>
+																</label>
+																<executability>
+																	<model-access operation="Write"/>
+																	<null-input-disabled/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:MatchTrigger`)"/>
+																</with-transaction>
+																<write-channel name="trigger"/>
+															</generic-command>
+															<generic-command
+																clique="new"
+																image="css:bi bi-stopwatch"
+																input="reaction"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Timer trigger</en>
+																	<de>Timer-Auslöser</de>
+																</label>
+																<executability>
+																	<model-access operation="Write"/>
+																	<null-input-disabled/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:TimerTrigger`)"/>
+																</with-transaction>
+																<write-channel name="trigger"/>
+															</generic-command>
+															<generic-command
+																clique="new"
+																image="css:bi bi-calendar-event"
+																input="reaction"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Schedule trigger</en>
+																	<de>Zeitplan-Auslöser</de>
+																</label>
+																<executability>
+																	<model-access operation="Write"/>
+																	<null-input-disabled/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:ScheduleTrigger`)"/>
+																</with-transaction>
+																<write-channel name="trigger"/>
+															</generic-command>
+															<generic-command
+																clique="new"
+																image="css:bi bi-sliders"
+																input="reaction"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Parameter trigger</en>
+																	<de>Parameter-Auslöser</de>
+																</label>
+																<executability>
+																	<model-access operation="Write"/>
+																	<null-input-disabled/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:ParameterTrigger`)"/>
+																</with-transaction>
+																<write-channel name="trigger"/>
+															</generic-command>
+															<generic-command
+																clique="new"
+																image="css:bi bi-power"
+																input="reaction"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Start trigger</en>
+																	<de>Start-Auslöser</de>
+																</label>
+																<executability>
+																	<model-access operation="Write"/>
+																	<null-input-disabled/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:StartTrigger`)"/>
+																</with-transaction>
+																<write-channel name="trigger"/>
+															</generic-command>
+															<generic-command
+																image="css:bi bi-trash"
+																input="trigger"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Delete</en>
+																	<de>Löschen</de>
+																</label>
+																<executability>
+																	<null-input-disabled/>
+																</executability>
+																<confirm expr="x -> #('Delete the trigger?'@en, 'Den Auslöser löschen?'@de)"/>
+																<delete-object/>
+																<write-channel name="trigger"/>
+															</generic-command>
+															<generic-command
+																clique="edit"
+																image="css:bi bi-arrow-up"
+																input="trigger"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Move up</en>
+																	<de>Nach oben</de>
+																</label>
+																<executability>
+																	<model-access operation="Write"/>
+																	<null-input-disabled/>
+																	<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="x -> ruleMove($x, -1)"/>
+																</with-transaction>
+															</generic-command>
+															<generic-command
+																clique="edit"
+																image="css:bi bi-arrow-down"
+																input="trigger"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Move down</en>
+																	<de>Nach unten</de>
+																</label>
+																<executability>
+																	<model-access operation="Write"/>
+																	<null-input-disabled/>
+																	<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="x -> ruleMove($x, 1)"/>
+																</with-transaction>
+															</generic-command>
+														</commands>
+														<split-panel
+															orientation="vertical"
+															resizable="true"
+														>
+															<panes>
+																<pane
+																	size="45"
+																	unit="%"
+																>
+																	<table
+																		observed-types="ehome.runtime:Trigger,ehome.runtime:Reaction"
+																		selection="trigger"
+																		types="ehome.runtime:Trigger"
+																	>
+																		<inputs>
+																			<input channel="reaction"/>
+																		</inputs>
+																		<columns>
+																			<computed-column name="summary"
+																				type="tl.core:String"
+																			>
+																				<label>
+																					<en>Trigger</en>
+																					<de>Auslöser</de>
+																				</label>
+																				<value>x -> ruleSummary($x)</value>
+																			</computed-column>
+																		</columns>
+																		<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Reaction#triggers`))</rows>
+																	</table>
+																</pane>
+																<pane
+																	size="55"
+																	unit="%"
+																>
+																	<form
+																		input="trigger"
+																		with-inset="true"
+																	>
+																		<field attribute="datapoint"/>
+																		<field attribute="on"/>
+																		<field attribute="origin"/>
+																		<field attribute="condition"/>
+																		<field attribute="timer"/>
+																		<field attribute="schedule"/>
+																		<field attribute="parameter"/>
+																		<field attribute="onBoot"/>
+																		<field attribute="onImage"/>
+																		<field attribute="onEnable"/>
+																	</form>
+																</pane>
+															</panes>
+														</split-panel>
+													</panel>
+												</tab>
+												<tab id="then"
+													icon="css:bi bi-check-circle"
+												>
+													<label>
+														<en>Then</en>
+														<de>Dann</de>
+													</label>
+													<view-ref view="projects/rule-actions.view.xml">
+														<bind
+															channel="owner"
+															to="reaction"
+														/>
+														<bind
+															channel="listName"
+															to="thenList"
+														/>
+													</view-ref>
+												</tab>
+												<tab id="else"
+													icon="css:bi bi-x-circle"
+												>
+													<label>
+														<en>Else</en>
+														<de>Sonst</de>
+													</label>
+													<view-ref view="projects/rule-actions.view.xml">
+														<bind
+															channel="owner"
+															to="reaction"
+														/>
+														<bind
+															channel="listName"
+															to="elseList"
+														/>
+													</view-ref>
+												</tab>
+											</tabs>
+										</tab-bar>
+									</pane>
+								</panes>
+							</split-panel>
+						</tab>
+						<tab id="parameters"
+							icon="css:bi bi-sliders"
+						>
+							<label>
+								<en>Parameters</en>
+								<de>Parameter</de>
+							</label>
+							<panel>
+								<title>
+									<en>Parameters</en>
+									<de>Parameter</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:bi bi-plus-lg"
+										input="rule"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>New parameter</en>
+											<de>Neuer Parameter</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+										</executability>
+										<with-transaction>
+											<execute-script function="o -> ruleCreate($o, 'parameters', `ehome.runtime:RuleParameter`)"/>
+										</with-transaction>
+										<write-channel name="parameter"/>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-trash"
+										input="parameter"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Delete</en>
+											<de>Löschen</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<confirm expr="x -> #('Delete the parameter?'@en, 'Den Parameter löschen?'@de)"/>
+										<delete-object/>
+										<write-channel name="parameter"/>
+									</generic-command>
+									<generic-command
+										clique="edit"
+										image="css:bi bi-arrow-up"
+										input="parameter"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Move up</en>
+											<de>Nach oben</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+											<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+										</executability>
+										<with-transaction>
+											<execute-script function="x -> ruleMove($x, -1)"/>
+										</with-transaction>
+									</generic-command>
+									<generic-command
+										clique="edit"
+										image="css:bi bi-arrow-down"
+										input="parameter"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Move down</en>
+											<de>Nach unten</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+											<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+										</executability>
+										<with-transaction>
+											<execute-script function="x -> ruleMove($x, 1)"/>
+										</with-transaction>
+									</generic-command>
+								</commands>
+								<split-panel
+									orientation="vertical"
+									resizable="true"
+								>
+									<panes>
+										<pane
+											size="45"
+											unit="%"
+										>
+											<table
+												observed-types="ehome.runtime:RuleParameter,ehome.runtime:Rule"
+												selection="parameter"
+												types="ehome.runtime:RuleParameter"
+											>
+												<inputs>
+													<input channel="rule"/>
+												</inputs>
+												<columns>
+													<column attribute="identifier"/>
+													<column attribute="label"/>
+													<column attribute="type"/>
+													<column attribute="default"/>
+												</columns>
+												<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Rule#parameters`))</rows>
+											</table>
+										</pane>
+										<pane
+											size="55"
+											unit="%"
+										>
+											<form
+												input="parameter"
+												with-inset="true"
+											>
+												<field attribute="identifier"/>
+												<field attribute="label"/>
+												<field attribute="type"/>
+												<field attribute="default"/>
+												<field attribute="min"/>
+												<field attribute="max"/>
+												<field attribute="step"/>
+												<field attribute="unit"/>
+												<field attribute="choices"/>
+												<field attribute="adjustable"/>
+											</form>
+										</pane>
+									</panes>
+								</split-panel>
+							</panel>
+						</tab>
+						<tab id="timers"
+							icon="css:bi bi-stopwatch"
+						>
+							<label>
+								<en>Timers</en>
+								<de>Timer</de>
+							</label>
+							<panel>
+								<title>
+									<en>Timers</en>
+									<de>Timer</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:bi bi-plus-lg"
+										input="rule"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>New timer</en>
+											<de>Neuer Timer</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+										</executability>
+										<with-transaction>
+											<execute-script function="o -> ruleCreate($o, 'timers', `ehome.runtime:RuleTimer`)"/>
+										</with-transaction>
+										<write-channel name="timer"/>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-trash"
+										input="timer"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Delete</en>
+											<de>Löschen</de>
+										</label>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<confirm expr="x -> #('Delete the timer?'@en, 'Den Timer löschen?'@de)"/>
+										<delete-object/>
+										<write-channel name="timer"/>
+									</generic-command>
+									<generic-command
+										clique="edit"
+										image="css:bi bi-arrow-up"
+										input="timer"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Move up</en>
+											<de>Nach oben</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+											<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+										</executability>
+										<with-transaction>
+											<execute-script function="x -> ruleMove($x, -1)"/>
+										</with-transaction>
+									</generic-command>
+									<generic-command
+										clique="edit"
+										image="css:bi bi-arrow-down"
+										input="timer"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Move down</en>
+											<de>Nach unten</de>
+										</label>
+										<executability>
+											<model-access operation="Write"/>
+											<null-input-disabled/>
+											<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+										</executability>
+										<with-transaction>
+											<execute-script function="x -> ruleMove($x, 1)"/>
+										</with-transaction>
+									</generic-command>
+								</commands>
+								<split-panel
+									orientation="vertical"
+									resizable="true"
+								>
+									<panes>
+										<pane
+											size="45"
+											unit="%"
+										>
+											<table
+												observed-types="ehome.runtime:RuleTimer,ehome.runtime:Rule"
+												selection="timer"
+												types="ehome.runtime:RuleTimer"
+											>
+												<inputs>
+													<input channel="rule"/>
+												</inputs>
+												<columns>
+													<column attribute="identifier"/>
+													<column attribute="duration"/>
+												</columns>
+												<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Rule#timers`))</rows>
+											</table>
+										</pane>
+										<pane
+											size="55"
+											unit="%"
+										>
+											<form
+												input="timer"
+												with-inset="true"
+											>
+												<field attribute="identifier"/>
+												<field attribute="duration"/>
+											</form>
+										</pane>
+									</panes>
+								</split-panel>
+							</panel>
+						</tab>
+						<tab id="states"
+							icon="css:bi bi-circle"
+						>
+							<label>
+								<en>States</en>
+								<de>Zustände</de>
+							</label>
+							<split-panel
+								orientation="horizontal"
+								resizable="true"
+							>
+								<panes>
+									<pane
+										size="40"
+										unit="%"
+									>
+										<panel>
+											<title>
+												<en>States</en>
+												<de>Zustände</de>
+											</title>
+											<commands>
+												<generic-command
+													image="css:bi bi-plus-lg"
+													input="rule"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>New state</en>
+														<de>Neuer Zustand</de>
+													</label>
+													<executability>
+														<model-access operation="Write"/>
+														<null-input-disabled/>
+													</executability>
+													<with-transaction>
+														<execute-script function="o -> ruleCreate($o, 'states', `ehome.runtime:RuleState`)"/>
+													</with-transaction>
+													<write-channel name="state"/>
+												</generic-command>
+												<generic-command
+													image="css:bi bi-trash"
+													input="state"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Delete</en>
+														<de>Löschen</de>
+													</label>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<confirm expr="x -> #('Delete the state?'@en, 'Den Zustand löschen?'@de)"/>
+													<delete-object/>
+													<write-channel name="state"/>
+												</generic-command>
+												<generic-command
+													clique="edit"
+													image="css:bi bi-arrow-up"
+													input="state"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Move up</en>
+														<de>Nach oben</de>
+													</label>
+													<executability>
+														<model-access operation="Write"/>
+														<null-input-disabled/>
+														<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="x -> ruleMove($x, -1)"/>
+													</with-transaction>
+												</generic-command>
+												<generic-command
+													clique="edit"
+													image="css:bi bi-arrow-down"
+													input="state"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Move down</en>
+														<de>Nach unten</de>
+													</label>
+													<executability>
+														<model-access operation="Write"/>
+														<null-input-disabled/>
+														<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="x -> ruleMove($x, 1)"/>
+													</with-transaction>
+												</generic-command>
+											</commands>
+											<split-panel
+												orientation="vertical"
+												resizable="true"
+											>
+												<panes>
+													<pane
+														size="45"
+														unit="%"
+													>
+														<table
+															observed-types="ehome.runtime:RuleState,ehome.runtime:Rule"
+															selection="state"
+															types="ehome.runtime:RuleState"
+														>
+															<inputs>
+																<input channel="rule"/>
+															</inputs>
+															<columns>
+																<column attribute="identifier"/>
+															</columns>
+															<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Rule#states`))</rows>
+														</table>
+													</pane>
+													<pane
+														size="55"
+														unit="%"
+													>
+														<form
+															input="state"
+															with-inset="true"
+														>
+															<field attribute="identifier"/>
+														</form>
+													</pane>
+												</panes>
+											</split-panel>
+										</panel>
+									</pane>
+									<pane
+										size="60"
+										unit="%"
+									>
+										<tab-bar active-tab="entry">
+											<tabs>
+												<tab id="entry"
+													icon="css:bi bi-box-arrow-in-right"
+												>
+													<label>
+														<en>Entry</en>
+														<de>Eintritt</de>
+													</label>
+													<view-ref view="projects/rule-actions.view.xml">
+														<bind
+															channel="owner"
+															to="state"
+														/>
+														<bind
+															channel="listName"
+															to="entryList"
+														/>
+													</view-ref>
+												</tab>
+												<tab id="exit"
+													icon="css:bi bi-box-arrow-right"
+												>
+													<label>
+														<en>Exit</en>
+														<de>Austritt</de>
+													</label>
+													<view-ref view="projects/rule-actions.view.xml">
+														<bind
+															channel="owner"
+															to="state"
+														/>
+														<bind
+															channel="listName"
+															to="exitList"
+														/>
+													</view-ref>
+												</tab>
+											</tabs>
+										</tab-bar>
+									</pane>
+								</panes>
+							</split-panel>
+						</tab>
+					</tabs>
+				</tab-bar>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

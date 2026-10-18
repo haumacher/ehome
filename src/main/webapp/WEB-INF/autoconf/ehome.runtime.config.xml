@@ -4,7 +4,8 @@
 	Deployment of runtime images to HomeControl controllers (haumacher/ehome #39, package
 	de.haumacher.ehome.runtime): the model of the controllers, deployments and functions, and the
 	TL-Script functions of the views controllers.view.xml, projects/deployment.view.xml,
-	projects/functions.view.xml and of the runtime settings in the model.
+	projects/functions.view.xml, projects/rules.view.xml and of the runtime settings and the
+	rules in the model.
 -->
 <application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
@@ -47,6 +48,13 @@
 					<method name="datapointReadOnStart" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="datapointUnit" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="datapointFlagsSource" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<!-- Rules and schedules (haumacher/ehome #57, de.haumacher.ehome.runtime.RuleFunctions). -->
+					<method name="ruleSummary" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleList" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleCreate" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleMove" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleMoveVeto" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleDatapoints" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

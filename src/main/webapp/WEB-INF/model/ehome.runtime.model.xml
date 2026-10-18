@@ -617,5 +617,1067 @@
 				/>
 			</attributes>
 		</class>
+		<!--
+			Rules and schedules of the runtime image (haumacher/ehome #57, homecontrol spec/rules.md and
+			spec/schedules.md), authored in E-Home. The model stores what the user edits: a rule with its
+			parameters, timers, states and reactions, the triggers and actions of a reaction and the
+			entries of the schedule. Expressions (conditions, values, durations, log messages) are stored as
+			the canonical text of the expression language (de.haumacher.ehome.rules.RuleText), the literal
+			values of parameters and schedule entries as literals of the language (3min, 21.5, 06:30);
+			references to datapoints, timers, parameters and schedules as the ids of the image. The export
+			(de.haumacher.ehome.runtime.RuleExport) parses them into the JSON AST of the image; each field
+			is checked while it is edited by the controller's loader (de.haumacher.ehome.rules.RuleLoader,
+			Schedule), its refusal shown at the field.
+		-->
+		<!-- The type of a rule parameter (spec/rules.md 8.1). -->
+		<enum name="RuleParameterType">
+			<classifier name="boolean"/>
+			<classifier name="integer"/>
+			<classifier name="real" default="true"/>
+			<classifier name="string"/>
+			<classifier name="duration"/>
+			<classifier name="timeOfDay"/>
+			<classifier name="enumeration"/>
+			<classifier name="color"/>
+		</enum>
+		<!-- Which updates of a datapoint trigger a reaction: changes only or every update. -->
+		<enum name="UpdateKind">
+			<classifier name="change" default="true"/>
+			<classifier name="update"/>
+		</enum>
+		<!-- Where the update of a datapoint that triggers a reaction comes from. -->
+		<enum name="UpdateOrigin">
+			<classifier name="any" default="true"/>
+			<classifier name="report"/>
+			<classifier name="command"/>
+		</enum>
+		<!-- The level of a log action. -->
+		<enum name="LogLevel">
+			<classifier name="info" default="true"/>
+			<classifier name="warning"/>
+			<classifier name="error"/>
+		</enum>
+		<!-- What a schedule entry does with a missed firing (spec/schedules.md 4.3). -->
+		<enum name="MissedFiring">
+			<classifier name="skip" default="true"/>
+			<classifier name="catchUp"/>
+		</enum>
+		<!-- The sun event of an astronomical schedule entry. -->
+		<enum name="SunEvent">
+			<classifier name="dawn"/>
+			<classifier name="sunrise"/>
+			<classifier name="sunset" default="true"/>
+			<classifier name="dusk"/>
+		</enum>
+		<!-- A day of the week. -->
+		<enum name="Weekday">
+			<classifier name="monday"/>
+			<classifier name="tuesday"/>
+			<classifier name="wednesday"/>
+			<classifier name="thursday"/>
+			<classifier name="friday"/>
+			<classifier name="saturday"/>
+			<classifier name="sunday"/>
+		</enum>
+		<!-- A rule of the runtime image (spec/rules.md 2.2): reactions sharing parameters, timers and states. -->
+		<class name="Rule">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-diagram-3"/>
+			</annotations>
+			<attributes>
+				<!-- The stable id of the rule in the image (1..32 of A-Z a-z 0-9 _ -); the key of its state, timers and parameter values on the controller. -->
+				<property name="identifier"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The name the controller shows; the image carries it in one language. -->
+				<property name="name"
+					mandatory="true"
+					type="tl.model.i18n:I18NString"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- What the rule does, for people; exported, ignored by the controller. -->
+				<property name="description"
+					type="tl.core:Text"
+				/>
+				<!-- The position of the rule in the rule order of the image: rules are considered for every event in this order, lowest first. -->
+				<property name="order"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The default of the enable switch. -->
+				<property name="enabled"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may switch the rule on and off. -->
+				<property name="enabledAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+				<!-- The adjustable parameters of the rule. -->
+				<reference name="parameters"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="RuleParameter"
+				/>
+				<!-- The timers of the rule. -->
+				<reference name="timers"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="RuleTimer"
+				/>
+				<!-- The states of a rule with states (a state machine). -->
+				<reference name="states"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="RuleState"
+				/>
+				<!-- The state the rule starts in without a preserved state; required with states. -->
+				<reference name="initialState"
+					kind="forwards"
+					type="RuleState"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[r -> $r.get(`ehome.runtime:Rule#states`)]]></function>
+							</options-by-expression>
+						</options>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
+				<!-- The reactions of the rule, considered in this order. -->
+				<reference name="reactions"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Reaction"
+				/>
+			</attributes>
+		</class>
+		<!-- A parameter of a rule (spec/rules.md 8.1). -->
+		<class name="RuleParameter">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-sliders"/>
+				<id-column value="identifier"/>
+			</annotations>
+			<attributes>
+				<!-- The id of the parameter, referenced as $id in expressions. -->
+				<property name="identifier"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The label the controller shows (1..63 bytes). -->
+				<property name="label"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<reference name="type"
+					kind="forwards"
+					mandatory="true"
+					type="RuleParameterType"
+				/>
+				<!-- The default value, written as a literal of its type (3min, 21.5, true, 06:30). -->
+				<property name="default"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value (integer, real, duration, time of day), a literal. -->
+				<property name="min"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The largest value (integer, real, duration, time of day), a literal. -->
+				<property name="max"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- A hint for the controller's control: a number, or a duration for a duration parameter. -->
+				<property name="step"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The display unit (at most 15 bytes); for a duration the unit the controller edits in (s, min, h). -->
+				<property name="unit"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The values allowed (integer, string, enumeration), one per line: the value as a literal, "=", the label. -->
+				<property name="choices"
+					type="tl.core:Text"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change the value on the controller. -->
+				<property name="adjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- A timer of a rule (spec/rules.md 2.5). -->
+		<class name="RuleTimer">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-stopwatch"/>
+				<id-column value="identifier"/>
+			</annotations>
+			<attributes>
+				<!-- The id of the timer. -->
+				<property name="identifier"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The duration a start without its own duration runs for: an expression of type duration. -->
+				<property name="duration"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- A state of a rule with states (spec/rules.md 2.6). -->
+		<class name="RuleState">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-circle"/>
+				<id-column value="identifier"/>
+			</annotations>
+			<attributes>
+				<!-- The id of the state. -->
+				<property name="identifier"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The actions run when the rule enters the state. -->
+				<reference name="entry"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Action"
+				/>
+				<!-- The actions run when the rule leaves the state. -->
+				<reference name="exit"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Action"
+				/>
+			</attributes>
+		</class>
+		<!-- A reaction of a rule (spec/rules.md 2.4): when one of the triggers matches and the condition holds, the actions run. -->
+		<class name="Reaction">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-arrow-right-circle"/>
+			</annotations>
+			<attributes>
+				<!-- The triggers; any one matching activates the reaction. -->
+				<reference name="triggers"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Trigger"
+				/>
+				<!-- The condition checked when the reaction is activated: a boolean expression; empty for always. -->
+				<property name="condition"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The actions run when the condition is true. -->
+				<reference name="actions"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Action"
+				/>
+				<!-- The actions run when the condition is false (not when it has no value). -->
+				<reference name="elseActions"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Action"
+				/>
+				<!-- In a rule with states: the states the reaction applies in; empty for all. -->
+				<reference name="from"
+					kind="forwards"
+					multiple="true"
+					type="RuleState"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[r -> $r.container().get(`ehome.runtime:Rule#states`)]]></function>
+							</options-by-expression>
+						</options>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
+				<!-- In a rule with states: the state the reaction leads to (a transition). -->
+				<reference name="to"
+					kind="forwards"
+					type="RuleState"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[r -> $r.container().get(`ehome.runtime:Rule#states`)]]></function>
+							</options-by-expression>
+						</options>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+		<!-- What activates a reaction (spec/rules.md 2.3). -->
+		<class name="Trigger" abstract="true">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-lightning-charge"/>
+			</annotations>
+		</class>
+		<!-- An update of a datapoint. -->
+		<class name="DatapointTrigger">
+			<generalizations>
+				<generalization type="Trigger"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of the datapoint in the image (a group address in three levels, 1/2/3). -->
+				<property name="datapoint"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- Changes of value or quality only, or every update. -->
+				<reference name="on"
+					kind="forwards"
+					type="UpdateKind"
+				/>
+				<!-- Updates reported by the bus, commanded by the application, or any. -->
+				<reference name="origin"
+					kind="forwards"
+					type="UpdateOrigin"
+				/>
+			</attributes>
+		</class>
+		<!-- A condition becoming true. -->
+		<class name="MatchTrigger">
+			<generalizations>
+				<generalization type="Trigger"/>
+			</generalizations>
+			<attributes>
+				<!-- The condition whose becoming true triggers: a boolean expression without time, history, timer and state functions. -->
+				<property name="condition"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- The firing of a schedule entry. -->
+		<class name="ScheduleTrigger">
+			<generalizations>
+				<generalization type="Trigger"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of the schedule entry. -->
+				<property name="schedule"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- The expiry of a timer of the rule. -->
+		<class name="TimerTrigger">
+			<generalizations>
+				<generalization type="Trigger"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of a timer of the rule. -->
+				<property name="timer"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- The start of the rule. -->
+		<class name="StartTrigger">
+			<generalizations>
+				<generalization type="Trigger"/>
+			</generalizations>
+			<attributes>
+				<!-- After the controller booted. -->
+				<property name="onBoot"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+				<!-- After a new image was loaded. -->
+				<property name="onImage"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+				<!-- When the rule is switched on. -->
+				<property name="onEnable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- A change of a parameter of the rule. -->
+		<class name="ParameterTrigger">
+			<generalizations>
+				<generalization type="Trigger"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of a parameter of the rule. -->
+				<property name="parameter"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- What a reaction or a state does (spec/rules.md 2.7). -->
+		<class name="Action" abstract="true">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-play"/>
+			</annotations>
+		</class>
+		<!-- Commands a datapoint. -->
+		<class name="WriteAction">
+			<generalizations>
+				<generalization type="Action"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of the datapoint commanded (writable). -->
+				<property name="datapoint"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The value: an expression converting to the datapoint's type. -->
+				<property name="value"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- Nothing happens when the datapoint already has the value. -->
+				<property name="onlyOnChange"
+					type="tl.core:Boolean"
+				/>
+			</attributes>
+		</class>
+		<!-- Starts a timer if it is stopped. -->
+		<class name="StartTimerAction">
+			<generalizations>
+				<generalization type="Action"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of a timer of the rule. -->
+				<property name="timer"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The duration of this start: an expression of type duration; empty for the timer's own. -->
+				<property name="duration"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- Starts a timer, or restarts a running one. -->
+		<class name="RestartTimerAction">
+			<generalizations>
+				<generalization type="Action"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of a timer of the rule. -->
+				<property name="timer"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The duration of this start: an expression of type duration; empty for the timer's own. -->
+				<property name="duration"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- Stops a timer. -->
+		<class name="CancelTimerAction">
+			<generalizations>
+				<generalization type="Action"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of a timer of the rule. -->
+				<property name="timer"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- Sets a parameter of the rule. -->
+		<class name="SetParameterAction">
+			<generalizations>
+				<generalization type="Action"/>
+			</generalizations>
+			<attributes>
+				<!-- The id of a parameter of the rule. -->
+				<property name="parameter"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The value: an expression of the parameter's type. -->
+				<property name="value"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- Writes a log line. -->
+		<class name="LogAction">
+			<generalizations>
+				<generalization type="Action"/>
+			</generalizations>
+			<attributes>
+				<reference name="level"
+					kind="forwards"
+					type="LogLevel"
+				/>
+				<!-- The text; expressions in braces ({$timeout}), {{ and }} for braces. -->
+				<property name="message"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- An entry of the schedule (spec/schedules.md): moments in local time at which the rules with a schedule trigger on it react. -->
+		<class name="ScheduleEntry" abstract="true">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-calendar-event"/>
+				<id-column value="label"/>
+			</annotations>
+			<attributes>
+				<!-- The id of the entry in the image (1..32 of A-Z a-z 0-9 _ -), named by schedule triggers. -->
+				<property name="identifier"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The label the controller shows; the image carries it in one language. -->
+				<property name="label"
+					mandatory="true"
+					type="tl.model.i18n:I18NString"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The default of the enable switch. -->
+				<property name="enabled"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may switch the entry on and off. -->
+				<property name="enabledAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+				<!-- What happens to a firing missed while the controller was off. -->
+				<reference name="missed"
+					kind="forwards"
+					type="MissedFiring"
+				/>
+				<!-- A boolean datapoint without a group address the entry sets from a firing until midnight; empty for none. -->
+				<property name="output"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- On the given days of the week at a time. -->
+		<class name="WeeklySchedule">
+			<generalizations>
+				<generalization type="ScheduleEntry"/>
+			</generalizations>
+			<attributes>
+				<!-- The time of day (06:30). -->
+				<property name="time"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The days of the week; empty for every day. -->
+				<reference name="days"
+					kind="forwards"
+					multiple="true"
+					type="Weekday"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+		<!-- Every year on a date at a time. -->
+		<class name="YearlySchedule">
+			<generalizations>
+				<generalization type="ScheduleEntry"/>
+			</generalizations>
+			<attributes>
+				<!-- The month (1..12). -->
+				<property name="month"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The day of the month (1..31). -->
+				<property name="day"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The time of day (17:00). -->
+				<property name="time"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- On each of the given dates at a time. -->
+		<class name="DatesSchedule">
+			<generalizations>
+				<generalization type="ScheduleEntry"/>
+			</generalizations>
+			<attributes>
+				<!-- The dates (2027-01-08), separated by commas or lines. -->
+				<property name="dates"
+					type="tl.core:Text"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The time of day (06:15). -->
+				<property name="time"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- On the given days at a sun event plus an offset, within a time window. -->
+		<class name="AstroSchedule">
+			<generalizations>
+				<generalization type="ScheduleEntry"/>
+			</generalizations>
+			<attributes>
+				<reference name="sun"
+					kind="forwards"
+					mandatory="true"
+					type="SunEvent"
+				/>
+				<!-- The time added to the sun event, a duration in whole seconds (-30min); empty for none. -->
+				<property name="offset"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The earliest time of the firing; empty for none. -->
+				<property name="notBefore"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The latest time of the firing; empty for none. -->
+				<property name="notAfter"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The days of the week; empty for every day. -->
+				<reference name="days"
+					kind="forwards"
+					multiple="true"
+					type="Weekday"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+		<!-- On the given days every interval from a time up to a time. -->
+		<class name="IntervalSchedule">
+			<generalizations>
+				<generalization type="ScheduleEntry"/>
+			</generalizations>
+			<attributes>
+				<!-- The interval, a duration in whole minutes (15min). -->
+				<property name="every"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The first firing of a day (06:00). -->
+				<property name="from"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The latest firing of a day (22:00). -->
+				<property name="until"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The days of the week; empty for every day. -->
+				<reference name="days"
+					kind="forwards"
+					multiple="true"
+					type="Weekday"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+		<!-- Once at a date and time. -->
+		<class name="OnceSchedule">
+			<generalizations>
+				<generalization type="ScheduleEntry"/>
+			</generalizations>
+			<attributes>
+				<!-- The local date and time (2026-12-31T23:59:30). -->
+				<property name="at"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
 	</module>
 </model>

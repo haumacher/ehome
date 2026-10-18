@@ -66,8 +66,8 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * <li><code>knx.timeMaster</code>: the project's time, date and date-time addresses with the
  * interval and the flags (unset flags are written as the specification's default, true).</li>
  * <li><code>history</code>: the project's history budget, where set.</li>
- * <li><code>schedules</code> and <code>rules</code> are not authored in E-Home yet and left out (the
- * specification makes every member optional; a missing one means "none").</li>
+ * <li><code>schedules</code> and <code>rules</code>: the project's schedule entries and rules
+ * (haumacher/ehome #57, {@link RuleExport}), each member only where the project has some.</li>
  * </ul>
  *
  * <p>
@@ -109,6 +109,9 @@ public final class RuntimeImage {
 
 	private String _text;
 
+	/** The rules and schedules, with the objects their paths stem from. */
+	private final RuleExport _automation = new RuleExport();
+
 	private RuntimeImage() {
 		// See build().
 	}
@@ -124,6 +127,17 @@ public final class RuntimeImage {
 	 *        The time of the export.
 	 */
 	public static RuntimeImage build(TLObject project, long revision, Instant generatedAt) {
+		return build(project, revision, generatedAt, true);
+	}
+
+	/**
+	 * Derives the image of the given project, with or without its rules and schedules.
+	 *
+	 * @param automation
+	 *        Whether the image carries the rules and schedules; without, it serves to look up the
+	 *        datapoints the rules see ({@link RuleExport}).
+	 */
+	public static RuntimeImage build(TLObject project, long revision, Instant generatedAt, boolean automation) {
 		RuntimeImage result = new RuntimeImage();
 		result._project = project;
 		result.image(project, revision, generatedAt);
@@ -133,6 +147,9 @@ public final class RuntimeImage {
 		result.locations(project);
 		result.functions(project);
 		result.knx(project);
+		if (automation) {
+			result.automation(project);
+		}
 		result.history(project);
 		result._text = Json.write(result._json);
 		return result;
@@ -193,6 +210,10 @@ public final class RuntimeImage {
 		if (path.startsWith("settings") || path.startsWith("knx") || path.startsWith("history")) {
 			return _project;
 		}
+		if (path.startsWith("rules") || path.startsWith("schedules")) {
+			RuleExport.Source source = _automation.sourceAt(path);
+			return source == null ? null : source.object();
+		}
 		Matcher matcher = INDEXED.matcher(path);
 		if (!matcher.find()) {
 			return null;
@@ -215,7 +236,39 @@ public final class RuntimeImage {
 	 * Checks the image as the controller would (see {@link ImageValidator}).
 	 */
 	public ImageReport validate() {
-		return ImageValidator.validate(_text);
+		List<RuleExport.Problem> problems = _automation.getProblems();
+		ImageReport report = ImageValidator.validate(_text);
+		if (problems.isEmpty()) {
+			return report;
+		}
+		// The texts that do not parse first; the validator's refusals of the same values (a text where
+		// an expression is expected) would only repeat them.
+		ImageReport result = new ImageReport();
+		for (RuleExport.Problem problem : problems) {
+			result.add(ImageReport.Kind.INVALID, problem.path(), problem.reason());
+		}
+		for (ImageReport.Refusal refusal : report.getRefusals()) {
+			boolean repeated = false;
+			for (RuleExport.Problem problem : problems) {
+				repeated |= refusal.path().startsWith(problem.path());
+			}
+			if (!repeated) {
+				result.add(report.getKind() == ImageReport.Kind.NONE ? ImageReport.Kind.INVALID : report.getKind(),
+					refusal.path(), refusal.reason());
+			}
+		}
+		for (String note : report.getNotes()) {
+			result.note(note);
+		}
+		return result;
+	}
+
+	/**
+	 * The texts of the rules and schedules that do not parse (they are refused by
+	 * {@link #validate()}).
+	 */
+	public List<RuleExport.Problem> getProblems() {
+		return _automation.getProblems();
 	}
 
 	/**
@@ -581,6 +634,19 @@ public final class RuntimeImage {
 			id = threeLevel(ga.getValue());
 		}
 		return id;
+	}
+
+	// ---- schedules and rules -----------------------------------------------------------------
+
+	private void automation(TLObject project) {
+		List<Object> schedules = _automation.schedules(project);
+		if (schedules != null) {
+			_json.put("schedules", schedules);
+		}
+		List<Object> rules = _automation.rules(project);
+		if (rules != null) {
+			_json.put("rules", rules);
+		}
 	}
 
 	// ---- history -----------------------------------------------------------------------------

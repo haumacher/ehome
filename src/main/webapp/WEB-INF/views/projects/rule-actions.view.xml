@@ -1,0 +1,269 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	An action list of a rule (haumacher/ehome #57): the actions of a reaction (then, else) or the entry
+	and exit actions of a state. "owner" is the reaction or state, "listName" the name of its reference
+	holding the list (actions, elseActions, entry, exit). The actions run in the order of the list;
+	"Move up" and "Move down" change it. The form shows the fields of the selected action's kind;
+	expressions are written in the rule language (de.haumacher.ehome.rules.RuleText) and checked as the
+	controller would check them, the reason shown at the field.
+-->
+<view>
+	<channels>
+		<channel name="owner"/>
+		<channel name="listName"/>
+		<channel name="action"/>
+	</channels>
+	<panel>
+		<title>
+			<en>Actions</en>
+			<de>Aktionen</de>
+		</title>
+		<commands>
+			<generic-command
+				clique="new"
+				image="css:bi bi-pencil"
+				input="owner"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Write</en>
+					<de>Schreiben</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+				</executability>
+				<with-transaction>
+					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:WriteAction`)">
+						<inputs>
+							<input channel="listName"/>
+						</inputs>
+					</execute-script>
+				</with-transaction>
+				<write-channel name="action"/>
+			</generic-command>
+			<generic-command
+				clique="new"
+				image="css:bi bi-play"
+				input="owner"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Start timer</en>
+					<de>Timer starten</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+				</executability>
+				<with-transaction>
+					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:StartTimerAction`)">
+						<inputs>
+							<input channel="listName"/>
+						</inputs>
+					</execute-script>
+				</with-transaction>
+				<write-channel name="action"/>
+			</generic-command>
+			<generic-command
+				clique="new"
+				image="css:bi bi-arrow-repeat"
+				input="owner"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Restart timer</en>
+					<de>Timer neu starten</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+				</executability>
+				<with-transaction>
+					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:RestartTimerAction`)">
+						<inputs>
+							<input channel="listName"/>
+						</inputs>
+					</execute-script>
+				</with-transaction>
+				<write-channel name="action"/>
+			</generic-command>
+			<generic-command
+				clique="new"
+				image="css:bi bi-stop"
+				input="owner"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Cancel timer</en>
+					<de>Timer abbrechen</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+				</executability>
+				<with-transaction>
+					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:CancelTimerAction`)">
+						<inputs>
+							<input channel="listName"/>
+						</inputs>
+					</execute-script>
+				</with-transaction>
+				<write-channel name="action"/>
+			</generic-command>
+			<generic-command
+				clique="new"
+				image="css:bi bi-sliders"
+				input="owner"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Set parameter</en>
+					<de>Parameter setzen</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+				</executability>
+				<with-transaction>
+					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:SetParameterAction`)">
+						<inputs>
+							<input channel="listName"/>
+						</inputs>
+					</execute-script>
+				</with-transaction>
+				<write-channel name="action"/>
+			</generic-command>
+			<generic-command
+				clique="new"
+				image="css:bi bi-journal-text"
+				input="owner"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Log</en>
+					<de>Protokollieren</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+				</executability>
+				<with-transaction>
+					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:LogAction`)">
+						<inputs>
+							<input channel="listName"/>
+						</inputs>
+					</execute-script>
+				</with-transaction>
+				<write-channel name="action"/>
+			</generic-command>
+			<generic-command
+				image="css:bi bi-trash"
+				input="action"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Delete</en>
+					<de>Löschen</de>
+				</label>
+				<executability>
+					<null-input-disabled/>
+				</executability>
+				<confirm expr="x -> #('Delete the action?'@en, 'Die Aktion löschen?'@de)"/>
+				<delete-object/>
+				<write-channel name="action"/>
+			</generic-command>
+			<generic-command
+				clique="edit"
+				image="css:bi bi-arrow-up"
+				input="action"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Move up</en>
+					<de>Nach oben</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+					<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+				</executability>
+				<with-transaction>
+					<execute-script function="x -> ruleMove($x, -1)"/>
+				</with-transaction>
+			</generic-command>
+			<generic-command
+				clique="edit"
+				image="css:bi bi-arrow-down"
+				input="action"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Move down</en>
+					<de>Nach unten</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+					<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+				</executability>
+				<with-transaction>
+					<execute-script function="x -> ruleMove($x, 1)"/>
+				</with-transaction>
+			</generic-command>
+		</commands>
+		<split-panel
+			orientation="vertical"
+			resizable="true"
+		>
+			<panes>
+				<pane
+					size="50"
+					unit="%"
+				>
+					<table
+						observed-types="ehome.runtime:Action,ehome.runtime:Reaction,ehome.runtime:RuleState"
+						selection="action"
+						types="ehome.runtime:Action"
+					>
+						<inputs>
+							<input channel="owner"/>
+							<input channel="listName"/>
+						</inputs>
+						<columns>
+							<computed-column name="summary"
+								type="tl.core:String"
+							>
+								<label>
+									<en>Action</en>
+									<de>Aktion</de>
+								</label>
+								<value>a -> ruleSummary($a)</value>
+							</computed-column>
+						</columns>
+						<rows>o -> n -> ruleList($o, $n)</rows>
+					</table>
+				</pane>
+				<pane
+					size="50"
+					unit="%"
+				>
+					<form
+						input="action"
+						with-inset="true"
+					>
+						<field attribute="datapoint"/>
+						<field attribute="value"/>
+						<field attribute="onlyOnChange"/>
+						<field attribute="timer"/>
+						<field attribute="duration"/>
+						<field attribute="parameter"/>
+						<field attribute="level"/>
+						<field attribute="message"/>
+					</form>
+				</pane>
+			</panes>
+		</split-panel>
+	</panel>
+</view>

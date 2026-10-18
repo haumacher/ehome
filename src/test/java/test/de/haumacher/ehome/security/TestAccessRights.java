@@ -50,7 +50,8 @@ import de.haumacher.ehome.programming.I18NConstants;
 /**
  * The access definition of E-Home (<code>WEB-INF/autoconf/ehome.security.config.xml</code>, haumacher/ehome
  * #48) checked through the model access rights for an installer, a viewer and an account without
- * an E-Home group: on a project with a group address, a device, a function and a deployment, on a
+ * an E-Home group: on a project with a group address, a device, a function, a deployment, a rule with a
+ * parameter, a reaction, a trigger and an action, and a schedule entry, on a
  * controller and its token, on a manufacturer with a catalog and an application program, and on the
  * singletons of the master data.
  *
@@ -92,6 +93,18 @@ public class TestAccessRights extends BasicTestCase {
 	private TLObject _deployment;
 
 	private TLObject _controller;
+
+	private TLObject _rule;
+
+	private TLObject _reaction;
+
+	private TLObject _trigger;
+
+	private TLObject _action;
+
+	private TLObject _parameter;
+
+	private TLObject _schedule;
 
 	private TLObject _manufacturer;
 
@@ -164,6 +177,28 @@ public class TestAccessRights extends BasicTestCase {
 			_dismissal.tUpdateByName("channel", "object:Taste 1");
 			_project.tUpdateByName("dismissedProposals", List.of(_dismissal));
 
+			_rule = create("ehome.runtime:Rule");
+			_rule.tUpdateByName("identifier", "access");
+			_rule.tUpdateByName("name", ResKey.builder().add(Locale.ENGLISH, "Access").build());
+			_parameter = create("ehome.runtime:RuleParameter");
+			_parameter.tUpdateByName("identifier", "p");
+			_parameter.tUpdateByName("label", "P");
+			_parameter.tUpdateByName("default", "1.0");
+			_parameter.tUpdateByName("type",
+				((TLEnumeration) TLModelUtil.findType("ehome.runtime:RuleParameterType")).getClassifier("real"));
+			_rule.tUpdateByName("parameters", List.of(_parameter));
+			_reaction = create("ehome.runtime:Reaction");
+			_trigger = create("ehome.runtime:StartTrigger");
+			_action = create("ehome.runtime:LogAction");
+			_reaction.tUpdateByName("triggers", List.of(_trigger));
+			_reaction.tUpdateByName("actions", List.of(_action));
+			_rule.tUpdateByName("reactions", List.of(_reaction));
+			_project.tUpdateByName("rules", List.of(_rule));
+			_schedule = create("ehome.runtime:OnceSchedule");
+			_schedule.tUpdateByName("identifier", "once");
+			_schedule.tUpdateByName("label", ResKey.builder().add(Locale.ENGLISH, "Once").build());
+			_project.tUpdateByName("schedules", List.of(_schedule));
+
 			_deployment = create("ehome.runtime:Deployment");
 			_deployment.tUpdateByName("controller", _controller);
 			_project.tUpdateByName("deployments", List.of(_deployment));
@@ -201,6 +236,10 @@ public class TestAccessRights extends BasicTestCase {
 		assertTrue(rights().isAllowedCreate(_installer, type("ehome.runtime:Controller"), (TLObject) null));
 		assertTrue("An installer creates a group address in a project.",
 			rights().isAllowedCreate(_installer, _groupRange, part("ehome.logical:GroupRange#parts")));
+		assertTrue("An installer adds a reaction to a rule.",
+			rights().isAllowedCreate(_installer, _rule, part("ehome.runtime:Rule#reactions")));
+		assertTrue("An installer adds a rule to a project.",
+			rights().isAllowedCreate(_installer, _project, part("ehome.project:Project#rules")));
 		assertTrue("Import creates manufacturers.",
 			rights().isAllowedCreate(_installer, singleton("ehome.catalog:ManufacturerRoot"),
 				part("ehome.catalog:ManufacturerRoot#manufacturers")));
@@ -215,6 +254,8 @@ public class TestAccessRights extends BasicTestCase {
 		assertFalse(rights().isAllowedCreate(_viewer, type("ehome.project:Project"), (TLObject) null));
 		assertFalse(rights().isAllowedCreate(_viewer, type("ehome.runtime:Controller"), (TLObject) null));
 		assertFalse(rights().isAllowedCreate(_viewer, _groupRange, part("ehome.logical:GroupRange#parts")));
+		assertFalse(rights().isAllowedCreate(_viewer, _rule, part("ehome.runtime:Rule#reactions")));
+		assertFalse(rights().isAllowedCreate(_viewer, _project, part("ehome.project:Project#schedules")));
 		assertFalse(rights().isAllowedCreate(_viewer, singleton("ehome.catalog:ManufacturerRoot"),
 			part("ehome.catalog:ManufacturerRoot#manufacturers")));
 		assertTrue(rights().isAllowed(_viewer, _controller, part("ehome.runtime:Controller#name"), READ));
@@ -305,7 +346,8 @@ public class TestAccessRights extends BasicTestCase {
 	}
 
 	private List<TLObject> objects() {
-		return List.of(_project, _groupAddress, _device, _function, _dismissal, _deployment, _controller, _manufacturer,
+		return List.of(_project, _groupAddress, _device, _function, _dismissal, _deployment, _controller, _rule, _reaction,
+			_trigger, _action, _parameter, _schedule, _manufacturer,
 			_catalog, _variant, _program, singleton("ehome.catalog:ManufacturerRoot"), singleton("ehome.datapoint:DatapointTypes"),
 			singleton("ehome.mask:MaskVersions"));
 	}

@@ -81,6 +81,34 @@
 					/>
 				</view-ref>
 			</tab>
+			<tab id="rules"
+				icon="css:bi bi-diagram-3"
+			>
+				<label>
+					<en>Rules</en>
+					<de>Regeln</de>
+				</label>
+				<view-ref view="projects/rules.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
+			<tab id="schedules"
+				icon="css:bi bi-calendar-event"
+			>
+				<label>
+					<en>Schedule</en>
+					<de>Zeitplan</de>
+				</label>
+				<view-ref view="projects/schedules.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="deployment"
 				icon="css:bi bi-cloud-upload"
 			>
