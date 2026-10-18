@@ -586,3 +586,30 @@ header of the hand-written `MaskConfigurationImpl.java`, which the generator cre
 not supposed to touch again. Workaround: after every generation run, `git diff --stat` and revert
 hand-written wrappers that show only a header change (`git checkout -- <file>`). Remove this entry
 once the ticket has shipped.
+
+## No WebSocket in the development start (TL #29898)
+
+The controllers connect over a WebSocket (haumacher/ehome #54, `doc/controllers.md`). TopLogic's
+development start (`tl-ide-jetty` `Bootstrap`, Jetty 12.1.14 ee10) runs no WebSocket implementation:
+no Jakarta WebSocket `ServerContainer` in the servlet context, and no annotation scanning that would
+run the initializer of one on the classpath. The servlet API's own HTTP upgrade is no way around it:
+in Jetty 12.1.14 the request of the upgrade keeps its end-of-content mark, so a request without a
+body (every WebSocket handshake) reads only its end after the upgrade, and the next bytes are parsed
+as a new HTTP request (`HttpConnection.HttpStreamOverHTTP1#read`, an upstream Jetty issue).
+
+Workaround: Jetty's `jetty-ee10-websocket-jakarta-server` with `test` scope in `ehome/pom.xml` (the
+classpath of the tests and of `exec:java`, not the war), without `jetty-ee10-annotations`; and
+`ControllerSocketRegistration` runs Jetty's initializer by its name when the container has no
+`ServerContainer`. **When available** (the development start provides Jakarta WebSocket): remove the
+dependency and the fallback in `ControllerSocketRegistration#container`.
+
+## No at-rest encryption out of the box (TL #29899)
+
+The secret of an enrolled controller (haumacher/ehome #54) must be readable by E-Home to check the
+controller's HMAC, so it cannot be hashed. TopLogic's `EncryptionService` needs a key set up per
+installation (password-based), so an application cannot rely on it to encrypt an attribute at rest.
+
+Workaround: the secret is stored as is in the hidden attribute `Controller#secret` with a read grant
+without roles (only administrators read it through the model), like the controller token. **When
+available** (an attribute storage that encrypts with a key the engine manages): store
+`Controller#secret` and `Controller#token` encrypted, with a migration of the existing values.

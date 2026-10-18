@@ -391,6 +391,96 @@ public final class Json {
 	}
 
 	/**
+	 * Writes a value as {@link #write(Object)} does, on one line without spaces and without a final
+	 * line break: the form of a message on a WebSocket.
+	 */
+	public static String compact(Object value) {
+		StringBuilder out = new StringBuilder();
+		compact(out, value);
+		return out.toString();
+	}
+
+	private static void compact(StringBuilder out, Object value) {
+		if (value instanceof Map<?, ?> map) {
+			out.append('{');
+			boolean first = true;
+			for (Map.Entry<?, ?> entry : map.entrySet()) {
+				if (!first) {
+					out.append(',');
+				}
+				first = false;
+				string(out, String.valueOf(entry.getKey()));
+				out.append(':');
+				compact(out, entry.getValue());
+			}
+			out.append('}');
+		} else if (value instanceof Collection<?> list) {
+			out.append('[');
+			boolean first = true;
+			for (Object element : list) {
+				if (!first) {
+					out.append(',');
+				}
+				first = false;
+				compact(out, element);
+			}
+			out.append(']');
+		} else {
+			write(out, value, 0);
+		}
+	}
+
+	/**
+	 * The text of the value of a member of the JSON object in the given text, as it is written there
+	 * (not read and written again); <code>null</code> if the object has no such member.
+	 *
+	 * @throws JsonException
+	 *         If the text is no JSON object.
+	 */
+	public static String member(String text, String name, int maxDepth) throws JsonException {
+		Json parser = new Json(text, maxDepth);
+		parser.skipSpace();
+		if (parser._pos >= text.length() || text.charAt(parser._pos) != '{') {
+			throw parser.error("no object");
+		}
+		parser._pos++;
+		String result = null;
+		parser.skipSpace();
+		if (parser._pos < text.length() && text.charAt(parser._pos) == '}') {
+			return null;
+		}
+		while (true) {
+			parser.skipSpace();
+			if (parser._pos >= text.length() || text.charAt(parser._pos) != '"') {
+				throw parser.error("expected a member name");
+			}
+			String key = parser.string();
+			parser.skipSpace();
+			if (parser._pos >= text.length() || text.charAt(parser._pos) != ':') {
+				throw parser.error("expected ':'");
+			}
+			parser._pos++;
+			parser.skipSpace();
+			int start = parser._pos;
+			parser.value(1);
+			if (key.equals(name)) {
+				result = text.substring(start, parser._pos);
+			}
+			parser.skipSpace();
+			if (parser._pos >= text.length()) {
+				throw parser.error("unexpected end");
+			}
+			char c = text.charAt(parser._pos++);
+			if (c == '}') {
+				return result;
+			}
+			if (c != ',') {
+				throw parser.error("expected ',' or '}'");
+			}
+		}
+	}
+
+	/**
 	 * Whether the values are plain values or arrays of plain values.
 	 */
 	private static boolean isFlat(Collection<?> values) {

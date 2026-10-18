@@ -6,6 +6,7 @@ package de.haumacher.ehome.monitor;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.Deployer;
@@ -13,7 +14,9 @@ import de.haumacher.ehome.runtime.Deployer;
 /**
  * The HomeControl controller the group monitor attaches to (haumacher/ehome #56): the project's
  * controller, any registered controller (<code>ehome.runtime:Controller</code>), or one entered ad
- * hoc by host, port and token.
+ * hoc by host, port and token. A registered controller connected to E-Home is attached over its
+ * connection ({@link SocketBusLink}, haumacher/ehome #54) unless a token is entered for it, which
+ * means its LAN address.
  *
  * <p>
  * Neither an entered controller nor an entered token is stored: the token lives in the
@@ -39,6 +42,9 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 	 * What the monitor names the controller by ({@link ControllerBusLink#description(String, ControllerClient)}).
 	 */
 	public String description() {
+		if (client.connection() != null) {
+			return SocketBusLink.description(name);
+		}
 		return ControllerBusLink.description(name, client);
 	}
 
@@ -78,11 +84,24 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 		}
 		String name = String.valueOf(registered.tValueByName("name"));
 		ControllerClient client = Deployer.client(registered);
+		if (client.connection() != null && enteredToken == null) {
+			return new ControllerTarget(name, client, false);
+		}
 		if (enteredToken != null) {
-			return new ControllerTarget(name,
-				new ControllerClient(client.host(), client.port(), enteredToken, client.timeout()), true);
+			Object registeredHost = registered.tValueByName("host");
+			if (blank(registeredHost)) {
+				throw new TopLogicException(
+					de.haumacher.ehome.runtime.I18NConstants.ERROR_NO_HOST__CONTROLLER.fill(name));
+			}
+			Object registeredPort = registered.tValueByName("port");
+			return new ControllerTarget(name, new ControllerClient(registeredHost.toString().trim(),
+				registeredPort instanceof Number number ? number.intValue() : DEFAULT_PORT, enteredToken,
+				client.timeout()), true);
 		}
 		if (client.token() == null) {
+			if (ControllerConnections.controllerId(registered) != null) {
+				throw new TopLogicException(Deployer.offline(registered));
+			}
 			throw new TopLogicException(I18NConstants.ERROR_NO_CONTROLLER_TOKEN__CONTROLLER.fill(name));
 		}
 		return new ControllerTarget(name, client, false);
@@ -99,9 +118,13 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 		if (!entered && monitor.isConnectedTo(description())) {
 			return;
 		}
-		ControllerBusLink link;
+		BusLink link;
 		try {
-			link = ControllerBusLink.open(name, client);
+			if (client.connection() != null) {
+				link = SocketBusLink.open(name, client.connection().controllerId(), client.timeout());
+			} else {
+				link = ControllerBusLink.open(name, client);
+			}
 		} catch (BusException ex) {
 			throw new TopLogicException(
 				I18NConstants.ERROR_CONTROLLER_CONNECT_FAILED__CONTROLLER_DETAIL.fill(description(), ex.getMessage()), ex);

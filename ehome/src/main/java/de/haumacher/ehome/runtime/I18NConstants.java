@@ -42,6 +42,31 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_NO_TOKEN__CONTROLLER;
 
 	/**
+	 * @en The controller {0} is not connected to E-Home (last contact {1}): switch on the E-Home connection on its Settings page, or enter its address and token to reach it on the LAN.
+	 */
+	public static ResKey2 ERROR_OFFLINE__CONTROLLER_LAST_CONTACT;
+
+	/**
+	 * @en The controller {0} has not connected to E-Home yet: switch on the E-Home connection on its Settings page.
+	 */
+	public static ResKey1 ERROR_NEVER_CONNECTED__CONTROLLER;
+
+	/**
+	 * @en The controller {0} has no host: enter its address.
+	 */
+	public static ResKey1 ERROR_NO_HOST__CONTROLLER;
+
+	/**
+	 * @en E-Home connection
+	 */
+	public static ResKey ADDRESS_CONNECTION;
+
+	/**
+	 * @en not connected
+	 */
+	public static ResKey ADDRESS_OFFLINE;
+
+	/**
 	 * @en The runtime image could not be created: {0}
 	 */
 	public static ResKey1 ERROR_EXPORT_FAILED__DETAIL;

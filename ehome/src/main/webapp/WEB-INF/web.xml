@@ -92,6 +92,14 @@
          <listener-class>com.top_logic.element.ElementStartStop</listener-class>
     </listener>
 
+	<!--
+		The WebSocket of HomeControl controllers (/api/controllers/{id}/socket, haumacher/ehome #54),
+		registered with the container's Jakarta WebSocket implementation (doc/controllers.md).
+	-->
+	<listener>
+		<listener-class>de.haumacher.ehome.connection.ControllerSocketRegistration</listener-class>
+	</listener>
+
 <!-- ======================================================================= -->
 <!--  Custom servlet definitions                                             -->
 <!-- ======================================================================= -->
@@ -114,9 +122,24 @@
     </servlet>
  -->
 
+	<!--
+		The E-Home connection of HomeControl controllers (haumacher/ehome #54): the open enrollment
+		(POST /api/controllers/enroll) and the answer to a request for the socket that is no WebSocket
+		upgrade (the socket itself is ControllerSocketRegistration's, see above; doc/controllers.md).
+	-->
+	<servlet>
+		<servlet-name>ControllerServlet</servlet-name>
+		<servlet-class>de.haumacher.ehome.connection.ControllerServlet</servlet-class>
+	</servlet>
+
 <!-- ======================================================================= -->
 <!--  Custom servlet mappings                                                -->
 <!-- ======================================================================= -->
+
+	<servlet-mapping>
+		<servlet-name>ControllerServlet</servlet-name>
+		<url-pattern>/api/controllers/*</url-pattern>
+	</servlet-mapping>
 
 	<!-- Allow installing web services at runtime. -->
 	<!-- 

@@ -11,9 +11,13 @@
 	-->
 	<module name="ehome.runtime">
 		<!--
-			A HomeControl controller reachable over HTTP. The bearer token (hct_..., created on the
-			controller's console with "web token create e-home") authenticates E-Home; it is entered once
-			and never shown again (the views show whether one is set).
+			A HomeControl controller. Two ways lead to it: on the LAN over HTTP by host and port, where the
+			bearer token (hct_..., created on the controller's console with "web token create e-home")
+			authenticates E-Home; it is entered once and never shown again (the views show whether one is
+			set). Or over the E-Home connection (haumacher/ehome #54, homecontrol spec/api.md "E-Home
+			connection"): a controller enrolled with a project's enrollment code connects to E-Home by
+			itself and authenticates with its secret (de.haumacher.ehome.connection); such a controller
+			has an id and a secret, and its host is empty unless it is also reachable on the LAN.
 		-->
 		<class name="Controller">
 			<generalizations>
@@ -27,9 +31,8 @@
 					mandatory="true"
 					type="tl.core:String"
 				/>
-				<!-- The host name or IP address of the controller. -->
+				<!-- The host name or IP address of the controller on the LAN; empty for an enrolled controller reached only over its connection. -->
 				<property name="host"
-					mandatory="true"
 					type="tl.core:String"
 				/>
 				<!-- The HTTP port of the controller's web API. -->
@@ -59,6 +62,75 @@
 						<visibility value="hidden"/>
 					</annotations>
 				</property>
+				<!--
+					The id E-Home assigned the controller at its enrollment (32 hex digits; the controller's
+					setting ehome.id and the path of its socket); empty for a controller registered by host.
+				-->
+				<property name="controllerId"
+					type="tl.core:String"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!--
+					The credential of an enrolled controller (256 random bits as 64 hex digits, generated at the
+					enrollment and sent to the controller once): the key of the HMAC its authentication carries.
+					Stored as it is, since the HMAC needs it; never displayed, read by nobody but an
+					administrator (ehome.security.config.xml).
+				-->
+				<property name="secret"
+					type="tl.core:String"
+				>
+					<annotations>
+						<visibility value="hidden"/>
+					</annotations>
+				</property>
+				<!-- The name of the installation the controller was enrolled for (the project's name), sent to it in "ready". -->
+				<property name="installation"
+					type="tl.core:String"
+				/>
+				<!-- When the controller last connected or disconnected; empty before its first connection. -->
+				<property name="lastContact"
+					type="tl.core:DateTime"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!-- The firmware version the controller reported at its enrollment or connection. -->
+				<property name="firmwareVersion"
+					type="tl.core:String"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!-- The build of the firmware the controller reported. -->
+				<property name="firmwareBuild"
+					type="tl.core:String"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!-- When the controller was enrolled. -->
+				<property name="enrolled"
+					type="tl.core:DateTime"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!-- The user who created the enrollment code the controller was enrolled with. -->
+				<reference name="enrolledBy"
+					kind="forwards"
+					type="tl.accounts:Person"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
 		<!-- One attempt to deploy the runtime image of a project to a controller, with its outcome. -->

@@ -36,6 +36,11 @@
 					<!-- What differs from the image the controller stores, what it runs (haumacher/ehome #47). -->
 					<method name="deploymentConfirmation" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="unloadConfirmation" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<!-- The E-Home connection of the controllers (haumacher/ehome #54, de.haumacher.ehome.connection.ConnectionFunctions). -->
+					<method name="controllerConnection" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
+					<method name="controllerOnline" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
+					<method name="enrollmentCodeState" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
+					<method name="forgetConfirmation" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
 					<!-- Functions and runtime settings (haumacher/ehome #43, #45). -->
 					<method name="runtimeGroupAddresses" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<!-- The options of a function's roles: group addresses and application datapoints (haumacher/ehome #61). -->

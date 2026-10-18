@@ -137,6 +137,20 @@
 					/>
 				</view-ref>
 			</tab>
+			<tab id="controllers"
+				icon="css:bi bi-cpu"
+			>
+				<label>
+					<en>Controllers</en>
+					<de>Controller</de>
+				</label>
+				<view-ref view="projects/controllers.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="deployment"
 				icon="css:bi bi-cloud-upload"
 			>

@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The controllers enrolled for the project (haumacher/ehome #54, doc/controllers.md): each connects to
+	E-Home by itself over its WebSocket; the table shows whether it is connected now
+	(controllerConnection, de.haumacher.ehome.connection.ConnectionFunctions), its last contact and the
+	firmware it reported.
+
+	"Add controller" creates an enrollment code for the project (de.haumacher.ehome.connection
+	.CreateEnrollmentCodeAction): valid 15 minutes for one controller, shown once in a dialog with the
+	time it expires; a new code replaces an open one. Below the table, whether a code is open and until
+	when, without the code. "Forget" deletes the selected controller after a confirmation and closes its
+	connection, which is refused from then on (ForgetControllerAction).
+
+	The connection state is held in memory, not in the knowledge base: the table shows it as of its
+	last refresh; the last contact, stored at the connection and at its end, refreshes it.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="controller"/>
+		<derived-channel name="codeState"
+			expr="p -> if($p == null, null, enrollmentCodeState($p))"
+			inputs="project"
+			observed-types="ehome.project:Project"
+		/>
+		<derived-channel name="connection"
+			expr="c -> if($c == null, null, controllerConnection($c))"
+			inputs="controller"
+			observed-types="ehome.runtime:Controller"
+		/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="320"
+				size="60"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Controllers of the project</en>
+						<de>Controller des Projekts</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-plus-lg"
+							input="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Add controller</en>
+								<de>Controller hinzufügen</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<create-enrollment-code/>
+							<notify
+								display="dialog"
+								expr="t -> $t"
+							/>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							input="controller"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Forget</en>
+								<de>Vergessen</de>
+							</label>
+							<executability>
+								<model-access operation="Write"/>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="c -> forgetConfirmation($c)"/>
+							<forget-controller/>
+							<notify
+								expr="t -> $t"
+								kind="info"
+							/>
+						</generic-command>
+					</commands>
+					<stack>
+						<table
+							observed-types="ehome.runtime:Controller,ehome.project:Project"
+							selection="controller"
+							types="ehome.runtime:Controller"
+						>
+							<inputs>
+								<input channel="project"/>
+							</inputs>
+							<columns>
+								<column attribute="name"/>
+								<computed-column name="connection"
+									type="tl.core:String"
+								>
+									<label>
+										<en>Connection</en>
+										<de>Verbindung</de>
+									</label>
+									<value>c -> controllerConnection($c)</value>
+								</computed-column>
+								<column attribute="lastContact"/>
+								<column attribute="firmwareVersion"/>
+								<column attribute="firmwareBuild"/>
+								<column attribute="enrolled"/>
+							</columns>
+							<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#controllers`))</rows>
+						</table>
+						<inset>
+							<text
+								input="codeState"
+								tone="helper"
+								variant="caption"
+							/>
+						</inset>
+					</stack>
+				</panel>
+			</pane>
+			<pane
+				size="40"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Controller</en>
+						<de>Controller</de>
+					</title>
+					<stack>
+						<inset>
+							<text input="connection"/>
+						</inset>
+						<form
+							input="controller"
+							with-inset="true"
+						>
+							<field attribute="name"/>
+							<field attribute="installation"
+								readonly="true"
+							/>
+							<field attribute="controllerId"
+								readonly="true"
+							/>
+							<field attribute="lastContact"
+								readonly="true"
+							/>
+							<field attribute="firmwareVersion"
+								readonly="true"
+							/>
+							<field attribute="firmwareBuild"
+								readonly="true"
+							/>
+							<field attribute="enrolled"
+								readonly="true"
+							/>
+							<field attribute="enrolledBy"
+								readonly="true"
+							/>
+						</form>
+					</stack>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

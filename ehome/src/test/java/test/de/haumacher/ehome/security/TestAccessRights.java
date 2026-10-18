@@ -288,6 +288,17 @@ public class TestAccessRights extends BasicTestCase {
 		assertFalse(rights().isAllowed(_viewer, _controller, token, WRITE));
 	}
 
+	public void testSecretAndCodeUnreadable() {
+		TLStructuredTypePart secret = part("ehome.runtime:Controller#secret");
+		assertFalse(rights().isAllowed(_viewer, _controller, secret, READ));
+		assertFalse(rights().isAllowed(_installer, _controller, secret, READ));
+		assertFalse(rights().isAllowed(_stranger, _controller, secret, READ));
+		TLStructuredTypePart code = part("ehome.project:Project#enrollmentCode");
+		assertTrue("An installer reads the open enrollment code.", rights().isAllowed(_installer, _project, code, READ));
+		assertFalse("A viewer must not enroll a controller.", rights().isAllowed(_viewer, _project, code, READ));
+		assertFalse(rights().isAllowed(_stranger, _project, code, READ));
+	}
+
 	public void testDeviceValuesFollowTheDevice() {
 		assertNull(as(_installer, () -> DeviceSettings.writeVeto(_device)));
 		assertEquals(I18NConstants.ERROR_NOT_ALLOWED__DEVICE.fill(_device),

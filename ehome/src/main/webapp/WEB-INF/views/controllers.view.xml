@@ -8,6 +8,9 @@
 	"Status" asks the controller what it runs (GET /api/status, de.haumacher.ehome.runtime.ControllerStatusAction).
 	"Search controllers" lists the controllers announcing themselves over mDNS and creates one of them
 	(controllers/discover-controllers.view.xml, haumacher/ehome #42).
+	Controllers enrolled for a project (haumacher/ehome #54, projects/controllers.view.xml) appear here
+	too, with their connection state ("In the LAN" for one reached by host and token only). "Delete"
+	forgets a controller: an enrolled one's connection is closed and refused from then on.
 -->
 <view>
 	<channels>
@@ -109,11 +112,15 @@
 								<de>Löschen</de>
 							</label>
 							<executability>
+								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="c -> #('Delete controller {0}?'@en, 'Controller {0} löschen?'@de).fill($c.get(`ehome.runtime:Controller#name`))"/>
-							<delete-object/>
-							<write-channel name="controller"/>
+							<confirm expr="c -> forgetConfirmation($c)"/>
+							<forget-controller/>
+							<notify
+								expr="t -> $t"
+								kind="info"
+							/>
 						</generic-command>
 					</commands>
 					<table
@@ -125,6 +132,18 @@
 							<column attribute="name"/>
 							<column attribute="host"/>
 							<column attribute="port"/>
+							<computed-column name="connection"
+								type="tl.core:String"
+							>
+								<label>
+									<en>Connection</en>
+									<de>Verbindung</de>
+								</label>
+								<value>c -> controllerConnection($c)</value>
+							</computed-column>
+							<column attribute="installation"/>
+							<column attribute="lastContact"/>
+							<column attribute="firmwareVersion"/>
 							<computed-column name="token"
 								type="tl.core:String"
 							>
@@ -155,6 +174,18 @@
 						<field attribute="name"/>
 						<field attribute="host"/>
 						<field attribute="port"/>
+						<field attribute="installation"
+							readonly="true"
+						/>
+						<field attribute="lastContact"
+							readonly="true"
+						/>
+						<field attribute="firmwareVersion"
+							readonly="true"
+						/>
+						<field attribute="firmwareBuild"
+							readonly="true"
+						/>
 					</form>
 				</panel>
 			</pane>

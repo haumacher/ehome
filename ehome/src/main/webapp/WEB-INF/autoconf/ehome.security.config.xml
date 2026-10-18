@@ -31,7 +31,11 @@
 	model: its read grant lists no role, which denies the read for every user but an administrator.
 	An installer sets it (the write follows the controller); the deployment reads it in Java
 	(de.haumacher.ehome.runtime.Deployer), which the model access check does not cover. The views show
-	only whether a token is set.
+	only whether a token is set. The secret of an enrolled controller (ehome.runtime:Controller#secret,
+	haumacher/ehome #54) is handled the same way: E-Home generates it at the enrollment and checks the
+	controller's authentication with it in Java (de.haumacher.ehome.connection); nobody enters or reads
+	it. The open enrollment code of a project (ehome.project:Project#enrollmentCode) is read by
+	installers only: whoever knows it can enroll a controller for the project.
 -->
 <application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
@@ -149,6 +153,14 @@
 					<!-- A read grant without roles: nobody but an administrator reads the token. -->
 					<part name="ehome.runtime:Controller#token">
 						<grant operation="Read"/>
+					</part>
+					<!-- The same for the secret of an enrolled controller (haumacher/ehome #54). -->
+					<part name="ehome.runtime:Controller#secret">
+						<grant operation="Read"/>
+					</part>
+					<!-- The open enrollment code of a project: installers only, a viewer must not enroll a controller. -->
+					<part name="ehome.project:Project#enrollmentCode">
+						<grant operation="Read" roles="ehome.Installer"/>
 					</part>
 				</security-config>
 			</instance>

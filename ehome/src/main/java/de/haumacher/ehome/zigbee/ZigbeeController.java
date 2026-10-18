@@ -139,10 +139,9 @@ public final class ZigbeeController {
 
 	private static TLObject controller(TLObject obj) {
 		if ("Controller".equals(obj.tType().getName())) {
-			Object token = obj.tValueByName("token");
-			if (token == null || token.toString().isBlank()) {
-				throw new TopLogicException(
-					de.haumacher.ehome.runtime.I18NConstants.ERROR_NO_TOKEN__CONTROLLER.fill(obj.tValueByName("name")));
+			ResKey veto = Deployer.controllerVeto(obj);
+			if (veto != null) {
+				throw new TopLogicException(veto);
 			}
 			return obj;
 		}

@@ -24,6 +24,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 
 import com.top_logic.basic.Logger;
 
@@ -251,25 +253,7 @@ public class ControllerBusLink implements BusLink {
 		if (connection == null || _problem != null) {
 			throw new BusException("The connection to the controller " + description() + " is interrupted.");
 		}
-		BusTelegram.Service service =
-			BusTelegram.Service.ofCode(tuwien.auto.calimero.DataUnitBuilder.getAPDUService(apdu));
-		Map<String, Object> knx = new LinkedHashMap<>();
-		knx.put("address", groupAddress(destination));
-		Map<String, Object> message = new LinkedHashMap<>();
-		message.put("type", "monitor");
-		if (service == BusTelegram.Service.READ) {
-			message.put("read", Map.of("knx", knx));
-		} else {
-			byte[] data = DatapointCodec.data(apdu);
-			knx.put("data", HexFormat.ofDelimiter(" ").withUpperCase().formatHex(data));
-			if (apdu.length <= 2) {
-				knx.put("short", Boolean.TRUE);
-			}
-			if (service == BusTelegram.Service.RESPONSE) {
-				knx.put("service", "response");
-			}
-			message.put("send", Map.of("knx", knx));
-		}
+		Map<String, Object> message = sendMessage(destination, apdu);
 		long ref = _refs.incrementAndGet();
 		message.put("ref", Long.valueOf(ref));
 		CompletableFuture<Map<String, Object>> result = new CompletableFuture<>();
@@ -291,6 +275,33 @@ public class ControllerBusLink implements BusLink {
 		} finally {
 			_results.remove(Long.valueOf(ref));
 		}
+	}
+
+	/**
+	 * The <code>monitor</code> message sending a group telegram through a controller (without its
+	 * <code>ref</code>): a <code>read</code>, or a <code>send</code> with the raw data.
+	 */
+	static Map<String, Object> sendMessage(int destination, byte[] apdu) {
+		BusTelegram.Service service =
+			BusTelegram.Service.ofCode(tuwien.auto.calimero.DataUnitBuilder.getAPDUService(apdu));
+		Map<String, Object> knx = new LinkedHashMap<>();
+		knx.put("address", groupAddress(destination));
+		Map<String, Object> message = new LinkedHashMap<>();
+		message.put("type", "monitor");
+		if (service == BusTelegram.Service.READ) {
+			message.put("read", Map.of("knx", knx));
+		} else {
+			byte[] data = DatapointCodec.data(apdu);
+			knx.put("data", HexFormat.ofDelimiter(" ").withUpperCase().formatHex(data));
+			if (apdu.length <= 2) {
+				knx.put("short", Boolean.TRUE);
+			}
+			if (service == BusTelegram.Service.RESPONSE) {
+				knx.put("service", "response");
+			}
+			message.put("send", Map.of("knx", knx));
+		}
+		return message;
 	}
 
 	@Override
@@ -442,6 +453,22 @@ public class ControllerBusLink implements BusLink {
 	 * Takes an event batch of the controller.
 	 */
 	private void events(Map<String, Object> batch, long received) {
+		long next = events(batch, received, this::emit, source -> _localAddress = source);
+		if (next >= 0) {
+			_next = next;
+		}
+	}
+
+	/**
+	 * Converts an event batch of the controller: each event goes to the given receiver as
+	 * {@link BusTelegram} or {@link LinkEvent}.
+	 *
+	 * @param localAddress
+	 *        Receives the individual address of a telegram the controller sent.
+	 * @return The sequence number after the batch, -1 if the batch names none.
+	 */
+	static long events(Map<String, Object> batch, long received, Consumer<Object> emit,
+			IntConsumer localAddress) {
 		long now = batch.get("now_ms") instanceof Number number ? number.longValue() : -1;
 		if (batch.get("events") instanceof List<?> events) {
 			for (Object event : events) {
@@ -453,9 +480,9 @@ public class ControllerBusLink implements BusLink {
 						time = received - Math.max(0, now - ms.longValue());
 					}
 					try {
-						Object item = convert(fields, time);
+						Object item = convert(fields, time, localAddress);
 						if (item != null) {
-							emit(item);
+							emit.accept(item);
 						}
 					} catch (RuntimeException ex) {
 						Logger.warn("Ignoring a monitor event the controller sent: " + Json.write(fields), ex,
@@ -464,15 +491,13 @@ public class ControllerBusLink implements BusLink {
 				}
 			}
 		}
-		if (batch.get("next") instanceof Number next) {
-			_next = next.longValue();
-		}
+		return batch.get("next") instanceof Number next ? next.longValue() : -1;
 	}
 
 	/**
 	 * The {@link BusTelegram} or {@link LinkEvent} of an event, <code>null</code> to ignore it.
 	 */
-	private Object convert(Map<String, Object> event, long time) {
+	private static Object convert(Map<String, Object> event, long time, IntConsumer localAddress) {
 		String kind = String.valueOf(event.get("kind"));
 		String name = event.get("name") instanceof String text && !text.isBlank() ? text : null;
 		Object value = event.get("value");
@@ -486,7 +511,7 @@ public class ControllerBusLink implements BusLink {
 		int source = individualAddress(String.valueOf(event.get("src")));
 		boolean tx = "tx".equals(event.get("dir"));
 		if (tx && source != 0) {
-			_localAddress = source;
+			localAddress.accept(source);
 		}
 		byte[] data = service == BusTelegram.Service.READ ? new byte[0] : hex(event.get("data"));
 		int priority = event.get("prio") instanceof Number prio ? prio.intValue() : BusTelegram.PRIORITY_LOW;

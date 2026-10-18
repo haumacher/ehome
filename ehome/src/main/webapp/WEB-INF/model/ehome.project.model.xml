@@ -82,6 +82,46 @@
 					kind="forwards"
 					type="ehome.runtime:Controller"
 				/>
+				<!--
+					The controllers enrolled for the project with an enrollment code (haumacher/ehome #54); they
+					connect to E-Home by themselves. Forgetting one deletes it.
+				-->
+				<reference name="controllers"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:Controller"
+				/>
+				<!--
+					The open enrollment code of the project (ABCD-EFGH, one use, de.haumacher.ehome.connection.Enrollment):
+					a controller presenting it before it expires is enrolled for the project. Readable only by
+					installers (ehome.security.config.xml).
+				-->
+				<property name="enrollmentCode"
+					type="tl.core:String"
+				>
+					<annotations>
+						<visibility value="hidden"/>
+					</annotations>
+				</property>
+				<!-- When the open enrollment code expires. -->
+				<property name="enrollmentExpires"
+					type="tl.core:DateTime"
+				>
+					<annotations>
+						<visibility value="hidden"/>
+					</annotations>
+				</property>
+				<!-- Who created the open enrollment code. -->
+				<reference name="enrollmentCreatedBy"
+					kind="forwards"
+					type="tl.accounts:Person"
+				>
+					<annotations>
+						<visibility value="hidden"/>
+					</annotations>
+				</reference>
 				<!-- The revision of the runtime image last loaded by a controller; the next deployment carries the next one. -->
 				<property name="imageRevision"
 					type="tl.core:Long"

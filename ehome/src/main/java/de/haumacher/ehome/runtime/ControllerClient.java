@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
 
+import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.runtime.Json.JsonException;
 
 /**
@@ -23,6 +24,15 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * and the open <code>GET /api/auth/session</code>; of its Zigbee coordinator ("Zigbee", haumacher/ehome
  * #40): <code>GET /api/zigbee/export</code> and <code>POST /api/zigbee/permit</code>. The monitor stream over the WebSocket is
  * {@link de.haumacher.ehome.monitor.ControllerBusLink}.
+ *
+ * <p>
+ * Three transports carry the same calls (haumacher/ehome #54): HTTP on the LAN (host, port, token),
+ * the E-Home connection of a connected controller ({@link #over(ControllerConnection, String, Duration)}:
+ * the request/response envelope of homecontrol <code>spec/api.md</code>, "The socket"), and none
+ * ({@link #offline(String, String, Duration)}): every call of an offline controller fails with the
+ * reason, which names its last contact. {@link de.haumacher.ehome.runtime.Deployer#client(com.top_logic.model.TLObject)}
+ * chooses.
+ * </p>
  */
 public final class ControllerClient {
 
@@ -66,6 +76,12 @@ public final class ControllerClient {
 
 	private final Duration _timeout;
 
+	private final ControllerConnection _connection;
+
+	private final String _label;
+
+	private final String _offline;
+
 	/**
 	 * Creates a {@link ControllerClient}.
 	 *
@@ -80,17 +96,56 @@ public final class ControllerClient {
 	 *        milliseconds on the device).
 	 */
 	public ControllerClient(String host, int port, String token, Duration timeout) {
+		this(host, port, token, timeout, null, null, null);
+	}
+
+	private ControllerClient(String host, int port, String token, Duration timeout, ControllerConnection connection,
+			String label, String offline) {
 		_host = host;
 		_port = port;
 		_token = token;
 		_timeout = timeout;
-		_http = HttpClient.newBuilder().connectTimeout(timeout).build();
+		_connection = connection;
+		_label = label;
+		_offline = offline;
+		_http = connection == null && offline == null ? HttpClient.newBuilder().connectTimeout(timeout).build() : null;
 	}
 
 	/**
-	 * The address of the controller as written for the user, <code>host:port</code>.
+	 * A client making its calls over the E-Home connection of a controller.
+	 *
+	 * @param label
+	 *        What {@link #address()} says, for messages.
+	 */
+	public static ControllerClient over(ControllerConnection connection, String label, Duration timeout) {
+		return new ControllerClient("", 0, null, timeout, connection, label, null);
+	}
+
+	/**
+	 * A client of a controller that cannot be reached: every call fails with the given reason.
+	 *
+	 * @param label
+	 *        What {@link #address()} says, for messages.
+	 */
+	public static ControllerClient offline(String label, String reason, Duration timeout) {
+		return new ControllerClient("", 0, null, timeout, null, label, reason);
+	}
+
+	/**
+	 * The E-Home connection the calls go over, <code>null</code> for HTTP (or none).
+	 */
+	public ControllerConnection connection() {
+		return _connection;
+	}
+
+	/**
+	 * The address of the controller as written for the user, <code>host:port</code> (for a
+	 * controller reached over its connection or not at all, the label given).
 	 */
 	public String address() {
+		if (_label != null) {
+			return _label;
+		}
 		return (_host.contains(":") ? "[" + _host + "]" : _host) + ":" + _port;
 	}
 
@@ -127,23 +182,28 @@ public final class ControllerClient {
 	 * version, and the port of its WebSocket (<code>ws_port</code>, 0 for the port of the web API).
 	 */
 	public Answer session() throws IOException {
-		return send(request("/api/auth/session").GET());
+		if (_http == null) {
+			throw new IOException(_offline != null ? _offline : "The session is not asked over the E-Home connection.");
+		}
+		return send(request("/api/auth/session", null).GET());
 	}
 
 	/**
 	 * <code>GET /api/status</code>.
 	 */
 	public Answer status() throws IOException {
-		return send(request("/api/status").GET());
+		return call("GET", "/api/status", null, null, null);
 	}
 
 	/**
 	 * <code>PUT /api/image</code> with the given image.
 	 */
 	public Answer putImage(byte[] image) throws IOException {
-		return send(request("/api/image")
-			.header("Content-Type", RuntimeImage.CONTENT_TYPE)
-			.PUT(HttpRequest.BodyPublishers.ofByteArray(image)));
+		if (_connection != null && _offline == null) {
+			// Byte for byte, whatever its size: the controller stores the image as it comes.
+			return _connection.request("PUT", "/api/image", image, true, _timeout);
+		}
+		return call("PUT", "/api/image", null, RuntimeImage.CONTENT_TYPE, image);
 	}
 
 	/**
@@ -151,7 +211,7 @@ public final class ControllerClient {
 	 * <code>image.none</code> when none is stored).
 	 */
 	public Answer getImage() throws IOException {
-		return send(request("/api/image").GET());
+		return call("GET", "/api/image", null, null, null);
 	}
 
 	/**
@@ -159,7 +219,7 @@ public final class ControllerClient {
 	 * history.
 	 */
 	public Answer deleteImage() throws IOException {
-		return send(request("/api/image").DELETE());
+		return call("DELETE", "/api/image", null, null, null);
 	}
 
 	/**
@@ -168,7 +228,7 @@ public final class ControllerClient {
 	 * the <code>from</code> of the next page or <code>null</code>.
 	 */
 	public Answer zigbeeExport(int from) throws IOException {
-		return send(request("/api/zigbee/export", from == 0 ? null : "from=" + from).GET());
+		return call("GET", "/api/zigbee/export", from == 0 ? null : "from=" + from, null, null);
 	}
 
 	/**
@@ -176,13 +236,34 @@ public final class ControllerClient {
 	 * of seconds (1..254); 0 closes it.
 	 */
 	public Answer zigbeePermit(int seconds) throws IOException {
-		return send(request("/api/zigbee/permit")
-			.header("Content-Type", "application/json")
-			.POST(HttpRequest.BodyPublishers.ofString("{\"seconds\": " + seconds + "}", StandardCharsets.UTF_8)));
+		return call("POST", "/api/zigbee/permit", null, "application/json",
+			("{\"seconds\": " + seconds + "}").getBytes(StandardCharsets.UTF_8));
 	}
 
-	private HttpRequest.Builder request(String path) throws IOException {
-		return request(path, null);
+	/**
+	 * A call of the controller's API over the transport of this client.
+	 *
+	 * @param query
+	 *        The query without <code>?</code>, <code>null</code> for none.
+	 * @param contentType
+	 *        The type of the body, <code>null</code> for none.
+	 * @param body
+	 *        The body, <code>null</code> for none.
+	 */
+	public Answer call(String method, String path, String query, String contentType, byte[] body) throws IOException {
+		if (_offline != null) {
+			throw new IOException(_offline);
+		}
+		if (_connection != null) {
+			return _connection.request(method, query == null ? path : path + "?" + query, body, _timeout);
+		}
+		HttpRequest.Builder request = request(path, query);
+		if (contentType != null) {
+			request.header("Content-Type", contentType);
+		}
+		request.method(method, body == null ? HttpRequest.BodyPublishers.noBody()
+			: HttpRequest.BodyPublishers.ofByteArray(body));
+		return send(request);
 	}
 
 	private HttpRequest.Builder request(String path, String query) throws IOException {

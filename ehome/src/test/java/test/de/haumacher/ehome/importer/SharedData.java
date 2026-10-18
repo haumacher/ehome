@@ -80,13 +80,33 @@ public final class SharedData {
 	 */
 	public static void deleteProjects(Collection<TLObject> projects) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-		try (Transaction tx = kb.beginTransaction()) {
-			for (TLObject project : projects) {
-				if (project.tValid()) {
-					project.tDelete();
+		// Another thread may still commit to the project's parts (the controller connections' writer
+		// records closes after the test saw them): the deletion refetches first and retries a conflict.
+		for (int attempt = 1;; attempt++) {
+			try {
+				kb.refetch();
+			} catch (com.top_logic.knowledge.service.RefetchTimeout ex) {
+				throw new RuntimeException("refetch before deleting the test projects timed out", ex);
+			}
+			try (Transaction tx = kb.beginTransaction()) {
+				for (TLObject project : projects) {
+					if (project.tValid()) {
+						project.tDelete();
+					}
+				}
+				tx.commit();
+				return;
+			} catch (com.top_logic.knowledge.service.merge.MergeConflictException ex) {
+				if (attempt == 3) {
+					throw ex;
+				}
+				try {
+					Thread.sleep(200L * attempt);
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					throw ex;
 				}
 			}
-			tx.commit();
 		}
 	}
 

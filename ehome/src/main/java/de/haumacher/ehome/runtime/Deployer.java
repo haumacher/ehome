@@ -4,6 +4,7 @@
 package de.haumacher.ehome.runtime;
 
 import java.io.IOException;
+import java.text.DateFormat;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -22,6 +23,8 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.connection.ControllerConnection;
+import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 
@@ -69,11 +72,51 @@ public final class Deployer {
 		if (controller == null) {
 			return I18NConstants.ERROR_NO_CONTROLLER;
 		}
-		Object token = controller.tValueByName("token");
-		if (token == null || token.toString().isBlank()) {
-			return I18NConstants.ERROR_NO_TOKEN__CONTROLLER.fill(controller.tValueByName("name"));
+		return controllerVeto(controller);
+	}
+
+	/**
+	 * Why the controller cannot be reached now, <code>null</code> if it can (haumacher/ehome #54): a
+	 * controller connected to E-Home is reached over its connection, otherwise over HTTP on the LAN,
+	 * which needs its host and token. An enrolled controller that is neither connected nor reachable
+	 * on the LAN is offline: the reason names its last contact.
+	 */
+	public static ResKey controllerVeto(TLObject controller) {
+		if (ControllerConnections.get(controller) != null) {
+			return null;
+		}
+		Object name = controller.tValueByName("name");
+		boolean host = !blank(controller.tValueByName("host"));
+		boolean token = !blank(controller.tValueByName("token"));
+		if (ControllerConnections.controllerId(controller) != null && !(host && token)) {
+			return offline(controller);
+		}
+		if (!host) {
+			return I18NConstants.ERROR_NO_HOST__CONTROLLER.fill(name);
+		}
+		if (!token) {
+			return I18NConstants.ERROR_NO_TOKEN__CONTROLLER.fill(name);
 		}
 		return null;
+	}
+
+	/**
+	 * Why the enrolled controller cannot be reached over its connection: not connected, with its last
+	 * contact.
+	 */
+	public static ResKey offline(TLObject controller) {
+		Object name = controller.tValueByName("name");
+		Object contact = controller.tValueByName("lastContact");
+		if (contact instanceof Date date) {
+			return I18NConstants.ERROR_OFFLINE__CONTROLLER_LAST_CONTACT.fill(name,
+				DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, Resources.getInstance().getLocale())
+					.format(date));
+		}
+		return I18NConstants.ERROR_NEVER_CONNECTED__CONTROLLER.fill(name);
+	}
+
+	private static boolean blank(Object value) {
+		return value == null || value.toString().isBlank();
 	}
 
 	/**
@@ -88,9 +131,19 @@ public final class Deployer {
 	 * The client talking to the given controller.
 	 */
 	public static ControllerClient client(TLObject controller) {
+		ControllerConnection connection = ControllerConnections.get(controller);
+		if (connection != null) {
+			return ControllerClient.over(connection, text(I18NConstants.ADDRESS_CONNECTION), TIMEOUT);
+		}
+		Object host = controller.tValueByName("host");
 		Object port = controller.tValueByName("port");
 		Object token = controller.tValueByName("token");
-		return new ControllerClient(String.valueOf(controller.tValueByName("host")).trim(),
+		if (blank(host) || (ControllerConnections.controllerId(controller) != null && blank(token))) {
+			ResKey reason = ControllerConnections.controllerId(controller) != null ? offline(controller)
+				: I18NConstants.ERROR_NO_HOST__CONTROLLER.fill(controller.tValueByName("name"));
+			return ControllerClient.offline(text(I18NConstants.ADDRESS_OFFLINE), text(reason), TIMEOUT);
+		}
+		return new ControllerClient(host.toString().trim(),
 			port instanceof Number number ? number.intValue() : 80, token == null ? null : token.toString(), TIMEOUT);
 	}
 

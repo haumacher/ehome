@@ -112,6 +112,41 @@
       <artifactId>tl-layout-view</artifactId>
     </dependency>
 	
+    <!--
+      The controllers' WebSocket (haumacher/ehome #54, ControllerSocketRegistration): the Jakarta
+      WebSocket API, provided by the container the war runs in.
+    -->
+    <dependency>
+      <groupId>jakarta.websocket</groupId>
+      <artifactId>jakarta.websocket-api</artifactId>
+      <version>2.1.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>jakarta.websocket</groupId>
+      <artifactId>jakarta.websocket-client-api</artifactId>
+      <version>2.1.1</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!--
+      Jetty's implementation of it for the tests (the development start gets it as a dependency of
+      exec-maven-plugin, below); the war does not contain it. Without Jetty's annotation scanning,
+      which TopLogic's development start does not do (ControllerSocketDeployment runs the initializer).
+    -->
+    <dependency>
+      <groupId>org.eclipse.jetty.ee10.websocket</groupId>
+      <artifactId>jetty-ee10-websocket-jakarta-server</artifactId>
+      <version>${jetty.version}</version>
+      <scope>test</scope>
+      <exclusions>
+        <exclusion>
+          <groupId>org.eclipse.jetty.ee10</groupId>
+          <artifactId>jetty-ee10-annotations</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
     <dependency>
       <groupId>com.top-logic</groupId>
       <artifactId>tl-basic</artifactId>
@@ -173,6 +208,23 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
+        <!--
+          The Jakarta WebSocket implementation for the controllers' socket (haumacher/ehome #54) in the
+          development start, whose Jetty has none (doc/controllers.md, doc/tl-todo.md).
+        -->
+        <dependencies>
+          <dependency>
+            <groupId>org.eclipse.jetty.ee10.websocket</groupId>
+            <artifactId>jetty-ee10-websocket-jakarta-server</artifactId>
+            <version>${jetty.version}</version>
+            <exclusions>
+              <exclusion>
+                <groupId>org.eclipse.jetty.ee10</groupId>
+                <artifactId>jetty-ee10-annotations</artifactId>
+              </exclusion>
+            </exclusions>
+          </dependency>
+        </dependencies>
         <configuration>
           <arguments combine.self="override">
             <argument>-port</argument>
