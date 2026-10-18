@@ -544,6 +544,13 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29884, #29885: see above (access coverage of engine modules, hidden instead of disabled commands).
 - TL #29886: see above (line breaks in confirmations).
 - TL #29887, #29888, #29892: see above (suggestions and normalizing in text fields, leaving edit mode).
+- TL #29895: `deploy/local` applies only to the module in the working directory, so the app starts
+  from `ehome/` and `ehome/pom.xml` points `h2_name` and `tl_storage_path` at the root `tmp/`
+  (overriding the environment variables of the same names; use `-Dehome.dataDir`). **When fixed:**
+  start from the root and drop the two properties.
+- TL #29896: an overlay cannot add a tab inside a view (unkeyed split panes and switch cases), so the
+  device tab bar lives in `projects/device-tabs.view.xml`, which `ehome-virtual` overlays.
+  **When available:** fold it back into `devices.view.xml` and contribute the tab there.
 - TL #29894: the model upgrade logs an ERROR with stack trace when a stored annotation of the old
   model no longer instantiates (an options expression whose script function changed its arity);
   the upgrade itself succeeds. No workaround.
