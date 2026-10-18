@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.simulation;
 
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -20,6 +21,8 @@ import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
+
+import de.haumacher.ehome.programming.DeviceChanges;
 
 /**
  * The TL-Script functions of the simulation view (<code>projects/simulation.view.xml</code>), each
@@ -62,7 +65,20 @@ public class SimulationFunctions extends GenericMethod {
 		/** <code>simulationSetParameter(project, key, value)</code>: sets a parameter (<code>rule/parameter</code>). */
 		simulationSetParameter(3, 3, false),
 		/** <code>simulationResetParameter(project, key)</code>: removes the override of a parameter. */
-		simulationResetParameter(2, 2, false);
+		simulationResetParameter(2, 2, false),
+		/** <code>simulationRun(project, speed)</code>: lets the clock run by itself at 1, 10 or 60 times real time. */
+		simulationRun(2, 2, false),
+		/** <code>simulationPause(project)</code>: stops the clock running by itself. */
+		simulationPause(1, 1, false),
+		/** <code>simulationSpeedVeto(project, speed, state?)</code>: why the clock cannot run at the speed, <code>null</code> if it can. */
+		simulationSpeedVeto(2, 3, true),
+		/** <code>simulationPauseVeto(project, state?)</code>: why there is no clock to pause, <code>null</code> if it runs by itself. */
+		simulationPauseVeto(1, 2, true),
+		/**
+		 * <code>simulationFollowerOptions(follower)</code>: the devices of the project of an object
+		 * follower (<code>ehome.runtime:ObjectFollower#device</code>).
+		 */
+		simulationFollowerOptions(1, 1, true);
 
 		private final int _minArguments;
 
@@ -114,6 +130,9 @@ public class SimulationFunctions extends GenericMethod {
 
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
+		if (_function == Function.simulationFollowerOptions) {
+			return followerDevices(arguments[0]);
+		}
 		TLObject project = arguments[0] instanceof TLObject object && object.tValid() ? object : null;
 		Simulations simulations = Simulations.getInstance();
 		ProjectSimulation running = simulations.get(project);
@@ -142,6 +161,18 @@ public class SimulationFunctions extends GenericMethod {
 				}
 				simulations.stop(project);
 				return state(project);
+			case simulationSpeedVeto: {
+				if (running == null) {
+					return text(I18NConstants.ERROR_NOT_RUNNING);
+				}
+				int speed = speed(arguments[1]);
+				return running.simulation().speed() == speed ? text(I18NConstants.ERROR_CLOCK_AT_SPEED) : null;
+			}
+			case simulationPauseVeto:
+				if (running == null) {
+					return text(I18NConstants.ERROR_NOT_RUNNING);
+				}
+				return running.simulation().speed() == 0 ? text(I18NConstants.ERROR_CLOCK_NOT_RUNNING) : null;
 			default:
 				break;
 		}
@@ -167,6 +198,12 @@ public class SimulationFunctions extends GenericMethod {
 			case simulationResetParameter:
 				running.resetParameter(parameter(arguments[1]));
 				break;
+			case simulationRun:
+				running.run(speed(arguments[1]));
+				break;
+			case simulationPause:
+				running.pause();
+				break;
 			default:
 				throw new IllegalStateException("Unknown function: " + _function);
 		}
@@ -184,6 +221,8 @@ public class SimulationFunctions extends GenericMethod {
 		if (running == null) {
 			result.put("status", text(I18NConstants.STATUS_NOT_RUNNING));
 			result.put("next", null);
+			result.put("speed", Integer.valueOf(0));
+			result.put("clock", null);
 			result.put("rules", List.of());
 			result.put("parameters", List.of());
 			result.put("datapoints", List.of());
@@ -192,11 +231,32 @@ public class SimulationFunctions extends GenericMethod {
 		}
 		Map<String, Object> snapshot = running.snapshot();
 		result.putAll(snapshot);
+		int speed = ((Integer) snapshot.get("speed")).intValue();
+		result.put("clock", text(speed == 0 ? I18NConstants.STATUS_CLOCK_PAUSED
+			: speed == 1 ? I18NConstants.STATUS_CLOCK_REAL_TIME : I18NConstants.STATUS_CLOCK_FASTER__SPEED.fill(speed)));
 		result.put("status", text(I18NConstants.STATUS_RUNNING__TIME_ENDPOINT_DEVICES.fill(snapshot.get("time"),
 			snapshot.get("endpoint"), snapshot.get("devices"))));
 		Object next = snapshot.get("next");
 		result.put("next", text(next == null ? I18NConstants.STATUS_NO_NEXT_EVENT : I18NConstants.STATUS_NEXT_EVENT__TIME.fill(next)));
 		return result;
+	}
+
+	/** The speeds the clock runs at by itself. */
+	private static final List<Integer> SPEEDS = List.of(Integer.valueOf(1), Integer.valueOf(10), Integer.valueOf(60));
+
+	private static int speed(Object value) {
+		Integer speed = value instanceof Number number ? Integer.valueOf(number.intValue()) : null;
+		if (speed == null || !SPEEDS.contains(speed)) {
+			throw new TopLogicException(I18NConstants.ERROR_INVALID_SPEED__SPEED.fill(value));
+		}
+		return speed.intValue();
+	}
+
+	private static List<TLObject> followerDevices(Object follower) {
+		if (!(follower instanceof TLObject object) || !object.tValid() || object.tContainer() == null) {
+			return List.of();
+		}
+		return new ArrayList<>(DeviceChanges.devices(object.tContainer()));
 	}
 
 	private static String string(Object value) {

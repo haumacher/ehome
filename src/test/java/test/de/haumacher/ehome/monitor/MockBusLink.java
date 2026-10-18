@@ -69,6 +69,19 @@ public class MockBusLink implements BusLink {
 	}
 
 	/**
+	 * Delivers a group read as if received from the bus.
+	 *
+	 * @param source
+	 *        The individual address of the sender.
+	 * @param destination
+	 *        The group address.
+	 */
+	public void read(int source, int destination) {
+		_listener.received(new BusTelegram(System.currentTimeMillis(), source, destination,
+			BusTelegram.Service.READ, BusTelegram.PRIORITY_LOW, false, BusTelegram.DEFAULT_HOP_COUNT, new byte[0], false));
+	}
+
+	/**
 	 * Delivers a group write from a thread of its own, without the context of the test, as the
 	 * receiver thread of a real link does.
 	 *

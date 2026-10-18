@@ -119,6 +119,14 @@
 					ordered="true"
 					type="ehome.runtime:ApplicationDatapoint"
 				/>
+				<!-- In the simulation: which object of a device follows which (haumacher/ehome #62). -->
+				<reference name="simulationFollowers"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:ObjectFollower"
+				/>
 				<!-- The proposed functions the user deleted, which the proposal does not bring back (haumacher/ehome #49). -->
 				<reference name="dismissedProposals"
 					composite="true"

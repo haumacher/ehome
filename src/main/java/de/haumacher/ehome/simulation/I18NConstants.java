@@ -109,7 +109,37 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey STATUS_NO_NEXT_EVENT;
 
-	static {
+	/**
+	 * @en The clock moves only by "Step" and "Fast-forward".
+	 */
+	public static ResKey STATUS_CLOCK_PAUSED;
+
+	/**
+	 * @en The clock runs in real time.
+	 */
+	public static ResKey STATUS_CLOCK_REAL_TIME;
+
+	/**
+	 * @en The clock runs at {0} times real time.
+	 */
+	public static ResKey1 STATUS_CLOCK_FASTER__SPEED;
+
+	/**
+	 * @en The clock does not run by itself.
+	 */
+	public static ResKey ERROR_CLOCK_NOT_RUNNING;
+
+	/**
+	 * @en The clock runs at this speed already.
+	 */
+	public static ResKey ERROR_CLOCK_AT_SPEED;
+
+	/**
+	 * @en The speed {0} is not offered; the clock runs at 1, 10 or 60 times real time.
+	 */
+	public static ResKey1 ERROR_INVALID_SPEED__SPEED;
+
+		static {
 		initConstants(I18NConstants.class);
 	}
 }

@@ -56,6 +56,11 @@ import de.haumacher.ehome.virtual.server.VirtualInterface.Endpoint;
  * <li>The diagnostics name the last trigger and action with their simulated times; a parameter set
  * from outside is stored as an override and shortens the timer.</li>
  * </ul>
+ *
+ * <p>
+ * The image's time master broadcasts on 0/7/1 and 0/7/2 meanwhile; the watcher ignores them
+ * ({@link TestTimeMaster} checks them).
+ * </p>
  */
 @SuppressWarnings("javadoc")
 public class TestSimulation extends TestCase {
@@ -99,6 +104,10 @@ public class TestSimulation extends TestCase {
 					observer.setListener(new BusLink.Listener() {
 						@Override
 						public void received(BusTelegram telegram) {
+							if (telegram.destination() >> 8 == 7) {
+								// The time master's broadcasts on 0/7/1 and 0/7/2 (TestTimeMaster).
+								return;
+							}
 							bus.add(telegram.sourceText() + " " + telegram.service().classifier() + " "
 								+ de.haumacher.ehome.runtime.RuntimeImage.threeLevel(telegram.destination()) + " "
 								+ telegram.hex());

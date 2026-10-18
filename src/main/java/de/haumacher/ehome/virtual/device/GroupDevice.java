@@ -29,7 +29,8 @@ import de.haumacher.ehome.monitor.BusTelegram.Service;
  * address.</li>
  * <li>{@link #follow(int, int)}: an object takes every value another object of the device receives
  * from the bus (the status of a switching channel follows its switching object) and sends it like
- * its own.</li>
+ * its own; {@link #follow(int, int, boolean)} inverted, for an object of one bit (an inverted
+ * status).</li>
  * </ul>
  *
  * <p>
@@ -101,8 +102,12 @@ public class GroupDevice {
 
 	private final Map<Integer, byte[]> _values = new LinkedHashMap<>();
 
-	/** The objects following another one: source number to the numbers of its followers. */
-	private final Map<Integer, List<Integer>> _followers = new LinkedHashMap<>();
+	/** The objects following another one: source number to its followers. */
+	private final Map<Integer, List<Follower>> _followers = new LinkedHashMap<>();
+
+	private record Follower(int number, boolean inverted) {
+		// A value.
+	}
 
 	private final List<Received> _received = new ArrayList<>();
 
@@ -152,10 +157,36 @@ public class GroupDevice {
 	 * @return This device, for chaining.
 	 */
 	public synchronized GroupDevice follow(int follower, int source) {
-		object(follower);
+		return follow(follower, source, false);
+	}
+
+	/**
+	 * Lets the object <code>follower</code> take every value the object <code>source</code>
+	 * receives from the bus, inverted if <code>inverted</code>.
+	 *
+	 * @return This device, for chaining.
+	 * @throws IllegalArgumentException
+	 *         If an object is missing, or an inverted follower is not an object of one bit.
+	 */
+	public synchronized GroupDevice follow(int follower, int source, boolean inverted) {
+		GroupObject target = object(follower);
 		object(source);
-		_followers.computeIfAbsent(Integer.valueOf(source), x -> new ArrayList<>()).add(Integer.valueOf(follower));
+		if (inverted && target.bits() != 1) {
+			throw new IllegalArgumentException("Only an object of one bit follows inverted: " + target + " of " + _name + ".");
+		}
+		_followers.computeIfAbsent(Integer.valueOf(source), x -> new ArrayList<>()).add(new Follower(follower, inverted));
 		return this;
+	}
+
+	/**
+	 * The numbers of the objects following the given one.
+	 */
+	public synchronized List<Integer> followers(int source) {
+		List<Integer> result = new ArrayList<>();
+		for (Follower follower : _followers.getOrDefault(Integer.valueOf(source), List.of())) {
+			result.add(Integer.valueOf(follower.number()));
+		}
+		return result;
 	}
 
 	/**
@@ -236,11 +267,12 @@ public class GroupDevice {
 			for (GroupObject object : _objects.values()) {
 				if (object.listensTo(destination) && object.has(GroupObject.COMMUNICATION | flag) && object.fits(data)) {
 					store(object, data);
-					for (Integer follower : _followers.getOrDefault(Integer.valueOf(object.number()), List.of())) {
-						GroupObject target = _objects.get(follower);
+					for (Follower follower : _followers.getOrDefault(Integer.valueOf(object.number()), List.of())) {
+						GroupObject target = _objects.get(Integer.valueOf(follower.number()));
 						if (target.fits(data)) {
-							store(target, data);
-							Outgoing sent = transmission(target, data);
+							byte[] value = follower.inverted() ? new byte[] { (byte) (data[0] ^ 1) } : data;
+							store(target, value);
+							Outgoing sent = transmission(target, value);
 							if (sent != null) {
 								result.add(sent);
 							}

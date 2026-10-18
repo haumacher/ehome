@@ -26,6 +26,13 @@ import com.top_logic.util.error.TopLogicException;
  * only its parameter overrides are kept with the project ({@link Overrides}).
  *
  * <p>
+ * Whoever shows a simulation registers a listener for its project
+ * ({@link #addListener(TLObject, Runnable)}): it is told when the simulation of the project starts
+ * or stops and about every change of the running one ({@link Simulation#setListener(Runnable)}),
+ * from whatever thread the change happens on; it must only take note.
+ * </p>
+ *
+ * <p>
  * Registered in <code>WEB-INF/autoconf/ehome.simulation.config.xml</code>.
  * </p>
  */
@@ -47,6 +54,8 @@ public class Simulations extends ConfiguredManagedClass<Simulations.Config> {
 	}
 
 	private final Map<ObjectKey, ProjectSimulation> _running = new HashMap<>();
+
+	private final Map<ObjectKey, List<Runnable>> _listeners = new HashMap<>();
 
 	private File _directory;
 
@@ -105,7 +114,42 @@ public class Simulations extends ConfiguredManagedClass<Simulations.Config> {
 				throw new TopLogicException(I18NConstants.ERROR_ALREADY_RUNNING);
 			}
 		}
+		ObjectKey key = project.tId();
+		result.simulation().setListener(() -> fire(key));
+		fire(key);
 		return result;
+	}
+
+	/**
+	 * Registers a listener told about the start and stop of the simulation of the project and about
+	 * every change of the running one.
+	 */
+	public synchronized void addListener(TLObject project, Runnable listener) {
+		_listeners.computeIfAbsent(project.tId(), x -> new ArrayList<>()).add(listener);
+	}
+
+	/**
+	 * Removes a listener added by {@link #addListener(TLObject, Runnable)}.
+	 */
+	public synchronized void removeListener(TLObject project, Runnable listener) {
+		List<Runnable> listeners = _listeners.get(project.tId());
+		if (listeners != null && listeners.remove(listener) && listeners.isEmpty()) {
+			_listeners.remove(project.tId());
+		}
+	}
+
+	private void fire(ObjectKey project) {
+		List<Runnable> listeners;
+		synchronized (this) {
+			List<Runnable> registered = _listeners.get(project);
+			if (registered == null) {
+				return;
+			}
+			listeners = new ArrayList<>(registered);
+		}
+		for (Runnable listener : listeners) {
+			listener.run();
+		}
 	}
 
 	/**
@@ -125,7 +169,9 @@ public class Simulations extends ConfiguredManagedClass<Simulations.Config> {
 		try {
 			stopped.saveOverrides();
 		} finally {
+			stopped.simulation().setListener(null);
 			stopped.close();
+			fire(project.tId());
 		}
 	}
 

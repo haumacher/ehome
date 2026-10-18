@@ -41,6 +41,11 @@
 					<method name="simulationCommand" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
 					<method name="simulationSetParameter" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
 					<method name="simulationResetParameter" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationRun" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationPause" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationSpeedVeto" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationPauseVeto" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
+					<method name="simulationFollowerOptions" class="de.haumacher.ehome.simulation.SimulationFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

@@ -6,9 +6,11 @@ package de.haumacher.ehome.simulation;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import de.haumacher.ehome.monitor.BusTelegram.Service;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
@@ -37,6 +39,10 @@ import de.haumacher.ehome.simulation.KnxValues.CodingException;
  * <li>A read on the sending address of a readable datapoint with a good value is answered.</li>
  * <li>{@link #startReads()}: the addresses to read for the datapoints read on start; the loss of
  * the link makes every datapoint stale ({@link #linkLost()}).</li>
+ * <li>A datapoint another technology owns (the time master's) can be bound for transmission only
+ * ({@link #bindPublisher(Mapping)}): what the owner publishes is sent on its address
+ * ({@link #publish(String)}), a read of the address is answered with it, and telegrams on the
+ * address do not change it.</li>
  * </ul>
  *
  * <p>
@@ -122,6 +128,9 @@ public final class KnxBinding implements DatapointModel.Technology {
 
 	private final Map<String, Mapping> _mappings = new LinkedHashMap<>();
 
+	/** The datapoints bound for transmission only. */
+	private final Set<String> _publishers = new HashSet<>();
+
 	private final Deque<Sent> _sent = new ArrayDeque<>();
 
 	/**
@@ -142,6 +151,43 @@ public final class KnxBinding implements DatapointModel.Technology {
 			throw new IllegalArgumentException("The datapoint '" + mapping.datapoint() + "' is not one of the binding.");
 		}
 		_mappings.put(mapping.datapoint(), mapping);
+	}
+
+	/**
+	 * Binds a datapoint another technology owns for transmission only: {@link #publish(String)}
+	 * sends its value to the sending address of the mapping, a read of that address is answered
+	 * with it, the telegrams of the address do not change it.
+	 */
+	public void bindPublisher(Mapping mapping) {
+		if (_model.get(mapping.datapoint()) == null || mapping.send() < 0) {
+			throw new IllegalArgumentException("No datapoint '" + mapping.datapoint() + "' with a sending address.");
+		}
+		_mappings.put(mapping.datapoint(), mapping);
+		_publishers.add(mapping.datapoint());
+	}
+
+	/**
+	 * Sends the value of a datapoint bound by {@link #bindPublisher(Mapping)} as a write to its
+	 * address; the other datapoints of the address take it after the cascade
+	 * ({@link #deliverSent()}).
+	 *
+	 * @return Whether it was sent.
+	 */
+	public boolean publish(String datapoint) {
+		Mapping mapping = _mappings.get(datapoint);
+		if (mapping == null || !_publishers.contains(datapoint)) {
+			throw new IllegalArgumentException("The datapoint '" + datapoint + "' is not published by the binding.");
+		}
+		byte[] data;
+		try {
+			data = KnxValues.encode(mapping.dpt(), _model.get(datapoint).value());
+		} catch (CodingException ex) {
+			_log.problem("cannot publish '" + datapoint + "': " + ex.getMessage());
+			return false;
+		}
+		_bus.send(mapping.send(), apdu(Service.WRITE, mapping.dpt(), data));
+		_sent.add(new Sent(mapping.send(), Service.WRITE, data, datapoint));
+		return true;
 	}
 
 	/**
@@ -279,7 +325,8 @@ public final class KnxBinding implements DatapointModel.Technology {
 
 	private void deliver(int address, byte[] data, String except) {
 		for (Mapping mapping : _mappings.values()) {
-			if (mapping.datapoint().equals(except) || !mapping.addresses().contains(Integer.valueOf(address))) {
+			if (mapping.datapoint().equals(except) || _publishers.contains(mapping.datapoint())
+				|| !mapping.addresses().contains(Integer.valueOf(address))) {
 				continue;
 			}
 			Datapoint datapoint = _model.get(mapping.datapoint());
@@ -341,11 +388,14 @@ public final class KnxBinding implements DatapointModel.Technology {
 	}
 
 	/**
-	 * The link to the bus was lost: every datapoint of the binding is stale.
+	 * The link to the bus was lost: every datapoint of the binding is stale (a published one keeps
+	 * the value last published).
 	 */
 	public void linkLost() {
 		for (Mapping mapping : _mappings.values()) {
-			_model.reportStale(mapping.datapoint());
+			if (!_publishers.contains(mapping.datapoint())) {
+				_model.reportStale(mapping.datapoint());
+			}
 		}
 	}
 

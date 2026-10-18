@@ -17,8 +17,10 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.LongSupplier;
 
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.monitor.BusLink;
@@ -59,13 +61,15 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * the bus through a {@link KnxBinding} (reports from the group telegrams received, commands as
  * telegrams), the outputs of schedule entries belong to the {@link Scheduler}, every other
  * datapoint is a value of the application that every command sets (it lives in the simulation
- * only). The datapoints of the time master exist without a value; Zigbee datapoints refuse their
- * commands.</li>
+ * only). The datapoints of the time master belong to the {@link TimeMaster}, which broadcasts the
+ * simulated time on their addresses; Zigbee datapoints refuse their commands.</li>
  * <li>The {@link Engine} and the {@link Scheduler} run on a simulated clock: it starts at a given
- * instant and moves only by {@link #advance(long)} (fast-forward: every timer and every schedule
- * firing on the way at its own time) and {@link #step()} (to the next timer or firing); local time
- * and the sun come from the image's settings (<code>tz</code>, <code>location</code>). The wall
- * clock is never read.</li>
+ * instant and moves by {@link #advance(long)} (fast-forward: every timer and every schedule
+ * firing on the way at its own time), {@link #step(long)} (to the next timer or firing) and, while it
+ * runs in real time ({@link #run(int)}, at a speed of 1, 10 or 60 times the wall clock, until
+ * {@link #pause()}), by {@link #tick()} on a thread of its own; local time and the sun come from
+ * the image's settings (<code>tz</code>, <code>location</code>). The wall clock is read only to run
+ * in real time.</li>
  * <li>Telegrams arrive whenever the bus delivers them and take effect at the simulated time of
  * their arrival. The telegrams of the simulation are sent in order on a thread of their own.</li>
  * <li>The parameter overrides are those of the given {@link ParameterStore}, as a controller's
@@ -73,6 +77,9 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * <li>Everything that happens is written to the {@link #timeline()}: telegrams received and sent,
  * the commands of the rules, the logs of the rules and the scheduler, parameter changes and the
  * problems of the binding.</li>
+ * <li>The {@link #setListener(Runnable) listener} is told about every change: an entry of the
+ * timeline, a telegram processed, the clock moved. It is called holding the simulation's lock and
+ * must only take note.</li>
  * </ul>
  */
 public final class Simulation implements AutoCloseable {
@@ -82,6 +89,9 @@ public final class Simulation implements AutoCloseable {
 
 	/** How long {@link #awaitSent()} and {@link #awaitReceived(long, long)} wait at most, in ms. */
 	public static final long BUS_TIMEOUT = 10_000;
+
+	/** How often the clock moves while it runs in real time, in milliseconds of the wall clock. */
+	public static final long TICK = 100;
 
 	/** The most events processed at one instant before the clock gives up on them. */
 	private static final int MAX_EVENTS_AT_ONCE = 10_000;
@@ -155,6 +165,22 @@ public final class Simulation implements AutoCloseable {
 
 	private final List<Schedule> _schedules;
 
+	private final TimeMaster _timeMaster;
+
+	private final LongSupplier _wall;
+
+	/** The speed of the clock in real time, 0 while it does not run by itself. */
+	private int _speed;
+
+	/** The wall clock and the simulated time when the clock last started or was moved by hand. */
+	private long _baseWall;
+
+	private long _baseNow;
+
+	private ScheduledExecutorService _ticker;
+
+	private Runnable _listener;
+
 	private final List<String> _problems = new ArrayList<>();
 
 	private final Map<String, String> _owners = new LinkedHashMap<>();
@@ -200,7 +226,19 @@ public final class Simulation implements AutoCloseable {
 	 *        The persisted parameter overrides.
 	 */
 	public Simulation(Map<?, ?> image, long startUtc, ParameterStore store) {
+		this(image, startUtc, store, System::currentTimeMillis);
+	}
+
+	/**
+	 * Creates a simulation of the given image with the given wall clock (read only while the
+	 * simulated clock runs in real time); nothing runs before {@link #start()}.
+	 *
+	 * @param wall
+	 *        The wall clock, in milliseconds.
+	 */
+	public Simulation(Map<?, ?> image, long startUtc, ParameterStore store, LongSupplier wall) {
 		_startUtc = startUtc;
+		_wall = wall;
 		Map<?, ?> settings = image.get("settings") instanceof Map<?, ?> map ? map : Map.of();
 		_zone = settings.get("tz") instanceof String tz ? PosixZone.parse(tz) : PosixZone.UTC;
 		if (settings.get("location") instanceof Map<?, ?> location) {
@@ -234,9 +272,13 @@ public final class Simulation implements AutoCloseable {
 			_owners.put((String) dp.get("id"),
 				dp.containsKey("knx") ? "the KNX adapter" : dp.containsKey("zigbee") ? "the Zigbee adapter" : null);
 		}
-		Map<String, ValueType> timeMaster = timeMaster(image);
-		for (String id : timeMaster.keySet()) {
-			_owners.put(id, "the time master");
+		_timeMaster = TimeMaster.of(image, _zone);
+		Map<String, ValueType> timeMaster = new LinkedHashMap<>();
+		if (_timeMaster != null) {
+			for (TimeMaster.Member member : _timeMaster.members()) {
+				timeMaster.put(member.datapoint(), member.type());
+				_owners.put(member.datapoint(), "the time master");
+			}
 		}
 		Schedule.Loaded loaded = Schedule.load(image.containsKey("schedules") ? image.get("schedules") : List.of(),
 			new Schedule.Datapoints() {
@@ -293,8 +335,12 @@ public final class Simulation implements AutoCloseable {
 		for (KnxBinding.Mapping mapping : mappings) {
 			_binding.bind(mapping);
 		}
-		for (Map.Entry<String, ValueType> datapoint : timeMaster.entrySet()) {
-			_model.add(datapoint.getKey(), datapoint.getValue(), false, null);
+		if (_timeMaster != null) {
+			for (TimeMaster.Member member : _timeMaster.members()) {
+				_model.add(member.datapoint(), member.type(), false, _timeMaster);
+				_binding.bindPublisher(new KnxBinding.Mapping(member.datapoint(), member.dpt(), member.address(),
+					List.of(), true, true, false));
+			}
 		}
 
 		_engine = new Engine(_model, () -> _now, store, new Engine.TimeSource() {
@@ -326,22 +372,6 @@ public final class Simulation implements AutoCloseable {
 		});
 		_scheduler.addListener(_engine::scheduleFired);
 		_rules = image.containsKey("rules") ? image.get("rules") : List.of();
-	}
-
-	private static Map<String, ValueType> timeMaster(Map<?, ?> image) {
-		Map<String, ValueType> result = new LinkedHashMap<>();
-		if (image.get("knx") instanceof Map<?, ?> knx && knx.get("timeMaster") instanceof Map<?, ?> master) {
-			if (master.containsKey("time")) {
-				result.put("knx.time", ValueType.TIME_OF_DAY);
-			}
-			if (master.containsKey("date")) {
-				result.put("knx.date", ValueType.DATE);
-			}
-			if (master.containsKey("dateTime")) {
-				result.put("knx.datetime", ValueType.DATE_TIME);
-			}
-		}
-		return result;
 	}
 
 	private static double number(Object value) {
@@ -400,6 +430,21 @@ public final class Simulation implements AutoCloseable {
 		add(Kind.CLOCK, "-", "started at " + timeText(_now));
 		_engine.start(StartReason.BOOT);
 		_binding.startReads();
+		if (_timeMaster != null) {
+			_timeMaster.start(utc(), new TimeMaster.Output() {
+				@Override
+				public void publish(TimeMaster.Member member, Val value) {
+					_model.report(member.datapoint(), value);
+					_binding.publish(member.datapoint());
+				}
+
+				@Override
+				public void refused(String datapoint, Val value) {
+					problem(datapoint, "refusing the command " + Values.format(value) + " for '" + datapoint
+						+ "': the time master owns it");
+				}
+			});
+		}
 		settle();
 		fireDue();
 		return null;
@@ -436,6 +481,10 @@ public final class Simulation implements AutoCloseable {
 				return;
 			}
 			_closed = true;
+			_speed = 0;
+			if (_ticker != null) {
+				_ticker.shutdownNow();
+			}
 			_engine.close();
 			link = _link;
 			_link = null;
@@ -483,6 +532,7 @@ public final class Simulation implements AutoCloseable {
 		long target = _now + ms;
 		long from = _now;
 		runTo(target);
+		rebase();
 		add(Kind.CLOCK, "-", "fast-forward by " + Values.durationText(ms) + " from " + timeText(from));
 	}
 
@@ -500,8 +550,93 @@ public final class Simulation implements AutoCloseable {
 		long target = next == Long.MAX_VALUE ? _now + limit : Math.min(next, _now + limit);
 		long from = _now;
 		runTo(target);
+		rebase();
 		add(Kind.CLOCK, "-", "step by " + Values.durationText(target - from) + " from " + timeText(from));
 		return target - from;
+	}
+
+	/**
+	 * Lets the clock run by itself at the given multiple of the wall clock (1: real time) until
+	 * {@link #pause()}; every timer and firing on the way at its own time, as with
+	 * {@link #advance(long)}. A clock running already changes its speed.
+	 *
+	 * @param speed
+	 *        The simulated milliseconds per millisecond of the wall clock, at least 1.
+	 */
+	public synchronized void run(int speed) {
+		if (speed < 1) {
+			throw new IllegalArgumentException("The speed of the clock must be at least 1: " + speed);
+		}
+		checkRunning();
+		tick();
+		_speed = speed;
+		_baseWall = _wall.getAsLong();
+		_baseNow = _now;
+		if (_ticker == null) {
+			_ticker = Executors.newSingleThreadScheduledExecutor(r -> {
+				Thread thread = new Thread(r, "E-Home simulation clock");
+				thread.setDaemon(true);
+				return thread;
+			});
+			_ticker.scheduleWithFixedDelay(this::tickSafely, TICK, TICK, TimeUnit.MILLISECONDS);
+		}
+		add(Kind.CLOCK, "-", (speed == 1 ? "running in real time" : "running at " + speed + " times real time")
+			+ " from " + timeText(_now));
+	}
+
+	/**
+	 * Stops the clock running by itself; it stays where it is.
+	 */
+	public synchronized void pause() {
+		checkRunning();
+		if (_speed == 0) {
+			return;
+		}
+		tick();
+		_speed = 0;
+		add(Kind.CLOCK, "-", "paused at " + timeText(_now));
+	}
+
+	/**
+	 * The speed of the clock running by itself (simulated milliseconds per millisecond of the wall
+	 * clock), 0 while it does not.
+	 */
+	public synchronized int speed() {
+		return _speed;
+	}
+
+	/**
+	 * Moves the clock running by itself to where the wall clock says (called every {@link #TICK} ms
+	 * while it runs); nothing while it does not run.
+	 */
+	public synchronized void tick() {
+		if (_speed == 0 || !_started || _closed) {
+			return;
+		}
+		long target = _baseNow + (_wall.getAsLong() - _baseWall) * _speed;
+		if (target > _now) {
+			runTo(target);
+			changed();
+		}
+	}
+
+	private void tickSafely() {
+		try {
+			tick();
+		} catch (RuntimeException ex) {
+			synchronized (this) {
+				_speed = 0;
+				problem("-", "the clock stopped: " + ex);
+			}
+		}
+	}
+
+	/**
+	 * After the clock was moved by hand, the clock running by itself goes on from there.
+	 */
+	private void rebase() {
+		_baseWall = _wall.getAsLong();
+		_baseNow = _now;
 	}
 
 	/**
@@ -517,12 +652,24 @@ public final class Simulation implements AutoCloseable {
 		return next;
 	}
 
+	/**
+	 * The next instant at which something is due: an event ({@link #nextEvent()}) or a broadcast of
+	 * the time master.
+	 */
+	private long nextDue() {
+		long next = nextEvent();
+		if (_timeMaster != null) {
+			next = Math.min(next, Math.max(_now, (_timeMaster.next() - _startUtc) * 1000));
+		}
+		return next;
+	}
+
 	private void runTo(long target) {
 		int atOnce = 0;
 		long last = _now;
 		while (true) {
 			settle();
-			long next = nextEvent();
+			long next = nextDue();
 			if (next > target) {
 				break;
 			}
@@ -543,6 +690,10 @@ public final class Simulation implements AutoCloseable {
 	}
 
 	private void fireDue() {
+		if (_timeMaster != null) {
+			_timeMaster.runTo(utc());
+			settle();
+		}
 		_engine.processDueTimers();
 		if (_now >= _nextMidnight) {
 			_nextMidnight = nextMidnight(_now);
@@ -614,6 +765,7 @@ public final class Simulation implements AutoCloseable {
 			settle();
 			_received++;
 			notifyAll();
+			changed();
 		}
 	}
 
@@ -852,6 +1004,40 @@ public final class Simulation implements AutoCloseable {
 			_timeline.poll();
 			_dropped++;
 		}
+		changed();
+	}
+
+	/**
+	 * Sets the listener told about every change (an entry of the timeline, a telegram processed, the
+	 * clock moved); <code>null</code> for none. It is called holding the lock of the simulation and
+	 * must only take note.
+	 */
+	public synchronized void setListener(Runnable listener) {
+		_listener = listener;
+	}
+
+	private void changed() {
+		Runnable listener = _listener;
+		if (listener != null) {
+			listener.run();
+		}
+	}
+
+	/**
+	 * Writes a problem to the timeline, e.g. one of the installation the simulation runs against.
+	 *
+	 * @param source
+	 *        What it concerns, <code>-</code> for nothing in particular.
+	 */
+	public synchronized void reportProblem(String source, String text) {
+		problem(source, text);
+	}
+
+	/**
+	 * The time master of the image, <code>null</code> if it has none.
+	 */
+	public TimeMaster timeMaster() {
+		return _timeMaster;
 	}
 
 	private void problem(String source, String text) {

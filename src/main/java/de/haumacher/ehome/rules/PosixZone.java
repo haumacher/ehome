@@ -79,6 +79,13 @@ public final class PosixZone {
 	}
 
 	/**
+	 * Whether daylight saving time (KNX: summer time) is in effect at the UTC instant.
+	 */
+	public boolean summerTime(long utc) {
+		return _start != null && _dst != _std && offset(utc) == _dst;
+	}
+
+	/**
 	 * Parses a POSIX TZ rule.
 	 *
 	 * @throws IllegalArgumentException

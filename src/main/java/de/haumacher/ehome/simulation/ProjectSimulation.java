@@ -19,6 +19,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.monitor.CalimeroBusLink;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
+import de.haumacher.ehome.monitor.MonitorRow;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.rules.DatapointModel.CommandStatus;
 import de.haumacher.ehome.rules.DatapointModel.Datapoint;
@@ -114,10 +115,14 @@ public final class ProjectSimulation implements AutoCloseable {
 			VirtualInstallation.start(freeLoopback(), "E-Home simulation", TUNNELS, workDir);
 		Simulation simulation = null;
 		try {
-			for (GroupDevice device : ProjectGroupDevices.ofProject(project)) {
+			List<String> problems = new ArrayList<>();
+			for (GroupDevice device : ProjectGroupDevices.ofProject(project, problems)) {
 				installation.attach(device);
 			}
 			simulation = new Simulation(image.getJson(), startUtc, store);
+			for (String problem : problems) {
+				simulation.reportProblem("-", problem);
+			}
 			simulation.connect(CalimeroBusLink.open(new InetSocketAddress(installation.endpoint().address(),
 				installation.endpoint().port())));
 			String refusal = simulation.start();
@@ -203,6 +208,22 @@ public final class ProjectSimulation implements AutoCloseable {
 	 */
 	public void step() {
 		_simulation.step(DAY);
+		saveOverrides();
+	}
+
+	/**
+	 * Lets the clock run by itself at the given multiple of real time (1, 10, 60).
+	 */
+	public void run(int speed) {
+		_simulation.run(speed);
+	}
+
+	/**
+	 * Stops the clock running by itself; the overrides the rules set meanwhile are written to the
+	 * project.
+	 */
+	public void pause() {
+		_simulation.pause();
 		saveOverrides();
 	}
 
@@ -339,9 +360,12 @@ public final class ProjectSimulation implements AutoCloseable {
 	}
 
 	/**
-	 * What the view shows of the simulation: <code>time</code>, <code>next</code>,
-	 * <code>endpoint</code>, <code>devices</code>, the rows <code>rules</code>,
-	 * <code>parameters</code>, <code>datapoints</code> and <code>timeline</code> (newest first).
+	 * What the view shows of the simulation: <code>time</code>, <code>next</code>, <code>speed</code>
+	 * (of the clock running by itself, 0 while it does not), <code>endpoint</code>,
+	 * <code>devices</code>, the rows <code>rules</code>, <code>parameters</code>,
+	 * <code>datapoints</code> and <code>timeline</code> (newest first). A row is a {@link MonitorRow}
+	 * standing for its rule, parameter, datapoint or entry, so that a table keeps its selection across
+	 * updates.
 	 */
 	public Map<String, Object> snapshot() {
 		Map<String, Object> result = new LinkedHashMap<>();
@@ -350,14 +374,16 @@ public final class ProjectSimulation implements AutoCloseable {
 			result.put("time", s.timeText(s.now()));
 			long next = s.nextEvent();
 			result.put("next", next == Long.MAX_VALUE ? null : s.timeText(next));
+			result.put("speed", Integer.valueOf(s.speed()));
 			result.put("endpoint", _installation.endpoint().toString());
 			result.put("devices", Integer.valueOf(_installation.devices().size() - 1));
 			result.put("rules", rules(s));
 			result.put("parameters", parameters(s));
 			result.put("datapoints", datapoints(s));
 			List<Object> timeline = new ArrayList<>();
+			long number = s.dropped();
 			for (Simulation.Entry entry : s.timeline()) {
-				Map<String, Object> row = new LinkedHashMap<>();
+				Map<String, Object> row = new MonitorRow(Long.valueOf(number++));
 				row.put("time", s.timeText(entry.ms()));
 				row.put("kind", entry.kind().externalName());
 				row.put("source", entry.source());
@@ -376,7 +402,7 @@ public final class ProjectSimulation implements AutoCloseable {
 		for (int r = 0; r < set.rules().size(); r++) {
 			RuleSet.Rule rule = set.rules().get(r);
 			RuleStatus status = engine.status(r);
-			Map<String, Object> row = new LinkedHashMap<>();
+			Map<String, Object> row = new MonitorRow(rule.id());
 			row.put("id", rule.id());
 			row.put("name", rule.name());
 			row.put("enabled", Boolean.valueOf(engine.enabled(r)));
@@ -415,8 +441,7 @@ public final class ProjectSimulation implements AutoCloseable {
 			RuleSet.Rule rule = set.rules().get(r);
 			for (int p = 0; p < rule.parameters().size(); p++) {
 				RuleSet.Parameter parameter = rule.parameters().get(p);
-				Map<String, Object> row = new LinkedHashMap<>();
-				row.put("key", ParameterStore.key(rule.id(), parameter.id()));
+				Map<String, Object> row = new MonitorRow(ParameterStore.key(rule.id(), parameter.id()));
 				row.put("rule", rule.id());
 				row.put("parameter", parameter.id());
 				row.put("label", parameter.label());
@@ -445,7 +470,7 @@ public final class ProjectSimulation implements AutoCloseable {
 	private List<Object> datapoints(Simulation s) {
 		List<Object> result = new ArrayList<>();
 		for (Datapoint dp : s.model().datapoints()) {
-			Map<String, Object> row = new LinkedHashMap<>();
+			Map<String, Object> row = new MonitorRow(dp.name());
 			row.put("id", dp.name());
 			row.put("type", dp.type().externalName());
 			row.put("value", dp.quality() == Quality.UNKNOWN ? "" : Values.format(dp.value()));

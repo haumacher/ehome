@@ -152,8 +152,10 @@ tracer.
 Workaround: the scripts a form re-evaluates while editing - the four `dynamic-visibility` scripts
 of the typed attributes of `ehome.operational:ParameterValue` and the options of its `choice` -
 write the navigation to the parameter type in TL-Script instead of calling `parameterValueType`;
-the constraints (run at save and commit) and the display keep calling the function. No workaround
-for the derived fields: they are correct after saving.
+the constraints (run at save and commit) and the display keep calling the function. Likewise the
+options of the switching and state objects of an object follower (`ehome.runtime:ObjectFollower`,
+haumacher/ehome #62) navigate from the device in TL-Script, so they follow the device entered in the
+same form. No workaround for the derived fields: they are correct after saving.
 
 The configuration of a device (`projects/devices.view.xml`, `projects/device-item.view.xml`) is
 computed by Java functions (`DeviceFunctions`: `deviceValue`, `deviceItems`, `devicePages`, …),
@@ -375,9 +377,14 @@ The group monitor receives bus telegrams on a Calimero listener thread and has n
 update the view's channels from it; only `<start-job>` updates a view from another thread, through
 the internal `ReactWindowReplay.inWindow`.
 
-Workaround: `de.haumacher.ehome.monitor.WindowPublisher` calls that internal API in the user's
-session context, throttled to one update per 250 ms, and disconnects the monitor when the page is
-gone.
+Workaround: `de.haumacher.ehome.view.WindowUpdates` calls that internal API in the user's session
+context, throttled to one update per interval. The group monitor uses it through
+`de.haumacher.ehome.monitor.WindowPublisher` (250 ms; it disconnects the monitor when the page is
+gone), the simulation of a project (haumacher/ehome #62) through
+`de.haumacher.ehome.simulation.SimulationUpdatesElement` (`<simulation-updates>` around
+`projects/simulation.view.xml`, 500 ms): while its content is displayed it listens to the project's
+simulation and writes the view's `refresh` channel on every change (a telegram, the clock running in
+real time, a rule acting).
 
 The virtual device (`virtual/virtual-device.view.xml`) has the same need: its status and the number of
 services recorded change while a programming tool downloads into it. No workaround there: the view
@@ -386,8 +393,8 @@ take a derived channel of the device and the last status as input, so that their
 checked again after a start or stop (an `<executability>` rule cannot observe state outside the
 model).
 
-**When available:** replace `WindowPublisher` by the layer's live-source element, and let the virtual
-device's status follow the recording.
+**When available:** replace `WindowPublisher` and `SimulationUpdatesElement` (with `WindowUpdates`)
+by the layer's live-source element, and let the virtual device's status follow the recording.
 
 ## A table row cannot carry a CSS class (TL #29815)
 
@@ -438,9 +445,10 @@ came out alphabetically ("Dienstag, Donnerstag, …, Kein Tag, …").
 
 Workaround: `de.haumacher.ehome.view.OptionOrderSelectControlProvider`, a `SelectControlProvider`
 passing no comparator, as `<input-control>` of the monitor's choices of the step size, the day of
-the week and the enumeration value (`projects/monitor.view.xml`).
+the week and the enumeration value (`projects/monitor.view.xml`), and of the switching and state
+objects of an object follower, ordered by object number (`projects/simulation.view.xml`).
 
-**When available:** use the engine's setting in those three inputs and delete
+**When available:** use the engine's setting in those five inputs and delete
 `OptionOrderSelectControlProvider`.
 
 ## Deleting objects scans the referrer tables (TL #29876, #29877)

@@ -595,6 +595,83 @@
 				/>
 			</attributes>
 		</class>
+		<!--
+			What the application of a device does between two of its objects in the simulation of the project
+			(haumacher/ehome #62, de.haumacher.ehome.simulation): the object "follower" takes every value the
+			object "source" receives from the bus and sends it like its own, inverted for an object of one bit
+			if "inverted" - the state of a switching channel following its switching object. The program data
+			of a device does not say which object follows which (an MDT switch actuator names its objects
+			"Switch On/Off", "State" and "Inverted state" of "Channel A" and has no channel structure), so
+			the user names the pairs (Simulation tab, "Device behaviour"). A pair whose device or objects are
+			deleted goes with them; an incomplete pair is left out of the simulation, with a problem in its
+			timeline.
+		-->
+		<class name="ObjectFollower">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-arrow-left-right"/>
+			</annotations>
+			<attributes>
+				<!-- The device of the two objects; the options are the devices of the project. -->
+				<reference name="device"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					type="ehome.physical:Device"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> simulationFollowerOptions($f)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!--
+					The communication object of the device whose received values the follower takes (a switching
+					object); the options are the objects the device uses, written in TL-Script so that the form
+					follows the device entered (TL #29799).
+				-->
+				<reference name="source"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					type="ehome.physical:Connector"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> $f.get(`ehome.runtime:ObjectFollower#device`).get(`ehome.physical:Device#connectors`)
+    .filter(c -> $c.get(`ehome.physical:Connector#active`) != false and $c.get(`ehome.physical:Connector#port`) != null)
+    .sort(a -> b -> $a.get(`ehome.physical:Connector#port`).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)
+        - $b.get(`ehome.physical:Connector#port`).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`))]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The communication object of the device taking the values (a state object). -->
+				<reference name="follower"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					type="ehome.physical:Connector"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> $f.get(`ehome.runtime:ObjectFollower#device`).get(`ehome.physical:Device#connectors`)
+    .filter(c -> $c.get(`ehome.physical:Connector#active`) != false and $c.get(`ehome.physical:Connector#port`) != null)
+    .sort(a -> b -> $a.get(`ehome.physical:Connector#port`).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)
+        - $b.get(`ehome.physical:Connector#port`).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`))]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- Whether the follower takes the inverted value (an object of one bit). -->
+				<property name="inverted"
+					type="tl.core:Boolean"
+				/>
+			</attributes>
+		</class>
 		<!-- A reason why an image was refused, at a path of the image's JSON structure. -->
 		<class name="Refusal">
 			<generalizations>

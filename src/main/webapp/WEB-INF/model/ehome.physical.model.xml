@@ -96,8 +96,36 @@
 			<annotations>
 				<table name="EHConnector"/>
 				<instance-presentation icon="css:fa-solid fa-plug"/>
+				<id-column value="displayName"/>
 			</annotations>
 			<attributes>
+				<!--
+					The label (haumacher/ehome #62): the number of the communication object, its text and function in
+					this device (else the program's), and the description entered in the project, as ETS lists the
+					objects of a device: "7 Kanal A: Status (KanalAStatus)".
+				-->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[c -> {
+    placed = $c.get(`ehome.physical:Connector#port`);
+    port = $placed.get(`ehome.operational:Interface#port`);
+    text = $c.get(`ehome.physical:Connector#text`) || $placed.get(`ehome.operational:Interface#displayName`);
+    function = $c.get(`ehome.physical:Connector#function`)
+        || $placed.get(`ehome.operational:Interface#function`).localize()
+        || $port.get(`ehome.operational:Port#function`).localize();
+    description = $c.get(`ehome.physical:Connector#description`);
+    label = if($function == null, "{0} {1}".fill($port.get(`ehome.operational:Port#index`), $text),
+        "{0} {1}: {2}".fill($port.get(`ehome.operational:Port#index`), $text, $function));
+    if($description == null, $label, "{0} ({1})".fill($label, $description))
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<reference name="port"
 					kind="forwards"
 					mandatory="true"
