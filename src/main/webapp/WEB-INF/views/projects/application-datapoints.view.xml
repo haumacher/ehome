@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The application datapoints of a project (haumacher/ehome #59, homecontrol spec/runtime-image.md
+	3.3): datapoints of the runtime image that no technology owns, values of the application that rules
+	and the user interface command (a holiday mode, a counter) and the outputs of schedule entries
+	(spec/schedules.md 5). They are part of the image after the datapoints of the group addresses and
+	are listed with them in the rules' "Datapoints" table. Shown in the rules' tab-bar
+	(rules.view.xml), where they are used.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="datapoint"/>
+	</channels>
+	<panel>
+		<title>
+			<en>Application datapoints</en>
+			<de>Anwendungsdatenpunkte</de>
+		</title>
+		<commands>
+			<generic-command
+				image="css:bi bi-plus-lg"
+				input="project"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>New datapoint</en>
+					<de>Neuer Datenpunkt</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+				</executability>
+				<with-transaction>
+					<execute-script function="o -> ruleCreate($o, 'applicationDatapoints', `ehome.runtime:ApplicationDatapoint`)"/>
+				</with-transaction>
+				<write-channel name="datapoint"/>
+			</generic-command>
+			<generic-command
+				image="css:bi bi-trash"
+				input="datapoint"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Delete</en>
+					<de>Löschen</de>
+				</label>
+				<executability>
+					<null-input-disabled/>
+				</executability>
+				<confirm expr="x -> #('Delete the datapoint? Rules and schedule entries naming it are then refused.'@en, 'Den Datenpunkt löschen? Regeln und Zeitplaneinträge, die ihn nennen, werden dann abgelehnt.'@de)"/>
+				<delete-object/>
+				<write-channel name="datapoint"/>
+			</generic-command>
+			<generic-command
+				clique="edit"
+				image="css:bi bi-arrow-up"
+				input="datapoint"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Move up</en>
+					<de>Nach oben</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+					<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+				</executability>
+				<with-transaction>
+					<execute-script function="x -> ruleMove($x, -1)"/>
+				</with-transaction>
+			</generic-command>
+			<generic-command
+				clique="edit"
+				image="css:bi bi-arrow-down"
+				input="datapoint"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Move down</en>
+					<de>Nach unten</de>
+				</label>
+				<executability>
+					<model-access operation="Write"/>
+					<null-input-disabled/>
+					<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+				</executability>
+				<with-transaction>
+					<execute-script function="x -> ruleMove($x, 1)"/>
+				</with-transaction>
+			</generic-command>
+		</commands>
+		<split-panel
+			orientation="vertical"
+			resizable="true"
+		>
+			<panes>
+				<pane
+					size="45"
+					unit="%"
+				>
+					<table
+						observed-types="ehome.runtime:ApplicationDatapoint,ehome.project:Project"
+						selection="datapoint"
+						types="ehome.runtime:ApplicationDatapoint"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<columns>
+							<column attribute="identifier"/>
+							<column attribute="label"/>
+							<column attribute="type"/>
+							<column attribute="writable"/>
+							<column attribute="persist"/>
+						</columns>
+						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#applicationDatapoints`))</rows>
+					</table>
+				</pane>
+				<pane
+					size="55"
+					unit="%"
+				>
+					<form
+						input="datapoint"
+						with-inset="true"
+					>
+						<field attribute="identifier"/>
+						<field attribute="label"/>
+						<field attribute="type"/>
+						<field attribute="writable"/>
+						<field attribute="persist"/>
+						<field attribute="unit"/>
+						<field attribute="historyRetention"/>
+						<field attribute="historySpacing"/>
+					</form>
+				</pane>
+			</panes>
+		</split-panel>
+	</panel>
+</view>

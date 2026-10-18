@@ -226,36 +226,99 @@
 				size="50"
 				unit="%"
 			>
-				<panel>
-					<title>
-						<en>Schedule entry</en>
-						<de>Zeitplaneintrag</de>
-					</title>
-					<form
-						input="entry"
-						with-inset="true"
-					>
-						<field attribute="label"/>
-						<field attribute="identifier"/>
-						<field attribute="enabled"/>
-						<field attribute="enabledAdjustable"/>
-						<field attribute="missed"/>
-						<field attribute="output"/>
-						<field attribute="time"/>
-						<field attribute="month"/>
-						<field attribute="day"/>
-						<field attribute="dates"/>
-						<field attribute="sun"/>
-						<field attribute="offset"/>
-						<field attribute="notBefore"/>
-						<field attribute="notAfter"/>
-						<field attribute="every"/>
-						<field attribute="from"/>
-						<field attribute="until"/>
-						<field attribute="at"/>
-						<field attribute="days"/>
-					</form>
-				</panel>
+				<split-panel
+					orientation="vertical"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="70"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Schedule entry</en>
+									<de>Zeitplaneintrag</de>
+								</title>
+								<form
+									input="entry"
+									with-inset="true"
+								>
+									<field attribute="label"/>
+									<field attribute="identifier"/>
+									<field attribute="enabled"/>
+									<field attribute="enabledAdjustable"/>
+									<field attribute="missed"/>
+									<field attribute="output"/>
+									<field attribute="time"/>
+									<field attribute="month"/>
+									<field attribute="day"/>
+									<field attribute="dates"/>
+									<field attribute="sun"/>
+									<field attribute="offset"/>
+									<field attribute="notBefore"/>
+									<field attribute="notAfter"/>
+									<field attribute="every"/>
+									<field attribute="from"/>
+									<field attribute="until"/>
+									<field attribute="at"/>
+									<field attribute="days"/>
+								</form>
+							</panel>
+						</pane>
+						<pane
+							size="30"
+							unit="%"
+						>
+							<!--
+								The datapoints an entry may set as its output (haumacher/ehome #59): the boolean
+								application datapoints of the project, edited in the rules' tab "Application
+								datapoints". A datapoint of a group address is owned by the KNX adapter and refused.
+							-->
+							<panel>
+								<title>
+									<en>Possible outputs</en>
+									<de>Mögliche Ausgänge</de>
+								</title>
+								<table observed-types="ehome.runtime:ApplicationDatapoint,ehome.project:Project">
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+									<columns>
+										<computed-column name="id"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Id</en>
+												<de>Id</de>
+											</label>
+											<value>row -> $row["id"]</value>
+										</computed-column>
+										<computed-column name="label"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Name</en>
+												<de>Name</de>
+											</label>
+											<value>row -> $row["label"]</value>
+										</computed-column>
+										<computed-column name="writable"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Writable</en>
+												<de>Schreibbar</de>
+											</label>
+											<value>row -> if($row["writable"] == true, '✓', '')</value>
+										</computed-column>
+									</columns>
+									<rows>p -> ruleDatapoints($p).filter(d -> $d["type"] == "boolean" &amp;&amp; $d["knx"] == null)</rows>
+								</table>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
 			</pane>
 		</panes>
 	</split-panel>

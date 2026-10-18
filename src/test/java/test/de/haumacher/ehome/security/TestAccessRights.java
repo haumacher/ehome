@@ -51,7 +51,7 @@ import de.haumacher.ehome.programming.I18NConstants;
  * The access definition of E-Home (<code>WEB-INF/autoconf/ehome.security.config.xml</code>, haumacher/ehome
  * #48) checked through the model access rights for an installer, a viewer and an account without
  * an E-Home group: on a project with a group address, a device, a function, a deployment, a rule with a
- * parameter, a reaction, a trigger and an action, and a schedule entry, on a
+ * parameter, a reaction, a trigger and an action, a schedule entry and an application datapoint, on a
  * controller and its token, on a manufacturer with a catalog and an application program, and on the
  * singletons of the master data.
  *
@@ -105,6 +105,8 @@ public class TestAccessRights extends BasicTestCase {
 	private TLObject _parameter;
 
 	private TLObject _schedule;
+
+	private TLObject _applicationDatapoint;
 
 	private TLObject _manufacturer;
 
@@ -198,6 +200,11 @@ public class TestAccessRights extends BasicTestCase {
 			_schedule.tUpdateByName("identifier", "once");
 			_schedule.tUpdateByName("label", ResKey.builder().add(Locale.ENGLISH, "Once").build());
 			_project.tUpdateByName("schedules", List.of(_schedule));
+			_applicationDatapoint = create("ehome.runtime:ApplicationDatapoint");
+			_applicationDatapoint.tUpdateByName("identifier", "holiday");
+			_applicationDatapoint.tUpdateByName("type",
+				((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier("boolean"));
+			_project.tUpdateByName("applicationDatapoints", List.of(_applicationDatapoint));
 
 			_deployment = create("ehome.runtime:Deployment");
 			_deployment.tUpdateByName("controller", _controller);
@@ -240,6 +247,8 @@ public class TestAccessRights extends BasicTestCase {
 			rights().isAllowedCreate(_installer, _rule, part("ehome.runtime:Rule#reactions")));
 		assertTrue("An installer adds a rule to a project.",
 			rights().isAllowedCreate(_installer, _project, part("ehome.project:Project#rules")));
+		assertTrue("An installer adds an application datapoint to a project.",
+			rights().isAllowedCreate(_installer, _project, part("ehome.project:Project#applicationDatapoints")));
 		assertTrue("Import creates manufacturers.",
 			rights().isAllowedCreate(_installer, singleton("ehome.catalog:ManufacturerRoot"),
 				part("ehome.catalog:ManufacturerRoot#manufacturers")));
@@ -256,6 +265,7 @@ public class TestAccessRights extends BasicTestCase {
 		assertFalse(rights().isAllowedCreate(_viewer, _groupRange, part("ehome.logical:GroupRange#parts")));
 		assertFalse(rights().isAllowedCreate(_viewer, _rule, part("ehome.runtime:Rule#reactions")));
 		assertFalse(rights().isAllowedCreate(_viewer, _project, part("ehome.project:Project#schedules")));
+		assertFalse(rights().isAllowedCreate(_viewer, _project, part("ehome.project:Project#applicationDatapoints")));
 		assertFalse(rights().isAllowedCreate(_viewer, singleton("ehome.catalog:ManufacturerRoot"),
 			part("ehome.catalog:ManufacturerRoot#manufacturers")));
 		assertTrue(rights().isAllowed(_viewer, _controller, part("ehome.runtime:Controller#name"), READ));
@@ -347,7 +357,7 @@ public class TestAccessRights extends BasicTestCase {
 
 	private List<TLObject> objects() {
 		return List.of(_project, _groupAddress, _device, _function, _dismissal, _deployment, _controller, _rule, _reaction,
-			_trigger, _action, _parameter, _schedule, _manufacturer,
+			_trigger, _action, _parameter, _schedule, _applicationDatapoint, _manufacturer,
 			_catalog, _variant, _program, singleton("ehome.catalog:ManufacturerRoot"), singleton("ehome.datapoint:DatapointTypes"),
 			singleton("ehome.mask:MaskVersions"));
 	}

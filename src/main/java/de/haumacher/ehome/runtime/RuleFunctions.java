@@ -6,12 +6,14 @@ package de.haumacher.ehome.runtime;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
@@ -21,6 +23,7 @@ import com.top_logic.model.search.expr.GenericMethod;
 import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
+import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 /**
@@ -59,8 +62,8 @@ public class RuleFunctions extends GenericMethod {
 		ruleMoveVeto(2, true),
 		/**
 		 * <code>ruleDatapoints(project)</code>: the datapoints of the project's image the rules may name,
-		 * each a map with <code>id</code>, <code>label</code>, <code>type</code> and
-		 * <code>writable</code>.
+		 * each a map with <code>id</code>, <code>label</code>, <code>type</code>, <code>writable</code>
+		 * and <code>binding</code> ({@link RuleFunctions#datapoints(TLObject)}).
 		 */
 		ruleDatapoints(1, true);
 
@@ -336,6 +339,11 @@ public class RuleFunctions extends GenericMethod {
 			case "LogAction":
 				result.tUpdateByName("level", RuleImport.classifier("LogLevel", "info"));
 				break;
+			case ApplicationDatapoints.TYPE:
+				result.tUpdateByName("identifier", unique("value", parts, ""));
+				result.tUpdateByName("label", FunctionProposal.text(I18NConstants.NEW_DATAPOINT_LABEL));
+				result.tUpdateByName("type", RuleImport.classifier("DatapointValueType", ValueTypes.BOOLEAN));
+				break;
 			default:
 				if (type.getName().endsWith("Schedule")) {
 					schedule(result, parts);
@@ -422,9 +430,30 @@ public class RuleFunctions extends GenericMethod {
 
 	// ---- datapoints --------------------------------------------------------------------------
 
-	private static List<Object> datapoints(TLObject project) {
-		Map<String, Object> json = RuntimeImage.build(project, 0, Instant.EPOCH, false).getJson();
-		return json.get("datapoints") instanceof List<?> list ? new ArrayList<>(list) : List.of();
+	/**
+	 * The datapoints of the project's image, each a copy of its map in the image with its label in
+	 * the language of the user and its <code>binding</code>: KNX for the datapoint of a group
+	 * address, application for an application datapoint ({@link ApplicationDatapoints}).
+	 */
+	public static List<Object> datapoints(TLObject project) {
+		RuntimeImage image = RuntimeImage.build(project, 0, Instant.EPOCH, false);
+		if (!(image.getJson().get("datapoints") instanceof List<?> list)) {
+			return List.of();
+		}
+		Resources resources = Resources.getInstance();
+		List<Object> result = new ArrayList<>();
+		for (int n = 0; n < list.size(); n++) {
+			Map<String, Object> datapoint = new LinkedHashMap<>();
+			((Map<?, ?>) list.get(n)).forEach((key, value) -> datapoint.put(String.valueOf(key), value));
+			TLObject source = image.getDatapointSources().get(n);
+			if (ApplicationDatapoints.isApplicationDatapoint(source) && source.tValueByName("label") instanceof ResKey label) {
+				datapoint.put("label", resources.getString(label, null));
+			}
+			datapoint.put("binding", resources.getString(datapoint.containsKey("knx") ? I18NConstants.BINDING_KNX
+				: I18NConstants.BINDING_APPLICATION));
+			result.add(datapoint);
+		}
+		return result;
 	}
 
 	/**

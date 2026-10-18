@@ -52,7 +52,10 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * datapoint type. The flags are the address's runtime settings ({@link DatapointSettings}): writable
  * and read on start derived from the connected objects unless the user set them, readable, persist,
  * history and unit as set. A writable datapoint <code>transmit</code>s; a writable or readable one
- * sends and answers on its address (<code>send</code>), any other <code>listen</code>s on it.</li>
+ * sends and answers on its address (<code>send</code>), any other <code>listen</code>s on it. After
+ * them the project's application datapoints (haumacher/ehome #59, {@link ApplicationDatapoints}),
+ * owned by no technology: their own id, label, value type and flags, an empty <code>virtual</code>
+ * member in place of a binding.</li>
  * <li><code>locations</code>: the parts of the project's buildings, each with its parent; buildings,
  * floors and rooms by their kind, every other part (corridor, stairway, distribution board, ...) as
  * an area.</li>
@@ -184,7 +187,8 @@ public final class RuntimeImage {
 	}
 
 	/**
-	 * The group addresses the datapoints stand for, by the index of the datapoint.
+	 * The group addresses and application datapoints the datapoints stand for, by the index of the
+	 * datapoint.
 	 */
 	public List<TLObject> getDatapointSources() {
 		return _datapointSources;
@@ -198,8 +202,8 @@ public final class RuntimeImage {
 	}
 
 	/**
-	 * The object of the project a path of the image leads to: the group address of
-	 * <code>datapoints[n]...</code>, the part of a building of <code>locations[n]...</code>, the
+	 * The object of the project a path of the image leads to: the group address or application
+	 * datapoint of <code>datapoints[n]...</code>, the part of a building of <code>locations[n]...</code>, the
 	 * function of <code>functions[n]...</code>, the project for its settings, time master and history
 	 * budget; <code>null</code> for another path.
 	 */
@@ -324,6 +328,12 @@ public final class RuntimeImage {
 				_datapointSources.add(address);
 				_datapointIds.put(address, (String) datapoint.get("id"));
 			}
+		}
+		for (TLObject application : ApplicationDatapoints.of(project)) {
+			Map<String, Object> datapoint = ApplicationDatapoints.json(application);
+			datapoints.add(datapoint);
+			_datapointSources.add(application);
+			_datapointIds.put(application, (String) datapoint.get("id"));
 		}
 		_json.put("datapoints", datapoints);
 	}

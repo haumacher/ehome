@@ -108,6 +108,17 @@
 					ordered="true"
 					type="ehome.runtime:ScheduleEntry"
 				/>
+				<!--
+					The datapoints of the runtime image owned by no technology (haumacher/ehome #59): values
+					of the application and the outputs of schedule entries, after the group addresses' ones.
+				-->
+				<reference name="applicationDatapoints"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:ApplicationDatapoint"
+				/>
 				<!-- The proposed functions the user deleted, which the proposal does not bring back (haumacher/ehome #49). -->
 				<reference name="dismissedProposals"
 					composite="true"

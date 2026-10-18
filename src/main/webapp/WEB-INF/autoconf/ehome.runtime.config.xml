@@ -43,6 +43,8 @@
 					<method name="runtimeTimeZoneProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeHostNameProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeTimeMasterProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="runtimeDatapointIdProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="runtimeUnitProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeHistoryProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="datapointWritable" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="datapointReadOnStart" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>

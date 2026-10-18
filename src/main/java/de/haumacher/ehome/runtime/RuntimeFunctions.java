@@ -98,8 +98,8 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		runtimeHostNameProblem,
 		/**
-		 * <code>runtimeHistoryProblem(address)</code>: what is wrong with the history settings of the
-		 * group address; <code>null</code> if they fit ({@link DatapointSettings#historyProblem}).
+		 * <code>runtimeHistoryProblem(datapoint)</code>: what is wrong with the history settings of the
+		 * group address or application datapoint; <code>null</code> if they fit ({@link DatapointSettings#historyProblem}).
 		 */
 		runtimeHistoryProblem,
 		/**
@@ -108,6 +108,17 @@ public class RuntimeFunctions extends GenericMethod {
 		 * <code>timeMasterDateTime</code>), see {@link #timeMasterConstraint(Object, Object, String)}.
 		 */
 		runtimeTimeMasterProblem,
+		/**
+		 * <code>runtimeDatapointIdProblem(text, datapoint)</code>: why the text cannot be the id of
+		 * the application datapoint ({@link ApplicationDatapoints#idProblem(Object, Object)});
+		 * <code>null</code> if it can.
+		 */
+		runtimeDatapointIdProblem,
+		/**
+		 * <code>runtimeUnitProblem(text)</code>: why the text cannot be the unit of a datapoint;
+		 * <code>null</code> for an empty text or one that can.
+		 */
+		runtimeUnitProblem,
 		/**
 		 * <code>datapointWritable(address)</code>: whether the datapoint of the group address is
 		 * writable in the runtime image ({@link DatapointSettings#writable(TLObject)}).
@@ -177,6 +188,10 @@ public class RuntimeFunctions extends GenericMethod {
 				return problem(argument, RuntimeFunctions::hostNameProblem);
 			case runtimeTimeMasterProblem:
 				return timeMasterConstraint(argument, arguments[1], String.valueOf(arguments[2]));
+			case runtimeDatapointIdProblem:
+				return ApplicationDatapoints.idProblem(argument, arguments[1]);
+			case runtimeUnitProblem:
+				return problem(argument, ApplicationDatapoints::unitProblem);
 			default:
 				break;
 		}
@@ -381,7 +396,8 @@ public class RuntimeFunctions extends GenericMethod {
 
 		@Override
 		public RuntimeFunctions build(Expr expr, SearchExpression[] args) throws ConfigurationException {
-			int arity = _function == Function.runtimeTimeMasterProblem ? 3 : 1;
+			int arity = _function == Function.runtimeTimeMasterProblem ? 3
+				: _function == Function.runtimeDatapointIdProblem ? 2 : 1;
 			checkArgs(expr, args, arity, arity);
 			return new RuntimeFunctions(getConfig().getName(), _function, args);
 		}

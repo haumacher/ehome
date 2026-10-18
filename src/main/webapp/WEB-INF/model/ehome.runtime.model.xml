@@ -617,6 +617,119 @@
 				/>
 			</attributes>
 		</class>
+		<!-- The value type of a datapoint of the runtime image (homecontrol spec/runtime-image.md 3.3). -->
+		<enum name="DatapointValueType">
+			<classifier name="boolean" default="true"/>
+			<classifier name="unsigned"/>
+			<classifier name="signed"/>
+			<classifier name="real"/>
+			<classifier name="string"/>
+			<classifier name="timeOfDay"/>
+			<classifier name="date"/>
+			<classifier name="dateTime"/>
+			<classifier name="enumeration"/>
+			<classifier name="controlled"/>
+			<classifier name="color"/>
+			<classifier name="raw"/>
+		</enum>
+		<!--
+			A datapoint of the runtime image that no technology owns (haumacher/ehome #59, homecontrol
+			spec/runtime-image.md 3.3, "virtual"): a value of the application that rules and the user
+			interface command (a holiday mode, a counter), or the output of a schedule entry, which the
+			scheduler owns (spec/schedules.md 5). Exported after the datapoints of the group addresses,
+			without a KNX binding.
+		-->
+		<class name="ApplicationDatapoint">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-box"/>
+				<id-column value="identifier"/>
+			</annotations>
+			<attributes>
+				<!--
+					The id of the datapoint in the image (1..63 bytes), which rules (@"id"), schedule
+					entries and the API name it by; unique in the project, not the three-level form of a
+					group address (1/2/3), not a datapoint id of the time master or of the Zigbee adapter.
+				-->
+				<property name="identifier"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeDatapointIdProblem($value, $obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The label the controller shows, in the languages it has. -->
+				<property name="label"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The value type. -->
+				<reference name="type"
+					kind="forwards"
+					mandatory="true"
+					type="DatapointValueType"
+				/>
+				<!-- Whether rules, the user interface and the API may command the value; not for the output of a schedule entry. -->
+				<property name="writable"
+					type="tl.core:Boolean"
+				/>
+				<!-- Whether the controller keeps the last value across restarts. -->
+				<property name="persist"
+					type="tl.core:Boolean"
+				/>
+				<!-- The unit the controller shows (at most 15 bytes). -->
+				<property name="unit"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeUnitProblem($value)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- How long the controller keeps the history of the value, in seconds (with the spacing; numbers and truth values only). -->
+				<property name="historyRetention"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<value-range
+							max="2678400"
+							min="10"
+						/>
+					</annotations>
+				</property>
+				<!-- The time between two samples of the history in seconds (10 to 86400). -->
+				<property name="historySpacing"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<value-range
+							max="86400"
+							min="10"
+						/>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeHistoryProblem($obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
 		<!--
 			Rules and schedules of the runtime image (haumacher/ehome #57, homecontrol spec/rules.md and
 			spec/schedules.md), authored in E-Home. The model stores what the user edits: a rule with its
@@ -1437,7 +1550,7 @@
 					kind="forwards"
 					type="MissedFiring"
 				/>
-				<!-- A boolean datapoint without a group address the entry sets from a firing until midnight; empty for none. -->
+				<!-- The id of a boolean application datapoint the entry sets from a firing until midnight; empty for none. A datapoint of a group address cannot be an output. -->
 				<property name="output"
 					type="tl.core:String"
 				>

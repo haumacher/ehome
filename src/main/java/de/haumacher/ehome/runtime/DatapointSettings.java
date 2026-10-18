@@ -191,7 +191,8 @@ public final class DatapointSettings {
 	}
 
 	/**
-	 * What is wrong with the history settings of the address; <code>null</code> if they fit.
+	 * What is wrong with the history settings of the address or application datapoint
+	 * ({@link ApplicationDatapoints}, which has the same attributes); <code>null</code> if they fit.
 	 */
 	public static ResKey historyProblem(TLObject address) {
 		Integer retention = historyRetention(address);
@@ -202,8 +203,13 @@ public final class DatapointSettings {
 		if (retention == null || spacing == null) {
 			return I18NConstants.HISTORY_INCOMPLETE;
 		}
-		Dpt dpt = GroupAddressTypes.effective(address);
-		String type = dpt == null ? null : ValueTypes.valueType(dpt.main(), dpt.isMainType() ? 0 : dpt.sub());
+		String type;
+		if (ApplicationDatapoints.isApplicationDatapoint(address)) {
+			type = ApplicationDatapoints.valueType(address);
+		} else {
+			Dpt dpt = GroupAddressTypes.effective(address);
+			type = dpt == null ? null : ValueTypes.valueType(dpt.main(), dpt.isMainType() ? 0 : dpt.sub());
+		}
 		if (type != null && !ValueTypes.BOOLEAN.equals(type) && !ValueTypes.UNSIGNED.equals(type)
 			&& !ValueTypes.SIGNED.equals(type) && !ValueTypes.REAL.equals(type)) {
 			return I18NConstants.HISTORY_WRONG_TYPE__TYPE.fill(type);

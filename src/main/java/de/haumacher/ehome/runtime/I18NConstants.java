@@ -371,6 +371,56 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 RULE_SYNTAX__REASON;
 
+	/**
+	 * @en New datapoint
+	 */
+	public static ResKey NEW_DATAPOINT_LABEL;
+
+	/**
+	 * @en A datapoint id has 1 to 63 bytes without control characters.
+	 */
+	public static ResKey INVALID_DATAPOINT_ID;
+
+	/**
+	 * @en The id {0} is reserved for a datapoint the controller adds itself.
+	 */
+	public static ResKey1 DATAPOINT_ID_RESERVED__ID;
+
+	/**
+	 * @en The id is the one of the datapoint of the group address {0}.
+	 */
+	public static ResKey1 DATAPOINT_ID_OF_GROUP_ADDRESS__ADDRESS;
+
+	/**
+	 * @en Another application datapoint of the project has the id {0}.
+	 */
+	public static ResKey1 DATAPOINT_ID_DUPLICATE__ID;
+
+	/**
+	 * @en An id of the form main/middle/sub is reserved for the datapoints of group addresses.
+	 */
+	public static ResKey DATAPOINT_ID_ADDRESS_FORM;
+
+	/**
+	 * @en A unit has at most 15 bytes without control characters.
+	 */
+	public static ResKey INVALID_UNIT;
+
+	/**
+	 * @en The datapoint {0} is writable, but the controller refuses commands to the output of a schedule entry: make it not writable.
+	 */
+	public static ResKey1 OUTPUT_WRITABLE__ID;
+
+	/**
+	 * @en KNX
+	 */
+	public static ResKey BINDING_KNX;
+
+	/**
+	 * @en Application
+	 */
+	public static ResKey BINDING_APPLICATION;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

@@ -28,6 +28,12 @@ import com.top_logic.model.util.Pointer;
  * field of the object it belongs to (a value is checked against the datapoint of its action), so a
  * form checks a field again when another field of the object changes.
  * </p>
+ *
+ * <p>
+ * The output of a schedule entry that the loader accepts is also refused when it is a writable
+ * application datapoint ({@link ApplicationDatapoints#outputProblem(Object, Object)}): the controller
+ * refuses commands to it.
+ * </p>
  */
 public class RuleConstraint extends AbstractConfiguredInstance<RuleConstraint.Config<?>> implements ConstraintCheck {
 
@@ -58,6 +64,10 @@ public class RuleConstraint extends AbstractConfiguredInstance<RuleConstraint.Co
 		boolean syntax = getConfig().isSyntax();
 		String problem = RuleExport.fieldProblem(object, attribute.getName(), object.tValue(attribute), syntax);
 		if (problem == null) {
+			if (!syntax && "output".equals(attribute.getName())) {
+				// Accepted by the loader, but commands to the output would be refused.
+				return ApplicationDatapoints.outputProblem(object, object.tValue(attribute));
+			}
 			return null;
 		}
 		return syntax ? I18NConstants.RULE_SYNTAX__REASON.fill(problem.replaceFirst("^malformed: ", ""))
