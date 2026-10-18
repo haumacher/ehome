@@ -5,6 +5,9 @@
 		Recordings of the group monitor (de.haumacher.ehome.monitor.GroupMonitor, haumacher/ehome #10):
 		the group telegrams seen on the bus during a span of time, kept with the project they were
 		recorded for. The live state of the bus is not stored; only a recording the user starts is.
+		Through a HomeControl controller a recording also keeps the controller's other events (Zigbee,
+		rules, commands, image loads, gaps, restarts; haumacher/ehome #55), numbered in one sequence
+		with the telegrams.
 	-->
 	<module name="ehome.monitor">
 		<!-- The service of a group telegram. -->
@@ -20,6 +23,16 @@
 			<classifier name="urgent"/>
 			<classifier name="low" default="true"/>
 		</enum>
+		<!-- The kind of an event of a HomeControl controller that is no group telegram (de.haumacher.ehome.monitor.LinkEvent.Kind). -->
+		<enum name="EventKind">
+			<classifier name="zigbee"/>
+			<classifier name="rule"/>
+			<classifier name="command"/>
+			<classifier name="image"/>
+			<classifier name="gap"/>
+			<classifier name="reset"/>
+			<classifier name="other" default="true"/>
+		</enum>
 		<class name="Recording">
 			<generalizations>
 				<generalization type="tl.model:TLObject"/>
@@ -31,7 +44,7 @@
 				<property name="name"
 					type="tl.core:String"
 				/>
-				<!-- The gateway the telegrams were received through. -->
+				<!-- The gateway or controller the telegrams were received through. -->
 				<property name="gateway"
 					type="tl.core:String"
 				/>
@@ -42,7 +55,7 @@
 				<property name="end"
 					type="tl.core:DateTime"
 				/>
-				<!-- The number of telegrams stored so far. -->
+				<!-- The number of telegrams and events stored so far. -->
 				<property name="count"
 					type="tl.core:Integer"
 				/>
@@ -51,6 +64,13 @@
 					kind="forwards"
 					multiple="true"
 					type="Telegram"
+				/>
+				<!-- The events of a controller that are no telegrams, numbered in one sequence with the telegrams. -->
+				<reference name="events"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Event"
 				/>
 			</attributes>
 		</class>
@@ -119,6 +139,41 @@
 				<!-- Whether E-Home sent the telegram itself. -->
 				<property name="own"
 					type="tl.core:Boolean"
+				/>
+			</attributes>
+		</class>
+		<!--
+			An event of a HomeControl controller that is no group telegram (haumacher/ehome #55): a Zigbee
+			frame, a command of a rule or from outside the rules, a load of a runtime image, events lost by
+			the monitor, a restart of the controller.
+		-->
+		<class name="Event">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- The position of the event in its recording, from 1, in one sequence with the telegrams. -->
+				<property name="number"
+					type="tl.core:Integer"
+				/>
+				<property name="time"
+					type="tl.core:DateTime"
+				/>
+				<reference name="kind"
+					kind="forwards"
+					type="EventKind"
+				/>
+				<!-- What happened, in the language of the user who recorded it. -->
+				<property name="text"
+					type="tl.core:String"
+				/>
+				<!-- The name of the controller's datapoint the event concerns, if any. -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The value the event carries, if any. -->
+				<property name="value"
+					type="tl.core:String"
 				/>
 			</attributes>
 		</class>

@@ -137,7 +137,7 @@ public class ControllerBusLink implements BusLink {
 	 * Connects to the monitor stream of the given controller.
 	 *
 	 * @param name
-	 *        The name of the controller, for a person.
+	 *        The name of the controller, for a person; <code>null</code> for one entered ad hoc.
 	 * @param client
 	 *        The controller's address and token.
 	 * @throws BusException
@@ -189,10 +189,11 @@ public class ControllerBusLink implements BusLink {
 	}
 
 	/**
-	 * The text {@link #description()} gives for a controller.
+	 * The text {@link #description()} gives for a controller: its name and address, only its address
+	 * for a controller without name (one entered ad hoc).
 	 */
 	public static String description(String name, ControllerClient client) {
-		return name + " (" + client.address() + ")";
+		return name == null ? client.address() : name + " (" + client.address() + ")";
 	}
 
 	@Override

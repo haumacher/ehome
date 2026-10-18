@@ -314,7 +314,7 @@ public class TestGroupMonitor extends BasicTestCase {
 			String name, String service, String priority, String repeated, String hops, String data, String value,
 			String own) {
 		String[] fields = line.split(";", -1);
-		assertEquals(line, 13, fields.length);
+		assertEquals(line, 15, fields.length);
 		assertEquals(line, number, fields[0]);
 		assertTrue(line, fields[1].matches("\\d{4}-\\d\\d-\\d\\d \\d\\d:\\d\\d:\\d\\d\\.\\d{3}"));
 		assertEquals(line, source, fields[2]);
@@ -328,6 +328,8 @@ public class TestGroupMonitor extends BasicTestCase {
 		assertEquals(line, data, fields[10]);
 		assertEquals(line, value, fields[11]);
 		assertEquals(line, own, fields[12]);
+		assertEquals(line, "knx", fields[13]);
+		assertEquals(line, "", fields[14]);
 	}
 
 	private static int addressOfType(ProjectIndex index, int main, int sub) {

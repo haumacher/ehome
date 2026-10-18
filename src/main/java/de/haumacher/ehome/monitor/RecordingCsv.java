@@ -6,8 +6,6 @@ package de.haumacher.ehome.monitor;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
@@ -23,6 +21,13 @@ import de.haumacher.ehome.programming.GroupAddressConnections;
  * The export of a recording of the group monitor (<code>ehome.monitor:Recording</code>) as a CSV
  * file: one line per telegram in the order they were received, the columns separated by
  * semicolons, a header line naming the columns.
+ *
+ * <p>
+ * The events of a controller that are no telegrams (<code>ehome.monitor:Event</code>,
+ * haumacher/ehome #55) are lines in the same order: their kind in the column <code>kind</code>
+ * (<code>knx</code> for a telegram), what happened in the column <code>event</code>, the datapoint
+ * and the value in <code>name</code> and <code>value</code>; the columns of a telegram stay empty.
+ * </p>
  */
 public class RecordingCsv {
 
@@ -31,7 +36,7 @@ public class RecordingCsv {
 
 	/** The header line. */
 	public static final String HEADER =
-		"number;time;source;device;address;name;service;priority;repeated;hops;data;value;own";
+		"number;time;source;device;address;name;service;priority;repeated;hops;data;value;own;kind;event";
 
 	/**
 	 * The lines of the export of the given recording, the header first.
@@ -42,14 +47,24 @@ public class RecordingCsv {
 	public static List<String> lines(TLObject recording, TimeZone timeZone) {
 		SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 		format.setTimeZone(timeZone);
-		List<TLObject> telegrams = new ArrayList<>();
-		for (Object telegram : (Collection<?>) recording.tValueByName("telegrams")) {
-			telegrams.add((TLObject) telegram);
-		}
-		telegrams.sort(Comparator.comparingInt(t -> t.tValueByName("number") instanceof Integer n ? n : 0));
-		List<String> result = new ArrayList<>(telegrams.size() + 1);
+		List<TLObject> entries = RecordingEntries.entries(recording);
+		List<String> result = new ArrayList<>(entries.size() + 1);
 		result.add(HEADER);
-		for (TLObject telegram : telegrams) {
+		for (TLObject telegram : entries) {
+			if (RecordingEntries.isEvent(telegram)) {
+				Object time = telegram.tValueByName("time");
+				result.add(String.join(";",
+					text(telegram.tValueByName("number")),
+					time instanceof Date date ? format.format(date) : "",
+					"", "", "",
+					field(text(telegram.tValueByName("name"))),
+					"", "", "", "", "",
+					field(text(telegram.tValueByName("value"))),
+					"",
+					classifier(telegram.tValueByName("kind")),
+					field(text(telegram.tValueByName("text")))));
+				continue;
+			}
 			TLObject sender = (TLObject) telegram.tValueByName("sender");
 			TLObject groupAddress = (TLObject) telegram.tValueByName("groupAddress");
 			Object time = telegram.tValueByName("time");
@@ -66,7 +81,9 @@ public class RecordingCsv {
 				text(telegram.tValueByName("hopCount")),
 				text(telegram.tValueByName("data")),
 				field(text(telegram.tValueByName("value"))),
-				text(telegram.tValueByName("own"))));
+				text(telegram.tValueByName("own")),
+				"knx",
+				""));
 		}
 		return result;
 	}

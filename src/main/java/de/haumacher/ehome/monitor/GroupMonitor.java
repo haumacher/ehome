@@ -51,7 +51,9 @@ import de.haumacher.ehome.programming.download.BusException;
  * <li>the <b>log</b>: the last {@value #LOG_LIMIT} telegrams, newest first;</li>
  * <li>a <b>recording</b> while one runs: the telegrams are stored with the project
  * (<code>ehome.monitor:Recording</code>) in batches, one transaction per {@value #BATCH_SIZE}
- * telegrams or per {@value #BATCH_MILLIS} ms.</li>
+ * telegrams or per {@value #BATCH_MILLIS} ms; the events of a controller that are no telegrams are
+ * stored beside them (<code>ehome.monitor:Event</code>, haumacher/ehome #55), numbered in one
+ * sequence with them.</li>
  * </ul>
  *
  * <p>
@@ -59,7 +61,7 @@ import de.haumacher.ehome.programming.download.BusException;
  * value of the controller's datapoint: its value wins over the decoding by the project, since it is
  * what the house actually runs; its name fills the name of an address the project does not know.
  * The controller's other events (Zigbee, rules, commands, image loads, gaps) are rows of the log of
- * their own ({@link LinkEvent}); they do not change the state board and are not recorded.
+ * their own ({@link LinkEvent}); they do not change the state board, and a recording keeps them.
  * </p>
  *
  * <p>
@@ -127,7 +129,8 @@ public class GroupMonitor {
 
 	private int _recorded;
 
-	private final List<BusTelegram> _pending = new ArrayList<>();
+	/** The {@link BusTelegram}s and {@link LinkEvent}s of the running recording not stored yet. */
+	private final List<Object> _pending = new ArrayList<>();
 
 	private ScheduledFuture<?> _flush;
 
@@ -489,11 +492,19 @@ public class GroupMonitor {
 			while (_log.size() > LOG_LIMIT) {
 				_log.removeLast();
 			}
+
+			if (_recording != null) {
+				_pending.add(event);
+				scheduleFlush(_pending.size() >= BATCH_SIZE ? 0 : _batchMillis);
+			}
 		}
 		changed();
 	}
 
-	private static ResKey kindLabel(LinkEvent.Kind kind) {
+	/**
+	 * The label of a kind of {@link LinkEvent}, as the log and the recordings show it.
+	 */
+	public static ResKey kindLabel(LinkEvent.Kind kind) {
 		switch (kind) {
 			case ZIGBEE:
 				return I18NConstants.EVENT_KIND_ZIGBEE;
@@ -846,8 +857,26 @@ public class GroupMonitor {
 		}
 		TLClass type = (TLClass) TLModelUtil.findType("ehome.monitor:Telegram");
 		TLReference telegrams = (TLReference) TLModelUtil.findPart("ehome.monitor:Recording#telegrams");
+		TLClass eventType = (TLClass) TLModelUtil.findType("ehome.monitor:Event");
+		TLReference events = (TLReference) TLModelUtil.findPart("ehome.monitor:Recording#events");
 		GroupAddressStyle style = GroupAddressStyle.fromModel(getProject().tValueByName("groupAddressStyle"));
-		for (BusTelegram telegram : _pending) {
+		if (style == null) {
+			style = GroupAddressStyle.DEFAULT;
+		}
+		for (Object pending : _pending) {
+			if (pending instanceof LinkEvent event) {
+				TLObject stored = ModelService.getInstance().getFactory().createObject(eventType);
+				stored.tUpdateByName("number", Integer.valueOf(++_recorded));
+				stored.tUpdateByName("time", new Date(event.time()));
+				stored.tUpdateByName("kind", classifier("ehome.monitor:EventKind#" + event.kind().externalName()));
+				stored.tUpdateByName("text", Resources.getInstance().getString(describe(event)));
+				stored.tUpdateByName("name", event.name());
+				String value = DatapointCodec.valueText(null, event.value());
+				stored.tUpdateByName("value", value == null || value.isEmpty() ? null : value);
+				_recording.tAdd(events, stored);
+				continue;
+			}
+			BusTelegram telegram = (BusTelegram) pending;
 			TLObject stored = ModelService.getInstance().getFactory().createObject(type);
 			stored.tUpdateByName("number", Integer.valueOf(++_recorded));
 			stored.tUpdateByName("time", new Date(telegram.time()));
@@ -1004,14 +1033,19 @@ public class GroupMonitor {
 	}
 
 	/**
-	 * Looks up the classifiers of the telegrams in the request attaching the monitor.
+	 * Looks up the classifiers of the telegrams in the request attaching the monitor, anew each time
+	 * (the model may have been set up anew since, as in a test).
 	 */
 	private static void initClassifiers() {
+		CLASSIFIERS.clear();
 		for (BusTelegram.Service service : BusTelegram.Service.values()) {
 			classifier("ehome.monitor:TelegramService#" + service.classifier());
 		}
 		for (String priority : new String[] { "system", "normal", "urgent", "low" }) {
 			classifier("ehome.monitor:TelegramPriority#" + priority);
+		}
+		for (LinkEvent.Kind kind : LinkEvent.Kind.values()) {
+			classifier("ehome.monitor:EventKind#" + kind.externalName());
 		}
 	}
 

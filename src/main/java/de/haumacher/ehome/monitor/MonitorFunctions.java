@@ -71,6 +71,11 @@ public class MonitorFunctions extends GenericMethod {
 		/** <code>monitorRecordingCsv(recording)</code>: {@link RecordingCsv#export(TLObject, TimeZone)}. */
 		monitorRecordingCsv(1, 1, true),
 		/**
+		 * <code>monitorRecordingRows(recording)</code>: the telegrams and events of a recording as rows,
+		 * {@link RecordingEntries#rows(TLObject, TimeZone)}.
+		 */
+		monitorRecordingRows(1, 1, true),
+		/**
 		 * <code>monitorDay(date)</code>: the day of the week of a point in time as the send form
 		 * offers it, {@link DatapointCodec#day(Date)}.
 		 */
@@ -126,13 +131,14 @@ public class MonitorFunctions extends GenericMethod {
 
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
-		if (_function == Function.monitorRecordingCsv) {
+		if (_function == Function.monitorRecordingCsv || _function == Function.monitorRecordingRows) {
 			if (!(arguments[0] instanceof TLObject recording) || !recording.tValid()) {
-				return null;
+				return _function == Function.monitorRecordingRows ? List.of() : null;
 			}
 			SubSessionContext session = ThreadContextManager.getSubSession();
 			TimeZone timeZone = session == null ? TimeZone.getDefault() : session.getCurrentTimeZone();
-			return RecordingCsv.export(recording, timeZone);
+			return _function == Function.monitorRecordingRows ? RecordingEntries.rows(recording, timeZone)
+				: RecordingCsv.export(recording, timeZone);
 		}
 		if (_function == Function.monitorDay) {
 			return arguments[0] instanceof Date date ? DatapointCodec.day(date) : null;
@@ -178,6 +184,7 @@ public class MonitorFunctions extends GenericMethod {
 			case monitorTarget:
 			case monitorSendVeto:
 			case monitorRecordingCsv:
+			case monitorRecordingRows:
 			case monitorDay:
 				break;
 		}

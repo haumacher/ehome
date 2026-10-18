@@ -138,6 +138,7 @@
 					<method name="monitorTarget" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
 					<method name="monitorSendVeto" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
 					<method name="monitorRecordingCsv" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
+					<method name="monitorRecordingRows" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
 					<method name="monitorDay" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
 				</methods>
 			</instance>

@@ -3,8 +3,10 @@
 <!--
 	The group monitor of a project (haumacher/ehome #10, de.haumacher.ehome.monitor.GroupMonitor): attached
 	to the bus through the gateway of the project, or to the monitor stream of the project's HomeControl
-	controller (haumacher/ehome #41, "Connect to the controller", ControllerBusLink), it shows the group telegrams decoded by the datapoint
-	types of their addresses and attributed to the devices that sent them.
+	controller (haumacher/ehome #41, ControllerBusLink) - the project's, another registered one or one entered
+	by address and token (#56, "Connect to a controller", projects/connect-controller.view.xml) - it shows the
+	group telegrams decoded by the datapoint types of their addresses and attributed to the devices that sent
+	them. The status line names the gateway or controller the monitor is attached to.
 
 	"project" is the project. "state" holds the snapshot of the monitor (GroupMonitor#snapshot()): written
 	by "Connect" (<group-monitor-connect>, ConnectMonitorAction) and the commands calling the monitor
@@ -18,8 +20,10 @@
 	the input the datapoint type asks for; it is locked until "Allow sending", which connecting resets.
 	- Log: the last 1000 telegrams, newest first, own telegrams marked; it can be held. Through a controller
 	it also shows the controller's other events (Zigbee, rules, commands, image loads, gaps of the stream),
-	named in the column "Source"; these are not recorded.
-	- Recordings: the telegrams stored while a recording ran, exported as CSV.
+	named in the column "Source".
+	- Recordings: the telegrams and the controller's other events (#55) stored while a recording ran; the
+	selected recording shows them below in the order they were received (monitorRecordingRows,
+	RecordingEntries), and is exported as CSV.
 -->
 <view>
 	<channels>
@@ -50,7 +54,7 @@
 			inputs="gateway"
 		/>
 		<derived-channel name="controllerText"
-			expr="p -> if($p == null or $p.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), #('Controller: {0}'@en, 'Controller: {0}'@de).fill($p.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`)))"
+			expr="p -> if($p == null or $p.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), #('Controller of the project: {0}'@en, 'Controller des Projekts: {0}'@de).fill($p.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`)))"
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
@@ -143,17 +147,26 @@
 							placement="TOOLBAR"
 						>
 							<label>
-								<en>Connect to the controller</en>
-								<de>Mit dem Controller verbinden</de>
+								<en>Connect to a controller</en>
+								<de>Mit einem Controller verbinden</de>
 							</label>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="p -> if($p.get(`ehome.project:Project#controller`) == null, #('The project has no controller; choose one in the deployment tab.'@en, 'Das Projekt hat keinen Controller; einen im Reiter Bereitstellung wählen.'@de))"/>
 							</executability>
-							<group-monitor-connect
-								source="controller"
-								state="state"
-							/>
+							<execute-script function="p -> $p.get(`ehome.project:Project#controller`)"/>
+							<open-dialog
+								bind-input-to="controller"
+								dialog-view="projects/connect-controller.view.xml"
+							>
+								<bind
+									channel="project"
+									to="project"
+								/>
+								<bind
+									channel="state"
+									to="state"
+								/>
+							</open-dialog>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-x-circle"
@@ -1233,68 +1246,224 @@
 								<en>Recordings</en>
 								<de>Aufzeichnungen</de>
 							</label>
-							<panel>
-								<title>
-									<en>Recordings</en>
-									<de>Aufzeichnungen</de>
-								</title>
-								<commands>
-									<generic-command
-										image="css:bi bi-filetype-csv"
-										input="selectedRecording"
-										placement="TOOLBAR"
+							<split-panel
+								orientation="vertical"
+								resizable="true"
+							>
+								<panes>
+									<pane
+										min-size="120"
+										size="40"
+										unit="%"
 									>
-										<label>
-											<en>Export as CSV</en>
-											<de>Als CSV exportieren</de>
-										</label>
-										<executability>
-											<null-input-disabled/>
-										</executability>
-										<execute-script function="r -> monitorRecordingCsv($r)"/>
-										<open-dialog
-											bind-input-to="file"
-											dialog-view="projects/monitor-export.view.xml"
-										/>
-									</generic-command>
-									<generic-command
-										clique="delete"
-										image="css:bi bi-trash"
-										input="selectedRecording"
-										placement="TOOLBAR"
+										<panel>
+											<title>
+												<en>Recordings</en>
+												<de>Aufzeichnungen</de>
+											</title>
+											<commands>
+												<generic-command
+													image="css:bi bi-filetype-csv"
+													input="selectedRecording"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Export as CSV</en>
+														<de>Als CSV exportieren</de>
+													</label>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<execute-script function="r -> monitorRecordingCsv($r)"/>
+													<open-dialog
+														bind-input-to="file"
+														dialog-view="projects/monitor-export.view.xml"
+													/>
+												</generic-command>
+												<generic-command
+													clique="delete"
+													image="css:bi bi-trash"
+													input="selectedRecording"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Delete</en>
+														<de>Löschen</de>
+													</label>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<confirm expr="r -> #('Delete the recording &quot;{0}&quot; with its telegrams?'@en, 'Die Aufzeichnung „{0}“ mit ihren Telegrammen löschen?'@de).fill($r.get(`ehome.monitor:Recording#name`))"/>
+													<delete-object/>
+													<write-channel name="selectedRecording"/>
+												</generic-command>
+											</commands>
+											<table
+												observed-types="ehome.monitor:Recording"
+												selection="selectedRecording"
+												types="ehome.monitor:Recording"
+											>
+												<inputs>
+													<input channel="project"/>
+												</inputs>
+												<columns>
+													<column attribute="name"
+														width="260"
+													/>
+													<column attribute="start"/>
+													<column attribute="end"/>
+													<column attribute="count"/>
+													<column attribute="gateway"/>
+												</columns>
+												<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#recordings`))</rows>
+											</table>
+										</panel>
+									</pane>
+									<pane
+										min-size="120"
+										size="60"
+										unit="%"
 									>
-										<label>
-											<en>Delete</en>
-											<de>Löschen</de>
-										</label>
-										<executability>
-											<null-input-disabled/>
-										</executability>
-										<confirm expr="r -> #('Delete the recording &quot;{0}&quot; with its telegrams?'@en, 'Die Aufzeichnung „{0}“ mit ihren Telegrammen löschen?'@de).fill($r.get(`ehome.monitor:Recording#name`))"/>
-										<delete-object/>
-										<write-channel name="selectedRecording"/>
-									</generic-command>
-								</commands>
-								<table
-									observed-types="ehome.monitor:Recording"
-									selection="selectedRecording"
-									types="ehome.monitor:Recording"
-								>
-									<inputs>
-										<input channel="project"/>
-									</inputs>
-									<columns>
-										<column attribute="name"
-											width="260"
-										/>
-										<column attribute="start"/>
-										<column attribute="end"/>
-										<column attribute="count"/>
-										<column attribute="gateway"/>
-									</columns>
-									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#recordings`))</rows>
-								</table>
-							</panel>
+										<panel>
+											<title>
+												<en>Telegrams and events of the recording</en>
+												<de>Telegramme und Ereignisse der Aufzeichnung</de>
+											</title>
+											<table
+												filter-bar="true"
+												observed-types="ehome.monitor:Telegram, ehome.monitor:Event"
+											>
+												<inputs>
+													<input channel="selectedRecording"/>
+												</inputs>
+												<columns>
+											<computed-column name="time"
+												type="tl.core:String"
+												width="170"
+											>
+												<label>
+													<en>Time</en>
+													<de>Zeit</de>
+												</label>
+												<value>r -> $r['time']</value>
+											</computed-column>
+											<computed-column name="kind"
+												type="tl.core:String"
+												width="120"
+											>
+												<label>
+													<en>Source</en>
+													<de>Quelle</de>
+												</label>
+												<value>r -> $r['kind']</value>
+											</computed-column>
+											<computed-column name="own"
+												type="tl.core:String"
+												width="80"
+											>
+												<label>
+													<en>Own</en>
+													<de>Eigen</de>
+												</label>
+												<value>r -> if($r['own'], '►', '')</value>
+											</computed-column>
+											<computed-column name="sender"
+												type="tl.core:String"
+												width="260"
+											>
+												<label>
+													<en>Sender or event</en>
+													<de>Absender oder Ereignis</de>
+												</label>
+												<value>r -> $r['sender']</value>
+											</computed-column>
+											<computed-column name="address"
+												type="tl.core:String"
+												width="110"
+											>
+												<label>
+													<en>Address</en>
+													<de>Adresse</de>
+												</label>
+												<value>r -> $r['address']</value>
+											</computed-column>
+											<computed-column name="name"
+												type="tl.core:String"
+												width="160"
+											>
+												<label>
+													<en>Name</en>
+													<de>Name</de>
+												</label>
+												<value>r -> $r['name']</value>
+											</computed-column>
+											<computed-column name="value"
+												type="tl.core:String"
+												width="130"
+											>
+												<label>
+													<en>Value</en>
+													<de>Wert</de>
+												</label>
+												<value>r -> $r['value']</value>
+											</computed-column>
+											<computed-column name="service"
+												type="ehome.monitor:TelegramService"
+												width="110"
+											>
+												<label>
+													<en>Service</en>
+													<de>Dienst</de>
+												</label>
+												<value>r -> $r['service']</value>
+											</computed-column>
+											<computed-column name="priority"
+												type="ehome.monitor:TelegramPriority"
+												width="110"
+											>
+												<label>
+													<en>Priority</en>
+													<de>Priorität</de>
+												</label>
+												<value>r -> $r['priority']</value>
+											</computed-column>
+											<computed-column name="repeated"
+												type="tl.core:Boolean"
+												width="110"
+											>
+												<label>
+													<en>Repeated</en>
+													<de>Wiederholt</de>
+												</label>
+												<value>r -> $r['repeated']</value>
+											</computed-column>
+											<computed-column name="hops"
+												type="tl.core:Integer"
+												width="100"
+											>
+												<label>
+													<en>Routing</en>
+													<de>Routing</de>
+												</label>
+												<value>r -> $r['hops']</value>
+											</computed-column>
+											<computed-column name="data"
+												type="tl.core:String"
+												width="110"
+											>
+												<label>
+													<en>Data</en>
+													<de>Daten</de>
+												</label>
+												<value>r -> $r['data']</value>
+											</computed-column>
+												</columns>
+												<rows>r -> if($r == null, [], monitorRecordingRows($r))</rows>
+											</table>
+										</panel>
+									</pane>
+								</panes>
+							</split-panel>
 						</tab>
 					</tabs>
 				</tab-bar>

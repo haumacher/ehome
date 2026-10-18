@@ -26,18 +26,19 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.Gateways;
-import de.haumacher.ehome.runtime.ControllerClient;
-import de.haumacher.ehome.runtime.Deployer;
 
 /**
  * {@link ViewAction} attaching the group monitor of a project to the bus through the project's
  * gateway (<code>ehome.project:Project#gateway</code>) or, with <code>source="controller"</code>,
- * through the monitor stream of the project's HomeControl controller
- * (<code>ehome.project:Project#controller</code>, {@link ControllerBusLink}), and the view to the
- * monitor.
+ * through the monitor stream of a HomeControl controller ({@link ControllerBusLink}), and the view
+ * to the monitor.
  *
  * <p>
- * The input is the project. The monitor is the one of the project in the session
+ * The input is the project. With <code>source="controller"</code> it may instead be a dictionary
+ * naming the controller (haumacher/ehome #56, {@link ControllerTarget#of}): <code>project</code>,
+ * <code>controller</code> (a registered controller), <code>host</code>, <code>port</code> and
+ * <code>token</code> (one entered ad hoc, or a token entered for the registered one); a project alone
+ * stands for its own controller. The monitor is the one of the project in the session
  * ({@link MonitorSessions}); one that is still connected to the same gateway or controller is not
  * connected again, one connected to the other source is reconnected. From now on every
  * change of the monitor writes its {@link GroupMonitor#snapshot()} to the configured channel
@@ -107,11 +108,21 @@ public class ConnectMonitorAction implements ViewAction {
 
 	@Override
 	public Object execute(ReactContext context, Object input) {
+		if (_source == Source.CONTROLLER) {
+			if (input instanceof Map<?, ?> choice) {
+				if (!(choice.get("project") instanceof TLObject project) || !project.tValid()) {
+					return null;
+				}
+				return connectController(context, project, ControllerTarget.of(project, choice.get("controller"),
+					choice.get("host"), choice.get("port"), choice.get("token")));
+			}
+			if (!(input instanceof TLObject project) || !project.tValid()) {
+				return null;
+			}
+			return connectController(context, project, ControllerTarget.of(project, null, null, null, null));
+		}
 		if (!(input instanceof TLObject project) || !project.tValid()) {
 			return null;
-		}
-		if (_source == Source.CONTROLLER) {
-			return connectController(context, project);
 		}
 		Object gatewayText = project.tValueByName("gateway");
 		if (gatewayText == null || gatewayText.toString().isBlank()) {
@@ -140,29 +151,11 @@ public class ConnectMonitorAction implements ViewAction {
 		return snapshot;
 	}
 
-	private Object connectController(ReactContext context, TLObject project) {
-		TLObject controller = Deployer.controller(project);
-		if (controller == null) {
-			throw new TopLogicException(I18NConstants.ERROR_NO_CONTROLLER);
-		}
-		Object name = controller.tValueByName("name");
-		ControllerClient client = Deployer.client(controller);
-		if (client.token() == null) {
-			throw new TopLogicException(I18NConstants.ERROR_NO_CONTROLLER_TOKEN__CONTROLLER.fill(name));
-		}
-		String controllerName = String.valueOf(name);
+	private Object connectController(ReactContext context, TLObject project, ControllerTarget target) {
 		GroupMonitor monitor = MonitorSessions.monitor(project);
 		ViewChannel channel = ((ViewContext) context).resolveChannel(_state);
 		monitor.setPublisher(new WindowPublisher(context, channel, monitor));
-		if (!monitor.isConnectedTo(ControllerBusLink.description(controllerName, client))) {
-			monitor.refresh(ProjectIndex.of(project));
-			try {
-				monitor.connect(ControllerBusLink.open(controllerName, client));
-			} catch (BusException ex) {
-				throw new TopLogicException(I18NConstants.ERROR_CONTROLLER_CONNECT_FAILED__CONTROLLER_DETAIL
-					.fill(ControllerBusLink.description(controllerName, client), ex.getMessage()), ex);
-			}
-		}
+		target.attach(monitor);
 		Map<String, Object> snapshot = monitor.snapshot();
 		channel.set(snapshot);
 		return snapshot;

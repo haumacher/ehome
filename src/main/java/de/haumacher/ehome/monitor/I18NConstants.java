@@ -161,7 +161,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey SENDING_LOCKED;
 
 	/**
-	 * @en Recording "{0}" runs: {1} telegrams.
+	 * @en Recording "{0}" runs: {1} entries (telegrams and events).
 	 */
 	public static ResKey2 RECORDING_RUNNING__NAME_COUNT;
 
@@ -369,6 +369,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Event {0}
 	 */
 	public static ResKey1 EVENT_OTHER__KIND;
+
+	/**
+	 * @en Choose a controller or enter the address and token of one.
+	 */
+	public static ResKey ERROR_NO_CONTROLLER_CHOSEN;
+
+	/**
+	 * @en Enter the token of the controller {0}: the monitor logs in to it with the token.
+	 */
+	public static ResKey1 ERROR_NO_AD_HOC_TOKEN__CONTROLLER;
+
+	/**
+	 * @en "{0}" is no port of a controller; enter a number from 1 to 65535.
+	 */
+	public static ResKey1 ERROR_INVALID_CONTROLLER_PORT__PORT;
 
 	static {
 		initConstants(I18NConstants.class);
