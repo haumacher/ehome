@@ -480,6 +480,15 @@ No workaround (the behavior is safe, only less informative).
 **When fixed** (the decision follows the access parent): nothing to change; the commands show
 disabled with the reason.
 
+## A confirmation shows its lines as one paragraph (TL #29886)
+
+The `<confirm>` of a command collapses the line breaks of its message. The deploy confirmation
+(`ImageComparison.confirmation`, haumacher/ehome #47) lists the stored revision, the counts of both
+images and the changed parts on lines of their own; they run together, still readable because each
+line is a full sentence. No workaround.
+
+**When fixed:** nothing to change; the lines show as written.
+
 ## Upstream tickets to follow
 
 - TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
@@ -499,6 +508,7 @@ disabled with the reason.
   move commands by the tree's drag and drop).
 - TL #29805: see above (mandatory `<value-input>`).
 - TL #29884, #29885: see above (access coverage of engine modules, hidden instead of disabled commands).
+- TL #29886: see above (line breaks in confirmations).
 - TL #29806: see above (singleton and generated wrappers; when available: dissolve `ehome.mask`).
 - TL #29807: see above (classifier constant names).
 - TL #29808: see above (apply on Enter only).
