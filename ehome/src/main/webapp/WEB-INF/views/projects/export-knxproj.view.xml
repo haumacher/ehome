@@ -36,8 +36,6 @@
 							<en>File</en>
 							<de>Datei</de>
 						</label>
-						<!-- A value input picks no control by the type tl.core:Binary (TL #29809, doc/tl-todo.md); the binary field offers the download. -->
-						<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
 					</value-input>
 				</fields>
 			</stack>

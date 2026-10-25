@@ -7,10 +7,10 @@
 
 	"model" carries the transient object of the type the opening command chose, created in the context
 	of "anchor", the element selected in the structure tree (the program if nothing is selected). The
-	new element goes into the anchor (at its end) or after it into the anchor's container
-	(structureInsert): by default inside if the anchor can contain an element of its kind, otherwise
-	after it. The choice is offered only where both are possible. The created element is written to
-	"selection", so that the tree selects it.
+	new element goes into the anchor (at its end) if the anchor can contain an element of its kind,
+	otherwise after it into the anchor's container (structureInsert without a position); from there,
+	drag and drop in the structure tree (catalogs/program.view.xml) moves it to any other place. The
+	created element is written to "selection", so that the tree selects it.
 
 	The element is persisted without container and inserted in the same transaction, so that it is
 	part of the structure when it is committed and gets its external ID from there.
@@ -20,40 +20,12 @@
 		<channel name="model"/>
 		<channel name="anchor"/>
 		<channel name="selection"/>
-		<!-- The position the user chose; empty for the default. -->
-		<channel name="position"/>
-		<derived-channel name="effectivePosition"
-			expr="p -> a -> m -> if($p != null, $p, if(structureCanInsert($a, $m, 'inside'), `ehome.operational:InsertPosition#Inside`, `ehome.operational:InsertPosition#After`))"
-			inputs="position, anchor, model"
-			reverse="p -> $p"
-		/>
-		<derived-channel name="choosePosition"
-			expr="a -> m -> structureCanInsert($a, $m, 'inside') and structureCanInsert($a, $m, 'after')"
-			inputs="anchor, model"
-		/>
 	</channels>
 	<window width="500px">
 		<title>
 			<en>New structure element</en>
 			<de>Neues Strukturelement</de>
 		</title>
-		<visible-if
-			expr="b -> $b"
-			input="choosePosition"
-		>
-			<value-input
-				type="ehome.operational:InsertPosition"
-				value="effectivePosition"
-			>
-				<label>
-					<en>Position</en>
-					<de>Position</de>
-				</label>
-				<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
-					display="radio"
-				/>
-			</value-input>
-		</visible-if>
 		<form
 			initial-edit-mode="true"
 			input="model"
@@ -115,10 +87,9 @@
 					<store-form-state/>
 					<with-transaction>
 						<persist-transient/>
-						<execute-script function="anchor -> position -> node -> structureInsert($node, $anchor, $position)">
+						<execute-script function="anchor -> node -> structureInsert($node, $anchor, null)">
 							<inputs>
 								<input channel="anchor"/>
-								<input channel="effectivePosition"/>
 							</inputs>
 						</execute-script>
 					</with-transaction>

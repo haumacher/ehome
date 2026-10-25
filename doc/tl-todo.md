@@ -79,33 +79,6 @@ moving the root of the mask versions from `ehome.mask` into `ehome.operational`)
 
 **When fixed:** nothing to undo in the shipped migration; a later migration needs neither workaround.
 
-## Row activation button of tables (TL #29791)
-
-The activation button a `<table>` with `<on-activate>` shows in every row runs the command without
-selecting the row first. A `NavigatePushCommand` whose breadcrumb label reads the selection channel
-then names the previously selected row.
-
-Workaround in `projects/overview.view.xml`: `activation-button="false"` plus an "Open" toolbar
-command (`<navigate-push>`) on the selected project. Double-click and Enter on a row work.
-
-**When fixed:** remove `activation-button="false"` and the "Open" toolbar command.
-
-## Closing dialogs lingers without an application animation (TL #29792)
-
-When a dialog closes (or a drill-down frame leaves), the bridge keeps an inert copy of it on screen
-until its exit animation ends (`useKeyedTransition` / `whenFinished` in
-`com.top_logic.layout.react/react-src/bridge/transition.ts`). The engine ships no animation for
-`tlDialog__backdrop--exiting` / `tlTileStack__frame--exiting`, so without an application stylesheet
-the copy stays for the full `TRANSITION_FALLBACK_MS` (1 s): measured 1,070 ms until the closed
-dialog disappears, while the server answered after 60 ms. `tl-demo-react` hides this with its own
-150 ms animations (`style/tl-demo-react.css`).
-
-Workaround: `src/main/webapp/style/ehome.css` (registered as `ClientResources` in
-`WEB-INF/conf/ehomeConf.config.xml`) animates the classes; a cancelled dialog is gone after ~190 ms.
-
-**When fixed in the engine** (default animations in the theme, no waiting without an animation):
-remove `style/ehome.css` and its `ClientResources` registration.
-
 ## ETS import: workarounds for the XML import (TL #29795, #29797, #29880 to #29883, #29889 to #29891)
 
 The ETS import (`de.haumacher.ehome.importer`, `etsImporter.xml`) has handlers of its own for what
@@ -212,152 +185,57 @@ references) instead of reading the derived `valueType`.
 
 **When fixed:** read `ParameterValue#valueType` in those scripts instead of calling the function.
 
-## Error toast when a table in a switch case disappears (TL #29580)
-
-A `<table>` inside a `<switch>` case whose rows read an input channel fails with a
-`NullPointerException` in `RowSourceObserver#deregisterObjectListeners` when that channel changes
-so that the case is removed: the switch disposes the table, and the observer, still in the
-channel's listener snapshot, re-evaluates on a null scope. The user sees an error toast; the change
-itself goes through. In the app: the entries table of an enumeration type in
-`catalogs/program.view.xml` (select an enumeration parameter, then another node). The same table in
-the tab "Geänderte Werte" of `projects/devices.view.xml` is gone with the list of changes
-(haumacher/ehome #15).
-
-Workaround: none for the structure tab (the toast is left visible). The types tab of
-`catalogs/program.view.xml` shows the entries panel for every selected type (empty and without
-commands for a type that is no enumeration) instead of in a `<visible-if>`: there the failure also
-aborted the create command of a new type before its dialog closed.
-
-The connections table of a group address (`projects/addresses.view.xml`), which failed the same
-way, is back in the case of an address since 8.0.0-alpha11 (TL #29580 shipped there).
-
-**When fixed:** put the entries panel of the types tab back into a `<visible-if>` on
-`selectedEnumeration`.
-
-## Drag and drop in the structure tree of a program (TL #29776)
-
-The structure of an application program (`catalogs/program.view.xml`) is reordered without drag
-and drop, which trees do not offer in 8.0.0-alpha10: the create dialog of a structure element
-(`catalogs/create-structure.view.xml`) asks whether the element goes into the selected element (at
-its end) or after it, and "Move up" / "Move down" reorder the selected element among its siblings
-(`de.haumacher.ehome.knx.ProgramStructure`).
-
-**When available:** replace the position choice and the move commands by the tree's drag and drop.
-
-## A `<value-input>` cannot be mandatory (TL #29805)
-
-A `<value-input>` of an enumeration type always offers "no value": `ValueInputElement` builds an
-`AbstractFieldModel`/`SimpleSelectFieldModel` that is never mandatory, and the configuration has no
-option for it. Reproduction: `<value-input type="ehome.operational:InsertPosition" value="x">` with
-`<input-control class="com.top_logic.layout.view.form.SelectControlProvider" display="radio"/>`
-shows the radio buttons "Kein Wert", "Im ausgewählten Element (am Ende)", "Nach dem ausgewählten
-Element".
-
-Workaround: none needed beyond the channel: the position choice of
-`catalogs/create-structure.view.xml` is a derived channel with a `reverse`, so choosing "no value"
-falls back to the default; the option stays visible. The value of a parameter in
-`projects/device-item.view.xml` treats an emptied input as the default. The direction of a
-connection (`projects/connect-group-address.view.xml`) and the reference the changes of a device are
-compared with (tab "Geänderte Werte", `projects/device-tabs.view.xml`) are mandatory since
-8.0.0-alpha11 (`mandatory="true"`, TL #29805 shipped there); their derived channels stay, since
-they compute the default from the device until the user chooses.
-
-**When available:** declare the position choice mandatory.
-
-## A text or number input applies its value on Enter only (TL #29808)
-
-The `<on-submit>` command of a text or number `<value-input>` runs for the Enter gesture only; a
-value committed by leaving the field writes the channel but does not run the command
-(`ValueInputElement.followSubmit`, `ReactFormFieldControl.hasSubmitGesture`). A select, date or
-checkbox input submits on every commit. The parameter inputs of a device
-(`projects/device-item.view.xml`) store their value through `deviceApplyValue` in `<on-submit>`, so
-a typed value stays unapplied until Enter is pressed.
-
-Workaround: the text and number inputs carry the placeholder "Übernehmen mit Enter" / "Apply with
-Enter".
-
-**When available:** run the apply command on every commit (or move it to the `<on-change>` hook)
-and drop the placeholder.
-
-## A `<value-input>` of a binary value gets no binary control (TL #29809)
-
-A `<value-input type="tl.core:Binary">` shows the file name as plain text: `FieldControlService`
-maps no control to the type `tl.core:Binary`, and the fallback builds a text display, so a read-only
-input offers no download (and an editable one no upload).
-
-Workaround: the download dialog of the `.knxproj` export (`projects/export-knxproj.view.xml`) names
-the control explicitly (`<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>`),
-as do the exports of a monitor recording (`projects/monitor-export.view.xml`) and of a trace of the
-virtual device (`ehome-virtual/src/main/webapp/WEB-INF/views/virtual/export-trace.view.xml`).
-
-**When fixed:** remove the `<input-control>` from that `<value-input>`.
-
-## A `<button>` cannot be icon-only (TL #29811)
-
-`ButtonElement` renders its command with `ButtonDisplayMode.ICON_LABEL` unconditionally and the
-configuration offers no display mode, so the remove button beside every connection chip of an
-object (`projects/device-item.view.xml`) and the reset buttons beside the hints show their full
-label.
-
-Workaround: none; the labels stay visible.
-
-**When available:** make the chip and hint buttons icon-only with the label as tooltip.
-
 ## Groups of a table in row order (TL #29812)
 
-`ListRowSource` orders the groups of a grouped `<table>` with the comparator of the grouping
-column, and every column a view can declare has one, so the pages of a program's parameters
-(`catalogs/program.view.xml`, grouped by the page a parameter is placed on) would appear
-alphabetically instead of in structure order.
+Since 8.0.0-alpha11 a column declares its own `<comparator>`, which orders the groups it forms. The
+comparator sees only the two cell values, though, neither the rows nor the table's inputs. The pages
+of a program's parameters and communication objects (`catalogs/program.view.xml`, grouped by the
+path text of the page, `de.haumacher.ehome.knx.ProgramPages`) carry no order of their own; their
+order is that of the rows, which the row function computes from the structure.
 
-Workaround: `de.haumacher.ehome.view.RowOrderColumn` (`<row-order-column>`), a computed column
-without sorting; the row source then keeps the groups in the order of their first row.
+Workaround: the page column declares `<comparator>a -> b -> 0</comparator>`: all pages rank equal,
+and the stable sort of `ListRowSource` keeps the groups in the order of their first rows. This
+relies on the stability of the group sort, which the view layer does not document. (The former
+`de.haumacher.ehome.view.RowOrderColumn` is deleted.) TL #29981: a declared way to keep
+the groups of a column in row order, or a comparator that sees the rows.
 
-**When available:** replace `<row-order-column>` by `<computed-column>` with the row-order option
-and delete `RowOrderColumn`.
+**When available:** declare the row order instead of the tie comparator.
 
-## A live source cannot push into a view (TL #29814)
+## Live sources of a view (TL #29814)
 
-The group monitor receives bus telegrams on a Calimero listener thread and has no declared way to
-update the view's channels from it; only `<start-job>` updates a view from another thread, through
-the internal `ReactWindowReplay.inWindow`.
+Since 8.0.0-alpha11, `<source-channel>` with a `ChannelSource` brings what a server-side source
+publishes into a channel of a displayed view, throttled by its `update-interval`. The group monitor
+(`projects/monitor.view.xml`, `state` fed by `de.haumacher.ehome.monitor.MonitorSource`, 250 ms) and
+the simulation of a project (`projects/simulation.view.xml`, `refresh` fed by
+`de.haumacher.ehome.simulation.SimulationSource`, 500 ms) use it; `WindowUpdates`,
+`WindowPublisher` and `SimulationUpdatesElement` are deleted. The source API has no signal for a
+window that is gone, and the window registry of alpha11 does not collect a closed page: a closed
+tab only reports `beforeunload`, which marks the window unloaded and detaches its tree (the
+subscription ends), and since nothing calls `ReactWindowRegistry.sweepUnloadedWindows()` (it exists
+only in newer engine sources) the window stays registered until the session ends. Reproduction: a
+view with a `<source-channel>` whose `ChannelSource` logs `getWindow(windowName)` at the end of its
+subscription and 60 s later; close the tab: the entry is still there, with `getUnloadedAt() != 0`,
+long after the 30 s grace for a reload. `MonitorSource` therefore counts a window as gone when it
+is no longer registered or its page has been unloaded for 30 s (`MonitorSource.UNLOAD_GRACE`, the
+engine's `UNLOAD_GRACE_MILLIS`); it detaches the monitor when the view goes with its window, at the
+next change of the monitor for a window that hid the view, and 31 s after an unload for a bus
+without traffic. The engine's `master` tears down a window whose client stays away (TL #29869, after alpha11); with
+it, the end of the subscription replaces this check.
 
-Workaround: `de.haumacher.ehome.view.WindowUpdates` calls that internal API in the user's session
-context, throttled to one update per interval. The group monitor uses it through
-`de.haumacher.ehome.monitor.WindowPublisher` (250 ms; it disconnects the monitor when the page is
-gone), the simulation of a project (haumacher/ehome #62) through
-`de.haumacher.ehome.simulation.SimulationUpdatesElement` (`<simulation-updates>` around
-`projects/simulation.view.xml`, 500 ms): while its content is displayed it listens to the project's
-simulation and writes the view's `refresh` channel on every change (a telegram, the clock running in
-real time, a rule acting).
+What remains:
 
-The virtual device (`ehome-virtual/src/main/webapp/WEB-INF/views/virtual/virtual-device.view.xml`) has the same need: its status and the number of
-services recorded change while a programming tool downloads into it. No workaround there: the view
-recomputes them when it is displayed and on its "Refresh" command, and its start and stop commands
-take a derived channel of the device and the last status as input, so that their executability is
-checked again after a start or stop (an `<executability>` rule cannot observe state outside the
-model).
-
-**When available:** replace `WindowPublisher` and `SimulationUpdatesElement` (with `WindowUpdates`)
-by the layer's live-source element, and let the virtual device's status follow the recording.
-
-## A table row cannot carry a CSS class (TL #29815)
-
-Rows of the monitor's state board and log cannot be highlighted by state (changed recently, own
-telegram).
-
-Workaround: a column with "●" for recently changed rows and "►" for own telegrams
-(`projects/monitor.view.xml`).
-
-**When available:** a `row-class` expression on the tables, and drop the marker columns.
-
-## A computed column cannot be hidden by default (TL #29816)
-
-The raw data column of the monitor's log is always visible.
-
-Workaround: none.
-
-**When available:** declare the column hidden by default.
+- The Zigbee tab (`projects/zigbee.view.xml`, `<zigbee-updates>`) still wraps its content in
+  `ZigbeeUpdatesElement` (`ProjectUpdatesElement`, now subscribing a `ProjectSource` through the
+  engine's `ChannelPublisher`, which refetches the knowledge base on the delivering thread before
+  writing `refresh`). It can become a `<source-channel>` with a `ProjectSource` that refetches before
+  it publishes; then `ProjectUpdatesElement` and `ZigbeeUpdatesElement` go.
+- The virtual device (`ehome-virtual/src/main/webapp/WEB-INF/views/virtual/virtual-device.view.xml`):
+  its status and the number of services recorded change while a programming tool downloads into it,
+  but the recorder tells nobody of a change. The view recomputes them when it is displayed and on
+  its "Refresh" command, and its start and stop commands take a derived channel of the device and
+  the last status as input, so that their executability is checked again after a start or stop (an
+  `<executability>` rule cannot observe state outside the model). A change notification of the
+  recorder would let a source channel follow it.
 
 ## A slider's range cannot come from a channel (TL #29872)
 
@@ -471,16 +349,10 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 ## Upstream tickets to follow
 
 - TL #29790: missing steps in the 7.11 to 8.0 upgrade guide.
-- TL #29791: see above.
-- TL #29792: see above (default transition animations in the engine).
 - TL #29793: developer-docs recipe for an application-defined primitive type (group addresses).
 - TL #29794 to #29797: shipped in 8.0.0-alpha11; #29794 and #29796 are undone, #29795 and #29797 in part,
   see above (XML import).
 - TL #29798: see above (derived references in the commit check).
-- TL #29580: shipped in 8.0.0-alpha11; the connections table of an address is back in its case, see above for the types tab of the program view.
-- TL #29776: see above (drag and drop for trees; when available: replace the position choice and the
-  move commands by the tree's drag and drop).
-- TL #29805: shipped in 8.0.0-alpha11; the direction of a connection and the reference of the changes are mandatory, see above for the position choice.
 - TL #29884, #29885: see above (access coverage of engine modules, hidden instead of disabled commands).
 - TL #29886: see above (line breaks in confirmations).
 - TL #29887, #29888, #29892: see above (suggestions and normalizing in text fields, leaving edit mode).
@@ -496,15 +368,8 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
   the upgrade itself succeeds. No workaround.
 - TL #29893: the model upgrade's log does not name a reference whose target type changed (the
   retargeted function roles of haumacher/ehome #61 were checked in the database instead). No workaround.
-- TL #29808: see above (apply on Enter only).
-- TL #29809: see above (binary value input; when fixed: drop the explicit input control of the export dialog).
-- TL #29810: shipped in 8.0.0-alpha11; `existingObject` is gone, the views read the tree selection directly.
-- TL #29811: see above (icon-only buttons).
-- TL #29812: see above (groups in row order).
-- TL #29813: shipped in 8.0.0-alpha11; the building structure places a device through `parents`, the `placements` input is gone.
-- TL #29814: see above (live source push).
-- TL #29815: see above (row CSS class).
-- TL #29816: see above (hidden computed column).
+- TL #29812: see above (groups in row order: a tie comparator until TL #29981).
+- TL #29814: see above (live sources: the Zigbee tab and the virtual device remain; a closed page is collected only with TL #29869).
 - TL #29872: see above (slider range from a channel).
 - TL #29873: see above (time picker seconds).
 - TL #29874: see above (option order of a choice; when available: delete `OptionOrderSelectControlProvider`).
@@ -516,6 +381,7 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29973 to #29975: see above (XML import after alpha11: empty texts and a default language, attributes of a known element, a partitioned lookup).
 - TL #29976 to #29978: see above (tree tables: export, node display, revealing the selection and catching up).
 - TL #29979, #29980: see above (migrations of the application).
+- TL #29981: see above (groups of a column in row order).
 
 ## No WebSocket in the development start (TL #29898)
 

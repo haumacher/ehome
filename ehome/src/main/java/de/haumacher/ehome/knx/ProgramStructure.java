@@ -24,7 +24,8 @@ import com.top_logic.util.error.TopLogicException;
 
 /**
  * Editing the configuration structure and the definitions of an application program: where a new
- * structure element may go, inserting it there, moving an element among its siblings, and deleting
+ * structure element may go, inserting it there, moving elements to another place of the structure
+ * (a drop in the structure tree), and deleting
  * parameters, communication objects, parameter types and enumeration entries.
  *
  * <p>
@@ -46,9 +47,12 @@ public final class ProgramStructure {
 
 		/**
 		 * The position a script value stands for: a classifier of
-		 * <code>ehome.operational:InsertPosition</code> or its name.
+		 * <code>ehome.operational:InsertPosition</code> or its name; <code>null</code> for none.
 		 */
 		public static Position of(Object value) {
+			if (value == null) {
+				return null;
+			}
 			String name = value instanceof TLClassifier classifier ? classifier.getName() : String.valueOf(value);
 			return valueOf(name.toUpperCase(Locale.ROOT));
 		}
@@ -141,12 +145,14 @@ public final class ProgramStructure {
 	/**
 	 * Inserts the given element at the given position relative to the anchor: at the end of the
 	 * anchor (its cases for a switch, its contents otherwise), or into the container of the anchor
-	 * right after it.
+	 * right after it; without a position at the {@link #defaultPosition(TLObject, TLStructuredType)
+	 * default one}.
 	 *
 	 * @return The inserted element.
 	 */
-	public static TLObject insert(TLObject node, TLObject anchor, Position position) {
+	public static TLObject insert(TLObject node, TLObject anchor, Position givenPosition) {
 		TLStructuredType type = node.tType();
+		Position position = givenPosition == null ? defaultPosition(anchor, type) : givenPosition;
 		if (!canInsert(anchor, type, position)) {
 			throw new TopLogicException(I18NConstants.ERROR_CANNOT_INSERT__TYPE_ANCHOR.fill(type, anchor));
 		}
@@ -173,47 +179,107 @@ public final class ProgramStructure {
 	}
 
 	/**
-	 * Why the given element cannot be moved by the given number of places among its siblings;
-	 * <code>null</code> if it can.
+	 * Why the given elements cannot be moved into the given container before the given one of its
+	 * elements (at its end without one); <code>null</code> if they can.
+	 *
+	 * <p>
+	 * An element of the structure (a channel, a block, a switch, a case, a placed parameter or
+	 * communication object) can be moved within its program into every element that may contain an
+	 * element of its kind ({@link #canContain(TLObject, TLStructuredType)}), but not into itself or
+	 * one of its own elements. The program itself is not moved.
+	 * </p>
+	 *
+	 * @param nodes
+	 *        The elements to move.
+	 * @param container
+	 *        The element they go into; <code>null</code> for a place beside the program.
+	 * @param before
+	 *        The element of the container they are inserted before; <code>null</code> to append
+	 *        them.
 	 */
-	public static ResKey moveVeto(TLObject node, int delta) {
-		if (node == null) {
+	public static ResKey moveVeto(Collection<?> nodes, TLObject container, TLObject before) {
+		if (nodes == null || nodes.isEmpty()) {
 			return I18NConstants.ERROR_NOTHING_SELECTED;
 		}
-		TLReference reference = siblingReference(node);
-		if (reference == null) {
-			return I18NConstants.ERROR_NOT_ORDERED__NODE.fill(node);
+		if (container == null) {
+			return I18NConstants.ERROR_OUTSIDE_PROGRAM;
 		}
-		List<?> siblings = (List<?>) node.tContainer().tValue(reference);
-		int target = siblings.indexOf(node) + delta;
-		if (target < 0) {
-			return I18NConstants.ERROR_ALREADY_FIRST__NODE.fill(node);
-		}
-		if (target >= siblings.size()) {
-			return I18NConstants.ERROR_ALREADY_LAST__NODE.fill(node);
+		TLObject program = root(container);
+		for (Object element : nodes) {
+			if (!(element instanceof TLObject node) || siblingReference(node) == null) {
+				return I18NConstants.ERROR_NOT_ORDERED__NODE.fill(element);
+			}
+			if (program == null || root(node) != program) {
+				return I18NConstants.ERROR_OTHER_PROGRAM__NODE.fill(node);
+			}
+			for (TLObject ancestor = container; ancestor != null; ancestor = ancestor.tContainer()) {
+				if (ancestor == node) {
+					return I18NConstants.ERROR_INSIDE_ITSELF__NODE.fill(node);
+				}
+			}
+			if (!canContain(container, node.tType())) {
+				return I18NConstants.ERROR_CANNOT_CONTAIN__NODE_CONTAINER.fill(node, container);
+			}
 		}
 		return null;
 	}
 
 	/**
-	 * Moves the given element by the given number of places among its siblings (the contents or the
-	 * cases of its container): <code>-1</code> up, <code>1</code> down.
+	 * Moves the given elements, in their given order, into the given container before the given one
+	 * of its elements (at its end without one): into the cases of a switch, the contents of every
+	 * other element.
 	 *
-	 * @return The moved element.
+	 * @see #moveVeto(Collection, TLObject, TLObject)
 	 */
-	public static TLObject move(TLObject node, int delta) {
-		ResKey veto = moveVeto(node, delta);
+	public static void move(Collection<?> nodes, TLObject container, TLObject before) {
+		ResKey veto = moveVeto(nodes, container, before);
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
-		TLObject container = node.tContainer();
-		TLReference reference = siblingReference(node);
-		List<Object> elements = new ArrayList<>((Collection<?>) container.tValue(reference));
-		int index = elements.indexOf(node);
-		elements.remove(index);
-		elements.add(index + delta, node);
-		container.tUpdate(reference, elements);
-		return node;
+		List<TLObject> moved = new ArrayList<>();
+		for (Object node : nodes) {
+			if (!moved.contains(node)) {
+				moved.add((TLObject) node);
+			}
+		}
+		String reference = isA(container, "ehome.operational:Switch") ? ALTERNATIVES : CONTENTS;
+		List<Object> elements = new ArrayList<>((Collection<?>) container.tValueByName(reference));
+		int index = before == null ? -1 : elements.indexOf(before);
+		if (index < 0) {
+			index = elements.size();
+		}
+		// The place counts the elements staying before it; an element moved stands nowhere meanwhile.
+		int target = 0;
+		for (int n = 0; n < index; n++) {
+			if (!moved.contains(elements.get(n))) {
+				target++;
+			}
+		}
+		// Out of the old containers first: a part has one container at a time.
+		for (TLObject node : moved) {
+			TLObject oldContainer = node.tContainer();
+			if (oldContainer != container) {
+				TLReference oldReference = siblingReference(node);
+				List<Object> siblings = new ArrayList<>((Collection<?>) oldContainer.tValue(oldReference));
+				siblings.remove(node);
+				oldContainer.tUpdate(oldReference, siblings);
+			}
+		}
+		elements.removeAll(moved);
+		elements.addAll(target, moved);
+		container.tUpdateByName(reference, elements);
+	}
+
+	/**
+	 * The program the given structure element belongs to; <code>null</code> for none.
+	 */
+	private static TLObject root(TLObject node) {
+		for (TLObject ancestor = node; ancestor != null; ancestor = ancestor.tContainer()) {
+			if (isA(ancestor, "ehome.operational:Program")) {
+				return ancestor;
+			}
+		}
+		return null;
 	}
 
 	/**

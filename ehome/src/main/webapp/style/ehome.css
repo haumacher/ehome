@@ -1,39 +1,4 @@
 /*
- * Transitions of the React UI.
- *
- * While a dialog or a drill-down frame arrives or leaves, the engine marks it with a state class and
- * keeps an inert copy of what left on screen until the animation of that class ends. The engine
- * ships no animation for these classes; without one the copy stays until the engine's fallback
- * timeout (1 s), which makes every dialog close feel laggy. The short animations below end the
- * copy right away. A viewer who asked for reduced motion gets neither class.
- */
-.tlDialog__backdrop--entering {
-	animation: ehomeFadeIn 120ms ease-out;
-}
-
-.tlDialog__backdrop--exiting {
-	animation: ehomeFadeOut 120ms ease-in forwards;
-}
-
-.tlTileStack__frame--entering {
-	animation: ehomeFadeIn 150ms ease-out;
-}
-
-.tlTileStack__frame--exiting {
-	animation: ehomeFadeOut 150ms ease-in forwards;
-}
-
-@keyframes ehomeFadeIn {
-	from { opacity: 0; }
-	to   { opacity: 1; }
-}
-
-@keyframes ehomeFadeOut {
-	from { opacity: 1; }
-	to   { opacity: 0; }
-}
-
-/*
  * A device that needs a download (dynamic icon of ehome.physical:Device). The React theme does not
  * style the classic marker class tl-warning.
  */

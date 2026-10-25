@@ -60,14 +60,24 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_NOT_ORDERED__NODE;
 
 	/**
-	 * @en "{0}" is the first element already.
+	 * @en "{0}" cannot be placed in "{1}".
 	 */
-	public static ResKey1 ERROR_ALREADY_FIRST__NODE;
+	public static ResKey2 ERROR_CANNOT_CONTAIN__NODE_CONTAINER;
 
 	/**
-	 * @en "{0}" is the last element already.
+	 * @en "{0}" cannot be placed inside itself.
 	 */
-	public static ResKey1 ERROR_ALREADY_LAST__NODE;
+	public static ResKey1 ERROR_INSIDE_ITSELF__NODE;
+
+	/**
+	 * @en "{0}" belongs to another application program.
+	 */
+	public static ResKey1 ERROR_OTHER_PROGRAM__NODE;
+
+	/**
+	 * @en Elements can be placed only inside the application program.
+	 */
+	public static ResKey ERROR_OUTSIDE_PROGRAM;
 
 	/**
 	 * @en The type "{0}" cannot be deleted: {1} parameters use it, e.g. "{2}".
