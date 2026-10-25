@@ -130,7 +130,9 @@
 				</stack>
 			</inset>
 		</panel>
-		<panel>
+		<!-- Not filling (TL #29982): beside a panel of its own size, a filling panel in a stack leaves that
+			panel the whole height. The tab scrolls instead. -->
+		<panel fill="false">
 			<title>
 				<en>Traces</en>
 				<de>Aufzeichnungen</de>

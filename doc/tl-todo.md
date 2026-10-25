@@ -65,6 +65,29 @@ Two differences of `<tree-table>` from `<tree>`, left visible (no workaround):
 
 **When fixed:** check both scenarios; nothing to remove in E-Home.
 
+## A panel of its own size takes the whole height beside a filling one (TL #29982)
+
+Since 8.0.0-alpha11 a panel around a table fills, so a `<stack>` holding it fills too; a sibling
+panel of its own size then resolves the inline `height: 100%` every panel carries (`TLPanel`)
+against the stack and takes all of it, while the panel with the table shrinks to its title bar.
+
+Workaround: `fill="false"` on the panel with the table in `projects/device-programming.view.xml`
+(Download), `projects/scan.view.xml` (devices found) and
+`ehome-virtual/src/main/webapp/WEB-INF/views/virtual/virtual-device.view.xml` (traces): the tab
+scrolls, as before alpha11.
+
+**When fixed:** drop the three `fill="false"`.
+
+## A tab strip wider than its container (TL #29983)
+
+The tabs of a project (twelve) and of a device (seven, eight with the virtual device) are wider than
+their container on a common screen; the strip neither scrolls nor offers the rest in a menu, so the
+last tabs lie outside and selecting one scrolls the whole panel body sideways.
+
+Workaround: none; the problem stays visible.
+
+**When fixed:** nothing to remove; check the device tabs in the detail pane.
+
 ## Migrations of the application (TL #29979, #29980)
 
 The first migration of E-Home (`WEB-INF/kbase/migration/ehome/Ticket_29806_Dissolve_ehome_mask.migration.xml`,
@@ -382,6 +405,8 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29976 to #29978: see above (tree tables: export, node display, revealing the selection and catching up).
 - TL #29979, #29980: see above (migrations of the application).
 - TL #29981: see above (groups of a column in row order).
+- TL #29982: see above (a panel of its own size beside a filling one).
+- TL #29983: see above (a tab strip wider than its container).
 
 ## No WebSocket in the development start (TL #29898)
 
