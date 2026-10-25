@@ -7,7 +7,7 @@
 
 	"device" is the device, "project" its project. The plan and the reasons a command is refused are
 	computed by the TL-Script functions of de.haumacher.ehome.programming.download.ProgrammingFunctions
-	(implemented in Java, TL #29799: the views name the types they depend on in observed-types).
+	(implemented in Java; the views name the types they depend on in observed-types).
 
 	- Compare reads the device and compares it with the download image; it never writes.
 	- Download runs the plan after a confirmation naming the device, its address and the gateway.

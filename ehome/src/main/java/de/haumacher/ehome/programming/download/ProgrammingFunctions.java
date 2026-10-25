@@ -33,7 +33,7 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * Each function takes the device (<code>ehome.physical:Device</code>) and is registered in
  * <code>ehomeConf.config.xml</code> under the name of its {@link Function} constant with the
  * {@link Builder} of this class. The plan depends on the device's settings and connections, so a
- * view calling them names those types in <code>observed-types</code> (TL #29799).
+ * view calling them names those types in <code>observed-types</code>.
  * </p>
  */
 public class ProgrammingFunctions extends GenericMethod {

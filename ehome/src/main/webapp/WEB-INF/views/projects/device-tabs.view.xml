@@ -37,7 +37,7 @@
 		<!--
 			What the device's values select in the structure of its program (the cases of its switches);
 			changes when a value opens or closes a part of the structure, which rebuilds the pages. The
-			function is implemented in Java (TL #29799), hence the observed settings.
+			channel observes the settings, so a changed value recomputes it.
 		-->
 		<derived-channel name="configuration"
 			expr="d -> if($d == null, null, deviceSelectedCases($d))"

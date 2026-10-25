@@ -201,30 +201,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String TEN_MILLISECONDS_TIME_UNIT_CLASSIFIER = TimeUnit.TEN_MILLISECONDS_CLASSIFIER;
 
 	/**
-	 * Name of the enumeration <code>InsertPosition</code> in module {@value #EHOME_OPERATIONAL_MODULE}.
-	 * 
-	 * @deprecated Use {@link InsertPosition#TYPE_NAME}.
-	 */
-	@Deprecated
-	public static final String INSERT_POSITION_ENUM = InsertPosition.TYPE_NAME;
-
-	/**
-	 * Name of the classifier <code>After</code> in enumeration <code>InsertPosition</code>.
-	 * 
-	 * @deprecated Use {@link InsertPosition#AFTER_CLASSIFIER}.
-	 */
-	@Deprecated
-	public static final String AFTER_INSERT_POSITION_CLASSIFIER = InsertPosition.AFTER_CLASSIFIER;
-
-	/**
-	 * Name of the classifier <code>Inside</code> in enumeration <code>InsertPosition</code>.
-	 * 
-	 * @deprecated Use {@link InsertPosition#INSIDE_CLASSIFIER}.
-	 */
-	@Deprecated
-	public static final String INSIDE_INSERT_POSITION_CLASSIFIER = InsertPosition.INSIDE_CLASSIFIER;
-
-	/**
 	 * Name of the enumeration <code>IPAddressKind</code> in module {@value #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link IPAddressKind#TYPE_NAME}.
@@ -3422,36 +3398,6 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	@Deprecated
 	public static com.top_logic.model.TLClassifier getTenMillisecondsTimeUnitClassifier() {
 		return TimeUnit.tenMillisecondsClassifier();
-	}
-
-	/**
-	 * Lookup the enumeration <code>InsertPosition</code>.
-	 * 
-	 * @deprecated Use {@link InsertPosition#type()}.
-	 */
-	@Deprecated
-	public static com.top_logic.model.TLEnumeration getInsertPositionEnum() {
-		return InsertPosition.type();
-	}
-
-	/**
-	 * Lookup classifier <code>After</code> of enumeration <code>InsertPosition</code>.
-	 * 
-	 * @deprecated Use {@link InsertPosition#afterClassifier()}.
-	 */
-	@Deprecated
-	public static com.top_logic.model.TLClassifier getAfterInsertPositionClassifier() {
-		return InsertPosition.afterClassifier();
-	}
-
-	/**
-	 * Lookup classifier <code>Inside</code> of enumeration <code>InsertPosition</code>.
-	 * 
-	 * @deprecated Use {@link InsertPosition#insideClassifier()}.
-	 */
-	@Deprecated
-	public static com.top_logic.model.TLClassifier getInsideInsertPositionClassifier() {
-		return InsertPosition.insideClassifier();
 	}
 
 	/**

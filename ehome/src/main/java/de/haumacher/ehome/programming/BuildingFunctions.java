@@ -24,7 +24,7 @@ import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBui
  * Each function is registered in <code>ehomeConf.config.xml</code> under the name of its
  * {@link Function} constant with the {@link Builder} of this class. The functions are implemented
  * in Java: a view calling them names the devices (and, for the group addresses in use, the
- * connections and connectors of devices) in its <code>observed-types</code> (TL #29799).
+ * connections and connectors of devices) in its <code>observed-types</code>.
  * </p>
  */
 public class BuildingFunctions extends GenericMethod {

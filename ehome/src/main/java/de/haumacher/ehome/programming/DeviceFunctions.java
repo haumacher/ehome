@@ -28,9 +28,8 @@ import de.haumacher.ehome.model.operational.ParameterView;
  * </p>
  *
  * <p>
- * The functions are implemented in Java, so a form cannot trace what they read (TL #29799). A view
- * calling them in a channel, a list or a tree therefore names the types whose changes recompute
- * them (<code>observed-types</code>: the settings, connectors and connections of devices).
+ * A view calling these functions in a channel, a list or a tree names the types whose changes
+ * recompute them (<code>observed-types</code>: the settings, connectors and connections of devices).
  * </p>
  */
 public class DeviceFunctions extends GenericMethod {

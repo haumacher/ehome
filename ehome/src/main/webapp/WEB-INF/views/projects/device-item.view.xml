@@ -23,7 +23,7 @@
 	differ from the state of the last download (DeviceChanges, haumacher/ehome #15); an entry changed
 	since the last download carries a mark beside its text.
 
-	The value is computed by Java functions, which a form cannot trace (TL #29799): the channels name
+	The value is computed by Java functions: the channels name
 	the settings, connectors and connections of devices (and the devices, for a download) as observed
 	types, so that they follow every change.
 -->

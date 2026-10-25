@@ -46,8 +46,8 @@ public final class ProgramStructure {
 		AFTER;
 
 		/**
-		 * The position a script value stands for: a classifier of
-		 * <code>ehome.operational:InsertPosition</code> or its name; <code>null</code> for none.
+		 * The position a script value stands for: its name (or a classifier of that name);
+		 * <code>null</code> for none.
 		 */
 		public static Position of(Object value) {
 			if (value == null) {

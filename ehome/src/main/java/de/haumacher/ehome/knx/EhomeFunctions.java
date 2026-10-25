@@ -26,9 +26,6 @@ import de.haumacher.ehome.knx.ProgramStructure.Position;
  * The functions (registered in <code>ehomeConf.config.xml</code>):
  * </p>
  * <ul>
- * <li><code>structureCanInsert(anchor, type, position)</code>: whether an element of the type (a
- * type or an object of it) may be inserted <code>'inside'</code> or <code>'after'</code> the
- * anchor (or at a position of <code>ehome.operational:InsertPosition</code>).</li>
  * <li><code>structureInsertVeto(anchor, type)</code>: why an element of the type can be inserted
  * neither inside nor after the anchor, or nothing.</li>
  * <li><code>structureInsert(node, anchor, position)</code>: inserts the element (without a position
@@ -49,8 +46,6 @@ public abstract class EhomeFunctions extends GenericMethod {
 	 * The functions, named as they are registered.
 	 */
 	public enum Function {
-		/** See {@link ProgramStructure#canInsert(TLObject, TLStructuredType, Position)}. */
-		structureCanInsert(3, true),
 		/** See {@link ProgramStructure#insertVeto(TLObject, TLStructuredType)}. */
 		structureInsertVeto(2, true),
 		/** See {@link ProgramStructure#insert(TLObject, TLObject, Position)}. */
@@ -103,9 +98,6 @@ public abstract class EhomeFunctions extends GenericMethod {
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
 		switch (_function) {
-			case structureCanInsert:
-				return Boolean.valueOf(ProgramStructure.canInsert(object(arguments[0]), type(arguments[1]),
-					Position.of(arguments[2])));
 			case structureInsertVeto:
 				return ProgramStructure.insertVeto(object(arguments[0]), type(arguments[1]));
 			case structureInsert:
@@ -170,40 +162,6 @@ public abstract class EhomeFunctions extends GenericMethod {
 		 * Creates the function expression.
 		 */
 		protected abstract F create(String name, SearchExpression[] args);
-	}
-
-	/**
-	 * The function <code>structureCanInsert</code>; a class of its own, because the script compiler finds the builder
-	 * of a function by the class of its expression.
-	 */
-	public static final class StructureCanInsert extends EhomeFunctions {
-
-		StructureCanInsert(String name, SearchExpression[] arguments) {
-			super(name, Function.structureCanInsert, arguments);
-		}
-
-		@Override
-		public GenericMethod copy(SearchExpression[] arguments) {
-			return new StructureCanInsert(getName(), arguments);
-		}
-
-		/**
-		 * Builder of {@link StructureCanInsert}.
-		 */
-		public static final class Builder extends EhomeFunctions.Builder<StructureCanInsert> {
-
-			/**
-			 * Creates a {@link Builder}.
-			 */
-			public Builder(InstantiationContext context, Config<?> config) {
-				super(context, config, Function.structureCanInsert);
-			}
-
-			@Override
-			protected StructureCanInsert create(String name, SearchExpression[] args) {
-				return new StructureCanInsert(name, args);
-			}
-		}
 	}
 
 	/**

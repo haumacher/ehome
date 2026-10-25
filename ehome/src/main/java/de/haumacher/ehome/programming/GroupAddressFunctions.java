@@ -26,7 +26,7 @@ import com.top_logic.util.Resources;
  * Each function is registered in <code>ehomeConf.config.xml</code> under the name of its
  * {@link Function} constant with the {@link Builder} of this class. Like those of
  * {@link DeviceFunctions}, the functions are implemented in Java: a view calling them names the
- * connections and connectors of devices in its <code>observed-types</code> (TL #29799).
+ * connections and connectors of devices in its <code>observed-types</code>.
  * </p>
  *
  * <p>

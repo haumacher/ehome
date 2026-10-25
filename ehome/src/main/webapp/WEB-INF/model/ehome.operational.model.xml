@@ -39,11 +39,6 @@
 			<classifier name="PackedDaysHoursMinutesAndSeconds"/>
 		</enum>
 		<!-- The role of the address an IP address parameter holds (ETS: TypeIPAddress@AddressType). -->
-		<!-- Where a new element of the configuration structure goes relative to the selected one. -->
-		<enum name="InsertPosition">
-			<classifier name="Inside"/>
-			<classifier name="After"/>
-		</enum>
 		<enum name="IPAddressKind">
 			<classifier name="HostAddress"/>
 			<classifier name="GatewayAddress"/>
