@@ -1,0 +1,49 @@
+#!/bin/sh
+set -e
+
+ENV_FILE=/etc/ehome/ehome.env
+DATA_DIR=/var/lib/ehome
+CONTEXT=/etc/tomcat10/Catalina/localhost/ehome.xml
+
+if [ "$1" = "configure" ]; then
+	install -d -o tomcat -g tomcat -m 0750 "$DATA_DIR"
+
+	# The settings are created once and belong to the administrator afterwards (not a conffile, so
+	# that the generated password does not count as a local change).
+	if [ ! -e "$ENV_FILE" ]; then
+		install -d -m 0755 /etc/ehome
+		PASSWORD=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
+		umask 027
+		cat > "$ENV_FILE" <<END
+# Settings of E-Home, read by Tomcat 10 (tomcat10.service.d/ehome.conf). Restart Tomcat after a
+# change: systemctl restart tomcat10
+
+# The data: H2 database, documents and logs.
+tl_storage_path=$DATA_DIR
+h2_name=$DATA_DIR/h2;DB_CLOSE_ON_EXIT=FALSE
+
+# The password of the administrator "root", applied only when the database is created at the first
+# start. Change it in the application afterwards.
+tl_initial_password=$PASSWORD
+END
+		chgrp tomcat "$ENV_FILE"
+		echo "E-Home: the initial password of the user root is in $ENV_FILE." >&2
+	fi
+
+	# The context descriptor is put in place only while Tomcat is stopped: a running Tomcat deploys it
+	# at once, without the settings above, which it reads only at its next start.
+	SYSTEMD=
+	if [ -d /run/systemd/system ]; then
+		SYSTEMD=1
+		systemctl daemon-reload || true
+		systemctl stop tomcat10 || true
+	fi
+	install -d -o root -g tomcat -m 2775 /etc/tomcat10/Catalina /etc/tomcat10/Catalina/localhost
+	install -m 0644 /usr/share/ehome/tomcat/ehome.xml "$CONTEXT"
+	if [ -n "$SYSTEMD" ]; then
+		systemctl start tomcat10 || true
+	fi
+	echo "E-Home: http://localhost:8080/ehome/view/ (the first start takes about a minute)." >&2
+fi
+
+exit 0

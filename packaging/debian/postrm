@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+
+case "$1" in
+	remove)
+		# Tomcat's unpacked copy of the war, and Tomcat without the settings of the drop-in that is gone now.
+		rm -rf /var/lib/tomcat10/webapps/ehome /var/cache/tomcat10/Catalina/localhost/ehome
+		if [ -d /run/systemd/system ]; then
+			systemctl daemon-reload || true
+			systemctl try-restart tomcat10 || true
+		fi
+		;;
+	purge)
+		rm -f /etc/ehome/ehome.env
+		rmdir /etc/ehome 2>/dev/null || true
+		# The database stays: it holds the user's projects.
+		if [ -d /var/lib/ehome ]; then
+			echo "E-Home: the data in /var/lib/ehome are kept; delete them by hand if no longer needed." >&2
+		fi
+		;;
+esac
+
+exit 0

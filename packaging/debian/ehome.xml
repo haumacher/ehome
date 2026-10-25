@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+	E-Home in Tomcat at the context path /ehome (package ehome): postinst copies it to
+	/etc/tomcat10/Catalina/localhost/ehome.xml. The war is unpacked into /var/lib/tomcat10/webapps/ehome;
+	the data stay in /var/lib/ehome (/etc/ehome/ehome.env).
+-->
+<Context docBase="/usr/share/ehome/ehome.war"/>

@@ -1,0 +1,17 @@
+Package: ehome
+Version: @VERSION@
+Architecture: all
+Section: web
+Priority: optional
+Depends: tomcat10 (>= 10.1), java17-runtime-headless
+Maintainer: Bernhard Haumacher <bhu@top-logic.com>
+Homepage: https://github.com/haumacher/ehome
+Installed-Size: @SIZE@
+Description: E-Home, engineering of KNX and Zigbee installations
+ A TopLogic web application that imports KNX ETS projects, discovers KNX
+ gateways, programs devices and deploys rules and schedules to HomeControl
+ controllers.
+ .
+ The application runs in Tomcat 10 at http://<host>:8080/ehome/view/ and keeps
+ its H2 database and data in /var/lib/ehome. Settings, including the initial
+ password of the administrator root, are in /etc/ehome/ehome.env.

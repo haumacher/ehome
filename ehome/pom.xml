@@ -282,5 +282,25 @@
       <!-- The app without the development tooling. -->
       <id>production</id>
     </profile>
+    <!--
+      The war of the Debian package (bin/build-deb.sh, doc/debian.md): with the H2 driver and its
+      connection pool (deploy aspect deploy/debian) instead of the container's JNDI data source of the
+      engine's default war, and without the debug settings of deploy/local. The location of the data
+      comes from /etc/ehome/ehome.env (tl_storage_path, h2_name). Build: ./mvnw install -Pproduction,debian
+    -->
+    <profile>
+      <id>debian</id>
+      <properties>
+        <deployAspects>debian</deployAspects>
+        <tl.app.metaConfAddons></tl.app.metaConfAddons>
+      </properties>
+      <dependencies>
+        <dependency>
+          <groupId>com.h2database</groupId>
+          <artifactId>h2</artifactId>
+          <scope>runtime</scope>
+        </dependency>
+      </dependencies>
+    </profile>
   </profiles>
 </project>

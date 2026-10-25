@@ -1,0 +1,9 @@
+#!/bin/sh
+set -e
+
+# Without its context descriptor Tomcat undeploys the app and deletes its unpacked copy.
+if [ "$1" = "remove" ]; then
+	rm -f /etc/tomcat10/Catalina/localhost/ehome.xml
+fi
+
+exit 0
