@@ -34,6 +34,11 @@ public interface SharedPlacementBase extends de.haumacher.ehome.model.operationa
 	String PLACED_ATTR = "placed";
 
 	/**
+	 * Name of the table storing {@link #SHARED_PLACEMENT_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #DISPLAY_NAME_ATTR}.
 	 */
 	default String getDisplayName() {

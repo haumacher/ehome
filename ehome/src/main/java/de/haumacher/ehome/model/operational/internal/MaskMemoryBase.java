@@ -70,6 +70,11 @@ public interface MaskMemoryBase extends com.top_logic.model.TLObject {
 	String WRITE_RIGHTS_ATTR = "writeRights";
 
 	/**
+	 * Name of the table storing {@link #MASK_MEMORY_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #LENGTH_ATTR}.
 	 */
 	default Long getLength() {

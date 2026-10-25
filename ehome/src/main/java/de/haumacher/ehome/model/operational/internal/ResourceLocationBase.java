@@ -70,6 +70,11 @@ public interface ResourceLocationBase extends com.top_logic.model.TLObject {
 	String START_ADDRESS_ATTR = "startAddress";
 
 	/**
+	 * Name of the table storing {@link #RESOURCE_LOCATION_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #ADDRESS_SPACE_ATTR}.
 	 */
 	default com.top_logic.model.TLClassifier getAddressSpace() {

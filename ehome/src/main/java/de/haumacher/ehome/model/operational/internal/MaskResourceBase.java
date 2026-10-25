@@ -97,6 +97,11 @@ public interface MaskResourceBase extends com.top_logic.model.TLNamed {
 	String WRITE_RIGHTS_ATTR = "writeRights";
 
 	/**
+	 * Name of the table storing {@link #MASK_RESOURCE_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #ACCESS_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")

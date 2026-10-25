@@ -43,6 +43,11 @@ public interface EnumerationTypeBase extends de.haumacher.ehome.model.operationa
 	String VALUES_ATTR = "values";
 
 	/**
+	 * Name of the table storing {@link #ENUMERATION_TYPE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterType";
+
+	/**
 	 * Getter for part {@link #BITS_ATTR}.
 	 */
 	default int getBits() {

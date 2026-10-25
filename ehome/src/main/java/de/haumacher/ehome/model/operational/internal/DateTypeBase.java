@@ -25,6 +25,11 @@ public interface DateTypeBase extends de.haumacher.ehome.model.operational.Param
 	String SHOWS_YEAR_ATTR = "showsYear";
 
 	/**
+	 * Name of the table storing {@link #DATE_TYPE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterType";
+
+	/**
 	 * Getter for part {@link #SHOWS_YEAR_ATTR}.
 	 */
 	default boolean getShowsYear() {

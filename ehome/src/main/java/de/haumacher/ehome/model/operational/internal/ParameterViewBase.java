@@ -106,6 +106,11 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	String TITLE_ATTR = "title";
 
 	/**
+	 * Name of the table storing {@link #PARAMETER_VIEW_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterView";
+
+	/**
 	 * Getter for part {@link #ACCESS_ATTR}.
 	 */
 	default com.top_logic.model.TLClassifier getAccess() {

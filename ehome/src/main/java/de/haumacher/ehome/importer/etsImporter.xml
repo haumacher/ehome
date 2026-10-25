@@ -85,13 +85,13 @@
 									mask version (resolve-existing above) updates it in place if its master data have a higher version than
 									those the mask version was imported from, and keeps it otherwise (VersionedMasterData).
 								-->
-								<in-scope argument-var="" expr="`ehome.mask#ROOT`">
+								<in-scope argument-var="" expr="`ehome.operational#ROOT`">
 									<dispatch>
 										<tag name="MaskVersion">
 											<versioned-master-data id-attribute="Id" version-attribute="masterDataVersion">
 												<object model-type="ehome.operational:MaskVersion">
 													<linking>
-														<list-linking name="ehome.mask:MaskVersions#masks"/>
+														<list-linking name="ehome.operational:MaskVersions#masks"/>
 													</linking>
 
 													<property name="extId" xml-attribute="Id"/>

@@ -486,7 +486,7 @@ public class TestDownloadDataImport extends BasicTestCase {
 	}
 
 	private static List<?> maskRoot() {
-		TLObject root = TLModelUtil.findType("ehome.mask:MaskVersions").getModule()
+		TLObject root = TLModelUtil.findType("ehome.operational:MaskVersions").getModule()
 			.getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
 		return (List<?>) root.tValueByName("masks");
 	}

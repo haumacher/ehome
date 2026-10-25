@@ -52,6 +52,11 @@ public interface PropertyLocationBase extends de.haumacher.ehome.model.operation
 	String PROPERTY_ID_ATTR = "propertyId";
 
 	/**
+	 * Name of the table storing {@link #PROPERTY_LOCATION_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHPointer";
+
+	/**
 	 * Getter for part {@link #OBJECT_INDEX_ATTR}.
 	 */
 	default Integer getObjectIndex() {

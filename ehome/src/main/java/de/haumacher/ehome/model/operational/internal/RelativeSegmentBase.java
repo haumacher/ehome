@@ -34,6 +34,11 @@ public interface RelativeSegmentBase extends de.haumacher.ehome.model.operationa
 	String STATE_MACHINE_ATTR = "stateMachine";
 
 	/**
+	 * Name of the table storing {@link #RELATIVE_SEGMENT_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHCodeSegment";
+
+	/**
 	 * Getter for part {@link #OFFSET_ATTR}.
 	 */
 	default Integer getOffset() {

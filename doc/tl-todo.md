@@ -167,69 +167,6 @@ references) instead of reading the derived `valueType`.
 
 **When fixed:** read `ParameterValue#valueType` in those scripts instead of calling the function.
 
-## Derived attributes in a form in edit mode (TL #29799)
-
-A derived attribute shown in a form does not follow the values entered in the same form: in the
-details of a placed parameter (`catalogs/program.view.xml`), "Wirksame Vorgabe"
-(`ParameterView#displayDefault`) and "Vorgabe von" (`ParameterView#defaultSource`) keep their stored
-state while a default is entered or the parameter is changed, and show the new state only after
-saving. Both read other derived attributes (`defaultSource`, `displayValue`).
-
-The same holds for a script calling a TL-Script function implemented in Java, such as
-`parameterValueType`: the script tracer records only the model
-accesses written in TL-Script, so a function implemented in Java (`GenericMethod`) cannot declare
-what it reads, and changing the parameter in the form does not show the field of the new type's kind
-until saving. The engine needs a way for a script function to report its dependencies to the
-tracer.
-
-Workaround: the scripts a form re-evaluates while editing - the four `dynamic-visibility` scripts
-of the typed attributes of `ehome.operational:ParameterValue` and the options of its `choice` -
-write the navigation to the parameter type in TL-Script instead of calling `parameterValueType`;
-the constraints (run at save and commit) and the display keep calling the function. Likewise the
-options of the switching and state objects of an object follower (`ehome.runtime:ObjectFollower`,
-haumacher/ehome #62) navigate from the device in TL-Script, so they follow the device entered in the
-same form. No workaround for the derived fields: they are correct after saving.
-
-The configuration of a device (`projects/devices.view.xml`, `projects/device-item.view.xml`) is
-computed by Java functions (`DeviceFunctions`: `deviceValue`, `deviceItems`, `devicePages`, …),
-because `DeviceConfiguration` is the one definition of what the device's values select. It is shown
-in channels, a tree and an object list, not in a form: these name the settings, connectors and
-connections of devices in `observed-types`, and the tree takes the selected cases of the switches
-(`deviceSelectedCases`) as an input, so that a change of a value rebuilds the pages it opens or
-closes.
-
-**When fixed:** call `parameterValueType` in the visibility and options scripts of `ParameterValue`;
-the `observed-types` of the device configuration may stay (they are what the channels need anyway).
-
-## Model change of an existing database: new generalization with overrides (TL #29800)
-
-Adding a generalization to a class and, in the same change, overriding attributes of the new
-generalization (`ehome.physical:ParameterSetting` became an `ehome.operational:ParameterValue` and
-overrides `number`, `decimal`, `text`) cannot be applied to an existing database: the model patch
-at startup aborts with "Override failed. ehome.physical:ParameterSetting#number is declared to be an
-override, but is not overriding anything (ehome.physical:ParameterSetting extends
-tl.model:TLObject.)" - the overrides are applied before the generalization. A new database is set
-up correctly.
-
-Workaround: none; the local database (`tmp/`) was reset for this change (there is no production
-data yet). The app no longer contains such an override: the overrides were later removed and the
-typed attributes are labeled on the interface only.
-
-**When fixed:** nothing to remove; check that such a change applies to an existing database.
-
-## Master-detail of the device settings without `<adaptive-detail>` (TL #29801)
-
-`<adaptive-detail>` splits selector and detail at a fixed 32/68
-(`ReactAdaptiveDetailControl#buildRegularSplit`); its `detail-size` applies only to the drawer
-display. With 32 % the settings table of a device (name, value, default) showed only its first
-column.
-
-Workaround: none any more. The settings table with its detail in a `<split-panel>` (tab "Geänderte
-Werte" of `projects/devices.view.xml`) was replaced by the grouped list of changes, each entry with
-its input (haumacher/ehome #15), which needs no master-detail.
-
-**When available** (configurable selector share): nothing to remove.
-
 ## Error toast when a table in a switch case disappears (TL #29580)
 
 A `<table>` inside a `<switch>` case whose rows read an input channel fails with a
@@ -254,21 +191,6 @@ details, outside the switch over the selected node, and reads the address of the
 **When fixed:** put the entries panel of the types tab back into a `<visible-if>` on
 `selectedEnumeration`; the connections table of an address may move back into the case of an
 address.
-
-## Line numbers of XML import messages with a thousands separator (TL #29804)
-
-The location the engine adds to a message of the XML import (`I18NLogAsXMLStreamLog.withLocation`,
-keys `com.top_logic.basic.xml.log.I18NConstants.AT_LOCATION__FILE_LINE_COL_DETAIL` and
-`AT_LOCATION__LINE_COL_DETAIL`, texts `In {0} line {1} column {2}: {3}`) formats the line and column
-as numbers of the locale, so a line beyond 999 reads "line 4,433" (English) or "Zeile 4.433"
-(German). Reproduction: import `src/test/fixtures/TestDynamic.knxproj` into a database without its
-program; the ETS import report shows "In knxproj:M-0008/M-0008_A-10D7-11-A0E5-O000C.xml Zeile 4.433
-Spalte 183: …". The texts need `{1,number,#}` / `{2,number,#}` (and `{0,number,#}` /
-`{1,number,#}` for the variant without file).
-
-Workaround: none; the message is readable, the separator stays visible.
-
-**When fixed:** nothing to remove; check the line numbers in the ETS import report.
 
 ## Drag and drop in the structure tree of a program (TL #29776)
 
@@ -297,32 +219,6 @@ so choosing "no value" falls back to the default; the option stays visible. The 
 `projects/device-item.view.xml` treats an emptied input as the default.
 
 **When available:** declare the position choice, the direction of a connection and the reference of the changes mandatory.
-
-## A singleton turns every generated wrapper of its module into a structured element (TL #29806)
-
-`InterfaceGenerator` decides by `TLModelGenerator.isStructure(module)`, i.e. by the module carrying
-`TLSingletons`, that a generated interface without generalizations extends `StructuredElement`
-instead of `Wrapper`. Putting the root of the shared mask versions into `ehome.operational` turned
-all its wrappers into structured-element wrappers although no model class specializes
-`tl.element:StructuredElement` (regression of TL #26716).
-
-Workaround: the root lives in the separate module `ehome.mask` (`ehome.mask.model.xml`, no generated
-bindings, reached by `tValueByName`); the mask classes stay in `ehome.operational`.
-
-**When available:** move `MaskVersions` into `ehome.operational`, regenerate, delete `ehome.mask`
-(with a model migration renaming the module of the root).
-
-## Classifier constants of two enumerations collide in the generated factory (TL #29807)
-
-`FactoryGenerator` names a classifier constant `<CLASSIFIER>_<ENUM>_CLASSIFIER` with a single
-underscore, which is ambiguous: `LcFilterMemory` of `AddressSpace` and `LcFilter` of
-`MemoryAddressSpace` both became `LC_FILTER_MEMORY_ADDRESS_SPACE_CLASSIFIER`, and the factory did
-not compile.
-
-Workaround: the enumeration of the memory a load step writes to is named `MemorySpace` instead of
-`MemoryAddressSpace` (the schema's `LdCtrlMemAddrSpace_t`).
-
-**When available:** nothing to undo; the name may stay.
 
 ## A text or number input applies its value on Enter only (TL #29808)
 
@@ -558,8 +454,6 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 
 ## Upstream tickets to follow
 
-- TL #29789: `tl:generate-java` cannot bootstrap a version change (the generator is therefore not
-  bound to the build, see `CLAUDE.md`).
 - TL #29790: missing steps in the 7.11 to 8.0 upgrade guide.
 - TL #29791: see above.
 - TL #29792: see above (default transition animations in the engine).
@@ -567,11 +461,7 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29794 to #29797: shipped in 8.0.0-alpha11; #29794 and #29796 are undone, #29795 and #29797 in part,
   see above (XML import).
 - TL #29798: see above (derived references in the commit check).
-- TL #29799: see above (derived fields and Java script functions in forms).
-- TL #29800: see above (model patch of a new generalization with overrides).
-- TL #29801: see above (adaptive-detail split proportions).
 - TL #29580: see above (table in a switch case disposed during a channel change; fix with registration handles described there).
-- TL #29804: see above (line numbers of import messages).
 - TL #29776: see above (drag and drop for trees; when available: replace the position choice and the
   move commands by the tree's drag and drop).
 - TL #29805: see above (mandatory `<value-input>`).
@@ -590,8 +480,6 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
   the upgrade itself succeeds. No workaround.
 - TL #29893: the model upgrade's log does not name a reference whose target type changed (the
   retargeted function roles of haumacher/ehome #61 were checked in the database instead). No workaround.
-- TL #29806: see above (singleton and generated wrappers; when available: dissolve `ehome.mask`).
-- TL #29807: see above (classifier constant names).
 - TL #29808: see above (apply on Enter only).
 - TL #29809: see above (binary value input; when fixed: drop the explicit input control of the export dialog).
 - TL #29810: see above (deleted object in a tree selection).
@@ -610,15 +498,6 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29883: see above (an unset boolean on stored and transient objects).
 - TL #29889 to #29891: see above (import performance: set additions, type lookups, defaults, reads, deletion).
 - TL #29973 to #29975: see above (XML import after alpha11: empty texts and a default language, attributes of a known element, a partitioned lookup).
-
-## The generator rewrites the header of hand-written wrappers (TL #29897)
-
-`tl:generate-java` (8.0.0-alpha10) regenerates `internal/*Base.java` and `*Factory.java` as
-documented, but after the model change of haumacher/ehome #40 it also replaced the copyright
-header of the hand-written `MaskConfigurationImpl.java`, which the generator creates once and is
-not supposed to touch again. Workaround: after every generation run, `git diff --stat` and revert
-hand-written wrappers that show only a header change (`git checkout -- <file>`). Remove this entry
-once the ticket has shipped.
 
 ## No WebSocket in the development start (TL #29898)
 

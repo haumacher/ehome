@@ -52,6 +52,11 @@ public interface EnumerationValueBase extends de.haumacher.ehome.model.core.Exte
 	String VALUE_ATTR = "value";
 
 	/**
+	 * Name of the table storing {@link #ENUMERATION_VALUE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHEnumerationValue";
+
+	/**
 	 * Getter for part {@link #BINARY_ATTR}.
 	 */
 	default com.top_logic.basic.io.binary.BinaryDataSource getBinary() {

@@ -108,7 +108,7 @@
 					</rule>
 					<rule id="ehomeRootForMaskVersions"
 						inherit="true"
-						meta-element="ehome.mask:MaskVersions"
+						meta-element="ehome.operational:MaskVersions"
 					>
 						<singleton module="SecurityStructure"/>
 					</rule>
@@ -126,9 +126,10 @@
 			<instance>
 				<security-config>
 					<!--
-						The modules of the six types deciding for themselves. The types of the other
-						modules (ehome.building, ehome.logical, ehome.physical, ehome.operational,
-						ehome.monitor, ehome.zigbee) are composition parts and delegate to their containers.
+						The modules of five of the six types deciding for themselves; the sixth, the root
+						of the mask versions, has grants of its own below. The types of the other modules
+						(ehome.building, ehome.logical, ehome.physical, ehome.operational, ehome.monitor,
+						ehome.zigbee) are composition parts and delegate to their containers.
 					-->
 					<module name="ehome.project">
 						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
@@ -154,12 +155,13 @@
 						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
 						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
 					</module>
-					<module name="ehome.mask">
-						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
-						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
-					</module>
+					<!-- The root of the shared mask versions, the one type of ehome.operational no composition holds. -->
+					<class name="ehome.operational:MaskVersions">
+						<grant operation="Read" roles="ehome.Installer, ehome.Viewer"/>
+						<grant operation="Write" roles="ehome.Installer"/>
+						<grant operation="Create" roles="ehome.Installer"/>
+						<grant operation="Delete" roles="ehome.Installer"/>
+					</class>
 					<module name="ehome.zigbee.catalog">
 						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
 						<grant inherit="true" operation="Write" roles="ehome.Installer"/>

@@ -7,6 +7,9 @@
 				implementation-package="de.haumacher.ehome.model.operational.internal"
 				interface-package="de.haumacher.ehome.model.operational"
 			/>
+			<singletons>
+				<singleton type="MaskVersions"/>
+			</singletons>
 		</annotations>
 		<enum name="AccessKind">
 			<classifier name="None"/>
@@ -664,12 +667,11 @@
 			The type of a holder is defined by the TL-Script function parameterValueType (Java:
 			ParameterValues.valueType), which navigates the stored references: a parameter's type, the type
 			of the parameter a placement places, the type of the parameter a setting sets. valueType is that
-			function; the constraints and the display call the function instead of reading valueType,
-			because a derived reference reads as empty where no user is logged in, as in the commit check
-			of an import (doc/tl-todo.md, "Derived references and the commit check"). The scripts a form
-			re-evaluates while editing (the visibility of the typed attributes and the options of choice)
-			write the same navigation in TL-Script, because the form cannot trace what a Java function
-			reads (doc/tl-todo.md, "Derived attributes in a form in edit mode").
+			function; the options, constraints, visibility and display call the function instead of reading
+			valueType, because a derived reference reads as empty where no user is logged in, as in the
+			commit check of an import (doc/tl-todo.md, "Derived references and the commit check"). A form
+			in edit mode traces what the function reads, so the visibility of the typed attributes and the
+			options of choice follow a parameter or type entered in the same form.
 		-->
 		<interface name="ParameterValue">
 			<generalizations>
@@ -695,18 +697,10 @@
 					type="EnumerationValue"
 				>
 					<annotations>
-						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
 						<options>
 							<options-by-expression>
 								<function><![CDATA[self -> {
-    t = switch {
-        $self.instanceOf(`ehome.operational:Parameter`):
-            $self.get(`ehome.operational:Parameter#type`);
-        $self.instanceOf(`ehome.operational:ParameterView`):
-            $self.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-        default:
-            $self.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-    };
+    t = parameterValueType($self);
     if($t.instanceOf(`ehome.operational:EnumerationType`), $t.get(`ehome.operational:EnumerationType#values`), [])
 }]]></function>
 							</options-by-expression>
@@ -725,18 +719,10 @@
 							</constraint-by-expression>
 						</constraints>
 						<!-- Shown for a type of its kind, and wherever it holds a value, so that a value left from another type can be removed. -->
-						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
 						<dynamic-visibility>
 							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
 								<function><![CDATA[obj -> editMode -> {
-    t = switch {
-        $obj.instanceOf(`ehome.operational:Parameter`):
-            $obj.get(`ehome.operational:Parameter#type`);
-        $obj.instanceOf(`ehome.operational:ParameterView`):
-            $obj.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-        default:
-            $obj.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-    };
+    t = parameterValueType($obj);
     if($t.instanceOf(`ehome.operational:EnumerationType`) or $obj.get(`ehome.operational:ParameterValue#choice`) != null, null, "hidden")
 }]]></function>
 							</mode-selector>
@@ -770,18 +756,10 @@
 							</constraint-by-expression>
 						</constraints>
 						<!-- Shown for a type of its kind, and wherever it holds a value, so that a value left from another type can be removed. -->
-						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
 						<dynamic-visibility>
 							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
 								<function><![CDATA[obj -> editMode -> {
-    t = switch {
-        $obj.instanceOf(`ehome.operational:Parameter`):
-            $obj.get(`ehome.operational:Parameter#type`);
-        $obj.instanceOf(`ehome.operational:ParameterView`):
-            $obj.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-        default:
-            $obj.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-    };
+    t = parameterValueType($obj);
     if($t.instanceOf(`ehome.operational:NumericType`) or $t.instanceOf(`ehome.operational:TimeType`) or $obj.get(`ehome.operational:ParameterValue#number`) != null, null, "hidden")
 }]]></function>
 							</mode-selector>
@@ -806,18 +784,10 @@
 							</constraint-by-expression>
 						</constraints>
 						<!-- Shown for a type of its kind, and wherever it holds a value, so that a value left from another type can be removed. -->
-						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
 						<dynamic-visibility>
 							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
 								<function><![CDATA[obj -> editMode -> {
-    t = switch {
-        $obj.instanceOf(`ehome.operational:Parameter`):
-            $obj.get(`ehome.operational:Parameter#type`);
-        $obj.instanceOf(`ehome.operational:ParameterView`):
-            $obj.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-        default:
-            $obj.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-    };
+    t = parameterValueType($obj);
     if($t.instanceOf(`ehome.operational:FloatingPointType`) or $obj.get(`ehome.operational:ParameterValue#decimal`) != null, null, "hidden")
 }]]></function>
 							</mode-selector>
@@ -854,18 +824,10 @@
 							</constraint-by-expression>
 						</constraints>
 						<!-- Shown for a type of its kind, and wherever it holds a value, so that a value left from another type can be removed. -->
-						<!-- Navigates in TL-Script, not via parameterValueType, so that the form traces it (doc/tl-todo.md). -->
 						<dynamic-visibility>
 							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
 								<function><![CDATA[obj -> editMode -> {
-    t = switch {
-        $obj.instanceOf(`ehome.operational:Parameter`):
-            $obj.get(`ehome.operational:Parameter#type`);
-        $obj.instanceOf(`ehome.operational:ParameterView`):
-            $obj.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-        default:
-            $obj.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
-    };
+    t = parameterValueType($obj);
     if($t.instanceOf(`ehome.operational:TextType`) or $t.instanceOf(`ehome.operational:DateType`) or $t.instanceOf(`ehome.operational:IPAddressType`) or $t.instanceOf(`ehome.operational:ColorType`) or $obj.get(`ehome.operational:ParameterValue#text`) != null, null, "hidden")
 }]]></function>
 							</mode-selector>
@@ -2202,6 +2164,21 @@
 				<!-- The channel a master reset applies to, 0 for the device (ETS: LdCtrlMasterReset@ChannelNumber). -->
 				<property name="channelNumber"
 					type="tl.core:Integer"
+				/>
+			</attributes>
+		</class>
+		<!--
+			The mask versions (system software versions of devices) KNX defines. They are imported once from
+			the master data of an ETS project (knx_master.xml); later imports reuse them.
+		-->
+		<class name="MaskVersions">
+			<attributes>
+				<reference name="masks"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="MaskVersion"
 				/>
 			</attributes>
 		</class>

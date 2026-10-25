@@ -25,6 +25,11 @@ public interface ColorTypeBase extends de.haumacher.ehome.model.operational.Para
 	String SPACE_ATTR = "space";
 
 	/**
+	 * Name of the table storing {@link #COLOR_TYPE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterType";
+
+	/**
 	 * Getter for part {@link #SPACE_ATTR}.
 	 */
 	default String getSpace() {

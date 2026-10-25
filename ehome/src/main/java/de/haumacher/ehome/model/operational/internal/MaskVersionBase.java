@@ -106,6 +106,11 @@ public interface MaskVersionBase extends de.haumacher.ehome.model.core.Externali
 	String OTHER_MEDIUM_ATTR = "otherMedium";
 
 	/**
+	 * Name of the table storing {@link #MASK_VERSION_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #COMPATIBLE_MASKS_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")

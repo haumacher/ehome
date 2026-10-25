@@ -15,4 +15,9 @@ public interface VoidTypeBase extends de.haumacher.ehome.model.operational.Param
 	 */
 	String VOID_TYPE_TYPE = "VoidType";
 
+	/**
+	 * Name of the table storing {@link #VOID_TYPE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterType";
+
 }

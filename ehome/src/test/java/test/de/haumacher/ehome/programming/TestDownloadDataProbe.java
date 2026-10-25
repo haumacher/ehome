@@ -325,7 +325,7 @@ public class TestDownloadDataProbe extends BasicTestCase {
 	}
 
 	private static List<?> masks() {
-		TLObject root = TLModelUtil.findType("ehome.mask:MaskVersions").getModule()
+		TLObject root = TLModelUtil.findType("ehome.operational:MaskVersions").getModule()
 			.getSingleton(TLModule.DEFAULT_SINGLETON_NAME);
 		return (List<?>) root.tValueByName("masks");
 	}

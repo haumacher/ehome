@@ -52,6 +52,11 @@ public interface TimeTypeBase extends de.haumacher.ehome.model.operational.Param
 	String UNIT_ATTR = "unit";
 
 	/**
+	 * Name of the table storing {@link #TIME_TYPE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterType";
+
+	/**
 	 * Getter for part {@link #BITS_ATTR}.
 	 */
 	default int getBits() {

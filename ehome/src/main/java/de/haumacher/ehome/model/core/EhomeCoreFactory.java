@@ -15,15 +15,23 @@ package de.haumacher.ehome.model.core;
 public class EhomeCoreFactory extends com.top_logic.element.meta.kbbased.AbstractElementFactory {
 
 	/**
-	 * Name of the structure <code>ehome.core</code> defined by {@link EhomeCoreFactory}.
+	 * Name of the module <code>ehome.core</code> defined by {@link EhomeCoreFactory}.
 	 */
-	public static final String EHOME_CORE_STRUCTURE = "ehome.core";
+	public static final String EHOME_CORE_MODULE = "ehome.core";
+
+	/**
+	 * Name of the structure <code>ehome.core</code> defined by {@link EhomeCoreFactory}.
+	 * 
+	 * @deprecated Use {@link #EHOME_CORE_MODULE}.
+	 */
+	@Deprecated
+	public static final String EHOME_CORE_STRUCTURE = EHOME_CORE_MODULE;
 
 	/**
 	 * Lookup {@link Externalized} type.
 	 */
 	public static com.top_logic.model.TLClass getExternalizedType() {
-		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_CORE_STRUCTURE).getType(Externalized.EXTERNALIZED_TYPE);
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_CORE_MODULE).getType(Externalized.EXTERNALIZED_TYPE);
 	}
 
 	/**
@@ -34,7 +42,7 @@ public class EhomeCoreFactory extends com.top_logic.element.meta.kbbased.Abstrac
 	}
 
 	/**
-	 * Name of type <code>Externalized</code> in structure {@link #EHOME_CORE_STRUCTURE}.
+	 * Name of type <code>Externalized</code> in module {@link #EHOME_CORE_MODULE}.
 	 * 
 	 * @deprecated Use {@link Externalized#EXTERNALIZED_TYPE}.
 	 */
@@ -46,6 +54,6 @@ public class EhomeCoreFactory extends com.top_logic.element.meta.kbbased.Abstrac
 	 * The singleton instance of {@link EhomeCoreFactory}.
 	 */
 	public static EhomeCoreFactory getInstance() {
-		return (EhomeCoreFactory) com.top_logic.element.model.DynamicModelService.getFactoryFor(EHOME_CORE_STRUCTURE);
+		return (EhomeCoreFactory) com.top_logic.element.model.DynamicModelService.getFactoryFor(EHOME_CORE_MODULE);
 	}
 }

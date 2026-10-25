@@ -313,6 +313,11 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String USES_MODULES_ATTR = "usesModules";
 
 	/**
+	 * Name of the table storing {@link #PROGRAM_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHProgram";
+
+	/**
 	 * Getter for part {@link #ADDRESS_TABLE_ATTR}.
 	 */
 	default de.haumacher.ehome.model.operational.TableLocation getAddressTable() {

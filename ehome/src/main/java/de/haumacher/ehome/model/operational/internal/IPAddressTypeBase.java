@@ -34,6 +34,11 @@ public interface IPAddressTypeBase extends de.haumacher.ehome.model.operational.
 	String VERSION_ATTR = "version";
 
 	/**
+	 * Name of the table storing {@link #IP_ADDRESS_TYPE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterType";
+
+	/**
 	 * Getter for part {@link #ADDRESS_KIND_ATTR}.
 	 */
 	default com.top_logic.model.TLClassifier getAddressKind() {

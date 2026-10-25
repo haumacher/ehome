@@ -34,6 +34,11 @@ public interface TextTypeBase extends de.haumacher.ehome.model.operational.Param
 	String PATTERN_ATTR = "pattern";
 
 	/**
+	 * Name of the table storing {@link #TEXT_TYPE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterType";
+
+	/**
 	 * Getter for part {@link #BITS_ATTR}.
 	 */
 	default int getBits() {

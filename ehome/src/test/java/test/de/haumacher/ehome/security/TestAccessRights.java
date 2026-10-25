@@ -375,7 +375,7 @@ public class TestAccessRights extends BasicTestCase {
 		return List.of(_project, _groupAddress, _device, _function, _dismissal, _deployment, _controller, _rule, _reaction,
 			_trigger, _action, _parameter, _schedule, _applicationDatapoint, _manufacturer,
 			_catalog, _variant, _program, singleton("ehome.catalog:ManufacturerRoot"), singleton("ehome.datapoint:DatapointTypes"),
-			singleton("ehome.mask:MaskVersions"), singleton("ehome.zigbee.catalog:ZigbeeCatalog"));
+			singleton("ehome.operational:MaskVersions"), singleton("ehome.zigbee.catalog:ZigbeeCatalog"));
 	}
 
 	private static String label(TLObject object) {

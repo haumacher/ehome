@@ -34,6 +34,11 @@ public interface MaskEntryBase extends com.top_logic.model.TLNamed {
 	String NAME_ATTR = "name";
 
 	/**
+	 * Name of the table storing {@link #MASK_ENTRY_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #ADDRESS_ATTR}.
 	 */
 	default Integer getAddress() {

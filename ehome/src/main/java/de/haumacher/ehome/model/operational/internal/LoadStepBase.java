@@ -403,6 +403,11 @@ public interface LoadStepBase extends com.top_logic.model.TLObject {
 	String WRITE_LEVEL_ATTR = "writeLevel";
 
 	/**
+	 * Name of the table storing {@link #LOAD_STEP_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #ADDRESS_ATTR}.
 	 */
 	default Long getAddress() {

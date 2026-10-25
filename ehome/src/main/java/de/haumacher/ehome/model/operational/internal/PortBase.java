@@ -160,6 +160,11 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	String UPDATE_ATTR = "update";
 
 	/**
+	 * Name of the table storing {@link #PORT_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHPort";
+
+	/**
 	 * Getter for part {@link #CAN_READ_ATTR}.
 	 */
 	default com.top_logic.model.TLClassifier getCanRead() {

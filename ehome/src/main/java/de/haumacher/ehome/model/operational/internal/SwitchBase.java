@@ -43,6 +43,11 @@ public interface SwitchBase extends de.haumacher.ehome.model.operational.Option,
 	String INPUT_ATTR = "input";
 
 	/**
+	 * Name of the table storing {@link #SWITCH_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHSwitch";
+
+	/**
 	 * Getter for part {@link #ALTERNATIVES_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")

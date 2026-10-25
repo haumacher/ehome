@@ -151,6 +151,11 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	String UPDATE_ATTR = "update";
 
 	/**
+	 * Name of the table storing {@link #INTERFACE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHInterface";
+
+	/**
 	 * Getter for part {@link #CAN_READ_ATTR}.
 	 */
 	default com.top_logic.model.TLClassifier getCanRead() {

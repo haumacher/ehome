@@ -52,6 +52,11 @@ public interface ChannelBase extends de.haumacher.ehome.model.operational.Config
 	String NUMBER_ATTR = "number";
 
 	/**
+	 * Name of the table storing {@link #CHANNEL_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHConfigFragment";
+
+	/**
 	 * Getter for part {@link #DESCRIPTION_ATTR}.
 	 */
 	default com.top_logic.basic.util.ResKey getDescription() {

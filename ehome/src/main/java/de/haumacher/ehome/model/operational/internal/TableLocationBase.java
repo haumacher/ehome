@@ -43,6 +43,11 @@ public interface TableLocationBase extends com.top_logic.model.TLObject {
 	String SEGMENT_ATTR = "segment";
 
 	/**
+	 * Name of the table storing {@link #TABLE_LOCATION_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #MAX_ENTRIES_ATTR}.
 	 */
 	default Integer getMaxEntries() {

@@ -43,6 +43,11 @@ public interface CodeSegmentBase extends de.haumacher.ehome.model.operational.Se
 	String USER_MEMORY_ATTR = "userMemory";
 
 	/**
+	 * Name of the table storing {@link #CODE_SEGMENT_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHCodeSegment";
+
+	/**
 	 * Getter for part {@link #ADDRESS_ATTR}.
 	 */
 	default Integer getAddress() {

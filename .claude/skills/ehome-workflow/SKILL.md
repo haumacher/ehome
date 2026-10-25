@@ -105,11 +105,11 @@ contains, in order:
     tooling `ehome-virtual/`, which depends on the app and never the other way round (CLAUDE.md,
     "Modules"). A test of the app must not need the tooling: `./mvnw install -DskipTests=false
     -Pproduction` builds and tests the app alone.
-  - A **model change** costs a cycle: `./mvnw install -DskipTests` in the root (add
-    `-Dmaven.main.skip` when the old wrappers no longer compile), `cd ehome && ../mvnw
-    tl:generate-java`, build again. The generator
-    reads the model from the artifact in `~/.m2`, not from the sources — an install *before*
-    generating is not optional. Only `ehome.core` and `ehome.operational` have generated Java
+  - A **model change** costs a cycle: `cd ehome && ../mvnw tl:generate-java` (it reads the model
+    from the module's sources since TL #29789, no install before it), build again. A change the
+    automatic model upgrade would apply destructively to an existing database (a class moved to
+    another module, a renamed attribute) also needs a data migration (CLAUDE.md, "Generated
+    code"), checked on a copy of `tmp/`. Only `ehome.core` and `ehome.operational` have generated Java
     bindings (`ehome/pom.xml`, `tl-maven-plugin`); the other modules are reached through
     `tValueByName`/`tUpdateByName` and the test harness does the same.
   - `mvn` and `./mvnw` are the same Maven here (3.9.16, installed in `~/tools/maven` and first on
@@ -120,8 +120,9 @@ contains, in order:
 - **The standing rules block**: ALL existing tests green; checkstyle clean; UTF-8 with umlauts
   written directly; tabs; the copyright header with the file's creation year; UI texts as `ResKey`
   constants in `I18NConstants` with an `@en` javadoc tag; **never hand-edit generated code**
-  (`internal/*Base.java`, `*Constants.java`, `*Factory.java`) — edit the model XML; the plain
-  `X.java`/`XImpl.java` wrappers are hand-written code; a changed `.view.xml` needs an app
+  (`internal/*Base.java`, `internal/*Impl.java`, `*Constants.java`, `*Factory.java`, the
+  enumeration classes) — edit the model XML; only the interface `X.java` is hand-written code (own
+  methods as default methods); a changed `.view.xml` needs an app
   restart; access rights are deny-by-default (`ehome.security.config.xml`; a test without a person
   reads derived attributes as `root`); do NOT commit; **nothing
   half-done — cut whole items only, refuse in-app with a visible reason, and report every cut**;
@@ -161,8 +162,8 @@ the crash are untriaged.
 - **Never let two agents edit the same file.** When parallelizing, write an explicit FILE BOUNDARY
   paragraph into *both* briefs ("do not touch X, Y, Z; if you must, STOP and report").
 - **The model XML has one owner per round.** A model change regenerates the Java bindings through
-  `install` + `tl:generate-java`, and the install overwrites the one `1.0.0-SNAPSHOT` in `~/.m2`
-  that every tree's generator reads. Whoever changes a model file owns the regeneration and the
+  `tl:generate-java`, and an install overwrites the one `1.0.0-SNAPSHOT` in `~/.m2` that the other
+  trees' tooling builds resolve. Whoever changes a model file owns the regeneration and the
   compile fallout; the other agent must not touch any model file and must not run `install`
   while the model is mid-edit. Model changes happen **only in the main tree**.
 - **One tree means one set of `target/` directories** (`ehome/target/`, `ehome-virtual/target/`).
@@ -196,10 +197,10 @@ delivery:
   (`TestEtsImport.derived`). The same applies in the app: a non-admin user sees nothing until the
   `ehome.*` modules have grants (`access-configuration` article) — an empty view for a test user
   is rights, not the feature.
-- **Stale generated code.** After a model change the wrappers are regenerated from the `~/.m2`
-  artifact; a probe compiled against the old shape fails to compile, which is the build telling
-  you to run the install → generate cycle (CLAUDE.md), not a defect. A test that behaves as if a
-  model change never happened is running against an old install.
+- **Stale generated code.** After a model change the wrappers must be regenerated; a probe
+  compiled against the old shape fails to compile, which is the build telling you to run
+  `tl:generate-java` (CLAUDE.md), not a defect. A test of the tooling that behaves as if a model
+  change never happened is running against an old install of the app.
 - **The app shows the old view.** A changed `.view.xml` (and `ehomeConf.config.xml`) is not
   picked up by a running app; restart before probing the UI (§7).
 - **Hygiene failures look like feature failures.** `test.TestAll` adds TopLogic conformance
@@ -257,7 +258,7 @@ git status --short                                   # only the files of this ch
 
 All commands run in the repository root. When a change touches the boundary between the modules
 (a hook, a class moved, a dependency), also run the app alone: `./mvnw install -DskipTests=false
--Pproduction`. All green or no commit. If the model changed, the gate runs **after** the install → generate →
+-Pproduction`. All green or no commit. If the model changed, the gate runs **after** the generate →
 build cycle, and the regenerated bindings ride the same commit as the model change. Never trust a
 green result from a tree with uncommitted foreign edits; check `git status` first.
 
@@ -311,7 +312,7 @@ app is the shared reference for bug reports.
 ## 8. Model, import and engine doctrines (enforce in every brief and review)
 
 - **The model XML is the single source of truth** for the Java bindings. Never edit generated
-  output; regenerate. The hand-written wrappers (`X.java`, `XImpl.java`) are where behavior goes.
+  output; regenerate. The hand-written interfaces `X.java` (default methods) are where behavior goes.
 - **The model is E-Home's, not ETS's.** Extend it in the app's own terms and record the coverage
   in `doc/knx/schema-coverage.md` (`schema-coverage.py` compares the XSD with `etsImporter.xml`);
   an attribute that merely mirrors an XML attribute nobody uses is noise.
@@ -377,8 +378,8 @@ Parallel packages work when, and only when, they are physically separated:
   BOUNDARY paragraph. Separate trees keep their `target/` directories and `tmp/` apart. The
   worktree agent runs `./mvnw test -DskipTests=false` and `./mvnw checkstyle:check` in the
   worktree's root, never `install` and never
-  `tl:generate-java`, so it cannot overwrite the main tree's `~/.m2` artifact or regenerate from
-  the wrong model.
+  `tl:generate-java`, so it cannot overwrite the main tree's `~/.m2` artifact or regenerate the
+  bindings the main tree owns.
 - **The model has one writer** (§3), and that writer is in the main tree. If both packages need
   model changes, serialize them.
 - **Merging**: commit the worktree branch yourself (house-style message), merge it into master

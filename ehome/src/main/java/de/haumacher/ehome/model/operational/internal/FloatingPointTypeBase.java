@@ -52,6 +52,11 @@ public interface FloatingPointTypeBase extends de.haumacher.ehome.model.operatio
 	String MIN_ATTR = "min";
 
 	/**
+	 * Name of the table storing {@link #FLOATING_POINT_TYPE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterType";
+
+	/**
 	 * Getter for part {@link #DECIMALS_ATTR}.
 	 */
 	default Integer getDecimals() {

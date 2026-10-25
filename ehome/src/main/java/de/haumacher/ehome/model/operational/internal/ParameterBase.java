@@ -97,6 +97,11 @@ public interface ParameterBase extends de.haumacher.ehome.model.core.Externalize
 	String VIEWS_ATTR = "views";
 
 	/**
+	 * Name of the table storing {@link #PARAMETER_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameter";
+
+	/**
 	 * Getter for part {@link #ACCESS_ATTR}.
 	 */
 	default com.top_logic.model.TLClassifier getAccess() {

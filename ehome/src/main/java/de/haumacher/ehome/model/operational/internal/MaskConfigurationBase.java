@@ -61,6 +61,11 @@ public interface MaskConfigurationBase extends com.top_logic.model.TLObject {
 	String RESOURCES_ATTR = "resources";
 
 	/**
+	 * Name of the table storing {@link #MASK_CONFIGURATION_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #FEATURES_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")

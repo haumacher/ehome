@@ -52,6 +52,11 @@ public interface NumericTypeBase extends de.haumacher.ehome.model.operational.Pa
 	String MIN_ATTR = "min";
 
 	/**
+	 * Name of the table storing {@link #NUMERIC_TYPE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHParameterType";
+
+	/**
 	 * Getter for part {@link #BITS_ATTR}.
 	 */
 	default int getBits() {

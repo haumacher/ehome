@@ -34,6 +34,11 @@ public interface MaskFeatureBase extends com.top_logic.model.TLNamed {
 	String VALUE_ATTR = "value";
 
 	/**
+	 * Name of the table storing {@link #MASK_FEATURE_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #VALUE_ATTR}.
 	 */
 	default Integer getValue() {

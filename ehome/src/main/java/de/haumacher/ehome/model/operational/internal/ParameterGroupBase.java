@@ -79,6 +79,11 @@ public interface ParameterGroupBase extends de.haumacher.ehome.model.operational
 	String NAME_ATTR = "name";
 
 	/**
+	 * Name of the table storing {@link #PARAMETER_GROUP_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHConfigFragment";
+
+	/**
 	 * Getter for part {@link #ACCESS_ATTR}.
 	 */
 	default com.top_logic.model.TLClassifier getAccess() {

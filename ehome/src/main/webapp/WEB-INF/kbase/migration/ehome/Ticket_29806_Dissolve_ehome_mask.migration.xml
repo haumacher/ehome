@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The root of the shared mask versions moves from the module ehome.mask, a workaround for TL #29806
+	(a singleton turned every generated wrapper of its module into a structured element), into
+	ehome.operational, the module of the mask versions. The class keeps its identity, so the root
+	object, its composition of the mask versions and the references of the programs to them stay as
+	they are: the class moves, the singleton entry changes its module, and the empty module is deleted.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Ticket_29806_Dissolve_ehome_mask"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_29617_color_role"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_29092_multi_factor_authentication"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<update-class name="ehome.mask:MaskVersions"
+			new-name="ehome.operational:MaskVersions"
+		/>
+		<sql file-name-prefix="webinf://kbase/migration/ehome/Ticket_29806_Dissolve_ehome_mask_scripts/moveSingleton"/>
+		<add-annotations name="ehome.operational">
+			<annotations>
+				<singletons>
+					<singleton type="MaskVersions"/>
+				</singletons>
+			</annotations>
+		</add-annotations>
+		<delete-module name="ehome.mask"
+			fail-on-existing-types="true"
+		/>
+	</processors>
+	<post-processors/>
+</migration>

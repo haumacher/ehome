@@ -61,6 +61,11 @@ public interface LoadProcedureBase extends com.top_logic.model.TLObject {
 	String STEPS_ATTR = "steps";
 
 	/**
+	 * Name of the table storing {@link #LOAD_PROCEDURE_TYPE} objects.
+	 */
+	String TABLE_NAME = "GenericObject";
+
+	/**
 	 * Getter for part {@link #ACCESS_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")

@@ -43,6 +43,11 @@ public interface CaseBase extends de.haumacher.ehome.model.operational.ConfigFra
 	String PATTERN_ATTR = "pattern";
 
 	/**
+	 * Name of the table storing {@link #CASE_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHConfigFragment";
+
+	/**
 	 * Getter for part {@link #DISPLAY_NAME_ATTR}.
 	 */
 	default String getDisplayName() {

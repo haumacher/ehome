@@ -25,6 +25,11 @@ public interface ChannelIndependentBase extends de.haumacher.ehome.model.operati
 	String DISPLAY_NAME_ATTR = "displayName";
 
 	/**
+	 * Name of the table storing {@link #CHANNEL_INDEPENDENT_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHConfigFragment";
+
+	/**
 	 * Getter for part {@link #DISPLAY_NAME_ATTR}.
 	 */
 	default String getDisplayName() {

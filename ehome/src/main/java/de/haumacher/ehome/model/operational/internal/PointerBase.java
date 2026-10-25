@@ -25,6 +25,11 @@ public interface PointerBase extends de.haumacher.ehome.model.operational.Locati
 	String SEGMENT_ATTR = "segment";
 
 	/**
+	 * Name of the table storing {@link #POINTER_TYPE} objects.
+	 */
+	String TABLE_NAME = "EHPointer";
+
+	/**
 	 * Getter for part {@link #SEGMENT_ATTR}.
 	 */
 	default de.haumacher.ehome.model.operational.Segment getSegment() {

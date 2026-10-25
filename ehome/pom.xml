@@ -186,16 +186,15 @@
       <plugin>
         <groupId>com.top-logic</groupId>
         <artifactId>tl-maven-plugin</artifactId>
-        <!-- Not bound to the lifecycle: run "mvn tl:generate-java" after "mvn install" when the model changes. -->
+        <!--
+          generate-java is not bound to the lifecycle: run "../mvnw tl:generate-java" in this module when
+          the model changes. The header is fixed, so a run does not rewrite the year of every generated file.
+        -->
         <configuration>
           <modules>ehome.core,ehome.operational</modules>
           <languages>en,de</languages>
           <copyrightHeader>Copyright (c) 2018 Bernhard Haumacher</copyrightHeader>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>com.top-logic</groupId>
-        <artifactId>tl-maven-plugin</artifactId>
         <executions>
           <execution>
             <id>build-app</id>

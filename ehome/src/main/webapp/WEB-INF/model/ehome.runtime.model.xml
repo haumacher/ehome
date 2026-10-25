@@ -811,8 +811,8 @@
 				</reference>
 				<!--
 					The communication object of the device whose received values the follower takes (a switching
-					object); the options are the objects the device uses, written in TL-Script so that the form
-					follows the device entered (TL #29799).
+					object); the options are the objects the device uses, so that the form follows the device
+					entered.
 				-->
 				<reference name="source"
 					deletion-policy="delete-referer"

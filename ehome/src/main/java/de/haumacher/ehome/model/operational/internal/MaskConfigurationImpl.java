@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2026 Bernhard Haumacher
+ * Copyright (c) 2018 Bernhard Haumacher
  */
 package de.haumacher.ehome.model.operational.internal;
 
