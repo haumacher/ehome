@@ -326,7 +326,8 @@
 							<write-channel name="selected"/>
 						</generic-command>
 					</commands>
-					<tree
+					<!-- The catalogs with the columns of the classic tree grid (exported to Excel as an outline). -->
+					<export-tree-table
 						observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog,ehome.catalog:Product,ehome.catalog:Variant,ehome.catalog:ProgramAssignment,ehome.operational:Program"
 						selection="selected"
 					>
@@ -355,7 +356,55 @@
         $node.get(`ehome.catalog:ProgramAssignment#product`).get(`ehome.catalog:Product#variants`);
     default: $node.container();
 }]]></parents>
-					</tree>
+						<export download-name="#('Catalogs'@en, 'Kataloge'@de)">
+							<sheet-name>
+								<en>Catalogs</en>
+								<de>Kataloge</de>
+							</sheet-name>
+						</export>
+						<columns>
+							<object-column name="name"
+								width="300"
+							>
+								<label>
+									<en>Name</en>
+									<de>Name</de>
+								</label>
+								<value>x -> $x</value>
+							</object-column>
+							<!-- The number of sections and of variants of a catalog. -->
+							<computed-column name="sections"
+								type="tl.core:Integer"
+								width="100"
+							>
+								<label>
+									<en>Sections</en>
+									<de>Abschnitte</de>
+								</label>
+								<value>x -> if($x.instanceOf(`ehome.catalog:Catalog`), $x.get(`ehome.catalog:Catalog#sections`).size(), null)</value>
+							</computed-column>
+							<computed-column name="variants"
+								type="tl.core:Integer"
+								width="100"
+							>
+								<label>
+									<en>Variants</en>
+									<de>Varianten</de>
+								</label>
+								<value>x -> if($x.instanceOf(`ehome.catalog:Catalog`), $x.get(`ehome.catalog:Catalog#variants`).size(), null)</value>
+							</computed-column>
+							<computed-column name="extId"
+								type="tl.core:String"
+								width="200"
+							>
+								<label>
+									<en>External ID</en>
+									<de>Externe ID</de>
+								</label>
+								<value>x -> if($x.instanceOf(`ehome.core:Externalized`), $x.get(`ehome.core:Externalized#extId`), null)</value>
+							</computed-column>
+						</columns>
+					</export-tree-table>
 				</panel>
 			</pane>
 			<pane

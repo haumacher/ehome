@@ -15,7 +15,7 @@
 		<channel name="interface"/>
 		<channel name="device"/>
 		<channel name="selection"/>
-		<!-- The kind the user chose; empty for the default. -->
+		<!-- The kind the user chose; empty until the user chooses one, the kind is then the default. -->
 		<channel name="chosenKind"/>
 		<derived-channel name="kind"
 			expr="k -> d -> i -> if($k != null, $k, deviceDefaultConnectionKind($d, $i))"
@@ -51,6 +51,7 @@
 				/>
 				<fields>
 					<value-input
+						mandatory="true"
 						type="ehome.physical:ConnectionType"
 						value="kind"
 					>

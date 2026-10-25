@@ -111,10 +111,7 @@ public class TestBuildingDevices extends BasicTestCase {
 
 		QueryExecutor children = script(viewText(BUILDINGS_VIEW, "children", 0));
 		QueryExecutor parents = script(viewText(BUILDINGS_VIEW, "parents", 0));
-		QueryExecutor label = script(viewAttribute(BUILDINGS_VIEW, "nodeContent", "label", 0));
-		// The input rebuilding the tree when a device is placed or removed (see the view).
-		QueryExecutor placements = script(channelExpr(BUILDINGS_VIEW, "placements"));
-		Object placementsBefore = asRoot(Locale.ENGLISH, () -> placements.execute(project));
+		QueryExecutor label = script(viewAttribute(BUILDINGS_VIEW, "object-column", "text", 0));
 
 		// The devices of a part follow its sub-parts; a device is a leaf below its location.
 		assertEquals(List.of(house), children(children, project, project));
@@ -123,8 +120,8 @@ public class TestBuildingDevices extends BasicTestCase {
 		assertEquals(List.of(device), children(children, project, kitchen));
 		assertEquals(List.of(), children(children, project, board));
 		assertEquals(List.of(), children(children, project, device));
-		assertSame(kitchen, asRoot(Locale.ENGLISH, () -> parents.execute(project, null, device)));
-		assertSame(floor, asRoot(Locale.ENGLISH, () -> parents.execute(project, null, kitchen)));
+		assertSame(kitchen, asRoot(Locale.ENGLISH, () -> parents.execute(project, device)));
+		assertSame(floor, asRoot(Locale.ENGLISH, () -> parents.execute(project, kitchen)));
 		String deviceLabel = (String) asRoot(Locale.GERMAN, () -> label.execute(device));
 		assertEquals(GroupAddressConnections.deviceLabel(device), deviceLabel);
 		assertTrue(deviceLabel, deviceLabel.startsWith("Taster Küche (") && deviceLabel.endsWith(")"));
@@ -173,11 +170,10 @@ public class TestBuildingDevices extends BasicTestCase {
 			tx.commit();
 		}
 		assertSame(reserve, placed);
-		assertFalse(placementsBefore.equals(asRoot(Locale.ENGLISH, () -> placements.execute(project))));
 		assertSame(board, reserve.tValueByName("location"));
 		assertEquals(List.of(reserve), children(children, project, board));
 		assertEquals(List.of(device), children(children, project, kitchen));
-		assertSame(board, asRoot(Locale.ENGLISH, () -> parents.execute(project, null, reserve)));
+		assertSame(board, asRoot(Locale.ENGLISH, () -> parents.execute(project, reserve)));
 		assertEquals(List.of(device), BuildingDevices.choices(board));
 
 		// A connection of the reserve device: the floor shows the union of both devices' connections.
@@ -304,7 +300,7 @@ public class TestBuildingDevices extends BasicTestCase {
 	}
 
 	private static List<Object> children(QueryExecutor children, TLObject project, TLObject node) {
-		return new ArrayList<>((Collection<?>) asRoot(Locale.ENGLISH, () -> children.execute(project, null, node)));
+		return new ArrayList<>((Collection<?>) asRoot(Locale.ENGLISH, () -> children.execute(project, node)));
 	}
 
 	private static QueryExecutor script(String source) throws Exception {
@@ -317,17 +313,6 @@ public class TestBuildingDevices extends BasicTestCase {
 
 	private static String viewAttribute(String file, String element, String attribute, int index) throws Exception {
 		return ((Element) elements(file, element).item(index)).getAttribute(attribute);
-	}
-
-	private static String channelExpr(String file, String name) throws Exception {
-		NodeList channels = elements(file, "derived-channel");
-		for (int n = 0; n < channels.getLength(); n++) {
-			Element channel = (Element) channels.item(n);
-			if (name.equals(channel.getAttribute("name"))) {
-				return channel.getAttribute("expr");
-			}
-		}
-		throw new AssertionError("No channel " + name);
 	}
 
 	private static NodeList elements(String file, String element) throws Exception {

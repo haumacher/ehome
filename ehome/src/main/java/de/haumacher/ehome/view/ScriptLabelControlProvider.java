@@ -4,6 +4,7 @@
 package de.haumacher.ehome.view;
 
 import java.util.List;
+import java.util.function.Function;
 
 import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.config.InstantiationContext;
@@ -103,30 +104,43 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 		List<ViewChannel> inputs = context instanceof ViewContext view && !_config.getInputs().isEmpty()
 			? ChannelInputs.resolve(view, _config.getInputs())
 			: List.of();
-		ResourceProvider resources = new ProxyResourceProvider() {
+		ResourceProvider resources = resources(
+			_label == null ? null : object -> evaluate(_label, inputs, object),
+			_cssClass == null ? null : object -> evaluate(_cssClass, inputs, object));
+		return new ReactResourceCellControl(context, model, resources, true, true, false);
+	}
+
+	/**
+	 * The display of an object with a label and a CSS class computed by the given functions: the
+	 * icon of the object, the label the function computes (the object's own label where it gives
+	 * nothing), and the class it computes (none where it gives nothing).
+	 *
+	 * @param label
+	 *        Computes the label of an object; <code>null</code> for the object's own label.
+	 * @param cssClass
+	 *        Computes the CSS class of an object; <code>null</code> for the object's own class.
+	 */
+	static ResourceProvider resources(Function<Object, Object> label, Function<Object, Object> cssClass) {
+		return new ProxyResourceProvider() {
 			@Override
 			public String getLabel(Object object) {
-				Object label = evaluate(_label, inputs, object);
-				return label == null ? super.getLabel(object) : label.toString();
+				Object result = label == null || object == null ? null : label.apply(object);
+				return result == null ? super.getLabel(object) : result.toString();
 			}
 
 			@Override
 			public String getCssClass(Object object) {
-				if (_cssClass == null) {
+				if (cssClass == null) {
 					return super.getCssClass(object);
 				}
 				// Never nothing: the class of the display is replaced only by another one.
-				Object cssClass = evaluate(_cssClass, inputs, object);
-				return cssClass == null ? "" : cssClass.toString();
+				Object result = object == null ? null : cssClass.apply(object);
+				return result == null ? "" : result.toString();
 			}
 		};
-		return new ReactResourceCellControl(context, model, resources, true, true, false);
 	}
 
 	private static Object evaluate(QueryExecutor function, List<ViewChannel> inputs, Object object) {
-		if (function == null || object == null) {
-			return null;
-		}
 		return function.execute(ChannelInputs.arguments(inputs, object));
 	}
 

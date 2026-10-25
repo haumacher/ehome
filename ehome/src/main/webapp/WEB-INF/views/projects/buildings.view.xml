@@ -27,30 +27,13 @@
 	<channels>
 		<channel name="project"/>
 		<channel name="selected"/>
-		<!-- The selected node; nothing once its object was deleted (TL #29810). -->
-		<derived-channel name="node"
-			expr="n -> existingObject($n)"
-			inputs="selected"
-			observed-types="ehome.building:BuildingDefinition,ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
-		/>
-		<!--
-			Where the devices of the project are placed; an input of the tree, which is built anew when
-			a device is placed or removed: the tree reconciles itself on changes of the objects it
-			displays only, and a device placed from outside the tree (from the device view, or one placed
-			nowhere before) is no such object (engine gap, see doc/tl-todo.md).
-		-->
-		<derived-channel name="placements"
-			expr="p -> concat(groupAddressDevices($p).map(d -> $d.get(`ehome.physical:Device#location`)), $p.get(`ehome.project:Project#zigbeeDevices`).map(d -> $d.get(`ehome.zigbee:ZigbeeDevice#location`)))"
-			inputs="project"
-			observed-types="ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
-		/>
 		<derived-channel name="selectedPart"
 			expr="n -> if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, null)"
-			inputs="node"
+			inputs="selected"
 		/>
 		<!-- The selected part, or the part the selected (KNX or Zigbee) device is placed in. -->
 		<derived-channel name="part"
-			inputs="node"
+			inputs="selected"
 			observed-types="ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
 		>
 			<expr><![CDATA[n -> switch {
@@ -63,12 +46,12 @@
 		<!-- The selected Zigbee device node. -->
 		<derived-channel name="zigbeeDevice"
 			expr="n -> if($n.instanceOf(`ehome.zigbee:ZigbeeDevice`), $n, null)"
-			inputs="node"
+			inputs="selected"
 		/>
 		<!-- Where the selected Zigbee device node is placed, as the path of its building part. -->
 		<derived-channel name="zigbeeLocationPath"
 			expr="n -> if($n.instanceOf(`ehome.zigbee:ZigbeeDevice`), buildingPath($n.get(`ehome.zigbee:ZigbeeDevice#location`)), null)"
-			inputs="node"
+			inputs="selected"
 			observed-types="ehome.zigbee:ZigbeeDevice,ehome.building:BuildingDefinition"
 		/>
 		<derived-channel name="partPath"
@@ -84,7 +67,7 @@
 		<channel name="selectedRow"/>
 		<!-- The selected device: the node selected in the tree, or the row selected in the table of the devices of the part. -->
 		<derived-channel name="device"
-			inputs="node, part, selectedRow"
+			inputs="selected, part, selectedRow"
 			observed-types="ehome.physical:Device"
 		>
 			<expr><![CDATA[n -> p -> r -> switch {
@@ -96,7 +79,7 @@
 		<!-- Where the selected device node is placed, as the path of its building part. -->
 		<derived-channel name="locationPath"
 			expr="n -> if($n.instanceOf(`ehome.physical:Device`), buildingPath($n.get(`ehome.physical:Device#location`)), null)"
-			inputs="node"
+			inputs="selected"
 			observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
 		/>
 		<derived-channel name="deviceText"
@@ -481,16 +464,20 @@
 							</show-views>
 						</generic-command>
 					</commands>
-					<tree
+					<!--
+						The structure with the columns of the classic tree grid (exported to Excel as an outline);
+						a placed device is labelled with its individual address. A device placed in a part from
+						elsewhere (the device view, the Zigbee tab) is placed in the tree through "parents".
+					-->
+					<export-tree-table
 						observed-types="ehome.building:BuildingDefinition,ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
 						selection="selected"
 					>
 						<inputs>
 							<input channel="project"/>
-							<input channel="placements"/>
 						</inputs>
-						<root>p -> m -> $p</root>
-						<children><![CDATA[p -> m -> node -> switch {
+						<root>p -> $p</root>
+						<children><![CDATA[p -> node -> switch {
     $node.instanceOf(`ehome.project:Project`):
         $node.get(`ehome.project:Project#buildings`);
     $node.instanceOf(`ehome.building:BuildingDefinition`):
@@ -500,15 +487,49 @@
             $node.get(`ehome.building:BuildingDefinition#zigbeeDevices`).sort(a -> b -> compare($a.get(`ehome.zigbee:ZigbeeDevice#name`), $b.get(`ehome.zigbee:ZigbeeDevice#name`))));
     default: [];
 }]]></children>
-						<parents><![CDATA[p -> m -> node -> switch {
+						<parents><![CDATA[p -> node -> switch {
     $node.instanceOf(`ehome.physical:Device`): $node.get(`ehome.physical:Device#location`);
     $node.instanceOf(`ehome.zigbee:ZigbeeDevice`): $node.get(`ehome.zigbee:ZigbeeDevice#location`);
     default: $node.container();
 }]]></parents>
-						<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
-							label="x -> if($x.instanceOf(`ehome.physical:Device`), deviceLabel($x), null)"
-						/>
-					</tree>
+						<export download-name="p -> #('Buildings of {0}'@en, 'Gebäude von {0}'@de).fill($p.get(`ehome.project:Project#name`))">
+							<sheet-name>
+								<en>Buildings</en>
+								<de>Gebäude</de>
+							</sheet-name>
+						</export>
+						<columns>
+							<object-column name="name"
+								text="x -> if($x.instanceOf(`ehome.physical:Device`), deviceLabel($x), null)"
+								width="280"
+							>
+								<label>
+									<en>Name</en>
+									<de>Name</de>
+								</label>
+								<value>x -> $x</value>
+							</object-column>
+							<computed-column name="type"
+								width="140"
+							>
+								<label>
+									<en>Type</en>
+									<de>Typ</de>
+								</label>
+								<value>x -> $x.type()</value>
+							</computed-column>
+							<computed-column name="extId"
+								type="tl.core:String"
+								width="160"
+							>
+								<label>
+									<en>External ID</en>
+									<de>Externe ID</de>
+								</label>
+								<value>x -> if($x.instanceOf(`ehome.core:Externalized`), $x.get(`ehome.core:Externalized#extId`), null)</value>
+							</computed-column>
+						</columns>
+					</export-tree-table>
 				</panel>
 			</pane>
 			<pane
@@ -517,9 +538,8 @@
 			>
 				<!--
 					Above, the selected node; below, the devices of the selected part (or of the part of
-					the selected device) and the group addresses in use in it. The tables stay outside of
-					the switch over the selected node: a table in a switch case that disappears on a
-					change of the channel its rows read fails (TL #29580).
+					the selected device) and the group addresses in use in it, for the part of a selected
+					device as well as for a selected part.
 				-->
 				<split-panel
 					orientation="vertical"
@@ -535,7 +555,7 @@
 									<en>Details</en>
 									<de>Details</de>
 								</title>
-								<switch input="node">
+								<switch input="selected">
 									<case test="n -> $n.instanceOf(`ehome.building:BuildingDefinition`)">
 										<stack>
 											<inset>
@@ -563,7 +583,7 @@
 												/>
 											</inset>
 											<form
-												input="node"
+												input="selected"
 												with-inset="true"
 												withEditMode="false"
 											>
@@ -587,7 +607,7 @@
 									<case test="n -> $n.instanceOf(`ehome.zigbee:ZigbeeDevice`)">
 										<!-- A placed Zigbee device; it is named, placed and bound in the Zigbee tab ("Go to the Zigbee device"). -->
 										<form
-											input="node"
+											input="selected"
 											with-inset="true"
 											withEditMode="false"
 										>
