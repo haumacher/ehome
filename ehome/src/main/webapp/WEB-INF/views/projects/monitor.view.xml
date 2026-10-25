@@ -10,15 +10,17 @@
 
 	"project" is the project. "state" holds the snapshot of the monitor (GroupMonitor#snapshot()): written
 	by "Connect" (<group-monitor-connect>, ConnectMonitorAction) and the commands calling the monitor
-	functions (MonitorFunctions), and while connected by the monitor itself from the thread receiving
-	the telegrams (WindowPublisher: in the window's interaction, at most every 250 ms, pushed to the
-	browser like the progress of a job).
+	functions (MonitorFunctions), and while the view is displayed by its source on every change of the
+	monitor (MonitorSource: from the thread receiving the telegrams, at most every 250 ms; the current
+	state at once when the view is displayed, so a page loaded again shows a connected monitor). The
+	monitor stays attached while its page is open and is detached once no open window shows it.
 
 	- State board (default): one row per group address of the project and per other address seen, with
 	the last value, its sender, the time of the last telegram and the count; a row changed in the last
-	three seconds is marked. The send form below it sends to the selected (or an entered) address, with
+	three seconds is tinted (row-class tl-status-success). The send form below it sends to the selected (or an entered) address, with
 	the input the datapoint type asks for; it is locked until "Allow sending", which connecting resets.
-	- Log: the last 1000 telegrams, newest first, own telegrams marked; it can be held. Through a controller
+	- Log: the last 1000 telegrams, newest first, own telegrams tinted (tl-status-info), the raw data
+	in a column hidden at the start (offered by the column selection); it can be held. Through a controller
 	it also shows the controller's other events (Zigbee, rules, commands, image loads, gaps of the stream),
 	named in the column "Source".
 	- Recordings: the telegrams and the controller's other events (#55) stored while a recording ran; the
@@ -28,7 +30,14 @@
 <view>
 	<channels>
 		<channel name="project"/>
-		<channel name="state"/>
+		<!-- The snapshot of the monitor, published on every change while the view is displayed, at most every 250 ms. -->
+		<source-channel name="state"
+			update-interval="250"
+		>
+			<source class="de.haumacher.ehome.monitor.MonitorSource"
+				project="project"
+			/>
+		</source-channel>
 		<channel name="selectedRow"/>
 		<channel name="onlyTraffic"/>
 		<channel name="recordingName"/>
@@ -356,16 +365,6 @@
 												<input channel="onlyTraffic"/>
 											</inputs>
 											<columns>
-												<computed-column name="fresh"
-													type="tl.core:String"
-													width="100"
-												>
-													<label>
-														<en>New</en>
-														<de>Neu</de>
-													</label>
-													<value>r -> if($r['fresh'], '●', '')</value>
-												</computed-column>
 												<computed-column name="address"
 													type="tl.core:String"
 													width="130"
@@ -438,6 +437,8 @@
 												</computed-column>
 											</columns>
 											<rows>s -> only -> if($s == null, [], if($only == true, $s['board'].filter(r -> $r['count'] > 0), $s['board']))</rows>
+											<!-- A row changed in the last three seconds is tinted. -->
+											<row-class>s -> only -> r -> if($r['fresh'], 'tl-status-success', null)</row-class>
 										</table>
 									</pane>
 									<pane
@@ -1134,16 +1135,6 @@
 											</label>
 											<value>r -> $r['kind']</value>
 										</computed-column>
-										<computed-column name="own"
-											type="tl.core:String"
-											width="110"
-										>
-											<label>
-												<en>Own</en>
-												<de>Eigen</de>
-											</label>
-											<value>r -> if($r['own'], '►', '')</value>
-										</computed-column>
 										<computed-column name="sender"
 											type="tl.core:String"
 											width="220"
@@ -1226,6 +1217,7 @@
 										</computed-column>
 										<computed-column name="data"
 											type="tl.core:String"
+											visible="false"
 											width="120"
 										>
 											<label>
@@ -1236,6 +1228,8 @@
 										</computed-column>
 									</columns>
 									<rows>s -> if($s == null, [], $s['log'])</rows>
+									<!-- An own telegram (sent by this monitor) is tinted. -->
+									<row-class>s -> r -> if($r['own'], 'tl-status-info', null)</row-class>
 								</table>
 							</panel>
 						</tab>
@@ -1357,16 +1351,6 @@
 												</label>
 												<value>r -> $r['kind']</value>
 											</computed-column>
-											<computed-column name="own"
-												type="tl.core:String"
-												width="80"
-											>
-												<label>
-													<en>Own</en>
-													<de>Eigen</de>
-												</label>
-												<value>r -> if($r['own'], '►', '')</value>
-											</computed-column>
 											<computed-column name="sender"
 												type="tl.core:String"
 												width="260"
@@ -1449,6 +1433,7 @@
 											</computed-column>
 											<computed-column name="data"
 												type="tl.core:String"
+												visible="false"
 												width="110"
 											>
 												<label>
@@ -1459,6 +1444,8 @@
 											</computed-column>
 												</columns>
 												<rows>r -> if($r == null, [], monitorRecordingRows($r))</rows>
+												<!-- An own telegram (sent by this monitor) is tinted. -->
+												<row-class>x -> r -> if($r['own'], 'tl-status-info', null)</row-class>
 											</table>
 										</panel>
 									</pane>

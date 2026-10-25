@@ -223,7 +223,29 @@ public class TestCatalogProbe extends BasicTestCase {
 		assertEquals("42", derived(brightness, "encodedValue"));
 
 		// The vetoes speak.
-		assertNotNull("Last element moved down.", ProgramStructure.moveVeto(channel, 1));
+		assertNotNull("Block moved into itself.", ProgramStructure.moveVeto(List.of(channel), block, null));
+		assertNotNull("Placement moved into the program.", ProgramStructure.moveVeto(List.of(placement1), program, null));
+		assertNotNull("Placement moved into another program.",
+			ProgramStructure.moveVeto(List.of(placement1), importedBlock, null));
+		assertNotNull("Program moved.", ProgramStructure.moveVeto(List.of(program), channel, null));
+		assertNotNull("Placement moved beside the program.", ProgramStructure.moveVeto(List.of(placement1), null, null));
+		assertNotNull("Nothing moved.", ProgramStructure.moveVeto(List.of(), block, null));
+		assertNull(ProgramStructure.moveVeto(List.of(placement1), channel, block));
+
+		// Drag and drop in the structure tree: before an element, before itself, into another element, at the end.
+		move(List.of(placement2), block, placement1);
+		assertEquals(List.of(placement2, placement1), block.getContents());
+		move(List.of(placement2), block, placement2);
+		assertEquals(List.of(placement2, placement1), block.getContents());
+		move(List.of(placement1), channel, block);
+		assertEquals(List.of(placement1, block), channel.getContents());
+		assertEquals(List.of(placement2), block.getContents());
+		assertSame(channel, placement1.tContainer());
+		move(List.of(placement1), block, null);
+		assertEquals(List.of(placement2, placement1), block.getContents());
+		move(List.of(placement1, placement2), block, null);
+		assertEquals(List.of(placement1, placement2), block.getContents());
+		assertEquals(List.of(block), channel.getContents());
 		assertNotNull("Case inserted into a block.",
 			ProgramStructure.insertVeto(block, (TLClass) TLModelUtil.findType("ehome.operational:Case")));
 		assertFalse(ProgramStructure.canInsert(program, (TLClass) TLModelUtil.findType("ehome.operational:Channel"), Position.AFTER));
@@ -337,6 +359,13 @@ public class TestCatalogProbe extends BasicTestCase {
 		List<Object> elements = new ArrayList<>((Collection<?>) container.tValueByName(reference));
 		elements.add(element);
 		container.tUpdateByName(reference, elements);
+	}
+
+	private void move(List<TLObject> nodes, TLObject container, TLObject before) {
+		try (Transaction tx = _kb.beginTransaction()) {
+			ProgramStructure.move(nodes, container, before);
+			tx.commit();
+		}
 	}
 
 	public static Test suite() {

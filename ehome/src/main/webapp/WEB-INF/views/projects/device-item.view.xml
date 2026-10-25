@@ -7,13 +7,14 @@
 	The value of a parameter is entered by the type of the parameter: an entry of an enumeration, a
 	whole number for an integer or a time, a number for a floating point type, a text for every other
 	type. The input shows the effective value (the device's setting, else the default); a value the
-	user finishes (a choice; Enter in a typed field) is applied at once in a transaction of its own
+	user finishes (a choice; Enter or leaving a typed field) is applied at once in a transaction of its own
 	(deviceApplyValue): a value other than the default creates or changes the device's setting, the
 	default (or an emptied input) removes it. A refused value is reported with its reason, and the
 	input shows the effective value again. A parameter that can only be read
 	shows its value as text, a parameter without value (a heading) only its text.
 
-	A communication object shows its connections, each with the command removing it, and the
+	A communication object shows its connections, each with the command removing it (an icon with
+	its label as tooltip, as are the reset commands beside the hints), and the
 	command connecting it to another group address (projects/connect-group-address.view.xml,
 	haumacher/ehome #17).
 
@@ -162,6 +163,7 @@
 			<case test="k -> $k == 'number'">
 				<value-input
 					label-position="hide-label"
+					submit-on="change"
 					type="tl.core:Long"
 					value="value"
 				>
@@ -169,10 +171,6 @@
 						<en>Value</en>
 						<de>Wert</de>
 					</label>
-					<placeholder>
-						<en>Enter to apply</en>
-						<de>Übernehmen mit Enter</de>
-					</placeholder>
 					<on-submit>
 						<with-transaction>
 							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
@@ -194,6 +192,7 @@
 			<case test="k -> $k == 'decimal'">
 				<value-input
 					label-position="hide-label"
+					submit-on="change"
 					type="tl.core:Double"
 					value="value"
 				>
@@ -201,10 +200,6 @@
 						<en>Value</en>
 						<de>Wert</de>
 					</label>
-					<placeholder>
-						<en>Enter to apply</en>
-						<de>Übernehmen mit Enter</de>
-					</placeholder>
 					<on-submit>
 						<with-transaction>
 							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
@@ -226,6 +221,7 @@
 			<case test="k -> $k == 'text'">
 				<value-input
 					label-position="hide-label"
+					submit-on="change"
 					type="tl.core:String"
 					value="value"
 				>
@@ -233,10 +229,6 @@
 						<en>Value</en>
 						<de>Wert</de>
 					</label>
-					<placeholder>
-						<en>Enter to apply</en>
-						<de>Übernehmen mit Enter</de>
-					</placeholder>
 					<on-submit>
 						<with-transaction>
 							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
@@ -290,6 +282,7 @@
 									size="small"
 								>
 									<action class="com.top_logic.layout.view.command.GenericViewCommand"
+										display="icon-only"
 										image="css:bi bi-x-lg"
 										input="connection"
 									>
@@ -375,6 +368,7 @@
 					size="small"
 				>
 					<action class="com.top_logic.layout.view.command.GenericViewCommand"
+						display="icon-only"
 						image="css:bi bi-arrow-counterclockwise"
 						input="setting"
 					>
@@ -413,6 +407,7 @@
 					size="small"
 				>
 					<action class="com.top_logic.layout.view.command.GenericViewCommand"
+						display="icon-only"
 						image="css:bi bi-arrow-counterclockwise"
 						input="item"
 					>

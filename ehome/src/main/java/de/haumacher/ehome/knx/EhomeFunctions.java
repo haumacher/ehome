@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.knx;
 
+import java.util.Collection;
 import java.util.List;
 
 import com.top_logic.basic.config.ConfigurationException;
@@ -30,10 +31,12 @@ import de.haumacher.ehome.knx.ProgramStructure.Position;
  * anchor (or at a position of <code>ehome.operational:InsertPosition</code>).</li>
  * <li><code>structureInsertVeto(anchor, type)</code>: why an element of the type can be inserted
  * neither inside nor after the anchor, or nothing.</li>
- * <li><code>structureInsert(node, anchor, position)</code>: inserts the element, results in it.</li>
- * <li><code>structureMoveVeto(node, delta)</code>: why the element cannot be moved by
- * <code>delta</code> places among its siblings, or nothing.</li>
- * <li><code>structureMove(node, delta)</code>: moves the element, results in it.</li>
+ * <li><code>structureInsert(node, anchor, position)</code>: inserts the element (without a position
+ * at the default one), results in it.</li>
+ * <li><code>structureMoveVeto(nodes, container, before)</code>: why the elements cannot be moved into
+ * the container before its element <code>before</code> (at its end for <code>null</code>), or
+ * nothing.</li>
+ * <li><code>structureMove(nodes, container, before)</code>: moves the elements there.</li>
  * <li><code>programDeleteVeto(obj)</code>: why the parameter, communication object, parameter type or
  * enumeration entry cannot be deleted, or nothing.</li>
  * <li><code>programDelete(obj)</code>: deletes it, a parameter or communication object with its
@@ -52,10 +55,10 @@ public abstract class EhomeFunctions extends GenericMethod {
 		structureInsertVeto(2, true),
 		/** See {@link ProgramStructure#insert(TLObject, TLObject, Position)}. */
 		structureInsert(3, false),
-		/** See {@link ProgramStructure#moveVeto(TLObject, int)}. */
-		structureMoveVeto(2, true),
-		/** See {@link ProgramStructure#move(TLObject, int)}. */
-		structureMove(2, false),
+		/** See {@link ProgramStructure#moveVeto(Collection, TLObject, TLObject)}. */
+		structureMoveVeto(3, true),
+		/** See {@link ProgramStructure#move(Collection, TLObject, TLObject)}. */
+		structureMove(3, false),
 		/** See {@link ProgramStructure#deleteVeto(TLObject)}. */
 		programDeleteVeto(1, true),
 		/** See {@link ProgramStructure#delete(TLObject)}. */
@@ -108,9 +111,10 @@ public abstract class EhomeFunctions extends GenericMethod {
 			case structureInsert:
 				return ProgramStructure.insert(object(arguments[0]), object(arguments[1]), Position.of(arguments[2]));
 			case structureMoveVeto:
-				return ProgramStructure.moveVeto(object(arguments[0]), delta(arguments[1]));
+				return ProgramStructure.moveVeto(collection(arguments[0]), object(arguments[1]), object(arguments[2]));
 			case structureMove:
-				return ProgramStructure.move(object(arguments[0]), delta(arguments[1]));
+				ProgramStructure.move(collection(arguments[0]), object(arguments[1]), object(arguments[2]));
+				return null;
 			case programDeleteVeto:
 				return ProgramStructure.deleteVeto(object(arguments[0]));
 			case programDelete:
@@ -134,8 +138,11 @@ public abstract class EhomeFunctions extends GenericMethod {
 		return null;
 	}
 
-	private static int delta(Object value) {
-		return ((Number) value).intValue();
+	private static Collection<?> collection(Object value) {
+		if (value == null) {
+			return List.of();
+		}
+		return value instanceof Collection<?> collection ? collection : List.of(value);
 	}
 
 	/**

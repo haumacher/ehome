@@ -159,7 +159,7 @@
 			</instance>
 		</config>
 
-		<!-- Animations of the React UI's dialog and drill-down transitions (see the stylesheet). -->
+		<!-- The app's styles of the React UI: markers of changes and untyped addresses, device entries. -->
 		<config service-class="com.top_logic.layout.react.resource.ClientResources">
 			<instance class="com.top_logic.layout.react.resource.ClientResources">
 				<resources>

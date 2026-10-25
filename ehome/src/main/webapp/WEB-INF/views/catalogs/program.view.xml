@@ -7,8 +7,8 @@
 	communication objects, and its parameter types.
 
 	Every tab creates, edits and deletes its elements. A new structure element goes into the selected
-	element or after it (catalogs/create-structure.view.xml); "Move up" and "Move down" reorder an
-	element among its siblings (the tree has no drag and drop yet, TL #29776). A placed parameter
+	element, or after it where the selected element cannot hold it (catalogs/create-structure.view.xml);
+	an element is moved to another place of the structure by drag and drop in the tree. A placed parameter
 	(communication object) is edited at its place: which definition it places, and its text, default
 	and access there. The definitions are created in catalogs/create-program-element.view.xml.
 	Imported programs are editable as well; a change applies to every device using the program.
@@ -17,6 +17,9 @@
 	<channels>
 		<channel name="program"/>
 		<channel name="selected"/>
+		<!-- Where a drop in the structure tree inserts the dragged elements: into which element, before which of its elements. -->
+		<channel name="dropParent"/>
+		<channel name="dropBefore"/>
 		<derived-channel name="selectedNode"
 			expr="n -> if($n.instanceOf(`ehome.operational:Program`), null, $n)"
 			inputs="selected"
@@ -324,44 +327,6 @@
 										</open-dialog>
 									</generic-command>
 									<generic-command
-										image="css:bi bi-arrow-up"
-										input="selectedNode"
-										observed-types="ehome.operational:Option,ehome.operational:Case,ehome.operational:Program"
-										placement="TOOLBAR"
-									>
-										<label>
-											<en>Move up</en>
-											<de>Nach oben</de>
-										</label>
-										<executability>
-											<model-access operation="Write"/>
-											<null-input-disabled/>
-											<disabled-if expr="n -> structureMoveVeto($n, -1)"/>
-										</executability>
-										<with-transaction>
-											<execute-script function="n -> structureMove($n, -1)"/>
-										</with-transaction>
-									</generic-command>
-									<generic-command
-										image="css:bi bi-arrow-down"
-										input="selectedNode"
-										observed-types="ehome.operational:Option,ehome.operational:Case,ehome.operational:Program"
-										placement="TOOLBAR"
-									>
-										<label>
-											<en>Move down</en>
-											<de>Nach unten</de>
-										</label>
-										<executability>
-											<model-access operation="Write"/>
-											<null-input-disabled/>
-											<disabled-if expr="n -> structureMoveVeto($n, 1)"/>
-										</executability>
-										<with-transaction>
-											<execute-script function="n -> structureMove($n, 1)"/>
-										</with-transaction>
-									</generic-command>
-									<generic-command
 										image="css:bi bi-trash"
 										input="selectedNode"
 										placement="TOOLBAR"
@@ -394,6 +359,37 @@
     default: [];
 }]]></children>
 									<parents>p -> node -> $node.container()</parents>
+									<!-- Every element of the structure but the program itself can be dragged. -->
+									<drag kind="programStructure">
+										<node-executability>
+											<disabled-if expr="n -> $n.instanceOf(`ehome.operational:Program`)"/>
+										</node-executability>
+									</drag>
+									<!--
+										A drop between two elements inserts the dragged ones there, a drop onto an element
+										into it as its first elements; ProgramStructure refuses (with its reason) a place
+										that cannot hold an element of their kind, and one inside a dragged element.
+									-->
+									<drop
+										accept="programStructure"
+										before-channel="dropBefore"
+										input="program"
+										parent-channel="dropParent"
+										refuse-if="nodes -> parent -> before -> structureMoveVeto($nodes, $parent, $before)"
+										target="ordered"
+									>
+										<executability>
+											<model-access operation="Write"/>
+										</executability>
+										<with-transaction>
+											<execute-script function="parent -> before -> nodes -> structureMove($nodes, $parent, $before)">
+												<inputs>
+													<input channel="dropParent"/>
+													<input channel="dropBefore"/>
+												</inputs>
+											</execute-script>
+										</with-transaction>
+									</drop>
 								</tree>
 							</panel>
 						</pane>
@@ -722,8 +718,8 @@
 									The parameters grouped by the page they are placed on, the pages in the order of the
 									structure (every case of every switch), the parameters placed nowhere last
 									(de.haumacher.ehome.knx.ProgramPages); a parameter placed on several pages is listed
-									on each. The page column does not sort, so that the groups keep the order of the rows
-									(de.haumacher.ehome.view.RowOrderColumn).
+									on each. The comparator of the page column ranks all pages equal, so that the groups
+									keep the order of the rows instead of the alphabetical one.
 								-->
 								<table
 									group-by="page"
@@ -805,7 +801,7 @@
 											</label>
 											<value>r -> $r['definition'].get(`ehome.operational:Parameter#extId`)</value>
 										</computed-column>
-										<row-order-column name="page"
+										<computed-column name="page"
 											type="tl.core:String"
 											width="240"
 										>
@@ -814,7 +810,9 @@
 												<de>Seite</de>
 											</label>
 											<value>r -> $r['page']</value>
-										</row-order-column>
+											<!-- No page precedes another: the groups keep the order of their first rows. -->
+											<comparator>a -> b -> 0</comparator>
+										</computed-column>
 									</columns>
 									<rows>p -> f -> u -> programParameterRows($p, $f, $u)</rows>
 								</table>
@@ -1065,7 +1063,7 @@
 											</label>
 											<value>r -> $r['definition'].get(`ehome.operational:Port#extId`)</value>
 										</computed-column>
-										<row-order-column name="page"
+										<computed-column name="page"
 											type="tl.core:String"
 											width="240"
 										>
@@ -1074,7 +1072,9 @@
 												<de>Seite</de>
 											</label>
 											<value>r -> $r['page']</value>
-										</row-order-column>
+											<!-- No page precedes another: the groups keep the order of their first rows. -->
+											<comparator>a -> b -> 0</comparator>
+										</computed-column>
 									</columns>
 									<rows>p -> f -> u -> programPortRows($p, $f, $u)</rows>
 								</table>
@@ -1537,125 +1537,126 @@
 									<field attribute="space"/>
 									<field attribute="extId"/>
 								</form>
-								<!--
-									The entries of an enumeration type, and the selected one. Shown for every type (empty
-									and without commands for other kinds): a table that is removed while its input
-									changes fails (TL #29580).
-								-->
-								<panel>
-									<title>
-										<en>Entries</en>
-										<de>Einträge</de>
-									</title>
-									<commands>
-										<generic-command
-											image="css:bi bi-plus-lg"
-											input="selectedEnumeration"
-											placement="TOOLBAR"
-										>
-											<label>
-												<en>New entry</en>
-												<de>Neuer Eintrag</de>
-											</label>
-											<executability>
-												<model-access operation="Write"/>
-												<null-input-disabled/>
-											</executability>
-											<create-transient
-												container="selectedEnumeration"
-												reference="values"
-												type="ehome.operational:EnumerationValue"
-											/>
-											<!-- The next value and the next place in the display order. -->
-											<execute-script function="t -> e -> {
+								<!-- The entries of an enumeration type, and the selected one. -->
+								<visible-if
+									expr="t -> $t != null"
+									input="selectedEnumeration"
+								>
+									<panel>
+										<title>
+											<en>Entries</en>
+											<de>Einträge</de>
+										</title>
+										<commands>
+											<generic-command
+												image="css:bi bi-plus-lg"
+												input="selectedEnumeration"
+												placement="TOOLBAR"
+											>
+												<label>
+													<en>New entry</en>
+													<de>Neuer Eintrag</de>
+												</label>
+												<executability>
+													<model-access operation="Write"/>
+													<null-input-disabled/>
+												</executability>
+												<create-transient
+													container="selectedEnumeration"
+													reference="values"
+													type="ehome.operational:EnumerationValue"
+												/>
+												<!-- The next value and the next place in the display order. -->
+												<execute-script function="t -> e -> {
     values = $t.get(`ehome.operational:EnumerationType#values`);
     last = $values.map(v -> $v.get(`ehome.operational:EnumerationValue#value`)).max();
     $e.set(`ehome.operational:EnumerationValue#value`, if($last == null, 0, $last + 1));
     $e.set(`ehome.operational:EnumerationValue#index`, $values.size());
     $e
 }">
-												<inputs>
-													<input channel="selectedEnumeration"/>
-												</inputs>
-											</execute-script>
-											<open-dialog
-												bind-input-to="model"
-												dialog-view="catalogs/create-program-element.view.xml"
-											>
-												<bind
-													channel="container"
-													to="selectedEnumeration"
-												/>
-												<bind
-													channel="selection"
-													to="selectedEntry"
-												/>
-											</open-dialog>
-										</generic-command>
-										<generic-command
-											image="css:bi bi-trash"
-											input="selectedEntry"
-											placement="TOOLBAR"
-										>
-											<label>
-												<en>Delete entry</en>
-												<de>Eintrag löschen</de>
-											</label>
-											<executability>
-												<model-access operation="Write"/>
-												<null-input-disabled/>
-											</executability>
-											<if test="e -> programDeleteVeto($e) != null">
-												<then>
-													<notify
-														display="dialog"
-														expr="e -> programDeleteVeto($e)"
-														kind="error"
-														stop="true"
+													<inputs>
+														<input channel="selectedEnumeration"/>
+													</inputs>
+												</execute-script>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="selectedEnumeration"
 													/>
-												</then>
-											</if>
-											<confirm expr="e -> #('Delete the entry {0}?'@en, 'Den Eintrag {0} löschen?'@de).fill($e.get(`ehome.operational:EnumerationValue#name`).localize())"/>
-											<with-transaction>
-												<execute-script function="e -> programDelete($e)"/>
-											</with-transaction>
-											<write-channel name="selectedEntry"/>
-										</generic-command>
-									</commands>
-									<table
-										observed-types="ehome.operational:EnumerationValue,ehome.operational:EnumerationType"
-										selection="selectedEntry"
-										types="ehome.operational:EnumerationValue"
-									>
-										<inputs>
-											<input channel="selectedEnumeration"/>
-										</inputs>
-										<columns>
-											<column attribute="name"
-												width="280"
-											/>
-											<column attribute="value"
-												width="100"
-											/>
-											<column attribute="index"
-												width="100"
-											/>
-											<column attribute="extId"
-												width="240"
-											/>
-										</columns>
-										<rows>t -> $t.get(`ehome.operational:EnumerationType#values`)</rows>
-									</table>
-									<form
-										input="selectedEntry"
-										with-inset="true"
-									>
-										<field attribute="name"/>
-										<field attribute="value"/>
-										<field attribute="index"/>
-										<field attribute="extId"/>
-									</form>
-								</panel>
+													<bind
+														channel="selection"
+														to="selectedEntry"
+													/>
+												</open-dialog>
+											</generic-command>
+											<generic-command
+												image="css:bi bi-trash"
+												input="selectedEntry"
+												placement="TOOLBAR"
+											>
+												<label>
+													<en>Delete entry</en>
+													<de>Eintrag löschen</de>
+												</label>
+												<executability>
+													<model-access operation="Write"/>
+													<null-input-disabled/>
+												</executability>
+												<if test="e -> programDeleteVeto($e) != null">
+													<then>
+														<notify
+															display="dialog"
+															expr="e -> programDeleteVeto($e)"
+															kind="error"
+															stop="true"
+														/>
+													</then>
+												</if>
+												<confirm expr="e -> #('Delete the entry {0}?'@en, 'Den Eintrag {0} löschen?'@de).fill($e.get(`ehome.operational:EnumerationValue#name`).localize())"/>
+												<with-transaction>
+													<execute-script function="e -> programDelete($e)"/>
+												</with-transaction>
+												<write-channel name="selectedEntry"/>
+											</generic-command>
+										</commands>
+										<table
+											observed-types="ehome.operational:EnumerationValue,ehome.operational:EnumerationType"
+											selection="selectedEntry"
+											types="ehome.operational:EnumerationValue"
+										>
+											<inputs>
+												<input channel="selectedEnumeration"/>
+											</inputs>
+											<columns>
+												<column attribute="name"
+													width="280"
+												/>
+												<column attribute="value"
+													width="100"
+												/>
+												<column attribute="index"
+													width="100"
+												/>
+												<column attribute="extId"
+													width="240"
+												/>
+											</columns>
+											<rows>t -> $t.get(`ehome.operational:EnumerationType#values`)</rows>
+										</table>
+										<form
+											input="selectedEntry"
+											with-inset="true"
+										>
+											<field attribute="name"/>
+											<field attribute="value"/>
+											<field attribute="index"/>
+											<field attribute="extId"/>
+										</form>
+									</panel>
+								</visible-if>
 							</panel>
 						</pane>
 					</panes>

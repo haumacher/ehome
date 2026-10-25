@@ -532,19 +532,20 @@ public class TestCatalogFromScratch extends BasicTestCase {
 	private void checkMoveAndInsert() {
 		Channel first = _channels.get(0);
 		Channel third = _channels.get(2);
-		assertNotNull(ProgramStructure.moveVeto(_independent, -1));
-		assertNotNull(ProgramStructure.moveVeto(third, 1));
-		assertNull(ProgramStructure.moveVeto(third, -1));
+		// A channel holds no channel, the program has no place beside it.
+		assertNotNull(ProgramStructure.moveVeto(List.of(third), first, null));
+		assertNotNull(ProgramStructure.moveVeto(List.of(third), null, null));
+		assertNull(ProgramStructure.moveVeto(List.of(third), _program, _channels.get(1)));
 
-		// "Move up" on the third channel.
+		// The third channel dropped before the second one.
 		try (Transaction tx = _kb.beginTransaction()) {
-			ProgramStructure.move(third, -1);
+			ProgramStructure.move(List.of(third), _program, _channels.get(1));
 			tx.commit();
 		}
 		assertEquals(List.of(_independent, first, third, _channels.get(1)), _program.getContents());
-		// "Move down" brings it back.
+		// Dropped beside the last one, it is the last again.
 		try (Transaction tx = _kb.beginTransaction()) {
-			ProgramStructure.move(third, 1);
+			ProgramStructure.move(List.of(third), _program, null);
 			tx.commit();
 		}
 		assertEquals(List.of(_independent, first, _channels.get(1), third), _program.getContents());

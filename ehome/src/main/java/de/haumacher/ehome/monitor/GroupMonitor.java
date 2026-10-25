@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.TimeZone;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -72,7 +73,8 @@ import de.haumacher.ehome.programming.download.BusException;
  *
  * <p>
  * The views read the monitor through {@link #snapshot()}, a dictionary taken anew after every
- * change; a {@link Publisher} is told about every change, from whatever thread it happens on.
+ * change; the {@link Publisher}s are told about every change, from whatever thread it happens on
+ * ({@link MonitorSource} brings it into the views showing the monitor).
  * </p>
  */
 public class GroupMonitor {
@@ -96,7 +98,8 @@ public class GroupMonitor {
 
 		/**
 		 * The monitor changed; a new {@link GroupMonitor#snapshot()} shows it. Called from any
-		 * thread, possibly while the monitor is locked: an implementation only schedules its work.
+		 * thread, possibly while the monitor is locked: an implementation may take a snapshot, but
+		 * does not block and does not call back into the bus link.
 		 */
 		void changed();
 	}
@@ -140,7 +143,7 @@ public class GroupMonitor {
 
 	private ScheduledExecutorService _executor;
 
-	private volatile Publisher _publisher;
+	private final List<Publisher> _publishers = new CopyOnWriteArrayList<>();
 
 	private long _revision;
 
@@ -198,25 +201,26 @@ public class GroupMonitor {
 	}
 
 	/**
-	 * Sets the {@link Publisher} told about the changes; <code>null</code> for none.
+	 * Adds a {@link Publisher} told about the changes.
 	 */
-	public void setPublisher(Publisher publisher) {
-		_publisher = publisher;
+	public void addPublisher(Publisher publisher) {
+		_publishers.add(publisher);
 	}
 
 	/**
-	 * Removes the given {@link Publisher}, if it is the one set.
+	 * Removes the given {@link Publisher}.
 	 *
-	 * @return Whether it was the one set.
+	 * @return Whether it was told about the changes until now.
 	 */
 	public boolean removePublisher(Publisher publisher) {
-		synchronized (_lock) {
-			if (_publisher == publisher) {
-				_publisher = null;
-				return true;
-			}
-			return false;
-		}
+		return _publishers.remove(publisher);
+	}
+
+	/**
+	 * The {@link Publisher}s told about the changes.
+	 */
+	public List<Publisher> getPublishers() {
+		return List.copyOf(_publishers);
 	}
 
 	/**
@@ -303,8 +307,8 @@ public class GroupMonitor {
 				_executor.shutdown();
 				_executor = null;
 			}
-			_publisher = null;
 		}
+		_publishers.clear();
 	}
 
 	private void disconnectLink() {
@@ -919,8 +923,15 @@ public class GroupMonitor {
 	 * Texts are written in the language of the calling thread.
 	 */
 	public Map<String, Object> snapshot() {
+		return snapshot(Resources.getInstance());
+	}
+
+	/**
+	 * The {@link #snapshot()} with its texts in the language of the given resources; called from
+	 * any thread.
+	 */
+	public Map<String, Object> snapshot(Resources resources) {
 		synchronized (_lock) {
-			Resources resources = Resources.getInstance();
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("monitor", this);
 			result.put("revision", Long.valueOf(++_revision));
@@ -1088,9 +1099,12 @@ public class GroupMonitor {
 	}
 
 	private void changed() {
-		Publisher publisher = _publisher;
-		if (publisher != null) {
-			publisher.changed();
+		for (Publisher publisher : _publishers) {
+			try {
+				publisher.changed();
+			} catch (RuntimeException ex) {
+				Logger.error("A publisher of the group monitor failed.", ex, GroupMonitor.class);
+			}
 		}
 	}
 

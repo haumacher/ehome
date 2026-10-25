@@ -40,9 +40,9 @@ import de.haumacher.ehome.programming.download.Gateways;
  * <code>token</code> (one entered ad hoc, or a token entered for the registered one); a project alone
  * stands for its own controller. The monitor is the one of the project in the session
  * ({@link MonitorSessions}); one that is still connected to the same gateway or controller is not
- * connected again, one connected to the other source is reconnected. From now on every
- * change of the monitor writes its {@link GroupMonitor#snapshot()} to the configured channel
- * ({@link WindowPublisher}); the result is the current snapshot.
+ * connected again, one connected to the other source is reconnected. The current
+ * {@link GroupMonitor#snapshot()} is written to the configured channel and is the result; the later
+ * changes reach the channel through its source ({@link MonitorSource}).
  * </p>
  */
 public class ConnectMonitorAction implements ViewAction {
@@ -58,7 +58,7 @@ public class ConnectMonitorAction implements ViewAction {
 		Class<? extends ConnectMonitorAction> getImplementationClass();
 
 		/**
-		 * The channel receiving the snapshots of the monitor.
+		 * The channel receiving the snapshot of the connected monitor.
 		 */
 		@Name("state")
 		@Mandatory
@@ -135,7 +135,6 @@ public class ConnectMonitorAction implements ViewAction {
 
 		GroupMonitor monitor = MonitorSessions.monitor(project);
 		ViewChannel channel = ((ViewContext) context).resolveChannel(_state);
-		monitor.setPublisher(new WindowPublisher(context, channel, monitor));
 		if (!monitor.isConnectedTo(Gateways.format(gateway))) {
 			monitor.refresh(ProjectIndex.of(project));
 			try {
@@ -154,7 +153,6 @@ public class ConnectMonitorAction implements ViewAction {
 	private Object connectController(ReactContext context, TLObject project, ControllerTarget target) {
 		GroupMonitor monitor = MonitorSessions.monitor(project);
 		ViewChannel channel = ((ViewContext) context).resolveChannel(_state);
-		monitor.setPublisher(new WindowPublisher(context, channel, monitor));
 		target.attach(monitor);
 		Map<String, Object> snapshot = monitor.snapshot();
 		channel.set(snapshot);
