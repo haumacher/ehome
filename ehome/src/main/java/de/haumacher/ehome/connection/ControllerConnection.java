@@ -532,8 +532,9 @@ public final class ControllerConnection {
 		ready.put("type", "ready");
 		ready.put("installation", _installation == null ? "" : _installation);
 		try {
-			sendText(Json.compact(ready));
+			// Known before the controller hears of it: what it does after "ready" finds its connection.
 			ControllerConnections.ready(this);
+			sendText(Json.compact(ready));
 			sendText("{\"type\":\"subscribe\"}");
 			if (credentials.keyFingerprint() != null && !credentials.keyFingerprint().equals(_deviceKey)) {
 				offerKey(credentials.publicKey(), credentials.keyFingerprint());
@@ -560,7 +561,6 @@ public final class ControllerConnection {
 	}
 
 	private void status(Map<String, Object> message) {
-		_status = message;
 		if (message.get("device") instanceof Map<?, ?> device) {
 			String version = text(device.get("version"));
 			String build = text(device.get("build"));
@@ -577,6 +577,9 @@ public final class ControllerConnection {
 				ControllerConnections.firmwareChanged(this);
 			}
 		}
+		// Visible only after the write of the firmware is queued: whoever sees the status and then waits
+		// for the knowledge base sees the firmware too.
+		_status = message;
 	}
 
 	private void datapoints(Map<String, Object> message) {
