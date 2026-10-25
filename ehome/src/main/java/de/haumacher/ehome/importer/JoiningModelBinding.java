@@ -6,14 +6,12 @@ package de.haumacher.ehome.importer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 
 import javax.xml.stream.Location;
 
@@ -29,19 +27,17 @@ import com.top_logic.xio.importer.binding.ModelBinding;
 import com.top_logic.xio.importer.handlers.ImportPart;
 
 /**
- * {@link ModelBinding} that does not add an object to a reference that already contains it.
- *
- * <p>
- * An import that reuses an existing object (<code>join-duplicates</code>), such as a datapoint type
- * known from an earlier import, links it to its container again; this binding makes that a no-op.
- * </p>
+ * {@link ModelBinding} of the ETS import: stores set additions at once, caches the model types, creates
+ * transient candidates of known master data, and records the objects an import created and found.
  *
  * <p>
  * The elements added to an unordered multiple reference of a persistent object (a set, such as the
  * parameters of a program) are stored at once by {@link #flush()}: the engine reads the whole set (TL #29889) to
  * add one element, which makes adding the thousands of parameters of a program one by one
  * quadratic. Until then, reading such a reference through this binding (or evaluating an expression)
- * stores its elements first; code reading it directly sees the elements stored so far.
+ * stores its elements first; code reading it directly sees the elements stored so far. An element
+ * the set holds already (an object joined by <code>join-duplicates</code>, linked to its container
+ * again) leaves it unchanged; the engine links any other reference only once itself.
  * </p>
  */
 public class JoiningModelBinding implements ModelBinding {
@@ -51,17 +47,6 @@ public class JoiningModelBinding implements ModelBinding {
 	private List<Object> _created = new ArrayList<>();
 
 	private Set<Object> _resolved = new LinkedHashSet<>();
-
-	/**
-	 * The elements of the multiple attributes this binding added values to, by object and attribute.
-	 *
-	 * <p>
-	 * Reading the value of a large attribute is expensive (the master data add each of some hundred
-	 * manufacturers to the manufacturer root again, a program adds thousands of parameters one by
-	 * one), so it is read once per import and kept up to date here.
-	 * </p>
-	 */
-	private Map<Object, Map<String, Set<Object>>> _elements = new HashMap<>();
 
 	/**
 	 * The elements added to unordered multiple references and not yet stored, see {@link #flush()}.
@@ -75,11 +60,6 @@ public class JoiningModelBinding implements ModelBinding {
 	 * Whether objects are created transiently, see {@link #setTransient(boolean)}.
 	 */
 	private boolean _transient;
-
-	/**
-	 * Makes existing objects known on demand, see {@link #setLoader(Predicate)}.
-	 */
-	private Predicate<String> _loader = id -> false;
 
 	/**
 	 * Creates a {@link JoiningModelBinding}.
@@ -120,19 +100,12 @@ public class JoiningModelBinding implements ModelBinding {
 		if (linksTransientToPersistent(obj, element)) {
 			return;
 		}
-		Set<Object> elements = elements(obj, part);
-		if (elements != null && elements.contains(element)) {
-			return;
-		}
 		TLStructuredTypePart deferred = deferredPart((TLObject) obj, part, element);
 		if (deferred != null) {
 			_pending.computeIfAbsent((TLObject) obj, x -> new LinkedHashMap<>())
 				.computeIfAbsent(deferred, x -> new ArrayList<>()).add((TLObject) element);
 		} else {
 			_impl.addValue(handler, obj, part, element);
-		}
-		if (elements != null) {
-			elements.add(element);
 		}
 	}
 
@@ -180,54 +153,14 @@ public class JoiningModelBinding implements ModelBinding {
 
 	private static void store(TLObject obj, TLStructuredTypePart part, List<TLObject> added) {
 		Set<Object> value = new LinkedHashSet<>((Collection<?>) obj.tValue(part));
-		value.addAll(added);
-		obj.tUpdate(part, value);
-	}
-
-	/**
-	 * The current elements of the given attribute, <code>null</code> if it is not multiple.
-	 */
-	private Set<Object> elements(Object obj, String part) {
-		Map<String, Set<Object>> byPart = _elements.computeIfAbsent(obj, x -> new HashMap<>());
-		Set<Object> result = byPart.get(part);
-		if (result == null) {
-			Object value = ((TLObject) obj).tValueByName(part);
-			if (!(value instanceof Collection<?> collection)) {
-				return null;
-			}
-			result = new HashSet<>(collection);
-			byPart.put(part, result);
+		if (value.addAll(added)) {
+			obj.tUpdate(part, value);
 		}
-		return result;
-	}
-
-	/**
-	 * Forgets the elements of the given attribute known from {@link #addValue(ImportPart, Object, String, Object)}.
-	 */
-	private void forgetElements(Object obj, String part) {
-		Map<String, Set<Object>> byPart = _elements.get(obj);
-		if (byPart != null) {
-			byPart.remove(part);
-		}
-	}
-
-	/**
-	 * Sets what makes existing objects known (with {@link #assignId(Object, String)}) that may be
-	 * known under an ID the import asks for and finds unknown.
-	 *
-	 * @param loader
-	 *        Called with the unknown ID; returns whether it made objects known.
-	 */
-	public void setLoader(Predicate<String> loader) {
-		_loader = loader;
 	}
 
 	@Override
 	public Object resolveObject(ImportPart handler, Location location, String id) {
 		Object result = _impl.resolveObject(handler, location, id);
-		if (result == null && id != null && _loader.test(id)) {
-			result = _impl.resolveObject(handler, location, id);
-		}
 		if (result != null) {
 			_resolved.add(result);
 		}
@@ -253,9 +186,9 @@ public class JoiningModelBinding implements ModelBinding {
 	}
 
 	/**
-	 * The existing objects the import found under their IDs since the last {@link #clearCreated()}:
-	 * objects it reused or referenced, including those it created itself before, in the order they
-	 * were first found.
+	 * The objects the import found under their IDs since the last {@link #clearCreated()}: existing
+	 * objects it reused or referenced, and objects it created itself (see {@link #getCreated()}), in
+	 * the order they were first found or created.
 	 */
 	public Set<Object> getResolved() {
 		return _resolved;
@@ -263,26 +196,50 @@ public class JoiningModelBinding implements ModelBinding {
 
 	/**
 	 * Forgets the objects created and found so far, see {@link #getCreated()} and
-	 * {@link #getResolved()}, and the elements of attributes read so far: the next import starts
-	 * from the database as it is then.
+	 * {@link #getResolved()}, and the set additions not stored yet: the next import starts from the
+	 * database as it is then.
 	 */
 	public void clearCreated() {
 		_created = new ArrayList<>();
 		_resolved = new LinkedHashSet<>();
-		_elements = new HashMap<>();
 		_pending = new LinkedHashMap<>();
 		_types.clear();
 	}
 
+	/**
+	 * Makes an existing object known under the given ID, so that the import resolves the ID to it
+	 * (see {@link SharedObjects}).
+	 *
+	 * <p>
+	 * Unlike {@link #assignId(Object, String)}, the object does not count as found (see
+	 * {@link #getResolved()}) until the import asks for it.
+	 * </p>
+	 */
+	public void register(Object value, String id) {
+		_impl.assignId(value, id);
+	}
+
+	/**
+	 * Assigns the ID to the given object.
+	 *
+	 * <p>
+	 * Called for an object the import created, and for an existing one an
+	 * {@link com.top_logic.xio.importer.binding.IdLookup} found under the ID (such as
+	 * <code>&lt;resolve-existing&gt;</code> in <code>etsImporter.xml</code>), which counts as found
+	 * (see {@link #getResolved()}).
+	 * </p>
+	 */
 	@Override
 	public void assignId(Object value, String id) {
 		_impl.assignId(value, id);
+		if (value != null && id != null) {
+			_resolved.add(value);
+		}
 	}
 
 	@Override
 	public void setProperty(ImportPart handler, Object obj, String name, Object value) {
 		flush(obj, name);
-		forgetElements(obj, name);
 		_impl.setProperty(handler, obj, name, value);
 	}
 
@@ -298,7 +255,6 @@ public class JoiningModelBinding implements ModelBinding {
 			return;
 		}
 		flush(obj, name);
-		forgetElements(obj, name);
 		_impl.setReference(handler, obj, name, value);
 	}
 

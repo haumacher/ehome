@@ -65,7 +65,8 @@ public class RowOrderColumn extends ComputedColumn {
 		for (ColumnSetup setup : super.resolve(scope)) {
 			ColumnBinding unsorted = new Unsorted(setup.binding());
 			result.add(new ColumnSetup(setup.name(), setup.label(), setup.type(), setup.value(), setup.viewContext(),
-				unsorted, setup.width(), setup.editing(), setup.aggregate(), setup.hiddenByDefault()));
+				unsorted, setup.width(), setup.editing(), setup.aggregate(), setup.comparator(), setup.hiddenByDefault(),
+				setup.export()));
 		}
 		return result;
 	}

@@ -11,6 +11,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey.LiteralKey;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.model.TLObject;
+import com.top_logic.xio.importer.binding.ImportContext;
 
 /**
  * Builds the values of internationalized attributes (<code>tl.model.i18n:I18NString</code>) from the
@@ -19,10 +20,28 @@ import com.top_logic.model.TLObject;
 public class I18NTexts {
 
 	/**
-	 * Name of the import variable holding the {@link Locale} of the texts of the current element (its
-	 * <code>DefaultLanguage</code>).
+	 * Name of the import variable holding the language of the texts of the current element: its
+	 * <code>DefaultLanguage</code>, an ETS language identifier bound by <code>&lt;with-var&gt;</code> in
+	 * <code>etsImporter.xml</code>.
+	 *
+	 * @see #language(ImportContext)
 	 */
 	public static final String LANGUAGE_VAR = "language";
+
+	/**
+	 * The language of the texts of the current element (see {@link #LANGUAGE_VAR}), the
+	 * application's fallback language if no enclosing element names one.
+	 */
+	public static Locale language(ImportContext context) {
+		Object language = context.getVarOrNull(LANGUAGE_VAR);
+		if (language instanceof Locale locale) {
+			return locale;
+		}
+		if (language == null || language.toString().isBlank()) {
+			return ResourcesModule.getInstance().getFallbackLocale();
+		}
+		return locale(language.toString().trim());
+	}
 
 	/**
 	 * The locale of an ETS language identifier such as <code>de-DE</code>: its language only, since

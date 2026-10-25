@@ -23,11 +23,13 @@ import com.top_logic.xio.importer.handlers.Handler;
 
 /**
  * Imports an object of the master data that exists only once and records the version of the master
- * data it comes from (see {@link MasterDataVersion}).
+ * data it comes from: <code>MasterData@Version</code> (92 in the ETS 4 samples, 198 in the ETS 6
+ * sample), bound by <code>&lt;with-var&gt;</code> in <code>etsImporter.xml</code> to the variable
+ * {@link #VERSION_VAR}.
  *
  * <p>
  * An object not known yet is created by the contents and gets the ID the element names. For an
- * object already known (see {@link Importer}), the contents create a transient candidate without an
+ * object already known (found by <code>&lt;resolve-existing&gt;</code>), the contents create a transient candidate without an
  * ID, which {@link MasterDataUpdates} compares with the known object at the end of the import: master data of
  * a higher version than the known object's update it in place, other master data keep it and report
  * a warning if they define it differently. References to the ID always resolve to the known object.
@@ -39,6 +41,12 @@ import com.top_logic.xio.importer.handlers.Handler;
  * </p>
  */
 public class VersionedMasterData<C extends VersionedMasterData.Config<?>> extends ConfiguredImportHandler<C> {
+
+	/**
+	 * The variable holding the version of the master data being imported, as written in the file;
+	 * unbound if the master data name no version.
+	 */
+	public static final String VERSION_VAR = "masterDataVersion";
 
 	/**
 	 * Configuration of {@link VersionedMasterData}.
@@ -82,7 +90,7 @@ public class VersionedMasterData<C extends VersionedMasterData.Config<?>> extend
 	@Override
 	public Object importXml(ImportContext context, XMLStreamReader in) throws XMLStreamException {
 		String id = in.getAttributeValue(null, getConfig().getIdAttribute());
-		Integer version = (Integer) context.getVarOrNull(MasterDataVersion.VERSION_VAR);
+		Integer version = version(context.getVarOrNull(VERSION_VAR));
 		MasterDataUpdates.Position position = MasterDataUpdates.position(in.getLocation());
 		Object known = id == null ? null : context.resolveObjectBackwards(this, in.getLocation(), id);
 
@@ -101,6 +109,21 @@ public class VersionedMasterData<C extends VersionedMasterData.Config<?>> extend
 			context.assignId(imported, id);
 		}
 		return imported;
+	}
+
+	/**
+	 * The version of the master data, <code>null</code> if they name none or not a number.
+	 */
+	private static Integer version(Object value) {
+		if (value == null) {
+			return null;
+		}
+		try {
+			return Integer.valueOf(value.toString().trim());
+		} catch (NumberFormatException ex) {
+			// Not a version number, no information.
+			return null;
+		}
 	}
 
 	private Object importContents(ImportContext context, XMLStreamReader in) throws XMLStreamException {

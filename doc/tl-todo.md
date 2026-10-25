@@ -1,10 +1,15 @@
 # Waiting for TopLogic
 
 Gaps of the React UI (`ehome/src/main/webapp/WEB-INF/views/`; paths below are relative to the app module `ehome/` unless they name `ehome-virtual/`) compared with the classic layouts, and
-workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha10) cannot close yet.
+workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha11) cannot close yet.
 Check each item when upgrading TopLogic (an upgrade happens only when the user asks for one). Every
 entry names its TL ticket and what to remove once the engine covers it; a gap whose workaround would
 not be minimal is left visible instead.
+
+State of the upgrade to 8.0.0-alpha11 (2026-10-25): the fixes of TL #29798, #29872 to #29874, #29877,
+#29880 to #29883, #29886 to #29892, #29895, #29896 and #29898 are on the engine's `master` but not
+in 8.0.0-alpha11; their workarounds stay until the next release. TL #29876, #29884, #29885, #29893,
+#29894 and #29899 are open.
 
 ## Tree tables
 
@@ -56,32 +61,56 @@ Workaround: `src/main/webapp/style/ehome.css` (registered as `ClientResources` i
 **When fixed in the engine** (default animations in the theme, no waiting without an animation):
 remove `style/ehome.css` and its `ClientResources` registration.
 
-## ETS import: workarounds for the XML import (TL #29794 to #29797, #29880 to #29883, #29889 to #29891)
+## ETS import: workarounds for the XML import (TL #29795, #29797, #29880 to #29883, #29889 to #29891)
 
 The ETS import (`de.haumacher.ehome.importer`, `etsImporter.xml`) has handlers of its own for what
-the engine's XML import (`com.top_logic.xio`) cannot do yet:
+the engine's XML import (`com.top_logic.xio`) cannot do yet. TopLogic 8.0.0-alpha11 shipped TL #29794
+to #29797; with it, the import uses `<resolve-existing>` for the shared objects (master data,
+catalogs, hardware, programs: found by their `extId` among the existing objects of the types it
+lists), `<with-var>` for the language of the texts (`DefaultLanguage`, variable `language`) and the
+version of the master data (`MasterData@Version`, variable `masterDataVersion`), and the engine's
+`join-duplicates` linking an object only once. What stays:
 
-- TL #29794 (defect): `join-duplicates` links a reused object to its container again (fails for set
-  references). Workaround: `JoiningModelBinding` skips adding an element a reference already holds.
-  **When fixed:** remove `JoiningModelBinding` and its use in `Importer`.
-- TL #29795: `set-translation` only takes a fixed language. Workaround: `<i18n-property>`
-  (`I18NPropertyImport`, `I18NTexts`), language from the variable `language`, fills the fallback
-  language. **When available:** use `<set-translation>` with the language from the variable.
-- TL #29796: no handler binds a variable to an XML attribute. Workarounds: `<default-language>`
-  (`DefaultLanguage`) and `<master-data-version>` (`MasterDataVersion`, the version of the master
-  data for `<versioned-master-data>`). **When available:** use the engine handler.
-- TL #29797: import into existing data. Workarounds: `Importer.registerSharedObjects()` registers
-  the shared objects under their `extId`; `<unless-known>` (`UnlessKnown`) skips known application
-  programs, except for the texts of the languages a known program lacks (`texts="translations"`,
-  `ProgramLanguages`, `TranslationsImport#importBaseTexts`, #38: ETS writes a program in the language
-  of the installation exporting it); `<versioned-master-data>` (`VersionedMasterData`, `MasterDataUpdates`, `ObjectMerge`)
-  imports a known mask version as a transient candidate (`JoiningModelBinding#setTransient`) and, at
-  the end of the import, updates the known one in place from it (newer master data) or compares and
-  warns (older or the same); `<translations>` (`TranslationsImport`) reads the `Languages` sections and ignores
-  unknown IDs. **When available:** declare the lookup in `etsImporter.xml`, and express the
-  translations with `<with-var>`, `<object-ref>` (optional), `<switch>` and `<set-translation>`; the
-  texts of a known program need a way to import the attributes of a known element without its
-  structure, and a condition on the languages the known object records.
+- TL #29795 (shipped, not adopted): `<set-translation language-var="language" fill-fallback="true">`
+  differs from the import's texts in two respects. It stores an empty attribute (ETS writes `Text=""`
+  for most parameters and communication objects) as an empty translation for the language and the
+  fallback language, where the import leaves the attribute unset; and without a language in the
+  variable (the master data name none) it reports "no language" and drops the text, where the import
+  files it under the fallback language - `<with-var>` binds only an XML attribute, no default value.
+  Reproduction: `<set-translation name="text" xml-attribute="Text" language-var="language"
+  fill-fallback="true"/>` on `<P Text=""/>` sets `text` to a literal key with `""`; outside a
+  `<with-var>` it reports `ERROR_NO_LANGUAGE`. Workaround: `<i18n-property>` (`I18NPropertyImport`,
+  `I18NTexts#language`, `#set`). New TL ticket needed (an option to skip an empty value, a default
+  language or a default value of `<with-var>`). **When available:** use `<set-translation>` there.
+- TL #29797 (shipped in part): the engine's `<unless-known>` skips a known element as a whole. A known
+  application program must still get the texts of the languages it lacks (haumacher/ehome #38: ETS
+  writes a program in the language of the installation exporting it). Workaround:
+  `<unless-known-program>` (`UnlessKnownProgram`, `ProgramLanguages`,
+  `TranslationsImport#importBaseTexts`), a tag of its own besides the engine's. Missing in the
+  engine: importing the attributes of a known element (and of its descendants, each to the object of
+  its ID) without its structure, and a condition on the known object (the languages it records,
+  `Program#languages`). Reproduction: a known object `I1` (texts in `de`) and the element
+  `<Item Id="I1" DefaultLanguage="en-US" Name="..."/>`: `<unless-known id-attribute="Id">` skips it, so
+  `name@en` stays unset. New TL ticket needed. **When available:** replace `<unless-known-program>`.
+- TL #29797 (shipped in part): `<resolve-existing>` indexes all its objects once per import, at the
+  first ID it misses. The parts of the application programs (about ten thousand per program) are
+  made known per program instead, when the import first asks for an ID within a program (their IDs
+  start with the program's ID): `SharedObjects`, an `IdLookup` that `Importer` installs with
+  `ImportContext#withIdLookup` outside the `<resolve-existing>` of `etsImporter.xml`. Missing in the
+  engine: a lookup partitioned by a key (e.g. the prefix of an ID up to a separator) that loads one
+  partition on demand. **When available:** declare it in `etsImporter.xml`.
+- TL #29797 (shipped in part): `<versioned-master-data>` (`VersionedMasterData`, `MasterDataUpdates`,
+  `ObjectMerge`) imports a known mask version as a transient candidate
+  (`JoiningModelBinding#setTransient`) and, at the end of the import, updates the known one in place
+  from it (newer master data) or compares and warns (older or the same). The engine has no import of
+  an element into a transient candidate of a known object. **When available:** use the engine's.
+- TL #29797 (shipped in part): `<translations>` (`TranslationsImport`) reads the `Languages` sections
+  and ignores unknown IDs. With alpha11 they could be read by `<with-var>` (`Language@Identifier`),
+  `<object-ref ignore-unresolved="true">`, `<switch>` and `<set-translation>`, but not: the attribute
+  a translation goes to depends on the type of the object (`Text` is the description of a parameter,
+  the name of a variant), a translation of a known program sets only the languages it lacks (#38),
+  and an empty translation is skipped (TL #29795 above). **When available:** express them in
+  `etsImporter.xml`.
 - TL #29880: `<dispatch>` skips an unknown element and its subtree silently, so a construct of a newer
   KNX schema vanishes without a message (found with the ETS 6 import, #32). No workaround: new
   constructs were found by comparing element paths by hand (`doc/knx/schema-coverage.md`).
@@ -104,8 +133,10 @@ the engine's XML import (`com.top_logic.xio`) cannot do yet:
 - TL #29889 (defect): adding one element to a set reference reads the whole set, so building a
   program's thousands of parameters one by one is quadratic. Workaround: `JoiningModelBinding`
   buffers additions to unordered multiple references of persistent objects and stores each set in
-  one update at the end of the import (`flush()`). **When fixed:** add directly again and drop the
-  buffering.
+  one update at the end of the import (`flush()`); a buffered element the set holds already leaves it
+  unchanged. Since alpha11 the engine's `AbstractModelBinding#addValue` (TL #29794) reads the whole
+  value of every multiple reference before it adds an element, so the buffering also saves that read.
+  **When fixed:** add directly again and drop the buffering.
 - TL #29890 (defect): `TLModelUtil.findType` and the compatibility check scan all modules by name on
   every call. Workaround: `JoiningModelBinding` caches types per import; `ExtIds.isA` compares the
   names of the cached generalizations. **When fixed:** use `TLModelUtil.isCompatibleInstance` again.
@@ -473,7 +504,7 @@ configuration should set.
 
 ## Access coverage of engine modules (TL #29884)
 
-The engine (8.0.0-alpha10) ships model modules whose types have no complete access definition: at
+The engine (8.0.0-alpha11) ships model modules whose types have no complete access definition: at
 the start of E-Home, `SecurityCoverageCheck` reports 36 engine types in 15 modules (`Contacts`,
 `SearchExpressionStructure`, `SecurityStructure`, `Tag`, `mandatorStructure`, `orgStructure`,
 `tl.accounts`, `tl.comments`, `tl.contact.ui`, `tl.core`, `tl.folder`, `tl.model`, `tl.reporting`,
@@ -533,7 +564,8 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29791: see above.
 - TL #29792: see above (default transition animations in the engine).
 - TL #29793: developer-docs recipe for an application-defined primitive type (group addresses).
-- TL #29794 to #29797: see above (XML import).
+- TL #29794 to #29797: shipped in 8.0.0-alpha11; #29794 and #29796 are undone, #29795 and #29797 in part,
+  see above (XML import).
 - TL #29798: see above (derived references in the commit check).
 - TL #29799: see above (derived fields and Java script functions in forms).
 - TL #29800: see above (model patch of a new generalization with overrides).

@@ -3,6 +3,7 @@
  */
 package test.de.haumacher.ehome.monitor;
 
+import static test.de.haumacher.ehome.importer.TestEtsImport.asRoot;
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
@@ -12,6 +13,7 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import junit.framework.Test;
@@ -25,6 +27,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
+import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.exporter.KnxprojExporter;
@@ -84,8 +87,9 @@ public class TestGroupMonitorProbe extends BasicTestCase {
 			assertEquals(2, ((Number) keyRow.get("count")).intValue());
 			assertEquals("on", channelRow.get("value"));
 			// The sender of a telegram on channel A is the device the address view names.
-			String senderName = String.valueOf(senderOfChannelA.tValueByName("name")).replaceAll(" \\(\\d+\\)$", "");
-			assertTrue(String.valueOf(channelRow.get("sender")), String.valueOf(channelRow.get("sender")).startsWith(senderName));
+			String senderName = String.valueOf(asRoot(() -> TLContext.getContext().withLocale(Locale.ENGLISH,
+				() -> senderOfChannelA.tValueByName("name")))).replaceAll(" \\(\\d+\\)$", "");
+			assertTrue(channelRow.get("sender") + " is not " + senderName, String.valueOf(channelRow.get("sender")).startsWith(senderName));
 			assertTrue(String.valueOf(keyRow.get("sender")), String.valueOf(keyRow.get("sender")).contains("1.3.50"));
 			List<MonitorRow> log = rows(state.get("log"));
 			assertEquals(3, log.size());

@@ -137,7 +137,7 @@ public class TestGroupAddressCreation extends BasicTestCase {
 			viewAttribute(CREATE_VIEW, "execute-script", "function")));
 		TLObject created;
 		try (Transaction tx = kb().beginTransaction()) {
-			created = (TLObject) create.execute(next, "Probe", datapointType, middle);
+			created = (TLObject) asRoot(() -> create.execute(next, "Probe", datapointType, middle));
 			tx.commit();
 		}
 		assertSame(middle, created.tContainer());
@@ -174,7 +174,7 @@ public class TestGroupAddressCreation extends BasicTestCase {
 			viewAttribute(CONNECT_VIEW, "execute-script", "function")));
 		TLObject connection;
 		try (Transaction tx = kb().beginTransaction()) {
-			connection = (TLObject) connect.execute(tastsensor, taste1, kind, created);
+			connection = (TLObject) asRoot(() -> connect.execute(tastsensor, taste1, kind, created));
 			tx.commit();
 		}
 		assertSame(created, connection.tValueByName("target"));

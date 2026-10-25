@@ -283,7 +283,7 @@ public class TestDeviceChanges extends BasicTestCase {
 			viewAttribute(CONNECT_VIEW, "execute-script", "function", "deviceConnect")));
 		TLObject connection;
 		try (Transaction tx = kb().beginTransaction()) {
-			connection = (TLObject) connect.execute(device, placed, kind, address);
+			connection = (TLObject) asRoot(Locale.ENGLISH, () -> connect.execute(device, placed, kind, address));
 			tx.commit();
 		}
 		QueryExecutor entryConnections = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("items",
@@ -297,7 +297,7 @@ public class TestDeviceChanges extends BasicTestCase {
 		QueryExecutor remove = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("function",
 			viewAttribute(ITEM_VIEW, "execute-script", "function", "deviceDisconnect")));
 		try (Transaction tx = kb().beginTransaction()) {
-			remove.execute(connection);
+			asRoot(Locale.ENGLISH, () -> remove.execute(connection));
 			tx.commit();
 		}
 		assertFalse(connection.tValid());

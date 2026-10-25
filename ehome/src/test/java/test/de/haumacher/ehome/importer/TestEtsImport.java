@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import junit.framework.Test;
@@ -476,12 +477,12 @@ public class TestEtsImport extends BasicTestCase {
 		assertEquals(types.size(), Set.copyOf(types).size());
 
 		TLObject temperature = datapointType("DPST-9-1");
-		assertEquals("9.001", temperature.tValueByName("code"));
+		assertEquals("9.001", derived(temperature, "code"));
 		assertEquals("DPT_Value_Temp", temperature.tValueByName("name"));
-		assertEquals(16, temperature.tValueByName("sizeInBit"));
-		assertEquals("9.001 temperature (°C)", MetaLabelProvider.INSTANCE.getLabel(temperature));
+		assertEquals(16, derived(temperature, "sizeInBit"));
+		assertEquals("9.001 temperature (°C)", asRoot(() -> TLContext.getContext().withLocale(Locale.ENGLISH, () -> MetaLabelProvider.INSTANCE.getLabel(temperature))));
 		TLObject floats = datapointType("DPT-9");
-		assertEquals("9.*", floats.tValueByName("code"));
+		assertEquals("9.*", derived(floats, "code"));
 		assertEquals(datapointType("DPST-1-1"), datapointType("DPT-1").tValueByName("defaultSubtype"));
 
 		// The temperature object of the sample device has its datapoint type set in the project.
@@ -508,12 +509,20 @@ public class TestEtsImport extends BasicTestCase {
 	 * </p>
 	 */
 	public static Object derived(TLObject obj, String attribute) {
+		return asRoot(() -> obj.tValueByName(attribute));
+	}
+
+	/**
+	 * Computes the given value as <code>root</code>: derived attributes, and the labels computed
+	 * from them, read as <code>null</code> without a person.
+	 */
+	public static <T> T asRoot(Supplier<T> value) {
 		TLContext context = TLContext.getContext();
 		Person before = context.getPerson();
 		String contextId = context.getContextId();
 		context.setPerson(PersonManager.getManager().getRoot());
 		try {
-			return obj.tValueByName(attribute);
+			return value.get();
 		} finally {
 			context.setPerson(before);
 			if (before == null) {

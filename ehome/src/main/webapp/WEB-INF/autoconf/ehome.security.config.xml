@@ -194,7 +194,7 @@
 
 		<!--
 			The check covers the E-Home modules only: the modules of the engine have no complete access
-			definition of their own (8.0.0-alpha10), and E-Home neither shows nor grants their types to
+			definition of their own (8.0.0-alpha11), and E-Home neither shows nor grants their types to
 			its users (see doc/tl-todo.md, "Access coverage of engine modules").
 		-->
 		<config service-class="com.top_logic.element.boundsec.manager.coverage.SecurityCoverageCheck">

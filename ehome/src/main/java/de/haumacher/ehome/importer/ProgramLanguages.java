@@ -30,7 +30,7 @@ import com.top_logic.xio.importer.binding.ImportContext;
  * </p>
  *
  * <p>
- * A known program is skipped (see {@link UnlessKnown}), since it never changes under its ID; but ETS
+ * A known program is skipped (see {@link UnlessKnownProgram}), since it never changes under its ID; but ETS
  * writes a program in the language of the installation that exports it, so another file may bring
  * the same program in another language. The import adds the texts of the languages the stored
  * program lacks: from the attributes of the program's elements if the file's base language is one of

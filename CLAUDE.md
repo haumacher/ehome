@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-E-Home: a TopLogic (8.0.0-alpha10, Java 17) web app that imports KNX ETS projects (`.knxproj`) and discovers KNX gateways (Calimero). The app has its own version (`1.0.0-SNAPSHOT`), independent of the TopLogic version.
+E-Home: a TopLogic (8.0.0-alpha11, Java 17) web app that imports KNX ETS projects (`.knxproj`) and discovers KNX gateways (Calimero). The app has its own version (`1.0.0-SNAPSHOT`), independent of the TopLogic version.
 
 ## Modules
 

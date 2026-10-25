@@ -16,7 +16,6 @@ import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.logging.Level;
-import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
@@ -92,10 +91,7 @@ public class NamedValuesImport<C extends NamedValuesImport.Config<?>> extends Co
 			}
 		}
 		if (fields == 1 && enumeration) {
-			Locale locale = (Locale) context.getVarOrNull(I18NTexts.LANGUAGE_VAR);
-			if (locale == null) {
-				locale = ResourcesModule.getInstance().getFallbackLocale();
-			}
+			Locale locale = I18NTexts.language(context);
 			for (Entry entry : entries) {
 				importValue(context, subtype, entry, locale);
 			}

@@ -30,7 +30,7 @@ import com.top_logic.layout.view.form.SelectControlProvider;
  *
  * <p>
  * Workaround: the engine's {@link SelectControlProvider} always sorts the options by their labels
- * and has no setting to keep their order (8.0.0-alpha10, TL #29874, see <code>doc/tl-todo.md</code>).
+ * and has no setting to keep their order (8.0.0-alpha11, TL #29874, see <code>doc/tl-todo.md</code>).
  * </p>
  */
 public class OptionOrderSelectControlProvider extends SelectControlProvider {

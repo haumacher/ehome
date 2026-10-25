@@ -142,7 +142,7 @@ public class TestGroupAddressConnections extends BasicTestCase {
 			viewAttribute(CONNECT_VIEW, "execute-script", "function")));
 		TLObject connection;
 		try (Transaction tx = kb().beginTransaction()) {
-			connection = (TLObject) connect.execute(actuator, ga1, receive, channelA);
+			connection = (TLObject) asRoot(Locale.ENGLISH, () -> connect.execute(actuator, ga1, receive, channelA));
 			tx.commit();
 		}
 		List<Object> connected = children(children, project, ga1);

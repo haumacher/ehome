@@ -337,12 +337,13 @@ public class Importer {
 		Content content = new ClassRelativeBinaryContent(Importer.class, "etsImporter.xml");
 		reader.setSource(content);
 		ConfigurationItem config = reader.read();
-		Handler handler = (Handler) context.getInstance((PolymorphicConfiguration<?>) config);
+		Handler configured = (Handler) context.getInstance((PolymorphicConfiguration<?>) config);
 		context.checkErrors();
 		_binding.clearCreated();
+		// The parts of the existing application programs, asked after the shared objects of
+		// <resolve-existing> in etsImporter.xml.
 		SharedObjects shared = new SharedObjects(_binding);
-		shared.registerEagerly();
-		_binding.setLoader(shared::load);
+		Handler handler = (importContext, xml) -> importContext.withIdLookup(shared, xml, configured);
 		ZipInputStream zip = new ZipInputStream(in);
 		try (ImportContext importContext = new DefaultImportContext(
 			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)).tee(_messages), _binding)) {

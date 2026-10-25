@@ -173,7 +173,7 @@ public class TranslationsImport<C extends TranslationsImport.Config<?>> extends 
 	}
 
 	/**
-	 * Reads the element of a known application program (skipped by {@link UnlessKnown}) for its
+	 * Reads the element of a known application program (skipped by {@link UnlessKnownProgram}) for its
 	 * texts in the base language of the file, which the stored program lacks (haumacher/ehome #38).
 	 *
 	 * <p>
