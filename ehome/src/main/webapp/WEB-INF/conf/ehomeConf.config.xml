@@ -84,7 +84,6 @@
 					<method name="connectionDatapointType" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="deviceLabel" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="deviceObjects" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
-					<method name="existingObject" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<!-- The devices placed in the parts of a building (de.haumacher.ehome.programming.BuildingDevices): one builder, the function by its name. -->
 					<method name="buildingDevices" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
 					<method name="buildingConnections" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>

@@ -22,7 +22,7 @@
 			expr="d -> i -> if($d != null and $i != null and deviceObjects($d).containsElement($i), $i, null)"
 			inputs="device, selectedObject"
 		/>
-		<!-- The kind the user chose; empty for the default. -->
+		<!-- The kind the user chose; empty until the user chooses one, the kind is then the default of the object. -->
 		<channel name="chosenKind"/>
 		<derived-channel name="kind"
 			expr="k -> d -> i -> if($k != null, $k, if($i == null, null, deviceDefaultConnectionKind($d, $i)))"
@@ -114,6 +114,7 @@
 				</table>
 				<fields>
 					<value-input
+						mandatory="true"
 						type="ehome.physical:ConnectionType"
 						value="kind"
 					>

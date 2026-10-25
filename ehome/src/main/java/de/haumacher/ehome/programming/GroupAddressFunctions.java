@@ -75,11 +75,6 @@ public class GroupAddressFunctions extends GenericMethod {
 		deviceLabel(1, true),
 		/** <code>deviceObjects(device)</code>: {@link GroupAddressConnections#objects(TLObject)}. */
 		deviceObjects(1, true),
-		/**
-		 * <code>existingObject(value)</code>: the value, <code>null</code> for an object deleted
-		 * meanwhile (e.g. a selection whose object was deleted in another view).
-		 */
-		existingObject(1, true),
 		/** <code>groupAddressRanges(obj)</code>: {@link GroupAddresses#ranges(TLObject)}. */
 		groupAddressRanges(1, true),
 		/** <code>groupAddressParts(node)</code>: {@link GroupAddresses#parts(TLObject)}. */
@@ -175,8 +170,6 @@ public class GroupAddressFunctions extends GenericMethod {
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
 		switch (_function) {
-			case existingObject:
-				return arguments[0] instanceof TLObject obj && !obj.tValid() ? null : arguments[0];
 			case groupAddressCreate:
 				return GroupAddresses.create(object(arguments[0]), arguments[1],
 					arguments[2] == null ? null : arguments[2].toString(), object(arguments[3]));
@@ -240,7 +233,6 @@ public class GroupAddressFunctions extends GenericMethod {
 				return GroupAddressTypes.setType(obj, object(arguments[1]));
 			case groupAddressUntypedParts:
 				return GroupAddressTypes.untypedParts(obj);
-			case existingObject:
 			case groupAddressCreateProblem:
 			case groupAddressCreate:
 			case groupAddressHasType:

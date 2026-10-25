@@ -95,7 +95,7 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		QueryExecutor children = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("children",
 			viewScript(ADDRESSES_VIEW, "children")));
 		QueryExecutor label = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("label",
-			viewAttribute(ADDRESSES_VIEW, "nodeContent", "label")));
+			columnText(ADDRESSES_VIEW)));
 
 		// 0/0/1: the Tastsensor sends with its object 0.
 		List<Object> under1 = children(children, project, ga1);
@@ -109,8 +109,10 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		assertTrue(senderLabel, senderLabel.endsWith(" (1.3.50) · 0 Taste 1 · Senden"));
 		assertEquals(1, GroupAddressConnections.senders(ga1));
 		assertTrue(GroupAddressConnections.problems(ga1).toString(), GroupAddressConnections.problems(ga1).isEmpty());
-		// A range or an address has the label of its own, the device is no node any more.
-		assertNull(asRoot(Locale.GERMAN, () -> label.execute(ga1)));
+		// A range or an address is labelled by its name (its address has a column of its own), the device
+		// is no node any more.
+		String name = (String) ga1.tValueByName("name");
+		assertEquals(name == null || name.isEmpty() ? null : name, asRoot(Locale.GERMAN, () -> label.execute(ga1)));
 		assertTrue(children(children, project, sender).isEmpty());
 
 		// 0/0/34: the actuator sends with its object 0.
@@ -160,14 +162,11 @@ public class TestGroupAddressConnections extends BasicTestCase {
 
 		// Remove it with the operation of the view's command: the address and the image are as before.
 		QueryExecutor remove = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("function",
-			viewScript(ADDRESSES_VIEW, "function")));
-		Object selected;
+			scriptContaining(ADDRESSES_VIEW, "deviceDisconnect")));
 		try (Transaction tx = kb().beginTransaction()) {
-			// The result is filtered by the rights of the reading user.
-			selected = asRoot(Locale.ENGLISH, () -> remove.execute(ga1, connection));
+			asRoot(Locale.ENGLISH, () -> remove.execute(connection));
 			tx.commit();
 		}
-		assertSame(ga1, selected);
 		assertFalse(connection.tValid());
 		assertEquals(List.of(sender), children(children, project, ga1));
 		assertFalse(DeviceSettings.connections(actuator, channelA).stream().anyMatch(c -> c.tValueByName("target") == ga1));
@@ -263,6 +262,29 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		NodeList nodes = elements(file, element);
 		assertEquals(1, nodes.getLength());
 		return ((Element) nodes.item(0)).getAttribute(attribute);
+	}
+
+	/** The <code>text</code> function of the only <code>object-column</code> of the view. */
+	private static String columnText(String file) throws Exception {
+		NodeList columns = elements(file, "object-column");
+		assertEquals(1, columns.getLength());
+		NodeList texts = ((Element) columns.item(0)).getElementsByTagName("text");
+		assertEquals(1, texts.getLength());
+		return texts.item(0).getTextContent();
+	}
+
+	/** The only <code>function</code> of an <code>execute-script</code> of the view naming the given text. */
+	private static String scriptContaining(String file, String text) throws Exception {
+		NodeList scripts = elements(file, "execute-script");
+		List<String> result = new ArrayList<>();
+		for (int n = 0; n < scripts.getLength(); n++) {
+			String function = ((Element) scripts.item(n)).getAttribute("function");
+			if (function.contains(text)) {
+				result.add(function);
+			}
+		}
+		assertEquals(result.toString(), 1, result.size());
+		return result.get(0);
 	}
 
 	private static NodeList elements(String file, String element) throws Exception {

@@ -132,7 +132,8 @@
 							</with-transaction>
 						</generic-command>
 					</commands>
-					<tree
+					<!-- The topology with the columns of the classic tree grid (exported to Excel as an outline). -->
+					<export-tree-table
 						observed-types="ehome.physical:Area,ehome.physical:Line,ehome.physical:Device"
 						selection="selected"
 					>
@@ -152,11 +153,68 @@
     default: [];
 }]]></children>
 						<parents>p -> node -> $node.container()</parents>
-						<!-- A device changed since its last download is marked (it changes with every change of its configuration). -->
-						<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
-							css-class="x -> if($x.instanceOf(`ehome.physical:Device`) and deviceChanged($x, $x), 'ehomeChanged', null)"
-						/>
-					</tree>
+						<export download-name="p -> #('Devices of {0}'@en, 'Geräte von {0}'@de).fill($p.get(`ehome.project:Project#name`))">
+							<sheet-name>
+								<en>Devices</en>
+								<de>Geräte</de>
+							</sheet-name>
+						</export>
+						<columns>
+							<!-- A device changed since its last download is marked (it changes with every change of its configuration). -->
+							<object-column name="name"
+								css-class="x -> if($x.instanceOf(`ehome.physical:Device`) and deviceChanged($x, $x), 'ehomeChanged', null)"
+								width="260"
+							>
+								<label>
+									<en>Name</en>
+									<de>Name</de>
+								</label>
+								<value>x -> $x</value>
+							</object-column>
+							<computed-column name="extId"
+								type="tl.core:String"
+								width="160"
+							>
+								<label>
+									<en>External ID</en>
+									<de>Externe ID</de>
+								</label>
+								<value>x -> $x.get(`ehome.core:Externalized#extId`)</value>
+							</computed-column>
+							<!-- Where a device is placed in the building structure. -->
+							<computed-column name="location"
+								type="tl.core:String"
+								width="200"
+							>
+								<label>
+									<en>Location</en>
+									<de>Standort</de>
+								</label>
+								<value>x -> if($x.instanceOf(`ehome.physical:Device`), buildingPath($x.get(`ehome.physical:Device#location`)), null)</value>
+							</computed-column>
+							<!-- The individual address: area, area.line, area.line.device; the number alone of a device in no line. -->
+							<computed-column name="address"
+								type="tl.core:String"
+								width="100"
+							>
+								<label>
+									<en>Address</en>
+									<de>Adresse</de>
+								</label>
+								<value><![CDATA[x -> switch {
+    $x.instanceOf(`ehome.physical:Area`):
+        toString($x.get(`ehome.physical:Area#address`));
+    $x.instanceOf(`ehome.physical:Line`):
+        toString($x.container().get(`ehome.physical:Area#address`), ".", $x.get(`ehome.physical:Line#address`));
+    $x.instanceOf(`ehome.physical:Device`) and $x.container().instanceOf(`ehome.physical:Line`):
+        toString($x.container().container().get(`ehome.physical:Area#address`), ".", $x.container().get(`ehome.physical:Line#address`), ".", $x.get(`ehome.physical:Device#address`));
+    $x.instanceOf(`ehome.physical:Device`):
+        toString($x.get(`ehome.physical:Device#address`));
+    default: null;
+}]]></value>
+							</computed-column>
+						</columns>
+					</export-tree-table>
 				</panel>
 			</pane>
 			<pane

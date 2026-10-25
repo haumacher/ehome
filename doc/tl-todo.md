@@ -11,28 +11,73 @@ State of the upgrade to 8.0.0-alpha11 (2026-10-25): the fixes of TL #29798, #298
 in 8.0.0-alpha11; their workarounds stay until the next release. TL #29876, #29884, #29885, #29893,
 #29894 and #29899 are open.
 
-## Tree tables
+## A tree table has no Excel export (TL #29976)
 
-The classic UI showed the building structure, the group addresses, the devices and the catalogs as
-tree grids: a tree with columns (e.g. name, type, address, external ID) and inline editing.
+8.0.0-alpha11 brought `<tree-table>` and the Excel export of a table (`<export>`, `TableExportCommand`,
+`TableViewExcelExport`), but only `TableElement.Config` declares `<export>`: `TreeTableElement.Config`
+(through `AbstractTableElement.Config`) has none, and `TableExportCommand` configured as a command of
+its own is a configuration error, although the export writes a tree as an outline of the sheet.
+Reproduction: `<panel><tree-table root="..." children="..."><export/><columns>...</columns></tree-table></panel>`
+is rejected as an unknown property `export`.
 
-The view layer has no tree table: `<tree>` (`TreeElement`) shows one label per node, `<table>`
-(`TableElement`) has no tree mode (as of 8.0.0-alpha10 and tl-engine `master` of 2026-10-10). The
-views therefore show a tree plus a form for the selected node (`projects/buildings.view.xml`,
-`projects/addresses.view.xml`, `projects/devices.view.xml`, `catalogs.view.xml`).
+Workaround: `de.haumacher.ehome.view.ExportTreeTableElement` (`<export-tree-table>`), a `<tree-table>`
+with the `<export>` of a table: it contributes the engine's `TableExportCommand` over the view of the
+tree table to the toolbar of the panel around it, as `TableElement#contributeExportCommand` does. The
+structure tabs (`projects/buildings.view.xml`, `projects/addresses.view.xml`, `projects/devices.view.xml`)
+and the catalogs (`catalogs.view.xml`) use it.
 
-**When available:** replace the trees by tree tables with the columns of the classic grids
-(`name, tType, extId`; `name, address, extId`; `name, extId, location, address`;
-`name, sections, variants, extId`) and keep the detail form for the remaining attributes.
+**When available:** replace `<export-tree-table>` by `<tree-table>` and delete `ExportTreeTableElement`.
 
-## Excel export
+## A tree table has no node display of its own (TL #29977)
 
-The classic grids offered an Excel export (`StreamingExcelExportHandler`). The view layer has no
-export of a `<table>`/`<tree>` and no command that delivers a file to the browser (8.0.0-alpha10;
-`ReactDownloadControl` exists but no view element or action uses it).
+A `<tree>` shows a node by a `nodeContent` control provider (E-Home's `ScriptLabelControlProvider`: the
+icon of the object, a label and a CSS class computed by TL-Script). A `<tree-table>` has no such
+display: its first column shows a value by the type of the column alone (a reference by its own label
+and icon, a text without icon), no column declaration chooses a display control or a CSS class per
+cell (`Column#cssClass(row)` exists in the table API, but no declaration sets it), and the
+`row-class` of a `<table>` is not offered (`TreeTableElement` passes no row class to `createTable`).
+Reproduction: a `<tree-table>` over devices cannot show a device as "Taster (1.1.3)" with its icon,
+nor mark a changed device, other than through a text column without the icon.
 
-**When available:** add the export command to the trees/tables of the structure tabs and the
-catalogs.
+Workaround: `de.haumacher.ehome.view.ObjectColumn` (`<object-column>`), a `<computed-column>` that
+displays its value as the tree's node display did (`ReactResourceCellControl` with the
+`ScriptLabelControlProvider` resources: icon, the label of a `text` function, the class of a
+`css-class` function) and sorts, filters, searches and exports by that label. It is the first column
+of the four tree tables: the device label with the individual address in the building structure, the
+connection label and the mark of an address without a datapoint type (`ehomeUntyped`) in the group
+addresses, the mark of a changed device (`ehomeChanged`) in the topology.
+
+**When available** (a column with a display control, or a node display of the tree table): use it and
+delete `ObjectColumn`.
+
+## A tree table neither reveals its selection nor catches up after being hidden (TL #29978)
+
+Two differences of `<tree-table>` from `<tree>`, left visible (no workaround):
+
+- An object written to the selection channel below a collapsed node is selected but not shown: the
+  tree table does not expand its parents. Reproduction: in the building structure, select "Haus"
+  (collapsed), create a room under it with "Neu"; the dialog writes the room into `selected`, the
+  details show it, the tree table shows "Haus" still collapsed. The same holds for a new connection
+  from "Objekt verbinden" in the group addresses.
+- A tree table in a tab that is not shown misses the changes made meanwhile. Reproduction: in the
+  building structure place a device of the topology with "Gerät zuordnen", switch to the tab
+  "Geräte": the column "Standort" of that device is still empty (until the view is rebuilt).
+
+**When fixed:** check both scenarios; nothing to remove in E-Home.
+
+## Migrations of the application (TL #29979, #29980)
+
+The first migration of E-Home (`WEB-INF/kbase/migration/ehome/Ticket_29806_Dissolve_ehome_mask.migration.xml`,
+moving the root of the mask versions from `ehome.mask` into `ehome.operational`) needed two workarounds:
+
+- TL #29979: a migration module without a stored version in the database never runs; the automatic
+  model upgrade ran instead and replaced the singleton with an empty one. Workaround:
+  `minimum-modules="ehome"` in `WEB-INF/autoconf/ehome.migration.config.xml`.
+- TL #29980: `<update-class>` with a `new-name` in another module leaves the associations of the
+  class in the old module, so `<delete-module>` fails. Workaround: an `UPDATE META_ELEMENT` in
+  `Ticket_29806_Dissolve_ehome_mask_scripts/moveSingleton.h2.sql`.
+
+**When fixed:** nothing to undo in the shipped migration; a later migration needs neither workaround.
 
 ## Row activation button of tables (TL #29791)
 
@@ -183,14 +228,11 @@ Workaround: none for the structure tab (the toast is left visible). The types ta
 commands for a type that is no enumeration) instead of in a `<visible-if>`: there the failure also
 aborted the create command of a new type before its dialog closed.
 
-The connections table of a group address (`projects/addresses.view.xml`) failed the same way in
-the case of a selected address when a connection made by "Objekt verbinden" was selected (the
-toast also kept the dialog open). Workaround: the table sits in a panel of its own below the
-details, outside the switch over the selected node, and reads the address of the selection.
+The connections table of a group address (`projects/addresses.view.xml`), which failed the same
+way, is back in the case of an address since 8.0.0-alpha11 (TL #29580 shipped there).
 
 **When fixed:** put the entries panel of the types tab back into a `<visible-if>` on
-`selectedEnumeration`; the connections table of an address may move back into the case of an
-address.
+`selectedEnumeration`.
 
 ## Drag and drop in the structure tree of a program (TL #29776)
 
@@ -212,13 +254,15 @@ shows the radio buttons "Kein Wert", "Im ausgewählten Element (am Ende)", "Nach
 Element".
 
 Workaround: none needed beyond the channel: the position choice of
-`catalogs/create-structure.view.xml` and the direction of a connection in
-`projects/connect-group-address.view.xml` and the reference the changes of a device are compared
-with (tab "Geänderte Werte" of `projects/devices.view.xml`) are derived channels with a `reverse`,
-so choosing "no value" falls back to the default; the option stays visible. The value of a parameter in
-`projects/device-item.view.xml` treats an emptied input as the default.
+`catalogs/create-structure.view.xml` is a derived channel with a `reverse`, so choosing "no value"
+falls back to the default; the option stays visible. The value of a parameter in
+`projects/device-item.view.xml` treats an emptied input as the default. The direction of a
+connection (`projects/connect-group-address.view.xml`) and the reference the changes of a device are
+compared with (tab "Geänderte Werte", `projects/device-tabs.view.xml`) are mandatory since
+8.0.0-alpha11 (`mandatory="true"`, TL #29805 shipped there); their derived channels stay, since
+they compute the default from the device until the user chooses.
 
-**When available:** declare the position choice, the direction of a connection and the reference of the changes mandatory.
+**When available:** declare the position choice mandatory.
 
 ## A text or number input applies its value on Enter only (TL #29808)
 
@@ -248,19 +292,6 @@ virtual device (`ehome-virtual/src/main/webapp/WEB-INF/views/virtual/export-trac
 
 **When fixed:** remove the `<input-control>` from that `<value-input>`.
 
-## A tree keeps a deleted object in its selection (TL #29810)
-
-The selection channel of a `<tree>` still holds a node's object after that object was deleted in
-another view (a connection removed in the device view while selected in the group address tree),
-and every script over the selection fails with a `DeletedObjectAccess` toast until another node is
-selected; a `<table>` drops such a selection, a tree does not.
-
-Workaround: the TL-Script function `existingObject(x)` turns a deleted object into `null`; every
-reader of the tree selection in `projects/addresses.view.xml` goes through it, and the remove
-command selects the address before deleting its connection.
-
-**When available:** drop `existingObject` and read the selection directly.
-
 ## A `<button>` cannot be icon-only (TL #29811)
 
 `ButtonElement` renders its command with `ButtonDisplayMode.ICON_LABEL` unconditionally and the
@@ -284,21 +315,6 @@ without sorting; the row source then keeps the groups in the order of their firs
 
 **When available:** replace `<row-order-column>` by `<computed-column>` with the row-order option
 and delete `RowOrderColumn`.
-
-## A tree ignores updates of objects it does not display yet (TL #29813)
-
-`ObservableTreeModel` reconciles a `<tree>` on a create of an object of its `observed-types`, and
-on an update or delete of an object it displays; an update of an object it does not display is not
-observed, even where the tree's `parents` function would say where the object hangs now. In the
-building tree (`projects/buildings.view.xml`) a device placed in a part from the device view, or
-one placed nowhere before, changes only `ehome.physical:Device#location` of a device not yet in the
-tree: the device did not appear under its part until the view was opened again.
-
-Workaround: the derived channel `placements` (the locations of the project's devices, observing
-`ehome.physical:Device`) is an input of the tree, which is built anew (with its open nodes) when a
-device is placed or removed.
-
-**When fixed:** drop the `placements` channel and the tree input.
 
 ## A live source cannot push into a view (TL #29814)
 
@@ -461,10 +477,10 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29794 to #29797: shipped in 8.0.0-alpha11; #29794 and #29796 are undone, #29795 and #29797 in part,
   see above (XML import).
 - TL #29798: see above (derived references in the commit check).
-- TL #29580: see above (table in a switch case disposed during a channel change; fix with registration handles described there).
+- TL #29580: shipped in 8.0.0-alpha11; the connections table of an address is back in its case, see above for the types tab of the program view.
 - TL #29776: see above (drag and drop for trees; when available: replace the position choice and the
   move commands by the tree's drag and drop).
-- TL #29805: see above (mandatory `<value-input>`).
+- TL #29805: shipped in 8.0.0-alpha11; the direction of a connection and the reference of the changes are mandatory, see above for the position choice.
 - TL #29884, #29885: see above (access coverage of engine modules, hidden instead of disabled commands).
 - TL #29886: see above (line breaks in confirmations).
 - TL #29887, #29888, #29892: see above (suggestions and normalizing in text fields, leaving edit mode).
@@ -482,10 +498,10 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
   retargeted function roles of haumacher/ehome #61 were checked in the database instead). No workaround.
 - TL #29808: see above (apply on Enter only).
 - TL #29809: see above (binary value input; when fixed: drop the explicit input control of the export dialog).
-- TL #29810: see above (deleted object in a tree selection).
+- TL #29810: shipped in 8.0.0-alpha11; `existingObject` is gone, the views read the tree selection directly.
 - TL #29811: see above (icon-only buttons).
 - TL #29812: see above (groups in row order).
-- TL #29813: see above (tree updates for objects not displayed yet; when fixed: drop the `placements` input of the building tree).
+- TL #29813: shipped in 8.0.0-alpha11; the building structure places a device through `parents`, the `placements` input is gone.
 - TL #29814: see above (live source push).
 - TL #29815: see above (row CSS class).
 - TL #29816: see above (hidden computed column).
@@ -498,6 +514,8 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29883: see above (an unset boolean on stored and transient objects).
 - TL #29889 to #29891: see above (import performance: set additions, type lookups, defaults, reads, deletion).
 - TL #29973 to #29975: see above (XML import after alpha11: empty texts and a default language, attributes of a known element, a partitioned lookup).
+- TL #29976 to #29978: see above (tree tables: export, node display, revealing the selection and catching up).
+- TL #29979, #29980: see above (migrations of the application).
 
 ## No WebSocket in the development start (TL #29898)
 
