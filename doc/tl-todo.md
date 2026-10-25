@@ -80,7 +80,7 @@ version of the master data (`MasterData@Version`, variable `masterDataVersion`),
   Reproduction: `<set-translation name="text" xml-attribute="Text" language-var="language"
   fill-fallback="true"/>` on `<P Text=""/>` sets `text` to a literal key with `""`; outside a
   `<with-var>` it reports `ERROR_NO_LANGUAGE`. Workaround: `<i18n-property>` (`I18NPropertyImport`,
-  `I18NTexts#language`, `#set`). New TL ticket needed (an option to skip an empty value, a default
+  `I18NTexts#language`, `#set`). TL #29973 (an option to skip an empty value, a default
   language or a default value of `<with-var>`). **When available:** use `<set-translation>` there.
 - TL #29797 (shipped in part): the engine's `<unless-known>` skips a known element as a whole. A known
   application program must still get the texts of the languages it lacks (haumacher/ehome #38: ETS
@@ -91,14 +91,14 @@ version of the master data (`MasterData@Version`, variable `masterDataVersion`),
   its ID) without its structure, and a condition on the known object (the languages it records,
   `Program#languages`). Reproduction: a known object `I1` (texts in `de`) and the element
   `<Item Id="I1" DefaultLanguage="en-US" Name="..."/>`: `<unless-known id-attribute="Id">` skips it, so
-  `name@en` stays unset. New TL ticket needed. **When available:** replace `<unless-known-program>`.
+  `name@en` stays unset. TL #29974. **When available:** replace `<unless-known-program>`.
 - TL #29797 (shipped in part): `<resolve-existing>` indexes all its objects once per import, at the
   first ID it misses. The parts of the application programs (about ten thousand per program) are
   made known per program instead, when the import first asks for an ID within a program (their IDs
   start with the program's ID): `SharedObjects`, an `IdLookup` that `Importer` installs with
   `ImportContext#withIdLookup` outside the `<resolve-existing>` of `etsImporter.xml`. Missing in the
   engine: a lookup partitioned by a key (e.g. the prefix of an ID up to a separator) that loads one
-  partition on demand. **When available:** declare it in `etsImporter.xml`.
+  partition on demand (TL #29975). **When available:** declare it in `etsImporter.xml`.
 - TL #29797 (shipped in part): `<versioned-master-data>` (`VersionedMasterData`, `MasterDataUpdates`,
   `ObjectMerge`) imports a known mask version as a transient candidate
   (`JoiningModelBinding#setTransient`) and, at the end of the import, updates the known one in place
@@ -609,6 +609,7 @@ normalize in the fields and drop the `<save-action>` chains and `ruleNormalize`;
 - TL #29880 to #29882: see above (XML import: unknown elements, a second container, multi-value cases).
 - TL #29883: see above (an unset boolean on stored and transient objects).
 - TL #29889 to #29891: see above (import performance: set additions, type lookups, defaults, reads, deletion).
+- TL #29973 to #29975: see above (XML import after alpha11: empty texts and a default language, attributes of a known element, a partitioned lookup).
 
 ## The generator rewrites the header of hand-written wrappers (TL #29897)
 

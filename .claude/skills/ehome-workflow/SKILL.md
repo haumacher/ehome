@@ -213,7 +213,7 @@ delivery:
   give it a new ID and a name marking it as test data (as `TestDynamic` does), or the import
   skips the program as already known and the probe tests the old one.
 - **Re-import is a feature, not a bug.** Importing a project again into existing data must reuse
-  shared objects by `extId` (`Importer.registerSharedObjects`, `<unless-known>`). A probe that
+  shared objects by `extId` (`<resolve-existing>` in `etsImporter.xml`, `SharedObjects` for the parts of programs, `<unless-known-program>`). A probe that
   counts doubled catalog entries after two imports found a real p0; a probe that expects a second
   *project* object after importing the same file twice may be probing the design — read
   `doc/tl-todo.md` (TL #29797) before judging.
