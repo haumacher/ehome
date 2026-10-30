@@ -28,7 +28,7 @@
 		<channel name="project"/>
 		<channel name="selected"/>
 		<derived-channel name="selectedPart"
-			expr="n -> if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, null)"
+			expr="if($selected.instanceOf(`ehome.building:BuildingDefinition`), $selected, null)"
 			inputs="selected"
 		/>
 		<!-- The selected part, or the part the selected (KNX or Zigbee) device is placed in. -->
@@ -36,31 +36,31 @@
 			inputs="selected"
 			observed-types="ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
 		>
-			<expr><![CDATA[n -> switch {
-    $n.instanceOf(`ehome.physical:Device`): $n.get(`ehome.physical:Device#location`);
-    $n.instanceOf(`ehome.zigbee:ZigbeeDevice`): $n.get(`ehome.zigbee:ZigbeeDevice#location`);
-    $n.instanceOf(`ehome.building:BuildingDefinition`): $n;
+			<expr><![CDATA[switch {
+    $selected.instanceOf(`ehome.physical:Device`): $selected.get(`ehome.physical:Device#location`);
+    $selected.instanceOf(`ehome.zigbee:ZigbeeDevice`): $selected.get(`ehome.zigbee:ZigbeeDevice#location`);
+    $selected.instanceOf(`ehome.building:BuildingDefinition`): $selected;
     default: null;
 }]]></expr>
 		</derived-channel>
 		<!-- The selected Zigbee device node. -->
 		<derived-channel name="zigbeeDevice"
-			expr="n -> if($n.instanceOf(`ehome.zigbee:ZigbeeDevice`), $n, null)"
+			expr="if($selected.instanceOf(`ehome.zigbee:ZigbeeDevice`), $selected, null)"
 			inputs="selected"
 		/>
 		<!-- Where the selected Zigbee device node is placed, as the path of its building part. -->
 		<derived-channel name="zigbeeLocationPath"
-			expr="n -> if($n.instanceOf(`ehome.zigbee:ZigbeeDevice`), buildingPath($n.get(`ehome.zigbee:ZigbeeDevice#location`)), null)"
+			expr="if($selected.instanceOf(`ehome.zigbee:ZigbeeDevice`), buildingPath($selected.get(`ehome.zigbee:ZigbeeDevice#location`)), null)"
 			inputs="selected"
 			observed-types="ehome.zigbee:ZigbeeDevice,ehome.building:BuildingDefinition"
 		/>
 		<derived-channel name="partPath"
-			expr="p -> buildingPath($p)"
+			expr="buildingPath($part)"
 			inputs="part"
 			observed-types="ehome.building:BuildingDefinition"
 		/>
 		<derived-channel name="container"
-			expr="p -> x -> if($x != null, $x, $p)"
+			expr="if($part != null, $part, $project)"
 			inputs="project, part"
 		/>
 		<!-- The device selected in the table of the devices of the part. -->
@@ -70,20 +70,20 @@
 			inputs="selected, part, selectedRow"
 			observed-types="ehome.physical:Device"
 		>
-			<expr><![CDATA[n -> p -> r -> switch {
-    $n.instanceOf(`ehome.physical:Device`): $n;
-    $r != null and $p != null and buildingDevices($p).containsElement($r): $r;
+			<expr><![CDATA[switch {
+    $selected.instanceOf(`ehome.physical:Device`): $selected;
+    $selectedRow != null and $part != null and buildingDevices($part).containsElement($selectedRow): $selectedRow;
     default: null;
 }]]></expr>
 		</derived-channel>
 		<!-- Where the selected device node is placed, as the path of its building part. -->
 		<derived-channel name="locationPath"
-			expr="n -> if($n.instanceOf(`ehome.physical:Device`), buildingPath($n.get(`ehome.physical:Device#location`)), null)"
+			expr="if($selected.instanceOf(`ehome.physical:Device`), buildingPath($selected.get(`ehome.physical:Device#location`)), null)"
 			inputs="selected"
 			observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
 		/>
 		<derived-channel name="deviceText"
-			expr="d -> deviceLabel($d)"
+			expr="deviceLabel($device)"
 			inputs="device"
 			observed-types="ehome.physical:Device"
 		/>
@@ -107,246 +107,310 @@
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-building"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Building</en>
 								<de>Gebäude</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Building`)"/>
+								<disabled-if expr="buildingInsertVeto($container, `ehome.building:Building`)"/>
 							</executability>
-							<create-transient type="ehome.building:Building"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.building:Building">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="container"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-building-circle-arrow-right"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Building part</en>
 								<de>Gebäudeteil</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:BuildingPart`)"/>
+								<disabled-if expr="buildingInsertVeto($container, `ehome.building:BuildingPart`)"/>
 							</executability>
-							<create-transient type="ehome.building:BuildingPart"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.building:BuildingPart">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="container"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-layer-group"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Floor</en>
 								<de>Etage</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Floor`)"/>
+								<disabled-if expr="buildingInsertVeto($container, `ehome.building:Floor`)"/>
 							</executability>
-							<create-transient type="ehome.building:Floor"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.building:Floor">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="container"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-door-open"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Room</en>
 								<de>Raum</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Room`)"/>
+								<disabled-if expr="buildingInsertVeto($container, `ehome.building:Room`)"/>
 							</executability>
-							<create-transient type="ehome.building:Room"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.building:Room">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="container"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-arrows-left-right"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Corridor</en>
 								<de>Flur</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Corridor`)"/>
+								<disabled-if expr="buildingInsertVeto($container, `ehome.building:Corridor`)"/>
 							</executability>
-							<create-transient type="ehome.building:Corridor"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.building:Corridor">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="container"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-stairs"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Stairway</en>
 								<de>Treppenhaus</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Stairway`)"/>
+								<disabled-if expr="buildingInsertVeto($container, `ehome.building:Stairway`)"/>
 							</executability>
-							<create-transient type="ehome.building:Stairway"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.building:Stairway">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="container"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-plug"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Distribution board</en>
 								<de>Verteiler</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:DistributionBoard`)"/>
+								<disabled-if expr="buildingInsertVeto($container, `ehome.building:DistributionBoard`)"/>
 							</executability>
-							<create-transient type="ehome.building:DistributionBoard"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.building:DistributionBoard">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="container"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-location-dot"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Location</en>
 								<de>Ort</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="c -> buildingInsertVeto($c, `ehome.building:Location`)"/>
+								<disabled-if expr="buildingInsertVeto($container, `ehome.building:Location`)"/>
 							</executability>
-							<create-transient type="ehome.building:Location"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.building:Location">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="container"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							input="selectedPart"
+							inputs="selectedPart"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -356,21 +420,26 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="n -> #('Delete {0}?'@en, '{0} löschen?'@de).fill($n.label())"/>
+							<confirm expr="#('Delete {0}?'@en, '{0} löschen?'@de).fill($selectedPart.label())"/>
 							<delete-object/>
-							<write-channel name="selected"/>
+							<write-channel name="selected" clear="true"/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-box-arrow-in-down-right"
-							input="part"
+							inputs="part"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Place a device</en>
 								<de>Gerät zuordnen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$part"
+									type="ehome.building:BuildingDefinition"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -385,35 +454,42 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-box-arrow-up-left"
-							input="device"
+							inputs="device"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Remove the placement</en>
 								<de>Zuordnung entfernen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$device"
+									type="ehome.physical:Device"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="d -> #('Remove {0} from {1}?'@en, '{0} aus {1} entfernen?'@de).fill(deviceLabel($d), buildingPath($d.get(`ehome.physical:Device#location`)))"/>
+							<confirm expr="#('Remove {0} from {1}?'@en, '{0} aus {1} entfernen?'@de).fill(deviceLabel($device), buildingPath($device.get(`ehome.physical:Device#location`)))"/>
 							<with-transaction>
 								<!-- The part the device was placed in is selected afterwards. -->
 								<execute-script>
-									<function><![CDATA[p -> d -> {
-    buildingPlace($d, null);
-    $p
+									<function><![CDATA[{
+    buildingPlace($device, null);
+    $part
 }]]></function>
 									<inputs>
 										<input channel="part"/>
 									</inputs>
 								</execute-script>
+								<with-result>
+									<write-channel name="selected"/>
+								</with-result>
 							</with-transaction>
-							<write-channel name="selected"/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-box-arrow-up-right"
-							input="device"
+							inputs="device"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -424,12 +500,12 @@
 								<null-input-disabled/>
 							</executability>
 							<show-views>
-								<show view="projects/project.view.xml"
-									label-expr="d -> recursion($d, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+								<show frame="project"
+									label-expr="recursion($device, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
 								>
 									<bind
 										channel="project"
-										expr="d -> recursion($d, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+										expr="recursion($device, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
 									/>
 								</show>
 								<show view="projects/devices.view.xml">
@@ -439,7 +515,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-box-arrow-up-right"
-							input="zigbeeDevice"
+							inputs="zigbeeDevice"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -450,12 +526,12 @@
 								<null-input-disabled/>
 							</executability>
 							<show-views>
-								<show view="projects/project.view.xml"
-									label-expr="d -> $d.container().get(`ehome.project:Project#name`)"
+								<show frame="project"
+									label-expr="$zigbeeDevice.container().get(`ehome.project:Project#name`)"
 								>
 									<bind
 										channel="project"
-										expr="d -> $d.container()"
+										expr="$zigbeeDevice.container()"
 									/>
 								</show>
 								<show view="projects/zigbee.view.xml">
@@ -469,15 +545,15 @@
 						a placed device is labelled with its individual address. A device placed in a part from
 						elsewhere (the device view, the Zigbee tab) is placed in the tree through "parents".
 					-->
-					<export-tree-table
+					<tree-table
 						observed-types="ehome.building:BuildingDefinition,ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
 						selection="selected"
 					>
 						<inputs>
 							<input channel="project"/>
 						</inputs>
-						<root>p -> $p</root>
-						<children><![CDATA[p -> node -> switch {
+						<root>$project</root>
+						<children><![CDATA[switch {
     $node.instanceOf(`ehome.project:Project`):
         $node.get(`ehome.project:Project#buildings`);
     $node.instanceOf(`ehome.building:BuildingDefinition`):
@@ -487,28 +563,30 @@
             $node.get(`ehome.building:BuildingDefinition#zigbeeDevices`).sort(a -> b -> compare($a.get(`ehome.zigbee:ZigbeeDevice#name`), $b.get(`ehome.zigbee:ZigbeeDevice#name`))));
     default: [];
 }]]></children>
-						<parents><![CDATA[p -> node -> switch {
+						<parents><![CDATA[switch {
     $node.instanceOf(`ehome.physical:Device`): $node.get(`ehome.physical:Device#location`);
     $node.instanceOf(`ehome.zigbee:ZigbeeDevice`): $node.get(`ehome.zigbee:ZigbeeDevice#location`);
     default: $node.container();
 }]]></parents>
-						<export download-name="p -> #('Buildings of {0}'@en, 'Gebäude von {0}'@de).fill($p.get(`ehome.project:Project#name`))">
+						<export download-name="#('Buildings of {0}'@en, 'Gebäude von {0}'@de).fill($project.get(`ehome.project:Project#name`))">
 							<sheet-name>
 								<en>Buildings</en>
 								<de>Gebäude</de>
 							</sheet-name>
 						</export>
 						<columns>
-							<object-column name="name"
-								text="x -> if($x.instanceOf(`ehome.physical:Device`), deviceLabel($x), null)"
+							<computed-column name="name"
 								width="280"
 							>
 								<label>
 									<en>Name</en>
 									<de>Name</de>
 								</label>
-								<value>x -> $x</value>
-							</object-column>
+								<value>$row</value>
+								<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"
+									label="if($value.instanceOf(`ehome.physical:Device`), deviceLabel($value), null)"
+								/>
+							</computed-column>
 							<computed-column name="type"
 								width="140"
 							>
@@ -516,7 +594,7 @@
 									<en>Type</en>
 									<de>Typ</de>
 								</label>
-								<value>x -> $x.type()</value>
+								<value>$row.type()</value>
 							</computed-column>
 							<computed-column name="extId"
 								type="tl.core:String"
@@ -526,10 +604,10 @@
 									<en>External ID</en>
 									<de>Externe ID</de>
 								</label>
-								<value>x -> if($x.instanceOf(`ehome.core:Externalized`), $x.get(`ehome.core:Externalized#extId`), null)</value>
+								<value>if($row.instanceOf(`ehome.core:Externalized`), $row.get(`ehome.core:Externalized#extId`), null)</value>
 							</computed-column>
 						</columns>
-					</export-tree-table>
+					</tree-table>
 				</panel>
 			</pane>
 			<pane
@@ -556,7 +634,7 @@
 									<de>Details</de>
 								</title>
 								<switch input="selected">
-									<case test="n -> $n.instanceOf(`ehome.building:BuildingDefinition`)">
+									<case test="$selected.instanceOf(`ehome.building:BuildingDefinition`)">
 										<stack>
 											<inset>
 												<text
@@ -573,7 +651,7 @@
 											</form>
 										</stack>
 									</case>
-									<case test="n -> $n.instanceOf(`ehome.physical:Device`)">
+									<case test="$selected.instanceOf(`ehome.physical:Device`)">
 										<!-- A placed device; it is configured in the device view ("Go to the device"). -->
 										<stack>
 											<inset>
@@ -604,7 +682,7 @@
 											</form>
 										</stack>
 									</case>
-									<case test="n -> $n.instanceOf(`ehome.zigbee:ZigbeeDevice`)">
+									<case test="$selected.instanceOf(`ehome.zigbee:ZigbeeDevice`)">
 										<!-- A placed Zigbee device; it is named, placed and bound in the Zigbee tab ("Go to the Zigbee device"). -->
 										<form
 											input="selected"
@@ -665,7 +743,7 @@
 															<en>Device</en>
 															<de>Gerät</de>
 														</label>
-														<value>d -> deviceLabel($d)</value>
+														<value>deviceLabel($row)</value>
 													</computed-column>
 													<column attribute="type"
 														width="260"
@@ -674,7 +752,7 @@
 														width="200"
 													/>
 												</columns>
-												<rows>p -> if($p == null, [], buildingDevices($p))</rows>
+												<rows>if($part == null, [], buildingDevices($part))</rows>
 											</table>
 										</tab>
 										<tab id="zigbeeDevices"
@@ -705,7 +783,7 @@
 														width="160"
 													/>
 												</columns>
-												<rows>p -> if($p == null, [], $p.get(`ehome.building:BuildingDefinition#zigbeeDevices`).sort(a -> b -> compare($a.get(`ehome.zigbee:ZigbeeDevice#name`), $b.get(`ehome.zigbee:ZigbeeDevice#name`))))</rows>
+												<rows>if($part == null, [], $part.get(`ehome.building:BuildingDefinition#zigbeeDevices`).sort(a -> b -> compare($a.get(`ehome.zigbee:ZigbeeDevice#name`), $b.get(`ehome.zigbee:ZigbeeDevice#name`))))</rows>
 											</table>
 										</tab>
 										<tab id="addresses"
@@ -743,7 +821,7 @@
 															<en>Device</en>
 															<de>Gerät</de>
 														</label>
-														<value>c -> deviceLabel(connectionDevice($c))</value>
+														<value>deviceLabel(connectionDevice($row))</value>
 													</computed-column>
 													<computed-column name="number"
 														type="tl.core:Integer"
@@ -753,7 +831,7 @@
 															<en>No.</en>
 															<de>Nr.</de>
 														</label>
-														<value>c -> connectionObject($c).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
+														<value>connectionObject($row).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
 													</computed-column>
 													<computed-column name="object"
 														type="tl.core:String"
@@ -763,7 +841,7 @@
 															<en>Object</en>
 															<de>Objekt</de>
 														</label>
-														<value>c -> connectionObject($c).get(`ehome.operational:Interface#displayName`)</value>
+														<value>connectionObject($row).get(`ehome.operational:Interface#displayName`)</value>
 													</computed-column>
 													<column attribute="kind"
 														width="130"
@@ -781,10 +859,10 @@
 															<en>Placed in</en>
 															<de>Platziert in</de>
 														</label>
-														<value>c -> buildingPath(connectionDevice($c).get(`ehome.physical:Device#location`))</value>
+														<value>buildingPath(connectionDevice($row).get(`ehome.physical:Device#location`))</value>
 													</computed-column>
 												</columns>
-												<rows>p -> if($p == null, [], buildingConnections($p))</rows>
+												<rows>if($part == null, [], buildingConnections($part))</rows>
 											</table>
 										</tab>
 									</tabs>

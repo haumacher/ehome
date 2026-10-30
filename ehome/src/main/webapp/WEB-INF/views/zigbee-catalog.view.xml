@@ -24,7 +24,7 @@
 	<channels>
 		<channel name="selected"/>
 		<derived-channel name="catalog"
-			expr="x -> `ehome.zigbee.catalog#ROOT`"
+			expr="`ehome.zigbee.catalog#ROOT`"
 			inputs="selected"
 		/>
 	</channels>
@@ -46,36 +46,44 @@
 					<commands>
 						<generic-command
 							image="css:bi bi-plus-lg"
-							input="catalog"
+							inputs="catalog"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>New device type</en>
 								<de>Neuer Gerätetyp</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$catalog"
+									type="ehome.zigbee.catalog:ZigbeeCatalog"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-transient type="ehome.zigbee.catalog:ZigbeeDeviceType"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="zigbee-catalog/create-type.view.xml"
-							>
-								<bind
-									channel="catalog"
-									to="catalog"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.zigbee.catalog:ZigbeeDeviceType">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="zigbee-catalog/create-type.view.xml"
+									>
+										<bind
+											channel="catalog"
+											to="catalog"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<upload-command
 							accept=".json,application/json"
 							image="css:fa-solid fa-upload"
-							input="catalog"
+							inputs="catalog"
 							multiple="false"
 							placement="TOOLBAR"
 						>
@@ -83,26 +91,33 @@
 								<en>Import</en>
 								<de>Importieren</de>
 							</label>
-							<executability>
+							<access>
 								<!-- The import is Java, which the model access check does not cover. -->
-								<model-access operation="Write"/>
+								<operation name="Write"
+									object="$catalog"
+									type="ehome.zigbee.catalog:ZigbeeCatalog"
+								/>
+							</access>
+							<executability>
 								<null-input-disabled/>
 							</executability>
 							<with-transaction>
-								<execute-script function="c -> file -> zigbeeCatalogImport($c, $file)">
+								<execute-script function="zigbeeCatalogImport($catalog, $file)">
 									<inputs>
 										<input channel="catalog"/>
 									</inputs>
 								</execute-script>
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
 							</with-transaction>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
 						</upload-command>
 						<generic-command
 							image="css:fa-solid fa-download"
-							input="selected"
+							inputs="selected"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -112,15 +127,18 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<execute-script function="t -> zigbeeCatalogExport($t)"/>
-							<open-dialog
-								bind-input-to="file"
-								dialog-view="zigbee-catalog/export.view.xml"
-							/>
+							<execute-script function="zigbeeCatalogExport($selected)">
+								<with-result>
+									<open-dialog
+										bind-input-to="file"
+										dialog-view="zigbee-catalog/export.view.xml"
+									/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-box-arrow-down"
-							input="catalog"
+							inputs="catalog"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -130,15 +148,18 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<execute-script function="c -> zigbeeCatalogExport($c.get(`ehome.zigbee.catalog:ZigbeeCatalog#types`))"/>
-							<open-dialog
-								bind-input-to="file"
-								dialog-view="zigbee-catalog/export.view.xml"
-							/>
+							<execute-script function="zigbeeCatalogExport($catalog.get(`ehome.zigbee.catalog:ZigbeeCatalog#types`))">
+								<with-result>
+									<open-dialog
+										bind-input-to="file"
+										dialog-view="zigbee-catalog/export.view.xml"
+									/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							input="selected"
+							inputs="selected"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -148,9 +169,9 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="t -> #('Delete the device type {0}? Devices of its manufacturer and model are shown without a type again; datapoints created from it stay.'@en, 'Den Gerätetyp {0} löschen? Geräte seines Herstellers und Modells werden wieder ohne Typ angezeigt; aus ihm angelegte Datenpunkte bleiben.'@de).fill($t.get(`ehome.zigbee.catalog:ZigbeeDeviceType#name`))"/>
+							<confirm expr="#('Delete the device type {0}? Devices of its manufacturer and model are shown without a type again; datapoints created from it stay.'@en, 'Den Gerätetyp {0} löschen? Geräte seines Herstellers und Modells werden wieder ohne Typ angezeigt; aus ihm angelegte Datenpunkte bleiben.'@de).fill($selected.get(`ehome.zigbee.catalog:ZigbeeDeviceType#name`))"/>
 							<delete-object/>
-							<write-channel name="selected"/>
+							<write-channel name="selected" clear="true"/>
 						</generic-command>
 					</commands>
 					<table
@@ -166,7 +187,7 @@
 							<column attribute="manufacturer"/>
 							<column attribute="model"/>
 						</columns>
-						<rows>c -> if($c == null, [], $c.get(`ehome.zigbee.catalog:ZigbeeCatalog#types`))</rows>
+						<rows>if($catalog == null, [], $catalog.get(`ehome.zigbee.catalog:ZigbeeCatalog#types`))</rows>
 					</table>
 				</panel>
 			</pane>

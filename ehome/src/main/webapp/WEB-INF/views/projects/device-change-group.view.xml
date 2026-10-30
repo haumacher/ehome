@@ -12,7 +12,7 @@
 		<channel name="device"/>
 		<channel name="group"/>
 		<derived-channel name="title"
-			expr="g -> $g['title']"
+			expr="$group['title']"
 			inputs="group"
 		/>
 	</channels>
@@ -26,7 +26,7 @@
 			element-channel="item"
 			gap="compact"
 			inputs="group"
-			items="g -> $g['items']"
+			items="$group['items']"
 		>
 			<item>
 				<view-ref view="projects/device-item.view.xml">

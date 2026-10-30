@@ -32,6 +32,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.view.channel.ViewScripts;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.ExprFormat;
@@ -92,10 +93,10 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		TLObject ga1 = groupAddress(tastsensor, 1);
 		TLObject ga34 = groupAddress(tastsensor, 34);
 
-		QueryExecutor children = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("children",
-			viewScript(ADDRESSES_VIEW, "children")));
-		QueryExecutor label = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("label",
-			columnText(ADDRESSES_VIEW)));
+		QueryExecutor children = ViewScripts.compile(ExprFormat.INSTANCE.getValue("children",
+			viewScript(ADDRESSES_VIEW, "children")), List.of("project", "untypedOnly", "node"));
+		QueryExecutor label = ViewScripts.compile(ExprFormat.INSTANCE.getValue("label",
+			columnText(ADDRESSES_VIEW)), List.of("value"));
 
 		// 0/0/1: the Tastsensor sends with its object 0.
 		List<Object> under1 = children(children, project, ga1);
@@ -140,8 +141,8 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		int originalAssociations = originalImage.getAssociationTable().data()[0] & 0xFF;
 		TLClassifier receive = DeviceSettings.defaultKind(actuator, channelA);
 		assertEquals("receive", receive.getName());
-		QueryExecutor connect = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("function",
-			viewAttribute(CONNECT_VIEW, "execute-script", "function")));
+		QueryExecutor connect = ViewScripts.compile(ExprFormat.INSTANCE.getValue("function",
+			viewAttribute(CONNECT_VIEW, "execute-script", "function")), List.of("device", "address", "kind", "interface"));
 		TLObject connection;
 		try (Transaction tx = kb().beginTransaction()) {
 			connection = (TLObject) asRoot(Locale.ENGLISH, () -> connect.execute(actuator, ga1, receive, channelA));
@@ -161,8 +162,8 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		assertTrue(association(wired.getAssociationTable(), 0, groupAddressIndex(wired.getAddressTable(), 1)));
 
 		// Remove it with the operation of the view's command: the address and the image are as before.
-		QueryExecutor remove = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("function",
-			scriptContaining(ADDRESSES_VIEW, "deviceDisconnect")));
+		QueryExecutor remove = ViewScripts.compile(ExprFormat.INSTANCE.getValue("function",
+			scriptContaining(ADDRESSES_VIEW, "deviceDisconnect")), List.of("connection"));
 		try (Transaction tx = kb().beginTransaction()) {
 			asRoot(Locale.ENGLISH, () -> remove.execute(connection));
 			tx.commit();
@@ -264,11 +265,11 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		return ((Element) nodes.item(0)).getAttribute(attribute);
 	}
 
-	/** The <code>text</code> function of the only <code>object-column</code> of the view. */
+	/** The <code>label</code> script of the only cell <code>display</code> of the view. */
 	private static String columnText(String file) throws Exception {
-		NodeList columns = elements(file, "object-column");
-		assertEquals(1, columns.getLength());
-		NodeList texts = ((Element) columns.item(0)).getElementsByTagName("text");
+		NodeList displays = elements(file, "display");
+		assertEquals(1, displays.getLength());
+		NodeList texts = ((Element) displays.item(0)).getElementsByTagName("label");
 		assertEquals(1, texts.getLength());
 		return texts.item(0).getTextContent();
 	}

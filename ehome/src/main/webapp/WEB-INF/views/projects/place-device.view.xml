@@ -18,10 +18,10 @@
 		<derived-channel name="hint"
 			inputs="part"
 		>
-			<expr><![CDATA[p -> if(buildingDeviceChoices($p).isEmpty(),
+			<expr><![CDATA[if(buildingDeviceChoices($part).isEmpty(),
     #("The project has no device that is not placed in {0} already."@en, "Das Projekt hat kein Gerät, das nicht schon in {0} platziert ist."@de),
     #("Place a device in {0}. A device placed elsewhere moves here."@en, "Ein Gerät in {0} platzieren. Ein anderswo platziertes Gerät wird hierher verschoben."@de))
-    .fill(buildingPath($p)).localize()]]></expr>
+    .fill(buildingPath($part)).localize()]]></expr>
 		</derived-channel>
 	</channels>
 	<window width="760px">
@@ -51,7 +51,7 @@
 								<en>Device</en>
 								<de>Gerät</de>
 							</label>
-							<value>d -> deviceLabel($d)</value>
+							<value>deviceLabel($row)</value>
 						</computed-column>
 						<computed-column name="location"
 							type="tl.core:String"
@@ -61,13 +61,13 @@
 								<en>Placed in</en>
 								<de>Platziert in</de>
 							</label>
-							<value>d -> buildingPath($d.get(`ehome.physical:Device#location`))</value>
+							<value>buildingPath($row.get(`ehome.physical:Device#location`))</value>
 						</computed-column>
 						<column attribute="type"
 							width="200"
 						/>
 					</columns>
-					<rows>p -> buildingDeviceChoices($p)</rows>
+					<rows>buildingDeviceChoices($part)</rows>
 				</table>
 			</stack>
 		</inset>
@@ -75,7 +75,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-box-arrow-in-down-right"
-					input="chosen"
+					inputs="chosen"
 				>
 					<label>
 						<en>Place</en>
@@ -85,14 +85,16 @@
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="p -> d -> buildingPlace($d, $p)">
+						<execute-script function="buildingPlace($chosen, $part)">
 							<inputs>
 								<input channel="part"/>
 							</inputs>
 						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

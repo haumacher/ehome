@@ -12,6 +12,7 @@ import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 
 /**
@@ -29,7 +30,7 @@ public class DeployRuntimeImageAction implements ViewAction {
 	 * Configuration of {@link DeployRuntimeImageAction}.
 	 */
 	@TagName("deploy-runtime-image")
-	public interface Config extends PolymorphicConfiguration<DeployRuntimeImageAction> {
+	public interface Config extends PolymorphicConfiguration<DeployRuntimeImageAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(DeployRuntimeImageAction.class)

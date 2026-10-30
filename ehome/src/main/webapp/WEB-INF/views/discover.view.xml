@@ -30,7 +30,7 @@
 					<en>Search</en>
 					<de>Suchen</de>
 				</label>
-				<execute-script function='networkInterface -> localHost -> useNat -> noMulticast -> x -> {
+				<execute-script function='{
 	"interface": $networkInterface,
 	"local-host": $localHost,
 	"use-nat": $useNat == true,
@@ -42,12 +42,17 @@
 						<input channel="useNat"/>
 						<input channel="noMulticast"/>
 					</inputs>
+					<with-result>
+						<discover-knx-gateways>
+							<with-result as="rows">
+								<write-channel name="gateways"/>
+								<notify expr="if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
+									kind="warning"
+								/>
+							</with-result>
+						</discover-knx-gateways>
+					</with-result>
 				</execute-script>
-				<discover-knx-gateways/>
-				<write-channel name="gateways"/>
-				<notify expr="rows -> if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
-					kind="warning"
-				/>
 			</generic-command>
 		</commands>
 		<fields with-inset="true">
@@ -62,7 +67,7 @@
 			</value-input>
 			<value-input
 				inputs="networkInterface"
-				options="networkInterface -> knxNetworkInterfaces(if($networkInterface == null, '', $networkInterface))"
+				options="knxNetworkInterfaces(if($networkInterface == null, '', $networkInterface))"
 				value="localHost"
 			>
 				<label>
@@ -101,7 +106,7 @@
 						<en>Name</en>
 						<de>Name</de>
 					</label>
-					<value>row -> $row["name"]</value>
+					<value>$row["name"]</value>
 				</computed-column>
 				<computed-column name="address"
 					type="tl.core:String"
@@ -110,7 +115,7 @@
 						<en>Individual address</en>
 						<de>Physikalische Adresse</de>
 					</label>
-					<value>row -> $row["address"]</value>
+					<value>$row["address"]</value>
 				</computed-column>
 				<computed-column name="endpoint"
 					type="tl.core:String"
@@ -119,7 +124,7 @@
 						<en>Control endpoint</en>
 						<de>Steuerungs-Endpunkt</de>
 					</label>
-					<value>row -> $row["endpoint"]</value>
+					<value>$row["endpoint"]</value>
 				</computed-column>
 				<computed-column name="mac"
 					type="tl.core:String"
@@ -128,7 +133,7 @@
 						<en>MAC address</en>
 						<de>MAC-Adresse</de>
 					</label>
-					<value>row -> $row["mac"]</value>
+					<value>$row["mac"]</value>
 				</computed-column>
 				<computed-column name="serial"
 					type="tl.core:String"
@@ -137,7 +142,7 @@
 						<en>Serial number</en>
 						<de>Seriennummer</de>
 					</label>
-					<value>row -> $row["serial"]</value>
+					<value>$row["serial"]</value>
 				</computed-column>
 				<computed-column name="medium"
 					type="tl.core:String"
@@ -146,10 +151,10 @@
 						<en>Medium</en>
 						<de>Medium</de>
 					</label>
-					<value>row -> $row["medium"]</value>
+					<value>$row["medium"]</value>
 				</computed-column>
 			</columns>
-			<rows>gateways -> if($gateways == null, [], $gateways)</rows>
+			<rows>if($gateways == null, [], $gateways)</rows>
 		</table>
 	</panel>
 </view>

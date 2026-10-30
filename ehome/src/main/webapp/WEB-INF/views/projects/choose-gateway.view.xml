@@ -15,7 +15,7 @@
 		<channel name="selectedGateway"/>
 		<channel name="address"/>
 		<derived-channel name="current"
-			expr='p -> #("Current gateway: {0}"@en, "Aktuelles Gateway: {0}"@de).fill(if($p.get(`ehome.project:Project#gateway`) == null, "-", $p.get(`ehome.project:Project#gateway`))).localize()'
+			expr='#("Current gateway: {0}"@en, "Aktuelles Gateway: {0}"@de).fill(if($project.get(`ehome.project:Project#gateway`) == null, "-", $project.get(`ehome.project:Project#gateway`))).localize()'
 			inputs="project"
 		/>
 	</channels>
@@ -37,11 +37,14 @@
 							<en>Search gateways</en>
 							<de>Gateways suchen</de>
 						</label>
-						<discover-knx-gateways/>
-						<write-channel name="gateways"/>
-						<notify expr="rows -> if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
-							kind="warning"
-						/>
+						<discover-knx-gateways>
+							<with-result as="rows">
+								<write-channel name="gateways"/>
+								<notify expr="if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
+									kind="warning"
+								/>
+							</with-result>
+						</discover-knx-gateways>
 					</action>
 				</button>
 				<fields>
@@ -67,7 +70,7 @@
 								<en>Name</en>
 								<de>Name</de>
 							</label>
-							<value>row -> $row["name"]</value>
+							<value>$row["name"]</value>
 						</computed-column>
 						<computed-column name="endpoint"
 							type="tl.core:String"
@@ -76,7 +79,7 @@
 								<en>Control endpoint</en>
 								<de>Steuerungs-Endpunkt</de>
 							</label>
-							<value>row -> $row["endpoint"]</value>
+							<value>$row["endpoint"]</value>
 						</computed-column>
 						<computed-column name="address"
 							type="tl.core:String"
@@ -85,7 +88,7 @@
 								<en>Individual address</en>
 								<de>Physikalische Adresse</de>
 							</label>
-							<value>row -> $row["address"]</value>
+							<value>$row["address"]</value>
 						</computed-column>
 						<computed-column name="mac"
 							type="tl.core:String"
@@ -94,10 +97,10 @@
 								<en>MAC address</en>
 								<de>MAC-Adresse</de>
 							</label>
-							<value>row -> $row["mac"]</value>
+							<value>$row["mac"]</value>
 						</computed-column>
 					</columns>
-					<rows>gateways -> if($gateways == null, [], $gateways)</rows>
+					<rows>if($gateways == null, [], $gateways)</rows>
 				</table>
 			</stack>
 		</inset>
@@ -105,7 +108,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-check-lg"
-					input="project"
+					inputs="project"
 				>
 					<label>
 						<en>Use</en>
@@ -116,11 +119,11 @@
 					</executability>
 					<with-transaction>
 						<execute-script>
-							<function><![CDATA[a -> g -> p -> {
-    gateway = if($a != null and $a.trim() != "", $a.trim(), if($g == null, null, $g["endpoint"]));
+							<function><![CDATA[{
+    gateway = if($address != null and $address.trim() != "", $address.trim(), if($selectedGateway == null, null, $selectedGateway["endpoint"]));
     if($gateway == null,
         throw(#("Enter an address or choose a gateway the search found."@en, "Bitte eine Adresse eingeben oder ein gefundenes Gateway wählen."@de)),
-        $p.set(`ehome.project:Project#gateway`, $gateway));
+        $project.set(`ehome.project:Project#gateway`, $gateway));
 }]]></function>
 							<inputs>
 								<input channel="address"/>

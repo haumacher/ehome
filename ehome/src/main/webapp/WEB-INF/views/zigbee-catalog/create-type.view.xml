@@ -31,7 +31,7 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-check-lg"
-					input="model"
+					inputs="model"
 					placement="BUTTON_BAR"
 				>
 					<label>
@@ -41,10 +41,12 @@
 					<store-form-state/>
 					<persist-transient
 						container="catalog"
-						reference="types"
-					/>
-					<write-channel name="selection"/>
-					<close-dialog/>
+						reference="types">
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</persist-transient>
 				</generic-command>
 			</commands>
 		</form>

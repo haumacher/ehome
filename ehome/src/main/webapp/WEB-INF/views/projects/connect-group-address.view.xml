@@ -18,9 +18,9 @@
 		<!-- The kind the user chose; empty until the user chooses one, the kind is then the default. -->
 		<channel name="chosenKind"/>
 		<derived-channel name="kind"
-			expr="k -> d -> i -> if($k != null, $k, deviceDefaultConnectionKind($d, $i))"
+			expr="if($chosenKind != null, $chosenKind, deviceDefaultConnectionKind($device, $interface))"
 			inputs="chosenKind, device, interface"
-			reverse="k -> $k"
+			reverse="$value"
 		/>
 		<channel name="address"/>
 		<!-- The address created last in the dialog on top; recomputes the address options. -->
@@ -28,12 +28,12 @@
 		<derived-channel name="hint"
 			inputs="interface"
 		>
-			<expr><![CDATA[i -> {
-    types = $i.get(`ehome.operational:Interface#datapointTypes`);
-    type = if($types.isEmpty(), $i.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $types.firstElement());
+			<expr><![CDATA[{
+    types = $interface.get(`ehome.operational:Interface#datapointTypes`);
+    type = if($types.isEmpty(), $interface.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $types.firstElement());
     if($type == null,
-        #("“{0}” has no datapoint type."@en, "„{0}“ hat keinen Datenpunkttyp."@de).fill($i.get(`ehome.operational:Interface#displayName`)),
-        #("“{0}” has the datapoint type {1}."@en, "„{0}“ hat den Datenpunkttyp {1}."@de).fill($i.get(`ehome.operational:Interface#displayName`), $type.label()))
+        #("“{0}” has no datapoint type."@en, "„{0}“ hat keinen Datenpunkttyp."@de).fill($interface.get(`ehome.operational:Interface#displayName`)),
+        #("“{0}” has the datapoint type {1}."@en, "„{0}“ hat den Datenpunkttyp {1}."@de).fill($interface.get(`ehome.operational:Interface#displayName`), $type.label()))
         .localize()
 }]]></expr>
 		</derived-channel>
@@ -66,7 +66,7 @@
 					</value-input>
 					<value-input
 						inputs="device, createdAddress"
-						options="d -> c -> deviceGroupAddresses($d)"
+						options="deviceGroupAddresses($device)"
 						type="ehome.logical:GroupAddress"
 						value="address"
 					>
@@ -86,7 +86,7 @@
 					>
 						<action class="com.top_logic.layout.view.command.GenericViewCommand"
 							image="css:bi bi-plus-lg"
-							input="device"
+							inputs="device"
 						>
 							<label>
 								<en>New group address…</en>
@@ -121,7 +121,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-link-45deg"
-					input="address"
+					inputs="address"
 				>
 					<label>
 						<en>Connect</en>
@@ -131,16 +131,18 @@
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="d -> i -> k -> a -> deviceConnect($d, $i, $a, $k)">
+						<execute-script function="deviceConnect($device, $interface, $address, $kind)">
 							<inputs>
 								<input channel="device"/>
 								<input channel="interface"/>
 								<input channel="kind"/>
 							</inputs>
 						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

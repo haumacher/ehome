@@ -30,120 +30,162 @@
 						<generic-command
 							clique="new"
 							image="css:bi bi-calendar-week"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Weekly</en>
 								<de>Wöchentlich</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<with-transaction>
-								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:WeeklySchedule`)"/>
+								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:WeeklySchedule`)"/>
+								<with-result>
+									<write-channel name="entry"/>
+								</with-result>
 							</with-transaction>
-							<write-channel name="entry"/>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-calendar-heart"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Yearly</en>
 								<de>Jährlich</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<with-transaction>
-								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:YearlySchedule`)"/>
+								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:YearlySchedule`)"/>
+								<with-result>
+									<write-channel name="entry"/>
+								</with-result>
 							</with-transaction>
-							<write-channel name="entry"/>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-calendar3"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>On dates</en>
 								<de>An Daten</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<with-transaction>
-								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:DatesSchedule`)"/>
+								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:DatesSchedule`)"/>
+								<with-result>
+									<write-channel name="entry"/>
+								</with-result>
 							</with-transaction>
-							<write-channel name="entry"/>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-sunset"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Sun</en>
 								<de>Sonne</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<with-transaction>
-								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:AstroSchedule`)"/>
+								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:AstroSchedule`)"/>
+								<with-result>
+									<write-channel name="entry"/>
+								</with-result>
 							</with-transaction>
-							<write-channel name="entry"/>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-clock-history"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Interval</en>
 								<de>Intervall</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<with-transaction>
-								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:IntervalSchedule`)"/>
+								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:IntervalSchedule`)"/>
+								<with-result>
+									<write-channel name="entry"/>
+								</with-result>
 							</with-transaction>
-							<write-channel name="entry"/>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-calendar-check"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Once</en>
 								<de>Einmalig</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<with-transaction>
-								<execute-script function="o -> ruleCreate($o, 'schedules', `ehome.runtime:OnceSchedule`)"/>
+								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:OnceSchedule`)"/>
+								<with-result>
+									<write-channel name="entry"/>
+								</with-result>
 							</with-transaction>
-							<write-channel name="entry"/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							input="entry"
+							inputs="entry"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -153,46 +195,56 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="x -> #('Delete the schedule entry?'@en, 'Den Zeitplaneintrag löschen?'@de)"/>
+							<confirm expr="#('Delete the schedule entry?'@en, 'Den Zeitplaneintrag löschen?'@de)"/>
 							<delete-object/>
-							<write-channel name="entry"/>
+							<write-channel name="entry" clear="true"/>
 						</generic-command>
 						<generic-command
 							clique="edit"
 							image="css:bi bi-arrow-up"
-							input="entry"
+							inputs="entry"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Move up</en>
 								<de>Nach oben</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$entry"
+									type="ehome.runtime:ScheduleEntry"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+								<disabled-if expr="ruleMoveVeto($entry, -1)"/>
 							</executability>
 							<with-transaction>
-								<execute-script function="x -> ruleMove($x, -1)"/>
+								<execute-script function="ruleMove($entry, -1)"/>
 							</with-transaction>
 						</generic-command>
 						<generic-command
 							clique="edit"
 							image="css:bi bi-arrow-down"
-							input="entry"
+							inputs="entry"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Move down</en>
 								<de>Nach unten</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$entry"
+									type="ehome.runtime:ScheduleEntry"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+								<disabled-if expr="ruleMoveVeto($entry, 1)"/>
 							</executability>
 							<with-transaction>
-								<execute-script function="x -> ruleMove($x, 1)"/>
+								<execute-script function="ruleMove($entry, 1)"/>
 							</with-transaction>
 						</generic-command>
 					</commands>
@@ -215,10 +267,10 @@
 									<en>When</en>
 									<de>Wann</de>
 								</label>
-								<value>x -> ruleSummary($x)</value>
+								<value>ruleSummary($row)</value>
 							</computed-column>
 						</columns>
-						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#schedules`))</rows>
+						<rows>if($project == null, [], $project.get(`ehome.project:Project#schedules`))</rows>
 					</table>
 				</panel>
 			</pane>
@@ -247,10 +299,13 @@
 									<save-action>
 										<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
 										<with-transaction>
-											<store-form-state/>
-											<execute-script function="x -> ruleNormalize($x)"/>
+											<store-form-state>
+												<with-result>
+													<execute-script function="ruleNormalize($result)"/>
+												</with-result>
+											</store-form-state>
 										</with-transaction>
-										<discard-form-state/>
+										<leave-edit-mode/>
 									</save-action>
 									<field attribute="label"/>
 									<field attribute="identifier"/>
@@ -300,7 +355,7 @@
 												<en>Id</en>
 												<de>Id</de>
 											</label>
-											<value>row -> $row["id"]</value>
+											<value>$row["id"]</value>
 										</computed-column>
 										<computed-column name="label"
 											type="tl.core:String"
@@ -309,7 +364,7 @@
 												<en>Name</en>
 												<de>Name</de>
 											</label>
-											<value>row -> $row["label"]</value>
+											<value>$row["label"]</value>
 										</computed-column>
 										<computed-column name="writable"
 											type="tl.core:String"
@@ -318,10 +373,10 @@
 												<en>Writable</en>
 												<de>Schreibbar</de>
 											</label>
-											<value>row -> if($row["writable"] == true, '✓', '')</value>
+											<value>if($row["writable"] == true, '✓', '')</value>
 										</computed-column>
 									</columns>
-									<rows>p -> ruleDatapoints($p).filter(d -> $d["type"] == "boolean" &amp;&amp; $d["knx"] == null &amp;&amp; $d["parameter"] == null)</rows>
+									<rows>ruleDatapoints($project).filter(d -> $d["type"] == "boolean" &amp;&amp; $d["knx"] == null &amp;&amp; $d["parameter"] == null)</rows>
 								</table>
 							</panel>
 						</pane>

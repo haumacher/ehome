@@ -43,7 +43,7 @@
 					</value-input>
 					<value-input
 						inputs="networkInterface"
-						options="networkInterface -> knxNetworkInterfaces(if($networkInterface == null, '', $networkInterface))"
+						options="knxNetworkInterfaces(if($networkInterface == null, '', $networkInterface))"
 						value="localHost"
 					>
 						<label>
@@ -85,7 +85,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-play-circle"
-					input="model"
+					inputs="model"
 				>
 					<label>
 						<en>Start</en>
@@ -95,16 +95,18 @@
 						<null-input-disabled/>
 					</executability>
 					<execute-script>
-						<function><![CDATA[h -> p -> r -> n -> m -> virtualStart($m["device"], $h, $p, $r, $n != true)]]></function>
+						<function><![CDATA[virtualStart($model["device"], $localHost, $port, $rule, $noDiscovery != true)]]></function>
 						<inputs>
 							<input channel="localHost"/>
 							<input channel="port"/>
 							<input channel="rule"/>
 							<input channel="noDiscovery"/>
 						</inputs>
+						<with-result>
+							<write-channel name="refresh"/>
+							<close-dialog/>
+						</with-result>
 					</execute-script>
-					<write-channel name="refresh"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

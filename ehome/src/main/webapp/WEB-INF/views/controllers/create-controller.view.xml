@@ -29,7 +29,7 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-check-lg"
-					input="model"
+					inputs="model"
 					placement="BUTTON_BAR"
 				>
 					<label>
@@ -37,19 +37,24 @@
 						<de>Erstellen</de>
 					</label>
 					<store-form-state/>
-					<persist-transient/>
-					<with-transaction>
-						<execute-script function='t -> c -> {
-	if($t != null and $t.trim() != "", $c.set(`ehome.runtime:Controller#token`, $t.trim()));
-	$c
+					<persist-transient>
+						<with-result>
+							<with-transaction>
+								<execute-script function='{
+	if($token != null and $token.trim() != "", $result.set(`ehome.runtime:Controller#token`, $token.trim()));
+	$result
 }'>
-							<inputs>
-								<input channel="token"/>
-							</inputs>
-						</execute-script>
-					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
+									<inputs>
+										<input channel="token"/>
+									</inputs>
+								</execute-script>
+								<with-result>
+									<write-channel name="selection"/>
+									<close-dialog/>
+								</with-result>
+							</with-transaction>
+						</with-result>
+					</persist-transient>
 				</generic-command>
 			</commands>
 		</form>

@@ -31,6 +31,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.view.channel.ViewScripts;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.ExprFormat;
@@ -133,8 +134,8 @@ public class TestGroupAddressCreation extends BasicTestCase {
 		Object datapointType = taste1.getDatapointTypes().isEmpty()
 			? taste1.getPort().getDatapointTypes().stream().findFirst().orElse(null)
 			: taste1.getDatapointTypes().get(0);
-		QueryExecutor create = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("function",
-			viewAttribute(CREATE_VIEW, "execute-script", "function")));
+		QueryExecutor create = ViewScripts.compile(ExprFormat.INSTANCE.getValue("function",
+			viewAttribute(CREATE_VIEW, "execute-script", "function")), List.of("number", "name", "datapointType", "range"));
 		TLObject created;
 		try (Transaction tx = kb().beginTransaction()) {
 			created = (TLObject) asRoot(() -> create.execute(next, "Probe", datapointType, middle));
@@ -170,8 +171,8 @@ public class TestGroupAddressCreation extends BasicTestCase {
 
 		// Connected to the object with the script of the connect dialog.
 		TLClassifier kind = DeviceSettings.defaultKind(tastsensor, taste1);
-		QueryExecutor connect = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("function",
-			viewAttribute(CONNECT_VIEW, "execute-script", "function")));
+		QueryExecutor connect = ViewScripts.compile(ExprFormat.INSTANCE.getValue("function",
+			viewAttribute(CONNECT_VIEW, "execute-script", "function")), List.of("device", "interface", "kind", "address"));
 		TLObject connection;
 		try (Transaction tx = kb().beginTransaction()) {
 			connection = (TLObject) asRoot(() -> connect.execute(tastsensor, taste1, kind, created));

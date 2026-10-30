@@ -15,14 +15,13 @@ import test.com.top_logic.knowledge.KBSetup;
 
 import com.top_logic.basic.config.ConfigurationItem;
 import com.top_logic.basic.config.PropertyDescriptor;
+import com.top_logic.layout.react.control.select.OptionOrder;
 import com.top_logic.layout.view.ViewLoader;
 import com.top_logic.layout.view.element.FieldsElement;
 import com.top_logic.layout.view.element.StackElement;
 import com.top_logic.layout.view.element.ValueInputElement;
 import com.top_logic.model.search.expr.config.SearchBuilder;
 import com.top_logic.util.model.ModelService;
-
-import de.haumacher.ehome.view.OptionOrderSelectControlProvider;
 
 /**
  * The send form of the group monitor (<code>projects/monitor.view.xml</code>, haumacher/ehome
@@ -45,9 +44,9 @@ public class TestMonitorSendForm extends BasicTestCase {
 		}
 		assertEquals(3, choices.size());
 		for (ValueInputElement.Config choice : choices) {
-			assertNotNull(choice.getValue().getChannelName(), choice.getInputControl());
-			assertEquals(choice.getValue().getChannelName(), OptionOrderSelectControlProvider.class,
-				choice.getInputControl().getImplementationClass());
+			assertEquals(choice.getValue().getChannelName(), OptionOrder.AS_GIVEN, choice.getOptionOrder());
+			assertNull("No input control overrides the order: " + choice.getValue().getChannelName(),
+				choice.getInputControl());
 		}
 	}
 
@@ -78,6 +77,10 @@ public class TestMonitorSendForm extends BasicTestCase {
 		if (value instanceof ConfigurationItem item) {
 			result.add(item);
 			for (PropertyDescriptor property : item.descriptor().getProperties()) {
+				if (property.hasContainerAnnotation() || property.isDerived()) {
+					// Points back up (the annotations of a value input know their container).
+					continue;
+				}
 				collect(item.value(property), result);
 			}
 		} else if (value instanceof Collection<?> collection) {

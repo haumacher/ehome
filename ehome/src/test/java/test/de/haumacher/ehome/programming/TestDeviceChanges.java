@@ -31,6 +31,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.view.channel.ViewScripts;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.ExprFormat;
@@ -220,8 +221,8 @@ public class TestDeviceChanges extends BasicTestCase {
 		assertNotNull(afterReset.getEntry(placed));
 
 		// The hint of the view: the device's state for a person.
-		QueryExecutor hintScript = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("expr",
-			viewAttribute(ITEM_VIEW, "derived-channel", "expr", "deviceReferenceHint")));
+		QueryExecutor hintScript = ViewScripts.compile(ExprFormat.INSTANCE.getValue("expr",
+			viewAttribute(ITEM_VIEW, "derived-channel", "expr", "deviceReferenceHint")), List.of("device", "item"));
 		String connectionsHint = (String) asRoot(Locale.GERMAN, () -> hintScript.execute(actuator, placed));
 		assertTrue(connectionsHint, connectionsHint.startsWith("Gerät: "));
 		assertNull(asRoot(Locale.GERMAN, () -> hintScript.execute(actuator, view)));
@@ -279,23 +280,24 @@ public class TestDeviceChanges extends BasicTestCase {
 		TLObject address = unconnectedAddress(device, placed);
 		TLClassifier kind = DeviceSettings.defaultKind(device, placed);
 
-		QueryExecutor connect = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("function",
-			viewAttribute(CONNECT_VIEW, "execute-script", "function", "deviceConnect")));
+		QueryExecutor connect = ViewScripts.compile(ExprFormat.INSTANCE.getValue("function",
+			viewAttribute(CONNECT_VIEW, "execute-script", "function", "deviceConnect")),
+			List.of("device", "interface", "kind", "address"));
 		TLObject connection;
 		try (Transaction tx = kb().beginTransaction()) {
 			connection = (TLObject) asRoot(Locale.ENGLISH, () -> connect.execute(device, placed, kind, address));
 			tx.commit();
 		}
-		QueryExecutor entryConnections = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("items",
-			viewAttribute(ITEM_VIEW, "object-list", "items", "deviceConnections")));
+		QueryExecutor entryConnections = ViewScripts.compile(ExprFormat.INSTANCE.getValue("items",
+			viewAttribute(ITEM_VIEW, "object-list", "items", "deviceConnections")), List.of("device", "item"));
 		assertTrue(((Collection<?>) asRoot(Locale.ENGLISH, () -> entryConnections.execute(device, placed))).contains(connection));
 		assertTrue(DeviceSettings.interfaces(device).contains(placed));
 		assertTrue(DeviceSettings.connections(device, placed).contains(connection));
 		assertTrue(GroupAddressConnections.connections(address).contains(connection));
 		assertTrue(DeviceChanges.sinceDownload(device).isChanged(placed));
 
-		QueryExecutor remove = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("function",
-			viewAttribute(ITEM_VIEW, "execute-script", "function", "deviceDisconnect")));
+		QueryExecutor remove = ViewScripts.compile(ExprFormat.INSTANCE.getValue("function",
+			viewAttribute(ITEM_VIEW, "execute-script", "function", "deviceDisconnect")), List.of("connection"));
 		try (Transaction tx = kb().beginTransaction()) {
 			asRoot(Locale.ENGLISH, () -> remove.execute(connection));
 			tx.commit();

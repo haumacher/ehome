@@ -129,7 +129,7 @@ public class TestGroupMonitor extends BasicTestCase {
 		assertEquals(Boolean.TRUE, switchRow.get("fresh"));
 
 		assertEquals("100 %", row(board, percent).get("value"));
-		assertEquals("percent", row(board, percent).get("kind"));
+		assertEquals("slider", row(board, percent).get("kind"));
 		assertEquals("21.5 °C", row(board, temperature).get("value"));
 		assertTrue(((String) row(board, temperature).get("sender")).endsWith("(1.3.50)"));
 

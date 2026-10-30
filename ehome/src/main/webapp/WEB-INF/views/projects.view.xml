@@ -21,6 +21,17 @@
 		<tile-stack
 			initial="projects/overview.view.xml"
 			path="navPath"
-		/>
+		>
+			<!-- A project, opened from the list of projects (projects/overview.view.xml) or shown from another one. -->
+			<frame id="project"
+				view="projects/project.view.xml"
+			>
+				<param name="project"/>
+				<label class="com.top_logic.layout.view.tiles.ScriptedTileLabel"
+					expr="$project.get(`ehome.project:Project#name`)"
+					inputs="project"
+				/>
+			</frame>
+		</tile-stack>
 	</stack>
 </view>

@@ -54,13 +54,13 @@ public class TestGroupMonitorInputsProbe extends BasicTestCase {
 					Map<String, Object> target = monitor.target(address, null);
 					String kind = String.valueOf(target.get("kind"));
 					byKind.merge(kind + " " + target.get("dpt"), 1, Integer::sum);
-					firstOfKind.putIfAbsent(kind, address);
+					firstOfKind.putIfAbsent(kind + " " + target.get("dpt"), address);
 				}
-				// The test system has one 5.001 and two 5.010 addresses (DPST-5-1, DPST-5-10).
-				assertTrue(byKind.toString(), firstOfKind.containsKey("percent"));
-				assertTrue(byKind.toString(), firstOfKind.containsKey("scale"));
+				// The test system has one 5.001 and two 5.010 addresses (DPST-5-1, DPST-5-10), both sliders.
+				assertTrue(byKind.toString(), firstOfKind.containsKey("slider 5.001"));
+				assertTrue(byKind.toString(), firstOfKind.containsKey("slider 5.010"));
 
-				int percent = firstOfKind.get("percent");
+				int percent = firstOfKind.get("slider 5.001");
 				// A slider delivers a fraction: 33.3 % is 84.9 of 255, rounded to 85.
 				monitor.send(percent, Double.valueOf(33.3), null);
 				assertTrue(last(link), last(link).endsWith("00 80 55"));

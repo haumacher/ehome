@@ -30,6 +30,7 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.view.channel.ViewScripts;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.ExprFormat;
 import com.top_logic.model.search.expr.query.QueryExecutor;
@@ -99,7 +100,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 			assertTrue(suggestions.contains(celsius));
 			assertFalse(suggestions.contains(subtype("DPST-1-1")));
 			assertFalse(suggestions.contains(subtype("DPST-5-1")));
-			QueryExecutor options = script(DIALOG, "options");
+			QueryExecutor options = script(DIALOG, "options", null, "address", "all");
 			assertEquals(suggestions, new ArrayList<>((Collection<?>) TestDeviceChanges.asRoot(Locale.ENGLISH,
 				() -> options.execute(temperature, null))));
 			List<?> all = (List<?>) TestDeviceChanges.asRoot(Locale.ENGLISH,
@@ -119,7 +120,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 			assertFalse(GroupAddressTypes.hasType(temperature));
 
 			// Set by the script of the dialog's "Set" button.
-			QueryExecutor set = script(DIALOG, "execute-script", "groupAddressSetType($a, $t)");
+			QueryExecutor set = script(DIALOG, "execute-script", "groupAddressSetType($address, $settable)", "address", "settable");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				TestDeviceChanges.asRoot(Locale.ENGLISH, () -> set.execute(temperature, celsius));
 				tx.commit();
@@ -167,7 +168,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 	 * its switch "Only addresses without datapoint type" on.
 	 */
 	private static List<TLObject> untyped(TLObject project) throws Exception {
-		QueryExecutor children = script(ADDRESSES, "children");
+		QueryExecutor children = script(ADDRESSES, "children", null, "project", "untypedOnly", "node");
 		List<TLObject> result = new ArrayList<>();
 		collectUntyped(children, project, project, result);
 		return result;
@@ -210,16 +211,19 @@ public class TestGroupAddressTypes extends BasicTestCase {
 
 	/**
 	 * The script of the element with the given tag in the given view (its text, or its
-	 * <code>function</code> attribute containing the given text).
+	 * <code>function</code> attribute containing the given text, any for <code>null</code>), which
+	 * uses its values as the given variables (in the order of the values on execution) without
+	 * declaring them.
 	 */
-	private static QueryExecutor script(String view, String tag, String... containing) throws Exception {
+	private static QueryExecutor script(String view, String tag, String containing, String... variables)
+			throws Exception {
 		NodeList nodes = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new File(view))
 			.getElementsByTagName(tag);
 		for (int n = 0; n < nodes.getLength(); n++) {
 			Element element = (Element) nodes.item(n);
 			String text = element.hasAttribute("function") ? element.getAttribute("function") : element.getTextContent();
-			if (containing.length == 0 || text.contains(containing[0])) {
-				return QueryExecutor.compile(ExprFormat.INSTANCE.getValue(tag, text));
+			if (containing == null || text.contains(containing)) {
+				return ViewScripts.compile(ExprFormat.INSTANCE.getValue(tag, text), List.of(variables));
 			}
 		}
 		fail("No script " + tag + " in " + view);

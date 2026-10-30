@@ -29,12 +29,12 @@
 		<channel name="result"/>
 		<channel name="selected"/>
 		<derived-channel name="gateway"
-			expr='p -> #("Gateway: {0}"@en, "Gateway: {0}"@de).fill(if($p.get(`ehome.project:Project#gateway`) == null, "-", $p.get(`ehome.project:Project#gateway`))).localize()'
+			expr='#("Gateway: {0}"@en, "Gateway: {0}"@de).fill(if($project.get(`ehome.project:Project#gateway`) == null, "-", $project.get(`ehome.project:Project#gateway`))).localize()'
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
 		<derived-channel name="summary"
-			expr='r -> if($r == null, null, $r["summary"])'
+			expr='if($result == null, null, $result["summary"])'
 			inputs="result"
 		/>
 	</channels>
@@ -53,7 +53,7 @@
 					<commands>
 						<generic-command
 							image="css:bi bi-broadcast"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -70,7 +70,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-search"
-							input="project"
+							inputs="project"
 							observed-types="ehome.project:Project"
 							placement="TOOLBAR"
 						>
@@ -80,7 +80,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="p -> scanVeto($p, null, null, false, true, false)"/>
+								<disabled-if expr="scanVeto($project, null, null, false, true, false)"/>
 							</executability>
 							<start-job
 								cancelable="true"
@@ -96,12 +96,14 @@
 									<input channel="programming"/>
 								</inputs>
 								<body class="de.haumacher.ehome.scan.ScanJob"/>
+								<with-result>
+									<write-channel name="result"/>
+								</with-result>
 							</start-job>
-							<write-channel name="result"/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-arrow-repeat"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -111,8 +113,11 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<execute-script function="p -> scanRematch($p)"/>
-							<write-channel name="result"/>
+							<execute-script function="scanRematch($project)">
+								<with-result>
+									<write-channel name="result"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 					</commands>
 					<inset>
@@ -177,9 +182,7 @@
 						</stack>
 					</inset>
 				</panel>
-				<!-- Not filling (TL #29982): beside a panel of its own size, a filling panel in a stack leaves that
-					panel the whole height. The tab scrolls instead. -->
-				<panel fill="false">
+				<panel>
 					<title>
 						<en>Devices found</en>
 						<de>Gefundene Geräte</de>
@@ -187,7 +190,7 @@
 					<commands>
 						<generic-command
 							image="css:bi bi-plus-lg"
-							input="selected"
+							inputs="selected"
 							observed-types="ehome.physical:Device"
 							placement="TOOLBAR"
 						>
@@ -197,9 +200,9 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="r -> scanApplyVeto($r)"/>
+								<disabled-if expr="scanApplyVeto($selected)"/>
 							</executability>
-							<if test='r -> $r["kind"] == "choice"'>
+							<if test='$selected["kind"] == "choice"'>
 								<then>
 									<open-dialog
 										bind-input-to="row"
@@ -213,21 +216,25 @@
 								</then>
 								<else>
 									<with-transaction>
-										<execute-script function="r -> scanApply($r, null)"/>
+										<execute-script function="scanApply($selected, null)"/>
+										<with-result>
+											<notify expr="$result"/>
+											<execute-script function='{"summary": $result["summary"], "rows": scanRefresh($result["rows"]), "notes": $result["notes"]}'>
+												<inputs>
+													<input channel="result"/>
+												</inputs>
+												<with-result>
+													<write-channel name="result"/>
+												</with-result>
+											</execute-script>
+										</with-result>
 									</with-transaction>
-									<notify expr="m -> $m"/>
-									<execute-script function='r -> x -> {"summary": $r["summary"], "rows": scanRefresh($r["rows"]), "notes": $r["notes"]}'>
-										<inputs>
-											<input channel="result"/>
-										</inputs>
-									</execute-script>
-									<write-channel name="result"/>
 								</else>
 							</if>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-cloud-download"
-							input="selected"
+							inputs="selected"
 							observed-types="ehome.physical:Device,ehome.project:Project"
 							placement="TOOLBAR"
 						>
@@ -237,7 +244,7 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="r -> scanReadVeto($r)"/>
+								<disabled-if expr="scanReadVeto($selected)"/>
 							</executability>
 							<start-job
 								cancelable="true"
@@ -248,16 +255,18 @@
 									<input channel="selected"/>
 								</inputs>
 								<body class="de.haumacher.ehome.scan.ReadBackJob"/>
+								<with-result>
+									<open-dialog
+										bind-input-to="report"
+										dialog-view="projects/scan-report.view.xml"
+									/>
+								</with-result>
 							</start-job>
-							<open-dialog
-								bind-input-to="report"
-								dialog-view="projects/scan-report.view.xml"
-							/>
 						</generic-command>
 						<generic-command
 							clique="more"
 							image="css:bi bi-lightbulb"
-							input="selected"
+							inputs="selected"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -266,9 +275,9 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="r -> scanLedVeto($r)"/>
+								<disabled-if expr="scanLedVeto($selected)"/>
 							</executability>
-							<confirm expr="r -> scanLedConfirmation($r, true)"/>
+							<confirm expr="scanLedConfirmation($selected, true)"/>
 							<start-job
 								cancelable="false"
 								job="deviceJob"
@@ -280,16 +289,18 @@
 								<body class="de.haumacher.ehome.scan.LedJob"
 									on="true"
 								/>
+								<with-result>
+									<open-dialog
+										bind-input-to="report"
+										dialog-view="projects/scan-report.view.xml"
+									/>
+								</with-result>
 							</start-job>
-							<open-dialog
-								bind-input-to="report"
-								dialog-view="projects/scan-report.view.xml"
-							/>
 						</generic-command>
 						<generic-command
 							clique="more"
 							image="css:bi bi-lightbulb-off"
-							input="selected"
+							inputs="selected"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -298,9 +309,9 @@
 							</label>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="r -> scanLedVeto($r)"/>
+								<disabled-if expr="scanLedVeto($selected)"/>
 							</executability>
-							<confirm expr="r -> scanLedConfirmation($r, false)"/>
+							<confirm expr="scanLedConfirmation($selected, false)"/>
 							<start-job
 								cancelable="false"
 								job="deviceJob"
@@ -312,11 +323,13 @@
 								<body class="de.haumacher.ehome.scan.LedJob"
 									on="false"
 								/>
+								<with-result>
+									<open-dialog
+										bind-input-to="report"
+										dialog-view="projects/scan-report.view.xml"
+									/>
+								</with-result>
 							</start-job>
-							<open-dialog
-								bind-input-to="report"
-								dialog-view="projects/scan-report.view.xml"
-							/>
 						</generic-command>
 					</commands>
 					<inset>
@@ -325,7 +338,7 @@
 							<object-list
 								gap="compact"
 								inputs="result"
-								items='r -> if($r == null, [], $r["notes"])'
+								items='if($result == null, [], $result["notes"])'
 							>
 								<item>
 									<text
@@ -348,7 +361,7 @@
 											<en>Address</en>
 											<de>Adresse</de>
 										</label>
-										<value>row -> $row["address"]</value>
+										<value>$row["address"]</value>
 									</computed-column>
 									<computed-column name="source"
 										type="tl.core:String"
@@ -358,7 +371,7 @@
 											<en>Read via</en>
 											<de>Gelesen über</de>
 										</label>
-										<value>row -> $row["source"]</value>
+										<value>$row["source"]</value>
 									</computed-column>
 									<computed-column name="descriptor"
 										type="tl.core:String"
@@ -368,7 +381,7 @@
 											<en>Mask</en>
 											<de>Maske</de>
 										</label>
-										<value>row -> $row["descriptor"]</value>
+										<value>$row["descriptor"]</value>
 									</computed-column>
 									<computed-column name="manufacturer"
 										type="tl.core:String"
@@ -378,7 +391,7 @@
 											<en>Manufacturer</en>
 											<de>Hersteller</de>
 										</label>
-										<value>row -> $row["manufacturer"]</value>
+										<value>$row["manufacturer"]</value>
 									</computed-column>
 									<computed-column name="serial"
 										type="tl.core:String"
@@ -388,7 +401,7 @@
 											<en>Serial number</en>
 											<de>Seriennummer</de>
 										</label>
-										<value>row -> $row["serial"]</value>
+										<value>$row["serial"]</value>
 									</computed-column>
 									<computed-column name="programVersion"
 										type="tl.core:String"
@@ -398,7 +411,7 @@
 											<en>Program version</en>
 											<de>Programmversion</de>
 										</label>
-										<value>row -> $row["programVersion"]</value>
+										<value>$row["programVersion"]</value>
 									</computed-column>
 									<computed-column name="states"
 										type="tl.core:String"
@@ -408,7 +421,7 @@
 											<en>Load states</en>
 											<de>Ladezustände</de>
 										</label>
-										<value>row -> $row["states"]</value>
+										<value>$row["states"]</value>
 									</computed-column>
 									<computed-column name="match"
 										type="tl.core:String"
@@ -418,7 +431,7 @@
 											<en>Catalog</en>
 											<de>Katalog</de>
 										</label>
-										<value>row -> $row["matchText"]</value>
+										<value>$row["matchText"]</value>
 									</computed-column>
 									<computed-column name="state"
 										type="tl.core:String"
@@ -428,7 +441,7 @@
 											<en>In the project</en>
 											<de>Im Projekt</de>
 										</label>
-										<value>row -> $row["state"]</value>
+										<value>$row["state"]</value>
 									</computed-column>
 									<computed-column name="notes"
 										type="tl.core:String"
@@ -438,10 +451,10 @@
 											<en>Not readable</en>
 											<de>Nicht lesbar</de>
 										</label>
-										<value>row -> $row["notes"]</value>
+										<value>$row["notes"]</value>
 									</computed-column>
 								</columns>
-								<rows>r -> if($r == null, [], $r["rows"])</rows>
+								<rows>if($result == null, [], $result["rows"])</rows>
 							</table>
 						</stack>
 					</inset>

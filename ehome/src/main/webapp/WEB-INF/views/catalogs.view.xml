@@ -29,27 +29,27 @@
 	<channels>
 		<channel name="selected"/>
 		<derived-channel name="root"
-			expr="x -> `ehome.catalog#ROOT`"
+			expr="`ehome.catalog#ROOT`"
 			inputs="selected"
 		/>
 		<derived-channel name="selectedManufacturer"
-			expr="n -> if($n.instanceOf(`ehome.catalog:Manufacturer`), $n, null)"
+			expr="if($selected.instanceOf(`ehome.catalog:Manufacturer`), $selected, null)"
 			inputs="selected"
 		/>
 		<derived-channel name="selectedProgram"
-			expr="n -> switch {
-    $n.instanceOf(`ehome.operational:Program`): $n;
-    $n.instanceOf(`ehome.catalog:ProgramAssignment`): $n.get(`ehome.catalog:ProgramAssignment#program`);
+			expr="switch {
+    $selected.instanceOf(`ehome.operational:Program`): $selected;
+    $selected.instanceOf(`ehome.catalog:ProgramAssignment`): $selected.get(`ehome.catalog:ProgramAssignment#program`);
     default: null;
 }"
 			inputs="selected"
 		/>
 		<derived-channel name="selectedCatalog"
-			expr="n -> if($n.instanceOf(`ehome.catalog:Catalog`), $n, null)"
+			expr="if($selected.instanceOf(`ehome.catalog:Catalog`), $selected, null)"
 			inputs="selected"
 		/>
 		<derived-channel name="selectedVariant"
-			expr="n -> if($n.instanceOf(`ehome.catalog:Variant`), $n, null)"
+			expr="if($selected.instanceOf(`ehome.catalog:Variant`), $selected, null)"
 			inputs="selected"
 		/>
 	</channels>
@@ -72,246 +72,306 @@
 						<upload-command
 							accept=".knxprod"
 							image="css:fa-solid fa-upload"
+							inputs="root"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Import product data</en>
 								<de>Produktdaten importieren</de>
 							</label>
-							<executability>
+							<access>
 								<!--
 									An import adds manufacturers, catalogs and programs: a write of the
 									manufacturers. (A type-level check of the creation of a product, a
 									composition part, is no check at all: see doc/tl-todo.md.)
 								-->
-								<model-access
-									object="root"
-									operation="Write"
+								<operation name="Write"
+									object="$root"
+									type="ehome.catalog:ManufacturerRoot"
 								/>
-							</executability>
-							<import-product-data/>
-							<open-dialog
-								bind-input-to="report"
-								dialog-view="projects/import-report.view.xml"
-							/>
-							<execute-script function='report -> $report["manufacturer"]'/>
-							<write-channel name="selected"/>
+							</access>
+							<import-product-data>
+								<with-result as="report">
+									<open-dialog
+										bind-input-to="report"
+										dialog-view="projects/import-report.view.xml"
+									/>
+									<execute-script function='$report["manufacturer"]'>
+										<with-result>
+											<write-channel name="selected"/>
+										</with-result>
+									</execute-script>
+								</with-result>
+							</import-product-data>
 						</upload-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-industry"
-							input="root"
+							inputs="root"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Manufacturer</en>
 								<de>Hersteller</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$root"
+									type="ehome.catalog:ManufacturerRoot"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-transient type="ehome.catalog:Manufacturer"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="root"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.catalog:Manufacturer">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="root"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-journal-plus"
-							input="selectedManufacturer"
+							inputs="selectedManufacturer"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Catalog</en>
 								<de>Katalog</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$selectedManufacturer"
+									type="ehome.catalog:Manufacturer"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-transient type="ehome.catalog:Catalog"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="selectedManufacturer"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.catalog:Catalog">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="selectedManufacturer"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-journal-text"
-							input="selectedCatalog"
+							inputs="selectedCatalog"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Section</en>
 								<de>Abschnitt</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$selectedCatalog"
+									type="ehome.catalog:Catalog"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-transient type="ehome.catalog:Catalog"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="selectedCatalog"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.catalog:Catalog">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="selectedCatalog"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-cpu"
-							input="selectedManufacturer"
+							inputs="selectedManufacturer"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Application program</en>
 								<de>Applikationsprogramm</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$selectedManufacturer"
+									type="ehome.catalog:Manufacturer"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-transient type="ehome.operational:Program"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="selectedManufacturer"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.operational:Program">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="selectedManufacturer"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-box-seam"
-							input="selectedCatalog"
+							inputs="selectedCatalog"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Product</en>
 								<de>Produkt</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$selectedCatalog"
+									type="ehome.catalog:Catalog"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient
 								container="selectedCatalog"
-								type="ehome.catalog:Variant"
-							/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="catalogs/create-variant.view.xml"
-							>
-								<bind
-									channel="container"
-									to="selectedCatalog"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+								type="ehome.catalog:Variant">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="catalogs/create-variant.view.xml"
+									>
+										<bind
+											channel="container"
+											to="selectedCatalog"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-boxes"
-							input="selectedVariant"
+							inputs="selectedVariant"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Variant</en>
 								<de>Variante</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$selectedVariant"
+									type="ehome.catalog:Variant"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient
 								container="selectedVariant"
-								type="ehome.catalog:Variant"
-							/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="catalogs/create-variant.view.xml"
-							>
-								<bind
-									channel="container"
-									to="selectedVariant"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+								type="ehome.catalog:Variant">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="catalogs/create-variant.view.xml"
+									>
+										<bind
+											channel="container"
+											to="selectedVariant"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-link-45deg"
-							input="selectedVariant"
+							inputs="selectedVariant"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Program assignment</en>
 								<de>Programmzuweisung</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$selectedVariant"
+									type="ehome.catalog:Variant"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient
 								container="selectedVariant"
-								type="ehome.catalog:ProgramAssignment"
-							/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="selectedVariant"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+								type="ehome.catalog:ProgramAssignment">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="selectedVariant"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							input="selected"
+							inputs="selected"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -321,18 +381,18 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="n -> #('Delete {0}?'@en, '{0} löschen?'@de).fill($n.label())"/>
+							<confirm expr="#('Delete {0}?'@en, '{0} löschen?'@de).fill($selected.label())"/>
 							<delete-object/>
-							<write-channel name="selected"/>
+							<write-channel name="selected" clear="true"/>
 						</generic-command>
 					</commands>
 					<!-- The catalogs with the columns of the classic tree grid (exported to Excel as an outline). -->
-					<export-tree-table
+					<tree-table
 						observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog,ehome.catalog:Product,ehome.catalog:Variant,ehome.catalog:ProgramAssignment,ehome.operational:Program"
 						selection="selected"
 					>
 						<root>`ehome.catalog#ROOT`</root>
-						<children><![CDATA[node -> switch {
+						<children><![CDATA[switch {
     $node.instanceOf(`ehome.catalog:ManufacturerRoot`):
         $node.get(`ehome.catalog:ManufacturerRoot#manufacturers`)
             .filter(m -> !$m.get(`ehome.catalog:Manufacturer#catalogs`).isEmpty()
@@ -349,7 +409,7 @@
         $node.get(`ehome.catalog:Variant#product`).get(`ehome.catalog:Product#programs`);
     default: [];
 }]]></children>
-						<parents><![CDATA[node -> switch {
+						<parents><![CDATA[switch {
     $node.instanceOf(`ehome.catalog:Variant`):
         $node.referers(`ehome.catalog:Catalog#variants`);
     $node.instanceOf(`ehome.catalog:ProgramAssignment`):
@@ -363,15 +423,16 @@
 							</sheet-name>
 						</export>
 						<columns>
-							<object-column name="name"
+							<computed-column name="name"
 								width="300"
 							>
 								<label>
 									<en>Name</en>
 									<de>Name</de>
 								</label>
-								<value>x -> $x</value>
-							</object-column>
+								<value>$row</value>
+								<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"/>
+							</computed-column>
 							<!-- The number of sections and of variants of a catalog. -->
 							<computed-column name="sections"
 								type="tl.core:Integer"
@@ -381,7 +442,7 @@
 									<en>Sections</en>
 									<de>Abschnitte</de>
 								</label>
-								<value>x -> if($x.instanceOf(`ehome.catalog:Catalog`), $x.get(`ehome.catalog:Catalog#sections`).size(), null)</value>
+								<value>if($row.instanceOf(`ehome.catalog:Catalog`), $row.get(`ehome.catalog:Catalog#sections`).size(), null)</value>
 							</computed-column>
 							<computed-column name="variants"
 								type="tl.core:Integer"
@@ -391,7 +452,7 @@
 									<en>Variants</en>
 									<de>Varianten</de>
 								</label>
-								<value>x -> if($x.instanceOf(`ehome.catalog:Catalog`), $x.get(`ehome.catalog:Catalog#variants`).size(), null)</value>
+								<value>if($row.instanceOf(`ehome.catalog:Catalog`), $row.get(`ehome.catalog:Catalog#variants`).size(), null)</value>
 							</computed-column>
 							<computed-column name="extId"
 								type="tl.core:String"
@@ -401,10 +462,10 @@
 									<en>External ID</en>
 									<de>Externe ID</de>
 								</label>
-								<value>x -> if($x.instanceOf(`ehome.core:Externalized`), $x.get(`ehome.core:Externalized#extId`), null)</value>
+								<value>if($row.instanceOf(`ehome.core:Externalized`), $row.get(`ehome.core:Externalized#extId`), null)</value>
 							</computed-column>
 						</columns>
-					</export-tree-table>
+					</tree-table>
 				</panel>
 			</pane>
 			<pane
@@ -417,7 +478,7 @@
 						<de>Details</de>
 					</title>
 					<switch input="selected">
-						<case test="n -> $n.instanceOf(`ehome.catalog:Manufacturer`)">
+						<case test="$selected.instanceOf(`ehome.catalog:Manufacturer`)">
 							<form
 								input="selected"
 								with-inset="true"
@@ -427,7 +488,7 @@
 								<field attribute="extId"/>
 							</form>
 						</case>
-						<case test="n -> $n.instanceOf(`ehome.catalog:Catalog`)">
+						<case test="$selected.instanceOf(`ehome.catalog:Catalog`)">
 							<form
 								input="selected"
 								with-inset="true"
@@ -436,7 +497,7 @@
 								<field attribute="extId"/>
 							</form>
 						</case>
-						<case test="n -> $n.instanceOf(`ehome.catalog:Variant`)">
+						<case test="$selected.instanceOf(`ehome.catalog:Variant`)">
 							<form
 								input="selected"
 								with-inset="true"
@@ -448,14 +509,14 @@
 							</form>
 						</case>
 						<!-- An application program, also when reached as the program of a product. -->
-						<case test="n -> $n.instanceOf(`ehome.operational:Program`) or $n.instanceOf(`ehome.catalog:ProgramAssignment`)">
+						<case test="$selected.instanceOf(`ehome.operational:Program`) or $selected.instanceOf(`ehome.catalog:ProgramAssignment`)">
 							<!--
 								The assignment itself: which program the product runs, and its ID; the program
 								is shown below it without an edit command of its own (one "Edit" per detail),
 								it is edited where it is selected itself.
 							-->
 							<visible-if
-								expr="n -> $n.instanceOf(`ehome.catalog:ProgramAssignment`)"
+								expr="$selected.instanceOf(`ehome.catalog:ProgramAssignment`)"
 								input="selected"
 							>
 								<form
@@ -476,7 +537,7 @@
 								</form>
 							</visible-if>
 							<visible-if
-								expr="n -> $n.instanceOf(`ehome.operational:Program`)"
+								expr="$selected.instanceOf(`ehome.operational:Program`)"
 								input="selected"
 							>
 								<form

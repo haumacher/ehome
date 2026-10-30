@@ -49,57 +49,81 @@
 								<commands>
 									<generic-command
 										image="css:bi bi-magic"
-										input="project"
+										inputs="project"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Propose functions</en>
 											<de>Funktionen vorschlagen</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
-										<propose-functions/>
-										<notify
-											expr="t -> $t"
-											kind="info"
-										/>
+										<propose-functions>
+											<with-result>
+												<notify
+													expr="$result"
+													kind="info"
+												/>
+											</with-result>
+										</propose-functions>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-plus-lg"
-										input="project"
+										inputs="project"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>New function</en>
 											<de>Neue Funktion</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
-										<create-function/>
-										<write-channel name="function"/>
+										<create-function>
+											<with-result>
+												<write-channel name="function"/>
+											</with-result>
+										</create-function>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"
-										input="function"
+										inputs="function"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Delete</en>
 											<de>Löschen</de>
 										</label>
+										<access>
+											<operation name="Delete"
+												object="$function"
+												type="ehome.runtime:Function"
+											/>
+											<operation name="Write"
+												object="$function"
+												type="ehome.runtime:Function"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Delete"/>
-											<model-access operation="Write"/>
 											<delete-veto-disabled/>
 											<null-input-disabled/>
 										</executability>
-										<confirm expr="f -> if($f.get(`ehome.runtime:Function#device`) == null, #('Delete the function {0}?'@en, 'Funktion {0} löschen?'@de), #('Delete the function {0}? The proposal will not add it again unless it is restored.'@en, 'Funktion {0} löschen? Der Vorschlag fügt sie nicht wieder hinzu, solange sie nicht zurückgeholt wird.'@de)).fill($f.get(`ehome.runtime:Function#name`))"/>
+										<confirm expr="if($function.get(`ehome.runtime:Function#device`) == null, #('Delete the function {0}?'@en, 'Funktion {0} löschen?'@de), #('Delete the function {0}? The proposal will not add it again unless it is restored.'@en, 'Funktion {0} löschen? Der Vorschlag fügt sie nicht wieder hinzu, solange sie nicht zurückgeholt wird.'@de)).fill($function.get(`ehome.runtime:Function#name`))"/>
 										<delete-function/>
-										<write-channel name="function"/>
+										<write-channel name="function" clear="true"/>
 									</generic-command>
 								</commands>
 								<table
@@ -117,7 +141,7 @@
 										<column attribute="identifier"/>
 										<column attribute="device"/>
 									</columns>
-									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#functions`))</rows>
+									<rows>if($project == null, [], $project.get(`ehome.project:Project#functions`))</rows>
 								</table>
 							</panel>
 						</pane>
@@ -133,7 +157,7 @@
 								<commands>
 									<generic-command
 										image="css:bi bi-arrow-counterclockwise"
-										input="dismissal"
+										inputs="dismissal"
 										placement="TOOLBAR"
 									>
 										<label>
@@ -144,9 +168,9 @@
 											<null-input-disabled/>
 										</executability>
 										<delete-object/>
-										<write-channel name="dismissal"/>
+										<write-channel name="dismissal" clear="true"/>
 										<notify
-											expr="x -> #('The next run of &quot;Propose functions&quot; adds the function again.'@en, 'Der nächste Lauf von „Funktionen vorschlagen“ fügt die Funktion wieder hinzu.'@de)"
+											expr="#('The next run of &quot;Propose functions&quot; adds the function again.'@en, 'Der nächste Lauf von „Funktionen vorschlagen“ fügt die Funktion wieder hinzu.'@de)"
 											kind="info"
 										/>
 									</generic-command>
@@ -165,7 +189,7 @@
 										<column attribute="device"/>
 										<column attribute="channel"/>
 									</columns>
-									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#dismissedProposals`))</rows>
+									<rows>if($project == null, [], $project.get(`ehome.project:Project#dismissedProposals`))</rows>
 								</table>
 							</panel>
 						</pane>

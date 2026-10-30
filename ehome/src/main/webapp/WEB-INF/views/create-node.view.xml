@@ -15,7 +15,7 @@
 		<channel name="selection"/>
 		<!-- The product of a variant the new node is created for (a program assignment). -->
 		<derived-channel name="product"
-			expr="c -> if($c.instanceOf(`ehome.catalog:Variant`), $c.get(`ehome.catalog:Variant#product`), null)"
+			expr="if($container.instanceOf(`ehome.catalog:Variant`), $container.get(`ehome.catalog:Variant#product`), null)"
 			inputs="container"
 		/>
 	</channels>
@@ -32,25 +32,25 @@
 		>
 			<!-- The name of a program assignment is that of its program. -->
 			<visible-if
-				expr="n -> !$n.instanceOf(`ehome.catalog:ProgramAssignment`)"
+				expr="!$model.instanceOf(`ehome.catalog:ProgramAssignment`)"
 				input="model"
 			>
 				<field attribute="name"/>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.logical:GroupAddress`) or $n.instanceOf(`ehome.physical:Area`) or $n.instanceOf(`ehome.physical:Line`)"
+				expr="$model.instanceOf(`ehome.logical:GroupAddress`) or $model.instanceOf(`ehome.physical:Area`) or $model.instanceOf(`ehome.physical:Line`)"
 				input="model"
 			>
 				<field attribute="address"/>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.catalog:Manufacturer`)"
+				expr="$model.instanceOf(`ehome.catalog:Manufacturer`)"
 				input="model"
 			>
 				<field attribute="id"/>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.catalog:ProgramAssignment`)"
+				expr="$model.instanceOf(`ehome.catalog:ProgramAssignment`)"
 				input="model"
 			>
 				<field attribute="program"/>
@@ -58,7 +58,7 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-check-lg"
-					input="model"
+					inputs="model"
 					placement="BUTTON_BAR"
 				>
 					<label>
@@ -66,13 +66,13 @@
 						<de>Erstellen</de>
 					</label>
 					<store-form-state/>
-					<switch value="container -> node -> switch {
-    $container.instanceOf(`ehome.project:Project`) and $node.instanceOf(`ehome.building:BuildingDefinition`): 'buildings';
-    $container.instanceOf(`ehome.project:Project`) and $node.instanceOf(`ehome.logical:GroupAddressDefinition`): 'groupAddresses';
-    $container.instanceOf(`ehome.project:Project`) and $node.instanceOf(`ehome.physical:Area`): 'areas';
+					<switch value="switch {
+    $container.instanceOf(`ehome.project:Project`) and $model.instanceOf(`ehome.building:BuildingDefinition`): 'buildings';
+    $container.instanceOf(`ehome.project:Project`) and $model.instanceOf(`ehome.logical:GroupAddressDefinition`): 'groupAddresses';
+    $container.instanceOf(`ehome.project:Project`) and $model.instanceOf(`ehome.physical:Area`): 'areas';
     $container.instanceOf(`ehome.physical:Area`): 'lines';
     $container.instanceOf(`ehome.catalog:ManufacturerRoot`): 'manufacturers';
-    $container.instanceOf(`ehome.catalog:Manufacturer`) and $node.instanceOf(`ehome.operational:Program`): 'programs';
+    $container.instanceOf(`ehome.catalog:Manufacturer`) and $model.instanceOf(`ehome.operational:Program`): 'programs';
     $container.instanceOf(`ehome.catalog:Manufacturer`): 'catalogs';
     $container.instanceOf(`ehome.catalog:Catalog`): 'sections';
     $container.instanceOf(`ehome.catalog:Variant`): 'assignment';
@@ -85,65 +85,104 @@
 							<persist-transient
 								container="container"
 								reference="buildings"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<case match="'groupAddresses'">
 							<persist-transient
 								container="container"
 								reference="groupAddresses"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<case match="'areas'">
 							<persist-transient
 								container="container"
 								reference="areas"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<case match="'lines'">
 							<persist-transient
 								container="container"
 								reference="lines"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<case match="'manufacturers'">
 							<persist-transient
 								container="container"
 								reference="manufacturers"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<case match="'programs'">
 							<persist-transient
 								container="container"
 								reference="programs"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<case match="'catalogs'">
 							<persist-transient
 								container="container"
 								reference="catalogs"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<case match="'sections'">
 							<persist-transient
 								container="container"
 								reference="sections"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<!-- The assignment of a program to the product of the selected variant, owned by the product. -->
 						<case match="'assignment'">
 							<persist-transient
 								container="product"
 								reference="programs"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<default>
 							<persist-transient
 								container="container"
 								reference="parts"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</default>
 					</switch>
-					<write-channel name="selection"/>
 					<close-dialog/>
 				</generic-command>
 			</commands>

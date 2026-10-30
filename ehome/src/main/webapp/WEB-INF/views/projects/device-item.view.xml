@@ -39,13 +39,13 @@
 		-->
 		<channel name="edit"/>
 		<derived-channel name="value"
-			expr="e -> d -> x -> if($e == null, deviceValue($d, $x), if($e == '#none', null, $e))"
+			expr="if($edit == null, deviceValue($device, $item), if($edit == '#none', null, $edit))"
 			inputs="edit, device, item"
 			observed-types="ehome.physical:ParameterSetting"
-			reverse="v -> if($v == null, '#none', $v)"
+			reverse="if($value == null, '#none', $value)"
 		/>
 		<derived-channel name="type"
-			expr="x -> if($x.instanceOf(`ehome.operational:ParameterView`), $x.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`), null)"
+			expr="if($item.instanceOf(`ehome.operational:ParameterView`), $item.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`), null)"
 			inputs="item"
 		/>
 		<!-- How the entry is shown: a communication object, a heading, a value to read, or the kind of input. -->
@@ -53,11 +53,11 @@
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting"
 		>
-			<expr><![CDATA[d -> x -> if(!$x.instanceOf(`ehome.operational:ParameterView`), "object", {
-    t = $x.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
+			<expr><![CDATA[if(!$item.instanceOf(`ehome.operational:ParameterView`), "object", {
+    t = $item.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
     switch {
         $t.instanceOf(`ehome.operational:VoidType`): "heading";
-        deviceEditVeto($d, $x) != null: "readonly";
+        deviceEditVeto($device, $item) != null: "readonly";
         $t.instanceOf(`ehome.operational:EnumerationType`): "choice";
         $t.instanceOf(`ehome.operational:NumericType`) or $t.instanceOf(`ehome.operational:TimeType`): "number";
         $t.instanceOf(`ehome.operational:FloatingPointType`): "decimal";
@@ -66,34 +66,34 @@
 })]]></expr>
 		</derived-channel>
 		<derived-channel name="display"
-			expr="d -> x -> deviceValueHolder($d, $x).get(`ehome.operational:ParameterValue#displayValue`)"
+			expr="deviceValueHolder($device, $item).get(`ehome.operational:ParameterValue#displayValue`)"
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting"
 		/>
 		<!-- The device's setting of the parameter: set only where the value differs from the default. -->
 		<derived-channel name="setting"
-			expr="d -> x -> deviceSetting($d, $x)"
+			expr="deviceSetting($device, $item)"
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting"
 		/>
 		<derived-channel name="defaultHint"
-			expr="s -> x -> if($s == null, null, #('Default: {0}'@en, 'Vorgabe: {0}'@de).fill($x.get(`ehome.operational:ParameterView#displayDefault`) || '–').localize())"
+			expr="if($setting == null, null, #('Default: {0}'@en, 'Vorgabe: {0}'@de).fill($item.get(`ehome.operational:ParameterView#displayDefault`) || '–').localize())"
 			inputs="setting, item"
 		/>
 		<!-- The unit of a time. -->
 		<derived-channel name="unit"
-			expr="t -> if($t.instanceOf(`ehome.operational:TimeType`), $t.get(`ehome.operational:TimeType#unit`).label(), null)"
+			expr="if($type.instanceOf(`ehome.operational:TimeType`), $type.get(`ehome.operational:TimeType#unit`).label(), null)"
 			inputs="type"
 		/>
 		<!-- Whether the entry is changed since the last download. -->
 		<derived-channel name="changed"
-			expr="d -> x -> deviceChanged($d, $x)"
+			expr="deviceChanged($device, $item)"
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
 		/>
 		<!-- What the device holds since the last download, where the entry differs from it. -->
 		<derived-channel name="deviceHint"
-			expr="d -> x -> deviceReferenceHint($d, $x)"
+			expr="deviceReferenceHint($device, $item)"
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
 		/>
@@ -115,7 +115,7 @@
 		>
 			<text input="item"/>
 			<visible-if
-				expr="c -> $c"
+				expr="$changed"
 				input="changed"
 			>
 				<text
@@ -130,11 +130,11 @@
 			</visible-if>
 		</stack>
 		<switch input="kind">
-			<case test="k -> $k == 'choice'">
+			<case test="$kind == 'choice'">
 				<value-input
 					inputs="type"
 					label-position="hide-label"
-					options="t -> $t.get(`ehome.operational:EnumerationType#values`)"
+					options="$type.get(`ehome.operational:EnumerationType#values`)"
 					type="ehome.operational:EnumerationValue"
 					value="value"
 				>
@@ -144,23 +144,24 @@
 					</label>
 					<on-submit>
 						<with-transaction>
-							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
+							<execute-script function="deviceApplyValue($device, $item, $value)">
 								<inputs>
 									<input channel="device"/>
 									<input channel="item"/>
 								</inputs>
 							</execute-script>
+							<with-result>
+								<notify
+									expr="$result"
+									kind="error"
+								/>
+								<write-channel name="edit" clear="true"/>
+							</with-result>
 						</with-transaction>
-						<notify
-							expr="problem -> $problem"
-							kind="error"
-						/>
-						<execute-script function="x -> null"/>
-						<write-channel name="edit"/>
 					</on-submit>
 				</value-input>
 			</case>
-			<case test="k -> $k == 'number'">
+			<case test="$kind == 'number'">
 				<value-input
 					label-position="hide-label"
 					submit-on="change"
@@ -173,23 +174,24 @@
 					</label>
 					<on-submit>
 						<with-transaction>
-							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
+							<execute-script function="deviceApplyValue($device, $item, $value)">
 								<inputs>
 									<input channel="device"/>
 									<input channel="item"/>
 								</inputs>
 							</execute-script>
+							<with-result>
+								<notify
+									expr="$result"
+									kind="error"
+								/>
+								<write-channel name="edit" clear="true"/>
+							</with-result>
 						</with-transaction>
-						<notify
-							expr="problem -> $problem"
-							kind="error"
-						/>
-						<execute-script function="x -> null"/>
-						<write-channel name="edit"/>
 					</on-submit>
 				</value-input>
 			</case>
-			<case test="k -> $k == 'decimal'">
+			<case test="$kind == 'decimal'">
 				<value-input
 					label-position="hide-label"
 					submit-on="change"
@@ -202,23 +204,24 @@
 					</label>
 					<on-submit>
 						<with-transaction>
-							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
+							<execute-script function="deviceApplyValue($device, $item, $value)">
 								<inputs>
 									<input channel="device"/>
 									<input channel="item"/>
 								</inputs>
 							</execute-script>
+							<with-result>
+								<notify
+									expr="$result"
+									kind="error"
+								/>
+								<write-channel name="edit" clear="true"/>
+							</with-result>
 						</with-transaction>
-						<notify
-							expr="problem -> $problem"
-							kind="error"
-						/>
-						<execute-script function="x -> null"/>
-						<write-channel name="edit"/>
 					</on-submit>
 				</value-input>
 			</case>
-			<case test="k -> $k == 'text'">
+			<case test="$kind == 'text'">
 				<value-input
 					label-position="hide-label"
 					submit-on="change"
@@ -231,26 +234,27 @@
 					</label>
 					<on-submit>
 						<with-transaction>
-							<execute-script function="d -> x -> v -> deviceApplyValue($d, $x, $v)">
+							<execute-script function="deviceApplyValue($device, $item, $value)">
 								<inputs>
 									<input channel="device"/>
 									<input channel="item"/>
 								</inputs>
 							</execute-script>
+							<with-result>
+								<notify
+									expr="$result"
+									kind="error"
+								/>
+								<write-channel name="edit" clear="true"/>
+							</with-result>
 						</with-transaction>
-						<notify
-							expr="problem -> $problem"
-							kind="error"
-						/>
-						<execute-script function="x -> null"/>
-						<write-channel name="edit"/>
 					</on-submit>
 				</value-input>
 			</case>
-			<case test="k -> $k == 'readonly'">
+			<case test="$kind == 'readonly'">
 				<text input="display"/>
 			</case>
-			<case test="k -> $k == 'object'">
+			<case test="$kind == 'object'">
 				<!-- The connections, each removable, and the way to another group address. -->
 				<stack
 					align="center"
@@ -262,7 +266,7 @@
 						element-channel="connection"
 						gap="compact"
 						inputs="device, item"
-						items="d -> x -> deviceConnections($d, $x)"
+						items="deviceConnections($device, $item)"
 						layout="grid"
 						observed-types="ehome.physical:Connection,ehome.physical:Connector"
 					>
@@ -284,18 +288,23 @@
 									<action class="com.top_logic.layout.view.command.GenericViewCommand"
 										display="icon-only"
 										image="css:bi bi-x-lg"
-										input="connection"
+										inputs="connection"
 									>
 										<label>
 											<en>Remove the connection</en>
 											<de>Verbindung entfernen</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$connection"
+												type="ehome.physical:Connection"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<with-transaction>
-											<execute-script function="c -> deviceDisconnect($c)"/>
+											<execute-script function="deviceDisconnect($connection)"/>
 										</with-transaction>
 									</action>
 								</button>
@@ -312,17 +321,19 @@
 					>
 						<action class="com.top_logic.layout.view.command.GenericViewCommand"
 							image="css:bi bi-link-45deg"
-							input="item"
+							inputs="item, device"
 						>
 							<label>
 								<en>Connect a group address</en>
 								<de>Gruppenadresse verbinden</de>
 							</label>
-							<executability>
-								<model-access
-									object="device"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$device"
+									type="ehome.physical:Device"
 								/>
+							</access>
+							<executability>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -344,14 +355,14 @@
 			</case>
 		</switch>
 		<visible-if
-			expr="u -> $u != null"
+			expr="$unit != null"
 			input="unit"
 		>
 			<text input="unit"/>
 		</visible-if>
 		<!-- A value the project changed: its default, and the way back to it. -->
 		<visible-if
-			expr="s -> $s != null"
+			expr="$setting != null"
 			input="setting"
 		>
 			<stack
@@ -370,18 +381,23 @@
 					<action class="com.top_logic.layout.view.command.GenericViewCommand"
 						display="icon-only"
 						image="css:bi bi-arrow-counterclockwise"
-						input="setting"
+						inputs="setting"
 					>
 						<label>
 							<en>Reset to default</en>
 							<de>Auf Vorgabe zurücksetzen</de>
 						</label>
+						<access>
+							<operation name="Write"
+								object="$setting"
+								type="ehome.physical:ParameterSetting"
+							/>
+						</access>
 						<executability>
-							<model-access operation="Write"/>
 							<null-input-disabled/>
 						</executability>
 						<with-transaction>
-							<execute-script function="s -> deviceResetSetting($s)"/>
+							<execute-script function="deviceResetSetting($setting)"/>
 						</with-transaction>
 					</action>
 				</button>
@@ -389,7 +405,7 @@
 		</visible-if>
 		<!-- A value or connections changed since the last download: what the device holds, and the way back to it. -->
 		<visible-if
-			expr="h -> $h != null"
+			expr="$deviceHint != null"
 			input="deviceHint"
 		>
 			<stack
@@ -409,21 +425,23 @@
 					<action class="com.top_logic.layout.view.command.GenericViewCommand"
 						display="icon-only"
 						image="css:bi bi-arrow-counterclockwise"
-						input="item"
+						inputs="item, device"
 					>
 						<label>
 							<en>Reset to the state of the device</en>
 							<de>Auf den Stand des Geräts zurücksetzen</de>
 						</label>
-						<executability>
-							<model-access
-								object="device"
-								operation="Write"
+						<access>
+							<operation name="Write"
+								object="$device"
+								type="ehome.physical:Device"
 							/>
+						</access>
+						<executability>
 							<null-input-disabled/>
 						</executability>
 						<with-transaction>
-							<execute-script function="d -> x -> deviceResetToReference($d, $x)">
+							<execute-script function="deviceResetToReference($device, $item)">
 								<inputs>
 									<input channel="device"/>
 								</inputs>

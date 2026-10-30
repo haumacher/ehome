@@ -32,14 +32,14 @@
 					<column attribute="unit"/>
 					<column attribute="writable"/>
 				</columns>
-				<rows>f -> if($f == null, [], zigbeeCandidates($f))</rows>
+				<rows>if($function == null, [], zigbeeCandidates($function))</rows>
 			</table>
 		</inset>
 		<actions>
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-link-45deg"
-					input="datapoint"
+					inputs="datapoint"
 				>
 					<label>
 						<en>Bind</en>
@@ -49,7 +49,7 @@
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="f -> d -> zigbeeBind($f, $d)">
+						<execute-script function="zigbeeBind($function, $datapoint)">
 							<inputs>
 								<input channel="function"/>
 							</inputs>

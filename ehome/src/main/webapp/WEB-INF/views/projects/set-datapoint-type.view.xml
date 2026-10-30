@@ -23,11 +23,11 @@
 			inputs="address"
 			observed-types="ehome.logical:GroupAddress,ehome.physical:Connection,ehome.physical:Connector"
 		>
-			<expr><![CDATA[a -> {
-    name = $a.get(`ehome.logical:GroupAddress#displayName`);
-    own = $a.get(`ehome.logical:GroupAddress#datapointTypes`).firstElement();
-    effective = groupAddressEffectiveType($a);
-    size = groupAddressObjectSize($a);
+			<expr><![CDATA[{
+    name = $address.get(`ehome.logical:GroupAddress#displayName`);
+    own = $address.get(`ehome.logical:GroupAddress#datapointTypes`).firstElement();
+    effective = groupAddressEffectiveType($address);
+    size = groupAddressObjectSize($address);
     state = switch {
         $own != null: #("{0} has the datapoint type {1}."@en, "{0} hat den Datenpunkttyp {1}."@de).fill($name, $own.label());
         $effective != null: #("{0} takes the datapoint type {1} from its objects."@en, "{0} übernimmt den Datenpunkttyp {1} von seinen Objekten."@de).fill($name, $effective.label());
@@ -43,13 +43,13 @@
 		<derived-channel name="veto"
 			inputs="address, type"
 		>
-			<expr><![CDATA[a -> t -> if($t == null, null, groupAddressTypeVeto($a, $t))]]></expr>
+			<expr><![CDATA[if($type == null, null, groupAddressTypeVeto($address, $type))]]></expr>
 		</derived-channel>
 		<!-- The chosen type if it can be set: the input of "Set", which the veto above explains otherwise. -->
 		<derived-channel name="settable"
 			inputs="address, type"
 		>
-			<expr><![CDATA[a -> t -> if($t == null or groupAddressTypeVeto($a, $t) != null, null, $t)]]></expr>
+			<expr><![CDATA[if($type == null or groupAddressTypeVeto($address, $type) != null, null, $type)]]></expr>
 		</derived-channel>
 	</channels>
 	<window width="560px">
@@ -76,7 +76,7 @@
 							<input channel="address"/>
 							<input channel="all"/>
 						</inputs>
-						<options>a -> all -> groupAddressTypeChoices($a, $all)</options>
+						<options>groupAddressTypeChoices($address, $all)</options>
 					</value-input>
 					<value-input
 						type="tl.core:Boolean"
@@ -89,7 +89,7 @@
 					</value-input>
 				</fields>
 				<visible-if
-					expr="v -> $v != null"
+					expr="$veto != null"
 					input="veto"
 				>
 					<text
@@ -103,7 +103,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-check-lg"
-					input="settable"
+					inputs="settable"
 				>
 					<label>
 						<en>Set</en>
@@ -113,20 +113,22 @@
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="a -> t -> groupAddressSetType($a, $t)">
+						<execute-script function="groupAddressSetType($address, $settable)">
 							<inputs>
 								<input channel="address"/>
 							</inputs>
 						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-eraser"
-					input="address"
+					inputs="address"
 					observed-types="ehome.logical:GroupAddress"
 				>
 					<label>
@@ -135,13 +137,15 @@
 					</label>
 					<executability>
 						<null-input-disabled/>
-						<disabled-if expr="a -> if($a.get(`ehome.logical:GroupAddress#datapointTypes`).isEmpty(), #('The address has no datapoint type of its own.'@en, 'Die Adresse hat keinen eigenen Datenpunkttyp.'@de))"/>
+						<disabled-if expr="if($address.get(`ehome.logical:GroupAddress#datapointTypes`).isEmpty(), #('The address has no datapoint type of its own.'@en, 'Die Adresse hat keinen eigenen Datenpunkttyp.'@de))"/>
 					</executability>
 					<with-transaction>
-						<execute-script function="a -> groupAddressSetType($a, null)"/>
+						<execute-script function="groupAddressSetType($address, null)"/>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

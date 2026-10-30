@@ -23,167 +23,216 @@
 			<generic-command
 				clique="new"
 				image="css:bi bi-pencil"
-				input="owner"
+				inputs="owner"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Write</en>
 					<de>Schreiben</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$owner"
+						type="tl.model:TLObject"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
 				</executability>
 				<with-transaction>
-					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:WriteAction`)">
+					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:WriteAction`)">
 						<inputs>
 							<input channel="listName"/>
 						</inputs>
 					</execute-script>
+					<with-result>
+						<write-channel name="action"/>
+					</with-result>
 				</with-transaction>
-				<write-channel name="action"/>
 			</generic-command>
 			<generic-command
 				clique="new"
 				image="css:bi bi-arrow-down-circle"
-				input="owner"
+				inputs="owner"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Read</en>
 					<de>Lesen</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$owner"
+						type="tl.model:TLObject"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
 				</executability>
 				<with-transaction>
-					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:ReadAction`)">
+					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:ReadAction`)">
 						<inputs>
 							<input channel="listName"/>
 						</inputs>
 					</execute-script>
+					<with-result>
+						<write-channel name="action"/>
+					</with-result>
 				</with-transaction>
-				<write-channel name="action"/>
 			</generic-command>
 			<generic-command
 				clique="new"
 				image="css:bi bi-play"
-				input="owner"
+				inputs="owner"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Start timer</en>
 					<de>Timer starten</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$owner"
+						type="tl.model:TLObject"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
 				</executability>
 				<with-transaction>
-					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:StartTimerAction`)">
+					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:StartTimerAction`)">
 						<inputs>
 							<input channel="listName"/>
 						</inputs>
 					</execute-script>
+					<with-result>
+						<write-channel name="action"/>
+					</with-result>
 				</with-transaction>
-				<write-channel name="action"/>
 			</generic-command>
 			<generic-command
 				clique="new"
 				image="css:bi bi-arrow-repeat"
-				input="owner"
+				inputs="owner"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Restart timer</en>
 					<de>Timer neu starten</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$owner"
+						type="tl.model:TLObject"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
 				</executability>
 				<with-transaction>
-					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:RestartTimerAction`)">
+					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:RestartTimerAction`)">
 						<inputs>
 							<input channel="listName"/>
 						</inputs>
 					</execute-script>
+					<with-result>
+						<write-channel name="action"/>
+					</with-result>
 				</with-transaction>
-				<write-channel name="action"/>
 			</generic-command>
 			<generic-command
 				clique="new"
 				image="css:bi bi-stop"
-				input="owner"
+				inputs="owner"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Cancel timer</en>
 					<de>Timer abbrechen</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$owner"
+						type="tl.model:TLObject"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
 				</executability>
 				<with-transaction>
-					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:CancelTimerAction`)">
+					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:CancelTimerAction`)">
 						<inputs>
 							<input channel="listName"/>
 						</inputs>
 					</execute-script>
+					<with-result>
+						<write-channel name="action"/>
+					</with-result>
 				</with-transaction>
-				<write-channel name="action"/>
 			</generic-command>
 			<generic-command
 				clique="new"
 				image="css:bi bi-sliders"
-				input="owner"
+				inputs="owner"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Set parameter</en>
 					<de>Parameter setzen</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$owner"
+						type="tl.model:TLObject"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
 				</executability>
 				<with-transaction>
-					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:SetParameterAction`)">
+					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:SetParameterAction`)">
 						<inputs>
 							<input channel="listName"/>
 						</inputs>
 					</execute-script>
+					<with-result>
+						<write-channel name="action"/>
+					</with-result>
 				</with-transaction>
-				<write-channel name="action"/>
 			</generic-command>
 			<generic-command
 				clique="new"
 				image="css:bi bi-journal-text"
-				input="owner"
+				inputs="owner"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Log</en>
 					<de>Protokollieren</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$owner"
+						type="tl.model:TLObject"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
 				</executability>
 				<with-transaction>
-					<execute-script function="n -> o -> ruleCreate($o, $n, `ehome.runtime:LogAction`)">
+					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:LogAction`)">
 						<inputs>
 							<input channel="listName"/>
 						</inputs>
 					</execute-script>
+					<with-result>
+						<write-channel name="action"/>
+					</with-result>
 				</with-transaction>
-				<write-channel name="action"/>
 			</generic-command>
 			<generic-command
 				image="css:bi bi-trash"
-				input="action"
+				inputs="action"
 				placement="TOOLBAR"
 			>
 				<label>
@@ -193,46 +242,56 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<confirm expr="x -> #('Delete the action?'@en, 'Die Aktion löschen?'@de)"/>
+				<confirm expr="#('Delete the action?'@en, 'Die Aktion löschen?'@de)"/>
 				<delete-object/>
-				<write-channel name="action"/>
+				<write-channel name="action" clear="true"/>
 			</generic-command>
 			<generic-command
 				clique="edit"
 				image="css:bi bi-arrow-up"
-				input="action"
+				inputs="action"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Move up</en>
 					<de>Nach oben</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$action"
+						type="ehome.runtime:Action"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
-					<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+					<disabled-if expr="ruleMoveVeto($action, -1)"/>
 				</executability>
 				<with-transaction>
-					<execute-script function="x -> ruleMove($x, -1)"/>
+					<execute-script function="ruleMove($action, -1)"/>
 				</with-transaction>
 			</generic-command>
 			<generic-command
 				clique="edit"
 				image="css:bi bi-arrow-down"
-				input="action"
+				inputs="action"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Move down</en>
 					<de>Nach unten</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$action"
+						type="ehome.runtime:Action"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
-					<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+					<disabled-if expr="ruleMoveVeto($action, 1)"/>
 				</executability>
 				<with-transaction>
-					<execute-script function="x -> ruleMove($x, 1)"/>
+					<execute-script function="ruleMove($action, 1)"/>
 				</with-transaction>
 			</generic-command>
 		</commands>
@@ -262,10 +321,10 @@
 									<en>Action</en>
 									<de>Aktion</de>
 								</label>
-								<value>a -> ruleSummary($a)</value>
+								<value>ruleSummary($row)</value>
 							</computed-column>
 						</columns>
-						<rows>o -> n -> ruleList($o, $n)</rows>
+						<rows>ruleList($owner, $listName)</rows>
 					</table>
 				</pane>
 				<pane
@@ -279,13 +338,21 @@
 						<save-action>
 							<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
 							<with-transaction>
-								<store-form-state/>
-								<execute-script function="x -> ruleNormalize($x)"/>
+								<store-form-state>
+									<with-result>
+										<execute-script function="ruleNormalize($result)"/>
+									</with-result>
+								</store-form-state>
 							</with-transaction>
-							<discard-form-state/>
+							<leave-edit-mode/>
 						</save-action>
 						<field attribute="datapoint"/>
-						<field attribute="value"/>
+						<!-- Offers the datapoints of the project while a reference @"… is typed (TL #29887). -->
+						<field attribute="value">
+							<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+								<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+							</input-control>
+						</field>
 						<field attribute="onlyOnChange"/>
 						<field attribute="timer"/>
 						<field attribute="duration"/>

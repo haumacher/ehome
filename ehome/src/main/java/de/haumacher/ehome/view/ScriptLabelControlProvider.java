@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.view;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
@@ -20,8 +21,10 @@ import com.top_logic.layout.react.control.table.ReactResourceCellControl;
 import com.top_logic.layout.react.controlprovider.ReactControlProvider;
 import com.top_logic.layout.view.ViewContext;
 import com.top_logic.layout.view.channel.ChannelInputs;
+import com.top_logic.layout.view.channel.InputRef;
 import com.top_logic.layout.view.channel.Inputs;
 import com.top_logic.layout.view.channel.ViewChannel;
+import com.top_logic.layout.view.channel.ViewScripts;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.query.QueryExecutor;
 
@@ -33,15 +36,15 @@ import com.top_logic.model.search.expr.query.QueryExecutor;
  * <p>
  * The node shows the icon of its object and the label the function computes from the object;
  * where the function gives nothing, the object's own label. Like the default node display, the
- * node is no link: a click selects it. The values of the channels named in <code>inputs</code> are
- * the leading arguments of both functions, the object the last one.
+ * node is no link: a click selects it. Both expressions see the values of the channels named in
+ * <code>inputs</code> as variables named after the channels, and the object as <code>$value</code>.
  * </p>
  *
  * <pre>
  * &lt;nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
- *     label="x -> if($x.instanceOf(`ehome.physical:Connection`), connectionLabel($x), null)"/&gt;
+ *     label="if($value.instanceOf(`ehome.physical:Connection`), connectionLabel($value), null)"/&gt;
  * &lt;nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
- *     inputs="device" css-class="d -> x -> if(deviceChanged($d, $x), 'ehomeChanged', null)"/&gt;
+ *     inputs="device" css-class="if(deviceChanged($device, $value), 'ehomeChanged', null)"/&gt;
  * </pre>
  *
  * <p>
@@ -68,20 +71,25 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 		Class<? extends ScriptLabelControlProvider> getImplementationClass();
 
 		/**
-		 * Function computing the label of a node from its object; <code>null</code> for the
-		 * object's own label. Unset, every node shows the label of its object.
+		 * Expression computing the label of a node from its object (the variable
+		 * <code>$value</code>); <code>null</code> for the object's own label. Unset, every node
+		 * shows the label of its object.
 		 */
 		@Name(LABEL)
 		@Nullable
 		Expr getLabel();
 
 		/**
-		 * Function computing the CSS class of a node from its object; <code>null</code> for none.
+		 * Expression computing the CSS class of a node from its object (the variable
+		 * <code>$value</code>); <code>null</code> for none.
 		 */
 		@Name(CSS_CLASS)
 		@Nullable
 		Expr getCssClass();
 	}
+
+	/** The variable holding the object of the node, behind the inputs. */
+	private static final String VALUE = "value";
 
 	private final Config _config;
 
@@ -95,8 +103,10 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 	@CalledByReflection
 	public ScriptLabelControlProvider(InstantiationContext context, Config config) {
 		_config = config;
-		_label = config.getLabel() == null ? null : QueryExecutor.compile(config.getLabel());
-		_cssClass = config.getCssClass() == null ? null : QueryExecutor.compile(config.getCssClass());
+		List<String> variables = new ArrayList<>(InputRef.names(config.getInputs()));
+		variables.add(VALUE);
+		_label = ViewScripts.compileOptional(config.getLabel(), variables);
+		_cssClass = ViewScripts.compileOptional(config.getCssClass(), variables);
 	}
 
 	@Override

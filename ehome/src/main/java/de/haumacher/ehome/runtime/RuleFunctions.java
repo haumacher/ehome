@@ -11,8 +11,11 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
@@ -76,6 +79,13 @@ public class RuleFunctions extends GenericMethod {
 		 */
 		ruleDatapoints(1, true),
 		/**
+		 * <code>ruleSuggestions(obj, text, caret)</code>: the datapoints a reference <code>@"…</code>
+		 * left unfinished before the caret may name, as suggestions of a text field
+		 * ({@link RuleFunctions#suggestions(TLObject, String, int)}); obj is the edited part of a
+		 * rule (or the form's overlay of it).
+		 */
+		ruleSuggestions(3, true),
+		/**
 		 * <code>ruleNormalize(obj)</code>: stores the canonical form of the texts of the rule language
 		 * the part of a rule or schedule entry holds ({@link RuleNormalization}); the object.
 		 */
@@ -135,7 +145,8 @@ public class RuleFunctions extends GenericMethod {
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
 		if (!(arguments[0] instanceof TLObject obj) || !obj.tValid()) {
-			return _function == Function.ruleList || _function == Function.ruleDatapoints ? List.of() : null;
+			return _function == Function.ruleList || _function == Function.ruleDatapoints
+				|| _function == Function.ruleSuggestions ? List.of() : null;
 		}
 		switch (_function) {
 			case ruleSummary:
@@ -151,6 +162,9 @@ public class RuleFunctions extends GenericMethod {
 				return moveVeto(obj, ((Number) arguments[1]).intValue());
 			case ruleDatapoints:
 				return datapoints(obj);
+			case ruleSuggestions:
+				return suggestions(obj, arguments[1] == null ? "" : arguments[1].toString(),
+					arguments[2] instanceof Number caret ? caret.intValue() : 0);
 			case ruleNormalize:
 				return RuleNormalization.normalize(obj);
 			case ruleImportImage:
@@ -505,6 +519,66 @@ public class RuleFunctions extends GenericMethod {
 	 * address, application for an application datapoint ({@link ApplicationDatapoints}), Zigbee for
 	 * one bound to a function of a Zigbee device.
 	 */
+	/**
+	 * The suggestions of a text field of the rule language: where the text before the caret ends in
+	 * a reference left unfinished (<code>@</code> or <code>@"</code> followed by the start of a
+	 * name), the datapoints of the project of the given part whose id or label contains what is
+	 * typed, each replacing the reference by the complete <code>@"id"</code>.
+	 *
+	 * @param part
+	 *        The edited part of a rule, or the form's overlay of it.
+	 * @param text
+	 *        The text typed so far.
+	 * @param caret
+	 *        The position of the caret in the text.
+	 * @return The entries <code>{"label", "text", "from", "to"}</code> a text field offers.
+	 */
+	public static List<Object> suggestions(TLObject part, String text, int caret) {
+		String before = text.substring(0, Math.max(0, Math.min(caret, text.length())));
+		Matcher reference = UNFINISHED_REFERENCE.matcher(before);
+		if (!reference.find()) {
+			return List.of();
+		}
+		TLObject project = project(part);
+		if (project == null) {
+			return List.of();
+		}
+		String typed = reference.group(1).toLowerCase(Locale.ROOT);
+		List<Object> result = new ArrayList<>();
+		for (Object entry : datapoints(project)) {
+			Map<?, ?> datapoint = (Map<?, ?>) entry;
+			String id = String.valueOf(datapoint.get("id"));
+			Object label = datapoint.get("label");
+			String name = label == null ? "" : label.toString();
+			if (!id.toLowerCase(Locale.ROOT).contains(typed) && !name.toLowerCase(Locale.ROOT).contains(typed)) {
+				continue;
+			}
+			String inserted = "@\"" + id + "\"";
+			Map<String, Object> suggestion = new LinkedHashMap<>();
+			suggestion.put("label", name.isEmpty() ? inserted : inserted + " " + name);
+			suggestion.put("text", inserted);
+			suggestion.put("from", Integer.valueOf(reference.start()));
+			suggestion.put("to", Integer.valueOf(before.length()));
+			result.add(suggestion);
+		}
+		return result;
+	}
+
+	/** A reference left unfinished at the end of a text: <code>@</code> or <code>@"</code>, then no quote. */
+	private static final Pattern UNFINISHED_REFERENCE = Pattern.compile("@\"?([^\"@]*)$");
+
+	/**
+	 * The project the given part of a rule or schedule entry belongs to, <code>null</code> if none.
+	 */
+	private static TLObject project(TLObject part) {
+		for (TLObject obj = part; obj != null; obj = obj.tContainer()) {
+			if ("Project".equals(obj.tType().getName()) && "ehome.project".equals(obj.tType().getModule().getName())) {
+				return obj;
+			}
+		}
+		return null;
+	}
+
 	public static List<Object> datapoints(TLObject project) {
 		RuntimeImage image = RuntimeImage.build(project, 0, Instant.EPOCH, false);
 		if (!(image.getJson().get("datapoints") instanceof List<?> list)) {

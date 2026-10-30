@@ -2,14 +2,16 @@
 
 <!--
 	Development tooling (haumacher/ehome #27, #28): the tab "Virtual device" of a device of a project,
-	added to the device tabs of the app (projects/device-tabs.view.xml of the module de.haumacher.ehome)
-	by this same-path overlay. The view layer merges it onto the app's view, after the app's tabs. All
-	of the virtual device is in virtual/.
+	added to the device tabs of the app (the tab bar "device-tabs" in projects/devices.view.xml of the
+	module de.haumacher.ehome) by this same-path overlay, which addresses the tab bar by its id
+	(config:ref, TL #29896) wherever the app keeps it. The tab follows the app's tabs. All of the
+	virtual device is in virtual/.
 -->
-<view>
-	<tab-bar>
+<view xmlns:config="http://www.top-logic.com/ns/config/6.0">
+	<tab-bar config:ref="device-tabs">
 		<tabs>
 			<tab id="virtual"
+				config:position="end"
 				icon="css:bi bi-pc-display"
 			>
 				<label>

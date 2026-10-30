@@ -12,6 +12,7 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 
 /**
@@ -30,7 +31,7 @@ public class DeleteFunctionAction implements ViewAction {
 	 * Configuration of {@link DeleteFunctionAction}.
 	 */
 	@TagName("delete-function")
-	public interface Config extends PolymorphicConfiguration<DeleteFunctionAction> {
+	public interface Config extends PolymorphicConfiguration<DeleteFunctionAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(DeleteFunctionAction.class)

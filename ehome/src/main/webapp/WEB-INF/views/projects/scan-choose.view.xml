@@ -15,7 +15,7 @@
 		<channel name="result"/>
 		<channel name="candidate"/>
 		<derived-channel name="device"
-			expr='r -> #("Device {0}, program version {1}"@en, "Gerät {0}, Programmversion {1}"@de).fill($r["address"], $r["programVersion"]).localize()'
+			expr='#("Device {0}, program version {1}"@en, "Gerät {0}, Programmversion {1}"@de).fill($row["address"], $row["programVersion"]).localize()'
 			inputs="row"
 		/>
 	</channels>
@@ -40,7 +40,7 @@
 								<en>Product</en>
 								<de>Produkt</de>
 							</label>
-							<value>c -> $c["product"]</value>
+							<value>$row["product"]</value>
 						</computed-column>
 						<computed-column name="order"
 							type="tl.core:String"
@@ -50,7 +50,7 @@
 								<en>Order number</en>
 								<de>Bestellnummer</de>
 							</label>
-							<value>c -> $c["order"]</value>
+							<value>$row["order"]</value>
 						</computed-column>
 						<computed-column name="program"
 							type="tl.core:String"
@@ -60,10 +60,10 @@
 								<en>Application program</en>
 								<de>Applikationsprogramm</de>
 							</label>
-							<value>c -> $c["program"]</value>
+							<value>$row["program"]</value>
 						</computed-column>
 					</columns>
-					<rows>r -> if($r == null, [], $r["candidates"])</rows>
+					<rows>if($row == null, [], $row["candidates"])</rows>
 				</table>
 			</stack>
 		</inset>
@@ -71,7 +71,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-check-lg"
-					input="candidate"
+					inputs="candidate"
 				>
 					<label>
 						<en>Create / update</en>
@@ -81,20 +81,24 @@
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="r -> c -> scanApply($r, $c)">
+						<execute-script function="scanApply($row, $candidate)">
 							<inputs>
 								<input channel="row"/>
 							</inputs>
 						</execute-script>
+						<with-result>
+							<notify expr="$result"/>
+							<execute-script function='{"summary": $result["summary"], "rows": scanRefresh($result["rows"]), "notes": $result["notes"]}'>
+								<inputs>
+									<input channel="result"/>
+								</inputs>
+								<with-result>
+									<write-channel name="result"/>
+									<close-dialog/>
+								</with-result>
+							</execute-script>
+						</with-result>
 					</with-transaction>
-					<notify expr="m -> $m"/>
-					<execute-script function='r -> x -> {"summary": $r["summary"], "rows": scanRefresh($r["rows"]), "notes": $r["notes"]}'>
-						<inputs>
-							<input channel="result"/>
-						</inputs>
-					</execute-script>
-					<write-channel name="result"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

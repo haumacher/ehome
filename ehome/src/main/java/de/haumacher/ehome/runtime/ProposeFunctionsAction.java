@@ -14,6 +14,7 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
@@ -31,7 +32,7 @@ public class ProposeFunctionsAction implements ViewAction {
 	 * Configuration of {@link ProposeFunctionsAction}.
 	 */
 	@TagName("propose-functions")
-	public interface Config extends PolymorphicConfiguration<ProposeFunctionsAction> {
+	public interface Config extends PolymorphicConfiguration<ProposeFunctionsAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(ProposeFunctionsAction.class)

@@ -36,6 +36,7 @@ import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.layout.provider.MetaLabelProvider;
+import com.top_logic.layout.view.channel.ViewScripts;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
@@ -652,8 +653,8 @@ public class TestCatalogFromScratch extends BasicTestCase {
 
 	private void checkCatalogTree() throws Exception {
 		// The children of the catalog tree, by the script of the view.
-		QueryExecutor children = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("children",
-			viewScript("src/main/webapp/WEB-INF/views/catalogs.view.xml", "children")));
+		QueryExecutor children = ViewScripts.compile(ExprFormat.INSTANCE.getValue("children",
+			viewScript("src/main/webapp/WEB-INF/views/catalogs.view.xml", "children")), List.of("node"));
 		TLObject root = TLModelUtil.findType("ehome.catalog:ManufacturerRoot").getModule().getSingleton("ROOT");
 		assertTrue(childrenOf(children, root).contains(_manufacturer));
 		assertEquals(List.of(_catalog, _program), childrenOf(children, _manufacturer));

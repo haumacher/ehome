@@ -17,7 +17,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import com.top_logic.basic.Logger;
-import com.top_logic.basic.thread.ThreadContextManager;
+import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
@@ -386,7 +386,7 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 		}
 		try {
 			// The read of the knowledge base, the commit of the import and the refetch after it need an interaction.
-			ThreadContextManager.inSystemInteraction(ZigbeeLive.class, () -> importExport(controllerId, state));
+			ThreadContext.inSystemContext(ZigbeeLive.class, () -> importExport(controllerId, state));
 		} catch (RuntimeException ex) {
 			Logger.error("The live import of the Zigbee devices of controller " + controllerId + " failed.", ex,
 				ZigbeeLive.class);

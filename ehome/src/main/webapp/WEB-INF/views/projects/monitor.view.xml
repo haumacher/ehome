@@ -42,8 +42,7 @@
 		<channel name="onlyTraffic"/>
 		<channel name="recordingName"/>
 		<channel name="numberValue"/>
-		<channel name="percentValue"/>
-		<channel name="scaleValue"/>
+		<channel name="sliderValue"/>
 		<channel name="stepSize"/>
 		<channel name="dayValue"/>
 		<channel name="timeValue"/>
@@ -54,51 +53,51 @@
 		<channel name="dptText"/>
 		<channel name="selectedRecording"/>
 		<derived-channel name="gateway"
-			expr="p -> if($p == null, null, $p.get(`ehome.project:Project#gateway`))"
+			expr="if($project == null, null, $project.get(`ehome.project:Project#gateway`))"
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
 		<derived-channel name="gatewayText"
-			expr="g -> if($g == null, #('The project has no gateway yet.'@en, 'Das Projekt hat noch kein Gateway.'@de), #('Gateway: {0}'@en, 'Gateway: {0}'@de).fill($g))"
+			expr="if($gateway == null, #('The project has no gateway yet.'@en, 'Das Projekt hat noch kein Gateway.'@de), #('Gateway: {0}'@en, 'Gateway: {0}'@de).fill($gateway))"
 			inputs="gateway"
 		/>
 		<derived-channel name="controllerText"
-			expr="p -> if($p == null or $p.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), #('Controller of the project: {0}'@en, 'Controller des Projekts: {0}'@de).fill($p.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`)))"
+			expr="if($project == null or $project.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), #('Controller of the project: {0}'@en, 'Controller des Projekts: {0}'@de).fill($project.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`)))"
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
 		<derived-channel name="status"
-			expr="s -> if($s == null, #('Not connected.'@en, 'Nicht verbunden.'@de), $s['status'])"
+			expr="if($state == null, #('Not connected.'@en, 'Nicht verbunden.'@de), $state['status'])"
 			inputs="state"
 		/>
 		<derived-channel name="sendingStatus"
-			expr="s -> if($s == null, null, $s['sendingStatus'])"
+			expr="if($state == null, null, $state['sendingStatus'])"
 			inputs="state"
 		/>
 		<derived-channel name="recordingStatus"
-			expr="s -> if($s == null, null, $s['recordingStatus'])"
+			expr="if($state == null, null, $state['recordingStatus'])"
 			inputs="state"
 		/>
 		<derived-channel name="logStatus"
-			expr="s -> if($s == null, null, $s['logStatus'])"
+			expr="if($state == null, null, $state['logStatus'])"
 			inputs="state"
 		/>
 		<!-- The address the send form sends to: the selected row's, or one entered. -->
 		<derived-channel name="address"
-			expr="r -> if($r == null, null, $r['address'])"
+			expr="if($selectedRow == null, null, $selectedRow['address'])"
 			inputs="selectedRow"
-			reverse="a -> {'address': $a}"
+			reverse="{'address': $value}"
 		/>
 		<derived-channel name="target"
-			expr="s -> a -> t -> if($s == null, null, monitorTarget($s, $a, $t))"
+			expr="if($state == null, null, monitorTarget($state, $address, $dptText))"
 			inputs="state, address, dptText"
 		/>
 		<derived-channel name="kind"
-			expr="t -> if($t == null, 'none', $t['kind'])"
+			expr="if($target == null, 'none', $target['kind'])"
 			inputs="target"
 		/>
 		<derived-channel name="targetText"
-			expr="t -> if($t == null, #('Choose an address in the table or enter one.'@en, 'Eine Adresse in der Tabelle wählen oder eingeben.'@de), if($t['problem'] != null, $t['problem'], $t['label']))"
+			expr="if($target == null, #('Choose an address in the table or enter one.'@en, 'Eine Adresse in der Tabelle wählen oder eingeben.'@de), if($target['problem'] != null, $target['problem'], $target['label']))"
 			inputs="target"
 		/>
 	</channels>
@@ -120,15 +119,20 @@
 					<commands>
 						<generic-command
 							image="css:bi bi-broadcast"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Choose the gateway</en>
 								<de>Gateway wählen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -138,7 +142,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-plug-fill"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -152,7 +156,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-cpu"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -162,24 +166,27 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<execute-script function="p -> $p.get(`ehome.project:Project#controller`)"/>
-							<open-dialog
-								bind-input-to="controller"
-								dialog-view="projects/connect-controller.view.xml"
-							>
-								<bind
-									channel="project"
-									to="project"
-								/>
-								<bind
-									channel="state"
-									to="state"
-								/>
-							</open-dialog>
+							<execute-script function="$project.get(`ehome.project:Project#controller`)">
+								<with-result>
+									<open-dialog
+										bind-input-to="controller"
+										dialog-view="projects/connect-controller.view.xml"
+									>
+										<bind
+											channel="project"
+											to="project"
+										/>
+										<bind
+											channel="state"
+											to="state"
+										/>
+									</open-dialog>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-x-circle"
-							input="state"
+							inputs="state"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -187,35 +194,43 @@
 								<de>Trennen</de>
 							</label>
 							<executability>
-								<disabled-if expr="s -> if($s != null and $s['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
+								<disabled-if expr="if($state != null and $state['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
 							</executability>
-							<execute-script function="s -> monitorDisconnect($s)"/>
-							<write-channel name="state"/>
+							<execute-script function="monitorDisconnect($state)">
+								<with-result>
+									<write-channel name="state"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-unlock"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Allow sending</en>
 								<de>Senden erlauben</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<visible-if expr="s -> $s == null or !$s['sending']"/>
-								<disabled-if expr="s -> if($s != null and $s['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
+							</access>
+							<executability>
+								<visible-if expr="$state == null or !$state['sending']"/>
+								<disabled-if expr="if($state != null and $state['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
 							</executability>
-							<confirm expr="s -> #('Allow sending for this connection? Send and Read then write telegrams to the bus, which switch what the addresses are connected to.'@en, 'Senden für diese Verbindung erlauben? Senden und Lesen schreiben dann Telegramme auf den Bus, die schalten, was mit den Adressen verbunden ist.'@de)"/>
-							<execute-script function="s -> monitorAllowSending($s, true)"/>
-							<write-channel name="state"/>
+							<confirm expr="#('Allow sending for this connection? Send and Read then write telegrams to the bus, which switch what the addresses are connected to.'@en, 'Senden für diese Verbindung erlauben? Senden und Lesen schreiben dann Telegramme auf den Bus, die schalten, was mit den Adressen verbunden ist.'@de)"/>
+							<execute-script function="monitorAllowSending($state, true)">
+								<with-result>
+									<write-channel name="state"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-lock-fill"
-							input="state"
+							inputs="state"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -223,38 +238,45 @@
 								<de>Senden sperren</de>
 							</label>
 							<executability>
-								<visible-if expr="s -> $s != null and $s['sending']"/>
+								<visible-if expr="$state != null and $state['sending']"/>
 							</executability>
-							<execute-script function="s -> monitorAllowSending($s, false)"/>
-							<write-channel name="state"/>
+							<execute-script function="monitorAllowSending($state, false)">
+								<with-result>
+									<write-channel name="state"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-record-circle"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Start recording</en>
 								<de>Aufzeichnung starten</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<visible-if expr="s -> $s == null or $s['recording'] == null"/>
-								<disabled-if expr="s -> if($s != null and $s['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
+							</access>
+							<executability>
+								<visible-if expr="$state == null or $state['recording'] == null"/>
+								<disabled-if expr="if($state != null and $state['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
 							</executability>
-							<execute-script function="n -> s -> monitorStartRecording($s, $n)">
+							<execute-script function="monitorStartRecording($state, $recordingName)">
 								<inputs>
 									<input channel="recordingName"/>
 								</inputs>
+								<with-result>
+									<write-channel name="state"/>
+								</with-result>
 							</execute-script>
-							<write-channel name="state"/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-stop-circle"
-							input="state"
+							inputs="state"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -262,15 +284,18 @@
 								<de>Aufzeichnung beenden</de>
 							</label>
 							<executability>
-								<visible-if expr="s -> $s != null and $s['recording'] != null"/>
+								<visible-if expr="$state != null and $state['recording'] != null"/>
 							</executability>
-							<execute-script function="s -> monitorStopRecording($s)"/>
-							<write-channel name="state"/>
+							<execute-script function="monitorStopRecording($state)">
+								<with-result>
+									<write-channel name="state"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="more"
 							image="css:bi bi-eraser"
-							input="state"
+							inputs="state"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -280,8 +305,11 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<execute-script function="s -> monitorClear($s)"/>
-							<write-channel name="state"/>
+							<execute-script function="monitorClear($state)">
+								<with-result>
+									<write-channel name="state"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 					</commands>
 					<inset>
@@ -373,7 +401,7 @@
 														<en>Address</en>
 														<de>Adresse</de>
 													</label>
-													<value>r -> $r['address']</value>
+													<value>$row['address']</value>
 												</computed-column>
 												<computed-column name="name"
 													type="tl.core:String"
@@ -383,7 +411,7 @@
 														<en>Name</en>
 														<de>Name</de>
 													</label>
-													<value>r -> $r['name']</value>
+													<value>$row['name']</value>
 												</computed-column>
 												<computed-column name="dpt"
 													type="tl.core:String"
@@ -393,7 +421,7 @@
 														<en>Type</en>
 														<de>Typ</de>
 													</label>
-													<value>r -> $r['dpt']</value>
+													<value>$row['dpt']</value>
 												</computed-column>
 												<computed-column name="value"
 													type="tl.core:String"
@@ -403,7 +431,7 @@
 														<en>Value</en>
 														<de>Wert</de>
 													</label>
-													<value>r -> $r['value']</value>
+													<value>$row['value']</value>
 												</computed-column>
 												<computed-column name="sender"
 													type="tl.core:String"
@@ -413,7 +441,7 @@
 														<en>Sender</en>
 														<de>Absender</de>
 													</label>
-													<value>r -> $r['sender']</value>
+													<value>$row['sender']</value>
 												</computed-column>
 												<computed-column name="time"
 													type="tl.core:String"
@@ -423,7 +451,7 @@
 														<en>Time</en>
 														<de>Zeit</de>
 													</label>
-													<value>r -> $r['time']</value>
+													<value>$row['time']</value>
 												</computed-column>
 												<computed-column name="count"
 													type="tl.core:Integer"
@@ -433,12 +461,12 @@
 														<en>Telegrams</en>
 														<de>Telegramme</de>
 													</label>
-													<value>r -> $r['count']</value>
+													<value>$row['count']</value>
 												</computed-column>
 											</columns>
-											<rows>s -> only -> if($s == null, [], if($only == true, $s['board'].filter(r -> $r['count'] > 0), $s['board']))</rows>
+											<rows>if($state == null, [], if($onlyTraffic == true, $state['board'].filter(r -> $r['count'] > 0), $state['board']))</rows>
 											<!-- A row changed in the last three seconds is tinted. -->
-											<row-class>s -> only -> r -> if($r['fresh'], 'tl-status-success', null)</row-class>
+											<row-class>if($row['fresh'], 'tl-status-success', null)</row-class>
 										</table>
 									</pane>
 									<pane
@@ -483,7 +511,7 @@
 													</fields>
 													<text input="targetText"/>
 													<switch input="kind">
-														<case test="k -> $k == 'switch'">
+														<case test="$kind == 'switch'">
 															<stack
 																direction="row"
 																gap="compact"
@@ -491,64 +519,70 @@
 																<button>
 																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																		image="css:bi bi-toggle-off"
-																		input="state"
+																		inputs="state"
 																	>
 																		<label>
 																			<en>Send 0</en>
 																			<de>0 senden</de>
 																		</label>
 																		<executability>
-																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																			<disabled-if expr="monitorSendVeto($state)"/>
 																		</executability>
-																		<execute-script function="a -> t -> s -> monitorSend($s, $a, false, $t)">
+																		<execute-script function="monitorSend($state, $address, false, $dptText)">
 																			<inputs>
 																				<input channel="address"/>
 																				<input channel="dptText"/>
 																			</inputs>
+																			<with-result>
+																				<write-channel name="state"/>
+																			</with-result>
 																		</execute-script>
-																		<write-channel name="state"/>
 																	</action>
 																</button>
 																<button>
 																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																		image="css:bi bi-toggle-on"
-																		input="state"
+																		inputs="state"
 																	>
 																		<label>
 																			<en>Send 1</en>
 																			<de>1 senden</de>
 																		</label>
 																		<executability>
-																			<disabled-if expr="s -> monitorSendVeto($s)"/>
+																			<disabled-if expr="monitorSendVeto($state)"/>
 																		</executability>
-																		<execute-script function="a -> t -> s -> monitorSend($s, $a, true, $t)">
+																		<execute-script function="monitorSend($state, $address, true, $dptText)">
 																			<inputs>
 																				<input channel="address"/>
 																				<input channel="dptText"/>
 																			</inputs>
+																			<with-result>
+																				<write-channel name="state"/>
+																			</with-result>
 																		</execute-script>
-																		<write-channel name="state"/>
 																	</action>
 																</button>
 															</stack>
 														</case>
-														<!-- DPT 5.001: a slider of 0 to 100 %; sent on "Send". -->
-														<case test="k -> $k == 'percent'">
+														<!-- DPT 5: a slider over the range of the type, with its unit (DatapointCodec.range); sent on "Send". -->
+														<case test="$kind == 'slider'">
 															<stack gap="compact">
 																<fields>
 																	<value-input
 																		type="tl.core:Integer"
-																		value="percentValue"
+																		value="sliderValue"
 																	>
 																		<label>
-																			<en>Value (%)</en>
-																			<de>Wert (%)</de>
+																			<en>Value</en>
+																			<de>Wert</de>
 																		</label>
 																		<input-control class="com.top_logic.layout.view.form.NumberInputControlProvider"
 																			display="slider"
-																			max="100.0"
-																			min="0.0"
+																			inputs="target"
+																			max="$target['max']"
+																			min="$target['min']"
 																			step="1.0"
+																			unit="$target['unit']"
 																		/>
 																	</value-input>
 																</fields>
@@ -560,92 +594,44 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<execute-script function="monitorSend($state, $address, $sliderValue, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
-																					<input channel="percentValue"/>
+																					<input channel="sliderValue"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
-																		</action>
-																	</button>
-																</stack>
-															</stack>
-														</case>
-														<!-- DPT 5 of 0 to 255 (e.g. 5.010 counter): a slider over the byte. -->
-														<case test="k -> $k == 'scale'">
-															<stack gap="compact">
-																<fields>
-																	<value-input
-																		type="tl.core:Integer"
-																		value="scaleValue"
-																	>
-																		<label>
-																			<en>Value (0 to 255)</en>
-																			<de>Wert (0 bis 255)</de>
-																		</label>
-																		<input-control class="com.top_logic.layout.view.form.NumberInputControlProvider"
-																			display="slider"
-																			max="255.0"
-																			min="0.0"
-																			step="1.0"
-																		/>
-																	</value-input>
-																</fields>
-																<stack
-																	direction="row"
-																	gap="compact"
-																	wrap="true"
-																>
-																	<button>
-																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
-																			image="css:bi bi-send"
-																			input="state"
-																		>
-																			<label>
-																				<en>Send</en>
-																				<de>Senden</de>
-																			</label>
-																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
-																			</executability>
-																			<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
-																				<inputs>
-																					<input channel="address"/>
-																					<input channel="scaleValue"/>
-																					<input channel="dptText"/>
-																				</inputs>
-																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																</stack>
 															</stack>
 														</case>
 														<!-- DPT 3 (dimming, blinds): a step up or down by the chosen step size, or a stop (DatapointCodec#encodeWrite). -->
-														<case test="k -> $k == 'step'">
+														<case test="$kind == 'step'">
 															<stack gap="compact">
 																<fields>
 																	<value-input
 																		inputs="target"
-																		options="t -> if($t == null, [], $t['steps'])"
+																		option-order="as-given"
+																		options="if($target == null, [], $target['steps'])"
 																		value="stepSize"
 																	>
 																		<label>
 																			<en>Step size</en>
 																			<de>Schrittweite</de>
 																		</label>
-																		<input-control class="de.haumacher.ehome.view.OptionOrderSelectControlProvider"/>
 																	</value-input>
 																</fields>
 																<stack
@@ -656,85 +642,91 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-arrow-up"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Up</en>
 																				<de>Auf</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> c -> t -> s -> monitorSend($s, $a, {'direction': 'up', 'step': $c}, $t)">
+																			<execute-script function="monitorSend($state, $address, {'direction': 'up', 'step': $stepSize}, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
 																					<input channel="stepSize"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-arrow-down"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Down</en>
 																				<de>Ab</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> c -> t -> s -> monitorSend($s, $a, {'direction': 'down', 'step': $c}, $t)">
+																			<execute-script function="monitorSend($state, $address, {'direction': 'down', 'step': $stepSize}, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
 																					<input channel="stepSize"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-stop-fill"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Stop</en>
 																				<de>Stopp</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> t -> s -> monitorSend($s, $a, {'direction': 'stop'}, $t)">
+																			<execute-script function="monitorSend($state, $address, {'direction': 'stop'}, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																</stack>
 															</stack>
 														</case>
 														<!-- DPT 10: a time of day with an optional day of the week; "Now" sets both. -->
-														<case test="k -> $k == 'time'">
+														<case test="$kind == 'time'">
 															<stack gap="compact">
 																<fields>
 																	<value-input
 																		inputs="target"
-																		options="t -> if($t == null, [], $t['days'])"
+																		option-order="as-given"
+																		options="if($target == null, [], $target['days'])"
 																		value="dayValue"
 																	>
 																		<label>
 																			<en>Day of the week</en>
 																			<de>Wochentag</de>
 																		</label>
-																		<input-control class="de.haumacher.ehome.view.OptionOrderSelectControlProvider"/>
 																	</value-input>
 																	<value-input
 																		type="tl.core:Time"
@@ -744,6 +736,12 @@
 																			<en>Time</en>
 																			<de>Uhrzeit</de>
 																		</label>
+																		<!-- DPT 10 carries seconds: a format writing them gives an input editing them. -->
+																		<annotations>
+																			<format>
+																				<time style="medium"/>
+																			</format>
+																		</annotations>
 																	</value-input>
 																</fields>
 																<stack
@@ -754,46 +752,54 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-clock"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Now</en>
 																				<de>Jetzt</de>
 																			</label>
-																			<execute-script function="s -> now()"/>
-																			<write-channel name="timeValue"/>
-																			<execute-script function="t -> monitorDay($t)"/>
-																			<write-channel name="dayValue"/>
+																			<execute-script function="now()">
+																				<with-result>
+																					<write-channel name="timeValue"/>
+																					<execute-script function="monitorDay($result)">
+																						<with-result>
+																							<write-channel name="dayValue"/>
+																						</with-result>
+																					</execute-script>
+																				</with-result>
+																			</execute-script>
 																		</action>
 																	</button>
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> d -> v -> t -> s -> monitorSend($s, $a, {'day': $d, 'time': $v}, $t)">
+																			<execute-script function="monitorSend($state, $address, {'day': $dayValue, 'time': $timeValue}, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
 																					<input channel="dayValue"/>
 																					<input channel="timeValue"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																</stack>
 															</stack>
 														</case>
 														<!-- DPT 11: a date. -->
-														<case test="k -> $k == 'date'">
+														<case test="$kind == 'date'">
 															<stack gap="compact">
 																<fields>
 																	<value-input
@@ -814,43 +820,48 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-clock"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Now</en>
 																				<de>Jetzt</de>
 																			</label>
-																			<execute-script function="s -> today()"/>
-																			<write-channel name="dateValue"/>
+																			<execute-script function="today()">
+																				<with-result>
+																					<write-channel name="dateValue"/>
+																				</with-result>
+																			</execute-script>
 																		</action>
 																	</button>
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<execute-script function="monitorSend($state, $address, $dateValue, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
 																					<input channel="dateValue"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																</stack>
 															</stack>
 														</case>
 														<!-- DPT 19: a date with a time of day; the day of the week is the one of the date. -->
-														<case test="k -> $k == 'datetime'">
+														<case test="$kind == 'datetime'">
 															<stack gap="compact">
 																<fields>
 																	<value-input
@@ -871,55 +882,60 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-clock"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Now</en>
 																				<de>Jetzt</de>
 																			</label>
-																			<execute-script function="s -> now()"/>
-																			<write-channel name="dateTimeValue"/>
+																			<execute-script function="now()">
+																				<with-result>
+																					<write-channel name="dateTimeValue"/>
+																				</with-result>
+																			</execute-script>
 																		</action>
 																	</button>
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<execute-script function="monitorSend($state, $address, $dateTimeValue, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
 																					<input channel="dateTimeValue"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																</stack>
 															</stack>
 														</case>
 														<!-- DPT 20: one of the named values of the enumeration (DatapointCodec#choices), in the order of their numbers. -->
-														<case test="k -> $k == 'choice'">
+														<case test="$kind == 'choice'">
 															<stack gap="compact">
 																<fields>
 																	<value-input
 																		inputs="target"
-																		options="t -> if($t == null, [], $t['options'])"
+																		option-order="as-given"
+																		options="if($target == null, [], $target['options'])"
 																		value="choiceValue"
 																	>
 																		<label>
 																			<en>Value</en>
 																			<de>Wert</de>
 																		</label>
-																		<input-control class="de.haumacher.ehome.view.OptionOrderSelectControlProvider"/>
 																	</value-input>
 																</fields>
 																<stack
@@ -930,29 +946,31 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<execute-script function="monitorSend($state, $address, $choiceValue, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
 																					<input channel="choiceValue"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																</stack>
 															</stack>
 														</case>
-														<case test="k -> $k == 'number'">
+														<case test="$kind == 'number'">
 															<stack gap="compact">
 																<fields>
 																	<value-input
@@ -973,29 +991,31 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<execute-script function="monitorSend($state, $address, $numberValue, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
 																					<input channel="numberValue"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																</stack>
 															</stack>
 														</case>
-														<case test="k -> $k == 'text' or $k == 'raw'">
+														<case test="$kind == 'text' or $kind == 'raw'">
 															<stack gap="compact">
 																<fields>
 																	<value-input
@@ -1016,23 +1036,25 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			input="state"
+																			inputs="state"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
 																			<executability>
-																				<disabled-if expr="s -> monitorSendVeto($s)"/>
+																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
-																			<execute-script function="a -> v -> t -> s -> monitorSend($s, $a, $v, $t)">
+																			<execute-script function="monitorSend($state, $address, $textValue, $dptText)">
 																				<inputs>
 																					<input channel="address"/>
 																					<input channel="textValue"/>
 																					<input channel="dptText"/>
 																				</inputs>
+																				<with-result>
+																					<write-channel name="state"/>
+																				</with-result>
 																			</execute-script>
-																			<write-channel name="state"/>
 																		</action>
 																	</button>
 																</stack>
@@ -1042,21 +1064,23 @@
 													<button>
 														<action class="com.top_logic.layout.view.command.GenericViewCommand"
 															image="css:bi bi-question-circle"
-															input="state"
+															inputs="state"
 														>
 															<label>
 																<en>Read (the answer appears as telegram)</en>
 																<de>Lesen (die Antwort erscheint als Telegramm)</de>
 															</label>
 															<executability>
-																<disabled-if expr="s -> monitorSendVeto($s)"/>
+																<disabled-if expr="monitorSendVeto($state)"/>
 															</executability>
-															<execute-script function="a -> s -> monitorRead($s, $a)">
+															<execute-script function="monitorRead($state, $address)">
 																<inputs>
 																	<input channel="address"/>
 																</inputs>
+																<with-result>
+																	<write-channel name="state"/>
+																</with-result>
 															</execute-script>
-															<write-channel name="state"/>
 														</action>
 													</button>
 												</stack>
@@ -1081,7 +1105,7 @@
 								<commands>
 									<generic-command
 										image="css:bi bi-pause-fill"
-										input="state"
+										inputs="state"
 										placement="TOOLBAR"
 									>
 										<label>
@@ -1089,14 +1113,17 @@
 											<de>Anhalten</de>
 										</label>
 										<executability>
-											<visible-if expr="s -> $s != null and !$s['paused']"/>
+											<visible-if expr="$state != null and !$state['paused']"/>
 										</executability>
-										<execute-script function="s -> monitorPauseLog($s, true)"/>
-										<write-channel name="state"/>
+										<execute-script function="monitorPauseLog($state, true)">
+											<with-result>
+												<write-channel name="state"/>
+											</with-result>
+										</execute-script>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-play-fill"
-										input="state"
+										inputs="state"
 										placement="TOOLBAR"
 									>
 										<label>
@@ -1104,10 +1131,13 @@
 											<de>Fortsetzen</de>
 										</label>
 										<executability>
-											<visible-if expr="s -> $s != null and $s['paused']"/>
+											<visible-if expr="$state != null and $state['paused']"/>
 										</executability>
-										<execute-script function="s -> monitorPauseLog($s, false)"/>
-										<write-channel name="state"/>
+										<execute-script function="monitorPauseLog($state, false)">
+											<with-result>
+												<write-channel name="state"/>
+											</with-result>
+										</execute-script>
 									</generic-command>
 								</commands>
 								<table filter-bar="true">
@@ -1123,7 +1153,7 @@
 												<en>Time</en>
 												<de>Zeit</de>
 											</label>
-											<value>r -> $r['time']</value>
+											<value>$row['time']</value>
 										</computed-column>
 										<computed-column name="kind"
 											type="tl.core:String"
@@ -1133,7 +1163,7 @@
 												<en>Source</en>
 												<de>Quelle</de>
 											</label>
-											<value>r -> $r['kind']</value>
+											<value>$row['kind']</value>
 										</computed-column>
 										<computed-column name="sender"
 											type="tl.core:String"
@@ -1143,7 +1173,7 @@
 												<en>Sender</en>
 												<de>Absender</de>
 											</label>
-											<value>r -> $r['sender']</value>
+											<value>$row['sender']</value>
 										</computed-column>
 										<computed-column name="address"
 											type="tl.core:String"
@@ -1153,7 +1183,7 @@
 												<en>Address</en>
 												<de>Adresse</de>
 											</label>
-											<value>r -> $r['address']</value>
+											<value>$row['address']</value>
 										</computed-column>
 										<computed-column name="name"
 											type="tl.core:String"
@@ -1163,7 +1193,7 @@
 												<en>Name</en>
 												<de>Name</de>
 											</label>
-											<value>r -> $r['name']</value>
+											<value>$row['name']</value>
 										</computed-column>
 										<computed-column name="value"
 											type="tl.core:String"
@@ -1173,7 +1203,7 @@
 												<en>Value</en>
 												<de>Wert</de>
 											</label>
-											<value>r -> $r['value']</value>
+											<value>$row['value']</value>
 										</computed-column>
 										<computed-column name="service"
 											type="ehome.monitor:TelegramService"
@@ -1183,7 +1213,7 @@
 												<en>Service</en>
 												<de>Dienst</de>
 											</label>
-											<value>r -> $r['service']</value>
+											<value>$row['service']</value>
 										</computed-column>
 										<computed-column name="priority"
 											type="ehome.monitor:TelegramPriority"
@@ -1193,7 +1223,7 @@
 												<en>Priority</en>
 												<de>Priorität</de>
 											</label>
-											<value>r -> $r['priority']</value>
+											<value>$row['priority']</value>
 										</computed-column>
 										<computed-column name="repeated"
 											type="tl.core:Boolean"
@@ -1203,7 +1233,7 @@
 												<en>Repeated</en>
 												<de>Wiederholt</de>
 											</label>
-											<value>r -> $r['repeated']</value>
+											<value>$row['repeated']</value>
 										</computed-column>
 										<computed-column name="hops"
 											type="tl.core:Integer"
@@ -1213,7 +1243,7 @@
 												<en>Routing</en>
 												<de>Routing</de>
 											</label>
-											<value>r -> $r['hops']</value>
+											<value>$row['hops']</value>
 										</computed-column>
 										<computed-column name="data"
 											type="tl.core:String"
@@ -1224,12 +1254,12 @@
 												<en>Data</en>
 												<de>Daten</de>
 											</label>
-											<value>r -> $r['data']</value>
+											<value>$row['data']</value>
 										</computed-column>
 									</columns>
-									<rows>s -> if($s == null, [], $s['log'])</rows>
+									<rows>if($state == null, [], $state['log'])</rows>
 									<!-- An own telegram (sent by this monitor) is tinted. -->
-									<row-class>s -> r -> if($r['own'], 'tl-status-info', null)</row-class>
+									<row-class>if($row['own'], 'tl-status-info', null)</row-class>
 								</table>
 							</panel>
 						</tab>
@@ -1258,7 +1288,7 @@
 											<commands>
 												<generic-command
 													image="css:bi bi-filetype-csv"
-													input="selectedRecording"
+													inputs="selectedRecording"
 													placement="TOOLBAR"
 												>
 													<label>
@@ -1268,16 +1298,19 @@
 													<executability>
 														<null-input-disabled/>
 													</executability>
-													<execute-script function="r -> monitorRecordingCsv($r)"/>
-													<open-dialog
-														bind-input-to="file"
-														dialog-view="projects/monitor-export.view.xml"
-													/>
+													<execute-script function="monitorRecordingCsv($selectedRecording)">
+														<with-result>
+															<open-dialog
+																bind-input-to="file"
+																dialog-view="projects/monitor-export.view.xml"
+															/>
+														</with-result>
+													</execute-script>
 												</generic-command>
 												<generic-command
 													clique="delete"
 													image="css:bi bi-trash"
-													input="selectedRecording"
+													inputs="selectedRecording"
 													placement="TOOLBAR"
 												>
 													<label>
@@ -1287,9 +1320,9 @@
 													<executability>
 														<null-input-disabled/>
 													</executability>
-													<confirm expr="r -> #('Delete the recording &quot;{0}&quot; with its telegrams?'@en, 'Die Aufzeichnung „{0}“ mit ihren Telegrammen löschen?'@de).fill($r.get(`ehome.monitor:Recording#name`))"/>
+													<confirm expr="#('Delete the recording &quot;{0}&quot; with its telegrams?'@en, 'Die Aufzeichnung „{0}“ mit ihren Telegrammen löschen?'@de).fill($selectedRecording.get(`ehome.monitor:Recording#name`))"/>
 													<delete-object/>
-													<write-channel name="selectedRecording"/>
+													<write-channel name="selectedRecording" clear="true"/>
 												</generic-command>
 											</commands>
 											<table
@@ -1309,7 +1342,7 @@
 													<column attribute="count"/>
 													<column attribute="gateway"/>
 												</columns>
-												<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#recordings`))</rows>
+												<rows>if($project == null, [], $project.get(`ehome.project:Project#recordings`))</rows>
 											</table>
 										</panel>
 									</pane>
@@ -1339,7 +1372,7 @@
 													<en>Time</en>
 													<de>Zeit</de>
 												</label>
-												<value>r -> $r['time']</value>
+												<value>$row['time']</value>
 											</computed-column>
 											<computed-column name="kind"
 												type="tl.core:String"
@@ -1349,7 +1382,7 @@
 													<en>Source</en>
 													<de>Quelle</de>
 												</label>
-												<value>r -> $r['kind']</value>
+												<value>$row['kind']</value>
 											</computed-column>
 											<computed-column name="sender"
 												type="tl.core:String"
@@ -1359,7 +1392,7 @@
 													<en>Sender or event</en>
 													<de>Absender oder Ereignis</de>
 												</label>
-												<value>r -> $r['sender']</value>
+												<value>$row['sender']</value>
 											</computed-column>
 											<computed-column name="address"
 												type="tl.core:String"
@@ -1369,7 +1402,7 @@
 													<en>Address</en>
 													<de>Adresse</de>
 												</label>
-												<value>r -> $r['address']</value>
+												<value>$row['address']</value>
 											</computed-column>
 											<computed-column name="name"
 												type="tl.core:String"
@@ -1379,7 +1412,7 @@
 													<en>Name</en>
 													<de>Name</de>
 												</label>
-												<value>r -> $r['name']</value>
+												<value>$row['name']</value>
 											</computed-column>
 											<computed-column name="value"
 												type="tl.core:String"
@@ -1389,7 +1422,7 @@
 													<en>Value</en>
 													<de>Wert</de>
 												</label>
-												<value>r -> $r['value']</value>
+												<value>$row['value']</value>
 											</computed-column>
 											<computed-column name="service"
 												type="ehome.monitor:TelegramService"
@@ -1399,7 +1432,7 @@
 													<en>Service</en>
 													<de>Dienst</de>
 												</label>
-												<value>r -> $r['service']</value>
+												<value>$row['service']</value>
 											</computed-column>
 											<computed-column name="priority"
 												type="ehome.monitor:TelegramPriority"
@@ -1409,7 +1442,7 @@
 													<en>Priority</en>
 													<de>Priorität</de>
 												</label>
-												<value>r -> $r['priority']</value>
+												<value>$row['priority']</value>
 											</computed-column>
 											<computed-column name="repeated"
 												type="tl.core:Boolean"
@@ -1419,7 +1452,7 @@
 													<en>Repeated</en>
 													<de>Wiederholt</de>
 												</label>
-												<value>r -> $r['repeated']</value>
+												<value>$row['repeated']</value>
 											</computed-column>
 											<computed-column name="hops"
 												type="tl.core:Integer"
@@ -1429,7 +1462,7 @@
 													<en>Routing</en>
 													<de>Routing</de>
 												</label>
-												<value>r -> $r['hops']</value>
+												<value>$row['hops']</value>
 											</computed-column>
 											<computed-column name="data"
 												type="tl.core:String"
@@ -1440,12 +1473,12 @@
 													<en>Data</en>
 													<de>Daten</de>
 												</label>
-												<value>r -> $r['data']</value>
+												<value>$row['data']</value>
 											</computed-column>
 												</columns>
-												<rows>r -> if($r == null, [], monitorRecordingRows($r))</rows>
+												<rows>if($selectedRecording == null, [], monitorRecordingRows($selectedRecording))</rows>
 												<!-- An own telegram (sent by this monitor) is tinted. -->
-												<row-class>x -> r -> if($r['own'], 'tl-status-info', null)</row-class>
+												<row-class>if($row['own'], 'tl-status-info', null)</row-class>
 											</table>
 										</panel>
 									</pane>

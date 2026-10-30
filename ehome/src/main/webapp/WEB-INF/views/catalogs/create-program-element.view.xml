@@ -29,7 +29,7 @@
 		>
 			<!-- A parameter type; the fields its kind does not have are not shown. -->
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:ParameterType`)"
+				expr="$model.instanceOf(`ehome.operational:ParameterType`)"
 				input="model"
 			>
 				<field attribute="name"/>
@@ -46,7 +46,7 @@
 				<field attribute="version"/>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:Parameter`)"
+				expr="$model.instanceOf(`ehome.operational:Parameter`)"
 				input="model"
 			>
 				<field attribute="description"/>
@@ -83,7 +83,7 @@
 				</field>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:Port`)"
+				expr="$model.instanceOf(`ehome.operational:Port`)"
 				input="model"
 			>
 				<field attribute="index"/>
@@ -113,7 +113,7 @@
 				</group>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:EnumerationValue`)"
+				expr="$model.instanceOf(`ehome.operational:EnumerationValue`)"
 				input="model"
 			>
 				<field attribute="name"/>
@@ -123,7 +123,7 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-check-lg"
-					input="model"
+					inputs="model"
 					placement="BUTTON_BAR"
 				>
 					<label>
@@ -131,38 +131,53 @@
 						<de>Erstellen</de>
 					</label>
 					<store-form-state/>
-					<switch value="n -> switch {
-    $n.instanceOf(`ehome.operational:ParameterType`): 'parameterTypes';
-    $n.instanceOf(`ehome.operational:Parameter`): 'parameters';
-    $n.instanceOf(`ehome.operational:Port`): 'ports';
+					<switch value="switch {
+    $model.instanceOf(`ehome.operational:ParameterType`): 'parameterTypes';
+    $model.instanceOf(`ehome.operational:Parameter`): 'parameters';
+    $model.instanceOf(`ehome.operational:Port`): 'ports';
     default: 'values';
 }">
 						<case match="'parameterTypes'">
 							<persist-transient
 								container="container"
 								reference="parameterTypes"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<case match="'parameters'">
 							<persist-transient
 								container="container"
 								reference="parameters"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<case match="'ports'">
 							<persist-transient
 								container="container"
 								reference="ports"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</case>
 						<default>
 							<persist-transient
 								container="container"
 								reference="values"
-							/>
+							>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</persist-transient>
 						</default>
 					</switch>
-					<write-channel name="selection"/>
 					<close-dialog/>
 				</generic-command>
 			</commands>

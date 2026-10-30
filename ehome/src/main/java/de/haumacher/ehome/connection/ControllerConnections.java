@@ -21,7 +21,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import com.top_logic.basic.Logger;
-import com.top_logic.basic.thread.ThreadContextManager;
+import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.RefetchTimeout;
@@ -178,7 +178,7 @@ public final class ControllerConnections {
 	public static void execute(Runnable job) {
 		KB.execute(() -> {
 			try {
-				ThreadContextManager.inSystemInteraction(ControllerConnections.class, () -> {
+				ThreadContext.inSystemContext(ControllerConnections.class, () -> {
 					refetch();
 					job.run();
 				});
@@ -200,7 +200,7 @@ public final class ControllerConnections {
 		CompletableFuture<Void> done = new CompletableFuture<>();
 		KB.execute(() -> {
 			try {
-				ThreadContextManager.inSystemInteraction(ControllerConnections.class, () -> {
+				ThreadContext.inSystemContext(ControllerConnections.class, () -> {
 					refetch();
 					job.run();
 				});
@@ -270,7 +270,7 @@ public final class ControllerConnections {
 	 * in a system interaction on the calling thread).
 	 */
 	static Credentials credentials(String controllerId) {
-		return ThreadContextManager.inSystemInteraction(ControllerConnections.class, () -> {
+		return ThreadContext.inSystemContext(ControllerConnections.class, () -> {
 			refetch();
 			TLObject controller = find(controllerId);
 			if (controller == null) {

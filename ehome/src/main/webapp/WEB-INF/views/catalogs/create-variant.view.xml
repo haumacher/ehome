@@ -31,7 +31,7 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-check-lg"
-					input="model"
+					inputs="model"
 					placement="BUTTON_BAR"
 				>
 					<label>
@@ -40,9 +40,10 @@
 					</label>
 					<store-form-state/>
 					<with-transaction>
-						<persist-transient/>
-						<execute-script>
-							<function><![CDATA[container -> variant -> {
+						<persist-transient>
+							<with-result as="variant">
+								<execute-script>
+									<function><![CDATA[{
     catalog = if($container.instanceOf(`ehome.catalog:Catalog`),
         $container,
         $container.referers(`ehome.catalog:Catalog#variants`).firstElement());
@@ -61,13 +62,17 @@
     $catalog.add(`ehome.catalog:Catalog#variants`, $variant);
     $variant
 }]]></function>
-							<inputs>
-								<input channel="container"/>
-							</inputs>
-						</execute-script>
+									<inputs>
+										<input channel="container"/>
+									</inputs>
+								</execute-script>
+							</with-result>
+						</persist-transient>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</generic-command>
 			</commands>
 		</form>

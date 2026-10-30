@@ -12,6 +12,7 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.config.annotation.defaults.IntDefault;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 
 /**
@@ -29,7 +30,7 @@ public class ZigbeePermitAction implements ViewAction {
 	 * Configuration of {@link ZigbeePermitAction}.
 	 */
 	@TagName("zigbee-permit")
-	public interface Config extends PolymorphicConfiguration<ZigbeePermitAction> {
+	public interface Config extends PolymorphicConfiguration<ZigbeePermitAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(ZigbeePermitAction.class)

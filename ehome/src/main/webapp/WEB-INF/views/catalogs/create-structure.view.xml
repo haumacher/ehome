@@ -33,33 +33,33 @@
 			with-inset="true"
 		>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:Channel`)"
+				expr="$model.instanceOf(`ehome.operational:Channel`)"
 				input="model"
 			>
 				<field attribute="number"/>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:Channel`) or $n.instanceOf(`ehome.operational:ParameterGroup`)"
+				expr="$model.instanceOf(`ehome.operational:Channel`) or $model.instanceOf(`ehome.operational:ParameterGroup`)"
 				input="model"
 			>
 				<field attribute="name"/>
 				<field attribute="description"/>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:ParameterGroup`) or $n.instanceOf(`ehome.operational:Switch`)"
+				expr="$model.instanceOf(`ehome.operational:ParameterGroup`) or $model.instanceOf(`ehome.operational:Switch`)"
 				input="model"
 			>
 				<field attribute="input"/>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:Case`)"
+				expr="$model.instanceOf(`ehome.operational:Case`)"
 				input="model"
 			>
 				<field attribute="pattern"/>
 				<field attribute="isDefault"/>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:ParameterView`)"
+				expr="$model.instanceOf(`ehome.operational:ParameterView`)"
 				input="model"
 			>
 				<field attribute="parameter"/>
@@ -67,7 +67,7 @@
 				<field attribute="access"/>
 			</visible-if>
 			<visible-if
-				expr="n -> $n.instanceOf(`ehome.operational:Interface`)"
+				expr="$model.instanceOf(`ehome.operational:Interface`)"
 				input="model"
 			>
 				<field attribute="port"/>
@@ -77,7 +77,7 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-check-lg"
-					input="model"
+					inputs="model"
 					placement="BUTTON_BAR"
 				>
 					<label>
@@ -86,15 +86,20 @@
 					</label>
 					<store-form-state/>
 					<with-transaction>
-						<persist-transient/>
-						<execute-script function="anchor -> node -> structureInsert($node, $anchor, null)">
-							<inputs>
-								<input channel="anchor"/>
-							</inputs>
-						</execute-script>
+						<persist-transient>
+							<with-result>
+								<execute-script function="structureInsert($result, $anchor, null)">
+									<inputs>
+										<input channel="anchor"/>
+									</inputs>
+								</execute-script>
+							</with-result>
+						</persist-transient>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</generic-command>
 			</commands>
 		</form>

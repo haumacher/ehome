@@ -25,8 +25,8 @@
 	the network of the controller (PAN ID, channel, joining open with the seconds left, or closed),
 	when the devices were last read (live or on request) and, in red, why the last live import failed.
 	The column "Status" shows what the events tell of each device (interviewing, interview failed, left
-	the network), else whether its interview finished. <zigbee-updates> (ZigbeeUpdatesElement) writes
-	"refresh" on every change of the live state, at most once a second, and once a second while the
+	the network), else whether its interview finished. The source of "refresh" (ZigbeeSource) publishes
+	on every change of the live state, taken at most once a second, and once a second while the
 	network is open for joining; the texts and the table are computed again from it.
 	"Remove absent functions" deletes the functions of the selected device the controller no longer
 	exports that no datapoint is bound to and names the bound ones it keeps.
@@ -51,27 +51,29 @@
 		<channel name="project"/>
 		<channel name="device"/>
 		<channel name="function"/>
-		<channel name="refresh"/>
+		<source-channel name="refresh"
+			update-interval="1000"
+		>
+			<source class="de.haumacher.ehome.zigbee.ZigbeeSource"
+				project="project"
+			/>
+		</source-channel>
 		<derived-channel name="networkState"
-			expr="p -> r -> if($p == null, null, zigbeeNetworkState($p, $r))"
+			expr="if($project == null, null, zigbeeNetworkState($project, $refresh))"
 			inputs="project, refresh"
 			observed-types="ehome.runtime:Controller,ehome.project:Project"
 		/>
 		<derived-channel name="readState"
-			expr="p -> r -> if($p == null, null, zigbeeReadState($p, $r))"
+			expr="if($project == null, null, zigbeeReadState($project, $refresh))"
 			inputs="project, refresh"
 			observed-types="ehome.runtime:Controller,ehome.project:Project"
 		/>
 		<derived-channel name="liveProblem"
-			expr="p -> r -> if($p == null, null, zigbeeLiveProblem($p, $r))"
+			expr="if($project == null, null, zigbeeLiveProblem($project, $refresh))"
 			inputs="project, refresh"
 			observed-types="ehome.runtime:Controller,ehome.project:Project"
 		/>
 	</channels>
-	<zigbee-updates
-		project="project"
-		refresh="refresh"
-	>
 	<split-panel
 		orientation="horizontal"
 		resizable="true"
@@ -91,7 +93,7 @@
 						<upload-command
 							accept=".json,application/json"
 							image="css:fa-solid fa-upload"
-							input="project"
+							inputs="project"
 							multiple="false"
 							placement="TOOLBAR"
 						>
@@ -99,129 +101,174 @@
 								<en>Import Zigbee devices</en>
 								<de>Zigbee-Geräte importieren</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<with-transaction>
-								<execute-script function="p -> file -> zigbeeImport($p, $file)">
+								<execute-script function="zigbeeImport($project, $file)">
 									<inputs>
 										<input channel="project"/>
 									</inputs>
 								</execute-script>
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
 							</with-transaction>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
 						</upload-command>
 						<generic-command
 							image="css:bi bi-broadcast"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Open network for pairing</en>
 								<de>Netz zum Koppeln öffnen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="p -> deploymentVeto($p)"/>
+								<disabled-if expr="deploymentVeto($project)"/>
 							</executability>
-							<zigbee-permit seconds="254"/>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
+							<zigbee-permit seconds="254">
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
+							</zigbee-permit>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-x-octagon"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Close network</en>
 								<de>Netz schließen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="p -> deploymentVeto($p)"/>
+								<disabled-if expr="deploymentVeto($project)"/>
 							</executability>
-							<zigbee-permit seconds="0"/>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
+							<zigbee-permit seconds="0">
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
+							</zigbee-permit>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-cloud-download"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Read Zigbee devices</en>
 								<de>Zigbee-Geräte lesen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="p -> deploymentVeto($p)"/>
+								<disabled-if expr="deploymentVeto($project)"/>
 							</executability>
-							<read-zigbee-devices/>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
+							<read-zigbee-devices>
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
+							</read-zigbee-devices>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-plus-square"
-							input="device"
+							inputs="device"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Create datapoints</en>
 								<de>Datenpunkte anlegen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$device"
+									type="ehome.zigbee:ZigbeeDevice"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="d -> zigbeeCreateDatapointsVeto($d)"/>
+								<disabled-if expr="zigbeeCreateDatapointsVeto($device)"/>
 							</executability>
 							<with-transaction>
-								<execute-script function="d -> zigbeeCreateDatapoints($d)"/>
+								<execute-script function="zigbeeCreateDatapoints($device)"/>
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
 							</with-transaction>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-eraser"
-							input="device"
+							inputs="device"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Remove absent functions</en>
 								<de>Fehlende Funktionen entfernen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$device"
+									type="ehome.zigbee:ZigbeeDevice"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="d -> zigbeeRemoveAbsentVeto($d)"/>
+								<disabled-if expr="zigbeeRemoveAbsentVeto($device)"/>
 							</executability>
 							<with-transaction>
-								<execute-script function="d -> zigbeeRemoveAbsent($d)"/>
+								<execute-script function="zigbeeRemoveAbsent($device)"/>
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
 							</with-transaction>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							input="device"
+							inputs="device"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -231,9 +278,9 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="d -> #('Delete the Zigbee device {0} from the project? Datapoints bound to its functions stay as values of the application. The controller keeps the device.'@en, 'Das Zigbee-Gerät {0} aus dem Projekt löschen? An seine Funktionen gebundene Datenpunkte bleiben als Werte der Anwendung erhalten. Der Controller behält das Gerät.'@de).fill($d.get(`ehome.zigbee:ZigbeeDevice#name`))"/>
+							<confirm expr="#('Delete the Zigbee device {0} from the project? Datapoints bound to its functions stay as values of the application. The controller keeps the device.'@en, 'Das Zigbee-Gerät {0} aus dem Projekt löschen? An seine Funktionen gebundene Datenpunkte bleiben als Werte der Anwendung erhalten. Der Controller behält das Gerät.'@de).fill($device.get(`ehome.zigbee:ZigbeeDevice#name`))"/>
 							<delete-object/>
-							<write-channel name="device"/>
+							<write-channel name="device" clear="true"/>
 						</generic-command>
 					</commands>
 					<stack>
@@ -267,7 +314,7 @@
 										<en>Status</en>
 										<de>Status</de>
 									</label>
-									<value>d -> zigbeeDeviceState($d)</value>
+									<value>zigbeeDeviceState($row)</value>
 								</computed-column>
 								<column attribute="location"/>
 								<column attribute="deviceType"/>
@@ -275,7 +322,7 @@
 								<column attribute="model"/>
 								<column attribute="ieee"/>
 							</columns>
-							<rows>p -> r -> if($p == null, [], $p.get(`ehome.project:Project#zigbeeDevices`))</rows>
+							<rows>if($project == null, [], $project.get(`ehome.project:Project#zigbeeDevices`))</rows>
 						</table>
 					</stack>
 				</panel>
@@ -349,39 +396,51 @@
 											<commands>
 												<generic-command
 													image="css:bi bi-plus-lg"
-													input="function"
+													inputs="function"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>Create datapoint</en>
 														<de>Datenpunkt anlegen</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$function"
+															type="ehome.zigbee:ZigbeeFunction"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
-														<disabled-if expr="f -> zigbeeBindVeto($f)"/>
+														<disabled-if expr="zigbeeBindVeto($function)"/>
 													</executability>
 													<with-transaction>
-														<execute-script function="f -> zigbeeCreateDatapoint($f)"/>
+														<execute-script function="zigbeeCreateDatapoint($function)"/>
+														<with-result>
+															<notify
+																expr="#('Datapoint {0} created.'@en, 'Datenpunkt {0} angelegt.'@de).fill($result.get(`ehome.runtime:ApplicationDatapoint#identifier`))"
+																kind="info"
+															/>
+														</with-result>
 													</with-transaction>
-													<notify
-														expr="d -> #('Datapoint {0} created.'@en, 'Datenpunkt {0} angelegt.'@de).fill($d.get(`ehome.runtime:ApplicationDatapoint#identifier`))"
-														kind="info"
-													/>
 												</generic-command>
 												<generic-command
 													image="css:bi bi-link-45deg"
-													input="function"
+													inputs="function"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>Bind datapoint</en>
 														<de>Datenpunkt binden</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$function"
+															type="ehome.zigbee:ZigbeeFunction"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
-														<disabled-if expr="f -> zigbeeBindVeto($f)"/>
+														<disabled-if expr="zigbeeBindVeto($function)"/>
 													</executability>
 													<open-dialog
 														bind-input-to="function"
@@ -390,20 +449,25 @@
 												</generic-command>
 												<generic-command
 													image="css:bi bi-x-lg"
-													input="function"
+													inputs="function"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>Unbind</en>
 														<de>Bindung lösen</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$function"
+															type="ehome.zigbee:ZigbeeFunction"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
-														<disabled-if expr="f -> zigbeeUnbindVeto($f)"/>
+														<disabled-if expr="zigbeeUnbindVeto($function)"/>
 													</executability>
 													<with-transaction>
-														<execute-script function="f -> zigbeeUnbind($f)"/>
+														<execute-script function="zigbeeUnbind($function)"/>
 													</with-transaction>
 												</generic-command>
 											</commands>
@@ -444,7 +508,7 @@
 																		<en>Function</en>
 																		<de>Funktion</de>
 																	</label>
-																	<value>f -> zigbeeFunctionLabel($f)</value>
+																	<value>zigbeeFunctionLabel($row)</value>
 																</computed-column>
 																<column attribute="endpoint"/>
 																<column attribute="valueType"/>
@@ -463,7 +527,7 @@
 																	</label>
 																</column>
 															</columns>
-															<rows>d -> if($d == null, [], $d.get(`ehome.zigbee:ZigbeeDevice#functions`))</rows>
+															<rows>if($device == null, [], $device.get(`ehome.zigbee:ZigbeeDevice#functions`))</rows>
 														</table>
 													</pane>
 													<pane
@@ -544,7 +608,7 @@
 												<column attribute="outputClusters"/>
 												<column attribute="zoneType"/>
 											</columns>
-											<rows>d -> if($d == null, [], $d.get(`ehome.zigbee:ZigbeeDevice#endpoints`))</rows>
+											<rows>if($device == null, [], $device.get(`ehome.zigbee:ZigbeeDevice#endpoints`))</rows>
 										</table>
 									</tab>
 								</tabs>
@@ -555,5 +619,4 @@
 			</pane>
 		</panes>
 	</split-panel>
-	</zigbee-updates>
 </view>

@@ -19,24 +19,24 @@
 		<!-- The object selected in the table; only one of the chosen device counts. -->
 		<channel name="selectedObject"/>
 		<derived-channel name="interface"
-			expr="d -> i -> if($d != null and $i != null and deviceObjects($d).containsElement($i), $i, null)"
+			expr="if($device != null and $selectedObject != null and deviceObjects($device).containsElement($selectedObject), $selectedObject, null)"
 			inputs="device, selectedObject"
 		/>
 		<!-- The kind the user chose; empty until the user chooses one, the kind is then the default of the object. -->
 		<channel name="chosenKind"/>
 		<derived-channel name="kind"
-			expr="k -> d -> i -> if($k != null, $k, if($i == null, null, deviceDefaultConnectionKind($d, $i)))"
+			expr="if($chosenKind != null, $chosenKind, if($interface == null, null, deviceDefaultConnectionKind($device, $interface)))"
 			inputs="chosenKind, device, interface"
-			reverse="k -> $k"
+			reverse="$value"
 		/>
 		<derived-channel name="hint"
 			inputs="address"
 		>
-			<expr><![CDATA[a -> {
-    type = $a.get(`ehome.logical:GroupAddress#effectiveDatapointType`);
+			<expr><![CDATA[{
+    type = $address.get(`ehome.logical:GroupAddress#effectiveDatapointType`);
     if($type == null,
-        #("{0} has no datapoint type."@en, "{0} hat keinen Datenpunkttyp."@de).fill($a.get(`ehome.logical:GroupAddress#displayName`)),
-        #("{0} has the datapoint type {1}."@en, "{0} hat den Datenpunkttyp {1}."@de).fill($a.get(`ehome.logical:GroupAddress#displayName`), $type.label()))
+        #("{0} has no datapoint type."@en, "{0} hat keinen Datenpunkttyp."@de).fill($address.get(`ehome.logical:GroupAddress#displayName`)),
+        #("{0} has the datapoint type {1}."@en, "{0} hat den Datenpunkttyp {1}."@de).fill($address.get(`ehome.logical:GroupAddress#displayName`), $type.label()))
         .localize()
 }]]></expr>
 		</derived-channel>
@@ -55,7 +55,7 @@
 				<fields>
 					<value-input
 						inputs="address"
-						options="a -> groupAddressDevices($a)"
+						options="groupAddressDevices($address)"
 						type="ehome.physical:Device"
 						value="device"
 					>
@@ -81,7 +81,7 @@
 								<en>No.</en>
 								<de>Nr.</de>
 							</label>
-							<value>i -> $i.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
+							<value>$row.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
 						</computed-column>
 						<column attribute="displayName"
 							width="220"
@@ -94,7 +94,7 @@
 								<en>Function</en>
 								<de>Funktion</de>
 							</label>
-							<value>i -> $i.get(`ehome.operational:Interface#function`).localize() || $i.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#function`).localize()</value>
+							<value>$row.get(`ehome.operational:Interface#function`).localize() || $row.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#function`).localize()</value>
 						</computed-column>
 						<computed-column name="datapointType"
 							type="ehome.datapoint:DatapointType"
@@ -104,13 +104,13 @@
 								<en>Datapoint type</en>
 								<de>Datenpunkttyp</de>
 							</label>
-							<value><![CDATA[i -> {
-    own = $i.get(`ehome.operational:Interface#datapointTypes`);
-    if($own.isEmpty(), $i.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $own.firstElement())
+							<value><![CDATA[{
+    own = $row.get(`ehome.operational:Interface#datapointTypes`);
+    if($own.isEmpty(), $row.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $own.firstElement())
 }]]></value>
 						</computed-column>
 					</columns>
-					<rows>d -> if($d == null, [], deviceObjects($d))</rows>
+					<rows>if($device == null, [], deviceObjects($device))</rows>
 				</table>
 				<fields>
 					<value-input
@@ -134,7 +134,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-link-45deg"
-					input="interface"
+					inputs="interface"
 				>
 					<label>
 						<en>Connect</en>
@@ -144,16 +144,18 @@
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="d -> a -> k -> i -> deviceConnect($d, $i, $a, $k)">
+						<execute-script function="deviceConnect($device, $interface, $address, $kind)">
 							<inputs>
 								<input channel="device"/>
 								<input channel="address"/>
 								<input channel="kind"/>
 							</inputs>
 						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

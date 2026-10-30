@@ -21,6 +21,7 @@ import com.top_logic.layout.view.channel.ChannelRef;
 import com.top_logic.layout.view.channel.ChannelRefFormat;
 import com.top_logic.layout.view.channel.ViewChannel;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
@@ -51,7 +52,7 @@ public class ConnectMonitorAction implements ViewAction {
 	 * Configuration of {@link ConnectMonitorAction}.
 	 */
 	@TagName("group-monitor-connect")
-	public interface Config extends PolymorphicConfiguration<ConnectMonitorAction> {
+	public interface Config extends PolymorphicConfiguration<ConnectMonitorAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(ConnectMonitorAction.class)

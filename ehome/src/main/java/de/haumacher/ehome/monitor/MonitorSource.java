@@ -16,7 +16,6 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.listener.Registration;
 import com.top_logic.basic.sched.SchedulerService;
 import com.top_logic.layout.react.window.ReactWindowRegistry;
-import com.top_logic.layout.react.window.WindowEntry;
 import com.top_logic.layout.view.ViewContext;
 import com.top_logic.layout.view.channel.ChannelRef;
 import com.top_logic.layout.view.channel.ChannelRefFormat;
@@ -35,27 +34,19 @@ import com.top_logic.util.Resources;
  *
  * <p>
  * The monitor stays attached to the bus while its page is open, also while its tab is hidden. When
- * the last window that showed it is gone (the page was closed or loaded anew without showing it), the
- * monitor is detached from the bus, so that a closed page does not keep a tunnelling connection of the
- * gateway: a window that hides the view keeps a {@link Dormant} publisher with the monitor, which
- * notices at the next change of the monitor that its window is gone, and a window whose page was
- * unloaded checks once more after {@link #UNLOAD_GRACE} ms, for a bus without traffic.
- * </p>
- *
- * <p>
- * A closed page does not leave the windows of the session: the engine only marks it unloaded, keeps it
- * for a reload and collects it no earlier than at the end of the session (TL #29814,
- * <code>doc/tl-todo.md</code>). A window counts as gone when it was closed or when its page has been
- * unloaded for {@link #UNLOAD_GRACE} ms without a page displayed again.
+ * the last window that showed it is gone, the monitor is detached from the bus, so that a closed page
+ * does not keep a tunnelling connection of the gateway. Whether a window is gone is the engine's
+ * decision: it tears down a window that was closed, whose page was unloaded and did not come back, or
+ * whose client has stayed away (TL #29869), and the window then leaves the
+ * {@link ReactWindowRegistry registry}. A displayed view's subscription ends with that teardown, which
+ * detaches the monitor at once. A hidden view's subscription has ended already when the view was
+ * hidden, and the engine tells a source nothing about the teardown of a window whose view it no longer
+ * shows: such a window keeps a {@link Dormant} publisher with the monitor, which notices that its
+ * window is gone at the next change of the monitor, and for a bus without traffic every
+ * {@link ReactWindowRegistry#DISCONNECT_GRACE_MILLIS} ms.
  * </p>
  */
 public class MonitorSource implements ChannelSource {
-
-	/**
-	 * The time in milliseconds after which a window whose page was unloaded counts as gone: the time
-	 * the engine keeps such a window for a reload.
-	 */
-	public static final long UNLOAD_GRACE = 30_000;
 
 	/**
 	 * Configuration of {@link MonitorSource}.
@@ -125,10 +116,7 @@ public class MonitorSource implements ChannelSource {
 			} else {
 				Dormant dormant = new Dormant(monitor, window);
 				monitor.addPublisher(dormant);
-				if (window.isUnloaded()) {
-					SchedulerService.getInstance().schedule(dormant::changed, UNLOAD_GRACE + 1000,
-						TimeUnit.MILLISECONDS);
-				}
+				dormant.scheduleCheck();
 			}
 		});
 	}
@@ -163,39 +151,11 @@ public class MonitorSource implements ChannelSource {
 	public record Window(ReactWindowRegistry registry, String name) {
 
 		/**
-		 * Whether the window was closed, or its page unloaded {@link #UNLOAD_GRACE} ms ago without a
-		 * page displayed again.
+		 * Whether the engine has torn the window down: it was closed, its page was unloaded and did
+		 * not come back, or its client stayed away.
 		 */
 		public boolean isGone() {
-			return isGone(System.currentTimeMillis());
-		}
-
-		/**
-		 * Whether the window is gone at the given time.
-		 *
-		 * @see #isGone()
-		 */
-		public boolean isGone(long now) {
-			if (registry == null) {
-				return false;
-			}
-			WindowEntry entry = registry.getWindow(name);
-			if (entry == null) {
-				return true;
-			}
-			long unloadedAt = entry.getUnloadedAt();
-			return unloadedAt != 0 && now - unloadedAt >= UNLOAD_GRACE;
-		}
-
-		/**
-		 * Whether the window's page was unloaded and no page is displayed again yet.
-		 */
-		public boolean isUnloaded() {
-			if (registry == null) {
-				return false;
-			}
-			WindowEntry entry = registry.getWindow(name);
-			return entry != null && entry.getUnloadedAt() != 0;
+			return registry != null && registry.getWindow(name) == null;
 		}
 	}
 
@@ -220,6 +180,19 @@ public class MonitorSource implements ChannelSource {
 			if (_window.isGone() && _monitor.removePublisher(this)) {
 				disconnectIfUnseen(_monitor);
 			}
+		}
+
+		/**
+		 * Checks the window again later, for a bus without traffic, as long as this publisher stays
+		 * with the monitor.
+		 */
+		void scheduleCheck() {
+			SchedulerService.getInstance().schedule(() -> {
+				changed();
+				if (_monitor.getPublishers().contains(this)) {
+					scheduleCheck();
+				}
+			}, ReactWindowRegistry.DISCONNECT_GRACE_MILLIS, TimeUnit.MILLISECONDS);
 		}
 	}
 

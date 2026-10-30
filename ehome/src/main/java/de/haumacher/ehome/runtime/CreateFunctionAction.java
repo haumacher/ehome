@@ -14,6 +14,7 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -29,7 +30,7 @@ public class CreateFunctionAction implements ViewAction {
 	 * Configuration of {@link CreateFunctionAction}.
 	 */
 	@TagName("create-function")
-	public interface Config extends PolymorphicConfiguration<CreateFunctionAction> {
+	public interface Config extends PolymorphicConfiguration<CreateFunctionAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(CreateFunctionAction.class)

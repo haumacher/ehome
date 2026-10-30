@@ -34,11 +34,11 @@ import de.haumacher.ehome.monitor.MonitorSource.Window;
 import de.haumacher.ehome.monitor.ProjectIndex;
 
 /**
- * The source of the group monitor's view (TL #29814, {@link MonitorSource}): a displayed view gets
- * the current snapshot at once and one per change, in the language of its user; a view hidden in an
- * open window keeps the monitor attached to the bus; once no open window shows the monitor any more,
+ * The source of the group monitor's view ({@link MonitorSource}): a displayed view gets the current
+ * snapshot at once and one per change, in the language of its user; a view hidden in an open window
+ * keeps the monitor attached to the bus; once no window the engine keeps shows the monitor any more,
  * it is detached, at once when the view goes with its window, at the next change when the window of a
- * hidden view is closed. Costs well below a second: an empty project, a mocked bus.
+ * hidden view is torn down. Costs well below a second: an empty project, a mocked bus.
  */
 @SuppressWarnings("javadoc")
 public class TestMonitorSource extends BasicTestCase {
@@ -78,19 +78,13 @@ public class TestMonitorSource extends BasicTestCase {
 		assertTrue(second.isGone());
 		assertFalse("Without windows, nothing is ever gone.", new Window(null, "any").isGone());
 
-		// A closed page stays in the windows of the session, unloaded: gone once a reload is no longer
-		// expected, back when a page is displayed again.
+		// A page unloaded stays a window until the engine tears it down (TL #29869).
 		WindowEntry unloadedEntry = registry.getOrCreateWindow("unloaded");
 		Window unloaded = new Window(registry, "unloaded");
-		assertFalse(unloaded.isUnloaded());
 		unloadedEntry.markUnloaded();
-		long now = System.currentTimeMillis();
-		assertTrue(unloaded.isUnloaded());
-		assertFalse(unloaded.isGone(now));
-		assertTrue(unloaded.isGone(now + MonitorSource.UNLOAD_GRACE));
-		unloadedEntry.markDisplayed();
-		assertFalse(unloaded.isGone(now + MonitorSource.UNLOAD_GRACE));
+		assertFalse(unloaded.isGone());
 		registry.windowClosed("unloaded");
+		assertTrue(unloaded.isGone());
 
 		// Displayed: the current snapshot at once, one per change, in the language of the user.
 		List<Map<String, Object>> shown = new ArrayList<>();

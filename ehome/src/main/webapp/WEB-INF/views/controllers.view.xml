@@ -40,16 +40,19 @@
 								<en>New controller</en>
 								<de>Neuer Controller</de>
 							</label>
-							<create-transient type="ehome.runtime:Controller"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="controllers/create-controller.view.xml"
-							>
-								<bind
-									channel="selection"
-									to="controller"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.runtime:Controller">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="controllers/create-controller.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="controller"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-broadcast"
@@ -68,15 +71,20 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-key"
-							input="controller"
+							inputs="controller"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Set token</en>
 								<de>Token setzen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$controller"
+									type="ehome.runtime:Controller"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -86,7 +94,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-activity"
-							input="controller"
+							inputs="controller"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -96,31 +104,43 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<controller-status/>
-							<notify
-								display="dialog"
-								expr="t -> $t"
-							/>
+							<controller-status>
+								<with-result>
+									<notify
+										display="dialog"
+										expr="$result"
+									/>
+								</with-result>
+							</controller-status>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							input="controller"
+							inputs="controller"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Delete</en>
 								<de>Löschen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$controller"
+									type="ehome.runtime:Controller"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="c -> forgetConfirmation($c)"/>
-							<forget-controller/>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
+							<confirm expr="forgetConfirmation($controller)"/>
+							<with-transaction>
+								<forget-controller/>
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
+							</with-transaction>
 						</generic-command>
 					</commands>
 					<table
@@ -139,7 +159,7 @@
 									<en>Connection</en>
 									<de>Verbindung</de>
 								</label>
-								<value>c -> controllerConnection($c)</value>
+								<value>controllerConnection($row)</value>
 							</computed-column>
 							<column attribute="installation"/>
 							<column attribute="lastContact"/>
@@ -151,7 +171,7 @@
 									<en>Token</en>
 									<de>Token</de>
 								</label>
-								<value>c -> controllerTokenHint($c)</value>
+								<value>controllerTokenHint($row)</value>
 							</computed-column>
 						</columns>
 						<rows>all(`ehome.runtime:Controller`)</rows>

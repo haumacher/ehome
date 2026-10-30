@@ -16,18 +16,18 @@
 		<channel name="selectedNode"/>
 		<!-- The chosen building part; the project at the root is no part. -->
 		<derived-channel name="part"
-			expr="n -> if($n.instanceOf(`ehome.building:BuildingDefinition`), $n, null)"
+			expr="if($selectedNode.instanceOf(`ehome.building:BuildingDefinition`), $selectedNode, null)"
 			inputs="selectedNode"
 		/>
 		<derived-channel name="hint"
 			inputs="device"
 			observed-types="ehome.physical:Device"
 		>
-			<expr><![CDATA[d -> {
-    location = $d.get(`ehome.physical:Device#location`);
+			<expr><![CDATA[{
+    location = $device.get(`ehome.physical:Device#location`);
     if($location == null,
-        #("{0} is placed in no building part."@en, "{0} ist in keinem Gebäudeteil platziert."@de).fill(deviceLabel($d)),
-        #("{0} is placed in {1}."@en, "{0} ist in {1} platziert."@de).fill(deviceLabel($d), buildingPath($location)))
+        #("{0} is placed in no building part."@en, "{0} ist in keinem Gebäudeteil platziert."@de).fill(deviceLabel($device)),
+        #("{0} is placed in {1}."@en, "{0} ist in {1} platziert."@de).fill(deviceLabel($device), buildingPath($location)))
         .localize()
 }]]></expr>
 		</derived-channel>
@@ -50,15 +50,15 @@
 					<inputs>
 						<input channel="device"/>
 					</inputs>
-					<root>d -> recursion($d, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()</root>
-					<children><![CDATA[d -> node -> switch {
+					<root>recursion($device, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()</root>
+					<children><![CDATA[switch {
     $node.instanceOf(`ehome.project:Project`):
         $node.get(`ehome.project:Project#buildings`);
     $node.instanceOf(`ehome.building:BuildingDefinition`):
         $node.get(`ehome.building:BuildingDefinition#parts`);
     default: [];
 }]]></children>
-					<parents>d -> node -> $node.container()</parents>
+					<parents>$node.container()</parents>
 				</tree>
 			</stack>
 		</inset>
@@ -66,7 +66,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-box-arrow-in-down-right"
-					input="part"
+					inputs="part"
 				>
 					<label>
 						<en>Place</en>
@@ -76,20 +76,22 @@
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="d -> p -> buildingPlace($d, $p)">
+						<execute-script function="buildingPlace($device, $part)">
 							<inputs>
 								<input channel="device"/>
 							</inputs>
 						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-box-arrow-up-left"
-					input="device"
+					inputs="device"
 					observed-types="ehome.physical:Device"
 				>
 					<label>
@@ -98,13 +100,15 @@
 					</label>
 					<executability>
 						<null-input-disabled/>
-						<disabled-if expr="d -> if($d.get(`ehome.physical:Device#location`) == null, #('The device is placed in no building part.'@en, 'Das Gerät ist in keinem Gebäudeteil platziert.'@de))"/>
+						<disabled-if expr="if($device.get(`ehome.physical:Device#location`) == null, #('The device is placed in no building part.'@en, 'Das Gerät ist in keinem Gebäudeteil platziert.'@de))"/>
 					</executability>
 					<with-transaction>
-						<execute-script function="d -> buildingPlace($d, null)"/>
+						<execute-script function="buildingPlace($device, null)"/>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

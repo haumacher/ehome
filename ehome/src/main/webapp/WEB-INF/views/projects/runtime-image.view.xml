@@ -11,19 +11,19 @@
 	<channels>
 		<channel name="result"/>
 		<derived-channel name="summary"
-			expr='r -> if($r == null, null, $r["summary"])'
+			expr='if($result == null, null, $result["summary"])'
 			inputs="result"
 		/>
 		<derived-channel name="file"
-			expr='r -> if($r == null, null, $r["file"])'
+			expr='if($result == null, null, $result["file"])'
 			inputs="result"
 		/>
 		<derived-channel name="signature"
-			expr='r -> if($r == null, null, $r["signature"])'
+			expr='if($result == null, null, $result["signature"])'
 			inputs="result"
 		/>
 		<derived-channel name="notes"
-			expr='r -> if($r == null, null, $r["notes"])'
+			expr='if($result == null, null, $result["notes"])'
 			inputs="result"
 		/>
 	</channels>
@@ -36,7 +36,7 @@
 			<stack gap="loose">
 				<text input="summary"/>
 				<visible-if
-					expr='r -> $r["file"] != null'
+					expr='$result["file"] != null'
 					input="result"
 				>
 					<fields>
@@ -55,7 +55,7 @@
 					</fields>
 				</visible-if>
 				<visible-if
-					expr='r -> $r["signature"] != null'
+					expr='$result["signature"] != null'
 					input="result"
 				>
 					<fields>
@@ -73,7 +73,7 @@
 					</fields>
 				</visible-if>
 				<visible-if
-					expr='r -> !$r["refusals"].isEmpty()'
+					expr='!$result["refusals"].isEmpty()'
 					input="result"
 				>
 					<table>
@@ -88,7 +88,7 @@
 									<en>Path</en>
 									<de>Pfad</de>
 								</label>
-								<value>row -> $row["path"]</value>
+								<value>$row["path"]</value>
 							</computed-column>
 							<computed-column name="reason"
 								type="tl.core:String"
@@ -97,7 +97,7 @@
 									<en>Reason</en>
 									<de>Grund</de>
 								</label>
-								<value>row -> $row["reason"]</value>
+								<value>$row["reason"]</value>
 							</computed-column>
 							<computed-column name="element"
 								type="tl.core:String"
@@ -106,14 +106,14 @@
 									<en>Element</en>
 									<de>Element</de>
 								</label>
-								<value>row -> if($row["element"] == null, "", $row["element"].label())</value>
+								<value>if($row["element"] == null, "", $row["element"].label())</value>
 							</computed-column>
 						</columns>
-						<rows>r -> if($r == null, [], $r["refusals"])</rows>
+						<rows>if($result == null, [], $result["refusals"])</rows>
 					</table>
 				</visible-if>
 				<visible-if
-					expr='r -> $r["notes"] != ""'
+					expr='$result["notes"] != ""'
 					input="result"
 				>
 					<text input="notes"/>

@@ -18,6 +18,7 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.io.binary.BinaryDataFactory;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
@@ -56,7 +57,7 @@ public class ExportRuntimeImageAction implements ViewAction {
 	 * Configuration of {@link ExportRuntimeImageAction}.
 	 */
 	@TagName("export-runtime-image")
-	public interface Config extends PolymorphicConfiguration<ExportRuntimeImageAction> {
+	public interface Config extends PolymorphicConfiguration<ExportRuntimeImageAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(ExportRuntimeImageAction.class)

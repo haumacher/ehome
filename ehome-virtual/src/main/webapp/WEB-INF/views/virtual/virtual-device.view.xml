@@ -24,15 +24,15 @@
 		<channel name="selectedTrace"/>
 		<!-- The device together with the status, so that the commands are checked again after a start or stop. -->
 		<derived-channel name="state"
-			expr='d -> r -> {"device": $d, "status": $r}'
+			expr='{"device": $device, "status": $refresh}'
 			inputs="device, refresh"
 		/>
 		<derived-channel name="status"
-			expr="r -> virtualStatus($r)"
+			expr="virtualStatus($refresh)"
 			inputs="refresh"
 		/>
 		<derived-channel name="programming"
-			expr="r -> virtualProgramming($r)"
+			expr="virtualProgramming($refresh)"
 			inputs="refresh"
 		/>
 	</channels>
@@ -45,15 +45,21 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-play-circle"
-					input="state"
+					inputs="state"
 					placement="TOOLBAR"
 				>
 					<label>
 						<en>Start virtual device</en>
 						<de>Virtuelles Gerät starten</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object='$state["device"]'
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
-						<disabled-if expr='s -> virtualStartVeto($s["device"], $s["status"])'/>
+						<disabled-if expr='virtualStartVeto($state["device"], $state["status"])'/>
 					</executability>
 					<open-dialog
 						bind-input-to="model"
@@ -67,33 +73,51 @@
 				</generic-command>
 				<generic-command
 					image="css:bi bi-stop-circle"
-					input="state"
+					inputs="state"
 					placement="TOOLBAR"
 				>
 					<label>
 						<en>Stop virtual device</en>
 						<de>Virtuelles Gerät anhalten</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object='$state["device"]'
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
-						<disabled-if expr='s -> virtualStopVeto($s["status"])'/>
+						<disabled-if expr='virtualStopVeto($state["status"])'/>
 					</executability>
-					<execute-script function="s -> virtualStop()"/>
-					<write-channel name="refresh"/>
+					<execute-script function="virtualStop()">
+						<with-result>
+							<write-channel name="refresh"/>
+						</with-result>
+					</execute-script>
 				</generic-command>
 				<generic-command
 					image="css:bi bi-record-circle"
-					input="state"
+					inputs="state"
 					placement="TOOLBAR"
 				>
 					<label>
 						<en>Programming button</en>
 						<de>Programmiertaste</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object='$state["device"]'
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
-						<disabled-if expr='s -> virtualStopVeto($s["status"])'/>
+						<disabled-if expr='virtualStopVeto($state["status"])'/>
 					</executability>
-					<execute-script function="s -> virtualProgrammingButton()"/>
-					<write-channel name="refresh"/>
+					<execute-script function="virtualProgrammingButton()">
+						<with-result>
+							<write-channel name="refresh"/>
+						</with-result>
+					</execute-script>
 				</generic-command>
 				<generic-command
 					image="css:bi bi-arrow-clockwise"
@@ -103,15 +127,18 @@
 						<en>Refresh</en>
 						<de>Aktualisieren</de>
 					</label>
-					<execute-script function="x -> virtualStatus()"/>
-					<write-channel name="refresh"/>
+					<execute-script function="virtualStatus()">
+						<with-result>
+							<write-channel name="refresh"/>
+						</with-result>
+					</execute-script>
 				</generic-command>
 			</commands>
 			<inset>
 				<stack gap="compact">
 					<text input="status"/>
 					<visible-if
-						expr="p -> $p != null"
+						expr="$programming != null"
 						input="programming"
 					>
 						<text
@@ -130,9 +157,7 @@
 				</stack>
 			</inset>
 		</panel>
-		<!-- Not filling (TL #29982): beside a panel of its own size, a filling panel in a stack leaves that
-			panel the whole height. The tab scrolls instead. -->
-		<panel fill="false">
+		<panel>
 			<title>
 				<en>Traces</en>
 				<de>Aufzeichnungen</de>
@@ -140,7 +165,7 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-file-earmark-text"
-					input="selectedTrace"
+					inputs="selectedTrace"
 					placement="TOOLBAR"
 				>
 					<label>
@@ -150,11 +175,14 @@
 					<executability>
 						<null-input-disabled/>
 					</executability>
-					<execute-script function="t -> virtualTraceFile($t)"/>
-					<open-dialog
-						bind-input-to="file"
-						dialog-view="virtual/export-trace.view.xml"
-					/>
+					<execute-script function="virtualTraceFile($selectedTrace)">
+						<with-result>
+							<open-dialog
+								bind-input-to="file"
+								dialog-view="virtual/export-trace.view.xml"
+							/>
+						</with-result>
+					</execute-script>
 				</generic-command>
 			</commands>
 			<table selection="selectedTrace">
@@ -170,7 +198,7 @@
 							<en>Started (UTC)</en>
 							<de>Gestartet (UTC)</de>
 						</label>
-						<value>row -> $row["started"]</value>
+						<value>$row["started"]</value>
 					</computed-column>
 					<computed-column name="device"
 						type="tl.core:String"
@@ -180,7 +208,7 @@
 							<en>Device</en>
 							<de>Gerät</de>
 						</label>
-						<value>row -> $row["device"]</value>
+						<value>$row["device"]</value>
 					</computed-column>
 					<computed-column name="project"
 						type="tl.core:String"
@@ -190,7 +218,7 @@
 							<en>Project</en>
 							<de>Projekt</de>
 						</label>
-						<value>row -> $row["project"]</value>
+						<value>$row["project"]</value>
 					</computed-column>
 					<computed-column name="mask"
 						type="tl.core:String"
@@ -200,7 +228,7 @@
 							<en>Mask</en>
 							<de>Maske</de>
 						</label>
-						<value>row -> $row["mask"]</value>
+						<value>$row["mask"]</value>
 					</computed-column>
 					<computed-column name="interface"
 						type="tl.core:String"
@@ -210,7 +238,7 @@
 							<en>Interface</en>
 							<de>Schnittstelle</de>
 						</label>
-						<value>row -> $row["interface"]</value>
+						<value>$row["interface"]</value>
 					</computed-column>
 					<computed-column name="services"
 						type="tl.core:Integer"
@@ -220,7 +248,7 @@
 							<en>Services</en>
 							<de>Dienste</de>
 						</label>
-						<value>row -> $row["services"]</value>
+						<value>$row["services"]</value>
 					</computed-column>
 					<computed-column name="name"
 						type="tl.core:String"
@@ -230,10 +258,10 @@
 							<en>File</en>
 							<de>Datei</de>
 						</label>
-						<value>row -> $row["name"]</value>
+						<value>$row["name"]</value>
 					</computed-column>
 				</columns>
-				<rows>r -> virtualTraces($r)</rows>
+				<rows>virtualTraces($refresh)</rows>
 			</table>
 		</panel>
 	</stack>

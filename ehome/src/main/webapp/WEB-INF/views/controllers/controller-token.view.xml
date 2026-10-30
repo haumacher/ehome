@@ -41,7 +41,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-check-lg"
-					input="controller"
+					inputs="controller"
 				>
 					<label>
 						<en>Set</en>
@@ -51,7 +51,7 @@
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function='t -> c -> $c.set(`ehome.runtime:Controller#token`, if($t == null or $t.trim() == "", null, $t.trim()))'>
+						<execute-script function='$controller.set(`ehome.runtime:Controller#token`, if($token == null or $token.trim() == "", null, $token.trim()))'>
 							<inputs>
 								<input channel="token"/>
 							</inputs>

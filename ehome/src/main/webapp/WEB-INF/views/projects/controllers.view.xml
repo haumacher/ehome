@@ -26,22 +26,22 @@
 		<channel name="project"/>
 		<channel name="controller"/>
 		<derived-channel name="codeState"
-			expr="p -> if($p == null, null, enrollmentCodeState($p))"
+			expr="if($project == null, null, enrollmentCodeState($project))"
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
 		<derived-channel name="keyState"
-			expr="p -> if($p == null, null, installationKeyState($p))"
+			expr="if($project == null, null, installationKeyState($project))"
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
 		<derived-channel name="controllerKey"
-			expr="c -> if($c == null, null, controllerKeyState($c))"
+			expr="if($controller == null, null, controllerKeyState($controller))"
 			inputs="controller"
 			observed-types="ehome.runtime:Controller,ehome.project:Project"
 		/>
 		<derived-channel name="connection"
-			expr="c -> if($c == null, null, controllerConnection($c))"
+			expr="if($controller == null, null, controllerConnection($controller))"
 			inputs="controller"
 			observed-types="ehome.runtime:Controller"
 		/>
@@ -64,83 +64,119 @@
 					<commands>
 						<generic-command
 							image="css:bi bi-plus-lg"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Add controller</en>
 								<de>Controller hinzufügen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-enrollment-code/>
-							<notify
-								display="dialog"
-								expr="t -> $t"
-							/>
+							<with-transaction>
+								<create-enrollment-code/>
+								<with-result>
+									<notify
+										display="dialog"
+										expr="$result"
+									/>
+								</with-result>
+							</with-transaction>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-key"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Create key</en>
 								<de>Schlüssel erzeugen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="p -> installationKeyCreateVeto($p)"/>
+								<disabled-if expr="installationKeyCreateVeto($project)"/>
 							</executability>
-							<create-installation-key/>
-							<notify
-								display="dialog"
-								expr="t -> $t"
-							/>
+							<with-transaction>
+								<create-installation-key/>
+								<with-result>
+									<notify
+										display="dialog"
+										expr="$result"
+									/>
+								</with-result>
+							</with-transaction>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-arrow-repeat"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Renew key</en>
 								<de>Schlüssel erneuern</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="p -> installationKeyRenewVeto($p)"/>
+								<disabled-if expr="installationKeyRenewVeto($project)"/>
 							</executability>
-							<confirm expr="p -> #('Renew the installation key? A new key is offered to the controllers; each owner accepts it on the device after comparing its fingerprint. Until then images are signed with the current key.'@en, 'Den Installationsschlüssel erneuern? Den Controllern wird ein neuer Schlüssel angeboten; jeder Besitzer nimmt ihn am Gerät an, nachdem er den Fingerabdruck verglichen hat. Bis dahin werden die Abbilder mit dem bisherigen Schlüssel signiert.'@de)"/>
-							<renew-installation-key/>
-							<notify
-								display="dialog"
-								expr="t -> $t"
-							/>
+							<confirm expr="#('Renew the installation key? A new key is offered to the controllers; each owner accepts it on the device after comparing its fingerprint. Until then images are signed with the current key.'@en, 'Den Installationsschlüssel erneuern? Den Controllern wird ein neuer Schlüssel angeboten; jeder Besitzer nimmt ihn am Gerät an, nachdem er den Fingerabdruck verglichen hat. Bis dahin werden die Abbilder mit dem bisherigen Schlüssel signiert.'@de)"/>
+							<with-transaction>
+								<renew-installation-key/>
+								<with-result>
+									<notify
+										display="dialog"
+										expr="$result"
+									/>
+								</with-result>
+							</with-transaction>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							input="controller"
+							inputs="controller"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Forget</en>
 								<de>Vergessen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$controller"
+									type="ehome.runtime:Controller"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="c -> forgetConfirmation($c)"/>
-							<forget-controller/>
-							<notify
-								expr="t -> $t"
-								kind="info"
-							/>
+							<confirm expr="forgetConfirmation($controller)"/>
+							<with-transaction>
+								<forget-controller/>
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
+							</with-transaction>
 						</generic-command>
 					</commands>
 					<stack>
@@ -161,7 +197,7 @@
 										<en>Connection</en>
 										<de>Verbindung</de>
 									</label>
-									<value>c -> controllerConnection($c)</value>
+									<value>controllerConnection($row)</value>
 								</computed-column>
 								<column attribute="lastContact"/>
 								<column attribute="firmwareVersion"/>
@@ -169,7 +205,7 @@
 								<column attribute="deviceKey"/>
 								<column attribute="enrolled"/>
 							</columns>
-							<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#controllers`))</rows>
+							<rows>if($project == null, [], $project.get(`ehome.project:Project#controllers`))</rows>
 						</table>
 						<inset>
 							<text input="keyState"/>

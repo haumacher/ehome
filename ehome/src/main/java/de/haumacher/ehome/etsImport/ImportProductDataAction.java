@@ -27,6 +27,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
@@ -72,7 +73,7 @@ public class ImportProductDataAction implements ViewAction {
 	 * Configuration of {@link ImportProductDataAction}.
 	 */
 	@TagName("import-product-data")
-	public interface Config extends PolymorphicConfiguration<ImportProductDataAction> {
+	public interface Config extends PolymorphicConfiguration<ImportProductDataAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(ImportProductDataAction.class)

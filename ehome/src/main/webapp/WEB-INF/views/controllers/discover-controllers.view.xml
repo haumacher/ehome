@@ -48,16 +48,21 @@
 							<en>Search</en>
 							<de>Suchen</de>
 						</label>
-						<execute-script function="i -> x -> {'interface': $i}">
+						<execute-script function="{'interface': $networkInterface}">
 							<inputs>
 								<input channel="networkInterface"/>
 							</inputs>
+							<with-result>
+								<discover-controllers>
+									<with-result as="rows">
+										<write-channel name="found"/>
+										<notify expr="if($rows.isEmpty(), #('No controller answered.'@en, 'Kein Controller hat geantwortet.'@de))"
+											kind="warning"
+										/>
+									</with-result>
+								</discover-controllers>
+							</with-result>
 						</execute-script>
-						<discover-controllers/>
-						<write-channel name="found"/>
-						<notify expr="rows -> if($rows.isEmpty(), #('No controller answered.'@en, 'Kein Controller hat geantwortet.'@de))"
-							kind="warning"
-						/>
 					</action>
 				</button>
 				<table selection="selected">
@@ -72,7 +77,7 @@
 								<en>Name</en>
 								<de>Name</de>
 							</label>
-							<value>row -> $row["name"]</value>
+							<value>$row["name"]</value>
 						</computed-column>
 						<computed-column name="host"
 							type="tl.core:String"
@@ -81,7 +86,7 @@
 								<en>Address</en>
 								<de>Adresse</de>
 							</label>
-							<value>row -> $row["host"]</value>
+							<value>$row["host"]</value>
 						</computed-column>
 						<computed-column name="port"
 							type="tl.core:String"
@@ -90,7 +95,7 @@
 								<en>Port</en>
 								<de>Port</de>
 							</label>
-							<value>row -> $row["portText"]</value>
+							<value>$row["portText"]</value>
 						</computed-column>
 						<computed-column name="version"
 							type="tl.core:String"
@@ -99,7 +104,7 @@
 								<en>Version</en>
 								<de>Version</de>
 							</label>
-							<value>row -> $row["version"]</value>
+							<value>$row["version"]</value>
 						</computed-column>
 						<computed-column name="build"
 							type="tl.core:String"
@@ -108,7 +113,7 @@
 								<en>Build</en>
 								<de>Build</de>
 							</label>
-							<value>row -> $row["build"]</value>
+							<value>$row["build"]</value>
 						</computed-column>
 						<computed-column name="known"
 							type="tl.core:String"
@@ -117,10 +122,10 @@
 								<en>Known as</en>
 								<de>Bekannt als</de>
 							</label>
-							<value>row -> all(`ehome.runtime:Controller`).filter(c -> $c.get(`ehome.runtime:Controller#host`) == $row["host"] and $c.get(`ehome.runtime:Controller#port`) == $row["port"]).map(c -> $c.get(`ehome.runtime:Controller#name`)).firstElement()</value>
+							<value>all(`ehome.runtime:Controller`).filter(c -> $c.get(`ehome.runtime:Controller#host`) == $row["host"] and $c.get(`ehome.runtime:Controller#port`) == $row["port"]).map(c -> $c.get(`ehome.runtime:Controller#name`)).firstElement()</value>
 						</computed-column>
 					</columns>
-					<rows>found -> if($found == null, [], $found)</rows>
+					<rows>if($found == null, [], $found)</rows>
 				</table>
 			</stack>
 		</inset>
@@ -128,40 +133,39 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-plus-lg"
-					input="selected"
+					inputs="selected"
 				>
 					<label>
 						<en>Create</en>
 						<de>Anlegen</de>
 					</label>
-					<executability>
-						<model-access
-							operation="Create"
-							type="ehome.runtime:Controller"
-						/>
-					</executability>
+					<access>
+						<create type="ehome.runtime:Controller"/>
+					</access>
 					<with-transaction>
 						<execute-script>
-							<function><![CDATA[row -> if($row == null,
+							<function><![CDATA[if($selected == null,
     throw(#("Choose a controller the search found."@en, "Bitte einen gefundenen Controller wählen."@de)),
     {
         known = all(`ehome.runtime:Controller`)
-            .filter(c -> $c.get(`ehome.runtime:Controller#host`) == $row["host"] and $c.get(`ehome.runtime:Controller#port`) == $row["port"])
+            .filter(c -> $c.get(`ehome.runtime:Controller#host`) == $selected["host"] and $c.get(`ehome.runtime:Controller#port`) == $selected["port"])
             .firstElement();
         if($known != null,
             throw(#("The controller {0} has this address already."@en, "Der Controller {0} hat diese Adresse bereits."@de).fill($known.get(`ehome.runtime:Controller#name`))),
             {
                 created = new(`ehome.runtime:Controller`);
-                $created.set(`ehome.runtime:Controller#name`, $row["name"]);
-                $created.set(`ehome.runtime:Controller#host`, $row["host"]);
-                $created.set(`ehome.runtime:Controller#port`, $row["port"]);
+                $created.set(`ehome.runtime:Controller#name`, $selected["name"]);
+                $created.set(`ehome.runtime:Controller#host`, $selected["host"]);
+                $created.set(`ehome.runtime:Controller#port`, $selected["port"]);
                 $created
             })
     })]]></function>
 						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<write-channel name="selection"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

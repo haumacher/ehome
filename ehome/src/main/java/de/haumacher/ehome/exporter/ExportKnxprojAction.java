@@ -14,6 +14,7 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.io.binary.BinaryDataFactory;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
@@ -37,7 +38,7 @@ public class ExportKnxprojAction implements ViewAction {
 	 * Configuration of {@link ExportKnxprojAction}.
 	 */
 	@TagName("export-knxproj")
-	public interface Config extends PolymorphicConfiguration<ExportKnxprojAction> {
+	public interface Config extends PolymorphicConfiguration<ExportKnxprojAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(ExportKnxprojAction.class)

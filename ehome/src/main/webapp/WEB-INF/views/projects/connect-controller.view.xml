@@ -21,7 +21,7 @@
 		<channel name="port"/>
 		<channel name="token"/>
 		<derived-channel name="current"
-			expr="p -> if($p == null or $p.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), #('Controller of the project: {0}'@en, 'Controller des Projekts: {0}'@de).fill($p.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`)))"
+			expr="if($project == null or $project.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), #('Controller of the project: {0}'@en, 'Controller des Projekts: {0}'@de).fill($project.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`)))"
 			inputs="project"
 		/>
 	</channels>
@@ -58,7 +58,7 @@
 								<en>Token</en>
 								<de>Token</de>
 							</label>
-							<value>c -> controllerTokenHint($c)</value>
+							<value>controllerTokenHint($row)</value>
 						</computed-column>
 					</columns>
 					<rows>all(`ehome.runtime:Controller`)</rows>
@@ -107,7 +107,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-plug-fill"
-					input="project"
+					inputs="project"
 				>
 					<label>
 						<en>Connect</en>
@@ -116,19 +116,21 @@
 					<executability>
 						<null-input-disabled/>
 					</executability>
-					<execute-script function="c -> h -> port -> t -> p -> {'project': $p, 'controller': $c, 'host': $h, 'port': $port, 'token': $t}">
+					<execute-script function="{'project': $project, 'controller': $controller, 'host': $host, 'port': $port, 'token': $token}">
 						<inputs>
 							<input channel="controller"/>
 							<input channel="host"/>
 							<input channel="port"/>
 							<input channel="token"/>
 						</inputs>
+						<with-result>
+							<group-monitor-connect
+								source="controller"
+								state="state"
+							/>
+							<close-dialog/>
+						</with-result>
 					</execute-script>
-					<group-monitor-connect
-						source="controller"
-						state="state"
-					/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

@@ -15,7 +15,7 @@
 	<channels>
 		<channel name="report"/>
 		<derived-channel name="summary"
-			expr='r -> $r["summary"]'
+			expr='$report["summary"]'
 			inputs="report"
 		/>
 	</channels>
@@ -30,7 +30,7 @@
 				<object-list
 					gap="default"
 					inputs="report"
-					items='r -> if($r == null, [], $r["messages"])'
+					items='if($report == null, [], $report["messages"])'
 				>
 					<item>
 						<view-ref view="projects/import-message.view.xml">

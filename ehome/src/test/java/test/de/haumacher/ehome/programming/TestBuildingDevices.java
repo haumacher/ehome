@@ -31,6 +31,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.view.channel.ViewScripts;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.ExprFormat;
@@ -109,9 +110,9 @@ public class TestBuildingDevices extends BasicTestCase {
 		assertEquals(List.of(device), BuildingDevices.devices(kitchen));
 		assertEquals("Haus / Erdgeschoss / Küche", BuildingDevices.path(kitchen));
 
-		QueryExecutor children = script(viewText(BUILDINGS_VIEW, "children", 0));
-		QueryExecutor parents = script(viewText(BUILDINGS_VIEW, "parents", 0));
-		QueryExecutor label = script(viewAttribute(BUILDINGS_VIEW, "object-column", "text", 0));
+		QueryExecutor children = script(viewText(BUILDINGS_VIEW, "children", 0), "project", "node");
+		QueryExecutor parents = script(viewText(BUILDINGS_VIEW, "parents", 0), "project", "node");
+		QueryExecutor label = script(viewAttribute(BUILDINGS_VIEW, "display", "label", 0), "value");
 
 		// The devices of a part follow its sub-parts; a device is a leaf below its location.
 		assertEquals(List.of(house), children(children, project, project));
@@ -144,8 +145,8 @@ public class TestBuildingDevices extends BasicTestCase {
 			assertFalse(type, BuildingDevices.canContain(board, buildingType(type)));
 		}
 		// The rule of the view's create commands, in the order of the commands (Building first, Room fourth).
-		QueryExecutor buildingVeto = script(viewAttribute(BUILDINGS_VIEW, "disabled-if", "expr", 0));
-		QueryExecutor roomVeto = script(viewAttribute(BUILDINGS_VIEW, "disabled-if", "expr", 3));
+		QueryExecutor buildingVeto = script(viewAttribute(BUILDINGS_VIEW, "disabled-if", "expr", 0), "container");
+		QueryExecutor roomVeto = script(viewAttribute(BUILDINGS_VIEW, "disabled-if", "expr", 3), "container");
 		assertNull(asRoot(Locale.ENGLISH, () -> buildingVeto.execute(project)));
 		assertNotNull(asRoot(Locale.ENGLISH, () -> buildingVeto.execute(kitchen)));
 		assertNull(asRoot(Locale.ENGLISH, () -> roomVeto.execute(floor)));
@@ -163,7 +164,7 @@ public class TestBuildingDevices extends BasicTestCase {
 		assertEquals(List.of(reserve), BuildingDevices.choices(kitchen));
 
 		// Place the reserve device in the distribution board from the part's side.
-		QueryExecutor place = script(viewAttribute(PLACE_VIEW, "execute-script", "function", 0));
+		QueryExecutor place = script(viewAttribute(PLACE_VIEW, "execute-script", "function", 0), "part", "chosen");
 		Object placed;
 		try (Transaction tx = kb().beginTransaction()) {
 			placed = asRoot(Locale.ENGLISH, () -> place.execute(board, reserve));
@@ -195,7 +196,7 @@ public class TestBuildingDevices extends BasicTestCase {
 		assertSorted(BuildingDevices.connections(house));
 
 		// Remove the placement with the command of the building view: the board is selected afterwards.
-		QueryExecutor remove = script(viewText(BUILDINGS_VIEW, "function", 0));
+		QueryExecutor remove = script(viewText(BUILDINGS_VIEW, "function", 0), "part", "device");
 		Object selected;
 		try (Transaction tx = kb().beginTransaction()) {
 			selected = asRoot(Locale.ENGLISH, () -> remove.execute(board, reserve));
@@ -207,8 +208,8 @@ public class TestBuildingDevices extends BasicTestCase {
 		assertEquals(deviceConnections, new HashSet<>(BuildingDevices.connections(house)));
 
 		// From the device's side: move the kitchen device to the board, then remove it from there.
-		QueryExecutor choose = script(viewAttribute(LOCATION_VIEW, "execute-script", "function", 0));
-		QueryExecutor unplace = script(viewAttribute(LOCATION_VIEW, "execute-script", "function", 1));
+		QueryExecutor choose = script(viewAttribute(LOCATION_VIEW, "execute-script", "function", 0), "device", "part");
+		QueryExecutor unplace = script(viewAttribute(LOCATION_VIEW, "execute-script", "function", 1), "device");
 		try (Transaction tx = kb().beginTransaction()) {
 			asRoot(Locale.ENGLISH, () -> choose.execute(device, board));
 			tx.commit();
@@ -303,8 +304,12 @@ public class TestBuildingDevices extends BasicTestCase {
 		return new ArrayList<>((Collection<?>) asRoot(Locale.ENGLISH, () -> children.execute(project, node)));
 	}
 
-	private static QueryExecutor script(String source) throws Exception {
-		return QueryExecutor.compile(ExprFormat.INSTANCE.getValue("script", source));
+	/**
+	 * Compiles a script of a view, which uses its values as the given variables (in the order of the
+	 * values on execution) without declaring them.
+	 */
+	private static QueryExecutor script(String source, String... variables) throws Exception {
+		return ViewScripts.compile(ExprFormat.INSTANCE.getValue("script", source), List.of(variables));
 	}
 
 	private static String viewText(String file, String element, int index) throws Exception {

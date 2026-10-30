@@ -64,19 +64,19 @@
 		<channel name="zigbeeValue"/>
 		<channel name="follower"/>
 		<derived-channel name="state"
-			expr="p -> r -> simulationState($p, $r)"
+			expr="simulationState($project, $refresh)"
 			inputs="project, refresh"
 		/>
 		<derived-channel name="status"
-			expr="s -> $s['status']"
+			expr="$state['status']"
 			inputs="state"
 		/>
 		<derived-channel name="next"
-			expr="s -> $s['next']"
+			expr="$state['next']"
 			inputs="state"
 		/>
 		<derived-channel name="clock"
-			expr="s -> $s['clock']"
+			expr="$state['clock']"
 			inputs="state"
 		/>
 	</channels>
@@ -98,175 +98,216 @@
 					<commands>
 						<generic-command
 							image="css:bi bi-play-circle"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Start</en>
 								<de>Starten</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<disabled-if expr="s -> simulationStartVeto($s['project'], $s)"/>
+							</access>
+							<executability>
+								<disabled-if expr="simulationStartVeto($state['project'], $state)"/>
 							</executability>
-							<execute-script function="t -> s -> simulationStart($s['project'], $t)">
+							<execute-script function="simulationStart($state['project'], $startTime)">
 								<inputs>
 									<input channel="startTime"/>
 								</inputs>
+								<with-result>
+									<write-channel name="refresh"/>
+								</with-result>
 							</execute-script>
-							<write-channel name="refresh"/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-play"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Real time</en>
 								<de>Echtzeit</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<disabled-if expr="s -> simulationSpeedVeto($s['project'], 1, $s)"/>
+							</access>
+							<executability>
+								<disabled-if expr="simulationSpeedVeto($state['project'], 1, $state)"/>
 							</executability>
-							<execute-script function="s -> simulationRun($s['project'], 1)"/>
-							<write-channel name="refresh"/>
+							<execute-script function="simulationRun($state['project'], 1)">
+								<with-result>
+									<write-channel name="refresh"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-speedometer"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>10 times real time</en>
 								<de>10-fache Echtzeit</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<disabled-if expr="s -> simulationSpeedVeto($s['project'], 10, $s)"/>
+							</access>
+							<executability>
+								<disabled-if expr="simulationSpeedVeto($state['project'], 10, $state)"/>
 							</executability>
-							<execute-script function="s -> simulationRun($s['project'], 10)"/>
-							<write-channel name="refresh"/>
+							<execute-script function="simulationRun($state['project'], 10)">
+								<with-result>
+									<write-channel name="refresh"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-speedometer2"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>60 times real time</en>
 								<de>60-fache Echtzeit</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<disabled-if expr="s -> simulationSpeedVeto($s['project'], 60, $s)"/>
+							</access>
+							<executability>
+								<disabled-if expr="simulationSpeedVeto($state['project'], 60, $state)"/>
 							</executability>
-							<execute-script function="s -> simulationRun($s['project'], 60)"/>
-							<write-channel name="refresh"/>
+							<execute-script function="simulationRun($state['project'], 60)">
+								<with-result>
+									<write-channel name="refresh"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-pause-circle"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Pause</en>
 								<de>Pause</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<disabled-if expr="s -> simulationPauseVeto($s['project'], $s)"/>
+							</access>
+							<executability>
+								<disabled-if expr="simulationPauseVeto($state['project'], $state)"/>
 							</executability>
-							<execute-script function="s -> simulationPause($s['project'])"/>
-							<write-channel name="refresh"/>
+							<execute-script function="simulationPause($state['project'])">
+								<with-result>
+									<write-channel name="refresh"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-skip-end"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Step</en>
 								<de>Schritt</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+							</access>
+							<executability>
+								<disabled-if expr="simulationRunVeto($state['project'], $state)"/>
 							</executability>
-							<execute-script function="s -> simulationStep($s['project'])"/>
-							<write-channel name="refresh"/>
+							<execute-script function="simulationStep($state['project'])">
+								<with-result>
+									<write-channel name="refresh"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-fast-forward"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Fast-forward</en>
 								<de>Vorspulen</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+							</access>
+							<executability>
+								<disabled-if expr="simulationRunVeto($state['project'], $state)"/>
 							</executability>
-							<execute-script function="d -> s -> simulationAdvance($s['project'], if($d == null, '30min', $d))">
+							<execute-script function="simulationAdvance($state['project'], if($duration == null, '30min', $duration))">
 								<inputs>
 									<input channel="duration"/>
 								</inputs>
+								<with-result>
+									<write-channel name="refresh"/>
+								</with-result>
 							</execute-script>
-							<write-channel name="refresh"/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-stop-circle"
-							input="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Stop</en>
 								<de>Anhalten</de>
 							</label>
-							<executability>
-								<model-access
-									object="project"
-									operation="Write"
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
 								/>
-								<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+							</access>
+							<executability>
+								<disabled-if expr="simulationRunVeto($state['project'], $state)"/>
 							</executability>
-							<execute-script function="s -> simulationStop($s['project'])"/>
-							<write-channel name="refresh"/>
+							<execute-script function="simulationStop($state['project'])">
+								<with-result>
+									<write-channel name="refresh"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-arrow-clockwise"
-							input="state"
+							inputs="state"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Refresh</en>
 								<de>Aktualisieren</de>
 							</label>
-							<execute-script function="s -> simulationState($s['project'])"/>
-							<write-channel name="refresh"/>
+							<execute-script function="simulationState($state['project'])">
+								<with-result>
+									<write-channel name="refresh"/>
+								</with-result>
+							</execute-script>
 						</generic-command>
 					</commands>
 					<inset>
@@ -339,7 +380,7 @@
 											<en>Rule</en>
 											<de>Regel</de>
 										</label>
-										<value>r -> $r['id']</value>
+										<value>$row['id']</value>
 									</computed-column>
 									<computed-column name="enabled"
 										type="tl.core:Boolean"
@@ -349,7 +390,7 @@
 											<en>Enabled</en>
 											<de>Aktiv</de>
 										</label>
-										<value>r -> $r['enabled']</value>
+										<value>$row['enabled']</value>
 									</computed-column>
 									<computed-column name="ruleState"
 										type="tl.core:String"
@@ -359,7 +400,7 @@
 											<en>State</en>
 											<de>Zustand</de>
 										</label>
-										<value>r -> $r['state']</value>
+										<value>$row['state']</value>
 									</computed-column>
 									<computed-column name="firings"
 										type="tl.core:Integer"
@@ -369,7 +410,7 @@
 											<en>Firings</en>
 											<de>Auslösungen</de>
 										</label>
-										<value>r -> $r['firings']</value>
+										<value>$row['firings']</value>
 									</computed-column>
 									<computed-column name="trigger"
 										type="tl.core:String"
@@ -379,7 +420,7 @@
 											<en>Last trigger</en>
 											<de>Letzter Auslöser</de>
 										</label>
-										<value>r -> $r['trigger']</value>
+										<value>$row['trigger']</value>
 									</computed-column>
 									<computed-column name="action"
 										type="tl.core:String"
@@ -389,7 +430,7 @@
 											<en>Last action</en>
 											<de>Letzte Aktion</de>
 										</label>
-										<value>r -> $r['action']</value>
+										<value>$row['action']</value>
 									</computed-column>
 									<computed-column name="timers"
 										type="tl.core:String"
@@ -399,7 +440,7 @@
 											<en>Timers</en>
 											<de>Timer</de>
 										</label>
-										<value>r -> $r['timers']</value>
+										<value>$row['timers']</value>
 									</computed-column>
 									<computed-column name="parameters"
 										type="tl.core:String"
@@ -409,7 +450,7 @@
 											<en>Parameters</en>
 											<de>Parameter</de>
 										</label>
-										<value>r -> $r['parameters']</value>
+										<value>$row['parameters']</value>
 									</computed-column>
 									<computed-column name="errors"
 										type="tl.core:Integer"
@@ -419,7 +460,7 @@
 											<en>Errors</en>
 											<de>Fehler</de>
 										</label>
-										<value>r -> $r['errors']</value>
+										<value>$row['errors']</value>
 									</computed-column>
 									<computed-column name="error"
 										type="tl.core:String"
@@ -429,10 +470,10 @@
 											<en>Last error</en>
 											<de>Letzter Fehler</de>
 										</label>
-										<value>r -> $r['error']</value>
+										<value>$row['error']</value>
 									</computed-column>
 								</columns>
-								<rows>s -> $s['rules']</rows>
+								<rows>$state['rules']</rows>
 							</table>
 						</tab>
 						<tab id="parameters"
@@ -468,7 +509,7 @@
 														<en>Rule</en>
 														<de>Regel</de>
 													</label>
-													<value>r -> $r['rule']</value>
+													<value>$row['rule']</value>
 												</computed-column>
 												<computed-column name="parameter"
 													type="tl.core:String"
@@ -478,7 +519,7 @@
 														<en>Parameter</en>
 														<de>Parameter</de>
 													</label>
-													<value>r -> $r['parameter']</value>
+													<value>$row['parameter']</value>
 												</computed-column>
 												<computed-column name="type"
 													type="tl.core:String"
@@ -488,7 +529,7 @@
 														<en>Type</en>
 														<de>Typ</de>
 													</label>
-													<value>r -> $r['type']</value>
+													<value>$row['type']</value>
 												</computed-column>
 												<computed-column name="value"
 													type="tl.core:String"
@@ -498,7 +539,7 @@
 														<en>Value</en>
 														<de>Wert</de>
 													</label>
-													<value>r -> $r['value']</value>
+													<value>$row['value']</value>
 												</computed-column>
 												<computed-column name="default"
 													type="tl.core:String"
@@ -508,7 +549,7 @@
 														<en>Default</en>
 														<de>Vorgabe</de>
 													</label>
-													<value>r -> $r['default']</value>
+													<value>$row['default']</value>
 												</computed-column>
 												<computed-column name="overridden"
 													type="tl.core:Boolean"
@@ -518,7 +559,7 @@
 														<en>Override</en>
 														<de>Überschrieben</de>
 													</label>
-													<value>r -> $r['overridden']</value>
+													<value>$row['overridden']</value>
 												</computed-column>
 												<computed-column name="adjustable"
 													type="tl.core:Boolean"
@@ -528,10 +569,10 @@
 														<en>Adjustable</en>
 														<de>Einstellbar</de>
 													</label>
-													<value>r -> $r['adjustable']</value>
+													<value>$row['adjustable']</value>
 												</computed-column>
 											</columns>
-											<rows>s -> $s['parameters']</rows>
+											<rows>$state['parameters']</rows>
 										</table>
 									</pane>
 									<pane
@@ -564,50 +605,58 @@
 														<button>
 															<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																image="css:bi bi-check2"
-																input="state"
+																inputs="state, project"
 															>
 																<label>
 																	<en>Set</en>
 																	<de>Setzen</de>
 																</label>
-																<executability>
-																	<model-access
-																		object="project"
-																		operation="Write"
+																<access>
+																	<operation name="Write"
+																		object="$project"
+																		type="ehome.project:Project"
 																	/>
-																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</access>
+																<executability>
+																	<disabled-if expr="simulationRunVeto($state['project'], $state)"/>
 																</executability>
-																<execute-script function="r -> v -> s -> simulationSetParameter($s['project'], $r, $v)">
+																<execute-script function="simulationSetParameter($state['project'], $selectedParameter, $parameterValue)">
 																	<inputs>
 																		<input channel="selectedParameter"/>
 																		<input channel="parameterValue"/>
 																	</inputs>
+																	<with-result>
+																		<write-channel name="refresh"/>
+																	</with-result>
 																</execute-script>
-																<write-channel name="refresh"/>
 															</action>
 														</button>
 														<button>
 															<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																image="css:bi bi-arrow-counterclockwise"
-																input="state"
+																inputs="state, project"
 															>
 																<label>
 																	<en>Reset to the default</en>
 																	<de>Auf die Vorgabe zurücksetzen</de>
 																</label>
-																<executability>
-																	<model-access
-																		object="project"
-																		operation="Write"
+																<access>
+																	<operation name="Write"
+																		object="$project"
+																		type="ehome.project:Project"
 																	/>
-																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</access>
+																<executability>
+																	<disabled-if expr="simulationRunVeto($state['project'], $state)"/>
 																</executability>
-																<execute-script function="r -> s -> simulationResetParameter($s['project'], $r)">
+																<execute-script function="simulationResetParameter($state['project'], $selectedParameter)">
 																	<inputs>
 																		<input channel="selectedParameter"/>
 																	</inputs>
+																	<with-result>
+																		<write-channel name="refresh"/>
+																	</with-result>
 																</execute-script>
-																<write-channel name="refresh"/>
 															</action>
 														</button>
 													</stack>
@@ -651,7 +700,7 @@
 														<en>Datapoint</en>
 														<de>Datenpunkt</de>
 													</label>
-													<value>r -> $r['id']</value>
+													<value>$row['id']</value>
 												</computed-column>
 												<computed-column name="type"
 													type="tl.core:String"
@@ -661,7 +710,7 @@
 														<en>Type</en>
 														<de>Typ</de>
 													</label>
-													<value>r -> $r['type']</value>
+													<value>$row['type']</value>
 												</computed-column>
 												<computed-column name="value"
 													type="tl.core:String"
@@ -671,7 +720,7 @@
 														<en>Value</en>
 														<de>Wert</de>
 													</label>
-													<value>r -> $r['value']</value>
+													<value>$row['value']</value>
 												</computed-column>
 												<computed-column name="quality"
 													type="tl.core:String"
@@ -681,7 +730,7 @@
 														<en>Quality</en>
 														<de>Qualität</de>
 													</label>
-													<value>r -> $r['quality']</value>
+													<value>$row['quality']</value>
 												</computed-column>
 												<computed-column name="updated"
 													type="tl.core:String"
@@ -691,7 +740,7 @@
 														<en>Last update</en>
 														<de>Letzte Änderung</de>
 													</label>
-													<value>r -> $r['updated']</value>
+													<value>$row['updated']</value>
 												</computed-column>
 												<computed-column name="binding"
 													type="tl.core:String"
@@ -701,10 +750,10 @@
 														<en>Binding</en>
 														<de>Anbindung</de>
 													</label>
-													<value>r -> $r['binding']</value>
+													<value>$row['binding']</value>
 												</computed-column>
 											</columns>
-											<rows>s -> $s['datapoints']</rows>
+											<rows>$state['datapoints']</rows>
 										</table>
 									</pane>
 									<pane
@@ -738,51 +787,59 @@
 														<button>
 															<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																image="css:bi bi-send"
-																input="state"
+																inputs="state, project"
 															>
 																<label>
 																	<en>Send from the installation</en>
 																	<de>Aus der Installation senden</de>
 																</label>
-																<executability>
-																	<model-access
-																		object="project"
-																		operation="Write"
+																<access>
+																	<operation name="Write"
+																		object="$project"
+																		type="ehome.project:Project"
 																	/>
-																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</access>
+																<executability>
+																	<disabled-if expr="simulationRunVeto($state['project'], $state)"/>
 																</executability>
-																<execute-script function="d -> v -> s -> simulationSend($s['project'], $d, $v)">
+																<execute-script function="simulationSend($state['project'], $selectedDatapoint, $datapointValue)">
 																	<inputs>
 																		<input channel="selectedDatapoint"/>
 																		<input channel="datapointValue"/>
 																	</inputs>
+																	<with-result>
+																		<write-channel name="refresh"/>
+																	</with-result>
 																</execute-script>
-																<write-channel name="refresh"/>
 															</action>
 														</button>
 														<button>
 															<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																image="css:bi bi-pencil"
-																input="state"
+																inputs="state, project"
 															>
 																<label>
 																	<en>Command</en>
 																	<de>Befehlen</de>
 																</label>
-																<executability>
-																	<model-access
-																		object="project"
-																		operation="Write"
+																<access>
+																	<operation name="Write"
+																		object="$project"
+																		type="ehome.project:Project"
 																	/>
-																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</access>
+																<executability>
+																	<disabled-if expr="simulationRunVeto($state['project'], $state)"/>
 																</executability>
-																<execute-script function="d -> v -> s -> simulationCommand($s['project'], $d, $v)">
+																<execute-script function="simulationCommand($state['project'], $selectedDatapoint, $datapointValue)">
 																	<inputs>
 																		<input channel="selectedDatapoint"/>
 																		<input channel="datapointValue"/>
 																	</inputs>
+																	<with-result>
+																		<write-channel name="refresh"/>
+																	</with-result>
 																</execute-script>
-																<write-channel name="refresh"/>
 															</action>
 														</button>
 													</stack>
@@ -835,7 +892,7 @@
 														<en>Device</en>
 														<de>Gerät</de>
 													</label>
-													<value>r -> $r['device']</value>
+													<value>$row['device']</value>
 												</computed-column>
 												<computed-column name="endpoint"
 													type="tl.core:Integer"
@@ -845,7 +902,7 @@
 														<en>Endpoint</en>
 														<de>Endpunkt</de>
 													</label>
-													<value>r -> $r['endpoint']</value>
+													<value>$row['endpoint']</value>
 												</computed-column>
 												<computed-column name="function"
 													type="tl.core:String"
@@ -855,7 +912,7 @@
 														<en>Function</en>
 														<de>Funktion</de>
 													</label>
-													<value>r -> $r['function']</value>
+													<value>$row['function']</value>
 												</computed-column>
 												<computed-column name="id"
 													type="tl.core:String"
@@ -865,7 +922,7 @@
 														<en>Datapoint</en>
 														<de>Datenpunkt</de>
 													</label>
-													<value>r -> $r['id']</value>
+													<value>$row['id']</value>
 												</computed-column>
 												<computed-column name="value"
 													type="tl.core:String"
@@ -875,7 +932,7 @@
 														<en>Value</en>
 														<de>Wert</de>
 													</label>
-													<value>r -> $r['value']</value>
+													<value>$row['value']</value>
 												</computed-column>
 												<computed-column name="reported"
 													type="tl.core:String"
@@ -885,10 +942,10 @@
 														<en>Last report</en>
 														<de>Letzte Meldung</de>
 													</label>
-													<value>r -> $r['reported']</value>
+													<value>$row['reported']</value>
 												</computed-column>
 											</columns>
-											<rows>s -> $s['zigbee']</rows>
+											<rows>$state['zigbee']</rows>
 										</table>
 									</pane>
 									<pane
@@ -922,51 +979,59 @@
 														<button>
 															<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																image="css:bi bi-broadcast"
-																input="state"
+																inputs="state, project"
 															>
 																<label>
 																	<en>Report from the device</en>
 																	<de>Vom Gerät melden</de>
 																</label>
-																<executability>
-																	<model-access
-																		object="project"
-																		operation="Write"
+																<access>
+																	<operation name="Write"
+																		object="$project"
+																		type="ehome.project:Project"
 																	/>
-																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</access>
+																<executability>
+																	<disabled-if expr="simulationRunVeto($state['project'], $state)"/>
 																</executability>
-																<execute-script function="d -> v -> s -> simulationSend($s['project'], $d, $v)">
+																<execute-script function="simulationSend($state['project'], $selectedZigbee, $zigbeeValue)">
 																	<inputs>
 																		<input channel="selectedZigbee"/>
 																		<input channel="zigbeeValue"/>
 																	</inputs>
+																	<with-result>
+																		<write-channel name="refresh"/>
+																	</with-result>
 																</execute-script>
-																<write-channel name="refresh"/>
 															</action>
 														</button>
 														<button>
 															<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																image="css:bi bi-pencil"
-																input="state"
+																inputs="state, project"
 															>
 																<label>
 																	<en>Command</en>
 																	<de>Befehlen</de>
 																</label>
-																<executability>
-																	<model-access
-																		object="project"
-																		operation="Write"
+																<access>
+																	<operation name="Write"
+																		object="$project"
+																		type="ehome.project:Project"
 																	/>
-																	<disabled-if expr="s -> simulationRunVeto($s['project'], $s)"/>
+																</access>
+																<executability>
+																	<disabled-if expr="simulationRunVeto($state['project'], $state)"/>
 																</executability>
-																<execute-script function="d -> v -> s -> simulationCommand($s['project'], $d, $v)">
+																<execute-script function="simulationCommand($state['project'], $selectedZigbee, $zigbeeValue)">
 																	<inputs>
 																		<input channel="selectedZigbee"/>
 																		<input channel="zigbeeValue"/>
 																	</inputs>
+																	<with-result>
+																		<write-channel name="refresh"/>
+																	</with-result>
 																</execute-script>
-																<write-channel name="refresh"/>
 															</action>
 														</button>
 													</stack>
@@ -1006,7 +1071,7 @@
 											<en>Simulated time</en>
 											<de>Simulierte Zeit</de>
 										</label>
-										<value>r -> $r['time']</value>
+										<value>$row['time']</value>
 									</computed-column>
 									<computed-column name="kind"
 										type="tl.core:String"
@@ -1016,7 +1081,7 @@
 											<en>Kind</en>
 											<de>Art</de>
 										</label>
-										<value>r -> $r['kind']</value>
+										<value>$row['kind']</value>
 									</computed-column>
 									<computed-column name="source"
 										type="tl.core:String"
@@ -1026,7 +1091,7 @@
 											<en>Source</en>
 											<de>Quelle</de>
 										</label>
-										<value>r -> $r['source']</value>
+										<value>$row['source']</value>
 									</computed-column>
 									<computed-column name="text"
 										type="tl.core:String"
@@ -1036,10 +1101,10 @@
 											<en>What happened</en>
 											<de>Was geschah</de>
 										</label>
-										<value>r -> $r['text']</value>
+										<value>$row['text']</value>
 									</computed-column>
 								</columns>
-								<rows>s -> $s['timeline']</rows>
+								<rows>$state['timeline']</rows>
 							</table>
 						</tab>
 						<tab id="devices"
@@ -1067,25 +1132,32 @@
 											<commands>
 												<generic-command
 													image="css:bi bi-plus-lg"
-													input="project"
+													inputs="project"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>New object follower</en>
 														<de>Neue Objektfolge</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$project"
+															type="ehome.project:Project"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
 													</executability>
 													<with-transaction>
-														<execute-script function="p -> { f = new(`ehome.runtime:ObjectFollower`); $p.add(`ehome.project:Project#simulationFollowers`, $f); $f; }"/>
+														<execute-script function="{ f = new(`ehome.runtime:ObjectFollower`); $project.add(`ehome.project:Project#simulationFollowers`, $f); $f; }"/>
+														<with-result>
+															<write-channel name="follower"/>
+														</with-result>
 													</with-transaction>
-													<write-channel name="follower"/>
 												</generic-command>
 												<generic-command
 													image="css:bi bi-trash"
-													input="follower"
+													inputs="follower"
 													placement="TOOLBAR"
 												>
 													<label>
@@ -1096,7 +1168,7 @@
 														<null-input-disabled/>
 													</executability>
 													<delete-object/>
-													<write-channel name="follower"/>
+													<write-channel name="follower" clear="true"/>
 												</generic-command>
 											</commands>
 											<stack gap="compact">
@@ -1125,7 +1197,7 @@
 														<column attribute="follower"/>
 														<column attribute="inverted"/>
 													</columns>
-													<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#simulationFollowers`))</rows>
+													<rows>if($project == null, [], $project.get(`ehome.project:Project#simulationFollowers`))</rows>
 												</table>
 											</stack>
 										</panel>
@@ -1146,11 +1218,15 @@
 											>
 												<field attribute="device"/>
 												<field attribute="source">
-												<input-control class="de.haumacher.ehome.view.OptionOrderSelectControlProvider"/>
-											</field>
+													<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+														order="as-given"
+													/>
+												</field>
 												<field attribute="follower">
-												<input-control class="de.haumacher.ehome.view.OptionOrderSelectControlProvider"/>
-											</field>
+													<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+														order="as-given"
+													/>
+												</field>
 												<field attribute="inverted"/>
 											</form>
 										</panel>

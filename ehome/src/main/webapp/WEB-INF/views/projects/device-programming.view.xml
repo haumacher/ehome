@@ -24,12 +24,12 @@
 		<channel name="project"/>
 		<channel name="programmingJob"/>
 		<derived-channel name="gateway"
-			expr="p -> if($p == null, null, $p.get(`ehome.project:Project#gateway`))"
+			expr="if($project == null, null, $project.get(`ehome.project:Project#gateway`))"
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
 		<derived-channel name="summary"
-			expr="d -> if($d == null, null, downloadSummary($d))"
+			expr="if($device == null, null, downloadSummary($device))"
 			inputs="device"
 			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 		/>
@@ -43,15 +43,20 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-broadcast"
-					input="project"
+					inputs="project"
 					placement="TOOLBAR"
 				>
 					<label>
 						<en>Choose the gateway</en>
 						<de>Gateway wählen</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
 					<executability>
-						<model-access operation="Write"/>
 						<null-input-disabled/>
 					</executability>
 					<open-dialog
@@ -74,9 +79,7 @@
 				</stack>
 			</inset>
 		</panel>
-		<!-- Not filling (TL #29982): beside a panel of its own size, a filling panel in a stack leaves that
-			panel the whole height. The tab scrolls instead. -->
-		<panel fill="false">
+		<panel>
 			<title>
 				<en>Download</en>
 				<de>Download</de>
@@ -84,7 +87,7 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-file-earmark-binary"
-					input="device"
+					inputs="device"
 					placement="TOOLBAR"
 				>
 					<label>
@@ -101,7 +104,7 @@
 				</generic-command>
 				<generic-command
 					image="css:bi bi-arrow-left-right"
-					input="device"
+					inputs="device"
 					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 					placement="TOOLBAR"
 				>
@@ -109,10 +112,15 @@
 						<en>Compare with the device</en>
 						<de>Mit dem Gerät vergleichen</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$device"
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
-						<model-access operation="Write"/>
 						<null-input-disabled/>
-						<disabled-if expr="d -> compareVeto($d)"/>
+						<disabled-if expr="compareVeto($device)"/>
 					</executability>
 					<start-job
 						cancelable="true"
@@ -123,18 +131,19 @@
 							<input channel="device"/>
 						</inputs>
 						<body class="de.haumacher.ehome.programming.download.CompareJob"/>
+						<with-result>
+							<open-dialog
+								bind-input-to="report"
+								dialog-view="projects/programming-report.view.xml"
+							/>
+							<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
+							<write-channel name="programmingJob" clear="true"/>
+						</with-result>
 					</start-job>
-					<open-dialog
-						bind-input-to="report"
-						dialog-view="projects/programming-report.view.xml"
-					/>
-					<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
-					<execute-script function="r -> null"/>
-					<write-channel name="programmingJob"/>
 				</generic-command>
 				<generic-command
 					image="css:bi bi-download"
-					input="device"
+					inputs="device"
 					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 					placement="TOOLBAR"
 				>
@@ -142,12 +151,17 @@
 						<en>Download</en>
 						<de>Herunterladen</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$device"
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
-						<model-access operation="Write"/>
 						<null-input-disabled/>
-						<disabled-if expr="d -> downloadVeto($d)"/>
+						<disabled-if expr="downloadVeto($device)"/>
 					</executability>
-					<confirm expr="d -> downloadConfirmation($d)"/>
+					<confirm expr="downloadConfirmation($device)"/>
 					<start-job
 						cancelable="false"
 						job="programmingJob"
@@ -157,18 +171,19 @@
 							<input channel="device"/>
 						</inputs>
 						<body class="de.haumacher.ehome.programming.download.DownloadJob"/>
+						<with-result>
+							<open-dialog
+								bind-input-to="report"
+								dialog-view="projects/programming-report.view.xml"
+							/>
+							<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
+							<write-channel name="programmingJob" clear="true"/>
+						</with-result>
 					</start-job>
-					<open-dialog
-						bind-input-to="report"
-						dialog-view="projects/programming-report.view.xml"
-					/>
-					<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
-					<execute-script function="r -> null"/>
-					<write-channel name="programmingJob"/>
 				</generic-command>
 				<generic-command
 					image="css:bi bi-hand-index"
-					input="device"
+					inputs="device"
 					observed-types="ehome.project:Project"
 					placement="TOOLBAR"
 				>
@@ -176,12 +191,17 @@
 						<en>Write the individual address</en>
 						<de>Physikalische Adresse programmieren</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$device"
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
-						<model-access operation="Write"/>
 						<null-input-disabled/>
-						<disabled-if expr="d -> addressVeto($d)"/>
+						<disabled-if expr="addressVeto($device)"/>
 					</executability>
-					<confirm expr="d -> addressConfirmation($d)"/>
+					<confirm expr="addressConfirmation($device)"/>
 					<start-job
 						cancelable="false"
 						job="programmingJob"
@@ -193,14 +213,15 @@
 						<body class="de.haumacher.ehome.programming.download.DownloadJob"
 							kind="ADDRESS"
 						/>
+						<with-result>
+							<open-dialog
+								bind-input-to="report"
+								dialog-view="projects/programming-report.view.xml"
+							/>
+							<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
+							<write-channel name="programmingJob" clear="true"/>
+						</with-result>
 					</start-job>
-					<open-dialog
-						bind-input-to="report"
-						dialog-view="projects/programming-report.view.xml"
-					/>
-					<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
-					<execute-script function="r -> null"/>
-					<write-channel name="programmingJob"/>
 				</generic-command>
 			</commands>
 			<inset>
@@ -211,7 +232,7 @@
 					<object-list
 						gap="compact"
 						inputs="device"
-						items="d -> if($d == null, [], downloadProblems($d))"
+						items="if($device == null, [], downloadProblems($device))"
 						observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 					>
 						<item>
@@ -234,7 +255,7 @@
 									<en>No.</en>
 									<de>Nr.</de>
 								</label>
-								<value>row -> $row["number"]</value>
+								<value>$row["number"]</value>
 							</computed-column>
 							<computed-column name="step"
 								type="tl.core:String"
@@ -244,7 +265,7 @@
 									<en>Step</en>
 									<de>Schritt</de>
 								</label>
-								<value>row -> $row["step"]</value>
+								<value>$row["step"]</value>
 							</computed-column>
 							<computed-column name="operation"
 								type="tl.core:String"
@@ -254,7 +275,7 @@
 									<en>Operation</en>
 									<de>Operation</de>
 								</label>
-								<value>row -> $row["operation"]</value>
+								<value>$row["operation"]</value>
 							</computed-column>
 							<computed-column name="bytes"
 								type="tl.core:Integer"
@@ -264,10 +285,10 @@
 									<en>Bytes</en>
 									<de>Bytes</de>
 								</label>
-								<value>row -> $row["bytes"]</value>
+								<value>$row["bytes"]</value>
 							</computed-column>
 						</columns>
-						<rows>d -> if($d == null, [], downloadPlanRows($d))</rows>
+						<rows>if($device == null, [], downloadPlanRows($device))</rows>
 					</table>
 				</stack>
 			</inset>

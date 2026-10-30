@@ -23,6 +23,7 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.config.annotation.defaults.IntDefault;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.util.error.TopLogicException;
 
 import tuwien.auto.calimero.KNXException;
@@ -51,7 +52,7 @@ public class DiscoverGatewaysAction implements ViewAction {
 	 * Configuration of {@link DiscoverGatewaysAction}.
 	 */
 	@TagName("discover-knx-gateways")
-	public interface Config extends PolymorphicConfiguration<DiscoverGatewaysAction> {
+	public interface Config extends PolymorphicConfiguration<DiscoverGatewaysAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(DiscoverGatewaysAction.class)

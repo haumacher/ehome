@@ -17,25 +17,22 @@
 	<channels>
 		<channel name="program"/>
 		<channel name="selected"/>
-		<!-- Where a drop in the structure tree inserts the dragged elements: into which element, before which of its elements. -->
-		<channel name="dropParent"/>
-		<channel name="dropBefore"/>
 		<derived-channel name="selectedNode"
-			expr="n -> if($n.instanceOf(`ehome.operational:Program`), null, $n)"
+			expr="if($selected.instanceOf(`ehome.operational:Program`), null, $selected)"
 			inputs="selected"
 		/>
 		<!-- What a new structure element is placed in or after: the selected element, otherwise the program. -->
 		<derived-channel name="anchor"
-			expr="p -> n -> if($n == null, $p, $n)"
+			expr="if($selected == null, $program, $selected)"
 			inputs="program, selected"
 		/>
 		<!-- The parameter definition a selected parameter reference places, and its type. -->
 		<derived-channel name="placedParameter"
-			expr="n -> if($n.instanceOf(`ehome.operational:ParameterView`), $n.get(`ehome.operational:ParameterView#parameter`), null)"
+			expr="if($selected.instanceOf(`ehome.operational:ParameterView`), $selected.get(`ehome.operational:ParameterView#parameter`), null)"
 			inputs="selected"
 		/>
 		<derived-channel name="placedType"
-			expr="p -> $p.get(`ehome.operational:Parameter#type`)"
+			expr="$placedParameter.get(`ehome.operational:Parameter#type`)"
 			inputs="placedParameter"
 		/>
 		<!--
@@ -45,9 +42,9 @@
 		-->
 		<channel name="parameterRow"/>
 		<derived-channel name="selectedParameter"
-			expr="r -> if($r == null, null, $r['definition'])"
+			expr="if($parameterRow == null, null, $parameterRow['definition'])"
 			inputs="parameterRow"
-			reverse="p -> if($p == null, null, programRowOf($p))"
+			reverse="if($value == null, null, programRowOf($value))"
 		/>
 		<!-- What the parameters tab lists: the text to look for, and whether only the parameters placed nowhere. -->
 		<channel name="parameterFilter"/>
@@ -55,16 +52,16 @@
 		<!-- The row selected in the objects tab (programPortRows), and its communication object. -->
 		<channel name="portRow"/>
 		<derived-channel name="selectedPort"
-			expr="r -> if($r == null, null, $r['definition'])"
+			expr="if($portRow == null, null, $portRow['definition'])"
 			inputs="portRow"
-			reverse="p -> if($p == null, null, programRowOf($p))"
+			reverse="if($value == null, null, programRowOf($value))"
 		/>
 		<channel name="portFilter"/>
 		<channel name="unplacedPorts"/>
 		<!-- The parameter type selected in the types tab, and the entry selected of an enumeration type. -->
 		<channel name="selectedType"/>
 		<derived-channel name="selectedEnumeration"
-			expr="t -> if($t.instanceOf(`ehome.operational:EnumerationType`), $t, null)"
+			expr="if($selectedType.instanceOf(`ehome.operational:EnumerationType`), $selectedType, null)"
 			inputs="selectedType"
 		/>
 		<channel name="selectedEntry"/>
@@ -98,237 +95,286 @@
 									<generic-command
 										clique="new"
 										image="css:bi bi-diagram-3"
-										input="anchor"
+										inputs="anchor"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Channel</en>
 											<de>Kanal</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$anchor"
+												type="ehome.core:Externalized"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:Channel`)"/>
+											<disabled-if expr="structureInsertVeto($anchor, `ehome.operational:Channel`)"/>
 										</executability>
 										<create-transient
 											container="anchor"
-											type="ehome.operational:Channel"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-structure.view.xml"
-										>
-											<bind
-												channel="anchor"
-												to="anchor"
-											/>
-											<bind
-												channel="selection"
-												to="selected"
-											/>
-										</open-dialog>
+											type="ehome.operational:Channel">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-structure.view.xml"
+												>
+													<bind
+														channel="anchor"
+														to="anchor"
+													/>
+													<bind
+														channel="selection"
+														to="selected"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-collection"
-										input="anchor"
+										inputs="anchor"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Channel independent part</en>
 											<de>Kanalunabhängiger Teil</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$anchor"
+												type="ehome.core:Externalized"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:ChannelIndependent`)"/>
+											<disabled-if expr="structureInsertVeto($anchor, `ehome.operational:ChannelIndependent`)"/>
 										</executability>
 										<create-transient
 											container="anchor"
-											type="ehome.operational:ChannelIndependent"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-structure.view.xml"
-										>
-											<bind
-												channel="anchor"
-												to="anchor"
-											/>
-											<bind
-												channel="selection"
-												to="selected"
-											/>
-										</open-dialog>
+											type="ehome.operational:ChannelIndependent">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-structure.view.xml"
+												>
+													<bind
+														channel="anchor"
+														to="anchor"
+													/>
+													<bind
+														channel="selection"
+														to="selected"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-card-list"
-										input="anchor"
+										inputs="anchor"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Parameter block</en>
 											<de>Parameterblock</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$anchor"
+												type="ehome.core:Externalized"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:ParameterGroup`)"/>
+											<disabled-if expr="structureInsertVeto($anchor, `ehome.operational:ParameterGroup`)"/>
 										</executability>
 										<create-transient
 											container="anchor"
-											type="ehome.operational:ParameterGroup"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-structure.view.xml"
-										>
-											<bind
-												channel="anchor"
-												to="anchor"
-											/>
-											<bind
-												channel="selection"
-												to="selected"
-											/>
-										</open-dialog>
+											type="ehome.operational:ParameterGroup">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-structure.view.xml"
+												>
+													<bind
+														channel="anchor"
+														to="anchor"
+													/>
+													<bind
+														channel="selection"
+														to="selected"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-signpost-split"
-										input="anchor"
+										inputs="anchor"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Switch</en>
 											<de>Fallunterscheidung</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$anchor"
+												type="ehome.core:Externalized"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:Switch`)"/>
+											<disabled-if expr="structureInsertVeto($anchor, `ehome.operational:Switch`)"/>
 										</executability>
 										<create-transient
 											container="anchor"
-											type="ehome.operational:Switch"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-structure.view.xml"
-										>
-											<bind
-												channel="anchor"
-												to="anchor"
-											/>
-											<bind
-												channel="selection"
-												to="selected"
-											/>
-										</open-dialog>
+											type="ehome.operational:Switch">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-structure.view.xml"
+												>
+													<bind
+														channel="anchor"
+														to="anchor"
+													/>
+													<bind
+														channel="selection"
+														to="selected"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-signpost"
-										input="anchor"
+										inputs="anchor"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Case</en>
 											<de>Fall</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$anchor"
+												type="ehome.core:Externalized"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:Case`)"/>
+											<disabled-if expr="structureInsertVeto($anchor, `ehome.operational:Case`)"/>
 										</executability>
 										<create-transient
 											container="anchor"
-											type="ehome.operational:Case"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-structure.view.xml"
-										>
-											<bind
-												channel="anchor"
-												to="anchor"
-											/>
-											<bind
-												channel="selection"
-												to="selected"
-											/>
-										</open-dialog>
+											type="ehome.operational:Case">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-structure.view.xml"
+												>
+													<bind
+														channel="anchor"
+														to="anchor"
+													/>
+													<bind
+														channel="selection"
+														to="selected"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-sliders"
-										input="anchor"
+										inputs="anchor"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Place parameter</en>
 											<de>Parameter platzieren</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$anchor"
+												type="ehome.core:Externalized"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:ParameterView`)"/>
+											<disabled-if expr="structureInsertVeto($anchor, `ehome.operational:ParameterView`)"/>
 										</executability>
 										<create-transient
 											container="anchor"
-											type="ehome.operational:ParameterView"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-structure.view.xml"
-										>
-											<bind
-												channel="anchor"
-												to="anchor"
-											/>
-											<bind
-												channel="selection"
-												to="selected"
-											/>
-										</open-dialog>
+											type="ehome.operational:ParameterView">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-structure.view.xml"
+												>
+													<bind
+														channel="anchor"
+														to="anchor"
+													/>
+													<bind
+														channel="selection"
+														to="selected"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-plug-fill"
-										input="anchor"
+										inputs="anchor"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Place communication object</en>
 											<de>Kommunikationsobjekt platzieren</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$anchor"
+												type="ehome.core:Externalized"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="a -> structureInsertVeto($a, `ehome.operational:Interface`)"/>
+											<disabled-if expr="structureInsertVeto($anchor, `ehome.operational:Interface`)"/>
 										</executability>
 										<create-transient
 											container="anchor"
-											type="ehome.operational:Interface"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-structure.view.xml"
-										>
-											<bind
-												channel="anchor"
-												to="anchor"
-											/>
-											<bind
-												channel="selection"
-												to="selected"
-											/>
-										</open-dialog>
+											type="ehome.operational:Interface">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-structure.view.xml"
+												>
+													<bind
+														channel="anchor"
+														to="anchor"
+													/>
+													<bind
+														channel="selection"
+														to="selected"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"
-										input="selectedNode"
+										inputs="selectedNode"
 										placement="TOOLBAR"
 									>
 										<label>
@@ -338,9 +384,9 @@
 										<executability>
 											<null-input-disabled/>
 										</executability>
-										<confirm expr="n -> #('Delete {0} with all its contents?'@en, '{0} mit allem Inhalt löschen?'@de).fill($n.label())"/>
+										<confirm expr="#('Delete {0} with all its contents?'@en, '{0} mit allem Inhalt löschen?'@de).fill($selectedNode.label())"/>
 										<delete-object/>
-										<write-channel name="selected"/>
+										<write-channel name="selected" clear="true"/>
 									</generic-command>
 								</commands>
 								<tree
@@ -350,19 +396,19 @@
 									<inputs>
 										<input channel="program"/>
 									</inputs>
-									<root>p -> $p</root>
-									<children><![CDATA[p -> node -> switch {
+									<root>$program</root>
+									<children><![CDATA[switch {
     $node.instanceOf(`ehome.operational:Switch`):
         $node.get(`ehome.operational:Switch#alternatives`);
     $node.instanceOf(`ehome.operational:ConfigFragment`):
         $node.get(`ehome.operational:ConfigFragment#contents`);
     default: [];
 }]]></children>
-									<parents>p -> node -> $node.container()</parents>
+									<parents>$node.container()</parents>
 									<!-- Every element of the structure but the program itself can be dragged. -->
 									<drag kind="programStructure">
 										<node-executability>
-											<disabled-if expr="n -> $n.instanceOf(`ehome.operational:Program`)"/>
+											<disabled-if expr="$node.instanceOf(`ehome.operational:Program`)"/>
 										</node-executability>
 									</drag>
 									<!--
@@ -372,22 +418,18 @@
 									-->
 									<drop
 										accept="programStructure"
-										before-channel="dropBefore"
 										input="program"
-										parent-channel="dropParent"
-										refuse-if="nodes -> parent -> before -> structureMoveVeto($nodes, $parent, $before)"
+										refuse-if="structureMoveVeto($objects, $parent, $before)"
 										target="ordered"
 									>
 										<executability>
-											<model-access operation="Write"/>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
 										</executability>
 										<with-transaction>
-											<execute-script function="parent -> before -> nodes -> structureMove($nodes, $parent, $before)">
-												<inputs>
-													<input channel="dropParent"/>
-													<input channel="dropBefore"/>
-												</inputs>
-											</execute-script>
+											<execute-script function="structureMove($objects, $parent, $before)"/>
 										</with-transaction>
 									</drop>
 								</tree>
@@ -403,7 +445,7 @@
 									<de>Details</de>
 								</title>
 								<switch input="selected">
-									<case test="n -> $n.instanceOf(`ehome.operational:Channel`)">
+									<case test="$selected.instanceOf(`ehome.operational:Channel`)">
 										<form
 											input="selected"
 											with-inset="true"
@@ -414,7 +456,7 @@
 											<field attribute="extId"/>
 										</form>
 									</case>
-									<case test="n -> $n.instanceOf(`ehome.operational:ParameterGroup`)">
+									<case test="$selected.instanceOf(`ehome.operational:ParameterGroup`)">
 										<form
 											input="selected"
 											with-inset="true"
@@ -428,7 +470,7 @@
 											<field attribute="extId"/>
 										</form>
 									</case>
-									<case test="n -> $n.instanceOf(`ehome.operational:Switch`)">
+									<case test="$selected.instanceOf(`ehome.operational:Switch`)">
 										<form
 											input="selected"
 											with-inset="true"
@@ -437,7 +479,7 @@
 										</form>
 									</case>
 									<!-- A further place of a reference placed elsewhere (ETS 6): the reference it places once more. -->
-									<case test="n -> $n.instanceOf(`ehome.operational:SharedPlacement`)">
+									<case test="$selected.instanceOf(`ehome.operational:SharedPlacement`)">
 										<form
 											input="selected"
 											with-inset="true"
@@ -448,7 +490,7 @@
 											/>
 										</form>
 									</case>
-									<case test="n -> $n.instanceOf(`ehome.operational:Case`)">
+									<case test="$selected.instanceOf(`ehome.operational:Case`)">
 										<form
 											input="selected"
 											with-inset="true"
@@ -457,7 +499,7 @@
 											<field attribute="isDefault"/>
 										</form>
 									</case>
-									<case test="n -> $n.instanceOf(`ehome.operational:ParameterView`)">
+									<case test="$selected.instanceOf(`ehome.operational:ParameterView`)">
 										<!--
 											A parameter placed here: which parameter definition, and the text, default and
 											access it has at this place (empty: those of the parameter). Its value is set per
@@ -552,7 +594,7 @@
 										</form>
 										<!-- The entries of an enumeration type. -->
 										<switch input="placedType">
-											<case test="t -> $t.instanceOf(`ehome.operational:EnumerationType`)">
+											<case test="$placedType.instanceOf(`ehome.operational:EnumerationType`)">
 												<table
 													observed-types="ehome.operational:EnumerationValue"
 													types="ehome.operational:EnumerationValue"
@@ -571,12 +613,12 @@
 															width="100"
 														/>
 													</columns>
-													<rows>t -> $t.get(`ehome.operational:EnumerationType#values`)</rows>
+													<rows>$placedType.get(`ehome.operational:EnumerationType#values`)</rows>
 												</table>
 											</case>
 										</switch>
 									</case>
-									<case test="n -> $n.instanceOf(`ehome.operational:Interface`)">
+									<case test="$selected.instanceOf(`ehome.operational:Interface`)">
 										<!-- A communication object placed here: which object definition, and its texts and datapoint types at this place. -->
 										<form
 											input="selected"
@@ -625,64 +667,78 @@
 								<commands>
 									<generic-command
 										image="css:bi bi-plus-lg"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>New parameter</en>
 											<de>Neuer Parameter</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="parameters"
-											type="ehome.operational:Parameter"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedParameter"
-											/>
-										</open-dialog>
+											type="ehome.operational:Parameter">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="program"
+													/>
+													<bind
+														channel="selection"
+														to="selectedParameter"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"
-										input="selectedParameter"
+										inputs="selectedParameter"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Delete</en>
 											<de>Löschen</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$selectedParameter"
+												type="ehome.operational:Parameter"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
-										<if test="p -> programDeleteVeto($p) != null">
+										<if test="programDeleteVeto($selectedParameter) != null">
 											<then>
 												<notify
 													display="dialog"
-													expr="p -> programDeleteVeto($p)"
+													expr="programDeleteVeto($selectedParameter)"
 													kind="error"
 													stop="true"
 												/>
 											</then>
 										</if>
-										<confirm expr="p -> #('Delete the parameter {0} with its {1} placements in the structure?'@en, 'Den Parameter {0} mit seinen {1} Platzierungen in der Struktur löschen?'@de).fill($p.label(), $p.get(`ehome.operational:Parameter#views`).size())"/>
+										<confirm expr="#('Delete the parameter {0} with its {1} placements in the structure?'@en, 'Den Parameter {0} mit seinen {1} Platzierungen in der Struktur löschen?'@de).fill($selectedParameter.label(), $selectedParameter.get(`ehome.operational:Parameter#views`).size())"/>
 										<with-transaction>
-											<execute-script function="p -> programDelete($p)"/>
+											<execute-script function="programDelete($selectedParameter)"/>
+											<with-result>
+												<write-channel name="selectedParameter"/>
+											</with-result>
 										</with-transaction>
-										<write-channel name="selectedParameter"/>
 									</generic-command>
 								</commands>
 								<fields
@@ -740,7 +796,7 @@
 												<en>Text</en>
 												<de>Text</de>
 											</label>
-											<value>r -> if($r['placement'] == null, $r['definition'].get(`ehome.operational:Parameter#title`), $r['placement'].get(`ehome.operational:ParameterView#title`))</value>
+											<value>if($row['placement'] == null, $row['definition'].get(`ehome.operational:Parameter#title`), $row['placement'].get(`ehome.operational:ParameterView#title`))</value>
 										</computed-column>
 										<computed-column name="name"
 											type="tl.core:String"
@@ -750,7 +806,7 @@
 												<en>Internal name</en>
 												<de>Interner Name</de>
 											</label>
-											<value>r -> $r['definition'].get(`ehome.operational:Parameter#name`)</value>
+											<value>$row['definition'].get(`ehome.operational:Parameter#name`)</value>
 										</computed-column>
 										<computed-column name="type"
 											type="ehome.operational:ParameterType"
@@ -760,7 +816,7 @@
 												<en>Type</en>
 												<de>Typ</de>
 											</label>
-											<value>r -> $r['definition'].get(`ehome.operational:Parameter#type`)</value>
+											<value>$row['definition'].get(`ehome.operational:Parameter#type`)</value>
 										</computed-column>
 										<computed-column name="default"
 											type="tl.core:String"
@@ -770,7 +826,7 @@
 												<en>Default</en>
 												<de>Vorgabe</de>
 											</label>
-											<value>r -> $r['definition'].get(`ehome.operational:Parameter#displayValue`)</value>
+											<value>$row['definition'].get(`ehome.operational:Parameter#displayValue`)</value>
 										</computed-column>
 										<computed-column name="access"
 											type="ehome.operational:AccessKind"
@@ -780,7 +836,7 @@
 												<en>Display</en>
 												<de>Anzeige</de>
 											</label>
-											<value>r -> $r['definition'].get(`ehome.operational:Parameter#access`)</value>
+											<value>$row['definition'].get(`ehome.operational:Parameter#access`)</value>
 										</computed-column>
 										<computed-column name="placements"
 											type="tl.core:Integer"
@@ -789,7 +845,7 @@
 												<en>Placements</en>
 												<de>Platzierungen</de>
 											</label>
-											<value>r -> $r['placements']</value>
+											<value>$row['placements']</value>
 										</computed-column>
 										<computed-column name="extId"
 											type="tl.core:String"
@@ -799,9 +855,11 @@
 												<en>External ID</en>
 												<de>Externe ID</de>
 											</label>
-											<value>r -> $r['definition'].get(`ehome.operational:Parameter#extId`)</value>
+											<value>$row['definition'].get(`ehome.operational:Parameter#extId`)</value>
 										</computed-column>
+										<!-- A page has no order of its own: the column sorts nothing, its groups keep the order of the rows. -->
 										<computed-column name="page"
+											sortable="false"
 											type="tl.core:String"
 											width="240"
 										>
@@ -809,12 +867,10 @@
 												<en>Page</en>
 												<de>Seite</de>
 											</label>
-											<value>r -> $r['page']</value>
-											<!-- No page precedes another: the groups keep the order of their first rows. -->
-											<comparator>a -> b -> 0</comparator>
+											<value>$row['page']</value>
 										</computed-column>
 									</columns>
-									<rows>p -> f -> u -> programParameterRows($p, $f, $u)</rows>
+									<rows>programParameterRows($program, $parameterFilter, $unplacedParameters)</rows>
 								</table>
 							</panel>
 						</pane>
@@ -883,74 +939,90 @@
 								<commands>
 									<generic-command
 										image="css:bi bi-plus-lg"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>New communication object</en>
 											<de>Neues Kommunikationsobjekt</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="ports"
-											type="ehome.operational:Port"
-										/>
-										<!-- The next free object number. -->
-										<execute-script function="p -> o -> {
-    last = $p.get(`ehome.operational:Program#ports`).map(x -> $x.get(`ehome.operational:Port#index`)).max();
-    $o.set(`ehome.operational:Port#index`, if($last == null, 0, $last + 1));
-    $o
+											type="ehome.operational:Port">
+											<with-result>
+												<!-- The next free object number. -->
+												<execute-script function="{
+    last = $program.get(`ehome.operational:Program#ports`).map(x -> $x.get(`ehome.operational:Port#index`)).max();
+    $result.set(`ehome.operational:Port#index`, if($last == null, 0, $last + 1));
+    $result
 }">
-											<inputs>
-												<input channel="program"/>
-											</inputs>
-										</execute-script>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedPort"
-											/>
-										</open-dialog>
+													<inputs>
+														<input channel="program"/>
+													</inputs>
+													<with-result>
+														<open-dialog
+															bind-input-to="model"
+															dialog-view="catalogs/create-program-element.view.xml"
+														>
+															<bind
+																channel="container"
+																to="program"
+															/>
+															<bind
+																channel="selection"
+																to="selectedPort"
+															/>
+														</open-dialog>
+													</with-result>
+												</execute-script>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"
-										input="selectedPort"
+										inputs="selectedPort"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Delete</en>
 											<de>Löschen</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$selectedPort"
+												type="ehome.operational:Port"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
-										<if test="o -> programDeleteVeto($o) != null">
+										<if test="programDeleteVeto($selectedPort) != null">
 											<then>
 												<notify
 													display="dialog"
-													expr="o -> programDeleteVeto($o)"
+													expr="programDeleteVeto($selectedPort)"
 													kind="error"
 													stop="true"
 												/>
 											</then>
 										</if>
-										<confirm expr="o -> #('Delete the communication object {0} with its {1} placements in the structure?'@en, 'Das Kommunikationsobjekt {0} mit seinen {1} Platzierungen in der Struktur löschen?'@de).fill($o.label(), $o.get(`ehome.operational:Port#interfaces`).size())"/>
+										<confirm expr="#('Delete the communication object {0} with its {1} placements in the structure?'@en, 'Das Kommunikationsobjekt {0} mit seinen {1} Platzierungen in der Struktur löschen?'@de).fill($selectedPort.label(), $selectedPort.get(`ehome.operational:Port#interfaces`).size())"/>
 										<with-transaction>
-											<execute-script function="o -> programDelete($o)"/>
+											<execute-script function="programDelete($selectedPort)"/>
+											<with-result>
+												<write-channel name="selectedPort"/>
+											</with-result>
 										</with-transaction>
-										<write-channel name="selectedPort"/>
 									</generic-command>
 								</commands>
 								<fields
@@ -1002,7 +1074,7 @@
 												<en>Text</en>
 												<de>Text</de>
 											</label>
-											<value>r -> if($r['placement'] == null, $r['definition'].get(`ehome.operational:Port#title`), $r['placement'].get(`ehome.operational:Interface#displayName`))</value>
+											<value>if($row['placement'] == null, $row['definition'].get(`ehome.operational:Port#title`), $row['placement'].get(`ehome.operational:Interface#displayName`))</value>
 										</computed-column>
 										<computed-column name="index"
 											type="tl.core:Integer"
@@ -1012,7 +1084,7 @@
 												<en>Index</en>
 												<de>Index</de>
 											</label>
-											<value>r -> $r['definition'].get(`ehome.operational:Port#index`)</value>
+											<value>$row['definition'].get(`ehome.operational:Port#index`)</value>
 										</computed-column>
 										<computed-column name="name"
 											type="tl.core:String"
@@ -1022,7 +1094,7 @@
 												<en>Internal name</en>
 												<de>Interner Name</de>
 											</label>
-											<value>r -> $r['definition'].get(`ehome.operational:Port#name`)</value>
+											<value>$row['definition'].get(`ehome.operational:Port#name`)</value>
 										</computed-column>
 										<computed-column name="function"
 											type="tl.core:String"
@@ -1032,7 +1104,7 @@
 												<en>Function</en>
 												<de>Funktion</de>
 											</label>
-											<value>r -> $r['placement'].get(`ehome.operational:Interface#function`).localize() || $r['definition'].get(`ehome.operational:Port#function`).localize()</value>
+											<value>$row['placement'].get(`ehome.operational:Interface#function`).localize() || $row['definition'].get(`ehome.operational:Port#function`).localize()</value>
 										</computed-column>
 										<computed-column name="size"
 											type="tl.core:String"
@@ -1042,7 +1114,7 @@
 												<en>Size</en>
 												<de>Größe</de>
 											</label>
-											<value>r -> programObjectSize($r['definition'].get(`ehome.operational:Port#size`))</value>
+											<value>programObjectSize($row['definition'].get(`ehome.operational:Port#size`))</value>
 										</computed-column>
 										<computed-column name="placements"
 											type="tl.core:Integer"
@@ -1051,7 +1123,7 @@
 												<en>Placements</en>
 												<de>Platzierungen</de>
 											</label>
-											<value>r -> $r['placements']</value>
+											<value>$row['placements']</value>
 										</computed-column>
 										<computed-column name="extId"
 											type="tl.core:String"
@@ -1061,9 +1133,11 @@
 												<en>External ID</en>
 												<de>Externe ID</de>
 											</label>
-											<value>r -> $r['definition'].get(`ehome.operational:Port#extId`)</value>
+											<value>$row['definition'].get(`ehome.operational:Port#extId`)</value>
 										</computed-column>
+										<!-- A page has no order of its own: the column sorts nothing, its groups keep the order of the rows. -->
 										<computed-column name="page"
+											sortable="false"
 											type="tl.core:String"
 											width="240"
 										>
@@ -1071,12 +1145,10 @@
 												<en>Page</en>
 												<de>Seite</de>
 											</label>
-											<value>r -> $r['page']</value>
-											<!-- No page precedes another: the groups keep the order of their first rows. -->
-											<comparator>a -> b -> 0</comparator>
+											<value>$row['page']</value>
 										</computed-column>
 									</columns>
-									<rows>p -> f -> u -> programPortRows($p, $f, $u)</rows>
+									<rows>programPortRows($program, $portFilter, $unplacedPorts)</rows>
 								</table>
 							</panel>
 						</pane>
@@ -1153,295 +1225,358 @@
 									<generic-command
 										clique="new"
 										image="css:bi bi-dash-circle"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Without value</en>
 											<de>Ohne Wert</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="parameterTypes"
-											type="ehome.operational:VoidType"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedType"
-											/>
-										</open-dialog>
+											type="ehome.operational:VoidType">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="program"
+													/>
+													<bind
+														channel="selection"
+														to="selectedType"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-fonts"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Text</en>
 											<de>Text</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="parameterTypes"
-											type="ehome.operational:TextType"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedType"
-											/>
-										</open-dialog>
+											type="ehome.operational:TextType">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="program"
+													/>
+													<bind
+														channel="selection"
+														to="selectedType"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-123"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Number</en>
 											<de>Zahl</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="parameterTypes"
-											type="ehome.operational:NumericType"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedType"
-											/>
-										</open-dialog>
+											type="ehome.operational:NumericType">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="program"
+													/>
+													<bind
+														channel="selection"
+														to="selectedType"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-percent"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Floating point number</en>
 											<de>Gleitkommazahl</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="parameterTypes"
-											type="ehome.operational:FloatingPointType"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedType"
-											/>
-										</open-dialog>
+											type="ehome.operational:FloatingPointType">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="program"
+													/>
+													<bind
+														channel="selection"
+														to="selectedType"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-list-ol"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Enumeration</en>
 											<de>Aufzählung</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="parameterTypes"
-											type="ehome.operational:EnumerationType"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedType"
-											/>
-										</open-dialog>
+											type="ehome.operational:EnumerationType">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="program"
+													/>
+													<bind
+														channel="selection"
+														to="selectedType"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-clock"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Time</en>
 											<de>Zeit</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="parameterTypes"
-											type="ehome.operational:TimeType"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedType"
-											/>
-										</open-dialog>
+											type="ehome.operational:TimeType">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="program"
+													/>
+													<bind
+														channel="selection"
+														to="selectedType"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-calendar-date"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Date</en>
 											<de>Datum</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="parameterTypes"
-											type="ehome.operational:DateType"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedType"
-											/>
-										</open-dialog>
+											type="ehome.operational:DateType">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="program"
+													/>
+													<bind
+														channel="selection"
+														to="selectedType"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										clique="new"
 										image="css:bi bi-hdd-network"
-										input="program"
+										inputs="program"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>IP address</en>
 											<de>IP-Adresse</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$program"
+												type="ehome.operational:Program"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<create-transient
 											container="program"
 											reference="parameterTypes"
-											type="ehome.operational:IPAddressType"
-										/>
-										<open-dialog
-											bind-input-to="model"
-											dialog-view="catalogs/create-program-element.view.xml"
-										>
-											<bind
-												channel="container"
-												to="program"
-											/>
-											<bind
-												channel="selection"
-												to="selectedType"
-											/>
-										</open-dialog>
+											type="ehome.operational:IPAddressType">
+											<with-result>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="catalogs/create-program-element.view.xml"
+												>
+													<bind
+														channel="container"
+														to="program"
+													/>
+													<bind
+														channel="selection"
+														to="selectedType"
+													/>
+												</open-dialog>
+											</with-result>
+										</create-transient>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"
-										input="selectedType"
+										inputs="selectedType"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Delete</en>
 											<de>Löschen</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$selectedType"
+												type="ehome.operational:ParameterType"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
-										<if test="t -> programDeleteVeto($t) != null">
+										<if test="programDeleteVeto($selectedType) != null">
 											<then>
 												<notify
 													display="dialog"
-													expr="t -> programDeleteVeto($t)"
+													expr="programDeleteVeto($selectedType)"
 													kind="error"
 													stop="true"
 												/>
 											</then>
 										</if>
-										<confirm expr="t -> #('Delete the type {0}?'@en, 'Den Typ {0} löschen?'@de).fill($t.label())"/>
+										<confirm expr="#('Delete the type {0}?'@en, 'Den Typ {0} löschen?'@de).fill($selectedType.label())"/>
 										<with-transaction>
-											<execute-script function="t -> programDelete($t)"/>
+											<execute-script function="programDelete($selectedType)"/>
+											<with-result>
+												<write-channel name="selectedType"/>
+											</with-result>
 										</with-transaction>
-										<write-channel name="selectedType"/>
 									</generic-command>
 								</commands>
 								<table
@@ -1463,7 +1598,7 @@
 												<en>Kind</en>
 												<de>Art</de>
 											</label>
-											<value>t -> $t.type().label()</value>
+											<value>$row.type().label()</value>
 										</computed-column>
 										<computed-column name="size"
 											type="tl.core:Integer"
@@ -1477,11 +1612,11 @@
 													<decimal pattern="0"/>
 												</format>
 											</annotations>
-											<value><![CDATA[t -> switch {
-    $t.instanceOf(`ehome.operational:NumericType`): $t.get(`ehome.operational:NumericType#bits`);
-    $t.instanceOf(`ehome.operational:EnumerationType`): $t.get(`ehome.operational:EnumerationType#bits`);
-    $t.instanceOf(`ehome.operational:TextType`): $t.get(`ehome.operational:TextType#bits`);
-    $t.instanceOf(`ehome.operational:TimeType`): $t.get(`ehome.operational:TimeType#bits`);
+											<value><![CDATA[switch {
+    $row.instanceOf(`ehome.operational:NumericType`): $row.get(`ehome.operational:NumericType#bits`);
+    $row.instanceOf(`ehome.operational:EnumerationType`): $row.get(`ehome.operational:EnumerationType#bits`);
+    $row.instanceOf(`ehome.operational:TextType`): $row.get(`ehome.operational:TextType#bits`);
+    $row.instanceOf(`ehome.operational:TimeType`): $row.get(`ehome.operational:TimeType#bits`);
     default: null;
 }]]></value>
 										</computed-column>
@@ -1492,20 +1627,20 @@
 												<en>Range</en>
 												<de>Bereich</de>
 											</label>
-											<value><![CDATA[t -> switch {
-    $t.instanceOf(`ehome.operational:NumericType`):
-        $t.get(`ehome.operational:NumericType#min`) + " … " + $t.get(`ehome.operational:NumericType#max`);
-    $t.instanceOf(`ehome.operational:FloatingPointType`):
-        $t.get(`ehome.operational:FloatingPointType#min`) + " … " + $t.get(`ehome.operational:FloatingPointType#max`);
-    $t.instanceOf(`ehome.operational:TimeType`):
-        $t.get(`ehome.operational:TimeType#min`) + " … " + $t.get(`ehome.operational:TimeType#max`) + " " + $t.get(`ehome.operational:TimeType#unit`).label();
-    $t.instanceOf(`ehome.operational:EnumerationType`):
-        #("Entries: {0}"@en, "Einträge: {0}"@de).fill($t.get(`ehome.operational:EnumerationType#values`).size()).localize();
+											<value><![CDATA[switch {
+    $row.instanceOf(`ehome.operational:NumericType`):
+        $row.get(`ehome.operational:NumericType#min`) + " … " + $row.get(`ehome.operational:NumericType#max`);
+    $row.instanceOf(`ehome.operational:FloatingPointType`):
+        $row.get(`ehome.operational:FloatingPointType#min`) + " … " + $row.get(`ehome.operational:FloatingPointType#max`);
+    $row.instanceOf(`ehome.operational:TimeType`):
+        $row.get(`ehome.operational:TimeType#min`) + " … " + $row.get(`ehome.operational:TimeType#max`) + " " + $row.get(`ehome.operational:TimeType#unit`).label();
+    $row.instanceOf(`ehome.operational:EnumerationType`):
+        #("Entries: {0}"@en, "Einträge: {0}"@de).fill($row.get(`ehome.operational:EnumerationType#values`).size()).localize();
     default: null;
 }]]></value>
 										</computed-column>
 									</columns>
-									<rows>p -> $p.get(`ehome.operational:Program#parameterTypes`)</rows>
+									<rows>$program.get(`ehome.operational:Program#parameterTypes`)</rows>
 								</table>
 							</panel>
 						</pane>
@@ -1539,7 +1674,7 @@
 								</form>
 								<!-- The entries of an enumeration type, and the selected one. -->
 								<visible-if
-									expr="t -> $t != null"
+									expr="$selectedEnumeration != null"
 									input="selectedEnumeration"
 								>
 									<panel>
@@ -1550,76 +1685,92 @@
 										<commands>
 											<generic-command
 												image="css:bi bi-plus-lg"
-												input="selectedEnumeration"
+												inputs="selectedEnumeration"
 												placement="TOOLBAR"
 											>
 												<label>
 													<en>New entry</en>
 													<de>Neuer Eintrag</de>
 												</label>
+												<access>
+													<operation name="Write"
+														object="$selectedEnumeration"
+														type="ehome.operational:EnumerationType"
+													/>
+												</access>
 												<executability>
-													<model-access operation="Write"/>
 													<null-input-disabled/>
 												</executability>
 												<create-transient
 													container="selectedEnumeration"
 													reference="values"
-													type="ehome.operational:EnumerationValue"
-												/>
-												<!-- The next value and the next place in the display order. -->
-												<execute-script function="t -> e -> {
-    values = $t.get(`ehome.operational:EnumerationType#values`);
+													type="ehome.operational:EnumerationValue">
+													<with-result>
+														<!-- The next value and the next place in the display order. -->
+														<execute-script function="{
+    values = $selectedEnumeration.get(`ehome.operational:EnumerationType#values`);
     last = $values.map(v -> $v.get(`ehome.operational:EnumerationValue#value`)).max();
-    $e.set(`ehome.operational:EnumerationValue#value`, if($last == null, 0, $last + 1));
-    $e.set(`ehome.operational:EnumerationValue#index`, $values.size());
-    $e
+    $result.set(`ehome.operational:EnumerationValue#value`, if($last == null, 0, $last + 1));
+    $result.set(`ehome.operational:EnumerationValue#index`, $values.size());
+    $result
 }">
-													<inputs>
-														<input channel="selectedEnumeration"/>
-													</inputs>
-												</execute-script>
-												<open-dialog
-													bind-input-to="model"
-													dialog-view="catalogs/create-program-element.view.xml"
-												>
-													<bind
-														channel="container"
-														to="selectedEnumeration"
-													/>
-													<bind
-														channel="selection"
-														to="selectedEntry"
-													/>
-												</open-dialog>
+															<inputs>
+																<input channel="selectedEnumeration"/>
+															</inputs>
+															<with-result>
+																<open-dialog
+																	bind-input-to="model"
+																	dialog-view="catalogs/create-program-element.view.xml"
+																>
+																	<bind
+																		channel="container"
+																		to="selectedEnumeration"
+																	/>
+																	<bind
+																		channel="selection"
+																		to="selectedEntry"
+																	/>
+																</open-dialog>
+															</with-result>
+														</execute-script>
+													</with-result>
+												</create-transient>
 											</generic-command>
 											<generic-command
 												image="css:bi bi-trash"
-												input="selectedEntry"
+												inputs="selectedEntry"
 												placement="TOOLBAR"
 											>
 												<label>
 													<en>Delete entry</en>
 													<de>Eintrag löschen</de>
 												</label>
+												<access>
+													<operation name="Write"
+														object="$selectedEntry"
+														type="ehome.operational:EnumerationValue"
+													/>
+												</access>
 												<executability>
-													<model-access operation="Write"/>
 													<null-input-disabled/>
 												</executability>
-												<if test="e -> programDeleteVeto($e) != null">
+												<if test="programDeleteVeto($selectedEntry) != null">
 													<then>
 														<notify
 															display="dialog"
-															expr="e -> programDeleteVeto($e)"
+															expr="programDeleteVeto($selectedEntry)"
 															kind="error"
 															stop="true"
 														/>
 													</then>
 												</if>
-												<confirm expr="e -> #('Delete the entry {0}?'@en, 'Den Eintrag {0} löschen?'@de).fill($e.get(`ehome.operational:EnumerationValue#name`).localize())"/>
+												<confirm expr="#('Delete the entry {0}?'@en, 'Den Eintrag {0} löschen?'@de).fill($selectedEntry.get(`ehome.operational:EnumerationValue#name`).localize())"/>
 												<with-transaction>
-													<execute-script function="e -> programDelete($e)"/>
+													<execute-script function="programDelete($selectedEntry)"/>
+													<with-result>
+														<write-channel name="selectedEntry"/>
+													</with-result>
 												</with-transaction>
-												<write-channel name="selectedEntry"/>
 											</generic-command>
 										</commands>
 										<table
@@ -1644,7 +1795,7 @@
 													width="240"
 												/>
 											</columns>
-											<rows>t -> $t.get(`ehome.operational:EnumerationType#values`)</rows>
+											<rows>$selectedEnumeration.get(`ehome.operational:EnumerationType#values`)</rows>
 										</table>
 										<form
 											input="selectedEntry"

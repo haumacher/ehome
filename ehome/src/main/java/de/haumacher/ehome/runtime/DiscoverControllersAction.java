@@ -20,6 +20,7 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.config.annotation.defaults.IntDefault;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.runtime.MdnsBrowser.Service;
@@ -55,7 +56,7 @@ public class DiscoverControllersAction implements ViewAction {
 	 * Configuration of {@link DiscoverControllersAction}.
 	 */
 	@TagName("discover-controllers")
-	public interface Config extends PolymorphicConfiguration<DiscoverControllersAction> {
+	public interface Config extends PolymorphicConfiguration<DiscoverControllersAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(DiscoverControllersAction.class)

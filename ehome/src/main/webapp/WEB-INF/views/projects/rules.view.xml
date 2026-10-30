@@ -15,8 +15,9 @@
 	is not writable) a warning with the controller's reason; each field is checked on its own, so two
 	refused fields of an object both show their refusal (haumacher/ehome #60). Saving a form stores
 	the texts in their canonical form (ruleNormalize, the form the image carries). "Import rules"
-	adds the rules and schedule entries of a runtime image (a JSON file) to the project. "Datapoints"
-	lists the datapoints of the project's image that expressions and actions may name: those of the
+	adds the rules and schedule entries of a runtime image (a JSON file) to the project. A condition
+	or a value offers, while a reference @"… is typed, the datapoints of the project's image that
+	expressions and actions may name (ruleSuggestions, TL #29887): those of the
 	group addresses (KNX) and the application datapoints (haumacher/ehome #59), which no technology
 	owns and which are edited in the tab "Application datapoints" (application-datapoints.view.xml):
 	they are the rules' and the schedule's own values, so they are edited where they are used. The
@@ -33,19 +34,19 @@
 		<channel name="reaction"/>
 		<channel name="trigger"/>
 		<derived-channel name="thenList"
-			expr="x -> 'actions'"
+			expr="'actions'"
 			inputs="reaction"
 		/>
 		<derived-channel name="elseList"
-			expr="x -> 'elseActions'"
+			expr="'elseActions'"
 			inputs="reaction"
 		/>
 		<derived-channel name="entryList"
-			expr="x -> 'entry'"
+			expr="'entry'"
 			inputs="state"
 		/>
 		<derived-channel name="exitList"
-			expr="x -> 'exit'"
+			expr="'exit'"
 			inputs="state"
 		/>
 	</channels>
@@ -58,167 +59,105 @@
 				size="30"
 				unit="%"
 			>
-				<split-panel
-					orientation="vertical"
-					resizable="true"
-				>
-					<panes>
-						<pane
-							size="55"
-							unit="%"
+				<panel>
+					<title>
+						<en>Rules</en>
+						<de>Regeln</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-plus-lg"
+							inputs="project"
+							placement="TOOLBAR"
 						>
-							<panel>
-								<title>
-									<en>Rules</en>
-									<de>Regeln</de>
-								</title>
-								<commands>
-									<generic-command
-										image="css:bi bi-plus-lg"
-										input="project"
-										placement="TOOLBAR"
-									>
-										<label>
-											<en>New rule</en>
-											<de>Neue Regel</de>
-										</label>
-										<executability>
-											<model-access operation="Write"/>
-											<null-input-disabled/>
-										</executability>
-										<with-transaction>
-											<execute-script function="o -> ruleCreate($o, 'rules', `ehome.runtime:Rule`)"/>
-										</with-transaction>
-										<write-channel name="rule"/>
-									</generic-command>
-									<upload-command
-										accept=".json,application/json"
-										image="css:bi bi-box-arrow-in-down"
-										input="project"
-										multiple="false"
-										placement="TOOLBAR"
-									>
-										<label>
-											<en>Import rules</en>
-											<de>Regeln importieren</de>
-										</label>
-										<executability>
-											<model-access operation="Write"/>
-											<null-input-disabled/>
-										</executability>
-										<with-transaction>
-											<execute-script function="p -> file -> ruleImportImage($p, $file)">
-												<inputs>
-													<input channel="project"/>
-												</inputs>
-											</execute-script>
-										</with-transaction>
-										<notify
-											expr="t -> $t"
-											kind="info"
-										/>
-									</upload-command>
-									<generic-command
-										image="css:bi bi-trash"
-										input="rule"
-										placement="TOOLBAR"
-									>
-										<label>
-											<en>Delete</en>
-											<de>Löschen</de>
-										</label>
-										<executability>
-											<null-input-disabled/>
-										</executability>
-										<confirm expr="x -> #('Delete the rule with its reactions?'@en, 'Die Regel mit ihren Reaktionen löschen?'@de)"/>
-										<delete-object/>
-										<write-channel name="rule"/>
-									</generic-command>
-								</commands>
-								<table
-									observed-types="ehome.runtime:Rule"
-									selection="rule"
-									types="ehome.runtime:Rule"
-								>
+							<label>
+								<en>New rule</en>
+								<de>Neue Regel</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<with-transaction>
+								<execute-script function="ruleCreate($project, 'rules', `ehome.runtime:Rule`)"/>
+								<with-result>
+									<write-channel name="rule"/>
+								</with-result>
+							</with-transaction>
+						</generic-command>
+						<upload-command
+							accept=".json,application/json"
+							image="css:bi bi-box-arrow-in-down"
+							inputs="project"
+							multiple="false"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Import rules</en>
+								<de>Regeln importieren</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<with-transaction>
+								<execute-script function="ruleImportImage($project, $file)">
 									<inputs>
 										<input channel="project"/>
 									</inputs>
-									<columns>
-										<column attribute="order"/>
-										<column attribute="name"/>
-										<column attribute="identifier"/>
-										<column attribute="enabled"/>
-									</columns>
-									<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#rules`))</rows>
-								</table>
-							</panel>
-						</pane>
-						<pane
-							size="45"
-							unit="%"
+								</execute-script>
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
+							</with-transaction>
+						</upload-command>
+						<generic-command
+							image="css:bi bi-trash"
+							inputs="rule"
+							placement="TOOLBAR"
 						>
-							<panel>
-								<title>
-									<en>Datapoints</en>
-									<de>Datenpunkte</de>
-								</title>
-								<table observed-types="ehome.runtime:ApplicationDatapoint,ehome.project:Project">
-									<inputs>
-										<input channel="project"/>
-									</inputs>
-									<columns>
-										<computed-column name="id"
-											type="tl.core:String"
-										>
-											<label>
-												<en>Id</en>
-												<de>Id</de>
-											</label>
-											<value>row -> toString('@"', $row["id"], '"')</value>
-										</computed-column>
-										<computed-column name="label"
-											type="tl.core:String"
-										>
-											<label>
-												<en>Name</en>
-												<de>Name</de>
-											</label>
-											<value>row -> $row["label"]</value>
-										</computed-column>
-										<computed-column name="type"
-											type="tl.core:String"
-										>
-											<label>
-												<en>Type</en>
-												<de>Typ</de>
-											</label>
-											<value>row -> $row["type"]</value>
-										</computed-column>
-										<computed-column name="writable"
-											type="tl.core:String"
-										>
-											<label>
-												<en>Writable</en>
-												<de>Schreibbar</de>
-											</label>
-											<value>row -> if($row["writable"] == true, '✓', '')</value>
-										</computed-column>
-										<computed-column name="binding"
-											type="tl.core:String"
-										>
-											<label>
-												<en>Binding</en>
-												<de>Anbindung</de>
-											</label>
-											<value>row -> $row["binding"]</value>
-										</computed-column>
-									</columns>
-									<rows>p -> ruleDatapoints($p)</rows>
-								</table>
-							</panel>
-						</pane>
-					</panes>
-				</split-panel>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="#('Delete the rule with its reactions?'@en, 'Die Regel mit ihren Reaktionen löschen?'@de)"/>
+							<delete-object/>
+							<write-channel name="rule" clear="true"/>
+						</generic-command>
+					</commands>
+					<table
+						observed-types="ehome.runtime:Rule"
+						selection="rule"
+						types="ehome.runtime:Rule"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<columns>
+							<column attribute="order"/>
+							<column attribute="name"/>
+							<column attribute="identifier"/>
+							<column attribute="enabled"/>
+						</columns>
+						<rows>if($project == null, [], $project.get(`ehome.project:Project#rules`))</rows>
+					</table>
+				</panel>
 			</pane>
 			<pane
 				size="70"
@@ -276,25 +215,32 @@
 											<commands>
 												<generic-command
 													image="css:bi bi-plus-lg"
-													input="rule"
+													inputs="rule"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>New reaction</en>
 														<de>Neue Reaktion</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$rule"
+															type="ehome.runtime:Rule"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
 													</executability>
 													<with-transaction>
-														<execute-script function="o -> ruleCreate($o, 'reactions', `ehome.runtime:Reaction`)"/>
+														<execute-script function="ruleCreate($rule, 'reactions', `ehome.runtime:Reaction`)"/>
+														<with-result>
+															<write-channel name="reaction"/>
+														</with-result>
 													</with-transaction>
-													<write-channel name="reaction"/>
 												</generic-command>
 												<generic-command
 													image="css:bi bi-trash"
-													input="reaction"
+													inputs="reaction"
 													placement="TOOLBAR"
 												>
 													<label>
@@ -304,46 +250,56 @@
 													<executability>
 														<null-input-disabled/>
 													</executability>
-													<confirm expr="x -> #('Delete the reaction?'@en, 'Die Reaktion löschen?'@de)"/>
+													<confirm expr="#('Delete the reaction?'@en, 'Die Reaktion löschen?'@de)"/>
 													<delete-object/>
-													<write-channel name="reaction"/>
+													<write-channel name="reaction" clear="true"/>
 												</generic-command>
 												<generic-command
 													clique="edit"
 													image="css:bi bi-arrow-up"
-													input="reaction"
+													inputs="reaction"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>Move up</en>
 														<de>Nach oben</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$reaction"
+															type="ehome.runtime:Reaction"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
-														<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+														<disabled-if expr="ruleMoveVeto($reaction, -1)"/>
 													</executability>
 													<with-transaction>
-														<execute-script function="x -> ruleMove($x, -1)"/>
+														<execute-script function="ruleMove($reaction, -1)"/>
 													</with-transaction>
 												</generic-command>
 												<generic-command
 													clique="edit"
 													image="css:bi bi-arrow-down"
-													input="reaction"
+													inputs="reaction"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>Move down</en>
 														<de>Nach unten</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$reaction"
+															type="ehome.runtime:Reaction"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
-														<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+														<disabled-if expr="ruleMoveVeto($reaction, 1)"/>
 													</executability>
 													<with-transaction>
-														<execute-script function="x -> ruleMove($x, 1)"/>
+														<execute-script function="ruleMove($reaction, 1)"/>
 													</with-transaction>
 												</generic-command>
 											</commands>
@@ -372,10 +328,10 @@
 																		<en>Reaction</en>
 																		<de>Reaktion</de>
 																	</label>
-																	<value>x -> ruleSummary($x)</value>
+																	<value>ruleSummary($row)</value>
 																</computed-column>
 															</columns>
-															<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Rule#reactions`))</rows>
+															<rows>if($rule == null, [], $rule.get(`ehome.runtime:Rule#reactions`))</rows>
 														</table>
 													</pane>
 													<pane
@@ -389,12 +345,20 @@
 															<save-action>
 																<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
 																<with-transaction>
-																	<store-form-state/>
-																	<execute-script function="x -> ruleNormalize($x)"/>
+																	<store-form-state>
+																		<with-result>
+																			<execute-script function="ruleNormalize($result)"/>
+																		</with-result>
+																	</store-form-state>
 																</with-transaction>
-																<discard-form-state/>
+																<leave-edit-mode/>
 															</save-action>
-															<field attribute="condition"/>
+															<!-- Offers the datapoints of the project while a reference @"… is typed (TL #29887). -->
+															<field attribute="condition">
+																<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+																	<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+																</input-control>
+															</field>
 															<field attribute="from"/>
 															<field attribute="to"/>
 														</form>
@@ -425,139 +389,188 @@
 															<generic-command
 																clique="new"
 																image="css:bi bi-broadcast"
-																input="reaction"
+																inputs="reaction"
 																placement="TOOLBAR"
 															>
 																<label>
 																	<en>Datapoint trigger</en>
 																	<de>Datenpunkt-Auslöser</de>
 																</label>
+																<access>
+																	<operation name="Write"
+																		object="$reaction"
+																		type="ehome.runtime:Reaction"
+																	/>
+																</access>
 																<executability>
-																	<model-access operation="Write"/>
 																	<null-input-disabled/>
 																</executability>
 																<with-transaction>
-																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:DatapointTrigger`)"/>
+																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:DatapointTrigger`)"/>
+																	<with-result>
+																		<write-channel name="trigger"/>
+																	</with-result>
 																</with-transaction>
-																<write-channel name="trigger"/>
 															</generic-command>
 															<generic-command
 																clique="new"
 																image="css:bi bi-check2-square"
-																input="reaction"
+																inputs="reaction"
 																placement="TOOLBAR"
 															>
 																<label>
 																	<en>Condition trigger</en>
 																	<de>Bedingungs-Auslöser</de>
 																</label>
+																<access>
+																	<operation name="Write"
+																		object="$reaction"
+																		type="ehome.runtime:Reaction"
+																	/>
+																</access>
 																<executability>
-																	<model-access operation="Write"/>
 																	<null-input-disabled/>
 																</executability>
 																<with-transaction>
-																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:MatchTrigger`)"/>
+																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:MatchTrigger`)"/>
+																	<with-result>
+																		<write-channel name="trigger"/>
+																	</with-result>
 																</with-transaction>
-																<write-channel name="trigger"/>
 															</generic-command>
 															<generic-command
 																clique="new"
 																image="css:bi bi-stopwatch"
-																input="reaction"
+																inputs="reaction"
 																placement="TOOLBAR"
 															>
 																<label>
 																	<en>Timer trigger</en>
 																	<de>Timer-Auslöser</de>
 																</label>
+																<access>
+																	<operation name="Write"
+																		object="$reaction"
+																		type="ehome.runtime:Reaction"
+																	/>
+																</access>
 																<executability>
-																	<model-access operation="Write"/>
 																	<null-input-disabled/>
 																</executability>
 																<with-transaction>
-																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:TimerTrigger`)"/>
+																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:TimerTrigger`)"/>
+																	<with-result>
+																		<write-channel name="trigger"/>
+																	</with-result>
 																</with-transaction>
-																<write-channel name="trigger"/>
 															</generic-command>
 															<generic-command
 																clique="new"
 																image="css:bi bi-calendar-event"
-																input="reaction"
+																inputs="reaction"
 																placement="TOOLBAR"
 															>
 																<label>
 																	<en>Schedule trigger</en>
 																	<de>Zeitplan-Auslöser</de>
 																</label>
+																<access>
+																	<operation name="Write"
+																		object="$reaction"
+																		type="ehome.runtime:Reaction"
+																	/>
+																</access>
 																<executability>
-																	<model-access operation="Write"/>
 																	<null-input-disabled/>
 																</executability>
 																<with-transaction>
-																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:ScheduleTrigger`)"/>
+																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:ScheduleTrigger`)"/>
+																	<with-result>
+																		<write-channel name="trigger"/>
+																	</with-result>
 																</with-transaction>
-																<write-channel name="trigger"/>
 															</generic-command>
 															<generic-command
 																clique="new"
 																image="css:bi bi-sliders"
-																input="reaction"
+																inputs="reaction"
 																placement="TOOLBAR"
 															>
 																<label>
 																	<en>Parameter trigger</en>
 																	<de>Parameter-Auslöser</de>
 																</label>
+																<access>
+																	<operation name="Write"
+																		object="$reaction"
+																		type="ehome.runtime:Reaction"
+																	/>
+																</access>
 																<executability>
-																	<model-access operation="Write"/>
 																	<null-input-disabled/>
 																</executability>
 																<with-transaction>
-																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:ParameterTrigger`)"/>
+																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:ParameterTrigger`)"/>
+																	<with-result>
+																		<write-channel name="trigger"/>
+																	</with-result>
 																</with-transaction>
-																<write-channel name="trigger"/>
 															</generic-command>
 															<generic-command
 																clique="new"
 																image="css:bi bi-hourglass-split"
-																input="reaction"
+																inputs="reaction"
 																placement="TOOLBAR"
 															>
 																<label>
 																	<en>Silence trigger</en>
 																	<de>Stille-Auslöser</de>
 																</label>
+																<access>
+																	<operation name="Write"
+																		object="$reaction"
+																		type="ehome.runtime:Reaction"
+																	/>
+																</access>
 																<executability>
-																	<model-access operation="Write"/>
 																	<null-input-disabled/>
 																</executability>
 																<with-transaction>
-																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:SilenceTrigger`)"/>
+																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:SilenceTrigger`)"/>
+																	<with-result>
+																		<write-channel name="trigger"/>
+																	</with-result>
 																</with-transaction>
-																<write-channel name="trigger"/>
 															</generic-command>
 															<generic-command
 																clique="new"
 																image="css:bi bi-power"
-																input="reaction"
+																inputs="reaction"
 																placement="TOOLBAR"
 															>
 																<label>
 																	<en>Start trigger</en>
 																	<de>Start-Auslöser</de>
 																</label>
+																<access>
+																	<operation name="Write"
+																		object="$reaction"
+																		type="ehome.runtime:Reaction"
+																	/>
+																</access>
 																<executability>
-																	<model-access operation="Write"/>
 																	<null-input-disabled/>
 																</executability>
 																<with-transaction>
-																	<execute-script function="o -> ruleCreate($o, 'triggers', `ehome.runtime:StartTrigger`)"/>
+																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:StartTrigger`)"/>
+																	<with-result>
+																		<write-channel name="trigger"/>
+																	</with-result>
 																</with-transaction>
-																<write-channel name="trigger"/>
 															</generic-command>
 															<generic-command
 																image="css:bi bi-trash"
-																input="trigger"
+																inputs="trigger"
 																placement="TOOLBAR"
 															>
 																<label>
@@ -567,46 +580,56 @@
 																<executability>
 																	<null-input-disabled/>
 																</executability>
-																<confirm expr="x -> #('Delete the trigger?'@en, 'Den Auslöser löschen?'@de)"/>
+																<confirm expr="#('Delete the trigger?'@en, 'Den Auslöser löschen?'@de)"/>
 																<delete-object/>
-																<write-channel name="trigger"/>
+																<write-channel name="trigger" clear="true"/>
 															</generic-command>
 															<generic-command
 																clique="edit"
 																image="css:bi bi-arrow-up"
-																input="trigger"
+																inputs="trigger"
 																placement="TOOLBAR"
 															>
 																<label>
 																	<en>Move up</en>
 																	<de>Nach oben</de>
 																</label>
+																<access>
+																	<operation name="Write"
+																		object="$trigger"
+																		type="ehome.runtime:Trigger"
+																	/>
+																</access>
 																<executability>
-																	<model-access operation="Write"/>
 																	<null-input-disabled/>
-																	<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+																	<disabled-if expr="ruleMoveVeto($trigger, -1)"/>
 																</executability>
 																<with-transaction>
-																	<execute-script function="x -> ruleMove($x, -1)"/>
+																	<execute-script function="ruleMove($trigger, -1)"/>
 																</with-transaction>
 															</generic-command>
 															<generic-command
 																clique="edit"
 																image="css:bi bi-arrow-down"
-																input="trigger"
+																inputs="trigger"
 																placement="TOOLBAR"
 															>
 																<label>
 																	<en>Move down</en>
 																	<de>Nach unten</de>
 																</label>
+																<access>
+																	<operation name="Write"
+																		object="$trigger"
+																		type="ehome.runtime:Trigger"
+																	/>
+																</access>
 																<executability>
-																	<model-access operation="Write"/>
 																	<null-input-disabled/>
-																	<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+																	<disabled-if expr="ruleMoveVeto($trigger, 1)"/>
 																</executability>
 																<with-transaction>
-																	<execute-script function="x -> ruleMove($x, 1)"/>
+																	<execute-script function="ruleMove($trigger, 1)"/>
 																</with-transaction>
 															</generic-command>
 														</commands>
@@ -635,10 +658,10 @@
 																					<en>Trigger</en>
 																					<de>Auslöser</de>
 																				</label>
-																				<value>x -> ruleSummary($x)</value>
+																				<value>ruleSummary($row)</value>
 																			</computed-column>
 																		</columns>
-																		<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Reaction#triggers`))</rows>
+																		<rows>if($reaction == null, [], $reaction.get(`ehome.runtime:Reaction#triggers`))</rows>
 																	</table>
 																</pane>
 																<pane
@@ -652,15 +675,23 @@
 																		<save-action>
 																			<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
 																			<with-transaction>
-																				<store-form-state/>
-																				<execute-script function="x -> ruleNormalize($x)"/>
+																				<store-form-state>
+																					<with-result>
+																						<execute-script function="ruleNormalize($result)"/>
+																					</with-result>
+																				</store-form-state>
 																			</with-transaction>
-																			<discard-form-state/>
+																			<leave-edit-mode/>
 																		</save-action>
 																		<field attribute="datapoint"/>
 																		<field attribute="on"/>
 																		<field attribute="origin"/>
-																		<field attribute="condition"/>
+																		<!-- Offers the datapoints of the project while a reference @"… is typed (TL #29887). -->
+																		<field attribute="condition">
+																			<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+																				<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+																			</input-control>
+																		</field>
 																		<field attribute="timer"/>
 																		<field attribute="schedule"/>
 																		<field attribute="parameter"/>
@@ -731,25 +762,32 @@
 								<commands>
 									<generic-command
 										image="css:bi bi-plus-lg"
-										input="rule"
+										inputs="rule"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>New parameter</en>
 											<de>Neuer Parameter</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$rule"
+												type="ehome.runtime:Rule"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<with-transaction>
-											<execute-script function="o -> ruleCreate($o, 'parameters', `ehome.runtime:RuleParameter`)"/>
+											<execute-script function="ruleCreate($rule, 'parameters', `ehome.runtime:RuleParameter`)"/>
+											<with-result>
+												<write-channel name="parameter"/>
+											</with-result>
 										</with-transaction>
-										<write-channel name="parameter"/>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"
-										input="parameter"
+										inputs="parameter"
 										placement="TOOLBAR"
 									>
 										<label>
@@ -759,46 +797,56 @@
 										<executability>
 											<null-input-disabled/>
 										</executability>
-										<confirm expr="x -> #('Delete the parameter?'@en, 'Den Parameter löschen?'@de)"/>
+										<confirm expr="#('Delete the parameter?'@en, 'Den Parameter löschen?'@de)"/>
 										<delete-object/>
-										<write-channel name="parameter"/>
+										<write-channel name="parameter" clear="true"/>
 									</generic-command>
 									<generic-command
 										clique="edit"
 										image="css:bi bi-arrow-up"
-										input="parameter"
+										inputs="parameter"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Move up</en>
 											<de>Nach oben</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$parameter"
+												type="ehome.runtime:RuleParameter"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+											<disabled-if expr="ruleMoveVeto($parameter, -1)"/>
 										</executability>
 										<with-transaction>
-											<execute-script function="x -> ruleMove($x, -1)"/>
+											<execute-script function="ruleMove($parameter, -1)"/>
 										</with-transaction>
 									</generic-command>
 									<generic-command
 										clique="edit"
 										image="css:bi bi-arrow-down"
-										input="parameter"
+										inputs="parameter"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Move down</en>
 											<de>Nach unten</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$parameter"
+												type="ehome.runtime:RuleParameter"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+											<disabled-if expr="ruleMoveVeto($parameter, 1)"/>
 										</executability>
 										<with-transaction>
-											<execute-script function="x -> ruleMove($x, 1)"/>
+											<execute-script function="ruleMove($parameter, 1)"/>
 										</with-transaction>
 									</generic-command>
 								</commands>
@@ -825,7 +873,7 @@
 													<column attribute="type"/>
 													<column attribute="default"/>
 												</columns>
-												<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Rule#parameters`))</rows>
+												<rows>if($rule == null, [], $rule.get(`ehome.runtime:Rule#parameters`))</rows>
 											</table>
 										</pane>
 										<pane
@@ -848,10 +896,13 @@
 															<save-action>
 																<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
 																<with-transaction>
-																	<store-form-state/>
-																	<execute-script function="x -> ruleNormalize($x)"/>
+																	<store-form-state>
+																		<with-result>
+																			<execute-script function="ruleNormalize($result)"/>
+																		</with-result>
+																	</store-form-state>
 																</with-transaction>
-																<discard-form-state/>
+																<leave-edit-mode/>
 															</save-action>
 															<field attribute="identifier"/>
 															<field attribute="title"/>
@@ -876,25 +927,32 @@
 															<commands>
 																<generic-command
 																	image="css:bi bi-plus-lg"
-																	input="parameter"
+																	inputs="parameter"
 																	placement="TOOLBAR"
 																>
 																	<label>
 																		<en>New choice</en>
 																		<de>Neuer Auswahlwert</de>
 																	</label>
+																	<access>
+																		<operation name="Write"
+																			object="$parameter"
+																			type="ehome.runtime:RuleParameter"
+																		/>
+																	</access>
 																	<executability>
-																		<model-access operation="Write"/>
 																		<null-input-disabled/>
 																	</executability>
 																	<with-transaction>
-																		<execute-script function="o -> ruleCreate($o, 'choices', `ehome.runtime:RuleChoice`)"/>
+																		<execute-script function="ruleCreate($parameter, 'choices', `ehome.runtime:RuleChoice`)"/>
+																		<with-result>
+																			<write-channel name="choice"/>
+																		</with-result>
 																	</with-transaction>
-																	<write-channel name="choice"/>
 																</generic-command>
 																<generic-command
 																	image="css:bi bi-trash"
-																	input="choice"
+																	inputs="choice"
 																	placement="TOOLBAR"
 																>
 																	<label>
@@ -905,44 +963,54 @@
 																		<null-input-disabled/>
 																	</executability>
 																	<delete-object/>
-																	<write-channel name="choice"/>
+																	<write-channel name="choice" clear="true"/>
 																</generic-command>
 																<generic-command
 																	clique="edit"
 																	image="css:bi bi-arrow-up"
-																	input="choice"
+																	inputs="choice"
 																	placement="TOOLBAR"
 																>
 																	<label>
 																		<en>Move up</en>
 																		<de>Nach oben</de>
 																	</label>
+																	<access>
+																		<operation name="Write"
+																			object="$choice"
+																			type="ehome.runtime:RuleChoice"
+																		/>
+																	</access>
 																	<executability>
-																		<model-access operation="Write"/>
 																		<null-input-disabled/>
-																		<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+																		<disabled-if expr="ruleMoveVeto($choice, -1)"/>
 																	</executability>
 																	<with-transaction>
-																		<execute-script function="x -> ruleMove($x, -1)"/>
+																		<execute-script function="ruleMove($choice, -1)"/>
 																	</with-transaction>
 																</generic-command>
 																<generic-command
 																	clique="edit"
 																	image="css:bi bi-arrow-down"
-																	input="choice"
+																	inputs="choice"
 																	placement="TOOLBAR"
 																>
 																	<label>
 																		<en>Move down</en>
 																		<de>Nach unten</de>
 																	</label>
+																	<access>
+																		<operation name="Write"
+																			object="$choice"
+																			type="ehome.runtime:RuleChoice"
+																		/>
+																	</access>
 																	<executability>
-																		<model-access operation="Write"/>
 																		<null-input-disabled/>
-																		<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+																		<disabled-if expr="ruleMoveVeto($choice, 1)"/>
 																	</executability>
 																	<with-transaction>
-																		<execute-script function="x -> ruleMove($x, 1)"/>
+																		<execute-script function="ruleMove($choice, 1)"/>
 																	</with-transaction>
 																</generic-command>
 															</commands>
@@ -967,7 +1035,7 @@
 																				<column attribute="value"/>
 																				<column attribute="title"/>
 																			</columns>
-																			<rows>p -> if($p == null, [], $p.get(`ehome.runtime:RuleParameter#choices`))</rows>
+																			<rows>if($parameter == null, [], $parameter.get(`ehome.runtime:RuleParameter#choices`))</rows>
 																		</table>
 																	</pane>
 																	<pane
@@ -981,10 +1049,13 @@
 																			<save-action>
 																				<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
 																				<with-transaction>
-																					<store-form-state/>
-																					<execute-script function="x -> ruleNormalize($x)"/>
+																					<store-form-state>
+																						<with-result>
+																							<execute-script function="ruleNormalize($result)"/>
+																						</with-result>
+																					</store-form-state>
 																				</with-transaction>
-																				<discard-form-state/>
+																				<leave-edit-mode/>
 																			</save-action>
 																			<field attribute="value"/>
 																			<field attribute="title"/>
@@ -1016,25 +1087,32 @@
 								<commands>
 									<generic-command
 										image="css:bi bi-plus-lg"
-										input="rule"
+										inputs="rule"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>New timer</en>
 											<de>Neuer Timer</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$rule"
+												type="ehome.runtime:Rule"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
 										</executability>
 										<with-transaction>
-											<execute-script function="o -> ruleCreate($o, 'timers', `ehome.runtime:RuleTimer`)"/>
+											<execute-script function="ruleCreate($rule, 'timers', `ehome.runtime:RuleTimer`)"/>
+											<with-result>
+												<write-channel name="timer"/>
+											</with-result>
 										</with-transaction>
-										<write-channel name="timer"/>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"
-										input="timer"
+										inputs="timer"
 										placement="TOOLBAR"
 									>
 										<label>
@@ -1044,46 +1122,56 @@
 										<executability>
 											<null-input-disabled/>
 										</executability>
-										<confirm expr="x -> #('Delete the timer?'@en, 'Den Timer löschen?'@de)"/>
+										<confirm expr="#('Delete the timer?'@en, 'Den Timer löschen?'@de)"/>
 										<delete-object/>
-										<write-channel name="timer"/>
+										<write-channel name="timer" clear="true"/>
 									</generic-command>
 									<generic-command
 										clique="edit"
 										image="css:bi bi-arrow-up"
-										input="timer"
+										inputs="timer"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Move up</en>
 											<de>Nach oben</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$timer"
+												type="ehome.runtime:RuleTimer"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+											<disabled-if expr="ruleMoveVeto($timer, -1)"/>
 										</executability>
 										<with-transaction>
-											<execute-script function="x -> ruleMove($x, -1)"/>
+											<execute-script function="ruleMove($timer, -1)"/>
 										</with-transaction>
 									</generic-command>
 									<generic-command
 										clique="edit"
 										image="css:bi bi-arrow-down"
-										input="timer"
+										inputs="timer"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Move down</en>
 											<de>Nach unten</de>
 										</label>
+										<access>
+											<operation name="Write"
+												object="$timer"
+												type="ehome.runtime:RuleTimer"
+											/>
+										</access>
 										<executability>
-											<model-access operation="Write"/>
 											<null-input-disabled/>
-											<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+											<disabled-if expr="ruleMoveVeto($timer, 1)"/>
 										</executability>
 										<with-transaction>
-											<execute-script function="x -> ruleMove($x, 1)"/>
+											<execute-script function="ruleMove($timer, 1)"/>
 										</with-transaction>
 									</generic-command>
 								</commands>
@@ -1108,7 +1196,7 @@
 													<column attribute="identifier"/>
 													<column attribute="duration"/>
 												</columns>
-												<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Rule#timers`))</rows>
+												<rows>if($rule == null, [], $rule.get(`ehome.runtime:Rule#timers`))</rows>
 											</table>
 										</pane>
 										<pane
@@ -1122,10 +1210,13 @@
 												<save-action>
 													<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
 													<with-transaction>
-														<store-form-state/>
-														<execute-script function="x -> ruleNormalize($x)"/>
+														<store-form-state>
+															<with-result>
+																<execute-script function="ruleNormalize($result)"/>
+															</with-result>
+														</store-form-state>
 													</with-transaction>
-													<discard-form-state/>
+													<leave-edit-mode/>
 												</save-action>
 												<field attribute="identifier"/>
 												<field attribute="duration"/>
@@ -1159,25 +1250,32 @@
 											<commands>
 												<generic-command
 													image="css:bi bi-plus-lg"
-													input="rule"
+													inputs="rule"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>New state</en>
 														<de>Neuer Zustand</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$rule"
+															type="ehome.runtime:Rule"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
 													</executability>
 													<with-transaction>
-														<execute-script function="o -> ruleCreate($o, 'states', `ehome.runtime:RuleState`)"/>
+														<execute-script function="ruleCreate($rule, 'states', `ehome.runtime:RuleState`)"/>
+														<with-result>
+															<write-channel name="state"/>
+														</with-result>
 													</with-transaction>
-													<write-channel name="state"/>
 												</generic-command>
 												<generic-command
 													image="css:bi bi-trash"
-													input="state"
+													inputs="state"
 													placement="TOOLBAR"
 												>
 													<label>
@@ -1187,46 +1285,56 @@
 													<executability>
 														<null-input-disabled/>
 													</executability>
-													<confirm expr="x -> #('Delete the state?'@en, 'Den Zustand löschen?'@de)"/>
+													<confirm expr="#('Delete the state?'@en, 'Den Zustand löschen?'@de)"/>
 													<delete-object/>
-													<write-channel name="state"/>
+													<write-channel name="state" clear="true"/>
 												</generic-command>
 												<generic-command
 													clique="edit"
 													image="css:bi bi-arrow-up"
-													input="state"
+													inputs="state"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>Move up</en>
 														<de>Nach oben</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$state"
+															type="ehome.runtime:RuleState"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
-														<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+														<disabled-if expr="ruleMoveVeto($state, -1)"/>
 													</executability>
 													<with-transaction>
-														<execute-script function="x -> ruleMove($x, -1)"/>
+														<execute-script function="ruleMove($state, -1)"/>
 													</with-transaction>
 												</generic-command>
 												<generic-command
 													clique="edit"
 													image="css:bi bi-arrow-down"
-													input="state"
+													inputs="state"
 													placement="TOOLBAR"
 												>
 													<label>
 														<en>Move down</en>
 														<de>Nach unten</de>
 													</label>
+													<access>
+														<operation name="Write"
+															object="$state"
+															type="ehome.runtime:RuleState"
+														/>
+													</access>
 													<executability>
-														<model-access operation="Write"/>
 														<null-input-disabled/>
-														<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+														<disabled-if expr="ruleMoveVeto($state, 1)"/>
 													</executability>
 													<with-transaction>
-														<execute-script function="x -> ruleMove($x, 1)"/>
+														<execute-script function="ruleMove($state, 1)"/>
 													</with-transaction>
 												</generic-command>
 											</commands>
@@ -1250,7 +1358,7 @@
 															<columns>
 																<column attribute="identifier"/>
 															</columns>
-															<rows>r -> if($r == null, [], $r.get(`ehome.runtime:Rule#states`))</rows>
+															<rows>if($rule == null, [], $rule.get(`ehome.runtime:Rule#states`))</rows>
 														</table>
 													</pane>
 													<pane

@@ -23,25 +23,32 @@
 		<commands>
 			<generic-command
 				image="css:bi bi-plus-lg"
-				input="project"
+				inputs="project"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>New datapoint</en>
 					<de>Neuer Datenpunkt</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$project"
+						type="ehome.project:Project"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
 				</executability>
 				<with-transaction>
-					<execute-script function="o -> ruleCreate($o, 'applicationDatapoints', `ehome.runtime:ApplicationDatapoint`)"/>
+					<execute-script function="ruleCreate($project, 'applicationDatapoints', `ehome.runtime:ApplicationDatapoint`)"/>
+					<with-result>
+						<write-channel name="datapoint"/>
+					</with-result>
 				</with-transaction>
-				<write-channel name="datapoint"/>
 			</generic-command>
 			<generic-command
 				image="css:bi bi-trash"
-				input="datapoint"
+				inputs="datapoint"
 				placement="TOOLBAR"
 			>
 				<label>
@@ -51,46 +58,56 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<confirm expr="x -> #('Delete the datapoint? Rules and schedule entries naming it are then refused.'@en, 'Den Datenpunkt löschen? Regeln und Zeitplaneinträge, die ihn nennen, werden dann abgelehnt.'@de)"/>
+				<confirm expr="#('Delete the datapoint? Rules and schedule entries naming it are then refused.'@en, 'Den Datenpunkt löschen? Regeln und Zeitplaneinträge, die ihn nennen, werden dann abgelehnt.'@de)"/>
 				<delete-object/>
-				<write-channel name="datapoint"/>
+				<write-channel name="datapoint" clear="true"/>
 			</generic-command>
 			<generic-command
 				clique="edit"
 				image="css:bi bi-arrow-up"
-				input="datapoint"
+				inputs="datapoint"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Move up</en>
 					<de>Nach oben</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$datapoint"
+						type="ehome.runtime:ApplicationDatapoint"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
-					<disabled-if expr="x -> ruleMoveVeto($x, -1)"/>
+					<disabled-if expr="ruleMoveVeto($datapoint, -1)"/>
 				</executability>
 				<with-transaction>
-					<execute-script function="x -> ruleMove($x, -1)"/>
+					<execute-script function="ruleMove($datapoint, -1)"/>
 				</with-transaction>
 			</generic-command>
 			<generic-command
 				clique="edit"
 				image="css:bi bi-arrow-down"
-				input="datapoint"
+				inputs="datapoint"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Move down</en>
 					<de>Nach unten</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$datapoint"
+						type="ehome.runtime:ApplicationDatapoint"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
-					<disabled-if expr="x -> ruleMoveVeto($x, 1)"/>
+					<disabled-if expr="ruleMoveVeto($datapoint, 1)"/>
 				</executability>
 				<with-transaction>
-					<execute-script function="x -> ruleMove($x, 1)"/>
+					<execute-script function="ruleMove($datapoint, 1)"/>
 				</with-transaction>
 			</generic-command>
 		</commands>
@@ -119,7 +136,7 @@
 							<column attribute="persist"/>
 							<column attribute="zigbeeFunction"/>
 						</columns>
-						<rows>p -> if($p == null, [], $p.get(`ehome.project:Project#applicationDatapoints`))</rows>
+						<rows>if($project == null, [], $project.get(`ehome.project:Project#applicationDatapoints`))</rows>
 					</table>
 				</pane>
 				<pane

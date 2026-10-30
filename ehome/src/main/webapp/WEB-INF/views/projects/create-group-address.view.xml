@@ -22,31 +22,31 @@
 		<!-- The range the user chose; empty for the proposal. -->
 		<channel name="chosenRange"/>
 		<derived-channel name="range"
-			expr="r -> c -> a -> if($r != null, $r, groupAddressDefaultRange($c, $a))"
+			expr="if($chosenRange != null, $chosenRange, groupAddressDefaultRange($context, $address))"
 			inputs="chosenRange, context, address"
-			reverse="r -> $r"
+			reverse="$value"
 		/>
 		<!-- The address the user entered; empty for the next free one of the range. -->
 		<channel name="chosenNumber"/>
 		<derived-channel name="number"
-			expr="n -> r -> if($n != null, $n, groupAddressNextFree($r))"
+			expr="if($chosenNumber != null, $chosenNumber, groupAddressNextFree($range))"
 			inputs="chosenNumber, range"
-			reverse="n -> $n"
+			reverse="$value"
 		/>
 		<channel name="name"/>
 		<!-- The datapoint type the user chose; empty for the one of the object. -->
 		<channel name="chosenType"/>
 		<derived-channel name="datapointType"
 			inputs="chosenType, interface"
-			reverse="t -> $t"
+			reverse="$value"
 		>
-			<expr><![CDATA[t -> i -> if($t != null, $t, if($i == null, null, {
-    types = $i.get(`ehome.operational:Interface#datapointTypes`);
-    if($types.isEmpty(), $i.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $types.firstElement())
+			<expr><![CDATA[if($chosenType != null, $chosenType, if($interface == null, null, {
+    types = $interface.get(`ehome.operational:Interface#datapointTypes`);
+    if($types.isEmpty(), $interface.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $types.firstElement())
 }))]]></expr>
 		</derived-channel>
 		<derived-channel name="problem"
-			expr="r -> n -> groupAddressCreateProblem($r, $n)"
+			expr="groupAddressCreateProblem($range, $number)"
 			inputs="range, number"
 		/>
 	</channels>
@@ -60,7 +60,7 @@
 				<fields>
 					<value-input
 						inputs="context"
-						options="c -> groupAddressRanges($c)"
+						options="groupAddressRanges($context)"
 						type="ehome.logical:GroupRange"
 						value="range"
 					>
@@ -99,7 +99,7 @@
 					</value-input>
 				</fields>
 				<visible-if
-					expr="p -> $p != null"
+					expr="$problem != null"
 					input="problem"
 				>
 					<text
@@ -113,7 +113,7 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-plus-lg"
-					input="range"
+					inputs="range"
 				>
 					<label>
 						<en>Create</en>
@@ -123,18 +123,20 @@
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="n -> name -> t -> r -> groupAddressCreate($r, $n, $name, $t)">
+						<execute-script function="groupAddressCreate($range, $number, $name, $datapointType)">
 							<inputs>
 								<input channel="number"/>
 								<input channel="name"/>
 								<input channel="datapointType"/>
 							</inputs>
 						</execute-script>
+						<with-result>
+							<!-- First the options of the connect dialog, then its choice. -->
+							<write-channel name="created"/>
+							<write-channel name="address"/>
+							<close-dialog/>
+						</with-result>
 					</with-transaction>
-					<!-- First the options of the connect dialog, then its choice. -->
-					<write-channel name="created"/>
-					<write-channel name="address"/>
-					<close-dialog/>
 				</action>
 			</button>
 			<button>

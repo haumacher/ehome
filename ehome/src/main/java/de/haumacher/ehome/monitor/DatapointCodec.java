@@ -57,10 +57,12 @@ public final class DatapointCodec {
 		 * A step of a dimmer or a blind (DPT 3): up or down by a step code of 1 to 7, or a stop.
 		 */
 		STEP("step"),
-		/** A percentage of 0 to 100 % in one byte (DPT 5.001). */
-		PERCENT("percent"),
-		/** A number of 0 to 255 in one byte (DPT 5.004, 5.005, 5.010). */
-		SCALE("scale"),
+		/**
+		 * A number of the range of an unsigned byte type (DPT 5), entered with a slider between the
+		 * bounds of the type, with its unit: 0 to 100 % (5.001), 0 to 360° (5.003), 0 to 255 (5.004,
+		 * 5.005, 5.010, the main type), 0 to 254 (5.006).
+		 */
+		SLIDER("slider"),
 		/** One of the named values of an enumeration (DPT 20). */
 		CHOICE("choice"),
 		/** A time of day with an optional day of the week (DPT 10). */
@@ -220,26 +222,12 @@ public final class DatapointCodec {
 	}
 
 	/**
-	 * The kind of an unsigned byte (DPT 5): a percentage, a number of the full byte range, or a
-	 * number of another range (an angle, a tariff), entered as number. The main type alone is a
-	 * number of the full byte range, unscaled.
+	 * The kind of an unsigned byte (DPT 5): a slider over the range of the type (a percentage, an
+	 * angle, a tariff, a number of the full byte range); a type without a range of whole numbers is
+	 * entered as number. The main type alone is a number of the full byte range, unscaled.
 	 */
 	private static Kind byteKind(Dpt dpt) {
-		if (dpt.isMainType()) {
-			return Kind.SCALE;
-		}
-		try {
-			DPT type = translator(dpt).getType();
-			if (type.getID().equals("5.001")) {
-				return Kind.PERCENT;
-			}
-			if (type.getLowerValue().equals("0") && type.getUpperValue().equals("255")) {
-				return Kind.SCALE;
-			}
-		} catch (KNXException ex) {
-			// Entered as number.
-		}
-		return Kind.NUMBER;
+		return range(dpt) != null ? Kind.SLIDER : Kind.NUMBER;
 	}
 
 	private static boolean isEnumeration(Dpt dpt) {
@@ -251,12 +239,11 @@ public final class DatapointCodec {
 	}
 
 	/**
-	 * The range of a value of the given type entered with a slider ({@link Kind#PERCENT},
-	 * {@link Kind#SCALE}): the smallest and the largest value; <code>null</code> for another type.
+	 * The range of a value of the given type entered with a slider ({@link Kind#SLIDER}): the
+	 * smallest and the largest value; <code>null</code> for another type.
 	 */
 	public static int[] range(Dpt dpt) {
-		Kind kind = kind(dpt);
-		if (kind != Kind.PERCENT && kind != Kind.SCALE) {
+		if (dpt == null || dpt.main() != 5) {
 			return null;
 		}
 		if (dpt.isMainType()) {
@@ -711,7 +698,7 @@ public final class DatapointCodec {
 				translator.setValue(number.doubleValue());
 			} else {
 				String text = value.toString().trim();
-				if (kind == Kind.NUMBER || kind == Kind.PERCENT || kind == Kind.SCALE) {
+				if (kind == Kind.NUMBER || kind == Kind.SLIDER) {
 					text = text.replace(',', '.');
 				}
 				translator.setValue(text);
@@ -787,7 +774,7 @@ public final class DatapointCodec {
 			return value;
 		}
 		String text = value.toString().trim();
-		if (kind == Kind.NUMBER || kind == Kind.PERCENT || kind == Kind.SCALE || kind == Kind.CHOICE) {
+		if (kind == Kind.NUMBER || kind == Kind.SLIDER || kind == Kind.CHOICE) {
 			BigDecimal number = number(dpt, text);
 			if (number != null) {
 				return Double.valueOf(number.doubleValue());

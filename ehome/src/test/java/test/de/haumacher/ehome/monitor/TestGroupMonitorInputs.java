@@ -114,7 +114,7 @@ public class TestGroupMonitorInputs extends BasicTestCase {
 	 */
 	private void checkPercent() {
 		Map<String, Object> target = _monitor.target(ADDRESS, "5.001");
-		assertEquals("percent", target.get("kind"));
+		assertEquals("slider", target.get("kind"));
 		assertEquals(0, target.get("min"));
 		assertEquals(100, target.get("max"));
 		assertEquals("%", target.get("unit"));
@@ -128,17 +128,24 @@ public class TestGroupMonitorInputs extends BasicTestCase {
 	}
 
 	/**
-	 * DPT 5.010 (and the other bytes of 0 to 255): a slider of 0 to 255; an angle (5.003) keeps the
-	 * number field.
+	 * DPT 5.010 (and the other bytes of 0 to 255): a slider of 0 to 255; an angle (5.003) a slider of
+	 * 0 to 360°, a tariff (5.006) one of 0 to 254.
 	 */
 	private void checkScale() {
 		Map<String, Object> target = _monitor.target(ADDRESS, "5.010");
-		assertEquals("scale", target.get("kind"));
+		assertEquals("slider", target.get("kind"));
 		assertEquals(0, target.get("min"));
 		assertEquals(255, target.get("max"));
-		assertEquals("scale", _monitor.target(ADDRESS, "5.004").get("kind"));
-		assertEquals("number", _monitor.target(ADDRESS, "5.003").get("kind"));
-		assertNull(_monitor.target(ADDRESS, "5.003").get("min"));
+		assertEquals("slider", _monitor.target(ADDRESS, "5.004").get("kind"));
+		Map<String, Object> angle = _monitor.target(ADDRESS, "5.003");
+		assertEquals("slider", angle.get("kind"));
+		assertEquals(0, angle.get("min"));
+		assertEquals(360, angle.get("max"));
+		assertEquals("°", angle.get("unit"));
+		Map<String, Object> tariff = _monitor.target(ADDRESS, "5.006");
+		assertEquals("slider", tariff.get("kind"));
+		assertEquals(0, tariff.get("min"));
+		assertEquals(254, tariff.get("max"));
 
 		assertSent("00 80 FF", Integer.valueOf(255), "5.010");
 		assertSent("00 80 07", Integer.valueOf(7), "5.010");
@@ -260,7 +267,7 @@ public class TestGroupMonitorInputs extends BasicTestCase {
 		assertRefused(Double.valueOf(-273.01), "9.001");
 		assertSent("00 80 00 00", "-0,004", "9.002");
 		// The main type alone is its format: unscaled.
-		assertEquals("scale", _monitor.target(ADDRESS, "5").get("kind"));
+		assertEquals("slider", _monitor.target(ADDRESS, "5").get("kind"));
 		assertSent("00 80 80", Integer.valueOf(128), "5");
 
 		Dpt temperature = Dpt.parse("9.001");

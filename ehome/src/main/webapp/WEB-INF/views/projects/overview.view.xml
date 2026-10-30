@@ -31,16 +31,19 @@
 					<en>New project</en>
 					<de>Neues Projekt</de>
 				</label>
-				<create-transient type="ehome.project:Project"/>
-				<open-dialog
-					bind-input-to="model"
-					dialog-view="projects/create-project.view.xml"
-				>
-					<bind
-						channel="selection"
-						to="project"
-					/>
-				</open-dialog>
+				<create-transient type="ehome.project:Project">
+					<with-result>
+						<open-dialog
+							bind-input-to="model"
+							dialog-view="projects/create-project.view.xml"
+						>
+							<bind
+								channel="selection"
+								to="project"
+							/>
+						</open-dialog>
+					</with-result>
+				</create-transient>
 			</generic-command>
 			<upload-command
 				accept=".knxproj"
@@ -51,43 +54,46 @@
 					<en>ETS import</en>
 					<de>ETS-Import</de>
 				</label>
-				<executability>
-					<model-access
-						operation="Create"
-						type="ehome.project:Project"
-					/>
-				</executability>
-				<import-ets-project/>
-				<if test='report -> $report["passwordRequired"]'>
-					<then>
-						<!-- A protected project: the dialog asks for the password and imports the file again. -->
-						<open-dialog
-							bind-input-to="request"
-							dialog-view="projects/import-password.view.xml"
-						>
-							<bind
-								channel="project"
-								to="project"
-							/>
-						</open-dialog>
-					</then>
-					<else>
-						<if test='report -> $report["messages"]'>
+				<access>
+					<create type="ehome.project:Project"/>
+				</access>
+				<import-ets-project>
+					<with-result as="report">
+						<if test='$report["passwordRequired"]'>
 							<then>
+								<!-- A protected project: the dialog asks for the password and imports the file again. -->
 								<open-dialog
-									bind-input-to="report"
-									dialog-view="projects/import-report.view.xml"
-								/>
+									bind-input-to="request"
+									dialog-view="projects/import-password.view.xml"
+								>
+									<bind
+										channel="project"
+										to="project"
+									/>
+								</open-dialog>
 							</then>
+							<else>
+								<if test='$report["messages"]'>
+									<then>
+										<open-dialog
+											bind-input-to="report"
+											dialog-view="projects/import-report.view.xml"
+										/>
+									</then>
+								</if>
+								<execute-script function='$report["project"]'>
+									<with-result>
+										<write-channel name="project"/>
+									</with-result>
+								</execute-script>
+							</else>
 						</if>
-						<execute-script function='report -> $report["project"]'/>
-						<write-channel name="project"/>
-					</else>
-				</if>
+					</with-result>
+				</import-ets-project>
 			</upload-command>
 			<generic-command
 				image="css:fa-solid fa-download"
-				input="project"
+				inputs="project"
 				placement="TOOLBAR"
 			>
 				<label>
@@ -97,23 +103,31 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<export-knxproj/>
-				<open-dialog
-					bind-input-to="file"
-					dialog-view="projects/export-knxproj.view.xml"
-				/>
+				<export-knxproj>
+					<with-result>
+						<open-dialog
+							bind-input-to="file"
+							dialog-view="projects/export-knxproj.view.xml"
+						/>
+					</with-result>
+				</export-knxproj>
 			</generic-command>
 			<generic-command
 				image="css:bi bi-broadcast-pin"
-				input="project"
+				inputs="project"
 				placement="TOOLBAR"
 			>
 				<label>
 					<en>Read the installation</en>
 					<de>Installation einlesen</de>
 				</label>
+				<access>
+					<operation name="Write"
+						object="$project"
+						type="ehome.project:Project"
+					/>
+				</access>
 				<executability>
-					<model-access operation="Write"/>
 					<null-input-disabled/>
 				</executability>
 				<open-dialog
@@ -123,7 +137,7 @@
 			</generic-command>
 			<generic-command
 				image="css:bi bi-trash"
-				input="project"
+				inputs="project"
 				placement="TOOLBAR"
 			>
 				<label>
@@ -133,9 +147,9 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<confirm expr="p -> #('Delete project {0}?'@en, 'Projekt {0} löschen?'@de).fill($p.get(`ehome.project:Project#name`))"/>
+				<confirm expr="#('Delete project {0}?'@en, 'Projekt {0} löschen?'@de).fill($project.get(`ehome.project:Project#name`))"/>
 				<delete-object/>
-				<write-channel name="project"/>
+				<write-channel name="project" clear="true"/>
 			</generic-command>
 		</commands>
 		<table
@@ -150,13 +164,8 @@
 			<rows>all(`ehome.project:Project`)</rows>
 			<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
 				bind-input-to="project"
-				view="projects/project.view.xml"
-			>
-				<frame-label class="com.top_logic.layout.view.tiles.ScriptedTileLabel"
-					expr="p -> $p.get(`ehome.project:Project#name`)"
-					inputs="project"
-				/>
-			</on-activate>
+				frame="project"
+			/>
 		</table>
 	</panel>
 </view>

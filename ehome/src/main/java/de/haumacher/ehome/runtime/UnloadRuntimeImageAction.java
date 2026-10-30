@@ -12,6 +12,7 @@ import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 
 /**
@@ -30,7 +31,7 @@ public class UnloadRuntimeImageAction implements ViewAction {
 	 * Configuration of {@link UnloadRuntimeImageAction}.
 	 */
 	@TagName("unload-runtime-image")
-	public interface Config extends PolymorphicConfiguration<UnloadRuntimeImageAction> {
+	public interface Config extends PolymorphicConfiguration<UnloadRuntimeImageAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(UnloadRuntimeImageAction.class)

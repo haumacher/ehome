@@ -18,7 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import com.top_logic.basic.Logger;
-import com.top_logic.basic.thread.ThreadContextManager;
+import com.top_logic.basic.thread.ThreadContext;
 
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Json.JsonException;
@@ -110,7 +110,7 @@ public class ControllerServlet extends HttpServlet {
 		String base = base(request);
 		Enrollment.Answer answer;
 		try {
-			answer = ThreadContextManager.inSystemInteraction(ControllerServlet.class,
+			answer = ThreadContext.inSystemContext(ControllerServlet.class,
 				() -> {
 					ControllerConnections.refetch();
 					return Enrollment.enroll(body, base, Instant.now());

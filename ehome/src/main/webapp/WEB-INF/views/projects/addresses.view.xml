@@ -31,16 +31,16 @@
 		<!-- Whether the tree shows only the addresses without a datapoint type and the ranges holding them. -->
 		<channel name="untypedOnly"/>
 		<derived-channel name="selectedDefinition"
-			expr="n -> if($n.instanceOf(`ehome.logical:GroupAddressDefinition`), $n, null)"
+			expr="if($selected.instanceOf(`ehome.logical:GroupAddressDefinition`), $selected, null)"
 			inputs="selected"
 		/>
 		<derived-channel name="container"
-			expr="p -> n -> if($n.instanceOf(`ehome.logical:GroupRange`), $n, if($n.instanceOf(`ehome.logical:GroupAddress`), $n.container(), $p))"
+			expr="if($selected.instanceOf(`ehome.logical:GroupRange`), $selected, if($selected.instanceOf(`ehome.logical:GroupAddress`), $selected.container(), $project))"
 			inputs="project, selected"
 		/>
 		<!-- The selected address, or the address of the selected connection: where an object is connected to. -->
 		<derived-channel name="address"
-			expr="n -> if($n.instanceOf(`ehome.logical:GroupAddress`), $n, if($n.instanceOf(`ehome.physical:Connection`), $n.get(`ehome.physical:Connection#target`), null))"
+			expr="if($selected.instanceOf(`ehome.logical:GroupAddress`), $selected, if($selected.instanceOf(`ehome.physical:Connection`), $selected.get(`ehome.physical:Connection#target`), null))"
 			inputs="selected"
 		/>
 		<!-- The connection selected in the table of the selected address. -->
@@ -50,24 +50,24 @@
 			inputs="selected, selectedRow"
 			observed-types="ehome.physical:Connection"
 		>
-			<expr><![CDATA[n -> r -> switch {
-    $n.instanceOf(`ehome.physical:Connection`): $n;
-    $r != null and $n.instanceOf(`ehome.logical:GroupAddress`) and groupAddressConnections($n).containsElement($r): $r;
+			<expr><![CDATA[switch {
+    $selected.instanceOf(`ehome.physical:Connection`): $selected;
+    $selectedRow != null and $selected.instanceOf(`ehome.logical:GroupAddress`) and groupAddressConnections($selected).containsElement($selectedRow): $selectedRow;
     default: null;
 }]]></expr>
 		</derived-channel>
 		<!-- The device of the selected connection. -->
 		<derived-channel name="connectionDevice"
-			expr="c -> connectionDevice($c)"
+			expr="connectionDevice($connection)"
 			inputs="connection"
 		/>
 		<derived-channel name="connectionText"
-			expr="c -> connectionLabel($c)"
+			expr="connectionLabel($connection)"
 			inputs="connection"
 		/>
 		<!-- What does not fit together at the selected address; nothing if all fits. -->
 		<derived-channel name="problems"
-			expr="a -> groupAddressProblems($a)"
+			expr="groupAddressProblems($address)"
 			inputs="address"
 			observed-types="ehome.physical:Connection,ehome.physical:Connector"
 		/>
@@ -76,13 +76,13 @@
 			inputs="address"
 			observed-types="ehome.logical:GroupAddress,ehome.physical:Connection,ehome.physical:Connector"
 		>
-			<expr><![CDATA[a -> if($a == null or groupAddressHasType($a), null,
+			<expr><![CDATA[if($address == null or groupAddressHasType($address), null,
     #("{0} has no datapoint type: neither the address nor its objects name one, and the size of the objects does not decide it. The runtime image leaves the address out until a type is set (“Set the datapoint type”)."@en,
       "{0} hat keinen Datenpunkttyp: Weder die Adresse noch ihre Objekte nennen einen, und die Größe der Objekte legt ihn nicht fest. Das Laufzeitabbild lässt die Adresse weg, bis ein Typ gesetzt ist („Datenpunkttyp setzen“)."@de)
-        .fill($a.get(`ehome.logical:GroupAddress#displayName`)).localize())]]></expr>
+        .fill($address.get(`ehome.logical:GroupAddress#displayName`)).localize())]]></expr>
 		</derived-channel>
 		<derived-channel name="senders"
-			expr="a -> if($a == null, null, #('Sending objects: {0}'@en, 'Sendende Objekte: {0}'@de).fill(groupAddressSenders($a)).localize())"
+			expr="if($address == null, null, #('Sending objects: {0}'@en, 'Sendende Objekte: {0}'@de).fill(groupAddressSenders($address)).localize())"
 			inputs="address"
 			observed-types="ehome.physical:Connection,ehome.physical:Connector"
 		/>
@@ -106,70 +106,88 @@
 						<generic-command
 							clique="new"
 							image="css:bi bi-folder-plus"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Group range</en>
 								<de>Gruppenbereich</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-transient type="ehome.logical:GroupRange"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.logical:GroupRange">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="container"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:fa-solid fa-wifi"
-							input="container"
+							inputs="container"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Group address</en>
 								<de>Gruppenadresse</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$container"
+									type="ehome.core:Externalized"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-transient type="ehome.logical:GroupAddress"/>
-							<!-- The next free address of the range is proposed. -->
-							<execute-script function="c -> a -> { $a.set(`ehome.logical:GroupAddress#address`, groupAddressNextFree($c)); $a }">
-								<inputs>
-									<input channel="container"/>
-								</inputs>
-							</execute-script>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="container"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.logical:GroupAddress">
+								<with-result>
+									<!-- The next free address of the range is proposed. -->
+									<execute-script function="{ $result.set(`ehome.logical:GroupAddress#address`, groupAddressNextFree($container)); $result }">
+										<inputs>
+											<input channel="container"/>
+										</inputs>
+										<with-result>
+											<open-dialog
+												bind-input-to="model"
+												dialog-view="create-node.view.xml"
+											>
+												<bind
+													channel="container"
+													to="container"
+												/>
+												<bind
+													channel="selection"
+													to="selected"
+												/>
+											</open-dialog>
+										</with-result>
+									</execute-script>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							input="selectedDefinition"
+							inputs="selectedDefinition"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -179,21 +197,26 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="n -> #('Delete {0}?'@en, '{0} löschen?'@de).fill($n.label())"/>
+							<confirm expr="#('Delete {0}?'@en, '{0} löschen?'@de).fill($selectedDefinition.label())"/>
 							<delete-object/>
-							<write-channel name="selected"/>
+							<write-channel name="selected" clear="true"/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-link-45deg"
-							input="address"
+							inputs="address"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Connect an object</en>
 								<de>Objekt verbinden</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$address"
+									type="ehome.logical:GroupAddress"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -208,15 +231,20 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-123"
-							input="address"
+							inputs="address"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Set the datapoint type</en>
 								<de>Datenpunkttyp setzen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$address"
+									type="ehome.logical:GroupAddress"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -231,26 +259,31 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-x-lg"
-							input="connection"
+							inputs="connection"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Remove the connection</en>
 								<de>Verbindung entfernen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$connection"
+									type="ehome.physical:Connection"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="c -> #('Remove the connection {0}?'@en, 'Verbindung {0} entfernen?'@de).fill(connectionLabel($c))"/>
+							<confirm expr="#('Remove the connection {0}?'@en, 'Verbindung {0} entfernen?'@de).fill(connectionLabel($connection))"/>
 							<!-- A removed connection selected in the tree hands the selection to its address. -->
 							<with-transaction>
-								<execute-script function="c -> deviceDisconnect($c)"/>
+								<execute-script function="deviceDisconnect($connection)"/>
 							</with-transaction>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-box-arrow-up-right"
-							input="connectionDevice"
+							inputs="connectionDevice"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -261,12 +294,12 @@
 								<null-input-disabled/>
 							</executability>
 							<show-views>
-								<show view="projects/project.view.xml"
-									label-expr="d -> recursion($d, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+								<show frame="project"
+									label-expr="recursion($connectionDevice, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
 								>
 									<bind
 										channel="project"
-										expr="d -> recursion($d, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+										expr="recursion($connectionDevice, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
 									/>
 								</show>
 								<show view="projects/devices.view.xml">
@@ -296,7 +329,7 @@
 							The ranges and addresses with the columns of the classic tree grid (exported to Excel
 							as an outline), below an address its connections.
 						-->
-						<export-tree-table
+						<tree-table
 							observed-types="ehome.logical:GroupAddressDefinition,ehome.physical:Connection"
 							selection="selected"
 						>
@@ -304,16 +337,16 @@
 								<input channel="project"/>
 								<input channel="untypedOnly"/>
 							</inputs>
-							<root>p -> f -> $p</root>
-							<children><![CDATA[p -> f -> node -> switch {
+							<root>$project</root>
+							<children><![CDATA[switch {
     $node.instanceOf(`ehome.project:Project`) or $node.instanceOf(`ehome.logical:GroupRange`):
-        if($f, groupAddressUntypedParts($node), groupAddressParts($node));
+        if($untypedOnly, groupAddressUntypedParts($node), groupAddressParts($node));
     $node.instanceOf(`ehome.logical:GroupAddress`):
         groupAddressConnections($node);
     default: [];
 }]]></children>
-							<parents>p -> f -> node -> if($node.instanceOf(`ehome.physical:Connection`), $node.get(`ehome.physical:Connection#target`), $node.container())</parents>
-							<export download-name="p -> f -> #('Group addresses of {0}'@en, 'Gruppenadressen von {0}'@de).fill($p.get(`ehome.project:Project#name`))">
+							<parents>if($node.instanceOf(`ehome.physical:Connection`), $node.get(`ehome.physical:Connection#target`), $node.container())</parents>
+							<export download-name="#('Group addresses of {0}'@en, 'Gruppenadressen von {0}'@de).fill($project.get(`ehome.project:Project#name`))">
 								<sheet-name>
 									<en>Group addresses</en>
 									<de>Gruppenadressen</de>
@@ -325,22 +358,25 @@
 									connection by its device, object and direction; an address without a datapoint
 									type carries a mark after its label.
 								-->
-								<object-column name="name"
-									css-class="x -> if($x.instanceOf(`ehome.logical:GroupAddress`) and !groupAddressHasType($x), 'ehomeUntyped', null)"
+								<computed-column name="name"
 									width="300"
 								>
-									<text><![CDATA[x -> switch {
-    $x.instanceOf(`ehome.physical:Connection`): connectionLabel($x);
-    $x.instanceOf(`ehome.logical:GroupAddressDefinition`) and !$x.get(`ehome.logical:GroupAddressDefinition#name`).isEmpty():
-        $x.get(`ehome.logical:GroupAddressDefinition#name`);
-    default: null;
-}]]></text>
 									<label>
 										<en>Name</en>
 										<de>Name</de>
 									</label>
-									<value>x -> $x</value>
-								</object-column>
+									<value>$row</value>
+									<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"
+										css-class="if($value.instanceOf(`ehome.logical:GroupAddress`) and !groupAddressHasType($value), 'ehomeUntyped', null)"
+									>
+										<label><![CDATA[switch {
+    $value.instanceOf(`ehome.physical:Connection`): connectionLabel($value);
+    $value.instanceOf(`ehome.logical:GroupAddressDefinition`) and !$value.get(`ehome.logical:GroupAddressDefinition#name`).isEmpty():
+        $value.get(`ehome.logical:GroupAddressDefinition#name`);
+    default: null;
+}]]></label>
+									</display>
+								</computed-column>
 								<!-- The address in the notation of the project; of a range, the prefix its addresses share. -->
 								<computed-column name="address"
 									width="110"
@@ -349,9 +385,9 @@
 										<en>Address</en>
 										<de>Adresse</de>
 									</label>
-									<value><![CDATA[x -> switch {
-    $x.instanceOf(`ehome.logical:GroupAddress`): $x.get(`ehome.logical:GroupAddress#address`);
-    $x.instanceOf(`ehome.logical:GroupRange`): groupRangePrefix($x.get(`ehome.logical:GroupRange#rangeStart`), $x.get(`ehome.logical:GroupRange#rangeEnd`));
+									<value><![CDATA[switch {
+    $row.instanceOf(`ehome.logical:GroupAddress`): $row.get(`ehome.logical:GroupAddress#address`);
+    $row.instanceOf(`ehome.logical:GroupRange`): groupRangePrefix($row.get(`ehome.logical:GroupRange#rangeStart`), $row.get(`ehome.logical:GroupRange#rangeEnd`));
     default: null;
 }]]></value>
 								</computed-column>
@@ -363,10 +399,10 @@
 										<en>External ID</en>
 										<de>Externe ID</de>
 									</label>
-									<value>x -> if($x.instanceOf(`ehome.core:Externalized`), $x.get(`ehome.core:Externalized#extId`), null)</value>
+									<value>if($row.instanceOf(`ehome.core:Externalized`), $row.get(`ehome.core:Externalized#extId`), null)</value>
 								</computed-column>
 							</columns>
-						</export-tree-table>
+						</tree-table>
 					</stack>
 				</panel>
 			</pane>
@@ -384,7 +420,7 @@
 						<de>Details</de>
 					</title>
 					<switch input="selected">
-						<case test="n -> $n.instanceOf(`ehome.logical:GroupRange`)">
+						<case test="$selected.instanceOf(`ehome.logical:GroupRange`)">
 							<form
 								input="selected"
 								with-inset="true"
@@ -397,7 +433,7 @@
 								<field attribute="extId"/>
 							</form>
 						</case>
-						<case test="n -> $n.instanceOf(`ehome.logical:GroupAddress`)">
+						<case test="$selected.instanceOf(`ehome.logical:GroupAddress`)">
 							<split-panel
 								orientation="vertical"
 								resizable="true"
@@ -409,7 +445,7 @@
 									>
 										<stack>
 											<visible-if
-												expr="h -> $h != null"
+												expr="$typeHint != null"
 												input="typeHint"
 											>
 												<inset>
@@ -468,7 +504,7 @@
 												<inset>
 													<stack gap="compact">
 														<visible-if
-															expr="p -> $p != null"
+															expr="$problems != null"
 															input="problems"
 														>
 															<text
@@ -499,7 +535,7 @@
 																<en>Device</en>
 																<de>Gerät</de>
 															</label>
-															<value>c -> deviceLabel(connectionDevice($c))</value>
+															<value>deviceLabel(connectionDevice($row))</value>
 														</computed-column>
 														<computed-column name="number"
 															type="tl.core:Integer"
@@ -509,7 +545,7 @@
 																<en>No.</en>
 																<de>Nr.</de>
 															</label>
-															<value>c -> connectionObject($c).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
+															<value>connectionObject($row).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
 														</computed-column>
 														<computed-column name="object"
 															type="tl.core:String"
@@ -519,7 +555,7 @@
 																<en>Object</en>
 																<de>Objekt</de>
 															</label>
-															<value>c -> connectionObject($c).get(`ehome.operational:Interface#displayName`)</value>
+															<value>connectionObject($row).get(`ehome.operational:Interface#displayName`)</value>
 														</computed-column>
 														<computed-column name="function"
 															type="tl.core:String"
@@ -529,7 +565,7 @@
 																<en>Function</en>
 																<de>Funktion</de>
 															</label>
-															<value>c -> connectionFunction($c)</value>
+															<value>connectionFunction($row)</value>
 														</computed-column>
 														<column attribute="kind"
 															width="130"
@@ -547,10 +583,10 @@
 																<en>Datapoint type of the object</en>
 																<de>Datenpunkttyp des Objekts</de>
 															</label>
-															<value>c -> connectionDatapointType($c)</value>
+															<value>connectionDatapointType($row)</value>
 														</computed-column>
 													</columns>
-													<rows>a -> if($a == null, [], groupAddressConnections($a))</rows>
+													<rows>if($address == null, [], groupAddressConnections($address))</rows>
 												</table>
 											</stack>
 										</panel>
@@ -558,7 +594,7 @@
 								</panes>
 							</split-panel>
 						</case>
-						<case test="n -> $n.instanceOf(`ehome.physical:Connection`)">
+						<case test="$selected.instanceOf(`ehome.physical:Connection`)">
 							<!--
 								A connection: which object of which device, the direction, and the device; the
 								device is configured in the device view ("Go to the device").

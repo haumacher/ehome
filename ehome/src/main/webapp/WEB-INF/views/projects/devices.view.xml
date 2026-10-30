@@ -3,23 +3,108 @@
 <!--
 	The topology of a project: areas, their lines and the devices on a line; devices not placed in a
 	line yet follow the areas. A device changed since its last download is marked (DeviceChangeFunctions,
-	haumacher/ehome #15). The selected node is shown beside the tree; a device in the tabs of
-	projects/device-tabs.view.xml: its data, its configuration by the structure of its program, its
-	communication objects with the group addresses they are connected to, its changes against the state
-	of the last download or the defaults, and its programming.
+	haumacher/ehome #15). The selected node is shown beside the tree; a device in its tabs: its data,
+	its configuration by the structure of its program (projects/device-item.view.xml for each entry of a
+	page; a page holding a change since the last download is marked), its communication objects with the
+	group addresses they are connected to, its changes against the state of the last download or the
+	defaults (projects/device-change-group.view.xml per page), and its programming
+	(projects/device-programming.view.xml).
+
+	The changes are computed by the Java functions of DeviceChangeFunctions (haumacher/ehome #15): the
+	channels and lists reading them name the settings, connectors and connections of devices and the
+	devices (a download moves the reference) as observed types.
+
+	The tab bar of a device has the id "device-tabs" and its tabs are keyed by their ids, so that a
+	module depending on the app adds a tab with a same-path overlay of this view addressing the tab
+	bar by config:ref (TL #29896): the development tooling (module ehome-virtual) adds its "Virtual
+	device" tab that way.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="selected"/>
 		<derived-channel name="selectedNode"
-			expr="n -> if($n.instanceOf(`ehome.project:Project`), null, $n)"
+			expr="if($selected.instanceOf(`ehome.project:Project`), null, $selected)"
 			inputs="selected"
 		/>
 		<derived-channel name="selectedArea"
-			expr="n -> if($n.instanceOf(`ehome.physical:Area`), $n, null)"
+			expr="if($selected.instanceOf(`ehome.physical:Area`), $selected, null)"
 			inputs="selected"
 		/>
+		<!-- The tabs of a device. -->
+		<!-- The selected device. -->
+		<derived-channel name="device"
+			expr="if($selected.instanceOf(`ehome.physical:Device`), $selected, null)"
+			inputs="selected"
+		/>
+		<!-- Where the selected device is placed, as the path of its building part ("Haus / Erdgeschoss / Küche"). -->
+		<derived-channel name="locationPath"
+			expr="buildingPath($device.get(`ehome.physical:Device#location`))"
+			inputs="device"
+			observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
+		/>
+		<!--
+			What the device's values select in the structure of its program (the cases of its switches);
+			changes when a value opens or closes a part of the structure, which rebuilds the pages. The
+			channel observes the settings, so a changed value recomputes it.
+		-->
+		<derived-channel name="configuration"
+			expr="if($device == null, null, deviceSelectedCases($device))"
+			inputs="device"
+			observed-types="ehome.physical:ParameterSetting"
+		/>
+		<!-- The page selected in the device's configuration; the device itself (the top) without one. -->
+		<channel name="page"/>
+		<derived-channel name="shownPage"
+			expr="if($page == null, $device, $page)"
+			inputs="device, page"
+		/>
+		<!-- The communication object selected (only one of the selected device), and the connection selected of it. -->
+		<channel name="selectedInterface"/>
+		<derived-channel name="interface"
+			expr="if($device != null and $selectedInterface != null and deviceInterfaces($device).containsElement($selectedInterface), $selectedInterface, null)"
+			inputs="device, selectedInterface"
+			observed-types="ehome.physical:Connector,ehome.physical:Connection,ehome.physical:ParameterSetting"
+		/>
+		<channel name="selectedConnection"/>
+		<derived-channel name="connection"
+			expr="if($interface != null and $selectedConnection != null and deviceConnections($device, $interface).containsElement($selectedConnection), $selectedConnection, null)"
+			inputs="device, interface, selectedConnection"
+			observed-types="ehome.physical:Connection"
+		/>
+		<!--
+			The pages of the configuration holding a change since the last download; an input of the tree
+			of pages, which is built anew with its marks when they change.
+		-->
+		<derived-channel name="changedPages"
+			expr="if($device == null, [], deviceChangedPages($device))"
+			inputs="device"
+			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
+		/>
+		<!--
+			What the changes of the device are listed against: the state of the last download (the
+			default where one is known) or the defaults of the program, until the user chooses. The
+			choice is the first input: the reverse writes it.
+		-->
+		<channel name="chosenReference"/>
+		<derived-channel name="reference"
+			expr="if($device == null, null, deviceChangeReference($device, $chosenReference))"
+			inputs="chosenReference, device"
+			observed-types="ehome.physical:Device"
+			reverse="$value"
+		/>
+		<derived-channel name="changeSummary"
+			inputs="device, reference"
+			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
+		>
+			<expr><![CDATA[if($device == null, null, {
+    count = deviceChangeCount($device, $reference);
+    if($reference == `ehome.physical:ChangeReference#device`,
+        #("Changes since the last download: {0}"@en, "Änderungen seit dem letzten Download: {0}"@de),
+        #("Values other than the default: {0}"@en, "Von der Vorgabe abweichende Werte: {0}"@de))
+        .fill($count).localize()
+})]]></expr>
+		</derived-channel>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -40,64 +125,80 @@
 						<generic-command
 							clique="new"
 							image="css:bi bi-diagram-3"
-							input="project"
+							inputs="project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Area</en>
 								<de>Bereich</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-transient type="ehome.physical:Area"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="project"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.physical:Area">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="project"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							clique="new"
 							image="css:bi bi-dash-lg"
-							input="selectedArea"
+							inputs="selectedArea"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Line</en>
 								<de>Linie</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$selectedArea"
+									type="ehome.physical:Area"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
 							</executability>
-							<create-transient type="ehome.physical:Line"/>
-							<open-dialog
-								bind-input-to="model"
-								dialog-view="create-node.view.xml"
-							>
-								<bind
-									channel="container"
-									to="selectedArea"
-								/>
-								<bind
-									channel="selection"
-									to="selected"
-								/>
-							</open-dialog>
+							<create-transient type="ehome.physical:Line">
+								<with-result>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="create-node.view.xml"
+									>
+										<bind
+											channel="container"
+											to="selectedArea"
+										/>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
+								</with-result>
+							</create-transient>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							input="selectedNode"
+							inputs="selectedNode"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -107,13 +208,13 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="n -> #('Delete {0}?'@en, '{0} löschen?'@de).fill($n.label())"/>
+							<confirm expr="#('Delete {0}?'@en, '{0} löschen?'@de).fill($selectedNode.label())"/>
 							<delete-object/>
-							<write-channel name="selected"/>
+							<write-channel name="selected" clear="true"/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-arrow-counterclockwise"
-							input="project"
+							inputs="project"
 							observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
 							placement="TOOLBAR"
 						>
@@ -121,27 +222,32 @@
 								<en>Discard all changes of all devices since their last download</en>
 								<de>Alle Änderungen aller Geräte seit dem letzten Download verwerfen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
-								<model-access operation="Write"/>
 								<null-input-disabled/>
-								<disabled-if expr="p -> projectDiscardVeto($p)"/>
+								<disabled-if expr="projectDiscardVeto($project)"/>
 							</executability>
-							<confirm expr="p -> projectDiscardConfirmation($p)"/>
+							<confirm expr="projectDiscardConfirmation($project)"/>
 							<with-transaction>
-								<execute-script function="p -> projectDiscardChanges($p)"/>
+								<execute-script function="projectDiscardChanges($project)"/>
 							</with-transaction>
 						</generic-command>
 					</commands>
 					<!-- The topology with the columns of the classic tree grid (exported to Excel as an outline). -->
-					<export-tree-table
+					<tree-table
 						observed-types="ehome.physical:Area,ehome.physical:Line,ehome.physical:Device"
 						selection="selected"
 					>
 						<inputs>
 							<input channel="project"/>
 						</inputs>
-						<root>p -> $p</root>
-						<children><![CDATA[p -> node -> switch {
+						<root>$project</root>
+						<children><![CDATA[switch {
     $node.instanceOf(`ehome.project:Project`):
         concat(
             $node.get(`ehome.project:Project#areas`),
@@ -152,8 +258,8 @@
         $node.get(`ehome.physical:Line#devices`);
     default: [];
 }]]></children>
-						<parents>p -> node -> $node.container()</parents>
-						<export download-name="p -> #('Devices of {0}'@en, 'Geräte von {0}'@de).fill($p.get(`ehome.project:Project#name`))">
+						<parents>$node.container()</parents>
+						<export download-name="#('Devices of {0}'@en, 'Geräte von {0}'@de).fill($project.get(`ehome.project:Project#name`))">
 							<sheet-name>
 								<en>Devices</en>
 								<de>Geräte</de>
@@ -161,16 +267,18 @@
 						</export>
 						<columns>
 							<!-- A device changed since its last download is marked (it changes with every change of its configuration). -->
-							<object-column name="name"
-								css-class="x -> if($x.instanceOf(`ehome.physical:Device`) and deviceChanged($x, $x), 'ehomeChanged', null)"
+							<computed-column name="name"
 								width="260"
 							>
 								<label>
 									<en>Name</en>
 									<de>Name</de>
 								</label>
-								<value>x -> $x</value>
-							</object-column>
+								<value>$row</value>
+								<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"
+									css-class="if($value.instanceOf(`ehome.physical:Device`) and deviceChanged($value, $value), 'ehomeChanged', null)"
+								/>
+							</computed-column>
 							<computed-column name="extId"
 								type="tl.core:String"
 								width="160"
@@ -179,7 +287,7 @@
 									<en>External ID</en>
 									<de>Externe ID</de>
 								</label>
-								<value>x -> $x.get(`ehome.core:Externalized#extId`)</value>
+								<value>$row.get(`ehome.core:Externalized#extId`)</value>
 							</computed-column>
 							<!-- Where a device is placed in the building structure. -->
 							<computed-column name="location"
@@ -190,7 +298,7 @@
 									<en>Location</en>
 									<de>Standort</de>
 								</label>
-								<value>x -> if($x.instanceOf(`ehome.physical:Device`), buildingPath($x.get(`ehome.physical:Device#location`)), null)</value>
+								<value>if($row.instanceOf(`ehome.physical:Device`), buildingPath($row.get(`ehome.physical:Device#location`)), null)</value>
 							</computed-column>
 							<!-- The individual address: area, area.line, area.line.device; the number alone of a device in no line. -->
 							<computed-column name="address"
@@ -201,20 +309,20 @@
 									<en>Address</en>
 									<de>Adresse</de>
 								</label>
-								<value><![CDATA[x -> switch {
-    $x.instanceOf(`ehome.physical:Area`):
-        toString($x.get(`ehome.physical:Area#address`));
-    $x.instanceOf(`ehome.physical:Line`):
-        toString($x.container().get(`ehome.physical:Area#address`), ".", $x.get(`ehome.physical:Line#address`));
-    $x.instanceOf(`ehome.physical:Device`) and $x.container().instanceOf(`ehome.physical:Line`):
-        toString($x.container().container().get(`ehome.physical:Area#address`), ".", $x.container().get(`ehome.physical:Line#address`), ".", $x.get(`ehome.physical:Device#address`));
-    $x.instanceOf(`ehome.physical:Device`):
-        toString($x.get(`ehome.physical:Device#address`));
+								<value><![CDATA[switch {
+    $row.instanceOf(`ehome.physical:Area`):
+        toString($row.get(`ehome.physical:Area#address`));
+    $row.instanceOf(`ehome.physical:Line`):
+        toString($row.container().get(`ehome.physical:Area#address`), ".", $row.get(`ehome.physical:Line#address`));
+    $row.instanceOf(`ehome.physical:Device`) and $row.container().instanceOf(`ehome.physical:Line`):
+        toString($row.container().container().get(`ehome.physical:Area#address`), ".", $row.container().get(`ehome.physical:Line#address`), ".", $row.get(`ehome.physical:Device#address`));
+    $row.instanceOf(`ehome.physical:Device`):
+        toString($row.get(`ehome.physical:Device#address`));
     default: null;
 }]]></value>
 							</computed-column>
 						</columns>
-					</export-tree-table>
+					</tree-table>
 				</panel>
 			</pane>
 			<pane
@@ -227,7 +335,7 @@
 						<de>Details</de>
 					</title>
 					<switch input="selected">
-						<case test="n -> $n.instanceOf(`ehome.physical:Area`) or $n.instanceOf(`ehome.physical:Line`)">
+						<case test="$selected.instanceOf(`ehome.physical:Area`) or $selected.instanceOf(`ehome.physical:Line`)">
 							<form
 								input="selected"
 								with-inset="true"
@@ -237,22 +345,459 @@
 								<field attribute="extId"/>
 							</form>
 						</case>
-						<case test="n -> $n.instanceOf(`ehome.physical:Device`)">
+						<case test="$selected.instanceOf(`ehome.physical:Device`)">
 							<!--
 								A device: its data, its configuration by the structure of its program, its
 								communication objects with their group addresses, and the values the project
 								changed.
 							-->
-							<view-ref view="projects/device-tabs.view.xml">
-								<bind
-									channel="project"
-									to="project"
-								/>
-								<bind
-									channel="selected"
-									to="selected"
-								/>
-							</view-ref>
+							<tab-bar id="device-tabs"
+								active-tab="parameters"
+							>
+								<tabs>
+									<tab id="device"
+										icon="css:bi bi-info-circle"
+									>
+										<label>
+											<en>Device</en>
+											<de>Gerät</de>
+										</label>
+										<!--
+											The location is chosen from the building parts of the project in a dialog
+											(projects/choose-location.view.xml), not from the plain reference field, which
+											would offer the parts of every project without their path.
+										-->
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<commands>
+												<generic-command
+													image="css:fa-solid fa-location-dot"
+													inputs="device"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Choose the location</en>
+														<de>Standort wählen</de>
+													</label>
+													<access>
+														<operation name="Write"
+															object="$device"
+															type="ehome.physical:Device"
+														/>
+													</access>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<open-dialog
+														bind-input-to="device"
+														dialog-view="projects/choose-location.view.xml"
+													>
+														<bind
+															channel="selection"
+															to="selected"
+														/>
+													</open-dialog>
+												</generic-command>
+											</commands>
+											<field attribute="title"/>
+											<field attribute="address"/>
+											<field attribute="type"/>
+											<field attribute="program"/>
+											<value-input
+												readonly="true"
+												type="tl.core:String"
+												value="locationPath"
+											>
+												<label>
+													<en>Location</en>
+													<de>Standort</de>
+												</label>
+											</value-input>
+											<field attribute="description"/>
+											<field attribute="installationHints"/>
+											<field attribute="serialNumber"/>
+											<field attribute="loaded"/>
+											<field attribute="lastModified"/>
+											<field attribute="lastDownload"/>
+											<field attribute="downloadPending"/>
+											<field attribute="extId"/>
+										</form>
+									</tab>
+									<tab id="parameters"
+										icon="css:bi bi-sliders"
+									>
+										<label>
+											<en>Parameters</en>
+											<de>Parameter</de>
+										</label>
+										<!--
+											The configuration as ETS shows it: the pages of the program's structure
+											(channels, the channel independent part, parameter blocks) in effect with the
+											device's values, and the parameters and communication objects of the selected
+											page, each parameter with the input of its type. A change that selects another
+											case of a switch changes the pages and the entries at once.
+										-->
+										<split-panel
+											orientation="horizontal"
+											resizable="true"
+										>
+											<panes>
+												<pane
+													min-size="200"
+													size="35"
+													unit="%"
+												>
+													<tree
+														observed-types="ehome.physical:ParameterSetting"
+														selection="page"
+													>
+														<inputs>
+															<input channel="device"/>
+															<input channel="configuration"/>
+															<input channel="changedPages"/>
+														</inputs>
+														<root>$device</root>
+														<children>devicePages($device, $node)</children>
+														<parents>deviceParentPage($device, $node)</parents>
+														<!-- A page holding a change since the last download (on it or below it) is marked. -->
+														<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
+															css-class="if(deviceChanged($device, $value), 'ehomeChanged', null)"
+															inputs="device"
+														/>
+													</tree>
+												</pane>
+												<pane
+													min-size="300"
+													size="65"
+													unit="%"
+												>
+													<inset>
+														<object-list
+															element-channel="item"
+															gap="compact"
+															inputs="device, shownPage, configuration"
+															items="deviceItems($device, $shownPage)"
+															observed-types="ehome.physical:ParameterSetting"
+														>
+															<item>
+																<view-ref view="projects/device-item.view.xml">
+																	<bind
+																		channel="device"
+																		to="device"
+																	/>
+																	<bind
+																		channel="item"
+																		to="item"
+																	/>
+																</view-ref>
+															</item>
+															<empty-text>
+																<en>Nothing to set here; the parameters are on the pages below.</en>
+																<de>Hier ist nichts einzustellen; die Parameter stehen auf den Seiten darunter.</de>
+															</empty-text>
+														</object-list>
+													</inset>
+												</pane>
+											</panes>
+										</split-panel>
+									</tab>
+									<tab id="objects"
+										icon="css:bi bi-plug-fill"
+									>
+										<label>
+											<en>Communication objects</en>
+											<de>Kommunikationsobjekte</de>
+										</label>
+										<!--
+											The communication objects in effect (and those no longer in effect that still
+											have connections), and the group addresses the selected one is connected to.
+										-->
+										<split-panel
+											orientation="horizontal"
+											resizable="true"
+										>
+											<panes>
+												<pane
+													min-size="240"
+													size="65"
+													unit="%"
+												>
+													<table
+														observed-types="ehome.physical:Connection,ehome.physical:Connector,ehome.physical:ParameterSetting,ehome.physical:Device"
+														selection="selectedInterface"
+														types="ehome.operational:Interface"
+													>
+														<inputs>
+															<input channel="device"/>
+															<input channel="configuration"/>
+														</inputs>
+														<columns>
+															<computed-column name="number"
+																type="tl.core:Integer"
+																width="90"
+															>
+																<label>
+																	<en>No.</en>
+																	<de>Nr.</de>
+																</label>
+																<value>$row.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
+															</computed-column>
+															<column attribute="displayName"
+																width="170"
+															/>
+															<column attribute="function"
+																width="130"
+															/>
+															<computed-column name="connections"
+																multiple="true"
+																type="ehome.physical:Connection"
+																width="200"
+															>
+																<inputs>
+																	<input channel="device"/>
+																</inputs>
+							<label>
+																	<en>Group addresses</en>
+																	<de>Gruppenadressen</de>
+																</label>
+																<value>deviceConnections($device, $row)</value>
+															</computed-column>
+															<!-- What the device holds where the connections changed since the last download. -->
+															<computed-column name="device"
+																type="tl.core:String"
+																width="220"
+															>
+																<inputs>
+																	<input channel="device"/>
+																</inputs>
+							<label>
+																	<en>Since the last download</en>
+																	<de>Seit dem letzten Download</de>
+																</label>
+																<value>deviceReferenceHint($device, $row)</value>
+															</computed-column>
+														</columns>
+														<rows>deviceInterfaces($device)</rows>
+													</table>
+												</pane>
+												<pane
+													min-size="200"
+													size="35"
+													unit="%"
+												>
+													<panel>
+														<title>
+															<en>Group addresses</en>
+															<de>Gruppenadressen</de>
+														</title>
+														<commands>
+															<generic-command
+																image="css:bi bi-link-45deg"
+																inputs="interface, device"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Connect a group address</en>
+																	<de>Gruppenadresse verbinden</de>
+																</label>
+																<access>
+																	<operation name="Write"
+																		object="$device"
+																		type="ehome.physical:Device"
+																	/>
+																</access>
+																<executability>
+																	<null-input-disabled/>
+																</executability>
+																<open-dialog
+																	bind-input-to="interface"
+																	dialog-view="projects/connect-group-address.view.xml"
+																>
+																	<bind
+																		channel="device"
+																		to="device"
+																	/>
+																	<bind
+																		channel="selection"
+																		to="selectedConnection"
+																	/>
+																</open-dialog>
+															</generic-command>
+															<generic-command
+																image="css:bi bi-x-lg"
+																inputs="connection"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Remove the connection</en>
+																	<de>Verbindung entfernen</de>
+																</label>
+																<access>
+																	<operation name="Write"
+																		object="$connection"
+																		type="ehome.physical:Connection"
+																	/>
+																</access>
+																<executability>
+																	<null-input-disabled/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="deviceDisconnect($connection)"/>
+																	<with-result>
+																		<write-channel name="selectedConnection"/>
+																	</with-result>
+																</with-transaction>
+															</generic-command>
+														</commands>
+														<table
+															observed-types="ehome.physical:Connection,ehome.physical:Connector"
+															selection="selectedConnection"
+															types="ehome.physical:Connection"
+														>
+															<inputs>
+																<input channel="device"/>
+																<input channel="interface"/>
+															</inputs>
+															<columns>
+																<column attribute="target"
+																	width="220"
+																/>
+																<column attribute="kind"
+																	width="130"
+																/>
+															</columns>
+															<rows>if($interface == null, [], deviceConnections($device, $interface))</rows>
+														</table>
+													</panel>
+												</pane>
+											</panes>
+										</split-panel>
+									</tab>
+									<tab id="settings"
+										icon="css:bi bi-pencil-square"
+									>
+										<label>
+											<en>Changed values</en>
+											<de>Geänderte Werte</de>
+										</label>
+										<!--
+											The changes of the device against the state of its last download (offered when
+											one is known, and the default then) or against the defaults of its program, grouped
+											by the page of the structure they are shown on, each entry with its input and the
+											ways back to the default and to the device's state. Discarding all changes since
+											the last download sets the device back to that state.
+										-->
+										<panel>
+											<title>
+												<en>Changed values</en>
+												<de>Geänderte Werte</de>
+											</title>
+											<commands>
+												<generic-command
+													image="css:bi bi-arrow-counterclockwise"
+													inputs="device"
+													observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Discard all changes since the last download</en>
+														<de>Alle Änderungen seit dem letzten Download verwerfen</de>
+													</label>
+													<access>
+														<operation name="Write"
+															object="$device"
+															type="ehome.physical:Device"
+														/>
+													</access>
+													<executability>
+														<null-input-disabled/>
+														<disabled-if expr="deviceDiscardVeto($device)"/>
+													</executability>
+													<confirm expr="deviceDiscardConfirmation($device)"/>
+													<with-transaction>
+														<execute-script function="deviceDiscardChanges($device)"/>
+													</with-transaction>
+												</generic-command>
+											</commands>
+											<inset>
+												<stack gap="default">
+													<fields>
+														<value-input
+															inputs="device"
+															label-position="hide-label"
+															mandatory="true"
+															options="deviceChangeReferences($device)"
+															type="ehome.physical:ChangeReference"
+															value="reference"
+														>
+															<label>
+																<en>Compared with</en>
+																<de>Verglichen mit</de>
+															</label>
+															<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+																display="radio"
+																orientation="horizontal"
+															/>
+														</value-input>
+													</fields>
+													<text
+														input="changeSummary"
+														tone="secondary"
+													/>
+													<object-list
+														element-channel="changeGroup"
+														gap="default"
+														inputs="device, reference"
+														items="if($device == null, [], deviceChangeGroups($device, $reference))"
+														observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
+													>
+														<item>
+															<view-ref view="projects/device-change-group.view.xml">
+																<bind
+																	channel="device"
+																	to="device"
+																/>
+																<bind
+																	channel="group"
+																	to="changeGroup"
+																/>
+															</view-ref>
+														</item>
+														<empty-text>
+															<en>No changes.</en>
+															<de>Keine Änderungen.</de>
+														</empty-text>
+													</object-list>
+												</stack>
+											</inset>
+										</panel>
+									</tab>
+									<tab id="programming"
+										icon="css:bi bi-cpu"
+									>
+										<label>
+											<en>Programming</en>
+											<de>Programmierung</de>
+										</label>
+										<!--
+											The download into the device over the project's KNX gateway: the plan, the
+											comparison with the device, the download (projects/device-programming.view.xml).
+										-->
+										<view-ref view="projects/device-programming.view.xml">
+											<bind
+												channel="device"
+												to="device"
+											/>
+											<bind
+												channel="project"
+												to="project"
+											/>
+										</view-ref>
+									</tab>
+								</tabs>
+							</tab-bar>
 						</case>
 					</switch>
 				</panel>

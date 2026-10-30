@@ -10,7 +10,7 @@
 	<channels>
 		<channel name="device"/>
 		<derived-channel name="dump"
-			expr="d -> if($d == null, null, downloadImageDump($d))"
+			expr="if($device == null, null, downloadImageDump($device))"
 			inputs="device"
 		/>
 	</channels>
