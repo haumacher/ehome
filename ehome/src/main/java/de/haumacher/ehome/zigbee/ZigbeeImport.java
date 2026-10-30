@@ -262,7 +262,7 @@ public final class ZigbeeImport {
 		if (value instanceof Number number) {
 			return Long.valueOf(number.longValue());
 		}
-		// An unset flag reads as null on a transient object and as false on a stored one (TL #29883).
+		// An unset flag reads as false (stored and transient alike): a flag the export leaves out (null) is false.
 		return Boolean.FALSE.equals(value) ? null : value;
 	}
 

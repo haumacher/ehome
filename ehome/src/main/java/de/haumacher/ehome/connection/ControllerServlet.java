@@ -18,7 +18,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import com.top_logic.basic.Logger;
-import com.top_logic.basic.thread.ThreadContextManager;
+import com.top_logic.basic.thread.ThreadContext;
 
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Json.JsonException;
@@ -36,7 +36,7 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * <code>ehome.bad_request</code>.</li>
  * <li><code>GET /api/controllers/&lt;id&gt;/socket</code> without a WebSocket upgrade: 426
  * <code>ehome.upgrade_required</code>. The WebSocket itself is the container's
- * ({@link ControllerSocketRegistration}), which takes the upgrade before the servlet; an upgrade that
+ * ({@link ControllerSocket}), which takes the upgrade before the servlet; an upgrade that
  * reaches the servlet is 501 <code>ehome.no_websocket</code>.</li>
  * </ul>
  *
@@ -110,7 +110,7 @@ public class ControllerServlet extends HttpServlet {
 		String base = base(request);
 		Enrollment.Answer answer;
 		try {
-			answer = ThreadContextManager.inSystemInteraction(ControllerServlet.class,
+			answer = ThreadContext.inSystemContext(ControllerServlet.class,
 				() -> {
 					ControllerConnections.refetch();
 					return Enrollment.enroll(body, base, Instant.now());
@@ -137,7 +137,7 @@ public class ControllerServlet extends HttpServlet {
 		}
 		String upgrade = request.getHeader("Upgrade");
 		if (upgrade != null && upgrade.toLowerCase(Locale.ROOT).contains("websocket")) {
-			// The container's WebSocket implementation takes the upgrades (ControllerSocketRegistration):
+			// The container's WebSocket implementation takes the upgrades (ControllerSocket):
 			// one that reaches the servlet means the container has none.
 			error(response, 501, "ehome.no_websocket", "The server has no WebSocket implementation.");
 			return;

@@ -10,8 +10,8 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
-import org.eclipse.jetty.ee10.servlet.ServletContextHandler;
-import org.eclipse.jetty.ee10.websocket.jakarta.server.config.JakartaWebSocketServletContainerInitializer;
+import org.eclipse.jetty.ee11.servlet.ServletContextHandler;
+import org.eclipse.jetty.ee11.websocket.jakarta.server.config.JakartaWebSocketServletContainerInitializer;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 
@@ -20,19 +20,21 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.WebSocketEndpointListener;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.ControllerServlet;
-import de.haumacher.ehome.connection.ControllerSocketDeployment;
-import de.haumacher.ehome.connection.ControllerSocketRegistration;
+import de.haumacher.ehome.connection.ControllerSocket;
 import de.haumacher.ehome.runtime.Json;
 
 /**
- * The endpoints of the E-Home connection ({@link ControllerServlet}, the socket of
- * {@link ControllerSocketRegistration} over Jetty's Jakarta WebSocket) in an in-process Jetty on
- * <code>127.0.0.1</code>, under the context path <code>/ehome</code> as in the application: the
- * enrollment route and the controllers' WebSocket, over the knowledge base of the test.
+ * The endpoints of the E-Home connection ({@link ControllerServlet}, the {@link ControllerSocket} over
+ * Jetty's Jakarta WebSocket) in an in-process Jetty on <code>127.0.0.1</code>, under the context path
+ * <code>/ehome</code> as in the application: the enrollment route and the controllers' WebSocket, over
+ * the knowledge base of the test. The socket is registered as <code>WEB-INF/web.xml</code> does it, by
+ * the engine's {@link WebSocketEndpointListener} from the context parameter
+ * {@value WebSocketEndpointListener#ENDPOINTS_PARAM}.
  */
 public class ControllerEndpoint {
 
@@ -56,8 +58,9 @@ public class ControllerEndpoint {
 		_server.addConnector(_connector);
 		ServletContextHandler context = new ServletContextHandler(CONTEXT);
 		context.addServlet(ControllerServlet.class, ControllerServlet.PATH + "/*");
-		JakartaWebSocketServletContainerInitializer.configure(context,
-			(servletContext, container) -> ControllerSocketDeployment.register(container));
+		context.setInitParameter(WebSocketEndpointListener.ENDPOINTS_PARAM, ControllerSocket.class.getName());
+		JakartaWebSocketServletContainerInitializer.configure(context, null);
+		context.addEventListener(new WebSocketEndpointListener());
 		_server.setHandler(context);
 		_server.start();
 	}

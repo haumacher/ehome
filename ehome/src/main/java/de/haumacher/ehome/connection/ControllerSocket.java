@@ -9,17 +9,26 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import jakarta.websocket.CloseReason;
-import jakarta.websocket.Endpoint;
-import jakarta.websocket.EndpointConfig;
-import jakarta.websocket.MessageHandler;
+import jakarta.websocket.OnClose;
+import jakarta.websocket.OnError;
+import jakarta.websocket.OnMessage;
+import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
+import jakarta.websocket.server.ServerEndpoint;
 
 import com.top_logic.basic.Logger;
 
 /**
  * The WebSocket of a controller's connection: an endpoint of the container's Jakarta WebSocket
- * implementation at <code>/api/controllers/{id}/socket</code> ({@link ControllerSocketRegistration}),
- * which hands the messages to its {@link ControllerConnection} and sends the connection's messages.
+ * implementation at {@value #PATH}, which hands the messages to its {@link ControllerConnection} and
+ * sends the connection's messages.
+ *
+ * <p>
+ * The engine's <code>com.top_logic.util.WebSocketEndpointListener</code> registers it with the
+ * container (the context parameter <code>websocket.endpoints</code> in <code>WEB-INF/web.xml</code>):
+ * in Tomcat as in TopLogic's development start, whose Jetty provides Jakarta WebSocket but scans no
+ * classes for endpoints.
+ * </p>
  *
  * <p>
  * The container does the framing, answers the controller's pings and closes a socket that received
@@ -27,7 +36,14 @@ import com.top_logic.basic.Logger;
  * time; sending is serialized by the connection.
  * </p>
  */
-public class ControllerSocket extends Endpoint implements ControllerConnection.Peer {
+@ServerEndpoint(ControllerSocket.PATH)
+public class ControllerSocket implements ControllerConnection.Peer {
+
+	/** The name of the path parameter of the controller's id. */
+	public static final String ID = "id";
+
+	/** The path of the socket below the context path. */
+	public static final String PATH = ControllerServlet.PATH + "/{" + ID + "}/socket";
 
 	/** The longest message E-Home takes from a controller (a status, a snapshot chunk, a response). */
 	public static final int MAX_MESSAGE = 1024 * 1024;
@@ -50,8 +66,11 @@ public class ControllerSocket extends Endpoint implements ControllerConnection.P
 		// Set up in onOpen(...).
 	}
 
-	@Override
-	public void onOpen(Session session, EndpointConfig config) {
+	/**
+	 * Called by the container when the controller has connected.
+	 */
+	@OnOpen
+	public void onOpen(Session session) {
 		_session = session;
 		Object remote = session.getUserProperties().get(REMOTE_ADDRESS);
 		if (remote != null) {
@@ -60,27 +79,34 @@ public class ControllerSocket extends Endpoint implements ControllerConnection.P
 		session.setMaxTextMessageBufferSize(MAX_MESSAGE);
 		session.setMaxBinaryMessageBufferSize(MAX_MESSAGE);
 		session.setMaxIdleTimeout(ControllerConnections.IDLE_TIMEOUT.toMillis());
-		String id = session.getPathParameters().get(ControllerSocketRegistration.ID);
+		String id = session.getPathParameters().get(ID);
 		_connection = new ControllerConnection(id == null ? "" : id, this);
-		session.addMessageHandler(String.class, new MessageHandler.Whole<String>() {
-			@Override
-			public void onMessage(String message) {
-				_connection.received(message);
-			}
-		});
-		session.addMessageHandler(ByteBuffer.class, new MessageHandler.Whole<ByteBuffer>() {
-			@Override
-			public void onMessage(ByteBuffer message) {
-				byte[] data = new byte[message.remaining()];
-				message.get(data);
-				_connection.receivedBinary(data);
-			}
-		});
 		ControllerConnections.opening(_connection);
 		_connection.open();
 	}
 
-	@Override
+	/**
+	 * Called by the container for a text message of the controller.
+	 */
+	@OnMessage(maxMessageSize = MAX_MESSAGE)
+	public void onText(String message) {
+		_connection.received(message);
+	}
+
+	/**
+	 * Called by the container for a binary message of the controller.
+	 */
+	@OnMessage(maxMessageSize = MAX_MESSAGE)
+	public void onBinary(ByteBuffer message) {
+		byte[] data = new byte[message.remaining()];
+		message.get(data);
+		_connection.receivedBinary(data);
+	}
+
+	/**
+	 * Called by the container when the socket has closed.
+	 */
+	@OnClose
 	public void onClose(Session session, CloseReason reason) {
 		if (_connection != null) {
 			String phrase = reason.getReasonPhrase();
@@ -89,7 +115,10 @@ public class ControllerSocket extends Endpoint implements ControllerConnection.P
 		}
 	}
 
-	@Override
+	/**
+	 * Called by the container when the socket failed.
+	 */
+	@OnError
 	public void onError(Session session, Throwable error) {
 		if (_connection != null) {
 			Logger.info("The socket of " + _connection + " failed: " + error, ControllerSocket.class);

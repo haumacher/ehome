@@ -9,7 +9,7 @@ import jakarta.servlet.ServletContextListener;
 /**
  * Starts {@link ZigbeeLive} with the application and stops it at its end; a listener in
  * <code>WEB-INF/web.xml</code>, as the controllers' socket is registered
- * ({@link de.haumacher.ehome.connection.ControllerSocketRegistration}).
+ * ({@link de.haumacher.ehome.connection.ControllerSocket}).
  *
  * <p>
  * Starting registers a listener of the controller connections only: nothing of the knowledge base is

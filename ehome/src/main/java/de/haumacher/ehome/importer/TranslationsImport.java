@@ -114,8 +114,7 @@ public class TranslationsImport<C extends TranslationsImport.Config<?>> extends 
 	 * XML attribute (empty if there is none, see {@link #attribute(TLObject, String)}).
 	 *
 	 * <p>
-	 * The answer depends on the type only, and the compatibility check of the engine is expensive (it
-	 * looks up a module by its name on every call): a program file holds thousands of translations.
+	 * The answer depends on the type only, and a program file holds thousands of translations.
 	 * </p>
 	 */
 	private final Map<TLType, Map<String, Optional<String>>> _attributes = new HashMap<>();

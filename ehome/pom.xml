@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.top-logic</groupId>
     <artifactId>tl-parent-app</artifactId>
-    <version>8.0.0-alpha11</version>
+    <version>8.0.0-alpha12</version>
     <relativePath/>
   </parent>
   <artifactId>de.haumacher.ehome</artifactId>
@@ -12,12 +12,6 @@
   <properties>
     <!-- The context path of the app: in development mode (exec:java) and the name of the deployable war (target/ehome.war). -->
     <tl.contextPath>ehome</tl.contextPath>
-    <!--
-      The data of the development start (exec:java, run in this directory): the H2 database and the
-      application data stay in tmp/ of the repository root, where they were before the app became a
-      module of its own (haumacher/ehome #28). -Dehome.dataDir=<directory> starts on other data.
-    -->
-    <ehome.dataDir>${project.basedir}/../tmp</ehome.dataDir>
   </properties>
   <repositories>
     <repository>
@@ -113,38 +107,19 @@
     </dependency>
 	
     <!--
-      The controllers' WebSocket (haumacher/ehome #54, ControllerSocketRegistration): the Jakarta
-      WebSocket API, provided by the container the war runs in.
+      The controllers' WebSocket (haumacher/ehome #54, ControllerSocket): the Jakarta WebSocket API,
+      provided by the container the war runs in (the version is the engine's). The implementation in
+      the tests and the development start is Jetty's, which the engine brings (tl-ide-jetty).
     -->
     <dependency>
       <groupId>jakarta.websocket</groupId>
       <artifactId>jakarta.websocket-api</artifactId>
-      <version>2.1.1</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>jakarta.websocket</groupId>
       <artifactId>jakarta.websocket-client-api</artifactId>
-      <version>2.1.1</version>
       <scope>provided</scope>
-    </dependency>
-
-    <!--
-      Jetty's implementation of it for the tests (the development start gets it as a dependency of
-      exec-maven-plugin, below); the war does not contain it. Without Jetty's annotation scanning,
-      which TopLogic's development start does not do (ControllerSocketDeployment runs the initializer).
-    -->
-    <dependency>
-      <groupId>org.eclipse.jetty.ee10.websocket</groupId>
-      <artifactId>jetty-ee10-websocket-jakarta-server</artifactId>
-      <version>${jetty.version}</version>
-      <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.eclipse.jetty.ee10</groupId>
-          <artifactId>jetty-ee10-annotations</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
 
     <dependency>
@@ -207,23 +182,6 @@
       <plugin>
         <groupId>org.codehaus.mojo</groupId>
         <artifactId>exec-maven-plugin</artifactId>
-        <!--
-          The Jakarta WebSocket implementation for the controllers' socket (haumacher/ehome #54) in the
-          development start, whose Jetty has none (doc/controllers.md, doc/tl-todo.md).
-        -->
-        <dependencies>
-          <dependency>
-            <groupId>org.eclipse.jetty.ee10.websocket</groupId>
-            <artifactId>jetty-ee10-websocket-jakarta-server</artifactId>
-            <version>${jetty.version}</version>
-            <exclusions>
-              <exclusion>
-                <groupId>org.eclipse.jetty.ee10</groupId>
-                <artifactId>jetty-ee10-annotations</artifactId>
-              </exclusion>
-            </exclusions>
-          </dependency>
-        </dependencies>
         <configuration>
           <arguments combine.self="override">
             <argument>-port</argument>
@@ -235,14 +193,6 @@
             <systemProperty>
               <key>tl_operation_mode</key>
               <value>development</value>
-            </systemProperty>
-            <systemProperty>
-              <key>h2_name</key>
-              <value>${ehome.dataDir}/h2;DB_CLOSE_ON_EXIT=FALSE</value>
-            </systemProperty>
-            <systemProperty>
-              <key>tl_storage_path</key>
-              <value>${ehome.dataDir}/app-data</value>
             </systemProperty>
           </systemProperties>
         </configuration>
@@ -284,14 +234,15 @@
     <!--
       The war of the Debian package (bin/build-deb.sh, doc/debian.md): with the H2 driver and its
       connection pool (deploy aspect deploy/debian) instead of the container's JNDI data source of the
-      engine's default war, and without the debug settings of deploy/local. The location of the data
-      comes from /etc/ehome/ehome.env (tl_storage_path, h2_name). Build: ./mvnw install -Pproduction,debian
+      engine's default war (tl.app.metaConfAddons.db), and without the debug settings of deploy/local.
+      The location of the data and the database password come from /etc/ehome/ehome.env
+      (tl_storage_path, h2_name, h2_passwd). Build: ./mvnw install -Pproduction,debian
     -->
     <profile>
       <id>debian</id>
       <properties>
         <deployAspects>debian</deployAspects>
-        <tl.app.metaConfAddons></tl.app.metaConfAddons>
+        <tl.app.metaConfAddons.db></tl.app.metaConfAddons.db>
       </properties>
       <dependencies>
         <dependency>

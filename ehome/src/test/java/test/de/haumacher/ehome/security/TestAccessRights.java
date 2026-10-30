@@ -41,7 +41,7 @@ import com.top_logic.tool.boundsec.BoundCommandGroup;
 import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.tool.boundsec.simple.SimpleBoundCommandGroup;
 import com.top_logic.tool.boundsec.wrap.Group;
-import com.top_logic.util.TLContext;
+import com.top_logic.util.TLContextManager;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.programming.DeviceSettings;
@@ -356,19 +356,27 @@ public class TestAccessRights extends BasicTestCase {
 		}
 	}
 
-	private static <T> T as(Person person, Supplier<T> computation) {
-		TLContext context = TLContext.getContext();
-		Person before = context.getPerson();
-		String contextId = context.getContextId();
-		context.setPerson(person);
-		try {
-			return computation.get();
-		} finally {
-			context.setPerson(before);
-			if (before == null) {
-				context.setContextId(contextId);
+	/**
+	 * Runs the test with the access checks on: a test runs in the system context, which bypasses
+	 * them (TL #29798), also for the checks of an explicitly given person.
+	 */
+	@Override
+	protected void runTest() throws Throwable {
+		Throwable[] problem = { null };
+		ThreadContext.withSecurityChecks(true, () -> {
+			try {
+				super.runTest();
+			} catch (Throwable ex) {
+				problem[0] = ex;
 			}
+		});
+		if (problem[0] != null) {
+			throw problem[0];
 		}
+	}
+
+	private static <T> T as(Person person, Supplier<T> computation) {
+		return TLContextManager.inPersonContext(person, computation::get);
 	}
 
 	private List<TLObject> objects() {
@@ -427,13 +435,12 @@ public class TestAccessRights extends BasicTestCase {
 	}
 
 	private static void inTransaction(Runnable modification) {
-		ThreadContext.pushSuperUser();
-		try (Transaction tx = kb().beginTransaction()) {
-			modification.run();
-			tx.commit();
-		} finally {
-			ThreadContext.popSuperUser();
-		}
+		ThreadContext.withoutSecurityChecks(() -> {
+			try (Transaction tx = kb().beginTransaction()) {
+				modification.run();
+				tx.commit();
+			}
+		});
 	}
 
 	public static Test suite() {

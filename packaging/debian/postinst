@@ -13,6 +13,7 @@ if [ "$1" = "configure" ]; then
 	if [ ! -e "$ENV_FILE" ]; then
 		install -d -m 0755 /etc/ehome
 		PASSWORD=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
+		DB_PASSWORD=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24)
 		umask 027
 		cat > "$ENV_FILE" <<END
 # Settings of E-Home, read by Tomcat 10 (tomcat10.service.d/ehome.conf). Restart Tomcat after a
@@ -22,12 +23,24 @@ if [ "$1" = "configure" ]; then
 tl_storage_path=$DATA_DIR
 h2_name=$DATA_DIR/h2;DB_CLOSE_ON_EXIT=FALSE
 
+# The password of the H2 database, applied when the database is created at the first start.
+h2_passwd=$DB_PASSWORD
+
 # The password of the administrator "root", applied only when the database is created at the first
 # start. Change it in the application afterwards.
 tl_initial_password=$PASSWORD
 END
 		chgrp tomcat "$ENV_FILE"
 		echo "E-Home: the initial password of the user root is in $ENV_FILE." >&2
+	elif ! grep -q '^h2_passwd=' "$ENV_FILE"; then
+		# Settings of a version before TopLogic 8.0.0-alpha12: the database was created with the
+		# engine's former default password, which the engine no longer supplies.
+		cat >> "$ENV_FILE" <<END
+
+# The password of the H2 database (the engine's former default, which created the database).
+h2_passwd=theautomatedappengine
+END
+		echo "E-Home: the password of the H2 database is now set in $ENV_FILE." >&2
 	fi
 
 	# The context descriptor is put in place only while Tomcat is stopped: a running Tomcat deploys it
