@@ -106,6 +106,12 @@ The import reads ETS 6 project files (namespace `http://knx.org/xml/project/23`)
 | `TextParameterRefId` of channels, blocks and object references (a text with `{{0}}` filled from a parameter) | Not read: the text shows its placeholder. |
 | KNX Secure (`IsSecureEnabled`, `SecurityRequired`, `MaxSecurity*`, keys of the project), `MayRead`, `InitialValue`, `Description`, `SuffixText`, `InternalDescription`, `BusInterfaces`, `PublicKeys`, `Hardware2Program@CheckSums`/`@LoadedImage` | Not read. |
 | New master data: `DatapointRoles`, `FunctionTypes`, `FunctionalBlocks`, `InterfaceObjectTypes`, `InterfaceObjectProperties`, `PropertyDataTypes`, `SpaceUsages`, `ProductLanguages` | Not needed for E-Home (see "Not needed"). |
+| `DeviceInstance/GroupObjectTree` (the device's communication objects arranged in a tree of nodes for ETS 6's view) | Not read: presentation only, the objects themselves are `ComObjectInstanceRefs`. Found by the warning on unknown elements (TL #29880). |
+
+The import warns about an element it has no handler for (`unknown="warn"` on the root of
+`etsImporter.xml`, TL #29880); the elements listed here as not read are declared there with
+`<skip-deep/>`, so a sample imports without such warnings, and a construct of a newer schema shows up
+as a warning instead of vanishing.
 
 The export writes schema 11 and leaves out what schema 11 has no place for (see [export.md](export.md)).
 

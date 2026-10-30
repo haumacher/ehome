@@ -30,7 +30,7 @@ import com.top_logic.util.model.ModelService;
 /**
  * Seeds the Zigbee catalog ({@link ZigbeeCatalog}) with the device types E-Home ships: the catalog
  * files (<code>.json</code>, {@link ZigbeeCatalogJson}) in <code>WEB-INF/zigbee-catalog/</code>, each
- * once per database, as the engine loads its initial data (<code>InitialDataSetupService</code>,
+ * once per database, as the engine loads its initial data (the start hook <code>InitialDataSetup</code>,
  * which reads only its own XML format).
  *
  * <p>

@@ -1,4 +1,4 @@
-<handler id="all">
+<handler id="all" unknown="warn">
 	<tag name="KNX">
 		<!--
 			The data shared between projects (master data, catalogs, hardware, application programs) exist
@@ -41,7 +41,7 @@
 
 												<property name="extId" xml-attribute="Id"/>
 												<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-												<i18n-property name="description" xml-attribute="Text"/>
+												<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 												<property name="sizeInBit" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
 												<dispatch>
@@ -56,7 +56,7 @@
 																	<property name="extId" xml-attribute="Id"/>
 																	<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																	<property name="name" xml-attribute="Name"/>
-																	<i18n-property name="description" xml-attribute="Text"/>
+																	<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																	<switch xml-attribute="Default">
 																		<case value="true">
 																			<assign argument-var="this" target-var="scope" property="defaultSubtype" value="s -> $s"/>
@@ -589,6 +589,8 @@
 																			</tag>
 																		</dispatch>
 																	</tag>
+																	<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
+																	<tag name="InterfaceObjects"><skip-deep/></tag>
 																</dispatch>
 															</object>
 														</tag>
@@ -633,12 +635,26 @@
 												<property name="name" xml-attribute="Name"/>
 												<property name="id" xml-attribute="KnxManufacturerId" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 										
-												<dispatch/>
+												<dispatch>
+													<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
+													<tag name="PublicKeys"><skip-deep/></tag>
+													<tag name="OrderNumberFormattingScript"><skip-deep/></tag>
+												</dispatch>
 											</object>
 										</tag>
 									</dispatch>
 								</in-scope>
 							</tag>
+							<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
+							<tag name="MediumTypes"><skip-deep/></tag>
+							<tag name="DatapointRoles"><skip-deep/></tag>
+							<tag name="FunctionTypes"><skip-deep/></tag>
+							<tag name="FunctionalBlocks"><skip-deep/></tag>
+							<tag name="InterfaceObjectTypes"><skip-deep/></tag>
+							<tag name="InterfaceObjectProperties"><skip-deep/></tag>
+							<tag name="PropertyDataTypes"><skip-deep/></tag>
+							<tag name="SpaceUsages"><skip-deep/></tag>
+							<tag name="ProductLanguages"><skip-deep/></tag>
 						</dispatch>
 					</with-var>
 				</tag>
@@ -671,10 +687,14 @@
 																			</linking>
 
 																			<property name="extId" xml-attribute="Id"/>
-																			<i18n-property name="name" xml-attribute="Text"/>
+																			<set-translation name="name" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																			<property name="orderNumber" xml-attribute="OrderNumber"/>
 
-																			<dispatch/>
+																			<dispatch>
+																				<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
+																				<tag name="Attributes"><skip-deep/></tag>
+																				<tag name="RegistrationInfo"><skip-deep/></tag>
+																			</dispatch>
 																		</object>
 																	</with-var>
 																</tag>
@@ -700,6 +720,8 @@
 																					<dispatch/>
 																				</object-ref>
 																			</tag>
+																			<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
+																			<tag name="RegistrationInfo"><skip-deep/></tag>
 																		</dispatch>
 																	</object>
 																</tag>
@@ -725,7 +747,7 @@
 															</linking>
 
 															<property name="extId" xml-attribute="Id"/>
-															<i18n-property name="name" xml-attribute="Name"/>
+															<set-translation name="name" xml-attribute="Name" language-var="language" default-language="en" fill-fallback="true"/>
 															<reference name="originalManufacturer" id-attribute="OriginalManufacturer"/>
 															<reference name="mask" id-attribute="MaskVersion"/>
 															<property name="applicationNumber" xml-attribute="ApplicationNumber" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
@@ -862,7 +884,7 @@
 																												</linking>
 
 																												<property name="extId" xml-attribute="Id"/>
-																												<i18n-property name="name" xml-attribute="Text"/>
+																												<set-translation name="name" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																												<property name="index" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																												<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																												<property name="binary" xml-attribute="BinaryValue" format="de.haumacher.ehome.etsImport.importer.format.Base64Format"/>
@@ -977,7 +999,7 @@
 
 																									<property name="extId" xml-attribute="Id"/>
 																									<property name="name" xml-attribute="Name"/>
-																									<i18n-property name="description" xml-attribute="Text"/>
+																									<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																									<reference name="type" id-attribute="ParameterType"/>
 																									<property name="access" xml-attribute="Access">
 																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
@@ -1003,7 +1025,7 @@
 
 																						<property name="extId" xml-attribute="Id"/>
 																						<property name="name" xml-attribute="Name"/>
-																						<i18n-property name="description" xml-attribute="Text"/>
+																						<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																						<reference name="type" id-attribute="ParameterType"/>
 																						<property name="access" xml-attribute="Access">
 																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
@@ -1064,7 +1086,7 @@
 
 																						<property name="extId" xml-attribute="Id"/>
 																						<property name="name" xml-attribute="Name"/>
-																						<i18n-property name="description" xml-attribute="Text"/>
+																						<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																						<property name="access" xml-attribute="Access">
 																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
 																								type="ehome.operational:AccessKind"
@@ -1098,8 +1120,8 @@
 																			
 																							<property name="extId" xml-attribute="Id"/>
 																							<property name="name" xml-attribute="Name"/>
-																							<i18n-property name="function" xml-attribute="FunctionText"/>
-																							<i18n-property name="text" xml-attribute="Text"/>
+																							<set-translation name="function" xml-attribute="FunctionText" language-var="language" default-language="en" fill-fallback="true"/>
+																							<set-translation name="text" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																							<property name="description" xml-attribute="VisibleDescription"/>
 																							<property name="index" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																							<property name="size" xml-attribute="ObjectSize" format="de.haumacher.ehome.etsImport.importer.format.ObjectSizeFormat"/>
@@ -1155,8 +1177,8 @@
 																						<reference name="port" id-attribute="RefId"/>
 
 																						<property name="extId" xml-attribute="Id"/>
-																						<i18n-property name="name" xml-attribute="Text"/>
-																						<i18n-property name="function" xml-attribute="FunctionText"/>
+																						<set-translation name="name" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																						<set-translation name="function" xml-attribute="FunctionText" language-var="language" default-language="en" fill-fallback="true"/>
 																						<property name="description" xml-attribute="VisibleDescription"/>
 																						<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 																						<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
@@ -1268,6 +1290,9 @@
 																			</property>
 																			<dispatch/>
 																		</tag>
+																		<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
+																		<tag name="Extension"><skip-deep/></tag>
+																		<tag name="FixupList"><skip-deep/></tag>
 																	</dispatch>
 																</tag>
 																<tag name="Dynamic">
@@ -1294,7 +1319,7 @@
 
 																				<property name="extId" xml-attribute="Id"/>
 																				<property name="name" xml-attribute="Name"/>
-																				<i18n-property name="description" xml-attribute="Text"/>
+																				<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																				<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
 																				<dispatch id="channel-contents">
@@ -1306,7 +1331,7 @@
 
 																							<property name="extId" xml-attribute="Id"/>
 																							<property name="name" xml-attribute="Name"/>
-																							<i18n-property name="description" xml-attribute="Text"/>
+																							<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																							<property name="access" xml-attribute="Access">
 																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
 																									type="ehome.operational:AccessKind"
@@ -1352,6 +1377,10 @@
 																					<tag name="ComObjectRefRef">
 																						<place-reference id-attribute="RefId"/>
 																					</tag>
+																					<!-- Not modeled (gap 7 and dynamic modules, doc/knx/schema-coverage.md): skipped without a warning. -->
+																					<tag name="ParameterSeparator"><skip-deep/></tag>
+																					<tag name="Assign"><skip-deep/></tag>
+																					<tag name="Module"><skip-deep/></tag>
 																				</dispatch>
 																			</object>
 																		</tag>
@@ -1401,7 +1430,7 @@
 														</linking>
 
 														<property name="extId" xml-attribute="Id"/>
-														<i18n-property name="name" xml-attribute="Name"/>
+														<set-translation name="name" xml-attribute="Name" language-var="language" default-language="en" fill-fallback="true"/>
 
 														<ref handler-id="catalog-type"/>
 													</object>
@@ -1496,42 +1525,27 @@
 																					<property name="lastDownload" xml-attribute="LastDownload" format="com.top_logic.basic.config.format.DateValueProvider"/>
 																					<!-- The parts of the configuration in the real device. -->
 																					<switch xml-attribute="IndividualAddressLoaded">
-																						<case value="1">
-																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#IndividualAddress`)"/>
-																						</case>
-																						<case value="true">
+																						<case value="1, true">
 																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#IndividualAddress`)"/>
 																						</case>
 																					</switch>
 																					<switch xml-attribute="ApplicationProgramLoaded">
-																						<case value="1">
-																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#ApplicationProgram`)"/>
-																						</case>
-																						<case value="true">
+																						<case value="1, true">
 																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#ApplicationProgram`)"/>
 																						</case>
 																					</switch>
 																					<switch xml-attribute="ParametersLoaded">
-																						<case value="1">
-																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#Parameters`)"/>
-																						</case>
-																						<case value="true">
+																						<case value="1, true">
 																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#Parameters`)"/>
 																						</case>
 																					</switch>
 																					<switch xml-attribute="CommunicationPartLoaded">
-																						<case value="1">
-																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#GroupAddresses`)"/>
-																						</case>
-																						<case value="true">
+																						<case value="1, true">
 																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#GroupAddresses`)"/>
 																						</case>
 																					</switch>
 																					<switch xml-attribute="MediumConfigLoaded">
-																						<case value="1">
-																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#MediumConfig`)"/>
-																						</case>
-																						<case value="true">
+																						<case value="1, true">
 																							<assign argument-var="this" property="loaded" value="d -> $d.get(`ehome.physical:Device#loaded`).union(`ehome.physical:DownloadPart#MediumConfig`)"/>
 																						</case>
 																					</switch>
@@ -1644,6 +1658,8 @@
 																									</tag>
 																								</dispatch>
 																							</tag>
+																							<!-- Not modeled (ETS 6, doc/knx/schema-coverage.md): the tree view of the group objects. Skipped without a warning. -->
+																							<tag name="GroupObjectTree"><skip-deep/></tag>
 																						</dispatch>
 																					</device-scope>
 																				</object>

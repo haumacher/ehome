@@ -3,7 +3,7 @@ Version: @VERSION@
 Architecture: all
 Section: web
 Priority: optional
-Depends: tomcat10 (>= 10.1), java17-runtime-headless
+Depends: tomcat10 (>= 10.1), java21-runtime-headless
 Maintainer: Bernhard Haumacher <bhu@top-logic.com>
 Homepage: https://github.com/haumacher/ehome
 Installed-Size: @SIZE@

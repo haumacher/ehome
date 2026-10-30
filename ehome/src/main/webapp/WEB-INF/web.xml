@@ -5,6 +5,12 @@
   version="3.0"
 >
     <display-name>E-Home</display-name>
+
+	<!-- The WebSocket endpoints registered by the WebSocketEndpointListener (see the listener section). -->
+	<context-param>
+		<param-name>websocket.endpoints</param-name>
+		<param-value>de.haumacher.ehome.connection.ControllerSocket</param-value>
+	</context-param>
     
 <!-- ======================================================================= -->
 <!--  Custom filter definitions                                              -->
@@ -94,10 +100,11 @@
 
 	<!--
 		The WebSocket of HomeControl controllers (/api/controllers/{id}/socket, haumacher/ehome #54),
-		registered with the container's Jakarta WebSocket implementation (doc/controllers.md).
+		registered with the container's Jakarta WebSocket implementation (doc/controllers.md) by the
+		engine's listener: the endpoint classes of the context parameter websocket.endpoints.
 	-->
 	<listener>
-		<listener-class>de.haumacher.ehome.connection.ControllerSocketRegistration</listener-class>
+		<listener-class>com.top_logic.util.WebSocketEndpointListener</listener-class>
 	</listener>
 
 	<!--
@@ -133,7 +140,7 @@
 	<!--
 		The E-Home connection of HomeControl controllers (haumacher/ehome #54): the open enrollment
 		(POST /api/controllers/enroll) and the answer to a request for the socket that is no WebSocket
-		upgrade (the socket itself is ControllerSocketRegistration's, see above; doc/controllers.md).
+		upgrade (the socket itself is ControllerSocket, see above; doc/controllers.md).
 	-->
 	<servlet>
 		<servlet-name>ControllerServlet</servlet-name>

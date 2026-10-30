@@ -352,7 +352,6 @@ public class Importer {
 			_programLanguages = new ProgramLanguages();
 			importContext.set(ProgramLanguages.PROPERTY, _programLanguages);
 			importETS(zip, importContext, handler, productData);
-			_binding.flush();
 			updates.apply(importContext);
 		}
 		// Numbers the app allocates for new objects lie above those of the imported ones.

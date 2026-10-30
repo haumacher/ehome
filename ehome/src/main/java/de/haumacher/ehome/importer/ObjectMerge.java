@@ -203,10 +203,6 @@ final class ObjectMerge {
 	}
 
 	private static boolean sameValue(Object x, Object y) {
-		if (x == null && Boolean.FALSE.equals(y) || y == null && Boolean.FALSE.equals(x)) {
-			// A stored boolean without value reads as false, a transient one as null.
-			return true;
-		}
 		if (x instanceof BinaryDataSource a && y instanceof BinaryDataSource b) {
 			return Arrays.equals(bytes(a), bytes(b));
 		}

@@ -2,7 +2,7 @@
 
 <!--
 	The virtual device of a device of a project (haumacher/ehome #27, tab "Virtual device" that the
-	overlay projects/device-tabs.view.xml of this module adds to the device tabs of the app): a
+	overlay projects/devices.view.xml of this module adds to the device tabs of the app): a
 	KNXnet/IP interface of E-Home whose KNX subnet holds only a simulated copy of the device, configured
 	from the project data, and nothing else - nothing is forwarded to a bus. A programming tool (ETS) downloading into it is recorded service by service; each run of the
 	interface is a trace in the application's data directory, exported here as a file.
