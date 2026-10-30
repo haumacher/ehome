@@ -6,6 +6,7 @@ package de.haumacher.ehome.runtime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
@@ -15,186 +16,133 @@ import de.haumacher.ehome.rules.RuleText.SyntaxError;
 import de.haumacher.ehome.rules.Type;
 
 /**
- * Stores the texts of the rule language a part of a rule or a schedule entry holds in their canonical
- * form (haumacher/ehome #60): the form {@link RuleImport} stores and {@link RuleExport} writes, so that
- * what is stored after the user saved is what the image carries (<code>3 min</code> becomes
+ * The canonical form of the texts of the rule language a part of a rule or a schedule entry holds
+ * (haumacher/ehome #60): the form {@link RuleImport} stores and {@link RuleExport} writes, so that what
+ * is stored after the user entered a text is what the image carries (<code>3 min</code> becomes
  * <code>3min</code>, <code>@"1/2/3"=true</code> becomes <code>@"1/2/3" = true</code>).
  *
  * <p>
- * Called by the save of the forms of the rule views, in the transaction of the save (the engine has no
- * hook of a field that normalizes its input, TL #29888). A text that does not parse is kept as it was
- * typed: its field shows the syntax error.
+ * Applied to every entered value by {@link RuleTextNormalizer}, the value normalizer of the rule texts
+ * in the model. A text that does not parse is kept as it was typed: its field shows the syntax error.
  * </p>
  */
 public final class RuleNormalization {
 
 	/** The time-of-day fields of the schedule entries. */
-	private static final String[] TIMES = { "time", "notBefore", "notAfter", "from", "until" };
+	private static final Set<String> TIMES = Set.of("time", "notBefore", "notAfter", "from", "until");
 
 	/** The duration fields of the schedule entries. */
-	private static final String[] DURATIONS = { "every", "offset" };
+	private static final Set<String> DURATIONS = Set.of("every", "offset");
 
 	private RuleNormalization() {
 		// Static utility.
 	}
 
 	/**
-	 * Stores the canonical form of every text of the rule language of the object; must run in a
-	 * transaction.
+	 * The canonical form of the given text of the given attribute of the given object.
 	 *
-	 * @return The object.
+	 * @param obj
+	 *        The part of a rule or the schedule entry, or the overlay of a form editing it; its other
+	 *        values decide the type of a literal (the type of a parameter).
+	 * @return The canonical text, or the text itself when it is empty, does not parse, or is no text of
+	 *         the rule language.
 	 */
-	public static TLObject normalize(TLObject obj) {
-		if (obj == null || !obj.tValid() || !"ehome.runtime".equals(obj.tType().getModule().getName())) {
-			return obj;
+	public static String canonical(TLObject obj, String attribute, String text) {
+		if (obj == null || text == null || text.isBlank()
+			|| !"ehome.runtime".equals(obj.tType().getModule().getName())) {
+			return text;
 		}
-		switch (obj.tType().getName()) {
-			case "RuleParameter": {
-				Type type = parameterType(obj);
-				if (type != null) {
-					for (String attribute : new String[] { "default", "min", "max" }) {
-						literal(obj, attribute, type);
+		try {
+			switch (obj.tType().getName()) {
+				case "RuleParameter": {
+					Type type = parameterType(obj);
+					if (type == null) {
+						return text;
 					}
-					step(obj, type);
+					switch (attribute) {
+						case "default":
+						case "min":
+						case "max":
+							return literal(text, type);
+						case "step":
+							return step(text, type);
+						default:
+							return text;
+					}
 				}
-				break;
-			}
-			case "RuleChoice": {
-				Type type = obj.tContainer() == null ? null : parameterType(obj.tContainer());
-				if (type != null) {
-					literal(obj, "value", type);
+				case "RuleChoice": {
+					Type type = obj.tContainer() == null ? null : parameterType(obj.tContainer());
+					return type != null && "value".equals(attribute) ? literal(text, type) : text;
 				}
-				break;
+				case "RuleTimer":
+				case "StartTimerAction":
+				case "RestartTimerAction":
+					return "duration".equals(attribute) ? expression(text) : text;
+				case "Reaction":
+				case "MatchTrigger":
+					return "condition".equals(attribute) ? expression(text) : text;
+				case "SilenceTrigger":
+					return "after".equals(attribute) ? expression(text) : text;
+				case "WriteAction":
+				case "SetParameterAction":
+					return "value".equals(attribute) ? expression(text) : text;
+				case "LogAction":
+					return "message".equals(attribute) ? RuleText.printMessage(RuleText.parseMessage(text)) : text;
+				default:
+					return obj.tType().getName().endsWith("Schedule") ? schedule(attribute, text) : text;
 			}
-			case "RuleTimer":
-			case "StartTimerAction":
-			case "RestartTimerAction":
-				expression(obj, "duration");
-				break;
-			case "Reaction":
-			case "MatchTrigger":
-				expression(obj, "condition");
-				break;
-			case "SilenceTrigger":
-				expression(obj, "after");
-				break;
-			case "WriteAction":
-			case "SetParameterAction":
-				expression(obj, "value");
-				break;
-			case "LogAction":
-				message(obj);
-				break;
+		} catch (SyntaxError ex) {
+			// Kept as typed, the field shows the error.
+			return text;
+		}
+	}
+
+	private static String schedule(String attribute, String text) throws SyntaxError {
+		if (TIMES.contains(attribute)) {
+			return literal(text, Type.TIME_OF_DAY);
+		}
+		if (DURATIONS.contains(attribute)) {
+			return literal(text, Type.DURATION);
+		}
+		switch (attribute) {
+			case "at":
+				return literal(text, Type.DATE_TIME);
+			case "dates": {
+				List<String> dates = new ArrayList<>();
+				for (String part : text.split("[,;\\s]")) {
+					if (!part.isEmpty()) {
+						dates.add(literal(part, Type.DATE));
+					}
+				}
+				return String.join(", ", dates);
+			}
 			default:
-				if (obj.tType().getName().endsWith("Schedule")) {
-					schedule(obj);
-				}
-				break;
+				return text;
 		}
-		return obj;
-	}
-
-	private static void schedule(TLObject entry) {
-		for (String attribute : TIMES) {
-			if (has(entry, attribute)) {
-				literal(entry, attribute, Type.TIME_OF_DAY);
-			}
-		}
-		for (String attribute : DURATIONS) {
-			if (has(entry, attribute)) {
-				literal(entry, attribute, Type.DURATION);
-			}
-		}
-		if (has(entry, "at")) {
-			literal(entry, "at", Type.DATE_TIME);
-		}
-		String text = has(entry, "dates") ? text(entry, "dates") : null;
-		if (text != null) {
-			List<String> dates = new ArrayList<>();
-			for (String part : text.split("[,;\\s]")) {
-				if (!part.isEmpty()) {
-					try {
-						dates.add(RuleText.printValue(RuleText.parseValue(part, Type.DATE), Type.DATE));
-					} catch (SyntaxError ex) {
-						return;
-					}
-				}
-			}
-			update(entry, "dates", text, String.join(", ", dates));
-		}
-	}
-
-	private static boolean has(TLObject obj, String attribute) {
-		return obj.tType().getPart(attribute) != null;
 	}
 
 	private static Type parameterType(TLObject parameter) {
 		return parameter.tValueByName("type") instanceof TLClassifier type ? Type.fromName(type.getName()) : null;
 	}
 
-	private static void expression(TLObject obj, String attribute) {
-		String text = text(obj, attribute);
-		if (text != null) {
-			try {
-				update(obj, attribute, text, RuleText.print(RuleText.parse(text)));
-			} catch (SyntaxError ex) {
-				// Kept as typed, the field shows the error.
-			}
-		}
+	private static String expression(String text) throws SyntaxError {
+		return RuleText.print(RuleText.parse(text));
 	}
 
-	private static void literal(TLObject obj, String attribute, Type type) {
-		String text = text(obj, attribute);
-		if (text != null) {
-			try {
-				update(obj, attribute, text, RuleText.printValue(RuleText.parseValue(text, type), type));
-			} catch (SyntaxError ex) {
-				// Kept as typed, the field shows the error.
-			}
-		}
+	private static String literal(String text, Type type) throws SyntaxError {
+		return RuleText.printValue(RuleText.parseValue(text, type), type);
 	}
 
 	/** The step of a parameter: a duration for a duration parameter, else a number. */
-	private static void step(TLObject parameter, Type type) {
-		String text = text(parameter, "step");
-		if (text == null) {
-			return;
+	private static String step(String text, Type type) throws SyntaxError {
+		if (type == Type.DURATION) {
+			return literal(text, Type.DURATION);
 		}
-		try {
-			if (type == Type.DURATION) {
-				update(parameter, "step", text, RuleText.printValue(RuleText.parseValue(text, Type.DURATION), Type.DURATION));
-				return;
-			}
-			Map<String, Object> node = RuleText.parse(text);
-			if ("literal".equals(node.get("kind")) && node.get("value") instanceof Number number) {
-				update(parameter, "step", text,
-					RuleText.printValue(number, number instanceof Double ? Type.REAL : Type.INTEGER));
-			}
-		} catch (SyntaxError ex) {
-			// Kept as typed, the field shows the error.
+		Map<String, Object> node = RuleText.parse(text);
+		if ("literal".equals(node.get("kind")) && node.get("value") instanceof Number number) {
+			return RuleText.printValue(number, number instanceof Double ? Type.REAL : Type.INTEGER);
 		}
-	}
-
-	private static void message(TLObject action) {
-		String text = text(action, "message");
-		if (text != null) {
-			try {
-				update(action, "message", text, RuleText.printMessage(RuleText.parseMessage(text)));
-			} catch (SyntaxError ex) {
-				// Kept as typed, the field shows the error.
-			}
-		}
-	}
-
-	private static String text(TLObject obj, String attribute) {
-		Object value = obj.tValueByName(attribute);
-		return value == null || value.toString().isBlank() ? null : value.toString();
-	}
-
-	private static void update(TLObject obj, String attribute, String before, String canonical) {
-		if (!canonical.equals(before)) {
-			obj.tUpdateByName(attribute, canonical);
-		}
+		return text;
 	}
 
 }

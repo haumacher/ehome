@@ -132,15 +132,14 @@
 								<null-input-disabled/>
 							</executability>
 							<confirm expr="forgetConfirmation($controller)"/>
-							<with-transaction>
-								<forget-controller/>
+							<forget-controller>
 								<with-result>
 									<notify
 										expr="$result"
 										kind="info"
 									/>
 								</with-result>
-							</with-transaction>
+							</forget-controller>
 						</generic-command>
 					</commands>
 					<table

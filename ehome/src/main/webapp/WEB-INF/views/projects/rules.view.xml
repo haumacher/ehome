@@ -13,8 +13,9 @@
 	controller would check it (de.haumacher.ehome.runtime.RuleExport): a text that is not in the
 	language is an error, a refusal of the controller (a type error, an unknown timer, a datapoint that
 	is not writable) a warning with the controller's reason; each field is checked on its own, so two
-	refused fields of an object both show their refusal (haumacher/ehome #60). Saving a form stores
-	the texts in their canonical form (ruleNormalize, the form the image carries). "Import rules"
+	refused fields of an object both show their refusal (haumacher/ehome #60). An entered text is
+	stored in its canonical form, the form the image carries (the value normalizer rule-text of the
+	model, RuleTextNormalizer). "Import rules"
 	adds the rules and schedule entries of a runtime image (a JSON file) to the project. A condition
 	or a value offers, while a reference @"… is typed, the datapoints of the project's image that
 	expressions and actions may name (ruleSuggestions, TL #29887): those of the
@@ -342,17 +343,6 @@
 															input="reaction"
 															with-inset="true"
 														>
-															<save-action>
-																<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
-																<with-transaction>
-																	<store-form-state>
-																		<with-result>
-																			<execute-script function="ruleNormalize($result)"/>
-																		</with-result>
-																	</store-form-state>
-																</with-transaction>
-																<leave-edit-mode/>
-															</save-action>
 															<!-- Offers the datapoints of the project while a reference @"… is typed (TL #29887). -->
 															<field attribute="condition">
 																<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
@@ -672,17 +662,6 @@
 																		input="trigger"
 																		with-inset="true"
 																	>
-																		<save-action>
-																			<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
-																			<with-transaction>
-																				<store-form-state>
-																					<with-result>
-																						<execute-script function="ruleNormalize($result)"/>
-																					</with-result>
-																				</store-form-state>
-																			</with-transaction>
-																			<leave-edit-mode/>
-																		</save-action>
 																		<field attribute="datapoint"/>
 																		<field attribute="on"/>
 																		<field attribute="origin"/>
@@ -893,17 +872,6 @@
 															input="parameter"
 															with-inset="true"
 														>
-															<save-action>
-																<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
-																<with-transaction>
-																	<store-form-state>
-																		<with-result>
-																			<execute-script function="ruleNormalize($result)"/>
-																		</with-result>
-																	</store-form-state>
-																</with-transaction>
-																<leave-edit-mode/>
-															</save-action>
 															<field attribute="identifier"/>
 															<field attribute="title"/>
 															<field attribute="type"/>
@@ -1046,17 +1014,6 @@
 																			input="choice"
 																			with-inset="true"
 																		>
-																			<save-action>
-																				<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
-																				<with-transaction>
-																					<store-form-state>
-																						<with-result>
-																							<execute-script function="ruleNormalize($result)"/>
-																						</with-result>
-																					</store-form-state>
-																				</with-transaction>
-																				<leave-edit-mode/>
-																			</save-action>
 																			<field attribute="value"/>
 																			<field attribute="title"/>
 																		</form>
@@ -1207,17 +1164,6 @@
 												input="timer"
 												with-inset="true"
 											>
-												<save-action>
-													<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
-													<with-transaction>
-														<store-form-state>
-															<with-result>
-																<execute-script function="ruleNormalize($result)"/>
-															</with-result>
-														</store-form-state>
-													</with-transaction>
-													<leave-edit-mode/>
-												</save-action>
 												<field attribute="identifier"/>
 												<field attribute="duration"/>
 											</form>

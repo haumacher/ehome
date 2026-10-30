@@ -86,11 +86,6 @@ public class RuleFunctions extends GenericMethod {
 		 */
 		ruleSuggestions(3, true),
 		/**
-		 * <code>ruleNormalize(obj)</code>: stores the canonical form of the texts of the rule language
-		 * the part of a rule or schedule entry holds ({@link RuleNormalization}); the object.
-		 */
-		ruleNormalize(1, false),
-		/**
 		 * <code>ruleImportImage(project, file)</code>: adds the rules and schedule entries of the
 		 * uploaded runtime image (JSON) to the project ({@link RuleImport#importImage(TLObject, String)});
 		 * the sentence saying what was imported, followed by what the import did not keep.
@@ -165,8 +160,6 @@ public class RuleFunctions extends GenericMethod {
 			case ruleSuggestions:
 				return suggestions(obj, arguments[1] == null ? "" : arguments[1].toString(),
 					arguments[2] instanceof Number caret ? caret.intValue() : 0);
-			case ruleNormalize:
-				return RuleNormalization.normalize(obj);
 			case ruleImportImage:
 				return importImage(obj, arguments[1]);
 			default:

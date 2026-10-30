@@ -86,7 +86,9 @@ contains, in order:
     together at most 95 s; a new test class at most 5 s, or its javadoc names why it needs more.**
     After the split into modules (haumacher/ehome #28, October 2026) the app's suite took 68 s and
     the tooling's 24 s (345 tests) at a load average of about 3; the tooling's own database means
-    its tests import their samples once more. `bin/slowest-tests.py` prints the time of each
+    its tests import their samples once more. After the upgrade to alpha12 (2026-10-30) they took
+    117 s and 37 s (434 tests) at a load average of 8.5, with a foreign process holding 1.5 cores;
+    the budget was not re-measured on a quiet machine. `bin/slowest-tests.py` prints the time of each
     suite, the total and the 10 slowest tests and classes from the surefire reports; read it
     after every gate. The cost of a test is its imports: all classes of a module share one database in one JVM,
     the shared data (master data, catalogs, programs) stays, and an import of a sample costs seconds
@@ -279,19 +281,19 @@ green result from a tree with uncommitted foreign edits; check `git status` firs
 ## 7. The run loop
 
 ```bash
-cd ehome && (tl_initial_password=root1234 tl_browser=none nohup ../mvnw -B exec:java > ../tmp/tl-app.log 2>&1 &)
-# In the app module (the deploy aspect deploy/local applies only there), with the tooling built by the last
-# ./mvnw install in the root (-Pproduction: without it). Jetty on 8080, context /ehome (tl.contextPath
-# in ehome/pom.xml), dev mode, data in the root tmp/ (ehome.dataDir in ehome/pom.xml); "up and
-# running" in tmp/tl-app.log after ~10 s on a warm tmp/ (the first start of a fresh tmp/ is slow)
+(tl_initial_password=root1234 tl_browser=none nohup ./mvnw -B -pl ehome exec:java > tmp/tl-app.log 2>&1 &)
+# In the repository root (deploy/local applies to the module of a multi-module build since TL #29895),
+# with the tooling built by the last ./mvnw install in the root (-Pproduction: without it). Jetty on
+# 8080, context /ehome (tl.contextPath in ehome/pom.xml), dev mode, data in tmp/ of the working
+# directory, i.e. the root tmp/; "up and running" in tmp/tl-app.log after ~10 s on a warm tmp/ (the
+# first start of a fresh tmp/ is slow)
 curl -sf http://localhost:8080/admin/stop               # stop; the port is free ~2 s later
 ```
 
-The `tl-app` skill (`tl-app.sh start|stop|restart ehome`) does the same with its own port and
-`ehome/tmp/tl-app.log`; but its start keeps the data in the root `tmp/` only through the
-`ehome.dataDir` of the POM — use it when the port does not matter, the command above when the user
-expects 8080. To start on a copy of the data: `-Dehome.dataDir=<dir>` (the environment variables
-`h2_name` and `tl_storage_path` are overridden by the POM).
+The `tl-app` skill (`tl-app.sh start|stop|restart ehome`) starts in the module directory with its own
+port, so it keeps its data in `ehome/tmp/`, not in the root `tmp/` the user works with — use it only
+for a throwaway database. To start on a copy of the data: `-Dh2_name=<dir>/h2;DB_CLOSE_ON_EXIT=FALSE
+-Dtl_storage_path=<dir>/app-data`.
 
 Open `http://localhost:8080/ehome/view/` and log in through the in-app dialog as
 `root` / `root1234` (the initial password is read from `tl_initial_password` — environment

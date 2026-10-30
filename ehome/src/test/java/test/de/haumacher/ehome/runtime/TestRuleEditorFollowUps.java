@@ -28,6 +28,8 @@ import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLStructuredTypePart;
+import com.top_logic.model.annotate.util.ValueNormalizer;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
@@ -39,7 +41,6 @@ import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleExport;
 import de.haumacher.ehome.runtime.RuleFunctions;
 import de.haumacher.ehome.runtime.RuleImport;
-import de.haumacher.ehome.runtime.RuleNormalization;
 
 /**
  * The follow-ups of the rule editor (haumacher/ehome #60), on a project without an ETS import whose
@@ -158,7 +159,22 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 		}
 	}
 
-	public void testNormalizeOnSave() throws Exception {
+	/**
+	 * Enters every text of the object again, as a form does: through the value normalizer its
+	 * attribute declares in the model.
+	 */
+	private static void enter(TLObject obj) {
+		int normalized = 0;
+		for (TLStructuredTypePart part : obj.tType().getAllParts()) {
+			if (ValueNormalizer.isAnnotated(part)) {
+				obj.tUpdate(part, ValueNormalizer.annotated(part).normalize(obj, part, obj.tValue(part)));
+				normalized++;
+			}
+		}
+		assertTrue(TLModelUtil.qualifiedName(obj.tType()), normalized > 0);
+	}
+
+	public void testNormalizeOnEntry() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
 			TLObject reaction;
@@ -188,7 +204,7 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			String message = (String) log.tValueByName("message");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				for (TLObject obj : List.of(reaction, parameter, timer, log, entry)) {
-					RuleNormalization.normalize(obj);
+					enter(obj);
 				}
 				tx.commit();
 			}
@@ -205,8 +221,8 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			// Canonical texts stay as they are.
 			String canonical = (String) reaction.tValueByName("condition");
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				RuleNormalization.normalize(reaction);
-				RuleNormalization.normalize(timer);
+				enter(reaction);
+				enter(timer);
 				tx.commit();
 			}
 			assertEquals(canonical, reaction.tValueByName("condition"));

@@ -71,8 +71,6 @@
 					<method name="ruleDatapoints" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<!-- The datapoints offered while typing a reference in a text of the rule language (TL #29887). -->
 					<method name="ruleSuggestions" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
-					<!-- The canonical texts on save (haumacher/ehome #60). -->
-					<method name="ruleNormalize" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<!-- The import of rules from a runtime image (haumacher/ehome #60). -->
 					<method name="ruleImportImage" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 				</methods>

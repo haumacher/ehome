@@ -296,17 +296,6 @@
 									input="entry"
 									with-inset="true"
 								>
-									<save-action>
-										<!-- Stores the texts of the rule language in their canonical form (haumacher/ehome #60). -->
-										<with-transaction>
-											<store-form-state>
-												<with-result>
-													<execute-script function="ruleNormalize($result)"/>
-												</with-result>
-											</store-form-state>
-										</with-transaction>
-										<leave-edit-mode/>
-									</save-action>
 									<field attribute="label"/>
 									<field attribute="identifier"/>
 									<field attribute="enabled"/>

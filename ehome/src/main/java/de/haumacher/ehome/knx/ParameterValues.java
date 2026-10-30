@@ -76,9 +76,8 @@ public class ParameterValues {
 	 * This is the one definition of a holder's type: the model's <code>valueType</code> and the
 	 * options, constraints and visibility of the typed attributes read it through the TL-Script
 	 * function <code>parameterValueType</code> ({@link ParameterValueType}). It navigates the stored
-	 * references, so that it also works where derived attributes cannot be read (an import or a
-	 * commit check running without a user), and it reads the holder generically, so that it works
-	 * on the overlay of a form as well, with the values entered there.
+	 * references and reads the holder generically, so that it works on the overlay of a form as
+	 * well, with the values entered there.
 	 * </p>
 	 */
 	public static ParameterType valueType(TLObject holder) {

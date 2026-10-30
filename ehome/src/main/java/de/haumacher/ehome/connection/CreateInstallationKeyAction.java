@@ -10,6 +10,7 @@ import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
+import com.top_logic.layout.view.command.WithResultActions;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
@@ -29,7 +30,7 @@ public class CreateInstallationKeyAction implements ViewAction {
 	 * Configuration of {@link CreateInstallationKeyAction}.
 	 */
 	@TagName("create-installation-key")
-	public interface Config extends PolymorphicConfiguration<CreateInstallationKeyAction> {
+	public interface Config extends PolymorphicConfiguration<CreateInstallationKeyAction>, WithResultActions {
 
 		@Override
 		@ClassDefault(CreateInstallationKeyAction.class)

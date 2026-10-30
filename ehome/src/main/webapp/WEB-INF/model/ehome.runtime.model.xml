@@ -1252,6 +1252,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The smallest value (integer, real, duration, time of day), a literal. -->
@@ -1263,6 +1266,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The largest value (integer, real, duration, time of day), a literal. -->
@@ -1274,6 +1280,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- A hint for the controller's control: a number, or a duration for a duration parameter. -->
@@ -1285,6 +1294,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!--
@@ -1350,6 +1362,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The label the controller shows for the value, in its UI language (spec/rules.md 2.2). -->
@@ -1399,6 +1414,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>
@@ -1481,6 +1499,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The actions run when the condition is true. -->
@@ -1601,6 +1622,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>
@@ -1722,6 +1746,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>
@@ -1775,6 +1802,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- Nothing happens when the datapoint already has the value. -->
@@ -1826,6 +1856,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>
@@ -1855,6 +1888,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>
@@ -1902,6 +1938,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>
@@ -1925,6 +1964,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>
@@ -2013,6 +2055,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The days of the week; empty for every day. -->
@@ -2064,6 +2109,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>
@@ -2083,6 +2131,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The time of day (06:15). -->
@@ -2094,6 +2145,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>
@@ -2118,6 +2172,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The earliest time of the firing; empty for none. -->
@@ -2129,6 +2186,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The latest time of the firing; empty for none. -->
@@ -2140,6 +2200,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The days of the week; empty for every day. -->
@@ -2171,6 +2234,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The first firing of a day (06:00). -->
@@ -2182,6 +2248,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The latest firing of a day (22:00). -->
@@ -2193,6 +2262,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 				<!-- The days of the week; empty for every day. -->
@@ -2224,6 +2296,9 @@
 							<rule-constraint syntax="true"/>
 							<rule-constraint/>
 						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
 					</annotations>
 				</property>
 			</attributes>

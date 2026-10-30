@@ -80,15 +80,14 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<with-transaction>
-								<create-enrollment-code/>
+							<create-enrollment-code>
 								<with-result>
 									<notify
 										display="dialog"
 										expr="$result"
 									/>
 								</with-result>
-							</with-transaction>
+							</create-enrollment-code>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-key"
@@ -109,15 +108,14 @@
 								<null-input-disabled/>
 								<disabled-if expr="installationKeyCreateVeto($project)"/>
 							</executability>
-							<with-transaction>
-								<create-installation-key/>
+							<create-installation-key>
 								<with-result>
 									<notify
 										display="dialog"
 										expr="$result"
 									/>
 								</with-result>
-							</with-transaction>
+							</create-installation-key>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-arrow-repeat"
@@ -139,15 +137,14 @@
 								<disabled-if expr="installationKeyRenewVeto($project)"/>
 							</executability>
 							<confirm expr="#('Renew the installation key? A new key is offered to the controllers; each owner accepts it on the device after comparing its fingerprint. Until then images are signed with the current key.'@en, 'Den Installationsschlüssel erneuern? Den Controllern wird ein neuer Schlüssel angeboten; jeder Besitzer nimmt ihn am Gerät an, nachdem er den Fingerabdruck verglichen hat. Bis dahin werden die Abbilder mit dem bisherigen Schlüssel signiert.'@de)"/>
-							<with-transaction>
-								<renew-installation-key/>
+							<renew-installation-key>
 								<with-result>
 									<notify
 										display="dialog"
 										expr="$result"
 									/>
 								</with-result>
-							</with-transaction>
+							</renew-installation-key>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
@@ -168,15 +165,14 @@
 								<null-input-disabled/>
 							</executability>
 							<confirm expr="forgetConfirmation($controller)"/>
-							<with-transaction>
-								<forget-controller/>
+							<forget-controller>
 								<with-result>
 									<notify
 										expr="$result"
 										kind="info"
 									/>
 								</with-result>
-							</with-transaction>
+							</forget-controller>
 						</generic-command>
 					</commands>
 					<stack>

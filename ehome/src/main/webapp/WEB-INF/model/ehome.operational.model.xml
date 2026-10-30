@@ -663,10 +663,9 @@
 			ParameterValues.valueType), which navigates the stored references: a parameter's type, the type
 			of the parameter a placement places, the type of the parameter a setting sets. valueType is that
 			function; the options, constraints, visibility and display call the function instead of reading
-			valueType, because a derived reference reads as empty where no user is logged in, as in the
-			commit check of an import (doc/tl-todo.md, "Derived references and the commit check"). A form
-			in edit mode traces what the function reads, so the visibility of the typed attributes and the
-			options of choice follow a parameter or type entered in the same form.
+			valueType, because the function reads the holder it is given: in a form in edit mode, the
+			values entered there. A form traces what the function reads, so the visibility of the typed
+			attributes and the options of choice follow a parameter or type entered in the same form.
 		-->
 		<interface name="ParameterValue">
 			<generalizations>
