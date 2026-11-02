@@ -411,8 +411,11 @@ public final class ControllerConnection {
 			case "key_accepted":
 				_keyPending = null;
 				_keyError = null;
-				_deviceKey = text(message.get("fingerprint"));
-				ControllerConnections.deviceKey(this);
+				// Stored before it becomes visible: whoever sees the new key and then waits for the
+				// knowledge base sees it stored.
+				String accepted = text(message.get("fingerprint"));
+				ControllerConnections.deviceKey(this, accepted);
+				_deviceKey = accepted;
 				break;
 			case "error":
 				if (InstallationKeys.BAD_KEY.equals(message.get("code"))) {

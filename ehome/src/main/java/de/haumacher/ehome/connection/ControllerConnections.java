@@ -318,7 +318,7 @@ public final class ControllerConnections {
 		String version = connection.version();
 		String build = connection.build();
 		execute(() -> store(connection.controllerId(), now, version, build));
-		deviceKey(connection);
+		deviceKey(connection, connection.deviceKey());
 		for (Listener listener : LISTENERS) {
 			try {
 				listener.connected(connection);
@@ -331,10 +331,14 @@ public final class ControllerConnections {
 	/**
 	 * The controller named the installation key it holds (its <code>auth</code> or
 	 * <code>key_accepted</code>): stored, and a rotation it completes ends
-	 * ({@link InstallationKeys#deviceKey(String, String)}).
+	 * ({@link InstallationKeys#deviceKey(String, String)}). Called before the connection shows the
+	 * key ({@link ControllerConnection#deviceKey()}), so that {@link #awaitKnowledgeBase()} after
+	 * seeing it waits for the store.
+	 *
+	 * @param fingerprint
+	 *        The fingerprint of the key the device holds, <code>null</code> for none.
 	 */
-	static void deviceKey(ControllerConnection connection) {
-		String fingerprint = connection.deviceKey();
+	static void deviceKey(ControllerConnection connection, String fingerprint) {
 		execute(() -> InstallationKeys.deviceKey(connection.controllerId(), fingerprint));
 	}
 
