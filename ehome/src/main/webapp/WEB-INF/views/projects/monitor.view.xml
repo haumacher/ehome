@@ -199,13 +199,19 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-x-circle"
-							inputs="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Disconnect</en>
 								<de>Trennen</de>
 							</label>
+							<access>
+								<operation name="Read"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<disabled-if expr="if($state != null and $state['connected'], null, #('Not connected.'@en, 'Nicht verbunden.'@de))"/>
 							</executability>
@@ -243,13 +249,19 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-lock-fill"
-							inputs="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Lock sending</en>
 								<de>Senden sperren</de>
 							</label>
+							<access>
+								<operation name="Read"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<visible-if expr="$state != null and $state['sending']"/>
 							</executability>
@@ -289,13 +301,19 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-stop-circle"
-							inputs="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Stop recording</en>
 								<de>Aufzeichnung beenden</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<visible-if expr="$state != null and $state['recording'] != null"/>
 							</executability>
@@ -308,13 +326,19 @@
 						<generic-command
 							clique="more"
 							image="css:bi bi-eraser"
-							inputs="state"
+							inputs="state, project"
 							placement="TOOLBAR"
 						>
 							<label>
 								<en>Clear the values and the log</en>
 								<de>Werte und Protokoll leeren</de>
 							</label>
+							<access>
+								<operation name="Read"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 							</executability>
@@ -532,12 +556,18 @@
 																<button>
 																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																		image="css:bi bi-toggle-off"
-																		inputs="state"
+																		inputs="state, project"
 																	>
 																		<label>
 																			<en>Send 0</en>
 																			<de>0 senden</de>
 																		</label>
+																		<access>
+																			<operation name="Write"
+																				object="$project"
+																				type="ehome.project:Project"
+																			/>
+																		</access>
 																		<executability>
 																			<disabled-if expr="monitorSendVeto($state)"/>
 																		</executability>
@@ -555,12 +585,18 @@
 																<button>
 																	<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																		image="css:bi bi-toggle-on"
-																		inputs="state"
+																		inputs="state, project"
 																	>
 																		<label>
 																			<en>Send 1</en>
 																			<de>1 senden</de>
 																		</label>
+																		<access>
+																			<operation name="Write"
+																				object="$project"
+																				type="ehome.project:Project"
+																			/>
+																		</access>
 																		<executability>
 																			<disabled-if expr="monitorSendVeto($state)"/>
 																		</executability>
@@ -607,12 +643,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -655,12 +697,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-arrow-up"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Up</en>
 																				<de>Auf</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -679,12 +727,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-arrow-down"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Down</en>
 																				<de>Ab</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -703,12 +757,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-stop-fill"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Stop</en>
 																				<de>Stopp</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -786,12 +846,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -849,12 +915,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -911,12 +983,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -959,12 +1037,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -1004,12 +1088,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -1049,12 +1139,18 @@
 																	<button>
 																		<action class="com.top_logic.layout.view.command.GenericViewCommand"
 																			image="css:bi bi-send"
-																			inputs="state"
+																			inputs="state, project"
 																		>
 																			<label>
 																				<en>Send</en>
 																				<de>Senden</de>
 																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$project"
+																					type="ehome.project:Project"
+																				/>
+																			</access>
 																			<executability>
 																				<disabled-if expr="monitorSendVeto($state)"/>
 																			</executability>
@@ -1077,12 +1173,18 @@
 													<button>
 														<action class="com.top_logic.layout.view.command.GenericViewCommand"
 															image="css:bi bi-question-circle"
-															inputs="state"
+															inputs="state, project"
 														>
 															<label>
 																<en>Read (the answer appears as telegram)</en>
 																<de>Lesen (die Antwort erscheint als Telegramm)</de>
 															</label>
+															<access>
+																<operation name="Write"
+																	object="$project"
+																	type="ehome.project:Project"
+																/>
+															</access>
 															<executability>
 																<disabled-if expr="monitorSendVeto($state)"/>
 															</executability>
@@ -1118,13 +1220,19 @@
 								<commands>
 									<generic-command
 										image="css:bi bi-pause-fill"
-										inputs="state"
+										inputs="state, project"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Hold</en>
 											<de>Anhalten</de>
 										</label>
+										<access>
+											<operation name="Read"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
 										<executability>
 											<visible-if expr="$state != null and !$state['paused']"/>
 										</executability>
@@ -1136,13 +1244,19 @@
 									</generic-command>
 									<generic-command
 										image="css:bi bi-play-fill"
-										inputs="state"
+										inputs="state, project"
 										placement="TOOLBAR"
 									>
 										<label>
 											<en>Continue</en>
 											<de>Fortsetzen</de>
 										</label>
+										<access>
+											<operation name="Read"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
 										<executability>
 											<visible-if expr="$state != null and $state['paused']"/>
 										</executability>

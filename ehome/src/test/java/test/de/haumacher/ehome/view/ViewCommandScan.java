@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,7 @@ import com.top_logic.basic.config.ConfigurationItem;
 import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.PropertyDescriptor;
 import com.top_logic.layout.view.ViewLoader;
+import com.top_logic.layout.view.command.ExecuteScriptAction;
 import com.top_logic.layout.view.command.ActionArguments;
 import com.top_logic.layout.view.command.ActionScope;
 import com.top_logic.layout.view.command.ActionScopeDefinition;
@@ -25,7 +27,14 @@ import com.top_logic.layout.view.command.CommandArguments;
 import com.top_logic.layout.view.command.ViewCommand;
 import com.top_logic.layout.view.command.ViewExecutabilityRule;
 import com.top_logic.layout.view.security.CommandAccess;
+import com.top_logic.model.search.expr.GenericMethod;
+import com.top_logic.model.search.expr.SearchExpression;
+import com.top_logic.model.search.expr.config.SearchBuilder;
+import com.top_logic.model.search.expr.config.dom.Expr;
+import com.top_logic.model.search.expr.visit.DefaultDescendingVisitor;
+
 import com.top_logic.tool.execution.ExecutableState;
+import com.top_logic.util.model.ModelService;
 
 /**
  * The commands of the views of a module and the access checks they declare, for the probes of the
@@ -36,6 +45,10 @@ import com.top_logic.tool.execution.ExecutableState;
  * A command counts as changing data when one of its actions, at any depth, opens a transaction or
  * is an action of the app (a class in a package <code>de.haumacher.ehome.</code>, which covers the
  * tooling as well): the engine does not access check the Java actions of the app (CLAUDE.md).
+ * An <code>&lt;execute-script&gt;</code> counts when its function calls a TL-Script function of the app
+ * that declares side effects ({@link GenericMethod#isSideEffectFree()} false, e.g.
+ * <code>monitorSend</code>, haumacher/ehome #66); a change of the model made by the script itself is
+ * checked by the model's access rights when it is made.
  * <code>&lt;delete-object&gt;</code>, <code>&lt;create-transient&gt;</code> and
  * <code>&lt;persist-transient&gt;</code> bring their check of their own and do not count by
  * themselves.
@@ -83,6 +96,9 @@ public class ViewCommandScan {
 				if (ENGINE_WRITES.contains(name) || name.startsWith(APP_PACKAGE)) {
 					result.add(polymorphic.getImplementationClass().getSimpleName());
 				}
+				if (action instanceof ExecuteScriptAction.Config script) {
+					writingFunctions(script.getFunction(), result);
+				}
 			}
 			return result;
 		}
@@ -112,7 +128,7 @@ public class ViewCommandScan {
 		 * command without trigger value).
 		 */
 		public ExecutableState decide(Object... inputValues) {
-			List<Object> values = List.of(inputValues);
+			List<Object> values = Arrays.asList(inputValues);
 			Object main = values.isEmpty() ? null : values.get(0);
 			ActionArguments arguments = arguments().arguments(main, values);
 			return access().isExecutableFor(arguments);
@@ -126,6 +142,26 @@ public class ViewCommandScan {
 		public String toString() {
 			return view + ": " + String.join(", ", writes());
 		}
+	}
+
+	/**
+	 * Adds the names of the functions of the app with side effects that the given script calls, as
+	 * <code>name()</code>.
+	 */
+	static void writingFunctions(Expr function, Set<String> result) {
+		if (function == null) {
+			return;
+		}
+		SearchExpression compiled = SearchBuilder.toSearchExpression(ModelService.getApplicationModel(), function);
+		compiled.visit(new DefaultDescendingVisitor<Void, Set<String>>() {
+			@Override
+			protected Void composeGenericMethod(GenericMethod expr, Set<String> names, List<Void> argumentsResult) {
+				if (expr.getClass().getName().startsWith(APP_PACKAGE) && !expr.isSideEffectFree()) {
+					names.add(expr.getName() + "()");
+				}
+				return null;
+			}
+		}, result);
 	}
 
 	/**

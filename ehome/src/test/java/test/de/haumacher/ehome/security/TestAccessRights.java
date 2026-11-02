@@ -362,6 +362,21 @@ public class TestAccessRights extends BasicTestCase {
 		assertTrue(as(_stranger, () -> search.decide()).isHidden());
 	}
 
+	/**
+	 * The monitor's read writes a telegram to the bus through a TL-Script function of the app
+	 * (<code>monitorRead</code>, haumacher/ehome #66): refused for a viewer, allowed for an installer.
+	 * Clearing the viewer's own log only reads the project.
+	 */
+	public void testMonitorCommands() {
+		ViewCommandScan.Site read = ViewCommandScan.command("projects/monitor.view.xml", "monitorRead()");
+		assertRefused(as(_viewer, () -> read.decide(null, _project)));
+		assertTrue(as(_installer, () -> read.decide(null, _project)).isExecutable());
+
+		ViewCommandScan.Site clear = ViewCommandScan.command("projects/monitor.view.xml", "monitorClear()");
+		assertTrue(as(_viewer, () -> clear.decide(null, _project)).isExecutable());
+		assertRefused(as(_stranger, () -> clear.decide(null, _project)));
+	}
+
 	private static void assertRefused(ExecutableState state) {
 		assertFalse(String.valueOf(state), state.isExecutable());
 		assertTrue("Refused with the reason, not hidden: " + state, state.isDisabled());
