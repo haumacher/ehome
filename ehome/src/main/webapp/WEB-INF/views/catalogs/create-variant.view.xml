@@ -31,13 +31,20 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-check-lg"
-					inputs="model"
+					inputs="model, container"
 					placement="BUTTON_BAR"
 				>
 					<label>
 						<en>Create</en>
 						<de>Erstellen</de>
 					</label>
+					<access>
+						<!-- The catalog or the variant the new variant is created at (a catalog or a variant, both externalized). -->
+						<operation name="Write"
+							object="$container"
+							type="ehome.core:Externalized"
+						/>
+					</access>
 					<store-form-state/>
 					<with-transaction>
 						<persist-transient>
@@ -62,9 +69,6 @@
     $catalog.add(`ehome.catalog:Catalog#variants`, $variant);
     $variant
 }]]></function>
-									<inputs>
-										<input channel="container"/>
-									</inputs>
 								</execute-script>
 							</with-result>
 						</persist-transient>

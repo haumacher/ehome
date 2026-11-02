@@ -103,6 +103,17 @@ catalog) are disabled with only their own label as the reason. The ticket is sti
 
 **On the next upgrade:** check the ticket and the import commands' reasons; nothing to remove.
 
+## A refused submit leaves its input editable (TL #30105)
+
+The `<access>` check of a command decides the state of its button (TL #29856); the `<on-submit>`
+command of a `<value-input>` has no button, so a refused check leaves the input editable and reports
+the refusal only after the submit. Workaround in `projects/device-item.view.xml`: a device's parameter
+inputs switch to their read-only form with `!canWrite($device)`, repeating the `<access>` check of
+their `<on-submit>` (haumacher/ehome #65).
+
+**When fixed** (the input follows the state of its submit command): remove the `!canWrite($device)`
+case of the input kind in `device-item.view.xml`.
+
 ## No at-rest encryption out of the box (TL #29899, wontfix)
 
 The secret of an enrolled controller (haumacher/ehome #54) must be readable by E-Home to check the
@@ -118,3 +129,4 @@ token.
 - TL #29884, #29885: see above (access coverage of engine modules, the reason of refused commands).
 - TL #30086, #30087: see above (XML import: updating known descendants, the composition of a partition).
 - TL #30088: see above (a source is not told of the teardown of a hidden view's window).
+- TL #30105: see above (a refused submit leaves its `<value-input>` editable).

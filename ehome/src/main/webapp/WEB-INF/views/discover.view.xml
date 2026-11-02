@@ -30,6 +30,14 @@
 					<en>Search</en>
 					<de>Suchen</de>
 				</label>
+				<access>
+					<!--
+						The search only lists the gateways that answer; it reads no object of the model.
+						Read on the security root, granted to both E-Home roles (ehome.security.config.xml):
+						an E-Home user may search, an account without an E-Home role may not.
+					-->
+					<operation name="Read"/>
+				</access>
 				<execute-script function='{
 	"interface": $networkInterface,
 	"local-host": $localHost,

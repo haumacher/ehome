@@ -66,21 +66,23 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-box-arrow-in-down-right"
-					inputs="part"
+					inputs="part, device"
 				>
 					<label>
 						<en>Place</en>
 						<de>Zuordnen</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$device"
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="buildingPlace($device, $part)">
-							<inputs>
-								<input channel="device"/>
-							</inputs>
-						</execute-script>
+						<execute-script function="buildingPlace($device, $part)"/>
 						<with-result>
 							<write-channel name="selection"/>
 							<close-dialog/>
@@ -98,6 +100,12 @@
 						<en>Remove the placement</en>
 						<de>Zuordnung entfernen</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$device"
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 						<disabled-if expr="if($device.get(`ehome.physical:Device#location`) == null, #('The device is placed in no building part.'@en, 'Das Gerät ist in keinem Gebäudeteil platziert.'@de))"/>

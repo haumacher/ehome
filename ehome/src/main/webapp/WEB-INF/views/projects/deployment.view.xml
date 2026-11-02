@@ -111,6 +111,17 @@
 											<en>Download image</en>
 											<de>Abbild herunterladen</de>
 										</label>
+										<access>
+											<!--
+												Not a mere read: a valid image is signed with the private installation key of the project,
+												which nobody reads through the model (InstallationKeys); a signed image carries the authority
+												of a deployment, which is an installer's (Write, as "Deploy").
+											-->
+											<operation name="Write"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
 										<executability>
 											<null-input-disabled/>
 										</executability>
@@ -212,6 +223,13 @@
 											<en>Status</en>
 											<de>Status</de>
 										</label>
+										<access>
+											<!-- Only asks the controller of the project what it runs. -->
+											<operation name="Read"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
 										<executability>
 											<null-input-disabled/>
 											<disabled-if expr="if($project.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), null)"/>

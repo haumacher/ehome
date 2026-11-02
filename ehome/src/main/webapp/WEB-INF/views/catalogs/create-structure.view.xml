@@ -77,22 +77,25 @@
 			<commands>
 				<generic-command
 					image="css:bi bi-check-lg"
-					inputs="model"
+					inputs="model, anchor"
 					placement="BUTTON_BAR"
 				>
 					<label>
 						<en>Create</en>
 						<de>Erstellen</de>
 					</label>
+					<access>
+						<!-- The element goes into the anchor or into its container, a write of the program either way. -->
+						<operation name="Write"
+							object="$anchor"
+							type="ehome.core:Externalized"
+						/>
+					</access>
 					<store-form-state/>
 					<with-transaction>
 						<persist-transient>
 							<with-result>
-								<execute-script function="structureInsert($result, $anchor, null)">
-									<inputs>
-										<input channel="anchor"/>
-									</inputs>
-								</execute-script>
+								<execute-script function="structureInsert($result, $anchor, null)"/>
 							</with-result>
 						</persist-transient>
 						<with-result>

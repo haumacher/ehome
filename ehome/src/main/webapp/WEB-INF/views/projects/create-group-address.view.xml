@@ -119,6 +119,13 @@
 						<en>Create</en>
 						<de>Erstellen</de>
 					</label>
+					<access>
+						<!-- The address is created in the range. -->
+						<operation name="Write"
+							object="$range"
+							type="ehome.logical:GroupRange"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>

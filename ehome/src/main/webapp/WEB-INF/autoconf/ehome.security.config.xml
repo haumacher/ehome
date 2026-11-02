@@ -168,6 +168,16 @@
 						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
 						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
 					</module>
+					<!--
+						The security root stands for E-Home as a whole: the commands that read no object of
+						the model (the searches for KNX gateways and controllers on the network) check Read
+						there (haumacher/ehome #65), which both E-Home roles hold, an account without one of
+						them not. The root has no grants of its type; the operation Administration declared
+						for it by the engine stays with the administrators.
+					-->
+					<singleton name="SecurityStructure#ROOT">
+						<grant operation="Read" roles="ehome.Installer, ehome.Viewer"/>
+					</singleton>
 					<!-- A read grant without roles: nobody but an administrator reads the token. -->
 					<part name="ehome.runtime:Controller#token">
 						<grant operation="Read"/>

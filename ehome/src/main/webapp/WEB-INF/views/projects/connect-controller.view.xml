@@ -113,6 +113,13 @@
 						<en>Connect</en>
 						<de>Verbinden</de>
 					</label>
+					<access>
+						<!-- The monitor listens to the stream of the controller; sending needs "Allow sending" (Write). -->
+						<operation name="Read"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>

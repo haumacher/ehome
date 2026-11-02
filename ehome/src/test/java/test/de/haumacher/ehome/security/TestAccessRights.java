@@ -17,6 +17,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.importer.TestEtsImport;
+import test.de.haumacher.ehome.view.ViewCommandScan;
 
 import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.base.services.InitialGroupManager;
@@ -34,6 +35,7 @@ import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
+import com.top_logic.model.search.expr.config.SearchBuilder;
 import com.top_logic.model.security.ModelAccessRights;
 import com.top_logic.model.security.SecurityConfigurationService;
 import com.top_logic.model.util.TLModelUtil;
@@ -41,6 +43,7 @@ import com.top_logic.tool.boundsec.BoundCommandGroup;
 import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.tool.boundsec.simple.SimpleBoundCommandGroup;
 import com.top_logic.tool.boundsec.wrap.Group;
+import com.top_logic.tool.execution.ExecutableState;
 import com.top_logic.util.TLContextManager;
 import com.top_logic.util.model.ModelService;
 
@@ -53,7 +56,10 @@ import de.haumacher.ehome.programming.I18NConstants;
  * an E-Home group: on a project with a group address, a device, a function, a deployment, a rule with a
  * parameter, a reaction, a trigger and an action, a schedule entry and an application datapoint, on a
  * controller and its token, on a manufacturer with a catalog and an application program, and on the
- * singletons of the master data.
+ * singletons of the master data. The access checks the view commands declare (haumacher/ehome #65) are
+ * evaluated for these accounts as the engine evaluates them for a button: the bus scan, a dialog
+ * placing a device, the export of a signed runtime image, the read-only export of a project and the
+ * search for gateways on the network.
  *
  * <p>
  * The test builds the objects it checks itself (no import) and deletes them, and the accounts, again.
@@ -311,6 +317,58 @@ public class TestAccessRights extends BasicTestCase {
 	}
 
 	/**
+	 * The bus scan (<code>ScanJob</code>) writes the devices of the project: refused for a viewer
+	 * (disabled with the reason, not hidden: an installer may run it), allowed for an installer.
+	 */
+	public void testScanCommand() {
+		ViewCommandScan.Site scan = ViewCommandScan.command("projects/scan.view.xml", "ScanJob");
+		assertRefused(as(_viewer, () -> scan.decide(_project)));
+		assertRefused(as(_stranger, () -> scan.decide(_project)));
+		assertTrue(as(_installer, () -> scan.decide(_project)).isExecutable());
+	}
+
+	/**
+	 * A dialog button reached through a checked command checks again: placing a device in a building
+	 * part writes the device.
+	 */
+	public void testPlaceDeviceCommand() {
+		ViewCommandScan.Site place = ViewCommandScan.command("projects/place-device.view.xml", "WithTransactionAction");
+		assertRefused(as(_viewer, () -> place.decide(_device)));
+		assertTrue(as(_installer, () -> place.decide(_device)).isExecutable());
+	}
+
+	/**
+	 * The export of the runtime image signs it with the installation key: an installer's, not a
+	 * viewer's. The export of the ETS project only reads it: a viewer's as well.
+	 */
+	public void testExportCommands() {
+		ViewCommandScan.Site image = ViewCommandScan.command("projects/deployment.view.xml", "ExportRuntimeImageAction");
+		assertRefused(as(_viewer, () -> image.decide(_project)));
+		assertTrue(as(_installer, () -> image.decide(_project)).isExecutable());
+
+		ViewCommandScan.Site knxproj = ViewCommandScan.command("projects/overview.view.xml", "ExportKnxprojAction");
+		assertTrue(as(_viewer, () -> knxproj.decide(_project)).isExecutable());
+		assertRefused(as(_stranger, () -> knxproj.decide(_project)));
+	}
+
+	/**
+	 * The search for gateways reads no object: Read on the security root, which both E-Home roles
+	 * hold and an account without an E-Home group not (the command is hidden for it).
+	 */
+	public void testSearchCommand() {
+		ViewCommandScan.Site search = ViewCommandScan.command("discover.view.xml", "DiscoverGatewaysAction");
+		assertTrue(as(_viewer, () -> search.decide()).isExecutable());
+		assertTrue(as(_installer, () -> search.decide()).isExecutable());
+		assertTrue(as(_stranger, () -> search.decide()).isHidden());
+	}
+
+	private static void assertRefused(ExecutableState state) {
+		assertFalse(String.valueOf(state), state.isExecutable());
+		assertTrue("Refused with the reason, not hidden: " + state, state.isDisabled());
+		assertNotNull(state.getI18NReasonKey());
+	}
+
+	/**
 	 * Probe: every object of every type of the E-Home modules in the database, after an ETS import,
 	 * is readable and not writable for a viewer and writable for an installer (a type without grants
 	 * and without an access parent would fail).
@@ -446,7 +504,7 @@ public class TestAccessRights extends BasicTestCase {
 	public static Test suite() {
 		return KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(TestAccessRights.class,
 			ModelService.Module.INSTANCE, LabelProviderService.Module.INSTANCE, PersonManager.Module.INSTANCE,
-			TLSecurityDeviceManager.Module.INSTANCE,
+			SearchBuilder.Module.INSTANCE, TLSecurityDeviceManager.Module.INSTANCE,
 			InitialRolesManager.Module.INSTANCE, InitialGroupManager.Module.INSTANCE, AccessManager.Module.INSTANCE,
 			SecurityConfigurationService.Module.INSTANCE));
 	}

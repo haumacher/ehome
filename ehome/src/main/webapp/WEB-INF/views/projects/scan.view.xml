@@ -60,6 +60,12 @@
 								<en>Choose the gateway</en>
 								<de>Gateway wählen</de>
 							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 							</executability>
@@ -78,6 +84,13 @@
 								<en>Scan</en>
 								<de>Suchen</de>
 							</label>
+							<access>
+								<!-- The scan creates and updates the devices of the project. -->
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 								<disabled-if expr="scanVeto($project, null, null, false, true, false)"/>
@@ -198,6 +211,13 @@
 								<en>Create / update</en>
 								<de>Anlegen / Aktualisieren</de>
 							</label>
+							<access>
+								<!-- The device is created or updated in the project of the row. -->
+								<operation name="Write"
+									object='$selected["project"]'
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 								<disabled-if expr="scanApplyVeto($selected)"/>
@@ -242,6 +262,13 @@
 								<en>Read the configuration</en>
 								<de>Konfiguration einlesen</de>
 							</label>
+							<access>
+								<!-- The read-back writes the configuration into the device of the project of the row. -->
+								<operation name="Write"
+									object='$selected["project"]'
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 								<disabled-if expr="scanReadVeto($selected)"/>
@@ -273,6 +300,13 @@
 								<en>Programming LED on</en>
 								<de>Programmier-LED an</de>
 							</label>
+							<access>
+								<!-- Switches the programming mode of a device on the bus of the project of the row. -->
+								<operation name="Write"
+									object='$selected["project"]'
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 								<disabled-if expr="scanLedVeto($selected)"/>
@@ -307,6 +341,13 @@
 								<en>Programming LED off</en>
 								<de>Programmier-LED aus</de>
 							</label>
+							<access>
+								<!-- Switches the programming mode of a device on the bus of the project of the row. -->
+								<operation name="Write"
+									object='$selected["project"]'
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 								<disabled-if expr="scanLedVeto($selected)"/>

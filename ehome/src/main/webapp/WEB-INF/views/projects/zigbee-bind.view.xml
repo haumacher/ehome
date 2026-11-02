@@ -39,21 +39,23 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-link-45deg"
-					inputs="datapoint"
+					inputs="datapoint, function"
 				>
 					<label>
 						<en>Bind</en>
 						<de>Binden</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$function"
+							type="ehome.zigbee:ZigbeeFunction"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="zigbeeBind($function, $datapoint)">
-							<inputs>
-								<input channel="function"/>
-							</inputs>
-						</execute-script>
+						<execute-script function="zigbeeBind($function, $datapoint)"/>
 					</with-transaction>
 					<close-dialog/>
 				</action>

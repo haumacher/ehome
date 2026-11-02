@@ -71,21 +71,24 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-check-lg"
-					inputs="candidate"
+					inputs="candidate, row"
 				>
 					<label>
 						<en>Create / update</en>
 						<de>Anlegen / Aktualisieren</de>
 					</label>
+					<access>
+						<!-- The device is created or updated in the project of the row. -->
+						<operation name="Write"
+							object='$row["project"]'
+							type="ehome.project:Project"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="scanApply($row, $candidate)">
-							<inputs>
-								<input channel="row"/>
-							</inputs>
-						</execute-script>
+						<execute-script function="scanApply($row, $candidate)"/>
 						<with-result>
 							<notify expr="$result"/>
 							<execute-script function='{"summary": $result["summary"], "rows": scanRefresh($result["rows"]), "notes": $result["notes"]}'>

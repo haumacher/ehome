@@ -32,11 +32,19 @@
 				<button>
 					<action class="com.top_logic.layout.view.command.GenericViewCommand"
 						image="css:bi bi-broadcast"
+						inputs="project"
 					>
 						<label>
 							<en>Search gateways</en>
 							<de>Gateways suchen</de>
 						</label>
+						<access>
+							<!-- The search only lists the gateways that answer, for the project. -->
+							<operation name="Read"
+								object="$project"
+								type="ehome.project:Project"
+							/>
+						</access>
 						<discover-knx-gateways>
 							<with-result as="rows">
 								<write-channel name="gateways"/>
@@ -114,6 +122,12 @@
 						<en>Use</en>
 						<de>Übernehmen</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>

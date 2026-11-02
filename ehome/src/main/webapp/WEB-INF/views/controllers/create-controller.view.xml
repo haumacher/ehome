@@ -36,6 +36,10 @@
 						<en>Create</en>
 						<de>Erstellen</de>
 					</label>
+					<access>
+						<!-- Persisting brings this check as well; the token is set on the new controller in a further transaction. -->
+						<create type="ehome.runtime:Controller"/>
+					</access>
 					<store-form-state/>
 					<persist-transient>
 						<with-result>

@@ -10,8 +10,9 @@
 	user finishes (a choice; Enter or leaving a typed field) is applied at once in a transaction of its own
 	(deviceApplyValue): a value other than the default creates or changes the device's setting, the
 	default (or an emptied input) removes it. A refused value is reported with its reason, and the
-	input shows the effective value again. A parameter that can only be read
-	shows its value as text, a parameter without value (a heading) only its text.
+	input shows the effective value again. A parameter that can only be read, or that the user may not
+	change (no Write on the device, e.g. a viewer; the submit checks it as well), shows its value as
+	text, a parameter without value (a heading) only its text.
 
 	A communication object shows its connections, each with the command removing it (an icon with
 	its label as tooltip, as are the reset commands beside the hints), and the
@@ -57,6 +58,7 @@
     t = $item.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
     switch {
         $t.instanceOf(`ehome.operational:VoidType`): "heading";
+        !canWrite($device): "readonly";
         deviceEditVeto($device, $item) != null: "readonly";
         $t.instanceOf(`ehome.operational:EnumerationType`): "choice";
         $t.instanceOf(`ehome.operational:NumericType`) or $t.instanceOf(`ehome.operational:TimeType`): "number";
@@ -142,14 +144,15 @@
 						<en>Value</en>
 						<de>Wert</de>
 					</label>
-					<on-submit>
+					<on-submit inputs="device, item">
+						<access>
+							<operation name="Write"
+								object="$device"
+								type="ehome.physical:Device"
+							/>
+						</access>
 						<with-transaction>
-							<execute-script function="deviceApplyValue($device, $item, $value)">
-								<inputs>
-									<input channel="device"/>
-									<input channel="item"/>
-								</inputs>
-							</execute-script>
+							<execute-script function="deviceApplyValue($device, $item, $value)"/>
 							<with-result>
 								<notify
 									expr="$result"
@@ -172,14 +175,15 @@
 						<en>Value</en>
 						<de>Wert</de>
 					</label>
-					<on-submit>
+					<on-submit inputs="device, item">
+						<access>
+							<operation name="Write"
+								object="$device"
+								type="ehome.physical:Device"
+							/>
+						</access>
 						<with-transaction>
-							<execute-script function="deviceApplyValue($device, $item, $value)">
-								<inputs>
-									<input channel="device"/>
-									<input channel="item"/>
-								</inputs>
-							</execute-script>
+							<execute-script function="deviceApplyValue($device, $item, $value)"/>
 							<with-result>
 								<notify
 									expr="$result"
@@ -202,14 +206,15 @@
 						<en>Value</en>
 						<de>Wert</de>
 					</label>
-					<on-submit>
+					<on-submit inputs="device, item">
+						<access>
+							<operation name="Write"
+								object="$device"
+								type="ehome.physical:Device"
+							/>
+						</access>
 						<with-transaction>
-							<execute-script function="deviceApplyValue($device, $item, $value)">
-								<inputs>
-									<input channel="device"/>
-									<input channel="item"/>
-								</inputs>
-							</execute-script>
+							<execute-script function="deviceApplyValue($device, $item, $value)"/>
 							<with-result>
 								<notify
 									expr="$result"
@@ -232,14 +237,15 @@
 						<en>Value</en>
 						<de>Wert</de>
 					</label>
-					<on-submit>
+					<on-submit inputs="device, item">
+						<access>
+							<operation name="Write"
+								object="$device"
+								type="ehome.physical:Device"
+							/>
+						</access>
 						<with-transaction>
-							<execute-script function="deviceApplyValue($device, $item, $value)">
-								<inputs>
-									<input channel="device"/>
-									<input channel="item"/>
-								</inputs>
-							</execute-script>
+							<execute-script function="deviceApplyValue($device, $item, $value)"/>
 							<with-result>
 								<notify
 									expr="$result"

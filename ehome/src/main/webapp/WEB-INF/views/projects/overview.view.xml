@@ -100,6 +100,13 @@
 					<en>Export as .knxproj</en>
 					<de>Als .knxproj exportieren</de>
 				</label>
+				<access>
+					<!-- The export only reads the project. -->
+					<operation name="Read"
+						object="$project"
+						type="ehome.project:Project"
+					/>
+				</access>
 				<executability>
 					<null-input-disabled/>
 				</executability>

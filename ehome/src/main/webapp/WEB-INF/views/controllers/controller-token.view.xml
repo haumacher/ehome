@@ -47,6 +47,12 @@
 						<en>Set</en>
 						<de>Setzen</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$controller"
+							type="ehome.runtime:Controller"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>

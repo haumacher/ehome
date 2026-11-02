@@ -101,6 +101,13 @@
 								<en>Status</en>
 								<de>Status</de>
 							</label>
+							<access>
+								<!-- Only asks the controller what it runs (with the stored token, in Java). -->
+								<operation name="Read"
+									object="$controller"
+									type="ehome.runtime:Controller"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 							</executability>

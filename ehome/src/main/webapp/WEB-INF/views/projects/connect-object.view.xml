@@ -134,19 +134,24 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-link-45deg"
-					inputs="interface"
+					inputs="interface, device"
 				>
 					<label>
 						<en>Connect</en>
 						<de>Verbinden</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$device"
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
 						<execute-script function="deviceConnect($device, $interface, $address, $kind)">
 							<inputs>
-								<input channel="device"/>
 								<input channel="address"/>
 								<input channel="kind"/>
 							</inputs>

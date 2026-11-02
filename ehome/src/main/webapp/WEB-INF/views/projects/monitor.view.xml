@@ -149,6 +149,13 @@
 								<en>Connect</en>
 								<de>Verbinden</de>
 							</label>
+							<access>
+								<!-- The monitor listens to the bus of the project; sending needs "Allow sending" (Write). -->
+								<operation name="Read"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 							</executability>
@@ -163,6 +170,12 @@
 								<en>Connect to a controller</en>
 								<de>Mit einem Controller verbinden</de>
 							</label>
+							<access>
+								<operation name="Read"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
 							<executability>
 								<null-input-disabled/>
 							</executability>

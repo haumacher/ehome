@@ -103,21 +103,23 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-check-lg"
-					inputs="settable"
+					inputs="settable, address"
 				>
 					<label>
 						<en>Set</en>
 						<de>Setzen</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$address"
+							type="ehome.logical:GroupAddress"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
-						<execute-script function="groupAddressSetType($address, $settable)">
-							<inputs>
-								<input channel="address"/>
-							</inputs>
-						</execute-script>
+						<execute-script function="groupAddressSetType($address, $settable)"/>
 						<with-result>
 							<write-channel name="selection"/>
 							<close-dialog/>
@@ -135,6 +137,12 @@
 						<en>Remove the own type</en>
 						<de>Eigenen Typ entfernen</de>
 					</label>
+					<access>
+						<operation name="Write"
+							object="$address"
+							type="ehome.logical:GroupAddress"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 						<disabled-if expr="if($address.get(`ehome.logical:GroupAddress#datapointTypes`).isEmpty(), #('The address has no datapoint type of its own.'@en, 'Die Adresse hat keinen eigenen Datenpunkttyp.'@de))"/>

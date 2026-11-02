@@ -91,6 +91,13 @@
 						<en>Start</en>
 						<de>Starten</de>
 					</label>
+					<access>
+						<!-- As the command opening the dialog: the virtual device answers on the network for the device. -->
+						<operation name="Write"
+							object='$model["device"]'
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>

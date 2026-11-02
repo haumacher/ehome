@@ -81,6 +81,13 @@
 						<en>Place</en>
 						<de>Zuordnen</de>
 					</label>
+					<access>
+						<!-- Placing sets the location of the chosen device. -->
+						<operation name="Write"
+							object="$chosen"
+							type="ehome.physical:Device"
+						/>
+					</access>
 					<executability>
 						<null-input-disabled/>
 					</executability>
