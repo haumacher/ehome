@@ -114,6 +114,20 @@ their `<on-submit>` (haumacher/ehome #65).
 **When fixed** (the input follows the state of its submit command): remove the `!canWrite($device)`
 case of the input kind in `device-item.view.xml`.
 
+## A composition table ignores the visibility of its attribute (TL #30134)
+
+A `<composition-table>` in a view-layer form does not follow the `<dynamic-visibility>` of its
+composite attribute, as a `<field>` does. The archives of a datapoint's history
+(`historyArchives` of `ehome.logical:GroupAddress` and `ehome.runtime:ApplicationDatapoint`,
+haumacher/ehome #73) are hidden by it unless the history is set by hand; their table in
+`projects/addresses.view.xml` and `projects/application-datapoints.view.xml` stays visible (empty)
+and editable for a derived history. Workaround: `HistoryConfig#archivesProblem` refuses an archive of
+a history not set by hand (`HISTORY_ARCHIVES_NOT_MANUAL`, through the constraint
+`runtimeArchiveProblem` of `HistoryArchive#resolution`), and the image ignores such archives.
+
+**When fixed:** remove the `isManual` case of `HistoryConfig#archivesProblem` and the key
+`HISTORY_ARCHIVES_NOT_MANUAL`, and the refused stray archive of `TestHistoryConfig#testOverride`.
+
 ## No at-rest encryption out of the box (TL #29899, wontfix)
 
 The secret of an enrolled controller (haumacher/ehome #54) must be readable by E-Home to check the
@@ -149,4 +163,5 @@ replace `bin/ehome-agent.py` by the MCP wrapper.
 - TL #30086, #30087: see above (XML import: updating known descendants, the composition of a partition).
 - TL #30088: see above (a source is not told of the teardown of a hidden view's window).
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
+- TL #30134: see above (a `<composition-table>` ignores the visibility of its attribute).
 - TL #30125, #30048: see above (agent access: 302 instead of 401, the follow-ups of the module).

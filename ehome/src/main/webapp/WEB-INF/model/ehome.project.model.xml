@@ -393,7 +393,7 @@
 				<property name="timeMasterOnSynchronized"
 					type="tl.core:Tristate"
 				/>
-				<!-- The memory in bytes the history rings of the datapoints may use on the controller (at most 65536); empty: what the rings need. -->
+				<!-- The memory in bytes the histories of the datapoints (raw rings and archives) may use on the controller (at most 65536); empty: what they need. -->
 				<property name="historyBudget"
 					type="tl.core:Integer"
 				>
@@ -405,6 +405,18 @@
 							max="65536"
 							min="0"
 						/>
+					</annotations>
+				</property>
+				<!-- The bytes the histories of the datapoints take against the budget and the device's cap (haumacher/ehome #73). -->
+				<property name="historyUsage"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[p -> runtimeHistoryUsage($p)]]></expr>
+							</query>
+						</storage-algorithm>
 					</annotations>
 				</property>
 				<!-- The deployments of the runtime image, newest first. -->

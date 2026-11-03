@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The history of a datapoint is derived from the charts of the control pages unless it is set by hand
+	(haumacher/ehome #73): the new flag historyManual of group addresses and application datapoints. A
+	datapoint that has a history from before (a retention or a spacing) becomes one set by hand, with
+	its raw ring and no archives, so its runtime image does not change until the user returns it to
+	the derived history. The automatic model upgrade at startup adds the attribute but cannot give
+	existing objects a value; this migration writes the flag into the flex data of these objects, for
+	every revision in which they had the history. The new attributes and the class HistoryArchive are
+	added by the automatic model upgrade (nothing is removed or moved).
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_73_History_set_by_hand"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_71_Ordered_building_structure"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_29852_binary_attribute_values"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_29092_multi_factor_authentication"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<sql file-name-prefix="webinf://kbase/migration/ehome/Issue_73_History_set_by_hand_scripts/markManual"/>
+	</processors>
+	<post-processors/>
+</migration>

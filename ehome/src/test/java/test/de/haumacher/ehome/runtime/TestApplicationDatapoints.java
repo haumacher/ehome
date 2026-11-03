@@ -92,6 +92,8 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			counter.tUpdateByName("type", valueType("unsigned"));
 			counter.tUpdateByName("writable", Boolean.TRUE);
 			counter.tUpdateByName("unit", "x");
+			// A history set by hand (haumacher/ehome #73).
+			counter.tUpdateByName("historyManual", Boolean.TRUE);
 			counter.tUpdateByName("historyRetention", Integer.valueOf(3600));
 			counter.tUpdateByName("historySpacing", Integer.valueOf(60));
 

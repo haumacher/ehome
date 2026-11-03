@@ -97,8 +97,11 @@ public final class ApplicationDatapoints {
 
 	/**
 	 * The datapoint of the image the application datapoint stands for.
+	 *
+	 * @param derived
+	 *        The histories the charts derive ({@link HistoryConfig#derivedHistories(TLObject)}).
 	 */
-	static Map<String, Object> json(TLObject datapoint) {
+	static Map<String, Object> json(TLObject datapoint, Map<TLObject, HistoryConfig.History> derived) {
 		Map<String, Object> result = new LinkedHashMap<>();
 		String id = id(datapoint);
 		result.put("id", id == null ? "" : id);
@@ -125,16 +128,8 @@ public final class ApplicationDatapoints {
 		if (Boolean.TRUE.equals(datapoint.tValueByName("persist"))) {
 			result.put("persist", Boolean.TRUE);
 		}
-		Integer retention = DatapointSettings.historyRetention(datapoint);
-		Integer spacing = DatapointSettings.historySpacing(datapoint);
-		if (retention != null || spacing != null) {
-			Map<String, Object> history = new LinkedHashMap<>();
-			if (retention != null) {
-				history.put("retention", Long.valueOf(retention.longValue()));
-			}
-			if (spacing != null) {
-				history.put("spacing", Long.valueOf(spacing.longValue()));
-			}
+		Map<String, Object> history = HistoryConfig.json(datapoint, derived);
+		if (history != null) {
 			result.put("history", history);
 		}
 		if (function != null) {

@@ -43,9 +43,9 @@ import de.haumacher.ehome.rules.RuleLoader;
  * </p>
  *
  * <p>
- * The history of a series' datapoint is the one set for the datapoint today
- * ({@link #hasHistory(TLObject)}); {@link #chartUses(TLObject)} collects what the charts ask of each
- * datapoint, the seam where haumacher/ehome #73 derives the history from the charts.
+ * {@link #chartUses(TLObject)} collects what the charts ask of each datapoint, from which
+ * {@link HistoryConfig} derives the history of the datapoint (haumacher/ehome #73); a series needs a
+ * datapoint that can have one ({@link #hasHistory(TLObject)}).
  * </p>
  */
 public final class Pages {
@@ -299,19 +299,15 @@ public final class Pages {
 	}
 
 	/**
-	 * Whether the controller keeps a history of the datapoint: the retention and spacing set for the
-	 * group address or application datapoint (a rule parameter has none).
-	 *
-	 * <p>
-	 * haumacher/ehome #73 derives the history of a datapoint from the charts that use it
-	 * ({@link #chartUses(TLObject)}); then this is where the derived configuration answers.
-	 * </p>
+	 * Whether the controller keeps a history of the datapoint when a chart draws it (haumacher/ehome
+	 * #73): a datapoint of a number or a truth value whose history is derived from the charts, or one
+	 * set by hand with its raw ring (a rule parameter has none).
 	 */
 	public static boolean hasHistory(TLObject datapoint) {
-		if (datapoint == null || !datapoint.tValid() || isRuleParameter(datapoint)) {
+		if (!HistoryConfig.canHaveHistory(datapoint)) {
 			return false;
 		}
-		return DatapointSettings.historyRetention(datapoint) != null && DatapointSettings.historySpacing(datapoint) != null;
+		return !HistoryConfig.isManual(datapoint) || HistoryConfig.manual(datapoint) != null;
 	}
 
 	/**
@@ -325,8 +321,8 @@ public final class Pages {
 
 	/**
 	 * What the charts of the project ask of the datapoints of their series, by datapoint in the order
-	 * of the pages: the seam of haumacher/ehome #73, which derives the history of a datapoint from
-	 * these uses (the needed resolution per range, the longest retention).
+	 * of the pages, from which {@link HistoryConfig#derived(TLObject)} derives their histories
+	 * (haumacher/ehome #73).
 	 */
 	public static Map<TLObject, List<ChartUse>> chartUses(TLObject project) {
 		Map<TLObject, List<ChartUse>> result = new LinkedHashMap<>();

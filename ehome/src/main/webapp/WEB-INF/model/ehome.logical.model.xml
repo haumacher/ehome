@@ -56,6 +56,58 @@
 				<generalization type="tl.model:TLObject"/>
 			</generalizations>
 		</interface>
+		<!--
+			An archive of the history of a datapoint (homecontrol #56, haumacher/ehome #73): one slot per
+			resolution interval holding the minimum, maximum, last value and the time-weighted mean (for a
+			truth value its on-time), kept for the retention. The controller allocates
+			ceil(retention / resolution) + 1 slots of 32 bytes; at most 2048 slots, at most 4 archives per
+			datapoint, each coarser than the raw ring's spacing.
+		-->
+		<class name="HistoryArchive">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-archive"/>
+			</annotations>
+			<attributes>
+				<!-- The time a slot covers, in seconds (60 to 2678400, coarser than the raw ring's spacing). -->
+				<property name="resolution"
+					mandatory="true"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<value-range
+							max="2678400"
+							min="60"
+						/>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeArchiveProblem($obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- How long the archive reaches back, in seconds (at least the resolution, at most 10 years). -->
+				<property name="retention"
+					mandatory="true"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+						<value-range
+							max="315360000"
+							min="60"
+						/>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
 		<class name="GroupAddress">
 			<generalizations>
 				<generalization type="GroupAddressDefinition"/>
@@ -150,11 +202,16 @@
 				<property name="runtimePersist"
 					type="tl.core:Boolean"
 				/>
-				<!-- How long the controller keeps the history of the value, in seconds (with the spacing; numbers and truth values only). -->
+				<!-- The raw ring of a history set by hand: how long the controller keeps the samples, in seconds (with the spacing; numbers and truth values only). -->
 				<property name="historyRetention"
 					type="tl.core:Integer"
 				>
 					<annotations>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.logical:GroupAddress#historyManual`), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
 						<format>
 							<decimal pattern="0" result-type="long"/>
 						</format>
@@ -164,11 +221,16 @@
 						/>
 					</annotations>
 				</property>
-				<!-- The time between two samples of the history in seconds (10 to 86400). -->
+				<!-- The raw ring of a history set by hand: the time between two samples in seconds (10 to 86400). -->
 				<property name="historySpacing"
 					type="tl.core:Integer"
 				>
 					<annotations>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.logical:GroupAddress#historyManual`), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
 						<format>
 							<decimal pattern="0" result-type="long"/>
 						</format>
@@ -181,6 +243,58 @@
 								<check><![CDATA[value -> obj -> runtimeHistoryProblem($obj)]]></check>
 							</constraint-by-expression>
 						</constraints>
+					</annotations>
+				</property>
+				<!--
+					Whether the history is set by hand (haumacher/ehome #73): the raw ring of historyRetention and
+					historySpacing and the archives historyArchives replace the history derived from the charts
+					of the control pages. Switched by the commands "Set history by hand" and "Derive history".
+				-->
+				<property name="historyManual"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!-- The archives of a history set by hand (homecontrol #56): a slot per resolution, kept for the retention. -->
+				<reference name="historyArchives"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.logical:HistoryArchive"
+				>
+					<annotations>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.logical:GroupAddress#historyManual`), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The history the charts of the control pages ask for: raw ring and archives, with the bytes they take. -->
+				<property name="historyDerived"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[dp -> runtimeHistoryDerived($dp)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The history in the runtime image: the one set by hand, else the derived one, with the bytes it takes. -->
+				<property name="historyEffective"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[dp -> runtimeHistoryEffective($dp)]]></expr>
+							</query>
+						</storage-algorithm>
 					</annotations>
 				</property>
 				<!-- The unit the controller shows (at most 15 bytes); empty: the unit of the datapoint type. -->

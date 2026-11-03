@@ -108,6 +108,8 @@ public class TestRuntimeSettings extends BasicTestCase {
 			}
 			assertNull(scene2.tValueByName("historyRetention"));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				// A history set by hand (haumacher/ehome #73).
+				scene2.tUpdateByName("historyManual", Boolean.TRUE);
 				scene2.tUpdateByName("historyRetention", Integer.valueOf(3600));
 				scene2.tUpdateByName("historySpacing", Integer.valueOf(1));
 				assertNotNull(DatapointSettings.historyProblem(scene2));

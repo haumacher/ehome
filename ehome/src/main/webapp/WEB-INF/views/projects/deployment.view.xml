@@ -17,7 +17,8 @@
 	after a confirmation naming what it runs, recorded as a deployment marked as an unload. "Status"
 	compares what the controller runs (GET /api/status) with the last deployment.
 
-	Beside it, the runtime settings of the project (haumacher/ehome #45). The functions are edited in
+	Beside it, the runtime settings of the project (haumacher/ehome #45) and below them what the
+	histories of the datapoints cost against the history budget (haumacher/ehome #73). The functions are edited in
 	their own tab (functions.view.xml), the rules and the schedule in theirs (rules.view.xml,
 	schedules.view.xml, haumacher/ehome #57), the settings of each datapoint with its group address
 	(addresses.view.xml).
@@ -37,51 +38,156 @@
 				size="35"
 				unit="%"
 			>
-				<!--
-					The settings of the controller the project fixes (time zone, location, NTP server), the
-					KNX time master and the history budget (#45); each part of the image only where set.
-				-->
-				<panel>
-					<title>
-						<en>Runtime settings</en>
-						<de>Laufzeiteinstellungen</de>
-					</title>
-					<form
-						input="project"
-						with-inset="true"
-					>
-						<group>
-							<label>
-								<en>Controller</en>
-								<de>Controller</de>
-							</label>
-							<field attribute="timeZone"/>
-							<field attribute="latitude"/>
-							<field attribute="longitude"/>
-							<field attribute="elevation"/>
-							<field attribute="ntpServer"/>
-						</group>
-						<group>
-							<label>
-								<en>KNX time master</en>
-								<de>KNX-Zeitgeber</de>
-							</label>
-							<field attribute="timeMasterTime"/>
-							<field attribute="timeMasterDate"/>
-							<field attribute="timeMasterDateTime"/>
-							<field attribute="timeMasterInterval"/>
-							<field attribute="timeMasterAtMidnight"/>
-							<field attribute="timeMasterOnSynchronized"/>
-						</group>
-						<group>
-							<label>
-								<en>History</en>
-								<de>Verlauf</de>
-							</label>
-							<field attribute="historyBudget"/>
-						</group>
-					</form>
-				</panel>
+				<split-panel
+					orientation="vertical"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="60"
+							unit="%"
+						>
+							<!--
+								The settings of the controller the project fixes (time zone, location, NTP server), the
+								KNX time master and the history budget (#45); each part of the image only where set.
+							-->
+							<panel>
+								<title>
+									<en>Runtime settings</en>
+									<de>Laufzeiteinstellungen</de>
+								</title>
+								<form
+									input="project"
+									with-inset="true"
+								>
+									<group>
+										<label>
+											<en>Controller</en>
+											<de>Controller</de>
+										</label>
+										<field attribute="timeZone"/>
+										<field attribute="latitude"/>
+										<field attribute="longitude"/>
+										<field attribute="elevation"/>
+										<field attribute="ntpServer"/>
+									</group>
+									<group>
+										<label>
+											<en>KNX time master</en>
+											<de>KNX-Zeitgeber</de>
+										</label>
+										<field attribute="timeMasterTime"/>
+										<field attribute="timeMasterDate"/>
+										<field attribute="timeMasterDateTime"/>
+										<field attribute="timeMasterInterval"/>
+										<field attribute="timeMasterAtMidnight"/>
+										<field attribute="timeMasterOnSynchronized"/>
+									</group>
+									<group>
+										<label>
+											<en>History</en>
+											<de>Verlauf</de>
+										</label>
+										<field attribute="historyBudget"/>
+										<field attribute="historyUsage"/>
+									</group>
+								</form>
+							</panel>
+						</pane>
+						<pane
+							size="40"
+							unit="%"
+						>
+							<!--
+								What the histories cost (haumacher/ehome #73): the datapoints with a history in the
+								image, the biggest first, and the charts with the bytes of the histories of the
+								datapoints they draw (a datapoint two charts draw counts in both). The total against
+								the budget is the field "History memory" above; exceeding the budget is refused by the
+								image's check, naming the biggest histories.
+							-->
+							<panel>
+								<title>
+									<en>History memory</en>
+									<de>Verlaufsspeicher</de>
+								</title>
+								<table
+									observed-types="ehome.logical:GroupAddress,ehome.runtime:ApplicationDatapoint,ehome.logical:HistoryArchive,ehome.runtime:ChartElement,ehome.runtime:ChartSeries,ehome.project:Project"
+								>
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+									<columns>
+										<computed-column name="datapoint"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Datapoint</en>
+												<de>Datenpunkt</de>
+											</label>
+											<value>pageTargetLabel($row)</value>
+										</computed-column>
+										<computed-column name="history"
+											type="tl.core:String"
+										>
+											<label>
+												<en>History</en>
+												<de>Verlauf</de>
+											</label>
+											<value>runtimeHistoryEffective($row)</value>
+										</computed-column>
+										<computed-column name="bytes"
+											type="tl.core:Long"
+										>
+											<label>
+												<en>Bytes</en>
+												<de>Bytes</de>
+											</label>
+											<value>runtimeHistoryBytes($row)</value>
+										</computed-column>
+									</columns>
+									<rows>runtimeHistoryDatapoints($project)</rows>
+								</table>
+								<table
+									observed-types="ehome.logical:GroupAddress,ehome.runtime:ApplicationDatapoint,ehome.logical:HistoryArchive,ehome.runtime:ChartElement,ehome.runtime:ChartSeries,ehome.project:Project"
+								>
+									<inputs>
+										<input channel="project"/>
+									</inputs>
+									<columns>
+										<computed-column name="chart"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Chart</en>
+												<de>Diagramm</de>
+											</label>
+											<value>pageLabel($row)</value>
+										</computed-column>
+										<computed-column name="page"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Page</en>
+												<de>Seite</de>
+											</label>
+											<value>pageLabel($row.container().container())</value>
+										</computed-column>
+										<computed-column name="bytes"
+											type="tl.core:Long"
+										>
+											<label>
+												<en>Bytes</en>
+												<de>Bytes</de>
+											</label>
+											<value>runtimeHistoryBytes($row)</value>
+										</computed-column>
+									</columns>
+									<rows>runtimeHistoryCharts($project)</rows>
+								</table>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
 			</pane>
 			<pane
 				size="65"

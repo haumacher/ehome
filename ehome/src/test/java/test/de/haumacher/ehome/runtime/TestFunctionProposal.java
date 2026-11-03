@@ -240,6 +240,8 @@ public class TestFunctionProposal extends BasicTestCase {
 				project.tUpdateByName("timeMasterAtMidnight", Boolean.TRUE);
 				project.tUpdateByName("historyBudget", Integer.valueOf(16384));
 				temperature.tUpdateByName("runtimePersist", Boolean.TRUE);
+				// A history set by hand (haumacher/ehome #73).
+				temperature.tUpdateByName("historyManual", Boolean.TRUE);
 				temperature.tUpdateByName("historyRetention", Integer.valueOf(86400));
 				temperature.tUpdateByName("historySpacing", Integer.valueOf(60));
 				tx.commit();

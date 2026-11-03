@@ -8,12 +8,16 @@
 	are listed with them in the rules' "Datapoints" table. One bound to a function of a Zigbee device
 	(zigbeeFunction, haumacher/ehome #40; created and bound in projects/zigbee.view.xml) is the
 	datapoint of that function instead. Shown in the rules' tab-bar
-	(rules.view.xml), where they are used.
+	(rules.view.xml), where they are used. The history of a datapoint (haumacher/ehome #73) is derived
+	from the charts of the control pages unless it is set by hand ("Set history by hand", "Derive
+	history").
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="datapoint"/>
+		<!-- Whether the form of the selected datapoint is being edited. -->
+		<channel name="datapointEditMode"/>
 	</channels>
 	<panel>
 		<title>
@@ -144,17 +148,74 @@
 					unit="%"
 				>
 					<form
+						editMode="datapointEditMode"
 						input="datapoint"
 						with-inset="true"
 					>
+						<commands>
+							<!-- The history set by hand (haumacher/ehome #73): starting from the derived one; back to the derived one. -->
+							<generic-command
+								image="css:bi bi-pencil-square"
+								inputs="datapoint, datapointEditMode as editing"
+								placement="TOOLBAR"
+							>
+								<label>
+									<en>Set history by hand</en>
+									<de>Verlauf von Hand einstellen</de>
+								</label>
+								<access>
+									<operation name="Write"
+										object="$datapoint"
+										type="ehome.runtime:ApplicationDatapoint"
+									/>
+								</access>
+								<executability>
+									<visible-if expr="$editing != true and $datapoint.instanceOf(`ehome.runtime:ApplicationDatapoint`) and !runtimeHistoryManual($datapoint)"/>
+								</executability>
+								<with-transaction>
+									<execute-script function="runtimeHistorySetManual($datapoint)"/>
+								</with-transaction>
+							</generic-command>
+							<generic-command
+								image="css:bi bi-arrow-counterclockwise"
+								inputs="datapoint, datapointEditMode as editing"
+								placement="TOOLBAR"
+							>
+								<label>
+									<en>Derive history</en>
+									<de>Verlauf ableiten</de>
+								</label>
+								<access>
+									<operation name="Write"
+										object="$datapoint"
+										type="ehome.runtime:ApplicationDatapoint"
+									/>
+								</access>
+								<executability>
+									<visible-if expr="$editing != true and $datapoint.instanceOf(`ehome.runtime:ApplicationDatapoint`) and runtimeHistoryManual($datapoint)"/>
+								</executability>
+								<with-transaction>
+									<execute-script function="runtimeHistoryReset($datapoint)"/>
+								</with-transaction>
+							</generic-command>
+						</commands>
 						<field attribute="identifier"/>
 						<field attribute="label"/>
 						<field attribute="type"/>
 						<field attribute="writable"/>
 						<field attribute="persist"/>
 						<field attribute="unit"/>
+						<field attribute="historyEffective"/>
+						<field attribute="historyDerived"/>
+						<field attribute="historyManual"/>
 						<field attribute="historyRetention"/>
 						<field attribute="historySpacing"/>
+						<composition-table attribute="historyArchives">
+							<columns>
+								<column attribute="resolution"/>
+								<column attribute="retention"/>
+							</columns>
+						</composition-table>
 						<field attribute="zigbeeFunction"/>
 					</form>
 				</pane>

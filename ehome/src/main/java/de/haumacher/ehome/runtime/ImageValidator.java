@@ -115,6 +115,21 @@ public final class ImageValidator {
 
 	private static final int SAMPLE_BYTES = 8;
 
+	/** The most archives of a datapoint's history (homecontrol #56). */
+	static final int MAX_ARCHIVES = 4;
+
+	/** The most slots of an archive. */
+	static final int MAX_SLOTS = 2048;
+
+	/** The bytes of a slot of an archive. */
+	private static final int SLOT_BYTES = 32;
+
+	private static final int MIN_RESOLUTION = 60;
+
+	private static final int MAX_RESOLUTION = 31 * 86400;
+
+	private static final long MAX_ARCHIVE_RETENTION = 3650L * 86400;
+
 	private static final String[] RESERVED = { "knx.time", "knx.date", "knx.datetime" };
 
 	private static final List<String> LOCATION_KINDS = List.of("building", "floor", "room", "area", "outside");
@@ -146,6 +161,12 @@ public final class ImageValidator {
 	private final Set<String> _scheduleOutputs = new HashSet<>();
 
 	private long _historyBytes;
+
+	/** The bytes of the valid histories by the id of their datapoint, in the order of the datapoints. */
+	private final Map<String, Long> _consumers = new LinkedHashMap<>();
+
+	/** The bytes of the history checked last. */
+	private long _lastHistoryBytes;
 
 	/** The indexes of the datapoints with a valid history. */
 	private final Set<Integer> _withHistory = new HashSet<>();
@@ -770,6 +791,8 @@ public final class ImageValidator {
 			enter(".history");
 			if (history(dp.get("history"), type)) {
 				_withHistory.add(Integer.valueOf(index));
+				String name = _ids.get(index);
+				_consumers.put(name != null ? name : "datapoints[" + index + "]", Long.valueOf(_lastHistoryBytes));
 			}
 			leave();
 		}
@@ -1112,10 +1135,89 @@ public final class ImageValidator {
 			refuse("history needs a boolean, unsigned, signed or real datapoint");
 			ok = false;
 		}
+		long bytes = ok ? samples(retention, spacing) * SAMPLE_BYTES : 0;
+		if (history.containsKey("archives")) {
+			enter(".archives");
+			long archives = archives(history.get("archives"), ok ? spacing : 0);
+			leave();
+			if (archives < 0) {
+				ok = false;
+			} else {
+				bytes += archives;
+			}
+		}
 		if (ok) {
-			_historyBytes += samples(retention, spacing) * SAMPLE_BYTES;
+			_historyBytes += bytes;
+			_lastHistoryBytes = bytes;
 		}
 		return ok;
+	}
+
+	/**
+	 * The member <code>archives</code> of a datapoint's history (schema 1.1, homecontrol #56): at most
+	 * {@value #MAX_ARCHIVES} objects of a <code>resolution</code> from 60 s to 31 days coarser than the
+	 * raw ring's spacing, and a <code>retention</code> of at least the resolution, at most 10 years and
+	 * at most {@value #MAX_SLOTS} slots.
+	 *
+	 * @param spacing
+	 *        The raw ring's spacing; 0 where it was refused.
+	 * @return The bytes of the archives; -1 where they are refused.
+	 */
+	private long archives(Object value, long spacing) {
+		if (!array(value, "archives")) {
+			return -1;
+		}
+		List<?> list = (List<?>) value;
+		if (list.size() > MAX_ARCHIVES) {
+			refuse("more than " + MAX_ARCHIVES + " archives");
+			return -1;
+		}
+		long bytes = 0;
+		boolean ok = true;
+		for (int n = 0; n < list.size(); n++) {
+			enter("[" + n + "]");
+			try {
+				if (!object(list.get(n), "an archive")) {
+					ok = false;
+					continue;
+				}
+				Map<?, ?> archive = (Map<?, ?>) list.get(n);
+				if (!archive.containsKey("resolution") || !archive.containsKey("retention")) {
+					refuse("an archive needs resolution and retention (seconds)");
+					ok = false;
+					continue;
+				}
+				enter(".resolution");
+				Long resolution = integer(archive.get("resolution"), MIN_RESOLUTION, MAX_RESOLUTION, "resolution (seconds)");
+				if (resolution != null && resolution.longValue() <= spacing) {
+					refuse("the resolution must be larger than the raw spacing (" + spacing + " s)");
+					resolution = null;
+				}
+				leave();
+				if (resolution == null) {
+					ok = false;
+					continue;
+				}
+				enter(".retention");
+				Long retention = integer(archive.get("retention"), resolution.longValue(), MAX_ARCHIVE_RETENTION,
+					"retention (seconds, at least the resolution, at most 10 years)");
+				leave();
+				if (retention == null) {
+					ok = false;
+					continue;
+				}
+				long slots = samples(retention.longValue(), resolution.longValue());
+				if (slots > MAX_SLOTS) {
+					refuse("retention / resolution gives more than " + MAX_SLOTS + " slots");
+					ok = false;
+					continue;
+				}
+				bytes += slots * SLOT_BYTES;
+			} finally {
+				leave();
+			}
+		}
+		return ok ? bytes : -1;
 	}
 
 	/**
@@ -1868,12 +1970,25 @@ public final class ImageValidator {
 
 	// ---- history budget ----------------------------------------------------------------------
 
+	/**
+	 * The three biggest histories for a refusal of the budget: <code>; the biggest: 'id' (n bytes), ...</code>.
+	 */
+	private String biggest() {
+		List<Map.Entry<String, Long>> entries = new ArrayList<>(_consumers.entrySet());
+		entries.sort(Map.Entry.<String, Long> comparingByValue().reversed());
+		List<String> names = new ArrayList<>();
+		for (Map.Entry<String, Long> entry : entries.subList(0, Math.min(3, entries.size()))) {
+			names.add("'" + entry.getKey() + "' (" + entry.getValue() + " bytes)");
+		}
+		return names.isEmpty() ? "" : "; the biggest: " + String.join(", ", names);
+	}
+
 	private void history(Map<?, ?> root) {
 		long needed = _historyBytes;
 		if (!root.containsKey("history")) {
 			if (needed > HISTORY_CAP) {
 				_report.add(Kind.INVALID, "history",
-					"the rings need " + needed + " bytes, the device allows at most " + HISTORY_CAP);
+					"the histories need " + needed + " bytes, the device allows at most " + HISTORY_CAP + biggest());
 			}
 			return;
 		}
@@ -1900,7 +2015,7 @@ public final class ImageValidator {
 				budget = bytes.longValue();
 			}
 			if (needed > budget) {
-				refuse("the rings need " + needed + " bytes, the image's budget is " + budget);
+				refuse("the histories need " + needed + " bytes, the image's budget is " + budget + biggest());
 			}
 		} finally {
 			leave();

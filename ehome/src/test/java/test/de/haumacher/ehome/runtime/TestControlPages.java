@@ -303,6 +303,8 @@ public class TestControlPages extends BasicTestCase {
 		TLObject series;
 		TLObject parameterSeries;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			// A history set by hand without a raw ring: no history (a derived one would follow the chart, #73).
+			_light.tUpdateByName("historyManual", Boolean.TRUE);
 			series = Pages.insert(_project, _chart, Pages.SERIES, List.of(_light));
 			parameterSeries = Pages.insert(_project, series, Pages.SERIES, List.of(_setpoint));
 			tx.commit();
@@ -624,6 +626,8 @@ public class TestControlPages extends BasicTestCase {
 			address.tUpdateByName("datapointTypes", List.of(type));
 		}
 		if (history) {
+			// A history set by hand (haumacher/ehome #73).
+			address.tUpdateByName("historyManual", Boolean.TRUE);
 			address.tUpdateByName("historyRetention", Integer.valueOf(86400));
 			address.tUpdateByName("historySpacing", Integer.valueOf(900));
 		}

@@ -16,7 +16,10 @@
 
 	The details of an address include the settings of its datapoint in the runtime image (#45):
 	writable and read on start (derived from the connected objects unless set), readable, persistence,
-	history and unit.
+	history and unit. The history (#73) is derived from the charts of the control pages unless it is
+	set by hand: the form shows the history in the image and the derived one; "Set history by hand"
+	starts from the derived one and shows the raw ring and the archives for editing, "Derive history"
+	returns to the derived one.
 
 	Objects are connected to the selected address and connections removed with the operations of
 	the device view (deviceConnect, deviceDisconnect), so the rules of a connection hold on both
@@ -28,6 +31,8 @@
 	<channels>
 		<channel name="project"/>
 		<channel name="selected"/>
+		<!-- Whether the form of the selected address is being edited. -->
+		<channel name="addressEditMode"/>
 		<!-- Whether the tree shows only the addresses without a datapoint type and the ranges holding them. -->
 		<channel name="untypedOnly"/>
 		<derived-channel name="selectedDefinition"
@@ -456,9 +461,57 @@
 												</inset>
 											</visible-if>
 											<form
+												editMode="addressEditMode"
 												input="selected"
 												with-inset="true"
 											>
+												<commands>
+													<!-- The history set by hand (haumacher/ehome #73): starting from the derived one; back to the derived one. -->
+													<generic-command
+														image="css:bi bi-pencil-square"
+														inputs="selected, addressEditMode as editing"
+														placement="TOOLBAR"
+													>
+														<label>
+															<en>Set history by hand</en>
+															<de>Verlauf von Hand einstellen</de>
+														</label>
+														<access>
+															<operation name="Write"
+																object="$selected"
+																type="ehome.logical:GroupAddress"
+															/>
+														</access>
+														<executability>
+															<visible-if expr="$editing != true and $selected.instanceOf(`ehome.logical:GroupAddress`) and !runtimeHistoryManual($selected)"/>
+														</executability>
+														<with-transaction>
+															<execute-script function="runtimeHistorySetManual($selected)"/>
+														</with-transaction>
+													</generic-command>
+													<generic-command
+														image="css:bi bi-arrow-counterclockwise"
+														inputs="selected, addressEditMode as editing"
+														placement="TOOLBAR"
+													>
+														<label>
+															<en>Derive history</en>
+															<de>Verlauf ableiten</de>
+														</label>
+														<access>
+															<operation name="Write"
+																object="$selected"
+																type="ehome.logical:GroupAddress"
+															/>
+														</access>
+														<executability>
+															<visible-if expr="$editing != true and $selected.instanceOf(`ehome.logical:GroupAddress`) and runtimeHistoryManual($selected)"/>
+														</executability>
+														<with-transaction>
+															<execute-script function="runtimeHistoryReset($selected)"/>
+														</with-transaction>
+													</generic-command>
+												</commands>
 												<field attribute="name"/>
 												<field attribute="address"/>
 												<field attribute="effectiveDatapointType"/>
@@ -483,8 +536,17 @@
 													<field attribute="effectiveReadOnStart"/>
 													<field attribute="runtimeReadable"/>
 													<field attribute="runtimePersist"/>
+													<field attribute="historyEffective"/>
+													<field attribute="historyDerived"/>
+													<field attribute="historyManual"/>
 													<field attribute="historyRetention"/>
 													<field attribute="historySpacing"/>
+													<composition-table attribute="historyArchives">
+														<columns>
+															<column attribute="resolution"/>
+															<column attribute="retention"/>
+														</columns>
+													</composition-table>
 													<field attribute="runtimeUnit"/>
 													<field attribute="effectiveUnit"/>
 												</group>

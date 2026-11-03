@@ -597,7 +597,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 PAGE_IDENTIFIER_DUPLICATE__ID;
 
 	/**
-	 * @en {0} has no history: the controller can draw no chart of it. Set its history retention and spacing, or choose another datapoint.
+	 * @en {0} has no history: the controller can draw no chart of it. A history is kept of numbers and truth values; one set by hand needs a retention and a spacing. Derive its history, or choose another datapoint.
 	 */
 	public static ResKey1 SERIES_NO_HISTORY__DATAPOINT;
 
@@ -700,6 +700,101 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Page "{0}", section {1}, element {2}: the chart has no series; it is left out.
 	 */
 	public static ResKey3 NOTE_PAGE_CHART_EMPTY__PAGE_SECTION_ELEMENT;
+
+	/**
+	 * @en No history.
+	 */
+	public static ResKey HISTORY_NONE;
+
+	/**
+	 * @en every {0} for {1}
+	 */
+	public static ResKey2 HISTORY_RAW__SPACING_RETENTION;
+
+	/**
+	 * @en {0} for {1}
+	 */
+	public static ResKey2 HISTORY_ARCHIVE__RESOLUTION_RETENTION;
+
+	/**
+	 * @en {0}; archives: {1}
+	 */
+	public static ResKey2 HISTORY_WITH_ARCHIVES__RAW_ARCHIVES;
+
+	/**
+	 * @en {0} ({1} bytes)
+	 */
+	public static ResKey2 HISTORY_BYTES__HISTORY_BYTES;
+
+	/**
+	 * @en No history: the controller keeps one only of numbers and truth values.
+	 */
+	public static ResKey HISTORY_NOT_POSSIBLE;
+
+	/**
+	 * @en No history: no chart of the control pages draws the datapoint.
+	 */
+	public static ResKey HISTORY_NOT_CHARTED;
+
+	/**
+	 * @en Set by hand: {0}
+	 */
+	public static ResKey1 HISTORY_MANUAL__HISTORY;
+
+	/**
+	 * @en Derived from the charts: {0}
+	 */
+	public static ResKey1 HISTORY_DERIVED__HISTORY;
+
+	/**
+	 * @en The histories need {0} bytes, more than the {1} bytes allowed. The biggest: {2}.
+	 */
+	public static ResKey3 HISTORY_USAGE_EXCEEDED__BYTES_LIMIT_BIGGEST;
+
+	/**
+	 * @en The histories need {0} bytes of the budget of {1} bytes (the controller allows {2}).
+	 */
+	public static ResKey3 HISTORY_USAGE__BYTES_BUDGET_CAP;
+
+	/**
+	 * @en The histories need {0} bytes of the {1} bytes the controller allows.
+	 */
+	public static ResKey2 HISTORY_USAGE__BYTES_CAP;
+
+	/**
+	 * @en A history has at most {0} archives.
+	 */
+	public static ResKey1 HISTORY_TOO_MANY_ARCHIVES__MAX;
+
+	/**
+	 * @en Archives need the raw ring: set its retention and spacing.
+	 */
+	public static ResKey HISTORY_ARCHIVES_WITHOUT_RAW;
+
+	/**
+	 * @en Archives are only used by a history set by hand: set the history by hand first.
+	 */
+	public static ResKey HISTORY_ARCHIVES_NOT_MANUAL;
+
+	/**
+	 * @en The resolution of an archive ({0}) must be coarser than the spacing of the raw ring ({1}).
+	 */
+	public static ResKey2 HISTORY_ARCHIVE_NOT_COARSER__RESOLUTION_SPACING;
+
+	/**
+	 * @en The retention of an archive is at least its resolution.
+	 */
+	public static ResKey HISTORY_ARCHIVE_RETENTION_BELOW_RESOLUTION;
+
+	/**
+	 * @en An archive is kept for at most 10 years.
+	 */
+	public static ResKey HISTORY_ARCHIVE_TOO_LONG;
+
+	/**
+	 * @en The archive would hold {0} slots; the controller keeps at most {1} per archive.
+	 */
+	public static ResKey2 HISTORY_TOO_MANY_SLOTS__SLOTS_MAX;
 
 	static {
 		initConstants(I18NConstants.class);

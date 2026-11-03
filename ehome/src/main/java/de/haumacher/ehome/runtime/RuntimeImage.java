@@ -50,8 +50,9 @@ import de.haumacher.ehome.rules.RuleLoader;
  * written in, so a plain string, which the specification reads as the same label in every language),
  * the value type and unit follow from the
  * datapoint type. The flags are the address's runtime settings ({@link DatapointSettings}): writable
- * and read on start derived from the connected objects unless the user set them, readable, persist,
- * history and unit as set. A writable datapoint <code>transmit</code>s; a writable or readable one
+ * and read on start derived from the connected objects unless the user set them, readable, persist
+ * and unit as set; the history derived from the charts of the control pages unless it is set by hand
+ * ({@link HistoryConfig}, haumacher/ehome #73: the raw ring and the archives). A writable datapoint <code>transmit</code>s; a writable or readable one
  * sends and answers on its address (<code>send</code>), any other <code>listen</code>s on it. After
  * them the project's application datapoints (haumacher/ehome #59, {@link ApplicationDatapoints}),
  * owned by no technology: their own id, label, value type and flags, an empty <code>virtual</code>
@@ -114,6 +115,9 @@ public final class RuntimeImage {
 
 	/** The ids of the datapoints by the group address they stand for. */
 	private final Map<TLObject, String> _datapointIds = new HashMap<>();
+
+	/** The histories the charts of the pages derive for their datapoints (haumacher/ehome #73). */
+	private Map<TLObject, HistoryConfig.History> _derivedHistory = Map.of();
 
 	/** The time master's addresses with the id of the datapoint the controller adds for each. */
 	private final Map<TLObject, String> _timeMaster = new LinkedHashMap<>();
@@ -346,6 +350,7 @@ public final class RuntimeImage {
 	// ---- datapoints --------------------------------------------------------------------------
 
 	private void datapoints(TLObject project) {
+		_derivedHistory = HistoryConfig.derivedHistories(project);
 		List<TLObject> addresses = new ArrayList<>();
 		collectAddresses(project.tValueByName("groupAddresses"), addresses);
 		addresses.sort(Comparator.comparingInt(RuntimeImage::addressValue)
@@ -363,7 +368,7 @@ public final class RuntimeImage {
 			}
 		}
 		for (TLObject application : ApplicationDatapoints.of(project)) {
-			Map<String, Object> datapoint = ApplicationDatapoints.json(application);
+			Map<String, Object> datapoint = ApplicationDatapoints.json(application, _derivedHistory);
 			datapoints.add(datapoint);
 			_datapointSources.add(application);
 			_datapointIds.put(application, (String) datapoint.get("id"));
@@ -438,16 +443,8 @@ public final class RuntimeImage {
 		if (DatapointSettings.persist(address)) {
 			result.put("persist", Boolean.TRUE);
 		}
-		Integer retention = DatapointSettings.historyRetention(address);
-		Integer spacing = DatapointSettings.historySpacing(address);
-		if (retention != null || spacing != null) {
-			Map<String, Object> history = new LinkedHashMap<>();
-			if (retention != null) {
-				history.put("retention", Long.valueOf(retention.longValue()));
-			}
-			if (spacing != null) {
-				history.put("spacing", Long.valueOf(spacing.longValue()));
-			}
+		Map<String, Object> history = HistoryConfig.json(address, _derivedHistory);
+		if (history != null) {
 			result.put("history", history);
 		}
 		Map<String, Object> knx = new LinkedHashMap<>();

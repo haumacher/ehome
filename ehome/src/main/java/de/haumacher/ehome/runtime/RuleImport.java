@@ -251,11 +251,27 @@ public final class RuleImport {
 			result.tUpdateByName("persist", Boolean.TRUE);
 		}
 		if (json.get("history") instanceof Map<?, ?> history) {
+			// The image states the history: it becomes the datapoint's own, set by hand (haumacher/ehome #73).
+			result.tUpdateByName("historyManual", Boolean.TRUE);
 			if (history.get("retention") instanceof Number retention) {
 				result.tUpdateByName("historyRetention", Integer.valueOf(retention.intValue()));
 			}
 			if (history.get("spacing") instanceof Number spacing) {
 				result.tUpdateByName("historySpacing", Integer.valueOf(spacing.intValue()));
+			}
+			if (history.get("archives") instanceof List<?> archives) {
+				List<TLObject> parts = new ArrayList<>();
+				for (Object entry : archives) {
+					if (entry instanceof Map<?, ?> archive && archive.get("resolution") instanceof Number resolution
+						&& archive.get("retention") instanceof Number archiveRetention) {
+						TLObject part = ModelService.getInstance().getFactory()
+							.createObject((TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive"));
+						part.tUpdateByName("resolution", Integer.valueOf(resolution.intValue()));
+						part.tUpdateByName("retention", Integer.valueOf(archiveRetention.intValue()));
+						parts.add(part);
+					}
+				}
+				result.tUpdateByName("historyArchives", parts);
 			}
 		}
 		notes(json, "datapoint " + id);

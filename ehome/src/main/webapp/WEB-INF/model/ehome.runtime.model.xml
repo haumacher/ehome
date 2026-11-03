@@ -955,11 +955,16 @@
 						</constraints>
 					</annotations>
 				</property>
-				<!-- How long the controller keeps the history of the value, in seconds (with the spacing; numbers and truth values only). -->
+				<!-- The raw ring of a history set by hand: how long the controller keeps the samples, in seconds (with the spacing; numbers and truth values only). -->
 				<property name="historyRetention"
 					type="tl.core:Integer"
 				>
 					<annotations>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.runtime:ApplicationDatapoint#historyManual`), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
 						<format>
 							<decimal pattern="0" result-type="long"/>
 						</format>
@@ -969,11 +974,16 @@
 						/>
 					</annotations>
 				</property>
-				<!-- The time between two samples of the history in seconds (10 to 86400). -->
+				<!-- The raw ring of a history set by hand: the time between two samples in seconds (10 to 86400). -->
 				<property name="historySpacing"
 					type="tl.core:Integer"
 				>
 					<annotations>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.runtime:ApplicationDatapoint#historyManual`), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
 						<format>
 							<decimal pattern="0" result-type="long"/>
 						</format>
@@ -986,6 +996,58 @@
 								<check><![CDATA[value -> obj -> runtimeHistoryProblem($obj)]]></check>
 							</constraint-by-expression>
 						</constraints>
+					</annotations>
+				</property>
+				<!--
+					Whether the history is set by hand (haumacher/ehome #73): the raw ring of historyRetention and
+					historySpacing and the archives historyArchives replace the history derived from the charts
+					of the control pages. Switched by the commands "Set history by hand" and "Derive history".
+				-->
+				<property name="historyManual"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</property>
+				<!-- The archives of a history set by hand (homecontrol #56): a slot per resolution, kept for the retention. -->
+				<reference name="historyArchives"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.logical:HistoryArchive"
+				>
+					<annotations>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[dp -> editMode -> if($dp.get(`ehome.runtime:ApplicationDatapoint#historyManual`), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The history the charts of the control pages ask for: raw ring and archives, with the bytes they take. -->
+				<property name="historyDerived"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[dp -> runtimeHistoryDerived($dp)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The history in the runtime image: the one set by hand, else the derived one, with the bytes it takes. -->
+				<property name="historyEffective"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[dp -> runtimeHistoryEffective($dp)]]></expr>
+							</query>
+						</storage-algorithm>
 					</annotations>
 				</property>
 				<!--
