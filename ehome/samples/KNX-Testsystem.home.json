@@ -1,0 +1,865 @@
+{
+	"settings": {
+		"tz": "CET-1CEST,M3.5.0,M10.5.0/3",
+		"location": {"lat": 49.45, "lon": 11.08}
+	},
+	"datapoints": [
+		{
+			"id": "flur.presence",
+			"label": {"de": "Flur Bewegung", "en": "Hall motion"},
+			"type": "boolean",
+			"readOnStart": true,
+			"zigbee": {"ieee": "0017880106498a49", "endpoint": 2, "cluster": 1030, "attribute": 0}
+		},
+		{
+			"id": "flur.lux",
+			"label": {"de": "Flur Helligkeit", "en": "Hall illuminance"},
+			"type": "real",
+			"unit": "lx",
+			"readOnStart": true,
+			"zigbee": {
+				"ieee": "0017880106498a49",
+				"endpoint": 2,
+				"cluster": 1024,
+				"attribute": 0,
+				"reporting": {"min": 10, "max": 300}
+			}
+		},
+		{
+			"id": "flur.temperature",
+			"label": {"de": "Flur Temperatur", "en": "Hall temperature"},
+			"type": "real",
+			"unit": "°C",
+			"readOnStart": true,
+			"zigbee": {"ieee": "0017880106498a49", "endpoint": 2, "cluster": 1026, "attribute": 0}
+		},
+		{
+			"id": "flur.battery",
+			"label": {"de": "Flur Batterie", "en": "Hall battery"},
+			"type": "real",
+			"unit": "%",
+			"readOnStart": true,
+			"zigbee": {"ieee": "0017880106498a49", "endpoint": 2, "cluster": 1, "attribute": 33}
+		}
+	],
+	"schedules": [
+		{"id": "dusk", "label": "Abenddämmerung", "kind": "astro", "sun": "dusk"},
+		{"id": "dawn", "label": "Morgendämmerung", "kind": "astro", "sun": "dawn"},
+		{
+			"id": "night",
+			"label": "Nachtruhe",
+			"kind": "weekly",
+			"time": {"hour": 22, "minute": 0, "second": 0}
+		},
+		{
+			"id": "morning-workday",
+			"label": "Morgen (Werktag)",
+			"kind": "weekly",
+			"days": [1, 2, 3, 4, 5],
+			"time": {"hour": 6, "minute": 30, "second": 0}
+		},
+		{
+			"id": "morning-weekend",
+			"label": "Morgen (Wochenende)",
+			"kind": "weekly",
+			"days": [6, 7],
+			"time": {"hour": 8, "minute": 0, "second": 0}
+		},
+		{
+			"id": "presence-sim",
+			"label": "Anwesenheitssimulation",
+			"kind": "interval",
+			"every": 1800000,
+			"from": {"hour": 18, "minute": 0, "second": 0},
+			"until": {"hour": 23, "minute": 0, "second": 0}
+		}
+	],
+	"rules": [
+		{
+			"id": "dark-light",
+			"name": {"de": "Licht bei Dunkelheit (Aktor 1)", "en": "Light when dark (actuator 1)"},
+			"description": "Kanal A ein, sobald die Helligkeit am Flur-Sensor unter darkBelow fällt, aus, sobald sie über brightAbove steigt; beim Start nach der Hysterese dazwischen.",
+			"parameters": [
+				{
+					"id": "darkBelow",
+					"label": {"de": "Dunkel unter", "en": "Dark below"},
+					"type": "real",
+					"default": 20,
+					"min": 0,
+					"max": 1000,
+					"step": 5,
+					"unit": "lx"
+				},
+				{
+					"id": "brightAbove",
+					"label": {"de": "Hell über", "en": "Bright above"},
+					"type": "real",
+					"default": 60,
+					"min": 0,
+					"max": 2000,
+					"step": 5,
+					"unit": "lx"
+				}
+			],
+			"reactions": [
+				{
+					"triggers": [
+						{
+							"kind": "match",
+							"condition": {
+								"kind": "binary",
+								"op": "<",
+								"left": {"kind": "datapoint", "name": "flur.lux"},
+								"right": {"kind": "parameter", "id": "darkBelow"}
+							}
+						}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/34",
+							"value": {"kind": "literal", "type": "boolean", "value": true},
+							"onlyOnChange": true
+						}
+					]
+				},
+				{
+					"triggers": [
+						{
+							"kind": "match",
+							"condition": {
+								"kind": "binary",
+								"op": ">",
+								"left": {"kind": "datapoint", "name": "flur.lux"},
+								"right": {"kind": "parameter", "id": "brightAbove"}
+							}
+						}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/34",
+							"value": {"kind": "literal", "type": "boolean", "value": false},
+							"onlyOnChange": true
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "start"}
+					],
+					"condition": {
+						"kind": "call",
+						"function": "known",
+						"args": [
+							{"kind": "datapoint", "name": "flur.lux"}
+						]
+					},
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/34",
+							"value": {
+								"kind": "unary",
+								"op": "not",
+								"operand": {
+									"kind": "call",
+									"function": "hysteresis",
+									"args": [
+										{"kind": "datapoint", "name": "flur.lux"},
+										{"kind": "parameter", "id": "darkBelow"},
+										{"kind": "parameter", "id": "brightAbove"},
+										{
+											"kind": "unary",
+											"op": "not",
+											"operand": {
+												"kind": "call",
+												"function": "coalesce",
+												"args": [
+													{"kind": "datapoint", "name": "0/0/34"},
+													{"kind": "literal", "type": "boolean", "value": false}
+												]
+											}
+										}
+									]
+								}
+							},
+							"onlyOnChange": true
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "dusk-dawn",
+			"name": {"de": "Von der Abend- bis zur Morgendämmerung (Aktor 2)", "en": "From dusk to dawn (actuator 2)"},
+			"description": "Kanal B ein bei der Abenddämmerung, aus bei der Morgendämmerung; beim Start nach der Uhrzeit.",
+			"reactions": [
+				{
+					"triggers": [
+						{"kind": "schedule", "schedule": "dusk"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/40",
+							"value": {"kind": "literal", "type": "boolean", "value": true}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "schedule", "schedule": "dawn"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/40",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "start"}
+					],
+					"condition": {
+						"kind": "call",
+						"function": "known",
+						"args": [
+							{
+								"kind": "call",
+								"function": "inWindow",
+								"args": [
+									{"kind": "call", "function": "time", "args": []},
+									{"kind": "call", "function": "dawn", "args": []},
+									{"kind": "call", "function": "dusk", "args": []}
+								]
+							}
+						]
+					},
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/40",
+							"value": {
+								"kind": "unary",
+								"op": "not",
+								"operand": {
+									"kind": "call",
+									"function": "inWindow",
+									"args": [
+										{"kind": "call", "function": "time", "args": []},
+										{"kind": "call", "function": "dawn", "args": []},
+										{"kind": "call", "function": "dusk", "args": []}
+									]
+								}
+							},
+							"onlyOnChange": true
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "frost",
+			"name": {"de": "Frostschutz (Aktor 3)", "en": "Frost protection (actuator 3)"},
+			"description": "Kanal C ein, sobald die Flur-Temperatur unter below fällt, aus ab below + band.",
+			"parameters": [
+				{
+					"id": "below",
+					"label": {"de": "Ein unter", "en": "On below"},
+					"type": "real",
+					"default": 17,
+					"min": 5,
+					"max": 25,
+					"step": 0.5,
+					"unit": "°C"
+				},
+				{
+					"id": "band",
+					"label": {"de": "Hysterese", "en": "Hysteresis"},
+					"type": "real",
+					"default": 0.5,
+					"min": 0.1,
+					"max": 5,
+					"step": 0.1,
+					"unit": "K"
+				}
+			],
+			"reactions": [
+				{
+					"triggers": [
+						{
+							"kind": "match",
+							"condition": {
+								"kind": "binary",
+								"op": "<",
+								"left": {"kind": "datapoint", "name": "flur.temperature"},
+								"right": {"kind": "parameter", "id": "below"}
+							}
+						}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/46",
+							"value": {"kind": "literal", "type": "boolean", "value": true},
+							"onlyOnChange": true
+						}
+					]
+				},
+				{
+					"triggers": [
+						{
+							"kind": "match",
+							"condition": {
+								"kind": "binary",
+								"op": ">=",
+								"left": {"kind": "datapoint", "name": "flur.temperature"},
+								"right": {
+									"kind": "binary",
+									"op": "+",
+									"left": {"kind": "parameter", "id": "below"},
+									"right": {"kind": "parameter", "id": "band"}
+								}
+							}
+						}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/46",
+							"value": {"kind": "literal", "type": "boolean", "value": false},
+							"onlyOnChange": true
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "start"}
+					],
+					"condition": {
+						"kind": "call",
+						"function": "known",
+						"args": [
+							{"kind": "datapoint", "name": "flur.temperature"}
+						]
+					},
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/46",
+							"value": {
+								"kind": "unary",
+								"op": "not",
+								"operand": {
+									"kind": "call",
+									"function": "hysteresis",
+									"args": [
+										{"kind": "datapoint", "name": "flur.temperature"},
+										{"kind": "parameter", "id": "below"},
+										{
+											"kind": "binary",
+											"op": "+",
+											"left": {"kind": "parameter", "id": "below"},
+											"right": {"kind": "parameter", "id": "band"}
+										},
+										{
+											"kind": "unary",
+											"op": "not",
+											"operand": {
+												"kind": "call",
+												"function": "coalesce",
+												"args": [
+													{"kind": "datapoint", "name": "0/0/46"},
+													{"kind": "literal", "type": "boolean", "value": false}
+												]
+											}
+										}
+									]
+								}
+							},
+							"onlyOnChange": true
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "presence-light",
+			"name": {"de": "Licht bei Bewegung (Aktor 4)", "en": "Light on motion (actuator 4)"},
+			"description": "Kanal D ein bei Bewegung im Dunkeln (ein Licht, das schon brennt, bleibt an), aus delay nach der letzten Bewegung (spec/rules.md 11.1).",
+			"parameters": [
+				{
+					"id": "delay",
+					"label": {"de": "Ausschaltverzögerung", "en": "Switch-off delay"},
+					"type": "duration",
+					"default": 120000,
+					"min": 30000,
+					"max": 3600000,
+					"step": 30000,
+					"unit": "min"
+				},
+				{
+					"id": "darkBelow",
+					"label": {"de": "Dunkel unter", "en": "Dark below"},
+					"type": "real",
+					"default": 20,
+					"min": 0,
+					"max": 1000,
+					"step": 5,
+					"unit": "lx"
+				}
+			],
+			"timers": [
+				{
+					"id": "off",
+					"duration": {"kind": "parameter", "id": "delay"}
+				}
+			],
+			"reactions": [
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "flur.presence"}
+					],
+					"condition": {
+						"kind": "binary",
+						"op": "and",
+						"left": {"kind": "datapoint", "name": "flur.presence"},
+						"right": {
+							"kind": "binary",
+							"op": "or",
+							"left": {
+								"kind": "call",
+								"function": "coalesce",
+								"args": [
+									{"kind": "datapoint", "name": "0/0/48"},
+									{"kind": "literal", "type": "boolean", "value": false}
+								]
+							},
+							"right": {
+								"kind": "binary",
+								"op": "<",
+								"left": {"kind": "datapoint", "name": "flur.lux"},
+								"right": {"kind": "parameter", "id": "darkBelow"}
+							}
+						}
+					},
+					"actions": [
+						{"kind": "cancelTimer", "timer": "off"},
+						{
+							"kind": "write",
+							"datapoint": "0/0/48",
+							"value": {"kind": "literal", "type": "boolean", "value": true},
+							"onlyOnChange": true
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "flur.presence"}
+					],
+					"condition": {
+						"kind": "unary",
+						"op": "not",
+						"operand": {"kind": "datapoint", "name": "flur.presence"}
+					},
+					"actions": [
+						{"kind": "restartTimer", "timer": "off"}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "timer", "timer": "off"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/48",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "keys",
+			"name": {"de": "Tasten 1 bis 5 schalten die Aktoren", "en": "Keys 1 to 5 switch the actuators"},
+			"description": "Taste 1 bis 4 schalten Kanal A bis D mit dem Wert der Taste, Taste 5 schaltet alle vier aus.",
+			"reactions": [
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/1", "on": "update"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/34",
+							"value": {"kind": "datapoint", "name": "0/0/1"}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/2", "on": "update"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/40",
+							"value": {"kind": "datapoint", "name": "0/0/2"}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/3", "on": "update"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/46",
+							"value": {"kind": "datapoint", "name": "0/0/3"}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/4", "on": "update"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/48",
+							"value": {"kind": "datapoint", "name": "0/0/4"}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/5", "on": "update"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/34",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						},
+						{
+							"kind": "write",
+							"datapoint": "0/0/40",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						},
+						{
+							"kind": "write",
+							"datapoint": "0/0/46",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						},
+						{
+							"kind": "write",
+							"datapoint": "0/0/48",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "leds",
+			"name": {"de": "LEDs zeigen die Aktoren", "en": "LEDs show the actuators"},
+			"description": "LED 1 bis 3 zeigen die Statusobjekte der Kanäle A bis C, LED 4 den Schaltwert von Kanal D (er hat kein Statusobjekt).",
+			"reactions": [
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/37"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/7",
+							"value": {"kind": "datapoint", "name": "0/0/37"},
+							"onlyOnChange": true
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/43"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/8",
+							"value": {"kind": "datapoint", "name": "0/0/43"},
+							"onlyOnChange": true
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/47"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/9",
+							"value": {"kind": "datapoint", "name": "0/0/47"},
+							"onlyOnChange": true
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/48"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/10",
+							"value": {"kind": "datapoint", "name": "0/0/48"},
+							"onlyOnChange": true
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "night",
+			"name": {"de": "Nachtruhe", "en": "Night"},
+			"description": "Um 22:00 alle vier Kanäle aus und Nachtabsenkung ein; morgens (werktags 06:30, am Wochenende 08:00) Nachtabsenkung aus.",
+			"reactions": [
+				{
+					"triggers": [
+						{"kind": "schedule", "schedule": "night"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/34",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						},
+						{
+							"kind": "write",
+							"datapoint": "0/0/40",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						},
+						{
+							"kind": "write",
+							"datapoint": "0/0/46",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						},
+						{
+							"kind": "write",
+							"datapoint": "0/0/48",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						},
+						{
+							"kind": "write",
+							"datapoint": "0/0/32",
+							"value": {"kind": "literal", "type": "boolean", "value": true}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "schedule", "schedule": "morning-workday"},
+						{"kind": "schedule", "schedule": "morning-weekend"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/32",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "sensor-watch",
+			"name": {"de": "Flur-Sensor überwachen", "en": "Watch the hall sensor"},
+			"description": "Alarm, wenn der Flur-Sensor silentAfter lang keine Temperatur meldet oder seine Batterie unter batteryBelow fällt; die Alarmquittung setzt den Alarm zurück.",
+			"parameters": [
+				{
+					"id": "silentAfter",
+					"label": {"de": "Stille nach", "en": "Silent after"},
+					"type": "duration",
+					"default": 7200000,
+					"min": 600000,
+					"max": 86400000,
+					"step": 600000,
+					"unit": "h"
+				},
+				{
+					"id": "batteryBelow",
+					"label": {"de": "Batterie unter", "en": "Battery below"},
+					"type": "real",
+					"default": 20,
+					"min": 5,
+					"max": 50,
+					"step": 5,
+					"unit": "%"
+				}
+			],
+			"reactions": [
+				{
+					"triggers": [
+						{
+							"kind": "silence",
+							"datapoint": "flur.temperature",
+							"after": {"kind": "parameter", "id": "silentAfter"}
+						}
+					],
+					"actions": [
+						{
+							"kind": "log",
+							"level": "warning",
+							"message": [
+								"Der Flur-Sensor meldet seit ",
+								{"kind": "parameter", "id": "silentAfter"},
+								" keine Temperatur."
+							]
+						},
+						{
+							"kind": "write",
+							"datapoint": "0/0/29",
+							"value": {"kind": "literal", "type": "boolean", "value": true}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{
+							"kind": "match",
+							"condition": {
+								"kind": "binary",
+								"op": "<",
+								"left": {"kind": "datapoint", "name": "flur.battery"},
+								"right": {"kind": "parameter", "id": "batteryBelow"}
+							}
+						}
+					],
+					"actions": [
+						{
+							"kind": "log",
+							"level": "warning",
+							"message": [
+								"Die Batterie des Flur-Sensors ist bei ",
+								{"kind": "datapoint", "name": "flur.battery"},
+								" %."
+							]
+						},
+						{
+							"kind": "write",
+							"datapoint": "0/0/29",
+							"value": {"kind": "literal", "type": "boolean", "value": true}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/30", "on": "update"}
+					],
+					"actions": [
+						{"kind": "log", "level": "info", "message": ["Alarm quittiert."]},
+						{
+							"kind": "write",
+							"datapoint": "0/0/29",
+							"value": {"kind": "literal", "type": "boolean", "value": false}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "temp-compare",
+			"name": {"de": "Temperaturen vergleichen", "en": "Compare the temperatures"},
+			"description": "Meldet, wenn die Raumtemperatur des Tastsensors und die des Flur-Sensors um mehr als maxDiff auseinanderliegen.",
+			"parameters": [
+				{
+					"id": "maxDiff",
+					"label": {"de": "Abweichung über", "en": "Difference above"},
+					"type": "real",
+					"default": 3,
+					"min": 0.5,
+					"max": 10,
+					"step": 0.5,
+					"unit": "K"
+				}
+			],
+			"reactions": [
+				{
+					"triggers": [
+						{
+							"kind": "match",
+							"condition": {
+								"kind": "binary",
+								"op": ">",
+								"left": {
+									"kind": "call",
+									"function": "abs",
+									"args": [
+										{
+											"kind": "binary",
+											"op": "-",
+											"left": {"kind": "datapoint", "name": "0/0/28"},
+											"right": {"kind": "datapoint", "name": "flur.temperature"}
+										}
+									]
+								},
+								"right": {"kind": "parameter", "id": "maxDiff"}
+							}
+						}
+					],
+					"actions": [
+						{
+							"kind": "log",
+							"level": "info",
+							"message": [
+								"Raumtemperatur ",
+								{"kind": "datapoint", "name": "0/0/28"},
+								" °C, Flur ",
+								{"kind": "datapoint", "name": "flur.temperature"},
+								" °C: Abweichung über ",
+								{"kind": "parameter", "id": "maxDiff"},
+								" K."
+							]
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "presence-sim",
+			"name": {"de": "Anwesenheitssimulation (Aktor 2)", "en": "Presence simulation (actuator 2)"},
+			"description": "Schaltet Kanal B von 18:00 bis 23:00 alle 30 Minuten um; aus, bis die Bewohner sie einschalten.",
+			"enabled": false,
+			"reactions": [
+				{
+					"triggers": [
+						{"kind": "schedule", "schedule": "presence-sim"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/40",
+							"value": {
+								"kind": "unary",
+								"op": "not",
+								"operand": {
+									"kind": "call",
+									"function": "coalesce",
+									"args": [
+										{"kind": "datapoint", "name": "0/0/40"},
+										{"kind": "literal", "type": "boolean", "value": false}
+									]
+								}
+							}
+						}
+					]
+				}
+			]
+		}
+	]
+}

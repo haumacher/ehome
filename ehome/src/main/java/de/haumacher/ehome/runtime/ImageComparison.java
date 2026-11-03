@@ -9,6 +9,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -138,8 +139,8 @@ public final class ImageComparison {
 		if (!changed.isEmpty()) {
 			lines.add(text(I18NConstants.COMPARE_CHANGED_PARTS__PARTS.fill(String.join(", ", changed))));
 		}
-		int rules = size(stored.get("rules"));
-		int schedules = size(stored.get("schedules"));
+		int rules = missing(stored.get("rules"), image.getJson().get("rules"));
+		int schedules = missing(stored.get("schedules"), image.getJson().get("schedules"));
 		if (rules + schedules > 0) {
 			lines.add(text(I18NConstants.COMPARE_RULES_REMOVED__RULES_SCHEDULES.fill(Integer.valueOf(rules),
 				Integer.valueOf(schedules))));
@@ -220,6 +221,31 @@ public final class ImageComparison {
 		Integer functions = Integer.valueOf(size(image.get("functions")));
 		return text((stored ? I18NConstants.COMPARE_STORED_COUNTS__DATAPOINTS_LOCATIONS_FUNCTIONS
 			: I18NConstants.COMPARE_NEW_COUNTS__DATAPOINTS_LOCATIONS_FUNCTIONS).fill(datapoints, locations, functions));
+	}
+
+	/**
+	 * The number of entries of the stored list (rules or schedule entries) whose <code>id</code> the
+	 * new list does not have: what the deployment removes from the controller.
+	 */
+	private static int missing(Object stored, Object next) {
+		if (!(stored instanceof Collection<?> entries)) {
+			return 0;
+		}
+		Set<Object> kept = new HashSet<>();
+		if (next instanceof Collection<?> list) {
+			for (Object entry : list) {
+				if (entry instanceof Map<?, ?> map) {
+					kept.add(map.get("id"));
+				}
+			}
+		}
+		int result = 0;
+		for (Object entry : entries) {
+			if (!(entry instanceof Map<?, ?> map) || !kept.contains(map.get("id"))) {
+				result++;
+			}
+		}
+		return result;
 	}
 
 	private static int size(Object list) {

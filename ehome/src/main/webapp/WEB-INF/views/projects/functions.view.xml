@@ -187,7 +187,6 @@
 										<column attribute="name"/>
 										<column attribute="kind"/>
 										<column attribute="device"/>
-										<column attribute="channel"/>
 									</columns>
 									<rows>if($project == null, [], $project.get(`ehome.project:Project#dismissedProposals`))</rows>
 								</table>
@@ -246,9 +245,6 @@
 								<de>Vorgeschlagen für</de>
 							</label>
 							<field attribute="device"
-								readonly="true"
-							/>
-							<field attribute="channel"
 								readonly="true"
 							/>
 						</group>

@@ -286,7 +286,7 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 					BinaryDataFactory.createBinaryData(content, "application/json", EXAMPLE.getName()));
 				tx.commit();
 			}
-			assertTrue(result, result.startsWith("2 rules and 2 schedule entries imported."));
+			assertTrue(result, result.startsWith("2 rules, 2 schedule entries and 2 datapoints imported."));
 
 			Map<?, ?> image = (Map<?, ?>) Json.parse(new String(content, StandardCharsets.UTF_8), 100);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {

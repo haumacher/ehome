@@ -86,8 +86,9 @@ public class RuleFunctions extends GenericMethod {
 		 */
 		ruleSuggestions(3, true),
 		/**
-		 * <code>ruleImportImage(project, file)</code>: adds the rules and schedule entries of the
-		 * uploaded runtime image (JSON) to the project ({@link RuleImport#importImage(TLObject, String)});
+		 * <code>ruleImportImage(project, file)</code>: adds the rules, schedule entries and application
+		 * datapoints of the uploaded runtime image (JSON) to the project and gives it the image's
+		 * location where it has none ({@link RuleImport#importImage(TLObject, String)});
 		 * the sentence saying what was imported, followed by what the import did not keep.
 		 */
 		ruleImportImage(2, false);
@@ -168,14 +169,14 @@ public class RuleFunctions extends GenericMethod {
 	}
 
 	/**
-	 * Adds the rules and schedule entries of the given file (a runtime image) to the project; must run
-	 * in a transaction.
+	 * Adds the rules, schedule entries and application datapoints of the given file (a runtime image)
+	 * to the project ({@link RuleImport#importImage(TLObject, String)}); must run in a transaction.
 	 *
 	 * @return The sentence saying what was imported, followed by the notes of the import.
 	 */
 	public static String importImage(TLObject project, Object file) {
 		if (!(file instanceof BinaryData data)) {
-			throw new TopLogicException(I18NConstants.ERROR_RULE_IMPORT_NO_RULES);
+			throw new TopLogicException(I18NConstants.ERROR_RULE_IMPORT_NOTHING);
 		}
 		String text;
 		try (InputStream in = data.getStream()) {
@@ -186,7 +187,8 @@ public class RuleFunctions extends GenericMethod {
 		RuleImport importer = new RuleImport();
 		RuleImport.Imported imported = importer.importImage(project, text);
 		StringBuilder result = new StringBuilder(Resources.getInstance().getString(
-			I18NConstants.RULES_IMPORTED__RULES_SCHEDULES.fill(imported.rules().size(), imported.schedules().size())));
+			I18NConstants.IMPORTED__RULES_SCHEDULES_DATAPOINTS.fill(imported.rules().size(), imported.schedules().size(),
+				imported.datapoints().size())));
 		for (String note : importer.getNotes()) {
 			result.append('\n').append(note);
 		}

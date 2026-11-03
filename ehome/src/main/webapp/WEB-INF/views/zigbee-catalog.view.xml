@@ -99,7 +99,7 @@
 								/>
 							</access>
 							<executability>
-								<null-input-disabled/>
+								<disabled-if expr="$catalog == null"/>
 							</executability>
 							<with-transaction>
 								<execute-script function="zigbeeCatalogImport($catalog, $file)">

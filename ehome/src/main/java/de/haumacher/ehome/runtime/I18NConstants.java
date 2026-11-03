@@ -342,7 +342,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 COMPARE_CHANGED_PARTS__PARTS;
 
 	/**
-	 * @en The stored image has {0} rules and {1} schedules, which E-Home does not author; deploying removes them.
+	 * @en The stored image has {0} rules and {1} schedules that the new image does not contain; deploying removes them.
 	 */
 	public static ResKey2 COMPARE_RULES_REMOVED__RULES_SCHEDULES;
 
@@ -412,9 +412,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_RULE_IMPORT_NO_JSON__REASON;
 
 	/**
-	 * @en The file has neither rules nor schedule entries (the members "rules" and "schedules" of a runtime image).
+	 * @en The file has neither rules, schedule entries, datapoints nor a location (the members "rules", "schedules", "datapoints" and "settings" of a runtime image).
 	 */
-	public static ResKey ERROR_RULE_IMPORT_NO_RULES;
+	public static ResKey ERROR_RULE_IMPORT_NOTHING;
 
 	/**
 	 * @en The rules of the file cannot be read: {0}
@@ -422,9 +422,89 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_RULE_IMPORT_UNREADABLE__REASON;
 
 	/**
-	 * @en {0} rules and {1} schedule entries imported.
+	 * @en {0} rules, {1} schedule entries and {2} datapoints imported.
 	 */
-	public static ResKey2 RULES_IMPORTED__RULES_SCHEDULES;
+	public static ResKey3 IMPORTED__RULES_SCHEDULES_DATAPOINTS;
+
+	/**
+	 * @en The datapoint {0} exists already in the project and is kept as it is.
+	 */
+	public static ResKey1 IMPORT_DATAPOINT_KEPT__ID;
+
+	/**
+	 * @en The rule {0} exists already in the project and is kept as it is.
+	 */
+	public static ResKey1 IMPORT_RULE_KEPT__ID;
+
+	/**
+	 * @en The schedule entry {0} exists already in the project and is kept as it is.
+	 */
+	public static ResKey1 IMPORT_SCHEDULE_KEPT__ID;
+
+	/**
+	 * @en {0} datapoints of KNX group addresses are not created: they come from the group addresses of the project.
+	 */
+	public static ResKey1 IMPORT_KNX_DATAPOINTS_SKIPPED__COUNT;
+
+	/**
+	 * @en The datapoint {0} is created without its Zigbee binding: the project has no Zigbee device {1}. Read the Zigbee devices of the controller and bind it in the tab "Zigbee".
+	 */
+	public static ResKey2 IMPORT_ZIGBEE_NO_DEVICE__ID_IEEE;
+
+	/**
+	 * @en The datapoint {0} is created without its Zigbee binding: the Zigbee device {1} has no function on endpoint {2}, cluster {3}, attribute {4}.
+	 */
+	public static ResKey5 IMPORT_ZIGBEE_NO_FUNCTION__ID_IEEE_ENDPOINT_CLUSTER_ATTRIBUTE;
+
+	/**
+	 * @en The datapoint {0} is created without its Zigbee binding: its function is bound to the datapoint {1} already.
+	 */
+	public static ResKey2 IMPORT_ZIGBEE_BOUND__ID_OTHER;
+
+	/**
+	 * @en The reporting of the Zigbee function of the datapoint {0} is kept as the project sets it ({1}); the file gives {2}.
+	 */
+	public static ResKey3 IMPORT_REPORTING_KEPT__ID_PROJECT_FILE;
+
+	/**
+	 * @en The location of the project is set to latitude {0}, longitude {1}.
+	 */
+	public static ResKey2 IMPORT_LOCATION_SET__LAT_LON;
+
+	/**
+	 * @en The location of the project is kept (latitude {0}, longitude {1}); the file gives latitude {2}, longitude {3}.
+	 */
+	public static ResKey4 IMPORT_LOCATION_KEPT__LAT_LON_FILE_LAT_FILE_LON;
+
+	/**
+	 * @en The time zone of the project is set to {0}.
+	 */
+	public static ResKey1 IMPORT_TIME_ZONE_SET__TZ;
+
+	/**
+	 * @en The time zone of the project is kept ({0}); the file gives {1}.
+	 */
+	public static ResKey2 IMPORT_TIME_ZONE_KEPT__TZ_FILE_TZ;
+
+	/**
+	 * @en A datapoint of the file has no id: datapoints[{0}].
+	 */
+	public static ResKey1 ERROR_IMPORT_DATAPOINT_NO_ID__INDEX;
+
+	/**
+	 * @en The file lists the datapoint {0} twice.
+	 */
+	public static ResKey1 ERROR_IMPORT_DATAPOINT_TWICE__ID;
+
+	/**
+	 * @en The datapoint {0} has the value type "{1}", which E-Home does not know.
+	 */
+	public static ResKey2 ERROR_IMPORT_DATAPOINT_TYPE__ID_TYPE;
+
+	/**
+	 * @en The datapoint {0} cannot be created: {1}
+	 */
+	public static ResKey2 ERROR_IMPORT_DATAPOINT_ID__ID_REASON;
 
 	/**
 	 * @en The image holds {0} rules and {1} schedule entries.

@@ -108,7 +108,7 @@
 								/>
 							</access>
 							<executability>
-								<null-input-disabled/>
+								<disabled-if expr="$project == null"/>
 							</executability>
 							<with-transaction>
 								<execute-script function="zigbeeImport($project, $file)">

@@ -37,6 +37,7 @@ import de.haumacher.ehome.runtime.ImageComparison;
 import de.haumacher.ehome.runtime.ImageComparison.Result;
 import de.haumacher.ehome.runtime.ImageComparison.State;
 import de.haumacher.ehome.runtime.Json;
+import de.haumacher.ehome.runtime.RuleImport;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
@@ -123,7 +124,7 @@ public class TestImageComparison extends BasicTestCase {
 			update(address, "name", name);
 			assertEquals(State.IDENTICAL, ImageComparison.compare(project, LATER).state());
 
-			// The image of another project with rules and schedules E-Home does not author.
+			// The image of another project with rules and schedules the new image does not contain.
 			@SuppressWarnings("unchecked")
 			Map<String, Object> other = (Map<String, Object>) Json.parse(_fake.getStoredText(), 100);
 			Map<String, Object> header = new LinkedHashMap<>((Map<String, Object>) other.get("image"));
@@ -142,6 +143,20 @@ public class TestImageComparison extends BasicTestCase {
 			assertEquals(text(I18NConstants.COMPARE_CHANGED_PARTS__PARTS.fill("image, rules, schedules")),
 				lines.get(3));
 			assertEquals(text(I18NConstants.COMPARE_RULES_REMOVED__RULES_SCHEDULES.fill(2, 1)), lines.get(4));
+
+			// A stored rule the new image has as well is not removed: only r2 and s1 are.
+			List<TLObject> own;
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				own = new RuleImport().importRules(project, List.of(Map.of("id", "r1", "name", "R1",
+					"reactions", List.of())));
+				tx.commit();
+			}
+			lines = List.of(ImageComparison.compare(project, LATER).text().split("\n"));
+			assertEquals(text(I18NConstants.COMPARE_RULES_REMOVED__RULES_SCHEDULES.fill(1, 1)), lines.get(4));
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				own.forEach(TLObject::tDelete);
+				tx.commit();
+			}
 
 			// An image E-Home cannot read, a wrong token, no answer.
 			_fake.store("[1, 2, 3]");

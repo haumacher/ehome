@@ -24,6 +24,8 @@ import com.top_logic.layout.view.command.ActionArguments;
 import com.top_logic.layout.view.command.ActionScope;
 import com.top_logic.layout.view.command.ActionScopeDefinition;
 import com.top_logic.layout.view.command.CommandArguments;
+import com.top_logic.layout.view.command.NullInputDisabled;
+import com.top_logic.layout.view.command.UploadCommand;
 import com.top_logic.layout.view.command.ViewCommand;
 import com.top_logic.layout.view.command.ViewExecutabilityRule;
 import com.top_logic.layout.view.security.CommandAccess;
@@ -200,6 +202,24 @@ public class ViewCommandScan {
 		List<String> result = new ArrayList<>();
 		for (Site site : commands(views)) {
 			if (!site.checked() && !site.writes().isEmpty()) {
+				result.add(site.toString());
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The upload commands of the views in the given directory that are never executable: since
+	 * TopLogic 8.0.0-alpha12 the uploaded file is the main argument of an upload command, so a
+	 * <code>&lt;null-input-disabled/&gt;</code> sees no value before every upload and disables the
+	 * command for good. Such a command guards its input with
+	 * <code>&lt;disabled-if expr="$input == null"/&gt;</code> instead.
+	 */
+	public static List<String> alwaysDisabledUploads(Path views) throws IOException {
+		List<String> result = new ArrayList<>();
+		for (Site site : commands(views)) {
+			if (site.config() instanceof UploadCommand.Config upload && upload.getExecutability().stream()
+				.anyMatch(rule -> rule instanceof NullInputDisabled.Config)) {
 				result.add(site.toString());
 			}
 		}

@@ -47,6 +47,12 @@ public class TestCommandAccessProbe extends BasicTestCase {
 		assertEquals("Access checks that do not build:\n" + String.join("\n", invalid), List.of(), invalid);
 	}
 
+	public void testUploadCommandsCanRun() throws Exception {
+		List<String> disabled = ViewCommandScan.alwaysDisabledUploads(ViewCommandScan.VIEWS);
+		assertEquals("Upload commands disabled for good by <null-input-disabled/>:\n" + String.join("\n", disabled),
+			List.of(), disabled);
+	}
+
 	public static Test suite() {
 		return suite(TestCommandAccessProbe.class);
 	}
