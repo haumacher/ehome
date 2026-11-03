@@ -104,7 +104,12 @@ public class TestDeployment extends BasicTestCase {
 			assertEquals(Long.valueOf(1), project.tValueByName("imageRevision"));
 			assertTrue(ControllerStatus.drift(project),
 				ControllerStatus.drift(project).startsWith(text(I18NConstants.DRIFT_IN_SYNC__REVISION.fill(1L))));
+			// The controller still stores the previous image (homecontrol #68): the image is sent again after a
+			// second and accepted.
+			int sent = _fake.getPuts();
+			_fake.refuseNext(503, Deployer.CODE_BUSY, "an image is being stored", List.of());
 			TLObject second = Deployer.deploy(project, NOW);
+			assertEquals(sent + 2, _fake.getPuts());
 			assertAccepted(second, 2);
 			assertEquals(List.of(second, first), project.tValueByName("deployments"));
 			int datapoints = RuntimeImage.build(project, 2, NOW).getDatapointSources().size();

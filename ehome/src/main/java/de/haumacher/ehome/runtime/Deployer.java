@@ -249,13 +249,37 @@ public final class Deployer {
 		return record(project, controller, client, null, loaded.revision(), now, outcome);
 	}
 
+	/**
+	 * The code of the controller's refusal while it still stores the previous image (homecontrol #68).
+	 */
+	public static final String CODE_BUSY = "image.busy";
+
+	/** How often an image refused as {@link #CODE_BUSY} is sent again. */
+	static final int BUSY_RETRIES = 5;
+
+	/** The wait before an image refused as {@link #CODE_BUSY} is sent again (the controller's Retry-After). */
+	static final long BUSY_WAIT_MS = 1000;
+
 	private static void send(ControllerClient client, RuntimeImage image, long revision, Outcome outcome) {
 		Answer answer;
 		try {
 			answer = client.putImage(image.getBytes(), outcome._signature);
+			// The controller still stores the previous image (homecontrol #68: 503 image.busy, Retry-After 1):
+			// a store takes under a second, so the image is sent again after a second, a few times.
+			for (int retry = 0; retry < BUSY_RETRIES && answer.status() == 503 && CODE_BUSY.equals(answer.string("code"));
+					retry++) {
+				Thread.sleep(BUSY_WAIT_MS);
+				answer = client.putImage(image.getBytes(), outcome._signature);
+			}
 		} catch (IOException ex) {
 			outcome._code = CODE_UNREACHABLE;
 			outcome._message = text(I18NConstants.DEPLOY_UNREACHABLE__ADDRESS_ERROR.fill(client.address(), reason(ex)));
+			return;
+		} catch (InterruptedException ex) {
+			Thread.currentThread().interrupt();
+			outcome._code = CODE_UNREACHABLE;
+			outcome._message = text(I18NConstants.DEPLOY_UNREACHABLE__ADDRESS_ERROR.fill(client.address(),
+				reason(new IOException("interrupted while the controller was busy", ex))));
 			return;
 		}
 		outcome._status = Integer.valueOf(answer.status());
