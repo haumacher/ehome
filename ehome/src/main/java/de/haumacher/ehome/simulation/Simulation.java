@@ -489,6 +489,7 @@ public final class Simulation implements AutoCloseable {
 		if (!_problems.isEmpty()) {
 			return refuse("schedules refused: " + String.join("; ", _problems));
 		}
+		_scheduler.setQuietReports(_engine::quietly);
 		try {
 			_scheduler.load(_schedules);
 		} catch (Scheduler.RefusedException ex) {
@@ -519,7 +520,8 @@ public final class Simulation implements AutoCloseable {
 		if (refusal != null) {
 			return refuse("rules refused: " + refusal);
 		}
-		// Taking the schedules' times at the load is no event for the rules.
+		// Taking the schedules' times at the load is no event for the rules (the outputs' first
+		// values neither: setQuietReports above, homecontrol #67).
 		_engine.quietly(_scheduler::publishTimes);
 		_started = true;
 		_nextMidnight = nextMidnight(_now);

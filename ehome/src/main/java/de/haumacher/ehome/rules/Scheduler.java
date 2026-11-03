@@ -140,6 +140,12 @@ public final class Scheduler implements DatapointModel.Technology {
 		/** The datapoint mirroring the adjustable time, <code>null</code> for none. */
 		String _timeDatapoint;
 
+		/**
+		 * Whether the output took its first value since the load: a restored one, reported quietly,
+		 * or a firing.
+		 */
+		boolean _outputSettled;
+
 		String _key;
 
 		long _lastFired = NONE;
@@ -178,6 +184,9 @@ public final class Scheduler implements DatapointModel.Technology {
 
 	private boolean _deferTimes;
 
+	/** Runs the reports of the outputs' first values quietly; <code>null</code> for none. */
+	private Consumer<Runnable> _quiet;
+
 	/**
 	 * Creates a scheduler.
 	 *
@@ -209,6 +218,15 @@ public final class Scheduler implements DatapointModel.Technology {
 	 */
 	public void deferTimeReports(boolean defer) {
 		_deferTimes = defer;
+	}
+
+	/**
+	 * Runs the reports of the outputs' first values after a load (whether the entry fired today) so
+	 * that they are no events for the rules (the simulation: {@link Engine#quietly(Runnable)};
+	 * homecontrol #67). Without one, every report of an output is an ordinary report.
+	 */
+	public void setQuietReports(Consumer<Runnable> quiet) {
+		_quiet = quiet;
 	}
 
 	/** Reports the effective time of every entry with a time datapoint where the datapoint differs. */
@@ -1133,11 +1151,19 @@ public final class Scheduler implements DatapointModel.Technology {
 			}
 			boolean value = entry._lastFired != NONE && localDate(entry._lastFired).equals(today);
 			Datapoint datapoint = _model.get(entry._spec._output);
+			boolean restoring = !entry._outputSettled;
+			entry._outputSettled = true;
 			if (datapoint != null && datapoint.quality() == DatapointModel.Quality.GOOD
 				&& Val.identical(datapoint.value(), Val.ofBool(value))) {
 				continue;
 			}
-			_model.report(entry._spec._output, Val.ofBool(value));
+			String output = entry._spec._output;
+			if (restoring && _quiet != null) {
+				// Whether the entry fired today, after a load or reboot: restored state, no event.
+				_quiet.accept(() -> _model.report(output, Val.ofBool(value)));
+			} else {
+				_model.report(output, Val.ofBool(value));
+			}
 		}
 	}
 
@@ -1295,6 +1321,7 @@ public final class Scheduler implements DatapointModel.Technology {
 		} else {
 			log("I schedule " + entry._spec._id + " fired");
 		}
+		entry._outputSettled = true;
 		if (entry._spec._output != null && _model != null) {
 			_model.report(entry._spec._output, Val.ofBool(true));
 		}
