@@ -4,9 +4,13 @@ set -e
 ENV_FILE=/etc/ehome/ehome.env
 DATA_DIR=/var/lib/ehome
 CONTEXT=/etc/tomcat10/Catalina/localhost/ehome.xml
+DROPIN=/usr/lib/systemd/system/tomcat10.service.d/ehome.conf
+UPGRADE=$DATA_DIR/.upgrade
 
 if [ "$1" = "configure" ]; then
 	install -d -o tomcat -g tomcat -m 0750 "$DATA_DIR"
+	# Tomcat reads the settings and the drop-in only when it starts.
+	RESTART=
 
 	# The settings are created once and belong to the administrator afterwards (not a conffile, so
 	# that the generated password does not count as a local change).
@@ -31,6 +35,7 @@ h2_passwd=$DB_PASSWORD
 tl_initial_password=$PASSWORD
 END
 		chgrp tomcat "$ENV_FILE"
+		RESTART=1
 		echo "E-Home: the initial password of the user root is in $ENV_FILE." >&2
 	elif ! grep -q '^h2_passwd=' "$ENV_FILE"; then
 		# Settings of a version before TopLogic 8.0.0-alpha12: the database was created with the
@@ -40,22 +45,37 @@ END
 # The password of the H2 database (the engine's former default, which created the database).
 h2_passwd=theautomatedappengine
 END
+		RESTART=1
 		echo "E-Home: the password of the H2 database is now set in $ENV_FILE." >&2
 	fi
+	# A first installation, or an upgrade from a version whose drop-in differs (preinst noted its hash).
+	if [ -z "$2" ] || [ ! -e "$UPGRADE/dropin.sha256" ] || [ "$(sha256sum < "$DROPIN")" != "$(cat "$UPGRADE/dropin.sha256")" ]; then
+		RESTART=1
+	fi
 
-	# The context descriptor is put in place only while Tomcat is stopped: a running Tomcat deploys it
-	# at once, without the settings above, which it reads only at its next start.
+	install -d -o root -g tomcat -m 2775 /etc/tomcat10/Catalina /etc/tomcat10/Catalina/localhost
 	SYSTEMD=
 	if [ -d /run/systemd/system ]; then
 		SYSTEMD=1
 		systemctl daemon-reload || true
-		systemctl stop tomcat10 || true
 	fi
-	install -d -o root -g tomcat -m 2775 /etc/tomcat10/Catalina /etc/tomcat10/Catalina/localhost
-	install -m 0644 /usr/share/ehome/tomcat/ehome.xml "$CONTEXT"
-	if [ -n "$SYSTEMD" ]; then
-		systemctl start tomcat10 || true
+	if [ -n "$RESTART" ]; then
+		# The context descriptor is put in place only while Tomcat is stopped: a running Tomcat deploys
+		# it at once, without the settings above, which it reads only at its next start.
+		if [ -n "$SYSTEMD" ]; then
+			systemctl stop tomcat10 || true
+		fi
+		install -m 0644 /usr/share/ehome/tomcat/ehome.xml "$CONTEXT"
+		if [ -n "$SYSTEMD" ]; then
+			systemctl start tomcat10 || true
+		fi
+	else
+		# An upgrade with unchanged settings: preinst stopped the app and backed up the database; the
+		# running Tomcat deploys the new version as soon as its descriptor is back.
+		install -m 0644 /usr/share/ehome/tomcat/ehome.xml "$CONTEXT"
+		echo "E-Home: the new version is being deployed; Tomcat was not restarted." >&2
 	fi
+	rm -rf "$UPGRADE"
 	echo "E-Home: http://localhost:8080/ehome/view/ (the first start takes about a minute)." >&2
 fi
 

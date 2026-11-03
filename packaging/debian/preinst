@@ -1,0 +1,103 @@
+#!/bin/sh
+set -e
+
+# Before an upgrade (doc/debian.md "Upgrading"): stop the app, not Tomcat, and back up the database.
+#
+# The app is stopped by taking its context descriptor away: Tomcat (autoDeploy) undeploys the app,
+# which closes the H2 database. The script waits until no process holds the database file open any
+# more, so that the backup is a consistent copy and the new war is unpacked while nothing runs. The
+# descriptor is parked in $UPGRADE; postinst puts the descriptor of the new version in place, which
+# deploys the new app in the running Tomcat. A failure here leaves the old app deployed again and the
+# upgrade aborted (postrm abort-upgrade restores it as well).
+
+DATA_DIR=/var/lib/ehome
+DB=$DATA_DIR/h2.mv.db
+CONTEXT=/etc/tomcat10/Catalina/localhost/ehome.xml
+DROPIN=/usr/lib/systemd/system/tomcat10.service.d/ehome.conf
+UPGRADE=$DATA_DIR/.upgrade
+BACKUPS=$DATA_DIR/backup
+# How many backups stay; older ones are deleted after a successful backup.
+KEEP=5
+# How long the app may take to stop (seconds).
+STOP_TIMEOUT=300
+
+# Whether a process (Tomcat) holds the database file open.
+db_in_use() {
+	for fd in /proc/[0-9]*/fd; do
+		if find "$fd" -maxdepth 1 -lname "$DB" 2>/dev/null | grep -q .; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+# Whether a Tomcat runs (with or without systemd).
+tomcat_running() {
+	grep -lsa 'org[.]apache[.]catalina[.]startup[.]Bootstra[p]' /proc/[0-9]*/cmdline | grep -q .
+}
+
+# Deploys the old app again after a failed attempt.
+restore() {
+	if [ -e "$UPGRADE/ehome.xml" ] && [ ! -e "$CONTEXT" ]; then
+		mv "$UPGRADE/ehome.xml" "$CONTEXT"
+	fi
+}
+
+case "$1" in
+	upgrade)
+		install -d -m 0700 "$UPGRADE"
+		# postinst restarts Tomcat only if the drop-in with the settings changed.
+		if [ -e "$DROPIN" ]; then
+			sha256sum < "$DROPIN" > "$UPGRADE/dropin.sha256"
+		else
+			rm -f "$UPGRADE/dropin.sha256"
+		fi
+
+		if [ -e "$CONTEXT" ]; then
+			echo "E-Home: stopping the app (Tomcat keeps running) ..." >&2
+			mv "$CONTEXT" "$UPGRADE/ehome.xml"
+		fi
+		waited=0
+		while db_in_use; do
+			if [ "$waited" -ge "$STOP_TIMEOUT" ]; then
+				restore
+				echo "E-Home: the app did not stop within $STOP_TIMEOUT s (its database $DB is still open)." >&2
+				echo "E-Home: the upgrade is aborted, the old version runs again. Stop Tomcat" >&2
+				echo "E-Home: (systemctl stop tomcat10) and repeat the upgrade." >&2
+				exit 1
+			fi
+			sleep 1
+			waited=$((waited + 1))
+		done
+		# Tomcat's unpacked copy of the old war and its compiled state: the new war is unpacked anew.
+		# Tomcat deletes them itself after the app stopped; what is left after a minute (Tomcat not
+		# running, or autoDeploy off) is deleted here, never at the same time as Tomcat does it.
+		waited=0
+		while [ -d /var/lib/tomcat10/webapps/ehome ] && [ "$waited" -lt 60 ] && tomcat_running; do
+			sleep 1
+			waited=$((waited + 1))
+		done
+		rm -rf /var/lib/tomcat10/webapps/ehome /var/cache/tomcat10/Catalina/localhost/ehome
+
+		if [ -e "$DB" ]; then
+			install -d -o tomcat -g tomcat -m 0750 "$BACKUPS"
+			NAME="h2-$(echo "$2" | tr -c 'A-Za-z0-9.+\n-' '_')-$(date +%Y%m%d-%H%M%S).mv.db.gz"
+			echo "E-Home: backing up the database to $BACKUPS/$NAME ..." >&2
+			if ! gzip -c "$DB" > "$BACKUPS/$NAME.part"; then
+				rm -f "$BACKUPS/$NAME.part"
+				restore
+				echo "E-Home: the backup of the database failed (disk full?); the upgrade is aborted," >&2
+				echo "E-Home: the old version runs again." >&2
+				exit 1
+			fi
+			mv "$BACKUPS/$NAME.part" "$BACKUPS/$NAME"
+			chown tomcat:tomcat "$BACKUPS/$NAME"
+			chmod 0640 "$BACKUPS/$NAME"
+			ls -1t "$BACKUPS"/h2-*.mv.db.gz | tail -n +$((KEEP + 1)) | while read -r old; do
+				rm -f "$old"
+			done
+		fi
+		;;
+esac
+
+exit 0

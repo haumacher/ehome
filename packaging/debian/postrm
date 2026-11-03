@@ -10,6 +10,13 @@ case "$1" in
 			systemctl try-restart tomcat10 || true
 		fi
 		;;
+	abort-upgrade|abort-install)
+		# preinst stopped the app for an upgrade that failed: deploy the old version again.
+		if [ -e /var/lib/ehome/.upgrade/ehome.xml ] && [ ! -e /etc/tomcat10/Catalina/localhost/ehome.xml ]; then
+			mv /var/lib/ehome/.upgrade/ehome.xml /etc/tomcat10/Catalina/localhost/ehome.xml
+		fi
+		rm -rf /var/lib/ehome/.upgrade
+		;;
 	purge)
 		rm -f /etc/ehome/ehome.env
 		rmdir /etc/ehome 2>/dev/null || true

@@ -105,6 +105,15 @@
       <groupId>com.top-logic</groupId>
       <artifactId>tl-layout-view</artifactId>
     </dependency>
+    <!--
+      Agent access to a running session (doc/agent-access.md): the endpoint /agent-api and the access
+      tokens a user issues from the development menu (Agent access) to let an agent drive the session
+      with the user's permissions.
+    -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-layout-view-agent</artifactId>
+    </dependency>
 	
     <!--
       The controllers' WebSocket (haumacher/ehome #54, ControllerSocket): the Jakarta WebSocket API,

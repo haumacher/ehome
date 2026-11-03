@@ -123,6 +123,25 @@ own (TL #29899, wontfix). The secret is stored as is in the hidden attribute `Co
 with a read grant without roles (only administrators read it through the model), like the controller
 token.
 
+## Agent access (TL #30125, #30048)
+
+E-Home depends on `tl-layout-view-agent` (`doc/agent-access.md`). Two gaps of the module, without a
+workaround in the app:
+
+- `/agent-api` answers a request without a valid credential with a redirect to the login page (302 to
+  `/view/?sessionCheckInProgress=true`) instead of 401 (TL #30125). The refusal is safe; only the
+  client cannot tell it from the content. `bin/ehome-agent.py` does not follow the redirect and
+  reports "the token is not admitted".
+- TL #30048 collects the unbuilt parts of the design that matter for an installation in the cloud:
+  every logged-in account may issue a token (an agent then acts with that account's rights, no more);
+  a token of an ended session (logout, restart) stays listed until it expires, though it admits
+  nobody; every admitted request writes `lastUsed` in a commit of its own, so a polling agent
+  creates a revision per request; there is no MCP wrapper (hence `bin/ehome-agent.py`).
+
+**When fixed:** TL #30125: drop the redirect case of `bin/ehome-agent.py`. TL #30048: decide whether
+E-Home restricts issuing tokens (e.g. to `ehome.Installer`) with the rule the module offers, and
+replace `bin/ehome-agent.py` by the MCP wrapper.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -130,3 +149,4 @@ token.
 - TL #30086, #30087: see above (XML import: updating known descendants, the composition of a partition).
 - TL #30088: see above (a source is not told of the teardown of a hidden view's window).
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
+- TL #30125, #30048: see above (agent access: 302 instead of 401, the follow-ups of the module).

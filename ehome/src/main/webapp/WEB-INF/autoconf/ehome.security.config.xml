@@ -40,6 +40,15 @@
 	the runtime images with them in Java (de.haumacher.ehome.connection.InstallationKeys); the views show
 	only the fingerprints of the public keys. The open enrollment code of a project (ehome.project:Project#enrollmentCode) is read by
 	installers only: whoever knows it can enroll a controller for the project.
+
+	The access tokens of the agent access (module tl-layout-view-agent, tl.agent:AccessToken,
+	doc/agent-access.md) are their owner's: an account holds ehome.TokenOwner on the tokens it issued
+	(a role rule along AccessToken#owner) and reads and withdraws them in the dialog "Agent access" of
+	the development menu; nobody else sees them but an administrator, who lists all tokens in the
+	administration. The token is issued and checked in Java (IssueAccessTokenAction, AgentAccess), which
+	the model access check does not cover; only the hash of its secret is stored. The two transient
+	types of the dialog (the form of a new token and the invitation shown once) are never persisted and
+	are marked internal.
 -->
 <application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
@@ -50,6 +59,7 @@
 				<roles>
 					<role name="ehome.Installer"/>
 					<role name="ehome.Viewer"/>
+					<role name="ehome.TokenOwner"/>
 				</roles>
 			</instance>
 		</config>
@@ -79,6 +89,16 @@
 						>
 							<group-with-name name="ehome.viewers"/>
 						</singleton-rule>
+						<rule id="ehomeOwnerOfAccessToken"
+							meta-element="tl.agent:AccessToken"
+							role="ehome.TokenOwner"
+						>
+							<path>
+								<step attribute="tl.agent:AccessToken#owner"
+									inverse="false"
+								/>
+							</path>
+						</rule>
 					</rules>
 				</role-rules>
 				<security-parents>
@@ -196,6 +216,13 @@
 					<part name="ehome.project:Project#newInstallationKey">
 						<grant operation="Read"/>
 					</part>
+					<!-- An agent access token: its owner reads and withdraws it. -->
+					<class name="tl.agent:AccessToken">
+						<grant operation="Read" roles="ehome.TokenOwner"/>
+						<grant operation="Delete" roles="ehome.TokenOwner"/>
+					</class>
+					<class name="tl.agent:NewAccessToken" internal="true"/>
+					<class name="tl.agent:IssuedAccessToken" internal="true"/>
 					<!-- The open enrollment code of a project: installers only, a viewer must not enroll a controller. -->
 					<part name="ehome.project:Project#enrollmentCode">
 						<grant operation="Read" roles="ehome.Installer"/>

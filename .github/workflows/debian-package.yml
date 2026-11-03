@@ -1,6 +1,9 @@
 # The Debian package of E-Home (doc/debian.md): builds and tests the app without the development
 # tooling, builds the war of the profile "debian" and packages it with bin/build-deb.sh. Every push to
-# master leaves the package as an artifact of the run; a tag vX.Y.Z also publishes it as a release.
+# master leaves the package as an artifact of the run and publishes it in the suite "snapshot" of the
+# apt repository on GitHub Pages (https://haumacher.github.io/ehome/); a tag vX.Y.Z publishes it as a
+# release and in the suite "stable". The repository is signed with the key of the secrets
+# APT_SIGNING_KEY (the armored secret key) and APT_SIGNING_PASSPHRASE.
 name: Debian package
 
 on:
@@ -47,3 +50,58 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" "${{ steps.deb.outputs.file }}" --title "E-Home ${GITHUB_REF_NAME#v}" --generate-notes
+
+  apt:
+    needs: deb
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # One deployment at a time: each run builds the site from the one published before it.
+    concurrency:
+      group: apt-repository
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: ehome-deb
+          path: deb
+
+      - name: Import the signing key
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+          APT_SIGNING_PASSPHRASE: ${{ secrets.APT_SIGNING_PASSPHRASE }}
+        run: |
+          sudo apt-get install -y -qq apt-utils
+          case "$APT_SIGNING_KEY" in
+            -----BEGIN*) printf '%s\n' "$APT_SIGNING_KEY" > "$RUNNER_TEMP/key" ;;
+            *) printf '%s' "$APT_SIGNING_KEY" | base64 -d > "$RUNNER_TEMP/key" ;;
+          esac
+          printf '%s' "$APT_SIGNING_PASSPHRASE" > "$RUNNER_TEMP/passphrase"
+          gpg --batch --pinentry-mode loopback --passphrase-file "$RUNNER_TEMP/passphrase" --import "$RUNNER_TEMP/key"
+          rm -f "$RUNNER_TEMP/key" "$RUNNER_TEMP/passphrase"
+          gpg --batch --list-secret-keys --keyid-format long | grep -E '^(sec|uid)'
+
+      - name: Build the repository
+        env:
+          APT_REPO_URL: https://haumacher.github.io/ehome
+          APT_SIGNING_PASSPHRASE: ${{ secrets.APT_SIGNING_PASSPHRASE }}
+        run: |
+          if [ "${GITHUB_REF#refs/tags/v}" != "$GITHUB_REF" ]; then SUITE=stable; else SUITE=snapshot; fi
+          bin/apt-repo.sh "$RUNNER_TEMP/site" "$SUITE" deb/*.deb
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ runner.temp }}/site
+
+      - name: Deploy the repository
+        id: deploy
+        uses: actions/deploy-pages@v4
