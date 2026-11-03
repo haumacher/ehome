@@ -71,8 +71,8 @@ public final class Controllers {
 	 * Forgets the controller: closes its connection with {@link ControllerConnection#REFUSED_FORGOTTEN}
 	 * and deletes it, in a transaction of its own on the thread of
 	 * {@link ControllerConnections#executeAndWait(Runnable)}, after removing it as the deployment target
-	 * of projects and from the deployments that name it (they keep its name and address in their
-	 * target).
+	 * of projects (a project's only other controller becomes its target instead) and from the
+	 * deployments that name it (they keep its name and address in their target).
 	 */
 	public static void forget(TLObject controller) {
 		String id = ControllerConnections.controllerId(controller);
@@ -92,7 +92,7 @@ public final class Controllers {
 			TLClass projectType = (TLClass) TLModelUtil.findType("ehome.project:Project");
 			for (TLObject project : MetaElementUtil.getAllDirectInstancesOf(projectType, TLObject.class)) {
 				if (project.tValueByName("controller") == controller) {
-					project.tUpdateByName("controller", null);
+					project.tUpdateByName("controller", soleOther(project, controller));
 				}
 				if (project.tValueByName("deployments") instanceof Collection<?> deployments) {
 					for (Object entry : deployments) {
@@ -105,6 +105,26 @@ public final class Controllers {
 			controller.tDelete();
 			tx.commit();
 		}
+	}
+
+	/**
+	 * The project's only controller besides the given one, <code>null</code> if it has none or
+	 * several: after the deployment target is forgotten, a single remaining controller (typically the
+	 * same device enrolled again) takes its place; among several, the choice stays the installer's.
+	 */
+	private static TLObject soleOther(TLObject project, TLObject controller) {
+		TLObject result = null;
+		if (project.tValueByName("controllers") instanceof Collection<?> controllers) {
+			for (Object entry : controllers) {
+				if (entry instanceof TLObject other && other != controller && other.tValid()) {
+					if (result != null) {
+						return null;
+					}
+					result = other;
+				}
+			}
+		}
+		return result;
 	}
 
 	private static String format(Date date) {

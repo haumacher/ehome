@@ -41,6 +41,7 @@ rm -rf "$STAGE"
 install -d "$STAGE/DEBIAN"
 install -D -m 0644 "$WAR" "$STAGE/usr/share/ehome/ehome.war"
 install -D -m 0644 "$SRC/ehome.xml" "$STAGE/usr/share/ehome/tomcat/ehome.xml"
+install -D -m 0644 "$SRC/nginx-ehome.conf" "$STAGE/usr/share/doc/ehome/nginx-ehome.conf"
 install -D -m 0644 "$SRC/tomcat10-ehome.conf" "$STAGE/usr/lib/systemd/system/tomcat10.service.d/ehome.conf"
 install -m 0755 "$SRC/postinst" "$SRC/prerm" "$SRC/postrm" "$STAGE/DEBIAN/"
 SIZE=$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)

@@ -112,6 +112,49 @@ public class TestControllerProbe extends BasicTestCase {
 		}
 	}
 
+	/**
+	 * Forgetting the deployment target makes the project's only other controller the target (a device
+	 * enrolled again, then its old entry forgotten); among several, none is chosen.
+	 */
+	public void testForgottenTargetPassesToTheOnlyOtherController() throws Exception {
+		TLObject project = ControllerEndpoint.project("Probe target");
+		try {
+			TLObject first = enroll(project, "homecontrol-a");
+			assertSame("The first controller becomes the target.", first, project.tValueByName("controller"));
+			TLObject second = enroll(project, "homecontrol-a");
+			assertSame("A second enrollment leaves the target.", first, project.tValueByName("controller"));
+
+			Controllers.forget(first);
+			assertSame(second, project.tValueByName("controller"));
+
+			TLObject third = enroll(project, "homecontrol-b");
+			enroll(project, "homecontrol-c");
+			assertSame(second, project.tValueByName("controller"));
+			Controllers.forget(third);
+			assertSame("Forgetting another controller leaves the target.", second, project.tValueByName("controller"));
+			Controllers.forget(second);
+			assertSame("homecontrol-c is the only one left.", "homecontrol-c",
+				((TLObject) project.tValueByName("controller")).tValueByName("name"));
+
+			TLObject d = enroll(project, "homecontrol-d");
+			enroll(project, "homecontrol-e");
+			Controllers.forget((TLObject) project.tValueByName("controller"));
+			assertNull("Among several, the installer chooses.", project.tValueByName("controller"));
+			assertTrue(d.tValid());
+		} finally {
+			deleteProject(project);
+		}
+	}
+
+	private TLObject enroll(TLObject project, String name) throws Exception {
+		Map<String, Object> request = new LinkedHashMap<>();
+		request.put("code", Enrollment.createCode(project, null, Instant.now()));
+		request.put("name", name);
+		Enrollment.Answer enrolled = Enrollment.enroll(request, _endpoint.base(), Instant.now());
+		assertEquals(enrolled.body().toString(), 200, enrolled.status());
+		return ControllerConnections.find((String) enrolled.body().get("controller"));
+	}
+
 	private static void deleteProject(TLObject project) throws InterruptedException {
 		ControllerConnections.awaitKnowledgeBase(); // the writer records the closes before the project goes
 		SharedData.deleteProjects(List.of(project)); // which refetches and retries a late commit itself

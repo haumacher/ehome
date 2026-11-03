@@ -206,7 +206,9 @@ encodings) and `connection.InstallationKeys` (the keys of a project and the rota
 "Vergessen" (project tab) or "Löschen" (global list) asks, then deletes the controller with its
 secret, removes it as the deployment target of its project and from the deployments that name it
 (they keep its name and address in their target), and closes its connection with
-`ehome.forgotten`.
+`ehome.forgotten`. When the project has exactly one other controller, that one becomes the target
+(the same device enrolled again with a new code, after which the old entry is forgotten); with
+several, the installer chooses it in the tab "Bereitstellung".
 
 ## Security
 
@@ -231,6 +233,28 @@ secret, removes it as the deployment target of its project and from the deployme
     built from them (`wss://` behind a TLS proxy),
   - let the container take the client's address from `X-Forwarded-For` (Tomcat `RemoteIpValve`,
     Jetty `ForwardedRequestCustomizer`); otherwise the rate limit counts the proxy as one address.
+
+## TLS during development
+
+No public host is needed to run the whole path over TLS on the desk. `bin/dev-tls.sh start` makes a
+local CA and a server certificate for this machine (localhost, the host name, `<host name>.local`
+and every IPv4 address; the keys in `~/.config/ehome/dev-tls/`, mode 600, outside the repository)
+and runs nginx (the docker image `nginx:1.27-alpine`, host network) with the proxy settings listed
+above, from port 8443 to the E-Home of `./mvnw -pl ehome exec:java` on 8080; it prints the
+addresses `https://<address>:8443/ehome` and the CA's path. `bin/dev-tls.sh stop` ends it.
+
+The controller trusts the CA when its firmware is built with
+`-DHC_EXTRA_CA=$HOME/.config/ehome/dev-tls/ca.pem` (homecontrol `doc/ehome.md` "TLS during
+development"; a build directory of its own, e.g. `build-esp32c6-devtls`) and flashed over the WLAN.
+It is then enrolled with the address `https://<this machine>:8443/ehome` and a code of the project's
+tab "Controller"; the answer names `wss://<this machine>:8443/ehome/api/controllers/<id>/socket`.
+Verified on 2026-11-03 with the ESP32-C6: the enrollment, the socket, its reconnect after off/on,
+the pings through the proxy and a signed deployment over `wss://`.
+
+The Jetty of `exec:java` does not evaluate `X-Forwarded-For`: behind the development proxy every
+request comes from 127.0.0.1 (the log says "Enrolled controller … from 127.0.0.1"), so the
+enrollment's rate limit counts all clients as one. That is acceptable on the desk; the Debian
+package's Tomcat needs the `RemoteIpValve` (above).
 
 ## The WebSocket implementation
 

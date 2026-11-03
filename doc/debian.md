@@ -53,4 +53,9 @@ Tomcat's heap is the JVM's default (a quarter of the memory); set `JAVA_OPTS` in
 `/etc/default/tomcat10` for more. Tomcat runs on the system's default Java; where that is not Java 21,
 set `JAVA_HOME` there. TLS and a public host name (the controllers connect to
 `wss://<host>/ehome/api/controllers/<id>/socket`, `doc/controllers.md`) belong to a reverse proxy in
-front of Tomcat.
+front of Tomcat on the same host: `/usr/share/doc/ehome/nginx-ehome.conf` is an example for nginx
+(WebSocket upgrade, `X-Forwarded-*`, read timeout). The context `ehome.xml` has Tomcat's
+`RemoteIpValve`, which takes the client's address and scheme from the forwarded headers of a proxy
+connecting from the loopback interface only, so that the enrollment's rate limit counts the clients;
+a proxy on another host needs its address in the valve's `internalProxies` (the context is rewritten
+by every upgrade of the package).
