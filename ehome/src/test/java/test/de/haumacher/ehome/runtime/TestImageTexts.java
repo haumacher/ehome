@@ -83,7 +83,7 @@ public class TestImageTexts extends BasicTestCase {
 			assertEquals("Kitchen light", label.get("en"));
 			assertTrue(longText.startsWith((String) label.get("de")));
 			assertTrue(((String) label.get("de")).getBytes(java.nio.charset.StandardCharsets.UTF_8).length <= 63);
-			assertTrue(image.getText(), image.getText().contains("\"label\": {\"de\": \"Küche"));
+			assertTrue(image.getText(), image.getText().contains("\"label\":{\"de\":\"Küche"));
 
 			// A function the user created is named in every application language.
 			ResKey created = FunctionProposal.text(ResKey.text("Neu"));

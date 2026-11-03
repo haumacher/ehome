@@ -173,7 +173,7 @@ public final class RuntimeImage {
 		if (automation) {
 			result.ui(project);
 		}
-		result._text = Json.write(result._json);
+		result._text = Json.writeCompact(result._json);
 		return result;
 	}
 
@@ -185,7 +185,8 @@ public final class RuntimeImage {
 	}
 
 	/**
-	 * The image as JSON text.
+	 * The image as JSON text, without whitespace ({@link Json#writeCompact(Object)}): the bytes that
+	 * are signed, sent, stored by the controller and downloaded.
 	 */
 	public String getText() {
 		return _text;

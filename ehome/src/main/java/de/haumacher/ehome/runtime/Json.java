@@ -321,19 +321,35 @@ public final class Json {
 		return out.toString();
 	}
 
+	/**
+	 * Writes a value as {@link #write(Object)} does, but without any whitespace between the tokens:
+	 * the form of the runtime image a controller receives and stores (haumacher/homecontrol #66: a
+	 * third of an indented image is whitespace, and the controller holds the whole image while it
+	 * loads it).
+	 */
+	public static String writeCompact(Object value) {
+		StringBuilder out = new StringBuilder();
+		write(out, value, COMPACT);
+		return out.toString();
+	}
+
+	/** The indentation that writes without whitespace. */
+	private static final int COMPACT = -1;
+
 	private static void write(StringBuilder out, Object value, int indent) {
 		if (value instanceof Map<?, ?> map) {
 			if (map.isEmpty()) {
 				out.append("{}");
 				return;
 			}
-			boolean inline = isFlat(map.values());
+			boolean compact = indent == COMPACT;
+			boolean inline = compact || isFlat(map.values());
 			out.append('{');
 			boolean first = true;
 			for (Map.Entry<?, ?> entry : map.entrySet()) {
 				if (!first) {
 					out.append(',');
-					if (inline) {
+					if (inline && !compact) {
 						out.append(' ');
 					}
 				}
@@ -342,8 +358,8 @@ public final class Json {
 					newLine(out, indent + 1);
 				}
 				string(out, String.valueOf(entry.getKey()));
-				out.append(": ");
-				write(out, entry.getValue(), indent + 1);
+				out.append(compact ? ":" : ": ");
+				write(out, entry.getValue(), compact ? COMPACT : indent + 1);
 			}
 			if (!inline) {
 				newLine(out, indent);
@@ -354,13 +370,14 @@ public final class Json {
 				out.append("[]");
 				return;
 			}
-			boolean inline = isFlat(list);
+			boolean compact = indent == COMPACT;
+			boolean inline = compact || isFlat(list);
 			out.append('[');
 			boolean first = true;
 			for (Object element : list) {
 				if (!first) {
 					out.append(',');
-					if (inline) {
+					if (inline && !compact) {
 						out.append(' ');
 					}
 				}
@@ -368,7 +385,7 @@ public final class Json {
 				if (!inline) {
 					newLine(out, indent + 1);
 				}
-				write(out, element, indent + 1);
+				write(out, element, compact ? COMPACT : indent + 1);
 			}
 			if (!inline) {
 				newLine(out, indent);
