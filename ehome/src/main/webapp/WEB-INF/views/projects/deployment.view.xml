@@ -99,11 +99,13 @@
 							unit="%"
 						>
 							<!--
-								What the histories cost (haumacher/ehome #73): the datapoints with a history in the
-								image, the biggest first, and the charts with the bytes of the histories of the
-								datapoints they draw (a datapoint two charts draw counts in both). The total against
-								the budget is the field "History memory" above; exceeding the budget is refused by the
-								image's check, naming the biggest histories.
+								What the histories cost (haumacher/ehome #73, homecontrol #56): the datapoints with a
+								history in the image, the biggest first, and the charts with the bytes of the
+								histories of the datapoints they draw (a datapoint two charts draw counts in both),
+								each as RAM (the raw rings and the archives' open slots, against history.budget) and
+								flash (the archives' segments, against the device's archive cap). The totals against
+								the budget and the caps are the field "History memory" above; exceeding them is
+								refused by the image's check, naming the biggest histories.
 							-->
 							<panel>
 								<title>
@@ -135,14 +137,23 @@
 											</label>
 											<value>runtimeHistoryEffective($row)</value>
 										</computed-column>
-										<computed-column name="bytes"
+										<computed-column name="ram"
 											type="tl.core:Long"
 										>
 											<label>
-												<en>Bytes</en>
-												<de>Bytes</de>
+												<en>RAM (bytes)</en>
+												<de>RAM (Bytes)</de>
 											</label>
-											<value>runtimeHistoryBytes($row)</value>
+											<value>runtimeHistoryRam($row)</value>
+										</computed-column>
+										<computed-column name="flash"
+											type="tl.core:Long"
+										>
+											<label>
+												<en>Flash (bytes)</en>
+												<de>Flash (Bytes)</de>
+											</label>
+											<value>runtimeHistoryFlash($row)</value>
 										</computed-column>
 									</columns>
 									<rows>runtimeHistoryDatapoints($project)</rows>
@@ -172,14 +183,23 @@
 											</label>
 											<value>pageLabel($row.container().container())</value>
 										</computed-column>
-										<computed-column name="bytes"
+										<computed-column name="ram"
 											type="tl.core:Long"
 										>
 											<label>
-												<en>Bytes</en>
-												<de>Bytes</de>
+												<en>RAM (bytes)</en>
+												<de>RAM (Bytes)</de>
 											</label>
-											<value>runtimeHistoryBytes($row)</value>
+											<value>runtimeHistoryRam($row)</value>
+										</computed-column>
+										<computed-column name="flash"
+											type="tl.core:Long"
+										>
+											<label>
+												<en>Flash (bytes)</en>
+												<de>Flash (Bytes)</de>
+											</label>
+											<value>runtimeHistoryFlash($row)</value>
 										</computed-column>
 									</columns>
 									<rows>runtimeHistoryCharts($project)</rows>

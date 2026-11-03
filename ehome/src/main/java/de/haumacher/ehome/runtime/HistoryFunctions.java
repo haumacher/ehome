@@ -42,11 +42,17 @@ public class HistoryFunctions extends GenericMethod {
 		/** <code>runtimeHistoryUsage(project)</code>: {@link HistoryConfig#usage(TLObject)}. */
 		runtimeHistoryUsage(true),
 		/**
-		 * <code>runtimeHistoryBytes(obj)</code>: the bytes of the history of a datapoint
-		 * ({@link HistoryConfig#bytes(TLObject)}), or of the datapoints of a chart
-		 * ({@link HistoryConfig#chartBytes(TLObject)}).
+		 * <code>runtimeHistoryRam(obj)</code>: the RAM of the history of a datapoint
+		 * ({@link HistoryConfig#ramBytes(TLObject)}), or of the datapoints of a chart
+		 * ({@link HistoryConfig#chartRamBytes(TLObject)}).
 		 */
-		runtimeHistoryBytes(true),
+		runtimeHistoryRam(true),
+		/**
+		 * <code>runtimeHistoryFlash(obj)</code>: the flash of the archives of a datapoint
+		 * ({@link HistoryConfig#flashBytes(TLObject)}), or of the datapoints of a chart
+		 * ({@link HistoryConfig#chartFlashBytes(TLObject)}).
+		 */
+		runtimeHistoryFlash(true),
 		/** <code>runtimeHistoryDatapoints(project)</code>: {@link HistoryConfig#datapoints(TLObject)}. */
 		runtimeHistoryDatapoints(true),
 		/** <code>runtimeHistoryCharts(project)</code>: {@link HistoryConfig#charts(TLObject)}. */
@@ -124,9 +130,12 @@ public class HistoryFunctions extends GenericMethod {
 				return Boolean.valueOf(HistoryConfig.isManual(obj));
 			case runtimeHistoryUsage:
 				return HistoryConfig.usage(obj);
-			case runtimeHistoryBytes:
-				return SearchExpression.toNumber(Pages.is(obj, "ChartElement") ? HistoryConfig.chartBytes(obj)
-					: HistoryConfig.bytes(obj));
+			case runtimeHistoryRam:
+				return SearchExpression.toNumber(Pages.is(obj, "ChartElement") ? HistoryConfig.chartRamBytes(obj)
+					: HistoryConfig.ramBytes(obj));
+			case runtimeHistoryFlash:
+				return SearchExpression.toNumber(Pages.is(obj, "ChartElement") ? HistoryConfig.chartFlashBytes(obj)
+					: HistoryConfig.flashBytes(obj));
 			case runtimeHistoryDatapoints:
 				return HistoryConfig.datapoints(obj);
 			case runtimeHistoryCharts:

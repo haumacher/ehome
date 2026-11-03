@@ -63,7 +63,8 @@
 					<method name="runtimeHistoryEffective" class="de.haumacher.ehome.runtime.HistoryFunctions$Builder"/>
 					<method name="runtimeHistoryManual" class="de.haumacher.ehome.runtime.HistoryFunctions$Builder"/>
 					<method name="runtimeHistoryUsage" class="de.haumacher.ehome.runtime.HistoryFunctions$Builder"/>
-					<method name="runtimeHistoryBytes" class="de.haumacher.ehome.runtime.HistoryFunctions$Builder"/>
+					<method name="runtimeHistoryRam" class="de.haumacher.ehome.runtime.HistoryFunctions$Builder"/>
+					<method name="runtimeHistoryFlash" class="de.haumacher.ehome.runtime.HistoryFunctions$Builder"/>
 					<method name="runtimeHistoryDatapoints" class="de.haumacher.ehome.runtime.HistoryFunctions$Builder"/>
 					<method name="runtimeHistoryCharts" class="de.haumacher.ehome.runtime.HistoryFunctions$Builder"/>
 					<method name="runtimeArchiveProblem" class="de.haumacher.ehome.runtime.HistoryFunctions$Builder"/>

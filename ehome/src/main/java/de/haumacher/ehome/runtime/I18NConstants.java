@@ -752,9 +752,14 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 HISTORY_WITH_ARCHIVES__RAW_ARCHIVES;
 
 	/**
-	 * @en {0} ({1} bytes)
+	 * @en {0} ({1} bytes of RAM)
 	 */
-	public static ResKey2 HISTORY_BYTES__HISTORY_BYTES;
+	public static ResKey2 HISTORY_BYTES__HISTORY_RAM;
+
+	/**
+	 * @en {0} ({1} bytes of RAM, {2} bytes of flash)
+	 */
+	public static ResKey3 HISTORY_BYTES__HISTORY_RAM_FLASH;
 
 	/**
 	 * @en No history: the controller keeps one only of numbers and truth values.
@@ -777,19 +782,34 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 HISTORY_DERIVED__HISTORY;
 
 	/**
-	 * @en The histories need {0} bytes, more than the {1} bytes allowed. The biggest: {2}.
+	 * @en The histories need {0} bytes of RAM, more than the {1} bytes allowed. The biggest: {2}.
 	 */
-	public static ResKey3 HISTORY_USAGE_EXCEEDED__BYTES_LIMIT_BIGGEST;
+	public static ResKey3 HISTORY_USAGE_RAM_EXCEEDED__BYTES_LIMIT_BIGGEST;
 
 	/**
-	 * @en The histories need {0} bytes of the budget of {1} bytes (the controller allows {2}).
+	 * @en The histories need {0} bytes of RAM of the budget of {1} bytes (the controller allows {2}).
 	 */
-	public static ResKey3 HISTORY_USAGE__BYTES_BUDGET_CAP;
+	public static ResKey3 HISTORY_USAGE_RAM__BYTES_BUDGET_CAP;
 
 	/**
-	 * @en The histories need {0} bytes of the {1} bytes the controller allows.
+	 * @en The histories need {0} bytes of RAM of the {1} bytes the controller allows.
 	 */
-	public static ResKey2 HISTORY_USAGE__BYTES_CAP;
+	public static ResKey2 HISTORY_USAGE_RAM__BYTES_CAP;
+
+	/**
+	 * @en The archives need {0} bytes of flash, more than the {1} bytes the controller allows. The biggest: {2}.
+	 */
+	public static ResKey3 HISTORY_USAGE_FLASH_EXCEEDED__BYTES_CAP_BIGGEST;
+
+	/**
+	 * @en The archives need {0} bytes of flash of the {1} bytes the controller allows.
+	 */
+	public static ResKey2 HISTORY_USAGE_FLASH__BYTES_CAP;
+
+	/**
+	 * @en To fit the controller, the histories of these datapoints are coarser than their charts ask for: {0}.
+	 */
+	public static ResKey1 HISTORY_USAGE_COARSENED__DATAPOINTS;
 
 	/**
 	 * @en A history has at most {0} archives.

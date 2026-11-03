@@ -112,14 +112,24 @@ public final class ImageValidator {
 	/** The value types a reference line may follow. */
 	private static final Set<String> NUMERIC_TYPES = Set.of(ValueTypes.UNSIGNED, ValueTypes.SIGNED, ValueTypes.REAL);
 
-	/** The most history memory a controller (an ESP32-C6) allows. */
+	/**
+	 * The most history RAM a controller (an ESP32-C6) allows, <code>history.budget</code>: the raw rings
+	 * and the archives' open slots (homecontrol <code>HistoryLimits::cap_bytes</code>).
+	 */
 	public static final int HISTORY_CAP = 65536;
+
+	/**
+	 * The most flash the archives of a controller (an ESP32-C6) may use,
+	 * <code>history.archiveBudget</code> (homecontrol <code>HistoryLimits::archive_cap_bytes</code>, 16
+	 * blocks of 4 KB).
+	 */
+	public static final int ARCHIVE_CAP = 65536;
 
 	private static final int MAX_SETTING = 127;
 
 	private static final int MIN_SPACING = 10;
 
-	private static final int MAX_SPACING = 86400;
+	static final int MAX_SPACING = 86400;
 
 	private static final int MAX_RETENTION = 31 * 86400;
 
@@ -134,7 +144,19 @@ public final class ImageValidator {
 	static final int MAX_SLOTS = 2048;
 
 	/** The bytes of a slot of an archive. */
-	private static final int SLOT_BYTES = 32;
+	static final int SLOT_BYTES = 32;
+
+	/**
+	 * The seconds of closed slots an archive keeps in RAM before they are written to flash (homecontrol
+	 * <code>History::kPendingS</code>).
+	 */
+	static final int PENDING_SECONDS = 3600;
+
+	/** The slots of a segment of an archive on flash (homecontrol <code>History::kSlotsPerSegment</code>). */
+	static final int SEGMENT_SLOTS = 127;
+
+	/** The bytes of a segment of an archive on flash: a header and its slots, one 4 KB block. */
+	static final int SEGMENT_BYTES = 4096;
 
 	private static final int MIN_RESOLUTION = 60;
 
@@ -172,13 +194,23 @@ public final class ImageValidator {
 	/** The outputs of the schedule entries: the scheduler owns them. */
 	private final Set<String> _scheduleOutputs = new HashSet<>();
 
-	private long _historyBytes;
+	/** The RAM of the valid histories: their rings and their archives' open slots. */
+	private long _historyRam;
 
-	/** The bytes of the valid histories by the id of their datapoint, in the order of the datapoints. */
-	private final Map<String, Long> _consumers = new LinkedHashMap<>();
+	/** The flash of the archives of the valid histories. */
+	private long _historyFlash;
 
-	/** The bytes of the history checked last. */
-	private long _lastHistoryBytes;
+	/** The RAM of the valid histories by the id of their datapoint, in the order of the datapoints. */
+	private final Map<String, Long> _ramConsumers = new LinkedHashMap<>();
+
+	/** The flash of the valid histories by the id of their datapoint, in the order of the datapoints. */
+	private final Map<String, Long> _flashConsumers = new LinkedHashMap<>();
+
+	/** The RAM of the history checked last. */
+	private long _lastHistoryRam;
+
+	/** The flash of the history checked last. */
+	private long _lastHistoryFlash;
 
 	/** The indexes of the datapoints with a valid history. */
 	private final Set<Integer> _withHistory = new HashSet<>();
@@ -834,7 +866,9 @@ public final class ImageValidator {
 			if (history(dp.get("history"), type)) {
 				_withHistory.add(Integer.valueOf(index));
 				String name = _ids.get(index);
-				_consumers.put(name != null ? name : "datapoints[" + index + "]", Long.valueOf(_lastHistoryBytes));
+				String key = name != null ? name : "datapoints[" + index + "]";
+				_ramConsumers.put(key, Long.valueOf(_lastHistoryRam));
+				_flashConsumers.put(key, Long.valueOf(_lastHistoryFlash));
 			}
 			leave();
 		}
@@ -1177,20 +1211,24 @@ public final class ImageValidator {
 			refuse("history needs a boolean, unsigned, signed or real datapoint");
 			ok = false;
 		}
-		long bytes = ok ? samples(retention, spacing) * SAMPLE_BYTES : 0;
+		long ram = ok ? samples(retention, spacing) * SAMPLE_BYTES : 0;
+		long flash = 0;
 		if (history.containsKey("archives")) {
 			enter(".archives");
-			long archives = archives(history.get("archives"), ok ? spacing : 0);
+			long[] archives = archives(history.get("archives"), ok ? spacing : 0);
 			leave();
-			if (archives < 0) {
+			if (archives == null) {
 				ok = false;
 			} else {
-				bytes += archives;
+				ram += archives[0];
+				flash += archives[1];
 			}
 		}
 		if (ok) {
-			_historyBytes += bytes;
-			_lastHistoryBytes = bytes;
+			_historyRam += ram;
+			_historyFlash += flash;
+			_lastHistoryRam = ram;
+			_lastHistoryFlash = flash;
 		}
 		return ok;
 	}
@@ -1199,22 +1237,26 @@ public final class ImageValidator {
 	 * The member <code>archives</code> of a datapoint's history (schema 1.1, homecontrol #56): at most
 	 * {@value #MAX_ARCHIVES} objects of a <code>resolution</code> from 60 s to 31 days coarser than the
 	 * raw ring's spacing, and a <code>retention</code> of at least the resolution, at most 10 years and
-	 * at most {@value #MAX_SLOTS} slots.
+	 * at most {@value #MAX_SLOTS} slots; no two of the same resolution (an archive is compared with the
+	 * archives before it that were not refused, as the device does).
 	 *
 	 * @param spacing
 	 *        The raw ring's spacing; 0 where it was refused.
-	 * @return The bytes of the archives; -1 where they are refused.
+	 * @return The RAM and the flash of the archives ({@link #archiveRamBytes(long)},
+	 *         {@link #archiveFlashBytes(long, long)}); <code>null</code> where they are refused.
 	 */
-	private long archives(Object value, long spacing) {
+	private long[] archives(Object value, long spacing) {
 		if (!array(value, "archives")) {
-			return -1;
+			return null;
 		}
 		List<?> list = (List<?>) value;
 		if (list.size() > MAX_ARCHIVES) {
 			refuse("more than " + MAX_ARCHIVES + " archives");
-			return -1;
+			return null;
 		}
-		long bytes = 0;
+		long ram = 0;
+		long flash = 0;
+		Set<Long> resolutions = new HashSet<>();
 		boolean ok = true;
 		for (int n = 0; n < list.size(); n++) {
 			enter("[" + n + "]");
@@ -1233,6 +1275,10 @@ public final class ImageValidator {
 				Long resolution = integer(archive.get("resolution"), MIN_RESOLUTION, MAX_RESOLUTION, "resolution (seconds)");
 				if (resolution != null && resolution.longValue() <= spacing) {
 					refuse("the resolution must be larger than the raw spacing (" + spacing + " s)");
+					resolution = null;
+				}
+				if (resolution != null && resolutions.contains(resolution)) {
+					refuse("two archives of the resolution " + resolution + " s");
 					resolution = null;
 				}
 				leave();
@@ -1254,19 +1300,46 @@ public final class ImageValidator {
 					ok = false;
 					continue;
 				}
-				bytes += slots * SLOT_BYTES;
+				resolutions.add(resolution);
+				ram += archiveRamBytes(resolution.longValue());
+				flash += archiveFlashBytes(retention.longValue(), resolution.longValue());
 			} finally {
 				leave();
 			}
 		}
-		return ok ? bytes : -1;
+		return ok ? new long[] { ram, flash } : null;
 	}
 
 	/**
-	 * The number of samples of a history ring.
+	 * The number of samples of a history ring, or of slots of an archive.
 	 */
 	public static long samples(long retention, long spacing) {
 		return spacing == 0 ? 0 : (retention + spacing - 1) / spacing + 1;
+	}
+
+	/**
+	 * The RAM of an archive against <code>history.budget</code> (homecontrol
+	 * <code>History::archive_ram_bytes</code>): its open slot and the closed slots of up to
+	 * {@value #PENDING_SECONDS} seconds not yet written, <code>(ceil(3600 / resolution) + 2) * 32</code>
+	 * (96 bytes for a resolution of an hour or more).
+	 */
+	public static long archiveRamBytes(long resolution) {
+		return resolution == 0 ? 0 : ((PENDING_SECONDS + resolution - 1) / resolution + 2) * SLOT_BYTES;
+	}
+
+	/**
+	 * The segments of an archive on flash: <code>ceil(slots / 127)</code>.
+	 */
+	public static long archiveSegments(long retention, long resolution) {
+		return (samples(retention, resolution) + SEGMENT_SLOTS - 1) / SEGMENT_SLOTS;
+	}
+
+	/**
+	 * The flash of an archive against <code>history.archiveBudget</code> (homecontrol
+	 * <code>History::archive_flash_bytes</code>): 4096 bytes per segment.
+	 */
+	public static long archiveFlashBytes(long retention, long resolution) {
+		return archiveSegments(retention, resolution) * SEGMENT_BYTES;
 	}
 
 	private static int[] parseDpt(String text) {
@@ -2043,10 +2116,12 @@ public final class ImageValidator {
 	// ---- history budget ----------------------------------------------------------------------
 
 	/**
-	 * The three biggest histories for a refusal of the budget: <code>; the biggest: 'id' (n bytes), ...</code>.
+	 * The three biggest of the given histories for a refusal of a budget:
+	 * <code>; the biggest: 'id' (n bytes), ...</code>.
 	 */
-	private String biggest() {
-		List<Map.Entry<String, Long>> entries = new ArrayList<>(_consumers.entrySet());
+	private static String biggest(Map<String, Long> consumers) {
+		List<Map.Entry<String, Long>> entries = new ArrayList<>(consumers.entrySet());
+		entries.removeIf(entry -> entry.getValue().longValue() == 0);
 		entries.sort(Map.Entry.<String, Long> comparingByValue().reversed());
 		List<String> names = new ArrayList<>();
 		for (Map.Entry<String, Long> entry : entries.subList(0, Math.min(3, entries.size()))) {
@@ -2055,12 +2130,24 @@ public final class ImageValidator {
 		return names.isEmpty() ? "" : "; the biggest: " + String.join(", ", names);
 	}
 
+	/**
+	 * The member <code>history</code> of the image (3.7) against what the datapoints' histories need, as
+	 * the device's loader checks it (homecontrol <code>parse_history</code>): the RAM of the rings and
+	 * the archives' open slots against <code>budget</code> (default: what they need) and the device's
+	 * cap (with or without <code>budget</code>), the flash of the archives against
+	 * <code>archiveBudget</code> (default: what they need) and the device's cap.
+	 */
 	private void history(Map<?, ?> root) {
-		long needed = _historyBytes;
+		long ram = _historyRam;
+		long flash = _historyFlash;
 		if (!root.containsKey("history")) {
-			if (needed > HISTORY_CAP) {
-				_report.add(Kind.INVALID, "history",
-					"the histories need " + needed + " bytes, the device allows at most " + HISTORY_CAP + biggest());
+			if (ram > HISTORY_CAP) {
+				_report.add(Kind.INVALID, "history", "the histories need " + ram
+					+ " bytes of RAM, the device allows at most " + HISTORY_CAP + biggest(_ramConsumers));
+			}
+			if (flash > ARCHIVE_CAP) {
+				_report.add(Kind.INVALID, "history", "the archives need " + flash
+					+ " bytes of flash, the device allows at most " + ARCHIVE_CAP + biggest(_flashConsumers));
 			}
 			return;
 		}
@@ -2070,24 +2157,55 @@ public final class ImageValidator {
 				return;
 			}
 			Map<?, ?> history = (Map<?, ?>) root.get("history");
-			long budget = needed;
+			long budget = ram;
 			if (history.containsKey("budget")) {
 				enter(".budget");
-				Long bytes = integer(history.get("budget"), 0, 16777216.0, "budget (bytes)");
-				if (bytes == null) {
+				try {
+					Long bytes = integer(history.get("budget"), 0, 16777216.0, "budget (bytes)");
+					if (bytes == null) {
+						return;
+					}
+					if (bytes.longValue() > HISTORY_CAP) {
+						refuse("the image asks for " + bytes + " bytes of history RAM, the device allows at most "
+							+ HISTORY_CAP);
+						return;
+					}
+					budget = bytes.longValue();
+				} finally {
 					leave();
-					return;
 				}
-				if (bytes.longValue() > HISTORY_CAP) {
-					refuse("the image asks for " + bytes + " bytes of history, the device allows at most " + HISTORY_CAP);
-					leave();
-					return;
-				}
-				leave();
-				budget = bytes.longValue();
+			} else if (ram > HISTORY_CAP) {
+				refuse("the histories need " + ram + " bytes of RAM, the device allows at most " + HISTORY_CAP
+					+ biggest(_ramConsumers));
 			}
-			if (needed > budget) {
-				refuse("the histories need " + needed + " bytes, the image's budget is " + budget + biggest());
+			long archiveBudget = flash;
+			if (history.containsKey("archiveBudget")) {
+				enter(".archiveBudget");
+				try {
+					Long bytes = integer(history.get("archiveBudget"), 0, 16777216.0, "archiveBudget (bytes)");
+					if (bytes == null) {
+						return;
+					}
+					if (bytes.longValue() > ARCHIVE_CAP) {
+						refuse("the image asks for " + bytes + " bytes of archive flash, the device allows at most "
+							+ ARCHIVE_CAP);
+						return;
+					}
+					archiveBudget = bytes.longValue();
+				} finally {
+					leave();
+				}
+			} else if (flash > ARCHIVE_CAP) {
+				refuse("the archives need " + flash + " bytes of flash, the device allows at most " + ARCHIVE_CAP
+					+ biggest(_flashConsumers));
+			}
+			if (ram > budget) {
+				refuse("the rings and archives need " + ram + " bytes of RAM, the image's budget is " + budget
+					+ biggest(_ramConsumers));
+			}
+			if (flash > archiveBudget) {
+				refuse("the archives need " + flash + " bytes of flash, the image's archive budget is " + archiveBudget
+					+ biggest(_flashConsumers));
 			}
 		} finally {
 			leave();
