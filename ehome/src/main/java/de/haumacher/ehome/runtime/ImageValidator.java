@@ -82,6 +82,15 @@ public final class ImageValidator {
 	/** The most elements of all control pages together, a room counted by its functions. */
 	public static final int MAX_PAGE_ELEMENTS = 512;
 
+	/** The most sections of all control pages together. */
+	public static final int MAX_PAGE_SECTIONS = 128;
+
+	/** The most series of all charts of the control pages together. */
+	public static final int MAX_CHART_SERIES = 256;
+
+	/** The most reference lines of all charts of the control pages together. */
+	public static final int MAX_CHART_REFERENCES = 128;
+
 	/** The time ranges of a chart. */
 	public static final List<String> CHART_RANGES = List.of("1h", "24h", "7d", "30d", "1y");
 
@@ -1507,9 +1516,36 @@ public final class ImageValidator {
 			if (elements > MAX_PAGE_ELEMENTS) {
 				refuse(elements + " elements of the pages exceed the limit of " + MAX_PAGE_ELEMENTS);
 			}
+			int sections = 0;
+			int series = 0;
+			int references = 0;
+			for (Object page : list) {
+				for (Object section : members(page, "sections")) {
+					sections++;
+					for (Object element : members(section, "elements")) {
+						Object chart = element instanceof Map<?, ?> map ? map.get("chart") : null;
+						series += members(chart, "series").size();
+						references += members(chart, "references").size();
+					}
+				}
+			}
+			if (sections > MAX_PAGE_SECTIONS) {
+				refuse(sections + " sections of the pages exceed the limit of " + MAX_PAGE_SECTIONS);
+			}
+			if (series > MAX_CHART_SERIES) {
+				refuse(series + " chart series of the pages exceed the limit of " + MAX_CHART_SERIES);
+			}
+			if (references > MAX_CHART_REFERENCES) {
+				refuse(references + " reference lines of the pages exceed the limit of " + MAX_CHART_REFERENCES);
+			}
 		} finally {
 			leave();
 		}
+	}
+
+	/** The list member <code>name</code> of an object, empty where either is of another type. */
+	private static List<?> members(Object object, String name) {
+		return object instanceof Map<?, ?> map && map.get(name) instanceof List<?> list ? list : List.of();
 	}
 
 	/** Checks a page, returns the number of its elements. */

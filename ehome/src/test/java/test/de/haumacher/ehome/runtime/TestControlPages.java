@@ -8,6 +8,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -533,6 +534,44 @@ public class TestControlPages extends BasicTestCase {
 		assertRefused(report, chart + ".references[0]", "exactly one of value and datapoint");
 		assertRefused(report, chart + ".references[1].datapoint", "unknown datapoint 'nope'");
 		assertRefused(report, "ui.pages[1].id", "duplicate page id 'a'");
+	}
+
+	/**
+	 * The limits of the controller hold for the whole image (homecontrol #54): sections, chart series
+	 * and reference lines are counted over all pages, so an image with each at its limit spread over
+	 * two pages is valid, and one more of each is refused at <code>ui.pages</code>.
+	 */
+	public void testImageWideLimits() {
+		assertTrue(ImageValidator.validate(limits(0)).toString(), ImageValidator.validate(limits(0)).isValid());
+		ImageReport report = ImageValidator.validate(limits(1));
+		assertRefused(report, "ui.pages", (ImageValidator.MAX_PAGE_SECTIONS + 1) + " sections");
+		assertEquals(report.toString(), 3, report.getRefusals().size());
+		assertTrue(report.toString(), report.toString().contains((ImageValidator.MAX_CHART_SERIES + 1) + " chart series"));
+		assertTrue(report.toString(),
+			report.toString().contains((ImageValidator.MAX_CHART_REFERENCES + 1) + " reference lines"));
+	}
+
+	/** Two pages that hold the image-wide limits of sections, series and reference lines plus <code>more</code>. */
+	private static String limits(int more) {
+		String series = "{\"datapoint\": \"1/0/1\"}";
+		String reference = "{\"value\": 1}";
+		StringBuilder pages = new StringBuilder("{\"pages\": [");
+		for (int p = 0; p < 2; p++) {
+			int sections = ImageValidator.MAX_PAGE_SECTIONS / 2 + (p == 0 ? more : 0);
+			int seriesCount = ImageValidator.MAX_CHART_SERIES / 2 + (p == 0 ? more : 0);
+			int references = ImageValidator.MAX_CHART_REFERENCES / 2 + (p == 0 ? more : 0);
+			pages.append(p == 0 ? "" : ", ").append("{\"id\": \"p").append(p).append("\", \"sections\": [");
+			pages.append("{\"elements\": [{\"chart\": {\"series\": [")
+				.append(String.join(", ", Collections.nCopies(seriesCount, series)))
+				.append("], \"references\": [")
+				.append(String.join(", ", Collections.nCopies(references, reference)))
+				.append("]}}]}");
+			for (int s = 1; s < sections; s++) {
+				pages.append(", {\"elements\": []}");
+			}
+			pages.append("]}");
+		}
+		return image("1.1", pages.append("]}").toString());
 	}
 
 	private static String image(String version, String ui) {
