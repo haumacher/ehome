@@ -83,7 +83,9 @@ the datapoint settings.
    project has is kept as it is (the message names them); to take a changed sample, delete the
    rules, entries and datapoints first.
 6. Tab "Funktionen" (Functions), optional: "Funktionen vorschlagen" (Propose functions) gives the
-   controller's UI the switches, keys and the temperature.
+   controller's UI the switches, keys and the temperature, and a sensor for each of the four
+   `flur.*` datapoints bound to the hallway sensor ("Flur Bewegung: Temperatur", in the sensor's
+   room; haumacher/ehome #68).
 7. Tab "Simulation", optional: start it and try the scenarios below without hardware.
 8. Tab "Bereitstellung" (Deployment): "Bereitstellen" (Deploy).
 

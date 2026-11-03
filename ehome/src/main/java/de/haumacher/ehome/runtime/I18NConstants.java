@@ -277,7 +277,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 PROPOSAL_ADDED__COUNT;
 
 	/**
-	 * @en The project has a function for every channel the proposal recognizes; nothing was added.
+	 * @en The project has a function for every channel and Zigbee datapoint the proposal recognizes; nothing was added.
 	 */
 	public static ResKey PROPOSAL_NOTHING_NEW;
 
@@ -290,6 +290,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en {0}: scene {1}
 	 */
 	public static ResKey2 SCENE_FUNCTION__CHANNEL_NUMBER;
+
+	/**
+	 * @en {0} (endpoint {1})
+	 */
+	public static ResKey2 ZIGBEE_ENDPOINT__NAME_ENDPOINT;
 
 	/**
 	 * @en The stored image could not be read from {0}: {1}

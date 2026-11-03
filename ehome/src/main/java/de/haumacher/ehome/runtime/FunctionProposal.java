@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.runtime;
 
+import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -44,6 +45,10 @@ import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.zigbee.ZigbeeBindings;
+import de.haumacher.ehome.zigbee.ZigbeeCatalog;
+import de.haumacher.ehome.zigbee.ZigbeeImport;
+import de.haumacher.ehome.zigbee.ZigbeeStatus;
 
 /**
  * Proposes the functions (<code>ehome.runtime:Function</code>) of a project from its device channels
@@ -125,6 +130,38 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
  * #49, {@link #dismiss(TLObject)}), and the proposal does not bring it back until the dismissal is
  * deleted.
  * </p>
+ *
+ * <p>
+ * <b>Zigbee datapoints</b> (haumacher/ehome #68). An application datapoint of the project bound to a
+ * function of one of its Zigbee devices (<code>ApplicationDatapoint#zigbeeFunction</code>) is proposed
+ * as well, by the key of the function: <code>temperature</code>, <code>humidity</code>,
+ * <code>illuminance</code>, <code>occupancy</code>, <code>battery</code> and <code>ias_zone</code>
+ * give a <code>sensor</code> (role <code>value</code>); <code>on_off</code> gives a
+ * <code>switch</code>, a <code>light</code> where the device's type in the Zigbee catalog is named for
+ * a light (its name or the name of the function, Licht/light/Leuchte/Lampe/lamp/bulb), with the
+ * datapoint as command and state; <code>on_off</code> with <code>level</code> on the same endpoint
+ * gives a <code>dimmer</code> (the level datapoint as level command and level, the on/off datapoint as
+ * command and state). A command role needs a writable datapoint, as the controller says: an on/off
+ * datapoint that is not writable gives no function, a level datapoint that is not writable no dimmer.
+ * The function <code>action</code> gives no <code>button</code>: its datapoint is an enumeration (off,
+ * on, toggle, dim up, ...), and a button's press is a truth value or a controlled value
+ * (homecontrol <code>spec/runtime-image.md</code> 3.5). Only datapoints the project has bound are
+ * proposed; nothing is created for an unbound Zigbee function.
+ * </p>
+ *
+ * <p>
+ * Such a function is named after the device and the function ("Flur Bewegung: Temperatur"), the
+ * function by the name the catalog gives it, else the name of its key, in each application language;
+ * a dimmer after the device alone, as a KNX dimmer is named after its channel. Where the device has
+ * the function key (for a dimmer on/off or level) on more than one endpoint, bound or not, the name
+ * ends with the endpoint ("Doppelsteckdose: Ein/Aus (Endpunkt 2)"), the number the controller's
+ * Zigbee page shows. The function is placed in the room of the device. It has no <code>device</code> (which is a KNX device); its
+ * <code>channel</code> is {@link #ZIGBEE_CHANNEL} followed by the device's IEEE address, the endpoint
+ * and the function key (of the on/off function for a dimmer), which a new import of the controller's
+ * export keeps, so that a dismissal of it stays as the dismissal of a KNX channel does. A Zigbee
+ * function is not proposed where an existing function (or one proposed before it in the same run)
+ * uses one of its datapoints in any role.
+ * </p>
  */
 public final class FunctionProposal {
 
@@ -146,6 +183,22 @@ public final class FunctionProposal {
 		"steckdose", "socket", "outlet", "ausgang", "output", "relais", "relay");
 
 	private static final Pattern LOCK = words("sperr", "lock", "block");
+
+	private static final Pattern LIGHT = words("licht", "light", "leuchte", "lampe", "lamp", "bulb");
+
+	/**
+	 * The beginning of the channel of a function proposed for a Zigbee datapoint, followed by the
+	 * device's IEEE address, the endpoint and the function key, separated by colons.
+	 */
+	public static final String ZIGBEE_CHANNEL = "zigbee:";
+
+	/** The Zigbee function keys giving a sensor. */
+	private static final Set<String> ZIGBEE_SENSORS =
+		Set.of("temperature", "humidity", "illuminance", "occupancy", "battery", "ias_zone");
+
+	private static final String ON_OFF = "on_off";
+
+	private static final String LEVEL = "level";
 
 	private static final Pattern SCENE_NUMBER =
 		Pattern.compile("(?<![\\p{L}])(szenennummer|szenen-nummer|(scene|szene)\\s*(number|nummer|no\\b|nr\\b))");
@@ -207,10 +260,12 @@ public final class FunctionProposal {
 	 * @param roles
 	 *        The group addresses by role, in the order of the kind's roles.
 	 * @param device
-	 *        The device it was proposed for.
+	 *        The device it was proposed for: a KNX device (<code>ehome.physical:Device</code>) or a
+	 *        Zigbee device (<code>ehome.zigbee:ZigbeeDevice</code>).
 	 * @param channel
 	 *        The key of the channel it was proposed for; for a scene function the key of the channel
-	 *        with the scene number.
+	 *        with the scene number; for a Zigbee datapoint its {@link FunctionProposal#ZIGBEE_CHANNEL}
+	 *        key.
 	 * @param scene
 	 *        The scene number of a scene function, <code>null</code> for another kind.
 	 */
@@ -238,15 +293,22 @@ public final class FunctionProposal {
 		List<TLObject> existing = functions(project);
 		Set<String> proposedChannels = new HashSet<>();
 		Set<String> boundMainRoles = new HashSet<>();
+		Set<TLObject> usedDatapoints = new HashSet<>();
 		Set<String> identifiers = new HashSet<>();
 		for (TLObject function : existing) {
-			if (function.tValueByName("device") instanceof TLObject device && function.tValueByName("channel") != null) {
-				proposedChannels.add(channelKey(device, function.tValueByName("channel").toString()));
+			String identity = identity(function.tValueByName("device"), function.tValueByName("channel"));
+			if (identity != null) {
+				proposedChannels.add(identity);
 			}
 			String kind = kind(function);
 			String main = FunctionKinds.mainRole(kind);
 			if (main != null && function.tValueByName(main) instanceof TLObject address) {
 				boundMainRoles.add(mainKey(kind, address, function.tValueByName("scene")));
+			}
+			for (String role : FunctionKinds.roles(kind)) {
+				if (function.tValueByName(role) instanceof TLObject datapoint) {
+					usedDatapoints.add(datapoint);
+				}
 			}
 			if (function.tValueByName("identifier") != null) {
 				identifiers.add(function.tValueByName("identifier").toString());
@@ -255,22 +317,31 @@ public final class FunctionProposal {
 
 		Set<String> dismissed = new HashSet<>();
 		for (TLObject dismissal : list(project, DISMISSED)) {
-			if (dismissal.tValueByName("device") instanceof TLObject device && dismissal.tValueByName("channel") != null) {
-				dismissed.add(kind(dismissal) + " " + channelKey(device, dismissal.tValueByName("channel").toString()));
+			String identity = identity(dismissal.tValueByName("device"), dismissal.tValueByName("channel"));
+			if (identity != null) {
+				dismissed.add(kind(dismissal) + " " + identity);
 			}
 		}
 
 		List<TLObject> added = new ArrayList<>();
 		for (Proposal proposal : propose(project)) {
-			if (proposedChannels.contains(channelKey(proposal.device(), proposal.channel()))) {
+			String identity = identity(proposal.device(), proposal.channel());
+			if (proposedChannels.contains(identity)) {
 				continue;
 			}
-			if (dismissed.contains(proposal.kind() + " " + channelKey(proposal.device(), proposal.channel()))) {
+			if (dismissed.contains(proposal.kind() + " " + identity)) {
 				continue;
 			}
-			TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
-			if (!boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()))) {
-				continue;
+			if (zigbee(proposal.channel())) {
+				if (proposal.roles().values().stream().anyMatch(usedDatapoints::contains)) {
+					continue;
+				}
+				usedDatapoints.addAll(proposal.roles().values());
+			} else {
+				TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
+				if (!boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()))) {
+					continue;
+				}
 			}
 			added.add(create(proposal, identifiers));
 		}
@@ -284,20 +355,21 @@ public final class FunctionProposal {
 
 	/**
 	 * Deletes the given function of its project; must run in a transaction. A function the proposal
-	 * made (one with a device and a channel) is remembered as dismissed, so the proposal does not
-	 * bring it back: a {@link #DISMISSED dismissal} with its name, kind, device and channel, unless the
-	 * project has one for them already.
+	 * made (one with a device and a channel, or with the channel of a Zigbee datapoint) is remembered
+	 * as dismissed, so the proposal does not bring it back: a {@link #DISMISSED dismissal} with its
+	 * name, kind, device and channel, unless the project has one for them already.
 	 *
 	 * @return The dismissal recorded, <code>null</code> for none.
 	 */
 	public static TLObject dismiss(TLObject function) {
 		TLObject project = function.tContainer();
 		TLObject result = null;
-		if (project != null && function.tValueByName("device") instanceof TLObject device
-			&& function.tValueByName("channel") instanceof String channel && function.tValueByName("kind") != null) {
+		Object device = function.tValueByName("device");
+		String identity = identity(device, function.tValueByName("channel"));
+		if (project != null && identity != null && function.tValueByName("kind") != null) {
 			boolean known = false;
 			for (TLObject dismissal : list(project, DISMISSED)) {
-				known |= dismissal.tValueByName("device") == device && channel.equals(dismissal.tValueByName("channel"))
+				known |= identity.equals(identity(dismissal.tValueByName("device"), dismissal.tValueByName("channel")))
 					&& dismissal.tValueByName("kind") == function.tValueByName("kind");
 			}
 			if (!known) {
@@ -306,7 +378,7 @@ public final class FunctionProposal {
 				result.tUpdateByName("name", function.tValueByName("name"));
 				result.tUpdateByName("kind", function.tValueByName("kind"));
 				result.tUpdateByName("device", device);
-				result.tUpdateByName("channel", channel);
+				result.tUpdateByName("channel", function.tValueByName("channel"));
 				List<TLObject> dismissals = list(project, DISMISSED);
 				dismissals.add(result);
 				project.tUpdateByName(DISMISSED, dismissals);
@@ -350,8 +422,24 @@ public final class FunctionProposal {
 		return "scene".equals(kind) && scene instanceof Number number ? key + " " + number.intValue() : key;
 	}
 
-	private static String channelKey(TLObject device, String channel) {
-		return device.tId() + " " + channel;
+	/**
+	 * What identifies the channel a function was proposed for, across runs of the proposal: the
+	 * device and the channel of a KNX device; the channel alone for a Zigbee datapoint (the device's
+	 * IEEE address, the endpoint and the function key, which a new import of the Zigbee devices
+	 * keeps); <code>null</code> for a function the proposal did not make.
+	 */
+	private static String identity(Object device, Object channel) {
+		if (!(channel instanceof String text)) {
+			return null;
+		}
+		if (zigbee(text)) {
+			return text;
+		}
+		return device instanceof TLObject knx && isA(knx, "ehome.physical:Device") ? knx.tId() + " " + text : null;
+	}
+
+	private static boolean zigbee(String channel) {
+		return channel != null && channel.startsWith(ZIGBEE_CHANNEL);
 	}
 
 	private static TLObject create(Proposal proposal, Set<String> identifiers) {
@@ -362,7 +450,9 @@ public final class FunctionProposal {
 		function.tUpdateByName("identifier", uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
 		function.tUpdateByName("kind", classifier(proposal.kind()));
 		function.tUpdateByName("room", proposal.device().tValueByName("location"));
-		function.tUpdateByName("device", proposal.device());
+		if (isA(proposal.device(), "ehome.physical:Device")) {
+			function.tUpdateByName("device", proposal.device());
+		}
 		function.tUpdateByName("channel", proposal.channel());
 		if (proposal.scene() != null) {
 			function.tUpdateByName("scene", proposal.scene());
@@ -435,7 +525,8 @@ public final class FunctionProposal {
 	}
 
 	/**
-	 * The functions the channels of the project's devices suggest, by device and channel.
+	 * The functions the channels of the project's devices suggest, by device and channel, followed by
+	 * the functions its bound Zigbee datapoints suggest, by device and endpoint.
 	 */
 	public static List<Proposal> propose(TLObject project) {
 		List<Proposal> result = new ArrayList<>();
@@ -444,7 +535,133 @@ public final class FunctionProposal {
 				classify(device, channel, result);
 			}
 		}
+		Set<TLObject> datapoints = new HashSet<>(ApplicationDatapoints.of(project));
+		for (TLObject device : ZigbeeImport.devices(project)) {
+			zigbee(device, datapoints, result);
+		}
 		return result;
+	}
+
+	/**
+	 * Adds the functions the datapoints bound to the functions of the Zigbee device suggest, endpoint
+	 * by endpoint in the order of the device's functions.
+	 *
+	 * @param datapoints
+	 *        The application datapoints of the project, the only ones proposed.
+	 */
+	private static void zigbee(TLObject device, Set<TLObject> datapoints, List<Proposal> result) {
+		Map<Integer, Map<String, TLObject>> endpoints = new LinkedHashMap<>();
+		Map<TLObject, TLObject> bound = new LinkedHashMap<>();
+		Map<String, Set<Integer>> endpointsByKey = new TreeMap<>();
+		for (TLObject function : list(device, "functions")) {
+			if (!(function.tValueByName("endpoint") instanceof Number endpoint)
+				|| !(function.tValueByName("function") instanceof String key)) {
+				continue;
+			}
+			endpointsByKey.computeIfAbsent(key, k -> new HashSet<>()).add(Integer.valueOf(endpoint.intValue()));
+			TLObject datapoint = ZigbeeBindings.boundDatapoints(function).stream().filter(datapoints::contains)
+				.findFirst().orElse(null);
+			if (datapoint != null) {
+				endpoints.computeIfAbsent(Integer.valueOf(endpoint.intValue()), e -> new LinkedHashMap<>())
+					.putIfAbsent(key, function);
+				bound.putIfAbsent(function, datapoint);
+			}
+		}
+		for (Map.Entry<Integer, Map<String, TLObject>> endpoint : endpoints.entrySet()) {
+			Map<String, TLObject> functions = endpoint.getValue();
+			TLObject onOff = functions.get(ON_OFF);
+			TLObject level = functions.get(LEVEL);
+			for (Map.Entry<String, TLObject> entry : functions.entrySet()) {
+				String key = entry.getKey();
+				TLObject function = entry.getValue();
+				TLObject datapoint = bound.get(function);
+				Map<String, TLObject> roles = new LinkedHashMap<>();
+				String kind;
+				TLObject named = function;
+				boolean shared = endpointsByKey.get(key).size() > 1;
+				if (ZIGBEE_SENSORS.contains(key)) {
+					kind = "sensor";
+					roles.put("value", datapoint);
+				} else if (function == onOff && ApplicationDatapoints.writable(datapoint)) {
+					TLObject levelDatapoint = level == null ? null : bound.get(level);
+					if (levelDatapoint != null && ApplicationDatapoints.writable(levelDatapoint)
+						&& ValueTypes.isNumeric(ApplicationDatapoints.valueType(levelDatapoint))) {
+						kind = "dimmer";
+						// Named for the device, as a KNX dimmer is named for its channel.
+						named = null;
+						shared |= endpointsByKey.get(LEVEL).size() > 1;
+						roles.put("levelCommand", levelDatapoint);
+						roles.put("level", levelDatapoint);
+					} else {
+						kind = light(device, function) ? "light" : "switch";
+					}
+					roles.put("command", datapoint);
+					roles.put("state", datapoint);
+				} else {
+					// The level of a dimmer, an action (no truth value), another key: no function.
+					continue;
+				}
+				result.add(new Proposal(kind, zigbeeLabel(device, named, shared ? endpoint.getKey() : null), roles, device,
+					ZIGBEE_CHANNEL + device.tValueByName("ieee") + ":" + endpoint.getKey() + ":" + key, null));
+			}
+		}
+	}
+
+	/**
+	 * Whether the device's type in the Zigbee catalog says the on/off function switches a light: the
+	 * type, or the catalog's name of the function, is named for one.
+	 */
+	private static boolean light(TLObject device, TLObject function) {
+		TLObject type = ZigbeeCatalog.type(device);
+		if (type == null) {
+			return false;
+		}
+		TLObject entry = ZigbeeCatalog.entry(function);
+		StringBuilder text = new StringBuilder();
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			Resources resources = Resources.getInstance(locale);
+			for (Object name : new Object[] { type.tValueByName("name"),
+				entry == null ? null : entry.tValueByName("name") }) {
+				if (name instanceof ResKey key) {
+					text.append(' ').append(resources.getString(key, ""));
+				}
+			}
+		}
+		return LIGHT.matcher(text.toString().toLowerCase(Locale.ROOT)).find();
+	}
+
+	/**
+	 * The name of a function proposed for a Zigbee datapoint in each application language: the
+	 * device's name and the name of the function ("Flur Bewegung: Temperatur"), the device's name
+	 * alone for a dimmer; followed by the endpoint where the device has the function on several
+	 * endpoints ("Doppelsteckdose: Ein/Aus (Endpunkt 2)"), so that the names of its functions differ.
+	 *
+	 * @param function
+	 *        The function the name is given by, <code>null</code> for the device alone.
+	 * @param endpoint
+	 *        The endpoint to name, <code>null</code> for none.
+	 */
+	private static Map<String, String> zigbeeLabel(TLObject device, TLObject function, Integer endpoint) {
+		Map<String, Resources> languages = new TreeMap<>();
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			languages.put(locale.getLanguage(), Resources.getInstance(locale));
+		}
+		Object deviceName = device.tValueByName("name");
+		String prefix = String.valueOf(deviceName == null ? device.tValueByName("ieee") : deviceName);
+		return texts(languages, r -> {
+			String name = function == null ? prefix : prefix + ": " + ZigbeeStatus.functionLabel(function, r);
+			if (endpoint == null) {
+				return name;
+			}
+			// The endpoint is kept where the name is cut to the longest label of the image.
+			int suffix = utf8(r.getString(I18NConstants.ZIGBEE_ENDPOINT__NAME_ENDPOINT.fill("", endpoint)));
+			return r.getString(I18NConstants.ZIGBEE_ENDPOINT__NAME_ENDPOINT.fill(
+				RuntimeImage.truncate(name, Math.max(0, ImageValidator.MAX_NAME - suffix)), endpoint));
+		});
+	}
+
+	private static int utf8(String text) {
+		return text.getBytes(StandardCharsets.UTF_8).length;
 	}
 
 	private static List<TLObject> devices(TLObject project) {

@@ -67,13 +67,21 @@ public final class ZigbeeStatus {
 	 * controller's) is shown as it is.
 	 */
 	public static String functionLabel(TLObject function) {
+		return functionLabel(function, Resources.getInstance());
+	}
+
+	/**
+	 * The name of the function (<code>ehome.zigbee:ZigbeeFunction</code>) in the language of the given
+	 * resources, as {@link #functionLabel(TLObject)} gives it in the user's.
+	 */
+	public static String functionLabel(TLObject function, Resources resources) {
 		Object key = function.tValueByName("function");
 		if (key == null) {
 			return null;
 		}
 		ResKey catalogName = ZigbeeCatalog.name(function);
 		if (catalogName != null) {
-			return Resources.getInstance().getString(catalogName);
+			return resources.getString(catalogName);
 		}
 		String name = key.toString();
 		if (IAS_ZONE.equals(name) && function.tValueByName("genericName") instanceof String generic) {
@@ -82,7 +90,8 @@ public final class ZigbeeStatus {
 				name = suffix;
 			}
 		}
-		return functionLabel(name);
+		ResKey label = FUNCTION_LABELS.get(name);
+		return label == null ? name : resources.getString(label);
 	}
 
 	/**
