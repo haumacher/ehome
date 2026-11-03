@@ -92,15 +92,16 @@ public final class ProjectSimulation implements AutoCloseable {
 
 	private final ParameterStore _store;
 
-	private final GroupDevice _input = new GroupDevice("E-Home input", INPUT_ADDRESS);
+	private final GroupDevice _input;
 
 	/** The function of the project's Zigbee device each Zigbee datapoint of the image is bound to. */
 	private final Map<String, TLObject> _zigbeeFunctions;
 
-	private ProjectSimulation(TLObject project, VirtualInstallation installation, Simulation simulation,
-			ParameterStore store) {
+	private ProjectSimulation(TLObject project, VirtualInstallation installation, GroupDevice input,
+			Simulation simulation, ParameterStore store) {
 		_project = project;
 		_installation = installation;
+		_input = input;
 		_simulation = simulation;
 		_store = store;
 		_zigbeeFunctions = zigbeeFunctions(project);
@@ -169,6 +170,11 @@ public final class ProjectSimulation implements AutoCloseable {
 			for (GroupDevice device : ProjectGroupDevices.ofProject(project, problems)) {
 				installation.attach(device);
 			}
+			// Every device is attached before the first telegram: Calimero's VirtualLink keeps its
+			// device links in a list without synchronization, and a device attached while a telegram is
+			// dispatched aborts that dispatch (ConcurrentModificationException, the telegram is lost).
+			GroupDevice input = new GroupDevice("E-Home input", INPUT_ADDRESS);
+			installation.attach(input);
 			simulation = new Simulation(image.getJson(), startUtc, store);
 			simulation.setLanguage(Resources.getInstance().getLocale().getLanguage());
 			for (String problem : problems) {
@@ -185,9 +191,7 @@ public final class ProjectSimulation implements AutoCloseable {
 			if (refusal != null) {
 				throw new TopLogicException(I18NConstants.ERROR_IMAGE_REFUSED__REASON.fill(refusal));
 			}
-			ProjectSimulation result = new ProjectSimulation(project, installation, simulation, store);
-			installation.attach(result._input);
-			return result;
+			return new ProjectSimulation(project, installation, input, simulation, store);
 		} catch (BusException ex) {
 			close(simulation, installation);
 			throw new TopLogicException(I18NConstants.ERROR_NO_CONNECTION__DETAIL.fill(ex.getMessage()), ex);

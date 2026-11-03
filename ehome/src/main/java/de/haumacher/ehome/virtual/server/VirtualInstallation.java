@@ -107,6 +107,13 @@ public final class VirtualInstallation implements AutoCloseable {
 	/**
 	 * Puts a device on the subnet.
 	 *
+	 * <p>
+	 * Attach the devices before the first telegram: Calimero's {@code VirtualLink} (calimero-server
+	 * 2.6) keeps its device links in a list without synchronization, so a device attached while a
+	 * telegram is dispatched aborts that dispatch with a {@code ConcurrentModificationException}, and
+	 * the telegram is lost.
+	 * </p>
+	 *
 	 * @throws IllegalArgumentException
 	 *         If the subnet has a device of the address already, or it is an address of the
 	 *         interface.
