@@ -77,11 +77,24 @@
 					ordered="true"
 					type="UnidentifiedDevice"
 				/>
-				<!-- The HomeControl controller the runtime image of the project is deployed to (haumacher/ehome #39). -->
+				<!--
+					The HomeControl controller the runtime image of the project is deployed to (haumacher/ehome #39):
+					one of the project's own controllers or a controller on the LAN (one no project holds,
+					haumacher/ehome #69), never an enrollment of another project.
+				-->
 				<reference name="controller"
 					kind="forwards"
 					type="ehome.runtime:Controller"
-				/>
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[p -> $p.get(`ehome.project:Project#controllers`)
+    .union(all(`ehome.runtime:Controller`).filter(c -> $c.container() == null))]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<!--
 					The controllers enrolled for the project with an enrollment code (haumacher/ehome #54); they
 					connect to E-Home by themselves. Forgetting one deletes it.

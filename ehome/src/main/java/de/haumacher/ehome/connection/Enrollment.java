@@ -206,7 +206,10 @@ public final class Enrollment {
 				controller.tUpdateByName(InstallationKeys.DEVICE_KEY, key == null ? null : key.fingerprint());
 				controllers.add(controller);
 				project.tUpdateByName("controllers", controllers);
-				if (project.tValueByName("controller") == null) {
+				// The new controller becomes the target unless the target is one of the project's own
+				// controllers already (haumacher/ehome #69): a LAN controller or a foreign one gives way.
+				Object target = project.tValueByName("controller");
+				if (target == null || !controllers.contains(target)) {
 					project.tUpdateByName("controller", controller);
 				}
 				project.tUpdateByName("enrollmentCode", null);

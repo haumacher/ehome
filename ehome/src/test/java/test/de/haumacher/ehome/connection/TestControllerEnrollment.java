@@ -5,6 +5,7 @@ package test.de.haumacher.ehome.connection;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -15,10 +16,19 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 
+import com.top_logic.element.config.annotation.TLOptions;
+import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLStructuredTypePart;
+import com.top_logic.model.search.expr.SearchExpression;
+import com.top_logic.model.search.expr.query.QueryExecutor;
+import com.top_logic.model.search.providers.OptionsByExpression;
+import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.connection.ControllerServlet;
@@ -31,7 +41,8 @@ import de.haumacher.ehome.connection.RateLimit;
  * created, used once (the controller under the project with its fields, the code consumed), refused
  * when used again (404), expired (410), presented by a controller E-Home knows (409, the code stays);
  * a name enrolled twice makes two controllers; the code is read in any spelling; the socket's URL
- * follows a reverse proxy's forwarded headers; malformed requests and too many attempts are refused.
+ * follows a reverse proxy's forwarded headers; malformed requests and too many attempts are refused;
+ * the deployment target offers only the project's own and the LAN's controllers (#69).
  */
 @SuppressWarnings("javadoc")
 public class TestControllerEnrollment extends BasicTestCase {
@@ -138,6 +149,61 @@ public class TestControllerEnrollment extends BasicTestCase {
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}
+	}
+
+	/**
+	 * The deployment target of a project offers its own controllers and the controllers on the LAN,
+	 * never an enrollment of another project; an enrollment takes over a target that is not one of
+	 * the project's own controllers (haumacher/ehome #69).
+	 */
+	public void testTargetOptions() throws Exception {
+		TLObject project = ControllerEndpoint.project("Target test");
+		TLObject other = ControllerEndpoint.project("Target test (other)");
+		TLObject lan;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			lan = ModelService.getInstance().getFactory()
+				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
+			lan.tUpdateByName("name", "homecontrol-lan");
+			lan.tUpdateByName("host", "192.0.2.1");
+			lan.tUpdateByName("port", Integer.valueOf(80));
+			project.tUpdateByName("controller", lan);
+			tx.commit();
+		}
+		try {
+			Person root = PersonManager.getManager().getRoot();
+			TLObject foreign = enroll(other, root, "homecontrol-foreign");
+			assertEquals(foreign, other.tValueByName("controller"));
+
+			TLObject own = enroll(project, root, "homecontrol-own");
+			assertEquals("An enrollment replaces a LAN controller as the target.", own,
+				project.tValueByName("controller"));
+			TLObject second = enroll(project, root, "homecontrol-second");
+			assertNotSame(second, own);
+			assertEquals("The project's own target stays.", own, project.tValueByName("controller"));
+
+			TLStructuredTypePart part = (TLStructuredTypePart) TLModelUtil.findPart("ehome.project:Project#controller");
+			OptionsByExpression.Config<?> config =
+				(OptionsByExpression.Config<?>) part.getAnnotation(TLOptions.class).getGenerator();
+			Collection<?> options = SearchExpression.asList(QueryExecutor.compile(config.getFunction()).execute(project));
+			assertTrue(options.contains(own));
+			assertTrue(options.contains(second));
+			assertTrue(options.contains(lan));
+			assertFalse("Another project's controller is no option.", options.contains(foreign));
+		} finally {
+			SharedData.deleteProjects(List.of(project, other));
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				lan.tDelete();
+				tx.commit();
+			}
+		}
+	}
+
+	private TLObject enroll(TLObject project, Person root, String name) throws Exception {
+		String code = Enrollment.createCode(project, root, Instant.now());
+		Map<String, Object> answer = _endpoint.enroll("{\"code\": \"" + code + "\", \"name\": \"" + name + "\"}");
+		assertEquals(answer.toString(), Integer.valueOf(200), answer.get("status"));
+		List<?> controllers = (List<?>) project.tValueByName("controllers");
+		return (TLObject) controllers.get(controllers.size() - 1);
 	}
 
 	public void testCodes() {
