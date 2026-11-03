@@ -57,9 +57,10 @@ import de.haumacher.ehome.rules.RuleLoader;
  * owned by no technology: their own id, label, value type and flags, an empty <code>virtual</code>
  * member in place of a binding; one bound to a function of a Zigbee device (haumacher/ehome #40) with
  * its <code>zigbee</code> binding instead.</li>
- * <li><code>locations</code>: the parts of the project's buildings, each with its parent; buildings,
- * floors and rooms by their kind, every other part (corridor, stairway, distribution board, ...) as
- * an area.</li>
+ * <li><code>locations</code>: the parts of the project's buildings, each with its parent, in the order
+ * of the building structure, depth-first (a building, then each of its floors followed by its rooms,
+ * haumacher/ehome #71); buildings, floors and rooms by their kind, every other part (corridor,
+ * stairway, distribution board, ...) as an area.</li>
  * <li><code>functions</code>: the project's functions (<code>ehome.runtime:Function</code>), each
  * with its identifier (derived from its name where it has none), its label (its name as a map of the
  * languages it has to its texts, haumacher/ehome #51: <code>{"de": "Taste 1", "en": "Button 1"}</code>;
@@ -449,15 +450,10 @@ public final class RuntimeImage {
 		if (!(parts instanceof Collection<?> list)) {
 			return;
 		}
-		List<TLObject> sorted = new ArrayList<>();
-		for (Object part : list) {
-			if (part instanceof TLObject obj) {
-				sorted.add(obj);
+		for (Object element : list) {
+			if (!(element instanceof TLObject part)) {
+				continue;
 			}
-		}
-		sorted.sort(Comparator.comparing((TLObject p) -> String.valueOf(p.tValueByName("name")))
-			.thenComparing(p -> String.valueOf(p.tValueByName("extId"))));
-		for (TLObject part : sorted) {
 			String id = locationId(part, result.size());
 			Map<String, Object> location = new LinkedHashMap<>();
 			location.put("id", id);

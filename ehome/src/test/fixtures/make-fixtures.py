@@ -6,8 +6,8 @@ devices, inactive communication objects or details of group ranges and addresses
 Test project adds them, and marks the device as fully downloaded after its last change.
 
 The samples contain no building parts and place no device. TestDetails.knxproj adds a building
-"Haus" with the floor "Erdgeschoss", holding the room "Küche", in which the device "Taster Küche" is
-placed, and an empty distribution board "Verteiler".
+"Haus" with the floor "Erdgeschoss", holding the empty room "Wohnzimmer", the room "Küche", in which
+the device "Taster Küche" is placed, and an empty distribution board "Verteiler", in this order.
 
 TestDynamic.knxproj: the samples contain no channels that depend on a parameter (a choose directly
 below Dynamic). This copy gives the application program a new ID (so that an import does not skip it
@@ -158,12 +158,15 @@ def details(xml):
     xml = xml.replace(group_address, group_address
         + 'Central="1" Unfiltered="1" Description="Raumtemperatur Küche" ', 1)
 
-    # A building with a floor, a room holding the device, and an empty distribution board.
+    # A building with a floor, an empty room, a room holding the device, and an empty distribution
+    # board. The empty room "Wohnzimmer" comes first and has the highest ID: the order of the parts
+    # (haumacher/ehome #71) is neither that of their names nor that of their IDs.
     buildings = '<Buildings />'
     assert xml.count(buildings) == 1
     xml = xml.replace(buildings, '<Buildings>\n'
         + '          <BuildingPart Id="P-01A0-0_BP-1" Name="Haus" Type="Building">\n'
         + '            <BuildingPart Id="P-01A0-0_BP-2" Name="Erdgeschoss" Type="Floor">\n'
+        + '              <BuildingPart Id="P-01A0-0_BP-5" Name="Wohnzimmer" Type="Room" />\n'
         + '              <BuildingPart Id="P-01A0-0_BP-3" Name="Küche" Type="Room">\n'
         + '                <DeviceInstanceRef RefId="P-01A0-0_DI-1" />\n'
         + '              </BuildingPart>\n'

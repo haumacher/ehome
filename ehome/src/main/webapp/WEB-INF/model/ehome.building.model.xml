@@ -10,10 +10,12 @@
 				<property name="name"
 					type="tl.core:String"
 				/>
+				<!-- The sub-parts in their order: the order of the ETS project, then as the user arranges them (haumacher/ehome #71). -->
 				<reference name="parts"
 					composite="true"
 					kind="forwards"
 					multiple="true"
+					ordered="true"
 					type="BuildingDefinition"
 				/>
 				<!-- The devices placed in this part (ehome.physical:Device#location), not those of its sub-parts. -->

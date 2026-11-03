@@ -207,6 +207,36 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 ERROR_CANNOT_CONTAIN__TYPE_CONTAINER;
 
 	/**
+	 * @en No building part is to be moved.
+	 */
+	public static ResKey ERROR_NOTHING_TO_MOVE;
+
+	/**
+	 * @en The building parts cannot be moved there.
+	 */
+	public static ResKey ERROR_NO_CONTAINER;
+
+	/**
+	 * @en "{0}" is no building part.
+	 */
+	public static ResKey1 ERROR_NO_BUILDING_PART__OBJECT;
+
+	/**
+	 * @en "{0}" belongs to another project.
+	 */
+	public static ResKey1 ERROR_OTHER_PROJECT__PART;
+
+	/**
+	 * @en "{0}" cannot be moved into itself.
+	 */
+	public static ResKey1 ERROR_INSIDE_ITSELF__PART;
+
+	/**
+	 * @en "{0}" cannot be moved into "{1}".
+	 */
+	public static ResKey2 ERROR_CANNOT_MOVE__PART_CONTAINER;
+
+	/**
 	 * @en "{0}" is no datapoint type.
 	 */
 	public static ResKey1 ERROR_NO_DATAPOINT_TYPE__VALUE;

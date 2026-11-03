@@ -253,7 +253,8 @@ unordered Area/Line
 unordered UnassignedDevices
 unordered DeviceInstance/ComObjectInstanceRefs
 unordered ComObjectInstanceRef/Connectors
-unordered Buildings
+# The devices placed in a building part are a set; its sub-parts are ordered (haumacher/ehome #71),
+# which test.de.haumacher.ehome.programming.TestBuildingOrder checks, since no sample has buildings.
 unordered BuildingPart
 unordered GroupRanges
 unordered GroupRange

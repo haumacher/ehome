@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.programming;
 
+import java.util.Collection;
 import java.util.List;
 
 import com.top_logic.basic.config.ConfigurationException;
@@ -50,7 +51,17 @@ public class BuildingFunctions extends GenericMethod {
 		 * <code>buildingInsertVeto(container, type)</code>:
 		 * {@link BuildingDevices#insertVeto(TLObject, TLStructuredType)}.
 		 */
-		buildingInsertVeto(2, true);
+		buildingInsertVeto(2, true),
+		/**
+		 * <code>buildingMoveVeto(parts, container, before)</code>:
+		 * {@link BuildingDevices#moveVeto(Collection, TLObject, TLObject)}.
+		 */
+		buildingMoveVeto(3, true),
+		/**
+		 * <code>buildingMove(parts, container, before)</code>:
+		 * {@link BuildingDevices#move(Collection, TLObject, TLObject)}, no result.
+		 */
+		buildingMove(3, false);
 
 		private final int _arguments;
 
@@ -99,6 +110,13 @@ public class BuildingFunctions extends GenericMethod {
 
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
+		if (_function == Function.buildingMoveVeto) {
+			return BuildingDevices.moveVeto(collection(arguments[0]), object(arguments[1]), object(arguments[2]));
+		}
+		if (_function == Function.buildingMove) {
+			BuildingDevices.move(collection(arguments[0]), object(arguments[1]), object(arguments[2]));
+			return null;
+		}
 		TLObject obj = object(arguments[0]);
 		if (_function == Function.buildingInsertVeto) {
 			return BuildingDevices.insertVeto(obj,
@@ -119,8 +137,19 @@ public class BuildingFunctions extends GenericMethod {
 			case buildingPlace:
 				BuildingDevices.place(obj, object(arguments[1]));
 				return obj;
+			case buildingInsertVeto:
+			case buildingMoveVeto:
+			case buildingMove:
+				break;
 		}
 		return null;
+	}
+
+	private static Collection<?> collection(Object value) {
+		if (value instanceof Collection<?> collection) {
+			return collection;
+		}
+		return value == null ? List.of() : List.of(value);
 	}
 
 	private static TLObject object(Object value) {

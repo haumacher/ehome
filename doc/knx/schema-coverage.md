@@ -32,7 +32,7 @@ The XSD itself is not public and not in the repository.
 | Translations | `Languages/…/Translation` of master and manufacturer data, `DefaultLanguage` | the texts of datapoint types, catalogs, products, programs, parameters, enumeration entries, communication objects, channels and parameter blocks as `I18NString` |
 | Project | `Project` (Id), `ProjectInformation` (Name, GroupAddressStyle) | `ehome.project:Project` |
 | Topology | `Area`, `Line` (Id, Name, Address), `DeviceInstance` (Id, product, program, Address), `ComObjectInstanceRef` (flags, `Text`, `FunctionText`, `Description`), `Send`/`Receive` connectors | `ehome.physical:*` (`Connector#text`, `#function`, `#description`) |
-| Buildings | `BuildingPart` (Id, Name, Type), `DeviceInstanceRef` | `ehome.building:*` |
+| Buildings | `BuildingPart` (Id, Name, Type), `DeviceInstanceRef` | `ehome.building:*`; the parts in the order of the file (`BuildingDefinition#parts`, `Project#buildings` are ordered, haumacher/ehome #71) |
 | Group addresses | `GroupRange` (Id, Name), `GroupAddress` (Id, Address, Name) | `ehome.logical:*` |
 
 ## Gaps that matter

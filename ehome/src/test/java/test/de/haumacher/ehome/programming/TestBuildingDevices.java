@@ -49,8 +49,9 @@ import de.haumacher.ehome.programming.GroupAddressConnections;
 /**
  * The building tree of a project shows the devices placed in a building part, and a device is
  * placed from either side (haumacher/ehome #19), on the fixture <code>TestDetails.knxproj</code>: the
- * building "Haus" with the floor "Erdgeschoss", which holds the room "Küche" with the device "Taster
- * Küche" and the empty distribution board "Verteiler"; the device "Taster Reserve" is placed nowhere.
+ * building "Haus" with the floor "Erdgeschoss", which holds the empty room "Wohnzimmer", the room
+ * "Küche" with the device "Taster Küche" and the empty distribution board "Verteiler"; the device
+ * "Taster Reserve" is placed nowhere.
  *
  * <p>
  * The children and labels are computed by the scripts of the view
@@ -94,7 +95,7 @@ public class TestBuildingDevices extends BasicTestCase {
 		TLObject floor = single(list(house, "parts"));
 		assertEquals("ehome.building:Floor", TLModelUtil.qualifiedName(floor.tType()));
 		List<TLObject> rooms = list(floor, "parts");
-		assertEquals(2, rooms.size());
+		assertEquals(3, rooms.size());
 		TLObject kitchen = byName(rooms, "Küche");
 		TLObject board = byName(rooms, "Verteiler");
 		assertEquals("ehome.building:Room", TLModelUtil.qualifiedName(kitchen.tType()));

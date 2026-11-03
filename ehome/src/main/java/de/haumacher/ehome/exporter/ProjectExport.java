@@ -194,7 +194,7 @@ final class ProjectExport {
 
 	private void writeBuildings(XmlOut out) throws XMLStreamException {
 		out.open("Buildings");
-		for (TLObject part : Values.sortedById(list(_project, "buildings"))) {
+		for (TLObject part : list(_project, "buildings")) {
 			writeBuildingPart(out, part);
 		}
 		out.close();
@@ -205,7 +205,7 @@ final class ProjectExport {
 			.attr("Id", extId(part))
 			.attr("Name", string(part, "name"))
 			.attr("Type", buildingType(part));
-		for (TLObject child : Values.sortedById(list(part, "parts"))) {
+		for (TLObject child : list(part, "parts")) {
 			writeBuildingPart(out, child);
 		}
 		for (TLObject device : Values.sortedById(_usage._devices)) {

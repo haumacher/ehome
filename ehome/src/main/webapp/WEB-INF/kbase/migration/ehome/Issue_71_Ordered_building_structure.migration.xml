@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The buildings of a project and the parts of a building part become ordered (haumacher/ehome #71).
+	The links of an unordered reference carry no sort order (the column sortOrder of hasStructureChild
+	is empty), and an ordered reference cannot read such links: the migration makes the references
+	ordered in the stored model and gives their links an order, so that the automatic model upgrade
+	at startup has nothing left to do for them. The order is the one the parts were created in (their
+	identifiers): an import creates them in the order of the ETS project, a part the user created
+	afterwards comes after them. It is the order the unordered references had shown in the views.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_71_Ordered_building_structure"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Ticket_29806_Dissolve_ehome_mask"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_29852_binary_attribute_values"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_29092_multi_factor_authentication"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<update-reference name="ehome.project:Project#buildings"
+			ordered="true"
+		/>
+		<update-reference name="ehome.building:BuildingDefinition#parts"
+			ordered="true"
+		/>
+		<synthesize-link-order
+			link-table="hasStructureChild"
+			reference="ehome.project:Project#buildings"
+			source-order-attribute="_identifier"
+			source-table="EHBuilding"
+		/>
+		<synthesize-link-order
+			link-table="hasStructureChild"
+			reference="ehome.building:BuildingDefinition#parts"
+			source-order-attribute="_identifier"
+			source-table="EHBuilding"
+		/>
+	</processors>
+	<post-processors/>
+</migration>

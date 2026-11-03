@@ -211,8 +211,10 @@ public class TestRuntimeImage extends BasicTestCase {
 	}
 
 	/**
-	 * The building structure of a project becomes the locations: a building, its floor and the room
-	 * of the floor, each with its parent, and a part without a type of its own as an area.
+	 * The building structure of a project becomes the locations: a building, its floor and the rooms
+	 * of the floor, each with its parent, in the order of the structure (haumacher/ehome #71: the
+	 * order of the file, which is neither that of the names nor that of the IDs), and a part without
+	 * a type of its own as an area.
 	 */
 	public void testLocations() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
@@ -228,6 +230,7 @@ public class TestRuntimeImage extends BasicTestCase {
 			assertEquals(List.of(
 				Map.of("id", "P-01A0-0_BP-1", "label", "Haus", "kind", "building"),
 				Map.of("id", "P-01A0-0_BP-2", "label", "Erdgeschoss", "kind", "floor", "parent", "P-01A0-0_BP-1"),
+				Map.of("id", "P-01A0-0_BP-5", "label", "Wohnzimmer", "kind", "room", "parent", "P-01A0-0_BP-2"),
 				Map.of("id", "P-01A0-0_BP-3", "label", "Küche", "kind", "room", "parent", "P-01A0-0_BP-2"),
 				Map.of("id", "P-01A0-0_BP-4", "label", "Verteiler", "kind", "area", "parent", "P-01A0-0_BP-2")),
 				locations);

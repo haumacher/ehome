@@ -36,10 +36,12 @@
 					ordered="true"
 					type="ehome.zigbee:ZigbeeDevice"
 				/>
+				<!-- The buildings in their order: the order of the ETS project, then as the user arranges them (haumacher/ehome #71). -->
 				<reference name="buildings"
 					composite="true"
 					kind="forwards"
 					multiple="true"
+					ordered="true"
 					type="ehome.building:BuildingDefinition"
 				/>
 				<reference name="groupAddresses"

@@ -10,6 +10,10 @@
 	sub-parts (BuildingDevices#connections), derived and stored nowhere, since ETS links group
 	addresses to devices, not to building parts.
 
+	The parts are ordered (haumacher/ehome #71): the import takes the order of the ETS project, and a
+	part is moved by dragging it in the tree, to another place among its siblings or into another part.
+	The runtime image of a controller lists the locations in this order.
+
 	A device is placed in the selected part with the dialog projects/place-device.view.xml and
 	removed from it with "Remove the placement"; the device view chooses the location from the other
 	side (projects/choose-location.view.xml). The devices of a part are computed by Java functions
@@ -568,6 +572,34 @@
     $node.instanceOf(`ehome.zigbee:ZigbeeDevice`): $node.get(`ehome.zigbee:ZigbeeDevice#location`);
     default: $node.container();
 }]]></parents>
+						<!--
+							The parts of the buildings are ordered (haumacher/ehome #71): a part is dragged to its
+							place, between two parts or onto a part as its first sub-part, also into another part
+							of the project. BuildingDevices#moveVeto refuses (with its reason) a place that cannot
+							hold a part of its type and a place inside the dragged part; a place among the devices
+							of a part puts the dragged parts after its last sub-part.
+						-->
+						<drag kind="buildingPart">
+							<row-executability>
+								<disabled-if expr="!$row.instanceOf(`ehome.building:BuildingDefinition`)"/>
+							</row-executability>
+						</drag>
+						<drop
+							accept="buildingPart"
+							input="project"
+							refuse-if="buildingMoveVeto($objects, $parent, $before)"
+							target="ordered"
+						>
+							<executability>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</executability>
+							<with-transaction>
+								<execute-script function="buildingMove($objects, $parent, $before)"/>
+							</with-transaction>
+						</drop>
 						<export download-name="#('Buildings of {0}'@en, 'Gebäude von {0}'@de).fill($project.get(`ehome.project:Project#name`))">
 							<sheet-name>
 								<en>Buildings</en>

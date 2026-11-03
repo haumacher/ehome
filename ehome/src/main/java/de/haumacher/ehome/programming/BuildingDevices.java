@@ -6,6 +6,7 @@ package de.haumacher.ehome.programming;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,6 +40,8 @@ public class BuildingDevices {
 	private static final String DEVICES = "devices";
 
 	private static final String PARTS = "parts";
+
+	private static final String BUILDINGS = "buildings";
 
 	private static final String PATH_SEPARATOR = " / ";
 
@@ -191,6 +194,134 @@ public class BuildingDevices {
 			return null;
 		}
 		return I18NConstants.ERROR_CANNOT_CONTAIN__TYPE_CONTAINER.fill(type, container);
+	}
+
+	/**
+	 * Why the given building parts cannot be moved into the given container (the project or a
+	 * building part) before its part <code>before</code>; <code>null</code> if they can.
+	 *
+	 * <p>
+	 * A part can be moved within its project, into a container that may hold a part of its type
+	 * ({@link #canContain(TLObject, TLStructuredType)}), but not into itself or one of its sub-parts.
+	 * </p>
+	 *
+	 * @param before
+	 *        The part of the container the moved parts are placed before; <code>null</code>, or an
+	 *        object that is no part of the container (a device shown after the parts), for the end.
+	 */
+	public static ResKey moveVeto(Collection<?> parts, TLObject container, TLObject before) {
+		if (parts == null || parts.isEmpty()) {
+			return I18NConstants.ERROR_NOTHING_TO_MOVE;
+		}
+		if (container == null) {
+			return I18NConstants.ERROR_NO_CONTAINER;
+		}
+		TLObject project = project(container);
+		for (Object element : parts) {
+			if (!(element instanceof TLObject part) || !isA(part, "ehome.building:BuildingDefinition")) {
+				return I18NConstants.ERROR_NO_BUILDING_PART__OBJECT.fill(element);
+			}
+			if (project == null || project(part) != project) {
+				return I18NConstants.ERROR_OTHER_PROJECT__PART.fill(part);
+			}
+			for (TLObject ancestor = container; ancestor != null; ancestor = ancestor.tContainer()) {
+				if (ancestor == part) {
+					return I18NConstants.ERROR_INSIDE_ITSELF__PART.fill(part);
+				}
+			}
+			if (!canContain(container, part.tType())) {
+				return I18NConstants.ERROR_CANNOT_MOVE__PART_CONTAINER.fill(part, container);
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Moves the given building parts into the given container before its part <code>before</code> (at
+	 * the end of its parts without one).
+	 *
+	 * <p>
+	 * The moved parts keep their relative order in the tree, whatever order they were selected in:
+	 * they are placed in the depth-first order of the project's building structure, so parts of
+	 * different containers come in the order the tree shows them. A part <code>before</code> that is
+	 * itself moved stands for its place: the moved parts go after the parts of the container staying
+	 * before it, i.e. before the first part at or after <code>before</code> that is not moved (at the
+	 * end without one). A part dropped before itself therefore stays where it is.
+	 * </p>
+	 *
+	 * @throws TopLogicException
+	 *         If the parts cannot be moved there, see {@link #moveVeto(Collection, TLObject, TLObject)}.
+	 */
+	public static void move(Collection<?> parts, TLObject container, TLObject before) {
+		ResKey veto = moveVeto(parts, container, before);
+		if (veto != null) {
+			throw new TopLogicException(veto);
+		}
+		Set<Object> selected = new HashSet<>(parts);
+		List<TLObject> moved = new ArrayList<>();
+		for (TLObject part : treeOrder(project(container))) {
+			if (selected.contains(part)) {
+				moved.add(part);
+			}
+		}
+		String reference = partsReference(container);
+		List<TLObject> elements = list(container, reference);
+		int index = before == null ? -1 : elements.indexOf(before);
+		if (index < 0) {
+			index = elements.size();
+		}
+		// The place counts the parts staying before it; a part moved stands nowhere meanwhile.
+		int target = 0;
+		for (int n = 0; n < index; n++) {
+			if (!moved.contains(elements.get(n))) {
+				target++;
+			}
+		}
+		// Out of the old containers first: a part has one container at a time.
+		for (TLObject part : moved) {
+			TLObject oldContainer = part.tContainer();
+			if (oldContainer != container) {
+				String oldReference = partsReference(oldContainer);
+				List<TLObject> siblings = list(oldContainer, oldReference);
+				siblings.remove(part);
+				oldContainer.tUpdateByName(oldReference, siblings);
+			}
+		}
+		elements.removeAll(moved);
+		elements.addAll(target, moved);
+		container.tUpdateByName(reference, elements);
+	}
+
+	/**
+	 * The building parts of the given project, depth-first in their order: a building, then each of
+	 * its parts followed by their parts.
+	 */
+	private static List<TLObject> treeOrder(TLObject project) {
+		List<TLObject> result = new ArrayList<>();
+		addTreeOrder(list(project, BUILDINGS), result);
+		return result;
+	}
+
+	private static void addTreeOrder(List<TLObject> parts, List<TLObject> result) {
+		for (TLObject part : parts) {
+			result.add(part);
+			addTreeOrder(list(part, PARTS), result);
+		}
+	}
+
+	/**
+	 * The ordered reference of the given container holding its building parts.
+	 */
+	private static String partsReference(TLObject container) {
+		return isA(container, "ehome.project:Project") ? BUILDINGS : PARTS;
+	}
+
+	private static List<TLObject> list(TLObject obj, String reference) {
+		List<TLObject> result = new ArrayList<>();
+		for (Object element : (Collection<?>) obj.tValueByName(reference)) {
+			result.add((TLObject) element);
+		}
+		return result;
 	}
 
 	/**
