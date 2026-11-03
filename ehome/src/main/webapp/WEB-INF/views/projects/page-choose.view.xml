@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog adding elements to the control pages of a project (projects/pages.view.xml, haumacher/ehome
+	#72): rooms, functions, datapoints or rule switches to a section, series or datapoint lines to a
+	chart, several at a time.
+
+	"project" carries the project, "place" the node selected in the pages tree, which names where the
+	new elements go (pageInsert), "kind" what is added (room, function, datapoint, rule, series,
+	referenceDatapoint). The table offers the objects of that kind in the project (pageOptions): for a
+	datapoint with its id in the image, its value type and whether it has a history, which a series
+	needs. One element is added per chosen object, in the order of the table; the last one is written to
+	"selection".
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="place"/>
+		<channel name="kind"/>
+		<channel name="selection"/>
+		<channel name="chosen"/>
+		<derived-channel name="hint"
+			inputs="kind"
+		>
+			<expr><![CDATA[(switch {
+    $kind == "room": #("Choose the rooms. A room shows its functions, those of its sub-parts after its own, in the order of the project's functions."@en, "Die Räume wählen. Ein Raum zeigt seine Funktionen, die seiner Unterteile nach seinen eigenen, in der Reihenfolge der Funktionen des Projekts."@de);
+    $kind == "function": #("Choose the functions to show."@en, "Die Funktionen wählen, die gezeigt werden."@de);
+    $kind == "rule": #("Choose the rules whose enable switch to show."@en, "Die Regeln wählen, deren Schalter gezeigt wird."@de);
+    $kind == "series": #("Choose the datapoints to draw. A series needs a datapoint with history."@en, "Die Datenpunkte wählen, die gezeichnet werden. Eine Reihe braucht einen Datenpunkt mit Verlauf."@de);
+    $kind == "referenceDatapoint": #("Choose the datapoints whose current value is drawn as a line."@en, "Die Datenpunkte wählen, deren aktueller Wert als Linie gezeichnet wird."@de);
+    default: #("Choose the datapoints to show."@en, "Die Datenpunkte wählen, die gezeigt werden."@de);
+}).localize()]]></expr>
+		</derived-channel>
+	</channels>
+	<window width="820px">
+		<title>
+			<en>Add to the page</en>
+			<de>Zur Seite hinzufügen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text
+					input="hint"
+					tone="secondary"
+				/>
+				<table
+					selection="chosen"
+					selection-mode="multi"
+				>
+					<inputs>
+						<input channel="project"/>
+						<input channel="kind"/>
+					</inputs>
+					<columns>
+						<computed-column name="name"
+							type="tl.core:String"
+							width="300"
+						>
+							<label>
+								<en>Name</en>
+								<de>Name</de>
+							</label>
+							<value>pageTargetLabel($row)</value>
+						</computed-column>
+						<computed-column name="type"
+							width="150"
+						>
+							<label>
+								<en>Type</en>
+								<de>Typ</de>
+							</label>
+							<value>$row.type()</value>
+						</computed-column>
+						<computed-column name="imageId"
+							type="tl.core:String"
+							width="150"
+						>
+							<label>
+								<en>Id in the image</en>
+								<de>Id im Abbild</de>
+							</label>
+							<value>pageImageId($row)</value>
+						</computed-column>
+						<computed-column name="valueType"
+							type="tl.core:String"
+							width="100"
+						>
+							<label>
+								<en>Value type</en>
+								<de>Werttyp</de>
+							</label>
+							<value>pageValueType($row)</value>
+						</computed-column>
+						<computed-column name="history"
+							type="tl.core:Boolean"
+							width="80"
+						>
+							<label>
+								<en>History</en>
+								<de>Verlauf</de>
+							</label>
+							<value>if(pageValueType($row) == null, null, pageHasHistory($row))</value>
+						</computed-column>
+					</columns>
+					<rows>pageOptions($project, $kind)</rows>
+				</table>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-plus-lg"
+					inputs="chosen, project"
+				>
+					<label>
+						<en>Add</en>
+						<de>Hinzufügen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr="$chosen.isEmpty()"/>
+					</executability>
+					<with-transaction>
+						<execute-script function="pageInsert($project, $place, $kind, pageOptions($project, $kind).filter(x -> $chosen.containsElement($x)))">
+							<inputs>
+								<input channel="place"/>
+								<input channel="kind"/>
+							</inputs>
+						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

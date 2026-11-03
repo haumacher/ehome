@@ -1,0 +1,624 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The control pages of a project (haumacher/ehome #72, homecontrol #54): the pages the controller's
+	user interface shows instead of its generated room overview, deployed with the runtime image
+	(ui.pages). One global set per project; a page has sections of tiles flowing in a grid.
+
+	The tree holds the pages, their sections, the elements of a section and the series and reference
+	lines of a chart; everything is ordered by dragging it to its place, also into another page or
+	section (pageMove; pageMoveVeto refuses a place that cannot hold it, with its reason). The "New"
+	commands add after the selected node of their level, at the end otherwise: a page; a section to
+	the selected page; to the selected section (with a page selected, to its last section) a room, whose
+	functions the image lists in the project's order, functions, datapoints (group addresses,
+	application datapoints, rule parameters), the enable switches of rules, a chart; to the selected
+	chart series and reference lines. Rooms, functions, datapoints, rule switches, series and
+	datapoint lines are chosen in the dialog projects/page-choose.view.xml, several at a time.
+
+	The form beside the tree edits the selected node: the label, "display only" and the members of a
+	chart. What the image refuses or leaves out is marked in the tree and stated above the form (a
+	series of a datapoint without history, a chart without series, a room without functions); the
+	export and the deployment show the image's refusals with their paths. A deleted function,
+	datapoint, room or rule takes its elements with it (the model's deletion policy).
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="selected"/>
+		<derived-channel name="kindRoom"
+			expr="'room'"
+			inputs="project"
+		/>
+		<derived-channel name="kindFunction"
+			expr="'function'"
+			inputs="project"
+		/>
+		<derived-channel name="kindDatapoint"
+			expr="'datapoint'"
+			inputs="project"
+		/>
+		<derived-channel name="kindRule"
+			expr="'rule'"
+			inputs="project"
+		/>
+		<derived-channel name="kindSeries"
+			expr="'series'"
+			inputs="project"
+		/>
+		<derived-channel name="kindReferenceDatapoint"
+			expr="'referenceDatapoint'"
+			inputs="project"
+		/>
+		<!-- What the image says of the selected node, empty for nothing. -->
+		<derived-channel name="problem"
+			expr="if(pageProblem($selected) == null, null, pageProblem($selected).localize())"
+			inputs="selected"
+			observed-types="ehome.runtime:Page,ehome.runtime:PageSection,ehome.runtime:PageElement,ehome.runtime:ChartSeries,ehome.runtime:ChartReference,ehome.logical:GroupAddress,ehome.runtime:ApplicationDatapoint,ehome.runtime:Function"
+		/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="300"
+				size="50"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Pages</en>
+						<de>Seiten</de>
+					</title>
+					<commands>
+						<generic-command
+							clique="new"
+							image="css:bi bi-window-plus"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Page</en>
+								<de>Seite</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'page')"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="pageInsert($project, $selected, 'page', [])"/>
+								<with-result>
+									<write-channel name="selected"/>
+								</with-result>
+							</with-transaction>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-grid"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Section</en>
+								<de>Abschnitt</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'section')"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="pageInsert($project, $selected, 'section', [])"/>
+								<with-result>
+									<write-channel name="selected"/>
+								</with-result>
+							</with-transaction>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-door-open"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Room</en>
+								<de>Raum</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'room')"/>
+							</executability>
+							<open-dialog dialog-view="projects/page-choose.view.xml">
+								<bind
+									channel="project"
+									to="project"
+								/>
+								<bind
+									channel="place"
+									to="selected"
+								/>
+								<bind
+									channel="kind"
+									to="kindRoom"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-lightbulb"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Functions</en>
+								<de>Funktionen</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'function')"/>
+							</executability>
+							<open-dialog dialog-view="projects/page-choose.view.xml">
+								<bind
+									channel="project"
+									to="project"
+								/>
+								<bind
+									channel="place"
+									to="selected"
+								/>
+								<bind
+									channel="kind"
+									to="kindFunction"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-123"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Datapoints</en>
+								<de>Datenpunkte</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'datapoint')"/>
+							</executability>
+							<open-dialog dialog-view="projects/page-choose.view.xml">
+								<bind
+									channel="project"
+									to="project"
+								/>
+								<bind
+									channel="place"
+									to="selected"
+								/>
+								<bind
+									channel="kind"
+									to="kindDatapoint"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-toggle-on"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Rule switches</en>
+								<de>Regelschalter</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'rule')"/>
+							</executability>
+							<open-dialog dialog-view="projects/page-choose.view.xml">
+								<bind
+									channel="project"
+									to="project"
+								/>
+								<bind
+									channel="place"
+									to="selected"
+								/>
+								<bind
+									channel="kind"
+									to="kindRule"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-graph-up"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Chart</en>
+								<de>Diagramm</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'chart')"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="pageInsert($project, $selected, 'chart', [])"/>
+								<with-result>
+									<write-channel name="selected"/>
+								</with-result>
+							</with-transaction>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-activity"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Series</en>
+								<de>Reihen</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'series')"/>
+							</executability>
+							<open-dialog dialog-view="projects/page-choose.view.xml">
+								<bind
+									channel="project"
+									to="project"
+								/>
+								<bind
+									channel="place"
+									to="selected"
+								/>
+								<bind
+									channel="kind"
+									to="kindSeries"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-dash-lg"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Constant line</en>
+								<de>Konstante Linie</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'reference')"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="pageInsert($project, $selected, 'reference', [])"/>
+								<with-result>
+									<write-channel name="selected"/>
+								</with-result>
+							</with-transaction>
+						</generic-command>
+						<generic-command
+							clique="new"
+							image="css:bi bi-dash-circle"
+							inputs="project, selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Datapoint line</en>
+								<de>Datenpunktlinie</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="pageInsertVeto($project, $selected, 'referenceDatapoint')"/>
+							</executability>
+							<open-dialog dialog-view="projects/page-choose.view.xml">
+								<bind
+									channel="project"
+									to="project"
+								/>
+								<bind
+									channel="place"
+									to="selected"
+								/>
+								<bind
+									channel="kind"
+									to="kindReferenceDatapoint"
+								/>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							inputs="selected"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="#('Delete {0}?'@en, '{0} löschen?'@de).fill(pageLabel($selected))"/>
+							<delete-object/>
+							<write-channel name="selected" clear="true"/>
+						</generic-command>
+					</commands>
+					<tree-table
+						observed-types="ehome.runtime:Page,ehome.runtime:PageSection,ehome.runtime:PageElement,ehome.runtime:ChartSeries,ehome.runtime:ChartReference"
+						row-class="if(pageProblem($row) == null, null, 'tl-status-warning')"
+						selection="selected"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<root>$project</root>
+						<children>pageChildren($node)</children>
+						<parents>$node.container()</parents>
+						<drag kind="pageNode"/>
+						<drop
+							accept="pageNode"
+							input="project"
+							refuse-if="pageMoveVeto($objects, $parent, $before)"
+							target="ordered"
+						>
+							<executability>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</executability>
+							<with-transaction>
+								<execute-script function="pageMove($objects, $parent, $before)"/>
+							</with-transaction>
+						</drop>
+						<columns>
+							<computed-column name="name"
+								width="260"
+							>
+								<label>
+									<en>Name</en>
+									<de>Name</de>
+								</label>
+								<value>$row</value>
+								<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"
+									label="pageLabel($value)"
+								/>
+							</computed-column>
+							<computed-column name="type"
+								width="130"
+							>
+								<label>
+									<en>Type</en>
+									<de>Typ</de>
+								</label>
+								<value>$row.type()</value>
+							</computed-column>
+							<computed-column name="imageId"
+								type="tl.core:String"
+								width="150"
+							>
+								<label>
+									<en>Id in the image</en>
+									<de>Id im Abbild</de>
+								</label>
+								<value>pageImageId($row)</value>
+							</computed-column>
+							<computed-column name="problem"
+								type="tl.core:String"
+								width="260"
+							>
+								<label>
+									<en>Note</en>
+									<de>Hinweis</de>
+								</label>
+								<value>if(pageProblem($row) == null, null, pageProblem($row).localize())</value>
+							</computed-column>
+						</columns>
+					</tree-table>
+				</panel>
+			</pane>
+			<pane
+				size="50"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Details</en>
+						<de>Details</de>
+					</title>
+					<stack>
+						<visible-if
+							expr="$problem != null"
+							input="problem"
+						>
+							<inset>
+								<text
+									input="problem"
+									tone="warning"
+								/>
+							</inset>
+						</visible-if>
+						<switch input="selected">
+									<case test="$selected.instanceOf(`ehome.runtime:Page`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="name"/>
+											<field attribute="identifier"/>
+											<field attribute="icon"/>
+										</form>
+									</case>
+									<case test="$selected.instanceOf(`ehome.runtime:PageSection`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="title"/>
+										</form>
+									</case>
+									<case test="$selected.instanceOf(`ehome.runtime:RoomElement`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="room"/>
+										</form>
+									</case>
+									<case test="$selected.instanceOf(`ehome.runtime:FunctionElement`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="function"/>
+											<field attribute="label"/>
+										</form>
+									</case>
+									<case test="$selected.instanceOf(`ehome.runtime:DatapointElement`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="datapoint"/>
+											<field attribute="label"/>
+											<field attribute="readOnly"/>
+										</form>
+									</case>
+									<case test="$selected.instanceOf(`ehome.runtime:RuleEnabledElement`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="rule"/>
+											<field attribute="label"/>
+											<field attribute="readOnly"/>
+										</form>
+									</case>
+									<case test="$selected.instanceOf(`ehome.runtime:ChartElement`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="label">
+												<label>
+													<en>Title</en>
+													<de>Titel</de>
+												</label>
+											</field>
+											<field attribute="width"/>
+											<field attribute="height"/>
+											<field attribute="range"/>
+											<field attribute="presets"/>
+											<field attribute="leftMin"/>
+											<field attribute="leftMax"/>
+											<field attribute="rightMin"/>
+											<field attribute="rightMax"/>
+										</form>
+									</case>
+									<case test="$selected.instanceOf(`ehome.runtime:ChartSeries`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="datapoint"/>
+											<field attribute="label"/>
+											<field attribute="axis"/>
+											<field attribute="consolidation"/>
+										</form>
+									</case>
+									<case test="$selected.instanceOf(`ehome.runtime:ChartReference`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="value"/>
+											<field attribute="datapoint"/>
+											<field attribute="label"/>
+											<field attribute="axis"/>
+										</form>
+									</case>
+						</switch>
+					</stack>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

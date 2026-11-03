@@ -32,7 +32,7 @@ import de.haumacher.ehome.rules.RuleLoader;
 
 /**
  * The runtime image of a project: the JSON document a HomeControl controller runs
- * (homecontrol <code>spec/runtime-image.md</code>, schema 1.0), derived from the project.
+ * (homecontrol <code>spec/runtime-image.md</code>, schema 1.1), derived from the project.
  *
  * <p>
  * The mapping:
@@ -74,6 +74,9 @@ import de.haumacher.ehome.rules.RuleLoader;
  * <li><code>history</code>: the project's history budget, where set.</li>
  * <li><code>schedules</code> and <code>rules</code>: the project's schedule entries and rules
  * (haumacher/ehome #57, {@link RuleExport}), each member only where the project has some.</li>
+ * <li><code>ui.pages</code>: the project's control pages (haumacher/ehome #72, schema 1.1,
+ * {@link PageExport}); without pages no <code>ui</code>, and the controller shows its generated room
+ * overview.</li>
  * </ul>
  *
  * <p>
@@ -85,7 +88,7 @@ import de.haumacher.ehome.rules.RuleLoader;
 public final class RuntimeImage {
 
 	/** The version of the schema of the images E-Home writes. */
-	public static final String SCHEMA_VERSION = "1.0";
+	public static final String SCHEMA_VERSION = "1.1";
 
 	/** The content type of an image. */
 	public static final String CONTENT_TYPE = "application/json";
@@ -102,6 +105,12 @@ public final class RuntimeImage {
 
 	/** The ids of the locations by the building part they stand for. */
 	private final Map<TLObject, String> _locationIds = new HashMap<>();
+
+	/** The ids of the functions by the function they stand for. */
+	private final Map<TLObject, String> _functionIds = new HashMap<>();
+
+	/** The objects of the project by the paths of <code>ui.pages</code>. */
+	private final Map<String, TLObject> _uiSources = new HashMap<>();
 
 	/** The ids of the datapoints by the group address they stand for. */
 	private final Map<TLObject, String> _datapointIds = new HashMap<>();
@@ -157,6 +166,9 @@ public final class RuntimeImage {
 			result.automation(project);
 		}
 		result.history(project);
+		if (automation) {
+			result.ui(project);
+		}
 		result._text = Json.write(result._json);
 		return result;
 	}
@@ -217,6 +229,15 @@ public final class RuntimeImage {
 		if (path.startsWith("settings") || path.startsWith("knx") || path.startsWith("history")) {
 			return _project;
 		}
+		if (path.startsWith("ui")) {
+			for (String prefix = path; !prefix.isEmpty(); prefix = parent(prefix)) {
+				TLObject source = _uiSources.get(prefix);
+				if (source != null) {
+					return source;
+				}
+			}
+			return null;
+		}
 		if (path.startsWith("rules") || path.startsWith("schedules")) {
 			RuleExport.Source source = _automation.sourceAt(path);
 			return source == null ? null : source.object();
@@ -237,6 +258,15 @@ public final class RuntimeImage {
 			return null;
 		}
 		return index < sources.size() ? sources.get(index) : null;
+	}
+
+	/**
+	 * The path without its last member or index (<code>a.b[2]</code> for <code>a.b[2].c</code>),
+	 * empty for a single member.
+	 */
+	private static String parent(String path) {
+		int cut = Math.max(path.lastIndexOf('.'), path.lastIndexOf('['));
+		return cut <= 0 ? "" : path.substring(0, cut);
 	}
 
 	/**
@@ -624,6 +654,7 @@ public final class RuntimeImage {
 			entry.put("datapoints", roles);
 			result.add(entry);
 			_functionSources.add(function);
+			_functionIds.put(function, (String) entry.get("id"));
 		}
 		_json.put("functions", result);
 	}
@@ -696,6 +727,44 @@ public final class RuntimeImage {
 			});
 		} catch (RuleLoader.LoadException ex) {
 			return rules;
+		}
+	}
+
+	// ---- control pages -----------------------------------------------------------------------
+
+	private void ui(TLObject project) {
+		Set<String> parameters = new HashSet<>();
+		for (RuleLoader.ParameterDatapoint datapoint : RuleLoader.parameterDatapoints(_json.get("rules"))) {
+			parameters.add(datapoint.name());
+		}
+		PageExport export = new PageExport(new PageExport.Targets() {
+			@Override
+			public String functionId(TLObject function) {
+				return _functionIds.get(function);
+			}
+
+			@Override
+			public String datapointId(TLObject datapoint) {
+				if (Pages.isRuleParameter(datapoint)) {
+					String id = Pages.imageId(datapoint);
+					return parameters.contains(id) ? id : null;
+				}
+				String id = _timeMaster.get(datapoint);
+				return id != null ? id : _datapointIds.get(datapoint);
+			}
+
+			@Override
+			public String enabledId(TLObject rule) {
+				String id = Pages.imageId(rule);
+				return parameters.contains(id) ? id : null;
+			}
+		}, _notes);
+		List<Object> pages = export.pages(project);
+		if (pages != null) {
+			Map<String, Object> ui = new LinkedHashMap<>();
+			ui.put("pages", pages);
+			_json.put("ui", ui);
+			_uiSources.putAll(export.getSources());
 		}
 	}
 

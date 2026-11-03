@@ -95,6 +95,20 @@
 					/>
 				</view-ref>
 			</tab>
+			<tab id="pages"
+				icon="css:bi bi-window"
+			>
+				<label>
+					<en>Pages</en>
+					<de>Seiten</de>
+				</label>
+				<view-ref view="projects/pages.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="rules"
 				icon="css:bi bi-diagram-3"
 			>

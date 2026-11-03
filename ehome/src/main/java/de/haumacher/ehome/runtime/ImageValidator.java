@@ -50,7 +50,7 @@ public final class ImageValidator {
 	public static final int SCHEMA_MAJOR = 1;
 
 	/** The minor version of the schema this validator reads. */
-	public static final int SCHEMA_MINOR = 0;
+	public static final int SCHEMA_MINOR = 1;
 
 	/** The largest image in bytes. */
 	public static final int MAX_IMAGE_BYTES = 262144;
@@ -75,6 +75,21 @@ public final class ImageValidator {
 
 	/** The most Zigbee bindings of an image (spec/zigbee.md, "Bindings"). */
 	public static final int MAX_ZIGBEE_BINDINGS = 512;
+
+	/** The most control pages of an image (ui.pages, homecontrol #54). */
+	public static final int MAX_PAGES = 16;
+
+	/** The most elements of all control pages together, a room counted by its functions. */
+	public static final int MAX_PAGE_ELEMENTS = 512;
+
+	/** The time ranges of a chart. */
+	public static final List<String> CHART_RANGES = List.of("1h", "24h", "7d", "30d", "1y");
+
+	/** The consolidations of a chart series. */
+	public static final List<String> CHART_CONSOLIDATIONS = List.of("mean", "last", "band", "consumption");
+
+	/** The axes of a chart. */
+	public static final List<String> CHART_AXES = List.of("left", "right");
 
 	/** The most history memory a controller (an ESP32-C6) allows. */
 	public static final int HISTORY_CAP = 65536;
@@ -123,6 +138,12 @@ public final class ImageValidator {
 
 	private long _historyBytes;
 
+	/** The indexes of the datapoints with a valid history. */
+	private final Set<Integer> _withHistory = new HashSet<>();
+
+	/** The ids of the valid functions. */
+	private final Set<String> _functionIds = new HashSet<>();
+
 	private ImageValidator() {
 		// Use validate().
 	}
@@ -164,7 +185,7 @@ public final class ImageValidator {
 		history(image);
 		if (image.containsKey("ui")) {
 			enter("ui");
-			object(image.get("ui"), "'ui'");
+			ui(image.get("ui"));
 			leave();
 		}
 		if (image.containsKey("external")) {
@@ -738,7 +759,9 @@ public final class ImageValidator {
 		_writable.set(index, Boolean.valueOf(writable));
 		if (dp.containsKey("history")) {
 			enter(".history");
-			history(dp.get("history"), type);
+			if (history(dp.get("history"), type)) {
+				_withHistory.add(Integer.valueOf(index));
+			}
 			leave();
 		}
 		boolean hasVirtual = dp.containsKey("virtual");
@@ -1044,9 +1067,9 @@ public final class ImageValidator {
 		// A record.
 	}
 
-	private void history(Object value, String type) {
+	private boolean history(Object value, String type) {
 		if (!object(value, "history")) {
-			return;
+			return false;
 		}
 		Map<?, ?> history = (Map<?, ?>) value;
 		boolean ok = true;
@@ -1083,6 +1106,7 @@ public final class ImageValidator {
 		if (ok) {
 			_historyBytes += samples(retention, spacing) * SAMPLE_BYTES;
 		}
+		return ok;
 	}
 
 	/**
@@ -1332,6 +1356,8 @@ public final class ImageValidator {
 			enter(".id");
 			refuse("duplicate function id '" + id + "'");
 			leave();
+		} else if (id != null) {
+			_functionIds.add(id);
 		}
 		if (!function.containsKey("label")) {
 			refuse("label is missing");
@@ -1439,6 +1465,367 @@ public final class ImageValidator {
 			}
 			return id;
 		} finally {
+			leave();
+		}
+	}
+
+	// ---- control pages -----------------------------------------------------------------------
+
+	/**
+	 * The member <code>ui</code> (schema 1.1, homecontrol #54): an object; its <code>pages</code>, each
+	 * with a unique id, an optional label and icon and its sections, each section with an optional label
+	 * and its elements. An element has exactly one of <code>function</code> (a function of the image),
+	 * <code>datapoint</code> (a datapoint of the image, a rule parameter's or a rule's enable switch
+	 * included) and <code>chart</code>, an optional label and <code>readOnly</code>.
+	 */
+	private void ui(Object value) {
+		if (!object(value, "'ui'")) {
+			return;
+		}
+		Map<?, ?> ui = (Map<?, ?>) value;
+		if (!ui.containsKey("pages")) {
+			return;
+		}
+		enter(".pages");
+		try {
+			Object pages = ui.get("pages");
+			if (!array(pages, "'pages'")) {
+				return;
+			}
+			List<?> list = (List<?>) pages;
+			if (list.size() > MAX_PAGES) {
+				refuse(list.size() + " pages exceed the limit of " + MAX_PAGES);
+				return;
+			}
+			Set<String> ids = new HashSet<>();
+			int elements = 0;
+			for (int i = 0; i < list.size(); i++) {
+				enter("[" + i + "]");
+				elements += page(list.get(i), ids);
+				leave();
+			}
+			if (elements > MAX_PAGE_ELEMENTS) {
+				refuse(elements + " elements of the pages exceed the limit of " + MAX_PAGE_ELEMENTS);
+			}
+		} finally {
+			leave();
+		}
+	}
+
+	/** Checks a page, returns the number of its elements. */
+	private int page(Object item, Set<String> ids) {
+		if (!object(item, "a page")) {
+			return 0;
+		}
+		Map<?, ?> page = (Map<?, ?>) item;
+		String id = id(page, "page id");
+		if (id != null && !ids.add(id)) {
+			enter(".id");
+			refuse("duplicate page id '" + id + "'");
+			leave();
+		}
+		if (page.containsKey("label")) {
+			enter(".label");
+			label(page.get("label"));
+			leave();
+		}
+		if (page.containsKey("icon")) {
+			enter(".icon");
+			string(page.get("icon"), 1, MAX_NAME, "icon");
+			leave();
+		}
+		int elements = 0;
+		enter(".sections");
+		if (!page.containsKey("sections")) {
+			refuse("sections is missing");
+		} else if (array(page.get("sections"), "sections")) {
+			List<?> sections = (List<?>) page.get("sections");
+			for (int i = 0; i < sections.size(); i++) {
+				enter("[" + i + "]");
+				elements += section(sections.get(i));
+				leave();
+			}
+		}
+		leave();
+		return elements;
+	}
+
+	private int section(Object item) {
+		if (!object(item, "a section")) {
+			return 0;
+		}
+		Map<?, ?> section = (Map<?, ?>) item;
+		if (section.containsKey("label")) {
+			enter(".label");
+			label(section.get("label"));
+			leave();
+		}
+		enter(".elements");
+		try {
+			if (!section.containsKey("elements")) {
+				refuse("elements is missing");
+				return 0;
+			}
+			if (!array(section.get("elements"), "elements")) {
+				return 0;
+			}
+			List<?> elements = (List<?>) section.get("elements");
+			for (int i = 0; i < elements.size(); i++) {
+				enter("[" + i + "]");
+				element(elements.get(i));
+				leave();
+			}
+			return elements.size();
+		} finally {
+			leave();
+		}
+	}
+
+	private void element(Object item) {
+		if (!object(item, "an element")) {
+			return;
+		}
+		Map<?, ?> element = (Map<?, ?>) item;
+		int kinds = (element.containsKey("function") ? 1 : 0) + (element.containsKey("datapoint") ? 1 : 0)
+			+ (element.containsKey("chart") ? 1 : 0);
+		if (kinds != 1) {
+			refuse("an element needs exactly one of function, datapoint and chart");
+			return;
+		}
+		if (element.containsKey("function")) {
+			enter(".function");
+			String function = string(element.get("function"), 1, 32, "function");
+			if (function != null && !_functionIds.contains(function)) {
+				refuse("unknown function '" + function + "'");
+			}
+			leave();
+		}
+		if (element.containsKey("datapoint")) {
+			enter(".datapoint");
+			knownDatapoint(element.get("datapoint"));
+			leave();
+		}
+		if (element.containsKey("chart")) {
+			enter(".chart");
+			chart(element.get("chart"));
+			leave();
+		}
+		if (element.containsKey("label")) {
+			enter(".label");
+			label(element.get("label"));
+			leave();
+		}
+		flag(element, "readOnly");
+	}
+
+	/** The index of the named datapoint, -1 (after a refusal) for an unknown one. */
+	private int knownDatapoint(Object value) {
+		String name = string(value, 1, MAX_NAME, "datapoint");
+		if (name == null) {
+			return -1;
+		}
+		int index = datapointIndex(name);
+		if (index < 0) {
+			refuse("unknown datapoint '" + name + "'");
+		}
+		return index;
+	}
+
+	/**
+	 * A chart (the amendment "charts" of homecontrol #54): label, width (1..4 or full), height (2 or
+	 * 4), range and presets (1h, 24h, 7d, 30d, 1y), the axes left and right with a min and max each
+	 * (a number or null), the series (a datapoint with history, label, axis, consolidation) and the
+	 * reference lines (a value or a datapoint, axis, label).
+	 */
+	private void chart(Object value) {
+		if (!object(value, "chart")) {
+			return;
+		}
+		Map<?, ?> chart = (Map<?, ?>) value;
+		if (chart.containsKey("label")) {
+			enter(".label");
+			label(chart.get("label"));
+			leave();
+		}
+		if (chart.containsKey("width")) {
+			enter(".width");
+			Object width = chart.get("width");
+			if (!"full".equals(width) && !(width instanceof Number number && Math.rint(number.doubleValue()) == number.doubleValue()
+				&& number.doubleValue() >= 1 && number.doubleValue() <= 4)) {
+				refuse("width must be 1..4 or \"full\"");
+			}
+			leave();
+		}
+		if (chart.containsKey("height")) {
+			enter(".height");
+			Object height = chart.get("height");
+			if (!(height instanceof Number number && (number.doubleValue() == 2 || number.doubleValue() == 4))) {
+				refuse("height must be 2 or 4");
+			}
+			leave();
+		}
+		if (chart.containsKey("range")) {
+			enter(".range");
+			range(chart.get("range"));
+			leave();
+		}
+		if (chart.containsKey("presets")) {
+			enter(".presets");
+			if (array(chart.get("presets"), "presets")) {
+				List<?> presets = (List<?>) chart.get("presets");
+				Set<String> seen = new HashSet<>();
+				for (int i = 0; i < presets.size(); i++) {
+					enter("[" + i + "]");
+					String range = range(presets.get(i));
+					if (range != null && !seen.add(range)) {
+						refuse("duplicate preset '" + range + "'");
+					}
+					leave();
+				}
+			}
+			leave();
+		}
+		if (chart.containsKey("axes")) {
+			enter(".axes");
+			axes(chart.get("axes"));
+			leave();
+		}
+		enter(".series");
+		if (!chart.containsKey("series")) {
+			refuse("series is missing");
+		} else if (array(chart.get("series"), "series")) {
+			List<?> series = (List<?>) chart.get("series");
+			for (int i = 0; i < series.size(); i++) {
+				enter("[" + i + "]");
+				series(series.get(i));
+				leave();
+			}
+		}
+		leave();
+		if (chart.containsKey("references")) {
+			enter(".references");
+			if (array(chart.get("references"), "references")) {
+				List<?> references = (List<?>) chart.get("references");
+				for (int i = 0; i < references.size(); i++) {
+					enter("[" + i + "]");
+					reference(references.get(i));
+					leave();
+				}
+			}
+			leave();
+		}
+	}
+
+	private String range(Object value) {
+		String range = string(value, 1, 15, "range");
+		if (range != null && !CHART_RANGES.contains(range)) {
+			refuse("unknown range '" + range + "' (1h, 24h, 7d, 30d, 1y)");
+			return null;
+		}
+		return range;
+	}
+
+	private void axes(Object value) {
+		if (!object(value, "axes")) {
+			return;
+		}
+		for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+			String axis = String.valueOf(entry.getKey());
+			enter("." + axis);
+			if (!CHART_AXES.contains(axis)) {
+				refuse("unknown axis '" + axis + "' (left, right)");
+			} else if (object(entry.getValue(), "an axis")) {
+				Map<?, ?> bounds = (Map<?, ?>) entry.getValue();
+				Double min = bound(bounds, "min");
+				Double max = bound(bounds, "max");
+				if (min != null && max != null && min.doubleValue() >= max.doubleValue()) {
+					refuse("min must be below max");
+				}
+			}
+			leave();
+		}
+	}
+
+	private Double bound(Map<?, ?> bounds, String member) {
+		Object value = bounds.get(member);
+		if (value == null) {
+			return null;
+		}
+		enter("." + member);
+		boolean ok = number(value, -Double.MAX_VALUE, Double.MAX_VALUE, member);
+		leave();
+		return ok ? Double.valueOf(((Number) value).doubleValue()) : null;
+	}
+
+	private void series(Object item) {
+		if (!object(item, "a series")) {
+			return;
+		}
+		Map<?, ?> series = (Map<?, ?>) item;
+		int index = -1;
+		enter(".datapoint");
+		if (!series.containsKey("datapoint")) {
+			refuse("datapoint is missing");
+		} else {
+			index = knownDatapoint(series.get("datapoint"));
+			if (index >= 0 && !_withHistory.contains(Integer.valueOf(index))) {
+				refuse("datapoint '" + _ids.get(index) + "' has no history");
+			}
+		}
+		leave();
+		if (series.containsKey("label")) {
+			enter(".label");
+			label(series.get("label"));
+			leave();
+		}
+		axis(series);
+		if (series.containsKey("consolidation")) {
+			enter(".consolidation");
+			String consolidation = string(series.get("consolidation"), 1, 15, "consolidation");
+			if (consolidation != null && !CHART_CONSOLIDATIONS.contains(consolidation)) {
+				refuse("unknown consolidation '" + consolidation + "' (mean, last, band, consumption)");
+			} else if ("consumption".equals(consolidation) && index >= 0
+				&& ValueTypes.BOOLEAN.equals(_types.get(index))) {
+				refuse("consumption needs a number; datapoint '" + _ids.get(index) + "' is boolean");
+			}
+			leave();
+		}
+	}
+
+	private void reference(Object item) {
+		if (!object(item, "a reference line")) {
+			return;
+		}
+		Map<?, ?> reference = (Map<?, ?>) item;
+		boolean value = reference.containsKey("value");
+		if (value == reference.containsKey("datapoint")) {
+			refuse("a reference line needs exactly one of value and datapoint");
+		}
+		if (value) {
+			enter(".value");
+			number(reference.get("value"), -Double.MAX_VALUE, Double.MAX_VALUE, "value");
+			leave();
+		}
+		if (reference.containsKey("datapoint")) {
+			enter(".datapoint");
+			knownDatapoint(reference.get("datapoint"));
+			leave();
+		}
+		axis(reference);
+		if (reference.containsKey("label")) {
+			enter(".label");
+			label(reference.get("label"));
+			leave();
+		}
+	}
+
+	private void axis(Map<?, ?> object) {
+		if (object.containsKey("axis")) {
+			enter(".axis");
+			String axis = string(object.get("axis"), 1, 15, "axis");
+			if (axis != null && !CHART_AXES.contains(axis)) {
+				refuse("unknown axis '" + axis + "' (left, right)");
+			}
 			leave();
 		}
 	}

@@ -586,6 +586,121 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey BINDING_ZIGBEE;
 
+	/**
+	 * @en New page
+	 */
+	public static ResKey NEW_PAGE_NAME;
+
+	/**
+	 * @en Another page has the id {0} already.
+	 */
+	public static ResKey1 PAGE_IDENTIFIER_DUPLICATE__ID;
+
+	/**
+	 * @en {0} has no history: the controller can draw no chart of it. Set its history retention and spacing, or choose another datapoint.
+	 */
+	public static ResKey1 SERIES_NO_HISTORY__DATAPOINT;
+
+	/**
+	 * @en A consumption needs a number; a truth value is drawn as an on/off strip.
+	 */
+	public static ResKey CONSUMPTION_OF_BOOLEAN;
+
+	/**
+	 * @en The lowest value of the axis must be below its highest value.
+	 */
+	public static ResKey AXIS_MIN_NOT_BELOW_MAX;
+
+	/**
+	 * @en A reference line is drawn either at a value or at the value of a datapoint: set exactly one of them.
+	 */
+	public static ResKey REFERENCE_VALUE_OR_DATAPOINT;
+
+	/**
+	 * @en The chart has no series; the image leaves it out.
+	 */
+	public static ResKey CHART_WITHOUT_SERIES;
+
+	/**
+	 * @en No function is in this room; the element shows nothing.
+	 */
+	public static ResKey ROOM_WITHOUT_FUNCTIONS;
+
+	/**
+	 * @en The group address has no datapoint type and is not part of the image; the element is left out.
+	 */
+	public static ResKey ADDRESS_WITHOUT_TYPE;
+
+	/**
+	 * @en Section {0}
+	 */
+	public static ResKey1 SECTION_NUMBER__N;
+
+	/**
+	 * @en Chart
+	 */
+	public static ResKey CHART_LABEL;
+
+	/**
+	 * @en Line at {0}
+	 */
+	public static ResKey1 REFERENCE_AT__VALUE;
+
+	/**
+	 * @en Choose a project first.
+	 */
+	public static ResKey NO_PROJECT;
+
+	/**
+	 * @en Select the page to add the section to, or add a page first.
+	 */
+	public static ResKey SELECT_PAGE;
+
+	/**
+	 * @en Select the section to add to, or add a section to the page first.
+	 */
+	public static ResKey SELECT_SECTION;
+
+	/**
+	 * @en Select the chart to add to.
+	 */
+	public static ResKey SELECT_CHART;
+
+	/**
+	 * @en This place cannot hold what is dragged: pages go into the project, sections into a page, elements into a section, series and reference lines into a chart.
+	 */
+	public static ResKey MOVE_NOT_HERE;
+
+	/**
+	 * @en The pages of another project cannot take it.
+	 */
+	public static ResKey MOVE_OTHER_PROJECT;
+
+	/**
+	 * @en Page "{0}", section {1}, element {2}: {3} is not part of the runtime image; the element is left out.
+	 */
+	public static ResKey4 NOTE_PAGE_ELEMENT_LEFT_OUT__PAGE_SECTION_ELEMENT_TARGET;
+
+	/**
+	 * @en Page "{0}", section {1}, element {2}: no function is in {3}; the element shows nothing.
+	 */
+	public static ResKey4 NOTE_PAGE_ROOM_EMPTY__PAGE_SECTION_ELEMENT_ROOM;
+
+	/**
+	 * @en Page "{0}", section {1}, element {2}, series {3}: {4} is not part of the runtime image; the series is left out.
+	 */
+	public static ResKey5 NOTE_PAGE_SERIES_LEFT_OUT__PAGE_SECTION_ELEMENT_SERIES_TARGET;
+
+	/**
+	 * @en Page "{0}", section {1}, element {2}, reference line {3}: {4} is not part of the runtime image; the line is left out.
+	 */
+	public static ResKey5 NOTE_PAGE_REFERENCE_LEFT_OUT__PAGE_SECTION_ELEMENT_REFERENCE_TARGET;
+
+	/**
+	 * @en Page "{0}", section {1}, element {2}: the chart has no series; it is left out.
+	 */
+	public static ResKey3 NOTE_PAGE_CHART_EMPTY__PAGE_SECTION_ELEMENT;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

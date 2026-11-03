@@ -4,7 +4,7 @@
 	Deployment of runtime images to HomeControl controllers (haumacher/ehome #39, package
 	de.haumacher.ehome.runtime): the model of the controllers, deployments and functions, and the
 	TL-Script functions of the views controllers.view.xml, projects/deployment.view.xml,
-	projects/functions.view.xml, projects/rules.view.xml and of the runtime settings and the
+	projects/functions.view.xml, projects/rules.view.xml, projects/pages.view.xml and of the runtime settings and the
 	rules in the model.
 -->
 <application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
@@ -73,6 +73,24 @@
 					<method name="ruleSuggestions" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<!-- The import of rules from a runtime image (haumacher/ehome #60). -->
 					<method name="ruleImportImage" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<!-- The control pages (haumacher/ehome #72, de.haumacher.ehome.runtime.PageFunctions). -->
+					<method name="pageOptions" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageChildren" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageLabel" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageProblem" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageTargetLabel" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageImageId" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageValueType" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageHasHistory" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageIdentifierProblem" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageSeriesProblem" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageConsolidationProblem" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageAxisProblem" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageReferenceProblem" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageInsertVeto" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageInsert" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageMoveVeto" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
+					<method name="pageMove" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

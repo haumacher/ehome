@@ -1202,10 +1202,14 @@
 				/>
 			</attributes>
 		</class>
-		<!-- A parameter of a rule (spec/rules.md 8.1). -->
+		<!--
+			A parameter of a rule (spec/rules.md 8.1). Its value is a datapoint of the image
+			(rule/<rule>/<parameter>, spec/rules.md 8.6), so a control page shows it like any other
+			datapoint (haumacher/ehome #72); the roles of a function do not offer it.
+		-->
 		<class name="RuleParameter">
 			<generalizations>
-				<generalization type="tl.model:TLObject"/>
+				<generalization type="ehome.logical:ProjectDatapoint"/>
 			</generalizations>
 			<annotations>
 				<instance-presentation icon="css:bi bi-sliders"/>
@@ -2301,6 +2305,419 @@
 						</value-normalizer>
 					</annotations>
 				</property>
+			</attributes>
+		</class>
+		<!--
+			Control pages (haumacher/ehome #72, homecontrol #54): the pages the controller's user interface
+			shows instead of its generated room overview, one global set per project, edited only in
+			E-Home and deployed with the runtime image (ui.pages, de.haumacher.ehome.runtime.PageExport).
+			A page has sections of tiles flowing in a grid; an element of a section is a room (expanded to
+			its functions when the image is written), a function, a datapoint, the enable switch of a rule
+			or a history chart. Every reference of an element deletes the element with its target
+			(deletion-policy delete-referer), so the image never names a deleted object.
+		-->
+		<!-- The width of a chart in columns of its section's grid. -->
+		<enum name="ChartWidth">
+			<classifier name="one"/>
+			<classifier name="two" default="true"/>
+			<classifier name="three"/>
+			<classifier name="four"/>
+			<classifier name="full"/>
+		</enum>
+		<!-- The height of a chart in tile rows (a tile is 64 px high). -->
+		<enum name="ChartHeight">
+			<classifier name="two" default="true"/>
+			<classifier name="four"/>
+		</enum>
+		<!-- A time range of a chart: 1 h, 24 h, 7 d, 30 d, 1 y. -->
+		<enum name="ChartRange">
+			<classifier name="hour"/>
+			<classifier name="day" default="true"/>
+			<classifier name="week"/>
+			<classifier name="month"/>
+			<classifier name="year"/>
+		</enum>
+		<!-- An axis of a chart. -->
+		<enum name="ChartAxis">
+			<classifier name="left"/>
+			<classifier name="right"/>
+		</enum>
+		<!-- How a series of a chart consolidates the samples of a bucket. -->
+		<enum name="ChartConsolidation">
+			<classifier name="mean"/>
+			<classifier name="last"/>
+			<classifier name="band"/>
+			<classifier name="consumption"/>
+		</enum>
+		<!-- A control page of the controller's user interface. -->
+		<class name="Page">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-window"/>
+			</annotations>
+			<attributes>
+				<!-- The label of the page in the controller's navigation, in its languages. -->
+				<property name="name"
+					mandatory="true"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The id of the page in the image (letters, digits, _ . -, at most 32), unique among the pages; derived from the name where empty. -->
+				<property name="identifier"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> pageIdentifierProblem($value, $obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The name of the icon the controller shows beside the label (e.g. moon); empty for none. -->
+				<property name="icon"
+					type="tl.core:String"
+				/>
+				<!-- The sections of the page, from top to bottom. -->
+				<reference name="sections"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="PageSection"
+				/>
+			</attributes>
+		</class>
+		<!-- A section of a page: a title and a grid of tiles. -->
+		<class name="PageSection">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-grid"/>
+			</annotations>
+			<attributes>
+				<!-- The title of the section; empty for none. -->
+				<property name="title"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The elements of the section, in the order of their tiles. -->
+				<reference name="elements"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="PageElement"
+				/>
+			</attributes>
+		</class>
+		<!-- An element of a section of a page. -->
+		<class name="PageElement"
+			abstract="true"
+		>
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- The label of the tile; empty for the label of its target. -->
+				<property name="label"
+					type="tl.model.i18n:I18NString"
+				/>
+			</attributes>
+		</class>
+		<!-- A room (or another part of a building) on a page: the functions in it, in the order of the project's functions, taken when the image is written. -->
+		<class name="RoomElement">
+			<generalizations>
+				<generalization type="PageElement"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:fa-solid fa-door-open"/>
+			</annotations>
+			<attributes>
+				<!-- The part of the building whose functions the section shows, those of its sub-parts after its own. -->
+				<reference name="room"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.building:BuildingDefinition"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[e -> runtimeBuildingParts($e)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+		<!-- A function on a page: its tile by its kind, with its state and controls. -->
+		<class name="FunctionElement">
+			<generalizations>
+				<generalization type="PageElement"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-lightbulb"/>
+			</annotations>
+			<attributes>
+				<!-- The function shown. -->
+				<reference name="function"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					mandatory="true"
+					type="Function"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[e -> pageOptions($e, "function")]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+		<!-- A datapoint on a page: its value, with the control its value type chooses where it is writable. -->
+		<class name="DatapointElement">
+			<generalizations>
+				<generalization type="PageElement"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-123"/>
+			</annotations>
+			<attributes>
+				<!-- The datapoint shown: a group address, an application datapoint or a parameter of a rule. -->
+				<reference name="datapoint"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.logical:ProjectDatapoint"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[e -> pageOptions($e, "datapoint")]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- Whether the tile only shows the value of a writable datapoint; a datapoint that is not writable is never commanded. -->
+				<property name="readOnly"
+					type="tl.core:Boolean"
+				/>
+			</attributes>
+		</class>
+		<!-- The enable switch of a rule on a page (the datapoint rule/<rule>/enabled). -->
+		<class name="RuleEnabledElement">
+			<generalizations>
+				<generalization type="PageElement"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-toggle-on"/>
+			</annotations>
+			<attributes>
+				<!-- The rule whose enable switch is shown. -->
+				<reference name="rule"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					mandatory="true"
+					type="Rule"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[e -> pageOptions($e, "rule")]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- Whether the tile only shows the switch; a rule the inhabitant may not switch is never switched. -->
+				<property name="readOnly"
+					type="tl.core:Boolean"
+				/>
+			</attributes>
+		</class>
+		<!-- A history chart on a page: series of datapoints over a time range, reference lines and two axes. -->
+		<class name="ChartElement">
+			<generalizations>
+				<generalization type="PageElement"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-graph-up"/>
+			</annotations>
+			<attributes>
+				<!-- The width in columns of the section's grid, or the full width. -->
+				<reference name="width"
+					kind="forwards"
+					mandatory="true"
+					type="ChartWidth"
+				/>
+				<!-- The height in tile rows: 2 hold a title and one or two series, 4 suit many series with the legend. -->
+				<reference name="height"
+					kind="forwards"
+					mandatory="true"
+					type="ChartHeight"
+				/>
+				<!-- The time range the chart opens with. -->
+				<reference name="range"
+					kind="forwards"
+					mandatory="true"
+					type="ChartRange"
+				/>
+				<!-- The time ranges the viewer switches between; empty for the default range only. -->
+				<reference name="presets"
+					kind="forwards"
+					multiple="true"
+					type="ChartRange"
+				/>
+				<!-- The lowest value of the left axis; empty: automatic. -->
+				<property name="leftMin"
+					type="tl.core:Double"
+				/>
+				<!-- The highest value of the left axis; empty: automatic. -->
+				<property name="leftMax"
+					type="tl.core:Double"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression type="warning">
+								<check><![CDATA[value -> obj -> pageAxisProblem($obj, "left")]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The lowest value of the right axis; empty: automatic. -->
+				<property name="rightMin"
+					type="tl.core:Double"
+				/>
+				<!-- The highest value of the right axis; empty: automatic. -->
+				<property name="rightMax"
+					type="tl.core:Double"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression type="warning">
+								<check><![CDATA[value -> obj -> pageAxisProblem($obj, "right")]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The series, drawn in a fixed palette in this order; a truth value as an on/off strip beneath the plot. -->
+				<reference name="series"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ChartSeries"
+				/>
+				<!-- The reference lines: a constant or the current value of a datapoint, drawn across the chart. -->
+				<reference name="references"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ChartReference"
+				/>
+			</attributes>
+		</class>
+		<!-- A series of a chart: the history of a datapoint. -->
+		<class name="ChartSeries">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-activity"/>
+			</annotations>
+			<attributes>
+				<!-- The datapoint whose history the series draws; it needs a history. -->
+				<reference name="datapoint"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.logical:ProjectDatapoint"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[e -> pageOptions($e, "datapoint")]]></function>
+							</options-by-expression>
+						</options>
+						<constraints>
+							<constraint-by-expression type="warning">
+								<check><![CDATA[value -> obj -> pageSeriesProblem($value)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</reference>
+				<!-- The label in the legend; empty for the label of the datapoint. -->
+				<property name="label"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The axis of the series; empty: the controller's default (left). -->
+				<reference name="axis"
+					kind="forwards"
+					type="ChartAxis"
+				/>
+				<!-- How a longer range consolidates the samples; empty: the controller's default for the value type. -->
+				<reference name="consolidation"
+					kind="forwards"
+					type="ChartConsolidation"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression type="warning">
+								<check><![CDATA[value -> obj -> pageConsolidationProblem($value, $obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+		<!-- A reference line of a chart, costing no history: a constant or the current value of a datapoint. -->
+		<class name="ChartReference">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-dash-lg"/>
+			</annotations>
+			<attributes>
+				<!-- The constant the line is drawn at; empty for a line at the value of the datapoint. -->
+				<property name="value"
+					type="tl.core:Double"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression type="warning">
+								<check><![CDATA[value -> obj -> pageReferenceProblem($obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The datapoint whose current value the line is drawn at; empty for a constant. -->
+				<reference name="datapoint"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[e -> pageOptions($e, "datapoint")]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The label of the line; empty for none. -->
+				<property name="label"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The axis the line belongs to; empty: the controller's default (left). -->
+				<reference name="axis"
+					kind="forwards"
+					type="ChartAxis"
+				/>
 			</attributes>
 		</class>
 	</module>

@@ -198,6 +198,14 @@
 					ordered="true"
 					type="ehome.runtime:Function"
 				/>
+				<!-- The control pages of the controller's user interface (haumacher/ehome #72), in the order of its navigation; none: the controller's generated room overview. -->
+				<reference name="pages"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:Page"
+				/>
 				<!-- The rules of the runtime image (haumacher/ehome #57), ordered by their attribute order. -->
 				<reference name="rules"
 					composite="true"
