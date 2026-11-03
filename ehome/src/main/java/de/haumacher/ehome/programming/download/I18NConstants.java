@@ -86,7 +86,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_NO_INLINE_DATA__STEP;
 
 	/**
-	 * @en Step {0}: the step's data has {1} bytes, the step names {2}.
+	 * @en Step {0}: the step''s data has {1} bytes, the step names {2}.
 	 */
 	public static ResKey3 ERROR_DATA_SIZE__STEP_DATA_SIZE;
 
@@ -191,7 +191,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey LEVEL_DIFFERENT;
 
 	/**
-	 * @en Download into {0} ({1}) through the gateway {2}? {3} The device's application is unloaded and loaded anew; the device does not work until the download is complete.
+	 * @en Download into {0} ({1}) through the gateway {2}? {3} The device''s application is unloaded and loaded anew; the device does not work until the download is complete.
 	 */
 	public static ResKey4 CONFIRM_DOWNLOAD__DEVICE_ADDRESS_GATEWAY_CHANGES;
 
@@ -251,7 +251,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 PROCEDURE_DEFAULT__SCOPE_MASK;
 
 	/**
-	 * @en the {0} procedure of mask {1} merged with the program's (MergedProcedure)
+	 * @en the {0} procedure of mask {1} merged with the program''s (MergedProcedure)
 	 */
 	public static ResKey2 PROCEDURE_MERGED__SCOPE_MASK;
 

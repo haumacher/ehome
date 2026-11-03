@@ -81,7 +81,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 STATE_EXISTS__DEVICE;
 
 	/**
-	 * @en Conflict: the project's device {0} runs {1}
+	 * @en Conflict: the project''s device {0} runs {1}
 	 */
 	public static ResKey2 STATE_CONFLICT__DEVICE_PROGRAM;
 

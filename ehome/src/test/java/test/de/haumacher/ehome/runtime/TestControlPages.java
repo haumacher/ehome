@@ -321,11 +321,39 @@ public class TestControlPages extends BasicTestCase {
 		assertFalse(report.isValid());
 		String path = "ui.pages[1].sections[0].elements[0].chart.series[3].datapoint";
 		ImageReport.Refusal refusal = refusal(report, path);
-		assertTrue(refusal.reason(), refusal.reason().contains("'1/0/1' has no history"));
+		assertTrue(refusal.reason(), refusal.reason().contains("'1/0/1' keeps no history"));
 		assertSame(series, image.elementAt(path));
 		ImageReport.Refusal parameter = refusal(report, "ui.pages[1].sections[0].elements[0].chart.series[4].datapoint");
-		assertTrue(parameter.reason(), parameter.reason().contains("'rule/heat/setpoint' has no history"));
+		assertTrue(parameter.reason(), parameter.reason().contains("'rule/heat/setpoint' keeps no history"));
 		assertSame(parameterSeries, image.elementAt(parameter.path()));
+	}
+
+	/**
+	 * What the controller refuses of a chart and the project allows (haumacher/ehome #77): presets
+	 * without the chart's range are exported with it, a reference line of a truth value is a problem
+	 * in the tree and refused by the image's check.
+	 */
+	public void testPresetsAndReferenceLines() throws Exception {
+		buildPages();
+		TLObject reference;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			_chart.tUpdateByName("range", classifier("ChartRange", "hour"));
+			reference = Pages.insert(_project, Parts.get(_chart, "references", 1), Pages.REFERENCE_DATAPOINT,
+				List.of(_heating));
+			tx.commit();
+		}
+		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
+		Map<?, ?> chart = (Map<?, ?>) ((Map<?, ?>) elements((Map<?, ?>) image.getJson().get("ui"), 1, 0).get(0)).get("chart");
+		assertEquals("1h", chart.get("range"));
+		assertEquals(List.of("1h", "24h", "7d", "30d", "1y"), chart.get("presets"));
+
+		assertNotNull(Pages.problem(reference));
+		assertNull(Pages.problem(Parts.get(_chart, "references", 1)));
+		ImageReport report = image.validate();
+		String path = "ui.pages[1].sections[0].elements[0].chart.references[2].datapoint";
+		assertRefused(report, path, "a reference line needs a numeric datapoint; '1/1/7' is boolean");
+		assertEquals(report.toString(), 1, report.getRefusals().size());
+		assertSame(reference, image.elementAt(path));
 	}
 
 	public void testElementNotInImage() throws Exception {
@@ -519,21 +547,21 @@ public class TestControlPages extends BasicTestCase {
 						 {"datapoint": "1/0/2", "consolidation": "median", "axis": "middle"}],
 			  "references": [{"value": 1, "datapoint": "1/0/1"}, {"datapoint": "nope"}]}}
 			""")));
-		assertRefused(report, "ui.pages[0].sections[0].elements[0]", "exactly one of function, datapoint and chart");
+		assertRefused(report, "ui.pages[0].sections[0].elements[0]", "names exactly one of function, datapoint or chart; this one names several");
 		assertRefused(report, "ui.pages[0].sections[0].elements[1].function", "unknown function 'nope'");
 		assertRefused(report, "ui.pages[0].sections[0].elements[2].datapoint", "unknown datapoint 'nope'");
 		String chart = "ui.pages[0].sections[0].elements[3].chart";
-		assertRefused(report, chart + ".width", "width must be 1..4");
-		assertRefused(report, chart + ".height", "height must be 2 or 4");
-		assertRefused(report, chart + ".range", "unknown range '2h'");
-		assertRefused(report, chart + ".presets[1]", "duplicate preset '24h'");
-		assertRefused(report, chart + ".axes.left", "min must be below max");
-		assertRefused(report, chart + ".axes.top", "unknown axis 'top'");
-		assertRefused(report, chart + ".series[0].consolidation", "consumption needs a number");
-		assertRefused(report, chart + ".series[1].datapoint", "'1/0/2' has no history");
-		assertRefused(report, chart + ".series[1].axis", "unknown axis 'middle'");
-		assertRefused(report, chart + ".series[1].consolidation", "unknown consolidation 'median'");
-		assertRefused(report, chart + ".references[0]", "exactly one of value and datapoint");
+		assertRefused(report, chart + ".width", "width must be 1, 2, 3, 4 (columns) or \"full\"");
+		assertRefused(report, chart + ".height", "height must be 2 or 4 (tile rows)");
+		assertRefused(report, chart + ".range", "unknown range \"2h\"");
+		assertRefused(report, chart + ".presets[1]", "the preset 24h is listed twice");
+		assertRefused(report, chart + ".axes.left", "min must be less than max");
+		assertNoRefusal(report, chart + ".axes.top");
+		assertRefused(report, chart + ".series[0].consolidation", "consumption needs a numeric datapoint; '1/0/1' is boolean");
+		assertRefused(report, chart + ".series[1].datapoint", "'1/0/2' keeps no history");
+		assertRefused(report, chart + ".series[1].axis", "unknown axis \"middle\"");
+		assertRefused(report, chart + ".series[1].consolidation", "unknown consolidation \"median\"");
+		assertRefused(report, chart + ".references[0]", "exactly one of value (a constant) or datapoint");
 		assertRefused(report, chart + ".references[1].datapoint", "unknown datapoint 'nope'");
 		assertRefused(report, "ui.pages[1].id", "duplicate page id 'a'");
 	}
@@ -590,6 +618,12 @@ public class TestControlPages extends BasicTestCase {
 	private static void assertRefused(ImageReport report, String path, String reason) {
 		ImageReport.Refusal refusal = refusal(report, path);
 		assertTrue(refusal.reason(), refusal.reason().contains(reason));
+	}
+
+	private static void assertNoRefusal(ImageReport report, String path) {
+		for (ImageReport.Refusal refusal : report.getRefusals()) {
+			assertFalse("Refused at " + path + ": " + report, refusal.path().equals(path));
+		}
 	}
 
 	private static ImageReport.Refusal refusal(ImageReport report, String path) {

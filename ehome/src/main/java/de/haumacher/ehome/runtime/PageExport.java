@@ -231,10 +231,11 @@ final class PageExport {
 		if (range != null) {
 			json.put("range", range);
 		}
-		List<String> presets = Pages.presets(chart);
-		if (!presets.isEmpty()) {
+		if (!Pages.presets(chart).isEmpty()) {
+			// The controller refuses presets that do not offer the chart's range (spec/runtime-image.md
+			// 3.9): the model's presets are the ranges besides the default one.
 			List<Object> names = new ArrayList<>();
-			for (String preset : presets) {
+			for (String preset : Pages.offeredRanges(chart)) {
 				names.add(Pages.rangeName(preset));
 			}
 			json.put("presets", names);

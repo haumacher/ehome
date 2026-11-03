@@ -100,6 +100,18 @@ public final class ImageValidator {
 	/** The axes of a chart. */
 	public static final List<String> CHART_AXES = List.of("left", "right");
 
+	/** The range a chart shows first when it names none. */
+	public static final String DEFAULT_CHART_RANGE = "24h";
+
+	/** The largest magnitude of a chart's axis bound and of a reference line's value. */
+	public static final double MAX_CHART_VALUE = 1e9;
+
+	/** The most characters of a page's icon. */
+	public static final int MAX_ICON = 31;
+
+	/** The value types a reference line may follow. */
+	private static final Set<String> NUMERIC_TYPES = Set.of(ValueTypes.UNSIGNED, ValueTypes.SIGNED, ValueTypes.REAL);
+
 	/** The most history memory a controller (an ESP32-C6) allows. */
 	public static final int HISTORY_CAP = 65536;
 
@@ -1613,11 +1625,19 @@ public final class ImageValidator {
 	// ---- control pages -----------------------------------------------------------------------
 
 	/**
-	 * The member <code>ui</code> (schema 1.1, homecontrol #54): an object; its <code>pages</code>, each
-	 * with a unique id, an optional label and icon and its sections, each section with an optional label
-	 * and its elements. An element has exactly one of <code>function</code> (a function of the image),
-	 * <code>datapoint</code> (a datapoint of the image, a rule parameter's or a rule's enable switch
-	 * included) and <code>chart</code>, an optional label and <code>readOnly</code>.
+	 * The member <code>ui</code> (schema 1.1, homecontrol #54, spec/runtime-image.md 3.9): an object;
+	 * its <code>pages</code>, each with a unique id, an optional label and icon and its optional
+	 * sections, each section with an optional label and its optional elements. An element has exactly
+	 * one of <code>function</code> (a function of the image), <code>datapoint</code> (a datapoint of the
+	 * image, a rule parameter's or a rule's enable switch included) and <code>chart</code>, an optional
+	 * label and, on a datapoint element only, <code>readOnly</code>.
+	 *
+	 * <p>
+	 * The limits of section 5 hold for the whole image and are checked first, at <code>ui.pages</code>:
+	 * beyond one of them nothing else of the pages is checked, as the controller's loader does
+	 * (<code>parse_ui</code> of homecontrol's <code>core/src/image/loader.cpp</code>, whose reasons
+	 * the refusals of the pages repeat).
+	 * </p>
 	 */
 	private void ui(Object value) {
 		if (!object(value, "'ui'")) {
@@ -1634,45 +1654,47 @@ public final class ImageValidator {
 				return;
 			}
 			List<?> list = (List<?>) pages;
-			if (list.size() > MAX_PAGES) {
-				refuse(list.size() + " pages exceed the limit of " + MAX_PAGES);
-				return;
-			}
-			Set<String> ids = new HashSet<>();
-			int elements = 0;
-			for (int i = 0; i < list.size(); i++) {
-				enter("[" + i + "]");
-				elements += page(list.get(i), ids);
-				leave();
-			}
-			if (elements > MAX_PAGE_ELEMENTS) {
-				refuse(elements + " elements of the pages exceed the limit of " + MAX_PAGE_ELEMENTS);
-			}
 			int sections = 0;
+			int elements = 0;
 			int series = 0;
 			int references = 0;
 			for (Object page : list) {
 				for (Object section : members(page, "sections")) {
 					sections++;
 					for (Object element : members(section, "elements")) {
+						elements++;
 						Object chart = element instanceof Map<?, ?> map ? map.get("chart") : null;
 						series += members(chart, "series").size();
 						references += members(chart, "references").size();
 					}
 				}
 			}
-			if (sections > MAX_PAGE_SECTIONS) {
-				refuse(sections + " sections of the pages exceed the limit of " + MAX_PAGE_SECTIONS);
+			boolean within = limit(list.size(), MAX_PAGES, "pages");
+			within &= limit(sections, MAX_PAGE_SECTIONS, "sections");
+			within &= limit(elements, MAX_PAGE_ELEMENTS, "elements");
+			within &= limit(series, MAX_CHART_SERIES, "chart series");
+			within &= limit(references, MAX_CHART_REFERENCES, "reference lines");
+			if (!within) {
+				return;
 			}
-			if (series > MAX_CHART_SERIES) {
-				refuse(series + " chart series of the pages exceed the limit of " + MAX_CHART_SERIES);
-			}
-			if (references > MAX_CHART_REFERENCES) {
-				refuse(references + " reference lines of the pages exceed the limit of " + MAX_CHART_REFERENCES);
+			Set<String> ids = new HashSet<>();
+			for (int i = 0; i < list.size(); i++) {
+				enter("[" + i + "]");
+				page(list.get(i), ids);
+				leave();
 			}
 		} finally {
 			leave();
 		}
+	}
+
+	/** Refuses a count of the pages beyond its limit; whether it is within. */
+	private boolean limit(int count, int max, String what) {
+		if (count > max) {
+			refuse(count + " " + what + " exceed the limit of " + max);
+			return false;
+		}
+		return true;
 	}
 
 	/** The list member <code>name</code> of an object, empty where either is of another type. */
@@ -1680,17 +1702,20 @@ public final class ImageValidator {
 		return object instanceof Map<?, ?> map && map.get(name) instanceof List<?> list ? list : List.of();
 	}
 
-	/** Checks a page, returns the number of its elements. */
-	private int page(Object item, Set<String> ids) {
+	private void page(Object item, Set<String> ids) {
 		if (!object(item, "a page")) {
-			return 0;
+			return;
 		}
 		Map<?, ?> page = (Map<?, ?>) item;
-		String id = id(page, "page id");
-		if (id != null && !ids.add(id)) {
-			enter(".id");
-			refuse("duplicate page id '" + id + "'");
-			leave();
+		if (!page.containsKey("id")) {
+			refuse("id is missing");
+		} else {
+			String id = id(page, "page id");
+			if (id != null && !ids.add(id)) {
+				enter(".id");
+				refuse("duplicate page id '" + id + "'");
+				leave();
+			}
 		}
 		if (page.containsKey("label")) {
 			enter(".label");
@@ -1699,28 +1724,30 @@ public final class ImageValidator {
 		}
 		if (page.containsKey("icon")) {
 			enter(".icon");
-			string(page.get("icon"), 1, MAX_NAME, "icon");
+			String icon = string(page.get("icon"), 1, MAX_ICON, "icon");
+			if (icon != null && !icon.matches("[A-Za-z0-9_.\\-]{1," + MAX_ICON + "}")) {
+				refuse("icon '" + icon + "' must have 1.." + MAX_ICON + " characters of A-Z a-z 0-9 _ . -");
+			}
 			leave();
 		}
-		int elements = 0;
-		enter(".sections");
 		if (!page.containsKey("sections")) {
-			refuse("sections is missing");
-		} else if (array(page.get("sections"), "sections")) {
+			return;
+		}
+		enter(".sections");
+		if (array(page.get("sections"), "sections")) {
 			List<?> sections = (List<?>) page.get("sections");
 			for (int i = 0; i < sections.size(); i++) {
 				enter("[" + i + "]");
-				elements += section(sections.get(i));
+				section(sections.get(i));
 				leave();
 			}
 		}
 		leave();
-		return elements;
 	}
 
-	private int section(Object item) {
+	private void section(Object item) {
 		if (!object(item, "a section")) {
-			return 0;
+			return;
 		}
 		Map<?, ?> section = (Map<?, ?>) item;
 		if (section.containsKey("label")) {
@@ -1728,25 +1755,19 @@ public final class ImageValidator {
 			label(section.get("label"));
 			leave();
 		}
+		if (!section.containsKey("elements")) {
+			return;
+		}
 		enter(".elements");
-		try {
-			if (!section.containsKey("elements")) {
-				refuse("elements is missing");
-				return 0;
-			}
-			if (!array(section.get("elements"), "elements")) {
-				return 0;
-			}
+		if (array(section.get("elements"), "elements")) {
 			List<?> elements = (List<?>) section.get("elements");
 			for (int i = 0; i < elements.size(); i++) {
 				enter("[" + i + "]");
 				element(elements.get(i));
 				leave();
 			}
-			return elements.size();
-		} finally {
-			leave();
 		}
+		leave();
 	}
 
 	private void element(Object item) {
@@ -1754,11 +1775,25 @@ public final class ImageValidator {
 			return;
 		}
 		Map<?, ?> element = (Map<?, ?>) item;
-		int kinds = (element.containsKey("function") ? 1 : 0) + (element.containsKey("datapoint") ? 1 : 0)
+		boolean datapoint = element.containsKey("datapoint");
+		int kinds = (element.containsKey("function") ? 1 : 0) + (datapoint ? 1 : 0)
 			+ (element.containsKey("chart") ? 1 : 0);
 		if (kinds != 1) {
-			refuse("an element needs exactly one of function, datapoint and chart");
+			refuse("an element names exactly one of function, datapoint or chart; this one names "
+				+ (kinds == 0 ? "none" : "several"));
 			return;
+		}
+		if (element.containsKey("label")) {
+			enter(".label");
+			label(element.get("label"));
+			leave();
+		}
+		if (element.containsKey("readOnly") && element.get("readOnly") instanceof Boolean && !datapoint) {
+			enter(".readOnly");
+			refuse("readOnly applies to a datapoint element only");
+			leave();
+		} else {
+			flag(element, "readOnly");
 		}
 		if (element.containsKey("function")) {
 			enter(".function");
@@ -1768,7 +1803,7 @@ public final class ImageValidator {
 			}
 			leave();
 		}
-		if (element.containsKey("datapoint")) {
+		if (datapoint) {
 			enter(".datapoint");
 			knownDatapoint(element.get("datapoint"));
 			leave();
@@ -1778,12 +1813,6 @@ public final class ImageValidator {
 			chart(element.get("chart"));
 			leave();
 		}
-		if (element.containsKey("label")) {
-			enter(".label");
-			label(element.get("label"));
-			leave();
-		}
-		flag(element, "readOnly");
 	}
 
 	/** The index of the named datapoint, -1 (after a refusal) for an unknown one. */
@@ -1801,12 +1830,13 @@ public final class ImageValidator {
 
 	/**
 	 * A chart (the amendment "charts" of homecontrol #54): label, width (1..4 or full), height (2 or
-	 * 4), range and presets (1h, 24h, 7d, 30d, 1y), the axes left and right with a min and max each
-	 * (a number or null), the series (a datapoint with history, label, axis, consolidation) and the
-	 * reference lines (a value or a datapoint, axis, label).
+	 * 4), range (default 24h) and presets (1h, 24h, 7d, 30d, 1y, each once, the range among them), the
+	 * axes left and right with a min and max each (a number or null; other members are ignored), the
+	 * series (required, may be empty: a datapoint with history, label, axis, consolidation) and the
+	 * reference lines (a value or a numeric datapoint, axis, label).
 	 */
 	private void chart(Object value) {
-		if (!object(value, "chart")) {
+		if (!object(value, "a chart")) {
 			return;
 		}
 		Map<?, ?> chart = (Map<?, ?>) value;
@@ -1818,9 +1848,9 @@ public final class ImageValidator {
 		if (chart.containsKey("width")) {
 			enter(".width");
 			Object width = chart.get("width");
-			if (!"full".equals(width) && !(width instanceof Number number && Math.rint(number.doubleValue()) == number.doubleValue()
+			if (!"full".equals(width) && !(width instanceof Number number && Math.floor(number.doubleValue()) == number.doubleValue()
 				&& number.doubleValue() >= 1 && number.doubleValue() <= 4)) {
-				refuse("width must be 1..4 or \"full\"");
+				refuse("width must be 1, 2, 3, 4 (columns) or \"full\"");
 			}
 			leave();
 		}
@@ -1828,13 +1858,14 @@ public final class ImageValidator {
 			enter(".height");
 			Object height = chart.get("height");
 			if (!(height instanceof Number number && (number.doubleValue() == 2 || number.doubleValue() == 4))) {
-				refuse("height must be 2 or 4");
+				refuse("height must be 2 or 4 (tile rows)");
 			}
 			leave();
 		}
+		String range = DEFAULT_CHART_RANGE;
 		if (chart.containsKey("range")) {
 			enter(".range");
-			range(chart.get("range"));
+			range = choice(chart.get("range"), "range", CHART_RANGES);
 			leave();
 		}
 		if (chart.containsKey("presets")) {
@@ -1844,11 +1875,16 @@ public final class ImageValidator {
 				Set<String> seen = new HashSet<>();
 				for (int i = 0; i < presets.size(); i++) {
 					enter("[" + i + "]");
-					String range = range(presets.get(i));
-					if (range != null && !seen.add(range)) {
-						refuse("duplicate preset '" + range + "'");
+					String preset = choice(presets.get(i), "range", CHART_RANGES);
+					if (preset != null && !seen.add(preset)) {
+						refuse("the preset " + preset + " is listed twice");
 					}
 					leave();
+				}
+				if (presets.isEmpty()) {
+					refuse("presets must name at least one range (or be left out: the range alone)");
+				} else if (range != null && !seen.contains(range)) {
+					refuse("the presets do not offer the chart's range " + range);
 				}
 			}
 			leave();
@@ -1858,18 +1894,20 @@ public final class ImageValidator {
 			axes(chart.get("axes"));
 			leave();
 		}
-		enter(".series");
 		if (!chart.containsKey("series")) {
-			refuse("series is missing");
-		} else if (array(chart.get("series"), "series")) {
-			List<?> series = (List<?>) chart.get("series");
-			for (int i = 0; i < series.size(); i++) {
-				enter("[" + i + "]");
-				series(series.get(i));
-				leave();
+			refuse("a chart needs its series (an empty array draws an empty chart)");
+		} else {
+			enter(".series");
+			if (array(chart.get("series"), "series")) {
+				List<?> series = (List<?>) chart.get("series");
+				for (int i = 0; i < series.size(); i++) {
+					enter("[" + i + "]");
+					series(series.get(i));
+					leave();
+				}
 			}
+			leave();
 		}
-		leave();
 		if (chart.containsKey("references")) {
 			enter(".references");
 			if (array(chart.get("references"), "references")) {
@@ -1884,30 +1922,36 @@ public final class ImageValidator {
 		}
 	}
 
-	private String range(Object value) {
-		String range = string(value, 1, 15, "range");
-		if (range != null && !CHART_RANGES.contains(range)) {
-			refuse("unknown range '" + range + "' (1h, 24h, 7d, 30d, 1y)");
+	/**
+	 * A member naming one of the given choices, as the controller's <code>read_choice</code> reads it:
+	 * the choice, <code>null</code> after a refusal.
+	 */
+	private String choice(Object value, String what, List<String> choices) {
+		String name = string(value, 1, 15, what);
+		if (name != null && !choices.contains(name)) {
+			refuse("unknown " + what + " \"" + name + "\" (" + String.join(", ", choices) + ")");
 			return null;
 		}
-		return range;
+		return name;
 	}
 
+	/** The axes of a chart: the members <code>left</code> and <code>right</code>, others are ignored. */
 	private void axes(Object value) {
 		if (!object(value, "axes")) {
 			return;
 		}
-		for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
-			String axis = String.valueOf(entry.getKey());
+		Map<?, ?> axes = (Map<?, ?>) value;
+		for (String axis : CHART_AXES) {
+			if (!axes.containsKey(axis)) {
+				continue;
+			}
 			enter("." + axis);
-			if (!CHART_AXES.contains(axis)) {
-				refuse("unknown axis '" + axis + "' (left, right)");
-			} else if (object(entry.getValue(), "an axis")) {
-				Map<?, ?> bounds = (Map<?, ?>) entry.getValue();
+			if (object(axes.get(axis), "an axis")) {
+				Map<?, ?> bounds = (Map<?, ?>) axes.get(axis);
 				Double min = bound(bounds, "min");
 				Double max = bound(bounds, "max");
 				if (min != null && max != null && min.doubleValue() >= max.doubleValue()) {
-					refuse("min must be below max");
+					refuse("min must be less than max");
 				}
 			}
 			leave();
@@ -1920,7 +1964,7 @@ public final class ImageValidator {
 			return null;
 		}
 		enter("." + member);
-		boolean ok = number(value, -Double.MAX_VALUE, Double.MAX_VALUE, member);
+		boolean ok = number(value, -MAX_CHART_VALUE, MAX_CHART_VALUE, member);
 		leave();
 		return ok ? Double.valueOf(((Number) value).doubleValue()) : null;
 	}
@@ -1931,16 +1975,17 @@ public final class ImageValidator {
 		}
 		Map<?, ?> series = (Map<?, ?>) item;
 		int index = -1;
-		enter(".datapoint");
 		if (!series.containsKey("datapoint")) {
-			refuse("datapoint is missing");
+			refuse("a series needs its datapoint");
 		} else {
+			enter(".datapoint");
 			index = knownDatapoint(series.get("datapoint"));
 			if (index >= 0 && !_withHistory.contains(Integer.valueOf(index))) {
-				refuse("datapoint '" + _ids.get(index) + "' has no history");
+				refuse("datapoint '" + _ids.get(index) + "' keeps no history: a series needs one");
+				index = -1;
 			}
+			leave();
 		}
-		leave();
 		if (series.containsKey("label")) {
 			enter(".label");
 			label(series.get("label"));
@@ -1949,12 +1994,9 @@ public final class ImageValidator {
 		axis(series);
 		if (series.containsKey("consolidation")) {
 			enter(".consolidation");
-			String consolidation = string(series.get("consolidation"), 1, 15, "consolidation");
-			if (consolidation != null && !CHART_CONSOLIDATIONS.contains(consolidation)) {
-				refuse("unknown consolidation '" + consolidation + "' (mean, last, band, consumption)");
-			} else if ("consumption".equals(consolidation) && index >= 0
-				&& ValueTypes.BOOLEAN.equals(_types.get(index))) {
-				refuse("consumption needs a number; datapoint '" + _ids.get(index) + "' is boolean");
+			String consolidation = choice(series.get("consolidation"), "consolidation", CHART_CONSOLIDATIONS);
+			if ("consumption".equals(consolidation) && index >= 0 && ValueTypes.BOOLEAN.equals(_types.get(index))) {
+				refuse("consumption needs a numeric datapoint; '" + _ids.get(index) + "' is boolean");
 			}
 			leave();
 		}
@@ -1967,33 +2009,33 @@ public final class ImageValidator {
 		Map<?, ?> reference = (Map<?, ?>) item;
 		boolean value = reference.containsKey("value");
 		if (value == reference.containsKey("datapoint")) {
-			refuse("a reference line needs exactly one of value and datapoint");
-		}
-		if (value) {
+			refuse("a reference line has exactly one of value (a constant) or datapoint (its current value)");
+		} else if (value) {
 			enter(".value");
-			number(reference.get("value"), -Double.MAX_VALUE, Double.MAX_VALUE, "value");
+			number(reference.get("value"), -MAX_CHART_VALUE, MAX_CHART_VALUE, "value");
 			leave();
-		}
-		if (reference.containsKey("datapoint")) {
+		} else {
 			enter(".datapoint");
-			knownDatapoint(reference.get("datapoint"));
+			int index = knownDatapoint(reference.get("datapoint"));
+			String type = index < 0 ? null : _types.get(index);
+			if (index >= 0 && !NUMERIC_TYPES.contains(type)) {
+				refuse("a reference line needs a numeric datapoint; '" + _ids.get(index) + "' is "
+					+ (type == null ? "none" : type));
+			}
 			leave();
 		}
-		axis(reference);
 		if (reference.containsKey("label")) {
 			enter(".label");
 			label(reference.get("label"));
 			leave();
 		}
+		axis(reference);
 	}
 
 	private void axis(Map<?, ?> object) {
 		if (object.containsKey("axis")) {
 			enter(".axis");
-			String axis = string(object.get("axis"), 1, 15, "axis");
-			if (axis != null && !CHART_AXES.contains(axis)) {
-				refuse("unknown axis '" + axis + "' (left, right)");
-			}
+			choice(object.get("axis"), "axis", CHART_AXES);
 			leave();
 		}
 	}

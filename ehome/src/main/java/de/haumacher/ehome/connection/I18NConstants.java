@@ -85,7 +85,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 KEY_STATE__FINGERPRINT;
 
 	/**
-	 * @en New key offered, awaiting the owner's acceptance on the device: fingerprint {0}. Until a controller accepts it, its images are signed with {1}.
+	 * @en New key offered, awaiting the owner''s acceptance on the device: fingerprint {0}. Until a controller accepts it, its images are signed with {1}.
 	 */
 	public static ResKey2 KEY_STATE_ROTATION__NEW_OLD;
 
@@ -110,7 +110,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 DEVICE_KEY__FINGERPRINT;
 
 	/**
-	 * @en Warning: the device holds the key {0}, but the project's key is {1}. The device refuses the images of this project until its owner accepts the key offered to it.
+	 * @en Warning: the device holds the key {0}, but the project''s key is {1}. The device refuses the images of this project until its owner accepts the key offered to it.
 	 */
 	public static ResKey2 DEVICE_KEY_MISMATCH__DEVICE_PROJECT;
 
@@ -120,7 +120,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 DEVICE_KEY_MISMATCH_NO_KEY__DEVICE;
 
 	/**
-	 * @en New key offered, awaiting the owner's acceptance on the device: fingerprint {0}.
+	 * @en New key offered, awaiting the owner''s acceptance on the device: fingerprint {0}.
 	 */
 	public static ResKey1 DEVICE_KEY_PENDING__FINGERPRINT;
 

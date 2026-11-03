@@ -381,7 +381,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 REPORTING_CHANGE__REPORTS_CHANGE_UNIT;
 
 	/**
-	 * @en {0}, change as the controller's default
+	 * @en {0}, change as the controller''s default
 	 */
 	public static ResKey1 REPORTING_CHANGE_DEFAULT__REPORTS;
 

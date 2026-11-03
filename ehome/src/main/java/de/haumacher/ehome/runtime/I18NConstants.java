@@ -107,7 +107,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 DEPLOY_NOT_STORED__ERROR;
 
 	/**
-	 * @en E-Home signed the image with the installation key {0}, and the device expects another key (its reason names it): compare the fingerprints in the tab Controller of the project; the owner accepts the project's key on the device.
+	 * @en E-Home signed the image with the installation key {0}, and the device expects another key (its reason names it): compare the fingerprints in the tab Controller of the project; the owner accepts the project''s key on the device.
 	 */
 	public static ResKey1 DEPLOY_REFUSED_SIGNED__FINGERPRINT;
 
@@ -640,6 +640,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en A reference line is drawn either at a value or at the value of a datapoint: set exactly one of them.
 	 */
 	public static ResKey REFERENCE_VALUE_OR_DATAPOINT;
+
+	/**
+	 * @en {0} is no number: a reference line follows the value of a datapoint of a number.
+	 */
+	public static ResKey1 REFERENCE_NOT_NUMERIC__DATAPOINT;
 
 	/**
 	 * @en The chart has no series; the image leaves it out.

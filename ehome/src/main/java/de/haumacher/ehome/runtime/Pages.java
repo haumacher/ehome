@@ -92,6 +92,9 @@ public final class Pages {
 	/** The classifiers of ChartRange in their order. */
 	static final List<String> RANGE_ORDER = List.of("hour", "day", "week", "month", "year");
 
+	/** The classifier of the range the controller shows first when a chart names none (24h). */
+	static final String DEFAULT_RANGE = "day";
+
 	private Pages() {
 		// Static helpers.
 	}
@@ -356,7 +359,7 @@ public final class Pages {
 						continue;
 					}
 					List<Long> ranges = new ArrayList<>();
-					for (String range : chartRanges(element)) {
+					for (String range : offeredRanges(element)) {
 						ranges.add(RANGE_SECONDS.get(range));
 					}
 					Object width = width(element);
@@ -373,15 +376,14 @@ public final class Pages {
 	}
 
 	/**
-	 * The ranges a chart offers: its default range and its presets, in the order of ChartRange.
+	 * The ranges the viewer of a chart switches between, as the image's <code>presets</code> name
+	 * them: its presets and the range it shows first (<code>day</code> when it names none, the
+	 * controller's default), in the order of ChartRange.
 	 */
-	static List<String> chartRanges(TLObject chart) {
-		Set<String> used = new HashSet<>();
+	static List<String> offeredRanges(TLObject chart) {
+		Set<String> used = new HashSet<>(presets(chart));
 		String range = name(chart.tValueByName("range"));
-		if (range != null) {
-			used.add(range);
-		}
-		used.addAll(presets(chart));
+		used.add(range != null ? range : DEFAULT_RANGE);
 		List<String> result = new ArrayList<>();
 		for (String name : RANGE_ORDER) {
 			if (used.contains(name)) {
@@ -521,16 +523,27 @@ public final class Pages {
 	}
 
 	/**
-	 * Why the reference line is wrong: it has neither or both of a value and a datapoint;
-	 * <code>null</code> if it has one of them.
+	 * Why the reference line is wrong: it has neither or both of a value and a datapoint, or its
+	 * datapoint is not a number (the controller refuses it, spec/runtime-image.md 3.9);
+	 * <code>null</code> if it is right.
 	 */
 	public static ResKey referenceProblem(Object reference) {
 		if (!(reference instanceof TLObject obj)) {
 			return null;
 		}
 		boolean value = obj.tValueByName("value") != null;
-		boolean datapoint = obj.tValueByName("datapoint") != null;
-		return value == datapoint ? I18NConstants.REFERENCE_VALUE_OR_DATAPOINT : null;
+		Object datapoint = obj.tValueByName("datapoint");
+		if (value == (datapoint != null)) {
+			return I18NConstants.REFERENCE_VALUE_OR_DATAPOINT;
+		}
+		if (datapoint instanceof TLObject target && target.tValid()) {
+			String type = valueType(target);
+			if (type != null && !ValueTypes.UNSIGNED.equals(type) && !ValueTypes.SIGNED.equals(type)
+				&& !ValueTypes.REAL.equals(type)) {
+				return I18NConstants.REFERENCE_NOT_NUMERIC__DATAPOINT.fill(targetLabel(target));
+			}
+		}
+		return null;
 	}
 
 	/**
