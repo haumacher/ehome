@@ -315,6 +315,50 @@
 									<field attribute="until"/>
 									<field attribute="at"/>
 									<field attribute="days"/>
+									<!--
+										What the inhabitant may change on the controller (homecontrol #58,
+										spec/schedules.md 2.1), with bounds and a step; only the members of the entry's
+										kind. An adjustable time of a weekly, yearly or dates entry is also the datapoint
+										schedule/<id>/time, which rules and control pages name.
+									-->
+									<group>
+										<label>
+											<en>Adjustable by the inhabitant</en>
+											<de>Vom Bewohner einstellbar</de>
+										</label>
+										<field attribute="timeAdjustable"/>
+										<field attribute="timeMin"/>
+										<field attribute="timeMax"/>
+										<field attribute="timeStep"/>
+										<field attribute="offsetAdjustable"/>
+										<field attribute="offsetMin"/>
+										<field attribute="offsetMax"/>
+										<field attribute="offsetStep"/>
+										<field attribute="notBeforeAdjustable"/>
+										<field attribute="notBeforeMin"/>
+										<field attribute="notBeforeMax"/>
+										<field attribute="notBeforeStep"/>
+										<field attribute="notAfterAdjustable"/>
+										<field attribute="notAfterMin"/>
+										<field attribute="notAfterMax"/>
+										<field attribute="notAfterStep"/>
+										<field attribute="everyAdjustable"/>
+										<field attribute="everyMin"/>
+										<field attribute="everyMax"/>
+										<field attribute="everyStep"/>
+										<field attribute="fromAdjustable"/>
+										<field attribute="fromMin"/>
+										<field attribute="fromMax"/>
+										<field attribute="fromStep"/>
+										<field attribute="untilAdjustable"/>
+										<field attribute="untilMin"/>
+										<field attribute="untilMax"/>
+										<field attribute="untilStep"/>
+										<field attribute="atAdjustable"/>
+										<field attribute="atMin"/>
+										<field attribute="atMax"/>
+										<field attribute="daysAdjustable"/>
+									</group>
 								</form>
 							</panel>
 						</pane>

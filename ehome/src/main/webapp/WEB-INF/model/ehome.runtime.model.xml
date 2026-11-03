@@ -2110,6 +2110,8 @@
 		<class name="WeeklySchedule">
 			<generalizations>
 				<generalization type="ScheduleEntry"/>
+				<!-- With an adjustable time, the entry is the datapoint schedule/<id>/time of the image (homecontrol #58). -->
+				<generalization type="ehome.logical:ProjectDatapoint"/>
 			</generalizations>
 			<attributes>
 				<!-- The time of day (06:30). -->
@@ -2138,12 +2140,76 @@
 						</constraints>
 					</annotations>
 				</reference>
+				<!-- Whether the inhabitant may change time on the controller (homecontrol #58). -->
+				<property name="timeAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for time, a time of day (05:00); empty for the member's whole range. -->
+				<property name="timeMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for time, a time of day (05:00); empty for the member's whole range. -->
+				<property name="timeMax"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The step of the values the inhabitant may set for time, a duration in whole seconds, at most 1d (5min), counted from 00:00 or 0; empty for none. -->
+				<property name="timeStep"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change the days on the controller (homecontrol #58). -->
+				<property name="daysAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!-- Every year on a date at a time. -->
 		<class name="YearlySchedule">
 			<generalizations>
 				<generalization type="ScheduleEntry"/>
+				<!-- With an adjustable time, the entry is the datapoint schedule/<id>/time of the image (homecontrol #58). -->
+				<generalization type="ehome.logical:ProjectDatapoint"/>
 			</generalizations>
 			<attributes>
 				<!-- The month (1..12). -->
@@ -2180,12 +2246,66 @@
 						</value-normalizer>
 					</annotations>
 				</property>
+				<!-- Whether the inhabitant may change time on the controller (homecontrol #58). -->
+				<property name="timeAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for time, a time of day (05:00); empty for the member's whole range. -->
+				<property name="timeMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for time, a time of day (05:00); empty for the member's whole range. -->
+				<property name="timeMax"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The step of the values the inhabitant may set for time, a duration in whole seconds, at most 1d (5min), counted from 00:00 or 0; empty for none. -->
+				<property name="timeStep"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!-- On each of the given dates at a time. -->
 		<class name="DatesSchedule">
 			<generalizations>
 				<generalization type="ScheduleEntry"/>
+				<!-- With an adjustable time, the entry is the datapoint schedule/<id>/time of the image (homecontrol #58). -->
+				<generalization type="ehome.logical:ProjectDatapoint"/>
 			</generalizations>
 			<attributes>
 				<!-- The dates (2027-01-08), separated by commas or lines. -->
@@ -2204,6 +2324,58 @@
 				</property>
 				<!-- The time of day (06:15). -->
 				<property name="time"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change time on the controller (homecontrol #58). -->
+				<property name="timeAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for time, a time of day (05:00); empty for the member's whole range. -->
+				<property name="timeMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for time, a time of day (05:00); empty for the member's whole range. -->
+				<property name="timeMax"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The step of the values the inhabitant may set for time, a duration in whole seconds, at most 1d (5min), counted from 00:00 or 0; empty for none. -->
+				<property name="timeStep"
 					type="tl.core:String"
 				>
 					<annotations>
@@ -2283,6 +2455,172 @@
 						</constraints>
 					</annotations>
 				</reference>
+				<!-- Whether the inhabitant may change offset on the controller (homecontrol #58). -->
+				<property name="offsetAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for offset, a duration in whole seconds (-1h); empty for the member's whole range. -->
+				<property name="offsetMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for offset, a duration in whole seconds (-1h); empty for the member's whole range. -->
+				<property name="offsetMax"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The step of the values the inhabitant may set for offset, a duration in whole seconds (5min), counted from 00:00 or 0; empty for none. -->
+				<property name="offsetStep"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change notBefore on the controller (homecontrol #58). -->
+				<property name="notBeforeAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for notBefore, a time of day (05:00); empty for the member's whole range. -->
+				<property name="notBeforeMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for notBefore, a time of day (05:00); empty for the member's whole range. -->
+				<property name="notBeforeMax"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The step of the values the inhabitant may set for notBefore, a duration in whole seconds, at most 1d (5min), counted from 00:00 or 0; empty for none. -->
+				<property name="notBeforeStep"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change notAfter on the controller (homecontrol #58). -->
+				<property name="notAfterAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for notAfter, a time of day (05:00); empty for the member's whole range. -->
+				<property name="notAfterMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for notAfter, a time of day (05:00); empty for the member's whole range. -->
+				<property name="notAfterMax"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The step of the values the inhabitant may set for notAfter, a duration in whole seconds, at most 1d (5min), counted from 00:00 or 0; empty for none. -->
+				<property name="notAfterStep"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change the days on the controller (homecontrol #58). -->
+				<property name="daysAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!-- On the given days every interval from a time up to a time. -->
@@ -2345,6 +2683,172 @@
 						</constraints>
 					</annotations>
 				</reference>
+				<!-- Whether the inhabitant may change every on the controller (homecontrol #58). -->
+				<property name="everyAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for every, a duration in whole minutes (5min); empty for the member's whole range. -->
+				<property name="everyMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for every, a duration in whole minutes (5min); empty for the member's whole range. -->
+				<property name="everyMax"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The step of the values the inhabitant may set for every, a duration in whole minutes (5min), counted from 00:00 or 0; empty for none. -->
+				<property name="everyStep"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change from on the controller (homecontrol #58). -->
+				<property name="fromAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for from, a time of day (05:00); empty for the member's whole range. -->
+				<property name="fromMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for from, a time of day (05:00); empty for the member's whole range. -->
+				<property name="fromMax"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The step of the values the inhabitant may set for from, a duration in whole seconds, at most 1d (5min), counted from 00:00 or 0; empty for none. -->
+				<property name="fromStep"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change until on the controller (homecontrol #58). -->
+				<property name="untilAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for until, a time of day (05:00); empty for the member's whole range. -->
+				<property name="untilMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for until, a time of day (05:00); empty for the member's whole range. -->
+				<property name="untilMax"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The step of the values the inhabitant may set for until, a duration in whole seconds, at most 1d (5min), counted from 00:00 or 0; empty for none. -->
+				<property name="untilStep"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change the days on the controller (homecontrol #58). -->
+				<property name="daysAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!-- Once at a date and time. -->
@@ -2355,6 +2859,44 @@
 			<attributes>
 				<!-- The local date and time (2026-12-31T23:59:30). -->
 				<property name="at"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may change at on the controller (homecontrol #58). -->
+				<property name="atAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The smallest value the inhabitant may set for at, a date and time (2026-12-31T20:00); empty for the member's whole range. -->
+				<property name="atMin"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The largest value the inhabitant may set for at, a date and time (2026-12-31T20:00); empty for the member's whole range. -->
+				<property name="atMax"
 					type="tl.core:String"
 				>
 					<annotations>

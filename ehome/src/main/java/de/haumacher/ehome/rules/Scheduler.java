@@ -5,6 +5,7 @@ package de.haumacher.ehome.rules;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -15,8 +16,10 @@ import java.util.function.Consumer;
 import de.haumacher.ehome.rules.Astro.GeoLocation;
 import de.haumacher.ehome.rules.Astro.SunEvent;
 import de.haumacher.ehome.rules.DatapointModel.Datapoint;
+import de.haumacher.ehome.rules.Schedule.Bound;
 import de.haumacher.ehome.rules.Schedule.ClockTime;
 import de.haumacher.ehome.rules.Schedule.Kind;
+import de.haumacher.ehome.rules.Schedule.Member;
 import de.haumacher.ehome.rules.Val.Date;
 
 /**
@@ -25,6 +28,15 @@ import de.haumacher.ehome.rules.Val.Date;
  * of their moments (image order on ties), missed firings by the entry's policy, the enable switch,
  * the "fired today" output datapoints and the persisted record of each entry. A port of homecontrol
  * <code>core/src/scheduler.cpp</code>.
+ *
+ * <p>
+ * The image may declare members of an entry adjustable (<code>adjustable</code>, <code>bounds</code>,
+ * homecontrol #58): the inhabitant's values ({@link #setMembers(String, Map)}) are overrides in the
+ * entry's record, kept by a new image while the entry exists, the member is adjustable and the value
+ * fits the new bounds, dropped (logged) otherwise. An adjustable <code>time</code> is also the
+ * datapoint <code>schedule/&lt;id&gt;/time</code>, owned by the scheduler: a command to it is a change
+ * of the time.
+ * </p>
  *
  * <p>
  * The scheduler has no timer of its own: the driver asks {@link #wakeup()} when to call
@@ -71,6 +83,34 @@ public final class Scheduler implements DatapointModel.Technology {
 		void scheduleFired(String id);
 	}
 
+	/**
+	 * Outcome of a change of adjustable members ({@link Scheduler#setMembers(String, Map)}), named as
+	 * the API's refusals (<code>schedule.&lt;name&gt;</code>).
+	 */
+	public enum Change {
+		/** Applied. */
+		OK("ok"),
+		/** No entry with this id. */
+		UNKNOWN("unknown"),
+		/** The image does not let the inhabitant change the member. */
+		NOT_ADJUSTABLE("not_adjustable"),
+		/** Outside the member's bounds, or not on its step. */
+		OUT_OF_BOUNDS("out_of_bounds"),
+		/** Not a value of the member, or members that contradict each other. */
+		MALFORMED("malformed");
+
+		private final String _name;
+
+		Change(String name) {
+			_name = name;
+		}
+
+		/** The name of the API's refusal. */
+		public String externalName() {
+			return _name;
+		}
+	}
+
 	/** Thrown by {@link Scheduler#load(List)} when the entries are refused. */
 	public static final class RefusedException extends Exception {
 
@@ -88,7 +128,17 @@ public final class Scheduler implements DatapointModel.Technology {
 	}
 
 	private static final class Entry {
+		/** The entry with its effective values: the image's, with the inhabitant's overrides. */
 		Schedule _spec;
+
+		/** The entry as the image declares it. */
+		Schedule _image;
+
+		/** The {@link Member} bits whose effective value is an override. */
+		int _overridden;
+
+		/** The datapoint mirroring the adjustable time, <code>null</code> for none. */
+		String _timeDatapoint;
 
 		String _key;
 
@@ -123,6 +173,11 @@ public final class Scheduler implements DatapointModel.Technology {
 
 	private boolean _waitingLogged;
 
+	/** Within {@link #command(Datapoint, Val)}: the model stores the value, nothing may report it. */
+	private boolean _commanding;
+
+	private boolean _deferTimes;
+
 	/**
 	 * Creates a scheduler.
 	 *
@@ -145,6 +200,22 @@ public final class Scheduler implements DatapointModel.Technology {
 	/** Registers a listener. */
 	public void addListener(Listener listener) {
 		_listeners.add(listener);
+	}
+
+	/**
+	 * With <code>true</code>, {@link #load(List)} binds the time datapoints but leaves their values to
+	 * {@link #publishTimes()}, so that the caller can make them no events for the rules (taking the
+	 * values at a load is no event, as for the rule parameters' datapoints). Default <code>false</code>.
+	 */
+	public void deferTimeReports(boolean defer) {
+		_deferTimes = defer;
+	}
+
+	/** Reports the effective time of every entry with a time datapoint where the datapoint differs. */
+	public void publishTimes() {
+		for (Entry entry : _entries) {
+			reportTime(entry);
+		}
 	}
 
 	/** The settings key of an entry's record: <code>sch.</code> and the FNV-1a hash of the id. */
@@ -257,7 +328,8 @@ public final class Scheduler implements DatapointModel.Technology {
 		Set<String> keys = new HashSet<>();
 		for (Schedule spec : specs) {
 			Entry entry = new Entry();
-			entry._spec = spec;
+			entry._spec = spec.copy();
+			entry._image = spec;
 			entry._enabled = spec._enabled;
 			entry._key = recordKey(spec._id);
 			if (!keys.add(entry._key)) {
@@ -273,7 +345,47 @@ public final class Scheduler implements DatapointModel.Technology {
 			restore(entry);
 		}
 		_records.keySet().removeIf(key -> key.startsWith("sch.") && !keys.contains(key));
+		bindTimes();
 		evaluate();
+	}
+
+	private void bindTimes() {
+		for (Entry entry : _entries) {
+			entry._timeDatapoint = null;
+			if (_model == null || !entry._spec.hasTimeDatapoint()) {
+				continue;
+			}
+			// The datapoint the image loader implies; a model without it simply has none.
+			String name = Schedule.timeDatapointName(entry._spec._id);
+			Datapoint datapoint = _model.get(name);
+			if (datapoint == null) {
+				continue;
+			}
+			if (datapoint.type() != ValueType.TIME_OF_DAY) {
+				log("E schedule " + entry._spec._id + ": datapoint '" + name + "' is " + datapoint.type().externalName()
+					+ ", not a time of day; not bound");
+				continue;
+			}
+			_model.bind(name, this);
+			entry._timeDatapoint = name;
+			if (!_deferTimes) {
+				reportTime(entry);
+			}
+		}
+	}
+
+	private void reportTime(Entry entry) {
+		if (entry._timeDatapoint == null || _model == null || _commanding) {
+			return;
+		}
+		ClockTime time = entry._spec._time;
+		Val value = Val.ofTime(new Val.TimeOfDay(time.hour(), time.minute(), time.second(), 0));
+		Datapoint datapoint = _model.get(entry._timeDatapoint);
+		if (datapoint != null && datapoint.quality() == DatapointModel.Quality.GOOD
+			&& Val.identical(datapoint.value(), value)) {
+			return;
+		}
+		_model.report(entry._timeDatapoint, value);
 	}
 
 	private void validate(Schedule spec, int index) throws RefusedException {
@@ -354,6 +466,10 @@ public final class Scheduler implements DatapointModel.Technology {
 			default:
 				throw new RefusedException("malformed", prefix + "unknown kind");
 		}
+		String error = spec.adjustableError();
+		if (error != null) {
+			throw new RefusedException("malformed", prefix + error);
+		}
 	}
 
 	private static void checkTime(ClockTime time, String prefix) throws RefusedException {
@@ -371,10 +487,17 @@ public final class Scheduler implements DatapointModel.Technology {
 		if (value == null) {
 			return;
 		}
-		String[] fields = value.split(";", 5);
-		if (fields.length != 5 || !fields[0].equals("1")) {
+		boolean withOverrides = value.startsWith("2;");
+		String[] fields = value.split(";", withOverrides ? 6 : 5);
+		if (fields.length != (withOverrides ? 6 : 5) || !(fields[0].equals("1") || withOverrides)) {
 			log("W schedule " + entry._spec._id + ": record " + entry._key + " unreadable (format); starting without it");
 			return;
+		}
+		String overrides = null;
+		if (withOverrides) {
+			// Version 2: the member overrides, <member>=<scalar> separated by commas.
+			overrides = fields[4];
+			fields = new String[] { fields[0], fields[1], fields[2], fields[3], fields[5] };
 		}
 		long last;
 		long accounted;
@@ -396,14 +519,100 @@ public final class Scheduler implements DatapointModel.Technology {
 		// An entry idle when its record was written stayed idle until the controller stopped.
 		entry._accounted = wasIdle ? NONE : accounted;
 		entry._storedIdle = wasIdle;
+		boolean rewrite = overrides != null && restoreOverrides(entry, overrides);
 		if (flags.startsWith("0") || flags.startsWith("1")) {
 			if (!entry._spec._enabledAdjustable) {
 				log("W schedule " + entry._spec._id + ": enable override removed: the image fixes the switch");
-				persist(entry);
+				rewrite = true;
 			} else {
 				entry._enabled = flags.startsWith("1");
 			}
 		}
+		if (rewrite) {
+			persist(entry);
+		}
+	}
+
+	/**
+	 * The override of a member is kept while the image declares the member adjustable and the value
+	 * fits the member's bounds; otherwise it is dropped with a log line (<code>spec/schedules.md</code>
+	 * 4.2). An override equal to the new image's value is no override any more.
+	 *
+	 * @return Whether the record must be written again.
+	 */
+	private boolean restoreOverrides(Entry entry, String text) {
+		boolean rewrite = false;
+		Schedule spec = entry._spec;
+		for (String part : text.isEmpty() ? new String[0] : text.split(",")) {
+			int equals = part.indexOf('=');
+			if (equals < 0) {
+				log("W schedule " + spec._id + ": unreadable member override '" + part + "' dropped");
+				rewrite = true;
+				continue;
+			}
+			String name = part.substring(0, equals);
+			Member member = Member.fromName(name);
+			Long value;
+			try {
+				value = Long.valueOf(part.substring(equals + 1));
+			} catch (NumberFormatException ex) {
+				value = null;
+			}
+			Bound bound = member == null ? null : spec.bound(member);
+			String why = null;
+			if (member == null || value == null || !member.inRange(value.longValue())) {
+				why = "unreadable";
+			} else if ((spec._adjustable & member.bit()) == 0) {
+				why = "the image no longer declares it adjustable";
+			} else if (bound != null && (value.longValue() < bound.min() || value.longValue() > bound.max())) {
+				why = "it no longer fits the image's bounds";
+			} else if (bound != null && bound.step() > 0 && value.longValue() % bound.step() != 0) {
+				why = "it is not on the image's step";
+			}
+			if (why != null) {
+				String shown = member != null && value != null ? member.format(value.longValue()) : part.substring(equals + 1);
+				log("W schedule " + spec._id + ": override of " + name + " (" + shown + ") dropped: " + why);
+				rewrite = true;
+			} else if (value.longValue() == entry._image.memberValue(member)) {
+				// The image's value now: no override.
+				rewrite = true;
+			} else {
+				spec.setMemberValue(member, value.longValue());
+				entry._overridden |= member.bit();
+			}
+		}
+		int pair = contradiction(spec);
+		if (pair != 0) {
+			for (Member member : Member.of(pair & entry._overridden)) {
+				dropOverride(entry, member, "it contradicts the entry's other values");
+			}
+			rewrite = true;
+		}
+		return rewrite;
+	}
+
+	private void dropOverride(Entry entry, Member member, String why) {
+		log("W schedule " + entry._spec._id + ": override of " + member.externalName() + " ("
+			+ member.format(entry._spec.memberValue(member)) + ") dropped: " + why);
+		entry._spec.setMemberValue(member, entry._image.memberValue(member));
+		entry._overridden &= ~member.bit();
+	}
+
+	/**
+	 * The members of the entry that contradict each other (an interval's <code>from</code> after its
+	 * <code>until</code>, an astro entry's <code>notBefore</code> after its <code>notAfter</code>): the
+	 * pair's bits, else 0.
+	 */
+	private static int contradiction(Schedule spec) {
+		if (spec._kind == Kind.INTERVAL && spec._from != null && spec._until != null
+			&& spec._from.seconds() > spec._until.seconds()) {
+			return Member.FROM.bit() | Member.UNTIL.bit();
+		}
+		if (spec._kind == Kind.ASTRO && spec._notBefore != null && spec._notAfter != null
+			&& spec._notBefore.seconds() > spec._notAfter.seconds()) {
+			return Member.NOT_BEFORE.bit() | Member.NOT_AFTER.bit();
+		}
+		return 0;
 	}
 
 	private void persist(Entry entry) {
@@ -412,9 +621,17 @@ public final class Scheduler implements DatapointModel.Technology {
 		}
 		String override = entry._enabled == entry._spec._enabled ? "" : entry._enabled ? "1" : "0";
 		entry._storedIdle = isIdle(entry);
-		_records.put(entry._key, "1;" + (entry._lastFired == NONE ? "" : Long.toString(entry._lastFired)) + ";"
+		// The member overrides (version 2, written only while there are any): <member>=<scalar>,...
+		StringBuilder overrides = new StringBuilder();
+		for (Member member : Member.of(entry._overridden)) {
+			overrides.append(overrides.length() > 0 ? "," : "").append(member.externalName()).append('=')
+				.append(entry._spec.memberValue(member));
+		}
+		String head = (entry._lastFired == NONE ? "" : Long.toString(entry._lastFired)) + ";"
 			+ (entry._accounted == NONE ? "" : Long.toString(entry._accounted)) + ";" + override
-			+ (entry._storedIdle ? "i" : "") + ";" + entry._spec._id);
+			+ (entry._storedIdle ? "i" : "") + ";";
+		_records.put(entry._key, overrides.length() == 0 ? "1;" + head + entry._spec._id
+			: "2;" + head + overrides + ";" + entry._spec._id);
 	}
 
 	// ---- Accessors --------------------------------------------------------------------------
@@ -484,8 +701,257 @@ public final class Scheduler implements DatapointModel.Technology {
 		return null;
 	}
 
+	/** Whether the inhabitant may switch the entry on and off (the image's <code>enabledAdjustable</code>). */
+	public boolean enabledAdjustable(int index) {
+		return _entries.get(index)._spec._enabledAdjustable;
+	}
+
+	/** The id of the entry. */
+	public String id(int index) {
+		return _entries.get(index)._spec._id;
+	}
+
+	/** The entry with its effective values (the image's, with the inhabitant's overrides). */
+	public Schedule spec(int index) {
+		return _entries.get(index)._spec;
+	}
+
+	/** The entry as the image declares it. */
+	public Schedule imageSpec(int index) {
+		return _entries.get(index)._image;
+	}
+
+	/** The {@link Member} bits whose effective value is an override. */
+	public int overridden(int index) {
+		return _entries.get(index)._overridden;
+	}
+
+	/**
+	 * Changes adjustable members of an entry as the UI does (<code>spec/schedules.md</code> 4.2), all
+	 * or none: a value equal to the image's removes the member's override; any other value becomes
+	 * the override, persisted by schedule id and member. The entry is evaluated at once with the new
+	 * values; a change is not a gap, and a day's firing that was handled stays handled. A refusal is
+	 * logged naming the member.
+	 *
+	 * @param values
+	 *        The new scalars of the members ({@link Member}).
+	 */
+	public Change setMembers(String id, Map<Member, Long> values) {
+		int index = find(id);
+		if (index < 0) {
+			return refuseChange(id, null, "no such schedule", Change.UNKNOWN);
+		}
+		Entry entry = _entries.get(index);
+		Schedule candidate = entry._spec.copy();
+		for (Member member : Member.values()) {
+			Long value = values.get(member);
+			if (value == null) {
+				continue;
+			}
+			String[] why = new String[1];
+			Change result = checkMember(entry, member, value.longValue(), why);
+			if (result != Change.OK) {
+				return refuseChange(id, member, why[0], result);
+			}
+			candidate.setMemberValue(member, value.longValue());
+		}
+		int pair = contradiction(candidate);
+		if (pair != 0) {
+			int named = 0;
+			for (Member member : values.keySet()) {
+				named |= member.bit();
+			}
+			named = (pair & named) != 0 ? pair & named : pair;
+			Member first = Member.of(named).get(0);
+			return refuseChange(id, first, pair == (Member.FROM.bit() | Member.UNTIL.bit())
+				? "from would be later than until" : "notBefore would be later than notAfter", Change.MALFORMED);
+		}
+		Schedule before = entry._spec.copy();
+		boolean changed = false;
+		for (Member member : Member.values()) {
+			if (!values.containsKey(member)) {
+				continue;
+			}
+			long value = candidate.memberValue(member);
+			if (value == before.memberValue(member)) {
+				continue;
+			}
+			changed = true;
+			entry._spec.setMemberValue(member, value);
+			boolean image = value == entry._image.memberValue(member);
+			entry._overridden = image ? entry._overridden & ~member.bit() : entry._overridden | member.bit();
+			log("I schedule " + entry._spec._id + ": " + member.externalName() + " set to " + member.format(value)
+				+ (image ? " (the image's value)" : ""));
+		}
+		if (changed) {
+			applyChange(entry, before);
+		}
+		return Change.OK;
+	}
+
+	/**
+	 * Returns the entry to the image's values: every member override and the enable override are
+	 * removed (with the change semantics of {@link #setMembers(String, Map)}).
+	 *
+	 * @return Whether there is such an entry.
+	 */
+	public boolean resetOverrides(String id) {
+		int index = find(id);
+		if (index < 0) {
+			log("E refusing to reset schedule " + id + ": no such schedule");
+			return false;
+		}
+		Entry entry = _entries.get(index);
+		if (entry._overridden == 0 && entry._enabled == entry._spec._enabled) {
+			return true;
+		}
+		Schedule before = entry._spec.copy();
+		for (Member member : Member.of(entry._overridden)) {
+			entry._spec.setMemberValue(member, entry._image.memberValue(member));
+		}
+		entry._overridden = 0;
+		entry._enabled = entry._spec._enabled;
+		log("I schedule " + entry._spec._id + ": back to the image's values");
+		applyChange(entry, before);
+		return true;
+	}
+
+	private Change refuseChange(String id, Member member, String why, Change result) {
+		log("E refusing to change schedule " + id + ": " + (member != null ? member.externalName() + ": " : "") + why
+			+ " (" + result.externalName() + ")");
+		return result;
+	}
+
+	private static Change checkMember(Entry entry, Member member, long value, String[] why) {
+		Schedule spec = entry._spec;
+		if ((spec._adjustable & member.bit()) == 0) {
+			why[0] = (Member.allowed(spec._kind) & member.bit()) == 0 ? "the entry's kind has no such member"
+				: "the image does not let the inhabitant change it";
+			return Change.NOT_ADJUSTABLE;
+		}
+		if (!member.inRange(value)) {
+			why[0] = member == Member.DAYS ? "days must name 1..7 days of the week"
+				: member == Member.OFFSET ? "offset beyond 12 h"
+				: member == Member.EVERY ? "every must be a whole number of minutes, 1 to 720"
+				: member == Member.AT ? "at is not a date and time in 1970..2155" : "not a time of day";
+			return Change.MALFORMED;
+		}
+		Bound bound = spec.bound(member);
+		if (bound != null) {
+			if (value < bound.min() || value > bound.max()) {
+				why[0] = "outside the member's bounds";
+				return Change.OUT_OF_BOUNDS;
+			}
+			if (bound.step() > 0 && value % bound.step() != 0) {
+				why[0] = "not on the member's step";
+				return Change.OUT_OF_BOUNDS;
+			}
+		}
+		return Change.OK;
+	}
+
+	private void applyChange(Entry entry, Schedule before) {
+		accountChange(entry, before);
+		persist(entry);
+		reportTime(entry);
+		evaluate();
+	}
+
+	/**
+	 * A change is not a gap (<code>spec/schedules.md</code> 4.3): the moments up to now count as
+	 * handled. And a day whose firing was handled under the old values keeps it handled under the new
+	 * ones: moving a fired 06:30 to 07:00 does not fire a second time that day. An interval's slots are
+	 * handled up to now only; a once entry that fired never fires again.
+	 */
+	private void accountChange(Entry entry, Schedule before) {
+		Long wall = _time.nowUtc();
+		if (wall == null || entry._accounted == NONE) {
+			// It counts from its first evaluation anyway.
+			return;
+		}
+		long now = wall.longValue();
+		long handled = Math.max(entry._accounted, now - 1);
+		Entry old = new Entry();
+		old._spec = before;
+		if (entry._spec._kind == Kind.ONCE) {
+			long was = occurrenceOn(old, before._atDate);
+			long moved = occurrenceOn(entry, entry._spec._atDate);
+			if (was != NONE && was <= entry._accounted && moved != NONE && moved > handled) {
+				handled = moved;
+			}
+		} else if (entry._spec._kind != Kind.INTERVAL) {
+			long day = localDate(entry._accounted).days();
+			for (long d = day - 1; d <= day; d++) {
+				Date date = Values.civilOf(d);
+				long was = firingOn(old, date);
+				if (was == NONE || was > entry._accounted) {
+					continue;
+				}
+				long moved = firingOn(entry, date);
+				if (moved != NONE && moved > handled) {
+					handled = moved;
+				}
+			}
+		}
+		entry._accounted = handled;
+	}
+
+	/** The firing of the entry on the local date by its calendar, {@link #NONE} if it has none then. */
+	private long firingOn(Entry entry, Date date) {
+		Schedule spec = entry._spec;
+		switch (spec._kind) {
+			case WEEKLY:
+			case ASTRO:
+				if (!hasDay(entry, date.days())) {
+					return NONE;
+				}
+				break;
+			case YEARLY:
+				if (date.month() != spec._month || date.day() != spec._day) {
+					return NONE;
+				}
+				break;
+			case DATES:
+				if (!spec._dates.contains(date)) {
+					return NONE;
+				}
+				break;
+			case ONCE:
+				if (!date.equals(spec._atDate)) {
+					return NONE;
+				}
+				break;
+			default:
+				return NONE;
+		}
+		return occurrenceOn(entry, date);
+	}
+
 	@Override
 	public boolean command(Datapoint datapoint, Val value) {
+		for (Entry entry : _entries) {
+			if (!datapoint.name().equals(entry._timeDatapoint)) {
+				continue;
+			}
+			// The time datapoint: a command is a change of the entry's time, like the API's.
+			if (value.type() != Type.TIME_OF_DAY || !value.has()) {
+				log("E refusing command to '" + datapoint.name() + "': not a time of day");
+				return false;
+			}
+			Val.TimeOfDay time = value.time();
+			if (time.dayOfWeek() != 0) {
+				log("E refusing command to '" + datapoint.name() + "': a schedule's time has no day of the week");
+				return false;
+			}
+			Map<Member, Long> values = new EnumMap<>(Member.class);
+			values.put(Member.TIME, Long.valueOf(time.secondsOfDay()));
+			_commanding = true;
+			try {
+				return setMembers(entry._spec._id, values) == Change.OK;
+			} finally {
+				_commanding = false;
+			}
+		}
 		log("E refusing command to '" + datapoint.name() + "': a schedule output is set by the scheduler only");
 		return false;
 	}

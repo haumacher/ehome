@@ -55,7 +55,7 @@ import de.haumacher.ehome.runtime.RuntimeImage;
 @SuppressWarnings("javadoc")
 public class TestImageComparison extends BasicTestCase {
 
-	private static final String TOKEN = "hct_0123456789abcdef0123456789abcdef";
+	static final String TOKEN = "hct_0123456789abcdef0123456789abcdef";
 
 	private static final Instant NOW = Instant.parse("2026-10-18T12:00:00Z");
 
@@ -254,7 +254,7 @@ public class TestImageComparison extends BasicTestCase {
 		}
 	}
 
-	private static TLObject controller(int port) {
+	static TLObject controller(int port) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject controller = ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));

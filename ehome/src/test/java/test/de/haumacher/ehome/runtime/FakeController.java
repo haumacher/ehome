@@ -81,6 +81,8 @@ public class FakeController {
 
 	private int _nextStatus;
 
+	private String _schema = "1.2";
+
 	private Map<String, Object> _nextBody;
 
 	private int _puts;
@@ -402,6 +404,22 @@ public class FakeController {
 		answer(exchange, 200, error("scripted", "fake.ok"));
 	}
 
+	/**
+	 * The newest image schema the fake reports it reads (<code>device.schema</code> of
+	 * <code>/api/status</code>, <code>schema</code> of its <code>auth</code>): <code>null</code> as a
+	 * firmware before schema 1.2, which reports none.
+	 */
+	public String getSchema() {
+		return _schema;
+	}
+
+	/**
+	 * @see #getSchema()
+	 */
+	public void setSchema(String schema) {
+		_schema = schema;
+	}
+
 	private void status(HttpExchange exchange) throws IOException {
 		if (!"GET".equals(exchange.getRequestMethod())) {
 			answer(exchange, 405, error("method not allowed", "api.method_not_allowed"));
@@ -414,6 +432,9 @@ public class FakeController {
 		Map<String, Object> device = new LinkedHashMap<>();
 		device.put("name", "homecontrol-fake");
 		device.put("version", "0.0.0-fake");
+		if (_schema != null) {
+			device.put("schema", _schema);
+		}
 		body.put("device", device);
 		body.put("image", imageStatus());
 		answer(exchange, 200, body);

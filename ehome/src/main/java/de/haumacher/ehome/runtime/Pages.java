@@ -26,6 +26,7 @@ import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.rules.RuleLoader;
+import de.haumacher.ehome.rules.Schedule;
 
 /**
  * The control pages of a project (haumacher/ehome #72, model <code>ehome.runtime:Page</code>): what
@@ -111,6 +112,14 @@ public final class Pages {
 		return is(obj, "RuleParameter");
 	}
 
+	/**
+	 * Whether the object is a schedule entry that can have an adjustable time (weekly, yearly, dates):
+	 * then it is the datapoint <code>schedule/&lt;id&gt;/time</code> of the image (homecontrol #58).
+	 */
+	public static boolean isTimeSchedule(Object obj) {
+		return is(obj, "WeeklySchedule") || is(obj, "YearlySchedule") || is(obj, "DatesSchedule");
+	}
+
 	private static boolean isGroupAddress(Object obj) {
 		return obj instanceof TLObject object && ExtIds.isA(object, "ehome.logical:GroupAddress");
 	}
@@ -160,12 +169,18 @@ public final class Pages {
 
 	/**
 	 * The datapoints of the project a page can show: its group addresses by their address, its
-	 * application datapoints, then the parameters of its rules (spec/rules.md 8.6), rule by rule.
+	 * application datapoints, then the parameters of its rules (spec/rules.md 8.6), rule by rule, then
+	 * its schedule entries with an adjustable time (spec/schedules.md 2.2).
 	 */
 	public static List<TLObject> datapoints(TLObject project) {
 		List<TLObject> result = RuntimeFunctions.datapoints(project);
 		for (TLObject rule : list(project, "rules")) {
 			result.addAll(list(rule, "parameters"));
+		}
+		for (TLObject entry : list(project, "schedules")) {
+			if (isTimeSchedule(entry) && Boolean.TRUE.equals(entry.tValueByName("timeAdjustable"))) {
+				result.add(entry);
+			}
 		}
 		return result;
 	}
@@ -205,7 +220,8 @@ public final class Pages {
 	/**
 	 * The id the target has in the image as the project defines it: the address in three levels for a
 	 * group address, the id of an application datapoint, <code>rule/&lt;rule&gt;/&lt;parameter&gt;</code>
-	 * for a rule parameter, <code>rule/&lt;rule&gt;/enabled</code> for a rule, the identifier of a
+	 * for a rule parameter, <code>rule/&lt;rule&gt;/enabled</code> for a rule,
+	 * <code>schedule/&lt;id&gt;/time</code> for a weekly, yearly or dates entry, the identifier of a
 	 * function; <code>null</code> for none.
 	 */
 	public static String imageId(TLObject target) {
@@ -227,6 +243,10 @@ public final class Pages {
 			String rule = text(target.tValueByName("identifier"));
 			return rule == null ? null : RuleLoader.parameterDatapointName(rule, "enabled");
 		}
+		if (isTimeSchedule(target)) {
+			String entry = text(target.tValueByName("identifier"));
+			return entry == null ? null : Schedule.timeDatapointName(entry);
+		}
 		if (is(target, "Function")) {
 			return text(target.tValueByName("identifier"));
 		}
@@ -246,7 +266,7 @@ public final class Pages {
 			String name = text(target.tValueByName("name"));
 			return address == null ? String.valueOf(name) : name == null ? address.toString() : address + " " + name;
 		}
-		if (ApplicationDatapoints.isApplicationDatapoint(target) || isRuleParameter(target)) {
+		if (ApplicationDatapoints.isApplicationDatapoint(target) || isRuleParameter(target) || isTimeSchedule(target)) {
 			return String.valueOf(imageId(target));
 		}
 		if (is(target, "Function") || is(target, "Rule")) {
@@ -290,6 +310,9 @@ public final class Pages {
 				default:
 					return ValueTypes.REAL;
 			}
+		}
+		if (isTimeSchedule(datapoint)) {
+			return ValueTypes.TIME_OF_DAY;
 		}
 		if (isGroupAddress(datapoint)) {
 			Dpt dpt = GroupAddressTypes.effective(datapoint);

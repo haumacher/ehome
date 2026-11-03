@@ -34,6 +34,7 @@ import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.rules.DatapointModel;
 import de.haumacher.ehome.rules.RuleSet;
+import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.rules.Type;
 import de.haumacher.ehome.rules.Val;
 import de.haumacher.ehome.rules.Val.DateTime;
@@ -88,7 +89,8 @@ public class TestRuleCorpusOnBus extends TestCase {
 	 * stale), 12 (a string command of 18 characters), 19 (the humidity 69.9 arrives as the float
 	 * 69.90000153), 44 (the reads of a single datapoint refused). A read of a rule travels the bus as a
 	 * GroupValueRead the device of the case does not answer (its objects have no read flag); the
-	 * datapoints of the rule parameters are the engine's, not on the bus.
+	 * datapoints of the rule parameters are the engine's and those of the adjustable schedule times
+	 * the scheduler's, not on the bus.
 	 */
 	private static final List<String> MAPPABLE = List.of(
 		"01-trigger-datapoint-change.json",
@@ -136,7 +138,11 @@ public class TestRuleCorpusOnBus extends TestCase {
 		"51-parameter-datapoint-command.json",
 		"52-parameter-datapoint-other-rule.json",
 		"53-parameter-datapoint-enabled.json",
-		"54-silence-read-parameter-datapoint.json");
+		"54-silence-read-parameter-datapoint.json",
+		"55-schedule-adjust-time.json",
+		"56-schedule-change-semantics.json",
+		"57-schedule-time-datapoint.json",
+		"58-schedule-image-swap-overrides.json");
 
 	private static final long TIMEOUT = 5000;
 
@@ -236,9 +242,10 @@ public class TestRuleCorpusOnBus extends TestCase {
 				commanded.add(new Object[] { command.get("datapoint"), command.get("value") });
 			}
 		}
-		// The datapoints of the rule parameters are the rule engine's, not on the bus.
-		reported.removeIf(report -> ((String) report[0]).startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX));
-		commanded.removeIf(command -> ((String) command[0]).startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX));
+		// The datapoints of the rule parameters are the rule engine's, those of the schedules' times the
+		// scheduler's, not on the bus.
+		reported.removeIf(report -> engineOwned((String) report[0]));
+		commanded.removeIf(command -> engineOwned((String) command[0]));
 		for (Object[] report : reported) {
 			ValueType type = types.get(report[0]);
 			Val value = value(type, report[1]);
@@ -262,6 +269,10 @@ public class TestRuleCorpusOnBus extends TestCase {
 			}
 		}
 		return null;
+	}
+
+	private static boolean engineOwned(String datapoint) {
+		return datapoint.startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX) || datapoint.startsWith(Schedule.DATAPOINT_PREFIX);
 	}
 
 	private static Val value(ValueType type, Object json) {

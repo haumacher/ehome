@@ -9,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +24,7 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
+import de.haumacher.ehome.rules.Astro;
 import de.haumacher.ehome.rules.Astro.SunEvent;
 import de.haumacher.ehome.rules.DatapointModel;
 import de.haumacher.ehome.rules.DatapointModel.Datapoint;
@@ -37,6 +40,9 @@ import de.haumacher.ehome.rules.RuleLoader.ScheduleDirectory;
 import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.RuleSet.Level;
 import de.haumacher.ehome.rules.RuleSet.StartReason;
+import de.haumacher.ehome.rules.Schedule;
+import de.haumacher.ehome.rules.Schedule.Member;
+import de.haumacher.ehome.rules.Scheduler;
 import de.haumacher.ehome.rules.Type;
 import de.haumacher.ehome.rules.Val;
 import de.haumacher.ehome.rules.Val.DateTime;
@@ -144,6 +150,18 @@ public class TestRuleCorpus extends TestCase {
 
 		private final Set<String> _unreadable = new TreeSet<>();
 
+		/**
+		 * The full schedule entries of the case (README "schedules"), which the scheduler runs on the
+		 * case's clock; <code>null</code> when the case names its entries by id only.
+		 */
+		private Object _entries;
+
+		/** The persisted records of the scheduler, kept across a reboot. */
+		private final Map<String, String> _records = new HashMap<>();
+
+		/** The scheduler of the current boot, <code>null</code> without full entries. */
+		private Scheduler _scheduler;
+
 		/** The schedules of the case as the loader sees them. */
 		private final ScheduleDirectory _directory = new ScheduleDirectory() {
 			@Override
@@ -224,6 +242,9 @@ public class TestRuleCorpus extends TestCase {
 						if (schedule.get("output") instanceof String output) {
 							_outputs.add(output);
 						}
+						if (schedule.containsKey("kind")) {
+							_entries = schedules;
+						}
 					} else {
 						_schedules.add((String) item);
 					}
@@ -268,6 +289,7 @@ public class TestRuleCorpus extends TestCase {
 				_failures.add("load refused: " + refusal);
 				return;
 			}
+			loadSchedules();
 			_engine.start(StartReason.BOOT);
 			advance(0);
 			List<?> timeline = _case.get("timeline") instanceof List<?> list ? list : List.of();
@@ -283,6 +305,80 @@ public class TestRuleCorpus extends TestCase {
 			compareOutputs(expected);
 			if (expected.get("final") instanceof Map<?, ?> state) {
 				compareState(state, "final");
+			}
+		}
+
+		/** The UTC time of now, <code>null</code> while the wall clock is not synchronized. */
+		private Long nowUtc() {
+			return _synchronized ? Long.valueOf(_startUtc + Math.floorDiv(_now[0] - BASE, 1000L)) : null;
+		}
+
+		/**
+		 * Loads the full schedule entries of the case into a scheduler of the current boot (with the
+		 * records of the boots before), the time datapoints taking their values as no events.
+		 */
+		private void loadSchedules() {
+			if (_entries == null) {
+				return;
+			}
+			if (_scheduler == null) {
+				_scheduler = new Scheduler(new Scheduler.TimeSource() {
+					@Override
+					public Long nowUtc() {
+						return CaseRun.this.nowUtc();
+					}
+
+					@Override
+					public int utcOffset(long utc) {
+						return _zone.offset(utc);
+					}
+
+					@Override
+					public Astro.GeoLocation location() {
+						return null;
+					}
+				}, _records, _model, line -> {
+					// The scheduler's log is not part of the rule engine's.
+				});
+				_scheduler.deferTimeReports(true);
+				Engine engine = _engine;
+				_scheduler.addListener(engine::scheduleFired);
+			}
+			Schedule.Loaded loaded = Schedule.load(_entries, new Schedule.Datapoints() {
+				@Override
+				public ValueType type(String name) {
+					Datapoint datapoint = _model.get(name);
+					return datapoint == null ? null : datapoint.type();
+				}
+
+				@Override
+				public String owner(String name) {
+					return null;
+				}
+			});
+			if (!loaded.ok()) {
+				_failures.add("schedules refused: " + loaded.refusals());
+				return;
+			}
+			try {
+				_scheduler.load(loaded.entries());
+			} catch (Scheduler.RefusedException ex) {
+				_failures.add("schedules refused: " + ex.getMessage());
+				return;
+			}
+			_engine.quietly(_scheduler::publishTimes);
+		}
+
+		/** Adds the time datapoints of the schedule entries the model lacks (an image swap keeps the others). */
+		private void addScheduleDatapoints() {
+			if (_entries == null) {
+				return;
+			}
+			for (String id : Schedule.timeDatapointIds(_entries)) {
+				String name = Schedule.timeDatapointName(id);
+				if (_model.get(name) == null) {
+					_model.add(name, ValueType.TIME_OF_DAY, true, null);
+				}
 			}
 		}
 
@@ -350,6 +446,7 @@ public class TestRuleCorpus extends TestCase {
 		private void loadModel(Object rules) {
 			createModel();
 			addParameterDatapoints(rules);
+			addScheduleDatapoints();
 		}
 
 		/** Adds the parameter datapoints of the rules the model lacks (an image swap keeps the others). */
@@ -423,13 +520,63 @@ public class TestRuleCorpus extends TestCase {
 					continue;
 				}
 				long deadline = _engine.nextDeadline();
-				if (deadline > target) {
+				long firing = schedulerDeadline();
+				if (Math.min(deadline, firing) > target) {
 					break;
 				}
-				_now[0] = Math.max(_now[0], deadline);
-				_engine.processDueTimers();
+				_now[0] = Math.max(_now[0], Math.min(deadline, firing));
+				if (firing <= _now[0]) {
+					_scheduler.fireDue();
+				} else {
+					_engine.processDueTimers();
+				}
 			}
 			_now[0] = target;
+		}
+
+		/** The monotonic time the scheduler wants to fire at, {@link Long#MAX_VALUE} for none. */
+		private long schedulerDeadline() {
+			Long wakeup = _scheduler == null ? null : _scheduler.wakeup();
+			if (wakeup == null) {
+				return Long.MAX_VALUE;
+			}
+			return BASE + (wakeup.longValue() - _startUtc) * 1000;
+		}
+
+		/** The change of a schedule entry as <code>PUT /api/schedules/&lt;id&gt;</code> makes it. */
+		private void setSchedule(Map<?, ?> change, long at) {
+			String id = (String) change.get("id");
+			String result;
+			if (Boolean.TRUE.equals(change.get("reset"))) {
+				result = _scheduler.resetOverrides(id) ? "ok" : "unknown";
+			} else {
+				Map<Member, Long> values = new EnumMap<>(Member.class);
+				result = null;
+				for (Map.Entry<?, ?> entry : change.entrySet()) {
+					String name = (String) entry.getKey();
+					if (name.equals("id") || name.equals("refused") || name.equals("enabled")) {
+						continue;
+					}
+					Member member = Member.fromName(name);
+					Long value = member == null ? null : member.scalar(entry.getValue());
+					if (value == null) {
+						result = "malformed";
+						break;
+					}
+					values.put(member, value);
+				}
+				if (result == null && !values.isEmpty()) {
+					result = _scheduler.setMembers(id, values).externalName();
+				}
+				if ((result == null || result.equals("ok")) && change.get("enabled") instanceof Boolean enabled) {
+					result = _scheduler.setEnabled(id, enabled.booleanValue()) == null ? "ok" : "not_adjustable";
+				}
+			}
+			Object refused = change.get("refused");
+			String expected = refused == null ? "ok" : (String) refused;
+			if (!expected.equals(result)) {
+				_failures.add("the change of schedule " + id + " at " + at + " is " + result + ", expected " + expected);
+			}
 		}
 
 		private void apply(Map<?, ?> step, long at) throws Exception {
@@ -447,6 +594,8 @@ public class TestRuleCorpus extends TestCase {
 				}
 			} else if (step.get("schedule") instanceof String id) {
 				_engine.scheduleFired(id);
+			} else if (step.get("setSchedule") instanceof Map<?, ?> change) {
+				setSchedule(change, at);
 			} else if (step.get("setParameter") instanceof Map<?, ?> p) {
 				_engine.setParameterJson((String) p.get("rule"), (String) p.get("parameter"), p.get("value"));
 			} else if (step.get("clockSync") instanceof Boolean sync) {
@@ -462,16 +611,24 @@ public class TestRuleCorpus extends TestCase {
 					return;
 				}
 				_image = image.get("rules");
+				if (image.get("schedules") instanceof List<?> schedules) {
+					// The new image's entries: their overrides are kept or dropped (spec/schedules.md 4.4).
+					_entries = schedules;
+					addScheduleDatapoints();
+					loadSchedules();
+				}
 				_engine.start(StartReason.IMAGE);
 			} else if (step.containsKey("reboot")) {
 				_engine.close();
 				loadModel(_image);
 				_engine = newEngine();
+				_scheduler = null;
 				Refusal refusal = _engine.load(_image, _directory);
 				if (refusal != null) {
 					_failures.add("reboot at " + at + ": load refused: " + refusal);
 					return;
 				}
+				loadSchedules();
 				_engine.start(StartReason.BOOT);
 			} else if (step.get("check") instanceof Map<?, ?> check) {
 				compareState(check, "check at " + at);
@@ -617,6 +774,9 @@ public class TestRuleCorpus extends TestCase {
 					}
 				}
 			}
+			if (expected.get("schedules") instanceof Map<?, ?> schedules) {
+				compareSchedules(schedules, where);
+			}
 			if (expected.get("persisted") instanceof Map<?, ?> persisted) {
 				Map<String, Val> stored = _store.overrides();
 				for (Map.Entry<?, ?> entry : persisted.entrySet()) {
@@ -634,6 +794,47 @@ public class TestRuleCorpus extends TestCase {
 					if (!persisted.containsKey(entry.getKey())) {
 						_failures.add(where + ": unexpected stored override " + entry.getKey() + " = " + entry.getValue());
 					}
+				}
+			}
+		}
+
+		private void compareSchedules(Map<?, ?> schedules, String where) {
+			for (Map.Entry<?, ?> entry : schedules.entrySet()) {
+				String id = (String) entry.getKey();
+				int index = _scheduler == null ? -1 : _scheduler.find(id);
+				if (index < 0) {
+					_failures.add(where + ": no schedule " + id);
+					continue;
+				}
+				Map<?, ?> want = (Map<?, ?>) entry.getValue();
+				Schedule spec = _scheduler.spec(index);
+				if (want.get("values") instanceof Map<?, ?> values) {
+					for (Map.Entry<?, ?> value : values.entrySet()) {
+						Member member = Member.fromName((String) value.getKey());
+						Long expectedValue = member.scalar(value.getValue());
+						long have = spec.memberValue(member);
+						if (expectedValue == null || have != expectedValue.longValue()) {
+							_failures.add(where + ": " + member.externalName() + " of schedule " + id + " is "
+								+ Json.write(member.json(have)) + ", expected " + Json.write(value.getValue()));
+						}
+					}
+				}
+				if (want.get("overridden") instanceof List<?> overridden) {
+					Set<String> have = new TreeSet<>();
+					for (Member member : Member.of(_scheduler.overridden(index))) {
+						have.add(member.externalName());
+					}
+					Set<String> expectedSet = new TreeSet<>();
+					for (Object name : overridden) {
+						expectedSet.add((String) name);
+					}
+					if (!have.equals(expectedSet)) {
+						_failures.add(where + ": overridden members of schedule " + id + " are " + have + ", expected "
+							+ expectedSet);
+					}
+				}
+				if (want.get("enabled") instanceof Boolean enabled && enabled.booleanValue() != _scheduler.enabled(index)) {
+					_failures.add(where + ": schedule " + id + " is " + (enabled.booleanValue() ? "off" : "on"));
 				}
 			}
 		}

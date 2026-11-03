@@ -355,6 +355,9 @@ public class FakeControllerLink implements WebSocket.Listener {
 				auth.put("mac", mac);
 				auth.put("version", "0.1.0-fake");
 				auth.put("build", "fake123");
+				if (_fake.getSchema() != null) {
+					auth.put("schema", _fake.getSchema());
+				}
 				String key = _fake.getKey();
 				if (key != null) {
 					auth.put("key", Signatures.fingerprint(key));

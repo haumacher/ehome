@@ -263,7 +263,8 @@ public class TestFunctionProposal extends BasicTestCase {
 			// labels of the proposed functions follow the languages the shared program has gained
 			// from the imports before this test (English in the full suite), so they are left out.
 			Map<?, ?> before61 = (Map<?, ?>) Json.parse(Files.readString(BEFORE_61.toPath(), StandardCharsets.UTF_8), 100);
-			// The header differs in its schema version only: 1.1 since the control pages (haumacher/ehome #72).
+			// The header differs in its schema version only: 1.1 since the control pages (haumacher/ehome #72),
+			// 1.2 since the adjustable schedules (haumacher/ehome #74).
 			Map<Object, Object> header = new LinkedHashMap<>((Map<?, ?>) before61.get("image"));
 			assertEquals("1.0", header.put("schemaVersion", RuntimeImage.SCHEMA_VERSION));
 			Map<Object, Object> previous = new LinkedHashMap<>(before61);

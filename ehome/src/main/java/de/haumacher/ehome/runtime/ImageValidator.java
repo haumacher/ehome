@@ -49,8 +49,8 @@ public final class ImageValidator {
 	/** The major version of the schema this validator reads. */
 	public static final int SCHEMA_MAJOR = 1;
 
-	/** The minor version of the schema this validator reads. */
-	public static final int SCHEMA_MINOR = 1;
+	/** The minor version of the schema this validator reads (1.2: the adjustable schedule members, homecontrol #58). */
+	public static final int SCHEMA_MINOR = 2;
 
 	/** The largest image in bytes. */
 	public static final int MAX_IMAGE_BYTES = 262144;
@@ -173,6 +173,9 @@ public final class ImageValidator {
 
 	/** The ids of the valid functions. */
 	private final Set<String> _functionIds = new HashSet<>();
+
+	/** The image's minor version when it is newer than this validator reads (same major), else 0. */
+	private int _newerMinor;
 
 	private ImageValidator() {
 		// Use validate().
@@ -333,7 +336,7 @@ public final class ImageValidator {
 		}
 		Schedule.Loaded loaded = Schedule.load(root.get("schedules"), directory());
 		for (Schedule.Refusal refusal : loaded.refusals()) {
-			_report.add(Kind.INVALID, refusal.path(), refusal.reason());
+			_report.add(Kind.INVALID, refusal.path(), strict(refusal.reason()));
 		}
 		for (Schedule entry : loaded.entries()) {
 			if (entry.output() != null) {
@@ -369,8 +372,20 @@ public final class ImageValidator {
 		} catch (LoadException ex) {
 			RuleLoader.Refusal refusal = ex.getRefusal();
 			_report.add(Kind.INVALID, refusal.path(),
-				"rule '" + refusal.rule() + "': " + refusal.error().externalName() + ": " + refusal.text());
+				strict("rule '" + refusal.rule() + "': " + refusal.error().externalName() + ": " + refusal.text()));
 		}
+	}
+
+	/**
+	 * The reason of a refusal of a rule or schedule entry: an unknown member of an image of a newer
+	 * minor version adds that the firmware is older than the image (spec/runtime-image.md I4).
+	 */
+	private String strict(String reason) {
+		if (_newerMinor == 0 || !reason.contains("malformed: unknown member")) {
+			return reason;
+		}
+		return reason + " (the image's schema " + SCHEMA_MAJOR + "." + _newerMinor
+			+ " is newer than this firmware reads, up to " + SCHEMA_MAJOR + "." + SCHEMA_MINOR + ": update the firmware)";
 	}
 
 	/**
@@ -437,6 +452,9 @@ public final class ImageValidator {
 					_report.add(Kind.VERSION, path(), "schemaVersion " + version + " is newer than this firmware reads ("
 						+ SCHEMA_MAJOR + ".x, up to " + SCHEMA_MAJOR + "." + SCHEMA_MINOR + "): update the firmware");
 					return false;
+				}
+				if (parsed[0] == SCHEMA_MAJOR && parsed[1] > SCHEMA_MINOR) {
+					_newerMinor = parsed[1];
 				}
 			} finally {
 				leave();
@@ -697,6 +715,14 @@ public final class ImageValidator {
 			_writable.add(Boolean.valueOf(datapoint.writable()));
 			_sends.add(null);
 		}
+		// The time datapoints of the schedules (spec/schedules.md 2.2), after the rule parameters'.
+		for (String id : Schedule.timeDatapointIds(root.get("schedules"))) {
+			_owners.add("the scheduler");
+			_ids.add(Schedule.timeDatapointName(id));
+			_types.add(ValueTypes.TIME_OF_DAY);
+			_writable.add(Boolean.TRUE);
+			_sends.add(null);
+		}
 		// Unique ids.
 		Map<String, Integer> first = new HashMap<>();
 		for (int i = 0; i < _ids.size(); i++) {
@@ -750,6 +776,10 @@ public final class ImageValidator {
 			} else if (id != null && id.startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX)) {
 				refuse("id '" + id + "': the prefix '" + RuleSet.PARAMETER_DATAPOINT_PREFIX
 					+ "' is reserved for the datapoints of rule parameters");
+				id = null;
+			} else if (id != null && id.startsWith(Schedule.DATAPOINT_PREFIX)) {
+				refuse("id '" + id + "': the prefix '" + Schedule.DATAPOINT_PREFIX
+					+ "' is reserved for the datapoints of the schedules");
 				id = null;
 			}
 			_ids.set(index, id);

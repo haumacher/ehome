@@ -582,6 +582,31 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey BINDING_RULE_PARAMETER;
 
 	/**
+	 * @en Schedule time
+	 */
+	public static ResKey BINDING_SCHEDULE_TIME;
+
+	/**
+	 * @en The controller reads the image schema up to {0}; this image is {1}: update the controller''s firmware first, or adjustable schedules are refused.
+	 */
+	public static ResKey2 CONFIRM_SCHEMA_OLDER__READS_IMAGE;
+
+	/**
+	 * @en The controller does not report which image schema it reads (a firmware before schema 1.2); this image is {0}: update the controller''s firmware first, or adjustable schedules are refused.
+	 */
+	public static ResKey1 CONFIRM_SCHEMA_UNKNOWN__IMAGE;
+
+	/**
+	 * @en Schedule entry {0}: a value of {1} the inhabitant set on the controller would be dropped, since {1} is no longer adjustable.
+	 */
+	public static ResKey2 COMPARE_OVERRIDE_NOT_ADJUSTABLE__ENTRY_MEMBER;
+
+	/**
+	 * @en Schedule entry {0}: a value of {1} the inhabitant set on the controller would be dropped if it does not fit the new bounds or step.
+	 */
+	public static ResKey2 COMPARE_OVERRIDE_NARROWED__ENTRY_MEMBER;
+
+	/**
 	 * @en Zigbee
 	 */
 	public static ResKey BINDING_ZIGBEE;

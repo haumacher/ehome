@@ -176,6 +176,8 @@ public final class ControllerConnection {
 
 	private volatile String _build;
 
+	private volatile String _schema;
+
 	private volatile Instant _since;
 
 	private volatile Map<String, Object> _status = Collections.emptyMap();
@@ -251,6 +253,15 @@ public final class ControllerConnection {
 	 */
 	public String build() {
 		return _build;
+	}
+
+	/**
+	 * The newest runtime image schema the controller's firmware reads (<code>schema</code> in its
+	 * <code>auth</code> or status, homecontrol <code>spec/api.md</code>), <code>null</code> when it
+	 * reports none (a firmware before schema 1.2).
+	 */
+	public String schema() {
+		return _schema;
 	}
 
 	/**
@@ -528,6 +539,7 @@ public final class ControllerConnection {
 		_installation = credentials.installation();
 		_version = text(message.get("version"));
 		_build = text(message.get("build"));
+		_schema = text(message.get("schema"));
 		_deviceKey = text(message.get("key"));
 		_since = Instant.now();
 		_state = State.READY;
@@ -567,6 +579,10 @@ public final class ControllerConnection {
 		if (message.get("device") instanceof Map<?, ?> device) {
 			String version = text(device.get("version"));
 			String build = text(device.get("build"));
+			String schema = text(device.get("schema"));
+			if (schema != null) {
+				_schema = schema;
+			}
 			boolean changed = false;
 			if (version != null && !version.equals(_version)) {
 				_version = version;

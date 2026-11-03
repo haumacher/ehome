@@ -1013,6 +1013,10 @@ public final class RuleLoader {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a rule parameter: no technology reads it");
 				}
+				if (name.startsWith(Schedule.DATAPOINT_PREFIX)) {
+					enter(".datapoint");
+					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a schedule's time: no technology reads it");
+				}
 				if (_schedules != null && (_schedules.ownsOutput(name) || !_schedules.technologyReads(name))) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' is bound to no technology that reads values");

@@ -29,10 +29,11 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.rules.RuleLoader;
+import de.haumacher.ehome.rules.Schedule;
 
 /**
  * The runtime image of a project: the JSON document a HomeControl controller runs
- * (homecontrol <code>spec/runtime-image.md</code>, schema 1.1), derived from the project.
+ * (homecontrol <code>spec/runtime-image.md</code>, schema 1.2), derived from the project.
  *
  * <p>
  * The mapping:
@@ -89,7 +90,7 @@ import de.haumacher.ehome.rules.RuleLoader;
 public final class RuntimeImage {
 
 	/** The version of the schema of the images E-Home writes. */
-	public static final String SCHEMA_VERSION = "1.1";
+	public static final String SCHEMA_VERSION = "1.2";
 
 	/** The content type of an image. */
 	public static final String CONTENT_TYPE = "application/json";
@@ -735,6 +736,9 @@ public final class RuntimeImage {
 		for (RuleLoader.ParameterDatapoint datapoint : RuleLoader.parameterDatapoints(_json.get("rules"))) {
 			parameters.add(datapoint.name());
 		}
+		for (String id : Schedule.timeDatapointIds(_json.get("schedules"))) {
+			parameters.add(Schedule.timeDatapointName(id));
+		}
 		PageExport export = new PageExport(new PageExport.Targets() {
 			@Override
 			public String functionId(TLObject function) {
@@ -743,7 +747,7 @@ public final class RuntimeImage {
 
 			@Override
 			public String datapointId(TLObject datapoint) {
-				if (Pages.isRuleParameter(datapoint)) {
+				if (Pages.isRuleParameter(datapoint) || Pages.isTimeSchedule(datapoint)) {
 					String id = Pages.imageId(datapoint);
 					return parameters.contains(id) ? id : null;
 				}

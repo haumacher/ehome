@@ -36,7 +36,9 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleText;
+import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.rules.Type;
+import de.haumacher.ehome.rules.ValueType;
 
 /**
  * The TL-Script functions of the rules and schedules of a project (haumacher/ehome #57): the summaries
@@ -611,6 +613,24 @@ public class RuleFunctions extends GenericMethod {
 			}
 			datapoint.put("binding", resources.getString(I18NConstants.BINDING_RULE_PARAMETER));
 			datapoint.put("parameter", Map.of("rule", parameter.rule(), "parameter", parameter.parameter()));
+			result.add(datapoint);
+		}
+		// The time datapoints of the schedule entries with an adjustable time (homecontrol #58): rules
+		// read, trigger on and write them.
+		List<Object> schedules = new RuleExport().schedules(project);
+		for (String id : Schedule.timeDatapointIds(schedules)) {
+			Map<String, Object> datapoint = new LinkedHashMap<>();
+			datapoint.put("id", Schedule.timeDatapointName(id));
+			for (TLObject entry : RuleExport.objects(project.tValueByName("schedules"))) {
+				if (id.equals(entry.tValueByName("identifier"))) {
+					datapoint.put("label", text(entry.tValueByName("label"), resources));
+					break;
+				}
+			}
+			datapoint.put("type", ValueType.TIME_OF_DAY.externalName());
+			datapoint.put("writable", Boolean.TRUE);
+			datapoint.put("binding", resources.getString(I18NConstants.BINDING_SCHEDULE_TIME));
+			datapoint.put("schedule", id);
 			result.add(datapoint);
 		}
 		return result;

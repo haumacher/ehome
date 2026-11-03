@@ -22,6 +22,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
+import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.runtime.Json.JsonException;
 
 /**
@@ -35,7 +36,9 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * stored bytes, there is nothing to deploy. Otherwise the comparison names the stored image's project
  * and revision, the numbers of datapoints, locations and functions of both, the parts of the image
  * (its top level members) that differ, and the rules and schedules of the stored image, which E-Home
- * does not author and a deployment removes.
+ * does not author and a deployment removes, and the inhabitant's schedule values the new image would
+ * drop (homecontrol #58). The confirmation of a deployment warns when the controller reads an older
+ * image schema than the image's.
  * </p>
  */
 public final class ImageComparison {
@@ -145,7 +148,144 @@ public final class ImageComparison {
 			lines.add(text(I18NConstants.COMPARE_RULES_REMOVED__RULES_SCHEDULES.fill(Integer.valueOf(rules),
 				Integer.valueOf(schedules))));
 		}
+		lines.addAll(droppedOverrides(stored.get("schedules"), image.getJson().get("schedules")));
 		return new Result(State.DIFFERENT, revision, String.join("\n", lines));
+	}
+
+	/**
+	 * What the inhabitant may have set on the controller that the image to deploy would drop
+	 * (homecontrol #58, <code>spec/schedules.md</code> 4.2): for each entry of the stored image that the
+	 * new image keeps, the adjustable members the new image no longer declares adjustable, and those
+	 * whose bounds or step no longer allow every value the stored image allowed. E-Home does not know
+	 * which values the inhabitant set, so it names what <i>would</i> be dropped. Entries the new image
+	 * no longer has are counted with the removed ones.
+	 */
+	public static List<String> droppedOverrides(Object stored, Object next) {
+		List<String> result = new ArrayList<>();
+		if (!(stored instanceof Collection<?> entries) || !(next instanceof Collection<?> nextEntries)) {
+			return result;
+		}
+		Map<Object, Map<?, ?>> byId = new HashMap<>();
+		for (Object entry : nextEntries) {
+			if (entry instanceof Map<?, ?> map) {
+				byId.putIfAbsent(map.get("id"), map);
+			}
+		}
+		for (Object item : entries) {
+			if (!(item instanceof Map<?, ?> before) || !(before.get("adjustable") instanceof Collection<?> adjustable)) {
+				continue;
+			}
+			Map<?, ?> after = byId.get(before.get("id"));
+			if (after == null) {
+				continue;
+			}
+			boolean sameKind = Objects.equals(before.get("kind"), after.get("kind"));
+			Collection<?> nowAdjustable = sameKind && after.get("adjustable") instanceof Collection<?> list ? list : List.of();
+			for (Object name : adjustable) {
+				Schedule.Member member = Schedule.Member.fromName(String.valueOf(name));
+				if (member == null) {
+					continue;
+				}
+				if (!nowAdjustable.contains(name)) {
+					result.add(text(I18NConstants.COMPARE_OVERRIDE_NOT_ADJUSTABLE__ENTRY_MEMBER.fill(before.get("id"), name)));
+				} else if (narrowed(member, bound(before, member), bound(after, member))) {
+					result.add(text(I18NConstants.COMPARE_OVERRIDE_NARROWED__ENTRY_MEMBER.fill(before.get("id"), name)));
+				}
+			}
+		}
+		return result;
+	}
+
+	/** The bounds of the member in an entry of an image, the member's whole range where it has none. */
+	private static Schedule.Bound bound(Map<?, ?> entry, Schedule.Member member) {
+		long min = member.rangeMin();
+		long max = member.rangeMax();
+		long step = 0;
+		if (entry.get("bounds") instanceof Map<?, ?> bounds && bounds.get(member.externalName()) instanceof Map<?, ?> bound) {
+			Long low = bound.containsKey("min") ? member.scalar(bound.get("min")) : null;
+			Long high = bound.containsKey("max") ? member.scalar(bound.get("max")) : null;
+			min = low != null ? low.longValue() : min;
+			max = high != null ? high.longValue() : max;
+			if (bound.get("step") instanceof Number n) {
+				step = member.isTime() ? n.longValue() : n.longValue() / 1000;
+			}
+		}
+		return new Schedule.Bound(member, min, max, step);
+	}
+
+	/** Whether a value the old bounds allow may not fit the new ones. */
+	private static boolean narrowed(Schedule.Member member, Schedule.Bound before, Schedule.Bound after) {
+		if (member == Schedule.Member.DAYS) {
+			return false;
+		}
+		long lowest = before.step() > 0 ? Math.ceilDiv(before.min(), before.step()) * before.step() : before.min();
+		long highest = before.step() > 0 ? Math.floorDiv(before.max(), before.step()) * before.step() : before.max();
+		if (after.min() > lowest || after.max() < highest) {
+			return true;
+		}
+		if (after.step() <= 0 || lowest == highest && lowest % after.step() == 0) {
+			return false;
+		}
+		return before.step() <= 0 || before.step() % after.step() != 0 || lowest % after.step() != 0;
+	}
+
+	/**
+	 * The line of the deploy confirmation that warns of a controller reading an older image schema than
+	 * the image's (homecontrol <code>spec/runtime-image.md</code> I4): its firmware refuses the
+	 * adjustable schedule members of schema 1.2. <code>null</code> when the controller reads the
+	 * image's schema, or could not be asked.
+	 *
+	 * @param reported
+	 *        The newest schema the controller reports it reads, <code>null</code> when it reports none.
+	 */
+	public static String schemaWarning(String reported) {
+		if (reported == null) {
+			return text(I18NConstants.CONFIRM_SCHEMA_UNKNOWN__IMAGE.fill(RuntimeImage.SCHEMA_VERSION));
+		}
+		int[] have = version(reported);
+		int[] need = version(RuntimeImage.SCHEMA_VERSION);
+		if (have != null && (have[0] > need[0] || have[0] == need[0] && have[1] >= need[1])) {
+			return null;
+		}
+		return text(I18NConstants.CONFIRM_SCHEMA_OLDER__READS_IMAGE.fill(reported, RuntimeImage.SCHEMA_VERSION));
+	}
+
+	private static int[] version(String text) {
+		String[] parts = text.trim().split("\\.");
+		if (parts.length != 2) {
+			return null;
+		}
+		try {
+			return new int[] { Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) };
+		} catch (NumberFormatException ex) {
+			return null;
+		}
+	}
+
+	/**
+	 * The newest image schema the controller of the project reports it reads: from its E-Home
+	 * connection (its <code>auth</code>), else from <code>GET /api/status</code>
+	 * (<code>device.schema</code>).
+	 *
+	 * @return The reported version; <code>""</code> when the controller could not be asked;
+	 *         <code>null</code> when it reports none.
+	 */
+	static String reportedSchema(TLObject controller) {
+		ControllerClient client = Deployer.client(controller);
+		if (client.connection() != null) {
+			return client.connection().schema();
+		}
+		try {
+			Answer answer = client.status();
+			if (!answer.ok()) {
+				return "";
+			}
+			Object device = answer.body() == null ? null : answer.body().get("device");
+			Object schema = device instanceof Map<?, ?> map ? map.get("schema") : null;
+			return schema instanceof String text && !text.isBlank() ? text : null;
+		} catch (IOException ex) {
+			return "";
+		}
 	}
 
 	/**
@@ -156,11 +296,21 @@ public final class ImageComparison {
 		TLObject controller = Deployer.controller(project);
 		Long next = Long.valueOf(Deployer.nextRevision(project));
 		Result result = compare(project, now);
+		String text;
 		if (result.state() == State.IDENTICAL) {
-			return result.text() + "\n" + text(I18NConstants.CONFIRM_DEPLOY_AGAIN__REVISION.fill(next));
+			text = result.text() + "\n" + text(I18NConstants.CONFIRM_DEPLOY_AGAIN__REVISION.fill(next));
+		} else {
+			text = text(I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(next, controller.tValueByName("name")))
+				+ "\n\n" + result.text();
 		}
-		return text(I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(next, controller.tValueByName("name")))
-			+ "\n\n" + result.text();
+		if (result.state() != State.UNKNOWN) {
+			String reported = reportedSchema(controller);
+			String warning = "".equals(reported) ? null : schemaWarning(reported);
+			if (warning != null) {
+				text += "\n\n" + warning;
+			}
+		}
+		return text;
 	}
 
 	/**

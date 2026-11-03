@@ -6,7 +6,9 @@ package de.haumacher.ehome.rules;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -71,6 +73,263 @@ public final class Schedule {
 		}
 	}
 
+	/** The prefix of the datapoints the schedules imply (<code>spec/schedules.md</code> 2.2). */
+	public static final String DATAPOINT_PREFIX = "schedule/";
+
+	/** The largest offset of an astro entry, in seconds. */
+	static final int MAX_OFFSET_S = 12 * 3600;
+
+	/** The local seconds since 1970 of the latest <code>at</code>, 2155-12-31 23:59:59. */
+	static final long MAX_AT = Values.daysOf(2155, 12, 31) * 86400 + 86399;
+
+	/**
+	 * The members of an entry the image may declare adjustable (<code>spec/schedules.md</code> 2.1,
+	 * homecontrol #58), in the order of the controller's <code>ScheduleMember</code>. A value of a
+	 * member is handled as its <i>scalar</i>: a time of day as seconds since midnight, the days as bits
+	 * (bit 0 Monday .. bit 6 Sunday), <code>offset</code> and <code>every</code> in seconds,
+	 * <code>at</code> as local seconds since 1970-01-01 00:00.
+	 */
+	public enum Member {
+		/** weekly, yearly, dates: the time. */
+		TIME("time"),
+		/** weekly, astro, interval: the days. */
+		DAYS("days"),
+		/** astro: the offset. */
+		OFFSET("offset"),
+		/** astro: the earliest firing. */
+		NOT_BEFORE("notBefore"),
+		/** astro: the latest firing. */
+		NOT_AFTER("notAfter"),
+		/** interval: the interval. */
+		EVERY("every"),
+		/** interval: the first firing of a day. */
+		FROM("from"),
+		/** interval: the latest firing of a day. */
+		UNTIL("until"),
+		/** once: the date and time. */
+		AT("at");
+
+		private final String _name;
+
+		Member(String name) {
+			_name = name;
+		}
+
+		/** The name in the image. */
+		public String externalName() {
+			return _name;
+		}
+
+		/** The bit of the member in a set of members. */
+		public int bit() {
+			return 1 << ordinal();
+		}
+
+		/** Whether the member is a time of day (time, notBefore, notAfter, from, until). */
+		public boolean isTime() {
+			return this == TIME || this == NOT_BEFORE || this == NOT_AFTER || this == FROM || this == UNTIL;
+		}
+
+		/** The member of the name, <code>null</code> for an unknown one. */
+		public static Member fromName(String name) {
+			for (Member member : values()) {
+				if (member._name.equals(name)) {
+					return member;
+				}
+			}
+			return null;
+		}
+
+		/** The members an entry of the kind may declare adjustable, as bits. */
+		public static int allowed(Kind kind) {
+			switch (kind) {
+				case WEEKLY:
+					return TIME.bit() | DAYS.bit();
+				case YEARLY:
+				case DATES:
+					return TIME.bit();
+				case ASTRO:
+					return OFFSET.bit() | NOT_BEFORE.bit() | NOT_AFTER.bit() | DAYS.bit();
+				case INTERVAL:
+					return EVERY.bit() | FROM.bit() | UNTIL.bit() | DAYS.bit();
+				case ONCE:
+					return AT.bit();
+				default:
+					return 0;
+			}
+		}
+
+		/** The members of the bits, in member order. */
+		public static List<Member> of(int bits) {
+			List<Member> result = new ArrayList<>();
+			for (Member member : values()) {
+				if ((bits & member.bit()) != 0) {
+					result.add(member);
+				}
+			}
+			return result;
+		}
+
+		/** The smallest scalar the member allows without bounds. */
+		public long rangeMin() {
+			return isTime() ? 0 : this == OFFSET ? -MAX_OFFSET_S : this == EVERY ? 60 : this == DAYS ? 1 : 0;
+		}
+
+		/** The largest scalar the member allows without bounds. */
+		public long rangeMax() {
+			return isTime() ? 86399 : this == OFFSET ? MAX_OFFSET_S : this == EVERY ? 43200 : this == DAYS ? ALL_DAYS : MAX_AT;
+		}
+
+		/** Whether the scalar is a value of the member at all (its range, before any bounds). */
+		public boolean inRange(long value) {
+			if (this == EVERY) {
+				return value >= 60 && value <= 720 * 60 && value % 60 == 0;
+			}
+			return value >= rangeMin() && value <= rangeMax();
+		}
+
+		/** The scalar of the member's value in its image form, <code>null</code> if it is none. */
+		public Long scalar(Object json) {
+			if (isTime()) {
+				if (json instanceof Map<?, ?> map && map.size() == 3 && whole(map.get("hour"), 0, 23)
+					&& whole(map.get("minute"), 0, 59) && whole(map.get("second"), 0, 59)) {
+					return Long.valueOf(number(map.get("hour")) * 3600 + number(map.get("minute")) * 60
+						+ number(map.get("second")));
+				}
+				return null;
+			}
+			switch (this) {
+				case DAYS: {
+					if (!(json instanceof List<?> list)) {
+						return null;
+					}
+					long days = 0;
+					for (Object item : list) {
+						if (!whole(item, 1, 7) || (days & (1L << (number(item) - 1))) != 0) {
+							return null;
+						}
+						days |= 1L << (number(item) - 1);
+					}
+					return days == 0 ? null : Long.valueOf(days);
+				}
+				case OFFSET:
+				case EVERY: {
+					long unit = this == EVERY ? 60000 : 1000;
+					if (!whole(json, Long.MIN_VALUE, Long.MAX_VALUE) || number(json) % unit != 0) {
+						return null;
+					}
+					long seconds = number(json) / 1000;
+					return inRange(seconds) ? Long.valueOf(seconds) : null;
+				}
+				case AT: {
+					if (!(json instanceof Map<?, ?> map) || map.size() != 6 || !whole(map.get("year"), 1970, 2155)
+						|| !whole(map.get("month"), 1, 12) || !whole(map.get("day"), 1, 31) || !whole(map.get("hour"), 0, 23)
+						|| !whole(map.get("minute"), 0, 59) || !whole(map.get("second"), 0, 59)
+						|| !Values.validDate(number(map.get("year")), (int) number(map.get("month")),
+							(int) number(map.get("day")))) {
+						return null;
+					}
+					return Long.valueOf(Values.daysOf(number(map.get("year")), (int) number(map.get("month")),
+						(int) number(map.get("day"))) * 86400 + number(map.get("hour")) * 3600
+						+ number(map.get("minute")) * 60 + number(map.get("second")));
+				}
+				default:
+					return null;
+			}
+		}
+
+		/** The image form of a scalar of the member. */
+		public Object json(long value) {
+			if (isTime()) {
+				return timeJson(value);
+			}
+			switch (this) {
+				case DAYS: {
+					List<Object> days = new ArrayList<>();
+					for (int day = 1; day <= 7; day++) {
+						if ((value & (1L << (day - 1))) != 0) {
+							days.add(Long.valueOf(day));
+						}
+					}
+					return days;
+				}
+				case OFFSET:
+				case EVERY:
+					return Long.valueOf(value * 1000);
+				default: {
+					Date date = Values.civilOf(Math.floorDiv(value, 86400L));
+					long rest = Math.floorMod(value, 86400L);
+					Map<String, Object> at = new LinkedHashMap<>();
+					at.put("year", Long.valueOf(date.year()));
+					at.put("month", Long.valueOf(date.month()));
+					at.put("day", Long.valueOf(date.day()));
+					at.put("hour", Long.valueOf(rest / 3600));
+					at.put("minute", Long.valueOf(rest % 3600 / 60));
+					at.put("second", Long.valueOf(rest % 60));
+					return at;
+				}
+			}
+		}
+
+		/** The value of the member for people: 06:30:00, 1,2,3, -1800 s, 15 min, 2026-12-31 23:59:30. */
+		public String format(long value) {
+			if (isTime()) {
+				return String.format(Locale.ROOT, "%02d:%02d:%02d", value / 3600, value % 3600 / 60, value % 60);
+			}
+			switch (this) {
+				case DAYS: {
+					StringBuilder text = new StringBuilder();
+					for (int day = 1; day <= 7; day++) {
+						if ((value & (1L << (day - 1))) != 0) {
+							text.append(text.length() > 0 ? "," : "").append(day);
+						}
+					}
+					return text.toString();
+				}
+				case OFFSET:
+					return String.format(Locale.ROOT, "%+d s", Long.valueOf(value));
+				case EVERY:
+					return value / 60 + " min";
+				default: {
+					Date date = Values.civilOf(Math.floorDiv(value, 86400L));
+					long rest = Math.floorMod(value, 86400L);
+					return String.format(Locale.ROOT, "%04d-%02d-%02d %02d:%02d:%02d", date.year(), date.month(),
+						date.day(), rest / 3600, rest % 3600 / 60, rest % 60);
+				}
+			}
+		}
+
+		private static boolean whole(Object value, long min, long max) {
+			return value instanceof Number number && Values.integral(number.doubleValue()) && number.doubleValue() >= min
+				&& number.doubleValue() <= max;
+		}
+
+		private static long number(Object value) {
+			return ((Number) value).longValue();
+		}
+	}
+
+	/** A time of day as its image form <code>{"hour", "minute", "second"}</code>. */
+	static Map<String, Object> timeJson(long seconds) {
+		Map<String, Object> time = new LinkedHashMap<>();
+		time.put("hour", Long.valueOf(seconds / 3600));
+		time.put("minute", Long.valueOf(seconds % 3600 / 60));
+		time.put("second", Long.valueOf(seconds % 60));
+		return time;
+	}
+
+	/**
+	 * The bounds of an adjustable member (<code>spec/schedules.md</code> 2.1) in the member's scalar
+	 * ({@link Member}), inclusive; <code>step</code> 0 for none.
+	 */
+	public record Bound(Member member, long min, long max, long step) {
+
+		/** Whether the scalar lies within the bounds and on the step. */
+		public boolean fits(long value) {
+			return value >= min && value <= max && (step <= 0 || value % step == 0);
+		}
+	}
+
 	String _id;
 
 	String _label;
@@ -113,6 +372,12 @@ public final class Schedule {
 
 	ClockTime _atTime;
 
+	/** The {@link Member} bits the inhabitant may change. */
+	int _adjustable;
+
+	/** The bounds of adjustable members, at most one per member. */
+	List<Bound> _bounds = List.of();
+
 	/** The id. */
 	public String id() {
 		return _id;
@@ -131,6 +396,225 @@ public final class Schedule {
 	/** The output datapoint, <code>null</code> for none. */
 	public String output() {
 		return _output;
+	}
+
+	/** The {@link Member} bits the image declares adjustable. */
+	public int adjustable() {
+		return _adjustable;
+	}
+
+	/** The bounds of the adjustable members. */
+	public List<Bound> bounds() {
+		return _bounds;
+	}
+
+	/** The bounds of the member, <code>null</code> for none. */
+	public Bound bound(Member member) {
+		for (Bound bound : _bounds) {
+			if (bound.member() == member) {
+				return bound;
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * Whether the entry implies the datapoint <code>schedule/&lt;id&gt;/time</code> (<code>spec/schedules.md</code>
+	 * 2.2): a weekly, yearly or dates entry whose time is adjustable.
+	 */
+	public boolean hasTimeDatapoint() {
+		return (_adjustable & Member.TIME.bit()) != 0
+			&& (_kind == Kind.WEEKLY || _kind == Kind.YEARLY || _kind == Kind.DATES);
+	}
+
+	/** The name of the datapoint mirroring the adjustable time of the entry with the id. */
+	public static String timeDatapointName(String id) {
+		return DATAPOINT_PREFIX + id + "/time";
+	}
+
+	/**
+	 * The ids of the entries of the member <code>schedules</code> whose adjustable time is a datapoint
+	 * (<code>spec/schedules.md</code> 2.2), in image order. Lenient (as the controller's
+	 * <code>schedule_time_ids</code>): an entry that is not well-formed, or whose id came before, is
+	 * skipped, since {@link #load(Object, Datapoints)} refuses it with the precise reason.
+	 */
+	public static List<String> timeDatapointIds(Object schedules) {
+		List<String> result = new ArrayList<>();
+		if (!(schedules instanceof List<?> list)) {
+			return result;
+		}
+		Set<Object> seen = new HashSet<>();
+		for (Object item : list) {
+			if (!(item instanceof Map<?, ?> map)) {
+				continue;
+			}
+			Object id = map.get("id");
+			boolean first = seen.add(id);
+			if (!first || !(id instanceof String text) || !RuleLoader.validRuleId(text)
+				|| !List.of("weekly", "yearly", "dates").contains(map.get("kind"))
+				|| !(map.get("adjustable") instanceof List<?> adjustable) || !adjustable.contains("time")) {
+				continue;
+			}
+			result.add(text);
+		}
+		return result;
+	}
+
+	/** The scalar of a member of the entry ({@link Member}). */
+	public long memberValue(Member member) {
+		switch (member) {
+			case TIME:
+				return _time.seconds();
+			case DAYS:
+				return _days;
+			case OFFSET:
+				return _offsetSeconds;
+			case NOT_BEFORE:
+				return _notBefore == null ? 0 : _notBefore.seconds();
+			case NOT_AFTER:
+				return _notAfter == null ? 0 : _notAfter.seconds();
+			case EVERY:
+				return _everyMinutes * 60L;
+			case FROM:
+				return _from == null ? 0 : _from.seconds();
+			case UNTIL:
+				return _until == null ? 0 : _until.seconds();
+			case AT:
+				return _atDate == null || _atTime == null ? 0 : _atDate.days() * 86400 + _atTime.seconds();
+			default:
+				return 0;
+		}
+	}
+
+	/** Sets a member of the entry from its scalar (no validation). */
+	void setMemberValue(Member member, long value) {
+		switch (member) {
+			case TIME:
+				_time = clockOf(value);
+				break;
+			case DAYS:
+				_days = (int) value;
+				break;
+			case OFFSET:
+				_offsetSeconds = (int) value;
+				break;
+			case NOT_BEFORE:
+				_notBefore = clockOf(value);
+				break;
+			case NOT_AFTER:
+				_notAfter = clockOf(value);
+				break;
+			case EVERY:
+				_everyMinutes = (int) (value / 60);
+				break;
+			case FROM:
+				_from = clockOf(value);
+				break;
+			case UNTIL:
+				_until = clockOf(value);
+				break;
+			case AT:
+				_atDate = Values.civilOf(Math.floorDiv(value, 86400L));
+				_atTime = clockOf(Math.floorMod(value, 86400L));
+				break;
+			default:
+				break;
+		}
+	}
+
+	private static ClockTime clockOf(long seconds) {
+		return new ClockTime((int) (seconds / 3600), (int) (seconds % 3600 / 60), (int) (seconds % 60));
+	}
+
+	/** A copy of the entry, whose members can be changed without changing this one. */
+	Schedule copy() {
+		Schedule copy = new Schedule();
+		copy._id = _id;
+		copy._label = _label;
+		copy._kind = _kind;
+		copy._enabled = _enabled;
+		copy._enabledAdjustable = _enabledAdjustable;
+		copy._catchUp = _catchUp;
+		copy._output = _output;
+		copy._days = _days;
+		copy._time = _time;
+		copy._month = _month;
+		copy._day = _day;
+		copy._dates = _dates;
+		copy._sun = _sun;
+		copy._offsetSeconds = _offsetSeconds;
+		copy._notBefore = _notBefore;
+		copy._notAfter = _notAfter;
+		copy._everyMinutes = _everyMinutes;
+		copy._from = _from;
+		copy._until = _until;
+		copy._atDate = _atDate;
+		copy._atTime = _atTime;
+		copy._adjustable = _adjustable;
+		copy._bounds = _bounds;
+		return copy;
+	}
+
+	/**
+	 * Checks the adjustable members and bounds of an entry whose other members are valid (the loader
+	 * and the {@link Scheduler} share it, as the controller's <code>schedule_adjustable_error</code>):
+	 * every adjustable member allowed for the kind, an adjustable clamp set in the image, bounds only
+	 * for adjustable members other than <code>days</code>, at most one per member, within the member's
+	 * range, <code>min &lt;= max</code>, a positive step (whole minutes for <code>every</code>, none for
+	 * <code>at</code>), and the image's own value within its bounds and on the step.
+	 *
+	 * @return <code>null</code> when valid, else the reason (without the reason code).
+	 */
+	public String adjustableError() {
+		int allowed = Member.allowed(_kind);
+		if ((_adjustable & ~allowed) != 0) {
+			return "adjustable names a member this kind cannot adjust";
+		}
+		if ((_adjustable & Member.NOT_BEFORE.bit()) != 0 && _notBefore == null) {
+			return "notBefore is adjustable, but the entry sets none";
+		}
+		if ((_adjustable & Member.NOT_AFTER.bit()) != 0 && _notAfter == null) {
+			return "notAfter is adjustable, but the entry sets none";
+		}
+		int seen = 0;
+		for (Bound b : _bounds) {
+			if ((b.member().bit() & allowed) == 0) {
+				return "bounds name a member this kind does not have";
+			}
+			if ((b.member().bit() & seen) != 0) {
+				return "bounds name a member twice";
+			}
+			seen |= b.member().bit();
+			if ((b.member().bit() & _adjustable) == 0) {
+				return "bounds name a member that is not adjustable";
+			}
+			if (b.member() == Member.DAYS) {
+				return "days take no bounds";
+			}
+			if (!b.member().inRange(b.min()) || !b.member().inRange(b.max())) {
+				return "a bound is not a value of its member";
+			}
+			if (b.min() > b.max()) {
+				return "a bound's min is greater than its max";
+			}
+			if (b.step() < 0 || (b.step() > 0 && b.member() == Member.AT)) {
+				return b.step() < 0 ? "a step must be positive" : "at takes no step";
+			}
+			if (b.step() > 0 && b.member() == Member.EVERY && b.step() % 60 != 0) {
+				return "the step of every must be a whole number of minutes";
+			}
+			if (b.step() > 0 && b.member().isTime() && b.step() > 86400) {
+				return "the step of a time is at most a day";
+			}
+			long value = memberValue(b.member());
+			if (value < b.min() || value > b.max()) {
+				return "the image's value lies outside its bounds";
+			}
+			if (b.step() > 0 && value % b.step() != 0) {
+				return "the image's value is not on its step";
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -492,6 +976,14 @@ public final class Schedule {
 				refuse("malformed: a schedule entry must be an object");
 				return;
 			}
+			int before = _refusals.size();
+			if (kindMembers(map, spec)) {
+				adjustable(map, spec, before);
+			}
+		}
+
+		/** The members of the entry but adjustable and bounds; whether its kind is known. */
+		private boolean kindMembers(Map<?, ?> map, Schedule spec) {
 			int mark = enter(".id");
 			if (!map.containsKey("id")) {
 				refuse("malformed: id is missing");
@@ -514,15 +1006,15 @@ public final class Schedule {
 			if (!map.containsKey("kind")) {
 				refuse("malformed: kind is missing");
 				leave(mark);
-				return;
+				return false;
 			}
 			String kind = string(map.get("kind"), 1, 15, "malformed: kind");
 			if (kind == null) {
 				leave(mark);
-				return;
+				return false;
 			}
-			Set<String> members = new HashSet<>(
-				Set.of("id", "label", "kind", "enabled", "enabledAdjustable", "missed", "output"));
+			Set<String> members = new HashSet<>(Set.of("id", "label", "kind", "enabled", "enabledAdjustable", "missed",
+				"output", "adjustable", "bounds"));
 			switch (kind) {
 				case "weekly" -> {
 					spec._kind = Kind.WEEKLY;
@@ -551,7 +1043,7 @@ public final class Schedule {
 				default -> {
 					refuse("malformed: unknown kind \"" + kind + "\" (weekly, yearly, dates, astro, interval, once)");
 					leave(mark);
-					return;
+					return false;
 				}
 			}
 			leave(mark);
@@ -645,6 +1137,169 @@ public final class Schedule {
 				}
 				default -> throw new IllegalStateException();
 			}
+			return true;
+		}
+
+		/** <code>adjustable</code> and <code>bounds</code> of an entry (homecontrol #58), after its kind members. */
+		private void adjustable(Map<?, ?> map, Schedule spec, int before) {
+			int allowed = Member.allowed(spec._kind);
+			String kind = spec._kind.externalName();
+			if (map.containsKey("adjustable")) {
+				int mark = enter(".adjustable");
+				try {
+					if (!(map.get("adjustable") instanceof List<?> list)) {
+						refuse("malformed: adjustable must be an array");
+						return;
+					}
+					for (int n = 0; n < list.size(); n++) {
+						int item = enter("[" + n + "]");
+						String name = string(list.get(n), 1, 15, "malformed: a member name");
+						if (name != null) {
+							Member member = Member.fromName(name);
+							if (member == null || (member.bit() & allowed) == 0) {
+								List<String> names = new ArrayList<>();
+								for (Member m : Member.of(allowed)) {
+									names.add(m.externalName());
+								}
+								refuse("malformed: '" + name + "' cannot be adjustable in a " + kind + " entry ("
+									+ String.join(", ", names) + ")");
+							} else if ((spec._adjustable & member.bit()) != 0) {
+								refuse("malformed: '" + name + "' is listed twice");
+							} else {
+								spec._adjustable |= member.bit();
+							}
+						}
+						leave(item);
+					}
+				} finally {
+					leave(mark);
+				}
+			}
+			if (map.containsKey("bounds")) {
+				int mark = enter(".bounds");
+				try {
+					if (!(map.get("bounds") instanceof Map<?, ?> bounds)) {
+						refuse("malformed: bounds must be an object");
+						return;
+					}
+					List<Bound> result = new ArrayList<>();
+					for (Map.Entry<?, ?> entry : bounds.entrySet()) {
+						String name = String.valueOf(entry.getKey());
+						int key = enter("." + name);
+						Bound bound = bound(spec, Member.fromName(name), name, entry.getValue());
+						if (bound != null) {
+							result.add(bound);
+						}
+						leave(key);
+					}
+					spec._bounds = List.copyOf(result);
+				} finally {
+					leave(mark);
+				}
+			}
+			if (_refusals.size() != before) {
+				// The entry's own refusals say enough.
+				return;
+			}
+			String error = spec.adjustableError();
+			if (error != null) {
+				int mark = enter(map.containsKey("bounds") ? ".bounds" : ".adjustable");
+				refuse("malformed: " + error);
+				leave(mark);
+			}
+		}
+
+		private Bound bound(Schedule spec, Member member, String name, Object value) {
+			if (member == null || (member.bit() & spec._adjustable) == 0) {
+				refuse("malformed: bounds for '" + name + "', which is not adjustable");
+				return null;
+			}
+			if (member == Member.DAYS) {
+				refuse("malformed: days take no bounds");
+				return null;
+			}
+			if (!(value instanceof Map<?, ?> map)) {
+				refuse("malformed: a bound must be an object");
+				return null;
+			}
+			if (!only(map, Set.of("min", "max", "step"))) {
+				return null;
+			}
+			// Absent: the member's whole range.
+			long[] min = { member.rangeMin() };
+			long[] max = { member.rangeMax() };
+			long step = 0;
+			boolean ok = true;
+			if (map.containsKey("min")) {
+				int mark = enter(".min");
+				ok = boundValue(map.get("min"), member, min, "min") && ok;
+				leave(mark);
+			}
+			if (map.containsKey("max")) {
+				int mark = enter(".max");
+				ok = boundValue(map.get("max"), member, max, "max") && ok;
+				leave(mark);
+			}
+			if (map.containsKey("step")) {
+				int mark = enter(".step");
+				if (member == Member.AT) {
+					refuse("malformed: at takes no step");
+					ok = false;
+				} else if (member.isTime()) {
+					Long seconds = integer(map.get("step"), 1, 86400, "malformed: step (seconds)");
+					ok = seconds != null && ok;
+					step = seconds == null ? 0 : seconds.longValue();
+				} else {
+					long unit = member == Member.EVERY ? 60000 : 1000;
+					Long ms = integer(map.get("step"), 1, 43200000, "malformed: step (milliseconds)");
+					if (ms == null) {
+						ok = false;
+					} else if (ms.longValue() % unit != 0) {
+						refuse("malformed: step must be a whole number of " + (unit == 60000 ? "minutes" : "seconds"));
+						ok = false;
+					} else {
+						step = ms.longValue() / 1000;
+					}
+				}
+				leave(mark);
+			}
+			if (ok && min[0] > max[0]) {
+				refuse("malformed: min is later than max");
+				ok = false;
+			}
+			return ok ? new Bound(member, min[0], max[0], step) : null;
+		}
+
+		/** One bound of a member as its scalar ({@link Member}). */
+		private boolean boundValue(Object value, Member member, long[] out, String what) {
+			if (member.isTime()) {
+				ClockTime time = clock(value, what);
+				if (time == null) {
+					return false;
+				}
+				out[0] = time.seconds();
+				return true;
+			}
+			if (member == Member.AT) {
+				Object[] at = date(value, true, what);
+				if (at == null) {
+					return false;
+				}
+				out[0] = ((Date) at[0]).days() * 86400 + ((ClockTime) at[1]).seconds();
+				return true;
+			}
+			long low = member == Member.OFFSET ? -43200000L : 60000L;
+			Long ms = integer(value, low, 43200000L, "malformed: " + what + " (milliseconds)");
+			if (ms == null) {
+				return false;
+			}
+			long unit = member == Member.EVERY ? 60000 : 1000;
+			if (ms.longValue() % unit != 0) {
+				refuse("malformed: " + what + " must be a whole number of " + (unit == 60000 ? "minutes" : "seconds"));
+				return false;
+			}
+			out[0] = ms.longValue() / 1000;
+			return true;
 		}
 
 		private boolean required(Map<?, ?> map, String name, String kind) {

@@ -1094,6 +1094,21 @@ public final class Engine implements DatapointModel.Listener {
 		}
 	}
 
+	/**
+	 * Runs the action with the updates of datapoints it causes being no events for the rules (they
+	 * are recorded as changes): what the schedules' time datapoints take at a load
+	 * (<code>spec/schedules.md</code> 2.2), like the parameter datapoints.
+	 */
+	public void quietly(Runnable action) {
+		boolean before = _quiet;
+		_quiet = true;
+		try {
+			action.run();
+		} finally {
+			_quiet = before;
+		}
+	}
+
 	// ---- Parameters as datapoints -----------------------------------------------------------
 
 	/**

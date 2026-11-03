@@ -682,6 +682,33 @@ public final class RuleImport {
 			}
 			result.tUpdateByName("dates", String.join(", ", dates));
 		}
+		// The adjustable members and their bounds (homecontrol #58).
+		for (Object member : list(json.get("adjustable"))) {
+			if (result.tType().getPart(member + "Adjustable") != null) {
+				result.tUpdateByName(member + "Adjustable", Boolean.TRUE);
+			}
+		}
+		if (json.get("bounds") instanceof Map<?, ?> bounds) {
+			for (Map.Entry<?, ?> entry : bounds.entrySet()) {
+				String member = String.valueOf(entry.getKey());
+				if (!(entry.getValue() instanceof Map<?, ?> bound) || result.tType().getPart(member + "Min") == null) {
+					continue;
+				}
+				Type valueType = member.equals("at") ? Type.DATE_TIME
+					: member.equals("offset") || member.equals("every") ? Type.DURATION : Type.TIME_OF_DAY;
+				for (String part : new String[] { "min", "max" }) {
+					if (bound.containsKey(part)) {
+						result.tUpdateByName(member + (part.equals("min") ? "Min" : "Max"),
+							RuleText.printValue(bound.get(part), valueType));
+					}
+				}
+				if (bound.get("step") instanceof Number step && result.tType().getPart(member + "Step") != null) {
+					// A step of a time is in seconds, of a duration in milliseconds.
+					long ms = valueType == Type.TIME_OF_DAY ? step.longValue() * 1000 : step.longValue();
+					result.tUpdateByName(member + "Step", RuleText.printValue(Long.valueOf(ms), Type.DURATION));
+				}
+			}
+		}
 		return result;
 	}
 

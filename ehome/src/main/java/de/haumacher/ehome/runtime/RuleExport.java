@@ -871,7 +871,103 @@ public final class RuleExport {
 			default:
 				break;
 		}
+		adjustable(result, entry, kind, path);
 		return result;
+	}
+
+	/** The members each kind may declare adjustable (spec/schedules.md 2.1), in the controller's member order. */
+	private static final Map<String, List<String>> ADJUSTABLE = Map.of(
+		"weekly", List.of("time", "days"),
+		"yearly", List.of("time"),
+		"dates", List.of("time"),
+		"astro", List.of("offset", "notBefore", "notAfter", "days"),
+		"interval", List.of("every", "from", "until", "days"),
+		"once", List.of("at"));
+
+	/**
+	 * The members <code>adjustable</code> and <code>bounds</code> of a schedule entry (homecontrol #58):
+	 * the members whose <code>&lt;member&gt;Adjustable</code> is set, and for each member with a bound
+	 * field (<code>&lt;member&gt;Min</code>, <code>Max</code>, <code>Step</code>) its bounds, a step of a
+	 * time in seconds, of a duration in milliseconds. A bound of a member that is not adjustable is
+	 * written too: the loader refuses it, shown at its field.
+	 */
+	private void adjustable(Map<String, Object> result, TLObject entry, String kind, String path) {
+		List<String> members = ADJUSTABLE.get(kind);
+		if (members == null) {
+			return;
+		}
+		List<Object> adjustable = new ArrayList<>();
+		String flagged = null;
+		String unsetClamp = null;
+		for (String member : members) {
+			if (flag(entry, member + "Adjustable", false)) {
+				source(path + ".adjustable[" + adjustable.size() + "]", entry, member + "Adjustable");
+				adjustable.add(member);
+				if (flagged == null) {
+					flagged = member + "Adjustable";
+				}
+				if (unsetClamp == null && (member.equals("notBefore") || member.equals("notAfter"))
+					&& text(entry, member) == null) {
+					unsetClamp = member + "Adjustable";
+				}
+			}
+		}
+		if (!adjustable.isEmpty()) {
+			source(path + ".adjustable", entry, unsetClamp != null ? unsetClamp : flagged);
+			result.put("adjustable", adjustable);
+		}
+		Map<String, Object> bounds = new LinkedHashMap<>();
+		String culprit = null;
+		for (String member : members) {
+			if (member.equals("days")) {
+				continue;
+			}
+			Type type = member.equals("at") ? Type.DATE_TIME
+				: member.equals("offset") || member.equals("every") ? Type.DURATION : Type.TIME_OF_DAY;
+			String at = path + ".bounds." + member;
+			Map<String, Object> bound = new LinkedHashMap<>();
+			put(bound, "min", value(entry, member + "Min", at + ".min", type));
+			put(bound, "max", value(entry, member + "Max", at + ".max", type));
+			if (!member.equals("at")) {
+				Object step = value(entry, member + "Step", at + ".step", Type.DURATION);
+				if (step instanceof Long ms && type == Type.TIME_OF_DAY) {
+					// A step of a time is in seconds; a fraction is refused by the loader.
+					step = ms.longValue() % 1000 == 0 ? (Object) Long.valueOf(ms.longValue() / 1000)
+						: (Object) Double.valueOf(ms.longValue() / 1000.0);
+				}
+				put(bound, "step", step);
+			}
+			if (bound.isEmpty()) {
+				continue;
+			}
+			source(at, entry, member + "Min");
+			bounds.put(member, bound);
+			if (culprit == null && !fits(member, result.get(member), bound)) {
+				culprit = member;
+			}
+		}
+		if (!bounds.isEmpty()) {
+			// A refusal of the bounds as a whole (the image's value outside them) is shown at the value.
+			source(path + ".bounds", entry, culprit != null ? culprit : bounds.keySet().iterator().next() + "Min");
+			result.put("bounds", bounds);
+		}
+	}
+
+	/** Whether the image's value of the member lies within the written bounds (as far as they can be read). */
+	private static boolean fits(String name, Object value, Map<String, Object> bound) {
+		Schedule.Member member = Schedule.Member.fromName(name);
+		Long scalar = member.scalar(value);
+		if (scalar == null) {
+			return true;
+		}
+		Long min = bound.containsKey("min") ? member.scalar(bound.get("min")) : Long.valueOf(member.rangeMin());
+		Long max = bound.containsKey("max") ? member.scalar(bound.get("max")) : Long.valueOf(member.rangeMax());
+		long step = 0;
+		if (bound.get("step") instanceof Long n) {
+			step = member.isTime() ? n.longValue() : n.longValue() / 1000;
+		}
+		return (min == null || scalar.longValue() >= min.longValue()) && (max == null || scalar.longValue() <= max.longValue())
+			&& (step <= 0 || scalar.longValue() % step == 0);
 	}
 
 	private static void put(Map<String, Object> result, String member, Object value) {

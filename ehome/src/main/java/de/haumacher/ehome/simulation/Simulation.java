@@ -382,6 +382,15 @@ public final class Simulation implements AutoCloseable {
 			_model.add(datapoint.name(), datapoint.type(), datapoint.writable(), null);
 			_owners.put(datapoint.name(), "the rule engine");
 		}
+		// The time datapoints of the schedule entries with an adjustable time (spec/schedules.md 2.2),
+		// after the rule parameters': the scheduler binds them when it loads the entries; a command to
+		// one is a change of the entry's time, an override for the rest of the run.
+		for (String id : Schedule.timeDatapointIds(image.get("schedules"))) {
+			String name = Schedule.timeDatapointName(id);
+			_model.add(name, ValueType.TIME_OF_DAY, true, null);
+			_owners.put(name, "the scheduler");
+		}
+		_scheduler.deferTimeReports(true);
 		_outputs.addAll(outputs);
 		if (image.get("external") instanceof Map<?, ?> external && external.get("sources") instanceof List<?> sources) {
 			for (Object source : sources) {
@@ -510,6 +519,8 @@ public final class Simulation implements AutoCloseable {
 		if (refusal != null) {
 			return refuse("rules refused: " + refusal);
 		}
+		// Taking the schedules' times at the load is no event for the rules.
+		_engine.quietly(_scheduler::publishTimes);
 		_started = true;
 		_nextMidnight = nextMidnight(_now);
 		add(Kind.CLOCK, "-", "started at " + timeText(_now));
@@ -983,6 +994,27 @@ public final class Simulation implements AutoCloseable {
 			settle();
 		}
 		return null;
+	}
+
+	/**
+	 * Changes adjustable members of a schedule entry as the controller's UI does (homecontrol #58):
+	 * the inhabitant's override for the rest of the run.
+	 *
+	 * @param values
+	 *        The scalars of the members ({@link Schedule.Member}).
+	 */
+	public synchronized Scheduler.Change setSchedule(String id, Map<Schedule.Member, Long> values) {
+		checkRunning();
+		Scheduler.Change result = _scheduler.setMembers(id, values);
+		settle();
+		return result;
+	}
+
+	/**
+	 * The scheduler of the simulation.
+	 */
+	public Scheduler scheduler() {
+		return _scheduler;
 	}
 
 	/**
