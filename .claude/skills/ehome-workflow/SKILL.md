@@ -1,6 +1,6 @@
 ---
 name: ehome-workflow
-description: The working method for developing E-Home — orchestrating sub-agents in the two TopLogic Maven modules (the app ehome/ and the development tooling ehome-virtual/), adversarial probe reviews, the verification gate (checkstyle plus the full test run), the run loop against the local app with browser checks, GitHub-issue triage, TopLogic-gap bookkeeping (Trac tickets and doc/tl-todo.md), the commit discipline, and the model/import doctrines. Load at the start of any session doing feature or bug work on this repository.
+description: The working method for developing E-Home and its HomeControl controller (both repositories are owned here) — orchestrating sub-agents in the two TopLogic Maven modules (the app ehome/ and the development tooling ehome-virtual/), adversarial probe reviews, the verification gate (checkstyle plus the full test run), the run loop against the local app with browser checks, GitHub-issue triage, TopLogic-gap bookkeeping (Trac tickets and doc/tl-todo.md), the commit discipline, and the model/import doctrines. Load at the start of any session doing feature or bug work on this repository.
 ---
 
 # The E-Home working method
@@ -11,6 +11,13 @@ never duplicates, `CLAUDE.md` (build facts, conventions, generated code, the TL 
 `doc/knx/schema-coverage.md` (which parts of the KNX project schema the model covers). Read all
 three first. The GitHub issue tracker at `haumacher/ehome` **is** the work queue (§1 and §8); there
 is no roadmap file — direction lives in issues and commit messages.
+
+**E-Home and the controller are one product with one owner.** The HomeControl firmware
+(`haumacher/homecontrol`, working copy `~/devel/homecontrol`, its own skill `homecontrol-workflow`
+and `CLAUDE.md`) is as much this session's responsibility as the app (§11). A defect on the
+controller's side is fixed, flashed and verified here; it is never reported as "the controller's
+side" and left waiting. Everything the two do together must be verifiable on the desk, in the
+local dev setup, without a public host or a public certificate (§11).
 
 ## 1. The operating loop
 
@@ -38,8 +45,10 @@ Work is a pipeline, not a pile:
 4. **Review with a novel probe** (§4). Non-negotiable.
 5. **Gate** (§5), **commit to master and push** (§6), **restart the app and check it** (§7),
    close the issue with the fixing commit plus a summary comment naming the regression test.
-6. **Before ever finishing: `gh issue list -R haumacher/ehome`.** Stop only when the issue list
-   holds nothing actionable. Anything you defer becomes an issue (or, for an engine gap, a TL
+6. **Before ever finishing: `gh issue list -R haumacher/ehome` and `gh issue list -R
+   haumacher/homecontrol`.** Stop only when neither list holds anything actionable. "Blocked on the
+   firmware" or "needs a public host" is not a reason to stop: fix the firmware, build the local
+   path (§11). Anything you defer becomes an issue (or, for an engine gap, a TL
    ticket plus a `doc/tl-todo.md` entry), so a crashed session loses nothing.
 
 Track packages with TaskCreate/TaskUpdate; keep statuses honest (in_progress on dispatch,
@@ -371,6 +380,10 @@ overrule a recorded decision, the reversal is documented in the issue, not litig
 questions with the mechanism, then the plan, then queue position. Run notices always include the
 commit hash and what to try.
 
+They own the controller as well and expect the same of the session: no finger pointing between
+the two projects, no lists of prerequisites they must supply. A gap in the dev setup (a missing
+local path, a firmware defect, a tool that needs a button pressed) is work to do, not a report.
+
 ## 10. Two agents at once — the worktree pattern
 
 Parallel packages work when, and only when, they are physically separated:
@@ -395,3 +408,53 @@ Parallel packages work when, and only when, they are physically separated:
   left off: <its last visible step, read from the transcript's last tool calls>" rather than
   re-dispatching. Make the stall monitor grep the transcript tail for "session limit" so the two
   cases are told apart.
+
+## 11. The controller — the second half of the product
+
+- **Where it lives.** `~/devel/homecontrol` (clone of `haumacher/homecontrol`; it expects E-Home at
+  `../ehome`). Before touching firmware, load its skill `homecontrol-workflow` and read its
+  `CLAUDE.md` — they own the build facts (ESP-IDF 5.5.6 at `~/tools/esp/esp-idf-v5.5`, `source
+  ~/tools/esp/esp-idf-v5.5/export.sh` in every call that uses it; the v5.3 in `~/tools/esp/esp-idf`
+  belongs to other projects; the host build with `ctest` as the fast
+  loop; `idf.py -B build-esp32c6 build`). Its gate, commit style and doctrines apply to its
+  commits; each repository gets its own commits, both are pushed to their `master`.
+- **A defect in a library the firmware uses is fixed by its version, not by a patch.** Never copy,
+  override or patch an ESP-IDF component or a managed component in the tree: find the upstream
+  release that fixes it and upgrade (as homecontrol#49 moved from IDF 5.3 to 5.5.6 for
+  `ws_poll_read`), with the reason as a ROADMAP decision; if no release has the fix, work around it
+  in the project's own code and report it upstream.
+- **The contract** between the two is `spec/api.md` of homecontrol (sections "E-Home connection",
+  "WebSocket /ws", "Signed runtime images") and `doc/controllers.md` here. A change of the contract
+  changes both in the same round, each side with its tests; a cross-project issue gets a sibling
+  issue in the other tracker, and both close together.
+- **The board on the desk.** Only the ESP32-C6 with MAC `E8:F6:0A:F8:83:EC`, resolved by id every
+  time: `readlink -f /dev/serial/by-id/*E8:F6:0A:F8:83:EC*`. Never flash the ESP32-S3 (another
+  project). It is `homecontrol-f883ec` in the WLAN (`avahi-browse -rtp _homecontrol._tcp` gives its
+  address), its KNX tunnel goes to the test system's router (memory `knx-test-system`).
+- **The serial console without a reset.** Open the port with DTR and RTS left as the driver sets
+  them (both asserted); lowering DTR while RTS is high resets the board (the USB-JTAG bridge's reset
+  condition). pyserial is in `~/.espressif/python_env/idf5.3_py3.12_env/bin/python`, not in the
+  system Python (the 5.3 environment has it; the 5.5 one as well). The console (`hc>`) has `ehome status`, `knx status`, `knx log`, `web token
+  create|list|revoke <name>`; a token is shown once — keep a development token in a file of mode
+  600 outside the repositories, never in a log or a commit.
+- **Flashing during development goes over the WLAN**, without the BOOT button: `POST
+  /api/system/update/upload` (bearer token) makes the device restart into its updater, which takes
+  the new application with `PUT /firmware` (`Authorization: Bearer <the upload token>`, raw
+  `homecontrol.bin`) and boots it (`spec/api.md`, `doc/ota.md`). Wait for the upload until
+  `GET /status` answers JSON with `updater` — before the restart the application answers the same
+  path with its UI page, and an upload sent then is lost together with its one-time token (the
+  updater then waits its 10 minutes and boots the old application). A whole cycle takes about a
+  minute; E-Home sees the controller reconnect with the new build in its log ("connected, firmware
+  <version> <build>"). esptool over USB needs BOOT held
+  during RESET by a person; it is the fallback for a board whose updater is broken.
+- **The end-to-end dev setup.** E-Home runs from the repository root on port 8080 and is reachable
+  in the LAN (`http://<this machine's WLAN address>:8080/ehome`); the controller is enrolled with a
+  code from the project's tab "Controller" through its `POST /api/ehome/enroll`. The dev path over
+  `http`/`ws` is what the firmware allows for development; the TLS path is verified locally too
+  (a local CA and a TLS proxy on this machine, a firmware that trusts the local CA), never by
+  waiting for a public host. Whatever the user would do in a browser on the device's Settings page,
+  the session does through the device's API.
+- **The paired state.** An enrolled device holds the project's installation key and refuses unsigned
+  images; only a new enrollment or the factory reset changes that. E-Home signs every image it
+  deploys; restoring a device image means deploying it from E-Home, not pushing it unsigned.
+
