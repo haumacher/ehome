@@ -24,6 +24,8 @@ case "$SUITE" in
 	stable|snapshot) ;;
 	*) echo "$0: unknown suite $SUITE (stable or snapshot)" >&2; exit 2 ;;
 esac
+# The package is copied after the script changed into the site.
+DEB=$(readlink -f "$DEB")
 URL=${APT_REPO_URL%/}
 KEEP=${APT_KEEP:-2}
 ARCHES="amd64 arm64 all"
