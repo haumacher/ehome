@@ -50,8 +50,12 @@ public final class ImageValidator {
 	/** The major version of the schema this validator reads. */
 	public static final int SCHEMA_MAJOR = 1;
 
-	/** The minor version of the schema this validator reads (1.2: the adjustable schedule members, homecontrol #58). */
-	public static final int SCHEMA_MINOR = 3;
+	/**
+	 * The minor version of the schema this validator reads (1.2: the adjustable schedule members,
+	 * homecontrol #58; 1.3: the blocks; 1.4: the enumeration press of a button with its
+	 * <code>presses</code>, the Zigbee remotes, haumacher/ehome #70).
+	 */
+	public static final int SCHEMA_MINOR = 4;
 
 	/** The largest image in bytes. */
 	public static final int MAX_IMAGE_BYTES = 262144;
@@ -1573,7 +1577,32 @@ public final class ImageValidator {
 	 * needs a writable datapoint and whether the function needs it.
 	 */
 	private record Role(String name, List<String> types, boolean writable, boolean required) {
-		// A record.
+
+		/**
+		 * The value types the role takes, for a refusal, as the controller's loader names them
+		 * (<code>role_types_text</code>).
+		 */
+		String typesText() {
+			if (types == null) {
+				return "any type";
+			}
+			if (types == PRESS) {
+				return "boolean, controlled or enumeration";
+			}
+			if (types == BOOL) {
+				return "boolean";
+			}
+			if (types == NUMBER) {
+				return "a number (unsigned, signed or real)";
+			}
+			if (types == ENUM_OR_NUMBER) {
+				return "enumeration or a number";
+			}
+			if (types == CONTROLLED) {
+				return "controlled";
+			}
+			return "a number, enumeration or controlled";
+		}
 	}
 
 	private static final List<String> BOOL = List.of(ValueTypes.BOOLEAN);
@@ -1581,13 +1610,29 @@ public final class ImageValidator {
 	private static final List<String> NUMBER = List.of(ValueTypes.UNSIGNED, ValueTypes.SIGNED, ValueTypes.REAL,
 		ValueTypes.ENUMERATION);
 
-	private static final List<String> ENUM_OR_NUMBER = NUMBER;
+	private static final List<String> ENUM_OR_NUMBER = List.of(ValueTypes.ENUMERATION, ValueTypes.UNSIGNED,
+		ValueTypes.SIGNED, ValueTypes.REAL);
+
+	private static final List<String> CONTROLLED = List.of(ValueTypes.CONTROLLED);
+
+	/** The press of a button: an enumeration (1.4) is a Zigbee remote's action, with presses. */
+	private static final List<String> PRESS = List.of(ValueTypes.BOOLEAN, ValueTypes.CONTROLLED,
+		ValueTypes.ENUMERATION);
+
+	/**
+	 * The kinds of press of a button's <code>presses</code> (spec/runtime-image.md 3.5, 1.4), in the
+	 * order the controller's loader reads them.
+	 */
+	public static final List<String> PRESS_KINDS = List.of("press", "on", "off", "up", "down", "release");
+
+	/** The largest element of a Zigbee action (5, dim stop; homecontrol doc/zigbee.md). */
+	public static final int MAX_ACTION_ELEMENT = 5;
 
 	private static final Map<String, List<Role>> FUNCTION_KINDS = Map.of(
 		"light", List.of(new Role("command", BOOL, true, true), new Role("state", BOOL, false, false)),
 		"dimmer", List.of(new Role("levelCommand", NUMBER, true, true), new Role("level", NUMBER, false, false),
 			new Role("command", BOOL, true, false), new Role("state", BOOL, false, false),
-			new Role("step", List.of(ValueTypes.CONTROLLED), true, false)),
+			new Role("step", CONTROLLED, true, false)),
 		"blind", List.of(new Role("move", BOOL, true, true), new Role("stop", BOOL, true, false),
 			new Role("position", NUMBER, false, false), new Role("positionCommand", NUMBER, true, false),
 			new Role("slat", NUMBER, false, false), new Role("slatCommand", NUMBER, true, false)),
@@ -1598,7 +1643,7 @@ public final class ImageValidator {
 			new Role("modeCommand", ENUM_OR_NUMBER, true, false), new Role("heating", BOOL, false, false)),
 		"scene", List.of(new Role("command", List.of(ValueTypes.UNSIGNED, ValueTypes.SIGNED, ValueTypes.REAL,
 			ValueTypes.ENUMERATION, ValueTypes.CONTROLLED), true, true)),
-		"button", List.of(new Role("press", List.of(ValueTypes.BOOLEAN, ValueTypes.CONTROLLED), false, true),
+		"button", List.of(new Role("press", PRESS, false, true),
 			new Role("state", BOOL, false, false)));
 
 	private void functions(Map<?, ?> root, Set<String> locations) {
@@ -1688,6 +1733,9 @@ public final class ImageValidator {
 		if (roles == null) {
 			return;
 		}
+		String pressName = null;
+		String pressType = null;
+		boolean action = false;
 		enter(".datapoints");
 		try {
 			if (!function.containsKey("datapoints")) {
@@ -1698,6 +1746,7 @@ public final class ImageValidator {
 				return;
 			}
 			Map<?, ?> refs = (Map<?, ?>) function.get("datapoints");
+			boolean button = "button".equals(kind);
 			for (Role role : roles) {
 				if (!refs.containsKey(role.name())) {
 					if (role.required()) {
@@ -1714,11 +1763,20 @@ public final class ImageValidator {
 					} else {
 						String type = _types.get(dp);
 						if (role.types() != null && !role.types().contains(type)) {
-							refuse("datapoint '" + name + "' is " + (type == null ? "none" : type)
-								+ ", which does not fit the role " + role.name() + " of a " + kind);
+							refuse("datapoint '" + name + "' is " + (type == null ? "none" : type) + ", but the role "
+								+ role.name() + " of a " + kind + " takes " + role.typesText());
 						}
 						if (role.writable() && !_writable.get(dp).booleanValue()) {
 							refuse("the role " + role.name() + " needs a writable datapoint; '" + name + "' is not");
+						}
+						if (button && "press".equals(role.name())) {
+							pressType = type;
+							pressName = name;
+							action = zigbeeAction(dp);
+							if (ValueTypes.ENUMERATION.equals(type) && !action) {
+								refuse("an enumeration press needs a Zigbee action datapoint (a client binding), whose "
+									+ "elements are known; '" + name + "' is not one");
+							}
 						}
 					}
 				}
@@ -1726,6 +1784,113 @@ public final class ImageValidator {
 			}
 		} finally {
 			leave();
+		}
+		if (pressName != null) {
+			presses(function, pressName, pressType, action);
+		}
+	}
+
+	/**
+	 * Whether the datapoint of the index is bound to a Zigbee client cluster (the action of a remote,
+	 * homecontrol <code>zigbee_action</code>), whose elements are 0..{@value #MAX_ACTION_ELEMENT}.
+	 */
+	private boolean zigbeeAction(int index) {
+		for (ZigbeeDraft draft : _zigbee) {
+			if (draft.index() == index && ZigbeeFunctionTable.ACTION.equals(draft.function())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The member <code>presses</code> of a button (spec/runtime-image.md 3.5, 1.4; homecontrol
+	 * <code>parse_presses</code>): required for an enumeration press, refused for another; strict
+	 * inside.
+	 *
+	 * @param action
+	 *        Whether the press is a Zigbee action, whose elements the elements must be; an enumeration
+	 *        press that is none was refused at its role.
+	 */
+	private void presses(Map<?, ?> function, String press, String type, boolean action) {
+		boolean has = function.containsKey("presses");
+		Object value = function.get("presses");
+		enter(".presses");
+		try {
+			if (!ValueTypes.ENUMERATION.equals(type)) {
+				if (has) {
+					refuse("presses is only for an enumeration press; '" + press + "' is " + (type == null ? "none" : type));
+				}
+				return;
+			}
+			if (!has) {
+				refuse("a button with an enumeration press needs presses (which elements are which press)");
+				return;
+			}
+			if (!(value instanceof Map<?, ?> presses)) {
+				refuse("malformed: presses must be an object of press kinds (press, on, off, up, down, release) to "
+					+ "arrays of elements");
+				return;
+			}
+			boolean known = true;
+			for (Object member : presses.keySet()) {
+				String name = String.valueOf(member);
+				if (!PRESS_KINDS.contains(name) && !"description".equals(name) && !"comment".equals(name)) {
+					refuse(strict("malformed: unknown member '" + name + "'"));
+					known = false;
+				}
+			}
+			if (!known) {
+				return;
+			}
+			Map<Long, String> owners = new HashMap<>();
+			int named = 0;
+			for (String kind : PRESS_KINDS) {
+				if (!presses.containsKey(kind)) {
+					continue;
+				}
+				named++;
+				enter("." + kind);
+				try {
+					if (!(presses.get(kind) instanceof List<?> elements) || elements.isEmpty()) {
+						refuse("malformed: " + kind + " must be a non-empty array of elements");
+						continue;
+					}
+					for (int k = 0; k < elements.size(); k++) {
+						enter("[" + k + "]");
+						element(elements.get(k), kind, press, action, owners);
+						leave();
+					}
+				} finally {
+					leave();
+				}
+			}
+			if (named == 0) {
+				refuse("presses names no press");
+			}
+		} finally {
+			leave();
+		}
+	}
+
+	private void element(Object element, String kind, String press, boolean action, Map<Long, String> owners) {
+		if (!(element instanceof Number number) || Math.floor(number.doubleValue()) != number.doubleValue()) {
+			refuse("malformed: an element must be an integer");
+			return;
+		}
+		if (!action) {
+			return;
+		}
+		double value = number.doubleValue();
+		if (value < 0 || value > MAX_ACTION_ELEMENT) {
+			refuse("element " + String.format(Locale.ROOT, "%.0f", Double.valueOf(value)) + " is no element of '" + press
+				+ "' (a Zigbee action: 0.." + MAX_ACTION_ELEMENT + ")");
+			return;
+		}
+		Long e = Long.valueOf((long) value);
+		String owner = owners.putIfAbsent(e, kind);
+		if (owner != null) {
+			refuse("element " + e + " is a press of " + owner + " already");
 		}
 	}
 

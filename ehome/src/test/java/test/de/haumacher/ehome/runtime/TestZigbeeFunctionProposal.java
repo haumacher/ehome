@@ -57,8 +57,9 @@ import de.haumacher.ehome.zigbee.ZigbeeImport;
  * device's room, keyed by IEEE address, endpoint and function; the KNX proposals are the ones without
  * the sensor. A dismissed one stays dismissed across runs and a new import of the export.</li>
  * <li>Devices of an export written here: on/off with level on one endpoint is a dimmer, on/off alone
- * a switch, a light where the catalog type is named for one; an action, an unbound function and an
- * on/off datapoint that is not writable give nothing. The image with the functions is valid.</li>
+ * a switch, a light where the catalog type is named for one, an action a button (haumacher/ehome #70,
+ * {@link TestZigbeeRemoteProposal}); an unbound function and an on/off datapoint that is not writable
+ * give nothing. The image with the functions is valid.</li>
  * </ul>
  */
 @SuppressWarnings("javadoc")
@@ -196,7 +197,9 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 
 			List<Proposal> proposals = FunctionProposal.propose(project);
 			assertEquals(List.of("dimmer zigbee:00000000000000a1:11:on_off", "switch zigbee:00000000000000a2:1:on_off",
-				"light zigbee:00000000000000a3:1:on_off"), summary(proposals));
+				"light zigbee:00000000000000a3:1:on_off", "button zigbee:00000000000000a4:1:action"), summary(proposals));
+			assertEquals(Map.of("press", datapoint(project, "action", 1, "Taster")), proposals.get(3).roles());
+			assertEquals(Map.of("de", "Taster", "en", "Taster"), proposals.get(3).label());
 			Proposal dimmer = proposals.get(0);
 			TLObject onOff = datapoint(project, "on_off", 11);
 			TLObject level = datapoint(project, "level", 11);
@@ -213,14 +216,14 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 			// Applied without a room (the devices have none); a datapoint used by a function is not
 			// proposed again.
 			List<TLObject> added = apply(project);
-			assertEquals(3, added.size());
+			assertEquals(4, added.size());
 			for (TLObject function : added) {
 				assertNull(function.tValueByName("room"));
 			}
 			// The controller takes them: the command roles are writable, the types fit.
 			ImageReport report = RuntimeImage.build(project, 1, Instant.parse("2026-11-03T12:00:00Z")).validate();
 			assertTrue(report.toString(), report.isValid());
-			assertEquals(3, ((List<?>) RuntimeImage.build(project, 1, Instant.parse("2026-11-03T12:00:00Z"))
+			assertEquals(4, ((List<?>) RuntimeImage.build(project, 1, Instant.parse("2026-11-03T12:00:00Z"))
 				.getJson().get("functions")).size());
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				added.get(1).tUpdateByName("channel", null);
@@ -237,8 +240,8 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 				level.tUpdateByName("writable", Boolean.FALSE);
 				tx.commit();
 			}
-			assertEquals(List.of("switch zigbee:00000000000000a1:11:on_off", "light zigbee:00000000000000a3:1:on_off"),
-				summary(FunctionProposal.propose(project)));
+			assertEquals(List.of("switch zigbee:00000000000000a1:11:on_off", "light zigbee:00000000000000a3:1:on_off",
+				"button zigbee:00000000000000a4:1:action"), summary(FunctionProposal.propose(project)));
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 			if (lightType != null) {

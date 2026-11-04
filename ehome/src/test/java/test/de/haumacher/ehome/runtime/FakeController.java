@@ -81,7 +81,7 @@ public class FakeController {
 
 	private int _nextStatus;
 
-	private String _schema = "1.3";
+	private String _schema = "1.4";
 
 	private Map<String, Object> _nextBody;
 

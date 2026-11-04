@@ -34,6 +34,7 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.ControllerStatus;
 import de.haumacher.ehome.runtime.Deployer;
+import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.RuntimeImage;
@@ -266,6 +267,65 @@ public class TestDeployment extends BasicTestCase {
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 			SharedData.deleteProjects(controllers);
+		}
+	}
+
+	/**
+	 * An image with a Zigbee remote as a button (an enumeration press with its presses, homecontrol
+	 * spec/runtime-image.md 3.5, haumacher/ehome #70) goes only to a controller that reads schema 1.4:
+	 * refused, recorded with its reason and not sent, for a controller reporting 1.3 and for one
+	 * reporting no schema; accepted for 1.4. Without the button the image still goes to 1.3.
+	 */
+	public void testPressesNeedSchema14() throws Exception {
+		TLObject project = TestRuleAuthoring.createProject();
+		List<TLObject> types = TestZigbeeRemoteProposal.createRemote(project);
+		List<TLObject> controllers = new ArrayList<>();
+		try {
+			TestFunctionProposal.apply(project);
+			TLObject remote = FunctionProposal.functions(project).stream()
+				.filter(f -> TestZigbeeRemoteProposal.REMOTE_CHANNEL.equals(f.tValueByName("channel"))).findFirst()
+				.orElseThrow();
+			TLObject controller = controller("Fake 1.3", _fake.getPort(), TOKEN);
+			controllers.add(controller);
+			update(project, "controller", controller);
+
+			_fake.setSchema("1.3");
+			int puts = _fake.getPuts();
+			TLObject refused = Deployer.deploy(project, NOW);
+			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED_PRESSES_SCHEMA__CONTROLLER_SCHEMA.fill("Fake 1.3", "1.3")),
+				refused.tValueByName("message"));
+			assertEquals("Nothing is sent.", puts, _fake.getPuts());
+			assertNull(project.tValueByName("imageRevision"));
+
+			_fake.setSchema(null);
+			refused = Deployer.deploy(project, NOW);
+			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED_PRESSES_NO_SCHEMA__CONTROLLER.fill("Fake 1.3")),
+				refused.tValueByName("message"));
+			assertEquals(puts, _fake.getPuts());
+
+			_fake.setSchema("1.4");
+			assertAccepted(Deployer.deploy(project, NOW), 1);
+			assertEquals(puts + 1, _fake.getPuts());
+
+			// Without the remote's button the image goes to an older controller as before.
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				remote.tDelete();
+				tx.commit();
+			}
+			_fake.setSchema("1.3");
+			assertAccepted(Deployer.deploy(project, NOW), 2);
+			assertNull(Deployer.pressesRefusal("1.4", "x"));
+			assertNull(Deployer.pressesRefusal("2.0", "x"));
+			assertNull(Deployer.pressesRefusal("1.12", "x"));
+			assertNotNull(Deployer.pressesRefusal("1.3", "x"));
+			assertNotNull(Deployer.pressesRefusal("", "x"));
+		} finally {
+			_fake.setSchema("1.3");
+			SharedData.deleteProjects(List.of(project));
+			SharedData.deleteProjects(controllers);
+			TestZigbeeRemoteProposal.delete(types);
 		}
 	}
 

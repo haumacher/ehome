@@ -877,6 +877,16 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER;
 
 	/**
+	 * @en Not deployed: the image has Zigbee remotes as buttons, which need image schema 1.4; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey2 DEPLOY_REFUSED_PRESSES_SCHEMA__CONTROLLER_SCHEMA;
+
+	/**
+	 * @en Not deployed: the image has Zigbee remotes as buttons, which need image schema 1.4; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey1 DEPLOY_REFUSED_PRESSES_NO_SCHEMA__CONTROLLER;
+
+	/**
 	 * @en {0} (deleted)
 	 */
 	public static ResKey1 BLOCK_BINDING_GONE__ID;

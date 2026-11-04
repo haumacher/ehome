@@ -118,7 +118,7 @@ public class TestRuntimeImage extends BasicTestCase {
 
 			Map<String, Object> json = image.getJson();
 			Map<?, ?> info = (Map<?, ?>) json.get("image");
-			assertEquals("1.3", info.get("schemaVersion"));
+			assertEquals("1.4", info.get("schemaVersion"));
 			assertEquals("P-0563", info.get("projectId"));
 			assertEquals(Long.valueOf(7), info.get("revision"));
 			assertEquals("2026-10-18T12:00:00Z", info.get("generatedAt"));

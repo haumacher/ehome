@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -90,7 +91,25 @@ import de.haumacher.ehome.rules.Schedule;
 public final class RuntimeImage {
 
 	/** The version of the schema of the images E-Home writes. */
-	public static final String SCHEMA_VERSION = "1.3";
+	public static final String SCHEMA_VERSION = "1.4";
+
+	/**
+	 * The <code>presses</code> E-Home writes for a button whose press is the action of a Zigbee remote
+	 * (homecontrol <code>spec/runtime-image.md</code> 3.5, 1.4; haumacher/ehome #70): the toggle a press,
+	 * on and off, dim up and down, the dim stop a release.
+	 */
+	public static final Map<String, List<Long>> ACTION_PRESSES = actionPresses();
+
+	private static Map<String, List<Long>> actionPresses() {
+		Map<String, List<Long>> result = new LinkedHashMap<>();
+		result.put("press", List.of(Long.valueOf(2)));
+		result.put("on", List.of(Long.valueOf(1)));
+		result.put("off", List.of(Long.valueOf(0)));
+		result.put("up", List.of(Long.valueOf(3)));
+		result.put("down", List.of(Long.valueOf(4)));
+		result.put("release", List.of(Long.valueOf(5)));
+		return Collections.unmodifiableMap(result);
+	}
 
 	/** The content type of an image. */
 	public static final String CONTENT_TYPE = "application/json";
@@ -669,12 +688,32 @@ public final class RuntimeImage {
 			if ("scene".equals(kind) && function.tValueByName("scene") instanceof Number scene) {
 				entry.put("scene", Long.valueOf(scene.longValue()));
 			}
+			if ("button".equals(kind) && zigbeeAction(roles.get("press"))) {
+				entry.put("presses", ACTION_PRESSES);
+			}
 			entry.put("datapoints", roles);
 			result.add(entry);
 			_functionSources.add(function);
 			_functionIds.put(function, (String) entry.get("id"));
 		}
 		_json.put("functions", result);
+	}
+
+	/**
+	 * Whether the datapoint of the image with the id is an enumeration bound to a Zigbee client cluster
+	 * (the action of a remote), the press of a button with {@link #ACTION_PRESSES}.
+	 */
+	private boolean zigbeeAction(Object id) {
+		if (id == null || !(_json.get("datapoints") instanceof List<?> datapoints)) {
+			return false;
+		}
+		for (Object item : datapoints) {
+			if (item instanceof Map<?, ?> datapoint && id.equals(datapoint.get("id"))) {
+				return ValueTypes.ENUMERATION.equals(datapoint.get("type"))
+					&& datapoint.get("zigbee") instanceof Map<?, ?> zigbee && Boolean.TRUE.equals(zigbee.get("client"));
+			}
+		}
+		return false;
 	}
 
 	/**

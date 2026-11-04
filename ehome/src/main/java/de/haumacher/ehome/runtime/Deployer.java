@@ -200,6 +200,11 @@ public final class Deployer {
 			// An older firmware would ignore the blocks and run none (homecontrol spec/blocks.md B1): nothing is sent.
 			outcome._code = CODE_SCHEMA;
 			outcome._message = text(blocksRefusal(image, controller));
+		} else if (pressesRefusal(image, controller) != null) {
+			// An older firmware refuses an enumeration press, so the whole image (homecontrol
+			// spec/runtime-image.md 3.5, 1.4): nothing is sent.
+			outcome._code = CODE_SCHEMA;
+			outcome._message = text(pressesRefusal(image, controller));
 		} else {
 			outcome._before = ControllerStatus.describe(client);
 			Keys signer = InstallationKeys.signer(project, controller);
@@ -235,20 +240,61 @@ public final class Deployer {
 	 * empty: none), <code>null</code> when it reads blocks.
 	 */
 	public static ResKey blocksRefusal(String reported, Object controller) {
+		Boolean reads = reads(reported, BLOCKS_SCHEMA);
+		if (reads == null) {
+			return I18NConstants.DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER.fill(controller);
+		}
+		return reads.booleanValue() ? null
+			: I18NConstants.DEPLOY_REFUSED_BLOCKS_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
+	}
+
+	/** The schema that brings the enumeration press of a button (homecontrol spec/runtime-image.md 3.5). */
+	static final int[] PRESSES_SCHEMA = { 1, 4 };
+
+	/**
+	 * Why the image cannot go to the controller (homecontrol <code>spec/runtime-image.md</code> 3.5,
+	 * haumacher/ehome #70): an image with a button whose press is an enumeration (a Zigbee remote, the
+	 * function's <code>presses</code>) needs a controller that reports schema 1.4 or newer, since an
+	 * older one refuses the whole image. <code>null</code> for an image without one or a controller
+	 * that reads it.
+	 */
+	static ResKey pressesRefusal(RuntimeImage image, TLObject controller) {
+		if (!(image.getJson().get("functions") instanceof List<?> functions)
+			|| functions.stream().noneMatch(f -> f instanceof Map<?, ?> map && map.containsKey("presses"))) {
+			return null;
+		}
+		return pressesRefusal(ImageComparison.reportedSchema(controller), controller.tValueByName("name"));
+	}
+
+	/**
+	 * Why an image with an enumeration press cannot go to a controller reporting the schema
+	 * (<code>null</code> or empty: none), <code>null</code> when it reads it.
+	 */
+	public static ResKey pressesRefusal(String reported, Object controller) {
+		Boolean reads = reads(reported, PRESSES_SCHEMA);
+		if (reads == null) {
+			return I18NConstants.DEPLOY_REFUSED_PRESSES_NO_SCHEMA__CONTROLLER.fill(controller);
+		}
+		return reads.booleanValue() ? null
+			: I18NConstants.DEPLOY_REFUSED_PRESSES_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
+	}
+
+	/**
+	 * Whether the reported schema (<code>major.minor</code>) is the given one or newer;
+	 * <code>null</code> when none is reported or it is no version.
+	 */
+	private static Boolean reads(String reported, int[] schema) {
 		String[] parts = reported == null ? new String[0] : reported.trim().split("\\.");
 		if (parts.length != 2) {
-			return I18NConstants.DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER.fill(controller);
+			return null;
 		}
 		try {
 			int major = Integer.parseInt(parts[0]);
 			int minor = Integer.parseInt(parts[1]);
-			if (major > BLOCKS_SCHEMA[0] || (major == BLOCKS_SCHEMA[0] && minor >= BLOCKS_SCHEMA[1])) {
-				return null;
-			}
+			return Boolean.valueOf(major > schema[0] || (major == schema[0] && minor >= schema[1]));
 		} catch (NumberFormatException ex) {
-			return I18NConstants.DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER.fill(controller);
+			return null;
 		}
-		return I18NConstants.DEPLOY_REFUSED_BLOCKS_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
 	}
 
 	/**

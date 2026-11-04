@@ -48,6 +48,7 @@ import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
 import de.haumacher.ehome.zigbee.ZigbeeCatalog;
+import de.haumacher.ehome.zigbee.ZigbeeFunctionTable;
 import de.haumacher.ehome.zigbee.ZigbeeImport;
 import de.haumacher.ehome.zigbee.ZigbeeStatus;
 
@@ -144,10 +145,13 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * gives a <code>dimmer</code> (the level datapoint as level command and level, the on/off datapoint as
  * command and state). A command role needs a writable datapoint, as the controller says: an on/off
  * datapoint that is not writable gives no function, a level datapoint that is not writable no dimmer.
- * The function <code>action</code> gives no <code>button</code>: its datapoint is an enumeration (off,
- * on, toggle, dim up, ...), and a button's press is a truth value or a controlled value
- * (homecontrol <code>spec/runtime-image.md</code> 3.5). Only datapoints the project has bound are
- * proposed; nothing is created for an unbound Zigbee function.
+ * The function <code>action</code> of a remote gives a <code>button</code> named for the device, its
+ * enumeration datapoint (off, on, toggle, dim up, dim down, dim stop) as the press, which the image
+ * gives the remote's <code>presses</code> (homecontrol <code>spec/runtime-image.md</code> 3.5, schema
+ * 1.4; haumacher/ehome #70); not where the device's type in the catalog hides the action (the
+ * controller endpoint of a Hue motion sensor is no button), and not for a datapoint of another type.
+ * Only datapoints the project has bound are proposed; nothing is created for an unbound Zigbee
+ * function.
  * </p>
  *
  * <p>
@@ -639,8 +643,17 @@ public final class FunctionProposal {
 					}
 					roles.put("command", datapoint);
 					roles.put("state", datapoint);
+				} else if (ZigbeeFunctionTable.ACTION.equals(key)
+					&& ValueTypes.ENUMERATION.equals(ApplicationDatapoints.valueType(datapoint))
+					&& !ZigbeeCatalog.hidden(function)) {
+					// A remote (haumacher/ehome #70): its action is the press of a button, named for the
+					// device as a dimmer is; the image gives it its presses (RuntimeImage.ACTION_PRESSES).
+					kind = "button";
+					named = null;
+					roles.put("press", datapoint);
 				} else {
-					// The level of a dimmer, an action (no truth value), another key: no function.
+					// The level of a dimmer, an action the catalog hides or of another type, another key:
+					// no function.
 					continue;
 				}
 				result.add(new Proposal(kind, zigbeeLabel(device, named, shared ? endpoint.getKey() : null), roles, device,

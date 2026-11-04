@@ -265,7 +265,7 @@ public class TestControlPages extends BasicTestCase {
 		ImageReport report = image.validate();
 		assertTrue(report.toString(), report.isValid());
 		assertEquals(before.getNotes(), image.getNotes());
-		assertEquals("1.3", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+		assertEquals("1.4", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
 		assertEquals(Json.write(Json.parse(PAGES, 100)), Json.write(image.getJson().get("ui")));
 
 		// The chart of the amendment, exactly.
