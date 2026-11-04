@@ -2361,6 +2361,17 @@ public final class Engine implements DatapointModel.Listener {
 				TimeOfDay t = _time.sunTime(event);
 				return t != null ? Val.ofTime(t) : Val.none(n._type);
 			}
+			case SUN_AZIMUTH:
+			case SUN_ELEVATION: {
+				// The blocks' sun() (homecontrol spec/blocks.md B21): the cascade's wall second, computed
+				// once per second for the rules and the blocks together; none without the clock or a
+				// location.
+				Astro.SunPosition position = cascadeSun();
+				if (position == null) {
+					return Val.none(n._type);
+				}
+				return Val.ofReal(n._fn == Fn.SUN_AZIMUTH ? position.azimuth() : position.elevation());
+			}
 			case SINCE_UPDATE:
 			case LAST_KNOWN:
 			case QUALITY: {

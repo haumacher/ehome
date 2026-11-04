@@ -34,6 +34,10 @@ Synced again at `b70be27cf2357c1ea747da616d3156ba373b0107` (2026-11-04, the Zigb
 buttons, `spec/runtime-image.md` 3.5, schema 1.4), which added the cases
 `images/cases/accept-button-presses.json` and `images/cases/refuse-button-presses.json`; the rule
 and block fixtures did not change.
+Synced again at `c4de11b5ea1d9522f3cc5b8ea954f85a6ea480bb` (2026-11-04, the rule functions
+`sunAzimuth()` and `sunElevation()`, `spec/rules.md` 4.7), which added the cases `59-sun-position` to
+`64-sun-follow-timer` (with the case member `location`) and changed the rule corpus `README.md`; the
+image and block fixtures did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

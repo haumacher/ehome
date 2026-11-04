@@ -142,7 +142,13 @@ public class TestRuleCorpusOnBus extends TestCase {
 		"55-schedule-adjust-time.json",
 		"56-schedule-change-semantics.json",
 		"57-schedule-time-datapoint.json",
-		"58-schedule-image-swap-overrides.json");
+		"58-schedule-image-swap-overrides.json",
+		"59-sun-position.json",
+		"60-sun-position-nrel-example.json",
+		"61-sun-position-no-clock.json",
+		"62-sun-position-no-location.json",
+		"63-load-refused-match-sun.json",
+		"64-sun-follow-timer.json");
 
 	private static final long TIMEOUT = 5000;
 

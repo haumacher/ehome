@@ -160,6 +160,14 @@ public final class Node {
 		DAWN("dawn"),
 		/** The function <code>dusk()</code>. */
 		DUSK("dusk"),
+		/**
+		 * The function <code>sunAzimuth()</code>: the sun's azimuth in degrees from north through east.
+		 */
+		SUN_AZIMUTH("sunAzimuth"),
+		/**
+		 * The function <code>sunElevation()</code>: the sun's elevation in degrees above the horizon.
+		 */
+		SUN_ELEVATION("sunElevation"),
 		/** The function <code>sinceUpdate(@d)</code>. */
 		SINCE_UPDATE("sinceUpdate"),
 		/** The function <code>sinceChange(@d)</code>. */
@@ -226,9 +234,12 @@ public final class Node {
 			return null;
 		}
 
-		/** A function of the wall clock or the sun (not allowed in a match condition). */
+		/**
+		 * A function of the wall clock or the sun: its times and its position (not allowed in a match
+		 * condition).
+		 */
 		public boolean isTime() {
-			return ordinal() >= NOW.ordinal() && ordinal() <= DUSK.ordinal();
+			return ordinal() >= NOW.ordinal() && ordinal() <= SUN_ELEVATION.ordinal();
 		}
 
 		/** A function of a datapoint's history. */

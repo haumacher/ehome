@@ -34,6 +34,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.rules.Node.Fn;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.Schedule;
@@ -82,7 +83,8 @@ public class RuleFunctions extends GenericMethod {
 		ruleDatapoints(1, true),
 		/**
 		 * <code>ruleSuggestions(obj, text, caret)</code>: the datapoints a reference <code>@"…</code>
-		 * left unfinished before the caret may name, as suggestions of a text field
+		 * left unfinished before the caret may name, or the functions whose name starts with the
+		 * identifier before the caret, as suggestions of a text field
 		 * ({@link RuleFunctions#suggestions(TLObject, String, int)}); obj is the edited part of a
 		 * rule (or the form's overlay of it).
 		 */
@@ -520,7 +522,8 @@ public class RuleFunctions extends GenericMethod {
 	 * The suggestions of a text field of the rule language: where the text before the caret ends in
 	 * a reference left unfinished (<code>@</code> or <code>@"</code> followed by the start of a
 	 * name), the datapoints of the project of the given part whose id or label contains what is
-	 * typed, each replacing the reference by the complete <code>@"id"</code>.
+	 * typed, each replacing the reference by the complete <code>@"id"</code>; where it ends in the
+	 * start of a function name, the functions of the rule language with that start.
 	 *
 	 * @param part
 	 *        The edited part of a rule, or the form's overlay of it.
@@ -532,6 +535,10 @@ public class RuleFunctions extends GenericMethod {
 	 */
 	public static List<Object> suggestions(TLObject part, String text, int caret) {
 		String before = text.substring(0, Math.max(0, Math.min(caret, text.length())));
+		List<Object> functions = functionSuggestions(before);
+		if (!functions.isEmpty()) {
+			return functions;
+		}
 		Matcher reference = UNFINISHED_REFERENCE.matcher(before);
 		if (!reference.find()) {
 			return List.of();
@@ -560,6 +567,57 @@ public class RuleFunctions extends GenericMethod {
 		}
 		return result;
 	}
+
+	/**
+	 * The functions of the rule language (<code>spec/rules.md</code> 4.7) whose name starts with the
+	 * identifier the text ends in (at least two letters, not inside a string, not the name of a
+	 * parameter <code>$…</code> or the unit of a number), each with its label in the language of the
+	 * user, replacing the identifier by the name and the opening parenthesis (both parentheses for a
+	 * function without arguments).
+	 */
+	private static List<Object> functionSuggestions(String before) {
+		Matcher identifier = UNFINISHED_FUNCTION.matcher(before);
+		if (!identifier.find() || insideString(before)) {
+			return List.of();
+		}
+		String typed = identifier.group(1);
+		Resources resources = Resources.getInstance();
+		List<Object> result = new ArrayList<>();
+		for (Fn fn : Fn.values()) {
+			String name = fn.externalName();
+			if (!name.startsWith(typed)) {
+				continue;
+			}
+			String inserted = name + (RuleLoader.maxArguments(fn) == 0 ? "()" : "(");
+			Map<String, Object> suggestion = new LinkedHashMap<>();
+			suggestion.put("label", inserted + " " + resources.getString(ResKey.forEnum(fn)));
+			suggestion.put("text", inserted);
+			suggestion.put("from", Integer.valueOf(identifier.start(1)));
+			suggestion.put("to", Integer.valueOf(before.length()));
+			result.add(suggestion);
+		}
+		return result;
+	}
+
+	/** Whether the text ends inside a string literal (an odd number of unescaped quotes). */
+	private static boolean insideString(String text) {
+		boolean inside = false;
+		for (int n = 0; n < text.length(); n++) {
+			char c = text.charAt(n);
+			if (inside && c == '\\') {
+				n++;
+			} else if (c == '"') {
+				inside = !inside;
+			}
+		}
+		return inside;
+	}
+
+	/**
+	 * An identifier of at least two letters at the end of a text that is not part of a reference,
+	 * a parameter, a number with its unit or a dotted name.
+	 */
+	private static final Pattern UNFINISHED_FUNCTION = Pattern.compile("(?<![@$\\w.])([A-Za-z][A-Za-z0-9]+)$");
 
 	/** A reference left unfinished at the end of a text: <code>@</code> or <code>@"</code>, then no quote. */
 	private static final Pattern UNFINISHED_REFERENCE = Pattern.compile("@\"?([^\"@]*)$");

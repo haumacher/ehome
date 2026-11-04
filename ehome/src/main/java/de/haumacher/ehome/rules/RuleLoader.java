@@ -1862,6 +1862,14 @@ public final class RuleLoader {
 		}
 	}
 
+	/**
+	 * The most arguments the given function takes (<code>spec/rules.md</code> 4.7); 0 for a function
+	 * without arguments.
+	 */
+	public static int maxArguments(Fn fn) {
+		return arity(fn)[1];
+	}
+
 	private static int[] arity(Fn fn) {
 		switch (fn) {
 			case NOW:
@@ -1871,6 +1879,8 @@ public final class RuleLoader {
 			case SUNSET:
 			case DAWN:
 			case DUSK:
+			case SUN_AZIMUTH:
+			case SUN_ELEVATION:
 				return new int[] { 0, 0 };
 			case WEEKDAY:
 			case STATE:
@@ -1965,6 +1975,9 @@ public final class RuleLoader {
 			case DAWN:
 			case DUSK:
 				return Type.TIME_OF_DAY;
+			case SUN_AZIMUTH:
+			case SUN_ELEVATION:
+				return Type.REAL;
 			case SINCE_UPDATE:
 			case SINCE_CHANGE:
 				return Type.DURATION;

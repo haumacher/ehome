@@ -133,6 +133,33 @@ public class TestRuleAuthoring extends BasicTestCase {
 	 * outside its range and one that is no literal, a time function in a match condition, the state
 	 * of another rule (known and unknown).
 	 */
+	/**
+	 * The editor's text fields offer the functions of the rule language by the start of their name
+	 * (homecontrol #73: <code>sunAzimuth()</code>, <code>sunElevation()</code>), not inside a string,
+	 * a parameter or the unit of a number.
+	 */
+	public void testFunctionSuggestions() {
+		List<Object> sun = RuleFunctions.suggestions(null, "@x > 0 and sunE", 15);
+		assertEquals(1, sun.size());
+		Map<?, ?> elevation = (Map<?, ?>) sun.get(0);
+		assertEquals("sunElevation()", elevation.get("text"));
+		assertEquals(Integer.valueOf(11), elevation.get("from"));
+		assertEquals(Integer.valueOf(15), elevation.get("to"));
+		assertTrue(String.valueOf(elevation.get("label")), String.valueOf(elevation.get("label")).startsWith("sunElevation() "));
+
+		Set<Object> texts = new TreeSet<>();
+		for (Object entry : RuleFunctions.suggestions(null, "between(su", 10)) {
+			texts.add(((Map<?, ?>) entry).get("text"));
+		}
+		assertEquals(new TreeSet<>(List.of("sunAzimuth()", "sunElevation()", "sunrise()", "sunset()")), texts);
+		assertEquals("round(", ((Map<?, ?>) RuleFunctions.suggestions(null, "roun", 4).get(0)).get("text"));
+
+		assertEquals(List.of(), RuleFunctions.suggestions(null, "\"sunE", 5));
+		assertEquals(List.of(), RuleFunctions.suggestions(null, "$sunE", 5));
+		assertEquals(List.of(), RuleFunctions.suggestions(null, "30mi", 4));
+		assertEquals(List.of(), RuleFunctions.suggestions(null, "s", 1));
+	}
+
 	public void testChecks() throws Exception {
 		TLObject project = createProject();
 		try {
