@@ -36,6 +36,7 @@ import de.haumacher.ehome.runtime.ControllerStatus;
 import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
+import de.haumacher.ehome.runtime.ImageComparison;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
@@ -326,6 +327,68 @@ public class TestDeployment extends BasicTestCase {
 			SharedData.deleteProjects(List.of(project));
 			SharedData.deleteProjects(controllers);
 			TestZigbeeRemoteProposal.delete(types);
+		}
+	}
+
+	/**
+	 * The controller reports the largest image it can store and load again (<code>image.storable</code>
+	 * of its status, homecontrol #52): the deployment confirmation warns when the image is larger (it
+	 * runs, but may not survive a restart), not when it fits, and not when the controller reports no
+	 * limit. A deployment above it is accepted and runs; the controller says why it is not stored.
+	 */
+	public void testStorableWarning() throws Exception {
+		TLObject project = TestRuleAuthoring.createProject();
+		List<TLObject> controllers = new ArrayList<>();
+		try {
+			TLObject controller = controller("Fake storable", _fake.getPort(), TOKEN);
+			controllers.add(controller);
+			update(project, "controller", controller);
+			int bytes = RuntimeImage.build(project, 1, NOW).getBytes().length;
+			ResKey tooLarge = I18NConstants.CONFIRM_TOO_LARGE__BYTES_STORABLE.fill(Integer.valueOf(bytes),
+				Long.valueOf(bytes - 1));
+
+			// A controller that reports no limit (a firmware before #52): no warning.
+			assertNull(_fake.getStorable());
+			assertNull(ControllerStatus.read(Deployer.client(controller)).storable());
+			String plain = ImageComparison.confirmation(project, NOW);
+			assertFalse(plain, plain.contains(text(tooLarge)));
+			assertNull(Deployer.storableWarning(bytes, null));
+
+			// The image fits, also exactly: no warning.
+			_fake.setStorable(Long.valueOf(bytes));
+			assertEquals(Long.valueOf(bytes), ControllerStatus.read(Deployer.client(controller)).storable());
+			assertEquals(plain, ImageComparison.confirmation(project, NOW));
+			assertNull(Deployer.storableWarning(bytes, Long.valueOf(bytes)));
+
+			// One byte larger: the confirmation warns, after the question.
+			_fake.setStorable(Long.valueOf(bytes - 1));
+			String warned = ImageComparison.confirmation(project, NOW);
+			assertEquals(plain + "\n\n" + text(tooLarge), warned);
+			assertTrue(warned.startsWith(text(I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(1L, "Fake storable"))));
+			assertEquals(tooLarge, Deployer.storableWarning(bytes, Long.valueOf(bytes - 1)));
+
+			// Deployed anyway: accepted and running, not stored; the record names the controller's reason.
+			TLObject deployed = Deployer.deploy(project, NOW);
+			assertAccepted(deployed, 1);
+			String message = String.valueOf(deployed.tValueByName("message"));
+			assertTrue(message, message.contains(text(I18NConstants.DEPLOY_NOT_STORED__ERROR
+				.fill("the storage is full (it stores at most " + (bytes - 1) + " bytes)"))));
+			assertNull(_fake.getStoredText());
+			assertTrue(ControllerStatus.drift(project).startsWith(text(I18NConstants.DRIFT_IN_SYNC__REVISION.fill(1L))));
+			assertFalse(message, message.contains(text(tooLarge)));
+
+			// Stored although larger (the store takes it, the staging could not restore it): the record warns.
+			_fake.setStoresBeyond(true);
+			TLObject stored = Deployer.deploy(project, NOW);
+			assertAccepted(stored, 2);
+			assertNotNull(_fake.getStoredText());
+			message = String.valueOf(stored.tValueByName("message"));
+			int bytes2 = RuntimeImage.build(project, 2, NOW).getBytes().length;
+			assertTrue(message, message.endsWith(" " + text(I18NConstants.CONFIRM_TOO_LARGE__BYTES_STORABLE
+				.fill(Integer.valueOf(bytes2), Long.valueOf(bytes - 1)))));
+		} finally {
+			SharedData.deleteProjects(List.of(project));
+			SharedData.deleteProjects(controllers);
 		}
 	}
 

@@ -206,7 +206,9 @@ public final class Deployer {
 			outcome._code = CODE_SCHEMA;
 			outcome._message = text(pressesRefusal(image, controller));
 		} else {
-			outcome._before = ControllerStatus.describe(client);
+			ControllerStatus.Loaded before = ControllerStatus.read(client);
+			outcome._before = before.text();
+			outcome._storable = before.storable();
 			Keys signer = InstallationKeys.signer(project, controller);
 			if (signer != null) {
 				outcome._signature = Signatures.signImage(signer.seed(), image.getBytes());
@@ -215,6 +217,24 @@ public final class Deployer {
 			send(client, image, revision, outcome);
 		}
 		return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+	}
+
+	/**
+	 * The warning that an image of the given size is larger than the controller can store and load
+	 * again (<code>image.storable</code> of its status, homecontrol #52): it is accepted and runs, but may
+	 * not survive a restart of the controller.
+	 *
+	 * @param bytes
+	 *        The size of the image.
+	 * @param storable
+	 *        What the controller reports, <code>null</code> when it reports nothing (no warning).
+	 * @return The warning; <code>null</code> when the image fits or the controller reports no limit.
+	 */
+	public static ResKey storableWarning(int bytes, Long storable) {
+		if (storable == null || bytes <= storable.longValue()) {
+			return null;
+		}
+		return I18NConstants.CONFIRM_TOO_LARGE__BYTES_STORABLE.fill(Integer.valueOf(bytes), storable);
 	}
 
 	/** The code of a deployment E-Home refused because the controller reads a schema without blocks. */
@@ -380,6 +400,12 @@ public final class Deployer {
 				Integer.valueOf(outcome._bytes)));
 			if (Boolean.FALSE.equals(answer.body().get("stored"))) {
 				message += " " + text(I18NConstants.DEPLOY_NOT_STORED__ERROR.fill(answer.string("storeError")));
+			} else {
+				// Stored, but beyond what the controller is sure to load again (its staging, homecontrol #52).
+				ResKey warning = storableWarning(outcome._bytes, outcome._storable);
+				if (warning != null) {
+					message += " " + text(warning);
+				}
 			}
 			outcome._message = message;
 			return;
@@ -479,6 +505,9 @@ public final class Deployer {
 		String _before;
 
 		int _bytes;
+
+		/** What the controller reported it can store and load again before the image was sent. */
+		Long _storable;
 
 		int _total;
 

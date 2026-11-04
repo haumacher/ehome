@@ -32,8 +32,12 @@ public final class ControllerStatus {
 	 *        Its revision, <code>null</code> if unknown.
 	 * @param text
 	 *        What the controller runs, for the user.
+	 * @param storable
+	 *        The largest image in bytes the controller can store and load again
+	 *        (<code>image.storable</code>, homecontrol #52), <code>null</code> when it reports none (a
+	 *        firmware before it) or did not answer.
 	 */
-	public record Loaded(boolean answered, boolean loaded, String project, Long revision, String text) {
+	public record Loaded(boolean answered, boolean loaded, String project, Long revision, String text, Long storable) {
 		// A record.
 	}
 
@@ -50,18 +54,19 @@ public final class ControllerStatus {
 			answer = client.status();
 		} catch (IOException ex) {
 			return new Loaded(false, false, null, null,
-				text(I18NConstants.STATUS_UNREACHABLE__ADDRESS_ERROR.fill(client.address(), Deployer.reason(ex))));
+				text(I18NConstants.STATUS_UNREACHABLE__ADDRESS_ERROR.fill(client.address(), Deployer.reason(ex))), null);
 		}
 		if (!answer.ok()) {
 			String error = answer.string("error");
 			return new Loaded(false, false, null, null, text(I18NConstants.STATUS_FAILED__STATUS_ERROR
-				.fill(Integer.valueOf(answer.status()), error != null ? error : answer.text().strip())));
+				.fill(Integer.valueOf(answer.status()), error != null ? error : answer.text().strip())), null);
 		}
+		Long storable = storable(answer.body());
 		if (!(answer.body().get("image") instanceof Map<?, ?> image) || !Boolean.TRUE.equals(image.get("loaded"))) {
 			Object refused = answer.body().get("image") instanceof Map<?, ?> image ? image.get("refused") : null;
 			return new Loaded(true, false, null, null, text(refused != null
 				? I18NConstants.STATUS_NO_IMAGE_REFUSED__CODE.fill(refused)
-				: I18NConstants.STATUS_NO_IMAGE));
+				: I18NConstants.STATUS_NO_IMAGE), storable);
 		}
 		String project = Objects.toString(image.get("project"), "");
 		Long revision = image.get("revision") instanceof Number number ? Long.valueOf(number.longValue()) : null;
@@ -71,7 +76,19 @@ public final class ControllerStatus {
 		if (Boolean.TRUE.equals(image.get("degraded"))) {
 			result += " " + text(I18NConstants.STATUS_DEGRADED);
 		}
-		return new Loaded(true, true, project, revision, result);
+		return new Loaded(true, true, project, revision, result, storable);
+	}
+
+	/**
+	 * The largest image the controller can store and load again, from the body of its
+	 * <code>GET /api/status</code> (<code>image.storable</code>, homecontrol #52).
+	 *
+	 * @return The bytes; <code>null</code> when the status has none.
+	 */
+	public static Long storable(Map<?, ?> status) {
+		Object image = status == null ? null : status.get("image");
+		Object storable = image instanceof Map<?, ?> map ? map.get("storable") : null;
+		return storable instanceof Number number ? Long.valueOf(number.longValue()) : null;
 	}
 
 	/**

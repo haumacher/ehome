@@ -309,6 +309,16 @@ public final class ImageComparison {
 			if (warning != null) {
 				text += "\n\n" + warning;
 			}
+			// An image larger than the controller can store and load again (homecontrol #52) runs, but may
+			// not survive a restart; a controller that reports no limit gets no warning.
+			Long storable = ControllerStatus.read(Deployer.client(controller)).storable();
+			if (storable != null) {
+				ResKey tooLarge = Deployer.storableWarning(RuntimeImage.build(project, next.longValue(), now).getBytes().length,
+					storable);
+				if (tooLarge != null) {
+					text += "\n\n" + text(tooLarge);
+				}
+			}
 		}
 		return text;
 	}

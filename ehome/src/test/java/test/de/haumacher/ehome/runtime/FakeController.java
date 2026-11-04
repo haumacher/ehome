@@ -42,7 +42,9 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * /api/image</code> unloads it (200 <code>{"ok": true, "loaded": false}</code>; a test can script the
  * storage error of the next one, {@link #storageErrorOnNextDelete()}: 500
  * <code>image.storage_error</code>, the image unloaded anyway). For a manual check, the next refusal
- * is scripted with <code>PUT /fake/refuse-next</code>. Given an installation key ({@link #setKey(String)},
+ * is scripted with <code>PUT /fake/refuse-next</code>. Given a storable size ({@link #setStorable(Long)},
+ * homecontrol #52; for a manual check <code>PUT /fake/storable</code>), its status reports it and a
+ * larger image runs without being stored. Given an installation key ({@link #setKey(String)},
  * homecontrol issue #35), it accepts only images whose signature verifies under it.
  * </p>
  *
@@ -82,6 +84,10 @@ public class FakeController {
 	private int _nextStatus;
 
 	private String _schema = "1.4";
+
+	private Long _storable;
+
+	private boolean _storesBeyond;
 
 	private Map<String, Object> _nextBody;
 
@@ -127,6 +133,7 @@ public class FakeController {
 		_server.createContext("/api/image", this::image);
 		_server.createContext("/api/status", this::status);
 		_server.createContext("/fake/refuse-next", this::script);
+		_server.createContext("/fake/storable", this::scriptStorable);
 		_server.createContext("/api/auth/session", this::session);
 		_server.createContext("/fake/monitor", this::scriptMonitor);
 		_server.createContext("/api/zigbee/export", this::zigbeeExport);
@@ -420,6 +427,48 @@ public class FakeController {
 		_schema = schema;
 	}
 
+	/**
+	 * The largest image the fake reports it can store and load again (<code>image.storable</code> of
+	 * <code>/api/status</code>, homecontrol #52): <code>null</code> (the default) as a firmware before
+	 * it, which reports none. A larger image is accepted and runs, but is not stored (<code>stored:
+	 * false</code> with the controller's <code>storeError</code>).
+	 */
+	public synchronized Long getStorable() {
+		return _storable;
+	}
+
+	/**
+	 * @see #getStorable()
+	 */
+	public synchronized void setStorable(Long storable) {
+		_storable = storable;
+	}
+
+	/**
+	 * Whether an image larger than {@link #getStorable()} is stored nonetheless, as the controller does
+	 * when its store takes it but its staging could not load it again beside a failed image
+	 * (homecontrol #52: <code>stored: true</code>, a warning in its log).
+	 */
+	public synchronized void setStoresBeyond(boolean storesBeyond) {
+		_storesBeyond = storesBeyond;
+	}
+
+	/**
+	 * <code>PUT /fake/storable</code> with <code>{"storable": &lt;bytes or null&gt;}</code>:
+	 * {@link #setStorable(Long)} for a manual check in the running application.
+	 */
+	private void scriptStorable(HttpExchange exchange) throws IOException {
+		Map<?, ?> body;
+		try (InputStream in = exchange.getRequestBody()) {
+			body = (Map<?, ?>) Json.parse(new String(in.readAllBytes(), StandardCharsets.UTF_8), 10);
+		} catch (JsonException ex) {
+			answer(exchange, 400, error(ex.getMessage(), "fake.bad_json"));
+			return;
+		}
+		setStorable(body.get("storable") instanceof Number number ? Long.valueOf(number.longValue()) : null);
+		answer(exchange, 200, error("scripted", "fake.ok"));
+	}
+
 	private void status(HttpExchange exchange) throws IOException {
 		if (!"GET".equals(exchange.getRequestMethod())) {
 			answer(exchange, 405, error("method not allowed", "api.method_not_allowed"));
@@ -442,6 +491,9 @@ public class FakeController {
 
 	private synchronized Map<String, Object> imageStatus() {
 		Map<String, Object> image = new LinkedHashMap<>();
+		if (_storable != null) {
+			image.put("storable", _storable);
+		}
 		if (_loaded == null) {
 			image.put("loaded", Boolean.FALSE);
 			return image;
@@ -606,10 +658,16 @@ public class FakeController {
 		counts.put("schedules", Integer.valueOf(size(image.get("schedules"))));
 		body.put("counts", counts);
 		body.put("source", "api");
-		body.put("stored", Boolean.TRUE);
 		synchronized (this) {
 			_loaded = image;
-			_storedText = text;
+			if (_storable != null && bytes.length > _storable.longValue() && !_storesBeyond) {
+				// Runs, but the store cannot take it (homecontrol #52): the stored image stays.
+				body.put("stored", Boolean.FALSE);
+				body.put("storeError", "the storage is full (it stores at most " + _storable + " bytes)");
+			} else {
+				body.put("stored", Boolean.TRUE);
+				_storedText = text;
+			}
 		}
 		answer(exchange, 200, body);
 	}

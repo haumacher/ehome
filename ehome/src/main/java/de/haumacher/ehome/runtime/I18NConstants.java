@@ -592,6 +592,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 CONFIRM_SCHEMA_OLDER__READS_IMAGE;
 
 	/**
+	 * @en The image has {0} bytes, more than the {1} bytes the controller can store and load again: it will run, but may not survive a restart of the controller.
+	 */
+	public static ResKey2 CONFIRM_TOO_LARGE__BYTES_STORABLE;
+
+	/**
 	 * @en The controller does not report which image schema it reads (a firmware before schema 1.2); this image is {0}: update the controller''s firmware first, or what is newer in the image (adjustable schedules) is refused.
 	 */
 	public static ResKey1 CONFIRM_SCHEMA_UNKNOWN__IMAGE;
