@@ -1,16 +1,119 @@
 #!/bin/sh
 set -e
 
+# Configures E-Home in the running Tomcat 10 without ever restarting Tomcat (doc/debian.md): other
+# applications of the same Tomcat keep running through an installation, an upgrade and a change of
+# the settings.
+#
+# - The settings of /etc/ehome/ehome.env reach the app as JNDI entries of its context descriptor
+#   (java:comp/env/tl/<name>, which TopLogic reads before system properties and environment
+#   variables): writing the descriptor deploys the app with them, and only the app.
+# - tomcat10.service runs with ProtectSystem=strict. The drop-in grants the data directory for the
+#   next start of Tomcat; a Tomcat that runs already gets it bound into its namespace with
+#   "systemctl bind" (systemd >= 248), instead of a restart.
+#
+# "dpkg-reconfigure ehome" applies a changed ehome.env: it rewrites the descriptor, and Tomcat deploys
+# the app again.
+
 ENV_FILE=/etc/ehome/ehome.env
 DATA_DIR=/var/lib/ehome
-CONTEXT=/etc/tomcat10/Catalina/localhost/ehome.xml
-DROPIN=/usr/lib/systemd/system/tomcat10.service.d/ehome.conf
+CONTEXT_DIR=/etc/tomcat10/Catalina/localhost
+CONTEXT=$CONTEXT_DIR/ehome.xml
+TEMPLATE=/usr/share/ehome/tomcat/ehome.xml
 UPGRADE=$DATA_DIR/.upgrade
+
+# The value of a line NAME=VALUE as an XML attribute value.
+xml_escape() {
+	printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
+}
+
+# The <Environment> entries for the settings of $ENV_FILE (lines NAME=VALUE; comments and other lines
+# are skipped).
+environment_entries() {
+	while IFS= read -r line || [ -n "$line" ]; do
+		case "$line" in
+			[A-Za-z_]*=*) ;;
+			*) continue ;;
+		esac
+		name=${line%%=*}
+		case "$name" in
+			*[!A-Za-z0-9_]*) continue ;;
+		esac
+		value=${line#*=}
+		printf '\t<Environment name="tl/%s" value="%s" type="java.lang.String" override="false"/>\n' \
+			"$name" "$(xml_escape "$value")"
+	done < "$ENV_FILE"
+}
+
+# Writes the context descriptor: the template with the settings in place of its marker. It holds the
+# passwords, so only root and Tomcat read it. It is written beside the directory Tomcat watches and
+# moved in, so that Tomcat never deploys a half-written file.
+write_context() {
+	tmp=/etc/tomcat10/Catalina/.ehome.xml.new
+	entries=$(environment_entries)
+	umask 077
+	while IFS= read -r line || [ -n "$line" ]; do
+		if [ "$line" = "	<!-- @SETTINGS@ -->" ]; then
+			printf '%s\n' "$entries"
+		else
+			printf '%s\n' "$line"
+		fi
+	done < "$TEMPLATE" > "$tmp"
+	chown root:tomcat "$tmp"
+	chmod 0640 "$tmp"
+	mv "$tmp" "$CONTEXT"
+}
+
+# The process id of the running Tomcat of the service, empty if it does not run under systemd.
+tomcat_pid() {
+	if [ -d /run/systemd/system ]; then
+		pid=$(systemctl show -p MainPID --value tomcat10 2>/dev/null || true)
+		if [ -n "$pid" ] && [ "$pid" != 0 ]; then
+			echo "$pid"
+		fi
+	fi
+}
+
+# Whether Tomcat can write the data directory: it does not run under systemd, or the directory is a
+# mount point in its namespace (the drop-in's ReadWritePaths at its start, or an earlier bind).
+data_writable() {
+	pid=$(tomcat_pid)
+	[ -z "$pid" ] && return 0
+	awk -v dir="$DATA_DIR" '$5 == dir { found = 1 } END { exit !found }' "/proc/$pid/mountinfo" 2>/dev/null
+}
+
+# The maximum heap of the running Tomcat in MiB: its -Xmx, otherwise the JVM's default of a quarter of
+# the memory (of the service's cgroup limit if it has one). Empty if Tomcat does not run.
+tomcat_heap_mib() {
+	pid=$(tomcat_pid)
+	[ -n "$pid" ] || return 0
+	xmx=$(tr '\0' '\n' < "/proc/$pid/cmdline" | sed -n 's/^-Xmx\([0-9][0-9]*\)\([kKmMgG]\?\)$/\1 \2/p' | tail -1)
+	if [ -n "$xmx" ]; then
+		set -- $xmx
+		case "$2" in
+			k|K) echo $(($1 / 1024)) ;;
+			m|M) echo "$1" ;;
+			g|G) echo $(($1 * 1024)) ;;
+			*) echo $(($1 / 1048576)) ;;
+		esac
+		return 0
+	fi
+	mem=$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)
+	limit=$(cat /sys/fs/cgroup/system.slice/tomcat10.service/memory.max 2>/dev/null || echo max)
+	case "$limit" in
+		''|max|*[!0-9]*) ;;
+		*) [ $((limit / 1048576)) -lt "$mem" ] && mem=$((limit / 1048576)) ;;
+	esac
+	echo $((mem / 4))
+}
+
+# E-Home shares the JVM with every other application of the Tomcat: below this heap (MiB) it would
+# push them out of memory, so it is not deployed; below the second it is deployed with a warning.
+HEAP_MIN=1024
+HEAP_WARN=2048
 
 if [ "$1" = "configure" ]; then
 	install -d -o tomcat -g tomcat -m 0750 "$DATA_DIR"
-	# Tomcat reads the settings and the drop-in only when it starts.
-	RESTART=
 
 	# The settings are created once and belong to the administrator afterwards (not a conffile, so
 	# that the generated password does not count as a local change).
@@ -20,8 +123,8 @@ if [ "$1" = "configure" ]; then
 		DB_PASSWORD=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24)
 		umask 027
 		cat > "$ENV_FILE" <<END
-# Settings of E-Home, read by Tomcat 10 (tomcat10.service.d/ehome.conf). Restart Tomcat after a
-# change: systemctl restart tomcat10
+# Settings of E-Home. After a change: dpkg-reconfigure ehome (deploys the app again; Tomcat and its
+# other applications keep running).
 
 # The data: H2 database, documents and logs.
 tl_storage_path=$DATA_DIR
@@ -35,7 +138,7 @@ h2_passwd=$DB_PASSWORD
 tl_initial_password=$PASSWORD
 END
 		chgrp tomcat "$ENV_FILE"
-		RESTART=1
+		umask 022
 		echo "E-Home: the initial password of the user root is in $ENV_FILE." >&2
 	elif ! grep -q '^h2_passwd=' "$ENV_FILE"; then
 		# Settings of a version before TopLogic 8.0.0-alpha12: the database was created with the
@@ -45,37 +148,48 @@ END
 # The password of the H2 database (the engine's former default, which created the database).
 h2_passwd=theautomatedappengine
 END
-		RESTART=1
 		echo "E-Home: the password of the H2 database is now set in $ENV_FILE." >&2
 	fi
-	# A first installation, or an upgrade from a version whose drop-in differs (preinst noted its hash).
-	if [ -z "$2" ] || [ ! -e "$UPGRADE/dropin.sha256" ] || [ "$(sha256sum < "$DROPIN")" != "$(cat "$UPGRADE/dropin.sha256")" ]; then
-		RESTART=1
-	fi
 
-	install -d -o root -g tomcat -m 2775 /etc/tomcat10/Catalina /etc/tomcat10/Catalina/localhost
-	SYSTEMD=
+	install -d -o root -g tomcat -m 2775 /etc/tomcat10/Catalina "$CONTEXT_DIR"
 	if [ -d /run/systemd/system ]; then
-		SYSTEMD=1
+		# The drop-in applies from Tomcat's next start; the running one is not restarted.
 		systemctl daemon-reload || true
 	fi
-	if [ -n "$RESTART" ]; then
-		# The context descriptor is put in place only while Tomcat is stopped: a running Tomcat deploys
-		# it at once, without the settings above, which it reads only at its next start.
-		if [ -n "$SYSTEMD" ]; then
-			systemctl stop tomcat10 || true
+	if ! data_writable; then
+		if systemctl bind tomcat10 "$DATA_DIR" 2>/dev/null && data_writable; then
+			echo "E-Home: $DATA_DIR is bound into the running Tomcat (no restart)." >&2
+		else
+			# Without write access the app would fail at its start: it waits for Tomcat's next start.
+			rm -f "$CONTEXT"
+			rm -rf "$UPGRADE"
+			echo "E-Home: the running Tomcat cannot write $DATA_DIR, and this systemd cannot bind it" >&2
+			echo "E-Home: into Tomcat (systemctl bind). E-Home is installed but not deployed: restart" >&2
+			echo "E-Home: Tomcat when it suits its other applications (systemctl restart tomcat10)," >&2
+			echo "E-Home: then run dpkg-reconfigure ehome." >&2
+			exit 0
 		fi
-		install -m 0644 /usr/share/ehome/tomcat/ehome.xml "$CONTEXT"
-		if [ -n "$SYSTEMD" ]; then
-			systemctl start tomcat10 || true
-		fi
-	else
-		# An upgrade with unchanged settings: preinst stopped the app and backed up the database; the
-		# running Tomcat deploys the new version as soon as its descriptor is back.
-		install -m 0644 /usr/share/ehome/tomcat/ehome.xml "$CONTEXT"
-		echo "E-Home: the new version is being deployed; Tomcat was not restarted." >&2
 	fi
+
+	heap=$(tomcat_heap_mib)
+	if [ -n "$heap" ] && [ "$heap" -lt "$HEAP_MIN" ]; then
+		rm -f "$CONTEXT"
+		rm -rf "$UPGRADE"
+		echo "E-Home: the running Tomcat has a heap of about $heap MiB; E-Home needs at least $HEAP_MIN MiB" >&2
+		echo "E-Home: beside the other applications of the same JVM. It is installed but not deployed:" >&2
+		echo "E-Home: raise the heap (JAVA_OPTS=\"-Xmx...\" in /etc/default/tomcat10, effective at Tomcat's" >&2
+		echo "E-Home: next restart, which you schedule), then run dpkg-reconfigure ehome." >&2
+		exit 0
+	elif [ -n "$heap" ] && [ "$heap" -lt "$HEAP_WARN" ]; then
+		echo "E-Home: warning: the running Tomcat has a heap of about $heap MiB, shared by all its" >&2
+		echo "E-Home: applications; E-Home alone may use 1 GiB and more with large projects." >&2
+	fi
+
+	# A first installation deploys the app, an upgrade the new version (preinst stopped the old one and
+	# backed up the database), dpkg-reconfigure the app with changed settings.
+	write_context
 	rm -rf "$UPGRADE"
+	echo "E-Home: deployed in the running Tomcat; Tomcat was not restarted." >&2
 	echo "E-Home: http://localhost:8080/ehome/view/ (the first start takes about a minute)." >&2
 fi
 

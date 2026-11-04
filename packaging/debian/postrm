@@ -3,11 +3,11 @@ set -e
 
 case "$1" in
 	remove)
-		# Tomcat's unpacked copy of the war, and Tomcat without the settings of the drop-in that is gone now.
+		# Tomcat's unpacked copy of the war. Tomcat is not restarted: the drop-in that is gone now only
+		# granted the data directory, which the running Tomcat may keep until its next start.
 		rm -rf /var/lib/tomcat10/webapps/ehome /var/cache/tomcat10/Catalina/localhost/ehome
 		if [ -d /run/systemd/system ]; then
 			systemctl daemon-reload || true
-			systemctl try-restart tomcat10 || true
 		fi
 		;;
 	abort-upgrade|abort-install)

@@ -69,12 +69,29 @@ The app is at `http://<host>:8080/ehome/view/`; log in as `root` with the passwo
 `/etc/ehome/ehome.env`, generated at the first installation and applied only when the database is
 created at the first start (about a minute). Change it in the application afterwards.
 
+**The package never restarts Tomcat**, neither at the installation nor at an upgrade, a change of the
+settings or the removal: other applications of the same Tomcat keep running. And **nothing of E-Home
+reaches the JVM**: its settings are JNDI entries of its own context (`java:comp/env/tl/<name>`, which
+TopLogic reads before system properties and environment variables), never environment variables of
+Tomcat, which every other TopLogic application of the same JVM would read as well. (Package 1.0.0 did
+both: it restarted Tomcat at the first installation and gave the settings to the whole JVM through
+`EnvironmentFile`, so every other TopLogic application of the Tomcat opened E-Home's database. Fixed
+in 1.0.1; a Tomcat started under 1.0.0's drop-in keeps those variables until its next start, which
+the administrator schedules.)
+
+`tomcat10.service` runs with `ProtectSystem=strict`: the drop-in grants `/var/lib/ehome` from
+Tomcat's next start, and a Tomcat that runs already gets the directory bound into its namespace with
+`systemctl bind tomcat10 /var/lib/ehome` (systemd 248 or newer; Debian 13 has 257). Where that is not
+possible, the package installs without deploying and says what to do. E-Home shares the heap with the
+other applications: below an estimated 1 GiB of maximum heap (`-Xmx` of the running Tomcat, otherwise
+a quarter of the memory) it is not deployed, below 2 GiB with a warning.
+
 | Path | What |
 | --- | --- |
 | `/usr/share/ehome/ehome.war` | The app. |
-| `/etc/tomcat10/Catalina/localhost/ehome.xml` | Tomcat's context `/ehome`, written by `postinst` while Tomcat is stopped (a running Tomcat would deploy it at once, without the settings). |
-| `/usr/lib/systemd/system/tomcat10.service.d/ehome.conf` | Gives Tomcat the settings (`EnvironmentFile`) and write access to the data (`ReadWritePaths`; `tomcat10.service` runs with `ProtectSystem=strict`). |
-| `/etc/ehome/ehome.env` | The settings: `tl_storage_path`, `h2_name`, `h2_passwd` (the password of the database, generated with the file), `tl_initial_password`; created once, owned by the administrator afterwards. Further TopLogic variables (`tl_*`) go there too; `systemctl restart tomcat10` after a change. |
+| `/etc/tomcat10/Catalina/localhost/ehome.xml` | Tomcat's context `/ehome` with the settings as `<Environment name="tl/...">` entries, written by `postinst` from the template `/usr/share/ehome/tomcat/ehome.xml` and `ehome.env` (mode 0640, `root:tomcat`: it holds the passwords). Writing it deploys the app in the running Tomcat. |
+| `/usr/lib/systemd/system/tomcat10.service.d/ehome.conf` | Write access to the data from Tomcat's next start (`ReadWritePaths`); nothing else. |
+| `/etc/ehome/ehome.env` | The settings (lines `name=value`): `tl_storage_path`, `h2_name`, `h2_passwd` (the password of the database, generated with the file), `tl_initial_password`; created once, owned by the administrator afterwards. Further TopLogic settings go there too; `dpkg-reconfigure ehome` after a change (deploys the app again, Tomcat keeps running). Tomcat never reads this file. |
 | `/var/lib/ehome` | The data: `h2.mv.db`, documents (`var/`), logs (`logs/top-logic.main.log`). |
 
 ## Upgrading
@@ -93,8 +110,7 @@ its start:
 3. dpkg unpacks the new war; `postinst` puts the descriptor back, and the running Tomcat deploys the
    new version (on the test container: down for about 20 s plus the start of the app).
 
-Tomcat is restarted only where it must read something new: at the first installation, when the
-settings were extended (`h2_passwd`, see below) or when the drop-in of the package changed. If the app
+Tomcat is never restarted. If the app
 does not stop in time, or the backup fails (disk full), the upgrade is aborted with the reason and
 the old version is deployed again (`postrm abort-upgrade` restores the descriptor as well). Stopping
 Tomcat (`systemctl stop tomcat10`) and repeating the upgrade then backs up the closed database without
@@ -106,7 +122,10 @@ wait until it is undeployed, restore the file (`gunzip -c <backup> > /var/lib/eh
 if the newer one already migrated it: install the version named in the backup's name with it
 (`apt install ehome=<version>`, as long as the repository still holds it).
 
-Verified in a Debian 13 container with systemd and `tomcat10` (2026-11-03): the package of 32788e6
+Verified in a Debian 13 container with systemd and a running `tomcat10` (2026-11-04, 1.0.1): a first
+installation and an upgrade from 1.0.0 left Tomcat's process (same PID) and its ROOT application
+running, the first installation bound `/var/lib/ehome` into it, and the Tomcat process has no `tl_` or
+`h2_` variable. Earlier, in a Debian 13 container with systemd and `tomcat10` (2026-11-03): the package of 32788e6
 installed, a project created, upgraded twice (from a file, then from a local copy of the repository
 with `apt-get install --only-upgrade`): Tomcat kept its process, each upgrade left a backup, the
 project was there after both, and the model upgrade only added the module `tl.agent`.
@@ -120,7 +139,7 @@ it. `apt remove` undeploys the app; `apt purge` also deletes the settings. The d
 in `/var/lib/ehome` are never deleted by the package.
 
 Tomcat's heap is the JVM's default (a quarter of the memory); set `JAVA_OPTS` in
-`/etc/default/tomcat10` for more. Tomcat runs on the system's default Java; where that is not Java 21,
+`/etc/default/tomcat10` for more (effective at Tomcat's next start, which the administrator chooses). Tomcat runs on the system's default Java; where that is not Java 21,
 set `JAVA_HOME` there. TLS and a public host name (the controllers connect to
 `wss://<host>/ehome/api/controllers/<id>/socket`, `doc/controllers.md`) belong to a reverse proxy in
 front of Tomcat on the same host: `/usr/share/doc/ehome/nginx-ehome.conf` is an example for nginx

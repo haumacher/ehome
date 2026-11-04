@@ -13,7 +13,6 @@ set -e
 DATA_DIR=/var/lib/ehome
 DB=$DATA_DIR/h2.mv.db
 CONTEXT=/etc/tomcat10/Catalina/localhost/ehome.xml
-DROPIN=/usr/lib/systemd/system/tomcat10.service.d/ehome.conf
 UPGRADE=$DATA_DIR/.upgrade
 BACKUPS=$DATA_DIR/backup
 # How many backups stay; older ones are deleted after a successful backup.
@@ -46,12 +45,6 @@ restore() {
 case "$1" in
 	upgrade)
 		install -d -m 0700 "$UPGRADE"
-		# postinst restarts Tomcat only if the drop-in with the settings changed.
-		if [ -e "$DROPIN" ]; then
-			sha256sum < "$DROPIN" > "$UPGRADE/dropin.sha256"
-		else
-			rm -f "$UPGRADE/dropin.sha256"
-		fi
 
 		if [ -e "$CONTEXT" ]; then
 			echo "E-Home: stopping the app (Tomcat keeps running) ..." >&2
