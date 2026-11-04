@@ -24,6 +24,9 @@ Synced again at `bdaf0bcda6d4aab19801cbce24f55c0e259c84c2` (2026-11-04, "Blocks:
 `spec/blocks.md` 18, B21, B22, 13.1 and 13.2), which added the cases `42-shading-sun-on-facade` to
 `54-shading-sensors-one-by-one` (with the case member `location`) and changed the corpus
 `README.md`; the image and rule fixtures did not change.
+Synced again at `83781d5d51fd16e56e40558eee615526bdd92311` (2026-11-04, "Blocks: house mode
+(#64)", `spec/blocks.md` 19), which added the cases `55-house-away-return` to
+`61-house-room-chain` and changed the corpus `README.md`; the image and rule fixtures did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

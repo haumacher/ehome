@@ -17,7 +17,8 @@ public final class BlockRegistry {
 
 	private static final BlockRegistry BUILTINS =
 		new BlockRegistry(
-			List.of(RoomController.INSTANCE, HeatingDemand.INSTANCE, HeatingCurve.INSTANCE, SunShading.INSTANCE));
+			List.of(RoomController.INSTANCE, HeatingDemand.INSTANCE, HeatingCurve.INSTANCE, SunShading.INSTANCE,
+				HouseMode.INSTANCE));
 
 	private final List<BlockType> _types = new ArrayList<>();
 
