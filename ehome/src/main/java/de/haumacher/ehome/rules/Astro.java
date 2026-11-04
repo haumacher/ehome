@@ -61,8 +61,60 @@ public final class Astro {
 		}
 	}
 
+	/**
+	 * The sun's position at an instant: azimuth in degrees from north through east (0..360),
+	 * elevation in degrees above the horizon (-90..90, geometric: no refraction).
+	 */
+	public record SunPosition(double azimuth, double elevation) {
+		// A pair.
+	}
+
 	private Astro() {
 		// Static helpers.
+	}
+
+	/**
+	 * The sun's position at the UTC instant (seconds since the epoch) seen from the place (its
+	 * elevation is ignored): the NOAA solar calculator evaluated at the instant, on the exact
+	 * trigonometry of {@link ExactMath}, written exactly as homecontrol <code>spec/blocks.md</code>
+	 * 13.2 (and its <code>core/src/sun_position.cpp</code>), so that the simulation and the controller
+	 * compute the same bits. Within 0.02 degrees of the true position between 1900 and 2100.
+	 */
+	public static SunPosition sunPosition(long utc, GeoLocation where) {
+		final double deg = 180.0 / 3.141592653589793;
+		long u = utc;
+		double d = (double) (u - 946728000L) / 86400.0;
+		double t = d / 36525.0;
+		double l0 = ExactMath.wrap360(280.46646 + t * (36000.76983 + t * 0.0003032));
+		double m = 357.52911 + t * (35999.05029 - 0.0001537 * t);
+		double e = 0.016708634 - t * (0.000042037 + 0.0000001267 * t);
+		double sinM = ExactMath.sinDeg(m);
+		double sin2M = ExactMath.sinDeg(2.0 * m);
+		double c = sinM * (1.914602 - t * (0.004817 + 0.000014 * t)) + sin2M * (0.019993 - 0.000101 * t)
+			+ ExactMath.sinDeg(3.0 * m) * 0.000289;
+		double om = 125.04 - 1934.136 * t;
+		double lam = l0 + c - 0.00569 - 0.00478 * ExactMath.sinDeg(om);
+		double eps = 23.0 + (26.0 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60.0) / 60.0
+			+ 0.00256 * ExactMath.cosDeg(om);
+		double dec = ExactMath.asinDeg(ExactMath.sinDeg(eps) * ExactMath.sinDeg(lam));
+		double y = ExactMath.sinDeg(eps / 2.0) / ExactMath.cosDeg(eps / 2.0);
+		y = y * y;
+		double sin2L0 = ExactMath.sinDeg(2.0 * l0);
+		double cos2L0 = ExactMath.cosDeg(2.0 * l0);
+		double eqt = 4.0 * (y * sin2L0 - 2.0 * e * sinM + 4.0 * e * y * sinM * cos2L0
+			- 0.5 * y * y * ExactMath.sinDeg(4.0 * l0) - 1.25 * e * e * sin2M) * deg;
+		long s = u - 86400L * Math.floorDiv(u, 86400L);
+		double h = ((double) s / 60.0 + eqt + 4.0 * where.longitude()) / 4.0 - 180.0;
+		double sinLat = ExactMath.sinDeg(where.latitude());
+		double cosLat = ExactMath.cosDeg(where.latitude());
+		double sinDec = ExactMath.sinDeg(dec);
+		double cosDec = ExactMath.cosDeg(dec);
+		double cosH = ExactMath.cosDeg(h);
+		double up = sinLat * sinDec + cosLat * cosDec * cosH;
+		double north = cosLat * sinDec - sinLat * cosDec * cosH;
+		double east = -(cosDec * ExactMath.sinDeg(h));
+		return new SunPosition(ExactMath.wrap360(ExactMath.atan2Deg(east, north)),
+			ExactMath.atan2Deg(up, Math.sqrt(north * north + east * east)));
 	}
 
 	private static double rad(double degrees) {

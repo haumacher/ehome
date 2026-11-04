@@ -93,6 +93,16 @@ public final class Engine implements DatapointModel.Listener {
 		default DateTime utcToLocal(long utc) {
 			return PosixZone.UTC.local(utc);
 		}
+
+		/**
+		 * The sun's position at the UTC instant (seconds since the epoch) at the location
+		 * ({@link Astro#sunPosition(long, Astro.GeoLocation)}), <code>null</code> without coordinates:
+		 * the blocks' <code>sun()</code> (homecontrol <code>spec/blocks.md</code> B21). The default has
+		 * none.
+		 */
+		default Astro.SunPosition sunPosition(long utc) {
+			return null;
+		}
 	}
 
 	/**
@@ -460,6 +470,13 @@ public final class Engine implements DatapointModel.Listener {
 
 	private DateTime _wall;
 
+	/** {@link #cascadeSun()}'s last result and the UTC second it is for. */
+	private boolean _sunCached;
+
+	private long _sunUtc;
+
+	private Astro.SunPosition _sun;
+
 	private int _currentRule;
 
 	private long _timerSequence;
@@ -559,6 +576,24 @@ public final class Engine implements DatapointModel.Listener {
 	/** The cascade's wall time, <code>null</code> while not synchronized. */
 	public DateTime cascadeWall() {
 		return _wall;
+	}
+
+	/**
+	 * The sun's position at the cascade's wall time, the instant of {@link #cascadeWall()}
+	 * (homecontrol <code>spec/blocks.md</code> B21, 5.5); <code>null</code> while the wall clock is not
+	 * synchronized or without coordinates. Computed once per wall second.
+	 */
+	public Astro.SunPosition cascadeSun() {
+		if (_wall == null) {
+			return null;
+		}
+		long utc = _time.localToUtc(_wall);
+		if (!_sunCached || utc != _sunUtc) {
+			_sun = _time.sunPosition(utc);
+			_sunUtc = utc;
+			_sunCached = true;
+		}
+		return _sun;
 	}
 
 	/**

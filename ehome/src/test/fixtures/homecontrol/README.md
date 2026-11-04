@@ -20,6 +20,10 @@ Synced again at `6ccddb4538bf4a775503973ee876c4b7317b2d38` (2026-11-04, "Blocks:
 (#61) and heating curve (#62)", `spec/blocks.md` 16, 17 and B20), which added the cases
 `27-demand-hysteresis-min-times` to `41-demand-image-swap-keeps-hold` and changed the corpus `README.md`; the
 image and rule fixtures did not change.
+Synced again at `bdaf0bcda6d4aab19801cbce24f55c0e259c84c2` (2026-11-04, "Blocks: sun shading (#63)",
+`spec/blocks.md` 18, B21, B22, 13.1 and 13.2), which added the cases `42-shading-sun-on-facade` to
+`54-shading-sensors-one-by-one` (with the case member `location`) and changed the corpus
+`README.md`; the image and rule fixtures did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

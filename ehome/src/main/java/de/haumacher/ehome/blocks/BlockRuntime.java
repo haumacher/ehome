@@ -24,6 +24,7 @@ import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.ParamType;
 import de.haumacher.ehome.blocks.Manifest.Port;
 import de.haumacher.ehome.blocks.Manifest.PortType;
+import de.haumacher.ehome.rules.Astro.SunPosition;
 import de.haumacher.ehome.rules.DatapointModel;
 import de.haumacher.ehome.rules.DatapointModel.CommandStatus;
 import de.haumacher.ehome.rules.DatapointModel.Datapoint;
@@ -1022,6 +1023,11 @@ public final class BlockRuntime implements Engine.BlockHost {
 		@Override
 		public DateTime wall() {
 			return _engine.cascadeWall();
+		}
+
+		@Override
+		public SunPosition sun() {
+			return _engine.cascadeSun();
 		}
 
 		@Override

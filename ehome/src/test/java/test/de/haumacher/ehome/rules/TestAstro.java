@@ -10,6 +10,7 @@ import junit.framework.TestSuite;
 import de.haumacher.ehome.rules.Astro;
 import de.haumacher.ehome.rules.Astro.GeoLocation;
 import de.haumacher.ehome.rules.Astro.SunEvent;
+import de.haumacher.ehome.rules.ExactMath;
 import de.haumacher.ehome.rules.Values;
 
 /**
@@ -26,6 +27,43 @@ public class TestAstro extends TestCase {
 
 	private static long utc(int year, int month, int day, int hour, int minute) {
 		return utc(year, month, day, hour, minute, 0);
+	}
+
+	/**
+	 * The sun's position (homecontrol <code>spec/blocks.md</code> 13.2) gives the controller's bits:
+	 * <code>core/test/astro_test.cpp</code> pins the same values for the NREL SPA example
+	 * (2003-10-17 12:30:30 at UTC-7, 39.742476 N, 105.1786 W), which lies within 0.02 degrees of SPA's
+	 * azimuth 194.34024 and of its geometric elevation 39.8740.
+	 */
+	public void testSunPositionBits() {
+		long u = utc(2003, 10, 17, 19, 30) + 30;
+		Astro.SunPosition p = Astro.sunPosition(u, new GeoLocation(39.742476, -105.1786, 0));
+		assertEquals(194.34258286147883, p.azimuth(), 0.0);
+		assertEquals(39.87207442405636, p.elevation(), 0.0);
+		assertTrue(Math.abs(p.azimuth() - 194.34024) < 0.02);
+		assertTrue(Math.abs(p.elevation() - (90.0 - 50.11162 - 0.0163 + 0.0019)) < 0.02);
+	}
+
+	/** The exact trigonometry against the library: within 1e-13 and 1e-12 degrees. */
+	public void testExactMath() {
+		double worst = 0;
+		for (int i = -7200; i <= 7200; i++) {
+			double x = i * 0.137;
+			worst = Math.max(worst, Math.abs(ExactMath.sinDeg(x) - Math.sin(Math.toRadians(x))));
+			worst = Math.max(worst, Math.abs(ExactMath.cosDeg(x) - Math.cos(Math.toRadians(x))));
+		}
+		assertTrue(worst < 1e-13);
+		double arc = 0;
+		for (int i = -1000; i <= 1000; i++) {
+			double v = i / 1000.0;
+			arc = Math.max(arc, Math.abs(ExactMath.asinDeg(v) - Math.toDegrees(Math.asin(v))));
+			arc = Math.max(arc, Math.abs(ExactMath.atan2Deg(v, 0.3) - Math.toDegrees(Math.atan2(v, 0.3))));
+			arc = Math.max(arc, Math.abs(ExactMath.atan2Deg(0.7, v) - Math.toDegrees(Math.atan2(0.7, v))));
+		}
+		assertTrue(arc < 1e-12);
+		assertEquals(0.0, ExactMath.atan2Deg(0, 0), 0.0);
+		assertEquals(180.0, ExactMath.atan2Deg(0, -1), 0.0);
+		assertEquals(90.0, ExactMath.asinDeg(1.5), 0.0);
 	}
 
 	/** Dawn, sunrise, sunset, dusk (UTC seconds), 0 for an event that does not occur. */

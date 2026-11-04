@@ -782,6 +782,13 @@ public final class BlockSet {
 						+ "' cannot command the " + type.externalName() + " datapoint '" + name + "'");
 				}
 				for (int q = 0; q < m.ports().size(); q++) {
+					// spec/blocks.md B22: a block does not read its own output.
+					if (m.ports().get(q).isInput() && bindings.get(q).contains(name)) {
+						throw refuse(BlockError.FORBIDDEN, "'" + name + "' is bound to the input '" + m.ports().get(q).id()
+							+ "': a block does not read its own output");
+					}
+				}
+				for (int q = 0; q < m.ports().size(); q++) {
 					if (!m.ports().get(q).isInput() && bindings.get(q).contains(name)) {
 						throw refuse(BlockError.OUTPUT_CONFLICT,
 							"'" + name + "' is bound to the output '" + m.ports().get(q).id() + "' already");

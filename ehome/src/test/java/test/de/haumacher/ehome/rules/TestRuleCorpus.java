@@ -32,7 +32,9 @@ import de.haumacher.ehome.blocks.BlockSet;
 import de.haumacher.ehome.blocks.BlockType;
 import de.haumacher.ehome.blocks.Manifest;
 import de.haumacher.ehome.rules.Astro;
+import de.haumacher.ehome.rules.Astro.GeoLocation;
 import de.haumacher.ehome.rules.Astro.SunEvent;
+import de.haumacher.ehome.rules.Astro.SunPosition;
 import de.haumacher.ehome.rules.DatapointModel;
 import de.haumacher.ehome.rules.DatapointModel.Datapoint;
 import de.haumacher.ehome.rules.DatapointModel.Quality;
@@ -146,6 +148,9 @@ public class TestRuleCorpus extends TestCase {
 		/** The UTC instant of the corpus' time 0. */
 		private long _startUtc;
 
+		/** The case's <code>location</code>, <code>null</code> for none. */
+		private GeoLocation _location;
+
 		private PosixZone _zone = PosixZone.UTC;
 
 		private String _language = "en";
@@ -257,6 +262,11 @@ public class TestRuleCorpus extends TestCase {
 				// A time that occurs twice is its first occurrence: the one in summer time.
 				_startUtc = _zone.utc(local, true);
 				_synchronized = !Boolean.FALSE.equals(clock.get("synchronized"));
+			}
+			if (_case.get("location") instanceof Map<?, ?> location) {
+				// The blocks' sun() (homecontrol spec/fixtures/blocks/README.md "location").
+				_location = new GeoLocation(((Number) location.get("lat")).doubleValue(),
+					((Number) location.get("lon")).doubleValue(), 0);
 			}
 			if (_case.get("ui") instanceof Map<?, ?> ui && ui.get("lang") instanceof String lang) {
 				_language = lang;
@@ -460,6 +470,11 @@ public class TestRuleCorpus extends TestCase {
 				@Override
 				public DateTime utcToLocal(long utc) {
 					return _zone.local(utc);
+				}
+
+				@Override
+				public SunPosition sunPosition(long utc) {
+					return _location == null ? null : Astro.sunPosition(utc, _location);
 				}
 			});
 			engine.setLanguage(_language);

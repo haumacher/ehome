@@ -3,6 +3,7 @@
  */
 package de.haumacher.ehome.blocks;
 
+import de.haumacher.ehome.rules.Astro.SunPosition;
 import de.haumacher.ehome.rules.DatapointModel.Quality;
 import de.haumacher.ehome.rules.Val.DateTime;
 
@@ -45,6 +46,13 @@ public interface BlockContext {
 
 	/** The local wall time with its day of the week (1 Monday .. 7 Sunday); <code>null</code> while not synchronized. */
 	DateTime wall();
+
+	/**
+	 * The sun's position at the instant of {@link #wall()} and the controller's location
+	 * (<code>spec/blocks.md</code> B21); <code>null</code> while the clock is not synchronized or no
+	 * location is set.
+	 */
+	SunPosition sun();
 
 	/** An input. */
 	InputValue read(int port);

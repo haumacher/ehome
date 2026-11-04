@@ -30,8 +30,10 @@ import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.blocks.BlockRegistry;
 import de.haumacher.ehome.blocks.BlockRuntime;
 import de.haumacher.ehome.blocks.BlockSet;
+import de.haumacher.ehome.rules.Astro;
 import de.haumacher.ehome.rules.Astro.GeoLocation;
 import de.haumacher.ehome.rules.Astro.SunEvent;
+import de.haumacher.ehome.rules.Astro.SunPosition;
 import de.haumacher.ehome.rules.DatapointModel;
 import de.haumacher.ehome.rules.DatapointModel.CommandStatus;
 import de.haumacher.ehome.rules.DatapointModel.Datapoint;
@@ -444,6 +446,11 @@ public final class Simulation implements AutoCloseable {
 			@Override
 			public DateTime utcToLocal(long utc) {
 				return _zone.local(utc);
+			}
+
+			@Override
+			public SunPosition sunPosition(long utc) {
+				return _location == null || !_location.valid() ? null : Astro.sunPosition(utc, _location);
 			}
 		});
 		_engine.setObserver(new Engine.Observer() {
