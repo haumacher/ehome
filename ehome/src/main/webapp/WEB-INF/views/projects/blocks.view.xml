@@ -11,12 +11,23 @@
 	"New virtual device" asks for the type and the room (block-create.view.xml); the identifier is
 	derived from the name once and never changes. The form of the selected instance shows what the
 	image refuses of it (the controller's reason with its path). Below it the parameters of the type
-	with their bounds or choices and the type's default, the value of the image entered as a number
-	(a choice by its value, a duration in ms, a time of day in seconds); the inputs and the outputs
-	with their bindings: "Bind datapoints" offers the datapoints of the project of a type the port
-	reads or commands (block-bind.view.xml), an input binds up to its number of datapoints and an
-	aggregation combines them. A binding keeps the id of its datapoint, so a group address a
-	re-import of the ETS project removes leaves a binding the validation names.
+	with their value, the value of the image (set or default), the type's default and the bounds or
+	choices, each as people read it (haumacher/ehome #78, BlockValues): a choice by its label, a
+	duration in the unit of the manifest (stored in ms), a time of day as a time, a truth value as
+	yes or no. The selected parameter is entered by its kind - a choice from its labels, a duration or
+	a number in its unit, a time of day in a time input, a truth value as a checkbox - and the value a
+	user finishes is applied at once (blockApplyValue): the default or an emptied input removes the
+	value. The inputs and the outputs with their bindings: "Bind datapoints" offers the datapoints of
+	the project of a type and unit the port reads or commands (block-bind.view.xml), an input binds up
+	to its number of datapoints and an aggregation chosen from the port's combines them. A binding
+	keeps the id of its datapoint, so a group address a re-import of the ETS project removes leaves a
+	binding the validation names.
+
+	"Diagnostics" reads on demand what the controller of the project tells of the deployed instance
+	(GET /api/blocks, BlockDiagnosticsAction): its status and fault, its calls with the last one and
+	the last error, its outputs and inputs with their values, the timers, the parameters the
+	inhabitant changed and the state record; a project without controller, an unreachable controller
+	and an instance that is not deployed are said as such.
 -->
 <view>
 	<channels>
@@ -26,6 +37,51 @@
 		<channel name="input"/>
 		<channel name="output"/>
 		<channel name="binding"/>
+		<!-- The value the input of the selected parameter shows: the value of the image, again after each selection and change. -->
+		<channel name="parameterValue"
+			init="blockEditValue($parameter)"
+			inputs="parameter"
+			observed-types="ehome.runtime:BlockParameter"
+		/>
+		<!-- How the selected parameter is entered; "readonly" where the user may not change it. -->
+		<derived-channel name="parameterKind"
+			expr="if($parameter == null, null, if(!canWrite($parameter), 'readonly', blockParameterKind($parameter)))"
+			inputs="parameter"
+		/>
+		<derived-channel name="parameterUnit"
+			expr="if($parameter == null, null, blockUnit($parameter))"
+			inputs="parameter"
+		/>
+		<derived-channel name="parameterEffective"
+			expr="if($parameter == null, null, blockEffective($parameter))"
+			inputs="parameter"
+			observed-types="ehome.runtime:BlockParameter"
+		/>
+		<derived-channel name="parameterLabel"
+			expr="if($parameter == null, null, blockLabel($parameter))"
+			inputs="parameter"
+		/>
+		<derived-channel name="parameterHint"
+			inputs="parameter"
+			observed-types="ehome.runtime:BlockParameter"
+		>
+			<expr><![CDATA[if($parameter == null, null, {
+    range = blockRange($parameter);
+    #("Default: {0}. Range: {1}. An empty input or the default leaves the parameter at the type's default."@en,
+      "Vorgabe: {0}. Bereich: {1}. Eine leere Eingabe oder die Vorgabe lässt den Parameter bei der Vorgabe des Typs."@de)
+        .fill(blockDefault($parameter), if($range == null or $range == '', '–', $range)).localize()
+})]]></expr>
+		</derived-channel>
+		<!-- What the last "Read diagnostics" told, with the virtual device it was read for. -->
+		<channel name="diagnostics"/>
+		<derived-channel name="diagnosticsText"
+			inputs="block, diagnostics"
+		>
+			<expr><![CDATA[if($block == null, null,
+    if($diagnostics != null and $diagnostics["block"] == $block, $diagnostics["text"],
+        #("Not read yet: \"Read diagnostics\" asks the controller what the virtual device does."@en,
+          "Noch nicht gelesen: „Diagnose lesen“ fragt den Controller, was das virtuelle Gerät tut."@de).localize()))]]></expr>
+		</derived-channel>
 		<derived-channel name="inputsFlag"
 			expr="true"
 			inputs="block"
@@ -232,7 +288,16 @@
 																</label>
 																<value>blockLabel($row)</value>
 															</computed-column>
-															<column attribute="value"/>
+															<computed-column name="value"
+																type="tl.core:String"
+																width="180"
+															>
+																<label>
+																	<en>Value</en>
+																	<de>Wert</de>
+																</label>
+																<value>blockValue($row)</value>
+															</computed-column>
 															<computed-column name="effective"
 																type="tl.core:String"
 																width="180"
@@ -281,15 +346,153 @@
 													size="30"
 													unit="%"
 												>
-													<form
-														input="parameter"
-														with-inset="true"
-													>
-														<field attribute="parameter"
-															readonly="true"
-														/>
-														<field attribute="value"/>
-													</form>
+													<panel>
+														<title>
+															<en>Parameter</en>
+															<de>Parameter</de>
+														</title>
+														<inset>
+															<stack gap="default">
+																<text input="parameterLabel"/>
+																<switch input="parameterKind">
+																	<case test="$parameterKind == 'boolean'">
+																		<fields max-columns="1">
+																			<value-input
+																				type="tl.core:Boolean"
+																				value="parameterValue"
+																			>
+																				<label>
+																					<en>Value</en>
+																					<de>Wert</de>
+																				</label>
+																				<on-submit inputs="parameter">
+																					<access>
+																						<operation name="Write"
+																							object="$parameter"
+																							type="ehome.runtime:BlockParameter"
+																						/>
+																					</access>
+																					<with-transaction>
+																						<execute-script function="blockApplyValue($parameter, $value)"/>
+																						<with-result>
+																							<notify
+																								expr="$result"
+																								kind="error"
+																							/>
+																						</with-result>
+																					</with-transaction>
+																				</on-submit>
+																			</value-input>
+																		</fields>
+																	</case>
+																	<case test="$parameterKind == 'choice'">
+																		<fields max-columns="1">
+																			<value-input
+																				inputs="parameter"
+																				options="blockChoiceOptions($parameter)"
+																				type="tl.core:String"
+																				value="parameterValue"
+																			>
+																				<label>
+																					<en>Value</en>
+																					<de>Wert</de>
+																				</label>
+																				<on-submit inputs="parameter">
+																					<access>
+																						<operation name="Write"
+																							object="$parameter"
+																							type="ehome.runtime:BlockParameter"
+																						/>
+																					</access>
+																					<with-transaction>
+																						<execute-script function="blockApplyValue($parameter, $value)"/>
+																						<with-result>
+																							<notify
+																								expr="$result"
+																								kind="error"
+																							/>
+																						</with-result>
+																					</with-transaction>
+																				</on-submit>
+																			</value-input>
+																		</fields>
+																	</case>
+																	<case test="$parameterKind == 'duration' or $parameterKind == 'number'">
+																		<fields max-columns="1">
+																			<value-input
+																				submit-on="change"
+																				type="tl.core:Double"
+																				value="parameterValue"
+																			>
+																				<label>
+																					<en>Value</en>
+																					<de>Wert</de>
+																				</label>
+																				<input-control class="com.top_logic.layout.view.form.NumberInputControlProvider"
+																					inputs="parameterUnit as unit"
+																					unit="$unit"
+																				/>
+																				<on-submit inputs="parameter">
+																					<access>
+																						<operation name="Write"
+																							object="$parameter"
+																							type="ehome.runtime:BlockParameter"
+																						/>
+																					</access>
+																					<with-transaction>
+																						<execute-script function="blockApplyValue($parameter, $value)"/>
+																						<with-result>
+																							<notify
+																								expr="$result"
+																								kind="error"
+																							/>
+																						</with-result>
+																					</with-transaction>
+																				</on-submit>
+																			</value-input>
+																		</fields>
+																	</case>
+																	<case test="$parameterKind == 'time'">
+																		<fields max-columns="1">
+																			<value-input
+																				type="tl.core:Time"
+																				value="parameterValue"
+																			>
+																				<label>
+																					<en>Value</en>
+																					<de>Wert</de>
+																				</label>
+																				<on-submit inputs="parameter">
+																					<access>
+																						<operation name="Write"
+																							object="$parameter"
+																							type="ehome.runtime:BlockParameter"
+																						/>
+																					</access>
+																					<with-transaction>
+																						<execute-script function="blockApplyValue($parameter, $value)"/>
+																						<with-result>
+																							<notify
+																								expr="$result"
+																								kind="error"
+																							/>
+																						</with-result>
+																					</with-transaction>
+																				</on-submit>
+																			</value-input>
+																		</fields>
+																	</case>
+																	<case test="$parameterKind == 'readonly'">
+																		<text input="parameterEffective"/>
+																	</case>
+																</switch>
+																<text
+																	input="parameterHint"
+																	tone="secondary"
+																/>
+															</stack>
+														</inset>
+													</panel>
 												</pane>
 											</panes>
 										</split-panel>
@@ -345,6 +548,50 @@
 												to="outputsFlag"
 											/>
 										</view-ref>
+									</tab>
+									<tab id="diagnostics"
+										icon="css:bi bi-activity"
+									>
+										<label>
+											<en>Diagnostics</en>
+											<de>Diagnose</de>
+										</label>
+										<panel>
+											<title>
+												<en>On the controller</en>
+												<de>Auf dem Controller</de>
+											</title>
+											<commands>
+												<generic-command
+													image="css:bi bi-arrow-clockwise"
+													inputs="block"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Read diagnostics</en>
+														<de>Diagnose lesen</de>
+													</label>
+													<access>
+														<!-- Only asks the controller of the project (GET /api/blocks, with the stored token, in Java). -->
+														<operation name="Read"
+															object="$block"
+															type="ehome.runtime:BlockInstance"
+														/>
+													</access>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<block-diagnostics>
+														<with-result>
+															<write-channel name="diagnostics"/>
+														</with-result>
+													</block-diagnostics>
+												</generic-command>
+											</commands>
+											<inset>
+												<text input="diagnosticsText"/>
+											</inset>
+										</panel>
 									</tab>
 								</tabs>
 							</tab-bar>

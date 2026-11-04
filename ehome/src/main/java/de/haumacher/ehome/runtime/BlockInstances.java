@@ -8,13 +8,17 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.function.Function;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.blocks.BlockRegistry;
@@ -24,8 +28,10 @@ import de.haumacher.ehome.blocks.Manifest;
 import de.haumacher.ehome.blocks.Manifest.Aggregation;
 import de.haumacher.ehome.blocks.Manifest.Choice;
 import de.haumacher.ehome.blocks.Manifest.Param;
-import de.haumacher.ehome.blocks.Manifest.ParamType;
 import de.haumacher.ehome.blocks.Manifest.Port;
+import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
+import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.rules.ValueType;
 
 /**
  * The virtual devices of a project (haumacher/ehome #75, homecontrol <code>spec/blocks.md</code>):
@@ -274,6 +280,222 @@ public final class BlockInstances {
 			}
 		}
 		return datapoint;
+	}
+
+	// ---- Units ------------------------------------------------------------------------------
+
+	/**
+	 * How the unit of a datapoint fits the unit of a port it is to be bound to (haumacher/ehome #78).
+	 */
+	public enum UnitFit {
+		/** The port has no unit, or the datapoint has the port's. */
+		SAME,
+		/**
+		 * The datapoint has no unit that says what it measures (an application datapoint or a rule
+		 * parameter without one, a group address without a datapoint type or with a main type alone):
+		 * offered, with a hint that the user checks it.
+		 */
+		UNKNOWN,
+		/**
+		 * The datapoint measures something else: another unit, or none because it measures nothing (a
+		 * KNX subtype without unit, as a scene number, a counter or a mode; a port or parameter of a
+		 * virtual device without unit). Not offered.
+		 */
+		OTHER;
+	}
+
+	/**
+	 * The unit of a datapoint of the project in the image, <code>null</code> for none: a port or
+	 * parameter of a virtual device by its manifest (a duration in ms, as its datapoint carries it),
+	 * a group address or application datapoint as the image gives it ({@link DatapointSettings#unit}),
+	 * a rule parameter by its unit (a duration in ms).
+	 */
+	public static String datapointUnit(TLObject datapoint) {
+		if (isPort(datapoint)) {
+			Port decl = portDecl(datapoint);
+			return decl == null || decl.unit().isBlank() ? null : decl.unit().trim();
+		}
+		if (isParameter(datapoint)) {
+			Param decl = paramDecl(datapoint);
+			if (decl == null) {
+				return null;
+			}
+			if (decl.type() == Manifest.ParamType.DURATION) {
+				return "ms";
+			}
+			return decl.unit().isBlank() || !decl.choices().isEmpty() ? null : decl.unit().trim();
+		}
+		if (Pages.isGroupAddress(datapoint) || ApplicationDatapoints.isApplicationDatapoint(datapoint)) {
+			return DatapointSettings.unit(datapoint);
+		}
+		if (Pages.isRuleParameter(datapoint)) {
+			// A duration's datapoint carries ms; its unit is the one the controller edits it in.
+			if (datapoint.tValueByName("type") instanceof TLClassifier type && "duration".equals(type.getName())) {
+				return "ms";
+			}
+			Object unit = datapoint.tValueByName("unit");
+			return unit == null || unit.toString().isBlank() ? null : unit.toString().trim();
+		}
+		return null;
+	}
+
+	/**
+	 * How the datapoint fits the unit of the port: a port without unit (a truth value, a choice, a
+	 * count) takes any datapoint its type fits; a port with a unit takes a datapoint of the same unit
+	 * (compared without case and surrounding blanks), and one without a unit only where nothing says
+	 * what it measures ({@link UnitFit#UNKNOWN}).
+	 */
+	public static UnitFit unitFit(Port decl, TLObject datapoint) {
+		String expected = decl.unit().trim();
+		if (expected.isEmpty()) {
+			return UnitFit.SAME;
+		}
+		String unit = datapointUnit(datapoint);
+		if (unit != null) {
+			return unit.equalsIgnoreCase(expected) ? UnitFit.SAME : UnitFit.OTHER;
+		}
+		return measuresNothing(datapoint) ? UnitFit.OTHER : UnitFit.UNKNOWN;
+	}
+
+	/**
+	 * Whether a datapoint without unit says so because it measures nothing: a port or parameter of a
+	 * virtual device (its manifest gives every physical value its unit), a group address whose
+	 * datapoint type is a KNX subtype without unit (17.001 scene number, 5.010 counter, 20.102 HVAC
+	 * mode). A main type alone (9.*) has no unit because it is not specific.
+	 */
+	private static boolean measuresNothing(TLObject datapoint) {
+		if (isBlockDatapoint(datapoint)) {
+			return true;
+		}
+		if (Pages.isGroupAddress(datapoint)) {
+			Dpt dpt = GroupAddressTypes.effective(datapoint);
+			return dpt != null && !dpt.isMainType();
+		}
+		return false;
+	}
+
+	/** The type id of the instance holding the port or parameter. */
+	static String blockType(TLObject member) {
+		return member.tContainer() == null ? null : String.valueOf(member.tContainer().tValueByName("blockType"));
+	}
+
+	/**
+	 * The datapoints the port can bind: those of the project (as the pages list them) of a type the
+	 * port reads or commands, a writable one for an output, of the port's unit (or of none that says
+	 * otherwise, {@link BlockInstances#unitFit}), not a datapoint of its own instance and not bound to
+	 * it already.
+	 */
+	public static List<TLObject> bindingOptions(TLObject port) {
+		Port decl = portDecl(port);
+		TLObject instance = port.tContainer();
+		if (decl == null || instance == null) {
+			return List.of();
+		}
+		List<TLObject> bound = bound(port);
+		List<TLObject> result = new ArrayList<>();
+		for (TLObject datapoint : Pages.datapoints(RuntimeFunctions.project(instance))) {
+			if (bound.contains(datapoint) || datapoint == instance || datapoint.tContainer() == instance) {
+				continue;
+			}
+			String name = Pages.valueType(datapoint);
+			ValueType type = name == null ? null : ValueType.fromName(name);
+			if (type == null) {
+				continue;
+			}
+			if ((decl.isInput() ? decl.type().reads(type) : decl.type().commands(type) && commandable(datapoint))
+				&& unitFit(decl, datapoint) != UnitFit.OTHER) {
+				result.add(datapoint);
+			}
+		}
+		return result;
+	}
+
+	/** Whether an output may command the datapoint. */
+	private static boolean commandable(TLObject datapoint) {
+		if (isBlockDatapoint(datapoint)) {
+			// The datapoints of virtual devices are owned by the block runtime (spec/blocks.md B14).
+			return false;
+		}
+		if (ApplicationDatapoints.isApplicationDatapoint(datapoint)) {
+			return ApplicationDatapoints.writable(datapoint);
+		}
+		if (Pages.isRuleParameter(datapoint) || Pages.isTimeSchedule(datapoint)) {
+			return false;
+		}
+		return DatapointSettings.writable(datapoint);
+	}
+
+	/**
+	 * Sets the entered value of the parameter (to be called in a transaction): the type's default (or
+	 * nothing) removes the value, so that the image leaves it out and a later version of the type's
+	 * default applies.
+	 *
+	 * @param entered
+	 *        The value of the parameter's input ({@link BlockValues#editValue}).
+	 * @param zone
+	 *        The time zone a time of day is entered in.
+	 *
+	 * @return The reason the value is refused, <code>null</code> when it is applied.
+	 */
+	public static String applyValue(TLObject parameter, Object entered, TimeZone zone) {
+		Param decl = paramDecl(parameter);
+		if (decl == null) {
+			return Resources.getInstance().getString(I18NConstants.BLOCK_PARAMETER_UNKNOWN__PARAMETER
+				.fill(String.valueOf(parameter.tValueByName("parameter"))));
+		}
+		Double value;
+		try {
+			value = BlockValues.parse(blockType(parameter), decl, entered, zone);
+		} catch (IllegalArgumentException ex) {
+			return ex.getMessage();
+		}
+		if (value != null && value.doubleValue() == decl.defaultValue()) {
+			value = null;
+		}
+		if (!Objects.equals(parameter.tValueByName("value"), value)) {
+			parameter.tUpdateByName("value", value);
+		}
+		return null;
+	}
+
+	/**
+	 * Sets the aggregation of the label (in the user's language) to the port (to be called in a
+	 * transaction); its default (or nothing) removes it.
+	 *
+	 * @return The reason the aggregation is refused, <code>null</code> when it is applied.
+	 */
+	public static String applyAggregation(TLObject port, Object label) {
+		Port decl = portDecl(port);
+		if (decl == null || !decl.isInput() || decl.multiple() < 2) {
+			return Resources.getInstance().getString(I18NConstants.BLOCK_AGGREGATION_NONE__PORT
+				.fill(String.valueOf(port.tValueByName("port"))));
+		}
+		String value = null;
+		if (label != null && !label.toString().isBlank()) {
+			Aggregation chosen = BlockValues.aggregationOfLabel(decl.aggregations(), label.toString());
+			if (chosen == null) {
+				return Resources.getInstance().getString(I18NConstants.BLOCK_AGGREGATION_INVALID__AGGREGATION_PORT
+					.fill(label, String.valueOf(port.tValueByName("port"))));
+			}
+			value = chosen == decl.defaultAggregation() ? null : chosen.externalName();
+		}
+		if (!Objects.equals(port.tValueByName("aggregation"), value)) {
+			port.tUpdateByName("aggregation", value);
+		}
+		return null;
+	}
+
+	/** The unit of the datapoint, with a hint where it has none that the port could check. */
+	public static String bindingUnit(TLObject port, TLObject datapoint) {
+		Port decl = portDecl(port);
+		String unit = datapointUnit(datapoint);
+		if (unit != null) {
+			return unit;
+		}
+		if (decl != null && unitFit(decl, datapoint) == UnitFit.UNKNOWN) {
+			return Resources.getInstance().getString(I18NConstants.BLOCK_BINDING_NO_UNIT__UNIT.fill(decl.unit().trim()));
+		}
+		return null;
 	}
 
 	// ---- Creating ----------------------------------------------------------------------------
@@ -544,75 +766,8 @@ public final class BlockInstances {
 		}
 	}
 
-	/**
-	 * The parameter's value for the user: a choice by its label, a duration in minutes or seconds, a
-	 * time of day as <code>hh:mm:ss</code>, a boolean as yes/no.
-	 */
-	public static String display(Param decl, double value) {
-		switch (decl.type()) {
-			case BOOLEAN:
-				return value != 0 ? "true" : "false";
-			case TIME_OF_DAY: {
-				long s = (long) value;
-				return String.format("%02d:%02d:%02d", Long.valueOf(s / 3600), Long.valueOf(s % 3600 / 60),
-					Long.valueOf(s % 60));
-			}
-			case DURATION:
-				return format(value) + " ms (" + durationText(value) + ")";
-			default: {
-				Choice choice = decl.choice(value);
-				String unit = decl.unit().isEmpty() ? "" : " " + decl.unit();
-				return choice != null ? format(value) + " = " + choice.id() : format(value) + unit;
-			}
-		}
-	}
-
-	private static String durationText(double ms) {
-		if (ms % 60000 == 0) {
-			return format(ms / 60000) + " min";
-		}
-		return format(ms / 1000) + " s";
-	}
-
 	private static String message(ResKey key) {
 		return com.top_logic.util.Resources.getInstance().getString(key);
-	}
-
-	static String format(double value) {
-		return value == Math.floor(value) && Math.abs(value) < 1e15 ? Long.toString((long) value) : Double.toString(value);
-	}
-
-	/**
-	 * The range of the parameter for the user: its bounds or choices, and its default.
-	 */
-	public static String range(Param decl) {
-		StringBuilder result = new StringBuilder();
-		if (!decl.choices().isEmpty()) {
-			for (Choice choice : decl.choices()) {
-				if (result.length() > 0) {
-					result.append(", ");
-				}
-				result.append(format(choice.value())).append(" = ").append(choice.id());
-			}
-		} else if (decl.type() == ParamType.BOOLEAN) {
-			result.append("0, 1");
-		} else if (decl.min() != null || decl.max() != null) {
-			result.append(decl.min() == null ? "" : display(decl, decl.min().doubleValue())).append(" .. ")
-				.append(decl.max() == null ? "" : display(decl, decl.max().doubleValue()));
-		}
-		return result.toString();
-	}
-
-	/** The aggregations a port allows (its default first). */
-	public static List<String> aggregations(TLObject port) {
-		Port decl = portDecl(port);
-		List<String> result = new ArrayList<>();
-		if (decl != null) {
-			for (Aggregation a : decl.aggregations()) {
-				result.add(a.externalName());
-			}
-		}
-		return result;
 	}
 
 }

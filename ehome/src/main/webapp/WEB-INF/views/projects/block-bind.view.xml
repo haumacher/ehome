@@ -6,7 +6,11 @@
 	(group addresses, application datapoints, rule parameters, schedule times, the datapoints of
 	other virtual devices) of a type the port reads, for an output a writable one of a type it
 	commands (homecontrol spec/blocks.md 5.3, 5.4), not the instance's own and not bound to the port
-	yet. Each chosen datapoint is bound at the end, in the order of the table (blockBind); the last
+	yet. A port with a unit is offered the datapoints of its unit (BlockInstances#unitFit,
+	haumacher/ehome #78) and those without one where nothing says what they measure (an application
+	datapoint or a group address without a specific type), which the column "Unit" asks to check; a
+	datapoint of another unit or of a KNX type without unit (a scene number, a counter, a mode) is
+	not offered. Each chosen datapoint is bound at the end, in the order of the table (blockBind); the last
 	binding is written to "selection".
 -->
 <view>
@@ -68,6 +72,17 @@
 								<de>Werttyp</de>
 							</label>
 							<value>pageValueType($row)</value>
+						</computed-column>
+						<computed-column name="unit"
+							inputs="port"
+							type="tl.core:String"
+							width="200"
+						>
+							<label>
+								<en>Unit</en>
+								<de>Einheit</de>
+							</label>
+							<value>blockBindingUnit($port, $row)</value>
 						</computed-column>
 					</columns>
 					<rows>blockBindingOptions($port)</rows>

@@ -32,6 +32,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.blocks.RoomController;
+import de.haumacher.ehome.blocks.SunShading;
 import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
@@ -347,6 +348,12 @@ public final class FunctionProposal {
 				if (proposal.roles().values().stream().anyMatch(usedDatapoints::contains)) {
 					continue;
 				}
+				TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
+				if (proposal.channel().startsWith(BLOCK_CHANNEL)
+					&& !boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()))) {
+					// A sun shading's blind moves the actuator whose channel was proposed a blind already.
+					continue;
+				}
 				usedDatapoints.addAll(proposal.roles().values());
 			} else {
 				TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
@@ -558,22 +565,47 @@ public final class FunctionProposal {
 	}
 
 	/**
-	 * The climate function of a room controller (haumacher/ehome #75): its filtered temperature, its
-	 * active setpoint, the comfort setpoint as the setpoint command and its heat demand as heating,
-	 * keyed by the instance's identifier.
+	 * The function of a virtual device, keyed by its identifier (<code>block:&lt;id&gt;</code>):
+	 * <ul>
+	 * <li>A room controller (haumacher/ehome #75) is a climate function: its filtered temperature,
+	 * its active setpoint, the comfort setpoint as the setpoint command and its heat demand as
+	 * heating.</li>
+	 * <li>A sun shading (haumacher/ehome #78) is a blind: the datapoints its outputs command are
+	 * the blind it moves, so the function operates and shows them - its up/down output's datapoint
+	 * moves (the role the blind cannot do without, a command the device needs writable, which the
+	 * shading's own outputs are not), its position and slat outputs' datapoints are position and
+	 * slat, each as state and command. Without a datapoint on the up/down output it proposes
+	 * nothing; it has no stop. The inhabitant's commands reach the blind as the shading's do; a
+	 * manual operation input of the shading bound to them holds the automatic off.</li>
+	 * </ul>
 	 */
 	private static void block(TLObject instance, List<Proposal> result) {
 		String id = BlockInstances.identifier(instance);
-		if (id == null || !RoomController.TYPE.equals(instance.tValueByName("blockType"))
-			|| BlockInstances.type(instance) == null) {
+		if (id == null || BlockInstances.type(instance) == null) {
 			return;
 		}
+		Object type = instance.tValueByName("blockType");
+		String kind;
 		Map<String, TLObject> roles = new LinkedHashMap<>();
-		put(roles, "temperature", BlockInstances.port(instance, "filtered"));
-		put(roles, "setpoint", BlockInstances.port(instance, "activeSetpoint"));
-		put(roles, "setpointCommand", BlockInstances.parameter(instance, "comfort"));
-		put(roles, "heating", BlockInstances.port(instance, "demand"));
-		if (!roles.containsKey("temperature")) {
+		if (RoomController.TYPE.equals(type)) {
+			kind = "climate";
+			put(roles, "temperature", BlockInstances.port(instance, "filtered"));
+			put(roles, "setpoint", BlockInstances.port(instance, "activeSetpoint"));
+			put(roles, "setpointCommand", BlockInstances.parameter(instance, "comfort"));
+			put(roles, "heating", BlockInstances.port(instance, "demand"));
+		} else if (SunShading.TYPE.equals(type)) {
+			kind = "blind";
+			put(roles, "move", boundTo(instance, "upDown"));
+			TLObject position = boundTo(instance, "position");
+			put(roles, "position", position);
+			put(roles, "positionCommand", position);
+			TLObject slat = boundTo(instance, "slat");
+			put(roles, "slat", slat);
+			put(roles, "slatCommand", slat);
+		} else {
+			return;
+		}
+		if (!roles.containsKey(FunctionKinds.mainRole(kind))) {
 			return;
 		}
 		Map<String, String> label = new TreeMap<>();
@@ -585,7 +617,14 @@ public final class FunctionProposal {
 		} else {
 			label.put("en", id);
 		}
-		result.add(new Proposal("climate", label, roles, instance, BLOCK_CHANNEL + id, null));
+		result.add(new Proposal(kind, label, roles, instance, BLOCK_CHANNEL + id, null));
+	}
+
+	/** The datapoint the output of the instance is bound to, <code>null</code> for none. */
+	private static TLObject boundTo(TLObject instance, String output) {
+		TLObject port = BlockInstances.port(instance, output);
+		List<TLObject> bound = port == null ? List.of() : BlockInstances.bound(port);
+		return bound.isEmpty() ? null : bound.get(0);
 	}
 
 	/**

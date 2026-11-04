@@ -8,6 +8,7 @@ import java.util.List;
 
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
+import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLType;
 import com.top_logic.model.search.expr.EvalContext;
@@ -19,16 +20,15 @@ import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.blocks.BlockType;
 import de.haumacher.ehome.blocks.Manifest.Aggregation;
-import de.haumacher.ehome.blocks.Manifest.Choice;
 import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.Port;
-import de.haumacher.ehome.rules.ValueType;
 
 /**
  * The TL-Script functions of the virtual devices of a project (haumacher/ehome #75,
  * {@link BlockInstances}), registered in <code>ehome.runtime.config.xml</code> under the names of
- * their {@link Function} constants. Only {@link Function#blockCreate} and {@link Function#blockBind}
- * change data; a view command calling them checks the Write access to their object.
+ * their {@link Function} constants. Only {@link Function#blockCreate}, {@link Function#blockBind},
+ * {@link Function#blockApplyValue} and {@link Function#blockApplyAggregation} change data; a view
+ * command calling them checks the Write access to their object.
  */
 public class BlockFunctions extends GenericMethod {
 
@@ -71,7 +71,48 @@ public class BlockFunctions extends GenericMethod {
 		/** <code>blockRoomInstances(part)</code>: the virtual devices of the part of a building. */
 		blockRoomInstances(1),
 		/** <code>blockProblem(instance)</code>: what the image refuses of the instance, <code>null</code> for nothing. */
-		blockProblem(1);
+		blockProblem(1),
+		/**
+		 * <code>blockValue(parameter)</code>: the value the parameter is set to for the user (a choice
+		 * by its label, a duration in the manifest's unit), <code>null</code> when it is not set.
+		 */
+		blockValue(1),
+		/**
+		 * <code>blockParameterKind(parameter)</code>: how it is entered, <code>boolean</code>,
+		 * <code>choice</code>, <code>duration</code>, <code>time</code> or <code>number</code>.
+		 */
+		blockParameterKind(1),
+		/** <code>blockUnit(parameter)</code>: the unit its value is shown and entered in, empty for none. */
+		blockUnit(1),
+		/** <code>blockChoiceOptions(parameter)</code>: the labels of its choices in manifest order. */
+		blockChoiceOptions(1),
+		/**
+		 * <code>blockEditValue(parameter)</code>: the value its input shows, the value of the image (set
+		 * or default) in the form of {@link BlockValues#editValue}.
+		 */
+		blockEditValue(1),
+		/**
+		 * <code>blockApplyValue(parameter, value)</code>: sets the entered value (side effects); the
+		 * type's default or an empty input removes the value. The reason it is refused, <code>null</code>
+		 * when it is applied.
+		 */
+		blockApplyValue(2),
+		/** <code>blockAggregated(port)</code>: whether it is an input that binds several datapoints. */
+		blockAggregated(1),
+		/** <code>blockAggregationOptions(port)</code>: the labels of the aggregations it allows. */
+		blockAggregationOptions(1),
+		/** <code>blockAggregationValue(port)</code>: the label of the aggregation in effect (set or default). */
+		blockAggregationValue(1),
+		/**
+		 * <code>blockApplyAggregation(port, label)</code>: sets the aggregation of the label (side
+		 * effects); the port's default or an empty input removes it.
+		 */
+		blockApplyAggregation(2),
+		/**
+		 * <code>blockBindingUnit(port, datapoint)</code>: the unit of the datapoint, with a hint where it
+		 * has none and the port has one.
+		 */
+		blockBindingUnit(2);
 
 		private final int _arity;
 
@@ -112,7 +153,15 @@ public class BlockFunctions extends GenericMethod {
 
 	@Override
 	public boolean isSideEffectFree() {
-		return _function != Function.blockCreate && _function != Function.blockBind;
+		switch (_function) {
+			case blockCreate:
+			case blockBind:
+			case blockApplyValue:
+			case blockApplyAggregation:
+				return false;
+			default:
+				return true;
+		}
 	}
 
 	@Override
@@ -142,14 +191,23 @@ public class BlockFunctions extends GenericMethod {
 				break;
 		}
 		if (!(argument instanceof TLObject obj) || !obj.tValid()) {
-			return _function == Function.blockBindingOptions || _function == Function.blockInputPorts
-				|| _function == Function.blockOutputPorts || _function == Function.blockRoomInstances ? List.of() : null;
+			switch (_function) {
+				case blockBindingOptions:
+				case blockInputPorts:
+				case blockOutputPorts:
+				case blockRoomInstances:
+				case blockChoiceOptions:
+				case blockAggregationOptions:
+					return List.of();
+				default:
+					return null;
+			}
 		}
 		switch (_function) {
 			case blockBind:
 				return arguments[1] instanceof TLObject datapoint ? BlockInstances.bind(obj, datapoint) : null;
 			case blockBindingOptions:
-				return bindingOptions(obj);
+				return BlockInstances.bindingOptions(obj);
 			case blockLabel: {
 				String type = obj.tContainer() == null ? null : String.valueOf(obj.tContainer().tValueByName("blockType"));
 				if (BlockInstances.isPort(obj)) {
@@ -159,7 +217,7 @@ public class BlockFunctions extends GenericMethod {
 				}
 				Param decl = BlockInstances.paramDecl(obj);
 				return decl == null ? obj.tValueByName("parameter")
-					: BlockTexts.label(type, decl.id(), decl.label(), language) + unit(decl.unit());
+					: BlockTexts.label(type, decl.id(), decl.label(), language) + unit(BlockValues.unit(decl));
 			}
 			case blockPortInfo:
 				return portInfo(obj);
@@ -177,20 +235,67 @@ public class BlockFunctions extends GenericMethod {
 			}
 			case blockRange: {
 				Param decl = BlockInstances.paramDecl(obj);
-				return decl == null ? null : choices(obj, decl, language);
+				return decl == null ? null : BlockValues.range(blockType(obj), decl);
 			}
 			case blockDefault: {
 				Param decl = BlockInstances.paramDecl(obj);
-				return decl == null ? null : BlockInstances.display(decl, decl.defaultValue());
+				return decl == null ? null : BlockValues.display(blockType(obj), decl, decl.defaultValue());
 			}
 			case blockEffective: {
 				Param decl = BlockInstances.paramDecl(obj);
-				if (decl == null) {
+				return decl == null ? null : BlockValues.display(blockType(obj), decl, effective(obj, decl));
+			}
+			case blockValue: {
+				Param decl = BlockInstances.paramDecl(obj);
+				return decl == null || !(obj.tValueByName("value") instanceof Number value) ? null
+					: BlockValues.display(blockType(obj), decl, value.doubleValue());
+			}
+			case blockParameterKind: {
+				Param decl = BlockInstances.paramDecl(obj);
+				return decl == null ? null : BlockValues.kind(decl).externalName();
+			}
+			case blockUnit: {
+				Param decl = BlockInstances.paramDecl(obj);
+				return decl == null ? null : BlockValues.unit(decl);
+			}
+			case blockChoiceOptions: {
+				Param decl = BlockInstances.paramDecl(obj);
+				return decl == null ? List.of() : BlockValues.choiceLabels(blockType(obj), decl);
+			}
+			case blockEditValue: {
+				Param decl = BlockInstances.paramDecl(obj);
+				return decl == null ? null
+					: BlockValues.editValue(blockType(obj), decl, effective(obj, decl), ThreadContext.getTimeZone());
+			}
+			case blockApplyValue:
+				return BlockInstances.applyValue(obj, arguments[1], ThreadContext.getTimeZone());
+			case blockAggregated: {
+				Port decl = BlockInstances.portDecl(obj);
+				return Boolean.valueOf(decl != null && decl.isInput() && decl.multiple() > 1);
+			}
+			case blockAggregationOptions: {
+				Port decl = BlockInstances.portDecl(obj);
+				List<String> result = new ArrayList<>();
+				if (decl != null) {
+					for (Aggregation a : decl.aggregations()) {
+						result.add(BlockValues.aggregationLabel(a));
+					}
+				}
+				return result;
+			}
+			case blockAggregationValue: {
+				Port decl = BlockInstances.portDecl(obj);
+				if (decl == null || !decl.isInput() || decl.multiple() < 2) {
 					return null;
 				}
-				return BlockInstances.display(decl,
-					obj.tValueByName("value") instanceof Number value ? value.doubleValue() : decl.defaultValue());
+				Aggregation set = obj.tValueByName("aggregation") instanceof String name ? Aggregation.of(name.trim())
+					: Aggregation.NONE;
+				return BlockValues.aggregationLabel(set != Aggregation.NONE ? set : decl.defaultAggregation());
 			}
+			case blockApplyAggregation:
+				return BlockInstances.applyAggregation(obj, arguments[1]);
+			case blockBindingUnit:
+				return arguments[1] instanceof TLObject datapoint ? BlockInstances.bindingUnit(obj, datapoint) : null;
 			case blockAdjustable: {
 				Param decl = BlockInstances.paramDecl(obj);
 				return Boolean.valueOf(decl != null && decl.adjustable());
@@ -226,17 +331,12 @@ public class BlockFunctions extends GenericMethod {
 		return unit.isEmpty() ? "" : " (" + unit + ")";
 	}
 
-	private static String choices(TLObject parameter, Param decl, String language) {
-		if (decl.choices().isEmpty()) {
-			return BlockInstances.range(decl);
-		}
-		String type = String.valueOf(parameter.tContainer().tValueByName("blockType"));
-		List<String> result = new ArrayList<>();
-		for (Choice choice : decl.choices()) {
-			result.add(BlockInstances.format(choice.value()) + " = "
-				+ BlockTexts.label(type, decl.id() + "." + choice.id(), choice.label(), language));
-		}
-		return String.join(", ", result);
+	private static String blockType(TLObject parameter) {
+		return parameter.tContainer() == null ? null : String.valueOf(parameter.tContainer().tValueByName("blockType"));
+	}
+
+	private static double effective(TLObject parameter, Param decl) {
+		return parameter.tValueByName("value") instanceof Number value ? value.doubleValue() : decl.defaultValue();
 	}
 
 	private static String portInfo(TLObject port) {
@@ -260,56 +360,13 @@ public class BlockFunctions extends GenericMethod {
 		if (decl.isInput() && decl.multiple() > 1) {
 			List<String> names = new ArrayList<>();
 			for (Aggregation a : decl.aggregations()) {
-				names.add(a.externalName());
+				names.add(BlockValues.aggregationLabel(a));
 			}
 			result.append(" · ").append(resources.getString(
 				I18NConstants.BLOCK_PORT_MULTIPLE__COUNT_AGGREGATIONS.fill(Integer.valueOf(decl.multiple()),
 					String.join(", ", names))));
 		}
 		return result.toString();
-	}
-
-	/**
-	 * The datapoints the port can bind: those of the project (as the pages list them) of a type the
-	 * port reads or commands, a writable one for an output, not a datapoint of its own instance and not
-	 * bound to it already.
-	 */
-	private static List<TLObject> bindingOptions(TLObject port) {
-		Port decl = BlockInstances.portDecl(port);
-		TLObject instance = port.tContainer();
-		if (decl == null || instance == null) {
-			return List.of();
-		}
-		List<TLObject> bound = BlockInstances.bound(port);
-		List<TLObject> result = new ArrayList<>();
-		for (TLObject datapoint : Pages.datapoints(RuntimeFunctions.project(instance))) {
-			if (bound.contains(datapoint) || datapoint == instance || datapoint.tContainer() == instance) {
-				continue;
-			}
-			String name = Pages.valueType(datapoint);
-			ValueType type = name == null ? null : ValueType.fromName(name);
-			if (type == null) {
-				continue;
-			}
-			if (decl.isInput() ? decl.type().reads(type) : decl.type().commands(type) && writable(datapoint)) {
-				result.add(datapoint);
-			}
-		}
-		return result;
-	}
-
-	private static boolean writable(TLObject datapoint) {
-		if (BlockInstances.isBlockDatapoint(datapoint)) {
-			// The datapoints of virtual devices are owned by the block runtime (spec/blocks.md B14).
-			return false;
-		}
-		if (ApplicationDatapoints.isApplicationDatapoint(datapoint)) {
-			return ApplicationDatapoints.writable(datapoint);
-		}
-		if (Pages.isRuleParameter(datapoint) || Pages.isTimeSchedule(datapoint)) {
-			return false;
-		}
-		return DatapointSettings.writable(datapoint);
 	}
 
 	/** What the image refuses of the instance (the refusals whose path leads to it). */

@@ -921,6 +921,211 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 BLOCK_PORT_MULTIPLE__COUNT_AGGREGATIONS;
 
+	/**
+	 * @en yes
+	 */
+	public static ResKey BLOCK_VALUE_YES;
+
+	/**
+	 * @en no
+	 */
+	public static ResKey BLOCK_VALUE_NO;
+
+	/**
+	 * @en The value {0} does not fit the parameter {1}.
+	 */
+	public static ResKey2 BLOCK_VALUE_INVALID__VALUE_PARAMETER;
+
+	/**
+	 * @en The type of the virtual device has no parameter {0}.
+	 */
+	public static ResKey1 BLOCK_PARAMETER_UNKNOWN__PARAMETER;
+
+	/**
+	 * @en mean
+	 */
+	public static ResKey BLOCK_AGGREGATION_MEAN;
+
+	/**
+	 * @en lowest
+	 */
+	public static ResKey BLOCK_AGGREGATION_MIN;
+
+	/**
+	 * @en highest
+	 */
+	public static ResKey BLOCK_AGGREGATION_MAX;
+
+	/**
+	 * @en any of them
+	 */
+	public static ResKey BLOCK_AGGREGATION_ANY;
+
+	/**
+	 * @en all of them
+	 */
+	public static ResKey BLOCK_AGGREGATION_ALL;
+
+	/**
+	 * @en The port {0} binds a single datapoint and has no aggregation.
+	 */
+	public static ResKey1 BLOCK_AGGREGATION_NONE__PORT;
+
+	/**
+	 * @en The port {1} does not allow the aggregation {0}.
+	 */
+	public static ResKey2 BLOCK_AGGREGATION_INVALID__AGGREGATION_PORT;
+
+	/**
+	 * @en none (check that it is {0})
+	 */
+	public static ResKey1 BLOCK_BINDING_NO_UNIT__UNIT;
+
+	/**
+	 * @en Of them, {1} belong to its {0} virtual devices.
+	 */
+	public static ResKey2 EXPORT_BLOCKS__BLOCKS_DATAPOINTS;
+
+	/**
+	 * @en The project has no controller: the virtual device runs nowhere.
+	 */
+	public static ResKey BLOCK_DIAG_NO_CONTROLLER;
+
+	/**
+	 * @en The controller cannot be reached: {0}
+	 */
+	public static ResKey1 BLOCK_DIAG_UNREACHABLE__STATUS;
+
+	/**
+	 * @en Not deployed: the controller runs no image of the project. {0}
+	 */
+	public static ResKey1 BLOCK_DIAG_NOT_DEPLOYED__STATUS;
+
+	/**
+	 * @en Not deployed: the controller runs the image of another project. {0}
+	 */
+	public static ResKey1 BLOCK_DIAG_OTHER_PROJECT__STATUS;
+
+	/**
+	 * @en The controller did not tell the diagnostics (HTTP {0}): {1}
+	 */
+	public static ResKey2 BLOCK_DIAG_FAILED__STATUS_ERROR;
+
+	/**
+	 * @en Not deployed: the image the controller runs (revision {1}) has no virtual device {0}. Deploy the image.
+	 */
+	public static ResKey2 BLOCK_DIAG_NOT_IN_IMAGE__ID_REVISION;
+
+	/**
+	 * @en Runs on the controller (image revision {0}).
+	 */
+	public static ResKey1 BLOCK_DIAG_RUNNING__REVISION;
+
+	/**
+	 * @en Switched off on the controller (image revision {0}).
+	 */
+	public static ResKey1 BLOCK_DIAG_DISABLED__REVISION;
+
+	/**
+	 * @en Faulted {1} ago: {0}
+	 */
+	public static ResKey2 BLOCK_DIAG_FAULT__REASON_AGO;
+
+	/**
+	 * @en Status on the controller: {0}
+	 */
+	public static ResKey1 BLOCK_DIAG_STATUS__STATUS;
+
+	/**
+	 * @en The inhabitant switched it on.
+	 */
+	public static ResKey BLOCK_DIAG_SWITCHED_ON;
+
+	/**
+	 * @en The inhabitant switched it off.
+	 */
+	public static ResKey BLOCK_DIAG_SWITCHED_OFF;
+
+	/**
+	 * @en {0} calls since the start, {1} ms of computing time, the longest call {2} ms, {3} errors.
+	 */
+	public static ResKey4 BLOCK_DIAG_CALLS__CALLS_TIME_LONGEST_ERRORS;
+
+	/**
+	 * @en Last call: the start ({0}), {1} ago.
+	 */
+	public static ResKey2 BLOCK_DIAG_CALL_START__REASON_AGO;
+
+	/**
+	 * @en Last call: the input {0} changed, {1} ago.
+	 */
+	public static ResKey2 BLOCK_DIAG_CALL_INPUT__PORT_AGO;
+
+	/**
+	 * @en Last call: the timer {0} expired, {1} ago.
+	 */
+	public static ResKey2 BLOCK_DIAG_CALL_TIMER__TIMER_AGO;
+
+	/**
+	 * @en Last call: the period, {0} ago.
+	 */
+	public static ResKey1 BLOCK_DIAG_CALL_PERIOD__AGO;
+
+	/**
+	 * @en Last call: the parameter {0} changed, {1} ago.
+	 */
+	public static ResKey2 BLOCK_DIAG_CALL_PARAMETER__PARAMETER_AGO;
+
+	/**
+	 * @en Last call: {0}, {1} ago.
+	 */
+	public static ResKey2 BLOCK_DIAG_CALL__KIND_AGO;
+
+	/**
+	 * @en Last error {2} ago: {0} {1}
+	 */
+	public static ResKey3 BLOCK_DIAG_LAST_ERROR__CODE_TEXT_AGO;
+
+	/**
+	 * @en Outputs:
+	 */
+	public static ResKey BLOCK_DIAG_OUTPUTS;
+
+	/**
+	 * @en Inputs:
+	 */
+	public static ResKey BLOCK_DIAG_INPUTS;
+
+	/**
+	 * @en unknown
+	 */
+	public static ResKey BLOCK_DIAG_UNKNOWN;
+
+	/**
+	 * @en {0} (stale)
+	 */
+	public static ResKey1 BLOCK_DIAG_STALE__VALUE;
+
+	/**
+	 * @en {0} in {1}
+	 */
+	public static ResKey2 BLOCK_DIAG_TIMER__TIMER_IN;
+
+	/**
+	 * @en Timers: {0}
+	 */
+	public static ResKey1 BLOCK_DIAG_TIMERS__TIMERS;
+
+	/**
+	 * @en The inhabitant set {0} to {1} (the image: {2}).
+	 */
+	public static ResKey3 BLOCK_DIAG_OVERRIDDEN__PARAMETER_VALUE_IMAGE;
+
+	/**
+	 * @en State: {0}
+	 */
+	public static ResKey1 BLOCK_DIAG_STATE__FIELDS;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

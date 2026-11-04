@@ -63,6 +63,12 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * </p>
  *
  * <p>
+ * The blocks (haumacher/ehome #78, <code>spec/api.md</code> "Blocks"): <code>GET /api/blocks</code>
+ * serves the diagnostics a test gives it ({@link #setBlocks(List, int)}) in pages, with
+ * <code>count</code>, <code>from</code> and <code>next</code>.
+ * </p>
+ *
+ * <p>
  * Started from the command line (<code>java -cp target/classes:target/test-classes
  * test.de.haumacher.ehome.runtime.FakeController &lt;port&gt; &lt;token&gt; [&lt;zigbee export&gt;]</code>), it
  * serves until it is stopped, for trying the deployment (and the Zigbee pairing) in the running
@@ -107,6 +113,14 @@ public class FakeController {
 
 	private Integer _permitSeconds;
 
+	private List<Map<String, Object>> _blocks = new ArrayList<>();
+
+	private int _blocksPage = 1;
+
+	private long _nowMs = 90211;
+
+	private int _blockRequests;
+
 	private String _key;
 
 	private String _lastSignature;
@@ -138,6 +152,7 @@ public class FakeController {
 		_server.createContext("/fake/monitor", this::scriptMonitor);
 		_server.createContext("/api/zigbee/export", this::zigbeeExport);
 		_server.createContext("/api/zigbee/permit", this::zigbeePermit);
+		_server.createContext("/api/blocks", this::blocks);
 		_monitor = new FakeMonitorStream(token);
 		_server.start();
 	}
@@ -301,6 +316,45 @@ public class FakeController {
 		drain(exchange);
 		answer(exchange, 501, error("Zigbee is not available on this platform", "system.unavailable"));
 		return false;
+	}
+
+	/**
+	 * The diagnostics <code>GET /api/blocks</code> answers (the entries of <code>blocks</code>), in
+	 * pages of the given number of blocks.
+	 */
+	public synchronized void setBlocks(List<Map<String, Object>> blocks, int pageSize) {
+		_blocks = new ArrayList<>(blocks);
+		_blocksPage = pageSize;
+	}
+
+	/**
+	 * The number of <code>GET /api/blocks</code> it answered.
+	 */
+	public synchronized int getBlockRequests() {
+		return _blockRequests;
+	}
+
+	private void blocks(HttpExchange exchange) throws IOException {
+		if (!"GET".equals(exchange.getRequestMethod()) || !"/api/blocks".equals(exchange.getRequestURI().getPath())) {
+			answer(exchange, 405, error("method not allowed", "api.method_not_allowed"));
+			return;
+		}
+		if (!authorized(exchange)) {
+			return;
+		}
+		String query = exchange.getRequestURI().getQuery();
+		int from = query != null && query.startsWith("from=") ? Integer.parseInt(query.substring(5)) : 0;
+		Map<String, Object> body = new LinkedHashMap<>();
+		synchronized (this) {
+			_blockRequests++;
+			int to = Math.min(_blocks.size(), from + _blocksPage);
+			body.put("now_ms", Long.valueOf(_nowMs));
+			body.put("count", Integer.valueOf(_blocks.size()));
+			body.put("from", Integer.valueOf(from));
+			body.put("next", to < _blocks.size() ? Integer.valueOf(to) : null);
+			body.put("blocks", new ArrayList<>(_blocks.subList(Math.min(from, to), to)));
+		}
+		answer(exchange, 200, body);
 	}
 
 	/**

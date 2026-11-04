@@ -68,6 +68,18 @@
 					<method name="blockOutputPorts" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockRoomInstances" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockProblem" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<!-- Parameters and aggregations by their kind, the units of a binding (haumacher/ehome #78). -->
+					<method name="blockValue" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockParameterKind" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockUnit" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockChoiceOptions" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockEditValue" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockApplyValue" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockAggregated" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockAggregationOptions" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockAggregationValue" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockApplyAggregation" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockBindingUnit" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="runtimeIdentifierProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeTimeZoneProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeHostNameProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>

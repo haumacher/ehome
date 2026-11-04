@@ -123,7 +123,10 @@ public final class Pages {
 		return is(obj, "WeeklySchedule") || is(obj, "YearlySchedule") || is(obj, "DatesSchedule");
 	}
 
-	private static boolean isGroupAddress(Object obj) {
+	/**
+	 * Whether the object is a group address.
+	 */
+	public static boolean isGroupAddress(Object obj) {
 		return obj instanceof TLObject object && ExtIds.isA(object, "ehome.logical:GroupAddress");
 	}
 

@@ -23,6 +23,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.blocks.BlockSet;
 import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.connection.Signatures;
 import de.haumacher.ehome.connection.Signatures.Keys;
@@ -124,17 +125,24 @@ public class ExportRuntimeImageAction implements ViewAction {
 	}
 
 	/**
-	 * The sentences saying what a valid image holds: its datapoints, locations, functions and
+	 * The sentences saying what a valid image holds: its datapoints (those it lists and those of its
+	 * virtual devices, <code>spec/blocks.md</code> 6, haumacher/ehome #78), locations, functions and
 	 * settings (the controller's settings and the history budget, each counted as one), its size,
-	 * the addresses of its time master, and its rules and schedule entries.
+	 * the virtual devices with their datapoints, the addresses of its time master, and its rules and
+	 * schedule entries.
 	 */
 	public static String summary(RuntimeImage image) {
 		Map<String, Object> json = image.getJson();
 		int settings = size(json.get("settings")).intValue() + (json.containsKey("history") ? 1 : 0);
+		int blockDatapoints = BlockSet.impliedDatapoints(json.get("blocks"), BlockInstances.registry()).size();
 		Resources resources = Resources.getInstance();
 		String result = resources.getString(I18NConstants.EXPORT_VALID__DATAPOINTS_LOCATIONS_FUNCTIONS_SETTINGS_BYTES.fill(
-			size(json.get("datapoints")), size(json.get("locations")), size(json.get("functions")),
-			Integer.valueOf(settings), Integer.valueOf(image.getBytes().length)));
+			Integer.valueOf(size(json.get("datapoints")).intValue() + blockDatapoints), size(json.get("locations")),
+			size(json.get("functions")), Integer.valueOf(settings), Integer.valueOf(image.getBytes().length)));
+		if (json.containsKey("blocks")) {
+			result += " " + resources.getString(I18NConstants.EXPORT_BLOCKS__BLOCKS_DATAPOINTS.fill(size(json.get("blocks")),
+				Integer.valueOf(blockDatapoints)));
+		}
 		List<String> addresses = new ArrayList<>();
 		if (json.get("knx") instanceof Map<?, ?> knx && knx.get("timeMaster") instanceof Map<?, ?> timeMaster) {
 			for (String member : List.of("time", "date", "dateTime")) {
