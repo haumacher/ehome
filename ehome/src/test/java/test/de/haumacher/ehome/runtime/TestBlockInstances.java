@@ -28,11 +28,19 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.blocks.BlockType;
+import de.haumacher.ehome.blocks.HeatingCurve;
+import de.haumacher.ehome.blocks.HeatingDemand;
+import de.haumacher.ehome.blocks.Manifest;
+import de.haumacher.ehome.blocks.Manifest.Choice;
+import de.haumacher.ehome.blocks.Manifest.Param;
+import de.haumacher.ehome.blocks.Manifest.Port;
 import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.runtime.BlockInstances;
+import de.haumacher.ehome.runtime.BlockTexts;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageValidator;
@@ -352,6 +360,80 @@ public class TestBlockInstances extends BasicTestCase {
 		assertFalse(refused.isValid());
 		assertEquals(refused.toString(), "blocks[1].inputs.temperature[1]", refused.getRefusals().get(0).path());
 		assertTrue(refused.getRefusals().get(0).reason(), refused.getRefusals().get(0).reason().contains("forbidden"));
+	}
+
+	/**
+	 * Every port, parameter and choice of every built-in type has its German label (the views are
+	 * generic over the manifest, so a type without its texts would show English in a German UI).
+	 */
+	public void testGermanTexts() {
+		for (BlockType type : BlockInstances.registry().types()) {
+			Manifest m = type.manifest();
+			assertNotNull(m.type(), BlockTexts.typeLabelDe(m.type()));
+			for (Port port : m.ports()) {
+				assertNotNull(m.type() + " " + port.id(), BlockTexts.label(m.type(), port.id(), null, "de"));
+			}
+			for (Param param : m.params()) {
+				assertNotNull(m.type() + " " + param.id(), BlockTexts.label(m.type(), param.id(), null, "de"));
+				for (Choice choice : param.choices()) {
+					String id = param.id() + "." + choice.id();
+					assertNotNull(m.type() + " " + id, BlockTexts.label(m.type(), id, null, "de"));
+				}
+			}
+		}
+	}
+
+	/**
+	 * A heating demand on the room controller's valve and a heating curve on the outside temperature
+	 * and the demand's offset, whose summer switch feeds the demand back: E-Home's generic instances
+	 * export them, its validator accepts the image, and the simulation runs the chain.
+	 */
+	public void testHeatingChain() throws Exception {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			_t1.tUpdateByName("runtimeWritable", Boolean.TRUE);
+			_t2.tUpdateByName("runtimeWritable", Boolean.TRUE);
+			TLObject demand = BlockInstances.create(_project, BlockInstances.typeKey(HeatingDemand.INSTANCE.manifest()),
+				_room, ResKey.text("Wärmebedarf"));
+			demand.tUpdateByName("identifier", "hd");
+			TLObject curve = BlockInstances.create(_project, BlockInstances.typeKey(HeatingCurve.INSTANCE.manifest()),
+				_room, ResKey.text("Heizkurve"));
+			curve.tUpdateByName("identifier", "hk");
+			BlockInstances.bind(BlockInstances.port(demand, "valves"), BlockInstances.port(_block, "valve"));
+			BlockInstances.bind(BlockInstances.port(demand, "summer"), BlockInstances.port(curve, "summer"));
+			BlockInstances.parameter(demand, "offsetGain").tUpdateByName("value", Double.valueOf(1));
+			BlockInstances.bind(BlockInstances.port(curve, "outside"), _t2);
+			BlockInstances.bind(BlockInstances.port(curve, "offset"), BlockInstances.port(demand, "flowSetpointOffset"));
+			BlockInstances.parameter(curve, "outsideFilter").tUpdateByName("value", Double.valueOf(0));
+			tx.commit();
+		}
+		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
+		ImageReport report = image.validate();
+		assertTrue(report.toString(), report.isValid());
+		List<?> blocks = (List<?>) image.getJson().get("blocks");
+		assertEquals(3, blocks.size());
+		Map<?, ?> demand = (Map<?, ?>) blocks.get(1);
+		assertEquals(HeatingDemand.TYPE, demand.get("type"));
+		assertEquals(Map.of("valves", "block/wz-heating/valve", "summer", "block/hk/summer"), demand.get("inputs"));
+		Map<?, ?> curve = (Map<?, ?>) blocks.get(2);
+		assertEquals(Map.of("outside", "1/3/1", "offset", "block/hd/flowSetpointOffset"), curve.get("inputs"));
+
+		long start = de.haumacher.ehome.rules.Values.daysOf(2026, 11, 4) * 86400 + 8 * 3600;
+		try (de.haumacher.ehome.simulation.Simulation simulation = new de.haumacher.ehome.simulation.Simulation(
+			(Map<?, ?>) Json.parse(image.getText(), 100), start, new de.haumacher.ehome.rules.ParameterStore())) {
+			assertNull(simulation.start());
+			// 1/3/0 is the room temperature, 1/3/1 doubles as the outside temperature here.
+			assertEquals(de.haumacher.ehome.rules.DatapointModel.CommandStatus.OK,
+				simulation.command("1/3/0", de.haumacher.ehome.rules.Val.ofReal(18.0)));
+			assertEquals(de.haumacher.ehome.rules.DatapointModel.CommandStatus.OK,
+				simulation.command("1/3/1", de.haumacher.ehome.rules.Val.ofReal(5.0)));
+			simulation.advance(20 * 60_000);
+			assertTrue(simulation.value("block/hd/level").real() > 20);
+			assertTrue(simulation.value("block/hd/request").bool());
+			assertTrue(simulation.value("block/hd/flowSetpointOffset").real() > 0);
+			// slope 1.2 at room 20 and outside 5 is 38 °C; the demand's offset raises it.
+			assertTrue(simulation.value("block/hk/flowSetpoint").real() > 38);
+			assertFalse(simulation.value("block/hk/summer").bool());
+		}
 	}
 
 	private static Object numbers(Object json) {

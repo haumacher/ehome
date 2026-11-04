@@ -342,8 +342,8 @@ public record Manifest(String type, int major, int minor, String label, String d
 	/** The limits of <code>spec/blocks.md</code> 11. */
 	public static final int MAX_BLOCKS = 32;
 
-	/** Datapoints per input. */
-	public static final int MAX_MULTIPLE = 4;
+	/** Datapoints per input (<code>spec/blocks.md</code> B20). */
+	public static final int MAX_MULTIPLE = 32;
 
 	/** Ports per type. */
 	public static final int MAX_PORTS = 24;
@@ -466,7 +466,7 @@ public record Manifest(String type, int major, int minor, String label, String d
 		for (Port p : ports) {
 			if (p.isInput()) {
 				if (p.multiple() < 1 || p.multiple() > MAX_MULTIPLE) {
-					return "an input's multiple is not 1..4";
+					return "an input's multiple is not 1..32";
 				}
 				if (p.multiple() > 1) {
 					Set<Aggregation> allowed = p.type() == PortType.BOOLEAN ? Set.of(Aggregation.ANY, Aggregation.ALL)

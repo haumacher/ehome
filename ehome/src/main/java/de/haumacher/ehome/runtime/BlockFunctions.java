@@ -155,11 +155,11 @@ public class BlockFunctions extends GenericMethod {
 				if (BlockInstances.isPort(obj)) {
 					Port decl = BlockInstances.portDecl(obj);
 					return decl == null ? obj.tValueByName("port")
-						: RoomControllerTexts.label(type, decl.id(), decl.label(), language) + unit(decl.unit());
+						: BlockTexts.label(type, decl.id(), decl.label(), language) + unit(decl.unit());
 				}
 				Param decl = BlockInstances.paramDecl(obj);
 				return decl == null ? obj.tValueByName("parameter")
-					: RoomControllerTexts.label(type, decl.id(), decl.label(), language) + unit(decl.unit());
+					: BlockTexts.label(type, decl.id(), decl.label(), language) + unit(decl.unit());
 			}
 			case blockPortInfo:
 				return portInfo(obj);
@@ -234,7 +234,7 @@ public class BlockFunctions extends GenericMethod {
 		List<String> result = new ArrayList<>();
 		for (Choice choice : decl.choices()) {
 			result.add(BlockInstances.format(choice.value()) + " = "
-				+ RoomControllerTexts.label(type, decl.id() + "." + choice.id(), choice.label(), language));
+				+ BlockTexts.label(type, decl.id() + "." + choice.id(), choice.label(), language));
 		}
 		return String.join(", ", result);
 	}

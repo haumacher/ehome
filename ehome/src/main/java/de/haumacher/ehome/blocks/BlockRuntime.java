@@ -1033,6 +1033,26 @@ public final class BlockRuntime implements Engine.BlockHost {
 		}
 
 		@Override
+		public int count(int port) {
+			if (port < 0 || port >= _m.ports().size() || !_m.ports().get(port).isInput()) {
+				return 0;
+			}
+			return _set.at(_block).ports().get(port).datapoints().size();
+		}
+
+		@Override
+		public InputValue readAt(int port, int k) {
+			if (k < 0 || k >= count(port)) {
+				return InputValue.UNBOUND;
+			}
+			Datapoint datapoint = _model.get(_set.at(_block).ports().get(port).datapoints().get(k));
+			if (datapoint == null || datapoint.quality() == Quality.UNKNOWN) {
+				return new InputValue(0, Quality.UNKNOWN, 0, true);
+			}
+			return new InputValue(numberOf(datapoint), datapoint.quality(), datapoint.updatedMs(), true);
+		}
+
+		@Override
 		public double param(int index) {
 			return index >= 0 && index < _in._params.length ? _in._params[index] : 0;
 		}

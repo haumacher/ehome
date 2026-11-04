@@ -49,6 +49,15 @@ public interface BlockContext {
 	/** An input. */
 	InputValue read(int port);
 
+	/** The number of datapoints bound to an input (<code>spec/blocks.md</code> B20); 0 when unbound. */
+	int count(int port);
+
+	/**
+	 * The k-th datapoint of an input's binding as a single-datapoint input reads it, whatever its
+	 * quality; not bound and unknown outside 0..<code>count(port)</code>-1.
+	 */
+	InputValue readAt(int port, int k);
+
 	/** A parameter's current value. */
 	double param(int index);
 

@@ -10,7 +10,7 @@ import de.haumacher.ehome.blocks.RoomController;
 /**
  * The German texts of the room controller's manifest (homecontrol <code>spec/blocks.md</code> 14.1):
  * the manifest carries its labels in English, as the firmware does; these are their translations for
- * E-Home's views, by the id of the port, parameter or choice.
+ * E-Home's views ({@link BlockTexts}), by the id of the port, parameter or choice.
  */
 public final class RoomControllerTexts {
 
@@ -77,20 +77,6 @@ public final class RoomControllerTexts {
 
 	private RoomControllerTexts() {
 		// Constants.
-	}
-
-	/**
-	 * The label of a port, parameter or choice of a block type in the language: the German one where
-	 * E-Home has it, else the manifest's English.
-	 */
-	public static String label(String type, String id, String english, String language) {
-		if ("de".equals(language) && TYPE.equals(type)) {
-			String de = DE.get(id);
-			if (de != null) {
-				return de;
-			}
-		}
-		return english;
 	}
 
 }

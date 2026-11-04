@@ -16,6 +16,10 @@ conformance corpus, 25 cases) and brought `images/pages.json` and `images/ehome-
 along; and at `36bbcd10a5ab457812692d72dc9aa5d6d5c872b3` (2026-11-04, "Blocks (#60): the runtime
 follows spec 6.1 and B13 where E-Home's port found it did not"), which added the case
 `26-fault-disabled-swap`.
+Synced again at `6ccddb4538bf4a775503973ee876c4b7317b2d38` (2026-11-04, "Blocks: heating demand
+(#61) and heating curve (#62)", `spec/blocks.md` 16, 17 and B20), which added the cases
+`27-demand-hysteresis-min-times` to `41-demand-image-swap-keeps-hold` and changed the corpus `README.md`; the
+image and rule fixtures did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

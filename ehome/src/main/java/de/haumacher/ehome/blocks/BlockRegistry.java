@@ -15,7 +15,8 @@ import java.util.List;
  */
 public final class BlockRegistry {
 
-	private static final BlockRegistry BUILTINS = new BlockRegistry(List.of(RoomController.INSTANCE));
+	private static final BlockRegistry BUILTINS =
+		new BlockRegistry(List.of(RoomController.INSTANCE, HeatingDemand.INSTANCE, HeatingCurve.INSTANCE));
 
 	private final List<BlockType> _types = new ArrayList<>();
 

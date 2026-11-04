@@ -377,8 +377,9 @@ public final class BlockInstances {
 	public static Map<String, String> typeLabel(Manifest m) {
 		Map<String, String> result = new LinkedHashMap<>();
 		result.put("en", m.label());
-		if (RoomControllerTexts.TYPE.equals(m.type())) {
-			result.put("de", RoomControllerTexts.LABEL_DE);
+		String de = BlockTexts.typeLabelDe(m.type());
+		if (de != null) {
+			result.put("de", de);
 		}
 		return result;
 	}
