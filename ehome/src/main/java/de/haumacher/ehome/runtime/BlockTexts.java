@@ -8,8 +8,8 @@ import java.util.Map;
 /**
  * The translations of the built-in block types' manifests for E-Home's views: the manifests carry
  * their labels in English, as the firmware does; {@link RoomControllerTexts},
- * {@link HeatingDemandTexts}, {@link HeatingCurveTexts}, {@link SunShadingTexts} and
- * {@link HouseModeTexts} hold the German ones.
+ * {@link HeatingDemandTexts}, {@link HeatingCurveTexts}, {@link SunShadingTexts},
+ * {@link HouseModeTexts} and {@link PvSurplusTexts} hold the German ones.
  */
 public final class BlockTexts {
 
@@ -19,7 +19,8 @@ public final class BlockTexts {
 		HeatingDemandTexts.TYPE, HeatingDemandTexts.LABEL_DE,
 		HeatingCurveTexts.TYPE, HeatingCurveTexts.LABEL_DE,
 		SunShadingTexts.TYPE, SunShadingTexts.LABEL_DE,
-		HouseModeTexts.TYPE, HouseModeTexts.LABEL_DE);
+		HouseModeTexts.TYPE, HouseModeTexts.LABEL_DE,
+		PvSurplusTexts.TYPE, PvSurplusTexts.LABEL_DE);
 
 	/** The German labels of each type's ports, parameters and choices by the type's id. */
 	private static final Map<String, Map<String, String>> DE = Map.of(
@@ -27,7 +28,8 @@ public final class BlockTexts {
 		HeatingDemandTexts.TYPE, HeatingDemandTexts.DE,
 		HeatingCurveTexts.TYPE, HeatingCurveTexts.DE,
 		SunShadingTexts.TYPE, SunShadingTexts.DE,
-		HouseModeTexts.TYPE, HouseModeTexts.DE);
+		HouseModeTexts.TYPE, HouseModeTexts.DE,
+		PvSurplusTexts.TYPE, PvSurplusTexts.DE);
 
 	private BlockTexts() {
 		// Static helpers.
