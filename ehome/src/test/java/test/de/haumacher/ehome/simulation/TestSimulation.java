@@ -121,10 +121,10 @@ public class TestSimulation extends TestCase {
 					});
 
 					assertNull(simulation.start());
-					// The datapoints read on start: living.light.state, living.dimmer.state, living.temperature.
-					assertEquals("15.15.255 read 1/1/2 ", poll(bus));
-					assertEquals("15.15.255 read 1/2/2 ", poll(bus));
-					assertEquals("15.15.255 read 1/3/1 ", poll(bus));
+					// The datapoints read on start: living.light.state, living.dimmer.state, living.temperature
+					// (the observer's tunnel delivers them in any order).
+					assertEquals(Set.of("15.15.255 read 1/1/2 ", "15.15.255 read 1/2/2 ", "15.15.255 read 1/3/1 "),
+						Set.of(poll(bus), poll(bus), poll(bus)));
 
 					morning(simulation, actuator, bus);
 					presence(simulation, installation, actuator, detector, store);
