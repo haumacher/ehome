@@ -128,6 +128,24 @@ a history not set by hand (`HISTORY_ARCHIVES_NOT_MANUAL`, through the constraint
 **When fixed:** remove the `isManual` case of `HistoryConfig#archivesProblem` and the key
 `HISTORY_ARCHIVES_NOT_MANUAL`, and the refused stray archive of `TestHistoryConfig#testOverride`.
 
+## A number input shows no unit and two decimals (TL #30139)
+
+A Double field edited through `NumberInputControlProvider` has no unit suffix and shows a whole
+number with the locale's decimals (`120,00`). The parameters of a virtual device
+(`projects/block-ports.view.xml`, haumacher/ehome #78) are entered in their manifest's unit; the
+unit is part of the field's label instead (`BlockValues`), and the decimals stay.
+
+**When fixed:** give the parameter field the unit and the shortest format, drop the unit from the
+label.
+
+## TestViewsLoad misses an undefined variable of a computed column (TL #30140)
+
+A `<computed-column>` whose `<value>` uses a variable it does not declare loads in `TestViewsLoad`
+and fails only when its view is opened (found in `projects/block-ports.view.xml`, #78). No
+workaround: check new columns in the running app.
+
+**When fixed:** nothing to undo; `TestViewsLoad` covers it.
+
 ## No at-rest encryption out of the box (TL #29899, wontfix)
 
 The secret of an enrolled controller (haumacher/ehome #54) must be readable by E-Home to check the
@@ -165,3 +183,5 @@ replace `bin/ehome-agent.py` by the MCP wrapper.
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
 - TL #30134: see above (a `<composition-table>` ignores the visibility of its attribute).
 - TL #30125, #30048: see above (agent access: 302 instead of 401, the follow-ups of the module).
+- TL #30139: see above (a number input's unit and format).
+- TL #30140: see above (TestViewsLoad and undefined variables of computed columns).
