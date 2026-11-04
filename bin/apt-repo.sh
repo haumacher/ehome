@@ -7,8 +7,9 @@
 # The site holds two suites, "stable" (the releases, tags vX.Y.Z) and "snapshot" (every push to
 # master), each with the newest $APT_KEEP packages (default 2: a package is about 130 MB, a Pages site
 # at most 1 GB). The packages already published are fetched from $APT_REPO_URL (the live site; none
-# when it is empty or not reachable yet) and checked against their published SHA-256; the new package
-# is added to <suite>. The indexes (Packages, Release) are written with apt-ftparchive and signed with
+# when it is empty or not reachable yet) and checked against their published SHA-256, those of stable
+# from the directory $APT_STABLE_DIR instead when it is set (the workflow downloads the packages of
+# the newest GitHub releases there); the new package is added to <suite>. The indexes (Packages, Release) are written with apt-ftparchive and signed with
 # the GnuPG key $APT_SIGNING_KEY_ID (default: the only secret key of the keyring), its passphrase in
 # $APT_SIGNING_PASSPHRASE; the public key is published beside them as ehome-archive-keyring.gpg.
 set -e
@@ -34,9 +35,19 @@ rm -rf "$SITE"
 mkdir -p "$SITE"
 cd "$SITE"
 
-# The published packages of both suites.
+# The published packages of both suites. The releases of stable come from $APT_STABLE_DIR when it is
+# set (the packages of the GitHub releases, the source of truth of the suite): a site built from the
+# live one alone loses a release whenever a deployment of the live site did not take effect.
 for suite in stable snapshot; do
 	mkdir -p "pool/$suite"
+	if [ "$suite" = stable ] && [ -n "$APT_STABLE_DIR" ]; then
+		for deb in "$APT_STABLE_DIR"/*.deb; do
+			[ -e "$deb" ] || continue
+			echo "stable: release $(basename "$deb")"
+			cp "$deb" pool/stable/
+		done
+		continue
+	fi
 	[ -n "$URL" ] || continue
 	if ! curl -fsSL "$URL/dists/$suite/main/binary-all/Packages" -o "packages.$suite" 2>/dev/null; then
 		echo "$suite: nothing published at $URL yet"

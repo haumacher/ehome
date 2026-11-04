@@ -19,6 +19,9 @@ jobs:
   deb:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    outputs:
+      # The release tags on the built commit (empty for an untagged one).
+      tagged: ${{ steps.deb.outputs.tagged }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -37,7 +40,9 @@ jobs:
 
       - name: Build the package
         id: deb
-        run: echo "file=$(bin/build-deb.sh | tail -1)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "file=$(bin/build-deb.sh | tail -1)" >> "$GITHUB_OUTPUT"
+          echo "tagged=$(git tag --points-at HEAD 'v[0-9]*' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -53,7 +58,9 @@ jobs:
 
   apt:
     needs: deb
-    if: github.event_name == 'push'
+    # A push to master of a commit that carries a release tag leaves the deployment to the tag's run:
+    # Pages takes only the first deployment of a commit, so the second one would not take effect.
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || needs.deb.outputs.tagged == '')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     # One deployment at a time: each run builds the site from the one published before it.
@@ -90,9 +97,21 @@ jobs:
           rm -f "$RUNNER_TEMP/key" "$RUNNER_TEMP/passphrase"
           gpg --batch --list-secret-keys --keyid-format long | grep -E '^(sec|uid)'
 
+      # The releases are the source of truth of stable: their packages, not the live site's copies.
+      - name: Download the released packages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/stable"
+          for tag in $(gh release list -R "$GITHUB_REPOSITORY" --exclude-drafts --limit 2 --json tagName --jq '.[].tagName'); do
+            gh release download "$tag" -R "$GITHUB_REPOSITORY" -p '*.deb' -D "$RUNNER_TEMP/stable" --clobber
+          done
+          ls -l "$RUNNER_TEMP/stable"
+
       - name: Build the repository
         env:
           APT_REPO_URL: https://haumacher.github.io/ehome
+          APT_STABLE_DIR: ${{ runner.temp }}/stable
           APT_SIGNING_PASSPHRASE: ${{ secrets.APT_SIGNING_PASSPHRASE }}
         run: |
           if [ "${GITHUB_REF#refs/tags/v}" != "$GITHUB_REF" ]; then SUITE=stable; else SUITE=snapshot; fi

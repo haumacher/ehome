@@ -40,8 +40,9 @@ sudo apt update && sudo apt install ehome
 ```
 
 (`snapshot` in place of `stable` follows `master`.) The job `apt` of the workflow builds the whole
-site with `bin/apt-repo.sh`: it fetches the packages published before from the live site (checked
-against their SHA-256 in the published index), adds the new one to its suite, drops the older ones,
+site with `bin/apt-repo.sh`: it takes the packages of `stable` from the newest GitHub releases (the
+suite's source of truth) and those of `snapshot` from the live site (checked against their SHA-256 in
+the published index), adds the new one to its suite, drops the older ones,
 writes the indexes with `apt-ftparchive` (`binary-all` and, identical, `binary-amd64` and
 `binary-arm64`) and signs `Release` (`InRelease`, `Release.gpg`) with the key of the repository
 secrets `APT_SIGNING_KEY` (the secret key, armored or base64) and `APT_SIGNING_PASSPHRASE`; the public
@@ -49,6 +50,12 @@ key is published beside it (`ehome-archive-keyring.gpg`, `.asc`), with an `index
 fingerprint. The site is deployed with `actions/deploy-pages` (Pages source "GitHub Actions"; the
 environment `github-pages` admits `master` and the tags `v*`), never as a branch: a package is above
 the 100 MB of a file in git. Runs deploy one after the other (concurrency group `apt-repository`).
+Pages takes only the first deployment of a commit: a second one reports success and changes nothing.
+So the run of a push to `master` does not deploy a commit that carries a release tag, and the tag's
+run does (push the release commit and its tag together, `git push origin master vX.Y.Z`). A tag set
+later on a commit `master` already deployed is published by the next push to `master`, whose site
+takes `stable` from the releases. With 1.0.0 the master run of the release commit deployed first and
+left `stable` empty; its tag run's deployment did not take effect.
 
 ## Installing
 

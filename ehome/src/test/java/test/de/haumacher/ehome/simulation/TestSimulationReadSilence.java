@@ -8,8 +8,10 @@ import static test.de.haumacher.ehome.simulation.LoopbackEndpoints.loopback;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -105,8 +107,8 @@ public class TestSimulationReadSilence extends TestCase {
 					simulation.advance(120_000);
 					assertEquals(List.of("120000 watch read hall.temp", "120000 watch log (warning): silent"),
 						entries(simulation, Kind.COMMAND, Kind.RULE));
-					assertEquals("read 1/3/1", poll(bus));
-					assertEquals("response 1/3/1", poll(bus));
+					// The observer's tunnel delivers the read and the sensor's answer in either order.
+					assertEquals(Set.of("read 1/3/1", "response 1/3/1"), poll(bus, 2));
 					assertTrue(simulation.awaitReceived(received + 1, TIMEOUT));
 					assertEquals(Val.ofReal(21.5), simulation.value("hall.temp"));
 					assertEquals("log", simulation.status("watch").lastAction());
@@ -115,7 +117,7 @@ public class TestSimulationReadSilence extends TestCase {
 					// The answer re-armed the trigger: the next silent period ends 2 min after it.
 					simulation.advance(120_000);
 					assertEquals(2, simulation.status("watch").firings());
-					assertEquals("read 1/3/1", poll(bus));
+					assertEquals(Set.of("read 1/3/1", "response 1/3/1"), poll(bus, 2));
 				}
 			} finally {
 				simulation.close();
@@ -151,6 +153,14 @@ public class TestSimulationReadSilence extends TestCase {
 	private static String poll(BlockingQueue<String> bus) throws InterruptedException {
 		String result = bus.poll(TIMEOUT, TimeUnit.MILLISECONDS);
 		assertNotNull("No telegram on the bus.", result);
+		return result;
+	}
+
+	private static Set<String> poll(BlockingQueue<String> bus, int count) throws InterruptedException {
+		Set<String> result = new HashSet<>();
+		for (int n = 0; n < count; n++) {
+			result.add(poll(bus));
+		}
 		return result;
 	}
 

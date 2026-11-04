@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -140,10 +141,10 @@ public class TestSimulation extends TestCase {
 		simulation.advance(30 * 60 * 1000);
 		assertEquals(30 * 60 * 1000, simulation.now());
 
-		assertEquals("15.15.255 write 1/1/1 01", poll(bus));
+		// The observer's tunnel delivers the command and the actuator's status in either order.
+		assertEquals(Set.of("15.15.255 write 1/1/1 01", "1.1.1 write 1/1/2 01"), Set.of(poll(bus), poll(bus)));
 		assertTrue(actuator.awaitValue(0, ON, TIMEOUT));
 		assertTrue(actuator.awaitValue(1, ON, TIMEOUT));
-		assertEquals("1.1.1 write 1/1/2 01", poll(bus));
 		assertTrue(simulation.awaitReceived(received + 1, TIMEOUT));
 		assertEquals(Val.ofBool(true), simulation.value("living.light.state"));
 		assertEquals(Val.ofBool(true), simulation.value("schedule.morning"));
