@@ -83,8 +83,7 @@ the administrator schedules.)
 Tomcat's next start, and a Tomcat that runs already gets the directory bound into its namespace with
 `systemctl bind tomcat10 /var/lib/ehome` (systemd 248 or newer; Debian 13 has 257). Where that is not
 possible, the package installs without deploying and says what to do. E-Home shares the heap with the
-other applications: below an estimated 1 GiB of maximum heap (`-Xmx` of the running Tomcat, otherwise
-a quarter of the memory) it is not deployed, below 2 GiB with a warning.
+other applications of the Tomcat; sizing it is the administrator's choice (`JAVA_OPTS` below).
 
 | Path | What |
 | --- | --- |

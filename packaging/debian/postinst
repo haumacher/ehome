@@ -82,36 +82,6 @@ data_writable() {
 	awk -v dir="$DATA_DIR" '$5 == dir { found = 1 } END { exit !found }' "/proc/$pid/mountinfo" 2>/dev/null
 }
 
-# The maximum heap of the running Tomcat in MiB: its -Xmx, otherwise the JVM's default of a quarter of
-# the memory (of the service's cgroup limit if it has one). Empty if Tomcat does not run.
-tomcat_heap_mib() {
-	pid=$(tomcat_pid)
-	[ -n "$pid" ] || return 0
-	xmx=$(tr '\0' '\n' < "/proc/$pid/cmdline" | sed -n 's/^-Xmx\([0-9][0-9]*\)\([kKmMgG]\?\)$/\1 \2/p' | tail -1)
-	if [ -n "$xmx" ]; then
-		set -- $xmx
-		case "$2" in
-			k|K) echo $(($1 / 1024)) ;;
-			m|M) echo "$1" ;;
-			g|G) echo $(($1 * 1024)) ;;
-			*) echo $(($1 / 1048576)) ;;
-		esac
-		return 0
-	fi
-	mem=$(awk '/^MemTotal:/ { print int($2 / 1024) }' /proc/meminfo)
-	limit=$(cat /sys/fs/cgroup/system.slice/tomcat10.service/memory.max 2>/dev/null || echo max)
-	case "$limit" in
-		''|max|*[!0-9]*) ;;
-		*) [ $((limit / 1048576)) -lt "$mem" ] && mem=$((limit / 1048576)) ;;
-	esac
-	echo $((mem / 4))
-}
-
-# E-Home shares the JVM with every other application of the Tomcat: below this heap (MiB) it would
-# push them out of memory, so it is not deployed; below the second it is deployed with a warning.
-HEAP_MIN=1024
-HEAP_WARN=2048
-
 if [ "$1" = "configure" ]; then
 	install -d -o tomcat -g tomcat -m 0750 "$DATA_DIR"
 
@@ -169,20 +139,6 @@ END
 			echo "E-Home: then run dpkg-reconfigure ehome." >&2
 			exit 0
 		fi
-	fi
-
-	heap=$(tomcat_heap_mib)
-	if [ -n "$heap" ] && [ "$heap" -lt "$HEAP_MIN" ]; then
-		rm -f "$CONTEXT"
-		rm -rf "$UPGRADE"
-		echo "E-Home: the running Tomcat has a heap of about $heap MiB; E-Home needs at least $HEAP_MIN MiB" >&2
-		echo "E-Home: beside the other applications of the same JVM. It is installed but not deployed:" >&2
-		echo "E-Home: raise the heap (JAVA_OPTS=\"-Xmx...\" in /etc/default/tomcat10, effective at Tomcat's" >&2
-		echo "E-Home: next restart, which you schedule), then run dpkg-reconfigure ehome." >&2
-		exit 0
-	elif [ -n "$heap" ] && [ "$heap" -lt "$HEAP_WARN" ]; then
-		echo "E-Home: warning: the running Tomcat has a heap of about $heap MiB, shared by all its" >&2
-		echo "E-Home: applications; E-Home alone may use 1 GiB and more with large projects." >&2
 	fi
 
 	# A first installation deploys the app, an upgrade the new version (preinst stopped the old one and
