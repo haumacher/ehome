@@ -10,6 +10,12 @@ cases `accept-zigbee-reporting.json`, `refuse-zigbee-reporting.json`), the rule
 corpus with the spec decisions of round two (`8d901491e7c3ded8d0880830b7ebc0be6013ddc8`,
 2026-10-18, "Rule spec decisions, round two: the read action, the silence trigger, parameters as
 datapoints").
+Synced again at `08fa4138537a44aad9c016084011cd94b350d13d` (2026-11-04, "Blocks (#60): virtual
+devices on the controller, schema 1.3, the room controller"), which added `blocks/` (the block
+conformance corpus, 25 cases) and brought `images/pages.json` and `images/ehome-72-pages.json`
+along; and at `36bbcd10a5ab457812692d72dc9aa5d6d5c872b3` (2026-11-04, "Blocks (#60): the runtime
+follows spec 6.1 and B13 where E-Home's port found it did not"), which added the case
+`26-fault-disabled-swap`.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 
@@ -31,6 +37,10 @@ that commit.
   `test.de.haumacher.ehome.runtime.TestImageConformance`. A case expects a valid image or the kind
   of refusal and each refusal by its path and a part of its reason. The rules and schedules are
   checked by the loaders of `de.haumacher.ehome.rules`.
+- `blocks/*.json`: the block conformance corpus (format in `blocks/README.md`, homecontrol
+  `spec/blocks.md`), which E-Home's block runtime (`de.haumacher.ehome.blocks`) passes inside the
+  reference interpreter, run by `test.de.haumacher.ehome.blocks.TestBlockCorpus` (one test per case,
+  with the runner of the rule corpus).
 - `rules/*.json`: the rule conformance corpus (format in `rules/README.md`), which E-Home's reference
   interpreter (`de.haumacher.ehome.rules`) passes as the controller's does, run by
   `test.de.haumacher.ehome.rules.TestRuleCorpus` (one test per case).

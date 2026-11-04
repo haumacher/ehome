@@ -254,7 +254,8 @@ final class PageExport {
 		for (int n = 0; n < parts.size(); n++) {
 			TLObject part = parts.get(n);
 			TLObject datapoint = (TLObject) part.tValueByName("datapoint");
-			String id = datapoint == null ? null : _targets.datapointId(datapoint);
+			// An output of a virtual device keeps no history: the series draws the datapoint it is bound to.
+			String id = datapoint == null ? null : _targets.datapointId(BlockInstances.historyTarget(datapoint));
 			if (id == null) {
 				note(I18NConstants.NOTE_PAGE_SERIES_LEFT_OUT__PAGE_SECTION_ELEMENT_SERIES_TARGET.fill(place.page(),
 					place.section(), place.element(), Integer.valueOf(n + 1), Pages.targetLabel(datapoint)));

@@ -51,6 +51,23 @@
 					<!-- The options of a function's roles: group addresses and application datapoints (haumacher/ehome #61). -->
 					<method name="runtimeDatapoints" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeBuildingParts" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<!-- The virtual devices (haumacher/ehome #75). -->
+					<method name="blockTypeOptions" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockTypeLabel" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockCreate" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockBind" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockBindingOptions" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockLabel" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockPortInfo" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockPortBindings" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockRange" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockDefault" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockEffective" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockAdjustable" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockInputPorts" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockOutputPorts" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockRoomInstances" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockProblem" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="runtimeIdentifierProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeTimeZoneProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeHostNameProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>

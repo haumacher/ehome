@@ -1108,7 +1108,9 @@ public final class HistoryConfig {
 		long result = 0;
 		Set<TLObject> seen = new HashSet<>();
 		for (TLObject series : RuleExport.objects(chart.tValueByName("series"))) {
-			if (series.tValueByName("datapoint") instanceof TLObject datapoint && seen.add(datapoint)) {
+			if (series.tValueByName("datapoint") instanceof TLObject drawn
+				&& seen.add(BlockInstances.historyTarget(drawn))) {
+				TLObject datapoint = BlockInstances.historyTarget(drawn);
 				result += bytes.applyAsLong(datapoint);
 			}
 		}

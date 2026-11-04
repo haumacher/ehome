@@ -3324,5 +3324,180 @@
 				/>
 			</attributes>
 		</class>
+		<!--
+			A virtual device (haumacher/ehome #75, homecontrol spec/blocks.md): an instance of a block
+			type the controller runs (a room controller), in a room, with its parameter values and the
+			bindings of its ports to datapoints of the project. The block types are E-Home's Java ports of
+			the firmware's built-in types (de.haumacher.ehome.blocks.BlockRegistry), named here by their
+			id and version. The instance itself is the datapoint block/<id>/enabled of the image, its
+			ports and adjustable parameters the datapoints block/<id>/<port> and block/<id>/<parameter>
+			(spec/blocks.md 6). A re-import of the ETS project never touches it.
+		-->
+		<class name="BlockInstance">
+			<generalizations>
+				<generalization type="ehome.logical:ProjectDatapoint"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-cpu"/>
+			</annotations>
+			<attributes>
+				<!-- The stable id of the instance in the image (1..32 of A-Z a-z 0-9 _ -), assigned at creation; the key of its state, overrides and mirrors on the controller. -->
+				<property name="identifier"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The name the controller shows (the label of the image). -->
+				<property name="name"
+					mandatory="true"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The room (or other part of a building) the virtual device belongs to. -->
+				<reference name="room"
+					kind="forwards"
+					type="ehome.building:BuildingDefinition"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[b -> runtimeBuildingParts($b)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- The id of the block type (org.homecontrol.room-controller). -->
+				<property name="blockType"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The version of the block type the image names (<major>.<minor>). -->
+				<property name="version"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The default of the enable switch. -->
+				<property name="enabled"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+				<!-- Whether the inhabitant may switch the virtual device on and off. -->
+				<property name="enabledAdjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+				<!-- What the virtual device does, for people; exported, ignored by the controller. -->
+				<property name="description"
+					type="tl.core:Text"
+				/>
+				<!-- One per port of the type, in manifest order. -->
+				<reference name="ports"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="BlockPort"
+				/>
+				<!-- One per parameter of the type, in manifest order. -->
+				<reference name="parameters"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="BlockParameter"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A port of a virtual device (spec/blocks.md 3): an input with its bindings (an ordered list of
+			up to "multiple" datapoints and the aggregation combining them), or an output with at most one.
+			The port is the datapoint block/<id>/<port> of the image: an output always, an input only while
+			it binds several datapoints (the aggregated value).
+		-->
+		<class name="BlockPort">
+			<generalizations>
+				<generalization type="ehome.logical:ProjectDatapoint"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-plug"/>
+			</annotations>
+			<attributes>
+				<!-- The id of the port in the type's manifest. -->
+				<property name="port"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- How an input bound to several datapoints combines them (mean, min, max, any, all); empty: the port's default. -->
+				<property name="aggregation"
+					type="tl.core:String"
+				/>
+				<!-- The datapoints the port is bound to, in binding order. -->
+				<reference name="bindings"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="BlockBinding"
+				/>
+			</attributes>
+		</class>
+		<!--
+			One datapoint bound to a port. The binding keeps the id the datapoint had in the image when it
+			was bound: a datapoint deleted later (a group address a re-import of the ETS project removed)
+			leaves the binding without datapoint, which the validation names with the instance, the port
+			and the id, rather than dropping it silently.
+		-->
+		<class name="BlockBinding">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-link-45deg"/>
+			</annotations>
+			<attributes>
+				<!-- The bound datapoint; empty when it was deleted. -->
+				<reference name="datapoint"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
+				/>
+				<!-- The id of the datapoint in the image when it was bound. -->
+				<property name="boundId"
+					type="tl.core:String"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A parameter of a virtual device (spec/blocks.md 3, 8.2): the value the image sets, a number as
+			the block sees it (B6: a boolean 0 or 1, a choice its value, a duration in ms, a time of day in
+			seconds since midnight); empty: the type's default. An adjustable parameter is the datapoint
+			block/<id>/<parameter> of the image.
+		-->
+		<class name="BlockParameter">
+			<generalizations>
+				<generalization type="ehome.logical:ProjectDatapoint"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-sliders"/>
+			</annotations>
+			<attributes>
+				<!-- The id of the parameter in the type's manifest. -->
+				<property name="parameter"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The value of the image; empty: the type's default. -->
+				<property name="value"
+					type="tl.core:Double"
+				/>
+			</attributes>
+		</class>
 	</module>
 </model>

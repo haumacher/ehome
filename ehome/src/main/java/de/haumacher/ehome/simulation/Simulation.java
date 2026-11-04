@@ -27,6 +27,9 @@ import de.haumacher.ehome.monitor.BusLink;
 import de.haumacher.ehome.monitor.BusTelegram;
 import de.haumacher.ehome.monitor.BusTelegram.Service;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
+import de.haumacher.ehome.blocks.BlockRegistry;
+import de.haumacher.ehome.blocks.BlockRuntime;
+import de.haumacher.ehome.blocks.BlockSet;
 import de.haumacher.ehome.rules.Astro.GeoLocation;
 import de.haumacher.ehome.rules.Astro.SunEvent;
 import de.haumacher.ehome.rules.DatapointModel;
@@ -180,6 +183,18 @@ public final class Simulation implements AutoCloseable {
 	private final Engine _engine;
 
 	private final Object _rules;
+
+	/** The <code>blocks</code> of the image (homecontrol spec/blocks.md 4), <code>null</code> for none. */
+	private final Object _blocks;
+
+	/** The store of the parameter overrides, also the blocks'. */
+	private final ParameterStore _store;
+
+	/** The state records of the blocks, kept across runs of the project's simulation. */
+	private BlockRuntime.RecordStore _records = new BlockRuntime.MemoryRecords();
+
+	/** The block runtime, <code>null</code> before {@link #start()}. */
+	private BlockRuntime _blockRuntime;
 
 	private final List<Schedule> _schedules;
 
@@ -390,6 +405,12 @@ public final class Simulation implements AutoCloseable {
 			_model.add(name, ValueType.TIME_OF_DAY, true, null);
 			_owners.put(name, "the scheduler");
 		}
+		// The datapoints of the blocks (spec/blocks.md 6), after the schedules': the block runtime binds
+		// them when it adopts the blocks.
+		for (BlockSet.ImpliedDatapoint datapoint : BlockSet.impliedDatapoints(image.get("blocks"), BlockRegistry.builtins())) {
+			_model.add(datapoint.name(), datapoint.type(), datapoint.writable(), null);
+			_owners.put(datapoint.name(), "the block runtime");
+		}
 		_scheduler.deferTimeReports(true);
 		_outputs.addAll(outputs);
 		if (image.get("external") instanceof Map<?, ?> external && external.get("sources") instanceof List<?> sources) {
@@ -448,6 +469,21 @@ public final class Simulation implements AutoCloseable {
 		});
 		_scheduler.addListener(_engine::scheduleFired);
 		_rules = image.containsKey("rules") ? image.get("rules") : List.of();
+		_blocks = image.get("blocks");
+		_store = store;
+	}
+
+	/**
+	 * Sets where the blocks' state records are kept (across runs of a project's simulation); call
+	 * before {@link #start()}.
+	 */
+	public synchronized void setRecords(BlockRuntime.RecordStore records) {
+		_records = records;
+	}
+
+	/** The block runtime, <code>null</code> before {@link #start()}. */
+	public synchronized BlockRuntime blocks() {
+		return _blockRuntime;
 	}
 
 	private static double number(Object value) {
@@ -520,6 +556,33 @@ public final class Simulation implements AutoCloseable {
 		if (refusal != null) {
 			return refuse("rules refused: " + refusal);
 		}
+		// The blocks after the rules (spec/blocks.md 11), called inside the rules' cascades.
+		BlockSet set;
+		try {
+			set = BlockSet.load(_blocks, _model, datapoint -> {
+				if (_outputs.contains(datapoint)) {
+					return "a schedule entry";
+				}
+				String owner = _owners.get(datapoint);
+				return owner == null || owner.startsWith("the KNX adapter") || owner.equals("the Zigbee adapter") ? null
+					: owner;
+			}, BlockRegistry.builtins());
+		} catch (BlockSet.LoadException ex) {
+			return refuse("blocks refused: " + ex.getRefusal());
+		}
+		_blockRuntime = new BlockRuntime(_model, () -> _now, _store, _records, _engine);
+		_blockRuntime.setObserver(new BlockRuntime.Observer() {
+			@Override
+			public void blockLogged(String block, BlockRuntime.LogCode code, Level level, String text) {
+				add(Kind.RULE, "block " + block, code.externalName() + " (" + level.externalName() + "): " + text);
+			}
+
+			@Override
+			public void blockCommanded(String block, Datapoint datapoint, Val value) {
+				add(Kind.COMMAND, "block " + block, "write " + datapoint.name() + " = " + Values.format(value));
+			}
+		});
+		_blockRuntime.adopt(set);
 		// Taking the schedules' times at the load is no event for the rules (the outputs' first
 		// values neither: setQuietReports above, homecontrol #67).
 		_engine.quietly(_scheduler::publishTimes);
@@ -583,6 +646,10 @@ public final class Simulation implements AutoCloseable {
 			_speed = 0;
 			if (_ticker != null) {
 				_ticker.shutdownNow();
+			}
+			if (_blockRuntime != null) {
+				// An orderly stop: the due state records are written.
+				_blockRuntime.flush();
 			}
 			_engine.close();
 			link = _link;

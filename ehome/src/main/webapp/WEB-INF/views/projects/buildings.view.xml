@@ -818,6 +818,45 @@
 												<rows>if($part == null, [], $part.get(`ehome.building:BuildingDefinition#zigbeeDevices`).sort(a -> b -> compare($a.get(`ehome.zigbee:ZigbeeDevice#name`), $b.get(`ehome.zigbee:ZigbeeDevice#name`))))</rows>
 											</table>
 										</tab>
+										<tab id="blocks"
+											icon="css:bi bi-cpu"
+										>
+											<label>
+												<en>Virtual devices</en>
+												<de>Virtuelle Geräte</de>
+											</label>
+											<!-- The virtual devices of the part (haumacher/ehome #75), edited in the project's tab "Virtual devices". -->
+											<table
+												observed-types="ehome.runtime:BlockInstance"
+												types="ehome.runtime:BlockInstance"
+											>
+												<inputs>
+													<input channel="part"/>
+												</inputs>
+												<columns>
+													<column attribute="name"
+														width="240"
+													/>
+													<column attribute="identifier"
+														width="160"
+													/>
+													<computed-column name="type"
+														type="tl.core:String"
+														width="200"
+													>
+														<label>
+															<en>Type</en>
+															<de>Typ</de>
+														</label>
+														<value>blockTypeLabel($row.get(`ehome.runtime:BlockInstance#blockType`) + " " + $row.get(`ehome.runtime:BlockInstance#version`))</value>
+													</computed-column>
+													<column attribute="enabled"
+														width="100"
+													/>
+												</columns>
+												<rows>if($part == null, [], blockRoomInstances($part))</rows>
+											</table>
+										</tab>
 										<tab id="addresses"
 											icon="css:fa-solid fa-wifi"
 										>

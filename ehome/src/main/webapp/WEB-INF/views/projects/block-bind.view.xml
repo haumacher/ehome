@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog binding datapoints to a port of a virtual device (projects/block-ports.view.xml,
+	haumacher/ehome #75). "port" carries the port. The table offers the datapoints of the project
+	(group addresses, application datapoints, rule parameters, schedule times, the datapoints of
+	other virtual devices) of a type the port reads, for an output a writable one of a type it
+	commands (homecontrol spec/blocks.md 5.3, 5.4), not the instance's own and not bound to the port
+	yet. Each chosen datapoint is bound at the end, in the order of the table (blockBind); the last
+	binding is written to "selection".
+-->
+<view>
+	<channels>
+		<channel name="port"/>
+		<channel name="selection"/>
+		<channel name="chosen"/>
+		<derived-channel name="hint"
+			inputs="port"
+		>
+			<expr><![CDATA[#("Choose the datapoints for {0} ({1})."@en, "Die Datenpunkte für {0} wählen ({1})."@de).fill(blockLabel($port), blockPortInfo($port)).localize()]]></expr>
+		</derived-channel>
+	</channels>
+	<window width="820px">
+		<title>
+			<en>Bind datapoints</en>
+			<de>Datenpunkte binden</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text
+					input="hint"
+					tone="secondary"
+				/>
+				<table
+					selection="chosen"
+					selection-mode="multi"
+				>
+					<inputs>
+						<input channel="port"/>
+					</inputs>
+					<columns>
+						<computed-column name="name"
+							type="tl.core:String"
+							width="300"
+						>
+							<label>
+								<en>Name</en>
+								<de>Name</de>
+							</label>
+							<value>pageTargetLabel($row)</value>
+						</computed-column>
+						<computed-column name="imageId"
+							type="tl.core:String"
+							width="200"
+						>
+							<label>
+								<en>Id in the image</en>
+								<de>Id im Abbild</de>
+							</label>
+							<value>pageImageId($row)</value>
+						</computed-column>
+						<computed-column name="valueType"
+							type="tl.core:String"
+							width="100"
+						>
+							<label>
+								<en>Value type</en>
+								<de>Werttyp</de>
+							</label>
+							<value>pageValueType($row)</value>
+						</computed-column>
+					</columns>
+					<rows>blockBindingOptions($port)</rows>
+				</table>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-link-45deg"
+					inputs="chosen, port"
+				>
+					<label>
+						<en>Bind</en>
+						<de>Binden</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$port"
+							type="ehome.runtime:BlockPort"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr="$chosen.isEmpty()"/>
+					</executability>
+					<with-transaction>
+						<execute-script function="blockBindingOptions($port).filter(x -> $chosen.containsElement($x)).map(x -> blockBind($port, $x)).lastElement()"/>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

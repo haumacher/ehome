@@ -185,6 +185,7 @@ public final class Pages {
 				result.add(entry);
 			}
 		}
+		result.addAll(BlockInstances.datapoints(project));
 		return result;
 	}
 
@@ -231,6 +232,9 @@ public final class Pages {
 		if (target == null || !target.tValid()) {
 			return null;
 		}
+		if (BlockInstances.isBlockDatapoint(target)) {
+			return BlockInstances.imageId(target);
+		}
 		if (isGroupAddress(target)) {
 			return target.tValueByName("address") instanceof GA ga ? RuntimeImage.threeLevel(ga.getValue()) : null;
 		}
@@ -269,7 +273,8 @@ public final class Pages {
 			String name = text(target.tValueByName("name"));
 			return address == null ? String.valueOf(name) : name == null ? address.toString() : address + " " + name;
 		}
-		if (ApplicationDatapoints.isApplicationDatapoint(target) || isRuleParameter(target) || isTimeSchedule(target)) {
+		if (ApplicationDatapoints.isApplicationDatapoint(target) || isRuleParameter(target) || isTimeSchedule(target)
+			|| BlockInstances.isBlockDatapoint(target)) {
 			return String.valueOf(imageId(target));
 		}
 		if (is(target, "Function") || is(target, "Rule")) {
@@ -291,6 +296,9 @@ public final class Pages {
 		}
 		if (ApplicationDatapoints.isApplicationDatapoint(datapoint)) {
 			return ApplicationDatapoints.valueType(datapoint);
+		}
+		if (BlockInstances.isBlockDatapoint(datapoint)) {
+			return BlockInstances.valueType(datapoint);
 		}
 		if (isRuleParameter(datapoint)) {
 			String type = name(datapoint.tValueByName("type"));
@@ -364,7 +372,9 @@ public final class Pages {
 					}
 					Object width = width(element);
 					for (TLObject series : list(element, "series")) {
-						if (series.tValueByName("datapoint") instanceof TLObject datapoint) {
+						if (series.tValueByName("datapoint") instanceof TLObject drawn) {
+							// An output of a virtual device: the datapoint it is bound to keeps the history.
+							TLObject datapoint = BlockInstances.historyTarget(drawn);
 							result.computeIfAbsent(datapoint, x -> new ArrayList<>())
 								.add(new ChartUse(element, series, ranges, String.valueOf(width)));
 						}
@@ -492,7 +502,8 @@ public final class Pages {
 		if (!(datapoint instanceof TLObject target) || !target.tValid()) {
 			return null;
 		}
-		return hasHistory(target) ? null : I18NConstants.SERIES_NO_HISTORY__DATAPOINT.fill(targetLabel(target));
+		return hasHistory(BlockInstances.historyTarget(target)) ? null
+			: I18NConstants.SERIES_NO_HISTORY__DATAPOINT.fill(targetLabel(target));
 	}
 
 	/**

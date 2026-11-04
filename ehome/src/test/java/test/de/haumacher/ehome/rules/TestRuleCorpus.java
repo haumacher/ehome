@@ -24,6 +24,13 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
+import de.haumacher.ehome.blocks.BlockRuntime;
+import de.haumacher.ehome.blocks.BlockRuntime.Check;
+import de.haumacher.ehome.blocks.BlockRuntime.ChangeStatus;
+import de.haumacher.ehome.blocks.BlockRuntime.StateRecord;
+import de.haumacher.ehome.blocks.BlockSet;
+import de.haumacher.ehome.blocks.BlockType;
+import de.haumacher.ehome.blocks.Manifest;
 import de.haumacher.ehome.rules.Astro;
 import de.haumacher.ehome.rules.Astro.SunEvent;
 import de.haumacher.ehome.rules.DatapointModel;
@@ -50,6 +57,7 @@ import de.haumacher.ehome.rules.Val.TimeOfDay;
 import de.haumacher.ehome.rules.ValueType;
 import de.haumacher.ehome.rules.Values;
 import de.haumacher.ehome.runtime.Json;
+import test.de.haumacher.ehome.blocks.ConformanceBlock;
 
 /**
  * The rule conformance corpus of HomeControl (<code>spec/fixtures/rules/</code>, copied to
@@ -193,6 +201,32 @@ public class TestRuleCorpus extends TestCase {
 
 		private Object _image;
 
+		/** The <code>blocks</code> of the current image (homecontrol spec/fixtures/blocks/README.md). */
+		private Object _blocks;
+
+		/** The persisted state records of the blocks, kept across a reboot. */
+		private final BlockRuntime.MemoryRecords _blockRecords = new BlockRuntime.MemoryRecords();
+
+		/** The block runtime of the current boot, <code>null</code> before the blocks are loaded. */
+		private BlockRuntime _blockRuntime;
+
+		/** Which datapoints another component owns (spec/blocks.md B14). */
+		private final BlockSet.Owners _owners = datapoint -> {
+			if (_outputs.contains(datapoint)) {
+				return "a schedule entry";
+			}
+			if (datapoint.startsWith("rule/")) {
+				return "the rule engine";
+			}
+			if (datapoint.startsWith("schedule/")) {
+				return "a schedule entry";
+			}
+			if (datapoint.startsWith("block/")) {
+				return "the block runtime";
+			}
+			return null;
+		};
+
 		/**
 		 * Creates a {@link CaseRun} of the given case.
 		 */
@@ -256,11 +290,16 @@ public class TestRuleCorpus extends TestCase {
 					_unreadable.add((String) dp.get("name"));
 				}
 			}
+			_blocks = _case.get("blocks");
 			loadModel(_case.get("rules"));
 			if (_case.get("persisted") instanceof Map<?, ?> persisted) {
 				for (Map.Entry<?, ?> entry : persisted.entrySet()) {
 					String key = (String) entry.getKey();
 					Map<?, ?> stored = (Map<?, ?>) entry.getValue();
+					if (key.startsWith("block/")) {
+						persistRecord(key.substring("block/".length()), stored);
+						continue;
+					}
 					// A persisted rule state (spec/rules.md 8.5) is "<ruleId>/.state" with the state id.
 					Val value = "state".equals(stored.get("type")) ? Val.ofString((String) stored.get("value"))
 						: Values.fromJson(Type.fromName((String) stored.get("type")), stored.get("value")).value();
@@ -273,10 +312,26 @@ public class TestRuleCorpus extends TestCase {
 					report((String) entry.getKey(), entry.getValue());
 				}
 			}
-			_image = _case.get("rules");
+			_image = rulesOf(_case);
 			Map<?, ?> expected = (Map<?, ?>) _case.get("expected");
 			_engine = newEngine();
 			Refusal refusal = _engine.load(_image, _directory);
+			if (expected.containsKey("loadRefused") && (refusal == null && _blocks != null)) {
+				// The blocks after the rules (spec/fixtures/blocks/README.md).
+				try {
+					BlockSet.load(_blocks, _model, _owners, ConformanceBlock.CORPUS_REGISTRY);
+					_failures.add("the load must be refused with " + expected.get("loadRefused"));
+				} catch (BlockSet.LoadException ex) {
+					BlockSet.Refusal blockRefusal = ex.getRefusal();
+					if (!blockRefusal.error().externalName().equals(expected.get("loadRefused"))) {
+						_failures.add("blocks refused with " + blockRefusal + ", expected " + expected.get("loadRefused"));
+					}
+					if (expected.get("path") instanceof String path && !path.equals(blockRefusal.path())) {
+						_failures.add("blocks refused at " + blockRefusal.path() + ", expected " + path);
+					}
+				}
+				return;
+			}
 			if (expected.containsKey("loadRefused")) {
 				if (refusal == null) {
 					_failures.add("the load must be refused with " + expected.get("loadRefused"));
@@ -287,6 +342,9 @@ public class TestRuleCorpus extends TestCase {
 			}
 			if (refusal != null) {
 				_failures.add("load refused: " + refusal);
+				return;
+			}
+			if (!makeBlocks("load")) {
 				return;
 			}
 			loadSchedules();
@@ -447,6 +505,233 @@ public class TestRuleCorpus extends TestCase {
 			createModel();
 			addParameterDatapoints(rules);
 			addScheduleDatapoints();
+			addBlockDatapoints();
+		}
+
+		/** Adds the mirrors of the blocks the model lacks (spec/blocks.md 6), as the image loader derives them. */
+		private void addBlockDatapoints() {
+			for (BlockSet.ImpliedDatapoint dp : BlockSet.impliedDatapoints(_blocks, ConformanceBlock.CORPUS_REGISTRY)) {
+				if (_model.get(dp.name()) == null) {
+					_model.add(dp.name(), dp.type(), dp.writable(), null);
+				}
+			}
+		}
+
+		/** The <code>rules</code> of the case or of an image step; none: an empty array (block cases). */
+		private static Object rulesOf(Map<?, ?> image) {
+			return image.containsKey("rules") ? image.get("rules") : List.of();
+		}
+
+		/**
+		 * Compiles the blocks of the current image and starts a block runtime of the current boot on
+		 * them.
+		 *
+		 * @return Whether the blocks were accepted.
+		 */
+		private boolean makeBlocks(String where) {
+			BlockSet set;
+			try {
+				set = BlockSet.load(_blocks, _model, _owners, ConformanceBlock.CORPUS_REGISTRY);
+			} catch (BlockSet.LoadException ex) {
+				_failures.add(where + ": blocks refused: " + ex.getRefusal());
+				return false;
+			}
+			if (_blockRuntime == null) {
+				_blockRuntime = new BlockRuntime(_model, () -> _now[0], _store, _blockRecords, _engine);
+				_blockRuntime.setObserver(new BlockRuntime.Observer() {
+					@Override
+					public void blockLogged(String block, BlockRuntime.LogCode code, Level level, String text) {
+						String line = (_now[0] - BASE) + " block " + block + " " + code.externalName();
+						_logs.add(code == BlockRuntime.LogCode.LOG ? line + " " + level.externalName() + " \"" + text + "\""
+							: line);
+					}
+
+					@Override
+					public void blockCommanded(String block, Datapoint datapoint, Val value) {
+						_commands.add((_now[0] - BASE) + " block " + block + " " + datapoint.name() + " = " + text(value));
+					}
+
+					@Override
+					public void loopGuard(String block, String culprit, int firings) {
+						int last = _logs.size() - 1;
+						_logs.set(last, _logs.get(last) + " culprit " + culprit + " " + firings);
+					}
+				});
+			}
+			_blockRuntime.adopt(set);
+			return true;
+		}
+
+		/** README "persisted": a state record <code>block/&lt;id&gt;</code> written as the device writes it. */
+		private void persistRecord(String id, Map<?, ?> record) {
+			int[] version = BlockSet.parseVersion((String) record.get("version"));
+			BlockType type = ConformanceBlock.CORPUS_REGISTRY.find((String) record.get("type"), version[0]);
+			if (type == null) {
+				throw new AssertionError("No block type " + record.get("type"));
+			}
+			Map<String, Double> fields = new LinkedHashMap<>();
+			Manifest m = type.manifest();
+			for (Map.Entry<?, ?> field : ((Map<?, ?>) record.get("fields")).entrySet()) {
+				int f = m.field((String) field.getKey());
+				if (f < 0) {
+					throw new AssertionError("No state field " + field.getKey());
+				}
+				if (m.state().get(f).persist()) {
+					fields.put((String) field.getKey(), Double.valueOf(((Number) field.getValue()).doubleValue()));
+				}
+			}
+			_blockRecords.write(id, new StateRecord(m.type(), m.major(), fields));
+		}
+
+		/** README "setBlock": the change of PUT /api/blocks/&lt;id&gt;, checked whole, then applied. */
+		private void setBlock(Map<?, ?> change, long at) {
+			String id = (String) change.get("block");
+			Check check = new Check(ChangeStatus.OK, "", 0);
+			String member = "";
+			List<Object[]> values = new ArrayList<>();
+			if (change.get("parameters") instanceof Map<?, ?> parameters) {
+				for (Map.Entry<?, ?> entry : parameters.entrySet()) {
+					if (!check.ok()) {
+						break;
+					}
+					member = (String) entry.getKey();
+					check = _blockRuntime.checkParameter(id, member, entry.getValue(), false);
+					values.add(new Object[] { member, Double.valueOf(check.value()) });
+				}
+			}
+			List<?> reset = change.get("reset") instanceof List<?> list ? list : List.of();
+			for (Object name : reset) {
+				if (check.ok()) {
+					member = (String) name;
+					check = _blockRuntime.checkParameter(id, member, null, true);
+				}
+			}
+			if (check.ok() && change.containsKey("enabled")) {
+				member = "enabled";
+				check = _blockRuntime.checkEnabled(id);
+			}
+			if (check.ok() && change.containsKey("restart")) {
+				member = "restart";
+				check = _blockRuntime.checkRestart(id);
+			}
+			if (!check.ok() && check.status() != ChangeStatus.NOT_FAULTED) {
+				_blockRuntime.refused(id, member, check.reason());
+			}
+			String got = check.ok() ? "accepted" : check.status().externalName();
+			String want = change.get("refused") instanceof String refused ? refused : "accepted";
+			if (!got.equals(want)) {
+				_failures.add("setBlock at " + at + ": " + got + " (" + check.reason() + "), expected " + want);
+			}
+			if (!check.ok()) {
+				return;
+			}
+			for (Object[] value : values) {
+				_blockRuntime.setParameter(id, (String) value[0], ((Double) value[1]).doubleValue());
+			}
+			for (Object name : reset) {
+				_blockRuntime.resetParameter(id, (String) name);
+			}
+			if (change.get("enabled") instanceof Boolean enabled) {
+				_blockRuntime.setEnabled(id, enabled.booleanValue());
+			}
+			if (change.containsKey("restart")) {
+				_blockRuntime.restart(id);
+			}
+		}
+
+		private int block(String id) {
+			int b = _blockRuntime == null ? -1 : _blockRuntime.set().find(id);
+			if (b < 0) {
+				throw new AssertionError("No block " + id);
+			}
+			return b;
+		}
+
+		private static double numberOf(Object json) {
+			return json instanceof Boolean b ? (b.booleanValue() ? 1 : 0) : ((Number) json).doubleValue();
+		}
+
+		private static boolean sameNumber(double have, double want) {
+			return have == want || Math.abs(have - want) <= 1e-9 * Math.max(1.0, Math.max(Math.abs(have), Math.abs(want)));
+		}
+
+		private void compareBlocks(Map<?, ?> expected, String where) {
+			for (Map.Entry<?, ?> entry : expected.entrySet()) {
+				String id = (String) entry.getKey();
+				int b = block(id);
+				Map<?, ?> want = (Map<?, ?>) entry.getValue();
+				Manifest m = _blockRuntime.set().at(b).manifest();
+				if (want.get("status") instanceof String status
+					&& !status.equals(_blockRuntime.status(b).externalName())) {
+					_failures.add(where + ": block " + id + " is " + _blockRuntime.status(b).externalName() + ", expected "
+						+ status);
+				}
+				if (want.get("calls") instanceof Number calls && calls.intValue() != _blockRuntime.calls(b)) {
+					_failures.add(where + ": block " + id + " made " + _blockRuntime.calls(b) + " calls, expected " + calls);
+				}
+				if (want.get("state") instanceof Map<?, ?> state) {
+					for (Map.Entry<?, ?> field : state.entrySet()) {
+						int f = m.field((String) field.getKey());
+						if (f < 0) {
+							throw new AssertionError("No state field " + field.getKey());
+						}
+						double have = _blockRuntime.state(b)[f];
+						if (!sameNumber(have, numberOf(field.getValue()))) {
+							_failures.add(where + ": " + id + "." + field.getKey() + " is " + have + ", expected "
+								+ field.getValue());
+						}
+					}
+				}
+				if (want.get("parameters") instanceof Map<?, ?> parameters) {
+					for (Map.Entry<?, ?> param : parameters.entrySet()) {
+						int p = m.param((String) param.getKey());
+						if (p < 0) {
+							throw new AssertionError("No parameter " + param.getKey());
+						}
+						double have = _blockRuntime.param(b, p);
+						if (!sameNumber(have, numberOf(param.getValue()))) {
+							_failures.add(where + ": parameter " + id + "/" + param.getKey() + " is " + have + ", expected "
+								+ param.getValue());
+						}
+					}
+				}
+			}
+		}
+
+		/** The complete set of persisted records (README "records"), after an orderly shutdown's writes. */
+		private void compareRecords(Map<?, ?> expected, String where) {
+			_blockRuntime.flush();
+			Set<String> expectedIds = new TreeSet<>();
+			for (Map.Entry<?, ?> entry : expected.entrySet()) {
+				String id = (String) entry.getKey();
+				StateRecord record = _blockRecords.read(id);
+				if (entry.getValue() == null) {
+					if (record != null) {
+						_failures.add(where + ": a record of " + id + " is stored");
+					}
+					continue;
+				}
+				expectedIds.add(id);
+				if (record == null) {
+					_failures.add(where + ": no record of " + id);
+					continue;
+				}
+				Map<?, ?> want = (Map<?, ?>) entry.getValue();
+				for (Map.Entry<String, Double> field : record.fields().entrySet()) {
+					if (!want.containsKey(field.getKey())) {
+						_failures.add(where + ": the record of " + id + " holds " + field.getKey() + " = "
+							+ field.getValue() + ", not expected");
+					} else if (!sameNumber(field.getValue().doubleValue(), numberOf(want.get(field.getKey())))) {
+						_failures.add(where + ": the record of " + id + ": " + field.getKey() + " is " + field.getValue()
+							+ ", expected " + want.get(field.getKey()));
+					}
+				}
+			}
+			for (String id : _blockRecords.blocks()) {
+				if (!expectedIds.contains(id)) {
+					_failures.add(where + ": an unexpected record of " + id + " is stored");
+				}
+			}
 		}
 
 		/** Adds the parameter datapoints of the rules the model lacks (an image swap keeps the others). */
@@ -604,13 +889,18 @@ public class TestRuleCorpus extends TestCase {
 				// The model is loaded again with the values kept: the parameter datapoints follow the
 				// new rules (spec/rules.md 7.6).
 				_engine.flush();
-				addParameterDatapoints(image.get("rules"));
-				Refusal refusal = _engine.load(image.get("rules"), _directory);
+				addParameterDatapoints(rulesOf(image));
+				_blocks = image.get("blocks");
+				addBlockDatapoints();
+				Refusal refusal = _engine.load(rulesOf(image), _directory);
 				if (refusal != null) {
 					_failures.add("image at " + at + " refused: " + refusal);
 					return;
 				}
-				_image = image.get("rules");
+				_image = rulesOf(image);
+				if (!makeBlocks("image at " + at)) {
+					return;
+				}
 				if (image.get("schedules") instanceof List<?> schedules) {
 					// The new image's entries: their overrides are kept or dropped (spec/schedules.md 4.4).
 					_entries = schedules;
@@ -619,6 +909,11 @@ public class TestRuleCorpus extends TestCase {
 				}
 				_engine.start(StartReason.IMAGE);
 			} else if (step.containsKey("reboot")) {
+				if (_blockRuntime != null) {
+					// An orderly reboot: the due records are written.
+					_blockRuntime.flush();
+					_blockRuntime = null;
+				}
 				_engine.close();
 				loadModel(_image);
 				_engine = newEngine();
@@ -628,8 +923,13 @@ public class TestRuleCorpus extends TestCase {
 					_failures.add("reboot at " + at + ": load refused: " + refusal);
 					return;
 				}
+				if (!makeBlocks("reboot at " + at)) {
+					return;
+				}
 				loadSchedules();
 				_engine.start(StartReason.BOOT);
+			} else if (step.get("setBlock") instanceof Map<?, ?> change) {
+				setBlock(change, at);
 			} else if (step.get("check") instanceof Map<?, ?> check) {
 				compareState(check, "check at " + at);
 			} else {
@@ -777,6 +1077,12 @@ public class TestRuleCorpus extends TestCase {
 			if (expected.get("schedules") instanceof Map<?, ?> schedules) {
 				compareSchedules(schedules, where);
 			}
+			if (expected.get("blocks") instanceof Map<?, ?> blocks) {
+				compareBlocks(blocks, where);
+			}
+			if (expected.get("records") instanceof Map<?, ?> records) {
+				compareRecords(records, where);
+			}
 			if (expected.get("persisted") instanceof Map<?, ?> persisted) {
 				Map<String, Val> stored = _store.overrides();
 				for (Map.Entry<?, ?> entry : persisted.entrySet()) {
@@ -848,7 +1154,7 @@ public class TestRuleCorpus extends TestCase {
 				String name = (String) c.get("datapoint");
 				Datapoint datapoint = _model.get(name);
 				Val want = expectedValue(datapoint.type().expressionType(), c.get("value"));
-				String line = c.get("at") + " " + c.get("rule") + " " + name + " = " + text(want);
+				String line = c.get("at") + " " + who(c) + " " + name + " = " + text(want);
 				wantCommands.add(line);
 				commandsOk &= i < _commands.size() && sameCommand(_commands.get(i), line, want);
 			}
@@ -873,8 +1179,9 @@ public class TestRuleCorpus extends TestCase {
 			List<?> logs = (List<?>) expected.get("logs");
 			for (int i = 0; i < logs.size(); i++) {
 				Map<?, ?> l = (Map<?, ?>) logs.get(i);
-				String line = l.get("at") + " " + l.get("rule") + " " + l.get("code");
-				line = "log".equals(l.get("code")) ? line + " " + l.get("level") + " \"" + l.get("message") + "\"" : line;
+				String line = l.get("at") + " " + who(l) + " " + l.get("code");
+				Object level = l.containsKey("level") ? l.get("level") : "info";
+				line = "log".equals(l.get("code")) ? line + " " + level + " \"" + l.get("message") + "\"" : line;
 				if (l.containsKey("culprit")) {
 					line += " culprit " + l.get("culprit") + " " + ((Number) l.get("firings")).intValue();
 				}
@@ -891,6 +1198,11 @@ public class TestRuleCorpus extends TestCase {
 				_failures.add("logs differ\nexpected:\n  " + String.join("\n  ", wantLogs) + "\nactual:\n  "
 					+ String.join("\n  ", _logs));
 			}
+		}
+
+		/** The rule of an expected command or log entry, or <code>block &lt;id&gt;</code>. */
+		private static String who(Map<?, ?> entry) {
+			return entry.containsKey("block") ? "block " + entry.get("block") : String.valueOf(entry.get("rule"));
 		}
 
 		/** Compares a recorded command with an expected one, reals with the corpus' tolerance. */

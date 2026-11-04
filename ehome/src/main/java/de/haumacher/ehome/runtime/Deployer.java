@@ -196,6 +196,10 @@ public final class Deployer {
 			outcome._message = text(I18NConstants.DEPLOY_REFUSED_LOCALLY__COUNT.fill(report.getRefusals().size()));
 			outcome._refusals.addAll(report.getRefusals());
 			outcome._total = report.getRefusals().size();
+		} else if (blocksRefusal(image, controller) != null) {
+			// An older firmware would ignore the blocks and run none (homecontrol spec/blocks.md B1): nothing is sent.
+			outcome._code = CODE_SCHEMA;
+			outcome._message = text(blocksRefusal(image, controller));
 		} else {
 			outcome._before = ControllerStatus.describe(client);
 			Keys signer = InstallationKeys.signer(project, controller);
@@ -206,6 +210,45 @@ public final class Deployer {
 			send(client, image, revision, outcome);
 		}
 		return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+	}
+
+	/** The code of a deployment E-Home refused because the controller reads a schema without blocks. */
+	public static final String CODE_SCHEMA = "ehome.schema";
+
+	/** The schema that brings the blocks (homecontrol spec/blocks.md B1). */
+	static final int[] BLOCKS_SCHEMA = { 1, 3 };
+
+	/**
+	 * Why the image cannot go to the controller (homecontrol <code>spec/blocks.md</code> B1): an image
+	 * with blocks needs a controller that reports schema 1.3 or newer; one that reports none counts as
+	 * at most 1.1. <code>null</code> for an image without blocks or a controller that reads them.
+	 */
+	static ResKey blocksRefusal(RuntimeImage image, TLObject controller) {
+		if (!(image.getJson().get("blocks") instanceof List<?> blocks) || blocks.isEmpty()) {
+			return null;
+		}
+		return blocksRefusal(ImageComparison.reportedSchema(controller), controller.tValueByName("name"));
+	}
+
+	/**
+	 * Why an image with blocks cannot go to a controller reporting the schema (<code>null</code> or
+	 * empty: none), <code>null</code> when it reads blocks.
+	 */
+	public static ResKey blocksRefusal(String reported, Object controller) {
+		String[] parts = reported == null ? new String[0] : reported.trim().split("\\.");
+		if (parts.length != 2) {
+			return I18NConstants.DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER.fill(controller);
+		}
+		try {
+			int major = Integer.parseInt(parts[0]);
+			int minor = Integer.parseInt(parts[1]);
+			if (major > BLOCKS_SCHEMA[0] || (major == BLOCKS_SCHEMA[0] && minor >= BLOCKS_SCHEMA[1])) {
+				return null;
+			}
+		} catch (NumberFormatException ex) {
+			return I18NConstants.DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER.fill(controller);
+		}
+		return I18NConstants.DEPLOY_REFUSED_BLOCKS_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
 	}
 
 	/**

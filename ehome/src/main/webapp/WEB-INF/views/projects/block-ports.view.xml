@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The inputs or the outputs of a virtual device (projects/blocks.view.xml, haumacher/ehome #75):
+	"inputs" says which. Each port with its label, type, unit, whether it is required, how many
+	datapoints it binds and which aggregations it allows, and the ids of its bound datapoints (a
+	deleted one marked). The selected port's bindings in their order: "Bind datapoints" adds
+	datapoints of the project of a type the port reads (an input) or commands (an output,
+	block-bind.view.xml); "Remove binding" removes the selected one. An input bound to several
+	datapoints combines them with its aggregation (empty: the port's default).
+-->
+<view>
+	<channels>
+		<channel name="block"/>
+		<channel name="port"/>
+		<channel name="binding"/>
+		<channel name="inputs"/>
+	</channels>
+	<split-panel
+		orientation="vertical"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				size="55"
+				unit="%"
+			>
+				<table
+					observed-types="ehome.runtime:BlockPort,ehome.runtime:BlockBinding"
+					selection="port"
+					types="ehome.runtime:BlockPort"
+				>
+					<inputs>
+						<input channel="block"/>
+						<input channel="inputs"/>
+					</inputs>
+					<columns>
+						<computed-column name="label"
+							type="tl.core:String"
+							width="220"
+						>
+							<label>
+								<en>Port</en>
+								<de>Anschluss</de>
+							</label>
+							<value>blockLabel($row)</value>
+						</computed-column>
+						<computed-column name="info"
+							type="tl.core:String"
+							width="300"
+						>
+							<label>
+								<en>Kind</en>
+								<de>Art</de>
+							</label>
+							<value>blockPortInfo($row)</value>
+						</computed-column>
+						<computed-column name="bound"
+							type="tl.core:String"
+							width="240"
+						>
+							<label>
+								<en>Bound to</en>
+								<de>Gebunden an</de>
+							</label>
+							<value>blockPortBindings($row)</value>
+						</computed-column>
+						<column attribute="aggregation"/>
+					</columns>
+					<rows>if($block == null, [], if($inputs, blockInputPorts($block), blockOutputPorts($block)))</rows>
+				</table>
+			</pane>
+			<pane
+				size="45"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Bindings</en>
+						<de>Bindungen</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-link-45deg"
+							inputs="port"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Bind datapoints</en>
+								<de>Datenpunkte binden</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$port"
+									type="ehome.runtime:BlockPort"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog dialog-view="projects/block-bind.view.xml">
+								<bind
+									channel="port"
+									to="port"
+								/>
+								<bind
+									channel="selection"
+									to="binding"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-x-circle"
+							inputs="binding"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Remove binding</en>
+								<de>Bindung entfernen</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$binding"
+									type="ehome.runtime:BlockBinding"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<delete-object/>
+							<write-channel name="binding" clear="true"/>
+						</generic-command>
+					</commands>
+					<stack gap="default">
+						<form
+							input="port"
+							with-inset="true"
+						>
+							<field attribute="port"
+								readonly="true"
+							/>
+							<field attribute="aggregation"/>
+						</form>
+						<table
+							observed-types="ehome.runtime:BlockBinding,ehome.runtime:BlockPort"
+							selection="binding"
+							types="ehome.runtime:BlockBinding"
+						>
+							<inputs>
+								<input channel="port"/>
+							</inputs>
+							<columns>
+								<column attribute="datapoint"/>
+								<column attribute="boundId"/>
+							</columns>
+							<rows>if($port == null, [], $port.get(`ehome.runtime:BlockPort#bindings`))</rows>
+						</table>
+					</stack>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

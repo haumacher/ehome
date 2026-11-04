@@ -29,7 +29,9 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.ControllerStatus;
 import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.I18NConstants;
@@ -195,6 +197,74 @@ public class TestDeployment extends BasicTestCase {
 				.startsWith(text(I18NConstants.DRIFT_OTHER_REVISION__LOADED_DEPLOYED.fill(2L, 5L))));
 		} finally {
 			SharedData.deleteProjects(projects);
+			SharedData.deleteProjects(controllers);
+		}
+	}
+
+	/**
+	 * An image with blocks goes only to a controller that reads schema 1.3 (homecontrol
+	 * spec/blocks.md B1): refused, recorded with its reason and not sent, for a controller reporting
+	 * 1.2 and for one reporting no schema; accepted for 1.3. An image without blocks still goes to 1.2.
+	 */
+	public void testBlocksNeedSchema13() throws Exception {
+		TLObject project;
+		TLObject block;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			project = ModelService.getInstance().getFactory()
+				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
+			project.tUpdateByName("name", "Blocks deployment");
+			project.tUpdateByName("extId", "P-TEST-75-DEPLOY");
+			TLObject temperature = ModelService.getInstance().getFactory()
+				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:ApplicationDatapoint"));
+			temperature.tUpdateByName("identifier", "wz.temperature");
+			temperature.tUpdateByName("type", ((com.top_logic.model.TLEnumeration) TLModelUtil
+				.findType("ehome.runtime:DatapointValueType")).getClassifier("real"));
+			project.tUpdateByName("applicationDatapoints", List.of(temperature));
+			block = BlockInstances.create(project, BlockInstances.typeKey(RoomController.INSTANCE.manifest()), null,
+				ResKey.text("Heizung"));
+			BlockInstances.bind(BlockInstances.port(block, "temperature"), temperature);
+			tx.commit();
+		}
+		List<TLObject> controllers = new ArrayList<>();
+		try {
+			TLObject controller = controller("Fake 1.2", _fake.getPort(), TOKEN);
+			controllers.add(controller);
+			update(project, "controller", controller);
+
+			_fake.setSchema("1.2");
+			int puts = _fake.getPuts();
+			TLObject refused = Deployer.deploy(project, NOW);
+			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED_BLOCKS_SCHEMA__CONTROLLER_SCHEMA.fill("Fake 1.2", "1.2")),
+				refused.tValueByName("message"));
+			assertEquals("Nothing is sent.", puts, _fake.getPuts());
+			assertNull(project.tValueByName("imageRevision"));
+
+			_fake.setSchema(null);
+			refused = Deployer.deploy(project, NOW);
+			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER.fill("Fake 1.2")),
+				refused.tValueByName("message"));
+			assertEquals(puts, _fake.getPuts());
+
+			_fake.setSchema("1.3");
+			assertAccepted(Deployer.deploy(project, NOW), 1);
+			assertEquals(puts + 1, _fake.getPuts());
+
+			// Without blocks the image goes to an older controller as before (the confirmation warns).
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				block.tDelete();
+				tx.commit();
+			}
+			_fake.setSchema("1.2");
+			assertAccepted(Deployer.deploy(project, NOW), 2);
+			assertNull(Deployer.blocksRefusal("1.3", "x"));
+			assertNull(Deployer.blocksRefusal("2.0", "x"));
+			assertNull(Deployer.blocksRefusal("1.12", "x"));
+			assertNotNull(Deployer.blocksRefusal("1.1", "x"));
+			assertNotNull(Deployer.blocksRefusal("", "x"));
+		} finally {
+			SharedData.deleteProjects(List.of(project));
 			SharedData.deleteProjects(controllers);
 		}
 	}

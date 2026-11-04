@@ -95,6 +95,20 @@
 					/>
 				</view-ref>
 			</tab>
+			<tab id="blocks"
+				icon="css:bi bi-cpu"
+			>
+				<label>
+					<en>Virtual devices</en>
+					<de>Virtuelle Geräte</de>
+				</label>
+				<view-ref view="projects/blocks.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="pages"
 				icon="css:bi bi-window"
 			>

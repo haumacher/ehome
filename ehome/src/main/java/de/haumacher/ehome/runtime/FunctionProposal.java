@@ -31,6 +31,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
@@ -192,6 +193,12 @@ public final class FunctionProposal {
 	 */
 	public static final String ZIGBEE_CHANNEL = "zigbee:";
 
+	/**
+	 * The beginning of the channel of a function proposed for a virtual device (haumacher/ehome #75),
+	 * followed by the instance's identifier, which never changes: the stable key of its dismissal.
+	 */
+	public static final String BLOCK_CHANNEL = "block:";
+
 	/** The Zigbee function keys giving a sensor. */
 	private static final Set<String> ZIGBEE_SENSORS =
 		Set.of("temperature", "humidity", "illuminance", "occupancy", "battery", "ias_zone");
@@ -332,7 +339,7 @@ public final class FunctionProposal {
 			if (dismissed.contains(proposal.kind() + " " + identity)) {
 				continue;
 			}
-			if (zigbee(proposal.channel())) {
+			if (zigbee(proposal.channel()) || proposal.channel().startsWith(BLOCK_CHANNEL)) {
 				if (proposal.roles().values().stream().anyMatch(usedDatapoints::contains)) {
 					continue;
 				}
@@ -432,7 +439,7 @@ public final class FunctionProposal {
 		if (!(channel instanceof String text)) {
 			return null;
 		}
-		if (zigbee(text)) {
+		if (zigbee(text) || text.startsWith(BLOCK_CHANNEL)) {
 			return text;
 		}
 		return device instanceof TLObject knx && isA(knx, "ehome.physical:Device") ? knx.tId() + " " + text : null;
@@ -449,7 +456,8 @@ public final class FunctionProposal {
 		function.tUpdateByName("name", name);
 		function.tUpdateByName("identifier", uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
 		function.tUpdateByName("kind", classifier(proposal.kind()));
-		function.tUpdateByName("room", proposal.device().tValueByName("location"));
+		function.tUpdateByName("room",
+			proposal.device().tValueByName(BlockInstances.isInstance(proposal.device()) ? "room" : "location"));
 		if (isA(proposal.device(), "ehome.physical:Device")) {
 			function.tUpdateByName("device", proposal.device());
 		}
@@ -539,7 +547,41 @@ public final class FunctionProposal {
 		for (TLObject device : ZigbeeImport.devices(project)) {
 			zigbee(device, datapoints, result);
 		}
+		for (TLObject instance : BlockInstances.of(project)) {
+			block(instance, result);
+		}
 		return result;
+	}
+
+	/**
+	 * The climate function of a room controller (haumacher/ehome #75): its filtered temperature, its
+	 * active setpoint, the comfort setpoint as the setpoint command and its heat demand as heating,
+	 * keyed by the instance's identifier.
+	 */
+	private static void block(TLObject instance, List<Proposal> result) {
+		String id = BlockInstances.identifier(instance);
+		if (id == null || !RoomController.TYPE.equals(instance.tValueByName("blockType"))
+			|| BlockInstances.type(instance) == null) {
+			return;
+		}
+		Map<String, TLObject> roles = new LinkedHashMap<>();
+		put(roles, "temperature", BlockInstances.port(instance, "filtered"));
+		put(roles, "setpoint", BlockInstances.port(instance, "activeSetpoint"));
+		put(roles, "setpointCommand", BlockInstances.parameter(instance, "comfort"));
+		put(roles, "heating", BlockInstances.port(instance, "demand"));
+		if (!roles.containsKey("temperature")) {
+			return;
+		}
+		Map<String, String> label = new TreeMap<>();
+		Object labels = RuntimeImage.labels(instance.tValueByName("name"));
+		if (labels instanceof Map<?, ?> map) {
+			map.forEach((language, text) -> label.put((String) language, (String) text));
+		} else if (labels instanceof String text) {
+			label.put("en", text);
+		} else {
+			label.put("en", id);
+		}
+		result.add(new Proposal("climate", label, roles, instance, BLOCK_CHANNEL + id, null));
 	}
 
 	/**
@@ -1026,6 +1068,12 @@ public final class FunctionProposal {
 			}
 		}
 		return null;
+	}
+
+	private static void put(Map<String, TLObject> roles, String role, TLObject datapoint) {
+		if (datapoint != null) {
+			roles.put(role, datapoint);
+		}
 	}
 
 	private static void put(Map<String, TLObject> roles, String role, Obj obj) {

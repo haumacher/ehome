@@ -222,6 +222,14 @@
 					ordered="true"
 					type="ehome.runtime:ScheduleEntry"
 				/>
+				<!-- The virtual devices of the runtime image (haumacher/ehome #75, homecontrol spec/blocks.md), in block order. -->
+				<reference name="blocks"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:BlockInstance"
+				/>
 				<!--
 					The datapoints of the runtime image owned by no technology (haumacher/ehome #59): values
 					of the application and the outputs of schedule entries, after the group addresses' ones.

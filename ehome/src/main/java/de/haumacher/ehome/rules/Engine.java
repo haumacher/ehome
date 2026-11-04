@@ -175,6 +175,71 @@ public final class Engine implements DatapointModel.Listener {
 		}
 	}
 
+	/**
+	 * The block runtime as the engine sees it (homecontrol <code>spec/blocks.md</code> 5.1, the
+	 * C++ <code>rules::BlockHost</code>): blocks are called inside the rules' cascades, after the rules
+	 * for each event, and their deadlines join the rule timers'. Implemented by
+	 * <code>de.haumacher.ehome.blocks.BlockRuntime</code>.
+	 */
+	public interface BlockHost {
+
+		/** Whether an update of the datapoint concerns a block (an input binding): an event for the engine. */
+		boolean wants(String datapoint);
+
+		/** Step 3 of processing an event: the update of the datapoint (derived or not). */
+		void datapointEvent(String datapoint, boolean derived);
+
+		/** An event the runtime queued with {@link Engine#queueBlockEvent(int, int, int)}. */
+		void blockEvent(int kind, int block, int arg, boolean derived);
+
+		/** The earliest deadline of a block timer or period; {@link Long#MAX_VALUE} for none. */
+		long nextDeadline();
+
+		/** Runs the earliest block deadline due at the time (one timer or period), inside the engine's cascade. */
+		void runDue(long now);
+
+		/** The number of blocks to start after the rules (spec/blocks.md 5.2), each in a cascade of its own. */
+		int startCount();
+
+		/** Starts the block at the index. */
+		void startBlock(int index, StartReason reason);
+
+		/** A cascade begins: the per-block counts of derived calls start at 0. */
+		void cascadeBegun();
+
+		/**
+		 * The block with the most derived calls in the current cascade (the first in block order on a
+		 * tie) with that count; <code>null</code> when none was called for a derived event.
+		 */
+		Culprit busiest();
+
+		/**
+		 * When the next state record is due to be written (the device's persistence timer, outside the
+		 * cascades); {@link Long#MAX_VALUE} for none.
+		 */
+		default long persistDeadline() {
+			return Long.MAX_VALUE;
+		}
+
+		/** Writes the state records due at the time. */
+		default void persistDue(long now) {
+			// Nothing by default.
+		}
+	}
+
+	/**
+	 * The culprit of a loop guard: the rule or block with the most derived firings or calls in the
+	 * aborted cascade.
+	 *
+	 * @param id
+	 *        The rule's or block's id, <code>-</code> for none.
+	 * @param firings
+	 *        Its derived firings or calls.
+	 */
+	public record Culprit(String id, int firings) {
+		// A value.
+	}
+
 	/** The name of the technology that owns the parameter datapoints (<code>spec/rules.md</code> 8.6). */
 	public static final String TECHNOLOGY_NAME = "rules";
 
@@ -195,7 +260,7 @@ public final class Engine implements DatapointModel.Listener {
 	}
 
 	private enum EventKind {
-		DATAPOINT, SCHEDULE, TIMER, START, PARAMETER, START_ALL, SILENCE;
+		DATAPOINT, SCHEDULE, TIMER, START, PARAMETER, START_ALL, SILENCE, BLOCK, BLOCK_DUE;
 	}
 
 	private record Event(EventKind kind, String name, int rule, int index, boolean changed, Origin origin,
@@ -227,6 +292,15 @@ public final class Engine implements DatapointModel.Listener {
 
 		static Event silence(int index) {
 			return new Event(EventKind.SILENCE, null, -1, index, false, null, null, false);
+		}
+
+		/** An event of the block runtime: its kind in <code>name</code>'s place as a number. */
+		static Event block(int kind, int block, int arg) {
+			return new Event(EventKind.BLOCK, Integer.toString(kind), block, arg, false, null, null, false);
+		}
+
+		static Event blockDue() {
+			return new Event(EventKind.BLOCK_DUE, null, -1, -1, false, null, null, false);
 		}
 	}
 
@@ -393,6 +467,9 @@ public final class Engine implements DatapointModel.Listener {
 	/** The error of the evaluation in progress. */
 	private String _evalError;
 
+	/** The block runtime, <code>null</code> for none. */
+	private BlockHost _host;
+
 	/**
 	 * Creates an engine on the model; it listens to the model until {@link #close()}.
 	 *
@@ -426,6 +503,83 @@ public final class Engine implements DatapointModel.Listener {
 	 */
 	public void setLanguage(String language) {
 		_language = language == null || language.isEmpty() ? "en" : language;
+	}
+
+	/** Sets the block runtime called inside the cascades (spec/blocks.md 5.1); <code>null</code>: none. */
+	public void setBlockHost(BlockHost host) {
+		_host = host;
+	}
+
+	/**
+	 * For the block runtime: queues an event of its own (a parameter change, the enable switch, a
+	 * restart): a derived event inside a cascade, else an external one.
+	 */
+	public void queueBlockEvent(int kind, int block, int arg) {
+		Event event = Event.block(kind, block, arg);
+		if (_inCascade) {
+			pushCascade(event, _currentRule);
+		} else {
+			pushInbound(event);
+		}
+	}
+
+	/**
+	 * For the block runtime: counts a block call caused by a derived event against the loop guard
+	 * (spec/blocks.md 5.1).
+	 *
+	 * @return <code>null</code> when the call may run; else the culprit of the refusal, and the
+	 *         cascade is aborted.
+	 */
+	public Culprit derivedCall() {
+		if (_derivedFirings + 1 > RuleSet.MAX_DERIVED_FIRINGS) {
+			Culprit culprit = guardCulprit();
+			_aborted = true;
+			_queue.clear();
+			return culprit;
+		}
+		_derivedFirings++;
+		return null;
+	}
+
+	/** Whether a cascade runs (blocks are called only inside one). */
+	public boolean inCascade() {
+		return _inCascade;
+	}
+
+	/** Whether the current cascade was aborted by the loop guard. */
+	public boolean aborted() {
+		return _aborted;
+	}
+
+	/** The cascade time (monotonic ms). */
+	public long cascadeMs() {
+		return _cascadeMs;
+	}
+
+	/** The cascade's wall time, <code>null</code> while not synchronized. */
+	public DateTime cascadeWall() {
+		return _wall;
+	}
+
+	/**
+	 * The loop guard's culprit across the rules and the blocks: the rule with the most derived
+	 * firings in this cascade (the first in rule order on a tie), then the blocks' busiest when it
+	 * called more.
+	 */
+	private Culprit guardCulprit() {
+		String culprit = "-";
+		int firings = 0;
+		for (int i = 0; _rules != null && i < _rules.length; i++) {
+			if (i == 0 || _rules[i]._cascadeFirings > firings) {
+				culprit = _set._rules.get(i)._id;
+				firings = _rules[i]._cascadeFirings;
+			}
+		}
+		Culprit block = _host != null ? _host.busiest() : null;
+		if (block != null && (block.firings() > firings || _rules == null || _rules.length == 0)) {
+			return block;
+		}
+		return new Culprit(culprit, firings);
 	}
 
 	/** The loaded rules, <code>null</code> before the first load. */
@@ -602,6 +756,10 @@ public final class Engine implements DatapointModel.Listener {
 		// Delete the stored overrides that no parameter holds any more and the stored states the image
 		// does not declare.
 		_store.prune((logical, value) -> {
+			if (logical.startsWith("@")) {
+				// A block's override: the block runtime prunes its own (spec/blocks.md 8.2).
+				return true;
+			}
 			int slash = logical.indexOf('/');
 			if (slash < 0) {
 				return false;
@@ -701,6 +859,13 @@ public final class Engine implements DatapointModel.Listener {
 					processQueue();
 					endCascade();
 				}
+				// Then the blocks, each in a cascade of its own (spec/blocks.md 5.2).
+				for (int b = 0; _host != null && b < _host.startCount(); b++) {
+					beginCascade();
+					_host.startBlock(b, event.reason());
+					processQueue();
+					endCascade();
+				}
 			} else {
 				runCascade(event);
 			}
@@ -729,6 +894,9 @@ public final class Engine implements DatapointModel.Listener {
 				earliest = silence._deadline;
 			}
 		}
+		if (_host != null) {
+			earliest = Math.min(earliest, Math.min(_host.nextDeadline(), _host.persistDeadline()));
+		}
 		return earliest;
 	}
 
@@ -742,6 +910,10 @@ public final class Engine implements DatapointModel.Listener {
 		}
 		while (true) {
 			long now = _clock.getAsLong();
+			if (_host != null && _host.persistDeadline() <= now) {
+				// The device's persistence timer: the records due are written, outside any cascade.
+				_host.persistDue(now);
+			}
 			int bestRule = -1;
 			int bestTimer = -1;
 			for (int r = 0; r < _timers.length; r++) {
@@ -777,6 +949,14 @@ public final class Engine implements DatapointModel.Listener {
 				if (silence._deadline < deadline || (silence._deadline == deadline && silence._sequence < sequence)) {
 					bestSilence = i;
 				}
+			}
+			// Then the blocks' timers and periods: at an equal deadline the rules' come first (spec/blocks.md B7).
+			long blockDeadline = _host != null ? _host.nextDeadline() : Long.MAX_VALUE;
+			long bestDeadline = bestSilence >= 0 ? _silences[bestSilence]._deadline
+				: bestRule >= 0 ? _timers[bestRule][bestTimer]._deadline : Long.MAX_VALUE;
+			if (blockDeadline <= now && blockDeadline < bestDeadline) {
+				runCascade(Event.blockDue());
+				continue;
 			}
 			if (bestSilence >= 0) {
 				SilenceRuntime silence = _silences[bestSilence];
@@ -847,7 +1027,7 @@ public final class Engine implements DatapointModel.Listener {
 				}
 			}
 		}
-		if (!_set._interest.contains(name)) {
+		if (!_set._interest.contains(name) && (_host == null || !_host.wants(name))) {
 			return;
 		}
 		Event event = Event.datapoint(name, changed, update.origin());
@@ -1246,6 +1426,9 @@ public final class Engine implements DatapointModel.Listener {
 		for (RuleRuntime rule : _rules) {
 			rule._cascadeFirings = 0;
 		}
+		if (_host != null) {
+			_host.cascadeBegun();
+		}
 	}
 
 	private void endCascade() {
@@ -1380,19 +1563,14 @@ public final class Engine implements DatapointModel.Listener {
 			}
 			if (derived) {
 				if (_derivedFirings + 1 > RuleSet.MAX_DERIVED_FIRINGS) {
-					// The rule that fired most in this cascade, the first in rule order on a tie (9.2).
-					int culprit = 0;
-					for (int i = 1; i < _rules.length; i++) {
-						if (_rules[i]._cascadeFirings > _rules[culprit]._cascadeFirings) {
-							culprit = i;
-						}
-					}
+					// The rule that fired most in this cascade (the first in rule order on a tie), or the
+					// block that was called most (9.2, spec/blocks.md 5.1).
+					Culprit culprit = guardCulprit();
 					rr._loopGuards++;
 					logRule(r, LogCode.LOOP_GUARD, Level.ERROR, "cascade exceeded 32 derived firings",
 						"cascade refused after " + RuleSet.MAX_DERIVED_FIRINGS + " derived firings (most: "
-							+ _set._rules.get(culprit)._id + " with " + _rules[culprit]._cascadeFirings
-							+ "); the queue is emptied");
-					_observer.loopGuard(rule._id, _set._rules.get(culprit)._id, _rules[culprit]._cascadeFirings);
+							+ culprit.id() + " with " + culprit.firings() + "); the queue is emptied");
+					_observer.loopGuard(rule._id, culprit.id(), culprit.firings());
 					_aborted = true;
 					_queue.clear();
 					break;
@@ -1453,6 +1631,17 @@ public final class Engine implements DatapointModel.Listener {
 
 		for (Integer root : matched) {
 			_flags[root.intValue()] &= ~MATCHED;
+		}
+
+		// 3. Blocks, in block order (spec/blocks.md 5.1).
+		if (_host != null && !_aborted) {
+			if (e.kind() == EventKind.DATAPOINT) {
+				_host.datapointEvent(e.name(), derived);
+			} else if (e.kind() == EventKind.BLOCK) {
+				_host.blockEvent(Integer.parseInt(e.name()), e.rule(), e.index(), derived);
+			} else if (e.kind() == EventKind.BLOCK_DUE) {
+				_host.runDue(_cascadeMs);
+			}
 		}
 	}
 

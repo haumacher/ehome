@@ -92,6 +92,28 @@ public final class DatapointSettings {
 	}
 
 	/**
+	 * The KNX object that transmits on the address (its device and name), <code>null</code> when no
+	 * object sends on it (a block output bound to it would be a second source, haumacher/ehome #75).
+	 */
+	public static String sender(TLObject address) {
+		for (TLObject connection : GroupAddressConnections.connections(address)) {
+			if (transmits(connection)) {
+				TLObject connector = connection.tContainer();
+				TLObject device = connector.tContainer();
+				Object name = connector.tValueByName("displayName");
+				if (name == null || name.toString().isBlank()) {
+					name = connector.tValueByName("text");
+				}
+				if (name instanceof com.top_logic.basic.util.ResKey key) {
+					name = com.top_logic.util.Resources.getInstance().getString(key);
+				}
+				return (device == null ? "" : device.tValueByName("name") + ": ") + (name == null ? "?" : name);
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Whether the object of the connection is an input taking values from the address: its write flag
 	 * is set and it does not transmit on the address.
 	 */

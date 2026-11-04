@@ -81,7 +81,7 @@ public class FakeController {
 
 	private int _nextStatus;
 
-	private String _schema = "1.2";
+	private String _schema = "1.3";
 
 	private Map<String, Object> _nextBody;
 
@@ -407,7 +407,7 @@ public class FakeController {
 	/**
 	 * The newest image schema the fake reports it reads (<code>device.schema</code> of
 	 * <code>/api/status</code>, <code>schema</code> of its <code>auth</code>): <code>null</code> as a
-	 * firmware before schema 1.2, which reports none.
+	 * firmware before schema 1.2, which reports none; by default 1.3.
 	 */
 	public String getSchema() {
 		return _schema;

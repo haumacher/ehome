@@ -33,7 +33,7 @@ import de.haumacher.ehome.rules.Schedule;
 
 /**
  * The runtime image of a project: the JSON document a HomeControl controller runs
- * (homecontrol <code>spec/runtime-image.md</code>, schema 1.2), derived from the project.
+ * (homecontrol <code>spec/runtime-image.md</code>, schema 1.3), derived from the project.
  *
  * <p>
  * The mapping:
@@ -90,7 +90,7 @@ import de.haumacher.ehome.rules.Schedule;
 public final class RuntimeImage {
 
 	/** The version of the schema of the images E-Home writes. */
-	public static final String SCHEMA_VERSION = "1.2";
+	public static final String SCHEMA_VERSION = "1.3";
 
 	/** The content type of an image. */
 	public static final String CONTENT_TYPE = "application/json";
@@ -132,6 +132,12 @@ public final class RuntimeImage {
 	/** The rules and schedules, with the objects their paths stem from. */
 	private final RuleExport _automation = new RuleExport();
 
+	/** The objects of the project by the paths of <code>blocks</code>. */
+	private final Map<String, TLObject> _blockSources = new HashMap<>();
+
+	/** What the image cannot express of the virtual devices. */
+	private final List<BlockInstances.Problem> _blockProblems = new ArrayList<>();
+
 	private RuntimeImage() {
 		// See build().
 	}
@@ -170,6 +176,7 @@ public final class RuntimeImage {
 		if (automation) {
 			result.automation(project);
 		}
+		result.blocks(project);
 		result.history(project);
 		if (automation) {
 			result.ui(project);
@@ -244,6 +251,15 @@ public final class RuntimeImage {
 			}
 			return null;
 		}
+		if (path.startsWith("blocks")) {
+			for (String prefix = path; !prefix.isEmpty(); prefix = parent(prefix)) {
+				TLObject source = _blockSources.get(prefix);
+				if (source != null) {
+					return source;
+				}
+			}
+			return null;
+		}
 		if (path.startsWith("rules") || path.startsWith("schedules")) {
 			RuleExport.Source source = _automation.sourceAt(path);
 			return source == null ? null : source.object();
@@ -279,7 +295,10 @@ public final class RuntimeImage {
 	 * Checks the image as the controller would (see {@link ImageValidator}).
 	 */
 	public ImageReport validate() {
-		List<RuleExport.Problem> problems = _automation.getProblems();
+		List<RuleExport.Problem> problems = new ArrayList<>(_automation.getProblems());
+		for (BlockInstances.Problem problem : _blockProblems) {
+			problems.add(new RuleExport.Problem(problem.path(), problem.reason(), null));
+		}
 		ImageReport report = ImageValidator.validate(_text);
 		if (problems.isEmpty()) {
 			return report;
@@ -665,6 +684,9 @@ public final class RuntimeImage {
 	 * as unknown, naming the function).
 	 */
 	private String datapointId(TLObject datapoint) {
+		if (BlockInstances.isBlockDatapoint(datapoint)) {
+			return BlockInstances.imageId(datapoint);
+		}
 		if (ApplicationDatapoints.isApplicationDatapoint(datapoint)) {
 			return ApplicationDatapoints.id(datapoint);
 		}
@@ -729,6 +751,89 @@ public final class RuntimeImage {
 		}
 	}
 
+	// ---- blocks ------------------------------------------------------------------------------
+
+	/**
+	 * The virtual devices (haumacher/ehome #75, homecontrol spec/blocks.md 4), after the rules; their
+	 * bindings name any datapoint of the image, the mirrors of other blocks included.
+	 */
+	private void blocks(TLObject project) {
+		List<Object> blocks = BlockInstances.json(project, this::anyDatapointId, _blockProblems, _blockSources);
+		if (blocks != null) {
+			_json.put("blocks", blocks);
+			outputConflicts(project, blocks);
+		}
+	}
+
+	/** The id of any datapoint of the project in the image, <code>null</code> for none. */
+	private String anyDatapointId(TLObject datapoint) {
+		if (BlockInstances.isBlockDatapoint(datapoint) || ApplicationDatapoints.isApplicationDatapoint(datapoint)
+			|| _timeMaster.containsKey(datapoint) || _datapointIds.containsKey(datapoint)) {
+			return datapointId(datapoint);
+		}
+		return Pages.imageId(datapoint);
+	}
+
+	/**
+	 * The conflicts of the block outputs the project knows and the controller cannot: an output bound
+	 * to a group address a KNX object sends on (a refusal), an output a rule writes too (a note,
+	 * homecontrol spec/blocks.md B14).
+	 */
+	private void outputConflicts(TLObject project, List<Object> blocks) {
+		List<TLObject> instances = BlockInstances.of(project);
+		Map<String, String> ruleWrites = new HashMap<>();
+		if (_json.get("rules") instanceof List<?> rules) {
+			for (Object rule : rules) {
+				if (rule instanceof Map<?, ?> map && map.get("id") instanceof String id) {
+					collectWrites(map, id, ruleWrites);
+				}
+			}
+		}
+		for (int b = 0; b < blocks.size() && b < instances.size(); b++) {
+			TLObject instance = instances.get(b);
+			if (!(((Map<?, ?>) blocks.get(b)).get("outputs") instanceof Map<?, ?> outputs)) {
+				continue;
+			}
+			String blockName = text(instance.tValueByName("name")) + " (" + BlockInstances.identifier(instance) + ")";
+			for (Map.Entry<?, ?> output : outputs.entrySet()) {
+				String port = (String) output.getKey();
+				String datapoint = (String) output.getValue();
+				TLObject portObject = BlockInstances.port(instance, port);
+				List<TLObject> bound = portObject == null ? List.of() : BlockInstances.bound(portObject);
+				TLObject target = bound.isEmpty() ? null : bound.get(0);
+				if (target != null && isA(target, "ehome.logical:GroupAddress")) {
+					String sender = DatapointSettings.sender(target);
+					if (sender != null) {
+						_blockProblems.add(new BlockInstances.Problem("blocks[" + b + "].outputs." + port,
+							message(I18NConstants.BLOCK_OUTPUT_SENT_BY_OBJECT__BLOCK_PORT_ADDRESS_OBJECT.fill(blockName, port,
+								datapoint + " " + String.valueOf(target.tValueByName("name")), sender))));
+					}
+				}
+				String rule = ruleWrites.get(datapoint);
+				if (rule != null) {
+					_notes.add(message(I18NConstants.NOTE_BLOCK_OUTPUT_WRITTEN_BY_RULE__BLOCK_PORT_DATAPOINT_RULE.fill(blockName,
+						port, datapoint, rule)));
+				}
+			}
+		}
+	}
+
+	/** The datapoints the write actions in the JSON of a rule write, with the rule's id. */
+	private static void collectWrites(Object json, String rule, Map<String, String> result) {
+		if (json instanceof Map<?, ?> map) {
+			if ("write".equals(map.get("kind")) && map.get("datapoint") instanceof String datapoint) {
+				result.putIfAbsent(datapoint, rule);
+			}
+			for (Object value : map.values()) {
+				collectWrites(value, rule, result);
+			}
+		} else if (json instanceof List<?> list) {
+			for (Object value : list) {
+				collectWrites(value, rule, result);
+			}
+		}
+	}
+
 	// ---- control pages -----------------------------------------------------------------------
 
 	private void ui(TLObject project) {
@@ -747,6 +852,9 @@ public final class RuntimeImage {
 
 			@Override
 			public String datapointId(TLObject datapoint) {
+				if (BlockInstances.isBlockDatapoint(datapoint)) {
+					return BlockInstances.hasMirror(datapoint) ? BlockInstances.imageId(datapoint) : null;
+				}
 				if (Pages.isRuleParameter(datapoint) || Pages.isTimeSchedule(datapoint)) {
 					String id = Pages.imageId(datapoint);
 					return parameters.contains(id) ? id : null;

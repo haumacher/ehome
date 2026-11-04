@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import de.haumacher.ehome.blocks.BlockSet;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleLoader.LoadException;
 import de.haumacher.ehome.rules.RuleSet;
@@ -50,7 +51,7 @@ public final class ImageValidator {
 	public static final int SCHEMA_MAJOR = 1;
 
 	/** The minor version of the schema this validator reads (1.2: the adjustable schedule members, homecontrol #58). */
-	public static final int SCHEMA_MINOR = 2;
+	public static final int SCHEMA_MINOR = 3;
 
 	/** The largest image in bytes. */
 	public static final int MAX_IMAGE_BYTES = 262144;
@@ -274,7 +275,50 @@ public final class ImageValidator {
 		}
 		Set<String> schedules = schedules(image);
 		rules(image, schedules);
+		blocks(image);
 	}
+
+	/**
+	 * The blocks (homecontrol spec/blocks.md 11), checked last, against the datapoints, the
+	 * schedules and the rules, by the loader's port {@link BlockSet}: the first refusal with the
+	 * device's path and reason.
+	 */
+	private void blocks(Map<?, ?> root) {
+		if (!root.containsKey("blocks") || !_report.isValid()) {
+			return;
+		}
+		Directory directory = directory();
+		try {
+			BlockSet.load(root.get("blocks"), directory, datapoint -> {
+				if (_scheduleOutputs.contains(datapoint)) {
+					return "a schedule entry";
+				}
+				String owner = directory.owner(datapoint);
+				if (owner == null) {
+					return null;
+				}
+				switch (owner) {
+					case "the time master":
+						return "the KNX time master";
+					case "the rule engine":
+						return "the rule engine (a rule parameter)";
+					case "the scheduler":
+						return "a schedule entry";
+					case BLOCK_OWNER:
+						return "the block runtime (a block's datapoint)";
+					default:
+						return null;
+				}
+			}, BlockInstances.registry());
+		} catch (BlockSet.LoadException ex) {
+			BlockSet.Refusal refusal = ex.getRefusal();
+			String reason = "block '" + refusal.block() + "': " + refusal.error().externalName() + ": " + refusal.text();
+			_report.add(Kind.INVALID, refusal.path(), refusal.strict() ? strict(reason) : reason);
+		}
+	}
+
+	/** The owner of the blocks' datapoints. */
+	private static final String BLOCK_OWNER = "the block runtime";
 
 	// ---- schedules and rules -----------------------------------------------------------------
 
@@ -767,6 +811,14 @@ public final class ImageValidator {
 			_writable.add(Boolean.TRUE);
 			_sends.add(null);
 		}
+		// The datapoints of the blocks (spec/blocks.md 6), after the schedules'.
+		for (BlockSet.ImpliedDatapoint datapoint : BlockSet.impliedDatapoints(root.get("blocks"), BlockInstances.registry())) {
+			_owners.add(BLOCK_OWNER);
+			_ids.add(datapoint.name());
+			_types.add(datapoint.type().externalName());
+			_writable.add(Boolean.valueOf(datapoint.writable()));
+			_sends.add(null);
+		}
 		// Unique ids.
 		Map<String, Integer> first = new HashMap<>();
 		for (int i = 0; i < _ids.size(); i++) {
@@ -824,6 +876,9 @@ public final class ImageValidator {
 			} else if (id != null && id.startsWith(Schedule.DATAPOINT_PREFIX)) {
 				refuse("id '" + id + "': the prefix '" + Schedule.DATAPOINT_PREFIX
 					+ "' is reserved for the datapoints of the schedules");
+				id = null;
+			} else if (id != null && id.startsWith("block/")) {
+				refuse("id '" + id + "': the prefix 'block/' is reserved for the datapoints of the blocks");
 				id = null;
 			}
 			_ids.set(index, id);

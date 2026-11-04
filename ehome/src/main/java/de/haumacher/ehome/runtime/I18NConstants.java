@@ -587,12 +587,12 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey BINDING_SCHEDULE_TIME;
 
 	/**
-	 * @en The controller reads the image schema up to {0}; this image is {1}: update the controller''s firmware first, or adjustable schedules are refused.
+	 * @en The controller reads the image schema up to {0}; this image is {1}: update the controller''s firmware first, or what is newer in the image (adjustable schedules) is refused.
 	 */
 	public static ResKey2 CONFIRM_SCHEMA_OLDER__READS_IMAGE;
 
 	/**
-	 * @en The controller does not report which image schema it reads (a firmware before schema 1.2); this image is {0}: update the controller''s firmware first, or adjustable schedules are refused.
+	 * @en The controller does not report which image schema it reads (a firmware before schema 1.2); this image is {0}: update the controller''s firmware first, or what is newer in the image (adjustable schedules) is refused.
 	 */
 	public static ResKey1 CONFIRM_SCHEMA_UNKNOWN__IMAGE;
 
@@ -845,6 +845,66 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The archive would hold {0} slots; the controller keeps at most {1} per archive.
 	 */
 	public static ResKey2 HISTORY_TOO_MANY_SLOTS__SLOTS_MAX;
+
+	/**
+	 * @en The virtual device {0}: the datapoint {2} bound to its port ''{1}'' no longer exists (a re-import of the ETS project removed it); remove the binding or bind another datapoint.
+	 */
+	public static ResKey3 BLOCK_BINDING_DELETED__BLOCK_PORT_DATAPOINT;
+
+	/**
+	 * @en The virtual device {0}: its output ''{1}'' is bound to several datapoints; an output commands one.
+	 */
+	public static ResKey2 BLOCK_OUTPUT_SEVERAL__BLOCK_PORT;
+
+	/**
+	 * @en outputConflict: the output ''{1}'' of the virtual device {0} is bound to the group address {2}, on which the KNX object {3} sends: two sources would write the datapoint.
+	 */
+	public static ResKey4 BLOCK_OUTPUT_SENT_BY_OBJECT__BLOCK_PORT_ADDRESS_OBJECT;
+
+	/**
+	 * @en The output ''{1}'' of the virtual device {0} is bound to {2}, which the rule {3} writes too: both command it.
+	 */
+	public static ResKey4 NOTE_BLOCK_OUTPUT_WRITTEN_BY_RULE__BLOCK_PORT_DATAPOINT_RULE;
+
+	/**
+	 * @en Not deployed: the image has virtual devices, which need image schema 1.3; the controller {0} reads schema {1} and would run none of them. Update its firmware first.
+	 */
+	public static ResKey2 DEPLOY_REFUSED_BLOCKS_SCHEMA__CONTROLLER_SCHEMA;
+
+	/**
+	 * @en Not deployed: the image has virtual devices, which need image schema 1.3; the controller {0} reports no schema (a firmware reading at most 1.1) and would run none of them. Update its firmware first.
+	 */
+	public static ResKey1 DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER;
+
+	/**
+	 * @en {0} (deleted)
+	 */
+	public static ResKey1 BLOCK_BINDING_GONE__ID;
+
+	/**
+	 * @en input
+	 */
+	public static ResKey BLOCK_PORT_INPUT;
+
+	/**
+	 * @en output
+	 */
+	public static ResKey BLOCK_PORT_OUTPUT;
+
+	/**
+	 * @en required
+	 */
+	public static ResKey BLOCK_PORT_REQUIRED;
+
+	/**
+	 * @en diagnostic
+	 */
+	public static ResKey BLOCK_PORT_DIAGNOSTIC;
+
+	/**
+	 * @en up to {0} datapoints: {1}
+	 */
+	public static ResKey2 BLOCK_PORT_MULTIPLE__COUNT_AGGREGATIONS;
 
 	static {
 		initConstants(I18NConstants.class);

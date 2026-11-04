@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog creating a virtual device in a project (projects/blocks.view.xml, haumacher/ehome #75):
+	the block type (those E-Home has, homecontrol spec/blocks.md 14) and the room. "Create" adds the
+	instance with a port per port and a parameter per parameter of the type, named after the type, its
+	identifier derived from the name (blockCreate); it is written to "selection".
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="selection"/>
+		<channel name="type"/>
+		<channel name="room"/>
+	</channels>
+	<window width="720px">
+		<title>
+			<en>New virtual device</en>
+			<de>Neues virtuelles Gerät</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<table selection="type">
+					<inputs>
+						<input channel="project"/>
+					</inputs>
+					<columns>
+						<computed-column name="label"
+							type="tl.core:String"
+							width="300"
+						>
+							<label>
+								<en>Type</en>
+								<de>Typ</de>
+							</label>
+							<value>blockTypeLabel($row)</value>
+						</computed-column>
+						<computed-column name="id"
+							type="tl.core:String"
+							width="320"
+						>
+							<label>
+								<en>Id</en>
+								<de>Kennung</de>
+							</label>
+							<value>$row</value>
+						</computed-column>
+					</columns>
+					<rows>blockTypeOptions($project)</rows>
+				</table>
+				<table selection="room">
+					<inputs>
+						<input channel="project"/>
+					</inputs>
+					<columns>
+						<computed-column name="room"
+							type="tl.core:String"
+							width="400"
+						>
+							<label>
+								<en>Room</en>
+								<de>Raum</de>
+							</label>
+							<value>pageTargetLabel($row)</value>
+						</computed-column>
+					</columns>
+					<rows>runtimeBuildingParts($project)</rows>
+				</table>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-plus-lg"
+					inputs="project, type, room"
+				>
+					<label>
+						<en>Create</en>
+						<de>Anlegen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<disabled-if expr="if($project == null or $type == null, #('Choose the type.'@en, 'Den Typ wählen.'@de))"/>
+					</executability>
+					<with-transaction>
+						<execute-script function="blockCreate($project, $type, $room)"/>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

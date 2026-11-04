@@ -229,7 +229,7 @@ public class RuntimeFunctions extends GenericMethod {
 			case runtimeGroupAddresses:
 				return groupAddresses(project(obj));
 			case runtimeDatapoints:
-				return datapoints(project(obj));
+				return roleDatapoints(project(obj));
 			case runtimeBuildingParts:
 				return buildingParts(project(obj));
 			case runtimeHistoryProblem:
@@ -368,6 +368,16 @@ public class RuntimeFunctions extends GenericMethod {
 		if (project != null) {
 			result.addAll(ApplicationDatapoints.of(project));
 		}
+		return result;
+	}
+
+	/**
+	 * The datapoints a role of a function can refer to: {@link #datapoints(TLObject)}, then the
+	 * datapoints of the project's virtual devices (haumacher/ehome #75).
+	 */
+	public static List<TLObject> roleDatapoints(TLObject project) {
+		List<TLObject> result = datapoints(project);
+		result.addAll(BlockInstances.datapoints(project));
 		return result;
 	}
 

@@ -14,6 +14,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
@@ -29,6 +30,7 @@ import de.haumacher.ehome.rules.DatapointModel.Quality;
 import de.haumacher.ehome.rules.Engine;
 import de.haumacher.ehome.rules.Engine.ParameterStatus;
 import de.haumacher.ehome.rules.Engine.RuleStatus;
+import de.haumacher.ehome.blocks.BlockRuntime;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.RuleText;
@@ -136,6 +138,12 @@ public final class ProjectSimulation implements AutoCloseable {
 		return start(project, startUtc, workDir, Map.of());
 	}
 
+	/** The state records of the blocks of the projects' simulations, by project. */
+	private static final Map<Object, BlockRuntime.RecordStore> RECORDS = new ConcurrentHashMap<>();
+
+	/** The overrides of the blocks' parameters of the projects' simulations, by project. */
+	private static final Map<Object, Map<String, Val>> BLOCK_OVERRIDES = new ConcurrentHashMap<>();
+
 	/**
 	 * Starts the simulation of the project.
 	 *
@@ -162,6 +170,15 @@ public final class ProjectSimulation implements AutoCloseable {
 			throw new TopLogicException(I18NConstants.ERROR_IMAGE_INVALID__PROBLEMS.fill(String.join("; ", refusals)));
 		}
 		ParameterStore store = Overrides.load(project);
+		// The overrides of the blocks' parameters (@<block>/<parameter>) are kept for the session, as
+		// their state records.
+		Map<String, Val> blockOverrides = BLOCK_OVERRIDES.get(project.tId());
+		if (blockOverrides != null) {
+			blockOverrides.forEach((key, value) -> {
+				int slash = key.indexOf('/');
+				store.write(key.substring(0, slash), key.substring(slash + 1), value);
+			});
+		}
 		VirtualInstallation installation =
 			VirtualInstallation.start(freeLoopback(), "E-Home simulation", TUNNELS, workDir);
 		Simulation simulation = null;
@@ -176,6 +193,9 @@ public final class ProjectSimulation implements AutoCloseable {
 			GroupDevice input = new GroupDevice("E-Home input", INPUT_ADDRESS);
 			installation.attach(input);
 			simulation = new Simulation(image.getJson(), startUtc, store);
+			// The blocks' state records survive a restart of the simulation (an orderly reboot of the
+			// controller), not a restart of E-Home.
+			simulation.setRecords(RECORDS.computeIfAbsent(project.tId(), id -> new BlockRuntime.MemoryRecords()));
 			simulation.setLanguage(Resources.getInstance().getLocale().getLanguage());
 			for (String problem : problems) {
 				simulation.reportProblem("-", problem);
@@ -405,6 +425,13 @@ public final class ProjectSimulation implements AutoCloseable {
 	public void saveOverrides() {
 		if (_project.tValid()) {
 			Overrides.save(_project, _store);
+			Map<String, Val> blockOverrides = new java.util.LinkedHashMap<>();
+			_store.overrides().forEach((key, value) -> {
+				if (key.startsWith("@")) {
+					blockOverrides.put(key, value);
+				}
+			});
+			BLOCK_OVERRIDES.put(_project.tId(), blockOverrides);
 		}
 	}
 

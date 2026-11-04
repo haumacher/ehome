@@ -1,0 +1,357 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The virtual devices of a project (haumacher/ehome #75, homecontrol spec/blocks.md): instances of
+	the block types the controller runs (the room controller), each in a room, with its parameter
+	values and the bindings of its ports to datapoints of the project. They are part of the runtime
+	image (member blocks, schema 1.3); each instance, its adjustable parameters, its outputs and its
+	inputs bound to several datapoints are datapoints block/<id>/<x> of the image, which functions,
+	rules, pages and other virtual devices name like any other.
+
+	"New virtual device" asks for the type and the room (block-create.view.xml); the identifier is
+	derived from the name once and never changes. The form of the selected instance shows what the
+	image refuses of it (the controller's reason with its path). Below it the parameters of the type
+	with their bounds or choices and the type's default, the value of the image entered as a number
+	(a choice by its value, a duration in ms, a time of day in seconds); the inputs and the outputs
+	with their bindings: "Bind datapoints" offers the datapoints of the project of a type the port
+	reads or commands (block-bind.view.xml), an input binds up to its number of datapoints and an
+	aggregation combines them. A binding keeps the id of its datapoint, so a group address a
+	re-import of the ETS project removes leaves a binding the validation names.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="block"/>
+		<channel name="parameter"/>
+		<channel name="input"/>
+		<channel name="output"/>
+		<channel name="binding"/>
+		<derived-channel name="inputsFlag"
+			expr="true"
+			inputs="block"
+		/>
+		<derived-channel name="outputsFlag"
+			expr="false"
+			inputs="block"
+		/>
+		<derived-channel name="problem"
+			inputs="block"
+			observed-types="ehome.runtime:BlockInstance,ehome.runtime:BlockPort,ehome.runtime:BlockBinding,ehome.runtime:BlockParameter"
+		>
+			<expr><![CDATA[if($block == null, null, {
+    problem = blockProblem($block);
+    if($problem == null,
+        #("The image accepts the virtual device."@en, "Das Abbild nimmt das virtuelle Gerät an."@de).localize(),
+        #("The image refuses the virtual device:"@en, "Das Abbild lehnt das virtuelle Gerät ab:"@de).localize() + "\n" + $problem)
+})]]></expr>
+		</derived-channel>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="300"
+				size="40"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Virtual devices</en>
+						<de>Virtuelle Geräte</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-plus-lg"
+							inputs="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>New virtual device</en>
+								<de>Neues virtuelles Gerät</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog dialog-view="projects/block-create.view.xml">
+								<bind
+									channel="project"
+									to="project"
+								/>
+								<bind
+									channel="selection"
+									to="block"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							inputs="block"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete</en>
+								<de>Löschen</de>
+							</label>
+							<access>
+								<operation name="Delete"
+									object="$block"
+									type="ehome.runtime:BlockInstance"
+								/>
+								<operation name="Write"
+									object="$block"
+									type="ehome.runtime:BlockInstance"
+								/>
+							</access>
+							<executability>
+								<delete-veto-disabled/>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="#('Delete the virtual device {0}? Its state and overrides on the controller go with the next image.'@en, 'Das virtuelle Gerät {0} löschen? Sein Zustand und seine Überschreibungen auf dem Controller gehen mit dem nächsten Abbild.'@de).fill($block.get(`ehome.runtime:BlockInstance#name`))"/>
+							<delete-object/>
+							<write-channel name="block" clear="true"/>
+						</generic-command>
+					</commands>
+					<table
+						observed-types="ehome.runtime:BlockInstance"
+						selection="block"
+						types="ehome.runtime:BlockInstance"
+					>
+						<inputs>
+							<input channel="project"/>
+						</inputs>
+						<columns>
+							<column attribute="name"/>
+							<column attribute="room"/>
+							<column attribute="identifier"/>
+							<computed-column name="type"
+								type="tl.core:String"
+							>
+								<label>
+									<en>Type</en>
+									<de>Typ</de>
+								</label>
+								<value>blockTypeLabel($row.get(`ehome.runtime:BlockInstance#blockType`) + " " + $row.get(`ehome.runtime:BlockInstance#version`))</value>
+							</computed-column>
+							<column attribute="enabled"/>
+						</columns>
+						<rows>if($project == null, [], $project.get(`ehome.project:Project#blocks`))</rows>
+					</table>
+				</panel>
+			</pane>
+			<pane
+				size="60"
+				unit="%"
+			>
+				<split-panel
+					orientation="vertical"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="40"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Virtual device</en>
+									<de>Virtuelles Gerät</de>
+								</title>
+								<stack gap="default">
+									<form
+										input="block"
+										with-inset="true"
+									>
+										<field attribute="name"/>
+										<field attribute="room"/>
+										<field attribute="enabled"/>
+										<field attribute="enabledAdjustable"/>
+										<field attribute="description"/>
+										<field attribute="identifier"
+											readonly="true"
+										/>
+										<field attribute="blockType"
+											readonly="true"
+										/>
+										<field attribute="version"
+											readonly="true"
+										/>
+									</form>
+									<text
+										input="problem"
+										tone="secondary"
+									/>
+								</stack>
+							</panel>
+						</pane>
+						<pane
+							size="60"
+							unit="%"
+						>
+							<tab-bar active-tab="parameters">
+								<tabs>
+									<tab id="parameters"
+										icon="css:bi bi-sliders"
+									>
+										<label>
+											<en>Parameters</en>
+											<de>Parameter</de>
+										</label>
+										<split-panel
+											orientation="vertical"
+											resizable="true"
+										>
+											<panes>
+												<pane
+													size="70"
+													unit="%"
+												>
+													<table
+														observed-types="ehome.runtime:BlockParameter"
+														selection="parameter"
+														types="ehome.runtime:BlockParameter"
+													>
+														<inputs>
+															<input channel="block"/>
+														</inputs>
+														<columns>
+															<computed-column name="label"
+																type="tl.core:String"
+																width="220"
+															>
+																<label>
+																	<en>Parameter</en>
+																	<de>Parameter</de>
+																</label>
+																<value>blockLabel($row)</value>
+															</computed-column>
+															<column attribute="value"/>
+															<computed-column name="effective"
+																type="tl.core:String"
+																width="180"
+															>
+																<label>
+																	<en>In the image</en>
+																	<de>Im Abbild</de>
+																</label>
+																<value>blockEffective($row)</value>
+															</computed-column>
+															<computed-column name="default"
+																type="tl.core:String"
+																width="160"
+															>
+																<label>
+																	<en>Default</en>
+																	<de>Vorgabe</de>
+																</label>
+																<value>blockDefault($row)</value>
+															</computed-column>
+															<computed-column name="range"
+																type="tl.core:String"
+																width="260"
+															>
+																<label>
+																	<en>Range</en>
+																	<de>Bereich</de>
+																</label>
+																<value>blockRange($row)</value>
+															</computed-column>
+															<computed-column name="adjustable"
+																type="tl.core:Boolean"
+																width="100"
+															>
+																<label>
+																	<en>Adjustable</en>
+																	<de>Einstellbar</de>
+																</label>
+																<value>blockAdjustable($row)</value>
+															</computed-column>
+														</columns>
+														<rows>if($block == null, [], $block.get(`ehome.runtime:BlockInstance#parameters`))</rows>
+													</table>
+												</pane>
+												<pane
+													size="30"
+													unit="%"
+												>
+													<form
+														input="parameter"
+														with-inset="true"
+													>
+														<field attribute="parameter"
+															readonly="true"
+														/>
+														<field attribute="value"/>
+													</form>
+												</pane>
+											</panes>
+										</split-panel>
+									</tab>
+									<tab id="inputs"
+										icon="css:bi bi-box-arrow-in-right"
+									>
+										<label>
+											<en>Inputs</en>
+											<de>Eingänge</de>
+										</label>
+										<view-ref view="projects/block-ports.view.xml">
+											<bind
+												channel="block"
+												to="block"
+											/>
+											<bind
+												channel="port"
+												to="input"
+											/>
+											<bind
+												channel="binding"
+												to="binding"
+											/>
+											<bind
+												channel="inputs"
+												to="inputsFlag"
+											/>
+										</view-ref>
+									</tab>
+									<tab id="outputs"
+										icon="css:bi bi-box-arrow-right"
+									>
+										<label>
+											<en>Outputs</en>
+											<de>Ausgänge</de>
+										</label>
+										<view-ref view="projects/block-ports.view.xml">
+											<bind
+												channel="block"
+												to="block"
+											/>
+											<bind
+												channel="port"
+												to="output"
+											/>
+											<bind
+												channel="binding"
+												to="binding"
+											/>
+											<bind
+												channel="inputs"
+												to="outputsFlag"
+											/>
+										</view-ref>
+									</tab>
+								</tabs>
+							</tab-bar>
+						</pane>
+					</panes>
+				</split-panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>
