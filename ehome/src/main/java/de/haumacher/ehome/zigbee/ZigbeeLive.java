@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -79,6 +80,9 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 
 	/** The least time between the starts of two imports of one controller. */
 	public static final Duration MIN_INTERVAL = Duration.ofSeconds(2);
+
+	/** The time {@link #stop()} waits for an interrupted read to end. */
+	private static final Duration STOP_TIMEOUT = Duration.ofSeconds(5);
 
 	/**
 	 * The live state of a device, as the controller's events tell it.
@@ -166,11 +170,11 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 
 	private static final Map<String, List<Runnable>> LISTENERS = new ConcurrentHashMap<>();
 
-	private static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor(runnable -> {
-		Thread thread = new Thread(runnable, "zigbee-live");
-		thread.setDaemon(true);
-		return thread;
-	});
+	/**
+	 * The thread of the reads and the countdown, while started; written under the class's lock, read
+	 * without it (under the lock of a {@link State}, which {@link #stop()} takes after the class's).
+	 */
+	private static volatile ScheduledExecutorService _executor;
 
 	private static boolean _started;
 
@@ -186,13 +190,20 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 	public static synchronized void start() {
 		if (!_started) {
 			_started = true;
+			_executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
+				Thread thread = new Thread(runnable, "zigbee-live");
+				thread.setDaemon(true);
+				return thread;
+			});
 			ControllerConnections.addListener(INSTANCE);
-			_ticker = EXECUTOR.scheduleWithFixedDelay(ZigbeeLive::tick, 1, 1, TimeUnit.SECONDS);
+			_ticker = _executor.scheduleWithFixedDelay(ZigbeeLive::tick, 1, 1, TimeUnit.SECONDS);
 		}
 	}
 
 	/**
-	 * Stops following the controllers' events and forgets the live state.
+	 * Stops following the controllers' events, ends its thread (haumacher/ehome #81: at the end of the
+	 * application, also when it ends during its start) and forgets the live state. A read running
+	 * is interrupted.
 	 */
 	public static synchronized void stop() {
 		_started = false;
@@ -210,6 +221,16 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 			}
 		}
 		STATES.clear();
+		ScheduledExecutorService executor = _executor;
+		_executor = null;
+		if (executor != null) {
+			executor.shutdownNow();
+			try {
+				executor.awaitTermination(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+			} catch (InterruptedException ex) {
+				Thread.currentThread().interrupt();
+			}
+		}
 	}
 
 	/**
@@ -374,7 +395,16 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 			if (state._lastStart != Long.MIN_VALUE) {
 				delay = Math.max(delay, state._lastStart + MIN_INTERVAL.toNanos() - now);
 			}
-			state._scheduled = EXECUTOR.schedule(() -> run(controllerId, state), delay, TimeUnit.NANOSECONDS);
+			ScheduledExecutorService executor = _executor;
+			if (executor == null) {
+				// Stopped.
+				return;
+			}
+			try {
+				state._scheduled = executor.schedule(() -> run(controllerId, state), delay, TimeUnit.NANOSECONDS);
+			} catch (RejectedExecutionException ex) {
+				// Stopped meanwhile.
+			}
 		}
 	}
 

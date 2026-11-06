@@ -108,6 +108,15 @@
 	</listener>
 
 	<!--
+		The threads of the controller connections (de.haumacher.ehome.connection.ControllerConnections),
+		stopped at the end of the application (haumacher/ehome #81). The container ends the listeners
+		in the reverse order: this one after the Zigbee live import, before the engine.
+	-->
+	<listener>
+		<listener-class>de.haumacher.ehome.connection.ControllerConnectionsRegistration</listener-class>
+	</listener>
+
+	<!--
 		The Zigbee devices of the projects follow their connected controllers (haumacher/ehome #64):
 		the controllers' zigbee events re-read the export (de.haumacher.ehome.zigbee.ZigbeeLive).
 	-->

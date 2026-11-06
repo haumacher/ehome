@@ -144,6 +144,16 @@ Still open, checked on 8.0.0-alpha12.817.
 **When fixed** (the input follows the state of its submit command): remove the `!canWrite($device)`
 case of the input kind in `device-item.view.xml`.
 
+## A failing class load aborts the whole module shutdown (TL #30191)
+
+When the app's jars were deleted before Tomcat undeployed it (the old `prerm`, haumacher/ehome
+#81), `ModuleUtil.stopInThreadContext` could not load its job class and stopped no module at all:
+the H2 database stayed open in Tomcat's JVM and the next deployment found it locked. The package
+now waits for the undeploy before anything is deleted (`packaging/debian/prerm`), so the trigger is
+gone; no workaround in the app.
+
+**When fixed:** nothing to undo; the shutdown is robust against such a failure.
+
 ## No at-rest encryption out of the box (TL #29899, wontfix)
 
 The secret of an enrolled controller (haumacher/ehome #54) must be readable by E-Home to check the
@@ -174,3 +184,4 @@ rule the module offers, and replace `bin/ehome-agent.py` by the MCP wrapper.
 - TL #29884, #29885: see above (access coverage of engine modules, the reason of refused commands).
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
 - TL #30048: see above (agent access: the follow-ups of the module).
+- TL #30191: see above (a failing class load aborts the module shutdown).

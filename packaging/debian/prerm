@@ -1,9 +1,52 @@
 #!/bin/sh
 set -e
 
-# Without its context descriptor Tomcat undeploys the app and deletes its unpacked copy.
+# Before the removal: stop the app, not Tomcat (haumacher/ehome #81). Without its context descriptor
+# Tomcat (autoDeploy) undeploys the app, which closes the H2 database, and deletes its unpacked copy.
+# The script waits for both before dpkg deletes the war and postrm what Tomcat left: an app whose jars
+# are deleted while it still runs cannot shut down (the engine's shutdown loads classes of them), and
+# its database stays open in Tomcat's JVM until Tomcat's next start. An upgrade stops the app in
+# preinst.
+
+DB=/var/lib/ehome/h2.mv.db
+CONTEXT=/etc/tomcat10/Catalina/localhost/ehome.xml
+# How long the app may take to stop (seconds).
+STOP_TIMEOUT=300
+
+# Whether a process (Tomcat) holds the database file open.
+db_in_use() {
+	for fd in /proc/[0-9]*/fd; do
+		if find "$fd" -maxdepth 1 -lname "$DB" 2>/dev/null | grep -q .; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+# Whether a Tomcat runs (with or without systemd).
+tomcat_running() {
+	grep -lsa 'org[.]apache[.]catalina[.]startup[.]Bootstra[p]' /proc/[0-9]*/cmdline | grep -q .
+}
+
 if [ "$1" = "remove" ]; then
-	rm -f /etc/tomcat10/Catalina/localhost/ehome.xml
+	if [ -e "$CONTEXT" ]; then
+		echo "E-Home: stopping the app (Tomcat keeps running) ..." >&2
+		rm -f "$CONTEXT"
+	fi
+	waited=0
+	while db_in_use && [ "$waited" -lt "$STOP_TIMEOUT" ]; do
+		sleep 1
+		waited=$((waited + 1))
+	done
+	if db_in_use; then
+		echo "E-Home: the app did not stop within $STOP_TIMEOUT s (its database $DB is still open);" >&2
+		echo "E-Home: Tomcat holds it until its next start (systemctl restart tomcat10)." >&2
+	fi
+	waited=0
+	while [ -d /var/lib/tomcat10/webapps/ehome ] && [ "$waited" -lt 60 ] && tomcat_running; do
+		sleep 1
+		waited=$((waited + 1))
+	done
 fi
 
 exit 0

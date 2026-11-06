@@ -17,6 +17,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -48,7 +49,9 @@ import com.top_logic.model.util.TLModelUtil;
  * knowledge base goes to one thread of its own ({@link #execute(Runnable)}), in a system interaction
  * and a transaction, so the socket threads never wait for a commit. A watchdog closes a socket that
  * did not authenticate within {@link #AUTH_TIMEOUT}; the container closes one that received nothing
- * (no message, no ping) within {@link #IDLE_TIMEOUT} (the controller pings every 30 s).
+ * (no message, no ping) within {@link #IDLE_TIMEOUT} (the controller pings every 30 s). Both threads
+ * live as long as the application: {@link ControllerConnectionsRegistration} starts them and stops
+ * them at its end ({@link #start()}, {@link #stop()}).
  * </p>
  */
 public final class ControllerConnections {
@@ -108,24 +111,115 @@ public final class ControllerConnections {
 
 	private static final List<Listener> LISTENERS = new CopyOnWriteArrayList<>();
 
-	private static final ExecutorService KB = Executors.newSingleThreadExecutor(runnable -> {
-		Thread thread = new Thread(runnable, "controller-connections");
-		thread.setDaemon(true);
-		return thread;
-	});
+	/** The time {@link #stop()} waits for the knowledge base jobs given before. */
+	private static final Duration STOP_TIMEOUT = Duration.ofSeconds(10);
 
-	private static final ScheduledExecutorService WATCHDOG = Executors.newSingleThreadScheduledExecutor(runnable -> {
-		Thread thread = new Thread(runnable, "controller-watchdog");
-		thread.setDaemon(true);
-		return thread;
-	});
+	/**
+	 * The threads of the registry: the writer of the knowledge base and the watchdog.
+	 *
+	 * @param kb
+	 *        The single thread of {@link #execute(Runnable)}.
+	 * @param watchdog
+	 *        The thread refusing a socket that did not authenticate in time.
+	 */
+	private record Workers(ExecutorService kb, ScheduledExecutorService watchdog) {
 
-	static {
-		WATCHDOG.scheduleWithFixedDelay(ControllerConnections::watch, 1, 1, TimeUnit.SECONDS);
+		static Workers create() {
+			ExecutorService kb = Executors.newSingleThreadExecutor(runnable -> daemon(runnable, "controller-connections"));
+			ScheduledExecutorService watchdog =
+				Executors.newSingleThreadScheduledExecutor(runnable -> daemon(runnable, "controller-watchdog"));
+			watchdog.scheduleWithFixedDelay(ControllerConnections::watch, 1, 1, TimeUnit.SECONDS);
+			return new Workers(kb, watchdog);
+		}
+
+		private static Thread daemon(Runnable runnable, String name) {
+			Thread thread = new Thread(runnable, name);
+			thread.setDaemon(true);
+			return thread;
+		}
 	}
+
+	/** The running threads, <code>null</code> before the first use and after {@link #stop()}. */
+	private static Workers _workers;
+
+	/** Whether {@link #stop()} ended the registry (until the next {@link #start()}). */
+	private static boolean _stopped;
 
 	private ControllerConnections() {
 		// Static registry.
+	}
+
+	/**
+	 * Starts the threads of the registry (at the start of the application; again is harmless). The
+	 * first use starts them as well, unless {@link #stop()} ended the registry.
+	 */
+	public static synchronized void start() {
+		_stopped = false;
+		if (_workers == null) {
+			_workers = Workers.create();
+		}
+	}
+
+	/**
+	 * Stops the threads of the registry at the end of the application (haumacher/ehome #81), also
+	 * when it ends during its start: the jobs given to {@link #execute(Runnable)} so far finish (at
+	 * most {@link #STOP_TIMEOUT}), later ones are dropped. Called before the knowledge base shuts
+	 * down; {@link #start()} starts them again.
+	 */
+	public static void stop() {
+		Workers workers;
+		synchronized (ControllerConnections.class) {
+			_stopped = true;
+			workers = _workers;
+			_workers = null;
+		}
+		if (workers == null) {
+			return;
+		}
+		workers.watchdog().shutdownNow();
+		workers.kb().shutdown();
+		try {
+			if (!workers.kb().awaitTermination(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+				Logger.warn("Updates of controllers were still running at the end of the application.",
+					ControllerConnections.class);
+				workers.kb().shutdownNow();
+			}
+			workers.watchdog().awaitTermination(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+		} catch (InterruptedException ex) {
+			workers.kb().shutdownNow();
+			Thread.currentThread().interrupt();
+		}
+	}
+
+	/**
+	 * The writer thread of the knowledge base, started at its first use; <code>null</code> after
+	 * {@link #stop()}.
+	 */
+	private static synchronized ExecutorService kb() {
+		if (_workers == null) {
+			if (_stopped) {
+				return null;
+			}
+			_workers = Workers.create();
+		}
+		return _workers.kb();
+	}
+
+	/**
+	 * Gives a job to the writer thread; <code>false</code> if the registry is stopped.
+	 */
+	private static boolean submit(Runnable job) {
+		ExecutorService kb = kb();
+		if (kb == null) {
+			return false;
+		}
+		try {
+			kb.execute(job);
+			return true;
+		} catch (RejectedExecutionException ex) {
+			// Stopped meanwhile.
+			return false;
+		}
 	}
 
 	/**
@@ -176,7 +270,7 @@ public final class ControllerConnections {
 	 * Runs a job writing the knowledge base on the registry's thread, in a system interaction.
 	 */
 	public static void execute(Runnable job) {
-		KB.execute(() -> {
+		boolean accepted = submit(() -> {
 			try {
 				ThreadContext.inSystemContext(ControllerConnections.class, () -> {
 					refetch();
@@ -186,6 +280,9 @@ public final class ControllerConnections {
 				Logger.error("Updating a controller failed.", ex, ControllerConnections.class);
 			}
 		});
+		if (!accepted) {
+			Logger.debug("A controller update after the end of the application is dropped.", ControllerConnections.class);
+		}
 	}
 
 	/**
@@ -198,7 +295,7 @@ public final class ControllerConnections {
 	 */
 	public static void executeAndWait(Runnable job) {
 		CompletableFuture<Void> done = new CompletableFuture<>();
-		KB.execute(() -> {
+		boolean accepted = submit(() -> {
 			try {
 				ThreadContext.inSystemContext(ControllerConnections.class, () -> {
 					refetch();
@@ -209,6 +306,9 @@ public final class ControllerConnections {
 				done.completeExceptionally(ex);
 			}
 		});
+		if (!accepted) {
+			throw new IllegalStateException("The controller connections are stopped.");
+		}
 		try {
 			done.get();
 		} catch (InterruptedException ex) {
@@ -230,8 +330,9 @@ public final class ControllerConnections {
 	 */
 	public static void awaitKnowledgeBase() throws InterruptedException {
 		CountDownLatch done = new CountDownLatch(1);
-		KB.execute(done::countDown);
-		done.await(30, TimeUnit.SECONDS);
+		if (submit(done::countDown)) {
+			done.await(30, TimeUnit.SECONDS);
+		}
 		refetch();
 	}
 
