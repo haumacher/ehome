@@ -77,9 +77,15 @@ public class Importer {
 	private static final String PROJECT_PREFIX = "P-";
 
 	/**
-	 * Name of the folder holding the baggage of a product file.
+	 * Name of the folder holding the baggage of a manufacturer (pictures, help and plug-in files of
+	 * ETS), and of its index <code>Baggages.xml</code> beside it.
 	 */
 	private static final String BAGGAGES = "Baggages";
+
+	/**
+	 * Name of the index of a manufacturer's baggage, see {@link #BAGGAGES}.
+	 */
+	private static final String BAGGAGES_INDEX = BAGGAGES + ".xml";
 
 	/**
 	 * Suffix of the archive holding the project part of an ETS 5/6 project file
@@ -151,7 +157,7 @@ public class Importer {
 			if (productData) {
 				checkProductEntry(name, path);
 			}
-			if (!entry.isDirectory()) {
+			if (!entry.isDirectory() && !isBaggage(path)) {
 				if (name.endsWith(".xml")) {
 					importXml(context, handler, name, entryIn);
 				} else if (path.length == 1 && name.startsWith(PROJECT_PREFIX) && name.endsWith(ARCHIVE_SUFFIX)) {
@@ -245,6 +251,16 @@ public class Importer {
 			}
 			throw new TopLogicException(I18NConstants.ERROR_INVALID_ARCHIVE__DETAIL.fill(message), ex);
 		}
+	}
+
+	/**
+	 * Whether the entry with the given path is the baggage of a manufacturer
+	 * (<code>M-xxxx/Baggages.xml</code> or below <code>M-xxxx/Baggages/</code>), which E-Home does
+	 * not use and skips without reading it (see <code>doc/knx/schema-coverage.md</code>).
+	 */
+	private static boolean isBaggage(String[] path) {
+		return path.length > 1 && path[0].startsWith(MANUFACTURER_PREFIX)
+			&& (BAGGAGES_INDEX.equals(path[1]) || (path.length > 2 && BAGGAGES.equals(path[1])));
 	}
 
 	/**

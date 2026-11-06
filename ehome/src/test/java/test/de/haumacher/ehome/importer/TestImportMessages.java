@@ -6,8 +6,14 @@ package test.de.haumacher.ehome.importer;
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -89,6 +95,57 @@ public class TestImportMessages extends BasicTestCase {
 		assertEquals(texts(again), 1, again.size());
 		assertEquals(setting, text(again.get(0)));
 		assertEquals(1, programs().size());
+	}
+
+	/**
+	 * The baggage of a manufacturer (<code>M-xxxx/Baggages.xml</code> and the files below
+	 * <code>M-xxxx/Baggages/</code>, haumacher/ehome#82) is skipped without a message, and the rest of
+	 * the project is imported as before.
+	 */
+	public void testBaggagesSkipped() throws Exception {
+		Path file = Files.createTempFile("Baggages", ".knxproj");
+		List<TLObject> before = instances("ehome.project:Project");
+		try {
+			try (ZipInputStream in = new ZipInputStream(Files.newInputStream(Path.of("samples/Test.knxproj")));
+					ZipOutputStream out = new ZipOutputStream(Files.newOutputStream(file))) {
+				ZipEntry entry;
+				while ((entry = in.getNextEntry()) != null) {
+					out.putNextEntry(new ZipEntry(entry.getName()));
+					in.transferTo(out);
+					out.closeEntry();
+				}
+				put(out, "M-0008/Baggages.xml", """
+					<?xml version="1.0" encoding="utf-8"?>
+					<KNX xmlns="http://knx.org/xml/project/11">
+						<ManufacturerData>
+							<Manufacturer RefId="M-0008">
+								<Baggages>
+									<Baggage Id="M-0008_BG--Test.2Ehtml" Name="Test.html" TargetPath="" />
+								</Baggages>
+							</Manufacturer>
+						</ManufacturerData>
+					</KNX>
+					""");
+				put(out, "M-0008/Baggages/Help/Test.xml", "<Help>Not a project file.</Help>");
+				put(out, "M-0008/Baggages/Pictures/Test.png", "");
+			}
+
+			List<BufferingI18NLog.Entry> messages = TestEtsImport.withoutMasterData(importSample(file.toString()));
+			assertEquals(texts(messages), 0, messages.size());
+			List<TLObject> projects = SharedData.newProjects(before);
+			assertEquals(1, projects.size());
+			assertEquals("P-01A0", projects.get(0).tValueByName("extId"));
+			assertFalse(SharedData.within("ehome.logical:GroupAddress", projects).isEmpty());
+		} finally {
+			SharedData.deleteProjects(SharedData.newProjects(before));
+			Files.deleteIfExists(file);
+		}
+	}
+
+	private static void put(ZipOutputStream out, String name, String content) throws Exception {
+		out.putNextEntry(new ZipEntry(name));
+		out.write(content.getBytes(StandardCharsets.UTF_8));
+		out.closeEntry();
 	}
 
 	private static List<TLObject> programs() {
