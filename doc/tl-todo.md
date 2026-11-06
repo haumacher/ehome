@@ -146,6 +146,16 @@ workaround: check new columns in the running app.
 
 **When fixed:** nothing to undo; `TestViewsLoad` covers it.
 
+## The React page shows no favicon (TL #30127)
+
+In 8.0.0-alpha12 the page of the React UI (`/ehome/view/`, `ViewServlet`) writes no icon link, so
+the browser asks for `/favicon.ico` at the server root and shows no icon. E-Home ships its own icon
+(`src/main/webapp/images/favicon.svg`, rendered to `images/favicon.png`, haumacher/ehome #79) at the
+path the theme's `DEFAULT_ICON` names; the classic pages (`/ehome/servlet/LayoutServlet`) show it.
+No workaround for `/view/`.
+
+**When fixed:** after the upgrade, check that the tab of `/ehome/view/` shows E-Home's icon.
+
 ## No at-rest encryption out of the box (TL #29899, wontfix)
 
 The secret of an enrolled controller (haumacher/ehome #54) must be readable by E-Home to check the
@@ -183,5 +193,6 @@ replace `bin/ehome-agent.py` by the MCP wrapper.
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
 - TL #30134: see above (a `<composition-table>` ignores the visibility of its attribute).
 - TL #30125, #30048: see above (agent access: 302 instead of 401, the follow-ups of the module).
+- TL #30127: see above (the React page writes no favicon).
 - TL #30139: see above (a number input's unit and format).
 - TL #30140: see above (TestViewsLoad and undefined variables of computed columns).
