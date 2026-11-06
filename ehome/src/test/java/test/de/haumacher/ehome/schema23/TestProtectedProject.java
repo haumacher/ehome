@@ -21,11 +21,12 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.etsImport.ImportEtsProjectAction;
+import de.haumacher.ehome.etsImport.ImportEtsProjectJob;
 import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.PasswordRequiredException;
 import de.haumacher.ehome.importer.ProtectedProject;
 
+import test.de.haumacher.ehome.etsImport.RecordingJobMonitor;
 import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.schema23.Ets6Files.Protection;
 
@@ -77,14 +78,14 @@ public class TestProtectedProject extends BasicTestCase {
 			assertEquals(0, projects(before));
 
 			BinaryData file = BinaryDataFactory.createBinaryData(content, "application/zip", "Protected.knxproj");
-			ImportEtsProjectAction action = new ImportEtsProjectAction(null, null);
-			Map<?, ?> request = (Map<?, ?>) action.execute(null, file);
-			assertEquals(Boolean.TRUE, request.get(ImportEtsProjectAction.PASSWORD_REQUIRED));
-			assertSame(file, request.get(ImportEtsProjectAction.FILE_DATA));
-			assertTrue(String.valueOf(request.get(ImportEtsProjectAction.MESSAGE)).contains("P-01A0.zip"));
+			ImportEtsProjectJob job = new ImportEtsProjectJob(null, null);
+			Map<?, ?> request = (Map<?, ?>) new RecordingJobMonitor().run(job, List.of(file));
+			assertEquals(Boolean.TRUE, request.get(ImportEtsProjectJob.PASSWORD_REQUIRED));
+			assertSame(file, request.get(ImportEtsProjectJob.FILE_DATA));
+			assertTrue(String.valueOf(request.get(ImportEtsProjectJob.MESSAGE)).contains("P-01A0.zip"));
 			assertEquals(0, projects(before));
 			try {
-				action.execute(null, Map.of(ImportEtsProjectAction.FILE_DATA, file, ImportEtsProjectAction.PASSWORD, "falsch"));
+				new RecordingJobMonitor().run(job, List.of(request, "falsch"));
 				fail("A wrong password must be refused.");
 			} catch (TopLogicException ex) {
 				assertEquals(I18NConstants.ERROR_WRONG_PASSWORD__ENTRY.fill("P-01A0.zip"), ex.getErrorKey());
@@ -92,13 +93,21 @@ public class TestProtectedProject extends BasicTestCase {
 			assertEquals(0, projects(before));
 
 			// With the right one: imported, although the archive comes before the manufacturer data.
-			Map<?, ?> report = (Map<?, ?>) action.execute(null,
-				Map.of(ImportEtsProjectAction.FILE_DATA, file, ImportEtsProjectAction.PASSWORD, PASSWORD));
-			assertEquals(List.of(), report.get(ImportEtsProjectAction.MESSAGES) instanceof List<?> messages
-				? messages.stream().filter(m -> ImportEtsProjectAction.SEVERITY_ERROR.equals(((Map<?, ?>) m).get(
-					ImportEtsProjectAction.SEVERITY))).toList()
+			// The request of the password dialog without a password: refused.
+			try {
+				new RecordingJobMonitor().run(job, List.of(request));
+				fail("A protected project must not be imported without its password.");
+			} catch (PasswordRequiredException ex) {
+				assertEquals(I18NConstants.ERROR_PASSWORD_REQUIRED__ENTRY.fill("P-01A0.zip"), ex.getErrorKey());
+			}
+			assertEquals(0, projects(before));
+
+			Map<?, ?> report = (Map<?, ?>) new RecordingJobMonitor().run(job, List.of(request, PASSWORD));
+			assertEquals(List.of(), report.get(ImportEtsProjectJob.MESSAGES) instanceof List<?> messages
+				? messages.stream().filter(m -> ImportEtsProjectJob.SEVERITY_ERROR.equals(((Map<?, ?>) m).get(
+					ImportEtsProjectJob.SEVERITY))).toList()
 				: null);
-			TLObject project = (TLObject) report.get(ImportEtsProjectAction.PROJECT);
+			TLObject project = (TLObject) report.get(ImportEtsProjectJob.PROJECT);
 			assertNotNull(project);
 			assertEquals("TestEts6", project.tValueByName("name"));
 			assertEquals(List.of(project), SharedData.newProjects(before));

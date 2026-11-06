@@ -3,16 +3,16 @@
  */
 package de.haumacher.ehome.etsImport;
 
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.FILE;
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.LEVEL;
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.MESSAGE;
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.MESSAGES;
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.PROJECT;
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.SEVERITY;
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.SEVERITY_ERROR;
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.SEVERITY_INFO;
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.SEVERITY_WARNING;
-import static de.haumacher.ehome.etsImport.ImportEtsProjectAction.SUMMARY;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.FILE;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.LEVEL;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.MESSAGE;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.MESSAGES;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.PROJECT;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.SEVERITY;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.SEVERITY_ERROR;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.SEVERITY_INFO;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.SEVERITY_WARNING;
+import static de.haumacher.ehome.etsImport.ImportEtsProjectJob.SUMMARY;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,8 +31,8 @@ import com.top_logic.util.Resources;
  * The outcome of the import of uploaded files, see {@link #toMap()}.
  *
  * <p>
- * Shared by the import of project files ({@link ImportEtsProjectAction}) and of product files
- * ({@link ImportProductDataAction}).
+ * Shared by the import of project files ({@link ImportEtsProjectJob}) and of product files
+ * ({@link ImportProductDataJob}).
  * </p>
  */
 final class ImportReport {
@@ -102,19 +102,26 @@ final class ImportReport {
 	}
 
 	/**
-	 * The report as a dictionary for the action chain: {@value ImportEtsProjectAction#PROJECT} the
-	 * project created last, {@value ImportProductDataAction#MANUFACTURER} the manufacturer of the
-	 * product file imported last, {@value ImportEtsProjectAction#SUMMARY} a sentence naming what was
-	 * imported and how many messages there are, and {@value ImportEtsProjectAction#MESSAGES} the
-	 * messages of the import as dictionaries with {@value ImportEtsProjectAction#FILE},
-	 * {@value ImportEtsProjectAction#SEVERITY}, {@value ImportEtsProjectAction#LEVEL} and
-	 * {@value ImportEtsProjectAction#MESSAGE} (texts in the user's language).
+	 * The report as a dictionary for the action chain: {@value ImportEtsProjectJob#PROJECT} the
+	 * project created last, {@value ImportProductDataJob#MANUFACTURER} the manufacturer of the
+	 * product file imported last, {@value ImportEtsProjectJob#SUMMARY} a sentence naming what was
+	 * imported and how many messages there are, and {@value ImportEtsProjectJob#MESSAGES} the
+	 * messages of the import as dictionaries with {@value ImportEtsProjectJob#FILE},
+	 * {@value ImportEtsProjectJob#SEVERITY}, {@value ImportEtsProjectJob#LEVEL} and
+	 * {@value ImportEtsProjectJob#MESSAGE} (texts in the user's language).
 	 */
 	Map<String, Object> toMap() {
-		Map<String, Object> result = new HashMap<>();
+		String summary = _resources.getString(_summary.fill(String.join(", ", _imported), _messages.size()));
+		// The summary is the label of the report, as the result of the import job.
+		Map<String, Object> result = new HashMap<>() {
+			@Override
+			public String toString() {
+				return summary;
+			}
+		};
 		result.put(PROJECT, _project);
-		result.put(ImportProductDataAction.MANUFACTURER, _manufacturer);
-		result.put(SUMMARY, _resources.getString(_summary.fill(String.join(", ", _imported), _messages.size())));
+		result.put(ImportProductDataJob.MANUFACTURER, _manufacturer);
+		result.put(SUMMARY, summary);
 		result.put(MESSAGES, _messages);
 		return result;
 	}

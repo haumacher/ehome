@@ -5,8 +5,8 @@
 	as a pill colored by the severity and the uploaded file, and below it the full text, wrapping over
 	as many lines as it needs. (Beside a long text in one row, the pill would be shrunk to "W…".)
 
-	"message" is a dictionary of the result of <import-ets-project>
-	(de.haumacher.ehome.etsImport.ImportEtsProjectAction): severity, level, message, file.
+	"message" is a dictionary of the report of the import job
+	(de.haumacher.ehome.etsImport.ImportEtsProjectJob): severity, level, message, file.
 -->
 <view>
 	<channels>

@@ -7,6 +7,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey1;
 import com.top_logic.basic.util.ResKey2;
 import com.top_logic.basic.util.ResKey3;
+import com.top_logic.basic.util.ResKey4;
 import com.top_logic.layout.I18NConstantsBase;
 
 /**
@@ -118,6 +119,31 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en "{0}" is updated from the master data of version {1} to the definition of the master data of version {2}.
 	 */
 	public static ResKey3 INFO_MASTER_DATA_UPDATED__ID_KNOWN_VERSION;
+
+	/**
+	 * @en Master data
+	 */
+	public static ResKey PROGRESS_MASTER_DATA;
+
+	/**
+	 * @en Manufacturer {0}: application program {1} ({2} of {3})
+	 */
+	public static ResKey4 PROGRESS_PROGRAM__MANUFACTURER_PROGRAM_NUMBER_COUNT;
+
+	/**
+	 * @en Manufacturer {0}: application program {1} already known
+	 */
+	public static ResKey2 PROGRESS_PROGRAM_KNOWN__MANUFACTURER_PROGRAM;
+
+	/**
+	 * @en Hardware and catalog of {0}
+	 */
+	public static ResKey1 PROGRESS_HARDWARE__MANUFACTURER;
+
+	/**
+	 * @en Project {0}
+	 */
+	public static ResKey1 PROGRESS_PROJECT__NAME;
 
 	static {
 		initConstants(I18NConstants.class);

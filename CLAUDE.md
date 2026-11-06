@@ -40,7 +40,7 @@ A Maven build of two modules (haumacher/ehome #28); `pom.xml` at the root only a
 
 - The UI lives in `ehome/src/main/webapp/WEB-INF/views/*.view.xml` (module `tl-layout-view`), the tooling's in `ehome-virtual/src/main/webapp/WEB-INF/views/`; the app has no classic layouts (`WEB-INF/layouts/`) any more. Read the `view-layer` chapter of the developer docs (tl-mcp `list_docs`/`read_doc`) before editing views; `tl-demo-react` in the engine sources is the reference application.
 - `app.view.xml` is an overlay of the engine's shell (sidebar items). Structure trees create nodes through `create-node.view.xml` and the `new` command clique (configured in `WEB-INF/conf/ehomeConf.config.xml`, as is the TL-Script function `knxNetworkInterfaces()`).
-- App-specific view actions are Java classes with a `@TagName` config (`import-ets-project`, `discover-knx-gateways`).
+- App-specific view actions are Java classes with a `@TagName` config (`export-knxproj`, `discover-knx-gateways`).
 - A changed `.view.xml` is not picked up by a running app; restart it. `TestViewsLoad` (in each module) loads and instantiates every view, so a configuration error of a view fails the suite.
 - `doc/knx/schema-coverage.md` tracks which parts of the KNX project schema the model covers; extend the model there in its own terms, not as a copy of the XML.
 - `doc/tl-todo.md` lists the gaps that wait for a newer TopLogic version (tree tables, Excel export, TL #29791). Engine gaps and defects get a TL ticket, a minimal workaround (or none, leaving the problem visible) and an entry there. A TopLogic upgrade happens only when the user asks for one; then check every entry and undo the workarounds whose fix has shipped. Do not look for newer engine versions or poll the tickets on your own.

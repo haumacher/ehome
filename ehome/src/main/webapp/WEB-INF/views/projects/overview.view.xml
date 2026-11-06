@@ -7,7 +7,10 @@
 	A project is created empty or imported from an ETS project file (.knxproj); an import that
 	reports messages (values kept as text, unresolved references) shows them in a dialog
 	(import-report.view.xml). A project protected by a password is imported from a dialog asking for
-	the password (import-password.view.xml). The selected project is exported as an (unsigned) ETS project file
+	the password (import-password.view.xml). The import runs as a cancelable job
+	(de.haumacher.ehome.etsImport.ImportEtsProjectJob, haumacher/ehome #84) shown above the table while
+	it runs: its phases, the progress by the entries of the file and what is being imported; a failed
+	import stays shown there with its reason, a cancelled one has imported nothing. The selected project is exported as an (unsigned) ETS project file
 	offered for download in a dialog (export-knxproj.view.xml). "Read the installation" builds the
 	selected project from the devices on the bus (scan.view.xml, haumacher/ehome #9). The table observes
 	projects, so a created, imported or deleted project is reflected without a reload.
@@ -15,6 +18,7 @@
 <view>
 	<channels>
 		<channel name="project"/>
+		<channel name="importJob"/>
 	</channels>
 
 	<panel>
@@ -48,6 +52,7 @@
 			<upload-command
 				accept=".knxproj"
 				image="css:fa-solid fa-upload"
+				inputs="importJob"
 				placement="TOOLBAR"
 			>
 				<label>
@@ -57,8 +62,38 @@
 				<access>
 					<create type="ehome.project:Project"/>
 				</access>
-				<import-ets-project>
+				<executability>
+					<disabled-if expr="if(jobIsRunning($importJob), #('An import is running.'@en, 'Ein Import läuft.'@de), null)"/>
+				</executability>
+				<start-job
+					cancelable="true"
+					job="importJob"
+					update-interval="200"
+				>
+					<phases>
+						<phase name="read">
+							<label>
+								<en>Reading</en>
+								<de>Lesen</de>
+							</label>
+						</phase>
+						<phase name="import">
+							<label>
+								<en>Importing</en>
+								<de>Importieren</de>
+							</label>
+						</phase>
+						<phase name="save">
+							<label>
+								<en>Saving</en>
+								<de>Speichern</de>
+							</label>
+						</phase>
+					</phases>
+					<body class="de.haumacher.ehome.etsImport.ImportEtsProjectJob"/>
 					<with-result as="report">
+						<!-- The report or the password dialog says how the job ended; its progress display is cleared. -->
+						<write-channel name="importJob" clear="true"/>
 						<if test='$report["passwordRequired"]'>
 							<then>
 								<!-- A protected project: the dialog asks for the password and imports the file again. -->
@@ -69,6 +104,10 @@
 									<bind
 										channel="project"
 										to="project"
+									/>
+									<bind
+										channel="importJob"
+										to="importJob"
 									/>
 								</open-dialog>
 							</then>
@@ -89,7 +128,7 @@
 							</else>
 						</if>
 					</with-result>
-				</import-ets-project>
+				</start-job>
 			</upload-command>
 			<generic-command
 				image="css:fa-solid fa-download"
@@ -159,20 +198,30 @@
 				<write-channel name="project" clear="true"/>
 			</generic-command>
 		</commands>
-		<table
-			observed-types="ehome.project:Project"
-			selection="project"
-			types="ehome.project:Project"
-		>
-			<columns>
-				<column attribute="name"/>
-				<column attribute="extId"/>
-			</columns>
-			<rows>all(`ehome.project:Project`)</rows>
-			<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
-				bind-input-to="project"
-				frame="project"
-			/>
-		</table>
+		<stack>
+			<visible-if
+				expr="$importJob != null"
+				input="importJob"
+			>
+				<inset>
+					<job-status input="importJob"/>
+				</inset>
+			</visible-if>
+			<table
+				observed-types="ehome.project:Project"
+				selection="project"
+				types="ehome.project:Project"
+			>
+				<columns>
+					<column attribute="name"/>
+					<column attribute="extId"/>
+				</columns>
+				<rows>all(`ehome.project:Project`)</rows>
+				<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
+					bind-input-to="project"
+					frame="project"
+				/>
+			</table>
+		</stack>
 	</panel>
 </view>

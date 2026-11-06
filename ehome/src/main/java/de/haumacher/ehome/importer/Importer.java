@@ -41,7 +41,10 @@ import com.top_logic.basic.io.Content;
 import com.top_logic.basic.io.binary.ClassRelativeBinaryContent;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.basic.xml.XMLStreamUtil;
+import com.top_logic.element.meta.MetaElementUtil;
+import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.xio.importer.binding.DefaultImportContext;
 import com.top_logic.xio.importer.binding.ImportContext;
@@ -69,12 +72,23 @@ public class Importer {
 	/**
 	 * Prefix of the folder of a manufacturer's data in an archive, and of the manufacturer's ID.
 	 */
-	private static final String MANUFACTURER_PREFIX = "M-";
+	static final String MANUFACTURER_PREFIX = "M-";
 
 	/**
 	 * Prefix of the folder (and the signature) of a project in an archive.
 	 */
-	private static final String PROJECT_PREFIX = "P-";
+	static final String PROJECT_PREFIX = "P-";
+
+	/**
+	 * Infix of the name of the entry of an application program in the folder of its manufacturer
+	 * (<code>M-xxxx/M-xxxx_A-….xml</code>).
+	 */
+	private static final String PROGRAM_INFIX = "_A-";
+
+	/**
+	 * Qualified name of the type of application programs.
+	 */
+	private static final String PROGRAM_TYPE = "ehome.operational:Program";
 
 	/**
 	 * Name of the folder holding the baggage of a manufacturer (pictures, help and plug-in files of
@@ -120,6 +134,11 @@ public class Importer {
 	private int _schema;
 
 	/**
+	 * The progress of the current import.
+	 */
+	private EntryProgress _progress = new EntryProgress(ImportProgress.NONE, 0, 0, Set.of());
+
+	/**
 	 * Creates a {@link Importer}.
 	 *
 	 */
@@ -133,9 +152,12 @@ public class Importer {
 	 * @param productData
 	 *        Whether the archive is a product file (<code>.knxprod</code>), which may hold no project,
 	 *        no baggage, and must hold the data of a manufacturer.
+	 * @param contents
+	 *        The contents of the archive read beforehand, whose opened project archives are used;
+	 *        <code>null</code> to open them here.
 	 */
-	public void importETS(ZipInputStream zip, ImportContext context, Handler handler, boolean productData)
-			throws XMLStreamException, IOException {
+	private void importETS(ZipInputStream zip, ImportContext context, Handler handler, boolean productData,
+			ArchiveContents contents) throws XMLStreamException, IOException {
 		FilterInputStream entryIn = new FilterInputStream(zip) {
 			@Override
 			public void close() throws IOException {
@@ -160,12 +182,15 @@ public class Importer {
 			if (!entry.isDirectory() && !isBaggage(path)) {
 				if (name.endsWith(".xml")) {
 					importXml(context, handler, name, entryIn);
-				} else if (path.length == 1 && name.startsWith(PROJECT_PREFIX) && name.endsWith(ARCHIVE_SUFFIX)) {
+				} else if (isProjectArchive(name, path)) {
 					// ETS 5/6: the project part is an archive of its own (protected by the project
-					// password or not). It is opened at once, so that a missing or wrong password is
-					// refused before anything else is read, and imported after the master and
-					// manufacturer data it refers to, which may follow it in the file.
-					projectArchives.put(name, ProtectedProject.read(name, zip.readAllBytes(), _schema, _password));
+					// password or not). It is opened at once (or was opened when the contents were
+					// read), so that a missing or wrong password is refused before anything else is
+					// read, and imported after the master and manufacturer data it refers to, which
+					// may follow it in the file.
+					Map<String, byte[]> opened = contents == null ? null : contents.getProjectArchives().get(name);
+					projectArchives.put(name,
+						opened != null ? opened : ProtectedProject.read(name, zip.readAllBytes(), _schema, _password));
 				}
 			}
 		}
@@ -188,6 +213,7 @@ public class Importer {
 	private void importXml(ImportContext context, Handler handler, String name, InputStream content)
 			throws XMLStreamException {
 		Logger.info("Reading '" + name + "'.", Importer.class);
+		_progress.beginEntry(name);
 
 		// The entry name is the system ID, so that a message of the import names the file of the
 		// archive. As an absolute URI: the parser resolves a relative one against the working
@@ -195,10 +221,12 @@ public class Importer {
 		XMLStreamReader in = new SchemaVersionReader(XMLStreamUtil.getDefaultInputFactory()
 			.createXMLStreamReader(ENTRY_SCHEME + name, content));
 		handler.importXml(context, in);
+		_progress.endEntry();
 	}
 
 	/**
-	 * Reader recording the version of the project schema from the namespace of the root element.
+	 * Reader recording the version of the project schema from the namespace of the root element,
+	 * and telling the {@link EntryProgress} about the elements read.
 	 */
 	private final class SchemaVersionReader extends StreamReaderDelegate {
 
@@ -211,16 +239,12 @@ public class Importer {
 		@Override
 		public int next() throws XMLStreamException {
 			int event = super.next();
-			if (_root && event == XMLStreamConstants.START_ELEMENT) {
-				_root = false;
-				String namespace = getNamespaceURI();
-				if (namespace != null && namespace.startsWith(SCHEMA_NAMESPACE)) {
-					try {
-						_schema = Math.max(_schema, Integer.parseInt(namespace.substring(SCHEMA_NAMESPACE.length())));
-					} catch (NumberFormatException ex) {
-						// Not a version number, no information.
-					}
+			if (event == XMLStreamConstants.START_ELEMENT) {
+				if (_root) {
+					_root = false;
+					_schema = Math.max(_schema, schemaVersion(getNamespaceURI()));
 				}
+				_progress.startElement(this);
 			}
 			return event;
 		}
@@ -236,10 +260,42 @@ public class Importer {
 	}
 
 	/**
+	 * The version of the project schema a root element in the given namespace belongs to, 0 if it
+	 * is not known.
+	 */
+	static int schemaVersion(String namespace) {
+		if (namespace != null && namespace.startsWith(SCHEMA_NAMESPACE)) {
+			try {
+				return Integer.parseInt(namespace.substring(SCHEMA_NAMESPACE.length()));
+			} catch (NumberFormatException ex) {
+				// Not a version number, no information.
+			}
+		}
+		return 0;
+	}
+
+	/**
+	 * Whether the entry with the given path is an application program in the folder of its
+	 * manufacturer (<code>M-xxxx/M-xxxx_A-….xml</code>).
+	 */
+	static boolean isProgram(String[] path) {
+		return path.length == 2 && path[0].startsWith(MANUFACTURER_PREFIX)
+			&& path[1].startsWith(path[0] + PROGRAM_INFIX) && path[1].endsWith(".xml");
+	}
+
+	/**
+	 * Whether the entry with the given name and path is the project archive of ETS 5/6
+	 * (<code>P-xxxx.zip</code>).
+	 */
+	static boolean isProjectArchive(String name, String[] path) {
+		return path.length == 1 && name.startsWith(PROJECT_PREFIX) && name.endsWith(ARCHIVE_SUFFIX);
+	}
+
+	/**
 	 * The next entry of the archive, refusing an archive that cannot be read, in particular one with
 	 * an encrypted (password protected) entry.
 	 */
-	private static ZipEntry nextEntry(ZipInputStream zip, String last) throws IOException {
+	static ZipEntry nextEntry(ZipInputStream zip, String last) throws IOException {
 		try {
 			return zip.getNextEntry();
 		} catch (ZipException ex) {
@@ -258,7 +314,7 @@ public class Importer {
 	 * (<code>M-xxxx/Baggages.xml</code> or below <code>M-xxxx/Baggages/</code>), which E-Home does
 	 * not use and skips without reading it (see <code>doc/knx/schema-coverage.md</code>).
 	 */
-	private static boolean isBaggage(String[] path) {
+	static boolean isBaggage(String[] path) {
 		return path.length > 1 && path[0].startsWith(MANUFACTURER_PREFIX)
 			&& (BAGGAGES_INDEX.equals(path[1]) || (path.length > 2 && BAGGAGES.equals(path[1])));
 	}
@@ -319,7 +375,29 @@ public class Importer {
 	public void importStream(InputStream in, String password)
 			throws IOException, XMLStreamException, ConfigurationException {
 		_password = password;
-		importStream(in, false);
+		importStream(in, false, null, ImportProgress.NONE);
+	}
+
+	/**
+	 * Imports the ETS project file (<code>.knxproj</code>) read from the given stream, whose
+	 * contents were read beforehand, reporting the progress to the given callback (haumacher/ehome
+	 * #84).
+	 *
+	 * @param password
+	 *        The project password, <code>null</code> or empty if none was given; the project
+	 *        archive was opened with it already by {@link ArchiveContents#read}.
+	 * @param contents
+	 *        The contents of the file, read from it by {@link ArchiveContents#read}.
+	 * @param progress
+	 *        The callback reporting the progress, which may stop the import with an
+	 *        {@link com.top_logic.basic.AbortExecutionException}.
+	 *
+	 * @see #importStream(InputStream, String)
+	 */
+	public void importStream(InputStream in, String password, ArchiveContents contents, ImportProgress progress)
+			throws IOException, XMLStreamException, ConfigurationException {
+		_password = password;
+		importStream(in, false, contents, progress);
 	}
 
 	/**
@@ -340,12 +418,35 @@ public class Importer {
 	public void importProductData(InputStream in)
 			throws IOException, XMLStreamException, ConfigurationException {
 		_password = null;
-		importStream(in, true);
+		importStream(in, true, null, ImportProgress.NONE);
 	}
 
-	private void importStream(InputStream in, boolean productData)
+	/**
+	 * Imports the product file (<code>.knxprod</code>) of a manufacturer read from the given stream,
+	 * whose contents were read beforehand, reporting the progress to the given callback
+	 * (haumacher/ehome #84).
+	 *
+	 * @param contents
+	 *        The contents of the file, read from it by {@link ArchiveContents#read}.
+	 * @param progress
+	 *        The callback reporting the progress, which may stop the import with an
+	 *        {@link com.top_logic.basic.AbortExecutionException}.
+	 *
+	 * @see #importProductData(InputStream)
+	 */
+	public void importProductData(InputStream in, ArchiveContents contents, ImportProgress progress)
 			throws IOException, XMLStreamException, ConfigurationException {
+		_password = null;
+		importStream(in, true, contents, progress);
+	}
+
+	private void importStream(InputStream in, boolean productData, ArchiveContents contents,
+			ImportProgress progress) throws IOException, XMLStreamException, ConfigurationException {
 		_messages = new BufferingI18NLog();
+		_progress = progress == ImportProgress.NONE
+			? new EntryProgress(progress, 0, 0, Set.of())
+			: new EntryProgress(progress, contents == null ? 0 : contents.getEntries(),
+				contents == null ? 0 : contents.getPrograms(), knownPrograms());
 		Log log = new SyserrProtocol();
 		DefaultInstantiationContext context = new DefaultInstantiationContext(log);
 		ConfigurationReader reader = new ConfigurationReader(context, Collections.singletonMap("handler",
@@ -367,7 +468,7 @@ public class Importer {
 			importContext.set(MasterDataUpdates.PROPERTY, updates);
 			_programLanguages = new ProgramLanguages();
 			importContext.set(ProgramLanguages.PROPERTY, _programLanguages);
-			importETS(zip, importContext, handler, productData);
+			importETS(zip, importContext, handler, productData, contents);
 			// Reported at the end of each program already; none is left unless a parameter lies
 			// outside a program.
 			HiddenProgramValues.reportPending(importContext);
@@ -375,6 +476,23 @@ public class Importer {
 		}
 		// Numbers the app allocates for new objects lie above those of the imported ones.
 		ExtIds.raiseImported(_binding.getCreated());
+		// All done only when the references are resolved, which the import context does when closed.
+		_progress.finish();
+	}
+
+	/**
+	 * The IDs of the application programs that exist now.
+	 */
+	private static Set<String> knownPrograms() {
+		Set<String> result = new HashSet<>();
+		TLClass type = (TLClass) TLModelUtil.findType(PROGRAM_TYPE);
+		for (TLObject program : MetaElementUtil.getAllInstancesOf(type, TLObject.class)) {
+			Object id = program.tValueByName("extId");
+			if (id != null) {
+				result.add(id.toString());
+			}
+		}
+		return result;
 	}
 
 	/**

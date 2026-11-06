@@ -5,8 +5,8 @@
 	location in the imported file. The project import shows it when the import produced messages, the
 	product data import of the catalog view always.
 
-	"report" carries the result of <import-ets-project> (de.haumacher.ehome.etsImport.ImportEtsProjectAction)
-	or <import-product-data> (de.haumacher.ehome.etsImport.ImportProductDataAction):
+	"report" carries the result of the import job (de.haumacher.ehome.etsImport.ImportEtsProjectJob)
+	or of the product data import (de.haumacher.ehome.etsImport.ImportProductDataJob):
 	"summary" is the sentence above the list, "messages" its entries, each shown by
 	import-message.view.xml with the full text wrapping (a <table> cell cuts a long text off). The
 	messages do not change the outcome of the import; the dialog only informs.

@@ -13,10 +13,11 @@
 	until it has one of them.
 
 	The catalog is filled by importing the product file of a manufacturer (.knxprod, the format of
-	the ETS catalog import; ImportProductDataAction) or an ETS project (projects/overview.view.xml).
-	The product import always shows its report (projects/import-report.view.xml), naming the
-	manufacturer, products and application programs imported or already known, and selects the
-	manufacturer of the file.
+	the ETS catalog import; ImportProductDataJob) or an ETS project (projects/overview.view.xml).
+	The product import runs as a cancelable job shown above the tree while it runs (its phases, the
+	progress by the entries of the file and what is being imported, haumacher/ehome #84). It always
+	shows its report (projects/import-report.view.xml), naming the manufacturer, products and
+	application programs imported or already known, and selects the manufacturer of the file.
 
 	Everything the tree shows is created here: a manufacturer, a catalog, a section, an application
 	program, a product with its first variant (in a catalog), a further variant of a product, and the
@@ -28,6 +29,7 @@
 <view>
 	<channels>
 		<channel name="selected"/>
+		<channel name="importJob"/>
 		<derived-channel name="root"
 			expr="`ehome.catalog#ROOT`"
 			inputs="selected"
@@ -72,7 +74,7 @@
 						<upload-command
 							accept=".knxprod"
 							image="css:fa-solid fa-upload"
-							inputs="root"
+							inputs="root, importJob"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -90,19 +92,49 @@
 									type="ehome.catalog:ManufacturerRoot"
 								/>
 							</access>
-							<import-product-data>
+							<executability>
+								<disabled-if expr="if(jobIsRunning($importJob), #('An import is running.'@en, 'Ein Import läuft.'@de), null)"/>
+							</executability>
+							<start-job
+								cancelable="true"
+								job="importJob"
+								update-interval="200"
+							>
+								<phases>
+									<phase name="read">
+										<label>
+											<en>Reading</en>
+											<de>Lesen</de>
+										</label>
+									</phase>
+									<phase name="import">
+										<label>
+											<en>Importing</en>
+											<de>Importieren</de>
+										</label>
+									</phase>
+									<phase name="save">
+										<label>
+											<en>Saving</en>
+											<de>Speichern</de>
+										</label>
+									</phase>
+								</phases>
+								<body class="de.haumacher.ehome.etsImport.ImportProductDataJob"/>
 								<with-result as="report">
 									<open-dialog
 										bind-input-to="report"
 										dialog-view="projects/import-report.view.xml"
 									/>
+									<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
+									<write-channel name="importJob" clear="true"/>
 									<execute-script function='$report["manufacturer"]'>
 										<with-result>
 											<write-channel name="selected"/>
 										</with-result>
 									</execute-script>
 								</with-result>
-							</import-product-data>
+							</start-job>
 						</upload-command>
 						<generic-command
 							clique="new"
@@ -386,86 +418,96 @@
 							<write-channel name="selected" clear="true"/>
 						</generic-command>
 					</commands>
-					<!-- The catalogs with the columns of the classic tree grid (exported to Excel as an outline). -->
-					<tree-table
-						observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog,ehome.catalog:Product,ehome.catalog:Variant,ehome.catalog:ProgramAssignment,ehome.operational:Program"
-						selection="selected"
-					>
-						<root>`ehome.catalog#ROOT`</root>
-						<children><![CDATA[switch {
-    $node.instanceOf(`ehome.catalog:ManufacturerRoot`):
-        $node.get(`ehome.catalog:ManufacturerRoot#manufacturers`)
-            .filter(m -> !$m.get(`ehome.catalog:Manufacturer#catalogs`).isEmpty()
-                or !$m.get(`ehome.catalog:Manufacturer#products`).isEmpty()
-                or !$m.get(`ehome.catalog:Manufacturer#programs`).isEmpty());
-    $node.instanceOf(`ehome.catalog:Manufacturer`):
-        concat(
-            $node.get(`ehome.catalog:Manufacturer#catalogs`),
-            $node.get(`ehome.catalog:Manufacturer#programs`));
-    $node.instanceOf(`ehome.catalog:Catalog`):
-        $node.get(`ehome.catalog:Catalog#sections`)
-            .union($node.get(`ehome.catalog:Catalog#variants`));
-    $node.instanceOf(`ehome.catalog:Variant`):
-        $node.get(`ehome.catalog:Variant#product`).get(`ehome.catalog:Product#programs`);
-    default: [];
-}]]></children>
-						<parents><![CDATA[switch {
-    $node.instanceOf(`ehome.catalog:Variant`):
-        $node.referers(`ehome.catalog:Catalog#variants`);
-    $node.instanceOf(`ehome.catalog:ProgramAssignment`):
-        $node.get(`ehome.catalog:ProgramAssignment#product`).get(`ehome.catalog:Product#variants`);
-    default: $node.container();
-}]]></parents>
-						<export download-name="#('Catalogs'@en, 'Kataloge'@de)">
-							<sheet-name>
-								<en>Catalogs</en>
-								<de>Kataloge</de>
-							</sheet-name>
-						</export>
-						<columns>
-							<computed-column name="name"
-								width="300"
-							>
-								<label>
-									<en>Name</en>
-									<de>Name</de>
-								</label>
-								<value>$row</value>
-								<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"/>
-							</computed-column>
-							<!-- The number of sections and of variants of a catalog. -->
-							<computed-column name="sections"
-								type="tl.core:Integer"
-								width="100"
-							>
-								<label>
-									<en>Sections</en>
-									<de>Abschnitte</de>
-								</label>
-								<value>if($row.instanceOf(`ehome.catalog:Catalog`), $row.get(`ehome.catalog:Catalog#sections`).size(), null)</value>
-							</computed-column>
-							<computed-column name="variants"
-								type="tl.core:Integer"
-								width="100"
-							>
-								<label>
-									<en>Variants</en>
-									<de>Varianten</de>
-								</label>
-								<value>if($row.instanceOf(`ehome.catalog:Catalog`), $row.get(`ehome.catalog:Catalog#variants`).size(), null)</value>
-							</computed-column>
-							<computed-column name="extId"
-								type="tl.core:String"
-								width="200"
-							>
-								<label>
-									<en>External ID</en>
-									<de>Externe ID</de>
-								</label>
-								<value>if($row.instanceOf(`ehome.core:Externalized`), $row.get(`ehome.core:Externalized#extId`), null)</value>
-							</computed-column>
-						</columns>
-					</tree-table>
+					<stack>
+						<visible-if
+							expr="$importJob != null"
+							input="importJob"
+						>
+							<inset>
+								<job-status input="importJob"/>
+							</inset>
+						</visible-if>
+						<!-- The catalogs with the columns of the classic tree grid (exported to Excel as an outline). -->
+						<tree-table
+							observed-types="ehome.catalog:Manufacturer,ehome.catalog:Catalog,ehome.catalog:Product,ehome.catalog:Variant,ehome.catalog:ProgramAssignment,ehome.operational:Program"
+							selection="selected"
+						>
+							<root>`ehome.catalog#ROOT`</root>
+							<children><![CDATA[switch {
+	    $node.instanceOf(`ehome.catalog:ManufacturerRoot`):
+	        $node.get(`ehome.catalog:ManufacturerRoot#manufacturers`)
+	            .filter(m -> !$m.get(`ehome.catalog:Manufacturer#catalogs`).isEmpty()
+	                or !$m.get(`ehome.catalog:Manufacturer#products`).isEmpty()
+	                or !$m.get(`ehome.catalog:Manufacturer#programs`).isEmpty());
+	    $node.instanceOf(`ehome.catalog:Manufacturer`):
+	        concat(
+	            $node.get(`ehome.catalog:Manufacturer#catalogs`),
+	            $node.get(`ehome.catalog:Manufacturer#programs`));
+	    $node.instanceOf(`ehome.catalog:Catalog`):
+	        $node.get(`ehome.catalog:Catalog#sections`)
+	            .union($node.get(`ehome.catalog:Catalog#variants`));
+	    $node.instanceOf(`ehome.catalog:Variant`):
+	        $node.get(`ehome.catalog:Variant#product`).get(`ehome.catalog:Product#programs`);
+	    default: [];
+	}]]></children>
+							<parents><![CDATA[switch {
+	    $node.instanceOf(`ehome.catalog:Variant`):
+	        $node.referers(`ehome.catalog:Catalog#variants`);
+	    $node.instanceOf(`ehome.catalog:ProgramAssignment`):
+	        $node.get(`ehome.catalog:ProgramAssignment#product`).get(`ehome.catalog:Product#variants`);
+	    default: $node.container();
+	}]]></parents>
+							<export download-name="#('Catalogs'@en, 'Kataloge'@de)">
+								<sheet-name>
+									<en>Catalogs</en>
+									<de>Kataloge</de>
+								</sheet-name>
+							</export>
+							<columns>
+								<computed-column name="name"
+									width="300"
+								>
+									<label>
+										<en>Name</en>
+										<de>Name</de>
+									</label>
+									<value>$row</value>
+									<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"/>
+								</computed-column>
+								<!-- The number of sections and of variants of a catalog. -->
+								<computed-column name="sections"
+									type="tl.core:Integer"
+									width="100"
+								>
+									<label>
+										<en>Sections</en>
+										<de>Abschnitte</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.catalog:Catalog`), $row.get(`ehome.catalog:Catalog#sections`).size(), null)</value>
+								</computed-column>
+								<computed-column name="variants"
+									type="tl.core:Integer"
+									width="100"
+								>
+									<label>
+										<en>Variants</en>
+										<de>Varianten</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.catalog:Catalog`), $row.get(`ehome.catalog:Catalog#variants`).size(), null)</value>
+								</computed-column>
+								<computed-column name="extId"
+									type="tl.core:String"
+									width="200"
+								>
+									<label>
+										<en>External ID</en>
+										<de>Externe ID</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.core:Externalized`), $row.get(`ehome.core:Externalized#extId`), null)</value>
+								</computed-column>
+							</columns>
+						</tree-table>
+					</stack>
 				</panel>
 			</pane>
 			<pane

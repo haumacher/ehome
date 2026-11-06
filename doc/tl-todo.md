@@ -176,6 +176,39 @@ no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha1
 **When fixed:** decide whether E-Home restricts issuing tokens (e.g. to `ehome.Installer`) with the
 rule the module offers, and replace `bin/ehome-agent.py` by the MCP wrapper.
 
+## Import jobs (TL #30193, #30194, #30195, #30196)
+
+The ETS import, the password dialog and the product data import run as cancelable `<start-job>`s
+(`ImportEtsProjectJob`, `ImportProductDataJob`, haumacher/ehome #84). Four gaps of the job support:
+
+- Cancelling a job interrupts its worker thread (TL #30196). An interrupt during a database access
+  closes the file channel of the embedded H2 database: the MVStore panics and every later database
+  access of the app fails until a restart (seen in the browser check with a cancel during the
+  commit). Workaround: `ImportJobs#shielded` runs the import on a thread of its own in the job's
+  context, the worker only waits for it; the cancel is answered at the next report of the import.
+  `TestImportProgress#testInterruptedWorker` covers it. The other cancelable jobs of the app need
+  the interrupt to leave a blocking bus access and are not shielded: `ScanJob` and `ReadBackJob`
+  commit what they found after the bus work (`scan/ScanJob.java`, `scan/ReadBackJob.java`), so a
+  cancel during that commit has the same effect; `CompareJob` reads only.
+
+- A dialog cannot close itself in the `<with-result>` of a job it started (TL #30193): it is not
+  closable while its own command is suspended, so `<close-dialog>` is ignored, and the report opened
+  next is closed again by the reveal of the opener. Workaround in `projects/import-password.view.xml`:
+  the dialog closes first and starts the job on `importJob`, bound to the job channel of the projects
+  overview; the job and a wrong password are shown there, and the file is uploaded again.
+- A cancel during the commit (phase "Saving", no report point) ends the job as cancelled although the
+  file was saved (TL #30194): no report, no selection of the project, which the table shows anyway.
+  No workaround.
+- A cancelled job carries no result (TL #30195): of a cancelled multi-file upload, the files committed
+  before stay, but no report names them (the projects table shows them). No workaround.
+
+**When fixed:** TL #30196: remove `ImportJobs#shielded` (and the refetch of
+`RecordingJobMonitor#run` in the tests). TL #30193: run the job in the dialog with its own `<job-status>` and the
+`<close-dialog>` first in the `<with-result>`, and drop the `importJob` binding of the dialog in
+`projects/overview.view.xml`. TL #30194: declare the commit in `ImportJobs#importFile` as past the
+point of no return. TL #30195: continue the chain of a cancelled multi-file import with the report
+of the files imported.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -185,3 +218,4 @@ rule the module offers, and replace `bin/ehome-agent.py` by the MCP wrapper.
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
 - TL #30048: see above (agent access: the follow-ups of the module).
 - TL #30191: see above (a failing class load aborts the module shutdown).
+- TL #30193, #30194, #30195, #30196: see above (import jobs: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the interrupt of a cancelled job closing H2).

@@ -27,6 +27,7 @@ import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.etsImport.RecordingJobMonitor;
 import test.de.haumacher.ehome.importer.TestEtsImport;
 
 import com.top_logic.basic.io.binary.BinaryDataFactory;
@@ -44,13 +45,13 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
-import de.haumacher.ehome.etsImport.ImportEtsProjectAction;
-import de.haumacher.ehome.etsImport.ImportProductDataAction;
+import de.haumacher.ehome.etsImport.ImportEtsProjectJob;
+import de.haumacher.ehome.etsImport.ImportProductDataJob;
 import de.haumacher.ehome.importer.Importer;
 
 /**
  * Test case for the import of the product file of a manufacturer (<code>.knxprod</code>) with
- * {@link Importer#importProductData(InputStream)} and {@link ImportProductDataAction}.
+ * {@link Importer#importProductData(InputStream)} and {@link ImportProductDataJob}.
  *
  * <p>
  * The test runs in the database shared with the tests before it, which hold the data of the Test
@@ -139,11 +140,11 @@ public class TestProductDataImport extends BasicTestCase {
 		// The report of the view action.
 		Map<?, ?> report = importAction(FIXTURES + "TestProduct.knxprod");
 		assertEquals(before, counts());
-		assertSame(byExtId("ehome.catalog:Manufacturer", "M-0008"), report.get(ImportProductDataAction.MANUFACTURER));
-		assertNull(report.get(ImportEtsProjectAction.PROJECT));
+		assertSame(byExtId("ehome.catalog:Manufacturer", "M-0008"), report.get(ImportProductDataJob.MANUFACTURER));
+		assertNull(report.get(ImportEtsProjectJob.PROJECT));
 		// Only the messages about the mask versions the database holds from other tests' imports.
-		assertEquals(masterData, ((List<?>) report.get(ImportEtsProjectAction.MESSAGES)).size());
-		String summary = (String) report.get(ImportEtsProjectAction.SUMMARY);
+		assertEquals(masterData, ((List<?>) report.get(ImportEtsProjectJob.MESSAGES)).size());
+		String summary = (String) report.get(ImportEtsProjectJob.SUMMARY);
 		String manufacturer = label(byExtId("ehome.catalog:Manufacturer", "M-0008"));
 		String program = label(byExtId("ehome.operational:Program", TEST_PROGRAM));
 		assertEquals(summary, en("Imported product data: TestProduct.knxprod (Manufacturer already known: "
@@ -374,10 +375,10 @@ public class TestProductDataImport extends BasicTestCase {
 	}
 
 	private static Map<?, ?> importAction(String file) throws Exception {
-		ImportProductDataAction action = new ImportProductDataAction(null, null);
+		ImportProductDataJob job = new ImportProductDataJob(null, null);
 		File source = new File(file);
-		return (Map<?, ?>) action.execute(null,
-			BinaryDataFactory.createBinaryDataWithName(source, source.getName()));
+		return (Map<?, ?>) new RecordingJobMonitor().run(job,
+			List.of(BinaryDataFactory.createBinaryDataWithName(source, source.getName())));
 	}
 
 	private static TLObject byExtId(String typeName, String extId) {

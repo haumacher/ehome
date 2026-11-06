@@ -78,6 +78,16 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey LEVEL_INFO;
 
+	/**
+	 * @en Reading {0}
+	 */
+	public static ResKey1 PROGRESS_READING__FILE;
+
+	/**
+	 * @en Saving
+	 */
+	public static ResKey PROGRESS_SAVING;
+
 	static {
 		initConstants(I18NConstants.class);
 	}
