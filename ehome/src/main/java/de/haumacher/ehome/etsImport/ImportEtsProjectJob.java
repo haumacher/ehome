@@ -23,6 +23,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.importer.PasswordRequiredException;
 
 /**
@@ -140,8 +141,9 @@ public class ImportEtsProjectJob implements JobBody {
 	}
 
 	@Override
-	public Object run(JobMonitor job, List<Object> arguments) {
-		return ImportJobs.shielded(() -> importFiles(job, arguments));
+	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
+		// The cancel interrupt must not reach the database access (TL #30196).
+		return Uninterruptible.run(() -> importFiles(job, arguments));
 	}
 
 	private static Object importFiles(JobMonitor job, List<Object> arguments) {

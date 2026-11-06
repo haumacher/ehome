@@ -22,6 +22,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.Gateways;
 
@@ -61,6 +62,11 @@ public class ScanJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
+		// The cancel interrupt reaches only the blocking bus accesses, never the database (TL #30196).
+		return Uninterruptible.run(() -> work(job, arguments));
+	}
+
+	private Object work(JobMonitor job, List<Object> arguments) throws Exception {
 		TLObject project = (TLObject) arguments.get(0);
 		Integer area = number(arguments.get(1));
 		Integer line = number(arguments.get(2));
@@ -76,7 +82,7 @@ public class ScanJob implements JobBody {
 
 		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
 		BusScanner.Result result;
-		try (CalimeroScanBus bus = CalimeroScanBus.open(address)) {
+		try (ScanBus bus = openBus(address)) {
 			result = BusScanner.scan(bus, new BusScanner.Request(line == null ? null : area, line == null ? 0 : line,
 				routers, gateway, programming), new BusScanner.Listener() {
 					@Override
@@ -124,6 +130,13 @@ public class ScanJob implements JobBody {
 		String summary = Resources.getInstance().getString(I18NConstants.SCAN_DONE__GATEWAY_FOUND_IDENTIFIED_UNIDENTIFIED
 			.fill(gatewayText, result.devices().size(), identified, unidentified));
 		return result(summary, rows, notes);
+	}
+
+	/**
+	 * Opens the bus behind the given gateway; a test replaces it.
+	 */
+	protected ScanBus openBus(InetSocketAddress gateway) throws BusException {
+		return CalimeroScanBus.open(gateway);
 	}
 
 	/**

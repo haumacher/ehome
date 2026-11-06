@@ -17,6 +17,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.DeviceReader;
@@ -72,7 +73,9 @@ public class CalimeroScanBus implements ScanBus {
 		InetSocketAddress remote = resolve(gateway);
 		try {
 			_local = new InetSocketAddress(localAddressTowards(remote), 0);
-			_link = KNXNetworkLinkIP.newTunnelingLink(_local, remote, false, new TPSettings());
+			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
+				_link = KNXNetworkLinkIP.newTunnelingLink(_local, remote, false, new TPSettings());
+			}
 		} catch (KNXException | IOException ex) {
 			throw new BusException("No connection to the gateway " + Gateways.format(gateway) + ": " + ex.getMessage(), ex);
 		} catch (InterruptedException ex) {
@@ -114,7 +117,8 @@ public class CalimeroScanBus implements ScanBus {
 
 	@Override
 	public List<Integer> programmingMode() throws BusException {
-		try (ManagementProceduresImpl procedures = new ManagementProceduresImpl(_link)) {
+		try (Uninterruptible.Section section = Uninterruptible.interruptible();
+				ManagementProceduresImpl procedures = new ManagementProceduresImpl(_link)) {
 			List<Integer> result = new ArrayList<>();
 			for (IndividualAddress address : procedures.readAddress()) {
 				result.add(address.getRawAddress());
@@ -140,7 +144,7 @@ public class CalimeroScanBus implements ScanBus {
 	 */
 	private List<Integer> scan(Scan scan, Progress progress, String what) throws BusException {
 		ExecutorService executor = Executors.newSingleThreadExecutor(r -> new Thread(r, "ehome-scan"));
-		try {
+		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 			ManagementProceduresImpl procedures = new ManagementProceduresImpl(_link);
 			try {
 				Future<List<Integer>> result = executor.submit(() -> scan.run(procedures));
@@ -189,7 +193,7 @@ public class CalimeroScanBus implements ScanBus {
 	@Override
 	public LocalProperties gatewayProperties() throws BusException {
 		LocalDeviceManagementIp adapter;
-		try {
+		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 			adapter = LocalDeviceManagementIp.newAdapter(_local, resolve(_gateway), false, false, event -> {
 				// Closed with the bus.
 			});
@@ -206,7 +210,7 @@ public class CalimeroScanBus implements ScanBus {
 				if (index < 0) {
 					throw new BusException("The gateway has no interface object of type " + objectType + ".");
 				}
-				try {
+				try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 					return adapter.getProperty(index, propertyId, start, count);
 				} catch (KNXException ex) {
 					throw new BusException("Reading object type " + objectType + " property " + propertyId + " of "
@@ -255,7 +259,7 @@ public class CalimeroScanBus implements ScanBus {
 
 		@Override
 		public byte[] readDescriptor() throws BusException {
-			try {
+			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 				return _management.readDeviceDesc(destination(), 0);
 			} catch (KNXException ex) {
 				throw failure("Reading the device descriptor", ex);
@@ -266,7 +270,7 @@ public class CalimeroScanBus implements ScanBus {
 
 		@Override
 		public byte[] readProperty(int objectIndex, int propertyId, int start, int count) throws BusException {
-			try {
+			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 				return _management.readProperty(destination(), objectIndex, propertyId, start, count);
 			} catch (KNXException ex) {
 				throw failure("Reading object " + objectIndex + " property " + propertyId, ex);
@@ -277,7 +281,7 @@ public class CalimeroScanBus implements ScanBus {
 
 		@Override
 		public byte[] readMemory(int address, int length) throws BusException {
-			try {
+			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 				return _management.readMemory(destination(), address, length);
 			} catch (KNXException ex) {
 				throw failure(String.format("Reading memory %04X (%d bytes)", address, length), ex);

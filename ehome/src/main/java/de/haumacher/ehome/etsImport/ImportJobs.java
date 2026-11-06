@@ -9,16 +9,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 
 import javax.xml.stream.XMLStreamException;
 
-import com.top_logic.basic.SubSessionContext;
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.io.binary.BinaryData;
-import com.top_logic.basic.thread.ThreadContextManager;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.KnowledgeBaseException;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -65,49 +60,6 @@ final class ImportJobs {
 
 	private ImportJobs() {
 		// Static helpers.
-	}
-
-	/**
-	 * Runs the given work of a job on a thread of its own, in the context of the job, and waits for
-	 * it.
-	 *
-	 * <p>
-	 * A cancelled job is woken by an interrupt of its worker thread (<code>JobRunner#cancel</code>).
-	 * An interrupt in the middle of a database access closes the file channel of the embedded H2
-	 * database, which then fails for the whole application (TL #30196, doc/tl-todo.md). The work
-	 * therefore runs where no interrupt reaches it; the worker only waits, and the cancel is answered
-	 * by the work at its next report to the job, as before. The interrupt the worker receives is
-	 * dropped: the job knows it was cancelled.
-	 * </p>
-	 */
-	static <T> T shielded(Callable<T> work) {
-		SubSessionContext subSession = ThreadContextManager.getSubSession();
-		CompletableFuture<T> result = new CompletableFuture<>();
-		Thread thread = new Thread(() -> {
-			try {
-				result.complete(subSession == null ? work.call() : ThreadContextManager.inContext(subSession, work::call));
-			} catch (Throwable ex) {
-				result.completeExceptionally(ex);
-			}
-		}, "E-Home import");
-		thread.setDaemon(true);
-		thread.start();
-		while (true) {
-			try {
-				return result.get();
-			} catch (InterruptedException ex) {
-				// Cancelled: the work stops at its next report.
-			} catch (ExecutionException ex) {
-				Throwable cause = ex.getCause();
-				if (cause instanceof RuntimeException runtime) {
-					throw runtime;
-				}
-				if (cause instanceof Error error) {
-					throw error;
-				}
-				throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(cause.getMessage()), cause);
-			}
-		}
 	}
 
 	/**

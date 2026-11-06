@@ -20,6 +20,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.job.Uninterruptible;
 
 /**
  * The work of the product data import of the catalog (<code>&lt;start-job&gt;</code> body of
@@ -74,8 +75,9 @@ public class ImportProductDataJob implements JobBody {
 	}
 
 	@Override
-	public Object run(JobMonitor job, List<Object> arguments) {
-		return ImportJobs.shielded(() -> importFiles(job, arguments));
+	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
+		// The cancel interrupt must not reach the database access (TL #30196).
+		return Uninterruptible.run(() -> importFiles(job, arguments));
 	}
 
 	private static Object importFiles(JobMonitor job, List<Object> arguments) {

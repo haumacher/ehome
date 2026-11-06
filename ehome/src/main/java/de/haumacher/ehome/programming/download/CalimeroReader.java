@@ -18,6 +18,7 @@ import tuwien.auto.calimero.link.KNXNetworkLink;
 import tuwien.auto.calimero.link.KNXNetworkLinkIP;
 import tuwien.auto.calimero.link.medium.TPSettings;
 
+import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.knx.transport.Tpdu;
 import de.haumacher.ehome.knx.transport.TransportClient;
 import de.haumacher.ehome.knx.transport.TransportClient.TransportException;
@@ -74,7 +75,9 @@ public class CalimeroReader implements DeviceReader {
 				throw new IOException("unknown host " + remote.getHostString());
 			}
 			InetSocketAddress local = new InetSocketAddress(localAddressTowards(remote), 0);
-			link = KNXNetworkLinkIP.newTunnelingLink(local, remote, false, new TPSettings());
+			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
+				link = KNXNetworkLinkIP.newTunnelingLink(local, remote, false, new TPSettings());
+			}
 		} catch (KNXException | IOException ex) {
 			if (link != null) {
 				link.close();
@@ -157,7 +160,7 @@ public class CalimeroReader implements DeviceReader {
 	 *        Tells the answer, <code>null</code> for a service without answer.
 	 */
 	protected byte[] request(String what, byte[] apdu, Predicate<byte[]> answer) throws BusException {
-		try {
+		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 			return _connection.request(apdu, answer);
 		} catch (TransportException ex) {
 			throw failure(what, ex);

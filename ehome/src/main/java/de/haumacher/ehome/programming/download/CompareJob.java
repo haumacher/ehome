@@ -16,6 +16,7 @@ import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 
@@ -52,6 +53,11 @@ public class CompareJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
+		// The cancel interrupt reaches only the blocking bus accesses, never the database (TL #30196).
+		return Uninterruptible.run(() -> work(job, arguments));
+	}
+
+	private static Object work(JobMonitor job, List<Object> arguments) throws Exception {
 		TLObject device = ProgrammingFunctions.device(arguments);
 		ResKey veto = ProgrammingFunctions.compareVeto(device);
 		if (veto != null) {

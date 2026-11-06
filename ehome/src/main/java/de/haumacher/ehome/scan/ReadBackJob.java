@@ -19,8 +19,10 @@ import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.CalimeroReader;
+import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadRecord;
 import de.haumacher.ehome.programming.download.Gateways;
@@ -62,6 +64,11 @@ public class ReadBackJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
+		// The cancel interrupt reaches only the blocking bus accesses, never the database (TL #30196).
+		return Uninterruptible.run(() -> work(job, arguments));
+	}
+
+	private Object work(JobMonitor job, List<Object> arguments) throws Exception {
 		Object row = arguments.get(0);
 		ResKey veto = ScanFunctions.readVeto(row);
 		if (veto != null) {
@@ -76,7 +83,7 @@ public class ReadBackJob implements JobBody {
 		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
 		ProgrammingReport report = new ProgrammingReport();
 		ReadBack.Memory memory;
-		try (CalimeroReader reader = CalimeroReader.open(gateway, found.address())) {
+		try (DeviceReader reader = openReader(gateway, found.address())) {
 			memory = ReadBack.read(device, reader, (done, total, what) -> {
 				job.progress(done, total);
 				job.message(ResKey.text(what));
@@ -119,6 +126,14 @@ public class ReadBackJob implements JobBody {
 		}
 		return report.toMap(I18NConstants.READBACK_DONE__DEVICE_GATEWAY_SETTINGS_CONNECTIONS.fill(where, gatewayText,
 			result.settings(), result.connections()), result.identical());
+	}
+
+	/**
+	 * Opens the connection to the device with the given address behind the given gateway; a test
+	 * replaces it.
+	 */
+	protected DeviceReader openReader(InetSocketAddress gateway, int address) throws BusException {
+		return CalimeroReader.open(gateway, address);
 	}
 
 }
