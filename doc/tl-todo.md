@@ -146,6 +146,16 @@ workaround: check new columns in the running app.
 
 **When fixed:** nothing to undo; `TestViewsLoad` covers it.
 
+## A failing class load aborts the whole module shutdown (TL #30191)
+
+When the app's jars were deleted before Tomcat undeployed it (the old `prerm`, haumacher/ehome
+#81), `ModuleUtil.stopInThreadContext` could not load its job class and stopped no module at all:
+the H2 database stayed open in Tomcat's JVM and the next deployment found it locked. The package
+now waits for the undeploy before anything is deleted (`packaging/debian/prerm`), so the trigger is
+gone; no workaround in the app.
+
+**When fixed:** nothing to undo; the shutdown is robust against such a failure.
+
 ## No at-rest encryption out of the box (TL #29899, wontfix)
 
 The secret of an enrolled controller (haumacher/ehome #54) must be readable by E-Home to check the
@@ -183,5 +193,6 @@ replace `bin/ehome-agent.py` by the MCP wrapper.
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
 - TL #30134: see above (a `<composition-table>` ignores the visibility of its attribute).
 - TL #30125, #30048: see above (agent access: 302 instead of 401, the follow-ups of the module).
+- TL #30191: see above (a failing class load aborts the module shutdown).
 - TL #30139: see above (a number input's unit and format).
 - TL #30140: see above (TestViewsLoad and undefined variables of computed columns).

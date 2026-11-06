@@ -134,7 +134,13 @@ project was there after both, and the model upgrade only added the module `tl.ag
 The upgrade keeps the settings and the data. The engine has no default for the database password since TopLogic
 8.0.0-alpha12 (named secrets): an upgrade from an earlier package adds `h2_passwd` with the former
 default `theautomatedappengine`, which the existing database was created with, to settings that lack
-it. `apt remove` undeploys the app; `apt purge` also deletes the settings. The data
+it. `apt remove` undeploys the app; `apt purge` also deletes the settings. As an upgrade does,
+`prerm` takes the descriptor away and waits (at most 5 minutes) until the app has closed the database
+and Tomcat has removed its unpacked copy, before the war and that copy are deleted: packages up to
+1.0.2 deleted the unpacked copy at once, the jars disappeared under the running app, its shutdown
+failed on a class it could not load any more (`NoSuchFileException` in Tomcat's
+`localhost.<date>.log`), and the database stayed open in Tomcat's JVM (haumacher/ehome #81; the next
+installation failed with `The file is locked`, until Tomcat's next start). The data
 in `/var/lib/ehome` are never deleted by the package.
 
 Tomcat's heap is the JVM's default (a quarter of the memory); set `JAVA_OPTS` in
