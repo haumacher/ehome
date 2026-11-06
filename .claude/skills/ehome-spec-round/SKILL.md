@@ -1,13 +1,15 @@
 ---
 name: ehome-spec-round
-description: A specification round for E-Home and its HomeControl controller — the user proposes features one by one, the session looks up the evidence in both code bases, asks only the questions that change the design, and files precise GitHub tickets (no implementation, builds or commits); optionally it supervises an implementing agent in another session, answering its design questions from the round's decisions. Use when the user asks for a "specification round", wants to "only discuss features and file tickets", or asks to keep an implementing agent going.
+description: A specification round for E-Home and its HomeControl controller — the user proposes features one by one, the session looks up the evidence in both code bases, asks only the questions that change the design, and files precise GitHub tickets (no implementation or builds; records such as doc/tl-todo.md are kept); optionally it supervises an implementing agent in another session, answering its design questions from the round's decisions. Use when the user asks for a "specification round", wants to "only discuss features and file tickets", or asks to keep an implementing agent going.
 ---
 
 # Specification round
 
 A round turns the user's feature ideas into tickets an implementing agent can work through
 without coming back. The session **discusses and files; it does not implement**: no code edits,
-no builds, no tests, no commits (except to this skill or memory, when asked). Read the skill
+no builds, no tests. It does keep the records: an engine gap found on the way gets its TL ticket and
+its `doc/tl-todo.md` entry, committed and pushed like any record (the user: "you may change to fill
+the records - just no impl"), and this skill or memory when asked. Read the skill
 `ehome-workflow` for the product context: E-Home (`haumacher/ehome`, `~/devel/ehome`) and the
 HomeControl firmware (`haumacher/homecontrol`, `~/devel/homecontrol`) are **one product**, and
 every proposal is considered on both sides.
