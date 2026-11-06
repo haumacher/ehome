@@ -2,7 +2,7 @@
 
 E-Home installs on Debian 13 (trixie) or newer, and on Ubuntu 24.04, as the package `ehome`. It runs
 the war in the distribution's Tomcat 10 (`tomcat10`, Jakarta EE 10, the WebSocket of the controllers
-included) on Java 21 (`java21-runtime-headless`, which TopLogic 8.0.0-alpha12 requires; Debian 12 has
+included) on Java 21 (`java21-runtime-headless`, which TopLogic 8 requires; Debian 12 has
 no Java 21 of its own) and keeps its data in an H2 database under `/var/lib/ehome`.
 
 ## Building

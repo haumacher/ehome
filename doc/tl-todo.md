@@ -1,19 +1,30 @@
 # Waiting for TopLogic
 
 Gaps of the React UI (`ehome/src/main/webapp/WEB-INF/views/`; paths below are relative to the app module `ehome/` unless they name `ehome-virtual/`) and
-workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha12) cannot close yet.
+workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha12.817) cannot close yet.
 Check each item when upgrading TopLogic (an upgrade happens only when the user asks for one). Every
 entry names its TL ticket and what to remove once the engine covers it; a gap whose workaround would
 not be minimal is left visible instead.
 
-State of the upgrade to 8.0.0-alpha12 (2026-10-30): the fixes of TL #29798, #29812, #29814, #29869,
-#29872 to #29874, #29876, #29877, #29880 to #29883, #29886 to #29896, #29898, #29973 to #29983 and
-#29990 shipped; their workarounds are removed, except where an entry below says why one stays.
-TL #29884 and #29885 are open; TL #29899 is closed as wontfix. TL #30086 to #30088 are new.
-`parameterValueType` (TL #29798) stays: the options, constraints and visibility of a parameter value
-call it because it reads the values entered in a form, which the derived `valueType` does not.
+State of the upgrade to 8.0.0-alpha12.817 (2026-11-06): the fixes of TL #30086, #30088, #30125,
+#30127, #30134, #30139 and #30140 shipped, and their workarounds are removed (`<unless-known-program>`
+with `TranslationsImport#importBaseTexts`, the 60 s check of `MonitorSource`, the redirect case of
+`bin/ehome-agent.py`, `HISTORY_ARCHIVES_NOT_MANUAL`, the unit in the label of a block parameter).
+TL #30087 was closed as invalid (TL-Script can walk the composition of an object through the model);
+the walk works but is too slow, so `SharedObjects` stays (see below). Breaking changes adapted: the
+sidebar's `<separator>` is gone (TL #30044), the items of `app.view.xml` stand in the shell's
+`<section id="application">`; a command the user can run on no object is hidden instead of disabled
+(TL #30025), which `TestAccessRights` now expects for a viewer and an account without an E-Home group.
+TL #30031 migrates the link tables of an existing database at the start. TL #29884, #29885, #30105 and
+#30048 are open (checked on 8.0.0-alpha12.817).
 
-## ETS import: workarounds for the XML import (TL #29797, #30086, #30087)
+Before (8.0.0-alpha12, 2026-10-30): the fixes of TL #29798, #29812, #29814, #29869, #29872 to
+#29874, #29876, #29877, #29880 to #29883, #29886 to #29896, #29898, #29973 to #29983 and #29990
+shipped; TL #29899 is closed as wontfix. `parameterValueType` (TL #29798) stays: the options,
+constraints and visibility of a parameter value call it because it reads the values entered in a
+form, which the derived `valueType` does not.
+
+## ETS import: workarounds for the XML import (TL #29797, #30087, #30192)
 
 The ETS import (`de.haumacher.ehome.importer`, `etsImporter.xml`) has handlers of its own for what
 the engine's XML import (`com.top_logic.xio`) cannot express without restating the model. Since
@@ -21,17 +32,29 @@ alpha12 it uses `<set-translation>` for the texts, merged `<switch>` cases, warn
 elements (every construct deliberately not modeled is declared with `<skip-deep/>` at its place) and
 adds to set references directly. What stays:
 
-- TL #29974 shipped `<unless-known><update condition=…>`, but giving a known application program the
-  texts of the languages it lacks (haumacher/ehome #38) would mean restating the program's whole
-  text-carrying structure in `<update>` (about ten element types at several levels, each with
-  `<object-ref>` and `<set-translation>`). Workaround: `<unless-known-program>` (`UnlessKnownProgram`,
-  `ProgramLanguages`, `TranslationsImport#importBaseTexts`). TL #30086: an update by ID of every
-  known descendant without restating the nesting. **When available:** replace `<unless-known-program>`.
-- TL #29975 shipped the `partition` of `<resolve-existing>`, but the `objects` of a partition (all
-  parts of a program, reached through 24 composite references of `ehome.operational`) cannot be
-  computed in TL-Script without naming every composite reference. Workaround: `SharedObjects`, an
-  `IdLookup` that `Importer` installs with `ImportContext#withIdLookup`. TL #30087: a TL-Script walk of
-  the composition of an object. **When available:** declare the partition in `etsImporter.xml`.
+- A known application program gets the texts of the languages it lacks (haumacher/ehome #38) through
+  `<unless-known>` with `<update>` and `<update-known>` (TL #30086): the text handlers of the
+  program's elements are `<group>`s of the creating section, applied to the known descendants by
+  their IDs. Two small handlers of the app stay, as the record of the languages is the app's
+  (`ProgramLanguages`): `<known-program-texts>` (`KnownProgramTexts`) decides in the `<update>`
+  whether the program lacks the file's language and records it (the engine's `condition` could
+  decide, not record), and `<program-imported>` (`ProgramImported`), the last handler of a new
+  program, records its language and decides the held-back warnings about hidden parameter values
+  (`HiddenProgramValues`, haumacher/ehome #83). Nothing to undo.
+- TL #29975 shipped the `partition` of `<resolve-existing>`; the `objects` of a partition are all
+  parts of a program, about ten thousand reached through 24 composite references of
+  `ehome.operational`. Workaround: `SharedObjects`, an `IdLookup` that `Importer` installs with
+  `ImportContext#withIdLookup` and that walks the composition of a program in Java. TL #30087 asked
+  for a TL-Script walk of the composition and was closed as invalid with a recipe in plain TL-Script
+  (the composite references of the object's type and its generalizations, from
+  `tl.model:TLClass#generalizations`, `TLStructuredType#localParts` and `TLReference#composite`, in a
+  `recursion`). An inner `<resolve-existing>` with that recipe as `objects` (and the program ID at
+  the start of a part's ID as `partition`) imports the same (checked on 8.0.0-alpha12.817, the suite
+  green), but the app's suite took 136 s instead of 89 s with `SharedObjects` (one run each, the
+  slower one on the less loaded machine; TestRoundTrip#testDemo 10.8 s against 8.7 s): the walk asks
+  the model for the composite references of every one of the parts. Engine gap: a TL-Script function for the composition descendants
+  of an object that is as fast as the Java walk (TL #30192; #30087 is closed). **When available:** declare the
+  partition in `etsImporter.xml` and remove `SharedObjects`.
 - `<versioned-master-data>` (`VersionedMasterData`, `MasterDataUpdates`, `ObjectMerge`) imports a known
   mask version as a transient candidate (`JoiningModelBinding#setTransient`) and, at the end of the
   import, updates the known one in place from it (newer master data) or compares and warns (older or
@@ -60,16 +83,14 @@ describes the persistency configuration.
 
 **On the next upgrade:** nothing to undo.
 
-## Live sources of a view (TL #30088)
+## Live sources of a view
 
-The group monitor (`projects/monitor.view.xml`, `de.haumacher.ehome.monitor.MonitorSource`), the
-simulation (`projects/simulation.view.xml`, `SimulationSource`) and the Zigbee tab
-(`projects/zigbee.view.xml`, `ZigbeeSource`) are fed by `<source-channel>`s. A displayed monitor
-detaches with the end of its subscription. A monitor hidden in a tab has already ended its
-subscription, and the engine tells the source nothing when that window is torn down later (TL #29869
-tears it down), so `MonitorSource` checks again at the next bus change, or every 60 s on a quiet bus,
-whether the window is still registered. TL #30088: a lifecycle signal of the view instance
-independent of the subscription. **When available:** detach on that signal and drop the check.
+The group monitor (`projects/monitor.view.xml`, `de.haumacher.ehome.monitor.MonitorSource`) stays
+attached to the bus while a window that showed it is open, also while the window hides its view:
+since TL #30088 (documentation of `ChannelSource`) the window is its sub-session, and a
+`SubSessionListener` of the sub-session releases the monitor when the window is torn down or the
+session ends; the 60 s check of the window registry is gone. The simulation (`SimulationSource`) and
+the Zigbee tab (`ZigbeeSource`) only listen while their view is displayed and need no such hold.
 
 The virtual device (`ehome-virtual/src/main/webapp/WEB-INF/views/virtual/virtual-device.view.xml`):
 its status and the number of services recorded change while a programming tool downloads into it,
@@ -90,6 +111,8 @@ grant them to its users.
 Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: `SecurityCoverageCheck` excludes these
 15 modules.
 
+Still open, checked on 8.0.0-alpha12.817.
+
 **When fixed** (the engine covers or marks its own modules, or the check can be limited to the
 application's modules): remove `excluded-modules`.
 
@@ -101,7 +124,12 @@ checks of alpha12 (TL #29856) a viewer sees these commands disabled with the rea
 dieses Objekt nicht ändern"); four import commands (rules, Zigbee devices, product data, Zigbee
 catalog) are disabled with only their own label as the reason. The ticket is still open.
 
-**On the next upgrade:** check the ticket and the import commands' reasons; nothing to remove.
+Since TL #30025 (8.0.0-alpha12.817) a command is hidden for a user who holds no role granting it on
+any object; the roles of E-Home are global, so a viewer no longer sees the commands that write
+(nor the import commands), and the case of the ticket does not show in E-Home any more. Still open,
+checked on 8.0.0-alpha12.817.
+
+**On the next upgrade:** check the ticket; nothing to remove.
 
 ## A refused submit leaves its input editable (TL #30105)
 
@@ -111,50 +139,10 @@ the refusal only after the submit. Workaround in `projects/device-item.view.xml`
 inputs switch to their read-only form with `!canWrite($device)`, repeating the `<access>` check of
 their `<on-submit>` (haumacher/ehome #65).
 
+Still open, checked on 8.0.0-alpha12.817.
+
 **When fixed** (the input follows the state of its submit command): remove the `!canWrite($device)`
 case of the input kind in `device-item.view.xml`.
-
-## A composition table ignores the visibility of its attribute (TL #30134)
-
-A `<composition-table>` in a view-layer form does not follow the `<dynamic-visibility>` of its
-composite attribute, as a `<field>` does. The archives of a datapoint's history
-(`historyArchives` of `ehome.logical:GroupAddress` and `ehome.runtime:ApplicationDatapoint`,
-haumacher/ehome #73) are hidden by it unless the history is set by hand; their table in
-`projects/addresses.view.xml` and `projects/application-datapoints.view.xml` stays visible (empty)
-and editable for a derived history. Workaround: `HistoryConfig#archivesProblem` refuses an archive of
-a history not set by hand (`HISTORY_ARCHIVES_NOT_MANUAL`, through the constraint
-`runtimeArchiveProblem` of `HistoryArchive#resolution`), and the image ignores such archives.
-
-**When fixed:** remove the `isManual` case of `HistoryConfig#archivesProblem` and the key
-`HISTORY_ARCHIVES_NOT_MANUAL`, and the refused stray archive of `TestHistoryConfig#testOverride`.
-
-## A number input shows no unit and two decimals (TL #30139)
-
-A Double field edited through `NumberInputControlProvider` has no unit suffix and shows a whole
-number with the locale's decimals (`120,00`). The parameters of a virtual device
-(`projects/block-ports.view.xml`, haumacher/ehome #78) are entered in their manifest's unit; the
-unit is part of the field's label instead (`BlockValues`), and the decimals stay.
-
-**When fixed:** give the parameter field the unit and the shortest format, drop the unit from the
-label.
-
-## TestViewsLoad misses an undefined variable of a computed column (TL #30140)
-
-A `<computed-column>` whose `<value>` uses a variable it does not declare loads in `TestViewsLoad`
-and fails only when its view is opened (found in `projects/block-ports.view.xml`, #78). No
-workaround: check new columns in the running app.
-
-**When fixed:** nothing to undo; `TestViewsLoad` covers it.
-
-## The React page shows no favicon (TL #30127)
-
-In 8.0.0-alpha12 the page of the React UI (`/ehome/view/`, `ViewServlet`) writes no icon link, so
-the browser asks for `/favicon.ico` at the server root and shows no icon. E-Home ships its own icon
-(`src/main/webapp/images/favicon.svg`, rendered to `images/favicon.png`, haumacher/ehome #79) at the
-path the theme's `DEFAULT_ICON` names; the classic pages (`/ehome/servlet/LayoutServlet`) show it.
-No workaround for `/view/`.
-
-**When fixed:** after the upgrade, check that the tab of `/ehome/view/` shows E-Home's icon.
 
 ## No at-rest encryption out of the box (TL #29899, wontfix)
 
@@ -165,34 +153,24 @@ own (TL #29899, wontfix). The secret is stored as is in the hidden attribute `Co
 with a read grant without roles (only administrators read it through the model), like the controller
 token.
 
-## Agent access (TL #30125, #30048)
+## Agent access (TL #30048)
 
-E-Home depends on `tl-layout-view-agent` (`doc/agent-access.md`). Two gaps of the module, without a
-workaround in the app:
+E-Home depends on `tl-layout-view-agent` (`doc/agent-access.md`). Since TL #30125 a request without a
+valid credential is answered with 401. TL #30048 collects the unbuilt parts of the design that matter
+for an installation in the cloud, without a workaround in the app: every logged-in account may issue
+a token (an agent then acts with that account's rights, no more); a token of an ended session
+(logout, restart) stays listed until it expires, though it admits nobody; every admitted request
+writes `lastUsed` in a commit of its own, so a polling agent creates a revision per request; there is
+no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha12.817.
 
-- `/agent-api` answers a request without a valid credential with a redirect to the login page (302 to
-  `/view/?sessionCheckInProgress=true`) instead of 401 (TL #30125). The refusal is safe; only the
-  client cannot tell it from the content. `bin/ehome-agent.py` does not follow the redirect and
-  reports "the token is not admitted".
-- TL #30048 collects the unbuilt parts of the design that matter for an installation in the cloud:
-  every logged-in account may issue a token (an agent then acts with that account's rights, no more);
-  a token of an ended session (logout, restart) stays listed until it expires, though it admits
-  nobody; every admitted request writes `lastUsed` in a commit of its own, so a polling agent
-  creates a revision per request; there is no MCP wrapper (hence `bin/ehome-agent.py`).
-
-**When fixed:** TL #30125: drop the redirect case of `bin/ehome-agent.py`. TL #30048: decide whether
-E-Home restricts issuing tokens (e.g. to `ehome.Installer`) with the rule the module offers, and
-replace `bin/ehome-agent.py` by the MCP wrapper.
+**When fixed:** decide whether E-Home restricts issuing tokens (e.g. to `ehome.Installer`) with the
+rule the module offers, and replace `bin/ehome-agent.py` by the MCP wrapper.
 
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
+- TL #30087 (closed as invalid): see above (a composition walk in TL-Script fast enough for `SharedObjects`).
+- TL #30192: see above (a fast TL-Script function for the composition descendants of an object).
 - TL #29884, #29885: see above (access coverage of engine modules, the reason of refused commands).
-- TL #30086, #30087: see above (XML import: updating known descendants, the composition of a partition).
-- TL #30088: see above (a source is not told of the teardown of a hidden view's window).
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
-- TL #30134: see above (a `<composition-table>` ignores the visibility of its attribute).
-- TL #30125, #30048: see above (agent access: 302 instead of 401, the follow-ups of the module).
-- TL #30127: see above (the React page writes no favicon).
-- TL #30139: see above (a number input's unit and format).
-- TL #30140: see above (TestViewsLoad and undefined variables of computed columns).
+- TL #30048: see above (agent access: the follow-ups of the module).

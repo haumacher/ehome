@@ -217,7 +217,7 @@ public class BlockFunctions extends GenericMethod {
 				}
 				Param decl = BlockInstances.paramDecl(obj);
 				return decl == null ? obj.tValueByName("parameter")
-					: BlockTexts.label(type, decl.id(), decl.label(), language) + unit(BlockValues.unit(decl));
+					: BlockTexts.label(type, decl.id(), decl.label(), language);
 			}
 			case blockPortInfo:
 				return portInfo(obj);

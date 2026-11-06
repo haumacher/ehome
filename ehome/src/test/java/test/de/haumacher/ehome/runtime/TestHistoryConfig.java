@@ -32,7 +32,6 @@ import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
-import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
@@ -287,25 +286,6 @@ public class TestHistoryConfig extends BasicTestCase {
 		}
 		assertFalse(HistoryConfig.isManual(_temperature));
 		assertNull(_temperature.tValueByName("historyRetention"));
-		assertEquals(List.of(), HistoryConfig.manualArchives(_temperature));
-		assertEquals(Json.write(Json.parse(YEAR_CHART_HISTORY, 10)),
-			Json.write(history(RuntimeImage.build(_project, 1, NOW), "1/3/1")));
-
-		// An archive entered for a derived history (the form shows its table, TL #30134) is refused.
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			TLObject stray = ModelService.getInstance().getFactory()
-				.createObject((TLClass) TLModelUtil.findType("ehome.logical:HistoryArchive"));
-			stray.tUpdateByName("resolution", Integer.valueOf(3600));
-			stray.tUpdateByName("retention", Integer.valueOf(86400));
-			_temperature.tUpdateByName("historyArchives", List.of(stray));
-			assertEquals(I18NConstants.HISTORY_ARCHIVES_NOT_MANUAL, HistoryConfig.archivesProblem(_temperature));
-			try {
-				tx.commit();
-				fail("An archive of a derived history must be refused.");
-			} catch (TopLogicException ex) {
-				// Expected: the constraint of the archive.
-			}
-		}
 		assertEquals(List.of(), HistoryConfig.manualArchives(_temperature));
 		assertEquals(Json.write(Json.parse(YEAR_CHART_HISTORY, 10)),
 			Json.write(history(RuntimeImage.build(_project, 1, NOW), "1/3/1")));

@@ -41,8 +41,7 @@ bin/ehome-agent.py navigate /ehome/view/projects
 forms); `act` dispatches a command to the control at an address taken from `observe`, and answers
 with the observation after it. A route URL reaches only the areas already displayed; an area of the
 sidebar is opened with `selectItem` first. A refused or expired token ends with "the token is not
-admitted"; the endpoint answers it with a redirect to the login page instead of 401 (TL #30125,
-`doc/tl-todo.md`).
+admitted": the endpoint answers it with 401.
 
 ## Operation
 

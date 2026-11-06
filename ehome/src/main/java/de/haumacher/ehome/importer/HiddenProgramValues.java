@@ -38,7 +38,7 @@ import de.haumacher.ehome.model.operational.ParameterView;
  * are read before its value. The value of a <code>Parameter</code> is shown through its references,
  * which the program defines after its parameters; its warning is therefore held back here and
  * reported at the end of the program ({@link #report(XMLStreamLog)}, called by
- * {@link UnlessKnownProgram}) if a reference of the parameter is visible, or, for a parameter that
+ * {@link ProgramImported}) if a reference of the parameter is visible, or, for a parameter that
  * no reference places, if the parameter itself is. A warning is so reported once or not at all, never
  * withdrawn.
  * </p>

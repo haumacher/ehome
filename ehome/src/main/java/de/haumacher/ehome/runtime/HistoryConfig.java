@@ -1318,19 +1318,14 @@ public final class HistoryConfig {
 	// ---- checks ------------------------------------------------------------------------------
 
 	/**
-	 * What is wrong with the archives set by hand for the datapoint (the limits of homecontrol #56),
-	 * or that it has archives without its history being set by hand; <code>null</code> if they fit. The raw ring is checked by
+	 * What is wrong with the archives set by hand for the datapoint (the limits of homecontrol #56);
+	 * <code>null</code> if they fit. The raw ring is checked by
 	 * {@link DatapointSettings#historyProblem(TLObject)}.
 	 */
 	public static ResKey archivesProblem(TLObject datapoint) {
 		List<TLObject> archives = manualArchives(datapoint);
 		if (archives.isEmpty()) {
 			return null;
-		}
-		if (!isManual(datapoint)) {
-			// The form shows the archives also of a derived history (the composition table does not
-			// follow the dynamic visibility of its attribute): the image would ignore them.
-			return I18NConstants.HISTORY_ARCHIVES_NOT_MANUAL;
 		}
 		if (archives.size() > MAX_ARCHIVES) {
 			return I18NConstants.HISTORY_TOO_MANY_ARCHIVES__MAX.fill(Integer.valueOf(MAX_ARCHIVES));

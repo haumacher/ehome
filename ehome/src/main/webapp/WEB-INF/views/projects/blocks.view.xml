@@ -428,10 +428,15 @@
 																					<en>Value</en>
 																					<de>Wert</de>
 																				</label>
+																				<!-- The number in the unit of the manifest, with as many decimals as it has (up to three). -->
 																				<input-control class="com.top_logic.layout.view.form.NumberInputControlProvider"
 																					inputs="parameterUnit as unit"
 																					unit="$unit"
-																				/>
+																				>
+																					<format>
+																						<decimal pattern="0.###"/>
+																					</format>
+																				</input-control>
 																				<on-submit inputs="parameter">
 																					<access>
 																						<operation name="Write"

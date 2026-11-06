@@ -3,7 +3,7 @@
 <!--
 	The pages of E-Home in the application shell that tl-layout-view defines
 	(WEB-INF/views/app.view.xml): a same-path overlay that names the application and places its
-	pages in the sidebar before the system section.
+	pages in the application section of the sidebar, ahead of the system section.
 -->
 <view xmlns:config="http://www.top-logic.com/ns/config/6.0">
 	<app-shell>
@@ -18,72 +18,50 @@
 					</text>
 				</header>
 				<items>
-					<nav-item id="projects"
-						config:position="before"
-						config:reference="system-separator"
-						icon="css:bi bi-house-gear"
-					>
-						<view-ref view="projects.view.xml"/>
-						<label>
-							<en>Projects</en>
-							<de>Projekte</de>
-						</label>
-					</nav-item>
-					<nav-item id="catalogs"
-						config:position="before"
-						config:reference="system-separator"
-						icon="css:bi bi-journal-bookmark"
-					>
-						<view-ref view="catalogs.view.xml"/>
-						<label>
-							<en>Catalogs</en>
-							<de>Kataloge</de>
-						</label>
-					</nav-item>
-					<nav-item id="zigbeeCatalog"
-						config:position="before"
-						config:reference="system-separator"
-						icon="css:bi bi-upc-scan"
-					>
-						<view-ref view="zigbee-catalog.view.xml"/>
-						<label>
-							<en>Zigbee catalog</en>
-							<de>Zigbee-Katalog</de>
-						</label>
-					</nav-item>
-					<nav-item id="datapoints"
-						config:position="before"
-						config:reference="system-separator"
-						icon="css:bi bi-123"
-					>
-						<view-ref view="datapoints.view.xml"/>
-						<label>
-							<en>Datapoint types</en>
-							<de>Datenpunkttypen</de>
-						</label>
-					</nav-item>
-					<nav-item id="controllers"
-						config:position="before"
-						config:reference="system-separator"
-						icon="css:bi bi-cpu"
-					>
-						<view-ref view="controllers.view.xml"/>
-						<label>
-							<en>Controllers</en>
-							<de>Controller</de>
-						</label>
-					</nav-item>
-					<nav-item id="discover"
-						config:position="before"
-						config:reference="system-separator"
-						icon="css:bi bi-broadcast"
-					>
-						<view-ref view="discover.view.xml"/>
-						<label>
-							<en>Discover</en>
-							<de>Discover</de>
-						</label>
-					</nav-item>
+					<section id="application">
+						<nav-item id="projects" icon="css:bi bi-house-gear">
+							<view-ref view="projects.view.xml"/>
+							<label>
+								<en>Projects</en>
+								<de>Projekte</de>
+							</label>
+						</nav-item>
+						<nav-item id="catalogs" icon="css:bi bi-journal-bookmark">
+							<view-ref view="catalogs.view.xml"/>
+							<label>
+								<en>Catalogs</en>
+								<de>Kataloge</de>
+							</label>
+						</nav-item>
+						<nav-item id="zigbeeCatalog" icon="css:bi bi-upc-scan">
+							<view-ref view="zigbee-catalog.view.xml"/>
+							<label>
+								<en>Zigbee catalog</en>
+								<de>Zigbee-Katalog</de>
+							</label>
+						</nav-item>
+						<nav-item id="datapoints" icon="css:bi bi-123">
+							<view-ref view="datapoints.view.xml"/>
+							<label>
+								<en>Datapoint types</en>
+								<de>Datenpunkttypen</de>
+							</label>
+						</nav-item>
+						<nav-item id="controllers" icon="css:bi bi-cpu">
+							<view-ref view="controllers.view.xml"/>
+							<label>
+								<en>Controllers</en>
+								<de>Controller</de>
+							</label>
+						</nav-item>
+						<nav-item id="discover" icon="css:bi bi-broadcast">
+							<view-ref view="discover.view.xml"/>
+							<label>
+								<en>Discover</en>
+								<de>Discover</de>
+							</label>
+						</nav-item>
+					</section>
 				</items>
 			</sidebar>
 		</content>

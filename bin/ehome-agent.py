@@ -37,16 +37,6 @@ def invitation(path):
 	return parts[0].rstrip("/"), parts[1]
 
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-	"""A request the endpoint does not admit is redirected to the login page (TL #30125), not answered with 401."""
-
-	def redirect_request(self, req, fp, code, msg, headers, newurl):
-		return None
-
-
-_OPENER = urllib.request.build_opener(_NoRedirect)
-
-
 def call(base, token, method, path, body=None):
 	data = None if body is None else json.dumps(body).encode("utf-8")
 	request = urllib.request.Request(base + path, data=data, method=method)
@@ -54,10 +44,10 @@ def call(base, token, method, path, body=None):
 	if data is not None:
 		request.add_header("Content-Type", "application/json")
 	try:
-		with _OPENER.open(request, timeout=60) as response:
+		with urllib.request.urlopen(request, timeout=60) as response:
 			return json.load(response)
 	except urllib.error.HTTPError as e:
-		if e.code in (301, 302, 303, 307, 308, 401):
+		if e.code == 401:
 			sys.exit("ehome-agent: the token is not admitted (withdrawn, expired, or its session has ended): "
 				"issue a new one in E-Home, development menu, Agent access")
 		detail = e.read().decode("utf-8", "replace")

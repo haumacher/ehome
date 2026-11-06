@@ -827,11 +827,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey HISTORY_ARCHIVES_WITHOUT_RAW;
 
 	/**
-	 * @en Archives are only used by a history set by hand: set the history by hand first.
-	 */
-	public static ResKey HISTORY_ARCHIVES_NOT_MANUAL;
-
-	/**
 	 * @en The resolution of an archive ({0}) must be coarser than the spacing of the raw ring ({1}).
 	 */
 	public static ResKey2 HISTORY_ARCHIVE_NOT_COARSER__RESOLUTION_SPACING;

@@ -5,6 +5,8 @@ package de.haumacher.ehome.monitor;
 
 import java.util.concurrent.TimeUnit;
 
+import com.top_logic.base.context.SubSessionListener;
+import com.top_logic.base.context.TLSubSessionContext;
 import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.Logger;
 import com.top_logic.basic.config.InstantiationContext;
@@ -15,7 +17,6 @@ import com.top_logic.basic.config.annotation.Name;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.listener.Registration;
 import com.top_logic.basic.sched.SchedulerService;
-import com.top_logic.layout.react.window.ReactWindowRegistry;
 import com.top_logic.layout.view.ViewContext;
 import com.top_logic.layout.view.channel.ChannelRef;
 import com.top_logic.layout.view.channel.ChannelRefFormat;
@@ -23,6 +24,7 @@ import com.top_logic.layout.view.channel.ChannelSink;
 import com.top_logic.layout.view.channel.ChannelSource;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
+import com.top_logic.util.TLContextManager;
 
 /**
  * Source of the <code>state</code> channel of the group monitor (<code>projects/monitor.view.xml</code>):
@@ -35,15 +37,11 @@ import com.top_logic.util.Resources;
  * <p>
  * The monitor stays attached to the bus while its page is open, also while its tab is hidden. When
  * the last window that showed it is gone, the monitor is detached from the bus, so that a closed page
- * does not keep a tunnelling connection of the gateway. Whether a window is gone is the engine's
- * decision: it tears down a window that was closed, whose page was unloaded and did not come back, or
- * whose client has stayed away (TL #29869), and the window then leaves the
- * {@link ReactWindowRegistry registry}. A displayed view's subscription ends with that teardown, which
- * detaches the monitor at once. A hidden view's subscription has ended already when the view was
- * hidden, and the engine tells a source nothing about the teardown of a window whose view it no longer
- * shows: such a window keeps a {@link Dormant} publisher with the monitor, which notices that its
- * window is gone at the next change of the monitor, and for a bus without traffic every
- * {@link ReactWindowRegistry#DISCONNECT_GRACE_MILLIS} ms.
+ * does not keep a tunnelling connection of the gateway. The open window is its sub-session, as the
+ * engine's <code>ChannelSource</code> documents (TL #30088): the first subscription in a window binds
+ * a {@link WindowHold} to the monitor, which keeps it attached while the view is hidden, and which the
+ * sub-session tells when it ends - the window closed, its page unloaded and not come back, its client
+ * stayed away (TL #29869), or the session ended.
  * </p>
  */
 public class MonitorSource implements ChannelSource {
@@ -84,8 +82,7 @@ public class MonitorSource implements ChannelSource {
 			});
 		}
 		GroupMonitor monitor = MonitorSessions.monitor(project);
-		Window window = new Window(context.getWindowRegistry(), context.getWindowName());
-		return subscribe(monitor, window, sink, Resources.getInstance());
+		return subscribe(monitor, TLContextManager.getSubSession(), sink, Resources.getInstance());
 	}
 
 	/**
@@ -94,35 +91,42 @@ public class MonitorSource implements ChannelSource {
 	 * @param monitor
 	 *        The monitor to show.
 	 * @param window
-	 *        The window showing it.
+	 *        The sub-session of the window showing it, which keeps the monitor attached until it
+	 *        ends; <code>null</code> without a window (as in a test without an interaction): then
+	 *        only the displayed view keeps it attached.
 	 * @param sink
 	 *        Where the snapshots go.
 	 * @param resources
 	 *        The language of the texts of the snapshots.
 	 */
-	public static Registration subscribe(GroupMonitor monitor, Window window, ChannelSink sink, Resources resources) {
-		for (GroupMonitor.Publisher publisher : monitor.getPublishers()) {
-			if (publisher instanceof Dormant dormant && dormant._window.equals(window)) {
-				monitor.removePublisher(dormant);
-			}
+	public static Registration subscribe(GroupMonitor monitor, TLSubSessionContext window, ChannelSink sink,
+			Resources resources) {
+		if (window != null && !isHeld(monitor, window)) {
+			WindowHold hold = new WindowHold(monitor, window);
+			monitor.addPublisher(hold);
+			window.addUnboundListener(hold);
 		}
 		GroupMonitor.Publisher viewer = () -> sink.publish(monitor.snapshot(resources));
 		monitor.addPublisher(viewer);
 		sink.publish(monitor.snapshot(resources));
 		return Registration.onDispose(() -> {
 			monitor.removePublisher(viewer);
-			if (window.isGone()) {
-				disconnectIfUnseen(monitor);
-			} else {
-				Dormant dormant = new Dormant(monitor, window);
-				monitor.addPublisher(dormant);
-				dormant.scheduleCheck();
-			}
+			// The window may have ended before its view was torn down.
+			disconnectIfUnseen(monitor);
 		});
 	}
 
+	private static boolean isHeld(GroupMonitor monitor, TLSubSessionContext window) {
+		for (GroupMonitor.Publisher publisher : monitor.getPublishers()) {
+			if (publisher instanceof WindowHold hold && hold.isBoundTo(window)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	/**
-	 * Detaches the monitor from the bus, unless another window still shows it (or hides its view).
+	 * Detaches the monitor from the bus, unless a view still shows it or a window still holds it.
 	 */
 	static void disconnectIfUnseen(GroupMonitor monitor) {
 		if (monitor.getPublishers().isEmpty() && monitor.isConnected()) {
@@ -140,59 +144,34 @@ public class MonitorSource implements ChannelSource {
 	}
 
 	/**
-	 * The window a view of the monitor is displayed in.
-	 *
-	 * @param registry
-	 *        The windows of the session; <code>null</code> without a window (a view that is not
-	 *        displayed, as in a test), which is never gone.
-	 * @param name
-	 *        The name of the window.
+	 * Keeps the monitor attached while a window that showed it is open, also while the window hides
+	 * its view; publishes nothing. Released when the sub-session of the window ends.
 	 */
-	public record Window(ReactWindowRegistry registry, String name) {
-
-		/**
-		 * Whether the engine has torn the window down: it was closed, its page was unloaded and did
-		 * not come back, or its client stayed away.
-		 */
-		public boolean isGone() {
-			return registry != null && registry.getWindow(name) == null;
-		}
-	}
-
-	/**
-	 * Stands for a window that hid the view of the monitor: keeps the monitor attached while the
-	 * window is open, and detaches it at the first change after the window is gone, unless another
-	 * window shows it.
-	 */
-	private static final class Dormant implements GroupMonitor.Publisher {
+	private static final class WindowHold implements GroupMonitor.Publisher, SubSessionListener {
 
 		private final GroupMonitor _monitor;
 
-		final Window _window;
+		private final TLSubSessionContext _window;
 
-		Dormant(GroupMonitor monitor, Window window) {
+		WindowHold(GroupMonitor monitor, TLSubSessionContext window) {
 			_monitor = monitor;
 			_window = window;
 		}
 
-		@Override
-		public void changed() {
-			if (_window.isGone() && _monitor.removePublisher(this)) {
-				disconnectIfUnseen(_monitor);
-			}
+		boolean isBoundTo(TLSubSessionContext window) {
+			return _window == window;
 		}
 
-		/**
-		 * Checks the window again later, for a bus without traffic, as long as this publisher stays
-		 * with the monitor.
-		 */
-		void scheduleCheck() {
-			SchedulerService.getInstance().schedule(() -> {
-				changed();
-				if (_monitor.getPublishers().contains(this)) {
-					scheduleCheck();
-				}
-			}, ReactWindowRegistry.DISCONNECT_GRACE_MILLIS, TimeUnit.MILLISECONDS);
+		@Override
+		public void changed() {
+			// Publishes nothing, the views of the window do.
+		}
+
+		@Override
+		public void notifySubSessionUnbound(TLSubSessionContext context) {
+			if (_monitor.removePublisher(this)) {
+				disconnectIfUnseen(_monitor);
+			}
 		}
 	}
 

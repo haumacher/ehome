@@ -3,6 +3,7 @@
  */
 package test.de.haumacher.ehome.monitor;
 
+import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -13,14 +14,14 @@ import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 
+import com.top_logic.base.context.SubSessionListener;
+import com.top_logic.base.context.TLSubSessionContext;
 import com.top_logic.basic.listener.Registration;
 import com.top_logic.basic.sched.SchedulerService;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
-import com.top_logic.layout.react.window.ReactWindowRegistry;
-import com.top_logic.layout.react.window.WindowEntry;
 import com.top_logic.layout.view.channel.ChannelSink;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
@@ -30,15 +31,14 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.monitor.GroupMonitor;
 import de.haumacher.ehome.monitor.MonitorSource;
-import de.haumacher.ehome.monitor.MonitorSource.Window;
 import de.haumacher.ehome.monitor.ProjectIndex;
 
 /**
  * The source of the group monitor's view ({@link MonitorSource}): a displayed view gets the current
  * snapshot at once and one per change, in the language of its user; a view hidden in an open window
- * keeps the monitor attached to the bus; once no window the engine keeps shows the monitor any more,
- * it is detached, at once when the view goes with its window, at the next change when the window of a
- * hidden view is torn down. Costs well below a second: an empty project, a mocked bus.
+ * keeps the monitor attached to the bus; once no open window shows the monitor any more, it is
+ * detached: when the sub-session of the last window that hid the view ends, or when the view goes
+ * after its window ended, whichever comes last (TL #30088). Costs well below a second: an empty project, a mocked bus.
  */
 @SuppressWarnings("javadoc")
 public class TestMonitorSource extends BasicTestCase {
@@ -70,25 +70,13 @@ public class TestMonitorSource extends BasicTestCase {
 		MockBusLink link = new MockBusLink();
 		monitor.connect(link);
 
-		ReactWindowRegistry registry = new ReactWindowRegistry("test-session");
-		registry.getOrCreateWindow("first");
-		Window first = new Window(registry, "first");
-		Window second = new Window(registry, "second");
-		assertFalse(first.isGone());
-		assertTrue(second.isGone());
-		assertFalse("Without windows, nothing is ever gone.", new Window(null, "any").isGone());
-
-		// A page unloaded stays a window until the engine tears it down (TL #29869).
-		WindowEntry unloadedEntry = registry.getOrCreateWindow("unloaded");
-		Window unloaded = new Window(registry, "unloaded");
-		unloadedEntry.markUnloaded();
-		assertFalse(unloaded.isGone());
-		registry.windowClosed("unloaded");
-		assertTrue(unloaded.isGone());
+		Window first = new Window();
+		Window second = new Window();
 
 		// Displayed: the current snapshot at once, one per change, in the language of the user.
 		List<Map<String, Object>> shown = new ArrayList<>();
-		Registration view = MonitorSource.subscribe(monitor, first, sink(shown), Resources.getInstance(Locale.GERMAN));
+		Registration view = MonitorSource.subscribe(monitor, first.context(), sink(shown),
+			Resources.getInstance(Locale.GERMAN));
 		assertEquals(1, shown.size());
 		assertEquals(Boolean.TRUE, shown.get(0).get("connected"));
 		String german = (String) shown.get(0).get("sendingStatus");
@@ -102,36 +90,90 @@ public class TestMonitorSource extends BasicTestCase {
 		view.dispose();
 		link.write(SENDER, ADDRESS, 0x00);
 		assertEquals(2, shown.size());
+		pause();
 		assertTrue(monitor.isConnected());
 		assertEquals(1, monitor.getPublishers().size());
+		assertEquals(1, first._listeners.size());
 
-		// Displayed again in the same window: the window holds one publisher, not two.
-		view = MonitorSource.subscribe(monitor, first, sink(shown), Resources.getInstance(Locale.GERMAN));
+		// Displayed again in the same window: the window holds the monitor once, not twice.
+		view = MonitorSource.subscribe(monitor, first.context(), sink(shown), Resources.getInstance(Locale.GERMAN));
 		assertEquals(3, shown.size());
-		assertEquals(1, monitor.getPublishers().size());
+		assertEquals(2, monitor.getPublishers().size());
+		assertEquals(1, first._listeners.size());
 		view.dispose();
 
-		// A view going with its window while another window hides the view: still attached.
-		Registration gone = MonitorSource.subscribe(monitor, second, sink(new ArrayList<>()),
+		// A window ending while its view is displayed, while another window hides the view: still
+		// attached, also after the view of the ended window goes.
+		Registration gone = MonitorSource.subscribe(monitor, second.context(), sink(new ArrayList<>()),
 			Resources.getInstance(Locale.GERMAN));
+		second.end();
 		gone.dispose();
 		pause();
 		assertTrue(monitor.isConnected());
 
-		// The window hiding the view is closed: the next change detaches the monitor.
-		registry.windowClosed("first");
-		assertTrue(first.isGone());
-		link.write(SENDER, ADDRESS, 0x01);
+		// The window hiding the view ends: the monitor is detached.
+		first.end();
 		awaitDisconnect(monitor, link);
 		assertTrue(monitor.getPublishers().isEmpty());
 
-		// A view going with the only window that shows the monitor detaches it at once.
+		// A view going after the only window that shows the monitor ended detaches it.
 		MockBusLink again = new MockBusLink();
 		monitor.connect(again);
-		Registration last = MonitorSource.subscribe(monitor, second, sink(new ArrayList<>()),
+		Window last = new Window();
+		Registration lastView = MonitorSource.subscribe(monitor, last.context(), sink(new ArrayList<>()),
 			Resources.getInstance(Locale.GERMAN));
-		last.dispose();
+		last.end();
+		pause();
+		assertTrue("The view is still displayed.", monitor.isConnected());
+		lastView.dispose();
 		awaitDisconnect(monitor, again);
+
+		// Without a window, only the displayed view keeps the monitor attached.
+		MockBusLink alone = new MockBusLink();
+		monitor.connect(alone);
+		MonitorSource.subscribe(monitor, null, sink(new ArrayList<>()), Resources.getInstance(Locale.GERMAN))
+			.dispose();
+		awaitDisconnect(monitor, alone);
+	}
+
+	/**
+	 * The sub-session of a window, of which the monitor uses only its unbound listeners.
+	 */
+	private static final class Window {
+
+		final List<SubSessionListener> _listeners = new ArrayList<>();
+
+		private final TLSubSessionContext _context = (TLSubSessionContext) Proxy.newProxyInstance(
+			TLSubSessionContext.class.getClassLoader(), new Class<?>[] { TLSubSessionContext.class },
+			(proxy, method, args) -> {
+				switch (method.getName()) {
+					case "addUnboundListener":
+						_listeners.add((SubSessionListener) args[0]);
+						return null;
+					case "removeUnboundListener":
+						_listeners.remove(args[0]);
+						return null;
+					case "equals":
+						return proxy == args[0];
+					case "hashCode":
+						return System.identityHashCode(proxy);
+					default:
+						throw new UnsupportedOperationException(method.getName());
+				}
+			});
+
+		TLSubSessionContext context() {
+			return _context;
+		}
+
+		/** The window is torn down, or its session ends. */
+		void end() {
+			List<SubSessionListener> listeners = new ArrayList<>(_listeners);
+			_listeners.clear();
+			for (SubSessionListener listener : listeners) {
+				listener.notifySubSessionUnbound(_context);
+			}
+		}
 	}
 
 	@SuppressWarnings("unchecked")

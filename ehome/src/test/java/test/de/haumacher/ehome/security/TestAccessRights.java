@@ -62,6 +62,11 @@ import de.haumacher.ehome.programming.I18NConstants;
  * search for gateways on the network.
  *
  * <p>
+ * The roles of E-Home are global: an account that is refused a command holds no role granting it on
+ * any object, so the engine hides the command instead of disabling it (TL #30025).
+ * </p>
+ *
+ * <p>
  * The test builds the objects it checks itself (no import) and deletes them, and the accounts, again.
  * </p>
  */
@@ -318,12 +323,12 @@ public class TestAccessRights extends BasicTestCase {
 
 	/**
 	 * The bus scan (<code>ScanJob</code>) writes the devices of the project: refused for a viewer
-	 * (disabled with the reason, not hidden: an installer may run it), allowed for an installer.
+	 * (hidden, the viewer may write nothing), allowed for an installer.
 	 */
 	public void testScanCommand() {
 		ViewCommandScan.Site scan = ViewCommandScan.command("projects/scan.view.xml", "ScanJob");
-		assertRefused(as(_viewer, () -> scan.decide(_project)));
-		assertRefused(as(_stranger, () -> scan.decide(_project)));
+		assertHidden(as(_viewer, () -> scan.decide(_project)));
+		assertHidden(as(_stranger, () -> scan.decide(_project)));
 		assertTrue(as(_installer, () -> scan.decide(_project)).isExecutable());
 	}
 
@@ -333,7 +338,7 @@ public class TestAccessRights extends BasicTestCase {
 	 */
 	public void testPlaceDeviceCommand() {
 		ViewCommandScan.Site place = ViewCommandScan.command("projects/place-device.view.xml", "WithTransactionAction");
-		assertRefused(as(_viewer, () -> place.decide(_device)));
+		assertHidden(as(_viewer, () -> place.decide(_device)));
 		assertTrue(as(_installer, () -> place.decide(_device)).isExecutable());
 	}
 
@@ -343,12 +348,12 @@ public class TestAccessRights extends BasicTestCase {
 	 */
 	public void testExportCommands() {
 		ViewCommandScan.Site image = ViewCommandScan.command("projects/deployment.view.xml", "ExportRuntimeImageAction");
-		assertRefused(as(_viewer, () -> image.decide(_project)));
+		assertHidden(as(_viewer, () -> image.decide(_project)));
 		assertTrue(as(_installer, () -> image.decide(_project)).isExecutable());
 
 		ViewCommandScan.Site knxproj = ViewCommandScan.command("projects/overview.view.xml", "ExportKnxprojAction");
 		assertTrue(as(_viewer, () -> knxproj.decide(_project)).isExecutable());
-		assertRefused(as(_stranger, () -> knxproj.decide(_project)));
+		assertHidden(as(_stranger, () -> knxproj.decide(_project)));
 	}
 
 	/**
@@ -369,18 +374,21 @@ public class TestAccessRights extends BasicTestCase {
 	 */
 	public void testMonitorCommands() {
 		ViewCommandScan.Site read = ViewCommandScan.command("projects/monitor.view.xml", "monitorRead()");
-		assertRefused(as(_viewer, () -> read.decide(null, _project)));
+		assertHidden(as(_viewer, () -> read.decide(null, _project)));
 		assertTrue(as(_installer, () -> read.decide(null, _project)).isExecutable());
 
 		ViewCommandScan.Site clear = ViewCommandScan.command("projects/monitor.view.xml", "monitorClear()");
 		assertTrue(as(_viewer, () -> clear.decide(null, _project)).isExecutable());
-		assertRefused(as(_stranger, () -> clear.decide(null, _project)));
+		assertHidden(as(_stranger, () -> clear.decide(null, _project)));
 	}
 
-	private static void assertRefused(ExecutableState state) {
+	/**
+	 * A refused command of an account that holds no role granting it on any object is hidden, not
+	 * disabled (TL #30025).
+	 */
+	private static void assertHidden(ExecutableState state) {
 		assertFalse(String.valueOf(state), state.isExecutable());
-		assertTrue("Refused with the reason, not hidden: " + state, state.isDisabled());
-		assertNotNull(state.getI18NReasonKey());
+		assertTrue("Refused and hidden: " + state, state.isHidden());
 	}
 
 	/**

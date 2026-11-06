@@ -51,7 +51,7 @@ import de.haumacher.ehome.importer.Importer;
  * Probe of the ETS import on the XML import of TopLogic 8.0.0-alpha11: the shared objects found by
  * <code>&lt;resolve-existing&gt;</code> and the parts of programs made known per program, the
  * languages bound by <code>&lt;with-var&gt;</code>, a known program skipped by
- * <code>&lt;unless-known-program&gt;</code>.
+ * <code>&lt;unless-known&gt;</code>.
  *
  * <p>
  * Two projects with programs of their own go into one database, then the first one again: every

@@ -30,12 +30,13 @@ import com.top_logic.xio.importer.binding.ImportContext;
  * </p>
  *
  * <p>
- * A known program is skipped (see {@link UnlessKnownProgram}), since it never changes under its ID; but ETS
- * writes a program in the language of the installation that exports it, so another file may bring
- * the same program in another language. The import adds the texts of the languages the stored
- * program lacks: from the attributes of the program's elements if the file's base language is one of
- * them (see {@link TranslationsImport#importBaseTexts(ImportContext, javax.xml.stream.XMLStreamReader, Entry, Locale)}),
- * and from the file's translations. The texts of a language the program has stay as they are.
+ * A known program is not imported again, since it never changes under its ID; but ETS writes a
+ * program in the language of the installation that exports it, so another file may bring the same
+ * program in another language. The import adds the texts of the languages the stored program lacks:
+ * from the attributes of the program's elements if the file's base language is one of them (see
+ * {@link KnownProgramTexts}), and from the file's translations (see {@link TranslationsImport}). The
+ * texts of a language the program has stay as they are. A new program records its base language at
+ * its end (see {@link ProgramImported}).
  * </p>
  */
 public class ProgramLanguages {

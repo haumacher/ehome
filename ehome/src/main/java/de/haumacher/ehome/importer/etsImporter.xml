@@ -3,7 +3,7 @@
 		<!--
 			The data shared between projects (master data, catalogs, hardware, application programs) exist
 			only once: an ID the import does not know is looked up among the existing objects of these types
-			by their ETS ID, so that the import reuses them (join-duplicates), skips them (unless-known-program,
+			by their ETS ID, so that the import reuses them (join-duplicates), skips them (unless-known,
 			versioned-master-data) or refers to them. The parts of an application program are made known per
 			program when the import first asks for one of them (SharedObjects, installed by Importer).
 		-->
@@ -738,16 +738,18 @@
 									<tag name="ApplicationPrograms">
 										<dispatch>
 											<tag name="ApplicationProgram">
-												<!-- An application program never changes under its ID, which includes its version; a known one gains the texts of the languages it lacks. -->
+												<!-- An application program never changes under its ID, which includes its version; a known one gains the texts of the languages it lacks (#38). -->
 												<with-var var="language" xml-attribute="DefaultLanguage">
-													<unless-known-program id-attribute="Id" texts="translations">
+													<unless-known id-attribute="Id">
 														<object model-type="ehome.operational:Program" id-attribute="Id" var="program">
 															<linking>
 																<list-linking name="ehome.catalog:Manufacturer#programs"/>
 															</linking>
 
 															<property name="extId" xml-attribute="Id"/>
-															<set-translation name="name" xml-attribute="Name" language-var="language" default-language="en" fill-fallback="true"/>
+															<group id="program-texts">
+																<set-translation name="name" xml-attribute="Name" language-var="language" default-language="en" fill-fallback="true"/>
+															</group>
 															<reference name="originalManufacturer" id-attribute="OriginalManufacturer"/>
 															<reference name="mask" id-attribute="MaskVersion"/>
 															<property name="applicationNumber" xml-attribute="ApplicationNumber" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
@@ -884,7 +886,9 @@
 																												</linking>
 
 																												<property name="extId" xml-attribute="Id"/>
-																												<set-translation name="name" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																												<group id="enumeration-texts">
+																													<set-translation name="name" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																												</group>
 																												<property name="index" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																												<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																												<property name="binary" xml-attribute="BinaryValue" format="de.haumacher.ehome.etsImport.importer.format.Base64Format"/>
@@ -999,7 +1003,9 @@
 
 																									<property name="extId" xml-attribute="Id"/>
 																									<property name="name" xml-attribute="Name"/>
-																									<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																									<group id="parameter-texts">
+																										<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																									</group>
 																									<reference name="type" id-attribute="ParameterType"/>
 																									<property name="access" xml-attribute="Access">
 																										<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
@@ -1025,7 +1031,7 @@
 
 																						<property name="extId" xml-attribute="Id"/>
 																						<property name="name" xml-attribute="Name"/>
-																						<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																						<ref handler-id="parameter-texts"/>
 																						<reference name="type" id-attribute="ParameterType"/>
 																						<property name="access" xml-attribute="Access">
 																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
@@ -1086,7 +1092,9 @@
 
 																						<property name="extId" xml-attribute="Id"/>
 																						<property name="name" xml-attribute="Name"/>
-																						<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																						<group id="parameter-ref-texts">
+																							<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																						</group>
 																						<property name="access" xml-attribute="Access">
 																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
 																								type="ehome.operational:AccessKind"
@@ -1120,8 +1128,10 @@
 																			
 																							<property name="extId" xml-attribute="Id"/>
 																							<property name="name" xml-attribute="Name"/>
-																							<set-translation name="function" xml-attribute="FunctionText" language-var="language" default-language="en" fill-fallback="true"/>
-																							<set-translation name="text" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																							<group id="com-object-texts">
+																								<set-translation name="function" xml-attribute="FunctionText" language-var="language" default-language="en" fill-fallback="true"/>
+																								<set-translation name="text" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																							</group>
 																							<property name="description" xml-attribute="VisibleDescription"/>
 																							<property name="index" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																							<property name="size" xml-attribute="ObjectSize" format="de.haumacher.ehome.etsImport.importer.format.ObjectSizeFormat"/>
@@ -1177,8 +1187,10 @@
 																						<reference name="port" id-attribute="RefId"/>
 
 																						<property name="extId" xml-attribute="Id"/>
-																						<set-translation name="name" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
-																						<set-translation name="function" xml-attribute="FunctionText" language-var="language" default-language="en" fill-fallback="true"/>
+																						<group id="com-object-ref-texts">
+																							<set-translation name="name" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																							<set-translation name="function" xml-attribute="FunctionText" language-var="language" default-language="en" fill-fallback="true"/>
+																						</group>
 																						<property name="description" xml-attribute="VisibleDescription"/>
 																						<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
 																						<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
@@ -1319,7 +1331,9 @@
 
 																				<property name="extId" xml-attribute="Id"/>
 																				<property name="name" xml-attribute="Name"/>
-																				<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																				<group id="channel-texts">
+																					<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																				</group>
 																				<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
 																				<dispatch id="channel-contents">
@@ -1331,7 +1345,9 @@
 
 																							<property name="extId" xml-attribute="Id"/>
 																							<property name="name" xml-attribute="Name"/>
-																							<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																							<group id="parameter-block-texts">
+																								<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																							</group>
 																							<property name="access" xml-attribute="Access">
 																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
 																									type="ehome.operational:AccessKind"
@@ -1413,8 +1429,39 @@
 															</dispatch>
 															<!-- Parameter and communication object references that no structure element places. -->
 															<assign argument-var="this" property="unplaced" value="p -> concat($p.get(`ehome.operational:Program#parameters`).get(`ehome.operational:Parameter#views`), $p.get(`ehome.operational:Program#ports`).get(`ehome.operational:Port#interfaces`)).filter(x -> $x.container() == null)"/>
+															<!-- The program is read: the languages of its texts are recorded, the held-back warnings about the values of its parameters decided. -->
+															<program-imported/>
 														</object>
-													</unless-known-program>
+														<!-- A known program: the texts of the file's language, if the program lacks it, set by the text handlers of its elements. -->
+														<update>
+															<known-program-texts>
+																<ref handler-id="program-texts"/>
+																<update-known>
+																	<tag name="Enumeration" id-attribute="Id">
+																		<ref handler-id="enumeration-texts"/>
+																	</tag>
+																	<tag name="Parameter" id-attribute="Id">
+																		<ref handler-id="parameter-texts"/>
+																	</tag>
+																	<tag name="ParameterRef" id-attribute="Id">
+																		<ref handler-id="parameter-ref-texts"/>
+																	</tag>
+																	<tag name="ComObject" id-attribute="Id">
+																		<ref handler-id="com-object-texts"/>
+																	</tag>
+																	<tag name="ComObjectRef" id-attribute="Id">
+																		<ref handler-id="com-object-ref-texts"/>
+																	</tag>
+																	<tag name="Channel" id-attribute="Id">
+																		<ref handler-id="channel-texts"/>
+																	</tag>
+																	<tag name="ParameterBlock" id-attribute="Id">
+																		<ref handler-id="parameter-block-texts"/>
+																	</tag>
+																</update-known>
+															</known-program-texts>
+														</update>
+													</unless-known>
 												</with-var>
 											</tag>
 										</dispatch>

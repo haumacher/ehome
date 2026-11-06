@@ -27,7 +27,7 @@ import com.top_logic.xio.importer.binding.IdLookup;
  *
  * <p>
  * The data shared between projects (master data, catalogs, hardware, application programs) exists
- * only once: the import reuses the objects that exist (or skips them, see {@link UnlessKnownProgram}),
+ * only once: the import reuses the objects that exist (or skips them, see {@link KnownProgramTexts}),
  * creates only the missing ones, and references from the imported project resolve to the existing
  * ones. The shared objects other than the parts of programs are found by
  * <code>&lt;resolve-existing&gt;</code> in <code>etsImporter.xml</code>.

@@ -9,7 +9,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
-import javax.xml.stream.Location;
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamReader;
@@ -104,8 +103,6 @@ public class TranslationsImport<C extends TranslationsImport.Config<?>> extends 
 
 	private static final String TRANSLATION = "Translation";
 
-	private static final String ID = "Id";
-
 	/** The model types of the {@link Config#getMappings() mappings}, by their names. */
 	private final Map<String, TLType> _types = new HashMap<>();
 
@@ -169,54 +166,6 @@ public class TranslationsImport<C extends TranslationsImport.Config<?>> extends 
 			}
 		}
 		return null;
-	}
-
-	/**
-	 * Reads the element of a known application program (skipped by {@link UnlessKnownProgram}) for its
-	 * texts in the base language of the file, which the stored program lacks (haumacher/ehome #38).
-	 *
-	 * <p>
-	 * The texts are the attributes of the program's elements named by the {@link Config#getMappings()
-	 * mappings} of the translations; each goes to the object of its element, found by the element's
-	 * ID.
-	 * </p>
-	 *
-	 * @param program
-	 *        The stored program.
-	 * @param base
-	 *        The base language of the file (<code>DefaultLanguage</code> of the element).
-	 */
-	public void importBaseTexts(ImportContext context, XMLStreamReader in, ProgramLanguages.Entry program,
-			Locale base) throws XMLStreamException {
-		importBaseTexts(context, in, program, base, in.getLocation());
-		int depth = 1;
-		while (depth > 0) {
-			int event = in.next();
-			if (event == XMLStreamConstants.START_ELEMENT) {
-				depth++;
-				importBaseTexts(context, in, program, base, in.getLocation());
-			} else if (event == XMLStreamConstants.END_ELEMENT) {
-				depth--;
-			}
-		}
-	}
-
-	private void importBaseTexts(ImportContext context, XMLStreamReader in, ProgramLanguages.Entry program,
-			Locale base, Location location) {
-		String id = in.getAttributeValue(null, ID);
-		if (id == null) {
-			return;
-		}
-		Object obj = context.resolveObjectBackwards(this, location, id);
-		if (!(obj instanceof TLObject target)) {
-			return;
-		}
-		for (int n = 0, cnt = in.getAttributeCount(); n < cnt; n++) {
-			String attribute = attribute(target, in.getAttributeLocalName(n));
-			if (attribute != null) {
-				program.set(target, attribute, base, in.getAttributeValue(n));
-			}
-		}
 	}
 
 	private String attribute(TLObject target, String xmlAttribute) {
