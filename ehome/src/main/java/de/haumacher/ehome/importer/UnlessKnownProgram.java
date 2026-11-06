@@ -37,6 +37,11 @@ import com.top_logic.xio.importer.handlers.Handler;
  * it gets the texts of the element in that language (haumacher/ehome #38). The engine's
  * <code>&lt;unless-known&gt;</code> can do neither (TL ticket, see <code>doc/tl-todo.md</code>).
  * </p>
+ *
+ * <p>
+ * At the end of a program it imports, it reports the warnings about values of the program held back
+ * until the access of their parameters is known (see {@link HiddenProgramValues}).
+ * </p>
  */
 public class UnlessKnownProgram<C extends UnlessKnownProgram.Config<?>> extends ConfiguredImportHandler<C> {
 
@@ -105,6 +110,9 @@ public class UnlessKnownProgram<C extends UnlessKnownProgram.Config<?>> extends 
 		for (Handler handler : _contents) {
 			result = handler.importXml(context, in);
 		}
+		// The references of the program are read: the warnings about the values of its parameters
+		// are decided.
+		HiddenProgramValues.reportPending(context);
 		if (programs != null && result instanceof TLObject program) {
 			programs.created(id, program, base);
 		}

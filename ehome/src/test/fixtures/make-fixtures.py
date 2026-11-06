@@ -109,6 +109,18 @@ and order the new master data swap (as ETS 6 does for the IP router mask MV-091A
 with a changed feature value and a further load step, and which is downward compatible to MV-FFF2
 (a forward reference); "MV-FFF2" with a management descriptor, the same in both versions.
 
+TestHiddenValues.knxproj: the samples contain no program value outside its type for a hidden parameter
+(haumacher/ehome #83). This copy of the Test project gives the application program a new ID (version
+O0083, so that an import does not skip it as known) and a name marking it as test data, and adds an
+enumeration type "Test_Kind" with the entries 4, 5 and 6 and parameters of it, each with one reference
+and placed in the block "Allgemein": "Verborgen" (access None, value 7), "Sichtbar" (ReadWrite, value
+7), "Verborgen am Ort" (ReadWrite, value 7, its reference None), "Sichtbar am Ort" (None, value 7, its
+reference ReadWrite), "Verborgene Vorgabe" (None, value 5, its reference without access with the value
+7), "Sichtbare Vorgabe" (ReadWrite, value 5, its reference with the value 7) and "Einstellung"
+(ReadWrite, value 5), which the device of the project sets to 7. The import keeps every 7 as text; it
+warns about the values of the visible parameters ("Sichtbar", "Sichtbar am Ort", "Sichtbare Vorgabe")
+and about the setting, not about those of the hidden ones.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -319,6 +331,64 @@ def typed_setting(xml):
     settings = ''.join('\n<ParameterInstanceRef RefId="' + NEW_PROGRAM + '_P-' + pid + '_R-' + pid
         + '" Value="' + value + '" />' for pid, value in NEW_SETTINGS)
     return xml.replace(refs, refs + settings, 1)
+
+
+# TestHiddenValues.knxproj: program values outside their type for hidden and visible parameters (see the
+# module comment).
+HIDDEN_VERSION = '10D7-11-A0E5-O0083'
+HIDDEN_PROGRAM = 'M-0008_A-' + HIDDEN_VERSION
+HIDDEN_PROGRAM_NAME = 'TEST: verborgene Parameterwerte (künstliche Testdaten)'
+# ID, name, access and value of the parameter, access and value of its reference (None: not given).
+HIDDEN_PARAMETERS = [
+    ('9101', 'Verborgen', 'None', '7', None, None),
+    ('9102', 'Sichtbar', 'ReadWrite', '7', None, None),
+    ('9103', 'Verborgen am Ort', 'ReadWrite', '7', 'None', None),
+    ('9104', 'Sichtbar am Ort', 'None', '7', 'ReadWrite', None),
+    ('9105', 'Verborgene Vorgabe', 'None', '5', None, '7'),
+    ('9106', 'Sichtbare Vorgabe', 'ReadWrite', '5', None, '7'),
+    ('9107', 'Einstellung', 'ReadWrite', '5', None, None),
+]
+# The value the device of the project sets.
+HIDDEN_SETTINGS = [('9107', '7')]
+
+
+def hidden_values(name, xml):
+    xml = xml.replace(VERSION, HIDDEN_VERSION)
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestHiddenValues')
+    if name == PROJECT:
+        refs = '<ParameterInstanceRefs>'
+        assert xml.count(refs) == 1
+        settings = ''.join('\n<ParameterInstanceRef RefId="' + HIDDEN_PROGRAM + '_P-' + pid + '_R-' + pid
+            + '" Value="' + value + '" />' for pid, value in HIDDEN_SETTINGS)
+        return xml.replace(refs, refs + settings, 1)
+    if name.endswith(PROGRAM + '.xml'):
+        assert xml.count('"' + PROGRAM_NAME + '"') == 2
+        xml = xml.replace('"' + PROGRAM_NAME + '"', '"' + HIDDEN_PROGRAM_NAME + '"')
+        prefix = HIDDEN_PROGRAM + '_'
+        kind = prefix + 'PT-Test.5FKind'
+        types = ('<ParameterType Id="' + kind + '" Name="Test_Kind"><TypeRestriction Base="Value" SizeInBit="4">'
+            + ''.join('<Enumeration Id="' + kind + '_EN-' + str(v) + '" DisplayOrder="' + str(v - 4)
+                + '" Text="Art ' + str(v) + '" Value="' + str(v) + '" />' for v in (4, 5, 6))
+            + '</TypeRestriction></ParameterType>\n')
+        parameters = ''.join('<Parameter Id="' + prefix + 'P-' + pid + '" Name="' + text + '" Text="' + text
+            + '" ParameterType="' + kind + '" Access="' + access + '" Value="' + value + '" />\n'
+            for pid, text, access, value, _, _ in HIDDEN_PARAMETERS)
+        refs = ''.join('<ParameterRef Id="' + prefix + 'P-' + pid + '_R-' + pid + '" RefId="' + prefix + 'P-'
+            + pid + '"' + ('' if ref_access is None else ' Access="' + ref_access + '"')
+            + ('' if ref_value is None else ' Value="' + ref_value + '"') + ' Tag="' + pid + '" />\n'
+            for pid, _, _, _, ref_access, ref_value in HIDDEN_PARAMETERS)
+        placements = ''.join('<ParameterRefRef RefId="' + prefix + 'P-' + pid + '_R-' + pid + '" />\n'
+            for pid, _, _, _, _, _ in HIDDEN_PARAMETERS)
+        for end, content in (('</ParameterTypes>', types), ('</Parameters>', parameters),
+                             ('</ParameterRefs>', refs)):
+            assert xml.count(end) == 1
+            xml = xml.replace(end, content + end, 1)
+        block = '<ParameterBlock Id="' + prefix + 'PB-3762" '
+        assert xml.count(block) == 1
+        start = xml.index('>', xml.index(block)) + 1
+        xml = xml[:start] + '\n' + placements + xml[start:]
+    return xml
 
 
 # TestBcu1.knxproj: two artificial BCU 1 programs (see the module comment).
@@ -911,5 +981,7 @@ write('src/test/fixtures/TestBcu1.knxproj', bcu1,
 write('src/test/fixtures/TestEts6.knxproj', ets6, rename=ets6_name, master=('MV-FFF0', 'DPT-10', 'DPT-20'))
 languages_fixture('src/test/fixtures/TestLanguagesA.knxprod', {LANGUAGE_PROGRAMS[1][0]})
 languages_fixture('src/test/fixtures/TestLanguagesB.knxprod', {LANGUAGE_PROGRAMS[0][0]})
+write('src/test/fixtures/TestHiddenValues.knxproj', hidden_values,
+    rename=lambda name: name.replace(VERSION, HIDDEN_VERSION))
 master_data_only('src/test/fixtures/TestMasterDataOld.knxproj', 1001, False)
 master_data_only('src/test/fixtures/TestMasterDataNew.knxproj', 1002, True)

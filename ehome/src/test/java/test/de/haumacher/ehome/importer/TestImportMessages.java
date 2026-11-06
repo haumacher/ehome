@@ -9,8 +9,13 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -29,6 +34,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.Importer;
+import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 
@@ -43,6 +49,10 @@ public class TestImportMessages extends BasicTestCase {
 	private static final String FIXTURE = "src/test/fixtures/TestDynamic.knxproj";
 
 	private static final String PROGRAM = "M-0008_A-10D7-11-A0E5-O000E";
+
+	private static final String HIDDEN_FIXTURE = "src/test/fixtures/TestHiddenValues.knxproj";
+
+	private static final String HIDDEN_PROGRAM = "M-0008_A-10D7-11-A0E5-O0083";
 
 	public void testWarnings() throws Exception {
 		// Other tests of the suite may have imported the fixture into the same database before.
@@ -98,6 +108,99 @@ public class TestImportMessages extends BasicTestCase {
 	}
 
 	/**
+	 * A value of the application program that does not fit its type is reported only if its
+	 * parameter is visible, where the access of a reference overrides that of the parameter; a value
+	 * of the project is always reported (haumacher/ehome #83). Every value is kept as text.
+	 */
+	public void testHiddenValues() throws Exception {
+		boolean programKnown = !programs(HIDDEN_PROGRAM).isEmpty();
+		List<TLObject> before = instances("ehome.project:Project");
+		try {
+			List<BufferingI18NLog.Entry> messages = TestEtsImport.withoutMasterData(importSample(HIDDEN_FIXTURE));
+
+			// The parameters the warnings name, with the entry and the line of the value.
+			Map<String, String> warned = new LinkedHashMap<>();
+			Pattern parameterWarning = Pattern.compile("(?s)In " + Pattern.quote(Importer.ENTRY_SCHEME)
+				+ "(\\S+) line ([\\d,]+) column \\d+: Parameter \"([^\"]+)\": .*");
+			for (BufferingI18NLog.Entry warning : messages) {
+				assertEquals(Level.WARN, warning.getLevel());
+				String text = text(warning);
+				assertTrue(text, text.contains("\"7\""));
+				assertTrue(text, text.contains("Test_Kind"));
+				Matcher matcher = parameterWarning.matcher(text);
+				assertTrue(text, matcher.matches());
+				assertNull(text, warned.put(matcher.group(3), matcher.group(1) + ":" + matcher.group(2).replace(",", "")));
+			}
+			String programEntry = "M-0008/" + HIDDEN_PROGRAM + ".xml";
+			Map<String, String> expected = new LinkedHashMap<>();
+			if (!programKnown) {
+				// The values of the references are reported at once, those of the parameters at the
+				// end of the program, at the place of the value.
+				expected.put("Sichtbare Vorgabe", programEntry + ":" + line(programEntry, "_P-9106_R-9106\""));
+				expected.put("Sichtbar", programEntry + ":" + line(programEntry, "_P-9102\""));
+				expected.put("Sichtbar am Ort", programEntry + ":" + line(programEntry, "_P-9104\""));
+			}
+			expected.put("Einstellung", "P-01A0/0.xml:" + line("P-01A0/0.xml", "_P-9107_R-9107\""));
+			assertEquals(expected, warned);
+
+			// Every value is kept as text, also the hidden ones.
+			Map<String, TLObject> values = new HashMap<>();
+			for (String type : List.of("ehome.operational:Parameter", "ehome.operational:ParameterView")) {
+				for (TLObject value : instances(type)) {
+					String id = (String) value.tValueByName("extId");
+					if (id != null && id.startsWith(HIDDEN_PROGRAM + "_P-91")) {
+						values.put(id, value);
+					}
+				}
+			}
+			for (String id : List.of("9101", "9102", "9103", "9104")) {
+				assertKeptAsText(values.get(HIDDEN_PROGRAM + "_P-" + id));
+			}
+			for (String id : List.of("9105", "9106")) {
+				TLObject parameter = values.get(HIDDEN_PROGRAM + "_P-" + id);
+				assertEquals("5", ParameterValues.encode(parameter));
+				assertNotNull(parameter.tValueByName(ParameterValues.CHOICE));
+				assertKeptAsText(values.get(HIDDEN_PROGRAM + "_P-" + id + "_R-" + id));
+			}
+			List<TLObject> projects = SharedData.newProjects(before);
+			List<TLObject> settings = SharedData.within("ehome.physical:ParameterSetting", projects).stream()
+				.filter(s -> values.get(HIDDEN_PROGRAM + "_P-9107_R-9107") == s.tValueByName("parameter"))
+				.toList();
+			assertEquals(1, settings.size());
+			assertKeptAsText(settings.get(0));
+		} finally {
+			SharedData.deleteProjects(SharedData.newProjects(before));
+		}
+	}
+
+	private static void assertKeptAsText(TLObject holder) {
+		assertNotNull(holder);
+		assertEquals("7", ParameterValues.encode(holder));
+		assertEquals("7", holder.tValueByName(ParameterValues.TEXT));
+		assertNull(holder.tValueByName(ParameterValues.CHOICE));
+	}
+
+	/**
+	 * The line (counted from 1) of the given entry of the fixture holding the given text.
+	 */
+	private static int line(String entry, String text) throws Exception {
+		try (ZipInputStream in = new ZipInputStream(Files.newInputStream(Path.of(HIDDEN_FIXTURE)))) {
+			ZipEntry current;
+			while ((current = in.getNextEntry()) != null) {
+				if (current.getName().equals(entry)) {
+					List<String> lines = new String(in.readAllBytes(), StandardCharsets.UTF_8).lines().toList();
+					for (int n = 0; n < lines.size(); n++) {
+						if (lines.get(n).contains(text)) {
+							return n + 1;
+						}
+					}
+				}
+			}
+		}
+		throw new AssertionError("Not in " + entry + ": " + text);
+	}
+
+	/**
 	 * The baggage of a manufacturer (<code>M-xxxx/Baggages.xml</code> and the files below
 	 * <code>M-xxxx/Baggages/</code>, haumacher/ehome#82) is skipped without a message, and the rest of
 	 * the project is imported as before.
@@ -149,8 +252,12 @@ public class TestImportMessages extends BasicTestCase {
 	}
 
 	private static List<TLObject> programs() {
+		return programs(PROGRAM);
+	}
+
+	private static List<TLObject> programs(String id) {
 		return instances("ehome.operational:Program").stream()
-			.filter(p -> PROGRAM.equals(p.tValueByName("extId")))
+			.filter(p -> id.equals(p.tValueByName("extId")))
 			.toList();
 	}
 

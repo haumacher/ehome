@@ -19,6 +19,8 @@ import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
 
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.operational.Parameter;
+import de.haumacher.ehome.model.operational.ParameterView;
 
 /**
  * Imports a parameter value as ETS writes it into the typed value of the current object (a
@@ -31,6 +33,12 @@ import de.haumacher.ehome.knx.ParameterValues;
  * projects using them, so the references are resolved at this point. A value that cannot be decoded
  * for its type is kept as text and reported as a warning naming the parameter, with its location
  * (see {@link Importer#getMessages()}).
+ * </p>
+ *
+ * <p>
+ * A value of the application program itself (of a parameter or a parameter reference) is reported
+ * only if the parameter is visible, see {@link HiddenProgramValues}. A value of the project (a
+ * parameter setting) is always reported.
  * </p>
  */
 public class TypedValueImport<C extends TypedValueImport.Config<?>> extends ConfiguredImportHandler<C> {
@@ -67,10 +75,20 @@ public class TypedValueImport<C extends TypedValueImport.Config<?>> extends Conf
 		String value = in.getAttributeValue(null, getConfig().getXmlAttribute());
 		TLObject self = (TLObject) context.getVar(ImportContext.THIS_VAR);
 		ResKey problem = ParameterValues.decode(self, value);
+		HiddenProgramValues hidden = HiddenProgramValues.get(context);
+		ParameterView view = self instanceof ParameterView placed ? placed : null;
+		if (view != null) {
+			hidden.referenced(view);
+		}
 		if (problem != null) {
 			String name = parameterName(self);
-			context.log(Level.WARN, in.getLocation(),
-				name == null ? problem : I18NConstants.WARN_PARAMETER__NAME_PROBLEM.fill(name, problem));
+			ResKey message = name == null ? problem : I18NConstants.WARN_PARAMETER__NAME_PROBLEM.fill(name, problem);
+			if (self instanceof Parameter parameter) {
+				// Reported at the end of the program, if the parameter is visible.
+				hidden.defer(parameter, MasterDataUpdates.position(in.getLocation()), message);
+			} else if (view == null || HiddenProgramValues.isVisible(view)) {
+				context.log(Level.WARN, in.getLocation(), message);
+			}
 		}
 		return null;
 	}

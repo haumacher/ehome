@@ -368,6 +368,9 @@ public class Importer {
 			_programLanguages = new ProgramLanguages();
 			importContext.set(ProgramLanguages.PROPERTY, _programLanguages);
 			importETS(zip, importContext, handler, productData);
+			// Reported at the end of each program already; none is left unless a parameter lies
+			// outside a program.
+			HiddenProgramValues.reportPending(importContext);
 			updates.apply(importContext);
 		}
 		// Numbers the app allocates for new objects lie above those of the imported ones.
