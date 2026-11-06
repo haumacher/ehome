@@ -176,6 +176,14 @@ no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha1
 **When fixed:** decide whether E-Home restricts issuing tokens (e.g. to `ehome.Installer`) with the
 rule the module offers, and replace `bin/ehome-agent.py` by the MCP wrapper.
 
+The observation of a window is unusable for a real page (TL #30200, found on 8.0.0-alpha12.817 behind the
+Apache proxy of an installation): `observe --actions` inlined the same ~2.9 MB JSON schema of a model
+name into every `selectByKey`, `activateByKey` and `dropObjects` command, 84 MB for a device page with
+13 dropdowns, a table and a tree; `observe` without actions answered 502 within 3 s. No workaround:
+`bin/ehome-agent.py` passes the answer through as it comes.
+
+**When fixed:** check `observe` with and without `--actions` on a device page of a large project.
+
 ## Jobs of the app: cancel, import jobs (TL #30193, #30194, #30195, #30196)
 
 The cancelable `<start-job>`s of the app: the ETS import, the password dialog and the product data
@@ -224,5 +232,6 @@ of the files imported.
 - TL #29884, #29885: see above (access coverage of engine modules, the reason of refused commands).
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
 - TL #30048: see above (agent access: the follow-ups of the module).
+- TL #30200: see above (agent access: the size of an observation, `observe` without actions failing).
 - TL #30191: see above (a failing class load aborts the module shutdown).
 - TL #30193, #30194, #30195, #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the interrupt of a cancelled job closing H2).
