@@ -54,6 +54,12 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 			assertEquals(3, apply(project).size());
 			assertEquals(List.of("switch command=0/0/1", "switch command=0/0/2", "switch command=0/0/3"),
 				summary(project));
+			// Each named after its address (haumacher/ehome #98); the keys are linked with the sockets, none
+			// is unused; the demo places no device.
+			assertEquals(List.of(
+				"Steckdose 1 | switch | command=0/0/1 | - | used",
+				"Steckdose 2 | switch | command=0/0/2 | - | used",
+				"Steckdose 3 | switch | command=0/0/3 | - | used"), TestFunctionLinks.table(project));
 			assertEquals(List.of(), apply(project));
 			valid(project);
 		} finally {
@@ -62,9 +68,11 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 	}
 
 	/**
-	 * TestDetails: the keys of the device in the kitchen become buttons in the kitchen, the one with
-	 * a short and a long press object pressing on the lower address; the inactive temperature object
-	 * and the objects on untyped addresses get no function.
+	 * TestDetails: the keys of the device in the kitchen become buttons in the kitchen, named after
+	 * the address they press on (haumacher/ehome #98), the one with a short and a long press object
+	 * pressing on the lower address; the inactive temperature object and the objects on untyped
+	 * addresses get no function. The three keys connected to no address are unused buttons, where
+	 * their devices are.
 	 */
 	public void testDetails() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
@@ -73,10 +81,16 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 		try {
 			TLObject project = projects.get(0);
 			List<TLObject> added = apply(project);
-			assertEquals(List.of("button press=0/0/3", "button press=0/1/1", "button press=0/1/2", "button press=0/1/3"),
-				summary(project));
+			assertEquals(List.of("button press=0/0/3", "button press=0/1/1", "button press=0/1/2", "button press=0/1/3",
+				"button unused", "button unused", "button unused"), summary(project));
 			for (TLObject function : added) {
-				assertEquals("Küche", ((TLObject) function.tValueByName("room")).tValueByName("name"));
+				if (FunctionProposal.unused(function)) {
+					// Without senders: where its device is.
+					assertSame(((TLObject) function.tValueByName("device")).tValueByName("location"),
+						function.tValueByName("room"));
+				} else {
+					assertEquals("Küche", ((TLObject) function.tValueByName("room")).tValueByName("name"));
+				}
 			}
 			Map<?, ?> image = valid(project);
 			List<?> functions = (List<?>) image.get("functions");
@@ -90,7 +104,8 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 	 * TestBcu1 (haumacher/ehome #50): two devices of an artificial BCU 1 program whose objects have no
 	 * datapoint type, the input "Schalten" (1 bit) and the output "Rückmeldung" (1 bit), on untyped
 	 * addresses. The input is a switching command by its name, so the devices get a light; both
-	 * switch on the same address, so the second gets none. The feedback alone is no function.
+	 * switch on the same address, so they are linked into one (haumacher/ehome #98), named after the
+	 * address. The feedback alone is no function.
 	 */
 	public void testUntypedSwitch() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
@@ -100,7 +115,7 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 			TLObject project = projects.get(0);
 			List<TLObject> added = apply(project);
 			assertEquals(List.of("light command=0/0/3"), summary(project));
-			assertEquals("Schalten", TestFunctionProposal.name(added.get(0)));
+			assertEquals("GA3", TestFunctionProposal.name(added.get(0)));
 			assertEquals(List.of(), apply(project));
 			valid(project);
 		} finally {
@@ -116,8 +131,8 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 	}
 
 	/**
-	 * The kinds and role bindings of the project's functions, sorted (the names are the objects' texts
-	 * in the languages the shared programs have).
+	 * The kinds and role bindings of the project's functions ("unused" for an unused function),
+	 * sorted.
 	 */
 	private static List<String> summary(TLObject project) {
 		List<String> result = new ArrayList<>();
@@ -132,7 +147,7 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 						.append(RuntimeImage.threeLevel(((GA) address.tValueByName("address")).getValue()));
 				}
 			}
-			result.add(FunctionProposal.kind(function) + " " + roles);
+			result.add(FunctionProposal.kind(function) + " " + (FunctionProposal.unused(function) ? "unused" : roles));
 		}
 		Collections.sort(result);
 		return result;

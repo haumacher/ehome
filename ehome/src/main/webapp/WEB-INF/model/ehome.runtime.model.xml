@@ -741,6 +741,32 @@
 				<property name="channel"
 					type="tl.core:String"
 				/>
+				<!--
+					Whether the function is unused (haumacher/ehome #98): a proposed function (one with a channel)
+					whose main role has no datapoint, as the proposal makes it for a channel whose main object has
+					no group address. The runtime image leaves it out. Derived from the content, as
+					de.haumacher.ehome.runtime.FunctionProposal#unused does in Java.
+				-->
+				<property name="unused"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[f -> {
+    kind = $f.get(`ehome.runtime:Function#kind`);
+    main = if($kind == `ehome.runtime:FunctionKind#dimmer`, $f.get(`ehome.runtime:Function#levelCommand`),
+        if($kind == `ehome.runtime:FunctionKind#blind`, $f.get(`ehome.runtime:Function#move`),
+        if($kind == `ehome.runtime:FunctionKind#sensor`, $f.get(`ehome.runtime:Function#value`),
+        if($kind == `ehome.runtime:FunctionKind#climate`, $f.get(`ehome.runtime:Function#temperature`),
+        if($kind == `ehome.runtime:FunctionKind#button`, $f.get(`ehome.runtime:Function#press`),
+            $f.get(`ehome.runtime:Function#command`))))));
+    $kind != null && $f.get(`ehome.runtime:Function#channel`) != null && $main == null
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!--

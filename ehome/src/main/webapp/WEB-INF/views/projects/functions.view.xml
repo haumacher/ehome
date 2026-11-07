@@ -5,14 +5,23 @@
 	controller - a light, a dimmer, a blind, a sensor, a button -, each with the datapoints of the
 	roles of its kind and its room. They are part of the runtime image (Deployment tab).
 
-	"Propose functions" adds a function for each device channel the proposal recognizes and the
-	project has none for yet, and for each application datapoint bound to a function of a Zigbee
-	device (haumacher/ehome #68: a sensor, a switch or light, a dimmer), keyed by the device's IEEE
-	address, the endpoint and the function (de.haumacher.ehome.runtime.FunctionProposal); it never changes an
-	existing function, so it can run again after devices were added. "New function" adds an empty
-	one. The form of the selected function shows the roles of its kind only; the options of a role are
-	the datapoints of the project, its group addresses and its application datapoints
-	(haumacher/ehome #61).
+	"Propose functions" (de.haumacher.ehome.runtime.FunctionProposal) makes a candidate of each
+	device channel from its own objects and links the candidates by the sending (first) group
+	addresses of their objects into functions (haumacher/ehome #98): a key and the actuator channel
+	receiving its address are one function, of the actuator's kind, named after the group address of
+	its main role; a key no actuator receives is a button, a measured value a sensor. A channel
+	whose main object has no group address gives an unused function, named "<device>: <channel>",
+	without datapoints: the column "Unused" (and its filter) marks it, and the runtime image leaves
+	it out. It adds the functions the project lacks, and a function for each application datapoint
+	bound to a function of a Zigbee device (haumacher/ehome #68: a sensor, a switch or light, a
+	dimmer), keyed by the device's IEEE address, the endpoint and the function. The only change it
+	makes to an existing function: an unused one whose channel got its group address gets its
+	datapoints, and a function whose name is still a generated one (the unused name, or the
+	channel's name of earlier runs, "Kanal H") is renamed after its group address; a name the user
+	edited and the datapoints the function binds stay. So it can run again after devices were added
+	or linked. "New function" adds an empty one. The form of the selected function shows the roles
+	of its kind only; the options of a role are the datapoints of the project, its group addresses
+	and its application datapoints (haumacher/ehome #61).
 
 	Deleting a proposed function remembers it as dismissed (haumacher/ehome #49), so the next proposal
 	does not bring it back; the dismissed proposals are listed below the functions, and "Undo
@@ -142,15 +151,41 @@
 								</commands>
 								<table
 									observed-types="ehome.runtime:Function"
+									personalization-key="ehome-functions"
 									selection="function"
 									types="ehome.runtime:Function"
 								>
+									<presets>
+										<preset name="used">
+											<label>
+												<en>In use</en>
+												<de>Benutzt</de>
+											</label>
+											<criterion
+												column="unused"
+												expr="false"
+											/>
+										</preset>
+										<preset name="unused"
+											count="true"
+										>
+											<label>
+												<en>Unused</en>
+												<de>Unbenutzt</de>
+											</label>
+											<criterion
+												column="unused"
+												expr="true"
+											/>
+										</preset>
+									</presets>
 									<inputs>
 										<input channel="project"/>
 									</inputs>
 									<columns>
 										<column attribute="name"/>
 										<column attribute="kind"/>
+										<column attribute="unused"/>
 										<column attribute="room"/>
 										<column attribute="identifier"/>
 										<column attribute="device"/>
@@ -250,6 +285,7 @@
 						>
 							<field attribute="name"/>
 							<field attribute="kind"/>
+							<field attribute="unused"/>
 							<field attribute="room"/>
 							<field attribute="identifier"/>
 							<field attribute="unit"/>

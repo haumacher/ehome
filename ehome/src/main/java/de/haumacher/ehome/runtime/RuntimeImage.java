@@ -64,8 +64,10 @@ import de.haumacher.ehome.rules.Schedule;
  * of the building structure, depth-first (a building, then each of its floors followed by its rooms,
  * haumacher/ehome #71); buildings, floors and rooms by their kind, every other part (corridor,
  * stairway, distribution board, ...) as an area.</li>
- * <li><code>functions</code>: the project's functions (<code>ehome.runtime:Function</code>), each
- * with its identifier (derived from its name where it has none), its label (its name as a map of the
+ * <li><code>functions</code>: the project's functions (<code>ehome.runtime:Function</code>) but the
+ * unused ones ({@link FunctionProposal#unused(TLObject)}, haumacher/ehome #98: proposed for a channel
+ * whose main object has no group address, which the image leaves out without refusing and
+ * {@link #getUnusedFunctions()} counts), each with its identifier (derived from its name where it has none), its label (its name as a map of the
  * languages it has to its texts, haumacher/ehome #51: <code>{"de": "Taste 1", "en": "Button 1"}</code>;
  * a name of a program written only in German has only the German text), its room and the datapoints of the
  * roles of its kind; a role bound to an address of the time master names the controller's datapoint
@@ -129,6 +131,9 @@ public final class RuntimeImage {
 
 	/** The ids of the functions by the function they stand for. */
 	private final Map<TLObject, String> _functionIds = new HashMap<>();
+
+	/** The number of the project's unused functions, which the image leaves out. */
+	private int _unusedFunctions;
 
 	/** The objects of the project by the paths of <code>ui.pages</code>. */
 	private final Map<String, TLObject> _uiSources = new HashMap<>();
@@ -224,6 +229,14 @@ public final class RuntimeImage {
 	 */
 	public byte[] getBytes() {
 		return _text.getBytes(StandardCharsets.UTF_8);
+	}
+
+	/**
+	 * The number of the project's unused functions ({@link FunctionProposal#unused(TLObject)},
+	 * haumacher/ehome #98), which the image leaves out.
+	 */
+	public int getUnusedFunctions() {
+		return _unusedFunctions;
 	}
 
 	/**
@@ -670,6 +683,11 @@ public final class RuntimeImage {
 		}
 		List<Object> result = new ArrayList<>();
 		for (TLObject function : functions) {
+			if (FunctionProposal.unused(function)) {
+				// Not linked by a group address (haumacher/ehome #98): nothing to operate on the controller.
+				_unusedFunctions++;
+				continue;
+			}
 			String kind = FunctionProposal.kind(function);
 			Map<String, Object> entry = new LinkedHashMap<>();
 			Object identifier = function.tValueByName("identifier");
@@ -710,7 +728,9 @@ public final class RuntimeImage {
 			_functionSources.add(function);
 			_functionIds.put(function, (String) entry.get("id"));
 		}
-		_json.put("functions", result);
+		if (!result.isEmpty()) {
+			_json.put("functions", result);
+		}
 	}
 
 	/**

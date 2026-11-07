@@ -37,10 +37,11 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * Probe of the runtime image (haumacher/ehome #39) composed with the ETS 6 import: the ETS 4 and the
  * ETS 6 export of the KNX test system give the same datapoints, the image is valid, and building it
  * twice gives the same bytes. The function proposal (#43) gives both the same functions in kind and
- * role bindings. Their labels (#51) are maps of the languages of the device's program to its texts:
- * where both files have a language, the labels are the same; the push-button sensor's program of the
- * ETS 6 file is German only, so its functions have no English label (not the German text standing in
- * for English).
+ * role bindings. Their labels (#51) are maps of languages to texts, the same in both files: a
+ * function named after the group address of its main role (haumacher/ehome #98) has its name in
+ * every application language, also where its device's program is written in German only (the
+ * push-button sensor's program of the ETS 6 file); a scene, named after its channel, has the texts
+ * of the languages of its device's program.
  */
 @SuppressWarnings("javadoc")
 public class TestRuntimeImageProbe extends BasicTestCase {
@@ -75,7 +76,6 @@ public class TestRuntimeImageProbe extends BasicTestCase {
 			Map<String, Map<?, ?>> labels4 = labels(RuntimeImage.build(ets4.get(0), 4, NOW));
 			Map<String, Map<?, ?>> labels6 = labels(functions6);
 			assertEquals(labels4.keySet(), labels6.keySet());
-			int germanOnly = 0;
 			for (Map.Entry<String, Map<?, ?>> entry : labels6.entrySet()) {
 				Map<?, ?> label4 = labels4.get(entry.getKey());
 				Map<?, ?> label6 = entry.getValue();
@@ -85,18 +85,29 @@ public class TestRuntimeImageProbe extends BasicTestCase {
 						assertEquals(entry.getKey() + " " + language, label4.get(language), label6.get(language));
 					}
 				}
-				if (!label6.containsKey("en")) {
-					germanOnly++;
-				}
 			}
-			assertTrue(labels6.toString(), germanOnly > 0);
+			int germanOnlyProgram = 0;
 			for (int n = 0; n < functions6.getFunctionSources().size(); n++) {
 				TLObject function = functions6.getFunctionSources().get(n);
 				Program program = DeviceConfiguration.program((TLObject) function.tValueByName("device"));
 				Set<String> languages = ProgramLanguages.languages(program);
 				Map<?, ?> label = (Map<?, ?>) ((Map<?, ?>) ((List<?>) functions6.getJson().get("functions")).get(n)).get("label");
-				assertEquals(String.valueOf(label), languages, new TreeSet<>(label.keySet().stream().map(Object::toString).toList()));
+				Set<String> labelled = new TreeSet<>(label.keySet().stream().map(Object::toString).toList());
+				if ("scene".equals(FunctionProposal.kind(function))) {
+					assertEquals(String.valueOf(label), languages, labelled);
+				} else {
+					assertEquals(String.valueOf(label), Set.of("de", "en"), labelled);
+					assertEquals(String.valueOf(label), label.get("de"), label.get("en"));
+					assertEquals(String.valueOf(label),
+						((TLObject) function.tValueByName(FunctionKinds.mainRole(FunctionProposal.kind(function))))
+							.tValueByName("name"), label.get("de"));
+					if (!languages.contains("en")) {
+						germanOnlyProgram++;
+					}
+				}
 			}
+			// The keys of the push-button sensor, whose program has German texts only.
+			assertTrue(labels6.toString(), germanOnlyProgram > 0);
 		} finally {
 			SharedData.deleteProjects(ets4);
 			SharedData.deleteProjects(ets6);

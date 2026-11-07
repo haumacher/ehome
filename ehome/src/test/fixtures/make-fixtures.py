@@ -150,6 +150,19 @@ Taster Küche 2" (1.0.3, in "Küche": Taste 2 Dimmen on 1/1/3, the temperature o
 Taster Wohnzimmer" (1.0.4, in "Wohnzimmer": Taste 1 on 1/1/1, Taste 2 Dimmen on 1/1/3, Wippe 3
 Kurzzeit on 2/1/2).
 
+TestFunctionLinks.knxproj: the same programs for the candidates of the function proposal linked by
+their sending addresses (haumacher/ehome #98), with group addresses of their own (main group 4) and
+objects receiving from further addresses as well (an object sends on its first address and receives
+from the others). "TEST Aktor Küche" (1.0.1): "Kanal A" Schalten on 4/0/1 "Licht Küche" and the
+central 4/0/9 "Licht Zentral", Status on 4/0/2 "Licht Küche Status"; "Kanal B" Schalten on 4/0/3
+"Licht Flur" and 4/0/9; "Zentral" on 4/0/9; "Kanal C" connected to nothing. "TEST Aktor Flur" (1.0.2):
+"Kanal B" Schalten on 4/0/3 (two actuators on one address); "Kanal A" and "Kanal C" connected to
+nothing. "TEST Taster Küche" (1.0.3): "Taste 1" sending on 4/0/1 and receiving the status 4/0/2 (a
+toggle key), "Taste 4" on the central 4/0/9, "Taste 5" on 4/0/8 "Klingel", which no other object
+receives, the temperature on 4/1/1 "Raumtemperatur Küche"; "Taste 2" and "Wippe 3" connected to
+nothing. The addresses 4/0/4 "Licht Bad" and 4/2/1 "Markise fahren" have no object; the test
+connects some later.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -671,6 +684,16 @@ FUNCTION_ADDRESSES = {'1/0/0': 'Zentral', '1/1/1': 'Licht', '1/1/2': 'Dimmer', '
 # The devices of TestFunctionKeys: (program, name, building part or None, the group address of each
 # connected object by its number, None for those the program gives).
 FUNCTION_KEY_DEVICES = [(0, 'TEST Aktor', None, None), (1, 'TEST Taster', None, None)]
+# The group addresses of TestFunctionLinks (haumacher/ehome #98), by address.
+LINK_ADDRESSES = {'4/0/1': 'Licht Küche', '4/0/2': 'Licht Küche Status', '4/0/3': 'Licht Flur', '4/0/4': 'Licht Bad',
+    '4/0/8': 'Klingel', '4/0/9': 'Licht Zentral', '4/1/1': 'Raumtemperatur Küche', '4/2/1': 'Markise fahren'}
+# The devices of TestFunctionLinks, see the module comment: the addresses of an object, the one it sends on
+# first.
+LINK_DEVICES = [
+    (0, 'TEST Aktor Küche', None, {0: ['4/0/1', '4/0/9'], 1: '4/0/2', 2: ['4/0/3', '4/0/9'], 12: '4/0/9'}),
+    (0, 'TEST Aktor Flur', None, {2: '4/0/3'}),
+    (1, 'TEST Taster Küche', None, {0: ['4/0/1', '4/0/2'], 5: '4/0/9', 6: '4/0/8', 8: '4/1/1'}),
+]
 # The devices of TestFunctionRooms (haumacher/ehome #93), see the module comment.
 FUNCTION_ROOM_DEVICES = [
     (0, 'TEST Aktor', 'P-01A0-0_BP-4', None),
@@ -743,17 +766,26 @@ def function_hardware(xml):
     return xml[:end] + hardware + xml[end:]
 
 
-def function_devices(xml, specs):
+def function_connectors(addresses, connected):
+    """The connectors of an object: the first address it sends on, each further one it receives from."""
+    if isinstance(connected, str):
+        connected = [connected]
+    return ''.join('<%s GroupAddressRefId="P-01A0-0_GA-%d" />' % ('Send' if n == 0 else 'Receive',
+        addresses.index(address) + 1) for n, address in enumerate(connected))
+
+
+def function_devices(xml, specs, names=None):
+    names = FUNCTION_ADDRESSES if names is None else names
     start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
     end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
-    addresses = sorted(FUNCTION_ADDRESSES, key=ga_value)
+    addresses = sorted(names, key=ga_value)
     devices = ''
     for n, (index, device_name, _, connected) in enumerate(specs, 1):
         program, number, _, _, channels = FUNCTION_PROGRAMS[index]
         objects = [(o[0], o[6] if connected is None else connected.get(o[0])) for o in function_objects(channels)]
         refs = ''.join('<ComObjectInstanceRef RefId="' + program + '_O-%d_R-%d" IsActive="1"><Connectors>'
-            '<Send GroupAddressRefId="P-01A0-0_GA-%d" /></Connectors></ComObjectInstanceRef>\n'
-            % (o, o + 1, addresses.index(address) + 1) for o, address in objects if address is not None)
+            % (o, o + 1) + function_connectors(addresses, address) + '</Connectors></ComObjectInstanceRef>\n'
+            for o, address in objects if address is not None)
         devices += ('<DeviceInstance Id="P-01A0-0_DI-' + str(n) + '" Name="' + device_name
             + '" ProductRefId="' + FUNCTION_HARDWARE + number + '_P-TEST.20' + number + '" Hardware2ProgramRefId="'
             + FUNCTION_HARDWARE + number + '_HP-' + number + '-01-0000" Address="' + str(n)
@@ -767,7 +799,7 @@ def function_devices(xml, specs):
         ranges += ('<GroupRange Id="P-01A0-0_GR-%d" Name="HG%d" RangeStart="%d" RangeEnd="%d">'
             % (main, main, main << 11, (main << 11) + 2047)
             + ''.join('<GroupAddress Id="P-01A0-0_GA-%d" Address="%d" Name="%s" />'
-                % (addresses.index(a) + 1, ga_value(a), FUNCTION_ADDRESSES[a])
+                % (addresses.index(a) + 1, ga_value(a), names[a])
                 for a in addresses if a.startswith(str(main) + '/'))
             + '</GroupRange>\n')
     xml = xml[:start] + '<GroupRanges>\n' + ranges + '</GroupRanges>' + xml[end:]
@@ -787,12 +819,12 @@ def function_devices(xml, specs):
     return xml
 
 
-def function_fixture(project, specs):
+def function_fixture(project, specs, names=None):
     def modify(name, xml):
         if name == PROJECT_INFO:
             return rename_project(xml, project)
         if name == PROJECT:
-            return function_devices(xml, specs)
+            return function_devices(xml, specs, names)
         if name == 'M-0008/Hardware.xml':
             return function_hardware(xml)
         return xml
@@ -1186,5 +1218,7 @@ write('src/test/fixtures/TestFunctionKeys.knxproj', function_fixture('TestFuncti
     FUNCTION_PROGRAM_FILES)
 write('src/test/fixtures/TestFunctionRooms.knxproj', function_fixture('TestFunctionRooms', FUNCTION_ROOM_DEVICES),
     FUNCTION_PROGRAM_FILES)
+write('src/test/fixtures/TestFunctionLinks.knxproj',
+    function_fixture('TestFunctionLinks', LINK_DEVICES, LINK_ADDRESSES), FUNCTION_PROGRAM_FILES)
 master_data_only('src/test/fixtures/TestMasterDataOld.knxproj', 1001, False)
 master_data_only('src/test/fixtures/TestMasterDataNew.knxproj', 1002, True)

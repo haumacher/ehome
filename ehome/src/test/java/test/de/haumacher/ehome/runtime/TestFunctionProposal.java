@@ -68,15 +68,18 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * each asserted:
  * </p>
  * <ul>
- * <li>Names and identifiers come from the objects of the devices, in the user's language from the
- * languages the program has: in English the actuator's channels are "Channel A" ...
- * (<code>channel-a</code>, as in the template), the keys "Taste 1" or, once a project brought the
- * program's English texts, "Button 1" (template <code>key-1</code>, "Key 1"), the temperature
- * "Raumtemperatur-Messung" (template <code>room-temperature</code>, "Temperature"). The functions
- * are therefore matched with the template's by kind and main role. The template's hand-written
- * remarks ("Key 3 (toggles C)", "Channel D (auto-off)") describe its rules.</li>
+ * <li>Names and identifiers come from the group addresses of the functions' main roles
+ * (haumacher/ehome #98): the actuator's channels are "KanalA" ... (<code>kanala</code>, template
+ * <code>channel-a</code>, "Channel A"), the keys "Taste1" ... (template <code>key-1</code>, "Key 1"),
+ * the temperature "Raumtemperatur" (template <code>room-temperature</code>, "Temperature"); the
+ * scenes after their channel, in the user's language from the languages the program has. The
+ * functions are therefore matched with the template's by kind and main role. The template's
+ * hand-written remarks ("Key 3 (toggles C)", "Channel D (auto-off)") describe its rules. No key
+ * sends on an address an actuator channel receives, so each is a button, and every channel of the
+ * actuator is linked: none is unused.</li>
  * <li>Channel D has no status address in the project, so its light has no state, as in the
- * template.</li>
+ * template. Its object "Switch On/Off" is connected to no address, but its object "Staircase light"
+ * (DPT 1.001, a switching input) is on 0/0/48 "KanalD", the channel's light.</li>
  * <li>The room temperature is measured by the push-button sensor, so its function is in the sensor's
  * area; the template puts it in the room.</li>
  * <li>The time master names 0/0/60 and writes <code>onSynchronized</code> (the specification's
@@ -113,6 +116,22 @@ public class TestFunctionProposal extends BasicTestCase {
 			List<TLObject> added = apply(project);
 			assertEquals(13, added.size());
 			assertEquals(added, FunctionProposal.functions(project));
+			// The functions with their names, kinds, roles and rooms (haumacher/ehome #98): each named after
+			// the group address of its main role, the scenes after their channel; no channel is unused.
+			assertEquals(List.of(
+				"Channel A: scene 1 | scene | command=0/0/36 | Test system | used",
+				"Channel A: scene 2 | scene | command=0/0/36 | Test system | used",
+				"KanalA | light | command=0/0/34, state=0/0/37 | Test system | used",
+				"KanalB | light | command=0/0/40, state=0/0/43 | Test system | used",
+				"KanalC | light | command=0/0/46, state=0/0/47 | Test system | used",
+				"KanalD | light | command=0/0/48 | Test system | used",
+				"Raumtemperatur | sensor | value=0/0/28 | Push-button sensor | used",
+				"Taste1 | button | press=0/0/1 | Push-button sensor | used",
+				"Taste2 | button | press=0/0/2 | Push-button sensor | used",
+				"Taste3 | button | press=0/0/3 | Push-button sensor | used",
+				"Taste4 | button | press=0/0/4 | Push-button sensor | used",
+				"Taste5 | button | press=0/0/5 | Push-button sensor | used",
+				"Taste6 | button | press=0/0/6 | Push-button sensor | used"), TestFunctionLinks.table(project));
 
 			// The scenes of channel A, each with its number.
 			List<TLObject> scenes = added.stream().filter(f -> "scene".equals(FunctionProposal.kind(f))).toList();

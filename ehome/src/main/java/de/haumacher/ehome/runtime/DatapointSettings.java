@@ -122,8 +122,23 @@ public final class DatapointSettings {
 	}
 
 	private static boolean enabled(String flag, TLObject connection) {
-		TLObject connector = connection.tContainer();
-		Interface placed = GroupAddressConnections.object(connection);
+		return enabled(flag, connection.tContainer(), GroupAddressConnections.object(connection));
+	}
+
+	/**
+	 * Whether the given flag (<code>communication</code>, <code>canRead</code>,
+	 * <code>canWrite</code>, <code>transmission</code>) of a communication object is set: the
+	 * device's own (its connector), else the one of the object's placement, else the one of the
+	 * object.
+	 *
+	 * @param connector
+	 *        The device's connector of the object (<code>ehome.physical:Connector</code>),
+	 *        <code>null</code> for an object the project has none for (one connected to no group
+	 *        address).
+	 * @param placed
+	 *        The placement of the object in the device's program.
+	 */
+	public static boolean enabled(String flag, TLObject connector, Interface placed) {
 		Port port = placed == null ? null : placed.getPort();
 		for (TLObject holder : new TLObject[] { connector, placed, port }) {
 			if (holder != null && holder.tValueByName(flag) instanceof TLClassifier classifier) {

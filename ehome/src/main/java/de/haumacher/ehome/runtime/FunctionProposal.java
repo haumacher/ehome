@@ -11,6 +11,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -60,11 +61,41 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * (haumacher/ehome #43): what the user then edits.
  *
  * <p>
+ * <b>Candidates, linked by group addresses</b> (haumacher/ehome #98). Every channel of every device
+ * gives its candidate from its own objects, without looking at the group addresses beyond their
+ * datapoint types: an actuator channel a light, a switch, a dimmer, a blind or a climate with its
+ * roles, a key channel a button, a measured value a sensor (the kinds below). Then the candidates are
+ * linked: candidates sharing a group address that is the sending address (the first one, connection
+ * kind <code>send</code>) of an object taking a role in each are one function ({@link #link(List)}).
+ * A secondary address links nothing: a central address received by every channel does not merge
+ * them, nor does the status address a toggle key listens to. The key "Taste 1" sending on the
+ * address the actuator's channel receives as its first and the channel are one function; so are two
+ * actuators switched on one address. The receiving side decides the kind, its candidate brings the
+ * roles (its state, position and so on from its own channel); a key whose sending addresses no
+ * candidate receives as its first stays a button (a central address, an address only the controller
+ * reacts to). Each function is named after the group address of its main role, the same text in
+ * every application language ("KanalA", "Raumtemperatur Wohnzimmer EG Tür"). Scenes are not linked.
+ * </p>
+ *
+ * <p>
+ * <b>Unused functions.</b> A channel none of whose objects connected to a group address gives a
+ * candidate is classified again with all its objects in effect, connected or not: a candidate whose
+ * main object has no group address is an unused function, named "&lt;device&gt;: &lt;channel&gt;"
+ * ("AKK-04 16.03: Channel D"), with its device, channel and kind but no role bound. "Unused" is no
+ * attribute of its own: it follows from the content ({@link #unused(TLObject)}, the derived attribute
+ * <code>Function#unused</code>). The runtime image leaves unused functions out without refusing them
+ * and its summary counts them; they are a hint where the installation is incomplete. A channel
+ * whose connected objects give a candidate gives no unused one besides (the actuator channel only
+ * switched, whose dimming objects are connected to nothing, is a light).
+ * </p>
+ *
+ * <p>
  * <b>Channels.</b> A channel of a device is a channel of its application program, where the program
  * has several numbered ones; otherwise (a program with one generic channel, or with its objects
  * independent of channels, as most programs written before ETS 5) the communication objects sharing
- * a name, the way ETS lists them ("Kanal A", "Taste 1"). Only objects of the device connected to a
- * group address with a datapoint type count, each with its sending address (the first one).
+ * a name, the way ETS lists them ("Kanal A", "Taste 1"). An object counts with its sending address
+ * (the first one) and a datapoint type: the one of the address in effect, for an object connected
+ * to none its own (of the project, its placement or the object) or the main type its size decides.
  * </p>
  *
  * <p>
@@ -92,17 +123,18 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * of 1 bit named "Status-LED 1", stay without a function.)</li>
  * <li><code>button</code>: an output of a truth value in a channel named for a key
  * (Taste/Taster/Wippe/button/rocker/push) is the press. A function is built from the receiving
- * side (haumacher/ehome #92): a key channel gives no button where any address one of its objects
- * sends on is a command role ({@link FunctionKinds#COMMAND_ROLES}) of a function of another device,
- * one the project has or one the same run proposes, added or not (the key is then an operating
- * element of that function, "Taste 1" switching the light "Kanal A"; a dismissed light does not
- * turn its key into a button); the buttons are therefore decided after all
- * other functions of the run. A key sending on an address only central objects without a function
- * or other keys' status LEDs receive stays a button: nothing else represents it on the
- * controller. A button the project has already stays as well; {@link #redundancy(TLObject)} says
- * why it is redundant.</li>
+ * side (haumacher/ehome #92): a key linked with an actuator's channel is an operating element of
+ * that function ("Taste 1" switching the light "KanalA"; a dismissed light does not turn its key
+ * into a button), and a key channel gives no button either where any address one of its objects
+ * sends on is a command role ({@link FunctionKinds#COMMAND_ROLES}) of a function of another device
+ * the project has (one the user made); the buttons are therefore decided after all other functions
+ * of the run. A key sending on an address only central objects without a function or other keys'
+ * status LEDs receive stays a button: nothing else represents it on the controller. A button the
+ * project has already stays as well; {@link #redundancy(TLObject)} says why it is redundant.</li>
  * <li><code>sensor</code>, one per object: an output of a measured value (DPT 9.x, 14.x) or of an
- * alarm, open/closed, occupancy or window contact (1.005, 1.009, 1.018, 1.019).</li>
+ * alarm, open/closed, occupancy or window contact (1.005, 1.009, 1.018, 1.019). Where the channel has
+ * several, each is keyed by its object (a dismissal of the whole channel, as earlier proposals made
+ * it, still holds).</li>
  * </ol>
  * <p>
  * Besides the kind of its channel, a scene input of a channel (DPT 17.001 scene number or 18.001
@@ -114,21 +146,24 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * that part holds another object's scene input as well. The number is the one its value's text
  * shows (an enumeration such as "1" ... "64" for the codes 0 ... 63) or its value (a numeric
  * parameter counting from 1, or from 0 up to 63 as the datapoint does). A scene input without such
- * a parameter gives no function: the scene number is mandatory in the runtime image. Scene
- * functions are named after the channel and the number ("Channel A: scene 1").
+ * a parameter gives no function: the scene number is mandatory in the runtime image, and so is its
+ * group address. Scene functions are named after the channel and the number ("Channel A: scene 1"),
+ * in the languages of the device's program.
  * </p>
  *
  * <p>
  * An input is an object receiving from its address (write flag, see
  * {@link DatapointSettings#receives(TLObject)}) whose datapoint is writable; an output transmits on
- * it. Where several objects fit a role, the one on the lowest group address takes it. Objects
- * fitting no role (locks, logic, scenes, status LEDs of the device itself) are ignored. A channel
- * whose objects fit no kind gets no function.
+ * it. An object connected to no address is an input where its write flag is set and its transmit
+ * flag is not, an output where its transmit flag is set. Where several objects fit a role, the one
+ * on the lowest group address takes it, one without an address after all others. Objects fitting no
+ * role (locks, logic, scenes, status LEDs of the device itself) are ignored and link nothing. A
+ * channel whose objects fit no kind gets no function.
  * </p>
  *
  * <p>
- * Each function is named after its channel and gets an identifier derived from the name and a room
- * (haumacher/ehome #93): the location of most of its senders, the devices with an object sending
+ * Each function gets an identifier derived from its name and a room (haumacher/ehome #93): the
+ * location of most of its senders, the devices with an object sending
  * (transmit flag, on its sending address) on the address of the function's main role or of one of
  * its command roles ({@link FunctionKinds#COMMAND_ROLES}); each device counts once, at its location,
  * one without a location not at all. Status addresses, which the actuator sends itself, do not
@@ -136,18 +171,27 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * its actuator; a sensor and a button are where their device is. Between locations with as many
  * senders, the one first in the order of the building structure (depth-first, haumacher/ehome #71)
  * wins. Without a placed sender, the function is in the location of its device, unless that is a
- * distribution board (then it has no room). The name has a text for each application language the device's program has
- * texts in (<code>Program#languages</code>, haumacher/ehome #51): a program written in German only
- * gives a German name, not the German text standing in for English. The kind is decided on the texts
- * of all these languages, so it does not depend on the language of the user.
+ * distribution board (then it has no room); an unused function has no senders, so it is there. The
+ * name of a scene or an unused function has a text for each application language the device's
+ * program has texts in (<code>Program#languages</code>, haumacher/ehome #51): a program written in
+ * German only gives a German name, not the German text standing in for English. The kind is decided
+ * on the texts of all these languages, so it does not depend on the language of the user.
  * </p>
  *
  * <p>
- * The proposal never changes a function the project has: it adds a function only for a channel no
- * function of the project was proposed for, and none whose main role an existing function of the
- * same kind already binds (a scene: the same address with the same scene number), nor a second one
- * for a main role another proposal of the same run binds (two devices switched on one address).
- * Running it again therefore adds nothing. A proposed function the user
+ * The proposal adds a function only for a channel no function of the project was proposed for, and
+ * none whose main role an existing function of the same kind already binds (a scene: the same
+ * address with the same scene number), nor a second one for a main role another proposal of the same
+ * run binds. The only change it makes to a function the project has (haumacher/ehome #98): the
+ * existing function of a proposal (of the same kind, proposed for one of its linked channels or
+ * binding its main role) that is unused gets the roles of the proposal it has not bound, once its
+ * channel is linked; and one whose name is still a generated one is renamed after the group address
+ * of its main role. A name is generated where it reads, in every application language, as the
+ * unused function's name the proposal gives the channel now, or as the channel's name earlier
+ * proposals gave it ("Kanal H"); a name the user edited stays, as do the roles a function binds (an
+ * unused function renamed gets the identifier of its new name as well, a function in use keeps its
+ * identifier, which the controller knows). Running it again therefore adds and changes nothing. A
+ * proposed function the user
  * deletes is remembered as dismissed for its channel and kind (<code>Project#dismissedProposals</code>,
  * #49, {@link #dismiss(TLObject)}), and the proposal does not bring it back until the dismissal is
  * deleted.
@@ -237,13 +281,19 @@ public final class FunctionProposal {
 	private static final Pattern NUMBER = Pattern.compile("^\\D*?(\\d{1,2})\\D*$");
 
 	/**
-	 * A communication object of a channel with the group address it sends on.
+	 * A communication object of a channel with the group address it sends on (its first address),
+	 * <code>null</code> for an object connected to no address.
 	 */
 	private record Obj(Interface placed, TLObject connection, TLObject address, Dpt dpt, String type, boolean input,
 			boolean output, String text, Map<String, Resources> languages) {
 
 		int addressValue() {
-			return address.tValueByName("address") instanceof GA ga ? ga.getValue() : Integer.MAX_VALUE;
+			return address != null && address.tValueByName("address") instanceof GA ga ? ga.getValue()
+				: Integer.MAX_VALUE;
+		}
+
+		int number() {
+			return placed.getPort().getIndex();
 		}
 
 		boolean is(int main, int sub) {
@@ -302,9 +352,20 @@ public final class FunctionProposal {
 	 * @param sends
 	 *        For a button of a key channel, the group addresses the channel's objects send on (each
 	 *        object's sending address); empty for another function.
+	 * @param members
+	 *        For a function of KNX device channels, the candidates linked into it (haumacher/ehome
+	 *        #98), the one giving its kind first; empty for another function.
 	 */
 	public record Proposal(String kind, Map<String, String> label, Map<String, TLObject> roles, TLObject device,
-			String channel, Integer scene, List<TLObject> sends) {
+			String channel, Integer scene, List<TLObject> sends, List<Member> members) {
+
+		/**
+		 * A proposal of no KNX device channel: a Zigbee datapoint, a virtual device.
+		 */
+		public Proposal(String kind, Map<String, String> label, Map<String, TLObject> roles, TLObject device,
+				String channel, Integer scene, List<TLObject> sends) {
+			this(kind, label, roles, device, channel, scene, sends, List.of());
+		}
 
 		/**
 		 * The name as multilingual text.
@@ -312,6 +373,34 @@ public final class FunctionProposal {
 		public ResKey name() {
 			return FunctionProposal.text(label);
 		}
+
+		/**
+		 * Whether the proposed function is unused: its main role has no datapoint (a candidate of a
+		 * channel whose main object has no group address, haumacher/ehome #98).
+		 */
+		public boolean unused() {
+			return roles.get(FunctionKinds.mainRole(kind)) == null;
+		}
+	}
+
+	/**
+	 * A candidate of a device channel linked into a proposed function (haumacher/ehome #98).
+	 *
+	 * @param device
+	 *        The KNX device (<code>ehome.physical:Device</code>).
+	 * @param channel
+	 *        The key of the channel (<code>Function#channel</code>).
+	 * @param aliases
+	 *        Further keys a dismissal of the channel may carry: the key of the whole channel for a
+	 *        sensor of a channel with several measured values, which earlier proposals shared.
+	 * @param generated
+	 *        The names the proposal gives or gave a function of the candidate: the name of an unused
+	 *        function ("AKK-04 16.03: Channel D") and the name of its channel, as proposals before
+	 *        haumacher/ehome #98 named it ("Kanal H"); a function with one of them is renamed after its
+	 *        group address.
+	 */
+	public record Member(TLObject device, String channel, List<String> aliases, List<Map<String, String>> generated) {
+		// A record.
 	}
 
 	private FunctionProposal() {
@@ -319,31 +408,58 @@ public final class FunctionProposal {
 	}
 
 	/**
-	 * Adds the proposed functions the project lacks; must run in a transaction.
+	 * Adds the proposed functions the project lacks, and updates the existing ones of the proposals
+	 * ({@link #run(TLObject)}); must run in a transaction.
 	 *
 	 * <p>
-	 * The buttons of key channels are decided last, after all other functions of the run
-	 * (haumacher/ehome #92): a key channel gives no button where one of the group addresses its
-	 * objects send on is a command role ({@link FunctionKinds#COMMAND_ROLES}) of a function of
-	 * another device, one the project has or one this run proposes (added or not: a dismissed
-	 * light does not turn its key into a button); the key is then an operating element of that
-	 * function.
+	 * The buttons are decided last, after all other functions of the run (haumacher/ehome #92): a
+	 * button gives no function where one of the group addresses its keys send on is a command role
+	 * ({@link FunctionKinds#COMMAND_ROLES}) of a function of another device, one the project has or
+	 * one this run proposes (added or not: a dismissed light does not turn its key into a button);
+	 * the key is then an operating element of that function. A key linked with an actuator's channel
+	 * is part of the channel's function anyway (haumacher/ehome #98).
 	 * </p>
 	 *
 	 * @return The functions added.
+	 * @see #run(TLObject)
 	 */
 	public static List<TLObject> apply(TLObject project) {
+		return run(project).added();
+	}
+
+	/**
+	 * What a run of the proposal did.
+	 *
+	 * @param added
+	 *        The functions added.
+	 * @param updated
+	 *        The existing functions the run changed: an unused function whose channel got its group
+	 *        address, whose roles it filled, or a function with a generated name it renamed after the
+	 *        group address of its main role (haumacher/ehome #98).
+	 */
+	public record Run(List<TLObject> added, List<TLObject> updated) {
+		// A record.
+	}
+
+	/**
+	 * Adds the proposed functions the project lacks and updates the existing functions of the
+	 * proposed ones (see the class comment); must run in a transaction.
+	 */
+	public static Run run(TLObject project) {
 		List<TLObject> existing = functions(project);
 		Decision decision = new Decision();
 		for (TLObject function : existing) {
 			String identity = identity(function.tValueByName("device"), function.tValueByName("channel"));
+			String kind = kind(function);
 			if (identity != null) {
 				decision._proposedChannels.add(identity);
+				decision._byChannel.putIfAbsent(kind + " " + identity, function);
 			}
-			String kind = kind(function);
 			String main = FunctionKinds.mainRole(kind);
 			if (main != null && function.tValueByName(main) instanceof TLObject address) {
-				decision._boundMainRoles.add(mainKey(kind, address, function.tValueByName("scene")));
+				String key = mainKey(kind, address, function.tValueByName("scene"));
+				decision._boundMainRoles.add(key);
+				decision._byMainRole.putIfAbsent(key, function);
 			}
 			for (String role : FunctionKinds.roles(kind)) {
 				if (function.tValueByName(role) instanceof TLObject datapoint) {
@@ -369,10 +485,19 @@ public final class FunctionProposal {
 
 		List<Proposal> proposals = propose(project);
 		boolean[] accepted = new boolean[proposals.size()];
+		Set<TLObject> updated = new LinkedHashSet<>();
 		for (int n = 0; n < proposals.size(); n++) {
 			Proposal proposal = proposals.get(n);
 			if (proposal.sends().isEmpty()) {
-				accepted[n] = decision.accept(proposal);
+				TLObject known = decision.existing(proposal);
+				if (known != null) {
+					if (update(known, proposal, decision._identifiers)) {
+						updated.add(known);
+					}
+					decision.bound(proposal);
+				} else {
+					accepted[n] = decision.accept(proposal);
+				}
 				// Added or not (dismissed, bound already): the key operates the actuator's channel.
 				for (String role : FunctionKinds.commandRoles(proposal.kind())) {
 					TLObject datapoint = proposal.roles().get(role);
@@ -384,7 +509,16 @@ public final class FunctionProposal {
 		}
 		for (int n = 0; n < proposals.size(); n++) {
 			Proposal proposal = proposals.get(n);
-			if (!proposal.sends().isEmpty() && !decision.commandedElsewhere(proposal) && decision.accept(proposal)) {
+			if (proposal.sends().isEmpty()) {
+				continue;
+			}
+			TLObject known = decision.existing(proposal);
+			if (known != null) {
+				if (update(known, proposal, decision._identifiers)) {
+					updated.add(known);
+				}
+				decision.bound(proposal);
+			} else if (!decision.commandedElsewhere(proposal) && decision.accept(proposal)) {
 				accepted[n] = true;
 			}
 		}
@@ -404,7 +538,100 @@ public final class FunctionProposal {
 			all.addAll(added);
 			project.tUpdateByName("functions", all);
 		}
-		return added;
+		return new Run(added, new ArrayList<>(updated));
+	}
+
+	/**
+	 * Updates an existing function of a proposal (haumacher/ehome #98): an unused function gets the
+	 * roles of the proposal it has not bound, once its channel has its group address; a function
+	 * whose name is still a generated one ({@link Member#generated()}, compared in every application
+	 * language) is renamed after the group address of the proposal's main role, an unused one gets
+	 * the identifier of the new name as well (the controller never had it). A name the user edited
+	 * and the roles the function binds stay.
+	 *
+	 * @return Whether the function was changed.
+	 */
+	private static boolean update(TLObject function, Proposal proposal, Set<String> identifiers) {
+		if (proposal.unused() || proposal.members().isEmpty()) {
+			return false;
+		}
+		String kind = kind(function);
+		if (!proposal.kind().equals(kind)) {
+			return false;
+		}
+		boolean changed = false;
+		boolean wasUnused = unused(function);
+		if (wasUnused) {
+			for (Map.Entry<String, TLObject> role : proposal.roles().entrySet()) {
+				if (function.tValueByName(role.getKey()) == null) {
+					function.tUpdateByName(role.getKey(), role.getValue());
+					changed = true;
+				}
+			}
+		}
+		ResKey name = proposal.name();
+		Object current = function.tValueByName("name");
+		if (name != null && !sameText(current, name) && generatedName(function, proposal)) {
+			function.tUpdateByName("name", name);
+			if (wasUnused) {
+				Object identifier = function.tValueByName("identifier");
+				if (identifier != null) {
+					identifiers.remove(identifier.toString());
+				}
+				function.tUpdateByName("identifier",
+					uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
+			}
+			changed = true;
+		}
+		return changed;
+	}
+
+	/**
+	 * Whether the name of the function is one the proposal generates or generated for the member
+	 * of the proposal the function was proposed for (its device and channel), compared in every
+	 * application language.
+	 */
+	private static boolean generatedName(TLObject function, Proposal proposal) {
+		Object device = function.tValueByName("device");
+		Object channel = function.tValueByName("channel");
+		for (Member member : proposal.members()) {
+			if (member.device() == device && member.channel().equals(channel)) {
+				for (Map<String, String> generated : member.generated()) {
+					if (!generated.isEmpty() && sameText(function.tValueByName("name"), text(generated))) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Whether the given name reads as the given text in every application language.
+	 */
+	private static boolean sameText(Object name, ResKey text) {
+		if (!(name instanceof ResKey key)) {
+			return false;
+		}
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			Resources resources = Resources.getInstance(locale);
+			if (!String.valueOf(resources.getString(key, null)).equals(String.valueOf(resources.getString(text, null)))) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Whether the given function is unused (haumacher/ehome #98): one the proposal made (it has a
+	 * channel: of a KNX device, a Zigbee datapoint or a virtual device) whose main role has no
+	 * datapoint, as the proposal makes it for a channel whose main object has no group address. The
+	 * runtime image leaves it out. A function the user made without its main role is no unused one
+	 * but incomplete: the controller refuses it, and says why.
+	 */
+	public static boolean unused(TLObject function) {
+		String main = FunctionKinds.mainRole(kind(function));
+		return main != null && function.tValueByName("channel") != null && function.tValueByName(main) == null;
 	}
 
 	/**
@@ -417,6 +644,32 @@ public final class FunctionProposal {
 
 		final Set<String> _boundMainRoles = new HashSet<>();
 
+		/** The functions of the project by their kind and channel ({@link #identity(Object, Object)}). */
+		final Map<String, TLObject> _byChannel = new HashMap<>();
+
+		/** The functions of the project by what they bind with their main role ({@link #mainKey}). */
+		final Map<String, TLObject> _byMainRole = new HashMap<>();
+
+		/**
+		 * The function of the project the given proposal of KNX device channels stands for: the one
+		 * of the same kind proposed for one of the linked channels, else one of the same kind binding
+		 * the proposal's main role (a function of an earlier run for another channel of the
+		 * function); <code>null</code> for none.
+		 */
+		TLObject existing(Proposal proposal) {
+			for (Member member : proposal.members()) {
+				TLObject function = _byChannel.get(proposal.kind() + " " + identity(member.device(), member.channel()));
+				if (function != null) {
+					return function;
+				}
+			}
+			if (proposal.members().isEmpty() || proposal.unused()) {
+				return null;
+			}
+			TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
+			return _byMainRole.get(mainKey(proposal.kind(), main, proposal.scene()));
+		}
+
 		final Set<TLObject> _usedDatapoints = new HashSet<>();
 
 		final Set<String> _identifiers = new HashSet<>();
@@ -428,6 +681,16 @@ public final class FunctionProposal {
 		 * (<code>null</code> for a function without a device).
 		 */
 		final Map<TLObject, List<Object>> _commanded = new HashMap<>();
+
+		/**
+		 * Records what the proposal of an existing function binds with its main role.
+		 */
+		void bound(Proposal proposal) {
+			if (!proposal.unused()) {
+				_boundMainRoles.add(mainKey(proposal.kind(), proposal.roles().get(FunctionKinds.mainRole(proposal.kind())),
+					proposal.scene()));
+			}
+		}
 
 		void commands(TLObject datapoint, Object device) {
 			_commanded.computeIfAbsent(datapoint, d -> new ArrayList<>()).add(device);
@@ -459,6 +722,17 @@ public final class FunctionProposal {
 			}
 			if (_dismissed.contains(proposal.kind() + " " + identity)) {
 				return false;
+			}
+			for (Member member : proposal.members()) {
+				for (String alias : member.aliases()) {
+					if (_dismissed.contains(proposal.kind() + " " + identity(member.device(), alias))) {
+						return false;
+					}
+				}
+			}
+			if (proposal.unused()) {
+				// Nothing bound: one function for the channel.
+				return _proposedChannels.add(identity);
 			}
 			TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
 			if (zigbee(proposal.channel()) || proposal.channel().startsWith(BLOCK_CHANNEL)) {
@@ -723,16 +997,35 @@ public final class FunctionProposal {
 	}
 
 	/**
-	 * The functions the channels of the project's devices suggest, by device and channel, followed by
-	 * the functions its bound Zigbee datapoints suggest, by device and endpoint.
+	 * The functions the channels of the project's devices suggest: their candidates linked by their
+	 * sending group addresses ({@link #link(List)}, haumacher/ehome #98), in the order of their first
+	 * candidate by device and channel, then the unused functions of the channels whose connected
+	 * objects gave no candidate; followed by the functions its bound Zigbee datapoints suggest, by
+	 * device and endpoint, and those of its virtual devices.
 	 */
 	public static List<Proposal> propose(TLObject project) {
-		List<Proposal> result = new ArrayList<>();
+		List<Proposal> candidates = new ArrayList<>();
+		List<Proposal> unused = new ArrayList<>();
 		for (TLObject device : devices(project)) {
+			Map<String, Channel> all = allChannels(device);
+			Set<String> classified = new HashSet<>();
 			for (Channel channel : channels(device)) {
-				classify(device, channel, result);
+				int before = candidates.size();
+				classify(device, channel, all.get(channel.key()), candidates, true);
+				for (Proposal candidate : candidates.subList(before, candidates.size())) {
+					if (candidate.scene() == null) {
+						classified.add(channel.key());
+					}
+				}
+			}
+			for (Channel channel : all.values()) {
+				if (!classified.contains(channel.key())) {
+					unused(device, channel, unused);
+				}
 			}
 		}
+		List<Proposal> result = link(candidates);
+		result.addAll(unused);
 		Set<TLObject> datapoints = new HashSet<>(ApplicationDatapoints.of(project));
 		for (TLObject device : ZigbeeImport.devices(project)) {
 			zigbee(device, datapoints, result);
@@ -1007,6 +1300,116 @@ public final class FunctionProposal {
 		return new ArrayList<>(channels.values());
 	}
 
+	/**
+	 * The channels of the device with all their objects in effect in its configuration, connected
+	 * to a group address or not (haumacher/ehome #98), by their keys; an object whose connector is
+	 * inactive, or whose datapoint type neither its address nor the object names nor its size
+	 * decides, is left out. An object without an address is an input where its write flag is set and
+	 * its transmit flag is not, an output where its transmit flag is set.
+	 */
+	private static Map<String, Channel> allChannels(TLObject device) {
+		Map<String, Channel> channels = new LinkedHashMap<>();
+		if (DeviceConfiguration.program(device) == null) {
+			return channels;
+		}
+		Map<Object, TLObject> connectors = new HashMap<>();
+		for (TLObject connector : list(device, "connectors")) {
+			if (connector.tValueByName("port") instanceof Interface placed) {
+				connectors.putIfAbsent(placed.getPort(), connector);
+			}
+		}
+		List<Interface> objects = new ArrayList<>(new DeviceConfiguration(device).getActiveInterfaces().values());
+		objects.sort(Comparator.comparingInt(placed -> placed.getPort().getIndex()));
+		for (Interface placed : objects) {
+			TLObject connector = connectors.get(placed.getPort());
+			if (connector != null && Boolean.FALSE.equals(connector.tValueByName("active"))) {
+				continue;
+			}
+			TLObject connection = connector == null ? null : sendingConnection(connector);
+			TLObject address = connection != null && connection.tValueByName("target") instanceof TLObject target
+				&& DatapointSettings.communicates(connection) ? target : null;
+			Dpt dpt = address != null ? GroupAddressTypes.effective(address) : objectType(connector, placed);
+			if (dpt == null) {
+				continue;
+			}
+			String type = ValueTypes.valueType(dpt.main(), dpt.isMainType() ? 0 : dpt.sub());
+			if (type == null) {
+				continue;
+			}
+			boolean input;
+			boolean output;
+			if (address != null) {
+				input = DatapointSettings.receives(connection) && DatapointSettings.writable(address);
+				output = DatapointSettings.transmits(connection);
+			} else {
+				boolean communicates = DatapointSettings.enabled("communication", connector, placed);
+				boolean transmits = DatapointSettings.enabled("transmission", connector, placed);
+				input = communicates && DatapointSettings.enabled("canWrite", connector, placed) && !transmits;
+				output = communicates && transmits;
+			}
+			Map<String, Resources> languages = languages(placed);
+			Map<String, String> objectName = texts(languages, r -> GroupAddressConnections.objectName(placed, r));
+			String key = channelKey(placed);
+			Map<String, String> label = channelLabel(placed, languages, objectName);
+			String text = (String.join(" ", objectName.values()) + " "
+				+ String.join(" ", texts(languages, r -> connection != null
+					? GroupAddressConnections.function(connection, r) : objectFunction(connector, placed, r)).values())
+				+ (address == null ? "" : " " + address.tValueByName("name"))).toLowerCase(Locale.ROOT);
+			channels.computeIfAbsent(key, k -> new Channel(k, label, new ArrayList<>()))
+				.objects().add(new Obj(placed, address == null ? null : connection, address, dpt, type, input, output, text,
+					languages));
+		}
+		return channels;
+	}
+
+	/**
+	 * The datapoint type of an object connected to no group address: the one of its connector, its
+	 * placement or the object, else the main type its size decides (1 bit: DPT 1, 4 bits: DPT 3);
+	 * <code>null</code> for none.
+	 */
+	private static Dpt objectType(TLObject connector, Interface placed) {
+		for (TLObject holder : new TLObject[] { connector, placed, placed.getPort() }) {
+			List<TLObject> types = holder == null ? List.of() : list(holder, "datapointTypes");
+			Dpt dpt = types.isEmpty() ? null : GroupAddressTypes.dpt(types.get(0));
+			if (dpt != null) {
+				return dpt;
+			}
+		}
+		Integer size = placed.getSize();
+		switch (size != null ? size.intValue() : placed.getPort().getSize()) {
+			case 1:
+				return Dpt.mainType(1);
+			case 4:
+				return Dpt.mainType(3);
+			default:
+				return null;
+		}
+	}
+
+	/**
+	 * The key of the channel of a placed object: its program channel, where the program has several,
+	 * else the name of the object in the fallback language.
+	 */
+	private static String channelKey(Interface placed) {
+		TLObject programChannel = programChannel(placed);
+		if (programChannel != null) {
+			return "channel:" + programChannel.tValueByName("extId");
+		}
+		// Keyed by a text that does not depend on the user's language.
+		return "object:" + GroupAddressConnections.objectName(placed,
+			Resources.getInstance(ResourcesModule.getInstance().getFallbackLocale()));
+	}
+
+	/**
+	 * The name of the channel of a placed object in its program's languages: its program channel's,
+	 * else the name of the object.
+	 */
+	private static Map<String, String> channelLabel(Interface placed, Map<String, Resources> languages,
+			Map<String, String> objectName) {
+		TLObject programChannel = programChannel(placed);
+		return programChannel != null ? texts(languages, r -> channelLabel(programChannel, r)) : objectName;
+	}
+
 	private static TLObject sendingConnection(TLObject connector) {
 		TLObject first = null;
 		for (TLObject connection : list(connector, "connections")) {
@@ -1088,11 +1491,25 @@ public final class FunctionProposal {
 		return text;
 	}
 
-	private static void classify(TLObject device, Channel channel, List<Proposal> result) {
+	/**
+	 * Adds the candidates of the channel's objects (haumacher/ehome #98): the kind and roles of the
+	 * channel (see the class comment), a sensor for each measured value, and (with
+	 * <code>withScenes</code>) a scene function for each scene number of its scene input. Where
+	 * several objects fit a role, the one on the lowest group address takes it, an object without
+	 * one after all others, by its number.
+	 *
+	 * @param all
+	 *        The channel with all its objects in effect, connected to a group address or not;
+	 *        <code>null</code> for none known.
+	 */
+	private static void classify(TLObject device, Channel channel, Channel all, List<Proposal> result,
+			boolean withScenes) {
 		List<Obj> objects = new ArrayList<>(channel.objects());
-		objects.sort(Comparator.comparingInt(Obj::addressValue));
+		objects.sort(Comparator.comparingInt(Obj::addressValue).thenComparingInt(Obj::number));
 
-		scenes(device, channel, objects, result);
+		if (withScenes) {
+			scenes(device, channel, objects, result);
+		}
 
 		Map<String, TLObject> roles = new LinkedHashMap<>();
 		Obj move = first(objects, o -> o.input() && o.is(1, 8));
@@ -1103,7 +1520,7 @@ public final class FunctionProposal {
 			put(roles, "positionCommand", first(objects, o -> o.input() && o.is(5, 1) && !o.named(SLAT)));
 			put(roles, "slat", first(objects, o -> o.output() && o.is(5, 1) && o.named(SLAT)));
 			put(roles, "slatCommand", first(objects, o -> o.input() && o.is(5, 1) && o.named(SLAT)));
-			result.add(new Proposal("blind", channel.label(), roles, device, channel.key(), null, List.of()));
+			result.add(candidate("blind", channel.label(), roles, device, channel.key(), List.of(), List.of()));
 			return;
 		}
 
@@ -1119,7 +1536,7 @@ public final class FunctionProposal {
 			put(roles, "command", command);
 			put(roles, "state", state);
 			put(roles, "step", first(objects, o -> o.input() && o.is(3, 7)));
-			result.add(new Proposal("dimmer", channel.label(), roles, device, channel.key(), null, List.of()));
+			result.add(candidate("dimmer", channel.label(), roles, device, channel.key(), List.of(), List.of()));
 			return;
 		}
 
@@ -1136,7 +1553,7 @@ public final class FunctionProposal {
 			put(roles, "mode", mode);
 			put(roles, "modeCommand", modeCommand);
 			put(roles, "heating", first(objects, o -> o.output() && !o.input() && o.bool() && o.named(HEATING)));
-			result.add(new Proposal("climate", channel.label(), roles, device, channel.key(), null, List.of()));
+			result.add(candidate("climate", channel.label(), roles, device, channel.key(), List.of(), List.of()));
 			return;
 		}
 
@@ -1147,7 +1564,7 @@ public final class FunctionProposal {
 			roles.put("command", command.address());
 			put(roles, "state", state);
 			String kind = channel.named(SOCKET) || command.named(SOCKET) ? "switch" : "light";
-			result.add(new Proposal(kind, channel.label(), roles, device, channel.key(), null, List.of()));
+			result.add(candidate(kind, channel.label(), roles, device, channel.key(), List.of(), List.of()));
 			return;
 		}
 
@@ -1160,17 +1577,227 @@ public final class FunctionProposal {
 					sends.add(obj.address());
 				}
 			}
-			result.add(new Proposal("button", channel.label(), roles, device, channel.key(), null, sends));
+			result.add(candidate("button", channel.label(), roles, device, channel.key(), List.of(), sends));
 			return;
 		}
 
 		List<Obj> values = objects.stream().filter(o -> o.output() && !o.input() && measured(o)).toList();
+		long measured = all == null ? values.size()
+			: all.objects().stream().filter(o -> o.output() && !o.input() && measured(o)).count();
 		for (Obj value : values) {
 			Map<String, String> label = values.size() == 1 ? channel.label()
 				: texts(value.languages(), r -> channel.label().getOrDefault(language(r), "") + " "
-					+ GroupAddressConnections.function(value.connection(), r));
-			result.add(new Proposal("sensor", label, Map.of("value", value.address()), device, channel.key(), null, List.of()));
+					+ function(value, r));
+			Map<String, TLObject> sensor = new LinkedHashMap<>();
+			put(sensor, "value", value);
+			// Each value of a channel with several is a function of its own, also before it is linked.
+			String key = measured > 1 ? channel.key() + " value " + value.number() : channel.key();
+			result.add(candidate("sensor", label, sensor, device, key,
+				measured > 1 ? List.of(channel.key()) : List.of(), List.of()));
 		}
+	}
+
+	/**
+	 * The function text of the object: its connection's, else the one of its placement or its
+	 * object.
+	 */
+	private static String function(Obj obj, Resources resources) {
+		if (obj.connection() != null) {
+			return GroupAddressConnections.function(obj.connection(), resources);
+		}
+		return objectFunction(null, obj.placed(), resources);
+	}
+
+	/**
+	 * The function text of an object: the one of its connector (the project's own), else the one of
+	 * its placement, else the object's; <code>null</code> for none.
+	 */
+	private static String objectFunction(TLObject connector, Interface placed, Resources resources) {
+		Object own = connector == null ? null : connector.tValueByName("function");
+		if (own != null && !own.toString().isEmpty()) {
+			return own.toString();
+		}
+		String result = placed.getFunction() == null ? null : resources.getString(placed.getFunction(), null);
+		if (result == null && placed.getPort().getFunction() != null) {
+			result = resources.getString(placed.getPort().getFunction(), null);
+		}
+		return result;
+	}
+
+	/**
+	 * A candidate of a device channel: a proposal of its own, before it is linked with others
+	 * ({@link #link(List)}).
+	 *
+	 * @param label
+	 *        The name of the channel (or of the channel and the object, for a value of several),
+	 *        which proposals before haumacher/ehome #98 gave the function.
+	 */
+	private static Proposal candidate(String kind, Map<String, String> label, Map<String, TLObject> roles,
+			TLObject device, String key, List<String> aliases, List<TLObject> sends) {
+		Member member = new Member(device, key, aliases, List.of(unusedLabel(device, label), label));
+		return new Proposal(kind, label, roles, device, key, null, sends, List.of(member));
+	}
+
+	/**
+	 * Adds the unused functions of a channel no candidate with a group address came from
+	 * (haumacher/ehome #98): the candidates of all its objects whose main object has no group
+	 * address, without roles, named after the device and the channel.
+	 */
+	private static void unused(TLObject device, Channel channel, List<Proposal> result) {
+		List<Proposal> found = new ArrayList<>();
+		classify(device, channel, channel, found, false);
+		for (Proposal candidate : found) {
+			// A main object with an address the channel's connected objects did not make a function of
+			// gives no function either.
+			if (candidate.unused()) {
+				result.add(new Proposal(candidate.kind(), unusedLabel(device, candidate.label()), Map.of(), device,
+					candidate.channel(), null, List.of(), candidate.members()));
+			}
+		}
+	}
+
+	/**
+	 * The name of an unused function in each of the label's languages: the device's and the
+	 * channel's ("AKK-04 16.03: Channel D").
+	 */
+	private static Map<String, String> unusedLabel(TLObject device, Map<String, String> label) {
+		Map<String, String> result = new TreeMap<>();
+		for (Map.Entry<String, String> entry : label.entrySet()) {
+			Resources resources = Resources.getInstance(new Locale(entry.getKey()));
+			result.put(entry.getKey(), RuntimeImage.truncate(resources.getString(
+				I18NConstants.UNUSED_FUNCTION__DEVICE_CHANNEL.fill(deviceName(device, resources), entry.getValue())),
+				ImageValidator.MAX_NAME));
+		}
+		return result;
+	}
+
+	/**
+	 * The name of the device in the language of the resources: the one the user gave it, else the
+	 * name of its product, else its order number, else its individual address.
+	 */
+	private static String deviceName(TLObject device, Resources resources) {
+		Object title = device.tValueByName("title");
+		if (title != null && !title.toString().isBlank()) {
+			return title.toString().trim();
+		}
+		if (device.tValueByName("type") instanceof TLObject type) {
+			String name = type.tValueByName("name") instanceof ResKey key ? resources.getString(key, null) : null;
+			if (name != null && !name.isBlank()) {
+				return name.trim();
+			}
+			Object order = type.tValueByName("orderNumber");
+			if (order != null && !order.toString().isBlank()) {
+				return order.toString().trim();
+			}
+		}
+		return GroupAddressConnections.addressText(device);
+	}
+
+	/**
+	 * Links the candidates of the device channels into functions (haumacher/ehome #98): candidates
+	 * sharing a group address that is the sending (first) address of an object taking a role in
+	 * each (for a key the addresses its objects send on) are one function. A secondary address of
+	 * an object (a central address, the status a toggle key listens to) links nothing; neither do
+	 * objects taking no role (a lock, a logic input). The candidate of the receiving side (a light,
+	 * a switch, a dimmer, a blind, a climate) decides the kind, its roles are the function's (filled
+	 * by those of further candidates of the kind: two actuators on one address), and the function
+	 * is named after the group address of its main role, in every application language. A group of
+	 * keys only is a button, a sensor a sensor. Scenes are not linked. The functions are in the order
+	 * of their first candidate.
+	 */
+	private static List<Proposal> link(List<Proposal> candidates) {
+		int[] parent = new int[candidates.size()];
+		Map<TLObject, Integer> first = new HashMap<>();
+		for (int n = 0; n < candidates.size(); n++) {
+			parent[n] = n;
+			Proposal candidate = candidates.get(n);
+			if (candidate.scene() != null) {
+				continue;
+			}
+			List<TLObject> addresses = "button".equals(candidate.kind()) ? candidate.sends()
+				: new ArrayList<>(candidate.roles().values());
+			for (TLObject address : addresses) {
+				if (address == null) {
+					continue;
+				}
+				Integer other = first.putIfAbsent(address, Integer.valueOf(n));
+				if (other != null) {
+					int a = root(parent, n);
+					int b = root(parent, other.intValue());
+					parent[Math.max(a, b)] = Math.min(a, b);
+				}
+			}
+		}
+		Map<Integer, List<Proposal>> groups = new LinkedHashMap<>();
+		for (int n = 0; n < candidates.size(); n++) {
+			groups.computeIfAbsent(Integer.valueOf(root(parent, n)), r -> new ArrayList<>()).add(candidates.get(n));
+		}
+		List<Proposal> result = new ArrayList<>();
+		for (List<Proposal> group : groups.values()) {
+			result.add(merge(group));
+		}
+		return result;
+	}
+
+	private static int root(int[] parent, int n) {
+		int result = n;
+		while (parent[result] != result) {
+			result = parent[result];
+		}
+		return result;
+	}
+
+	/** The kinds of the receiving side of a linked function, which decides its kind. */
+	private static final Set<String> RECEIVING = Set.of("light", "switch", "dimmer", "blind", "climate");
+
+	/**
+	 * The function of the linked candidates, see {@link #link(List)}.
+	 */
+	private static Proposal merge(List<Proposal> group) {
+		Proposal primary = group.stream().filter(p -> RECEIVING.contains(p.kind())).findFirst().orElse(group.get(0));
+		if (primary.scene() != null) {
+			return primary;
+		}
+		Map<String, TLObject> roles = new LinkedHashMap<>(primary.roles());
+		List<TLObject> sends = new ArrayList<>(primary.sends());
+		List<Member> members = new ArrayList<>(primary.members());
+		for (Proposal other : group) {
+			if (other == primary) {
+				continue;
+			}
+			members.addAll(other.members());
+			if (other.kind().equals(primary.kind())) {
+				for (String role : FunctionKinds.roles(primary.kind())) {
+					if (roles.get(role) == null && other.roles().get(role) != null) {
+						roles.put(role, other.roles().get(role));
+					}
+				}
+				for (TLObject address : other.sends()) {
+					if (!sends.contains(address)) {
+						sends.add(address);
+					}
+				}
+			}
+		}
+		Map<String, String> label = addressLabel(roles.get(FunctionKinds.mainRole(primary.kind())));
+		return new Proposal(primary.kind(), label.isEmpty() ? primary.label() : label, roles, primary.device(),
+			primary.channel(), null, sends, members);
+	}
+
+	/**
+	 * The name of the group address in every application language (a text of the project, which has
+	 * no language of its own); empty for an address without a name.
+	 */
+	private static Map<String, String> addressLabel(TLObject address) {
+		Object name = address == null ? null : address.tValueByName("name");
+		if (name == null || name.toString().isBlank()) {
+			return Map.of();
+		}
+		Map<String, Resources> languages = new TreeMap<>();
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			languages.put(locale.getLanguage(), Resources.getInstance(locale));
+		}
+		return texts(languages, r -> name.toString());
 	}
 
 	/**
@@ -1190,8 +1817,9 @@ public final class FunctionProposal {
 						I18NConstants.SCENE_FUNCTION__CHANNEL_NUMBER.fill(entry.getValue(), number)), ImageValidator.MAX_NAME));
 				}
 			}
-			result.add(new Proposal("scene", label, Map.of("command", scene.address()), device,
-				channel.key() + " scene " + number, number, List.of()));
+			String key = channel.key() + " scene " + number;
+			result.add(new Proposal("scene", label, Map.of("command", scene.address()), device, key, number,
+				List.of(), List.of(new Member(device, key, List.of(), List.of()))));
 		}
 	}
 

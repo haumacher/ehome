@@ -302,6 +302,21 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 ZIGBEE_ENDPOINT__NAME_ENDPOINT;
 
 	/**
+	 * @en {0}: {1}
+	 */
+	public static ResKey2 UNUSED_FUNCTION__DEVICE_CHANNEL;
+
+	/**
+	 * @en {0} existing functions were updated: unused functions whose channel has its group address now got their datapoints, and generated names were replaced by the name of the group address.
+	 */
+	public static ResKey1 PROPOSAL_UPDATED__COUNT;
+
+	/**
+	 * @en {0} unused functions are not deployed: their main datapoint has no group address.
+	 */
+	public static ResKey1 EXPORT_UNUSED__COUNT;
+
+	/**
 	 * @en The stored image could not be read from {0}: {1}
 	 */
 	public static ResKey2 COMPARE_UNREACHABLE__ADDRESS_ERROR;

@@ -23,7 +23,8 @@ import com.top_logic.util.Resources;
  * (<code>ehome.project:Project</code>) and the project lacks.
  *
  * <p>
- * The result is a sentence saying how many functions were added, for a notification.
+ * The result is a sentence saying how many functions were added, followed by one saying how many
+ * existing ones were updated (haumacher/ehome #98) where any were, for a notification.
  * </p>
  */
 public class ProposeFunctionsAction implements ViewAction {
@@ -50,13 +51,21 @@ public class ProposeFunctionsAction implements ViewAction {
 	@Override
 	public Object execute(ReactContext context, Object input) {
 		TLObject project = (TLObject) input;
-		List<TLObject> added;
+		FunctionProposal.Run run;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			added = FunctionProposal.apply(project);
+			run = FunctionProposal.run(project);
 			tx.commit();
 		}
-		return Resources.getInstance().getString(added.isEmpty() ? I18NConstants.PROPOSAL_NOTHING_NEW
-			: I18NConstants.PROPOSAL_ADDED__COUNT.fill(Integer.valueOf(added.size())));
+		Resources resources = Resources.getInstance();
+		List<TLObject> added = run.added();
+		if (run.updated().isEmpty()) {
+			return resources.getString(added.isEmpty() ? I18NConstants.PROPOSAL_NOTHING_NEW
+				: I18NConstants.PROPOSAL_ADDED__COUNT.fill(Integer.valueOf(added.size())));
+		}
+		String updated =
+			resources.getString(I18NConstants.PROPOSAL_UPDATED__COUNT.fill(Integer.valueOf(run.updated().size())));
+		return added.isEmpty() ? updated
+			: resources.getString(I18NConstants.PROPOSAL_ADDED__COUNT.fill(Integer.valueOf(added.size()))) + " " + updated;
 	}
 
 }

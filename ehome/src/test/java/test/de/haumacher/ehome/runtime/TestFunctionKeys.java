@@ -33,10 +33,12 @@ import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
  * The keys of a push-button sensor sending on the inputs of an actuator (haumacher/ehome #92,
- * <code>src/test/fixtures/TestFunctionKeys.knxproj</code>): a function is built from the receiving
- * side, one per actuator channel, and a key sending on a command role of such a function gives no
- * button. A key sending on the central object of the actuator (which gets no function) or on an
- * address only a status LED receives stays a button.
+ * <code>src/test/fixtures/TestFunctionKeys.knxproj</code>): a key sending on the address an actuator
+ * channel receives as its first is linked with the channel into one function of the actuator's
+ * kind, named after the address (haumacher/ehome #98), and gives no button of its own. A key sending
+ * on the central object of the actuator (which gets no function) or on an address only a status LED
+ * receives stays a button. The push-button sensor's temperature, connected to no address, is an
+ * unused sensor.
  */
 @SuppressWarnings("javadoc")
 public class TestFunctionKeys extends BasicTestCase {
@@ -50,19 +52,25 @@ public class TestFunctionKeys extends BasicTestCase {
 			TLObject project = projects.get(0);
 
 			// "Taste 1" switches the light, "Taste 2" the dimmer, "Wippe 3" moves and stops the blind:
-			// no button for them; "Taste 4" (central) and "Taste 5" (status LED only) are buttons.
-			// The channels suggest a button for each key; the run decides them after the actuator's functions.
-			assertEquals(5, FunctionProposal.propose(project).stream().filter(p -> "button".equals(p.kind())).count());
+			// linked with the actuator's channels, no button for them; "Taste 4" (central) and "Taste 5"
+			// (status LED only) are buttons.
+			assertEquals(2, FunctionProposal.propose(project).stream().filter(p -> "button".equals(p.kind())).count());
 			List<TLObject> added = apply(project);
 			assertEquals(List.of(
 				"blind move=2/1/1, stop=2/1/2, position=2/1/4, positionCommand=2/1/3, slat=2/1/6, slatCommand=2/1/5",
 				"button press=1/0/0",
 				"button press=1/1/7",
 				"dimmer levelCommand=1/1/4, level=1/1/5, command=1/1/2, step=1/1/3",
-				"light command=1/1/1, state=1/1/8"), summary(project));
-			assertEquals(5, added.size());
+				"light command=1/1/1, state=1/1/8",
+				"sensor unused"), summary(project));
+			assertEquals(6, added.size());
+			// Named after the address of the main role.
+			assertEquals("Licht", TestFunctionProposal.name(function(project, "light", "1/1/1")));
+			assertEquals("Dimmer Wert", TestFunctionProposal.name(function(project, "dimmer", "1/1/4")));
+			assertEquals("Jalousie auf/ab", TestFunctionProposal.name(function(project, "blind", "2/1/1")));
+			assertEquals("Zentral", TestFunctionProposal.name(function(project, "button", "1/0/0")));
 			TLObject key5 = function(project, "button", "1/1/7");
-			assertEquals("Taste 5", TestFunctionProposal.name(key5));
+			assertEquals("Melder", TestFunctionProposal.name(key5));
 			for (TLObject function : added) {
 				assertNull(FunctionProposal.redundancy(function));
 			}
@@ -76,7 +84,7 @@ public class TestFunctionKeys extends BasicTestCase {
 				tx.commit();
 			}
 			assertEquals(List.of(), apply(project));
-			assertEquals(4, FunctionProposal.functions(project).size());
+			assertEquals(5, FunctionProposal.functions(project).size());
 
 			// A function made by hand commanding the address of "Taste 5": the existing button stays, with
 			// a warning naming the address, the role and the function; the proposal adds and removes
@@ -98,7 +106,7 @@ public class TestFunctionKeys extends BasicTestCase {
 				+ " add it again.", warning);
 			assertNull(FunctionProposal.redundancy(own));
 			assertEquals(List.of(), apply(project));
-			assertEquals(5, FunctionProposal.functions(project).size());
+			assertEquals(6, FunctionProposal.functions(project).size());
 			assertTrue(key5.tValid());
 
 			// The button gone (not dismissed): the existing light keeps the proposal from adding it again.
@@ -121,7 +129,7 @@ public class TestFunctionKeys extends BasicTestCase {
 			}
 			List<TLObject> again = apply(project);
 			assertEquals(1, again.size());
-			assertEquals("Taste 5", TestFunctionProposal.name(again.get(0)));
+			assertEquals("Melder", TestFunctionProposal.name(again.get(0)));
 		} finally {
 			SharedData.deleteProjects(projects);
 		}
@@ -139,8 +147,8 @@ public class TestFunctionKeys extends BasicTestCase {
 	}
 
 	/**
-	 * The kinds and role bindings of the project's functions, the roles in the order of their kind,
-	 * sorted.
+	 * The kinds and role bindings of the project's functions, the roles in the order of their kind
+	 * ("unused" for an unused function), sorted.
 	 */
 	static List<String> summary(TLObject project) {
 		List<String> result = new ArrayList<>();
@@ -151,7 +159,8 @@ public class TestFunctionKeys extends BasicTestCase {
 					roles.add(role + "=" + RuntimeImage.threeLevel(((GA) address.tValueByName("address")).getValue()));
 				}
 			}
-			result.add(FunctionProposal.kind(function) + " " + String.join(", ", roles));
+			result.add(FunctionProposal.kind(function) + " "
+				+ (FunctionProposal.unused(function) ? "unused" : String.join(", ", roles)));
 		}
 		Collections.sort(result);
 		return result;

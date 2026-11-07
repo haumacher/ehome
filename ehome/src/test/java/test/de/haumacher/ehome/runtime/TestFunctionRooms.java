@@ -30,7 +30,9 @@ import de.haumacher.ehome.runtime.FunctionProposal;
 /**
  * The room of a proposed function is the location of most of its senders (haumacher/ehome #93,
  * <code>src/test/fixtures/TestFunctionRooms.knxproj</code>): the actuator sits in the distribution
- * board "Verteiler", the keys switching its channels in "Küche" and "Wohnzimmer".
+ * board "Verteiler", the keys switching its channels in "Küche" and "Wohnzimmer". The functions are
+ * named after the group addresses of their main roles (haumacher/ehome #98); the keys connected to
+ * no address are unused buttons, in the room of their device.
  */
 @SuppressWarnings("javadoc")
 public class TestFunctionRooms extends BasicTestCase {
@@ -48,18 +50,21 @@ public class TestFunctionRooms extends BasicTestCase {
 			apply(project);
 			assertEquals(Map.of(
 				// One key in "Wohnzimmer".
-				"light Kanal A", "Wohnzimmer",
+				"light Licht", "Wohnzimmer",
 				// Two keys in "Küche" (one switching, one dimming), one in "Wohnzimmer" (dimming).
-				"dimmer Kanal B", "Küche",
+				"dimmer Dimmer Wert", "Küche",
 				// One key each: "Wohnzimmer" comes first in the building, although the key in "Küche"
 				// has the lower address.
-				"blind Kanal C", "Wohnzimmer",
+				"blind Jalousie auf/ab", "Wohnzimmer",
 				// The sensor is where its device is.
 				"sensor Temperatur", "Küche"), rooms(project));
+			// An unused function has no senders: it is where its device is.
+			assertEquals("Wohnzimmer", name(function(project, "TEST Taster Wohnzimmer: Taste 2").tValueByName("room")));
+			assertEquals("Küche", name(function(project, "TEST Taster Küche 1: Temperatur").tValueByName("room")));
 
 			// Running again changes no room, also one the user changed.
-			TLObject light = function(project, "Kanal A");
-			TLObject kitchen = (TLObject) function(project, "Kanal B").tValueByName("room");
+			TLObject light = function(project, "Licht");
+			TLObject kitchen = (TLObject) function(project, "Dimmer Wert").tValueByName("room");
 			update(light, "room", kitchen);
 			assertEquals(List.of(), apply(project));
 			assertSame(kitchen, light.tValueByName("room"));
@@ -70,14 +75,14 @@ public class TestFunctionRooms extends BasicTestCase {
 			update(device(project, "1.0.4"), "location", null);
 			deleteFunctions(project);
 			apply(project);
-			assertEquals(Map.of("light Kanal A", "-", "dimmer Kanal B", "Küche", "blind Kanal C", "Küche",
+			assertEquals(Map.of("light Licht", "-", "dimmer Dimmer Wert", "Küche", "blind Jalousie auf/ab", "Küche",
 				"sensor Temperatur", "Küche"), rooms(project));
 
 			// The actuator in a room: the light without a placed sender is there.
 			update(actuator, "location", living);
 			deleteFunctions(project);
 			apply(project);
-			assertEquals("Wohnzimmer", name(function(project, "Kanal A").tValueByName("room")));
+			assertEquals("Wohnzimmer", name(function(project, "Licht").tValueByName("room")));
 		} finally {
 			SharedData.deleteProjects(projects);
 		}
@@ -102,11 +107,14 @@ public class TestFunctionRooms extends BasicTestCase {
 	}
 
 	/**
-	 * The rooms of the project's functions by kind and name, "-" for none.
+	 * The rooms of the project's functions in use by kind and name, "-" for none.
 	 */
 	private static Map<String, String> rooms(TLObject project) {
 		Map<String, String> result = new TreeMap<>();
 		for (TLObject function : FunctionProposal.functions(project)) {
+			if (FunctionProposal.unused(function)) {
+				continue;
+			}
 			Object room = function.tValueByName("room");
 			result.put(FunctionProposal.kind(function) + " " + TestFunctionProposal.name(function),
 				room == null ? "-" : name(room));

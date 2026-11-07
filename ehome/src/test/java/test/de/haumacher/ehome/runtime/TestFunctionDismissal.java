@@ -27,8 +27,8 @@ import de.haumacher.ehome.runtime.FunctionProposal;
 
 /**
  * A deleted proposed function stays dismissed (haumacher/ehome #49): on the demo project
- * (<code>samples/EHomeDemo.knxproj</code>, three sockets; the keys sending on their commands give
- * no buttons, haumacher/ehome #92), deleting a proposed socket records a dismissal for its device,
+ * (<code>samples/EHomeDemo.knxproj</code>, three sockets; the keys sending on their commands are
+ * linked with them, haumacher/ehome #92, #98), deleting a proposed socket records a dismissal for its device,
  * channel and kind, the next proposals do not bring it back (nor a button for the key switching
  * it), deleting a function the user made records nothing, and deleting the dismissal brings the
  * proposal back with the same name.

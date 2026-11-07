@@ -398,6 +398,9 @@ public final class Deployer {
 			String message = text(I18NConstants.DEPLOY_ACCEPTED__REVISION_DATAPOINTS_LOCATIONS_BYTES.fill(
 				Long.valueOf(revision), size(json.get("datapoints")), size(json.get("locations")),
 				Integer.valueOf(outcome._bytes)));
+			if (image.getUnusedFunctions() > 0) {
+				message += " " + text(I18NConstants.EXPORT_UNUSED__COUNT.fill(Integer.valueOf(image.getUnusedFunctions())));
+			}
 			if (Boolean.FALSE.equals(answer.body().get("stored"))) {
 				message += " " + text(I18NConstants.DEPLOY_NOT_STORED__ERROR.fill(answer.string("storeError")));
 			} else {

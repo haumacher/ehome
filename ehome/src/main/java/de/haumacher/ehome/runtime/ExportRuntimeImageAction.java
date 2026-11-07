@@ -130,8 +130,8 @@ public class ExportRuntimeImageAction implements ViewAction {
 	 * The sentences saying what a valid image holds: its datapoints (those it lists and those of its
 	 * virtual devices, <code>spec/blocks.md</code> 6, haumacher/ehome #78), locations, functions and
 	 * settings (the controller's settings and the history budget, each counted as one), its size,
-	 * the virtual devices with their datapoints, the addresses of its time master, and its rules and
-	 * schedule entries.
+	 * the virtual devices with their datapoints, the addresses of its time master, its rules and
+	 * schedule entries, and the unused functions it leaves out (haumacher/ehome #98).
 	 */
 	public static String summary(RuntimeImage image) {
 		Map<String, Object> json = image.getJson();
@@ -158,6 +158,10 @@ public class ExportRuntimeImageAction implements ViewAction {
 		if (json.containsKey("rules") || json.containsKey("schedules")) {
 			result += " " + resources.getString(
 				I18NConstants.EXPORT_AUTOMATION__RULES_SCHEDULES.fill(size(json.get("rules")), size(json.get("schedules"))));
+		}
+		if (image.getUnusedFunctions() > 0) {
+			result += " " + resources.getString(
+				I18NConstants.EXPORT_UNUSED__COUNT.fill(Integer.valueOf(image.getUnusedFunctions())));
 		}
 		return result;
 	}
