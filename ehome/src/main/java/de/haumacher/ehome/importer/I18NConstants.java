@@ -91,6 +91,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 WARN_MODULES_NOT_IMPORTED__PROGRAM;
 
 	/**
+	 * @en Device "{0}": {1} parameter settings and {2} communication objects refer to parts of its application program that were not imported (dynamic modules); they are left out.
+	 */
+	public static ResKey3 WARN_UNRESOLVED_PROGRAM_PARTS__DEVICE_SETTINGS_OBJECTS;
+
+	/**
 	 * @en The named value "{0}" of a datapoint type is not a number: {1}
 	 */
 	public static ResKey2 WARN_NAMED_VALUE_NOT_A_NUMBER__ID_VALUE;

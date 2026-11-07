@@ -9,6 +9,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
@@ -34,9 +35,12 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.provider.MetaLabelProvider;
+import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.Resources;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
@@ -77,13 +81,19 @@ public class TestEts6Import extends BasicTestCase {
 			assertEquals(23, importer.getSchemaVersion());
 			List<BufferingI18NLog.Entry> messages = importer.getMessages();
 			assertEquals(List.of(), Ets6Files.errors(messages));
-			// The only warning: the dynamic module of the program (besides those about mask versions the
-			// database holds from other master data, see TestEtsImport.withoutMasterData).
-			List<String> warnings = TestEtsImport.withoutMasterData(messages).stream().filter(m -> m.getLevel() == Level.WARN)
-				.map(m -> String.valueOf(m.getMessage())).toList();
-			assertEquals(warnings.toString(), 1, warnings.size());
-			assertTrue(warnings.get(0), warnings.get(0).contains(
+			// The only warnings: the dynamic module of the program, and the device's setting and object
+			// of an instance of it, which are left out (besides those about mask versions the database
+			// holds from other master data, see TestEtsImport.withoutMasterData).
+			List<ResKey> warnings = TestEtsImport.withoutMasterData(messages).stream().filter(m -> m.getLevel() == Level.WARN)
+				.map(m -> m.getMessage()).toList();
+			assertEquals(warnings.toString(), 2, warnings.size());
+			assertTrue(warnings.get(0).toString(), warnings.get(0).toString().contains(
 				String.valueOf(I18NConstants.WARN_MODULES_NOT_IMPORTED__PROGRAM.fill(PROGRAM))));
+			String left = Resources.getInstance(Locale.GERMAN).getString(warnings.get(1));
+			assertTrue(left, left.startsWith("Gerät \""));
+			assertTrue(left, left.endsWith("\": 1 Parametereinstellungen und 1 Kommunikationsobjekte beziehen sich auf "
+				+ "Teile seines Applikationsprogramms, die nicht importiert wurden (dynamische Module); sie werden "
+				+ "weggelassen."));
 
 			checkProject();
 			checkProgram();
@@ -161,6 +171,10 @@ public class TestEts6Import extends BasicTestCase {
 		TLObject device = devices.get(0);
 		assertEquals("P-01A0-0_L-1", ((TLObject) device.tContainer()).tValueByName("extId"));
 		assertEquals(P + "P-9102_R-9102", setting(device, "M-0008_A-10D7-11-A0E5-O0023_P-9102_R-9102"));
+		for (TLObject setting : list(device, "settings")) {
+			assertNotNull("The setting of the module's parameter is left out.", setting.tValueByName("parameter"));
+		}
+		checkLabelsWithoutProgramPart(device);
 
 		// The load state, written as "true" and "false".
 		assertEquals(Set.of("IndividualAddress"), ((Collection<?>) device.tValueByName("loaded")).stream()
@@ -190,6 +204,35 @@ public class TestEts6Import extends BasicTestCase {
 		assertEquals("ehome.building:Room", TLModelUtil.qualifiedName(room.tType()));
 		assertEquals("TEST Raum", room.tValueByName("name"));
 		assertEquals("ehome.building:Building", TLModelUtil.qualifiedName(room.tContainer().tType()));
+	}
+
+	/**
+	 * A setting or a communication object whose part of the program is missing names its device and
+	 * why, not "unnamed object" or "null null": the model's check of the mandatory reference shows
+	 * these labels when a commit is refused.
+	 */
+	private static void checkLabelsWithoutProgramPart(TLObject device) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			TLObject setting = ModelService.getInstance().getFactory()
+				.createObject((TLClass) TLModelUtil.findType("ehome.physical:ParameterSetting"));
+			TLObject connector = ModelService.getInstance().getFactory()
+				.createObject((TLClass) TLModelUtil.findType("ehome.physical:Connector"));
+			List<TLObject> settings = new ArrayList<>(list(device, "settings"));
+			settings.add(setting);
+			device.tUpdateByName("settings", settings);
+			List<TLObject> connectors = new ArrayList<>(list(device, "connectors"));
+			connectors.add(connector);
+			device.tUpdateByName("connectors", connectors);
+			String deviceLabel = TestEtsImport.asRoot(() -> MetaLabelProvider.INSTANCE.getLabel(device));
+			String settingLabel = TestEtsImport.asRoot(() -> MetaLabelProvider.INSTANCE.getLabel(setting));
+			String connectorLabel = TestEtsImport.asRoot(() -> MetaLabelProvider.INSTANCE.getLabel(connector));
+			for (String label : List.of(settingLabel, connectorLabel)) {
+				assertTrue(label, label.startsWith(deviceLabel + ": "));
+				assertFalse(label, label.contains("null"));
+				assertTrue(label, label.contains("dynamic module") || label.contains("dynamischen Moduls"));
+			}
+			tx.rollback();
+		}
 	}
 
 	private static String setting(TLObject device, String refId) {

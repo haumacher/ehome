@@ -86,7 +86,9 @@ writes a project (schema 23, haumacher/ehome #32), with artificial content marke
   device lies in a segment of its line, names its communication objects by IDs relative to its
   program and links them to group addresses by the attribute Links (IDs relative to the
   installation; one object sends to GA-3 and receives from GA-1), reports its load state as "true"
-  and "false", sets the shared parameter, and the building is a location with spaces.
+  and "false", sets the shared parameter, sets a parameter of an instance of the module and links one
+  of its objects (IDs MD-1_M-1_MI-1_..., which do not resolve, since the module is not imported), and
+  the building is a location with spaces.
 The test builds the protected variants (the project part as P-01A0.zip, AES and password, or plain)
 from this file with zip4j.
 
@@ -1083,9 +1085,13 @@ def ets6_project(xml):
     end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
     xml = (xml[:start] + '<Segment Id="P-01A0-0_L-1_S-0" Name="" Number="0" MediumTypeRefId="MT-0">'
         + xml[start:end] + '</Segment>' + xml[end:])
-    # The shared parameter set by the device.
+    # The shared parameter set by the device, and a setting and a linked object of an instance of the
+    # dynamic module, which E-Home does not import: both are left out with a warning.
     xml = replace_once(xml, '<ParameterInstanceRefs>', '<ParameterInstanceRefs>\n<ParameterInstanceRef RefId="'
-        + ETS6_PROGRAM + '_P-9102_R-9102" Value="42" />')
+        + ETS6_PROGRAM + '_P-9102_R-9102" Value="42" />\n<ParameterInstanceRef RefId="'
+        + ETS6_PROGRAM + '_MD-1_M-1_MI-1_P-1_R-1" Value="7" />')
+    xml = replace_once(xml, '<ComObjectInstanceRefs>', '<ComObjectInstanceRefs>\n<ComObjectInstanceRef '
+        'RefId="MD-1_M-1_MI-1_O-3-1_R-1" IsActive="1" Links="GA-2" />')
     return replace_once(xml, '<Buildings />', '<Locations><Space Id="P-01A0-0_BP-1" Name="TEST Haus" Type="Building">'
         '<Space Id="P-01A0-0_BP-2" Name="TEST Raum" Type="Room"><DeviceInstanceRef RefId="P-01A0-0_DI-1" /></Space>'
         '</Space></Locations>')

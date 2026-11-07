@@ -118,8 +118,12 @@
         || $placed.get(`ehome.operational:Interface#function`).localize()
         || $port.get(`ehome.operational:Port#function`).localize();
     description = $c.get(`ehome.physical:Connector#description`);
-    label = if($function == null, "{0} {1}".fill($port.get(`ehome.operational:Port#index`), $text),
-        "{0} {1}: {2}".fill($port.get(`ehome.operational:Port#index`), $text, $function));
+    label = if($placed == null,
+        #("{0}: communication object the import did not find in the application program (e.g. of a dynamic module)"@en,
+          "{0}: Kommunikationsobjekt, das der Import im Applikationsprogramm nicht gefunden hat (z.B. eines dynamischen Moduls)"@de)
+            .fill($c.container()).localize(),
+        if($function == null, "{0} {1}".fill($port.get(`ehome.operational:Port#index`), $text),
+            "{0} {1}: {2}".fill($port.get(`ehome.operational:Port#index`), $text, $function)));
     if($description == null, $label, "{0} ({1})".fill($label, $description))
 }]]></expr>
 							</query>
@@ -374,7 +378,14 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[s -> $s.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#title`)]]></expr>
+								<expr><![CDATA[s -> {
+    parameter = $s.get(`ehome.physical:ParameterSetting#parameter`);
+    if($parameter == null,
+        #("{0}: setting of a parameter the import did not find in the application program (e.g. of a dynamic module)"@en,
+          "{0}: Einstellung eines Parameters, den der Import im Applikationsprogramm nicht gefunden hat (z.B. eines dynamischen Moduls)"@de)
+            .fill($s.container()).localize(),
+        $parameter.get(`ehome.operational:ParameterView#title`))
+}]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

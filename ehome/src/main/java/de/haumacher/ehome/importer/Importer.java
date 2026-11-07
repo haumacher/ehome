@@ -39,9 +39,11 @@ import com.top_logic.basic.config.TypedConfiguration;
 import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.io.Content;
 import com.top_logic.basic.io.binary.ClassRelativeBinaryContent;
+import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.basic.xml.XMLStreamUtil;
 import com.top_logic.element.meta.MetaElementUtil;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -89,6 +91,10 @@ public class Importer {
 	 * Qualified name of the type of application programs.
 	 */
 	private static final String PROGRAM_TYPE = "ehome.operational:Program";
+
+	private static final String SETTING_TYPE = "ehome.physical:ParameterSetting";
+
+	private static final String CONNECTOR_TYPE = "ehome.physical:Connector";
 
 	/**
 	 * Name of the folder holding the baggage of a manufacturer (pictures, help and plug-in files of
@@ -476,8 +482,42 @@ public class Importer {
 		}
 		// Numbers the app allocates for new objects lie above those of the imported ones.
 		ExtIds.raiseImported(_binding.getCreated());
+		dropUnresolvedProgramParts();
 		// All done only when the references are resolved, which the import context does when closed.
 		_progress.finish();
+	}
+
+	/**
+	 * Removes the parameter settings and connectors of the devices the import created whose part of
+	 * the application program it could not resolve, and reports them per device.
+	 *
+	 * <p>
+	 * They refer to parts the import does not create: the parameters and communication objects of
+	 * the dynamic modules of a program (<code>ModuleDefs</code>, see {@link ModulesNotImported}),
+	 * whose instances a device names by IDs of the form <code>MD-1_M-1_MI-1_P-2_R-3</code>. Kept
+	 * without their part, they would fail the model's check of the mandatory reference and refuse the
+	 * whole import (a production import of a project with MDT devices).
+	 * </p>
+	 */
+	private void dropUnresolvedProgramParts() {
+		Map<TLObject, int[]> dropped = new LinkedHashMap<>();
+		for (TLObject setting : getCreated(SETTING_TYPE)) {
+			if (setting.tValid() && setting.tValueByName("parameter") == null) {
+				dropped.computeIfAbsent(setting.tContainer(), d -> new int[2])[0]++;
+				setting.tDelete();
+			}
+		}
+		for (TLObject connector : getCreated(CONNECTOR_TYPE)) {
+			if (connector.tValid() && connector.tValueByName("port") == null) {
+				dropped.computeIfAbsent(connector.tContainer(), d -> new int[2])[1]++;
+				connector.tDelete();
+			}
+		}
+		for (Map.Entry<TLObject, int[]> entry : dropped.entrySet()) {
+			_messages.log(Level.WARN, I18NConstants.WARN_UNRESOLVED_PROGRAM_PARTS__DEVICE_SETTINGS_OBJECTS.fill(
+				MetaLabelProvider.INSTANCE.getLabel(entry.getKey()), Integer.valueOf(entry.getValue()[0]),
+				Integer.valueOf(entry.getValue()[1])));
+		}
 	}
 
 	/**
@@ -544,7 +584,8 @@ public class Importer {
 	private List<TLObject> ofType(Collection<?> objects, String typeName) {
 		List<TLObject> result = new ArrayList<>();
 		for (Object obj : objects) {
-			if (obj instanceof TLObject tlObject && _binding.isInstanceOf(tlObject, typeName)) {
+			// Created objects the import removed again (dropUnresolvedProgramParts) are not listed.
+			if (obj instanceof TLObject tlObject && tlObject.tValid() && _binding.isInstanceOf(tlObject, typeName)) {
 				result.add(tlObject);
 			}
 		}

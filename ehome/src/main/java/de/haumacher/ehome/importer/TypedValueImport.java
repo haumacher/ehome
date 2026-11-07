@@ -14,6 +14,7 @@ import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
@@ -70,6 +71,8 @@ public class TypedValueImport<C extends TypedValueImport.Config<?>> extends Conf
 		super(context, config);
 	}
 
+	private static final String SETTING_TYPE = "ehome.physical:ParameterSetting";
+
 	@Override
 	public Object importXml(ImportContext context, XMLStreamReader in) throws XMLStreamException {
 		String value = in.getAttributeValue(null, getConfig().getXmlAttribute());
@@ -80,7 +83,7 @@ public class TypedValueImport<C extends TypedValueImport.Config<?>> extends Conf
 		if (view != null) {
 			hidden.referenced(view);
 		}
-		if (problem != null) {
+		if (problem != null && !withoutParameter(self)) {
 			String name = parameterName(self);
 			ResKey message = name == null ? problem : I18NConstants.WARN_PARAMETER__NAME_PROBLEM.fill(name, problem);
 			if (self instanceof Parameter parameter) {
@@ -91,6 +94,15 @@ public class TypedValueImport<C extends TypedValueImport.Config<?>> extends Conf
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Whether the holder is a device setting whose parameter the import did not find (a parameter of
+	 * a dynamic module): the importer leaves it out and reports it per device
+	 * (<code>Importer#dropUnresolvedProgramParts</code>), its value has no type to tell.
+	 */
+	private static boolean withoutParameter(TLObject self) {
+		return SETTING_TYPE.equals(TLModelUtil.qualifiedName(self.tType())) && self.tValueByName("parameter") == null;
 	}
 
 	/**
