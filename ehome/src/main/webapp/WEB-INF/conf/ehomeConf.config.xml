@@ -55,6 +55,20 @@
 					<method name="deviceGroupAddresses" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceConnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceDisconnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<!-- Planning a device from the catalog and duplicating one (de.haumacher.ehome.planning.DevicePlanning, haumacher/ehome #104): one builder, the function by its name. -->
+					<method name="devicePlanVariants" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanVariantLabel" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanPrograms" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanDefaultProgram" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanProgramLabel" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanLine" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanNextFree" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanAddressProblem" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanAddressText" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanLocations" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanCreate" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanDuplicateVeto" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
+					<method name="devicePlanDuplicate" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
 					<!-- The changes of a device since its last download (de.haumacher.ehome.programming.DeviceChangeFunctions): one builder, the function by its name. -->
 					<method name="deviceHasReference" class="de.haumacher.ehome.programming.DeviceChangeFunctions$Builder"/>
 					<method name="deviceChangeReferences" class="de.haumacher.ehome.programming.DeviceChangeFunctions$Builder"/>
