@@ -6,7 +6,8 @@
 	labelled with the device, the object and the direction (connectionLabel), the sending ones first.
 	The selected node is shown beside the tree: a range or an address with its connections, the
 	datapoint types that do not fit together and the number of senders, or a connection with its
-	device and the way to it in the device view.
+	device. A connection, a node of the tree or a row of the table of an address, opens its device in
+	the device view by row activation (double-click, Enter or the button of the row).
 
 	An address without a datapoint type in effect (GroupAddressTypes: neither the address nor an
 	object names one, and the size of the objects does not decide it) is left out of the runtime
@@ -286,32 +287,6 @@
 								<execute-script function="deviceDisconnect($connection)"/>
 							</with-transaction>
 						</generic-command>
-						<generic-command
-							image="css:bi bi-box-arrow-up-right"
-							inputs="connectionDevice"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Go to the device</en>
-								<de>Zum Gerät</de>
-							</label>
-							<executability>
-								<null-input-disabled/>
-							</executability>
-							<show-views>
-								<show frame="project"
-									label-expr="recursion($connectionDevice, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
-								>
-									<bind
-										channel="project"
-										expr="recursion($connectionDevice, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
-									/>
-								</show>
-								<show view="projects/devices.view.xml">
-									<bind channel="selected"/>
-								</show>
-							</show-views>
-						</generic-command>
 					</commands>
 					<stack>
 						<inset>
@@ -407,6 +382,34 @@
 									<value>if($row.instanceOf(`ehome.core:Externalized`), $row.get(`ehome.core:Externalized#extId`), null)</value>
 								</computed-column>
 							</columns>
+							<on-activate class="com.top_logic.layout.view.command.GenericViewCommand"
+								image="css:bi bi-box-arrow-up-right"
+							>
+								<label>
+									<en>Go to the device</en>
+									<de>Zum Gerät</de>
+								</label>
+								<executability>
+									<!-- Of the nodes, only a connection opens its device. -->
+									<visible-if expr="$row.instanceOf(`ehome.physical:Connection`)"/>
+								</executability>
+								<show-views>
+									<show frame="project"
+										label-expr="recursion(connectionDevice($row), x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+									>
+										<bind
+											channel="project"
+											expr="recursion(connectionDevice($row), x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+										/>
+									</show>
+									<show view="projects/devices.view.xml">
+										<bind
+											channel="selected"
+											expr="connectionDevice($row)"
+										/>
+									</show>
+								</show-views>
+							</on-activate>
 						</tree-table>
 					</stack>
 				</panel>
@@ -649,6 +652,30 @@
 														</computed-column>
 													</columns>
 													<rows>if($address == null, [], groupAddressConnections($address))</rows>
+													<on-activate class="com.top_logic.layout.view.command.GenericViewCommand"
+														image="css:bi bi-box-arrow-up-right"
+													>
+														<label>
+															<en>Go to the device</en>
+															<de>Zum Gerät</de>
+														</label>
+														<show-views>
+															<show frame="project"
+																label-expr="recursion(connectionDevice($row), x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+															>
+																<bind
+																	channel="project"
+																	expr="recursion(connectionDevice($row), x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+																/>
+															</show>
+															<show view="projects/devices.view.xml">
+																<bind
+																	channel="selected"
+																	expr="connectionDevice($row)"
+																/>
+															</show>
+														</show-views>
+													</on-activate>
 												</table>
 											</stack>
 										</panel>
@@ -659,7 +686,7 @@
 						<case test="$selected.instanceOf(`ehome.physical:Connection`)">
 							<!--
 								A connection: which object of which device, the direction, and the device; the
-								device is configured in the device view ("Go to the device").
+								device is configured in the device view, which the node opens by row activation.
 							-->
 							<stack>
 								<inset>

@@ -36,6 +36,13 @@ public class BuildingFunctions extends GenericMethod {
 	public enum Function {
 		/** <code>buildingDevices(part)</code>: {@link BuildingDevices#devices(TLObject)}. */
 		buildingDevices(1, true),
+		/** <code>buildingAllDevices(part)</code>: {@link BuildingDevices#devicesWithin(TLObject)}. */
+		buildingAllDevices(1, true),
+		/**
+		 * <code>buildingAllZigbeeDevices(part)</code>:
+		 * {@link BuildingDevices#zigbeeDevicesWithin(TLObject)}.
+		 */
+		buildingAllZigbeeDevices(1, true),
 		/** <code>buildingConnections(part)</code>: {@link BuildingDevices#connections(TLObject)}. */
 		buildingConnections(1, true),
 		/** <code>buildingDeviceChoices(part)</code>: {@link BuildingDevices#choices(TLObject)}. */
@@ -128,6 +135,10 @@ public class BuildingFunctions extends GenericMethod {
 		switch (_function) {
 			case buildingDevices:
 				return BuildingDevices.devices(obj);
+			case buildingAllDevices:
+				return BuildingDevices.devicesWithin(obj);
+			case buildingAllZigbeeDevices:
+				return BuildingDevices.zigbeeDevicesWithin(obj);
 			case buildingConnections:
 				return BuildingDevices.connections(obj);
 			case buildingDeviceChoices:

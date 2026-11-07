@@ -41,6 +41,8 @@ public class BuildingDevices {
 
 	private static final String PARTS = "parts";
 
+	private static final String ZIGBEE_DEVICES = "zigbeeDevices";
+
 	private static final String BUILDINGS = "buildings";
 
 	private static final String PATH_SEPARATOR = ", ";
@@ -79,6 +81,42 @@ public class BuildingDevices {
 		for (Object child : (Collection<?>) part.tValueByName(PARTS)) {
 			collectDevices((TLObject) child, result);
 		}
+	}
+
+	/**
+	 * The devices placed in the given building part and in all its sub-parts, by their individual
+	 * address (haumacher/ehome #87).
+	 */
+	public static List<TLObject> devicesWithin(TLObject part) {
+		List<TLObject> result = new ArrayList<>(allDevices(part));
+		result.sort(BY_ADDRESS);
+		return result;
+	}
+
+	/**
+	 * The Zigbee devices placed in the given building part and in all its sub-parts
+	 * (<code>ehome.building:BuildingDefinition#zigbeeDevices</code>), by their name.
+	 */
+	public static List<TLObject> zigbeeDevicesWithin(TLObject part) {
+		List<TLObject> result = new ArrayList<>();
+		for (TLObject current : partsWithin(part)) {
+			for (Object device : (Collection<?>) current.tValueByName(ZIGBEE_DEVICES)) {
+				result.add((TLObject) device);
+			}
+		}
+		result.sort(Comparator.comparing((TLObject d) -> (String) d.tValueByName("name"),
+			Comparator.nullsLast(Comparator.naturalOrder())));
+		return result;
+	}
+
+	/**
+	 * The given building part and all its sub-parts, depth-first in their order.
+	 */
+	public static List<TLObject> partsWithin(TLObject part) {
+		List<TLObject> result = new ArrayList<>();
+		result.add(part);
+		addTreeOrder(list(part, PARTS), result);
+		return result;
 	}
 
 	/**
@@ -217,7 +255,7 @@ public class BuildingDevices {
 	 *
 	 * @param before
 	 *        The part of the container the moved parts are placed before; <code>null</code>, or an
-	 *        object that is no part of the container (a device shown after the parts), for the end.
+	 *        object that is no part of the container, for the end.
 	 */
 	public static ResKey moveVeto(Collection<?> parts, TLObject container, TLObject before) {
 		if (parts == null || parts.isEmpty()) {

@@ -47,14 +47,14 @@ import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 
 /**
- * The building tree of a project shows the devices placed in a building part, and a device is
- * placed from either side (haumacher/ehome #19), on the fixture <code>TestDetails.knxproj</code>: the
+ * The devices placed in a building part, and a device is placed from either side (haumacher/ehome
+ * #19); the building tree shows the parts only (haumacher/ehome #87), on the fixture <code>TestDetails.knxproj</code>: the
  * building "Haus" with the floor "Erdgeschoss", which holds the empty room "Wohnzimmer", the room
  * "Küche" with the device "Taster Küche" and the empty distribution board "Verteiler"; the device
  * "Taster Reserve" is placed nowhere.
  *
  * <p>
- * The children and labels are computed by the scripts of the view
+ * The children of the tree are computed by the scripts of the view
  * (<code>projects/buildings.view.xml</code>), the placement by the scripts of the dialogs
  * <code>projects/place-device.view.xml</code> (from the part) and
  * <code>projects/choose-location.view.xml</code> (from the device), the removal by the script of the
@@ -113,21 +113,15 @@ public class TestBuildingDevices extends BasicTestCase {
 
 		QueryExecutor children = script(viewText(BUILDINGS_VIEW, "children", 0), "project", "node");
 		QueryExecutor parents = script(viewText(BUILDINGS_VIEW, "parents", 0), "project", "node");
-		QueryExecutor label = script(viewAttribute(BUILDINGS_VIEW, "display", "label", 0), "value");
 
-		// The devices of a part follow its sub-parts; a device is a leaf below its location.
+		// The tree shows the parts only; the devices are listed in the tabs of a part.
 		assertEquals(List.of(house), children(children, project, project));
 		assertEquals(List.of(floor), children(children, project, house));
 		assertEquals(rooms, children(children, project, floor));
-		assertEquals(List.of(device), children(children, project, kitchen));
+		assertEquals(List.of(), children(children, project, kitchen));
 		assertEquals(List.of(), children(children, project, board));
-		assertEquals(List.of(), children(children, project, device));
-		assertSame(kitchen, asRoot(Locale.ENGLISH, () -> parents.execute(project, device)));
 		assertSame(floor, asRoot(Locale.ENGLISH, () -> parents.execute(project, kitchen)));
-		String deviceLabel = (String) asRoot(Locale.GERMAN, () -> label.execute(device));
-		assertEquals(GroupAddressConnections.deviceLabel(device), deviceLabel);
-		assertTrue(deviceLabel, deviceLabel.startsWith("Taster Küche (") && deviceLabel.endsWith(")"));
-		assertNull(asRoot(Locale.GERMAN, () -> label.execute(kitchen)));
+		assertSame(house, asRoot(Locale.ENGLISH, () -> parents.execute(project, floor)));
 
 		// The "New" menu offers the part types the selected container takes, as ETS does.
 		assertTrue(BuildingDevices.canContain(project, buildingType("Building")));
@@ -173,9 +167,8 @@ public class TestBuildingDevices extends BasicTestCase {
 		}
 		assertSame(reserve, placed);
 		assertSame(board, reserve.tValueByName("location"));
-		assertEquals(List.of(reserve), children(children, project, board));
-		assertEquals(List.of(device), children(children, project, kitchen));
-		assertSame(board, asRoot(Locale.ENGLISH, () -> parents.execute(project, reserve)));
+		assertEquals(List.of(reserve), BuildingDevices.devices(board));
+		assertEquals(List.of(device), BuildingDevices.devices(kitchen));
 		assertEquals(List.of(device), BuildingDevices.choices(board));
 
 		// A connection of the reserve device: the floor shows the union of both devices' connections.
@@ -205,7 +198,7 @@ public class TestBuildingDevices extends BasicTestCase {
 		}
 		assertSame(board, selected);
 		assertNull(reserve.tValueByName("location"));
-		assertEquals(List.of(), children(children, project, board));
+		assertEquals(List.of(), BuildingDevices.devices(board));
 		assertEquals(deviceConnections, new HashSet<>(BuildingDevices.connections(house)));
 
 		// From the device's side: move the kitchen device to the board, then remove it from there.
@@ -216,8 +209,8 @@ public class TestBuildingDevices extends BasicTestCase {
 			tx.commit();
 		}
 		assertSame(board, device.tValueByName("location"));
-		assertEquals(List.of(), children(children, project, kitchen));
-		assertEquals(List.of(device), children(children, project, board));
+		assertEquals(List.of(), BuildingDevices.devices(kitchen));
+		assertEquals(List.of(device), BuildingDevices.devices(board));
 		try (Transaction tx = kb().beginTransaction()) {
 			asRoot(Locale.ENGLISH, () -> unplace.execute(device));
 			tx.commit();

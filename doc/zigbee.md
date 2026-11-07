@@ -128,10 +128,10 @@ overrides"); the simulation ignores reporting.
 
 ## Rooms
 
-The buildings view (`projects/buildings.view.xml`) lists the Zigbee devices placed in a part after
-its KNX devices: in the tree, in the tab "Zigbee devices" of the part, and selected with a form and
-"Go to the Zigbee device". The part reaches them through the backwards reference
-`ehome.building:BuildingDefinition#zigbeeDevices` (the inverse of `ZigbeeDevice#location`).
+The buildings view (`projects/buildings.view.xml`) lists the Zigbee devices placed in a part and in
+its sub-parts in the tab "Zigbee devices" of the part, with the part each is placed in; a row opens
+the device in the Zigbee tab (haumacher/ehome #87). The part reaches them through the backwards
+reference `ehome.building:BuildingDefinition#zigbeeDevices` (the inverse of `ZigbeeDevice#location`).
 
 ## Simulation
 

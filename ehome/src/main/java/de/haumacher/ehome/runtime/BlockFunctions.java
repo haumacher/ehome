@@ -4,7 +4,9 @@
 package de.haumacher.ehome.runtime;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
@@ -22,6 +24,7 @@ import de.haumacher.ehome.blocks.BlockType;
 import de.haumacher.ehome.blocks.Manifest.Aggregation;
 import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.Port;
+import de.haumacher.ehome.programming.BuildingDevices;
 
 /**
  * The TL-Script functions of the virtual devices of a project (haumacher/ehome #75,
@@ -70,6 +73,11 @@ public class BlockFunctions extends GenericMethod {
 		blockOutputPorts(1),
 		/** <code>blockRoomInstances(part)</code>: the virtual devices of the part of a building. */
 		blockRoomInstances(1),
+		/**
+		 * <code>blockAllRoomInstances(part)</code>: the virtual devices of the part of a building and
+		 * of all its sub-parts, in the order of the project.
+		 */
+		blockAllRoomInstances(1),
 		/** <code>blockProblem(instance)</code>: what the image refuses of the instance, <code>null</code> for nothing. */
 		blockProblem(1),
 		/**
@@ -196,6 +204,7 @@ public class BlockFunctions extends GenericMethod {
 				case blockInputPorts:
 				case blockOutputPorts:
 				case blockRoomInstances:
+				case blockAllRoomInstances:
 				case blockChoiceOptions:
 				case blockAggregationOptions:
 					return List.of();
@@ -315,6 +324,16 @@ public class BlockFunctions extends GenericMethod {
 				List<TLObject> result = new ArrayList<>();
 				for (TLObject instance : BlockInstances.of(RuntimeFunctions.project(obj))) {
 					if (instance.tValueByName("room") == obj) {
+						result.add(instance);
+					}
+				}
+				return result;
+			}
+			case blockAllRoomInstances: {
+				Set<TLObject> parts = new HashSet<>(BuildingDevices.partsWithin(obj));
+				List<TLObject> result = new ArrayList<>();
+				for (TLObject instance : BlockInstances.of(RuntimeFunctions.project(obj))) {
+					if (parts.contains(instance.tValueByName("room"))) {
 						result.add(instance);
 					}
 				}

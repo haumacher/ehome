@@ -1,62 +1,38 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The building structure of a project: buildings and their nested parts (floors, rooms, ...), and
-	under each part the devices placed in it (ehome.physical:Device#location, labelled with name and
-	individual address by deviceLabel), after its sub-parts. The selected node is shown beside the
-	tree: a part, or a placed device with the way to it in the device view ("Go to the device").
-	Below, for the selected part (or the part of the selected device), the devices placed in it and
-	the group addresses in use in it: the connections of the devices placed in the part and in its
-	sub-parts (BuildingDevices#connections), derived and stored nowhere, since ETS links group
-	addresses to devices, not to building parts.
+	The building structure of a project: buildings and their nested parts (floors, rooms, ...), parts
+	only (haumacher/ehome #87). The selected part is shown beside the tree. Below, the tabs "In this
+	building part" list what lies in the selected part and in all its sub-parts, each row with the
+	part it is placed in ("Placed in"): the devices (ehome.physical:Device#location), the Zigbee
+	devices (ehome.zigbee:ZigbeeDevice#location, haumacher/ehome #64), the virtual devices
+	(ehome.runtime:BlockInstance#room, haumacher/ehome #75) and the group addresses in use: the
+	connections of the devices placed in the part and in its sub-parts (BuildingDevices#connections),
+	derived and stored nowhere, since ETS links group addresses to devices, not to building parts.
+	A row opens its object in the object's own view by row activation (double-click, Enter or the
+	button of the row): a device in the device view, a Zigbee device in the Zigbee tab, a virtual
+	device in the tab "Virtual devices", a connection at its group address in the group-address view.
 
 	The parts are ordered (haumacher/ehome #71): the import takes the order of the ETS project, and a
 	part is moved by dragging it in the tree, to another place among its siblings or into another part.
 	The runtime image of a controller lists the locations in this order.
 
 	A device is placed in the selected part with the dialog projects/place-device.view.xml and
-	removed from it with "Remove the placement"; the device view chooses the location from the other
-	side (projects/choose-location.view.xml). The devices of a part are computed by Java functions
-	(BuildingFunctions), hence the tree, the tables and the channels reading them observe the
-	devices: a device placed in the device view appears here, and the other way round, without
-	reloading.
-
-	The Zigbee devices placed in a part (ehome.zigbee:ZigbeeDevice#location, haumacher/ehome #64) appear
-	the same way, after the KNX devices: in the tree under the part, in the tab "Zigbee devices" of the
-	part (the backwards reference BuildingDefinition#zigbeeDevices) and, selected, with a form of their
-	own and the way to them in the Zigbee tab ("Go to the Zigbee device"). They are placed in the
-	Zigbee tab.
+	removed from its part with "Remove the placement" (the device selected in the tab "Devices"); the
+	device view chooses the location from the other side (projects/choose-location.view.xml). Zigbee
+	devices are placed in the Zigbee tab, virtual devices in the tab "Virtual devices". The lists of
+	a part are computed by Java functions (BuildingFunctions, BlockFunctions), hence the tables
+	reading them observe the listed types and the building parts: a device placed in a sub-part
+	appears in the tabs of its containers without reloading.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="selected"/>
-		<derived-channel name="selectedPart"
+		<!-- The selected part: the tree shows parts only. -->
+		<derived-channel name="part"
 			expr="if($selected.instanceOf(`ehome.building:BuildingDefinition`), $selected, null)"
 			inputs="selected"
-		/>
-		<!-- The selected part, or the part the selected (KNX or Zigbee) device is placed in. -->
-		<derived-channel name="part"
-			inputs="selected"
-			observed-types="ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
-		>
-			<expr><![CDATA[switch {
-    $selected.instanceOf(`ehome.physical:Device`): $selected.get(`ehome.physical:Device#location`);
-    $selected.instanceOf(`ehome.zigbee:ZigbeeDevice`): $selected.get(`ehome.zigbee:ZigbeeDevice#location`);
-    $selected.instanceOf(`ehome.building:BuildingDefinition`): $selected;
-    default: null;
-}]]></expr>
-		</derived-channel>
-		<!-- The selected Zigbee device node. -->
-		<derived-channel name="zigbeeDevice"
-			expr="if($selected.instanceOf(`ehome.zigbee:ZigbeeDevice`), $selected, null)"
-			inputs="selected"
-		/>
-		<!-- Where the selected Zigbee device node is placed, as the path of its building part. -->
-		<derived-channel name="zigbeeLocationPath"
-			expr="if($selected.instanceOf(`ehome.zigbee:ZigbeeDevice`), buildingPath($selected.get(`ehome.zigbee:ZigbeeDevice#location`)), null)"
-			inputs="selected"
-			observed-types="ehome.zigbee:ZigbeeDevice,ehome.building:BuildingDefinition"
 		/>
 		<derived-channel name="partPath"
 			expr="buildingPath($part)"
@@ -69,28 +45,13 @@
 		/>
 		<!-- The device selected in the table of the devices of the part. -->
 		<channel name="selectedRow"/>
-		<!-- The selected device: the node selected in the tree, or the row selected in the table of the devices of the part. -->
+		<!-- The selected device: the row selected in the table of the devices of the part and its sub-parts. -->
 		<derived-channel name="device"
-			inputs="selected, part, selectedRow"
-			observed-types="ehome.physical:Device"
-		>
-			<expr><![CDATA[switch {
-    $selected.instanceOf(`ehome.physical:Device`): $selected;
-    $selectedRow != null and $part != null and buildingDevices($part).containsElement($selectedRow): $selectedRow;
-    default: null;
-}]]></expr>
-		</derived-channel>
-		<!-- Where the selected device node is placed, as the path of its building part. -->
-		<derived-channel name="locationPath"
-			expr="if($selected.instanceOf(`ehome.physical:Device`), buildingPath($selected.get(`ehome.physical:Device#location`)), null)"
-			inputs="selected"
+			inputs="part, selectedRow"
 			observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
-		/>
-		<derived-channel name="deviceText"
-			expr="deviceLabel($device)"
-			inputs="device"
-			observed-types="ehome.physical:Device"
-		/>
+		>
+			<expr><![CDATA[if($selectedRow != null and $part != null and buildingAllDevices($part).containsElement($selectedRow), $selectedRow, null)]]></expr>
+		</derived-channel>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -414,7 +375,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
-							inputs="selectedPart"
+							inputs="part"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -424,7 +385,7 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="#('Delete {0}?'@en, '{0} löschen?'@de).fill($selectedPart.label())"/>
+							<confirm expr="#('Delete {0}?'@en, '{0} löschen?'@de).fill($part.label())"/>
 							<delete-object/>
 							<write-channel name="selected" clear="true"/>
 						</generic-command>
@@ -450,9 +411,10 @@
 								bind-input-to="part"
 								dialog-view="projects/place-device.view.xml"
 							>
+								<!-- The placed device is selected in the tab "Devices". -->
 								<bind
 									channel="selection"
-									to="selected"
+									to="selectedRow"
 								/>
 							</open-dialog>
 						</generic-command>
@@ -476,7 +438,7 @@
 							</executability>
 							<confirm expr="#('Remove {0} from {1}?'@en, '{0} aus {1} entfernen?'@de).fill(deviceLabel($device), buildingPath($device.get(`ehome.physical:Device#location`)))"/>
 							<with-transaction>
-								<!-- The part the device was placed in is selected afterwards. -->
+								<!-- The selected part stays selected. -->
 								<execute-script>
 									<function><![CDATA[{
     buildingPlace($device, null);
@@ -491,66 +453,10 @@
 								</with-result>
 							</with-transaction>
 						</generic-command>
-						<generic-command
-							image="css:bi bi-box-arrow-up-right"
-							inputs="device"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Go to the device</en>
-								<de>Zum Gerät</de>
-							</label>
-							<executability>
-								<null-input-disabled/>
-							</executability>
-							<show-views>
-								<show frame="project"
-									label-expr="recursion($device, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
-								>
-									<bind
-										channel="project"
-										expr="recursion($device, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
-									/>
-								</show>
-								<show view="projects/devices.view.xml">
-									<bind channel="selected"/>
-								</show>
-							</show-views>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-box-arrow-up-right"
-							inputs="zigbeeDevice"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Go to the Zigbee device</en>
-								<de>Zum Zigbee-Gerät</de>
-							</label>
-							<executability>
-								<null-input-disabled/>
-							</executability>
-							<show-views>
-								<show frame="project"
-									label-expr="$zigbeeDevice.container().get(`ehome.project:Project#name`)"
-								>
-									<bind
-										channel="project"
-										expr="$zigbeeDevice.container()"
-									/>
-								</show>
-								<show view="projects/zigbee.view.xml">
-									<bind channel="device"/>
-								</show>
-							</show-views>
-						</generic-command>
 					</commands>
-					<!--
-						The structure with the columns of the classic tree grid (exported to Excel as an outline);
-						a placed device is labelled with its individual address. A device placed in a part from
-						elsewhere (the device view, the Zigbee tab) is placed in the tree through "parents".
-					-->
+					<!-- The structure with the columns of the classic tree grid (exported to Excel as an outline). -->
 					<tree-table
-						observed-types="ehome.building:BuildingDefinition,ehome.physical:Device,ehome.zigbee:ZigbeeDevice"
+						observed-types="ehome.building:BuildingDefinition"
 						selection="selected"
 					>
 						<inputs>
@@ -561,29 +467,17 @@
     $node.instanceOf(`ehome.project:Project`):
         $node.get(`ehome.project:Project#buildings`);
     $node.instanceOf(`ehome.building:BuildingDefinition`):
-        concat(
-            $node.get(`ehome.building:BuildingDefinition#parts`),
-            buildingDevices($node),
-            $node.get(`ehome.building:BuildingDefinition#zigbeeDevices`).sort(a -> b -> compare($a.get(`ehome.zigbee:ZigbeeDevice#name`), $b.get(`ehome.zigbee:ZigbeeDevice#name`))));
+        $node.get(`ehome.building:BuildingDefinition#parts`);
     default: [];
 }]]></children>
-						<parents><![CDATA[switch {
-    $node.instanceOf(`ehome.physical:Device`): $node.get(`ehome.physical:Device#location`);
-    $node.instanceOf(`ehome.zigbee:ZigbeeDevice`): $node.get(`ehome.zigbee:ZigbeeDevice#location`);
-    default: $node.container();
-}]]></parents>
+						<parents>$node.container()</parents>
 						<!--
 							The parts of the buildings are ordered (haumacher/ehome #71): a part is dragged to its
 							place, between two parts or onto a part as its first sub-part, also into another part
 							of the project. BuildingDevices#moveVeto refuses (with its reason) a place that cannot
-							hold a part of its type and a place inside the dragged part; a place among the devices
-							of a part puts the dragged parts after its last sub-part.
+							hold a part of its type and a place inside the dragged part.
 						-->
-						<drag kind="buildingPart">
-							<row-executability>
-								<disabled-if expr="!$row.instanceOf(`ehome.building:BuildingDefinition`)"/>
-							</row-executability>
-						</drag>
+						<drag kind="buildingPart"/>
 						<drop
 							accept="buildingPart"
 							input="project"
@@ -615,9 +509,6 @@
 									<de>Name</de>
 								</label>
 								<value>$row</value>
-								<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"
-									label="if($value.instanceOf(`ehome.physical:Device`), deviceLabel($value), null)"
-								/>
 							</computed-column>
 							<computed-column name="type"
 								width="140"
@@ -647,9 +538,7 @@
 				unit="%"
 			>
 				<!--
-					Above, the selected node; below, the devices of the selected part (or of the part of
-					the selected device) and the group addresses in use in it, for the part of a selected
-					device as well as for a selected part.
+					Above, the selected part; below, what lies in it and in its sub-parts.
 				-->
 				<split-panel
 					orientation="vertical"
@@ -665,79 +554,26 @@
 									<en>Details</en>
 									<de>Details</de>
 								</title>
-								<switch input="selected">
-									<case test="$selected.instanceOf(`ehome.building:BuildingDefinition`)">
-										<stack>
-											<inset>
-												<text
-													input="partPath"
-													variant="title"
-												/>
-											</inset>
-											<form
-												input="selectedPart"
-												with-inset="true"
-											>
-												<field attribute="name"/>
-												<field attribute="extId"/>
-											</form>
-										</stack>
-									</case>
-									<case test="$selected.instanceOf(`ehome.physical:Device`)">
-										<!-- A placed device; it is configured in the device view ("Go to the device"). -->
-										<stack>
-											<inset>
-												<text
-													input="deviceText"
-													variant="title"
-												/>
-											</inset>
-											<form
-												input="selected"
-												with-inset="true"
-												withEditMode="false"
-											>
-												<field attribute="name"/>
-												<field attribute="type"/>
-												<value-input
-													readonly="true"
-													type="tl.core:String"
-													value="locationPath"
-												>
-													<label>
-														<en>Location</en>
-														<de>Standort</de>
-													</label>
-												</value-input>
-												<field attribute="description"/>
-												<field attribute="installationHints"/>
-											</form>
-										</stack>
-									</case>
-									<case test="$selected.instanceOf(`ehome.zigbee:ZigbeeDevice`)">
-										<!-- A placed Zigbee device; it is named, placed and bound in the Zigbee tab ("Go to the Zigbee device"). -->
+								<visible-if
+									expr="$part != null"
+									input="part"
+								>
+									<stack>
+										<inset>
+											<text
+												input="partPath"
+												variant="title"
+											/>
+										</inset>
 										<form
-											input="selected"
+											input="part"
 											with-inset="true"
-											withEditMode="false"
 										>
 											<field attribute="name"/>
-											<value-input
-												readonly="true"
-												type="tl.core:String"
-												value="zigbeeLocationPath"
-											>
-												<label>
-													<en>Location</en>
-													<de>Standort</de>
-												</label>
-											</value-input>
-											<field attribute="manufacturer"/>
-											<field attribute="model"/>
-											<field attribute="ieee"/>
+											<field attribute="extId"/>
 										</form>
-									</case>
-								</switch>
+									</stack>
+								</visible-if>
 							</panel>
 						</pane>
 						<pane
@@ -758,8 +594,9 @@
 												<en>Devices</en>
 												<de>Geräte</de>
 											</label>
+											<!-- The devices placed in the part and in its sub-parts, by individual address. -->
 											<table
-												observed-types="ehome.physical:Device"
+												observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
 												selection="selectedRow"
 												types="ehome.physical:Device"
 											>
@@ -783,8 +620,39 @@
 													<column attribute="description"
 														width="200"
 													/>
+													<computed-column name="location"
+														type="tl.core:String"
+														width="200"
+													>
+														<label>
+															<en>Placed in</en>
+															<de>Platziert in</de>
+														</label>
+														<value>buildingPath($row.get(`ehome.physical:Device#location`))</value>
+													</computed-column>
 												</columns>
-												<rows>if($part == null, [], buildingDevices($part))</rows>
+												<rows>if($part == null, [], buildingAllDevices($part))</rows>
+												<on-activate class="com.top_logic.layout.view.command.GenericViewCommand"
+													image="css:bi bi-box-arrow-up-right"
+												>
+													<label>
+														<en>Go to the device</en>
+														<de>Zum Gerät</de>
+													</label>
+													<show-views>
+														<show frame="project"
+															label-expr="recursion($row, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+														>
+															<bind
+																channel="project"
+																expr="recursion($row, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+															/>
+														</show>
+														<show view="projects/devices.view.xml">
+															<bind channel="selected"/>
+														</show>
+													</show-views>
+												</on-activate>
 											</table>
 										</tab>
 										<tab id="zigbeeDevices"
@@ -794,8 +662,9 @@
 												<en>Zigbee devices</en>
 												<de>Zigbee-Geräte</de>
 											</label>
+											<!-- The Zigbee devices placed in the part and in its sub-parts, by name. -->
 											<table
-												observed-types="ehome.zigbee:ZigbeeDevice"
+												observed-types="ehome.zigbee:ZigbeeDevice,ehome.building:BuildingDefinition"
 												types="ehome.zigbee:ZigbeeDevice"
 											>
 												<inputs>
@@ -814,8 +683,39 @@
 													<column attribute="ieee"
 														width="160"
 													/>
+													<computed-column name="location"
+														type="tl.core:String"
+														width="200"
+													>
+														<label>
+															<en>Placed in</en>
+															<de>Platziert in</de>
+														</label>
+														<value>buildingPath($row.get(`ehome.zigbee:ZigbeeDevice#location`))</value>
+													</computed-column>
 												</columns>
-												<rows>if($part == null, [], $part.get(`ehome.building:BuildingDefinition#zigbeeDevices`).sort(a -> b -> compare($a.get(`ehome.zigbee:ZigbeeDevice#name`), $b.get(`ehome.zigbee:ZigbeeDevice#name`))))</rows>
+												<rows>if($part == null, [], buildingAllZigbeeDevices($part))</rows>
+												<on-activate class="com.top_logic.layout.view.command.GenericViewCommand"
+													image="css:bi bi-box-arrow-up-right"
+												>
+													<label>
+														<en>Go to the Zigbee device</en>
+														<de>Zum Zigbee-Gerät</de>
+													</label>
+													<show-views>
+														<show frame="project"
+															label-expr="recursion($row, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+														>
+															<bind
+																channel="project"
+																expr="recursion($row, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+															/>
+														</show>
+														<show view="projects/zigbee.view.xml">
+															<bind channel="device"/>
+														</show>
+													</show-views>
+												</on-activate>
 											</table>
 										</tab>
 										<tab id="blocks"
@@ -825,9 +725,9 @@
 												<en>Virtual devices</en>
 												<de>Virtuelle Geräte</de>
 											</label>
-											<!-- The virtual devices of the part (haumacher/ehome #75), edited in the project's tab "Virtual devices". -->
+											<!-- The virtual devices of the part and of its sub-parts (haumacher/ehome #75), edited in the project's tab "Virtual devices". -->
 											<table
-												observed-types="ehome.runtime:BlockInstance"
+												observed-types="ehome.runtime:BlockInstance,ehome.building:BuildingDefinition"
 												types="ehome.runtime:BlockInstance"
 											>
 												<inputs>
@@ -853,8 +753,39 @@
 													<column attribute="enabled"
 														width="100"
 													/>
+													<computed-column name="location"
+														type="tl.core:String"
+														width="200"
+													>
+														<label>
+															<en>Placed in</en>
+															<de>Platziert in</de>
+														</label>
+														<value>buildingPath($row.get(`ehome.runtime:BlockInstance#room`))</value>
+													</computed-column>
 												</columns>
-												<rows>if($part == null, [], blockRoomInstances($part))</rows>
+												<rows>if($part == null, [], blockAllRoomInstances($part))</rows>
+												<on-activate class="com.top_logic.layout.view.command.GenericViewCommand"
+													image="css:bi bi-box-arrow-up-right"
+												>
+													<label>
+														<en>Go to the virtual device</en>
+														<de>Zum virtuellen Gerät</de>
+													</label>
+													<show-views>
+														<show frame="project"
+															label-expr="recursion($row, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+														>
+															<bind
+																channel="project"
+																expr="recursion($row, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+															/>
+														</show>
+														<show view="projects/blocks.view.xml">
+															<bind channel="block"/>
+														</show>
+													</show-views>
+												</on-activate>
 											</table>
 										</tab>
 										<tab id="addresses"
@@ -866,7 +797,7 @@
 											</label>
 											<!--
 												The group addresses the devices placed in the part and in its sub-parts are
-												connected to, one row per connection.
+												connected to, one row per connection; a row opens its group address.
 											-->
 											<table
 												observed-types="ehome.physical:Connection,ehome.physical:Connector,ehome.physical:Device,ehome.building:BuildingDefinition"
@@ -934,6 +865,30 @@
 													</computed-column>
 												</columns>
 												<rows>if($part == null, [], buildingConnections($part))</rows>
+												<on-activate class="com.top_logic.layout.view.command.GenericViewCommand"
+													image="css:bi bi-box-arrow-up-right"
+												>
+													<label>
+														<en>Go to the group address</en>
+														<de>Zur Gruppenadresse</de>
+													</label>
+													<show-views>
+														<show frame="project"
+															label-expr="recursion($row, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+														>
+															<bind
+																channel="project"
+																expr="recursion($row, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+															/>
+														</show>
+														<show view="projects/addresses.view.xml">
+															<bind
+																channel="selected"
+																expr="$row.get(`ehome.physical:Connection#target`)"
+															/>
+														</show>
+													</show-views>
+												</on-activate>
 											</table>
 										</tab>
 									</tabs>

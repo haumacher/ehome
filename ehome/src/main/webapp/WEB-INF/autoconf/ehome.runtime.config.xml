@@ -69,6 +69,7 @@
 					<method name="blockInputPorts" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockOutputPorts" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockRoomInstances" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockAllRoomInstances" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockProblem" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<!-- Parameters and aggregations by their kind, the units of a binding (haumacher/ehome #78). -->
 					<method name="blockValue" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
