@@ -45,11 +45,32 @@ Work is a pipeline, not a pile:
 4. **Review with a novel probe** (§4). Non-negotiable.
 5. **Gate** (§5), **commit to master and push** (§6), **restart the app and check it** (§7),
    close the issue with the fixing commit plus a summary comment naming the regression test.
-6. **Before ever finishing: `gh issue list -R haumacher/ehome` and `gh issue list -R
-   haumacher/homecontrol`.** Stop only when neither list holds anything actionable. "Blocked on the
-   firmware" or "needs a public host" is not a reason to stop: fix the firmware, build the local
-   path (§11). Anything you defer becomes an issue (or, for an engine gap, a TL
-   ticket plus a `doc/tl-todo.md` entry), so a crashed session loses nothing.
+6. **Loop back to step 1 — immediately, in the same turn.** A closed issue is not the end of a
+   pass; it is the start of the next package. Re-read `gh issue list -R haumacher/ehome` and
+   `gh issue list -R haumacher/homecontrol` and take the next actionable issue without waiting for
+   the user. "Blocked on the firmware" or "needs a public host" is not a reason to stop: fix the
+   firmware, build the local path (§11). Anything you defer becomes an issue (or, for an engine
+   gap, a TL ticket plus a `doc/tl-todo.md` entry), so a crashed session loses nothing.
+
+**When a pass ends.** A pass ends only when both issue lists hold nothing actionable — never
+earlier. These are *not* reasons to end the turn:
+
+- a package was committed and pushed, or a run notice was written (a run notice is a progress
+  line, not a hand-off; write it and continue with the next issue);
+- a number of issues was done, the work "reached a good checkpoint", or the session has run long
+  (the context is summarized automatically; there is no reason to wrap up early);
+- the next issue is large, touches the model, or needs the controller on the desk;
+- a background agent is still running (wait for its notification, or work the next package with
+  disjoint files meanwhile, §3);
+- an issue needs a decision from the user. Post the question as a comment on that issue (with
+  the options and a recommendation), skip it, and take the next one. If the decision has a
+  sensible default, take the default, say so in the issue, and implement it (§9).
+
+An issue is not actionable only if it waits on something outside the session: an answer the user
+has to give (asked in the issue, per above), an upstream TopLogic fix (recorded in
+`doc/tl-todo.md`), or a physical action only the user can do. The final message of a pass lists
+every open issue that remains with the one reason it is not actionable; an open issue without
+such a reason means the pass was not finished — go back and do it.
 
 Track packages with TaskCreate/TaskUpdate; keep statuses honest (in_progress on dispatch,
 completed only after the commit is pushed).
