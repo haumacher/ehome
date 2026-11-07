@@ -62,6 +62,10 @@
 								<en>Search controllers</en>
 								<de>Controller suchen</de>
 							</label>
+							<tooltip>
+								<en>Lists the HomeControl controllers that announce themselves in the local networks (mDNS) and creates the one chosen; its token is set afterwards.</en>
+								<de>Listet die HomeControl-Controller, die sich in den lokalen Netzen ankündigen (mDNS), und legt den gewählten an; sein Token wird danach gesetzt.</de>
+							</tooltip>
 							<open-dialog dialog-view="controllers/discover-controllers.view.xml">
 								<bind
 									channel="selection"
@@ -78,6 +82,10 @@
 								<en>Set token</en>
 								<de>Token setzen</de>
 							</label>
+							<tooltip>
+								<en>Stores the token created on the controller's console (web token create e-home), with which E-Home authenticates when it deploys, unloads or asks the status. It is never shown again.</en>
+								<de>Speichert das auf der Konsole des Controllers erzeugte Token (web token create e-home), mit dem sich E-Home beim Bereitstellen, Entladen und Abfragen des Status ausweist. Es wird nie wieder angezeigt.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$controller"
@@ -101,6 +109,10 @@
 								<en>Status</en>
 								<de>Status</de>
 							</label>
+							<tooltip>
+								<en>Asks the controller what it runs and shows the answer; nothing is changed.</en>
+								<de>Fragt den Controller, was er ausführt, und zeigt die Antwort; es wird nichts geändert.</de>
+							</tooltip>
 							<access>
 								<!-- Only asks the controller what it runs (with the stored token, in Java). -->
 								<operation name="Read"

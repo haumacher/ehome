@@ -113,6 +113,10 @@
 								<en>Bind datapoints</en>
 								<de>Datenpunkte binden</de>
 							</label>
+							<tooltip>
+								<en>Binds datapoints of the project of a type and unit the port reads (an input) or commands (an output); an input combines several by its aggregation.</en>
+								<de>Bindet Datenpunkte des Projekts, deren Typ und Einheit der Port liest (ein Eingang) oder ansteuert (ein Ausgang); ein Eingang fasst mehrere mit seiner Aggregation zusammen.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$port"

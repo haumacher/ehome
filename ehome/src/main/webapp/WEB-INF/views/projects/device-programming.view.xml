@@ -50,6 +50,10 @@
 						<en>Choose the gateway</en>
 						<de>Gateway wählen</de>
 					</label>
+					<tooltip>
+						<en>Sets the KNXnet/IP gateway of the project, entered by address or chosen from a search. All devices of the project are read and programmed through it.</en>
+						<de>Legt das KNXnet/IP-Gateway des Projekts fest, als Adresse eingegeben oder aus einer Suche gewählt. Über dieses Gateway werden alle Geräte des Projekts gelesen und programmiert.</de>
+					</tooltip>
 					<access>
 						<operation name="Write"
 							object="$project"
@@ -94,6 +98,10 @@
 						<en>Download image</en>
 						<de>Download-Abbild</de>
 					</label>
+					<tooltip>
+						<en>Shows the bytes the download writes into the device, block by block; nothing is sent.</en>
+						<de>Zeigt die Bytes, die der Download in das Gerät schreibt, Block für Block; es wird nichts gesendet.</de>
+					</tooltip>
 					<executability>
 						<null-input-disabled/>
 					</executability>
@@ -112,6 +120,10 @@
 						<en>Compare with the device</en>
 						<de>Mit dem Gerät vergleichen</de>
 					</label>
+					<tooltip>
+						<en>Reads the memory of the device through the gateway and compares it with the download image; nothing is written. Takes seconds to minutes, depending on the device.</en>
+						<de>Liest den Speicher des Geräts über das Gateway und vergleicht ihn mit dem Download-Abbild; es wird nichts geschrieben. Dauert je nach Gerät Sekunden bis Minuten.</de>
+					</tooltip>
 					<access>
 						<operation name="Write"
 							object="$device"
@@ -151,6 +163,10 @@
 						<en>Download</en>
 						<de>Herunterladen</de>
 					</label>
+					<tooltip>
+						<en>Writes the application, the parameters and the group addresses into the device at its individual address (a new device gets its address first). The device does not work until the download is complete, which takes seconds to minutes.</en>
+						<de>Schreibt Applikation, Parameter und Gruppenadressen in das Gerät mit seiner physikalischen Adresse (ein neues Gerät erhält zuerst seine Adresse). Das Gerät arbeitet erst wieder, wenn der Download abgeschlossen ist; das dauert Sekunden bis Minuten.</de>
+					</tooltip>
 					<access>
 						<operation name="Write"
 							object="$device"
@@ -191,6 +207,10 @@
 						<en>Write the individual address</en>
 						<de>Physikalische Adresse programmieren</de>
 					</label>
+					<tooltip>
+						<en>Writes the individual address of this device into the one device in programming mode. Press the programming button of exactly one device first.</en>
+						<de>Schreibt die physikalische Adresse dieses Geräts in das eine Gerät im Programmiermodus. Vorher die Programmiertaste genau eines Geräts drücken.</de>
+					</tooltip>
 					<access>
 						<operation name="Write"
 							object="$device"

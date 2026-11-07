@@ -60,6 +60,10 @@
 								<en>Choose the gateway</en>
 								<de>Gateway wählen</de>
 							</label>
+							<tooltip>
+								<en>Sets the KNXnet/IP gateway of the project, entered by address or chosen from a search; the scan reads the installation behind it. It is the gateway of the whole project, for programming as well.</en>
+								<de>Legt das KNXnet/IP-Gateway des Projekts fest, als Adresse eingegeben oder aus einer Suche gewählt; die Suche liest die Installation dahinter. Es ist das Gateway des ganzen Projekts, auch für das Programmieren.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -84,6 +88,10 @@
 								<en>Scan</en>
 								<de>Suchen</de>
 							</label>
+							<tooltip>
+								<en>Searches the chosen line and the targets checked for devices and reads their descriptor, properties and memory; nothing is written. Devices the catalog does not identify are kept in the project; devices of the project are created only by "Create / update".</en>
+								<de>Sucht auf der gewählten Linie und bei den angekreuzten Zielen nach Geräten und liest Gerätebeschreibung, Eigenschaften und Speicher; es wird nichts geschrieben. Vom Katalog nicht erkannte Geräte werden im Projekt vorgemerkt; Geräte des Projekts legt erst „Anlegen / Aktualisieren“ an.</de>
+							</tooltip>
 							<access>
 								<!-- The scan creates and updates the devices of the project. -->
 								<operation name="Write"
@@ -123,6 +131,10 @@
 								<en>Match kept devices</en>
 								<de>Vorgemerkte Geräte zuordnen</de>
 							</label>
+							<tooltip>
+								<en>Matches the unidentified devices kept from earlier scans against the catalog again, for example after an import of product data; the bus is not accessed.</en>
+								<de>Ordnet die bei früheren Suchen vorgemerkten, nicht erkannten Geräte erneut dem Katalog zu, etwa nach einem Import von Produktdaten; der Bus wird dabei nicht angesprochen.</de>
+							</tooltip>
 							<executability>
 								<null-input-disabled/>
 							</executability>
@@ -211,6 +223,10 @@
 								<en>Create / update</en>
 								<de>Anlegen / Aktualisieren</de>
 							</label>
+							<tooltip>
+								<en>Creates the selected device in the project with the product and program found, its parameters at their defaults until "Read the configuration". A device of the project with its address only takes the serial number; one running another program is not changed.</en>
+								<de>Legt das gewählte Gerät mit dem gefundenen Produkt und Programm im Projekt an, mit den Vorgabewerten der Parameter bis „Konfiguration einlesen“. Ein Gerät des Projekts mit seiner Adresse übernimmt nur die Seriennummer; eines mit einem anderen Programm bleibt unverändert.</de>
+							</tooltip>
 							<access>
 								<!-- The device is created or updated in the project of the row. -->
 								<operation name="Write"
@@ -262,6 +278,10 @@
 								<en>Read the configuration</en>
 								<de>Konfiguration einlesen</de>
 							</label>
+							<tooltip>
+								<en>Reads the memory of the selected device and takes its parameter values and connections into the project's device, overwriting those there; nothing is written into the device. The device then counts as downloaded.</en>
+								<de>Liest den Speicher des gewählten Geräts und übernimmt seine Parameterwerte und Verbindungen in das Gerät des Projekts, wobei die bisherigen überschrieben werden; in das Gerät wird nichts geschrieben. Das Gerät gilt danach als heruntergeladen.</de>
+							</tooltip>
 							<access>
 								<!-- The read-back writes the configuration into the device of the project of the row. -->
 								<operation name="Write"
@@ -300,6 +320,10 @@
 								<en>Programming LED on</en>
 								<de>Programmier-LED an</de>
 							</label>
+							<tooltip>
+								<en>Switches the programming mode of the selected device on, so that its programming LED shows where it is installed. This writes into the device.</en>
+								<de>Schaltet den Programmiermodus des gewählten Geräts ein, damit seine Programmier-LED zeigt, wo es eingebaut ist. Das schreibt in das Gerät.</de>
+							</tooltip>
 							<access>
 								<!-- Switches the programming mode of a device on the bus of the project of the row. -->
 								<operation name="Write"
@@ -341,6 +365,10 @@
 								<en>Programming LED off</en>
 								<de>Programmier-LED aus</de>
 							</label>
+							<tooltip>
+								<en>Switches the programming mode of the selected device off again; its programming LED goes out. This writes into the device.</en>
+								<de>Schaltet den Programmiermodus des gewählten Geräts wieder aus; seine Programmier-LED erlischt. Das schreibt in das Gerät.</de>
+							</tooltip>
 							<access>
 								<!-- Switches the programming mode of a device on the bus of the project of the row. -->
 								<operation name="Write"

@@ -302,6 +302,10 @@
 											<en>Place parameter</en>
 											<de>Parameter platzieren</de>
 										</label>
+										<tooltip>
+											<en>Places a parameter of the program in the selected structure element (or after it), with its own text, default and access there; the parameter itself is defined in the tab Parameters.</en>
+											<de>Platziert einen Parameter des Programms im gewählten Strukturelement (oder dahinter), mit eigenem Text, eigener Vorgabe und eigenem Zugriff an dieser Stelle; der Parameter selbst wird im Reiter „Parameter“ definiert.</de>
+										</tooltip>
 										<access>
 											<operation name="Write"
 												object="$anchor"
@@ -342,6 +346,10 @@
 											<en>Place communication object</en>
 											<de>Kommunikationsobjekt platzieren</de>
 										</label>
+										<tooltip>
+											<en>Places a communication object of the program in the selected structure element (or after it); the object itself is defined in the tab Objects.</en>
+											<de>Platziert ein Kommunikationsobjekt des Programms im gewählten Strukturelement (oder dahinter); das Objekt selbst wird im Reiter „Objekte“ definiert.</de>
+										</tooltip>
 										<access>
 											<operation name="Write"
 												object="$anchor"

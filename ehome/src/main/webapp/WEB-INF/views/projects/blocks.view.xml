@@ -576,6 +576,10 @@
 														<en>Read diagnostics</en>
 														<de>Diagnose lesen</de>
 													</label>
+													<tooltip>
+														<en>Asks the project's controller what the deployed virtual device does: status and fault, calls, the values of its inputs and outputs, timers and state; nothing is changed.</en>
+														<de>Fragt den Controller des Projekts, was das bereitgestellte virtuelle Gerät tut: Status und Fehler, Aufrufe, die Werte seiner Ein- und Ausgänge, Timer und Zustand; es wird nichts geändert.</de>
+													</tooltip>
 													<access>
 														<!-- Only asks the controller of the project (GET /api/blocks, with the stored token, in Java). -->
 														<operation name="Read"

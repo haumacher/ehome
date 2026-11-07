@@ -59,6 +59,10 @@
 					<en>ETS import</en>
 					<de>ETS-Import</de>
 				</label>
+				<tooltip>
+					<en>Reads an ETS project file (.knxproj) into a new project; existing projects stay as they are. Manufacturers, products and application programs go into the shared catalogs, programs already known are not read again.</en>
+					<de>Liest eine ETS-Projektdatei (.knxproj) als neues Projekt ein; bestehende Projekte bleiben unverändert. Hersteller, Produkte und Applikationsprogramme kommen in die gemeinsamen Kataloge, bereits bekannte Programme werden nicht erneut eingelesen.</de>
+				</tooltip>
 				<access>
 					<create type="ehome.project:Project"/>
 				</access>
@@ -139,6 +143,10 @@
 					<en>Export as .knxproj</en>
 					<de>Als .knxproj exportieren</de>
 				</label>
+				<tooltip>
+					<en>Writes the project with the catalog data it uses into a .knxproj file to download. The file is not signed: ETS does not import it, E-Home does.</en>
+					<de>Schreibt das Projekt mit den Katalogdaten, die es verwendet, in eine .knxproj-Datei zum Herunterladen. Die Datei ist nicht signiert: Die ETS importiert sie nicht, E-Home schon.</de>
+				</tooltip>
 				<access>
 					<!-- The export only reads the project. -->
 					<operation name="Read"
@@ -167,6 +175,10 @@
 					<en>Read the installation</en>
 					<de>Installation einlesen</de>
 				</label>
+				<tooltip>
+					<en>Scans the bus behind the project's gateway, matches the devices found against the catalog and creates or updates them in the project. The scan and the reading of configurations write nothing into the devices.</en>
+					<de>Durchsucht den Bus hinter dem Gateway des Projekts, ordnet die gefundenen Geräte dem Katalog zu und legt sie im Projekt an oder aktualisiert sie. Suche und Einlesen der Konfiguration schreiben nichts in die Geräte.</de>
+				</tooltip>
 				<access>
 					<operation name="Write"
 						object="$project"

@@ -172,6 +172,10 @@
 									<en>Set history by hand</en>
 									<de>Verlauf von Hand einstellen</de>
 								</label>
+								<tooltip>
+									<en>Makes the history the controller keeps of the datapoint for the charts of the control pages (raw ring and archives) editable, starting from the derived one. It then no longer follows changes of the charts.</en>
+									<de>Macht den Verlauf, den der Controller für die Diagramme der Bedienseiten vom Datenpunkt führt (Rohdaten und Archive), von Hand einstellbar, ausgehend vom abgeleiteten. Er folgt dann Änderungen der Diagramme nicht mehr.</de>
+								</tooltip>
 								<access>
 									<operation name="Write"
 										object="$datapoint"
@@ -194,6 +198,10 @@
 									<en>Derive history</en>
 									<de>Verlauf ableiten</de>
 								</label>
+								<tooltip>
+									<en>Discards the history set by hand: the controller keeps again the history the charts of the control pages need.</en>
+									<de>Verwirft den von Hand eingestellten Verlauf: Der Controller führt wieder den Verlauf, den die Diagramme der Bedienseiten brauchen.</de>
+								</tooltip>
 								<access>
 									<operation name="Write"
 										object="$datapoint"

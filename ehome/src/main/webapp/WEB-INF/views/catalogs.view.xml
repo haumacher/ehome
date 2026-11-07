@@ -81,6 +81,10 @@
 								<en>Import product data</en>
 								<de>Produktdaten importieren</de>
 							</label>
+							<tooltip>
+								<en>Reads a manufacturer's product file (.knxprod) into the catalog; application programs already known are skipped.</en>
+								<de>Liest die Produktdatei eines Herstellers (.knxprod) in den Katalog ein; bereits bekannte Applikationsprogramme werden übersprungen.</de>
+							</tooltip>
 							<access>
 								<!--
 									An import adds manufacturers, catalogs and programs: a write of the

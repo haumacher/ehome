@@ -52,6 +52,10 @@
 						<en>Start virtual device</en>
 						<de>Virtuelles Gerät starten</de>
 					</label>
+					<tooltip>
+						<en>Starts a KNXnet/IP interface on this computer whose bus holds only a simulated copy of this device, to program it with ETS; every service is recorded in a trace. Nothing reaches a real bus.</en>
+						<de>Startet auf diesem Rechner eine KNXnet/IP-Schnittstelle, an deren Bus nur eine simulierte Kopie dieses Geräts hängt, um es mit der ETS zu programmieren; jeder Dienst wird aufgezeichnet. Nichts erreicht einen echten Bus.</de>
+					</tooltip>
 					<access>
 						<operation name="Write"
 							object='$state["device"]'
@@ -80,6 +84,10 @@
 						<en>Stop virtual device</en>
 						<de>Virtuelles Gerät anhalten</de>
 					</label>
+					<tooltip>
+						<en>Stops the virtual interface and ends its trace; an address written into the virtual device is lost, the project stays unchanged.</en>
+						<de>Hält die virtuelle Schnittstelle an und schließt ihre Aufzeichnung ab; eine in das virtuelle Gerät geschriebene Adresse geht verloren, das Projekt bleibt unverändert.</de>
+					</tooltip>
 					<access>
 						<operation name="Write"
 							object='$state["device"]'
@@ -104,6 +112,10 @@
 						<en>Programming button</en>
 						<de>Programmiertaste</de>
 					</label>
+					<tooltip>
+						<en>Presses the programming button of the virtual device, which switches its programming mode on or off; while it is on, the device takes an individual address written by ETS.</en>
+						<de>Drückt die Programmiertaste des virtuellen Geräts und schaltet so seinen Programmiermodus ein oder aus; solange er an ist, übernimmt das Gerät eine von der ETS geschriebene physikalische Adresse.</de>
+					</tooltip>
 					<access>
 						<operation name="Write"
 							object='$state["device"]'
@@ -172,6 +184,10 @@
 						<en>Export the trace</en>
 						<de>Aufzeichnung exportieren</de>
 					</label>
+					<tooltip>
+						<en>Offers the selected trace as a text file: one line per service with its time, direction, sender, receiver, parameters and data.</en>
+						<de>Bietet die gewählte Aufzeichnung als Textdatei an: eine Zeile je Dienst mit Zeit, Richtung, Absender, Empfänger, Parametern und Daten.</de>
+					</tooltip>
 					<executability>
 						<null-input-disabled/>
 					</executability>
