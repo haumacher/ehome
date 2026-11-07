@@ -55,6 +55,11 @@ public class BlockFunctions extends GenericMethod {
 		blockBindingOptions(1),
 		/** <code>blockLabel(portOrParameter)</code>: its label in the user's language. */
 		blockLabel(1),
+		/**
+		 * <code>blockHelp(portOrParameter)</code>: its help text in the user's language (haumacher/ehome
+		 * #101), the paragraphs separated by an empty line; <code>null</code> where E-Home has none.
+		 */
+		blockHelp(1),
 		/** <code>blockPortInfo(port)</code>: direction, type, unit, how many datapoints and its aggregations. */
 		blockPortInfo(1),
 		/** <code>blockPortBindings(port)</code>: the ids of its bound datapoints, a deleted one marked. */
@@ -227,6 +232,15 @@ public class BlockFunctions extends GenericMethod {
 				Param decl = BlockInstances.paramDecl(obj);
 				return decl == null ? obj.tValueByName("parameter")
 					: BlockTexts.label(type, decl.id(), decl.label(), language);
+			}
+			case blockHelp: {
+				String type = blockType(obj);
+				if (BlockInstances.isPort(obj)) {
+					Port decl = BlockInstances.portDecl(obj);
+					return decl == null ? null : BlockTexts.help(type, decl.id(), language);
+				}
+				Param decl = BlockInstances.paramDecl(obj);
+				return decl == null ? null : BlockTexts.help(type, decl.id(), language);
 			}
 			case blockPortInfo:
 				return portInfo(obj);

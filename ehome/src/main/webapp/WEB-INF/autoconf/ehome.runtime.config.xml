@@ -62,6 +62,7 @@
 					<method name="blockBind" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockBindingOptions" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockLabel" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
+					<method name="blockHelp" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockPortInfo" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockPortBindings" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockRange" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>

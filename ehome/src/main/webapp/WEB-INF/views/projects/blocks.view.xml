@@ -17,7 +17,9 @@
 	yes or no. The selected parameter is entered by its kind - a choice from its labels, a duration or
 	a number in its unit, a time of day in a time input, a truth value as a checkbox - and the value a
 	user finishes is applied at once (blockApplyValue): the default or an emptied input removes the
-	value. The inputs and the outputs with their bindings: "Bind datapoints" offers the datapoints of
+	value. What a parameter does is its help text (haumacher/ehome #101, blockHelp): the tooltip of its
+	name in the table and, in full, in the editor between the input and the hint on default and range.
+	The inputs and the outputs with their bindings: "Bind datapoints" offers the datapoints of
 	the project of a type and unit the port reads or commands (block-bind.view.xml), an input binds up
 	to its number of datapoints and an aggregation chosen from the port's combines them. A binding
 	keeps the id of its datapoint, so a group address a re-import of the ETS project removes leaves a
@@ -61,13 +63,18 @@
 			expr="if($parameter == null, null, blockLabel($parameter))"
 			inputs="parameter"
 		/>
+		<!-- What the selected parameter does (haumacher/ehome #101), the whole text with its paragraphs. -->
+		<derived-channel name="parameterHelp"
+			expr="if($parameter == null, null, blockHelp($parameter))"
+			inputs="parameter"
+		/>
 		<derived-channel name="parameterHint"
 			inputs="parameter"
 			observed-types="ehome.runtime:BlockParameter"
 		>
 			<expr><![CDATA[if($parameter == null, null, {
     range = blockRange($parameter);
-    #("Default: {0}. Range: {1}. An empty input or the default leaves the parameter at the type's default."@en,
+    #("Default: {0}. Range: {1}. An empty input or the default leaves the parameter at the default of the type."@en,
       "Vorgabe: {0}. Bereich: {1}. Eine leere Eingabe oder die Vorgabe lässt den Parameter bei der Vorgabe des Typs."@de)
         .fill(blockDefault($parameter), if($range == null or $range == '', '–', $range)).localize()
 })]]></expr>
@@ -287,6 +294,7 @@
 																	<de>Parameter</de>
 																</label>
 																<value>blockLabel($row)</value>
+																<tooltip>blockHelp($row)</tooltip>
 															</computed-column>
 															<computed-column name="value"
 																type="tl.core:String"
@@ -491,6 +499,7 @@
 																		<text input="parameterEffective"/>
 																	</case>
 																</switch>
+																<text input="parameterHelp"/>
 																<text
 																	input="parameterHint"
 																	tone="secondary"

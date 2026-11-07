@@ -238,6 +238,17 @@ ERROR.
 message `ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS`, if the engine's message or the job's failure
 display names the problems.
 
+## A tooltip loses the line breaks of its text (TL #30214)
+
+A cell tooltip of the view layer (`<tooltip>` of a column, `CellContent#tooltip()`) arrives with the
+`\n` of its text, but the client's `.tl-tooltip__body` wraps with `white-space: normal`, so the
+paragraphs of a help text (haumacher/ehome #101: an enumeration's choices, `blockHelp` as the tooltip
+of a parameter's or port's name in `projects/blocks.view.xml` and `projects/block-ports.view.xml`) run
+together; a `<text>` keeps them (`pre-line`). Workaround: `.tl-tooltip__body { white-space: pre-line; }`
+in `style/ehome.css`.
+
+**When fixed:** remove that rule from `style/ehome.css`.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
