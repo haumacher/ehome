@@ -203,7 +203,7 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="#('Delete {0}?'@en, '{0} löschen?'@de).fill($selectedDefinition.label())"/>
+							<confirm expr="deleteConfirmation($selectedDefinition)"/>
 							<delete-object/>
 							<write-channel name="selected" clear="true"/>
 						</generic-command>

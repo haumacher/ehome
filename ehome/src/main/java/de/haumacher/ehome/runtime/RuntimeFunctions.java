@@ -150,7 +150,14 @@ public class RuntimeFunctions extends GenericMethod {
 		 * as text; <code>null</code> if it is not ({@link FunctionProposal#redundancy(TLObject)},
 		 * haumacher/ehome #92).
 		 */
-		functionRedundancy;
+		functionRedundancy,
+		/**
+		 * <code>deleteConfirmation(obj)</code>: the question asked before the object is deleted,
+		 * naming the parts of the project that refer to it, such as the functions, rules and
+		 * schedule entries naming a datapoint ({@link Referers#deleteConfirmation(TLObject)},
+		 * haumacher/ehome #94).
+		 */
+		deleteConfirmation;
 	}
 
 	private final Function _function;
@@ -250,6 +257,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return resources.getString(DatapointSettings.flagsSource(obj));
 			case functionRedundancy:
 				return FunctionProposal.redundancy(obj);
+			case deleteConfirmation:
+				return Referers.deleteConfirmation(obj);
 			default:
 				return null;
 		}

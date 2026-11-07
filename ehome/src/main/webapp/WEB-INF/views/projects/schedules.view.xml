@@ -239,7 +239,7 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="#('Delete the schedule entry?'@en, 'Den Zeitplaneintrag löschen?'@de)"/>
+							<confirm expr="deleteConfirmation($entry)"/>
 							<delete-object/>
 							<write-channel name="entry" clear="true"/>
 						</generic-command>

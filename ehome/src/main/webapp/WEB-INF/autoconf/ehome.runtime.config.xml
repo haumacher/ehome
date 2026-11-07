@@ -53,6 +53,8 @@
 					<method name="runtimeBuildingParts" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<!-- A button repeating the command of another function (haumacher/ehome #92). -->
 					<method name="functionRedundancy" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<!-- The question before a delete, naming what refers to the object (haumacher/ehome #94). -->
+					<method name="deleteConfirmation" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<!-- The virtual devices (haumacher/ehome #75). -->
 					<method name="blockTypeOptions" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockTypeLabel" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>

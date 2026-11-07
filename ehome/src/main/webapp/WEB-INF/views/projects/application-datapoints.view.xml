@@ -71,7 +71,7 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<confirm expr="#('Delete the datapoint? Rules and schedule entries naming it are then refused.'@en, 'Den Datenpunkt löschen? Regeln und Zeitplaneinträge, die ihn nennen, werden dann abgelehnt.'@de)"/>
+				<confirm expr="deleteConfirmation($datapoint)"/>
 				<delete-object/>
 				<write-channel name="datapoint" clear="true"/>
 			</generic-command>

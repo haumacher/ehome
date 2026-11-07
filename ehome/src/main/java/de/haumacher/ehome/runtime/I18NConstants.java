@@ -1131,6 +1131,31 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 BLOCK_DIAG_STATE__FIELDS;
 
+	/**
+	 * @en Delete {0} "{1}"? Nothing in the project refers to it.
+	 */
+	public static ResKey2 CONFIRM_DELETE__KIND_NAME;
+
+	/**
+	 * @en Delete {0} "{1}"? One part of the project refers to it:
+	 */
+	public static ResKey2 CONFIRM_DELETE_REFERRED_ONCE__KIND_NAME;
+
+	/**
+	 * @en Delete {0} "{1}"? {2} parts of the project refer to it:
+	 */
+	public static ResKey3 CONFIRM_DELETE_REFERRED__KIND_NAME_COUNT;
+
+	/**
+	 * @en They lose the reference, and the next deployment refuses them until they refer to something else or are deleted as well.
+	 */
+	public static ResKey CONFIRM_DELETE_REFERRED_CONSEQUENCE;
+
+	/**
+	 * @en {0} "{1}": {2}
+	 */
+	public static ResKey3 REFERER__KIND_NAME_REFERENCES;
+
 	static {
 		initConstants(I18NConstants.class);
 	}
