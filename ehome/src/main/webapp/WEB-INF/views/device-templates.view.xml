@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The device templates (haumacher/ehome #103, module ehome.template, de.haumacher.ehome.template):
+	E-Home's own repair of what an imported application program lacks, without changing the
+	imported program. The table lists the device types, one row per application program of the
+	catalog (the objects belong to the program), with the products running it and the number of its
+	objects for which E-Home cannot determine a datapoint type although a device in a project
+	connects them to a group address (no type in the project, the template or the program, and a
+	size other than 1 or 4 bits, which alone decide the main type; DeviceTemplates#untypedConnected).
+	The switch narrows the table to the programs with such objects: the work list.
+
+	A program has at most one template, created and deleted here. The template lists every
+	communication object of the program (its placements: an object placed in several channels or
+	cases of the program's structure is listed once per place, as its meaning differs there), marked
+	where a device connects it without a type ("Installed without type"), with the field
+	"Datapoint type", a field
+	with a fallback: empty, it shows the manufacturer's type greyed; a type entered is the template's
+	overlay of the object, an emptied field removes it. The choice offers the types of the object's
+	size. Every device running the program, in every project, uses the template at once
+	(ObjectTypes): its group addresses, the bind dialog and the runtime image follow; a type entered
+	at a device in the project wins over the template's. The export of a project file writes only
+	the types entered in the project.
+-->
+<view>
+	<channels>
+		<channel name="program"/>
+		<channel name="untypedOnly"/>
+		<derived-channel name="root"
+			expr="`ehome.template#ROOT`"
+			inputs="program"
+		/>
+		<derived-channel name="template"
+			expr="templateOf($program)"
+			inputs="program"
+			observed-types="ehome.template:DeviceTemplate,ehome.template:DeviceTemplates"
+		/>
+	</channels>
+	<split-panel
+		orientation="horizontal"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				min-size="320"
+				size="45"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Device types</en>
+						<de>Gerätetypen</de>
+					</title>
+					<stack>
+						<inset>
+							<fields>
+								<value-input
+									type="tl.core:Boolean"
+									value="untypedOnly"
+								>
+									<label>
+										<en>Only installed programs with objects without datapoint type</en>
+										<de>Nur verbaute Programme mit Objekten ohne Datenpunkttyp</de>
+									</label>
+									<input-control class="com.top_logic.layout.view.form.BooleanControlProvider"
+										display="switch"
+									/>
+								</value-input>
+							</fields>
+						</inset>
+						<table
+							observed-types="ehome.operational:Program,ehome.template:DeviceTemplate,ehome.template:ObjectOverlay,ehome.physical:Connector,ehome.physical:Connection"
+							selection="program"
+							types="ehome.operational:Program"
+						>
+							<inputs>
+								<input channel="untypedOnly"/>
+							</inputs>
+							<columns>
+								<column attribute="name"
+									width="240"
+								/>
+								<column attribute="extId"
+									width="200"
+								/>
+								<column attribute="manufacturer"
+									width="140"
+								/>
+								<computed-column name="products"
+									multiple="true"
+									type="ehome.catalog:Product"
+									width="220"
+								>
+									<label>
+										<en>Products</en>
+										<de>Produkte</de>
+									</label>
+									<value>templateProducts($row)</value>
+								</computed-column>
+								<computed-column name="template"
+									type="tl.core:Boolean"
+									width="90"
+								>
+									<label>
+										<en>Template</en>
+										<de>Vorlage</de>
+									</label>
+									<value>templateOf($row) != null</value>
+								</computed-column>
+								<computed-column name="untyped"
+									type="tl.core:Integer"
+									width="130"
+								>
+									<label>
+										<en>Without type</en>
+										<de>Ohne Typ</de>
+									</label>
+									<value>templateUntypedObjects($row).size()</value>
+								</computed-column>
+							</columns>
+							<rows><![CDATA[{
+    programs = `ehome.catalog#ROOT`
+        .get(`ehome.catalog:ManufacturerRoot#manufacturers`)
+        .get(`ehome.catalog:Manufacturer#programs`);
+    if($untypedOnly, $programs.filter(p -> !templateUntypedObjects($p).isEmpty()), $programs)
+}]]></rows>
+						</table>
+					</stack>
+				</panel>
+			</pane>
+			<pane
+				size="55"
+				unit="%"
+			>
+				<panel>
+					<title>
+						<en>Device template</en>
+						<de>Gerätevorlage</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-plus-lg"
+							inputs="program, template, root"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Create template</en>
+								<de>Vorlage anlegen</de>
+							</label>
+							<tooltip>
+								<en>Creates the template of the selected application program, with every communication object of the program. A datapoint type entered there applies to every device running the program, in every project.</en>
+								<de>Legt die Vorlage des gewählten Applikationsprogramms an, mit allen Kommunikationsobjekten des Programms. Ein dort eingegebener Datenpunkttyp gilt für jedes Gerät mit dem Programm, in jedem Projekt.</de>
+							</tooltip>
+							<access>
+								<!-- The template is created in Java (templateCreate), which the model access check does not cover. -->
+								<operation name="Write"
+									object="$root"
+									type="ehome.template:DeviceTemplates"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="if($program == null, #('Select an application program.'@en, 'Ein Applikationsprogramm auswählen.'@de), if($template != null, #('The application program has a template already.'@en, 'Das Applikationsprogramm hat bereits eine Vorlage.'@de), null))"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="templateCreate($program)"/>
+							</with-transaction>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-trash"
+							inputs="template"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Delete template</en>
+								<de>Vorlage löschen</de>
+							</label>
+							<access>
+								<operation name="Delete"
+									object="$template"
+									type="ehome.template:DeviceTemplate"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="if($template == null, #('The application program has no template.'@en, 'Das Applikationsprogramm hat keine Vorlage.'@de), null)"/>
+							</executability>
+							<confirm expr="#('Delete the template of {0}? The devices running the program take the datapoint types of the manufacturer again, unless a type is entered in the project.'@en, 'Die Vorlage von {0} löschen? Die Geräte mit dem Programm erhalten wieder die Datenpunkttypen des Herstellers, soweit im Projekt kein Typ eingegeben ist.'@de).fill($template.get(`ehome.template:DeviceTemplate#program`))"/>
+							<delete-object/>
+						</generic-command>
+					</commands>
+					<form
+						input="template"
+						with-inset="true"
+					>
+						<noModelMessage>
+							<en>The selected application program has no template: "Create template" creates it.</en>
+							<de>Das gewählte Applikationsprogramm hat keine Vorlage: „Vorlage anlegen“ legt sie an.</de>
+						</noModelMessage>
+						<field
+							attribute="program"
+							readonly="true"
+						/>
+						<table
+							row-edit="ALL"
+							types="ehome.template:ObjectOverlay"
+						>
+							<inputs>
+								<input channel="template"/>
+							</inputs>
+							<columns>
+								<column attribute="number"
+									readonly="true"
+									width="70"
+								/>
+								<column attribute="placement"
+									readonly="true"
+									width="240"
+								/>
+								<column attribute="function"
+									readonly="true"
+									width="160"
+								/>
+								<column attribute="size"
+									readonly="true"
+									width="90"
+								/>
+								<column attribute="untypedConnected"
+									readonly="true"
+									width="130"
+								/>
+								<column attribute="effectiveDatapointTypes"
+									width="260"
+								/>
+							</columns>
+							<rows>if($template == null, [], $template.get(`ehome.template:DeviceTemplate#overlays`))</rows>
+						</table>
+					</form>
+				</panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

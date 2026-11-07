@@ -36,15 +36,12 @@
 		<channel name="name"/>
 		<!-- The datapoint type the user chose; empty for the one of the object. -->
 		<channel name="chosenType"/>
+		<!-- The type in effect at the object of the device (de.haumacher.ehome.template.ObjectTypes): the project's, the template's, the manufacturer's. -->
 		<derived-channel name="datapointType"
-			inputs="chosenType, interface"
+			expr="if($chosenType != null, $chosenType, if($interface == null, null, deviceObjectType($context, $interface)))"
+			inputs="chosenType, context, interface"
 			reverse="$value"
-		>
-			<expr><![CDATA[if($chosenType != null, $chosenType, if($interface == null, null, {
-    types = $interface.get(`ehome.operational:Interface#datapointTypes`);
-    if($types.isEmpty(), $interface.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $types.firstElement())
-}))]]></expr>
-		</derived-channel>
+		/>
 		<derived-channel name="problem"
 			expr="groupAddressCreateProblem($range, $number)"
 			inputs="range, number"

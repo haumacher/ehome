@@ -260,6 +260,18 @@ command writing it would not be minimal).
 
 **When fixed:** give the structure channel of `projects/devices.view.xml` `personalize="true"`.
 
+## A derived attribute is editable in a row-editing table (TL #30205)
+
+In a `<table row-edit="ALL">` an attribute column of a derived attribute (`<query>` storage) shows an
+input while the form is edited, and saving it fails. The objects of a device template
+(`device-templates.view.xml`, haumacher/ehome #103) list the number, function, size and "installed
+without type" of each object as derived attributes of `ehome.template:ObjectOverlay` beside the
+editable datapoint type. Workaround: those columns (and the placement, which the overlay must keep)
+carry `readonly="true"`.
+
+**When fixed:** remove `readonly="true"` from the derived columns `number`, `function`, `size` and
+`untypedConnected` there (keep it on `placement`).
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).

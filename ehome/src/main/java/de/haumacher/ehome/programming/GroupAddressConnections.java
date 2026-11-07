@@ -21,6 +21,7 @@ import com.top_logic.util.Resources;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.template.ObjectTypes;
 
 /**
  * The connections of a group address (<code>ehome.logical:GroupAddress</code>) seen from the address:
@@ -164,17 +165,12 @@ public class GroupAddressConnections {
 	}
 
 	/**
-	 * The datapoint type of the object of a connection: the project's own, else the one of the
-	 * placement, else the object's; <code>null</code> if none of them has one.
+	 * The datapoint type of the object of a connection: the project's own, else the template's, else
+	 * the manufacturer's ({@link ObjectTypes#effective(TLObject)}); <code>null</code> if none of them
+	 * has one.
 	 */
 	public static TLObject datapointType(TLObject connection) {
-		TLObject own = first(connection.tContainer().tValueByName("datapointTypes"));
-		if (own != null) {
-			return own;
-		}
-		Interface placed = object(connection);
-		TLObject fromPlacement = first(placed.tValueByName("datapointTypes"));
-		return fromPlacement != null ? fromPlacement : first(placed.getPort().tValueByName("datapointTypes"));
+		return ObjectTypes.effective(connection.tContainer());
 	}
 
 	/**

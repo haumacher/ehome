@@ -178,7 +178,14 @@ public final class GroupAddressTypes {
 	 * size.
 	 */
 	public static List<TLObject> suggestions(TLObject groupAddress) {
-		Integer size = objectSize(groupAddress);
+		return ofSize(objectSize(groupAddress));
+	}
+
+	/**
+	 * The datapoint types of the given size in bits: the subtypes of each main type of that size and
+	 * a main type without subtypes; empty for no size.
+	 */
+	public static List<TLObject> ofSize(Integer size) {
 		List<TLObject> result = new ArrayList<>();
 		if (size == null) {
 			return result;

@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
+	<!--
+		The device templates (haumacher/ehome #103): E-Home's own repair of what an imported application
+		program lacks, kept beside the program and never in it - the user does not change imported data
+		that is not theirs. An application program has at most one template; a template overlays the
+		communication objects of the program (their placements, ehome.operational:Interface) and holds
+		for each, for now, a datapoint type. Every device running the program uses the template
+		implicitly, in every project, without a copy: the datapoint type in effect at a device's object
+		is the one entered in the project (ehome.physical:Connector#datapointTypes), else the
+		template's, else the manufacturer's (the placement's, else the program object's). The chain is
+		computed in one place (de.haumacher.ehome.template.ObjectTypes), which the derived attributes
+		below and the Java readers (group addresses, the bind dialog, the runtime image, the
+		simulation) call.
+	-->
+	<module name="ehome.template">
+		<annotations>
+			<singletons>
+				<singleton type="DeviceTemplates"/>
+			</singletons>
+		</annotations>
+		<!-- The templates of the installation, shared master data. -->
+		<class name="DeviceTemplates">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<!-- The templates, at most one per application program. -->
+				<reference name="templates"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="DeviceTemplate"
+				/>
+			</attributes>
+		</class>
+		<!-- The template of an application program: its object overlays. -->
+		<class name="DeviceTemplate">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-clipboard-check"/>
+			</annotations>
+			<attributes>
+				<!-- The application program the template repairs; an imported program, never changed by the template. -->
+				<reference name="program"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.operational:Program"
+				/>
+				<!--
+					One overlay per communication object of the program (per placement), created with the
+					template; an overlay without a datapoint type changes nothing.
+				-->
+				<reference name="overlays"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ObjectOverlay"
+				/>
+			</attributes>
+		</class>
+		<!-- What the template says of one communication object of the program. -->
+		<class name="ObjectOverlay">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-plug"/>
+			</annotations>
+			<attributes>
+				<!-- The communication object of the program (its placement) the overlay is for. -->
+				<reference name="placement"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.operational:Interface"
+				/>
+				<!-- The number of the communication object. -->
+				<property name="number"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[o -> $o.get(`ehome.template:ObjectOverlay#placement`).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The function text of the communication object. -->
+				<property name="function"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[o -> {
+    placement = $o.get(`ehome.template:ObjectOverlay#placement`);
+    $placement.get(`ehome.operational:Interface#function`).localize()
+        || $placement.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#function`).localize()
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The size of the communication object in bits. -->
+				<property name="size"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[o -> {
+    placement = $o.get(`ehome.template:ObjectOverlay#placement`);
+    $placement.get(`ehome.operational:Interface#size`)
+        || $placement.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#size`)
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!--
+					Whether a device in a project connects the object to a group address although E-Home
+					cannot determine its datapoint type: the objects the template should type
+					(de.haumacher.ehome.template.DeviceTemplates#untypedConnected).
+				-->
+				<property name="untypedConnected"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[o -> placementUntypedConnected($o.get(`ehome.template:ObjectOverlay#placement`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The datapoint type the template gives the object; empty: the manufacturer's applies. -->
+				<reference name="datapointTypes"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.datapoint:DatapointType"
+				/>
+				<!-- The datapoint type the manufacturer gives the object: the placement's, else the program object's. -->
+				<reference name="manufacturerDatapointTypes"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.datapoint:DatapointType"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[o -> placementManufacturerTypes($o.get(`ehome.template:ObjectOverlay#placement`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</reference>
+				<!--
+					The datapoint type of the object in every device of the program: the template's, else the
+					manufacturer's. The field edits the template's type and shows the manufacturer's greyed
+					while it is empty; the choice offers the types of the object's size.
+				-->
+				<reference name="effectiveDatapointTypes"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.datapoint:DatapointType"
+				>
+					<annotations>
+						<storage-algorithm>
+							<fallback-storage
+								fallback-attribute="manufacturerDatapointTypes"
+								storage-attribute="datapointTypes"
+							/>
+						</storage-algorithm>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> placementTypeChoices($self.get(`ehome.template:ObjectOverlay#placement`))]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+	</module>
+</model>

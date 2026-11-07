@@ -20,7 +20,7 @@ The XSD itself is not public and not in the repository.
 
 | Area | Schema | Model |
 |---|---|---|
-| Datapoint types | `MasterData/DatapointTypes` (main types and subtypes, Default flag; schema 23: the named values of an enumerated subtype, `Format/Enumeration/EnumValue`); the `DatapointType` attribute of `ComObject`, `ComObjectRef`, `ComObjectInstanceRef` and `GroupAddress` | `ehome.datapoint:*` (`NamedValue`), `datapointTypes` and the derived `effectiveDatapointType` of `Connector` and `GroupAddress` |
+| Datapoint types | `MasterData/DatapointTypes` (main types and subtypes, Default flag; schema 23: the named values of an enumerated subtype, `Format/Enumeration/EnumValue`); the `DatapointType` attribute of `ComObject`, `ComObjectRef`, `ComObjectInstanceRef` and `GroupAddress` | `ehome.datapoint:*` (`NamedValue`), `datapointTypes` and the derived `effectiveDatapointType` of `Connector` and `GroupAddress`; beside the program, E-Home's own device templates (`ehome.template`, haumacher/ehome #103) give an object a type every device of the program inherits (`Connector#effectiveDatapointTypes`), never exported |
 | Manufacturers | `MasterData/Manufacturers/Manufacturer` (Id, Name, KnxManufacturerId) | `ehome.catalog:Manufacturer` (`id`) |
 | Catalog | `CatalogSection` (Id, Name), `CatalogItem` → product | `ehome.catalog:Catalog` |
 | Hardware | `Hardware` (Id, Name, SerialNumber, VersionNumber), `Product` (Id, Text, OrderNumber), `Hardware2Program` | `Product`, `Variant`, `ProgramAssignment` |

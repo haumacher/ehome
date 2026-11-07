@@ -258,3 +258,13 @@ unordered ComObjectInstanceRef/Connectors
 unordered BuildingPart
 unordered GroupRanges
 unordered GroupRange
+
+## What E-Home holds that the project file does not
+
+# The datapoint types of the device templates (haumacher/ehome #103, ehome.template): E-Home's own
+# repair of an application program, shared by every project, not data of the project. The export
+# writes the type of a communication object only where it is entered in the project
+# (ehome.physical:Connector#datapointTypes, ComObjectInstanceRef@DatapointType); a type a device
+# inherits from its template is not written, so ETS reads the project as before. No rule is needed:
+# an imported file carries no template, and test.de.haumacher.ehome.template.TestDeviceTemplates
+# checks that a template's type leaves the export unchanged.

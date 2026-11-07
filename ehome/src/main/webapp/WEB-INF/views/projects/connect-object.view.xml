@@ -100,14 +100,14 @@
 							type="ehome.datapoint:DatapointType"
 							width="200"
 						>
+							<inputs>
+								<input channel="device"/>
+							</inputs>
 							<label>
 								<en>Datapoint type</en>
 								<de>Datenpunkttyp</de>
 							</label>
-							<value><![CDATA[{
-    own = $row.get(`ehome.operational:Interface#datapointTypes`);
-    if($own.isEmpty(), $row.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $own.firstElement())
-}]]></value>
+							<value>deviceObjectType($device, $row)</value>
 						</computed-column>
 					</columns>
 					<rows>if($device == null, [], deviceObjects($device))</rows>

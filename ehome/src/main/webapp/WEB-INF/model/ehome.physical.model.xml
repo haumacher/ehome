@@ -157,9 +157,54 @@
 					type="ehome.datapoint:DatapointType"
 				/>
 				<!--
-					The datapoint type the values of this communication object have: its own one if set
-					in the project, otherwise the one of the program's reference, otherwise the one of
-					the program's communication object.
+					The datapoint type the template of the device's program gives the object, else the
+					manufacturer's (the placement's, else the program object's): what the object has unless a
+					type is entered in the project (haumacher/ehome #103, ehome.template). Computed by
+					de.haumacher.ehome.template.ObjectTypes, the one place of the chain.
+				-->
+				<reference name="inheritedDatapointTypes"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.datapoint:DatapointType"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[c -> placementInheritedTypes($c.get(`ehome.physical:Connector#port`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</reference>
+				<!--
+					The datapoint type of the object in this device: the one entered in the project
+					(datapointTypes, read from and written to the project file), else the inherited one. The
+					field edits the project's type and shows the inherited one greyed while it is empty; the
+					choice offers the types of the object's size.
+				-->
+				<reference name="effectiveDatapointTypes"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.datapoint:DatapointType"
+				>
+					<annotations>
+						<storage-algorithm>
+							<fallback-storage
+								fallback-attribute="inheritedDatapointTypes"
+								storage-attribute="datapointTypes"
+							/>
+						</storage-algorithm>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> placementTypeChoices($self.get(`ehome.physical:Connector#port`))]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!--
+					The datapoint type the values of this communication object have: the first of
+					effectiveDatapointTypes (de.haumacher.ehome.template.ObjectTypes#effective).
 				-->
 				<reference name="effectiveDatapointType"
 					kind="forwards"
@@ -168,14 +213,7 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[c -> {
-    ref = $c.get(`ehome.physical:Connector#port`);
-    own = $c.get(`ehome.physical:Connector#datapointTypes`);
-    fromRef = $ref.get(`ehome.operational:Interface#datapointTypes`);
-    fromPort = $ref.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`);
-    if(!$own.isEmpty(), $own.firstElement(),
-        if(!$fromRef.isEmpty(), $fromRef.firstElement(), $fromPort.firstElement()))
-}]]></expr>
+								<expr><![CDATA[c -> connectorDatapointType($c)]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

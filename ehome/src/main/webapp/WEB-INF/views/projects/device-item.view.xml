@@ -19,6 +19,13 @@
 	command connecting it to another group address (projects/connect-group-address.view.xml,
 	haumacher/ehome #17).
 
+	A communication object also shows its datapoint type (haumacher/ehome #103): the field of the
+	device's connector, empty with the inherited type greyed (the device template's, else the
+	manufacturer's), or the type entered in the project with a reset; the pencil edits it, the check
+	mark applies it. Where the project holds no connector of the object (it was never connected),
+	the type in effect is shown as text, and the pencil creates the connector, so that the field
+	appears.
+
 	Beside the entry: "Default: …" with the way back to the default where the value differs from it,
 	and "Device: …" with the way back to what the device holds where the value or the connections
 	differ from the state of the last download (DeviceChanges, haumacher/ehome #15); an entry changed
@@ -101,6 +108,35 @@
 		/>
 		<!-- The connection a connect command made. -->
 		<channel name="newConnection"/>
+		<!--
+			The datapoint type of a communication object (haumacher/ehome #103): the device's connector of
+			the object, whose field edits the type entered in the project with the inherited one (the
+			template's, else the manufacturer's) greyed; the type in effect where the project holds no
+			connector of the object yet.
+		-->
+		<derived-channel name="connector"
+			expr="if($kind == 'object', deviceObjectConnector($device, $item), null)"
+			inputs="kind, device, item"
+			observed-types="ehome.physical:Connector"
+		/>
+		<derived-channel name="objectType"
+			expr="if($kind == 'object' and $connector == null, deviceObjectType($device, $item), null)"
+			inputs="kind, connector, device, item"
+			observed-types="ehome.template:ObjectOverlay"
+		/>
+		<derived-channel name="objectTypeText"
+			expr="if($kind == 'object' and $connector == null, if($objectType == null, #('Datapoint type: none'@en, 'Datenpunkttyp: keiner'@de), #('Datapoint type: {0}'@en, 'Datenpunkttyp: {0}'@de).fill($objectType.label())).localize(), null)"
+			inputs="kind, connector, objectType"
+		/>
+		<channel name="typeEditing"/>
+		<derived-channel name="viewedConnector"
+			expr="if($editing == true, null, $connector)"
+			inputs="connector, typeEditing as editing"
+		/>
+		<derived-channel name="editedConnector"
+			expr="if($editing == true, $connector, null)"
+			inputs="connector, typeEditing as editing"
+		/>
 	</channels>
 	<stack
 		align="center"
@@ -360,6 +396,141 @@
 				</stack>
 			</case>
 		</switch>
+		<!-- The datapoint type of a communication object: the field with the inherited type greyed, edited with its own buttons. -->
+		<visible-if
+			expr="$connector != null"
+			input="connector"
+		>
+			<form
+				editMode="typeEditing"
+				input="connector"
+				mode-switch="false"
+			>
+				<stack
+					align="center"
+					direction="row"
+					gap="compact"
+				>
+					<field
+						attribute="effectiveDatapointTypes"
+						label-position="hide-label"
+					/>
+					<button
+						appearance="ghost"
+						size="small"
+					>
+						<action class="com.top_logic.layout.view.command.GenericViewCommand"
+							display="icon-only"
+							image="css:bi bi-pencil"
+							inputs="viewedConnector"
+						>
+							<label>
+								<en>Change the datapoint type</en>
+								<de>Datenpunkttyp ändern</de>
+							</label>
+							<executability>
+								<null-input-hidden/>
+							</executability>
+							<enter-edit-mode/>
+						</action>
+					</button>
+					<button
+						appearance="ghost"
+						size="small"
+					>
+						<action class="com.top_logic.layout.view.command.GenericViewCommand"
+							display="icon-only"
+							image="css:bi bi-check-lg"
+							inputs="editedConnector, connector"
+						>
+							<label>
+								<en>Apply the datapoint type</en>
+								<de>Datenpunkttyp übernehmen</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$connector"
+									type="ehome.physical:Connector"
+								/>
+							</access>
+							<executability>
+								<null-input-hidden/>
+							</executability>
+							<with-transaction>
+								<store-form-state/>
+							</with-transaction>
+							<leave-edit-mode/>
+						</action>
+					</button>
+					<button
+						appearance="ghost"
+						size="small"
+					>
+						<action class="com.top_logic.layout.view.command.GenericViewCommand"
+							display="icon-only"
+							image="css:bi bi-x-lg"
+							inputs="editedConnector"
+						>
+							<label>
+								<en>Cancel</en>
+								<de>Abbrechen</de>
+							</label>
+							<executability>
+								<null-input-hidden/>
+							</executability>
+							<discard-form-state/>
+						</action>
+					</button>
+				</stack>
+			</form>
+		</visible-if>
+		<!-- An object the project holds no connector of: the type in effect, and the way to enter one. -->
+		<visible-if
+			expr="$objectTypeText != null"
+			input="objectTypeText"
+		>
+			<stack
+				align="center"
+				direction="row"
+				gap="compact"
+			>
+				<text
+					input="objectTypeText"
+					tone="secondary"
+				/>
+				<button
+					appearance="ghost"
+					size="small"
+				>
+					<action class="com.top_logic.layout.view.command.GenericViewCommand"
+						display="icon-only"
+						image="css:bi bi-pencil"
+						inputs="item, device"
+					>
+						<label>
+							<en>Enter a datapoint type for the object in this device</en>
+							<de>Einen Datenpunkttyp für das Objekt in diesem Gerät eingeben</de>
+						</label>
+						<access>
+							<operation name="Write"
+								object="$device"
+								type="ehome.physical:Device"
+							/>
+						</access>
+						<executability>
+							<null-input-disabled/>
+						</executability>
+						<with-transaction>
+							<execute-script function="deviceObjectConnectorCreate($device, $item)">
+								<inputs>
+									<input channel="device"/>
+								</inputs>
+							</execute-script>
+						</with-transaction>
+					</action>
+				</button>
+			</stack>
+		</visible-if>
 		<visible-if
 			expr="$unit != null"
 			input="unit"

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+	The device templates (haumacher/ehome #103, package de.haumacher.ehome.template): the model of
+	the templates and their object overlays, shared master data, and the TL-Script functions of the
+	datapoint type in effect at a communication object (ObjectTypes), which the derived attributes of
+	ehome.physical:Connector and ehome.template:ObjectOverlay call, and of the view
+	device-templates.view.xml.
+-->
+<application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<services>
+		<config service-class="com.top_logic.basic.util.ResourcesModule">
+			<instance class="com.top_logic.util.resource.analyzer.IDEResources">
+				<bundles>
+					<bundle name="model.ehome.template.messages"/>
+				</bundles>
+			</instance>
+		</config>
+		<config service-class="com.top_logic.util.model.ModelService">
+			<instance class="com.top_logic.element.model.DynamicModelService">
+				<declarations>
+					<declaration file="/WEB-INF/model/ehome.template.model.xml"/>
+				</declarations>
+			</instance>
+		</config>
+		<config service-class="com.top_logic.model.search.expr.config.SearchBuilder">
+			<instance>
+				<methods>
+					<!-- The datapoint type in effect at a communication object (de.haumacher.ehome.template.ObjectTypes). -->
+					<method name="placementManufacturerTypes" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="placementInheritedTypes" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="placementTypeChoices" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="placementUntypedConnected" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="connectorDatapointType" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="deviceObjectType" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="deviceObjectConnector" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="deviceObjectConnectorCreate" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<!-- The templates (de.haumacher.ehome.template.DeviceTemplates). -->
+					<method name="templateOf" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="templateCreate" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="templateProducts" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="templateUntypedObjects" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+				</methods>
+			</instance>
+		</config>
+	</services>
+</application>

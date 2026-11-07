@@ -50,6 +50,7 @@ import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.template.ObjectTypes;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
 import de.haumacher.ehome.zigbee.ZigbeeCatalog;
 import de.haumacher.ehome.zigbee.ZigbeeFunctionTable;
@@ -1366,17 +1367,16 @@ public final class FunctionProposal {
 	}
 
 	/**
-	 * The datapoint type of an object connected to no group address: the one of its connector, its
-	 * placement or the object, else the main type its size decides (1 bit: DPT 1, 4 bits: DPT 3);
-	 * <code>null</code> for none.
+	 * The datapoint type of an object connected to no group address: the one in effect at its
+	 * connector or placement ({@link ObjectTypes}), else the main type its size decides (1 bit: DPT 1,
+	 * 4 bits: DPT 3); <code>null</code> for none.
 	 */
 	private static Dpt objectType(TLObject connector, Interface placed) {
-		for (TLObject holder : new TLObject[] { connector, placed, placed.getPort() }) {
-			List<TLObject> types = holder == null ? List.of() : list(holder, "datapointTypes");
-			Dpt dpt = types.isEmpty() ? null : GroupAddressTypes.dpt(types.get(0));
-			if (dpt != null) {
-				return dpt;
-			}
+		TLObject type = connector != null ? ObjectTypes.effective(connector)
+			: ObjectTypes.inherited(placed).stream().findFirst().orElse(null);
+		Dpt dpt = GroupAddressTypes.dpt(type);
+		if (dpt != null) {
+			return dpt;
 		}
 		Integer size = placed.getSize();
 		switch (size != null ? size.intValue() : placed.getPort().getSize()) {
@@ -1859,7 +1859,7 @@ public final class FunctionProposal {
 			}
 			if (!result.isEmpty()) {
 				for (Interface other : configuration.getActiveInterfaces().values()) {
-					Dpt dpt = placementType(other);
+					Dpt dpt = GroupAddressTypes.dpt(ObjectTypes.effective(configuration.getDevice(), other));
 					if (other.getPort() != scene.placed().getPort() && within(other, scope) && dpt != null
 						&& (dpt.main() == 17 || dpt.main() == 18)) {
 						// The part is shared with the scenes of another object: whose numbers are whose is
@@ -1897,18 +1897,6 @@ public final class FunctionProposal {
 			}
 		}
 		return result != null && result.intValue() >= 1 && result.intValue() <= 64 ? result : null;
-	}
-
-	/**
-	 * The datapoint type of a placed object: the placement's, else the object's; <code>null</code>
-	 * for none.
-	 */
-	private static Dpt placementType(Interface placed) {
-		List<TLObject> types = list(placed, "datapointTypes");
-		if (types.isEmpty()) {
-			types = list(placed.getPort(), "datapointTypes");
-		}
-		return types.isEmpty() ? null : GroupAddressTypes.dpt(types.get(0));
 	}
 
 	private static boolean within(TLObject node, TLObject ancestor) {

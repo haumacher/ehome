@@ -47,6 +47,13 @@
 								<de>Datenpunkttypen</de>
 							</label>
 						</nav-item>
+						<nav-item id="deviceTemplates" icon="css:bi bi-clipboard-check">
+							<view-ref view="device-templates.view.xml"/>
+							<label>
+								<en>Device templates</en>
+								<de>Gerätevorlagen</de>
+							</label>
+						</nav-item>
 						<nav-item id="controllers" icon="css:bi bi-cpu">
 							<view-ref view="controllers.view.xml"/>
 							<label>

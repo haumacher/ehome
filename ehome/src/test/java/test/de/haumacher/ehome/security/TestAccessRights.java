@@ -127,6 +127,8 @@ public class TestAccessRights extends BasicTestCase {
 
 	private TLObject _variant;
 
+	private TLObject _template;
+
 	@Override
 	protected void setUp() throws Exception {
 		super.setUp();
@@ -167,6 +169,12 @@ public class TestAccessRights extends BasicTestCase {
 			List<Object> all = new ArrayList<>((Collection<?>) manufacturers.tValueByName("manufacturers"));
 			all.add(_manufacturer);
 			manufacturers.tUpdateByName("manufacturers", all);
+			_template = create("ehome.template:DeviceTemplate");
+			_template.tUpdateByName("program", _program);
+			TLObject templates = singleton("ehome.template:DeviceTemplates");
+			List<Object> allTemplates = new ArrayList<>((Collection<?>) templates.tValueByName("templates"));
+			allTemplates.add(_template);
+			templates.tUpdateByName("templates", allTemplates);
 
 			_device = create("ehome.physical:Device");
 			_device.tUpdateByName("type", _variant);
@@ -266,6 +274,9 @@ public class TestAccessRights extends BasicTestCase {
 		assertTrue("An installer adds a device type to the Zigbee catalog.",
 			rights().isAllowedCreate(_installer, singleton("ehome.zigbee.catalog:ZigbeeCatalog"),
 				part("ehome.zigbee.catalog:ZigbeeCatalog#types")));
+		assertTrue("An installer creates a device template.",
+			rights().isAllowedCreate(_installer, singleton("ehome.template:DeviceTemplates"),
+				part("ehome.template:DeviceTemplates#templates")));
 	}
 
 	public void testViewerReadsOnly() {
@@ -284,6 +295,8 @@ public class TestAccessRights extends BasicTestCase {
 			part("ehome.catalog:ManufacturerRoot#manufacturers")));
 		assertFalse(rights().isAllowedCreate(_viewer, singleton("ehome.zigbee.catalog:ZigbeeCatalog"),
 			part("ehome.zigbee.catalog:ZigbeeCatalog#types")));
+		assertFalse(rights().isAllowedCreate(_viewer, singleton("ehome.template:DeviceTemplates"),
+			part("ehome.template:DeviceTemplates#templates")));
 		assertTrue(rights().isAllowed(_viewer, _controller, part("ehome.runtime:Controller#name"), READ));
 	}
 
@@ -464,7 +477,8 @@ public class TestAccessRights extends BasicTestCase {
 		return List.of(_project, _groupAddress, _device, _function, _dismissal, _deployment, _controller, _rule, _reaction,
 			_trigger, _action, _parameter, _schedule, _applicationDatapoint, _manufacturer,
 			_catalog, _variant, _program, singleton("ehome.catalog:ManufacturerRoot"), singleton("ehome.datapoint:DatapointTypes"),
-			singleton("ehome.operational:MaskVersions"), singleton("ehome.zigbee.catalog:ZigbeeCatalog"));
+			singleton("ehome.operational:MaskVersions"), singleton("ehome.zigbee.catalog:ZigbeeCatalog"),
+			singleton("ehome.template:DeviceTemplates"), _template);
 	}
 
 	private static String label(TLObject object) {

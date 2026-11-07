@@ -26,11 +26,10 @@
 		<!-- The address created last in the dialog on top; recomputes the address options. -->
 		<channel name="createdAddress"/>
 		<derived-channel name="hint"
-			inputs="interface"
+			inputs="device, interface"
 		>
 			<expr><![CDATA[{
-    types = $interface.get(`ehome.operational:Interface#datapointTypes`);
-    type = if($types.isEmpty(), $interface.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#datapointTypes`).firstElement(), $types.firstElement());
+    type = deviceObjectType($device, $interface);
     if($type == null,
         #("“{0}” has no datapoint type."@en, "„{0}“ hat keinen Datenpunkttyp."@de).fill($interface.get(`ehome.operational:Interface#displayName`)),
         #("“{0}” has the datapoint type {1}."@en, "„{0}“ hat den Datenpunkttyp {1}."@de).fill($interface.get(`ehome.operational:Interface#displayName`), $type.label()))
