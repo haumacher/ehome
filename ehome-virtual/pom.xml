@@ -16,7 +16,7 @@
     <relativePath/>
   </parent>
   <artifactId>de.haumacher.ehome.virtual</artifactId>
-  <version>1.1.2</version>
+  <version>1.2.0-SNAPSHOT</version>
   <repositories>
     <repository>
       <id>tl-releases</id>
