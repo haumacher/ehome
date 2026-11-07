@@ -249,6 +249,17 @@ in `style/ehome.css`.
 
 **When fixed:** remove that rule from `style/ehome.css`.
 
+## A view channel is not remembered per user (TL #30215)
+
+A value channel (`<channel>`, `ValueChannelConfig`) has no personalization: its value falls back to
+`init` with every session, while elements (split panel, sidebar groups, accordion, table) remember
+their state per user through `PersonalConfiguration`. The structure of the device tree in
+`projects/devices.view.xml` (by line / by building part, haumacher/ehome #106) is therefore chosen per
+session and starts with "by line" at every login. No workaround (an attribute of the person and a
+command writing it would not be minimal).
+
+**When fixed:** give the structure channel of `projects/devices.view.xml` `personalize="true"`.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -260,3 +271,4 @@ in `style/ehome.css`.
 - TL #30200: see above (agent access: the size of an observation, `observe` without actions failing).
 - TL #30191: see above (a failing class load aborts the module shutdown).
 - TL #30193, #30194, #30195, #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the interrupt of a cancelled job closing H2).
+- TL #30215: see above (a value channel remembered per user; the structure of the device tree).
