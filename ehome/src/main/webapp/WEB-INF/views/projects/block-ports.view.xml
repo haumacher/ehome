@@ -7,8 +7,10 @@
 	one marked) and the aggregation in effect. The selected port by its label, with its bindings in
 	their order: "Bind datapoints" adds datapoints of the project of a type and unit the port reads
 	(an input) or commands (an output, block-bind.view.xml); "Remove binding" removes the selected
-	one. An input that binds several datapoints combines them with the aggregation chosen from those
-	the port allows (haumacher/ehome #78); choosing the port's default removes the choice.
+	one. What the port does is its help text (haumacher/ehome #101, blockHelp): the tooltip of its name
+	in the table and, in full, below the selected port's text. An input that binds several datapoints
+	combines them with the aggregation chosen from those the port allows (haumacher/ehome #78);
+	choosing the port's default removes the choice.
 -->
 <view>
 	<channels>
@@ -28,6 +30,11 @@
 		/>
 		<derived-channel name="portText"
 			expr="if($port == null, null, blockLabel($port) + ' · ' + blockPortInfo($port))"
+			inputs="port"
+		/>
+		<!-- What the selected port does (haumacher/ehome #101). -->
+		<derived-channel name="portHelp"
+			expr="if($port == null, null, blockHelp($port))"
 			inputs="port"
 		/>
 	</channels>
@@ -59,6 +66,7 @@
 								<de>Anschluss</de>
 							</label>
 							<value>blockLabel($row)</value>
+							<tooltip>blockHelp($row)</tooltip>
 						</computed-column>
 						<computed-column name="info"
 							type="tl.core:String"
@@ -161,6 +169,7 @@
 					</commands>
 					<stack gap="default">
 						<text input="portText"/>
+						<text input="portHelp"/>
 						<visible-if
 							expr="$aggregated"
 							input="aggregated"
