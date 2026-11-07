@@ -136,7 +136,17 @@ Zentral 1.001 on 1/0/0); "TEST Taster" (1.0.2, program M-0008_A-FFF6-01-0000) wi
 "Status-LED" (receiving 1/1/7). The actuator's objects receive (write flag), its status objects
 send; the keys' objects send and have the write flag as well (as the Gira push-button sensor of the
 test system), the status LED only receives. The objects without a datapoint type are the keys'
-1-bit objects and the LED; 1/1/7 has no type at all.
+1-bit objects and the LED; 1/1/7 has no type at all. The push-button sensor's program has a
+temperature as well ("Temperatur", Raumtemperatur 9.001), which TestFunctionKeys does not connect.
+
+TestFunctionRooms.knxproj: the same programs for the rooms of the proposed functions (haumacher/ehome
+#93), in the building of TestDetails (Haus, Erdgeschoss: the room "Wohnzimmer", the room "Küche",
+the distribution board "Verteiler"). The actuator (1.0.1, all objects as in TestFunctionKeys) is
+placed in the distribution board; three push-button sensors connect some of their objects: "TEST
+Taster Küche 1" (1.0.2, in "Küche": Taste 2 Schalten on 1/1/2, Wippe 3 Langzeit on 2/1/1), "TEST
+Taster Küche 2" (1.0.3, in "Küche": Taste 2 Dimmen on 1/1/3, the temperature on 3/1/1) and "TEST
+Taster Wohnzimmer" (1.0.4, in "Wohnzimmer": Taste 1 on 1/1/1, Taste 2 Dimmen on 1/1/3, Wippe 3
+Kurzzeit on 2/1/2).
 
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
@@ -646,6 +656,7 @@ FUNCTION_PROGRAMS = [
         ('Taste 4', [('Schalten', '1 Bit', WT, None, '1/0/0')]),
         ('Taste 5', [('Schalten', '1 Bit', WT, None, '1/1/7')]),
         ('Status-LED', [('Status-LED', '1 Bit', W, None, '1/1/7')]),
+        ('Temperatur', [('Raumtemperatur', '2 Bytes', T, 'DPST-9-1', None)]),
     ]),
 ]
 FUNCTION_HARDWARE = 'M-0008_H-TEST.20FUNKTION-1'
@@ -653,7 +664,18 @@ FUNCTION_HARDWARE = 'M-0008_H-TEST.20FUNKTION-1'
 FUNCTION_ADDRESSES = {'1/0/0': 'Zentral', '1/1/1': 'Licht', '1/1/2': 'Dimmer', '1/1/3': 'Dimmer relativ',
     '1/1/4': 'Dimmer Wert', '1/1/5': 'Dimmer Wert Status', '1/1/7': 'Melder', '1/1/8': 'Licht Status',
     '2/1/1': 'Jalousie auf/ab', '2/1/2': 'Jalousie Stopp', '2/1/3': 'Jalousie Position',
-    '2/1/4': 'Jalousie Position Status', '2/1/5': 'Jalousie Lamelle', '2/1/6': 'Jalousie Lamelle Status'}
+    '2/1/4': 'Jalousie Position Status', '2/1/5': 'Jalousie Lamelle', '2/1/6': 'Jalousie Lamelle Status',
+    '3/1/1': 'Temperatur'}
+# The devices of TestFunctionKeys: (program, name, building part or None, the group address of each
+# connected object by its number, None for those the program gives).
+FUNCTION_KEY_DEVICES = [(0, 'TEST Aktor', None, None), (1, 'TEST Taster', None, None)]
+# The devices of TestFunctionRooms (haumacher/ehome #93), see the module comment.
+FUNCTION_ROOM_DEVICES = [
+    (0, 'TEST Aktor', 'P-01A0-0_BP-4', None),
+    (1, 'TEST Taster Küche 1', 'P-01A0-0_BP-3', {1: '1/1/2', 3: '2/1/1'}),
+    (1, 'TEST Taster Küche 2', 'P-01A0-0_BP-3', {2: '1/1/3', 8: '3/1/1'}),
+    (1, 'TEST Taster Wohnzimmer', 'P-01A0-0_BP-5', {0: '1/1/1', 2: '1/1/3', 4: '2/1/2'}),
+]
 
 
 def ga_value(text):
@@ -719,16 +741,18 @@ def function_hardware(xml):
     return xml[:end] + hardware + xml[end:]
 
 
-def function_devices(xml):
+def function_devices(xml, specs):
     start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
     end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
     addresses = sorted(FUNCTION_ADDRESSES, key=ga_value)
     devices = ''
-    for n, (program, number, _, name, channels) in enumerate(FUNCTION_PROGRAMS, 1):
+    for n, (index, device_name, _, connected) in enumerate(specs, 1):
+        program, number, _, _, channels = FUNCTION_PROGRAMS[index]
+        objects = [(o[0], o[6] if connected is None else connected.get(o[0])) for o in function_objects(channels)]
         refs = ''.join('<ComObjectInstanceRef RefId="' + program + '_O-%d_R-%d" IsActive="1"><Connectors>'
             '<Send GroupAddressRefId="P-01A0-0_GA-%d" /></Connectors></ComObjectInstanceRef>\n'
-            % (o[0], o[0] + 1, addresses.index(o[6]) + 1) for o in function_objects(channels))
-        devices += ('<DeviceInstance Id="P-01A0-0_DI-' + str(n) + '" Name="TEST ' + name.split(' ')[1]
+            % (o, o + 1, addresses.index(address) + 1) for o, address in objects if address is not None)
+        devices += ('<DeviceInstance Id="P-01A0-0_DI-' + str(n) + '" Name="' + device_name
             + '" ProductRefId="' + FUNCTION_HARDWARE + number + '_P-TEST.20' + number + '" Hardware2ProgramRefId="'
             + FUNCTION_HARDWARE + number + '_HP-' + number + '-01-0000" Address="' + str(n)
             + '" LastModified="2026-11-07T12:00:00">\n<ComObjectInstanceRefs>\n' + refs
@@ -737,24 +761,40 @@ def function_devices(xml):
     start = xml.index('<GroupRanges>')
     end = xml.index('</GroupRanges>') + len('</GroupRanges>')
     ranges = ''
-    for main in (1, 2):
+    for main in sorted(set(int(a.split('/')[0]) for a in addresses)):
         ranges += ('<GroupRange Id="P-01A0-0_GR-%d" Name="HG%d" RangeStart="%d" RangeEnd="%d">'
             % (main, main, main << 11, (main << 11) + 2047)
             + ''.join('<GroupAddress Id="P-01A0-0_GA-%d" Address="%d" Name="%s" />'
                 % (addresses.index(a) + 1, ga_value(a), FUNCTION_ADDRESSES[a])
                 for a in addresses if a.startswith(str(main) + '/'))
             + '</GroupRange>\n')
-    return xml[:start] + '<GroupRanges>\n' + ranges + '</GroupRanges>' + xml[end:]
-
-
-def function_keys(name, xml):
-    if name == PROJECT_INFO:
-        return rename_project(xml, 'TestFunctionKeys')
-    if name == PROJECT:
-        return function_devices(xml)
-    if name == 'M-0008/Hardware.xml':
-        return function_hardware(xml)
+    xml = xml[:start] + '<GroupRanges>\n' + ranges + '</GroupRanges>' + xml[end:]
+    if any(part for _, _, part, _ in specs):
+        def refs(part):
+            return ''.join('<DeviceInstanceRef RefId="P-01A0-0_DI-%d" />' % n
+                for n, (_, _, placed, _) in enumerate(specs, 1) if placed == part)
+        # The building of TestDetails: the room "Wohnzimmer" first (with the highest ID), then "Küche" and
+        # the distribution board "Verteiler".
+        xml = replace_once(xml, '<Buildings />', '<Buildings>\n'
+            '<BuildingPart Id="P-01A0-0_BP-1" Name="Haus" Type="Building">'
+            '<BuildingPart Id="P-01A0-0_BP-2" Name="Erdgeschoss" Type="Floor">'
+            '<BuildingPart Id="P-01A0-0_BP-5" Name="Wohnzimmer" Type="Room">' + refs('P-01A0-0_BP-5') + '</BuildingPart>'
+            '<BuildingPart Id="P-01A0-0_BP-3" Name="Küche" Type="Room">' + refs('P-01A0-0_BP-3') + '</BuildingPart>'
+            '<BuildingPart Id="P-01A0-0_BP-4" Name="Verteiler" Type="DistributionBoard">' + refs('P-01A0-0_BP-4')
+            + '</BuildingPart></BuildingPart></BuildingPart>\n</Buildings>')
     return xml
+
+
+def function_fixture(project, specs):
+    def modify(name, xml):
+        if name == PROJECT_INFO:
+            return rename_project(xml, project)
+        if name == PROJECT:
+            return function_devices(xml, specs)
+        if name == 'M-0008/Hardware.xml':
+            return function_hardware(xml)
+        return xml
+    return modify
 
 
 # Renames of the product data in TestNewProduct (applied to the entry names as well).
@@ -1134,8 +1174,11 @@ languages_fixture('src/test/fixtures/TestLanguagesA.knxprod', {LANGUAGE_PROGRAMS
 languages_fixture('src/test/fixtures/TestLanguagesB.knxprod', {LANGUAGE_PROGRAMS[0][0]})
 write('src/test/fixtures/TestHiddenValues.knxproj', hidden_values,
     rename=lambda name: name.replace(VERSION, HIDDEN_VERSION))
-write('src/test/fixtures/TestFunctionKeys.knxproj', function_keys,
-    [('M-0008/' + program + '.xml', function_program(program, number, name, channels))
-     for program, _, number, name, channels in FUNCTION_PROGRAMS])
+FUNCTION_PROGRAM_FILES = [('M-0008/' + program + '.xml', function_program(program, number, name, channels))
+    for program, _, number, name, channels in FUNCTION_PROGRAMS]
+write('src/test/fixtures/TestFunctionKeys.knxproj', function_fixture('TestFunctionKeys', FUNCTION_KEY_DEVICES),
+    FUNCTION_PROGRAM_FILES)
+write('src/test/fixtures/TestFunctionRooms.knxproj', function_fixture('TestFunctionRooms', FUNCTION_ROOM_DEVICES),
+    FUNCTION_PROGRAM_FILES)
 master_data_only('src/test/fixtures/TestMasterDataOld.knxproj', 1001, False)
 master_data_only('src/test/fixtures/TestMasterDataNew.knxproj', 1002, True)

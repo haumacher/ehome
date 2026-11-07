@@ -127,8 +127,16 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * </p>
  *
  * <p>
- * Each function is named after its channel, gets an identifier derived from the name and the room the
- * device is placed in. The name has a text for each application language the device's program has
+ * Each function is named after its channel and gets an identifier derived from the name and a room
+ * (haumacher/ehome #93): the location of most of its senders, the devices with an object sending
+ * (transmit flag, on its sending address) on the address of the function's main role or of one of
+ * its command roles ({@link FunctionKinds#COMMAND_ROLES}); each device counts once, at its location,
+ * one without a location not at all. Status addresses, which the actuator sends itself, do not
+ * count. A light is thus in the room of the keys switching it, not in the distribution board of
+ * its actuator; a sensor and a button are where their device is. Between locations with as many
+ * senders, the one first in the order of the building structure (depth-first, haumacher/ehome #71)
+ * wins. Without a placed sender, the function is in the location of its device, unless that is a
+ * distribution board (then it has no room). The name has a text for each application language the device's program has
  * texts in (<code>Program#languages</code>, haumacher/ehome #51): a program written in German only
  * gives a German name, not the German text standing in for English. The kind is decided on the texts
  * of all these languages, so it does not depend on the language of the user.
@@ -381,10 +389,14 @@ public final class FunctionProposal {
 			}
 		}
 
+		Map<TLObject, Integer> buildingOrder = new HashMap<>();
+		for (TLObject part : RuntimeFunctions.buildingParts(project)) {
+			buildingOrder.putIfAbsent(part, Integer.valueOf(buildingOrder.size()));
+		}
 		List<TLObject> added = new ArrayList<>();
 		for (int n = 0; n < proposals.size(); n++) {
 			if (accepted[n]) {
-				added.add(create(proposals.get(n), decision._identifiers));
+				added.add(create(proposals.get(n), decision._identifiers, buildingOrder));
 			}
 		}
 		if (!added.isEmpty()) {
@@ -584,15 +596,14 @@ public final class FunctionProposal {
 		return channel != null && channel.startsWith(ZIGBEE_CHANNEL);
 	}
 
-	private static TLObject create(Proposal proposal, Set<String> identifiers) {
+	private static TLObject create(Proposal proposal, Set<String> identifiers, Map<TLObject, Integer> buildingOrder) {
 		TLObject function = ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Function"));
 		ResKey name = proposal.name();
 		function.tUpdateByName("name", name);
 		function.tUpdateByName("identifier", uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
 		function.tUpdateByName("kind", classifier(proposal.kind()));
-		function.tUpdateByName("room",
-			proposal.device().tValueByName(BlockInstances.isInstance(proposal.device()) ? "room" : "location"));
+		function.tUpdateByName("room", room(proposal, buildingOrder));
 		if (isA(proposal.device(), "ehome.physical:Device")) {
 			function.tUpdateByName("device", proposal.device());
 		}
@@ -604,6 +615,50 @@ public final class FunctionProposal {
 			function.tUpdateByName(role.getKey(), role.getValue());
 		}
 		return function;
+	}
+
+	/**
+	 * The room of a proposed function: for a KNX channel the location of most of its senders (see the
+	 * class comment, haumacher/ehome #93); for a Zigbee datapoint the location of its device, for a
+	 * virtual device the room of its instance.
+	 *
+	 * @param buildingOrder
+	 *        The parts of the project's buildings by their position in the building structure.
+	 */
+	private static Object room(Proposal proposal, Map<TLObject, Integer> buildingOrder) {
+		TLObject device = proposal.device();
+		if (BlockInstances.isInstance(device)) {
+			return device.tValueByName("room");
+		}
+		if (!isA(device, "ehome.physical:Device")) {
+			return device.tValueByName("location");
+		}
+		List<String> roles = new ArrayList<>();
+		roles.add(FunctionKinds.mainRole(proposal.kind()));
+		roles.addAll(FunctionKinds.commandRoles(proposal.kind()));
+		Set<TLObject> senders = new HashSet<>();
+		Map<TLObject, Integer> counts = new LinkedHashMap<>();
+		for (String role : roles) {
+			TLObject address = proposal.roles().get(role);
+			if (address == null || !isA(address, "ehome.logical:GroupAddress")) {
+				continue;
+			}
+			for (TLObject connection : GroupAddressConnections.connections(address)) {
+				TLObject sender = GroupAddressConnections.device(connection);
+				if (DatapointSettings.transmits(connection) && senders.add(sender)
+					&& sender.tValueByName("location") instanceof TLObject location) {
+					counts.merge(location, Integer.valueOf(1), Integer::sum);
+				}
+			}
+		}
+		if (!counts.isEmpty()) {
+			return counts.entrySet().stream()
+				.min(Comparator.comparing((Map.Entry<TLObject, Integer> e) -> -e.getValue().intValue())
+					.thenComparing(e -> buildingOrder.getOrDefault(e.getKey(), Integer.valueOf(Integer.MAX_VALUE))))
+				.get().getKey();
+		}
+		Object location = device.tValueByName("location");
+		return location instanceof TLObject part && isA(part, "ehome.building:DistributionBoard") ? null : location;
 	}
 
 	/**
