@@ -253,26 +253,26 @@ public class TestRuleAuthoring extends BasicTestCase {
 			RuleForm rule = new RuleForm(second);
 			assertEquals(List.of(), rule.warnings("identifier"));
 			rule.set("identifier", "rule-1");
-			assertWarning(rule, "identifier", "duplicateId");
+			assertWarning(rule, "identifier", "is used twice");
 
 			RuleForm transition = new RuleForm(reaction);
 			assertEquals(List.of(), transition.warnings("to"));
 			transition.set("to", target);
-			assertWarning(transition, "to", "forbidden: 'elseActions' together with 'to'");
+			assertWarning(transition, "to", "\"elseActions\" cannot be given together with \"to\"");
 			transition.set("condition", "state(\"rule-1\") == \"s1\"");
-			assertWarning(transition, "condition", "unknownReference");
+			assertWarning(transition, "condition", "The rule \"rule-1\" has no states.");
 			transition.set("condition", "state(\"rule-2\") == \"s1\"");
 			assertEquals(List.of(), transition.warnings("condition"));
 
 			RuleForm duration = new RuleForm(timer);
 			duration.set("duration", "5");
-			assertWarning(duration, "duration", "typeError");
+			assertWarning(duration, "duration", "must be a duration, not of the type integer");
 			duration.set("duration", "$p1 * 1min");
 			assertEquals(List.of(), duration.warnings("duration"));
 
 			RuleForm value = new RuleForm(parameter);
 			value.set("default", "25.0");
-			assertWarning(value, "default", "invalidParameter");
+			assertWarning(value, "default", "The default lies outside");
 			value.set("default", "abc");
 			assertEquals(1, value.errors("default").size());
 			assertEquals(List.of(), value.warnings("default"));
@@ -283,7 +283,7 @@ public class TestRuleAuthoring extends BasicTestCase {
 			RuleForm condition = new RuleForm(match);
 			assertEquals(List.of(), condition.warnings("condition"));
 			condition.set("condition", "time() > 20:00");
-			assertWarning(condition, "condition", "forbidden");
+			assertWarning(condition, "condition", "time() cannot be used in a match condition");
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}

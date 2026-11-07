@@ -3,6 +3,8 @@
  */
 package de.haumacher.ehome.blocks;
 
+import com.top_logic.basic.util.ResKey;
+
 /**
  * A block type (homecontrol <code>spec/blocks.md</code> 3.1): its {@link Manifest} and its calls. A
  * type keeps no per-instance data: everything an instance needs between calls is in its state
@@ -15,11 +17,13 @@ public abstract class BlockType {
 	 * A refusal of a cross-parameter check (<code>spec/blocks.md</code> B17).
 	 *
 	 * @param reason
-	 *        Why the values are refused.
+	 *        Why the values are refused, as the controller gives it (English).
+	 * @param message
+	 *        The same for the user.
 	 * @param parameter
 	 *        The index of the parameter to blame, -1 for none.
 	 */
-	public record Blame(String reason, int parameter) {
+	public record Blame(String reason, ResKey message, int parameter) {
 		// A value.
 	}
 

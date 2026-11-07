@@ -196,7 +196,9 @@ public final class HeatingDemand extends BlockType {
 	@Override
 	public Blame check(double[] params) {
 		if (!(params[OFF_THRESHOLD] < params[ON_THRESHOLD])) {
-			return new Blame("offThreshold must be below onThreshold", OFF_THRESHOLD);
+			return new Blame("offThreshold must be below onThreshold",
+				I18NConstants.BLOCK_PARAM_BELOW__LOW_HIGH.fill("offThreshold", "onThreshold"),
+				OFF_THRESHOLD);
 		}
 		return null;
 	}

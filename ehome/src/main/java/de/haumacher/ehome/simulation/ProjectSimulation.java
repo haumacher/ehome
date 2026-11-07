@@ -165,7 +165,8 @@ public final class ProjectSimulation implements AutoCloseable {
 		if (!report.isValid()) {
 			List<String> refusals = new ArrayList<>();
 			for (ImageReport.Refusal refusal : report.getRefusals()) {
-				refusals.add(refusal.toString());
+				// In the user's language; the English reason stays with the deployment's findings.
+				refusals.add((refusal.path().isEmpty() ? "(document)" : refusal.path()) + ": " + refusal.text());
 			}
 			throw new TopLogicException(I18NConstants.ERROR_IMAGE_INVALID__PROBLEMS.fill(String.join("; ", refusals)));
 		}

@@ -56,7 +56,7 @@ public final class ImageReport {
 	 *        The English reason, as the controller's loader gives it.
 	 * @param message
 	 *        The same for the user, in the languages of the application; <code>null</code> where there
-	 *        is none (a refusal of the controller, or of a loader of rules, schedules or blocks).
+	 *        is none (a refusal of the controller, a problem the export found).
 	 */
 	public record Refusal(String path, String reason, ResKey message) {
 
@@ -104,8 +104,8 @@ public final class ImageReport {
 	private final List<String> _notes = new ArrayList<>();
 
 	/**
-	 * Adds a refusal without a message for the user (a refusal of a loader of rules, schedules or
-	 * blocks); the first one decides the {@link #getKind() kind}.
+	 * Adds a refusal without a message for the user (a problem the export found, a text that does not
+	 * parse or a binding of a deleted datapoint); the first one decides the {@link #getKind() kind}.
 	 */
 	public void add(Kind kind, String path, String reason) {
 		add(kind, path, reason, null);

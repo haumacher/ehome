@@ -138,16 +138,16 @@ public class TestRuleEditing extends BasicTestCase {
 			form.set("value", "1.5");
 			assertEquals(List.of(), form.errors("value"));
 			assertEquals(1, form.warnings("value").size());
-			assertTrue(form.warnings("value").get(0), form.warnings("value").get(0).contains("typeError"));
+			assertTrue(form.warnings("value").get(0), form.warnings("value").get(0).contains("cannot be written to the datapoint"));
 			form.set("value", "");
 			assertEquals(1, form.warnings("value").size());
-			assertTrue(form.warnings("value").get(0), form.warnings("value").get(0).contains("member 'value' missing"));
+			assertTrue(form.warnings("value").get(0), form.warnings("value").get(0).contains("The member \"value\" is missing."));
 			assertEquals("A missing value is shown at the value, not at the datapoint.", List.of(), form.warnings("datapoint"));
 			form.set("value", "true");
 			assertEquals(List.of(), form.warnings("value"));
 			form.set("datapoint", readOnlyObject);
 			assertEquals(1, form.warnings("datapoint").size());
-			assertTrue(form.warnings("datapoint").get(0), form.warnings("datapoint").get(0).contains("notWritable"));
+			assertTrue(form.warnings("datapoint").get(0), form.warnings("datapoint").get(0).contains("is not writable"));
 			assertEquals(List.of(), form.warnings("value"));
 
 			RuleForm restartForm = new RuleForm(restart);
@@ -156,7 +156,7 @@ public class TestRuleEditing extends BasicTestCase {
 			restartForm.set("timer", restart.tValueByName("timer"));
 			assertEquals(List.of(), restartForm.warnings("timer"));
 			restartForm.set("duration", "5");
-			assertTrue(restartForm.warnings("duration").toString(), restartForm.warnings("duration").get(0).contains("typeError"));
+			assertTrue(restartForm.warnings("duration").toString(), restartForm.warnings("duration").get(0).contains("must be a duration"));
 
 			RuleForm entryForm = new RuleForm(entry);
 			assertEquals(List.of(), entryForm.warnings("time"));

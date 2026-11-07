@@ -335,7 +335,7 @@ public final class RuntimeImage {
 			}
 			if (!repeated) {
 				result.add(report.getKind() == ImageReport.Kind.NONE ? ImageReport.Kind.INVALID : report.getKind(),
-					refusal.path(), refusal.reason());
+					refusal.path(), refusal.reason(), refusal.message());
 			}
 		}
 		for (String note : report.getNotes()) {

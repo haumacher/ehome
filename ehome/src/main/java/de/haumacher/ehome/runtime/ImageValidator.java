@@ -324,7 +324,13 @@ public final class ImageValidator {
 		} catch (BlockSet.LoadException ex) {
 			BlockSet.Refusal refusal = ex.getRefusal();
 			String reason = "block '" + refusal.block() + "': " + refusal.error().externalName() + ": " + refusal.text();
-			_report.add(Kind.INVALID, refusal.path(), refusal.strict() ? strict(reason) : reason);
+			ResKey message = refusal.block().isEmpty() ? refusal.message()
+				: I18NConstants.IMAGE_IN_BLOCK__BLOCK_MESSAGE.fill(refusal.block(), refusal.message());
+			if (refusal.strict()) {
+				_report.add(Kind.INVALID, refusal.path(), strict(reason), strict(reason, message));
+			} else {
+				_report.add(Kind.INVALID, refusal.path(), reason, message);
+			}
 		}
 	}
 
@@ -435,7 +441,7 @@ public final class ImageValidator {
 		}
 		Schedule.Loaded loaded = Schedule.load(root.get("schedules"), directory());
 		for (Schedule.Refusal refusal : loaded.refusals()) {
-			_report.add(Kind.INVALID, refusal.path(), strict(refusal.reason()));
+			_report.add(Kind.INVALID, refusal.path(), strict(refusal.reason()), strict(refusal.reason(), refusal.message()));
 		}
 		for (Schedule entry : loaded.entries()) {
 			if (entry.output() != null) {
@@ -470,8 +476,10 @@ public final class ImageValidator {
 			});
 		} catch (LoadException ex) {
 			RuleLoader.Refusal refusal = ex.getRefusal();
-			_report.add(Kind.INVALID, refusal.path(),
-				strict("rule '" + refusal.rule() + "': " + refusal.error().externalName() + ": " + refusal.text()));
+			String reason = "rule '" + refusal.rule() + "': " + refusal.error().externalName() + ": " + refusal.text();
+			ResKey message = refusal.rule().isEmpty() ? refusal.message()
+				: I18NConstants.IMAGE_IN_RULE__RULE_MESSAGE.fill(refusal.rule(), refusal.message());
+			_report.add(Kind.INVALID, refusal.path(), strict(reason), strict(reason, message));
 		}
 	}
 
@@ -480,11 +488,27 @@ public final class ImageValidator {
 	 * minor version adds that the firmware is older than the image (spec/runtime-image.md I4).
 	 */
 	private String strict(String reason) {
-		if (_newerMinor == 0 || !reason.contains("malformed: unknown member")) {
+		if (!newerMember(reason)) {
 			return reason;
 		}
 		return reason + " (the image's schema " + SCHEMA_MAJOR + "." + _newerMinor
 			+ " is newer than this firmware reads, up to " + SCHEMA_MAJOR + "." + SCHEMA_MINOR + ": update the firmware)";
+	}
+
+	/**
+	 * The message for the user of a refusal of a loader with the given reason: for an unknown member
+	 * of an image of a newer minor version with the hint of {@link #strict(String)}.
+	 */
+	private ResKey strict(String reason, ResKey message) {
+		if (!newerMember(reason)) {
+			return message;
+		}
+		return I18NConstants.IMAGE_LOADER_NEWER__MESSAGE_SCHEMA_SUPPORTED.fill(message, SCHEMA_MAJOR + "." + _newerMinor,
+			SCHEMA_MAJOR + "." + SCHEMA_MINOR);
+	}
+
+	private boolean newerMember(String reason) {
+		return _newerMinor != 0 && reason.contains("malformed: unknown member");
 	}
 
 	/**

@@ -13,6 +13,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey;
+
 import de.haumacher.ehome.rules.Val.Color;
 import de.haumacher.ehome.rules.Val.Date;
 import de.haumacher.ehome.rules.Val.DateTime;
@@ -54,20 +56,22 @@ public final class Values {
 	}
 
 	/**
-	 * A JSON literal value read: the status, the value (when {@link Status#OK}) and why not.
+	 * A JSON literal value read: the status, the value (when {@link Status#OK}) and why not, as the
+	 * controller says it (English) and as a whole sentence for the user (<code>null</code> when
+	 * read).
 	 */
-	public record Literal(Status status, Val value, String reason) {
+	public record Literal(Status status, Val value, String reason, ResKey message) {
 
 		static Literal ok(Val value) {
-			return new Literal(Status.OK, value, null);
+			return new Literal(Status.OK, value, null, null);
 		}
 
-		static Literal malformed(String reason) {
-			return new Literal(Status.MALFORMED, null, reason);
+		static Literal malformed(String reason, ResKey message) {
+			return new Literal(Status.MALFORMED, null, reason, message);
 		}
 
-		static Literal invalid(String reason) {
-			return new Literal(Status.INVALID, null, reason);
+		static Literal invalid(String reason, ResKey message) {
+			return new Literal(Status.INVALID, null, reason, message);
 		}
 
 		/** Whether the value was read. */
@@ -83,49 +87,50 @@ public final class Values {
 		switch (type) {
 			case BOOLEAN:
 				if (!(json instanceof Boolean b)) {
-					return Literal.malformed("a boolean literal must be true or false");
+					return Literal.malformed("a boolean literal must be true or false", I18NConstants.RULE_LITERAL_BOOLEAN);
 				}
 				return Literal.ok(Val.ofBool(b.booleanValue()));
 			case INTEGER:
 			case DURATION: {
 				if (!(json instanceof Number n)) {
 					return Literal.malformed(
-						type == Type.INTEGER ? "an integer literal must be a number" : "a duration must be a number of ms");
+						type == Type.INTEGER ? "an integer literal must be a number" : "a duration must be a number of ms",
+						type == Type.INTEGER ? I18NConstants.RULE_LITERAL_INTEGER : I18NConstants.RULE_LITERAL_DURATION);
 				}
 				double number = n.doubleValue();
 				if (!integral(number) || Math.abs(number) > MAX_SAFE_INTEGER) {
-					return Literal.invalid("not an integer within 2^53-1");
+					return Literal.invalid("not an integer within 2^53-1", I18NConstants.RULE_LITERAL_SAFE_INTEGER);
 				}
 				long value = (long) number;
 				return Literal.ok(type == Type.INTEGER ? Val.ofInt(value) : Val.ofDuration(value));
 			}
 			case REAL: {
 				if (!(json instanceof Number n)) {
-					return Literal.malformed("a real literal must be a number");
+					return Literal.malformed("a real literal must be a number", I18NConstants.RULE_LITERAL_REAL);
 				}
 				Val value = Val.ofReal(n.doubleValue());
 				if (!value.has()) {
-					return Literal.invalid("not a finite real");
+					return Literal.invalid("not a finite real", I18NConstants.RULE_LITERAL_NOT_FINITE);
 				}
 				return Literal.ok(value);
 			}
 			case ENUMERATION: {
 				if (!(json instanceof Number n)) {
-					return Literal.malformed("an enumeration literal must be a number");
+					return Literal.malformed("an enumeration literal must be a number", I18NConstants.RULE_LITERAL_ENUMERATION);
 				}
 				double number = n.doubleValue();
 				if (!integral(number) || number < 0 || number > 4294967295.0) {
-					return Literal.invalid("an enumeration element must be 0..4294967295");
+					return Literal.invalid("an enumeration element must be 0..4294967295", I18NConstants.RULE_LITERAL_ENUMERATION_RANGE);
 				}
 				return Literal.ok(Val.ofEnum((long) number));
 			}
 			case STRING: {
 				if (!(json instanceof String s)) {
-					return Literal.malformed("a string literal must be a JSON string");
+					return Literal.malformed("a string literal must be a JSON string", I18NConstants.RULE_LITERAL_STRING);
 				}
 				Val value = Val.ofString(s);
 				if (!value.has()) {
-					return Literal.invalid("a string is longer than 28 bytes or contains a NUL");
+					return Literal.invalid("a string is longer than 28 bytes or contains a NUL", I18NConstants.RULE_LITERAL_STRING_LENGTH);
 				}
 				return Literal.ok(value);
 			}
@@ -139,28 +144,28 @@ public final class Values {
 			case CONTROLLED: {
 				if (!(json instanceof Map<?, ?> map) || !onlyMembers(map, Set.of("control", "value"))
 					|| !(map.get("control") instanceof Boolean control)) {
-					return Literal.malformed("a controlled value is {\"control\": bool, \"value\": n}");
+					return Literal.malformed("a controlled value is {\"control\": bool, \"value\": n}", I18NConstants.RULE_LITERAL_CONTROLLED);
 				}
 				IntMember value = intMember(map, "value", 0, 255, true);
 				if (value.status != Status.OK) {
-					return new Literal(value.status, null, "the number of a controlled value must be 0..255");
+					return new Literal(value.status, null, "the number of a controlled value must be 0..255", I18NConstants.RULE_LITERAL_CONTROLLED_RANGE);
 				}
 				return Literal.ok(Val.ofControlled(control.booleanValue(), (int) value.value));
 			}
 			case COLOR:
 				return color(json);
 			default:
-				return Literal.malformed("unknown type");
+				return Literal.malformed("unknown type", I18NConstants.RULE_LITERAL_UNKNOWN_TYPE);
 		}
 	}
 
 	private static Literal raw(Object json) {
 		if (!(json instanceof String text)) {
-			return Literal.malformed("a raw literal must be a string of hex octets");
+			return Literal.malformed("a raw literal must be a string of hex octets", I18NConstants.RULE_LITERAL_RAW);
 		}
 		byte[] chars = text.getBytes(StandardCharsets.UTF_8);
 		if (chars.length > 3 * Val.MAX_RAW) {
-			return Literal.invalid("a raw value is longer than 14 bytes");
+			return Literal.invalid("a raw value is longer than 14 bytes", I18NConstants.RULE_LITERAL_RAW_LENGTH);
 		}
 		String problem = "raw octets must be two hex digits separated by single spaces, at most 14";
 		byte[] bytes = new byte[Val.MAX_RAW];
@@ -169,13 +174,13 @@ public final class Values {
 		int length = chars.length;
 		while (i < length) {
 			if (count == Val.MAX_RAW || i + 1 >= length || hexDigit(chars[i]) < 0 || hexDigit(chars[i + 1]) < 0) {
-				return Literal.invalid(problem);
+				return Literal.invalid(problem, I18NConstants.RULE_LITERAL_RAW_OCTETS);
 			}
 			bytes[count++] = (byte) (hexDigit(chars[i]) * 16 + hexDigit(chars[i + 1]));
 			i += 2;
 			if (i < length) {
 				if (chars[i] != ' ' || i + 1 == length) {
-					return Literal.invalid(problem);
+					return Literal.invalid(problem, I18NConstants.RULE_LITERAL_RAW_OCTETS);
 				}
 				i++;
 			}
@@ -185,7 +190,7 @@ public final class Values {
 
 	private static Literal timeOfDay(Object json) {
 		if (!(json instanceof Map<?, ?> map) || !onlyMembers(map, Set.of("hour", "minute", "second", "dayOfWeek"))) {
-			return Literal.malformed("a time of day is {\"hour\", \"minute\", \"second\"} with an optional \"dayOfWeek\"");
+			return Literal.malformed("a time of day is {\"hour\", \"minute\", \"second\"} with an optional \"dayOfWeek\"", I18NConstants.RULE_LITERAL_TIME_OF_DAY);
 		}
 		IntMember h = intMember(map, "hour", 0, 23, true);
 		IntMember m = h.status == Status.OK ? intMember(map, "minute", 0, 59, true) : h;
@@ -193,7 +198,9 @@ public final class Values {
 		IntMember d = s.status == Status.OK ? intMember(map, "dayOfWeek", 0, 7, false) : s;
 		if (d.status != Status.OK) {
 			return new Literal(d.status, null,
-				d.status == Status.INVALID ? "a time of day field out of range" : "a time of day field missing");
+				d.status == Status.INVALID ? "a time of day field out of range" : "a time of day field missing",
+				d.status == Status.INVALID ? I18NConstants.RULE_LITERAL_TIME_OF_DAY_RANGE
+					: I18NConstants.RULE_LITERAL_TIME_OF_DAY_MISSING);
 		}
 		return Literal.ok(Val.ofTime(new TimeOfDay((int) h.value, (int) m.value, (int) s.value, (int) d.value)));
 	}
@@ -204,7 +211,8 @@ public final class Values {
 			: Set.of("year", "month", "day");
 		if (!(json instanceof Map<?, ?> map) || !onlyMembers(map, members)) {
 			return Literal.malformed(withTime ? "a date-time is {\"year\", \"month\", \"day\", \"hour\", \"minute\", \"second\"}"
-				: "a date is {\"year\", \"month\", \"day\"}");
+				: "a date is {\"year\", \"month\", \"day\"}",
+				withTime ? I18NConstants.RULE_LITERAL_DATE_TIME : I18NConstants.RULE_LITERAL_DATE);
 		}
 		IntMember y = intMember(map, "year", 1900, 2155, true);
 		IntMember mo = y.status == Status.OK ? intMember(map, "month", 1, 12, true) : y;
@@ -218,13 +226,14 @@ public final class Values {
 			s = mi.status == Status.OK ? intMember(map, "second", 0, 59, true) : mi;
 		}
 		if (s.status != Status.OK) {
-			return new Literal(s.status, null, s.status == Status.INVALID ? "a date field out of range" : "a date field missing");
+			return new Literal(s.status, null, s.status == Status.INVALID ? "a date field out of range" : "a date field missing",
+				s.status == Status.INVALID ? I18NConstants.RULE_LITERAL_DATE_RANGE : I18NConstants.RULE_LITERAL_DATE_MISSING);
 		}
 		int year = (int) y.value;
 		int month = (int) mo.value;
 		int day = (int) d.value;
 		if (!validDate(year, month, day)) {
-			return Literal.invalid("not a valid date");
+			return Literal.invalid("not a valid date", I18NConstants.RULE_LITERAL_INVALID_DATE);
 		}
 		if (!withTime) {
 			return Literal.ok(Val.ofDate(new Date(year, month, day)));
@@ -235,7 +244,7 @@ public final class Values {
 
 	private static Literal color(Object json) {
 		if (!(json instanceof Map<?, ?> map) || !onlyMembers(map, Set.of("red", "green", "blue", "white"))) {
-			return Literal.malformed("a color is {\"red\", \"green\", \"blue\"} with an optional \"white\"");
+			return Literal.malformed("a color is {\"red\", \"green\", \"blue\"} with an optional \"white\"", I18NConstants.RULE_LITERAL_COLOR);
 		}
 		IntMember r = intMember(map, "red", 0, 255, true);
 		IntMember g = r.status == Status.OK ? intMember(map, "green", 0, 255, true) : r;
@@ -243,7 +252,8 @@ public final class Values {
 		IntMember w = b.status == Status.OK ? intMember(map, "white", 0, 255, false) : b;
 		if (w.status != Status.OK) {
 			return new Literal(w.status, null,
-				w.status == Status.INVALID ? "a color level must be 0..255" : "a color level missing");
+				w.status == Status.INVALID ? "a color level must be 0..255" : "a color level missing",
+				w.status == Status.INVALID ? I18NConstants.RULE_LITERAL_COLOR_RANGE : I18NConstants.RULE_LITERAL_COLOR_MISSING);
 		}
 		boolean white = map.containsKey("white");
 		return Literal.ok(Val.ofColor(new Color((int) r.value, (int) g.value, (int) b.value, (int) w.value,

@@ -320,12 +320,14 @@ public final class SunShading extends BlockType {
 	@Override
 	public Blame check(double[] params) {
 		if (!(params[BRIGHTNESS_OFF] < params[BRIGHTNESS_ON])) {
-			return new Blame("brightnessOff must be below brightnessOn", BRIGHTNESS_OFF);
+			return new Blame("brightnessOff must be below brightnessOn",
+				I18NConstants.BLOCK_PARAM_BELOW__LOW_HIGH.fill("brightnessOff", "brightnessOn"),
+				BRIGHTNESS_OFF);
 		}
 		int n = (int) params[HORIZON_POINTS];
 		for (int i = 0; i + 1 < n; i++) {
 			if (!(params[angleOf(i + 1)] > params[angleOf(i)])) {
-				return new Blame("the horizon points' directions must rise", angleOf(i + 1));
+				return new Blame("the horizon points' directions must rise", I18NConstants.BLOCK_HORIZON_RISE, angleOf(i + 1));
 			}
 		}
 		return null;

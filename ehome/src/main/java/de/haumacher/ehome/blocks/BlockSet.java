@@ -11,11 +11,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKey1;
+
 import de.haumacher.ehome.blocks.Manifest.Aggregation;
 import de.haumacher.ehome.blocks.Manifest.Choice;
 import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.ParamType;
 import de.haumacher.ehome.blocks.Manifest.Port;
+import de.haumacher.ehome.rules.OwnerLabel;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.rules.RuleLoader.DatapointDirectory;
 import de.haumacher.ehome.rules.ValueType;
@@ -75,12 +79,14 @@ public final class BlockSet {
 	 * @param path
 	 *        The path in the image (<code>blocks[2].inputs.temperature</code>).
 	 * @param text
-	 *        The explanation.
+	 *        The explanation, as the controller gives it (English).
+	 * @param message
+	 *        The same as a whole sentence for the user, in the languages of the application.
 	 * @param strict
 	 *        An unknown member: the image loader adds the hint that the firmware may be older than the
 	 *        image (<code>spec/runtime-image.md</code> I4).
 	 */
-	public record Refusal(BlockError error, String block, String path, String text, boolean strict) {
+	public record Refusal(BlockError error, String block, String path, String text, ResKey message, boolean strict) {
 
 		@Override
 		public String toString() {
@@ -217,11 +223,12 @@ public final class BlockSet {
 		Compiler c = new Compiler(datapoints, owners, registry);
 		c.at("blocks");
 		if (!(blocks instanceof List<?> list)) {
-			throw c.refuse(BlockError.MALFORMED, "'blocks' must be an array");
+			throw c.refuse(BlockError.MALFORMED, "'blocks' must be an array", I18NConstants.BLOCK_NOT_AN_ARRAY);
 		}
 		if (list.size() > Manifest.MAX_BLOCKS) {
 			throw c.refuse(BlockError.LIMIT_EXCEEDED,
-				list.size() + " blocks exceed the limit of " + Manifest.MAX_BLOCKS);
+				list.size() + " blocks exceed the limit of " + Manifest.MAX_BLOCKS,
+					I18NConstants.BLOCK_TOO_MANY__COUNT_LIMIT.fill(String.valueOf(list.size()), String.valueOf(Manifest.MAX_BLOCKS)));
 		}
 		List<BlockSpec> specs = new ArrayList<>();
 		for (int i = 0; i < list.size(); i++) {
@@ -234,7 +241,8 @@ public final class BlockSet {
 				if (fnv1a(specs.get(i).id()) == fnv1a(specs.get(k).id())) {
 					c.at("blocks[" + i + "].id");
 					throw c.refuse(BlockError.LIMIT_EXCEEDED, "the state records of '" + specs.get(i).id() + "' and '"
-						+ specs.get(k).id() + "' collide in the device's storage");
+						+ specs.get(k).id() + "' collide in the device's storage",
+							I18NConstants.BLOCK_RECORDS_COLLIDE__FIRST_SECOND.fill(specs.get(i).id(), specs.get(k).id()));
 				}
 			}
 		}
@@ -251,7 +259,8 @@ public final class BlockSet {
 			if (hashes.get(i).equals(hashes.get(i - 1))) {
 				c.at("blocks");
 				throw c.refuse(BlockError.LIMIT_EXCEEDED,
-					"two stored parameter overrides of the blocks collide in the device's storage");
+					"two stored parameter overrides of the blocks collide in the device's storage",
+						I18NConstants.BLOCK_OVERRIDES_COLLIDE);
 			}
 		}
 		return new BlockSet(Collections.unmodifiableList(specs));
@@ -367,11 +376,11 @@ public final class BlockSet {
 	 *        Receives why it is not of the parameter's type (its first element).
 	 * @return The value, <code>null</code> when it is not of the parameter's type.
 	 */
-	public static Double paramFromJson(Param decl, Object json, String[] reason) {
+	public static Double paramFromJson(Param decl, Object json, ParamProblem[] reason) {
 		switch (decl.type()) {
 			case BOOLEAN:
 				if (!(json instanceof Boolean b)) {
-					reason[0] = "not true or false";
+					reason[0] = ParamProblem.NOT_BOOLEAN;
 					return null;
 				}
 				return Double.valueOf(b.booleanValue() ? 1 : 0);
@@ -386,7 +395,7 @@ public final class BlockSet {
 						return Double.valueOf(hour * 3600 + minute * 60 + second);
 					}
 				}
-				reason[0] = "not a time of day {\"hour\", \"minute\", \"second\"}";
+				reason[0] = ParamProblem.NOT_TIME_OBJECT;
 				return null;
 			}
 			default:
@@ -397,14 +406,73 @@ public final class BlockSet {
 			if (choice != null) {
 				return Double.valueOf(choice.value());
 			}
-			reason[0] = "not one of the choices";
+			reason[0] = ParamProblem.NOT_A_CHOICE;
 			return null;
 		}
 		if (!(json instanceof Number number) || !Double.isFinite(number.doubleValue())) {
-			reason[0] = !decl.choices().isEmpty() ? "not a number or a choice's id" : "not a number";
+			reason[0] = !decl.choices().isEmpty() ? ParamProblem.NOT_NUMBER_OR_CHOICE : ParamProblem.NOT_A_NUMBER;
 			return null;
 		}
 		return Double.valueOf(number.doubleValue());
+	}
+
+	/**
+	 * Why the value of a parameter is refused: the reason as the controller gives it and the
+	 * message for the user about the parameter.
+	 */
+	public enum ParamProblem {
+		/** Not a boolean. */
+		NOT_BOOLEAN("not true or false", I18NConstants.BLOCK_PARAM_NOT_BOOLEAN__PARAMETER),
+
+		/** Not a time of day object. */
+		NOT_TIME_OBJECT("not a time of day {\"hour\", \"minute\", \"second\"}",
+				I18NConstants.BLOCK_PARAM_NOT_TIME_OBJECT__PARAMETER),
+
+		/** Not one of the choices. */
+		NOT_A_CHOICE("not one of the choices", I18NConstants.BLOCK_PARAM_NOT_A_CHOICE__PARAMETER),
+
+		/** Neither a number nor the id of a choice. */
+		NOT_NUMBER_OR_CHOICE("not a number or a choice's id", I18NConstants.BLOCK_PARAM_NOT_NUMBER_OR_CHOICE__PARAMETER),
+
+		/** Not a number. */
+		NOT_A_NUMBER("not a number", I18NConstants.BLOCK_PARAM_NOT_A_NUMBER__PARAMETER),
+
+		/** Not finite. */
+		NOT_FINITE("not a finite number", I18NConstants.BLOCK_PARAM_NOT_FINITE__PARAMETER),
+
+		/** A fraction where the type takes whole numbers. */
+		NOT_WHOLE("not a whole number", I18NConstants.BLOCK_PARAM_NOT_WHOLE__PARAMETER),
+
+		/** A duration or enumeration outside 0..2^32-1. */
+		OUTSIDE_UNSIGNED("outside 0..4294967295", I18NConstants.BLOCK_PARAM_OUTSIDE_UNSIGNED__PARAMETER),
+
+		/** An integer outside the signed 32-bit range. */
+		OUTSIDE_SIGNED("outside the signed 32-bit range", I18NConstants.BLOCK_PARAM_OUTSIDE_SIGNED__PARAMETER),
+
+		/** A time of day outside the day. */
+		NOT_TIME("not a time of day", I18NConstants.BLOCK_PARAM_NOT_TIME__PARAMETER),
+
+		/** Outside the bounds of the parameter. */
+		OUTSIDE_MIN_MAX("outside min..max", I18NConstants.BLOCK_PARAM_OUTSIDE_MIN_MAX__PARAMETER);
+
+		private final String _text;
+
+		private final ResKey1 _message;
+
+		ParamProblem(String text, ResKey1 message) {
+			_text = text;
+			_message = message;
+		}
+
+		/** The reason as the controller gives it. */
+		public String text() {
+			return _text;
+		}
+
+		/** The same for the user, about the given parameter. */
+		public ResKey message(String parameter) {
+			return _message.fill(parameter);
+		}
 	}
 
 	/**
@@ -412,24 +480,33 @@ public final class BlockSet {
 	 * 1 for a boolean; within the range of the type), <code>null</code> when it is.
 	 */
 	public static String paramTypeProblem(Param decl, double v) {
+		return text(typeProblemOf(decl, v));
+	}
+
+	/**
+	 * Why the value is not of the parameter's type, <code>null</code> when it is.
+	 *
+	 * @see #paramTypeProblem(Param, double)
+	 */
+	public static ParamProblem typeProblemOf(Param decl, double v) {
 		if (!Double.isFinite(v)) {
-			return "not a finite number";
+			return ParamProblem.NOT_FINITE;
 		}
 		ParamType type = decl.type();
 		if (type != ParamType.REAL && v != Math.floor(v)) {
-			return "not a whole number";
+			return ParamProblem.NOT_WHOLE;
 		}
 		if (type == ParamType.BOOLEAN && v != 0 && v != 1) {
-			return "not true or false";
+			return ParamProblem.NOT_BOOLEAN;
 		}
 		if ((type == ParamType.DURATION || type == ParamType.ENUMERATION) && (v < 0 || v > 4294967295.0)) {
-			return "outside 0..4294967295";
+			return ParamProblem.OUTSIDE_UNSIGNED;
 		}
 		if (type == ParamType.INTEGER && (v < -2147483648.0 || v > 2147483647.0)) {
-			return "outside the signed 32-bit range";
+			return ParamProblem.OUTSIDE_SIGNED;
 		}
 		if (type == ParamType.TIME_OF_DAY && (v < 0 || v > 86399)) {
-			return "not a time of day";
+			return ParamProblem.NOT_TIME;
 		}
 		return null;
 	}
@@ -439,17 +516,30 @@ public final class BlockSet {
 	 * choices), <code>null</code> when it is.
 	 */
 	public static String paramProblem(Param decl, double v) {
-		String problem = paramTypeProblem(decl, v);
+		return text(problemOf(decl, v));
+	}
+
+	/**
+	 * Why the value is not valid for the parameter, <code>null</code> when it is.
+	 *
+	 * @see #paramProblem(Param, double)
+	 */
+	public static ParamProblem problemOf(Param decl, double v) {
+		ParamProblem problem = typeProblemOf(decl, v);
 		if (problem != null) {
 			return problem;
 		}
 		if ((decl.min() != null && v < decl.min().doubleValue()) || (decl.max() != null && v > decl.max().doubleValue())) {
-			return "outside min..max";
+			return ParamProblem.OUTSIDE_MIN_MAX;
 		}
 		if (!decl.choices().isEmpty() && decl.choice(v) == null) {
-			return "not one of the choices";
+			return ParamProblem.NOT_A_CHOICE;
 		}
 		return null;
+	}
+
+	private static String text(ParamProblem problem) {
+		return problem == null ? null : problem.text();
 	}
 
 	/**
@@ -537,22 +627,24 @@ public final class BlockSet {
 			_path = path;
 		}
 
-		LoadException refuse(BlockError error, String text) {
-			return new LoadException(new Refusal(error, _block, _path, text, false));
+		LoadException refuse(BlockError error, String text, ResKey message) {
+			return new LoadException(new Refusal(error, _block, _path, text, message, false));
 		}
 
-		LoadException strict(String text) {
-			return new LoadException(new Refusal(BlockError.MALFORMED, _block, _path, text, true));
+		LoadException strict(String text, ResKey message) {
+			return new LoadException(new Refusal(BlockError.MALFORMED, _block, _path, text, message, true));
 		}
 
 		/** A datapoint name, checked. */
 		String datapoint(Object json) throws LoadException {
 			if (!(json instanceof String name) || name.isEmpty()
 				|| name.getBytes(StandardCharsets.UTF_8).length > 63) {
-				throw refuse(BlockError.MALFORMED, "a datapoint name must be a string of 1..63 bytes");
+				throw refuse(BlockError.MALFORMED, "a datapoint name must be a string of 1..63 bytes",
+					I18NConstants.BLOCK_DATAPOINT_NAME);
 			}
 			if (_datapoints.type(name) == null) {
-				throw refuse(BlockError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'");
+				throw refuse(BlockError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'",
+					I18NConstants.BLOCK_NO_DATAPOINT__NAME.fill(name));
 			}
 			return name;
 		}
@@ -562,35 +654,41 @@ public final class BlockSet {
 			_block = "";
 			at(base);
 			if (!(item instanceof Map<?, ?> block)) {
-				throw refuse(BlockError.MALFORMED, "a block must be an object");
+				throw refuse(BlockError.MALFORMED, "a block must be an object", I18NConstants.BLOCK_NOT_AN_OBJECT);
 			}
 			for (Object key : block.keySet()) {
 				if (!MEMBERS.contains(key)) {
-					throw strict("unknown member '" + key + "'");
+					throw strict("unknown member '" + key + "'",
+						I18NConstants.BLOCK_UNKNOWN_MEMBER__NAME.fill(String.valueOf(key)));
 				}
 			}
 			at(base + ".id");
 			if (!block.containsKey("id")) {
 				at(base);
-				throw refuse(BlockError.MALFORMED, "the member 'id' is missing");
+				throw refuse(BlockError.MALFORMED, "the member 'id' is missing",
+					I18NConstants.BLOCK_MEMBER_MISSING__NAME.fill("id"));
 			}
 			if (!(block.get("id") instanceof String id) || !validId(id)) {
-				throw refuse(BlockError.MALFORMED, "a block id has 1..32 characters of A-Z a-z 0-9 _ -");
+				throw refuse(BlockError.MALFORMED, "a block id has 1..32 characters of A-Z a-z 0-9 _ -",
+					I18NConstants.BLOCK_ID_PATTERN);
 			}
 			_block = id;
 			for (int k = 0; k < earlier.size(); k++) {
 				if (earlier.get(k).id().equals(id)) {
-					throw refuse(BlockError.DUPLICATE_ID, "blocks[" + k + "] has the id '" + id + "' too");
+					throw refuse(BlockError.DUPLICATE_ID, "blocks[" + k + "] has the id '" + id + "' too",
+						I18NConstants.BLOCK_ID_TWICE__INDEX_ID.fill(String.valueOf(k), id));
 				}
 			}
 			at(base + ".type");
 			if (!(block.get("type") instanceof String type)) {
-				throw refuse(BlockError.MALFORMED, "the member 'type' (a type id) is missing or not a string");
+				throw refuse(BlockError.MALFORMED, "the member 'type' (a type id) is missing or not a string",
+					I18NConstants.BLOCK_TYPE_MISSING);
 			}
 			at(base + ".version");
 			int[] version = block.get("version") instanceof String text ? parseVersion(text) : null;
 			if (version == null) {
-				throw refuse(BlockError.MALFORMED, "the member 'version' must be \"<major>.<minor>\"");
+				throw refuse(BlockError.MALFORMED, "the member 'version' must be \"<major>.<minor>\"",
+					I18NConstants.BLOCK_VERSION_MALFORMED);
 			}
 			String versionText = (String) block.get("version");
 			at(base + ".type");
@@ -598,20 +696,24 @@ public final class BlockSet {
 			if (blockType == null || blockType.manifest().minor() < version[1]) {
 				BlockType any = blockType != null ? blockType : _registry.findAny(type);
 				if (any == null) {
-					throw refuse(BlockError.UNKNOWN_TYPE, type + " " + versionText + " (this firmware has no such block type)");
+					throw refuse(BlockError.UNKNOWN_TYPE, type + " " + versionText + " (this firmware has no such block type)",
+						I18NConstants.BLOCK_UNKNOWN_TYPE__TYPE_VERSION.fill(type, versionText));
 				}
 				throw refuse(BlockError.UNKNOWN_TYPE,
-					type + " " + versionText + " (this firmware has " + any.manifest().version() + ")");
+					type + " " + versionText + " (this firmware has " + any.manifest().version() + ")",
+						I18NConstants.BLOCK_TYPE_VERSION__TYPE_VERSION_HAS.fill(type, versionText, any.manifest().version()));
 			}
 			at(base + ".label");
 			if (!block.containsKey("label")) {
 				at(base);
-				throw refuse(BlockError.MALFORMED, "the member 'label' is missing");
+				throw refuse(BlockError.MALFORMED, "the member 'label' is missing",
+					I18NConstants.BLOCK_MEMBER_MISSING__NAME.fill("label"));
 			}
 			Object label = block.get("label");
 			if (!labelValid(label)) {
 				throw refuse(BlockError.MALFORMED,
-					"the label must be a string of 1..63 bytes or an object of language tags to such strings");
+					"the label must be a string of 1..63 bytes or an object of language tags to such strings",
+						I18NConstants.BLOCK_LABEL_MALFORMED);
 			}
 			boolean[] flags = { true, true };
 			String[] flagNames = { "enabled", "enabledAdjustable" };
@@ -619,7 +721,8 @@ public final class BlockSet {
 				if (block.containsKey(flagNames[f])) {
 					at(base + "." + flagNames[f]);
 					if (!(block.get(flagNames[f]) instanceof Boolean b)) {
-						throw refuse(BlockError.MALFORMED, "'" + flagNames[f] + "' must be true or false");
+						throw refuse(BlockError.MALFORMED, "'" + flagNames[f] + "' must be true or false",
+							I18NConstants.BLOCK_NOT_A_FLAG__NAME.fill(flagNames[f]));
 					}
 					flags[f] = b.booleanValue();
 				}
@@ -651,22 +754,26 @@ public final class BlockSet {
 			if (block.containsKey("inputs")) {
 				at(base + ".inputs");
 				if (!(block.get("inputs") instanceof Map<?, ?> list)) {
-					throw refuse(BlockError.MALFORMED, "'inputs' must be an object of port ids to datapoint names");
+					throw refuse(BlockError.MALFORMED, "'inputs' must be an object of port ids to datapoint names",
+						I18NConstants.BLOCK_INPUTS_MALFORMED);
 				}
 				for (Map.Entry<?, ?> entry : list.entrySet()) {
 					String portId = (String) entry.getKey();
 					if (portId.getBytes(StandardCharsets.UTF_8).length > 31) {
-						throw refuse(BlockError.MALFORMED, "a port id is too long");
+						throw refuse(BlockError.MALFORMED, "a port id is too long",
+							I18NConstants.BLOCK_PORT_ID_TOO_LONG);
 					}
 					at(base + ".inputs." + portId);
 					int p = m.port(portId);
 					if (p < 0) {
-						throw refuse(BlockError.UNKNOWN_REFERENCE, m.type() + " has no port '" + portId + "'");
+						throw refuse(BlockError.UNKNOWN_REFERENCE, m.type() + " has no port '" + portId + "'",
+							I18NConstants.BLOCK_NO_PORT__TYPE_PORT.fill(m.type(), portId));
 					}
 					Port decl = m.ports().get(p);
 					if (!decl.isInput()) {
 						throw refuse(BlockError.FORBIDDEN,
-							"'" + portId + "' is an output of " + m.type() + ": bind it under 'outputs'");
+							"'" + portId + "' is an output of " + m.type() + ": bind it under 'outputs'",
+								I18NConstants.BLOCK_OUTPUT_UNDER_INPUTS__PORT_TYPE.fill(portId, m.type()));
 					}
 					Object value = entry.getValue();
 					List<?> names;
@@ -675,10 +782,13 @@ public final class BlockSet {
 						names = (List<?>) value;
 						if (names.size() > decl.multiple()) {
 							throw refuse(BlockError.FORBIDDEN, "the port '" + portId + "' takes at most " + decl.multiple()
-								+ " datapoint" + (decl.multiple() == 1 ? "" : "s"));
+								+ " datapoint" + (decl.multiple() == 1 ? "" : "s"),
+								decl.multiple() == 1 ? I18NConstants.BLOCK_PORT_ONE__PORT.fill(portId)
+									: I18NConstants.BLOCK_PORT_TOO_MANY__PORT_MAX.fill(portId, String.valueOf(decl.multiple())));
 						}
 						if (names.isEmpty()) {
-							throw refuse(BlockError.MALFORMED, "an input binds 1.." + decl.multiple() + " datapoints");
+							throw refuse(BlockError.MALFORMED, "an input binds 1.." + decl.multiple() + " datapoints",
+								I18NConstants.BLOCK_INPUT_EMPTY__MAX.fill(String.valueOf(decl.multiple())));
 						}
 					} else {
 						names = Collections.singletonList(value);
@@ -691,15 +801,19 @@ public final class BlockSet {
 						String name = datapoint(names.get(k));
 						if (name.startsWith("block/" + id + "/")) {
 							throw refuse(BlockError.FORBIDDEN,
-								"'" + name + "' is a datapoint of this block: it cannot be its input");
+								"'" + name + "' is a datapoint of this block: it cannot be its input",
+									I18NConstants.BLOCK_OWN_DATAPOINT_INPUT__NAME.fill(name));
 						}
 						ValueType type = _datapoints.type(name);
 						if (!decl.type().reads(type)) {
 							throw refuse(BlockError.TYPE_ERROR, "the " + decl.type().externalName() + " port '" + portId
-								+ "' cannot read the " + type.externalName() + " datapoint '" + name + "'");
+								+ "' cannot read the " + type.externalName() + " datapoint '" + name + "'",
+									I18NConstants.BLOCK_INPUT_TYPE__PORTTYPE_PORT_TYPE_NAME.fill(decl.type().externalName(), portId,
+										type.externalName(), name));
 						}
 						if (bound.contains(name)) {
-							throw refuse(BlockError.MALFORMED, "'" + name + "' is listed twice");
+							throw refuse(BlockError.MALFORMED, "'" + name + "' is listed twice",
+								I18NConstants.BLOCK_LISTED_TWICE__NAME.fill(name));
 						}
 						bound.add(name);
 					}
@@ -710,35 +824,42 @@ public final class BlockSet {
 				if (decl.isInput() && decl.required() && bindings.get(p).isEmpty()) {
 					at(base + ".inputs." + decl.id());
 					throw refuse(BlockError.MISSING_INPUT,
-						"the required input '" + decl.id() + "' of " + m.type() + " is not bound");
+						"the required input '" + decl.id() + "' of " + m.type() + " is not bound",
+							I18NConstants.BLOCK_REQUIRED_INPUT__PORT_TYPE.fill(decl.id(), m.type()));
 				}
 			}
 			if (block.containsKey("aggregation")) {
 				at(base + ".aggregation");
 				if (!(block.get("aggregation") instanceof Map<?, ?> list)) {
-					throw refuse(BlockError.MALFORMED, "'aggregation' must be an object of port ids to aggregations");
+					throw refuse(BlockError.MALFORMED, "'aggregation' must be an object of port ids to aggregations",
+						I18NConstants.BLOCK_AGGREGATION_MALFORMED);
 				}
 				for (Map.Entry<?, ?> entry : list.entrySet()) {
 					String portId = (String) entry.getKey();
 					if (portId.getBytes(StandardCharsets.UTF_8).length > 31) {
-						throw refuse(BlockError.MALFORMED, "a port id is too long");
+						throw refuse(BlockError.MALFORMED, "a port id is too long",
+							I18NConstants.BLOCK_PORT_ID_TOO_LONG);
 					}
 					at(base + ".aggregation." + portId);
 					int p = m.port(portId);
 					if (p < 0 || !m.ports().get(p).isInput()) {
-						throw refuse(BlockError.UNKNOWN_REFERENCE, m.type() + " has no input '" + portId + "'");
+						throw refuse(BlockError.UNKNOWN_REFERENCE, m.type() + " has no input '" + portId + "'",
+							I18NConstants.BLOCK_NO_INPUT__TYPE_PORT.fill(m.type(), portId));
 					}
 					Aggregation a = entry.getValue() instanceof String name ? Aggregation.of(name) : Aggregation.NONE;
 					if (a == Aggregation.NONE) {
-						throw refuse(BlockError.MALFORMED, "an aggregation is one of mean, min, max, any, all");
+						throw refuse(BlockError.MALFORMED, "an aggregation is one of mean, min, max, any, all",
+							I18NConstants.BLOCK_UNKNOWN_AGGREGATION);
 					}
 					if (bindings.get(p).size() < 2) {
 						throw refuse(BlockError.FORBIDDEN,
-							"the input '" + portId + "' does not bind several datapoints: nothing to aggregate");
+							"the input '" + portId + "' does not bind several datapoints: nothing to aggregate",
+								I18NConstants.BLOCK_NOTHING_TO_AGGREGATE__PORT.fill(portId));
 					}
 					if (!m.ports().get(p).aggregations().contains(a)) {
 						throw refuse(BlockError.FORBIDDEN,
-							"the input '" + portId + "' does not allow the aggregation '" + a.externalName() + "'");
+							"the input '" + portId + "' does not allow the aggregation '" + a.externalName() + "'",
+								I18NConstants.BLOCK_AGGREGATION_NOT_ALLOWED__PORT_AGGREGATION.fill(portId, a.externalName()));
 					}
 					aggregations[p] = a;
 				}
@@ -752,46 +873,55 @@ public final class BlockSet {
 			}
 			at(base + ".outputs");
 			if (!(block.get("outputs") instanceof Map<?, ?> list)) {
-				throw refuse(BlockError.MALFORMED, "'outputs' must be an object of port ids to datapoint names");
+				throw refuse(BlockError.MALFORMED, "'outputs' must be an object of port ids to datapoint names",
+					I18NConstants.BLOCK_OUTPUTS_MALFORMED);
 			}
 			for (Map.Entry<?, ?> entry : list.entrySet()) {
 				String portId = (String) entry.getKey();
 				if (portId.getBytes(StandardCharsets.UTF_8).length > 31) {
-					throw refuse(BlockError.MALFORMED, "a port id is too long");
+					throw refuse(BlockError.MALFORMED, "a port id is too long", I18NConstants.BLOCK_PORT_ID_TOO_LONG);
 				}
 				at(base + ".outputs." + portId);
 				int p = m.port(portId);
 				if (p < 0) {
-					throw refuse(BlockError.UNKNOWN_REFERENCE, m.type() + " has no port '" + portId + "'");
+					throw refuse(BlockError.UNKNOWN_REFERENCE, m.type() + " has no port '" + portId + "'",
+						I18NConstants.BLOCK_NO_PORT__TYPE_PORT.fill(m.type(), portId));
 				}
 				Port decl = m.ports().get(p);
 				if (decl.isInput()) {
-					throw refuse(BlockError.FORBIDDEN, "'" + portId + "' is an input of " + m.type() + ": bind it under 'inputs'");
+					throw refuse(BlockError.FORBIDDEN, "'" + portId + "' is an input of " + m.type() + ": bind it under 'inputs'",
+						I18NConstants.BLOCK_INPUT_UNDER_OUTPUTS__PORT_TYPE.fill(portId, m.type()));
 				}
 				String name = datapoint(entry.getValue());
 				String owner = _owners.owner(name);
 				if (owner != null) {
-					throw refuse(BlockError.OUTPUT_CONFLICT, "'" + name + "' is owned by " + owner);
+					throw refuse(BlockError.OUTPUT_CONFLICT, "'" + name + "' is owned by " + owner,
+						I18NConstants.BLOCK_OUTPUT_OWNED__NAME_OWNER.fill(name, OwnerLabel.of(owner)));
 				}
 				if (!_datapoints.writable(name)) {
-					throw refuse(BlockError.NOT_WRITABLE, "'" + name + "' is not writable");
+					throw refuse(BlockError.NOT_WRITABLE, "'" + name + "' is not writable",
+						I18NConstants.BLOCK_NOT_WRITABLE__NAME.fill(name));
 				}
 				ValueType type = _datapoints.type(name);
 				if (!decl.type().commands(type)) {
 					throw refuse(BlockError.TYPE_ERROR, "the " + decl.type().externalName() + " port '" + portId
-						+ "' cannot command the " + type.externalName() + " datapoint '" + name + "'");
+						+ "' cannot command the " + type.externalName() + " datapoint '" + name + "'",
+							I18NConstants.BLOCK_OUTPUT_TYPE__PORTTYPE_PORT_TYPE_NAME.fill(decl.type().externalName(), portId,
+								type.externalName(), name));
 				}
 				for (int q = 0; q < m.ports().size(); q++) {
 					// spec/blocks.md B22: a block does not read its own output.
 					if (m.ports().get(q).isInput() && bindings.get(q).contains(name)) {
 						throw refuse(BlockError.FORBIDDEN, "'" + name + "' is bound to the input '" + m.ports().get(q).id()
-							+ "': a block does not read its own output");
+							+ "': a block does not read its own output",
+								I18NConstants.BLOCK_READS_OWN_OUTPUT__NAME_PORT.fill(name, m.ports().get(q).id()));
 					}
 				}
 				for (int q = 0; q < m.ports().size(); q++) {
 					if (!m.ports().get(q).isInput() && bindings.get(q).contains(name)) {
 						throw refuse(BlockError.OUTPUT_CONFLICT,
-							"'" + name + "' is bound to the output '" + m.ports().get(q).id() + "' already");
+							"'" + name + "' is bound to the output '" + m.ports().get(q).id() + "' already",
+								I18NConstants.BLOCK_OUTPUT_BOUND_TWICE__NAME_PORT.fill(name, m.ports().get(q).id()));
 					}
 				}
 				for (BlockSpec other : earlier) {
@@ -799,7 +929,8 @@ public final class BlockSet {
 					for (int q = 0; q < ports.size(); q++) {
 						if (!ports.get(q).isInput() && other.ports().get(q).datapoints().contains(name)) {
 							throw refuse(BlockError.OUTPUT_CONFLICT, "'" + name + "' is the output '" + ports.get(q).id()
-								+ "' of the block '" + other.id() + "'");
+								+ "' of the block '" + other.id() + "'",
+									I18NConstants.BLOCK_OUTPUT_OF_OTHER__NAME_PORT_BLOCK.fill(name, ports.get(q).id(), other.id()));
 						}
 					}
 				}
@@ -812,28 +943,31 @@ public final class BlockSet {
 			if (block.containsKey("parameters")) {
 				at(base + ".parameters");
 				if (!(block.get("parameters") instanceof Map<?, ?> list)) {
-					throw refuse(BlockError.MALFORMED, "'parameters' must be an object of parameter ids to values");
+					throw refuse(BlockError.MALFORMED, "'parameters' must be an object of parameter ids to values",
+						I18NConstants.BLOCK_PARAMETERS_MALFORMED);
 				}
 				for (Map.Entry<?, ?> entry : list.entrySet()) {
 					String paramId = (String) entry.getKey();
 					if (paramId.getBytes(StandardCharsets.UTF_8).length > 31) {
-						throw refuse(BlockError.MALFORMED, "a parameter id is too long");
+						throw refuse(BlockError.MALFORMED, "a parameter id is too long",
+							I18NConstants.BLOCK_PARAMETER_ID_TOO_LONG);
 					}
 					at(base + ".parameters." + paramId);
 					int p = m.param(paramId);
 					if (p < 0) {
-						throw refuse(BlockError.UNKNOWN_REFERENCE, m.type() + " has no parameter '" + paramId + "'");
+						throw refuse(BlockError.UNKNOWN_REFERENCE, m.type() + " has no parameter '" + paramId + "'",
+							I18NConstants.BLOCK_NO_PARAMETER__TYPE_PARAMETER.fill(m.type(), paramId));
 					}
 					Param decl = m.params().get(p);
-					String[] reason = { null };
+					ParamProblem[] reason = { null };
 					Double v = paramFromJson(decl, entry.getValue(), reason);
-					String typeProblem = v == null ? reason[0] : paramTypeProblem(decl, v.doubleValue());
+					ParamProblem typeProblem = v == null ? reason[0] : typeProblemOf(decl, v.doubleValue());
 					if (typeProblem != null) {
-						throw refuse(BlockError.TYPE_ERROR, paramId + ": " + typeProblem);
+						throw refuse(BlockError.TYPE_ERROR, paramId + ": " + typeProblem.text(), typeProblem.message(paramId));
 					}
-					String problem = paramProblem(decl, v.doubleValue());
+					ParamProblem problem = problemOf(decl, v.doubleValue());
 					if (problem != null) {
-						throw refuse(BlockError.INVALID_PARAMETER, paramId + ": " + problem);
+						throw refuse(BlockError.INVALID_PARAMETER, paramId + ": " + problem.text(), problem.message(paramId));
 					}
 					defaults[p] = v.doubleValue();
 				}
@@ -845,7 +979,7 @@ public final class BlockSet {
 				} else {
 					at(base + ".parameters");
 				}
-				throw refuse(BlockError.INVALID_PARAMETER, blame.reason());
+				throw refuse(BlockError.INVALID_PARAMETER, blame.reason(), blame.message());
 			}
 		}
 	}

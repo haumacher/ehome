@@ -62,16 +62,12 @@ public class RuleConstraint extends AbstractConfiguredInstance<RuleConstraint.Co
 	@Override
 	public ResKey check(TLObject object, TLStructuredTypePart attribute) {
 		boolean syntax = getConfig().isSyntax();
-		String problem = RuleExport.fieldProblem(object, attribute.getName(), object.tValue(attribute), syntax);
-		if (problem == null) {
-			if (!syntax && "output".equals(attribute.getName())) {
-				// Accepted by the loader, but commands to the output would be refused.
-				return ApplicationDatapoints.outputProblem(object, object.tValue(attribute));
-			}
-			return null;
+		ResKey problem = RuleExport.fieldProblem(object, attribute.getName(), object.tValue(attribute), syntax);
+		if (problem == null && !syntax && "output".equals(attribute.getName())) {
+			// Accepted by the loader, but commands to the output would be refused.
+			return ApplicationDatapoints.outputProblem(object, object.tValue(attribute));
 		}
-		return syntax ? I18NConstants.RULE_SYNTAX__REASON.fill(problem.replaceFirst("^malformed: ", ""))
-			: I18NConstants.RULE_REFUSED__REASON.fill(problem);
+		return problem;
 	}
 
 	@Override

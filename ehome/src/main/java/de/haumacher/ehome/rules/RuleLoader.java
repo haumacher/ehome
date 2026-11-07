@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey;
+
 import de.haumacher.ehome.rules.Node.Fn;
 import de.haumacher.ehome.rules.Node.Kind;
 import de.haumacher.ehome.rules.Node.Op;
@@ -79,9 +81,11 @@ public final class RuleLoader {
 	}
 
 	/**
-	 * A load refusal: the reason, the id of the rule ("" outside a rule), the JSON path and a text.
+	 * A load refusal: the reason, the id of the rule ("" outside a rule), the JSON path, the text as
+	 * the controller gives it (English) and the same as a whole sentence for the user, in the
+	 * languages of the application.
 	 */
-	public record Refusal(LoadError error, String rule, String path, String text) {
+	public record Refusal(LoadError error, String rule, String path, String text, ResKey message) {
 
 		@Override
 		public String toString() {
@@ -305,9 +309,17 @@ public final class RuleLoader {
 
 	// ---- Failures and members ---------------------------------------------------------------
 
-	private LoadException fail(LoadError error, String text) {
+	/**
+	 * The refusal at the current path.
+	 *
+	 * @param text
+	 *        The text as the controller gives it.
+	 * @param message
+	 *        The same for the user.
+	 */
+	private LoadException fail(LoadError error, String text, ResKey message) {
 		String rule = _rule >= 0 && _rule < _ruleIds.size() ? _ruleIds.get(_rule) : "";
-		return new LoadException(new Refusal(error, rule, _path.toString(), text));
+		return new LoadException(new Refusal(error, rule, _path.toString(), text, message));
 	}
 
 	private int enter(String segment) {
@@ -322,7 +334,7 @@ public final class RuleLoader {
 
 	private Map<?, ?> only(Object json, String... allowed) throws LoadException {
 		if (!(json instanceof Map<?, ?> map)) {
-			throw fail(LoadError.MALFORMED, "an object expected");
+			throw fail(LoadError.MALFORMED, "an object expected", I18NConstants.RULE_NOT_AN_OBJECT);
 		}
 		for (Object key : map.keySet()) {
 			String name = (String) key;
@@ -331,7 +343,8 @@ public final class RuleLoader {
 				known = name.equals(allowed[i]);
 			}
 			if (!known) {
-				throw fail(LoadError.MALFORMED, "unknown member '" + name + "'");
+				throw fail(LoadError.MALFORMED, "unknown member '" + name + "'",
+					I18NConstants.RULE_UNKNOWN_MEMBER__NAME.fill(name));
 			}
 		}
 		return map;
@@ -345,18 +358,21 @@ public final class RuleLoader {
 			throws LoadException {
 		if (!object.containsKey(name)) {
 			if (required) {
-				throw fail(LoadError.MALFORMED, "member '" + name + "' missing");
+				throw fail(LoadError.MALFORMED, "member '" + name + "' missing",
+					I18NConstants.RULE_MEMBER_MISSING__NAME.fill(name));
 			}
 			return null;
 		}
 		int mark = enter("." + name);
 		Object member = object.get(name);
 		if (!(member instanceof String text)) {
-			throw fail(LoadError.MALFORMED, "'" + name + "' must be a string");
+			throw fail(LoadError.MALFORMED, "'" + name + "' must be a string",
+				I18NConstants.RULE_NOT_A_STRING__NAME.fill(name));
 		}
 		int length = bytes(text);
 		if (length < min || length > max || text.indexOf('\0') >= 0) {
-			throw fail(LoadError.MALFORMED, "'" + name + "' must have " + min + ".." + max + " bytes");
+			throw fail(LoadError.MALFORMED, "'" + name + "' must have " + min + ".." + max + " bytes",
+				I18NConstants.RULE_STRING_LENGTH__NAME_MIN_MAX.fill(name, String.valueOf(min), String.valueOf(max)));
 		}
 		leave(mark);
 		return text;
@@ -416,41 +432,48 @@ public final class RuleLoader {
 
 	private Label labelMember(Map<?, ?> object, String name) throws LoadException {
 		if (!object.containsKey(name)) {
-			throw fail(LoadError.MALFORMED, "member '" + name + "' missing");
+			throw fail(LoadError.MALFORMED, "member '" + name + "' missing",
+				I18NConstants.RULE_MEMBER_MISSING__NAME.fill(name));
 		}
 		int mark = enter("." + name);
 		Object member = object.get(name);
 		if (member instanceof String text) {
 			int length = bytes(text);
 			if (length < 1 || length > RuleSet.MAX_LABEL || text.indexOf('\0') >= 0) {
-				throw fail(LoadError.MALFORMED, "'" + name + "' must have 1.." + RuleSet.MAX_LABEL + " bytes");
+				throw fail(LoadError.MALFORMED, "'" + name + "' must have 1.." + RuleSet.MAX_LABEL + " bytes",
+					I18NConstants.RULE_STRING_LENGTH__NAME_MIN_MAX.fill(name, "1", String.valueOf(RuleSet.MAX_LABEL)));
 			}
 			leave(mark);
 			return new Label(text, null);
 		}
 		if (!(member instanceof Map<?, ?> languages)) {
-			throw fail(LoadError.MALFORMED, "'" + name + "' must be a string or an object of language tags to strings");
+			throw fail(LoadError.MALFORMED, "'" + name + "' must be a string or an object of language tags to strings",
+				I18NConstants.RULE_LABEL_MALFORMED__NAME.fill(name));
 		}
 		Map<String, String> map = new LinkedHashMap<>();
 		for (Map.Entry<?, ?> entry : languages.entrySet()) {
 			String tag = (String) entry.getKey();
 			if (!validLanguageTag(tag)) {
 				throw fail(LoadError.MALFORMED,
-					"a language tag of '" + name + "' must have 2..8 characters of A-Z a-z 0-9 -");
+					"a language tag of '" + name + "' must have 2..8 characters of A-Z a-z 0-9 -",
+						I18NConstants.RULE_LABEL_LANGUAGE_TAG__NAME_TAG.fill(name, tag));
 			}
 			int tagMark = enter("." + tag);
 			if (map.size() >= RuleSet.MAX_LABEL_LANGUAGES) {
-				throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_LABEL_LANGUAGES + " languages in a label");
+				throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_LABEL_LANGUAGES + " languages in a label",
+					I18NConstants.RULE_TOO_MANY_LANGUAGES__MAX.fill(String.valueOf(RuleSet.MAX_LABEL_LANGUAGES)));
 			}
 			if (!(entry.getValue() instanceof String text) || bytes(text) < 1 || bytes(text) > RuleSet.MAX_LABEL
 				|| text.indexOf('\0') >= 0) {
-				throw fail(LoadError.MALFORMED, "a label text must be a string of 1.." + RuleSet.MAX_LABEL + " bytes");
+				throw fail(LoadError.MALFORMED, "a label text must be a string of 1.." + RuleSet.MAX_LABEL + " bytes",
+					I18NConstants.RULE_LABEL_TEXT__MAX.fill(String.valueOf(RuleSet.MAX_LABEL)));
 			}
 			map.put(tag, text);
 			leave(tagMark);
 		}
 		if (map.isEmpty()) {
-			throw fail(LoadError.MALFORMED, "'" + name + "' names no language");
+			throw fail(LoadError.MALFORMED, "'" + name + "' names no language",
+				I18NConstants.RULE_LABEL_NO_LANGUAGE__NAME.fill(name));
 		}
 		leave(mark);
 		return new Label(resolveLabel(map, _language), Collections.unmodifiableMap(map));
@@ -462,7 +485,8 @@ public final class RuleLoader {
 		}
 		int mark = enter("." + name);
 		if (!(object.get(name) instanceof Boolean value)) {
-			throw fail(LoadError.MALFORMED, "'" + name + "' must be a boolean");
+			throw fail(LoadError.MALFORMED, "'" + name + "' must be a boolean",
+				I18NConstants.RULE_NOT_A_BOOLEAN__NAME.fill(name));
 		}
 		leave(mark);
 		return value.booleanValue();
@@ -471,13 +495,15 @@ public final class RuleLoader {
 	private List<?> arrayMember(Map<?, ?> object, String name, boolean required) throws LoadException {
 		if (!object.containsKey(name)) {
 			if (required) {
-				throw fail(LoadError.MALFORMED, "member '" + name + "' missing");
+				throw fail(LoadError.MALFORMED, "member '" + name + "' missing",
+					I18NConstants.RULE_MEMBER_MISSING__NAME.fill(name));
 			}
 			return null;
 		}
 		if (!(object.get(name) instanceof List<?> list)) {
 			enter("." + name);
-			throw fail(LoadError.MALFORMED, "'" + name + "' must be an array");
+			throw fail(LoadError.MALFORMED, "'" + name + "' must be an array",
+				I18NConstants.RULE_NOT_AN_ARRAY__NAME.fill(name));
 		}
 		return list;
 	}
@@ -545,7 +571,8 @@ public final class RuleLoader {
 				String before = seen.putIfAbsent(Long.valueOf(ParameterStore.hash(rule._id, key)), logical);
 				if (before != null) {
 					throw new LoadException(new Refusal(LoadError.LIMIT_EXCEEDED, rule._id, "rules[" + r + "]",
-						"the storage keys of " + before + " and " + logical + " collide; rename one"));
+						"the storage keys of " + before + " and " + logical + " collide; rename one",
+						I18NConstants.RULE_STORAGE_COLLISION__FIRST_SECOND.fill(before, logical)));
 				}
 			}
 		}
@@ -642,7 +669,8 @@ public final class RuleLoader {
 	private void run(Object rules) throws LoadException {
 		if (!(rules instanceof List<?> list)) {
 			_path.append("rules");
-			throw fail(LoadError.MALFORMED, "'rules' must be an array");
+			throw fail(LoadError.MALFORMED, "'rules' must be an array",
+				I18NConstants.RULE_NOT_AN_ARRAY__NAME.fill("rules"));
 		}
 		prescan(list);
 		for (int i = 0; i < list.size(); i++) {
@@ -657,19 +685,22 @@ public final class RuleLoader {
 		for (int i = 0; i < rules.size(); i++) {
 			int mark = enter("rules[" + i + "]");
 			if (i >= RuleSet.MAX_RULES) {
-				throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_RULES + " rules");
+				throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_RULES + " rules",
+					I18NConstants.RULE_TOO_MANY_RULES__MAX.fill(String.valueOf(RuleSet.MAX_RULES)));
 			}
 			if (!(rules.get(i) instanceof Map<?, ?> item)) {
-				throw fail(LoadError.MALFORMED, "a rule must be an object");
+				throw fail(LoadError.MALFORMED, "a rule must be an object", I18NConstants.RULE_RULE_NOT_AN_OBJECT);
 			}
 			String id = stringMember(item, "id", true, 1, 32);
 			if (!validRuleId(id)) {
 				enter(".id");
-				throw fail(LoadError.MALFORMED, "rule id '" + id + "' is not 1..32 characters of A-Z a-z 0-9 _ -");
+				throw fail(LoadError.MALFORMED, "rule id '" + id + "' is not 1..32 characters of A-Z a-z 0-9 _ -",
+					I18NConstants.RULE_RULE_ID_PATTERN__ID.fill(id));
 			}
 			if (_ruleIds.contains(id)) {
 				enter(".id");
-				throw fail(LoadError.DUPLICATE_ID, "rule id '" + id + "' is used twice");
+				throw fail(LoadError.DUPLICATE_ID, "rule id '" + id + "' is used twice",
+					I18NConstants.RULE_RULE_ID_TWICE__ID.fill(id));
 			}
 			_ruleIds.add(id);
 			_ruleHasStates.add(Boolean.valueOf(item.get("states") instanceof List<?> states && !states.isEmpty()));
@@ -696,7 +727,8 @@ public final class RuleLoader {
 				int mark = enter("[" + i + "]");
 				if (rule._parameters.size() >= RuleSet.MAX_PARAMETERS) {
 					throw fail(LoadError.LIMIT_EXCEEDED,
-						"more than " + RuleSet.MAX_PARAMETERS + " parameters (with 'enabled')");
+						"more than " + RuleSet.MAX_PARAMETERS + " parameters (with 'enabled')",
+							I18NConstants.RULE_TOO_MANY_PARAMETERS__MAX.fill(String.valueOf(RuleSet.MAX_PARAMETERS)));
 				}
 				rule._parameters.add(parameter(parameters.get(i)));
 				leave(mark);
@@ -713,16 +745,19 @@ public final class RuleLoader {
 				int mark = enter("[" + i + "]");
 				Map<?, ?> item = only(timers.get(i), "id", "duration");
 				if (rule._timers.size() >= RuleSet.MAX_TIMERS) {
-					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_TIMERS + " timers");
+					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_TIMERS + " timers",
+						I18NConstants.RULE_TOO_MANY_TIMERS__MAX.fill(String.valueOf(RuleSet.MAX_TIMERS)));
 				}
 				String id = stringMember(item, "id", true, 1, 24);
 				if (!validIdentifier(id)) {
 					enter(".id");
-					throw fail(LoadError.MALFORMED, "timer id '" + id + "' is not an identifier");
+					throw fail(LoadError.MALFORMED, "timer id '" + id + "' is not an identifier",
+						I18NConstants.RULE_TIMER_ID_INVALID__ID.fill(id));
 				}
 				if (rule.findTimer(id) >= 0) {
 					enter(".id");
-					throw fail(LoadError.DUPLICATE_ID, "timer id '" + id + "' is used twice");
+					throw fail(LoadError.DUPLICATE_ID, "timer id '" + id + "' is used twice",
+						I18NConstants.RULE_TIMER_ID_TWICE__ID.fill(id));
 				}
 				rule._timers.add(new Timer(id));
 				leave(mark);
@@ -735,16 +770,19 @@ public final class RuleLoader {
 				int mark = enter("[" + i + "]");
 				Map<?, ?> item = only(states.get(i), "id", "entry", "exit");
 				if (rule._states.size() >= RuleSet.MAX_STATES) {
-					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_STATES + " states");
+					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_STATES + " states",
+						I18NConstants.RULE_TOO_MANY_STATES__MAX.fill(String.valueOf(RuleSet.MAX_STATES)));
 				}
 				String id = stringMember(item, "id", true, 1, 24);
 				if (!validIdentifier(id)) {
 					enter(".id");
-					throw fail(LoadError.MALFORMED, "state id '" + id + "' is not an identifier");
+					throw fail(LoadError.MALFORMED, "state id '" + id + "' is not an identifier",
+						I18NConstants.RULE_STATE_ID_INVALID__ID.fill(id));
 				}
 				if (rule.findState(id) >= 0) {
 					enter(".id");
-					throw fail(LoadError.DUPLICATE_ID, "state id '" + id + "' is used twice");
+					throw fail(LoadError.DUPLICATE_ID, "state id '" + id + "' is used twice",
+						I18NConstants.RULE_STATE_ID_TWICE__ID.fill(id));
 				}
 				rule._states.add(new State(id));
 				leave(mark);
@@ -754,17 +792,20 @@ public final class RuleLoader {
 		String initial = stringMember(map, "initialState", false, 1, 24);
 		if (!rule._states.isEmpty()) {
 			if (initial == null) {
-				throw fail(LoadError.MALFORMED, "member 'initialState' missing (the rule has states)");
+				throw fail(LoadError.MALFORMED, "member 'initialState' missing (the rule has states)",
+					I18NConstants.RULE_INITIAL_STATE_MISSING);
 			}
 			int s = rule.findState(initial);
 			if (s < 0) {
 				enter(".initialState");
-				throw fail(LoadError.UNKNOWN_REFERENCE, "initial state '" + initial + "' is not a state of the rule");
+				throw fail(LoadError.UNKNOWN_REFERENCE, "initial state '" + initial + "' is not a state of the rule",
+					I18NConstants.RULE_INITIAL_STATE_UNKNOWN__STATE.fill(initial));
 			}
 			rule._initialState = s;
 		} else if (initial != null) {
 			enter(".initialState");
-			throw fail(LoadError.FORBIDDEN, "'initialState' in a rule without states");
+			throw fail(LoadError.FORBIDDEN, "'initialState' in a rule without states",
+				I18NConstants.RULE_INITIAL_STATE_WITHOUT_STATES);
 		}
 
 		// Timer durations.
@@ -774,12 +815,14 @@ public final class RuleLoader {
 				int mark = enter("[" + i + "]");
 				Map<?, ?> item = (Map<?, ?>) timers.get(i);
 				if (!item.containsKey("duration")) {
-					throw fail(LoadError.MALFORMED, "member 'duration' missing");
+					throw fail(LoadError.MALFORMED, "member 'duration' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("duration"));
 				}
 				enter(".duration");
 				Node duration = root(item.get("duration"), false);
 				if (duration._type != Type.DURATION) {
-					throw fail(LoadError.TYPE_ERROR, "a timer duration must be a duration, not " + typeName(duration._type));
+					throw fail(LoadError.TYPE_ERROR, "a timer duration must be a duration, not " + typeName(duration._type),
+						I18NConstants.RULE_TIMER_DURATION_TYPE__TYPE.fill(typeName(duration._type)));
 				}
 				rule._timers.get(i)._duration = duration;
 				leave(mark);
@@ -815,10 +858,11 @@ public final class RuleLoader {
 		List<?> reactions = arrayMember(map, "reactions", true);
 		int scope = enter(".reactions");
 		if (reactions.size() < 1) {
-			throw fail(LoadError.MALFORMED, "a rule needs at least one reaction");
+			throw fail(LoadError.MALFORMED, "a rule needs at least one reaction", I18NConstants.RULE_NO_REACTION);
 		}
 		if (reactions.size() > RuleSet.MAX_REACTIONS) {
-			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_REACTIONS + " reactions");
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_REACTIONS + " reactions",
+				I18NConstants.RULE_TOO_MANY_REACTIONS__MAX.fill(String.valueOf(RuleSet.MAX_REACTIONS)));
 		}
 		for (int i = 0; i < reactions.size(); i++) {
 			int mark = enter("[" + i + "]");
@@ -835,42 +879,50 @@ public final class RuleLoader {
 		String id = stringMember(map, "id", true, 1, 24);
 		if (!validIdentifier(id)) {
 			enter(".id");
-			throw fail(LoadError.MALFORMED, "parameter id '" + id + "' is not an identifier");
+			throw fail(LoadError.MALFORMED, "parameter id '" + id + "' is not an identifier",
+				I18NConstants.RULE_PARAMETER_ID_INVALID__ID.fill(id));
 		}
 		if (id.equals("enabled")) {
 			enter(".id");
-			throw fail(LoadError.DUPLICATE_ID, "the parameter id 'enabled' is reserved for the enable switch");
+			throw fail(LoadError.DUPLICATE_ID, "the parameter id 'enabled' is reserved for the enable switch",
+				I18NConstants.RULE_PARAMETER_ID_ENABLED);
 		}
 		if (_current.findParameter(id) >= 0) {
 			enter(".id");
-			throw fail(LoadError.DUPLICATE_ID, "parameter id '" + id + "' is used twice");
+			throw fail(LoadError.DUPLICATE_ID, "parameter id '" + id + "' is used twice",
+				I18NConstants.RULE_PARAMETER_ID_TWICE__ID.fill(id));
 		}
 		Label label = labelMember(map, "label");
 		String typeText = stringMember(map, "type", true, 1, 23);
 		Type type = Type.fromName(typeText);
 		if (type == null) {
 			enter(".type");
-			throw fail(LoadError.MALFORMED, "unknown type '" + typeText + "'");
+			throw fail(LoadError.MALFORMED, "unknown type '" + typeText + "'",
+				I18NConstants.RULE_UNKNOWN_TYPE__TYPE.fill(typeText));
 		}
 		if (!isParameterType(type)) {
 			enter(".type");
-			throw fail(LoadError.INVALID_PARAMETER, "'" + typeText + "' is not a parameter type");
+			throw fail(LoadError.INVALID_PARAMETER, "'" + typeText + "' is not a parameter type",
+				I18NConstants.RULE_NOT_A_PARAMETER_TYPE__TYPE.fill(typeText));
 		}
 		String unit = "";
 		if (map.containsKey("unit")) {
 			int mark = enter(".unit");
 			if (!(map.get("unit") instanceof String text)) {
-				throw fail(LoadError.MALFORMED, "'unit' must be a string");
+				throw fail(LoadError.MALFORMED, "'unit' must be a string",
+					I18NConstants.RULE_NOT_A_STRING__NAME.fill("unit"));
 			}
 			if (bytes(text) > 15) {
-				throw fail(LoadError.INVALID_PARAMETER, "a unit has at most 15 bytes");
+				throw fail(LoadError.INVALID_PARAMETER, "a unit has at most 15 bytes",
+					I18NConstants.RULE_UNIT_TOO_LONG);
 			}
 			unit = text;
 			leave(mark);
 		}
 		if (map.containsKey("step") && !(map.get("step") instanceof Number)) {
 			enter(".step");
-			throw fail(LoadError.MALFORMED, "'step' must be a number");
+			throw fail(LoadError.MALFORMED, "'step' must be a number",
+				I18NConstants.RULE_NOT_A_NUMBER__NAME.fill("step"));
 		}
 		boolean adjustable = boolMember(map, "adjustable", true);
 		boolean ranged = type == Type.INTEGER || type == Type.REAL || type == Type.DURATION || type == Type.TIME_OF_DAY;
@@ -880,7 +932,8 @@ public final class RuleLoader {
 			if (map.containsKey(name)) {
 				int mark = enter("." + name);
 				if (!ranged) {
-					throw fail(LoadError.INVALID_PARAMETER, "'" + name + "' on a " + typeText + " parameter");
+					throw fail(LoadError.INVALID_PARAMETER, "'" + name + "' on a " + typeText + " parameter",
+						I18NConstants.RULE_MEMBER_ON_TYPE__NAME_TYPE.fill(name, typeText));
 				}
 				Val value = literalValue(map.get(name), type);
 				if (name.equals("min")) {
@@ -892,7 +945,7 @@ public final class RuleLoader {
 			}
 		}
 		if (min != null && max != null && Evaluator.order(min, max) > 0) {
-			throw fail(LoadError.INVALID_PARAMETER, "min > max");
+			throw fail(LoadError.INVALID_PARAMETER, "min > max", I18NConstants.RULE_MIN_ABOVE_MAX);
 		}
 		List<?> choices = arrayMember(map, "choices", false);
 		List<Val> choiceValues = new ArrayList<>();
@@ -900,16 +953,19 @@ public final class RuleLoader {
 		if (choices != null) {
 			int scope = enter(".choices");
 			if (type != Type.INTEGER && type != Type.STRING && type != Type.ENUMERATION) {
-				throw fail(LoadError.INVALID_PARAMETER, "'choices' on a " + typeText + " parameter");
+				throw fail(LoadError.INVALID_PARAMETER, "'choices' on a " + typeText + " parameter",
+					I18NConstants.RULE_MEMBER_ON_TYPE__NAME_TYPE.fill("choices", typeText));
 			}
 			for (int i = 0; i < choices.size(); i++) {
 				int mark = enter("[" + i + "]");
 				Map<?, ?> item = only(choices.get(i), "value", "label");
 				if (choiceValues.size() >= RuleSet.MAX_CHOICES) {
-					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_CHOICES + " choices");
+					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_CHOICES + " choices",
+						I18NConstants.RULE_TOO_MANY_CHOICES__MAX.fill(String.valueOf(RuleSet.MAX_CHOICES)));
 				}
 				if (!item.containsKey("value")) {
-					throw fail(LoadError.MALFORMED, "member 'value' missing");
+					throw fail(LoadError.MALFORMED, "member 'value' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("value"));
 				}
 				int value = enter(".value");
 				Val choice = literalValue(item.get("value"), type);
@@ -919,20 +975,23 @@ public final class RuleLoader {
 				leave(mark);
 			}
 			if (choiceValues.isEmpty()) {
-				throw fail(LoadError.INVALID_PARAMETER, "'choices' is empty");
+				throw fail(LoadError.INVALID_PARAMETER, "'choices' is empty", I18NConstants.RULE_CHOICES_EMPTY);
 			}
 			leave(scope);
 		}
 		if (!map.containsKey("default")) {
-			throw fail(LoadError.MALFORMED, "member 'default' missing");
+			throw fail(LoadError.MALFORMED, "member 'default' missing",
+				I18NConstants.RULE_MEMBER_MISSING__NAME.fill("default"));
 		}
 		int mark = enter(".default");
 		Val value = literalValue(map.get("default"), type);
 		if ((min != null && Evaluator.order(value, min) < 0) || (max != null && Evaluator.order(value, max) > 0)) {
-			throw fail(LoadError.INVALID_PARAMETER, "the default is outside min..max");
+			throw fail(LoadError.INVALID_PARAMETER, "the default is outside min..max",
+				I18NConstants.RULE_DEFAULT_OUTSIDE);
 		}
 		if (!choiceValues.isEmpty() && choiceValues.stream().noneMatch(choice -> Val.equal(value, choice))) {
-			throw fail(LoadError.INVALID_PARAMETER, "the default is not one of the choices");
+			throw fail(LoadError.INVALID_PARAMETER, "the default is not one of the choices",
+				I18NConstants.RULE_DEFAULT_NOT_A_CHOICE);
 		}
 		leave(mark);
 		return new Parameter(id, label.text(), label.map(), unit, type, adjustable, value, min, max,
@@ -948,9 +1007,9 @@ public final class RuleLoader {
 		Values.Literal literal = Values.fromJson(type, json);
 		switch (literal.status()) {
 			case MALFORMED:
-				throw fail(LoadError.MALFORMED, literal.reason());
+				throw fail(LoadError.MALFORMED, literal.reason(), literal.message());
 			case INVALID:
-				throw fail(LoadError.INVALID_LITERAL, literal.reason());
+				throw fail(LoadError.INVALID_LITERAL, literal.reason(), literal.message());
 			default:
 				return literal.value();
 		}
@@ -958,7 +1017,8 @@ public final class RuleLoader {
 
 	private void actionList(List<?> array, List<Action> out) throws LoadException {
 		if (array.size() > RuleSet.MAX_ACTIONS) {
-			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_ACTIONS + " actions in a list");
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_ACTIONS + " actions in a list",
+				I18NConstants.RULE_TOO_MANY_ACTIONS__MAX.fill(String.valueOf(RuleSet.MAX_ACTIONS)));
 		}
 		for (int i = 0; i < array.size(); i++) {
 			int mark = enter("[" + i + "]");
@@ -971,7 +1031,7 @@ public final class RuleLoader {
 
 	private Action action(Object json) throws LoadException {
 		if (!(json instanceof Map<?, ?> map)) {
-			throw fail(LoadError.MALFORMED, "an action must be an object");
+			throw fail(LoadError.MALFORMED, "an action must be an object", I18NConstants.RULE_ACTION_NOT_AN_OBJECT);
 		}
 		String kind = stringMember(map, "kind", true, 1, 23);
 		switch (kind) {
@@ -981,22 +1041,26 @@ public final class RuleLoader {
 				ValueType target = _datapoints.type(name);
 				if (!_datapoints.writable(name)) {
 					enter(".datapoint");
-					throw fail(LoadError.NOT_WRITABLE, "datapoint '" + name + "' is not writable");
+					throw fail(LoadError.NOT_WRITABLE, "datapoint '" + name + "' is not writable",
+						I18NConstants.RULE_NOT_WRITABLE__NAME.fill(name));
 				}
 				if (_schedules != null && _schedules.ownsOutput(name)) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_WRITABLE,
-						"datapoint '" + name + "' is the output of a schedule entry; the scheduler owns it");
+						"datapoint '" + name + "' is the output of a schedule entry; the scheduler owns it",
+							I18NConstants.RULE_SCHEDULE_OUTPUT__NAME.fill(name));
 				}
 				boolean onlyOnChange = boolMember(map, "onlyOnChange", false);
 				if (!map.containsKey("value")) {
-					throw fail(LoadError.MALFORMED, "member 'value' missing");
+					throw fail(LoadError.MALFORMED, "member 'value' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("value"));
 				}
 				int mark = enter(".value");
 				Node value = root(map.get("value"), false);
 				if (!Values.writeAllowed(value._type, target)) {
 					throw fail(LoadError.TYPE_ERROR, "a " + typeName(value._type) + " value cannot be written to the "
-						+ target.externalName() + " datapoint '" + name + "'");
+						+ target.externalName() + " datapoint '" + name + "'",
+							I18NConstants.RULE_WRITE_TYPE__VALUE_TARGET_NAME.fill(typeName(value._type), target.externalName(), name));
 				}
 				leave(mark);
 				Action action = new Action(ActionKind.WRITE);
@@ -1011,15 +1075,18 @@ public final class RuleLoader {
 				String name = datapointMember(map);
 				if (name.startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX)) {
 					enter(".datapoint");
-					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a rule parameter: no technology reads it");
+					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a rule parameter: no technology reads it",
+						I18NConstants.RULE_READ_PARAMETER__NAME.fill(name));
 				}
 				if (name.startsWith(Schedule.DATAPOINT_PREFIX)) {
 					enter(".datapoint");
-					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a schedule's time: no technology reads it");
+					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a schedule's time: no technology reads it",
+						I18NConstants.RULE_READ_SCHEDULE__NAME.fill(name));
 				}
 				if (_schedules != null && (_schedules.ownsOutput(name) || !_schedules.technologyReads(name))) {
 					enter(".datapoint");
-					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' is bound to no technology that reads values");
+					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' is bound to no technology that reads values",
+						I18NConstants.RULE_READ_UNBOUND__NAME.fill(name));
 				}
 				Action action = new Action(ActionKind.READ);
 				action._datapoint = name;
@@ -1038,7 +1105,8 @@ public final class RuleLoader {
 				int t = _current.findTimer(id);
 				if (t < 0) {
 					enter(".timer");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no timer '" + id + "' in the rule");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no timer '" + id + "' in the rule",
+						I18NConstants.RULE_NO_TIMER__ID.fill(id));
 				}
 				Action action = new Action(cancel ? ActionKind.CANCEL_TIMER
 					: kind.equals("startTimer") ? ActionKind.START_TIMER : ActionKind.RESTART_TIMER);
@@ -1048,7 +1116,8 @@ public final class RuleLoader {
 					Node duration = root(map.get("duration"), false);
 					if (duration._type != Type.DURATION) {
 						throw fail(LoadError.TYPE_ERROR,
-							"a timer duration must be a duration, not " + typeName(duration._type));
+							"a timer duration must be a duration, not " + typeName(duration._type),
+								I18NConstants.RULE_TIMER_DURATION_TYPE__TYPE.fill(typeName(duration._type)));
 					}
 					action._expr = duration;
 					leave(mark);
@@ -1061,14 +1130,17 @@ public final class RuleLoader {
 				int p = _current.findParameter(id);
 				if (p == 0) {
 					enter(".parameter");
-					throw fail(LoadError.FORBIDDEN, "the enable switch cannot be set by a rule");
+					throw fail(LoadError.FORBIDDEN, "the enable switch cannot be set by a rule",
+						I18NConstants.RULE_ENABLE_SET);
 				}
 				if (p < 0) {
 					enter(".parameter");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no parameter '" + id + "' in the rule");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no parameter '" + id + "' in the rule",
+						I18NConstants.RULE_NO_PARAMETER__ID.fill(id));
 				}
 				if (!map.containsKey("value")) {
-					throw fail(LoadError.MALFORMED, "member 'value' missing");
+					throw fail(LoadError.MALFORMED, "member 'value' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("value"));
 				}
 				int mark = enter(".value");
 				Node value = root(map.get("value"), false);
@@ -1079,7 +1151,8 @@ public final class RuleLoader {
 				}
 				if (!Values.assignAllowed(value._type, target)) {
 					throw fail(LoadError.TYPE_ERROR, "a " + typeName(value._type) + " value cannot be assigned to the "
-						+ target.externalName() + " parameter '" + id + "'");
+						+ target.externalName() + " parameter '" + id + "'",
+							I18NConstants.RULE_ASSIGN_TYPE__VALUE_TARGET_ID.fill(typeName(value._type), target.externalName(), id));
 				}
 				leave(mark);
 				Action action = new Action(ActionKind.SET_PARAMETER);
@@ -1097,20 +1170,23 @@ public final class RuleLoader {
 					case "error" -> action._level = Level.ERROR;
 					default -> {
 						enter(".level");
-						throw fail(LoadError.MALFORMED, "unknown level '" + level + "'");
+						throw fail(LoadError.MALFORMED, "unknown level '" + level + "'",
+							I18NConstants.RULE_UNKNOWN_LEVEL__LEVEL.fill(level));
 					}
 				}
 				List<?> message = arrayMember(map, "message", true);
 				int mark = enter(".message");
 				if (message.size() > RuleSet.MAX_LOG_PARTS) {
-					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_LOG_PARTS + " parts in a log message");
+					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_LOG_PARTS + " parts in a log message",
+						I18NConstants.RULE_TOO_MANY_LOG_PARTS__MAX.fill(String.valueOf(RuleSet.MAX_LOG_PARTS)));
 				}
 				for (int i = 0; i < message.size(); i++) {
 					int part = enter("[" + i + "]");
 					Object item = message.get(i);
 					if (item instanceof String text) {
 						if (bytes(text) > RuleSet.MAX_MESSAGE) {
-							throw fail(LoadError.LIMIT_EXCEEDED, "a text part longer than " + RuleSet.MAX_MESSAGE + " bytes");
+							throw fail(LoadError.LIMIT_EXCEEDED, "a text part longer than " + RuleSet.MAX_MESSAGE + " bytes",
+								I18NConstants.RULE_LOG_TEXT_TOO_LONG__MAX.fill(String.valueOf(RuleSet.MAX_MESSAGE)));
 						}
 						action._parts.add(text);
 					} else {
@@ -1123,13 +1199,14 @@ public final class RuleLoader {
 			}
 			default:
 				enter(".kind");
-				throw fail(LoadError.MALFORMED, "unknown action kind '" + kind + "'");
+				throw fail(LoadError.MALFORMED, "unknown action kind '" + kind + "'",
+					I18NConstants.RULE_UNKNOWN_ACTION_KIND__KIND.fill(kind));
 		}
 	}
 
 	private Trigger trigger(Object json) throws LoadException {
 		if (!(json instanceof Map<?, ?> map)) {
-			throw fail(LoadError.MALFORMED, "a trigger must be an object");
+			throw fail(LoadError.MALFORMED, "a trigger must be an object", I18NConstants.RULE_TRIGGER_NOT_AN_OBJECT);
 		}
 		String kind = stringMember(map, "kind", true, 1, 23);
 		switch (kind) {
@@ -1143,7 +1220,7 @@ public final class RuleLoader {
 					trigger._onUpdate = true;
 				} else if (on != null && !on.equals("change")) {
 					enter(".on");
-					throw fail(LoadError.MALFORMED, "'on' must be change or update");
+					throw fail(LoadError.MALFORMED, "'on' must be change or update", I18NConstants.RULE_TRIGGER_ON);
 				}
 				String origin = stringMember(map, "origin", false, 1, 15);
 				if ("report".equals(origin)) {
@@ -1152,7 +1229,8 @@ public final class RuleLoader {
 					trigger._originCommand = true;
 				} else if (origin != null && !origin.equals("any")) {
 					enter(".origin");
-					throw fail(LoadError.MALFORMED, "'origin' must be any, report or command");
+					throw fail(LoadError.MALFORMED, "'origin' must be any, report or command",
+						I18NConstants.RULE_TRIGGER_ORIGIN);
 				}
 				_set._interest.add(name);
 				return trigger;
@@ -1160,12 +1238,14 @@ public final class RuleLoader {
 			case "match": {
 				only(map, "kind", "condition");
 				if (!map.containsKey("condition")) {
-					throw fail(LoadError.MALFORMED, "member 'condition' missing");
+					throw fail(LoadError.MALFORMED, "member 'condition' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("condition"));
 				}
 				int mark = enter(".condition");
 				Node condition = root(map.get("condition"), true);
 				if (condition._type != Type.BOOLEAN) {
-					throw fail(LoadError.TYPE_ERROR, "a condition must be boolean, not " + typeName(condition._type));
+					throw fail(LoadError.TYPE_ERROR, "a condition must be boolean, not " + typeName(condition._type),
+						I18NConstants.RULE_CONDITION_TYPE__TYPE.fill(typeName(condition._type)));
 				}
 				leave(mark);
 				Trigger trigger = new Trigger(TriggerKind.MATCH);
@@ -1187,7 +1267,8 @@ public final class RuleLoader {
 				String id = stringMember(map, "schedule", true, 1, 32);
 				if (_schedules == null || !_schedules.hasSchedule(id)) {
 					enter(".schedule");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no schedule '" + id + "'");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no schedule '" + id + "'",
+						I18NConstants.RULE_NO_SCHEDULE__ID.fill(id));
 				}
 				Trigger trigger = new Trigger(TriggerKind.SCHEDULE);
 				trigger._name = id;
@@ -1200,7 +1281,8 @@ public final class RuleLoader {
 				int timer = _current.findTimer(id);
 				if (timer < 0) {
 					enter(".timer");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no timer '" + id + "' in the rule");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no timer '" + id + "' in the rule",
+						I18NConstants.RULE_NO_TIMER__ID.fill(id));
 				}
 				Trigger trigger = new Trigger(TriggerKind.TIMER);
 				trigger._ref = timer;
@@ -1218,7 +1300,8 @@ public final class RuleLoader {
 						int itemMark = enter("[" + i + "]");
 						Object item = reasons.get(i);
 						if (!(item instanceof String reason)) {
-							throw fail(LoadError.MALFORMED, "a reason must be boot, image or enable");
+							throw fail(LoadError.MALFORMED, "a reason must be boot, image or enable",
+								I18NConstants.RULE_START_REASON_NOT_A_STRING);
 						}
 						StartReason found = null;
 						for (StartReason candidate : StartReason.values()) {
@@ -1227,7 +1310,8 @@ public final class RuleLoader {
 							}
 						}
 						if (found == null) {
-							throw fail(LoadError.MALFORMED, "unknown start reason '" + reason + "'");
+							throw fail(LoadError.MALFORMED, "unknown start reason '" + reason + "'",
+								I18NConstants.RULE_UNKNOWN_START_REASON__REASON.fill(reason));
 						}
 						trigger._reasons.add(found);
 						leave(itemMark);
@@ -1242,11 +1326,13 @@ public final class RuleLoader {
 				int p = _current.findParameter(id);
 				if (p == 0) {
 					enter(".parameter");
-					throw fail(LoadError.FORBIDDEN, "the enable switch cannot trigger a reaction");
+					throw fail(LoadError.FORBIDDEN, "the enable switch cannot trigger a reaction",
+						I18NConstants.RULE_ENABLE_TRIGGER);
 				}
 				if (p < 0) {
 					enter(".parameter");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no parameter '" + id + "' in the rule");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no parameter '" + id + "' in the rule",
+						I18NConstants.RULE_NO_PARAMETER__ID.fill(id));
 				}
 				Trigger trigger = new Trigger(TriggerKind.PARAMETER);
 				trigger._ref = p;
@@ -1256,12 +1342,14 @@ public final class RuleLoader {
 				only(map, "kind", "datapoint", "after");
 				String name = datapointMember(map);
 				if (!map.containsKey("after")) {
-					throw fail(LoadError.MALFORMED, "member 'after' missing");
+					throw fail(LoadError.MALFORMED, "member 'after' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("after"));
 				}
 				int mark = enter(".after");
 				Node after = root(map.get("after"), RootKind.CONSTANT);
 				if (after._type != Type.DURATION) {
-					throw fail(LoadError.TYPE_ERROR, "a silence duration must be a duration, not " + typeName(after._type));
+					throw fail(LoadError.TYPE_ERROR, "a silence duration must be a duration, not " + typeName(after._type),
+						I18NConstants.RULE_SILENCE_TYPE__TYPE.fill(typeName(after._type)));
 				}
 				leave(mark);
 				Trigger trigger = new Trigger(TriggerKind.SILENCE);
@@ -1274,7 +1362,8 @@ public final class RuleLoader {
 			}
 			default:
 				enter(".kind");
-				throw fail(LoadError.MALFORMED, "unknown trigger kind '" + kind + "'");
+				throw fail(LoadError.MALFORMED, "unknown trigger kind '" + kind + "'",
+					I18NConstants.RULE_UNKNOWN_TRIGGER_KIND__KIND.fill(kind));
 		}
 	}
 
@@ -1284,10 +1373,11 @@ public final class RuleLoader {
 		List<?> triggers = arrayMember(map, "triggers", true);
 		int scope = enter(".triggers");
 		if (triggers.size() < 1) {
-			throw fail(LoadError.MALFORMED, "a reaction needs at least one trigger");
+			throw fail(LoadError.MALFORMED, "a reaction needs at least one trigger", I18NConstants.RULE_NO_TRIGGER);
 		}
 		if (triggers.size() > RuleSet.MAX_TRIGGERS) {
-			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_TRIGGERS + " triggers");
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_TRIGGERS + " triggers",
+				I18NConstants.RULE_TOO_MANY_TRIGGERS__MAX.fill(String.valueOf(RuleSet.MAX_TRIGGERS)));
 		}
 		for (int i = 0; i < triggers.size(); i++) {
 			int mark = enter("[" + i + "]");
@@ -1299,7 +1389,8 @@ public final class RuleLoader {
 			int mark = enter(".condition");
 			Node condition = root(map.get("condition"), false);
 			if (condition._type != Type.BOOLEAN) {
-				throw fail(LoadError.TYPE_ERROR, "a condition must be boolean, not " + typeName(condition._type));
+				throw fail(LoadError.TYPE_ERROR, "a condition must be boolean, not " + typeName(condition._type),
+					I18NConstants.RULE_CONDITION_TYPE__TYPE.fill(typeName(condition._type)));
 			}
 			reaction._condition = condition;
 			leave(mark);
@@ -1318,17 +1409,19 @@ public final class RuleLoader {
 		if (from != null) {
 			mark = enter(".from");
 			if (_current._states.isEmpty()) {
-				throw fail(LoadError.FORBIDDEN, "'from' in a rule without states");
+				throw fail(LoadError.FORBIDDEN, "'from' in a rule without states",
+					I18NConstants.RULE_FROM_WITHOUT_STATES);
 			}
 			reaction._fromMask = 0;
 			for (int i = 0; i < from.size(); i++) {
 				int item = enter("[" + i + "]");
 				if (!(from.get(i) instanceof String id) || bytes(id) > 24) {
-					throw fail(LoadError.MALFORMED, "a state id expected");
+					throw fail(LoadError.MALFORMED, "a state id expected", I18NConstants.RULE_STATE_ID_EXPECTED);
 				}
 				int s = _current.findState(id);
 				if (s < 0) {
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no state '" + id + "' in the rule");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no state '" + id + "' in the rule",
+						I18NConstants.RULE_NO_STATE__ID.fill(id));
 				}
 				reaction._fromMask |= 1 << s;
 				leave(item);
@@ -1339,14 +1432,15 @@ public final class RuleLoader {
 		if (to != null) {
 			mark = enter(".to");
 			if (_current._states.isEmpty()) {
-				throw fail(LoadError.FORBIDDEN, "'to' in a rule without states");
+				throw fail(LoadError.FORBIDDEN, "'to' in a rule without states", I18NConstants.RULE_TO_WITHOUT_STATES);
 			}
 			if (elseActions != null) {
-				throw fail(LoadError.FORBIDDEN, "'elseActions' together with 'to'");
+				throw fail(LoadError.FORBIDDEN, "'elseActions' together with 'to'", I18NConstants.RULE_ELSE_WITH_TO);
 			}
 			int s = _current.findState(to);
 			if (s < 0) {
-				throw fail(LoadError.UNKNOWN_REFERENCE, "no state '" + to + "' in the rule");
+				throw fail(LoadError.UNKNOWN_REFERENCE, "no state '" + to + "' in the rule",
+					I18NConstants.RULE_NO_STATE__ID.fill(to));
 			}
 			reaction._to = s;
 			leave(mark);
@@ -1362,10 +1456,12 @@ public final class RuleLoader {
 
 	private void allocNodes(int count) throws LoadException {
 		if (_expressionNodes + count > RuleSet.MAX_NODES_PER_EXPRESSION) {
-			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_NODES_PER_EXPRESSION + " nodes in an expression");
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_NODES_PER_EXPRESSION + " nodes in an expression",
+				I18NConstants.RULE_TOO_MANY_NODES__MAX.fill(String.valueOf(RuleSet.MAX_NODES_PER_EXPRESSION)));
 		}
 		if (_totalNodes + count > RuleSet.MAX_NODES) {
-			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_NODES + " expression nodes in the image");
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_NODES + " expression nodes in the image",
+				I18NConstants.RULE_TOO_MANY_NODES_IN_IMAGE__MAX.fill(String.valueOf(RuleSet.MAX_NODES)));
 		}
 		_totalNodes += count;
 		_expressionNodes += count;
@@ -1432,11 +1528,13 @@ public final class RuleLoader {
 		String name = stringMember(map, "datapoint", true, 1, MAX_NAME);
 		int mark = enter(".datapoint");
 		if (_datapoints.type(name) == null) {
-			throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'");
+			throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'",
+				I18NConstants.RULE_NO_DATAPOINT__NAME.fill(name));
 		}
 		if (ownParameterDatapoint(name)) {
 			throw fail(LoadError.FORBIDDEN,
-				"'" + name + "' is a parameter of this rule: use the parameter (setParameter, $id)");
+				"'" + name + "' is a parameter of this rule: use the parameter (setParameter, $id)",
+					I18NConstants.RULE_OWN_PARAMETER_DATAPOINT__NAME.fill(name));
 		}
 		leave(mark);
 		return name;
@@ -1487,10 +1585,12 @@ public final class RuleLoader {
 
 	private Node expr(Object json, int depth, boolean timerAllowed) throws LoadException {
 		if (depth > RuleSet.MAX_DEPTH) {
-			throw fail(LoadError.LIMIT_EXCEEDED, "an expression deeper than " + RuleSet.MAX_DEPTH);
+			throw fail(LoadError.LIMIT_EXCEEDED, "an expression deeper than " + RuleSet.MAX_DEPTH,
+				I18NConstants.RULE_TOO_DEEP__MAX.fill(String.valueOf(RuleSet.MAX_DEPTH)));
 		}
 		if (!(json instanceof Map<?, ?> map)) {
-			throw fail(LoadError.MALFORMED, "an expression node must be an object");
+			throw fail(LoadError.MALFORMED, "an expression node must be an object",
+				I18NConstants.RULE_EXPRESSION_NOT_AN_OBJECT);
 		}
 		String kind = stringMember(map, "kind", true, 1, 15);
 		switch (kind) {
@@ -1500,10 +1600,12 @@ public final class RuleLoader {
 				Type type = Type.fromName(typeText);
 				if (type == null) {
 					enter(".type");
-					throw fail(LoadError.MALFORMED, "unknown type '" + typeText + "'");
+					throw fail(LoadError.MALFORMED, "unknown type '" + typeText + "'",
+						I18NConstants.RULE_UNKNOWN_TYPE__TYPE.fill(typeText));
 				}
 				if (!map.containsKey("value")) {
-					throw fail(LoadError.MALFORMED, "member 'value' missing");
+					throw fail(LoadError.MALFORMED, "member 'value' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("value"));
 				}
 				int mark = enter(".value");
 				Val value = literalValue(map.get("value"), type);
@@ -1517,7 +1619,8 @@ public final class RuleLoader {
 				if (type == Type.CONTROLLED) {
 					if (depth + 1 > RuleSet.MAX_DEPTH) {
 						throw fail(LoadError.LIMIT_EXCEEDED,
-							"an expression deeper than " + RuleSet.MAX_DEPTH + " (a controlled literal is a call)");
+							"an expression deeper than " + RuleSet.MAX_DEPTH + " (a controlled literal is a call)",
+								I18NConstants.RULE_TOO_DEEP_CONTROLLED__MAX.fill(String.valueOf(RuleSet.MAX_DEPTH)));
 					}
 					allocNodes(2);
 					Node bit = new Node(Kind.LITERAL, null, null, Type.BOOLEAN, List.of(),
@@ -1532,17 +1635,20 @@ public final class RuleLoader {
 				only(map, "kind", "name");
 				String name = stringMember(map, "name", true, 1, MAX_NAME);
 				if (_rootKind == RootKind.CONSTANT) {
-					throw fail(LoadError.FORBIDDEN, "a datapoint in a silence duration (it may use the rule's parameters)");
+					throw fail(LoadError.FORBIDDEN, "a datapoint in a silence duration (it may use the rule's parameters)",
+						I18NConstants.RULE_DATAPOINT_IN_SILENCE);
 				}
 				ValueType type = _datapoints.type(name);
 				if (type == null) {
 					enter(".name");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'",
+						I18NConstants.RULE_NO_DATAPOINT__NAME.fill(name));
 				}
 				if (ownParameterDatapoint(name)) {
 					enter(".name");
 					throw fail(LoadError.FORBIDDEN,
-						"'" + name + "' is a parameter of this rule: reference it as a parameter ($id)");
+						"'" + name + "' is a parameter of this rule: reference it as a parameter ($id)",
+							I18NConstants.RULE_OWN_PARAMETER_REFERENCE__NAME.fill(name));
 				}
 				return new Node(Kind.DATAPOINT, null, null, type.expressionType(), List.of(), null, name, -1);
 			}
@@ -1552,24 +1658,28 @@ public final class RuleLoader {
 				int p = _current.findParameter(id);
 				if (p == 0) {
 					enter(".id");
-					throw fail(LoadError.FORBIDDEN, "the enable switch cannot be referenced");
+					throw fail(LoadError.FORBIDDEN, "the enable switch cannot be referenced",
+						I18NConstants.RULE_ENABLE_REFERENCED);
 				}
 				if (p < 0) {
 					enter(".id");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no parameter '" + id + "' in the rule");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no parameter '" + id + "' in the rule",
+						I18NConstants.RULE_NO_PARAMETER__ID.fill(id));
 				}
 				return new Node(Kind.PARAMETER, null, null, _current._parameters.get(p)._type, List.of(), null, id, p);
 			}
 			case "timer": {
 				only(map, "kind", "id");
 				if (!timerAllowed) {
-					throw fail(LoadError.FORBIDDEN, "a timer node outside running() or remaining()");
+					throw fail(LoadError.FORBIDDEN, "a timer node outside running() or remaining()",
+						I18NConstants.RULE_TIMER_NODE);
 				}
 				String id = stringMember(map, "id", true, 1, 24);
 				int t = _current.findTimer(id);
 				if (t < 0) {
 					enter(".id");
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no timer '" + id + "' in the rule");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no timer '" + id + "' in the rule",
+						I18NConstants.RULE_NO_TIMER__ID.fill(id));
 				}
 				return new Node(Kind.TIMER, null, null, null, List.of(), null, id, t);
 			}
@@ -1583,10 +1693,12 @@ public final class RuleLoader {
 					op = Op.NOT;
 				} else {
 					enter(".op");
-					throw fail(LoadError.MALFORMED, "unknown unary operator '" + opText + "'");
+					throw fail(LoadError.MALFORMED, "unknown unary operator '" + opText + "'",
+						I18NConstants.RULE_UNKNOWN_UNARY__OP.fill(opText));
 				}
 				if (!map.containsKey("operand")) {
-					throw fail(LoadError.MALFORMED, "member 'operand' missing");
+					throw fail(LoadError.MALFORMED, "member 'operand' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("operand"));
 				}
 				if (op == Op.NEG) {
 					Node folded = foldedNegation(map.get("operand"), depth);
@@ -1600,7 +1712,8 @@ public final class RuleLoader {
 				leave(mark);
 				Type t = operand._type;
 				if (op == Op.NOT ? t != Type.BOOLEAN : !(t != null && (t.isNumeric() || t == Type.DURATION))) {
-					throw fail(LoadError.TYPE_ERROR, "operator " + opText + " on " + typeName(t));
+					throw fail(LoadError.TYPE_ERROR, "operator " + opText + " on " + typeName(t),
+						I18NConstants.RULE_UNARY_TYPE__OP_TYPE.fill(opText, typeName(t)));
 				}
 				return new Node(Kind.UNARY, op, null, t, List.of(operand), null, null, -1);
 			}
@@ -1610,13 +1723,16 @@ public final class RuleLoader {
 				Op op = Op.binary(opText);
 				if (op == null) {
 					enter(".op");
-					throw fail(LoadError.MALFORMED, "unknown binary operator '" + opText + "'");
+					throw fail(LoadError.MALFORMED, "unknown binary operator '" + opText + "'",
+						I18NConstants.RULE_UNKNOWN_BINARY__OP.fill(opText));
 				}
 				if (!map.containsKey("left")) {
-					throw fail(LoadError.MALFORMED, "member 'left' missing");
+					throw fail(LoadError.MALFORMED, "member 'left' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("left"));
 				}
 				if (!map.containsKey("right")) {
-					throw fail(LoadError.MALFORMED, "member 'right' missing");
+					throw fail(LoadError.MALFORMED, "member 'right' missing",
+						I18NConstants.RULE_MEMBER_MISSING__NAME.fill("right"));
 				}
 				allocNodes(2);
 				int mark = enter(".left");
@@ -1637,7 +1753,8 @@ public final class RuleLoader {
 				Type t = binaryType(op, left._type, right._type);
 				if (t == null) {
 					throw fail(LoadError.TYPE_ERROR,
-						"operator " + opText + " on " + typeName(left._type) + " and " + typeName(right._type));
+						"operator " + opText + " on " + typeName(left._type) + " and " + typeName(right._type),
+							I18NConstants.RULE_BINARY_TYPE__OP_LEFT_RIGHT.fill(opText, typeName(left._type), typeName(right._type)));
 				}
 				return new Node(Kind.BINARY, op, null, t, List.of(left, right), null, null, -1);
 			}
@@ -1646,7 +1763,8 @@ public final class RuleLoader {
 				return call(map, depth);
 			default:
 				enter(".kind");
-				throw fail(LoadError.MALFORMED, "unknown expression kind '" + kind + "'");
+				throw fail(LoadError.MALFORMED, "unknown expression kind '" + kind + "'",
+					I18NConstants.RULE_UNKNOWN_EXPRESSION_KIND__KIND.fill(kind));
 		}
 	}
 
@@ -1754,54 +1872,67 @@ public final class RuleLoader {
 		Fn fn = Fn.fromName(name);
 		if (fn == null) {
 			enter(".function");
-			throw fail(LoadError.MALFORMED, "unknown function '" + name + "'");
+			throw fail(LoadError.MALFORMED, "unknown function '" + name + "'",
+				I18NConstants.RULE_UNKNOWN_FUNCTION__NAME.fill(name));
 		}
 		if (_rootKind != RootKind.NORMAL
 			&& (fn.isTime() || fn.isHistory() || fn == Fn.RUNNING || fn == Fn.REMAINING || fn == Fn.STATE)) {
 			throw fail(LoadError.FORBIDDEN,
-				name + "() in a " + (_rootKind == RootKind.MATCH ? "match condition" : "silence duration"));
+				name + "() in a " + (_rootKind == RootKind.MATCH ? "match condition" : "silence duration"),
+				(_rootKind == RootKind.MATCH ? I18NConstants.RULE_FUNCTION_IN_MATCH__NAME
+					: I18NConstants.RULE_FUNCTION_IN_SILENCE__NAME).fill(name));
 		}
 		List<?> args = arrayMember(map, "args", true);
 		enter(".args");
 		int argc = args.size();
 		if (argc > RuleSet.MAX_ARGUMENTS) {
-			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_ARGUMENTS + " arguments");
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_ARGUMENTS + " arguments",
+				I18NConstants.RULE_TOO_MANY_ARGUMENTS__MAX.fill(String.valueOf(RuleSet.MAX_ARGUMENTS)));
 		}
 		int[] arity = arity(fn);
 		if (argc < arity[0] || argc > arity[1]) {
 			throw fail(LoadError.TYPE_ERROR,
-				name + "() takes " + arity[0] + ".." + arity[1] + " arguments, not " + argc);
+				name + "() takes " + arity[0] + ".." + arity[1] + " arguments, not " + argc,
+					I18NConstants.RULE_ARITY__NAME_MIN_MAX_COUNT.fill(name, String.valueOf(arity[0]), String.valueOf(arity[1]),
+						String.valueOf(argc)));
 		}
 
 		// Structural constraints on arguments.
 		Object first = argc > 0 ? args.get(0) : null;
 		String firstKind = first instanceof Map<?, ?> f && f.get("kind") instanceof String k ? k : "";
 		if (fn.isHistory() && !firstKind.equals("datapoint")) {
-			throw fail(LoadError.TYPE_ERROR, "the first argument of " + name + "() must be a datapoint reference");
+			throw fail(LoadError.TYPE_ERROR, "the first argument of " + name + "() must be a datapoint reference",
+				I18NConstants.RULE_HISTORY_ARGUMENT__NAME.fill(name));
 		}
 		if ((fn == Fn.RUNNING || fn == Fn.REMAINING) && !firstKind.equals("timer")) {
-			throw fail(LoadError.TYPE_ERROR, "the argument of " + name + "() must be a timer");
+			throw fail(LoadError.TYPE_ERROR, "the argument of " + name + "() must be a timer",
+				I18NConstants.RULE_TIMER_ARGUMENT__NAME.fill(name));
 		}
 		int stateRule = _rule;
 		if (fn == Fn.STATE) {
 			if (argc == 0) {
 				if (_current._states.isEmpty()) {
-					throw fail(LoadError.FORBIDDEN, "state() in a rule without states");
+					throw fail(LoadError.FORBIDDEN, "state() in a rule without states",
+						I18NConstants.RULE_STATE_WITHOUT_STATES);
 				}
 			} else {
 				Map<?, ?> literal = (Map<?, ?>) first;
 				if (!firstKind.equals("literal") || !"string".equals(literal.get("type")) || !literal.containsKey("value")) {
-					throw fail(LoadError.FORBIDDEN, "the argument of state() must be one string literal");
+					throw fail(LoadError.FORBIDDEN, "the argument of state() must be one string literal",
+						I18NConstants.RULE_STATE_ARGUMENT);
 				}
 				if (!(literal.get("value") instanceof String id) || bytes(id) > 32) {
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no rule with that id");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no rule with that id",
+						I18NConstants.RULE_STATE_NO_SUCH_RULE);
 				}
 				int target = _ruleIds.lastIndexOf(id);
 				if (target < 0) {
-					throw fail(LoadError.UNKNOWN_REFERENCE, "no rule '" + id + "'");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "no rule '" + id + "'",
+						I18NConstants.RULE_NO_RULE__ID.fill(id));
 				}
 				if (!_ruleHasStates.get(target).booleanValue()) {
-					throw fail(LoadError.UNKNOWN_REFERENCE, "rule '" + id + "' has no states");
+					throw fail(LoadError.UNKNOWN_REFERENCE, "rule '" + id + "' has no states",
+						I18NConstants.RULE_RULE_WITHOUT_STATES__ID.fill(id));
 				}
 				stateRule = target;
 			}
@@ -1845,7 +1976,8 @@ public final class RuleLoader {
 			for (int k = 0; k < argc; k++) {
 				types.append(k > 0 ? ", " : "").append(typeName(t[k]));
 			}
-			throw fail(LoadError.TYPE_ERROR, name + "(" + types + ")");
+			throw fail(LoadError.TYPE_ERROR, name + "(" + types + ")",
+				I18NConstants.RULE_CALL_TYPES__NAME_TYPES.fill(name, types.toString()));
 		}
 		_path.setLength(argsPath - ".args".length());
 		return new Node(Kind.CALL, null, fn, result, List.copyOf(nodes), null, null, fn == Fn.STATE ? stateRule : -1);

@@ -1049,7 +1049,7 @@ public final class RuleExport {
 
 	/**
 	 * Why the value of a field of a rule or schedule entry is refused, as the controller would refuse
-	 * it, <code>null</code> if it is not.
+	 * it, as the message for the user; <code>null</code> if it is not.
 	 *
 	 * @param obj
 	 *        The object the field belongs to: a rule, a part of a rule, a schedule entry; in a form the
@@ -1062,7 +1062,7 @@ public final class RuleExport {
 	 *        <code>true</code> for the syntax of the field's text, <code>false</code> for what the
 	 *        loader refuses (not reported for a text that does not parse).
 	 */
-	public static String fieldProblem(Object obj, String attribute, Object value, boolean syntax) {
+	public static ResKey fieldProblem(Object obj, String attribute, Object value, boolean syntax) {
 		TLObject stored;
 		TLObject overlay = null;
 		if (obj instanceof TLFormObjectBase form) {
@@ -1117,7 +1117,14 @@ public final class RuleExport {
 		return null;
 	}
 
-	private String checkRule(TLObject project, TLObject rule, Source field, boolean syntax) {
+	/**
+	 * The message about the syntax problem of the field, <code>null</code> for none.
+	 */
+	private static ResKey syntaxMessage(String problem) {
+		return problem == null ? null : I18NConstants.RULE_SYNTAX__REASON.fill(problem.replaceFirst("^malformed: ", ""));
+	}
+
+	private ResKey checkRule(TLObject project, TLObject rule, Source field, boolean syntax) {
 		List<Object> rules = new ArrayList<>();
 		String ruleId = text(rule, "identifier");
 		Set<String> ids = new HashSet<>();
@@ -1131,7 +1138,7 @@ public final class RuleExport {
 		rules.add(focused);
 		String problem = syntaxProblem(field);
 		if (syntax || problem != null) {
-			return syntax ? problem : null;
+			return syntax ? syntaxMessage(problem) : null;
 		}
 		if (ruleId == null) {
 			return null;
@@ -1169,7 +1176,7 @@ public final class RuleExport {
 				RuleLoader.Refusal refusal = ex.getRefusal();
 				Source source = sourceAt(refusal.path(), refusal.text());
 				if (field.equals(source)) {
-					return refusal.error().externalName() + ": " + refusal.text();
+					return I18NConstants.RULE_REFUSED__REASON.fill(refusal.message());
 				}
 				// The loader stops at its first refusal; one of another field must not hide the
 				// field's own (haumacher/ehome #60): that field is neutralized and the rule loaded
@@ -1429,16 +1436,16 @@ public final class RuleExport {
 		return result;
 	}
 
-	private String checkSchedules(TLObject project, Source field, boolean syntax) {
+	private ResKey checkSchedules(TLObject project, Source field, boolean syntax) {
 		List<Object> schedules = schedules(project);
 		String problem = syntaxProblem(field);
 		if (syntax || problem != null) {
-			return syntax ? problem : null;
+			return syntax ? syntaxMessage(problem) : null;
 		}
 		Schedule.Loaded loaded = Schedule.load(schedules == null ? List.of() : schedules, directory(project));
 		for (Schedule.Refusal refusal : loaded.refusals()) {
 			if (field.equals(sourceAt(refusal.path()))) {
-				return refusal.reason();
+				return I18NConstants.RULE_REFUSED__REASON.fill(refusal.message());
 			}
 		}
 		return null;
