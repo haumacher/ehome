@@ -1498,9 +1498,9 @@ public final class BlockRuntime implements Engine.BlockHost {
 			return check;
 		}
 		Param decl = _set.at(found[0]).manifest().params().get(found[1]);
-		String[] reason = { null };
+		BlockSet.ParamProblem[] reason = { null };
 		Double v = BlockSet.paramFromJson(decl, json, reason);
-		String problem = v == null ? reason[0] : BlockSet.paramProblem(decl, v.doubleValue());
+		String problem = v == null ? reason[0].text() : BlockSet.paramProblem(decl, v.doubleValue());
 		if (problem != null) {
 			return new Check(ChangeStatus.INVALID_VALUE, problem, 0);
 		}

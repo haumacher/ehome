@@ -242,7 +242,7 @@ public class TestRuleReferences extends BasicTestCase {
 		assertNull(set.tValueByName("parameter"));
 		List<String> warnings = new RuleForm(trigger).warnings("datapoint");
 		assertEquals(warnings.toString(), 1, warnings.size());
-		assertTrue(warnings.get(0), warnings.get(0).contains("'datapoint'"));
+		assertTrue(warnings.get(0), warnings.get(0).contains("\"datapoint\""));
 	}
 
 	public void testImport() throws Exception {

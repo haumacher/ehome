@@ -127,10 +127,10 @@ public class TestRuleSpecRounds extends BasicTestCase {
 			}
 			List<String> readWarnings = new RuleForm(read).warnings("datapoint");
 			assertEquals(readWarnings.toString(), 1, readWarnings.size());
-			assertTrue(readWarnings.get(0), readWarnings.get(0).contains("notReadable"));
+			assertTrue(readWarnings.get(0), readWarnings.get(0).contains("bound to no technology that reads values"));
 			List<String> writeWarnings = new RuleForm(write).warnings("datapoint");
 			assertEquals(writeWarnings.toString(), 1, writeWarnings.size());
-			assertTrue(writeWarnings.get(0), writeWarnings.get(0).contains("forbidden"));
+			assertTrue(writeWarnings.get(0), writeWarnings.get(0).contains("is a parameter of this rule"));
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}

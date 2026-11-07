@@ -50,7 +50,7 @@ public class TestRuleDrafts extends BasicTestCase {
 			RuleForm form = new RuleForm(draft);
 			form.set("offset", "13h");
 			assertEquals(form.warnings("offset").toString(), 1, form.warnings("offset").size());
-			assertTrue(form.warnings("offset").get(0), form.warnings("offset").get(0).contains("at most 12 h"));
+			assertTrue(form.warnings("offset").get(0), form.warnings("offset").get(0).contains("at most 12 hours"));
 			assertEquals(List.of(), form.errors("offset"));
 			form.set("offset", "-30 minutes");
 			assertEquals("A text that does not parse is an error.", 1, form.errors("offset").size());

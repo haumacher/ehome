@@ -226,24 +226,29 @@ public final class HeatingCurve extends BlockType {
 	@Override
 	public Blame check(double[] params) {
 		if (!(params[MIN_FLOW] < params[MAX_FLOW])) {
-			return new Blame("minFlow must be below maxFlow", MIN_FLOW);
+			return new Blame("minFlow must be below maxFlow", I18NConstants.BLOCK_PARAM_BELOW__LOW_HIGH.fill("minFlow", "maxFlow"),
+				MIN_FLOW);
 		}
 		if (!(params[SUMMER_OFF] < params[SUMMER_ON])) {
-			return new Blame("summerOff must be below summerOn", SUMMER_OFF);
+			return new Blame("summerOff must be below summerOn", I18NConstants.BLOCK_PARAM_BELOW__LOW_HIGH.fill("summerOff", "summerOn"),
+				SUMMER_OFF);
 		}
 		int form = (int) params[CURVE];
 		if (form == DESIGN) {
 			if (!(params[DESIGN_OUTSIDE] < params[ROOM_TEMPERATURE])) {
-				return new Blame("designOutside must be below roomTemperature", DESIGN_OUTSIDE);
+				return new Blame("designOutside must be below roomTemperature",
+					I18NConstants.BLOCK_PARAM_BELOW__LOW_HIGH.fill("designOutside", "roomTemperature"), DESIGN_OUTSIDE);
 			}
 			if (!(params[DESIGN_FLOW] > params[ROOM_TEMPERATURE])) {
-				return new Blame("designFlow must be above roomTemperature", DESIGN_FLOW);
+				return new Blame("designFlow must be above roomTemperature",
+					I18NConstants.BLOCK_PARAM_ABOVE__HIGH_LOW.fill("designFlow", "roomTemperature"), DESIGN_FLOW);
 			}
 		} else if (form == POINTS) {
 			int n = (int) params[POINT_COUNT];
 			for (int i = 0; i + 1 < n; i++) {
 				if (!(params[outsideOf(i + 1)] > params[outsideOf(i)])) {
-					return new Blame("the points' outside temperatures must rise", outsideOf(i + 1));
+					return new Blame("the points' outside temperatures must rise", I18NConstants.BLOCK_POINTS_RISE,
+						outsideOf(i + 1));
 				}
 			}
 		}

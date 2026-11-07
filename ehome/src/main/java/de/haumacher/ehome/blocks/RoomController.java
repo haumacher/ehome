@@ -324,7 +324,8 @@ public final class RoomController extends BlockType {
 	@Override
 	public Blame check(double[] params) {
 		if (!(params[OUTPUT_MIN] < params[OUTPUT_MAX])) {
-			return new Blame("outputMin must be below outputMax", OUTPUT_MIN);
+			return new Blame("outputMin must be below outputMax", I18NConstants.BLOCK_PARAM_BELOW__LOW_HIGH.fill("outputMin", "outputMax"),
+				OUTPUT_MIN);
 		}
 		return null;
 	}

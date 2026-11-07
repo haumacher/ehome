@@ -262,16 +262,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey INVALID_IDENTIFIER;
 
 	/**
-	 * @en This is no POSIX TZ string (e.g. CET-1CEST,M3.5.0,M10.5.0/3): {0}
-	 */
-	public static ResKey1 INVALID_TIME_ZONE__DETAIL;
-
-	/**
-	 * @en This is no host name: {0}
-	 */
-	public static ResKey1 INVALID_HOST_NAME__DETAIL;
-
-	/**
 	 * @en {0} functions were proposed and added.
 	 */
 	public static ResKey1 PROPOSAL_ADDED__COUNT;
@@ -1895,6 +1885,36 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The label {0} names no language.
 	 */
 	public static ResKey1 IMAGE_LABEL_NO_LANGUAGE__PATH;
+
+	/**
+	 * @en Rule "{0}": {1}
+	 */
+	public static ResKey2 IMAGE_IN_RULE__RULE_MESSAGE;
+
+	/**
+	 * @en Virtual device "{0}": {1}
+	 */
+	public static ResKey2 IMAGE_IN_BLOCK__BLOCK_MESSAGE;
+
+	/**
+	 * @en {0} The schema {1} of the image is newer than this firmware reads (up to {2}); update the firmware.
+	 */
+	public static ResKey3 IMAGE_LOADER_NEWER__MESSAGE_SCHEMA_SUPPORTED;
+
+	/**
+	 * @en {0} An example of a POSIX TZ rule: CET-1CEST,M3.5.0,M10.5.0/3.
+	 */
+	public static ResKey1 INVALID_TIME_ZONE__PROBLEM;
+
+	/**
+	 * @en The time zone is longer than 127 characters.
+	 */
+	public static ResKey INVALID_TIME_ZONE_TOO_LONG;
+
+	/**
+	 * @en The host name is longer than 127 characters.
+	 */
+	public static ResKey INVALID_HOST_NAME_TOO_LONG;
 
 	static {
 		initConstants(I18NConstants.class);

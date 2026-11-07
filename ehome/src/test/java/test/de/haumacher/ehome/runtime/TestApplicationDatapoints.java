@@ -154,7 +154,7 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			assertEquals(List.of(resources.getString(I18NConstants.OUTPUT_WRITABLE__ID.fill("holiday"))),
 				entryForm.warnings("output"));
 			entryForm.set("output", counter);
-			assertTrue(entryForm.warnings("output").toString(), entryForm.warnings("output").get(0).contains("typeError"));
+			assertTrue(entryForm.warnings("output").toString(), entryForm.warnings("output").get(0).contains("not boolean"));
 			entryForm.set("output", morning);
 			assertEquals(List.of(), entryForm.warnings("output"));
 
@@ -163,7 +163,7 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			assertEquals(List.of(), writeForm.warnings("datapoint"));
 			writeForm.set("datapoint", morning);
 			assertEquals(1, writeForm.warnings("datapoint").size());
-			assertTrue(writeForm.warnings("datapoint").get(0), writeForm.warnings("datapoint").get(0).contains("notWritable"));
+			assertTrue(writeForm.warnings("datapoint").get(0), writeForm.warnings("datapoint").get(0).contains("is not writable"));
 
 			// The id at the field.
 			RuleForm idForm = new RuleForm(counter);

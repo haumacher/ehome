@@ -92,11 +92,11 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			}
 
 			RuleForm writeForm = new RuleForm(write);
-			assertRefused(writeForm, "datapoint", "'datapoint'");
+			assertRefused(writeForm, "datapoint", "\"datapoint\"");
 			assertRefused(writeForm, "value", "missing");
 
 			RuleForm startForm = new RuleForm(start);
-			assertRefused(startForm, "timer", "'timer'");
+			assertRefused(startForm, "timer", "\"timer\"");
 			assertRefused(startForm, "duration", "duration");
 
 			// Fixed, the other field's refusal stays and its own disappears.
@@ -108,7 +108,7 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 
 			startForm.set("duration", "5min");
 			assertEquals(List.of(), startForm.warnings("duration"));
-			assertRefused(startForm, "timer", "'timer'");
+			assertRefused(startForm, "timer", "\"timer\"");
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}

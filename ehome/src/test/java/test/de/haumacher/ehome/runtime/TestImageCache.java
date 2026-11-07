@@ -59,7 +59,7 @@ public class TestImageCache extends BasicTestCase {
 			long before = ImageCache.builds();
 			RuleForm form = new RuleForm(entry);
 			checkAll(form, entry);
-			assertRefused(form, "output", "typeError");
+			assertRefused(form, "output", "not boolean");
 			form.set("enabledAdjustable", Boolean.FALSE);
 			checkAll(form, entry);
 			form.set("enabledAdjustable", Boolean.TRUE);
@@ -105,7 +105,7 @@ public class TestImageCache extends BasicTestCase {
 			long before = ImageCache.builds();
 			RuleForm form = new RuleForm(write);
 			checkAll(form, write);
-			assertRefused(form, "datapoint", "notWritable");
+			assertRefused(form, "datapoint", "is not writable");
 			form.set("value", "false");
 			checkAll(form, write);
 			assertEquals(1, ImageCache.builds() - before);

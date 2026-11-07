@@ -4,6 +4,9 @@
 package test.de.haumacher.ehome.runtime;
 
 import java.io.File;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Instant;
@@ -13,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -37,19 +41,18 @@ import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.ImageValidator;
 import de.haumacher.ehome.runtime.RuleFunctions;
+import de.haumacher.ehome.runtime.RuntimeFunctions;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
  * The findings of E-Home's check of the runtime image in the language of the user (haumacher/ehome
- * #95): a refusal keeps the controller's English reason and carries a message, a whole sentence in
- * every language of the application, which a stored refusal keeps in both languages.
+ * #95, #96): a refusal keeps the controller's English reason and carries a message, a whole sentence
+ * in every language of the application, which a stored refusal keeps in both languages.
  *
  * <p>
  * The completeness check runs the conformance cases and the image fixtures of the specification
- * through the validator: every refusal it makes itself has a message with a German text of its
- * own. Only the refusals of the loaders of rules, schedules and blocks have none (their paths begin
- * with <code>rules</code>, <code>schedules</code>, <code>blocks</code>); they show the English
- * reason.
+ * through the validator: every refusal, of the validator itself and of the loaders of rules,
+ * schedules and blocks, has a message with a German text of its own.
  * </p>
  */
 @SuppressWarnings("javadoc")
@@ -57,8 +60,8 @@ public class TestLocalizedRefusals extends BasicTestCase {
 
 	private static final Instant NOW = Instant.parse("2026-11-07T12:00:00Z");
 
-	/** The prefixes of the paths of the refusals of the loaders, which have no message. */
-	private static final List<String> LOADERS = List.of("rules", "schedules", "blocks");
+	/** A key of the application's messages that did not resolve. */
+	private static final Pattern UNRESOLVED = Pattern.compile("\\b(IMAGE|RULE|SCHEDULE|BLOCK|OWNER)_[A-Z_]+\\b|\\[class\\.");
 
 	/**
 	 * The issue's case: a sensor without the datapoint of its role, and a role that needs a writable
@@ -139,21 +142,175 @@ public class TestLocalizedRefusals extends BasicTestCase {
 		for (File file : files) {
 			ImageReport report = ImageValidator.validate(Files.readString(file.toPath(), StandardCharsets.UTF_8));
 			for (Refusal refusal : report.getRefusals()) {
-				if (LOADERS.stream().anyMatch(refusal.path()::startsWith)) {
-					continue;
-				}
 				String where = file.getName() + " " + refusal;
 				assertNotNull("No message: " + where, refusal.message());
 				String de = text(refusal, Locale.GERMAN);
 				String en = text(refusal, Locale.ENGLISH);
 				assertFalse("No German text: " + where + ": " + de, de.equals(en));
-				assertFalse("Unresolved key: " + where + ": " + de, de.contains("IMAGE_"));
+				assertFalse("Unresolved key: " + where + ": " + de, UNRESOLVED.matcher(de).find());
 				keys.add(refusal.message().plain());
 				checked++;
 			}
 		}
 		assertTrue("The cases refuse something: " + checked, checked > 50);
 		assertTrue("The cases reach many messages: " + keys.size(), keys.size() > 40);
+	}
+
+	/**
+	 * A refusal of the rule loader (haumacher/ehome #96): the rule's id frames the loader's sentence.
+	 */
+	public void testRuleLoader() {
+		Refusal refusal = single(image(
+			"\"datapoints\": [{\"id\": \"light\", \"type\": \"boolean\", \"virtual\": {}, \"writable\": true}],"
+				+ " \"rules\": [{\"id\": \"r\", \"name\": \"R\", \"reactions\": [{\"triggers\": [{\"kind\": \"timer\", \"timer\": \"t\"}],"
+				+ " \"actions\": []}]}]"));
+		assertEquals("rules[0].reactions[0].triggers[0].timer", refusal.path());
+		assertEquals("rule 'r': unknownReference: no timer 't' in the rule", refusal.reason());
+		assertEquals("Regel „r“: Die Regel hat keinen Timer „t“.", text(refusal, Locale.GERMAN));
+		assertEquals("Rule \"r\": The rule has no timer \"t\".", text(refusal, Locale.ENGLISH));
+	}
+
+	/**
+	 * Refusals of the schedule loader: a value out of its range, an output another component owns
+	 * (named in the user's language).
+	 */
+	public void testScheduleLoader() throws Exception {
+		ImageReport report = ImageValidator.validate(Files.readString(
+			new File(TestImageConformance.IMAGES, "cases/refuse-schedules.json").toPath(), StandardCharsets.UTF_8));
+		Refusal owned = refusal(report, "schedules[0].output");
+		assertEquals("outputConflict: output 'knxbool' is owned by the KNX adapter", owned.reason());
+		assertEquals("Der KNX-Adapter belegt den Ausgang „knxbool“ schon.", text(owned, Locale.GERMAN));
+		assertEquals("The KNX adapter owns the output \"knxbool\" already.", text(owned, Locale.ENGLISH));
+
+		Refusal hour = refusal(report, "schedules[1].time");
+		assertEquals("malformed: hour must be 0..23", hour.reason());
+		assertEquals("„hour“ muss zwischen 0 und 23 liegen.", text(hour, Locale.GERMAN));
+		assertEquals("\"hour\" must be 0 to 23.", text(hour, Locale.ENGLISH));
+
+		// What a deployment stores: both languages, without the keys.
+		ResKey stored = owned.translations();
+		assertEquals(text(owned, Locale.GERMAN), Resources.getInstance(Locale.GERMAN).getString(stored));
+		assertEquals(text(owned, Locale.ENGLISH), Resources.getInstance(Locale.ENGLISH).getString(stored));
+	}
+
+	/**
+	 * A refusal of the block loader: the virtual device's id frames the loader's sentence.
+	 */
+	public void testBlockLoader() {
+		Refusal refusal = single(image(
+			"\"blocks\": [{\"id\": \"b1\", \"type\": \"nonsense\", \"version\": \"1.0\", \"label\": \"B\"}]"));
+		assertEquals("blocks[0].type", refusal.path());
+		assertEquals("block 'b1': unknownType: nonsense 1.0 (this firmware has no such block type)", refusal.reason());
+		assertEquals("Virtuelles Gerät „b1“: Diese Firmware kennt den Typ nonsense 1.0 virtueller Geräte nicht.",
+			text(refusal, Locale.GERMAN));
+		assertEquals("Virtual device \"b1\": This firmware has no type nonsense 1.0 of virtual devices.",
+			text(refusal, Locale.ENGLISH));
+	}
+
+	/**
+	 * An unknown member of a rule in an image of a newer minor version: the message adds that the
+	 * firmware is older than the image, in the user's language.
+	 */
+	public void testNewerMinorRule() throws Exception {
+		ImageReport report = ImageValidator.validate(Files.readString(
+			new File(TestImageConformance.IMAGES, "cases/refuse-newer-minor-rule.json").toPath(), StandardCharsets.UTF_8));
+		Refusal refusal = refusal(report, "rules[0]");
+		String supported = ImageValidator.SCHEMA_MAJOR + "." + ImageValidator.SCHEMA_MINOR;
+		assertEquals("Regel „r“: Unbekannter Eintrag „priority“. Das Schema 1.99 des Abbilds ist neuer, als diese Firmware"
+			+ " liest (bis " + supported + "); aktualisieren Sie die Firmware.", text(refusal, Locale.GERMAN));
+		assertEquals("Rule \"r\": Unknown member \"priority\". The schema 1.99 of the image is newer than this firmware"
+			+ " reads (up to " + supported + "); update the firmware.", text(refusal, Locale.ENGLISH));
+	}
+
+	/**
+	 * The messages of the settings form name the problem in the user's language, without the
+	 * controller's English (haumacher/ehome #96).
+	 */
+	public void testSettingsMessages() {
+		ResKey zone = RuntimeFunctions.timeZoneProblem("Europe/Berlin");
+		assertEquals("Die Zeitzone „Europe/Berlin“ ist keine POSIX-TZ-Regel: Die Abweichung der Normalzeit fehlt oder ist"
+			+ " ungültig ([+-]hh[:mm[:ss]], hh höchstens 24). Ein Beispiel einer POSIX-TZ-Regel: CET-1CEST,M3.5.0,M10.5.0/3.",
+			Resources.getInstance(Locale.GERMAN).getString(zone));
+		assertEquals("The time zone \"Europe/Berlin\" is not a POSIX TZ rule: the offset of the standard zone is missing or"
+			+ " invalid ([+-]hh[:mm[:ss]], hh at most 24). An example of a POSIX TZ rule: CET-1CEST,M3.5.0,M10.5.0/3.",
+			Resources.getInstance(Locale.ENGLISH).getString(zone));
+		assertEquals("Die Zeitzone ist länger als 127 Zeichen.",
+			Resources.getInstance(Locale.GERMAN).getString(RuntimeFunctions.timeZoneProblem("x".repeat(128))));
+
+		ResKey host = RuntimeFunctions.hostNameProblem("pool..ntp.org");
+		assertEquals("Der Server „pool..ntp.org“ ist kein Hostname: Er hat einen leeren Namensteil zwischen Punkten.",
+			Resources.getInstance(Locale.GERMAN).getString(host));
+		assertEquals("The server \"pool..ntp.org\" is not a host name: it has an empty part between dots.",
+			Resources.getInstance(Locale.ENGLISH).getString(host));
+		assertEquals("Der Hostname ist länger als 127 Zeichen.",
+			Resources.getInstance(Locale.GERMAN).getString(RuntimeFunctions.hostNameProblem("x".repeat(128))));
+	}
+
+	/**
+	 * Every message of the loaders of rules, schedules and blocks has a German text of its own and an
+	 * English one, also those the conformance cases do not reach.
+	 */
+	public void testEveryLoaderMessageTranslated() throws Exception {
+		int checked = 0;
+		for (Class<?> constants : List.of(de.haumacher.ehome.rules.I18NConstants.class,
+			de.haumacher.ehome.blocks.I18NConstants.class)) {
+			for (Field field : constants.getFields()) {
+				if (!Modifier.isStatic(field.getModifiers())) {
+					continue;
+				}
+				ResKey key = filled(field.get(null));
+				if (key == null) {
+					continue;
+				}
+				String de = Resources.getInstance(Locale.GERMAN).getString(key);
+				String en = Resources.getInstance(Locale.ENGLISH).getString(key);
+				String where = constants.getPackageName() + " " + field.getName();
+				assertFalse("No German text: " + where + ": " + de, de.equals(en));
+				assertFalse("Unresolved: " + where + ": " + de, de.startsWith("[") || UNRESOLVED.matcher(de).find());
+				assertFalse("Unresolved: " + where + ": " + en, en.startsWith("[") || UNRESOLVED.matcher(en).find());
+				checked++;
+			}
+		}
+		assertTrue("The loaders have their messages: " + checked, checked > 250);
+	}
+
+	/** The key with placeholder arguments, <code>null</code> for a field that is no key. */
+	private static ResKey filled(Object constant) throws Exception {
+		if (constant instanceof ResKey key) {
+			return key;
+		}
+		if (constant == null) {
+			return null;
+		}
+		for (Method fill : constant.getClass().getMethods()) {
+			if (fill.getName().equals("fill") && ResKey.class.isAssignableFrom(fill.getReturnType())
+				&& Arrays.stream(fill.getParameterTypes()).allMatch(type -> type == Object.class)) {
+				Object[] arguments = new Object[fill.getParameterCount()];
+				Arrays.fill(arguments, "x");
+				return (ResKey) fill.invoke(constant, arguments);
+			}
+		}
+		return null;
+	}
+
+	private static ImageReport image(String members) {
+		return ImageValidator.validate("{\"image\": {\"schemaVersion\": \"1.0\", \"projectId\": \"case\", \"revision\": 1}, "
+			+ members + "}");
+	}
+
+	private static Refusal single(ImageReport report) {
+		assertEquals(report.toString(), 1, report.getRefusals().size());
+		return report.getRefusals().get(0);
+	}
+
+	private static Refusal refusal(ImageReport report, String path) {
+		for (Refusal refusal : report.getRefusals()) {
+			if (refusal.path().equals(path)) {
+				return refusal;
+			}
+		}
+		fail("No refusal at " + path + ": " + report);
+		return null;
 	}
 
 	private static File[] jsonFiles(File dir) {

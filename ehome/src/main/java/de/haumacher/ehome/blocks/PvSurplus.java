@@ -239,10 +239,12 @@ public final class PvSurplus extends BlockType {
 		for (int k = 0; k < LOADS; k++) {
 			int base = POWER1 + PARAMS_PER_LOAD * k;
 			if (params[base + 2] > 0 && params[base] > 0 && !(params[base + 1] > 0 && params[base + 1] <= params[base])) {
-				return new Blame("a modulated load's minPower must be above 0 and at most its power", base + 1);
+				return new Blame("a modulated load's minPower must be above 0 and at most its power",
+					I18NConstants.BLOCK_MODULATED_MIN_POWER, base + 1);
 			}
 			if (params[base + 5] > 0 && !(params[base + 7] <= params[base + 5])) {
-				return new Blame("mustRunFor must be at most maxPerDay", base + 7);
+				return new Blame("mustRunFor must be at most maxPerDay",
+					I18NConstants.BLOCK_PARAM_AT_MOST__LOW_HIGH.fill("mustRunFor", "maxPerDay"), base + 7);
 			}
 		}
 		return null;

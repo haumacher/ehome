@@ -12,6 +12,9 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKey3;
+
 import de.haumacher.ehome.rules.Astro.SunEvent;
 import de.haumacher.ehome.rules.Val.Date;
 
@@ -556,6 +559,85 @@ public final class Schedule {
 	}
 
 	/**
+	 * Why the adjustable members and bounds of an entry are refused ({@link #adjustableProblem()}).
+	 */
+	public enum AdjustableProblem {
+		/** An adjustable member the kind does not adjust. */
+		ADJUSTABLE_KIND("adjustable names a member this kind cannot adjust", I18NConstants.SCHEDULE_ADJUSTABLE_KIND),
+
+		/** An adjustable notBefore the entry does not set. */
+		NOT_BEFORE_UNSET("notBefore is adjustable, but the entry sets none", I18NConstants.SCHEDULE_NOT_BEFORE_UNSET),
+
+		/** An adjustable notAfter the entry does not set. */
+		NOT_AFTER_UNSET("notAfter is adjustable, but the entry sets none", I18NConstants.SCHEDULE_NOT_AFTER_UNSET),
+
+		/** Bounds of a member the kind does not have. */
+		BOUNDS_KIND("bounds name a member this kind does not have", I18NConstants.SCHEDULE_BOUNDS_KIND),
+
+		/** Two bounds of one member. */
+		BOUNDS_TWICE("bounds name a member twice", I18NConstants.SCHEDULE_BOUNDS_TWICE),
+
+		/** Bounds of a member that is not adjustable. */
+		BOUNDS_UNADJUSTABLE("bounds name a member that is not adjustable", I18NConstants.SCHEDULE_BOUNDS_UNADJUSTABLE),
+
+		/** Bounds of the days. */
+		DAYS_BOUNDS("days take no bounds", I18NConstants.SCHEDULE_DAYS_NO_BOUNDS),
+
+		/** A bound outside the range of its member. */
+		BOUND_RANGE("a bound is not a value of its member", I18NConstants.SCHEDULE_BOUND_RANGE),
+
+		/** A bound whose min is greater than its max. */
+		BOUND_MIN_MAX("a bound's min is greater than its max", I18NConstants.SCHEDULE_BOUND_MIN_MAX),
+
+		/** A negative step. */
+		STEP_NEGATIVE("a step must be positive", I18NConstants.SCHEDULE_STEP_NEGATIVE),
+
+		/** A step of at. */
+		AT_STEP("at takes no step", I18NConstants.SCHEDULE_AT_NO_STEP),
+
+		/** A step of every that is no whole number of minutes. */
+		EVERY_STEP("the step of every must be a whole number of minutes", I18NConstants.SCHEDULE_EVERY_STEP),
+
+		/** A step of a time of day longer than a day. */
+		TIME_STEP("the step of a time is at most a day", I18NConstants.SCHEDULE_TIME_STEP),
+
+		/** The image's value outside its bounds. */
+		VALUE_OUTSIDE("the image's value lies outside its bounds", I18NConstants.SCHEDULE_VALUE_OUTSIDE),
+
+		/** The image's value not on its step. */
+		VALUE_OFF_STEP("the image's value is not on its step", I18NConstants.SCHEDULE_VALUE_OFF_STEP);
+
+		private final String _text;
+
+		private final ResKey _message;
+
+		AdjustableProblem(String text, ResKey message) {
+			_text = text;
+			_message = message;
+		}
+
+		/** The reason as the controller gives it (without the reason code). */
+		public String text() {
+			return _text;
+		}
+
+		/** The same for the user. */
+		public ResKey message() {
+			return _message;
+		}
+	}
+
+	/**
+	 * The {@link AdjustableProblem#text() reason} of {@link #adjustableProblem()}.
+	 *
+	 * @return <code>null</code> when valid, else the reason (without the reason code).
+	 */
+	public String adjustableError() {
+		AdjustableProblem problem = adjustableProblem();
+		return problem == null ? null : problem.text();
+	}
+
+	/**
 	 * Checks the adjustable members and bounds of an entry whose other members are valid (the loader
 	 * and the {@link Scheduler} share it, as the controller's <code>schedule_adjustable_error</code>):
 	 * every adjustable member allowed for the kind, an adjustable clamp set in the image, bounds only
@@ -563,55 +645,55 @@ public final class Schedule {
 	 * range, <code>min &lt;= max</code>, a positive step (whole minutes for <code>every</code>, none for
 	 * <code>at</code>), and the image's own value within its bounds and on the step.
 	 *
-	 * @return <code>null</code> when valid, else the reason (without the reason code).
+	 * @return <code>null</code> when valid, else the problem.
 	 */
-	public String adjustableError() {
+	public AdjustableProblem adjustableProblem() {
 		int allowed = Member.allowed(_kind);
 		if ((_adjustable & ~allowed) != 0) {
-			return "adjustable names a member this kind cannot adjust";
+			return AdjustableProblem.ADJUSTABLE_KIND;
 		}
 		if ((_adjustable & Member.NOT_BEFORE.bit()) != 0 && _notBefore == null) {
-			return "notBefore is adjustable, but the entry sets none";
+			return AdjustableProblem.NOT_BEFORE_UNSET;
 		}
 		if ((_adjustable & Member.NOT_AFTER.bit()) != 0 && _notAfter == null) {
-			return "notAfter is adjustable, but the entry sets none";
+			return AdjustableProblem.NOT_AFTER_UNSET;
 		}
 		int seen = 0;
 		for (Bound b : _bounds) {
 			if ((b.member().bit() & allowed) == 0) {
-				return "bounds name a member this kind does not have";
+				return AdjustableProblem.BOUNDS_KIND;
 			}
 			if ((b.member().bit() & seen) != 0) {
-				return "bounds name a member twice";
+				return AdjustableProblem.BOUNDS_TWICE;
 			}
 			seen |= b.member().bit();
 			if ((b.member().bit() & _adjustable) == 0) {
-				return "bounds name a member that is not adjustable";
+				return AdjustableProblem.BOUNDS_UNADJUSTABLE;
 			}
 			if (b.member() == Member.DAYS) {
-				return "days take no bounds";
+				return AdjustableProblem.DAYS_BOUNDS;
 			}
 			if (!b.member().inRange(b.min()) || !b.member().inRange(b.max())) {
-				return "a bound is not a value of its member";
+				return AdjustableProblem.BOUND_RANGE;
 			}
 			if (b.min() > b.max()) {
-				return "a bound's min is greater than its max";
+				return AdjustableProblem.BOUND_MIN_MAX;
 			}
 			if (b.step() < 0 || (b.step() > 0 && b.member() == Member.AT)) {
-				return b.step() < 0 ? "a step must be positive" : "at takes no step";
+				return b.step() < 0 ? AdjustableProblem.STEP_NEGATIVE : AdjustableProblem.AT_STEP;
 			}
 			if (b.step() > 0 && b.member() == Member.EVERY && b.step() % 60 != 0) {
-				return "the step of every must be a whole number of minutes";
+				return AdjustableProblem.EVERY_STEP;
 			}
 			if (b.step() > 0 && b.member().isTime() && b.step() > 86400) {
-				return "the step of a time is at most a day";
+				return AdjustableProblem.TIME_STEP;
 			}
 			long value = memberValue(b.member());
 			if (value < b.min() || value > b.max()) {
-				return "the image's value lies outside its bounds";
+				return AdjustableProblem.VALUE_OUTSIDE;
 			}
 			if (b.step() > 0 && value % b.step() != 0) {
-				return "the image's value is not on its step";
+				return AdjustableProblem.VALUE_OFF_STEP;
 			}
 		}
 		return null;
@@ -714,9 +796,11 @@ public final class Schedule {
 	// ---- Loading ----------------------------------------------------------------------------
 
 	/**
-	 * A refusal of the loader: the JSON path and the reason, starting with its code.
+	 * A refusal of the loader: the JSON path, the reason as the controller gives it (English,
+	 * starting with its code) and the same as a whole sentence for the user, in the languages of the
+	 * application.
 	 */
-	public record Refusal(String path, String reason) {
+	public record Refusal(String path, String reason, ResKey message) {
 		@Override
 		public String toString() {
 			return path + ": " + reason;
@@ -786,8 +870,41 @@ public final class Schedule {
 			_datapoints = datapoints;
 		}
 
-		private void refuse(String reason) {
-			_refusals.add(new Refusal(_path.toString(), reason));
+		/** The unit of an integer value, as the message of a value out of its range names it. */
+		private enum Unit {
+			/** A plain number. */
+			NONE(I18NConstants.SCHEDULE_RANGE__NAME_MIN_MAX),
+			/** Seconds. */
+			SECONDS(I18NConstants.SCHEDULE_RANGE_SECONDS__NAME_MIN_MAX),
+			/** Milliseconds. */
+			MILLISECONDS(I18NConstants.SCHEDULE_RANGE_MILLISECONDS__NAME_MIN_MAX),
+			/** The milliseconds of an astro offset, at most 12 hours. */
+			OFFSET(I18NConstants.SCHEDULE_OFFSET_RANGE),
+			/** The milliseconds of the period of an interval, 1 minute to 12 hours. */
+			EVERY(I18NConstants.SCHEDULE_EVERY_RANGE);
+
+			private final ResKey3 _range;
+
+			private final ResKey _fixed;
+
+			Unit(ResKey3 range) {
+				_range = range;
+				_fixed = null;
+			}
+
+			Unit(ResKey fixed) {
+				_range = null;
+				_fixed = fixed;
+			}
+
+			/** That the value is not within the range. */
+			ResKey message(String member, long min, long max) {
+				return _fixed != null ? _fixed : _range.fill(member, String.valueOf(min), String.valueOf(max));
+			}
+		}
+
+		private void refuse(String reason, ResKey message) {
+			_refusals.add(new Refusal(_path.toString(), reason, message));
 		}
 
 		private int enter(String segment) {
@@ -800,34 +917,54 @@ public final class Schedule {
 			_path.setLength(mark);
 		}
 
-		private String string(Object value, int min, int max, String what) {
+		/**
+		 * A string value.
+		 *
+		 * @param what
+		 *        The value as the reason names it.
+		 * @param member
+		 *        The value as the message names it.
+		 */
+		private String string(Object value, int min, int max, String what, String member) {
 			if (!(value instanceof String text)) {
-				refuse(what + " must be a string");
+				refuse(what + " must be a string", I18NConstants.SCHEDULE_NOT_A_STRING__NAME.fill(member));
 				return null;
 			}
 			int length = text.getBytes(StandardCharsets.UTF_8).length;
 			if (length < min || length > max) {
-				refuse(what + " must have " + min + ".." + max + " bytes");
+				refuse(what + " must have " + min + ".." + max + " bytes",
+					I18NConstants.SCHEDULE_STRING_LENGTH__NAME_MIN_MAX.fill(member, String.valueOf(min), String.valueOf(max)));
 				return null;
 			}
 			for (int i = 0; i < text.length(); i++) {
 				char c = text.charAt(i);
 				if (c < 0x20 || c == 0x7F) {
-					refuse(what + " contains a control character");
+					refuse(what + " contains a control character",
+						I18NConstants.SCHEDULE_CONTROL_CHARACTER__NAME.fill(member));
 					return null;
 				}
 			}
 			return text;
 		}
 
-		private Long integer(Object value, long min, long max, String what) {
+		/**
+		 * An integer value.
+		 *
+		 * @param what
+		 *        The value as the reason names it.
+		 * @param member
+		 *        The value as the message names it.
+		 * @param unit
+		 *        The unit of the value.
+		 */
+		private Long integer(Object value, long min, long max, String what, String member, Unit unit) {
 			if (!(value instanceof Number number) || !Values.integral(number.doubleValue())) {
-				refuse(what + " must be an integer");
+				refuse(what + " must be an integer", I18NConstants.SCHEDULE_NOT_AN_INTEGER__NAME.fill(member));
 				return null;
 			}
 			double d = number.doubleValue();
 			if (d < min || d > max) {
-				refuse(what + " must be " + min + ".." + max);
+				refuse(what + " must be " + min + ".." + max, unit.message(member, min, max));
 				return null;
 			}
 			return Long.valueOf((long) d);
@@ -839,7 +976,7 @@ public final class Schedule {
 				if (object.get(name) instanceof Boolean value) {
 					out[0] = value.booleanValue();
 				} else {
-					refuse(name + " must be true or false");
+					refuse(name + " must be true or false", I18NConstants.SCHEDULE_NOT_A_FLAG__NAME.fill(name));
 				}
 				leave(mark);
 			}
@@ -849,7 +986,8 @@ public final class Schedule {
 			boolean ok = true;
 			for (Object key : object.keySet()) {
 				if (!allowed.contains(key) && !"description".equals(key) && !"comment".equals(key)) {
-					refuse("malformed: unknown member '" + key + "'");
+					refuse("malformed: unknown member '" + key + "'",
+						I18NConstants.SCHEDULE_UNKNOWN_MEMBER__NAME.fill(String.valueOf(key)));
 					ok = false;
 				}
 			}
@@ -858,29 +996,39 @@ public final class Schedule {
 
 		private ClockTime clock(Object value, String what) {
 			if (!(value instanceof Map<?, ?> map)) {
-				refuse("malformed: " + what + " must be {\"hour\", \"minute\", \"second\"}");
+				refuse("malformed: " + what + " must be {\"hour\", \"minute\", \"second\"}",
+					I18NConstants.SCHEDULE_CLOCK_NOT_AN_OBJECT__NAME.fill(what));
 				return null;
 			}
 			if (!only(map, Set.of("hour", "minute", "second"))) {
 				return null;
 			}
 			if (!map.containsKey("hour") || !map.containsKey("minute") || !map.containsKey("second")) {
-				refuse("malformed: " + what + " needs hour, minute and second");
+				refuse("malformed: " + what + " needs hour, minute and second",
+					I18NConstants.SCHEDULE_CLOCK_INCOMPLETE__NAME.fill(what));
 				return null;
 			}
-			Long hour = integer(map.get("hour"), 0, 23, "malformed: hour");
-			Long minute = hour == null ? null : integer(map.get("minute"), 0, 59, "malformed: minute");
-			Long second = minute == null ? null : integer(map.get("second"), 0, 59, "malformed: second");
+			Long hour = integer(map.get("hour"), 0, 23, "malformed: hour", "hour", Unit.NONE);
+			Long minute = hour == null ? null : integer(map.get("minute"), 0, 59, "malformed: minute", "minute", Unit.NONE);
+			Long second = minute == null ? null : integer(map.get("second"), 0, 59, "malformed: second", "second", Unit.NONE);
 			if (second == null) {
 				return null;
 			}
 			return new ClockTime(hour.intValue(), minute.intValue(), second.intValue());
 		}
 
-		/** A date; with <code>withTime</code> {date, time}. */
-		private Object[] date(Object value, boolean withTime, String what) {
+		/**
+		 * A date; with <code>withTime</code> {date, time}.
+		 *
+		 * @param what
+		 *        The value as the reason names it.
+		 * @param member
+		 *        The value as the message names it.
+		 */
+		private Object[] date(Object value, boolean withTime, String what, String member) {
 			if (!(value instanceof Map<?, ?> map)) {
-				refuse("malformed: " + what + " must be an object");
+				refuse("malformed: " + what + " must be an object",
+					I18NConstants.SCHEDULE_NOT_AN_OBJECT__NAME.fill(member));
 				return null;
 			}
 			Set<String> members = withTime ? Set.of("year", "month", "day", "hour", "minute", "second")
@@ -889,17 +1037,19 @@ public final class Schedule {
 				return null;
 			}
 			if (!map.containsKey("year") || !map.containsKey("month") || !map.containsKey("day")) {
-				refuse("malformed: " + what + " needs year, month and day");
+				refuse("malformed: " + what + " needs year, month and day",
+					I18NConstants.SCHEDULE_DATE_INCOMPLETE__NAME.fill(member));
 				return null;
 			}
-			Long year = integer(map.get("year"), 1970, 2155, "malformed: year");
-			Long month = year == null ? null : integer(map.get("month"), 1, 12, "malformed: month");
-			Long day = month == null ? null : integer(map.get("day"), 1, 31, "malformed: day");
+			Long year = integer(map.get("year"), 1970, 2155, "malformed: year", "year", Unit.NONE);
+			Long month = year == null ? null : integer(map.get("month"), 1, 12, "malformed: month", "month", Unit.NONE);
+			Long day = month == null ? null : integer(map.get("day"), 1, 31, "malformed: day", "day", Unit.NONE);
 			if (day == null) {
 				return null;
 			}
 			if (!Values.validDate(year.longValue(), month.intValue(), day.intValue())) {
-				refuse(String.format(java.util.Locale.ROOT, "malformed: %04d-%02d-%02d is not a date", year, month, day));
+				refuse(String.format(java.util.Locale.ROOT, "malformed: %04d-%02d-%02d is not a date", year, month, day),
+					I18NConstants.SCHEDULE_NOT_A_DATE__DATE.fill(String.format(Locale.ROOT, "%04d-%02d-%02d", year, month, day)));
 				return null;
 			}
 			Date date = new Date(year.intValue(), month.intValue(), day.intValue());
@@ -907,12 +1057,13 @@ public final class Schedule {
 				return new Object[] { date, null };
 			}
 			if (!map.containsKey("hour") || !map.containsKey("minute") || !map.containsKey("second")) {
-				refuse("malformed: " + what + " needs hour, minute and second");
+				refuse("malformed: " + what + " needs hour, minute and second",
+					I18NConstants.SCHEDULE_CLOCK_INCOMPLETE__NAME.fill(member));
 				return null;
 			}
-			Long hour = integer(map.get("hour"), 0, 23, "malformed: hour");
-			Long minute = hour == null ? null : integer(map.get("minute"), 0, 59, "malformed: minute");
-			Long second = minute == null ? null : integer(map.get("second"), 0, 59, "malformed: second");
+			Long hour = integer(map.get("hour"), 0, 23, "malformed: hour", "hour", Unit.NONE);
+			Long minute = hour == null ? null : integer(map.get("minute"), 0, 59, "malformed: minute", "minute", Unit.NONE);
+			Long second = minute == null ? null : integer(map.get("second"), 0, 59, "malformed: second", "second", Unit.NONE);
 			if (second == null) {
 				return null;
 			}
@@ -921,24 +1072,26 @@ public final class Schedule {
 
 		private Integer days(Object value) {
 			if (!(value instanceof List<?> list)) {
-				refuse("malformed: days must be an array of 1 (Monday) .. 7 (Sunday)");
+				refuse("malformed: days must be an array of 1 (Monday) .. 7 (Sunday)",
+					I18NConstants.SCHEDULE_DAYS_NOT_AN_ARRAY);
 				return null;
 			}
 			int days = 0;
 			for (Object item : list) {
-				Long day = integer(item, 1, 7, "malformed: a day");
+				Long day = integer(item, 1, 7, "malformed: a day", "days", Unit.NONE);
 				if (day == null) {
 					return null;
 				}
 				int bit = 1 << (day.intValue() - 1);
 				if ((days & bit) != 0) {
-					refuse("malformed: day " + day + " is listed twice");
+					refuse("malformed: day " + day + " is listed twice",
+						I18NConstants.SCHEDULE_DAY_TWICE__DAY.fill(String.valueOf(day)));
 					return null;
 				}
 				days |= bit;
 			}
 			if (days == 0) {
-				refuse("malformed: days must name at least one day");
+				refuse("malformed: days must name at least one day", I18NConstants.SCHEDULE_DAYS_EMPTY);
 				return null;
 			}
 			return Integer.valueOf(days);
@@ -946,11 +1099,12 @@ public final class Schedule {
 
 		void schedules(Object value) {
 			if (!(value instanceof List<?> list)) {
-				refuse("malformed: 'schedules' must be an array");
+				refuse("malformed: 'schedules' must be an array", I18NConstants.SCHEDULE_NOT_AN_ARRAY);
 				return;
 			}
 			if (list.size() > MAX_ENTRIES) {
-				refuse("limitExceeded: " + list.size() + " entries exceed the limit of " + MAX_ENTRIES);
+				refuse("limitExceeded: " + list.size() + " entries exceed the limit of " + MAX_ENTRIES,
+					I18NConstants.SCHEDULE_TOO_MANY_ENTRIES__COUNT_LIMIT.fill(String.valueOf(list.size()), String.valueOf(MAX_ENTRIES)));
 				return;
 			}
 			for (int i = 0; i < list.size(); i++) {
@@ -962,7 +1116,8 @@ public final class Schedule {
 					for (int k = 0; k < i; k++) {
 						if (entry._id.equals(_entries.get(k)._id)) {
 							int id = enter(".id");
-							refuse("duplicateId: schedules[" + k + "] has the id '" + entry._id + "' too");
+							refuse("duplicateId: schedules[" + k + "] has the id '" + entry._id + "' too",
+								I18NConstants.SCHEDULE_ID_TWICE__INDEX_ID.fill(String.valueOf(k), entry._id));
 							leave(id);
 						}
 					}
@@ -973,7 +1128,7 @@ public final class Schedule {
 
 		private void entry(Object item, Schedule spec) {
 			if (!(item instanceof Map<?, ?> map)) {
-				refuse("malformed: a schedule entry must be an object");
+				refuse("malformed: a schedule entry must be an object", I18NConstants.SCHEDULE_ENTRY_NOT_AN_OBJECT);
 				return;
 			}
 			int before = _refusals.size();
@@ -986,29 +1141,30 @@ public final class Schedule {
 		private boolean kindMembers(Map<?, ?> map, Schedule spec) {
 			int mark = enter(".id");
 			if (!map.containsKey("id")) {
-				refuse("malformed: id is missing");
+				refuse("malformed: id is missing", I18NConstants.SCHEDULE_MEMBER_MISSING__NAME.fill("id"));
 			} else {
-				spec._id = string(map.get("id"), 1, 32, "malformed: id");
+				spec._id = string(map.get("id"), 1, 32, "malformed: id", "id");
 				if (spec._id != null && !RuleLoader.validRuleId(spec._id)) {
-					refuse("malformed: id '" + spec._id + "' must have 1..32 characters of A-Z a-z 0-9 _ -");
+					refuse("malformed: id '" + spec._id + "' must have 1..32 characters of A-Z a-z 0-9 _ -",
+						I18NConstants.SCHEDULE_ID_PATTERN__ID.fill(spec._id));
 					spec._id = null;
 				}
 			}
 			leave(mark);
 			mark = enter(".label");
 			if (!map.containsKey("label")) {
-				refuse("malformed: label is missing");
+				refuse("malformed: label is missing", I18NConstants.SCHEDULE_MEMBER_MISSING__NAME.fill("label"));
 			} else {
-				spec._label = string(map.get("label"), 1, 63, "malformed: label");
+				spec._label = string(map.get("label"), 1, 63, "malformed: label", "label");
 			}
 			leave(mark);
 			mark = enter(".kind");
 			if (!map.containsKey("kind")) {
-				refuse("malformed: kind is missing");
+				refuse("malformed: kind is missing", I18NConstants.SCHEDULE_MEMBER_MISSING__NAME.fill("kind"));
 				leave(mark);
 				return false;
 			}
-			String kind = string(map.get("kind"), 1, 15, "malformed: kind");
+			String kind = string(map.get("kind"), 1, 15, "malformed: kind", "kind");
 			if (kind == null) {
 				leave(mark);
 				return false;
@@ -1041,7 +1197,8 @@ public final class Schedule {
 					members.add("at");
 				}
 				default -> {
-					refuse("malformed: unknown kind \"" + kind + "\" (weekly, yearly, dates, astro, interval, once)");
+					refuse("malformed: unknown kind \"" + kind + "\" (weekly, yearly, dates, astro, interval, once)",
+						I18NConstants.SCHEDULE_UNKNOWN_KIND__KIND.fill(kind));
 					leave(mark);
 					return false;
 				}
@@ -1056,29 +1213,32 @@ public final class Schedule {
 			spec._enabledAdjustable = flag[0];
 			if (map.containsKey("missed")) {
 				mark = enter(".missed");
-				String missed = string(map.get("missed"), 1, 15, "malformed: missed");
+				String missed = string(map.get("missed"), 1, 15, "malformed: missed", "missed");
 				if ("skip".equals(missed)) {
 					spec._catchUp = false;
 				} else if ("catchUp".equals(missed)) {
 					spec._catchUp = true;
 				} else if (missed != null) {
-					refuse("malformed: missed must be skip or catchUp");
+					refuse("malformed: missed must be skip or catchUp", I18NConstants.SCHEDULE_MISSED);
 				}
 				leave(mark);
 			}
 			if (map.containsKey("output")) {
 				mark = enter(".output");
-				String output = string(map.get("output"), 1, 63, "malformed: output");
+				String output = string(map.get("output"), 1, 63, "malformed: output", "output");
 				if (output != null) {
 					ValueType type = _datapoints.type(output);
 					String owner = _datapoints.owner(output);
 					if (type == null) {
-						refuse("unknownReference: output '" + output + "' is no datapoint of the image");
+						refuse("unknownReference: output '" + output + "' is no datapoint of the image",
+							I18NConstants.SCHEDULE_OUTPUT_UNKNOWN__NAME.fill(output));
 					} else if (type != ValueType.BOOLEAN) {
-						refuse("typeError: output '" + output + "' is " + type.externalName() + ", not boolean");
+						refuse("typeError: output '" + output + "' is " + type.externalName() + ", not boolean",
+							I18NConstants.SCHEDULE_OUTPUT_TYPE__NAME_TYPE.fill(output, type.externalName()));
 					} else if (owner != null || _outputs.contains(output)) {
 						refuse("outputConflict: output '" + output + "' is owned by "
-							+ (owner != null ? owner : "another schedule entry"));
+							+ (owner != null ? owner : "another schedule entry"),
+								I18NConstants.SCHEDULE_OUTPUT_OWNED__NAME_OWNER.fill(output, OwnerLabel.of(owner != null ? owner : "another schedule entry")));
 					} else {
 						_outputs.add(output);
 						spec._output = output;
@@ -1101,11 +1261,12 @@ public final class Schedule {
 					time(map, spec, kind);
 					if (required(map, "month", kind) && required(map, "day", kind)) {
 						mark = enter(".day");
-						Long month = integer(map.get("month"), 1, 12, "malformed: month");
-						Long day = month == null ? null : integer(map.get("day"), 1, 31, "malformed: day");
+						Long month = integer(map.get("month"), 1, 12, "malformed: month", "month", Unit.NONE);
+						Long day = month == null ? null : integer(map.get("day"), 1, 31, "malformed: day", "day", Unit.NONE);
 						if (day != null) {
 							if (day.intValue() > Values.daysInMonth(2024, month.intValue())) {
-								refuse("malformed: month " + month + " has no day " + day);
+								refuse("malformed: month " + month + " has no day " + day,
+									I18NConstants.SCHEDULE_NO_SUCH_DAY__MONTH_DAY.fill(String.valueOf(month), String.valueOf(day)));
 							} else {
 								spec._month = month.intValue();
 								spec._day = day.intValue();
@@ -1127,7 +1288,7 @@ public final class Schedule {
 				case ONCE -> {
 					if (required(map, "at", kind)) {
 						mark = enter(".at");
-						Object[] at = date(map.get("at"), true, "at");
+						Object[] at = date(map.get("at"), true, "at", "at");
 						if (at != null) {
 							spec._atDate = (Date) at[0];
 							spec._atTime = (ClockTime) at[1];
@@ -1148,12 +1309,13 @@ public final class Schedule {
 				int mark = enter(".adjustable");
 				try {
 					if (!(map.get("adjustable") instanceof List<?> list)) {
-						refuse("malformed: adjustable must be an array");
+						refuse("malformed: adjustable must be an array",
+							I18NConstants.SCHEDULE_ADJUSTABLE_NOT_AN_ARRAY);
 						return;
 					}
 					for (int n = 0; n < list.size(); n++) {
 						int item = enter("[" + n + "]");
-						String name = string(list.get(n), 1, 15, "malformed: a member name");
+						String name = string(list.get(n), 1, 15, "malformed: a member name", "adjustable[" + n + "]");
 						if (name != null) {
 							Member member = Member.fromName(name);
 							if (member == null || (member.bit() & allowed) == 0) {
@@ -1162,9 +1324,11 @@ public final class Schedule {
 									names.add(m.externalName());
 								}
 								refuse("malformed: '" + name + "' cannot be adjustable in a " + kind + " entry ("
-									+ String.join(", ", names) + ")");
+									+ String.join(", ", names) + ")",
+										I18NConstants.SCHEDULE_NOT_ADJUSTABLE_IN_KIND__NAME_KIND_NAMES.fill(name, kind, String.join(", ", names)));
 							} else if ((spec._adjustable & member.bit()) != 0) {
-								refuse("malformed: '" + name + "' is listed twice");
+								refuse("malformed: '" + name + "' is listed twice",
+									I18NConstants.SCHEDULE_LISTED_TWICE__NAME.fill(name));
 							} else {
 								spec._adjustable |= member.bit();
 							}
@@ -1179,7 +1343,7 @@ public final class Schedule {
 				int mark = enter(".bounds");
 				try {
 					if (!(map.get("bounds") instanceof Map<?, ?> bounds)) {
-						refuse("malformed: bounds must be an object");
+						refuse("malformed: bounds must be an object", I18NConstants.SCHEDULE_BOUNDS_NOT_AN_OBJECT);
 						return;
 					}
 					List<Bound> result = new ArrayList<>();
@@ -1201,25 +1365,26 @@ public final class Schedule {
 				// The entry's own refusals say enough.
 				return;
 			}
-			String error = spec.adjustableError();
+			AdjustableProblem error = spec.adjustableProblem();
 			if (error != null) {
 				int mark = enter(map.containsKey("bounds") ? ".bounds" : ".adjustable");
-				refuse("malformed: " + error);
+				refuse("malformed: " + error.text(), error.message());
 				leave(mark);
 			}
 		}
 
 		private Bound bound(Schedule spec, Member member, String name, Object value) {
 			if (member == null || (member.bit() & spec._adjustable) == 0) {
-				refuse("malformed: bounds for '" + name + "', which is not adjustable");
+				refuse("malformed: bounds for '" + name + "', which is not adjustable",
+					I18NConstants.SCHEDULE_BOUNDS_NOT_ADJUSTABLE__NAME.fill(name));
 				return null;
 			}
 			if (member == Member.DAYS) {
-				refuse("malformed: days take no bounds");
+				refuse("malformed: days take no bounds", I18NConstants.SCHEDULE_DAYS_NO_BOUNDS);
 				return null;
 			}
 			if (!(value instanceof Map<?, ?> map)) {
-				refuse("malformed: a bound must be an object");
+				refuse("malformed: a bound must be an object", I18NConstants.SCHEDULE_BOUND_NOT_AN_OBJECT);
 				return null;
 			}
 			if (!only(map, Set.of("min", "max", "step"))) {
@@ -1243,19 +1408,19 @@ public final class Schedule {
 			if (map.containsKey("step")) {
 				int mark = enter(".step");
 				if (member == Member.AT) {
-					refuse("malformed: at takes no step");
+					refuse("malformed: at takes no step", I18NConstants.SCHEDULE_AT_NO_STEP);
 					ok = false;
 				} else if (member.isTime()) {
-					Long seconds = integer(map.get("step"), 1, 86400, "malformed: step (seconds)");
+					Long seconds = integer(map.get("step"), 1, 86400, "malformed: step (seconds)", "step", Unit.SECONDS);
 					ok = seconds != null && ok;
 					step = seconds == null ? 0 : seconds.longValue();
 				} else {
 					long unit = member == Member.EVERY ? 60000 : 1000;
-					Long ms = integer(map.get("step"), 1, 43200000, "malformed: step (milliseconds)");
+					Long ms = integer(map.get("step"), 1, 43200000, "malformed: step (milliseconds)", "step", Unit.MILLISECONDS);
 					if (ms == null) {
 						ok = false;
 					} else if (ms.longValue() % unit != 0) {
-						refuse("malformed: step must be a whole number of " + (unit == 60000 ? "minutes" : "seconds"));
+						refuse("malformed: step must be a whole number of " + (unit == 60000 ? "minutes" : "seconds"), unit == 60000 ? I18NConstants.SCHEDULE_STEP_MINUTES : I18NConstants.SCHEDULE_STEP_SECONDS);
 						ok = false;
 					} else {
 						step = ms.longValue() / 1000;
@@ -1264,7 +1429,7 @@ public final class Schedule {
 				leave(mark);
 			}
 			if (ok && min[0] > max[0]) {
-				refuse("malformed: min is later than max");
+				refuse("malformed: min is later than max", I18NConstants.SCHEDULE_MIN_AFTER_MAX);
 				ok = false;
 			}
 			return ok ? new Bound(member, min[0], max[0], step) : null;
@@ -1281,7 +1446,7 @@ public final class Schedule {
 				return true;
 			}
 			if (member == Member.AT) {
-				Object[] at = date(value, true, what);
+				Object[] at = date(value, true, what, what);
 				if (at == null) {
 					return false;
 				}
@@ -1289,13 +1454,13 @@ public final class Schedule {
 				return true;
 			}
 			long low = member == Member.OFFSET ? -43200000L : 60000L;
-			Long ms = integer(value, low, 43200000L, "malformed: " + what + " (milliseconds)");
+			Long ms = integer(value, low, 43200000L, "malformed: " + what + " (milliseconds)", what, Unit.MILLISECONDS);
 			if (ms == null) {
 				return false;
 			}
 			long unit = member == Member.EVERY ? 60000 : 1000;
 			if (ms.longValue() % unit != 0) {
-				refuse("malformed: " + what + " must be a whole number of " + (unit == 60000 ? "minutes" : "seconds"));
+				refuse("malformed: " + what + " must be a whole number of " + (unit == 60000 ? "minutes" : "seconds"), (unit == 60000 ? I18NConstants.SCHEDULE_WHOLE_MINUTES__NAME : I18NConstants.SCHEDULE_WHOLE_SECONDS__NAME).fill(what));
 				return false;
 			}
 			out[0] = ms.longValue() / 1000;
@@ -1304,7 +1469,8 @@ public final class Schedule {
 
 		private boolean required(Map<?, ?> map, String name, String kind) {
 			if (!map.containsKey(name)) {
-				refuse("malformed: a " + kind + " entry needs " + name);
+				refuse("malformed: a " + kind + " entry needs " + name,
+					I18NConstants.SCHEDULE_KIND_NEEDS__KIND_NAME.fill(kind, name));
 				return false;
 			}
 			return true;
@@ -1323,28 +1489,29 @@ public final class Schedule {
 
 		private void dateList(Object value, Schedule spec) {
 			if (!(value instanceof List<?> list)) {
-				refuse("malformed: dates must be an array of dates");
+				refuse("malformed: dates must be an array of dates", I18NConstants.SCHEDULE_DATES_NOT_AN_ARRAY);
 				return;
 			}
 			if (list.isEmpty()) {
-				refuse("malformed: dates must list at least one date");
+				refuse("malformed: dates must list at least one date", I18NConstants.SCHEDULE_DATES_EMPTY);
 				return;
 			}
 			if (list.size() > MAX_DATES) {
-				refuse("limitExceeded: " + list.size() + " dates exceed the limit of " + MAX_DATES);
+				refuse("limitExceeded: " + list.size() + " dates exceed the limit of " + MAX_DATES,
+					I18NConstants.SCHEDULE_TOO_MANY_DATES__COUNT_LIMIT.fill(String.valueOf(list.size()), String.valueOf(MAX_DATES)));
 				return;
 			}
 			List<Date> dates = new ArrayList<>();
 			boolean ok = true;
 			for (int n = 0; n < list.size(); n++) {
 				int mark = enter("[" + n + "]");
-				Object[] date = date(list.get(n), false, "a date");
+				Object[] date = date(list.get(n), false, "a date", "dates[" + n + "]");
 				if (date == null) {
 					ok = false;
 					dates.add(null);
 				} else {
 					if (dates.contains(date[0])) {
-						refuse("duplicateId: the date is listed twice");
+						refuse("duplicateId: the date is listed twice", I18NConstants.SCHEDULE_DATE_TWICE);
 						ok = false;
 					}
 					dates.add((Date) date[0]);
@@ -1359,11 +1526,11 @@ public final class Schedule {
 		private void astro(Map<?, ?> map, Schedule spec, String kind) {
 			if (required(map, "sun", kind)) {
 				int mark = enter(".sun");
-				String sun = string(map.get("sun"), 1, 15, "malformed: sun");
+				String sun = string(map.get("sun"), 1, 15, "malformed: sun", "sun");
 				if (sun != null) {
 					SunEvent event = SunEvent.fromName(sun);
 					if (event == null) {
-						refuse("malformed: sun must be dawn, sunrise, sunset or dusk");
+						refuse("malformed: sun must be dawn, sunrise, sunset or dusk", I18NConstants.SCHEDULE_SUN);
 					} else {
 						spec._sun = event;
 					}
@@ -1372,10 +1539,11 @@ public final class Schedule {
 			}
 			if (map.containsKey("offset")) {
 				int mark = enter(".offset");
-				Long ms = integer(map.get("offset"), -43200000L, 43200000L, "malformed: offset (milliseconds, at most 12 h)");
+				Long ms = integer(map.get("offset"), -43200000L, 43200000L, "malformed: offset (milliseconds, at most 12 h)", "offset", Unit.OFFSET);
 				if (ms != null) {
 					if (ms.longValue() % 1000 != 0) {
-						refuse("malformed: offset must be a whole number of seconds");
+						refuse("malformed: offset must be a whole number of seconds",
+							I18NConstants.SCHEDULE_WHOLE_SECONDS__NAME.fill("offset"));
 					} else {
 						spec._offsetSeconds = (int) (ms.longValue() / 1000);
 					}
@@ -1394,17 +1562,19 @@ public final class Schedule {
 			}
 			if (spec._notBefore != null && spec._notAfter != null
 				&& spec._notBefore.seconds() > spec._notAfter.seconds()) {
-				refuse("malformed: notBefore is later than notAfter");
+				refuse("malformed: notBefore is later than notAfter",
+					I18NConstants.SCHEDULE_NOT_BEFORE_AFTER_NOT_AFTER);
 			}
 		}
 
 		private void interval(Map<?, ?> map, Schedule spec, String kind) {
 			if (required(map, "every", kind)) {
 				int mark = enter(".every");
-				Long ms = integer(map.get("every"), 60000L, 43200000L, "malformed: every (milliseconds, 1 min .. 12 h)");
+				Long ms = integer(map.get("every"), 60000L, 43200000L, "malformed: every (milliseconds, 1 min .. 12 h)", "every", Unit.EVERY);
 				if (ms != null) {
 					if (ms.longValue() % 60000 != 0) {
-						refuse("malformed: every must be a whole number of minutes");
+						refuse("malformed: every must be a whole number of minutes",
+							I18NConstants.SCHEDULE_WHOLE_MINUTES__NAME.fill("every"));
 					} else {
 						spec._everyMinutes = (int) (ms.longValue() / 60000);
 					}
@@ -1422,7 +1592,8 @@ public final class Schedule {
 				leave(mark);
 			}
 			if (spec._from != null && spec._until != null && spec._until.seconds() < spec._from.seconds()) {
-				refuse("malformed: until is earlier than from (a window across midnight needs two entries)");
+				refuse("malformed: until is earlier than from (a window across midnight needs two entries)",
+					I18NConstants.SCHEDULE_UNTIL_BEFORE_FROM);
 			}
 		}
 	}

@@ -9,6 +9,7 @@ import java.nio.file.Files;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import junit.framework.Test;
@@ -134,7 +135,7 @@ public class TestScheduleAdjustable extends BasicTestCase {
 			}
 			List<String> warnings = new RuleForm(entry).warnings("time");
 			assertEquals(warnings.toString(), 1, warnings.size());
-			assertTrue(warnings.get(0), warnings.get(0).contains("the image's value lies outside its bounds"));
+			assertTrue(warnings.get(0), warnings.get(0).contains("The value of the image lies outside its bounds."));
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 			ImageReport report = image.validate();
 			assertFalse(report.isValid());
@@ -156,7 +157,10 @@ public class TestScheduleAdjustable extends BasicTestCase {
 			"time": {"hour": 17, "minute": 0, "second": 0}, "adjustable": ["time", "days"]}]}
 			""");
 		assertEquals(List.of(new Refusal("schedules[0].adjustable[1]",
-			"malformed: 'days' cannot be adjustable in a yearly entry (time)")), report.getRefusals());
+			"malformed: 'days' cannot be adjustable in a yearly entry (time)").toString()),
+			report.getRefusals().stream().map(Refusal::toString).toList());
+		assertEquals("„days“ kann in einem Eintrag der Art yearly nicht einstellbar sein (time).",
+			Resources.getInstance(Locale.GERMAN).getString(report.getRefusals().get(0).message()));
 	}
 
 	/**
