@@ -12,6 +12,7 @@ import java.util.Map;
 
 import javax.xml.stream.XMLStreamException;
 
+import com.top_logic.basic.Logger;
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.io.binary.BinaryData;
 import com.top_logic.knowledge.service.KnowledgeBase;
@@ -140,6 +141,16 @@ final class ImportJobs {
 			}
 		} catch (ConfigurationException | IOException | XMLStreamException | KnowledgeBaseException ex) {
 			throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ex.getMessage()), ex);
+		} catch (TopLogicException ex) {
+			List<String> problems = ConstraintVeto.problems(ex);
+			if (problems == null) {
+				throw ex;
+			}
+			// The engine's veto names only "values fail their checks"; the problems are its causes,
+			// which the job's failure does not show (TL #30201, doc/tl-todo.md).
+			Logger.error("Import of '" + file + "' vetoed by the model constraints: " + problems, ex, ImportJobs.class);
+			throw new TopLogicException(
+				I18NConstants.ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS.fill(file, String.join(" ", problems)), ex);
 		}
 		return importer;
 	}

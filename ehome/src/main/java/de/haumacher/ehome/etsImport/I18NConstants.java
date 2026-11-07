@@ -19,6 +19,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_IMPORT_FAILED__DETAIL;
 
 	/**
+	 * @en The import of {0} cannot be saved because values fail their checks: {1}
+	 */
+	public static ResKey2 ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS;
+
+	/**
 	 * @en Imported: {0}. Messages of the import: {1}.
 	 */
 	public static ResKey2 IMPORT_SUMMARY__IMPORTED_COUNT;

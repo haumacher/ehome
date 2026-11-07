@@ -224,6 +224,20 @@ cancelable. Four gaps of the job support:
 point of no return. TL #30195: continue the chain of a cancelled multi-file import with the report
 of the files imported.
 
+## A constraint veto without its problems (TL #30201)
+
+The model's commit check (`ModelService#checkCommit`) refuses with "Cannot store, constraints
+violated." alone and keeps the problems as the exception's causes; a failed job shows only the
+message and logs nothing, so a production import ended with "Speichern nicht möglich,
+Wertüberprüfung fehlgeschlagen" and no hint. Workaround: `ImportJobs#importFile` catches the veto at
+its commit, names the problems (`de.haumacher.ehome.etsImport.ConstraintVeto`, test
+`TestConstraintVeto`) in its own message `ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS` and logs it at
+ERROR.
+
+**When fixed:** remove `ConstraintVeto`, its test, the catch in `ImportJobs#importFile` and the
+message `ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS`, if the engine's message or the job's failure
+display names the problems.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
