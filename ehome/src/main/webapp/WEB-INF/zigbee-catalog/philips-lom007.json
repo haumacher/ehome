@@ -1,0 +1,34 @@
+{
+	"format": "ehome-zigbee-catalog",
+	"version": 1,
+	"types": [
+		{
+			"manufacturer": "Signify Netherlands B.V.",
+			"model": "LOM007",
+			"name": {
+				"de": "Hue Steckdose",
+				"en": "Hue smart plug"
+			},
+			"description": {
+				"de": "Philips Hue Smart Plug (Zwischenstecker, Netzbetrieb, Router im Zigbee-Netz): Schalten auf Endpunkt 11. Die Steckdose meldet auch den Level-Control-Cluster, den sie für Gruppen dimmbarer Leuchten mitbringt; sie dimmt nicht, ihre Funktion level ist ausgeblendet.",
+				"en": "Philips Hue smart plug (plug-in unit, mains powered, a router of the Zigbee network): switching on endpoint 11. The plug also reports the Level Control cluster it carries for groups of dimmable lights; it does not dim, its function level is hidden."
+			},
+			"functions": [
+				{
+					"endpoint": 11,
+					"function": "on_off",
+					"name": {
+						"de": "Schalten",
+						"en": "Switch"
+					},
+					"type": "boolean"
+				},
+				{
+					"endpoint": 11,
+					"function": "level",
+					"hidden": true
+				}
+			]
+		}
+	]
+}

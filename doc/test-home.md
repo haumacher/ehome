@@ -3,8 +3,9 @@
 An integration test project for the controller and the test system on the desk: the KNX test system
 (`ehome/samples/KNX-Testsystem.knxproj`, project P-0563: the MDT switch actuator AKK-04 1.3.5 with
 channels A to D, the Gira Tastsensor 3 1.3.50 with keys, LEDs, alarm, night setback and room
-temperature, the IP router) plus the Zigbee Hue motion sensor "Flur Bewegung" (Philips SML002, IEEE
-`0017880106498a49`) paired with the controller, and a rule set that exercises the rule engine, the
+temperature, the IP router) plus two Zigbee devices paired with the controller, the Hue motion sensor
+"Flur Bewegung" (Philips SML002, IEEE `0017880106498a49`) and the Hue smart plug "Hue Steckdose"
+(Signify LOM007, IEEE `001788010f069c8e`), and a rule set that exercises the rule engine, the
 scheduler, the Zigbee adapter and the KNX tunnel together.
 
 The keys and the actuator share no group address: the controller is the only logic between them.
@@ -18,7 +19,8 @@ The sample `ehome/samples/KNX-Testsystem.home.json` is a fragment of a runtime i
 - `datapoints`: the application datapoints `flur.presence`, `flur.lux`, `flur.temperature`,
   `flur.battery`, bound to the sensor's functions occupancy, illuminance, temperature and battery
   (endpoint 2; the illuminance with the reporting override 10..300 s, so that "dark" is seen within
-  five minutes);
+  five minutes), and `steckdose.on`, writable, bound to the plug's on/off (endpoint 11, commands to
+  the On/Off cluster);
 - `schedules` and `rules` in the JSON form of homecontrol `spec/rules.md` and `spec/schedules.md`.
 
 `test.de.haumacher.ehome.runtime.TestTestHome` imports it into the test system as described below,
@@ -43,6 +45,7 @@ the controller.
 | `night` "Nachtruhe" | At 22:00 every day (entry `night`) A to D off and the night setback (`0/0/32`) on; at 06:30 on workdays (`morning-workday`) and 08:00 at the weekend (`morning-weekend`) the night setback off. |
 | `sensor-watch` "Flur-Sensor überwachen" | A warning in the log and the alarm (`0/0/29`) on when the sensor reports no temperature for `silentAfter` (2 h, a `silence` trigger), or its battery falls below `batteryBelow` (20 %); the alarm acknowledgement (`0/0/30`) clears the alarm. |
 | `temp-compare` "Temperaturen vergleichen" | A log entry with both values when the Tastsensor's room temperature (`0/0/28`) and `flur.temperature` differ by more than `maxDiff` (3 K). |
+| `plug` "Taste 6 schaltet die Steckdose" | Key 6 (`0/0/6`) switches the plug (`steckdose.on`) with the key's value; LED 5 (`0/0/11`) shows the plug's state, also when it is switched at its own button. |
 | `presence-sim` "Anwesenheitssimulation (Aktor 2)" | Toggles B every 30 min from 18:00 to 23:00 (interval entry `presence-sim`). Disabled in the image; switch it on on the controller to test it. |
 
 Schedule labels are plain strings (the specification allows no language map there), so they are
@@ -70,14 +73,14 @@ the datapoint settings.
    (Set the datapoint type), choose 9.001.
 3. Tab "Controller": "Controller hinzufügen" (Add controller) and enroll the controller on its
    Settings page with the code (`doc/controllers.md`), or enter its host and token for the LAN.
-4. Tab "Zigbee": "Zigbee-Geräte lesen" (Read Zigbee devices). The sensor appears as "Flur Bewegung"
-   with its functions. (Or "Import Zigbee devices" with the file the controller's Zigbee page
+4. Tab "Zigbee": "Zigbee-Geräte lesen" (Read Zigbee devices). The sensor appears as "Flur Bewegung",
+   the plug as "Hue Steckdose", with their functions. (Or "Import Zigbee devices" with the file the controller's Zigbee page
    downloads.)
 5. Tab "Regeln" (Rules): "Regeln importieren" (Import rules) with
-   `ehome/samples/KNX-Testsystem.home.json`. The import creates the ten rules, six schedule entries
-   and the four `flur.*` datapoints bound to the sensor's functions, and sets the project's location
+   `ehome/samples/KNX-Testsystem.home.json`. The import creates the eleven rules, six schedule entries,
+   the four `flur.*` datapoints bound to the sensor's functions and `steckdose.on` bound to the plug, and sets the project's location
    and time zone where it has none. Its message names everything it decided besides: a datapoint
-   the project has already is kept; without the sensor (step 4 skipped) the datapoints are created
+   the project has already is kept; without the sensor or the plug (step 4 skipped) the datapoints are created
    unbound and can be bound in the tab "Zigbee" later; a project with a location of its own keeps
    it. Imported again, the sample adds nothing: every rule, schedule entry and datapoint whose id the
    project has is kept as it is (the message names them); to take a changed sample, delete the
@@ -92,7 +95,7 @@ the datapoint settings.
 ## Hardware checklist
 
 With the image deployed, the controller connected to the router of the test system and the sensor
-joined. Values are seen on the actuator's channel LEDs, the Tastsensor's LEDs, and in the
+and the plug joined. Values are seen on the actuator's channel LEDs, the Tastsensor's LEDs, and in the
 controller's log and diagnostics.
 
 | Action | Expected result |
@@ -102,6 +105,8 @@ controller's log and diagnostics.
 | Walk past the sensor in the dark | Channel D on, LED 4 on; 2 min after the last motion D off, LED 4 off. |
 | Press key 1 / 2 / 3 / 4 | Channel A / B / C / D follows the key's value; LED 1 to 3 follow the status of A to C, LED 4 follows D. |
 | Press key 5 | All four channels off, LEDs off. |
+| Press key 6 (up / down) | The plug on / off, LED 5 follows. |
+| Press the plug's own button | The plug toggles, LED 5 follows (the plug reports its state). |
 | Cool the sensor below 17 °C (or set `frost`'s parameter `below` above the room temperature on the controller) | Channel C on, LED 3 on; at 17.5 °C (or the parameter back) off. |
 | Raise `sensor-watch`'s `batteryBelow` above the battery level on the controller | Warning "Die Batterie des Flur-Sensors ist bei … %." in the log, the alarm of the Tastsensor on. |
 | Acknowledge the alarm on the Tastsensor | Log "Alarm quittiert.", the alarm off. |

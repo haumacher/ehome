@@ -40,6 +40,15 @@
 			"unit": "%",
 			"readOnStart": true,
 			"zigbee": {"ieee": "0017880106498a49", "endpoint": 2, "cluster": 1, "attribute": 33}
+		},
+		{
+			"id": "steckdose.on",
+			"label": {"de": "Steckdose", "en": "Plug"},
+			"type": "boolean",
+			"writable": true,
+			"transmit": true,
+			"readOnStart": true,
+			"zigbee": {"ieee": "001788010f069c8e", "endpoint": 11, "cluster": 6, "attribute": 0, "command": 6}
 		}
 	],
 	"schedules": [
@@ -856,6 +865,38 @@
 									]
 								}
 							}
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "plug",
+			"name": {"de": "Taste 6 schaltet die Steckdose", "en": "Key 6 switches the plug"},
+			"description": "Taste 6 schaltet die Hue-Steckdose mit dem Wert der Taste; LED 5 zeigt, ob die Steckdose an ist, auch wenn sie an ihrer eigenen Taste geschaltet wird.",
+			"reactions": [
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "0/0/6", "on": "update"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "steckdose.on",
+							"value": {"kind": "datapoint", "name": "0/0/6"}
+						}
+					]
+				},
+				{
+					"triggers": [
+						{"kind": "datapoint", "datapoint": "steckdose.on"}
+					],
+					"actions": [
+						{
+							"kind": "write",
+							"datapoint": "0/0/11",
+							"value": {"kind": "datapoint", "name": "steckdose.on"},
+							"onlyOnChange": true
 						}
 					]
 				}

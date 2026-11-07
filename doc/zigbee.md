@@ -224,7 +224,11 @@ catalog (module `ehome.zigbee.catalog`, `ZigbeeCatalog`, sidebar "Zigbee catalog
   real %; endpoint 1 `action` hidden, the ZLL controller endpoint, no button). Its reporting
   recommendation spares the battery of the sensor: temperature every 60..3600 s at 0.5 °C,
   illuminance 60..3600 s, battery 3600..43200 s (the controller's defaults are for any device,
-  mains-powered ones included); it is a judgement, not a measurement. `ZigbeeCatalogSeed` (a
+  mains-powered ones included); it is a judgement, not a measurement. `philips-lom007.json`, the Hue
+  smart plug of the fixture `hue-steckdose.export.json` (manufacturer "Signify Netherlands B.V.",
+  device 0x010A on endpoint 11): on/off "Schalten"/"Switch" boolean; `level` hidden — the plug
+  carries Level Control for groups of dimmable lights but does not dim; otherwise "Create datapoints"
+  would bind its level too, and the function proposal would make the plug a dimmer. `ZigbeeCatalogSeed` (a
   service, `ehome.zigbee.catalog.config.xml`) loads each file once per database, as the engine
   loads its initial data, and marks it in the database's properties (`ehome.zigbee-catalog.<file>`):
   only unknown types are created, a known one stays as the user keeps it, a type the user deletes

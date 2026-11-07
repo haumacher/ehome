@@ -1,0 +1,78 @@
+{
+	"format": "homecontrol-zigbee-export",
+	"version": 1,
+	"controller": "homecontrol-f883ec",
+	"exported": 1794041283,
+	"network": {
+		"up": true,
+		"pan_id": 54005,
+		"channel": 15,
+		"extended_pan_id": "e8f60afffef883ec",
+		"permit_join_s": 0
+	},
+	"count": 1,
+	"max_devices": 32,
+	"from": 0,
+	"devices": [
+		{
+			"ieee": "001788010f069c8e",
+			"manufacturer": "Signify Netherlands B.V.",
+			"model": "LOM007",
+			"label": "Hue Steckdose",
+			"interviewed": true,
+			"endpoints": [
+				{
+					"id": 11,
+					"profile": 260,
+					"device": 266,
+					"in": [
+						0,
+						3,
+						6,
+						8,
+						4,
+						5,
+						4096,
+						64514
+					],
+					"out": [
+						25
+					]
+				}
+			],
+			"functions": [
+				{
+					"name": "zigbee.001788010f069c8e.11.on",
+					"function": "on_off",
+					"endpoint": 11,
+					"cluster": 6,
+					"attribute": 0,
+					"type": "boolean",
+					"writable": true,
+					"reporting": {
+						"min": 0,
+						"max": 300
+					},
+					"datapoint": "zigbee.001788010f069c8e.11.on"
+				},
+				{
+					"name": "zigbee.001788010f069c8e.11.level",
+					"function": "level",
+					"endpoint": 11,
+					"cluster": 8,
+					"attribute": 0,
+					"type": "real",
+					"unit": "%",
+					"writable": true,
+					"reporting": {
+						"min": 1,
+						"max": 300,
+						"change": 0.4
+					},
+					"datapoint": "zigbee.001788010f069c8e.11.level"
+				}
+			]
+		}
+	],
+	"next": null
+}

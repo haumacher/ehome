@@ -51,8 +51,9 @@ import de.haumacher.ehome.zigbee.ZigbeeReporting;
 /**
  * The test home of the KNX test system (<code>samples/KNX-Testsystem.home.json</code>,
  * <code>doc/test-home.md</code>): the project <code>samples/KNX-Testsystem.knxproj</code>, the Hue
- * motion sensor "Flur Bewegung" of the controller's Zigbee network (the controller's export,
- * <code>src/test/fixtures/zigbee/flur-bewegung.export.json</code>, imported as a file import does),
+ * motion sensor "Flur Bewegung" and the Hue smart plug "Hue Steckdose" of the controller's Zigbee
+ * network (the controller's exports, <code>src/test/fixtures/zigbee/flur-bewegung.export.json</code>
+ * and <code>hue-steckdose.export.json</code>, imported as a file import does),
  * the sample's rules, schedule entries, application datapoints and location imported in the tab
  * "Rules" ({@link RuleImport#importImage(TLObject, String)}).
  *
@@ -60,14 +61,15 @@ import de.haumacher.ehome.zigbee.ZigbeeReporting;
  * <li>The project leaves only the room temperature (0/0/28) without a datapoint type, which a rule
  * needs; the test sets 9.001 as the dialog "Set datapoint type" does. Every address the rules write
  * is writable as the project's objects give it.</li>
- * <li>The import creates the four <code>flur.*</code> datapoints bound to the sensor's functions,
- * the reporting override of the illuminance, the project's location and time zone; a second import
+ * <li>The import creates the four <code>flur.*</code> datapoints bound to the sensor's functions and
+ * the writable <code>steckdose.on</code> bound to the plug's on/off, the reporting override of the
+ * illuminance, the project's location and time zone; a second import
  * keeps the datapoints and says so.</li>
  * <li>The image is valid with every rule loaded, and its rules, schedule entries and datapoints are
  * the sample's (the round trip).</li>
  * <li>The simulation runs the scenarios of the hardware checklist, starting Monday 2026-10-19 12:00
  * in Nürnberg: illuminance, frost, presence, keys, LEDs, the battery alarm and its acknowledgement,
- * the comparison of the temperatures, dusk, the silence of the sensor, the night and the morning.</li>
+ * the comparison of the temperatures, key 6 switching the plug and LED 5 showing it, dusk, the silence of the sensor, the night and the morning.</li>
  * </ul>
  */
 @SuppressWarnings("javadoc")
@@ -89,6 +91,10 @@ public class TestTestHome extends BasicTestCase {
 	private static final String ALARM = "0/0/29";
 
 	private static final String NIGHT_SETBACK = "0/0/32";
+
+	private static final String PLUG = "steckdose.on";
+
+	private static final String LED_PLUG = "0/0/11";
 
 	public void testTestHome() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
@@ -181,6 +187,8 @@ public class TestTestHome extends BasicTestCase {
 			GroupAddressTypes.setType(temperature, type);
 			ZigbeeImport.importExport(project,
 				ZigbeeExport.parse(read("src/test/fixtures/zigbee/flur-bewegung.export.json")));
+			ZigbeeImport.importExport(project,
+				ZigbeeExport.parse(read("src/test/fixtures/zigbee/hue-steckdose.export.json")));
 			tx.commit();
 		}
 	}
@@ -193,9 +201,9 @@ public class TestTestHome extends BasicTestCase {
 			imported = importer.importImage(project, text);
 			tx.commit();
 		}
-		assertEquals(10, imported.rules().size());
+		assertEquals(11, imported.rules().size());
 		assertEquals(6, imported.schedules().size());
-		assertEquals(4, imported.datapoints().size());
+		assertEquals(5, imported.datapoints().size());
 		// The location and the time zone set; nothing else to say.
 		assertEquals(importer.getNotes().toString(), 2, importer.getNotes().size());
 		assertEquals(Double.valueOf(49.45), project.tValueByName("latitude"));
@@ -203,12 +211,14 @@ public class TestTestHome extends BasicTestCase {
 		assertEquals("CET-1CEST,M3.5.0,M10.5.0/3", project.tValueByName("timeZone"));
 
 		Map<String, String> functions = Map.of("flur.presence", "occupancy", "flur.lux", "illuminance",
-			"flur.temperature", "temperature", "flur.battery", "battery");
+			"flur.temperature", "temperature", "flur.battery", "battery", "steckdose.on", "on_off");
 		for (TLObject datapoint : imported.datapoints()) {
 			TLObject function = ZigbeeBindings.function(datapoint);
 			assertNotNull(ApplicationDatapoints.id(datapoint), function);
 			assertEquals(functions.get(ApplicationDatapoints.id(datapoint)), function.tValueByName("function"));
-			assertEquals("0017880106498a49", ZigbeeBindings.device(function).tValueByName("ieee"));
+			boolean plug = "steckdose.on".equals(ApplicationDatapoints.id(datapoint));
+			assertEquals(plug ? "001788010f069c8e" : "0017880106498a49", ZigbeeBindings.device(function).tValueByName("ieee"));
+			assertEquals(Boolean.valueOf(plug), Boolean.valueOf(ApplicationDatapoints.writable(datapoint)));
 			if ("flur.lux".equals(ApplicationDatapoints.id(datapoint))) {
 				assertEquals(Map.of("min", Long.valueOf(10), "max", Long.valueOf(300)), ZigbeeReporting.json(function));
 			}
@@ -222,9 +232,9 @@ public class TestTestHome extends BasicTestCase {
 			assertEquals(0, second.rules().size() + second.schedules().size() + second.datapoints().size());
 			tx.commit();
 		}
-		assertEquals(again.getNotes().toString(), 20, again.getNotes().size());
-		assertEquals(4, ApplicationDatapoints.of(project).size());
-		assertEquals(10, ((java.util.Collection<?>) project.tValueByName("rules")).size());
+		assertEquals(again.getNotes().toString(), 22, again.getNotes().size());
+		assertEquals(5, ApplicationDatapoints.of(project).size());
+		assertEquals(11, ((java.util.Collection<?>) project.tValueByName("rules")).size());
 	}
 
 	private static void roundTrip(Map<String, Object> image, Map<?, ?> sample) {
@@ -255,7 +265,7 @@ public class TestTestHome extends BasicTestCase {
 
 	private static void simulate(ProjectSimulation running) throws Exception {
 		Simulation simulation = running.simulation();
-		assertEquals(10, simulation.rules().rules().size());
+		assertEquals(11, simulation.rules().rules().size());
 		GroupDevice button = device(running, 0x1332);
 		GroupDevice actuator = device(running, 0x1305);
 
@@ -306,6 +316,18 @@ public class TestTestHome extends BasicTestCase {
 		assertTrue(simulation.awaitReceived(received + 1, TIMEOUT));
 		assertEquals(Val.ofBool(true), simulation.value("0/0/7"));
 		assertTrue(button.awaitValue(receiver(button, "0/0/7"), new byte[] { 1 }, TIMEOUT));
+
+		// plug: key 6 switches the plug with its value, LED 5 shows the plug's state, also when the plug
+		// is switched at its own button.
+		received = simulation.received();
+		running.send("0/0/6", "true");
+		assertTrue(simulation.awaitReceived(received + 1, TIMEOUT));
+		assertEquals(Val.ofBool(true), simulation.value(PLUG));
+		assertEquals(Val.ofBool(true), simulation.value(LED_PLUG));
+		assertTrue(button.awaitValue(receiver(button, LED_PLUG), new byte[] { 1 }, TIMEOUT));
+		running.send(PLUG, "false");
+		assertEquals(Val.ofBool(false), simulation.value(LED_PLUG));
+		assertTrue(button.awaitValue(receiver(button, LED_PLUG), new byte[] { 0 }, TIMEOUT));
 
 		// temp-compare: the room temperature 21.5 °C against 17.6 °C in the hall.
 		received = simulation.received();
