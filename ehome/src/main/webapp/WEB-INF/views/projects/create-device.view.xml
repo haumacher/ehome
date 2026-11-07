@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog planning a new device in a line from the catalog (haumacher/ehome #104), opened from the
+	create menu of the topology (projects/devices.view.xml).
+
+	"line" carries the line. The product is chosen among the product variants of the catalog whose
+	product runs an application program, searched by manufacturer, name and order number (the label
+	the options are offered with). The application program is the newest one of the product until the
+	user chooses another. The device number is proposed as the next free one of the line; a number in
+	use is refused with its reason, shown while the number is entered. Name and location are optional.
+	A product missing from the catalog is imported first: the dialog says so, and where.
+
+	The device is created by devicePlanCreate (de.haumacher.ehome.planning.DevicePlanning): without
+	settings of its own, without connections, with nothing loaded, with an external ID. The new device
+	is written to "selection".
+-->
+<view>
+	<channels>
+		<channel name="line"/>
+		<channel name="selection"/>
+		<channel name="variant"/>
+		<!-- The program the user chose; empty for the newest program of the product. -->
+		<channel name="chosenProgram"/>
+		<derived-channel name="program"
+			expr="if($chosenProgram != null and devicePlanPrograms($variant).containsElement($chosenProgram), $chosenProgram, devicePlanDefaultProgram($variant))"
+			inputs="chosenProgram, variant"
+			reverse="$value"
+		/>
+		<!-- The device number the user entered; empty for the next free one of the line. -->
+		<channel name="chosenNumber"/>
+		<derived-channel name="number"
+			expr="if($chosenNumber != null, $chosenNumber, devicePlanNextFree($line))"
+			inputs="chosenNumber, line"
+			reverse="$value"
+		/>
+		<channel name="title"/>
+		<channel name="location"/>
+		<derived-channel name="problem"
+			expr="devicePlanAddressProblem($line, $number)"
+			inputs="line, number"
+			observed-types="ehome.physical:Device"
+		/>
+		<derived-channel name="addressHint"
+			expr="if($number == null, null, #('The device gets the individual address {0}.'@en, 'Das Gerät erhält die physikalische Adresse {0}.'@de).fill(devicePlanAddressText($line, $number)).localize())"
+			inputs="line, number"
+		/>
+		<!-- The catalog holds no product a device can be planned with. -->
+		<derived-channel name="catalogEmpty"
+			expr="devicePlanVariants().isEmpty()"
+			inputs="line"
+		/>
+	</channels>
+	<window width="600px">
+		<title>
+			<en>New device</en>
+			<de>Neues Gerät</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<visible-if
+					expr="$catalogEmpty"
+					input="catalogEmpty"
+				>
+					<text tone="warning">
+						<label>
+							<en>The catalog holds no product with an application program yet. Import the product data of the manufacturer (.knxprod) under Catalogs, “Import product data”, or an ETS project using the product.</en>
+							<de>Der Katalog enthält noch kein Produkt mit Applikationsprogramm. Importieren Sie die Produktdaten des Herstellers (.knxprod) unter „Kataloge“, „Produktdaten importieren“, oder ein ETS-Projekt, das das Produkt verwendet.</de>
+						</label>
+					</text>
+				</visible-if>
+				<fields>
+					<value-input
+						mandatory="true"
+						options="devicePlanVariants()"
+						type="ehome.catalog:Variant"
+						value="variant"
+					>
+						<label>
+							<en>Product</en>
+							<de>Produkt</de>
+						</label>
+						<input-control class="com.top_logic.layout.view.form.SelectControlProvider">
+							<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+								label="v -> devicePlanVariantLabel($v)"
+							/>
+						</input-control>
+					</value-input>
+				</fields>
+				<text tone="secondary">
+					<label>
+						<en>Search by manufacturer, name or order number. A product not in the list is not in the catalog: import its product data (.knxprod) under Catalogs, “Import product data”.</en>
+						<de>Suche nach Hersteller, Name oder Bestellnummer. Ein Produkt, das die Liste nicht enthält, steht nicht im Katalog: Importieren Sie seine Produktdaten (.knxprod) unter „Kataloge“, „Produktdaten importieren“.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						inputs="variant"
+						mandatory="true"
+						options="devicePlanPrograms($variant)"
+						type="ehome.catalog:ProgramAssignment"
+						value="program"
+					>
+						<label>
+							<en>Application program</en>
+							<de>Applikationsprogramm</de>
+						</label>
+						<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+							order="as-given"
+						>
+							<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+								label="a -> devicePlanProgramLabel($a)"
+							/>
+						</input-control>
+					</value-input>
+					<value-input
+						mandatory="true"
+						type="tl.core:Integer"
+						value="number"
+					>
+						<label>
+							<en>Device number in the line</en>
+							<de>Gerätenummer in der Linie</de>
+						</label>
+					</value-input>
+				</fields>
+				<visible-if
+					expr="$problem != null"
+					input="problem"
+				>
+					<text
+						input="problem"
+						tone="warning"
+					/>
+				</visible-if>
+				<visible-if
+					expr="$problem == null"
+					input="problem"
+				>
+					<text
+						input="addressHint"
+						tone="secondary"
+					/>
+				</visible-if>
+				<fields>
+					<value-input
+						type="tl.core:String"
+						value="title"
+					>
+						<label>
+							<en>Name</en>
+							<de>Name</de>
+						</label>
+					</value-input>
+					<value-input
+						inputs="line"
+						options="devicePlanLocations($line)"
+						type="ehome.building:BuildingDefinition"
+						value="location"
+					>
+						<label>
+							<en>Location</en>
+							<de>Standort</de>
+						</label>
+						<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+							order="as-given"
+						>
+							<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+								label="p -> buildingPath($p)"
+							/>
+						</input-control>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-plus-lg"
+					inputs="line, variant, program, number"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<access>
+						<!-- The device is created in the line. -->
+						<operation name="Write"
+							object="$line"
+							type="ehome.physical:Line"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="devicePlanCreate($line, $variant, $program, $number, $title, $location)">
+							<inputs>
+								<input channel="title"/>
+								<input channel="location"/>
+							</inputs>
+						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

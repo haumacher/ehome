@@ -14,7 +14,9 @@
 	change (no Write on the device, e.g. a viewer; the submit checks it as well), shows its value as
 	text, a parameter without value (a heading) only its text.
 
-	A communication object shows its connections, each with the command removing it (an icon with
+	A communication object shows its connections, each with its group address as a link to the
+	address in the group addresses of the project (the display target of ehomeConf.config.xml,
+	haumacher/ehome #102) and with the command removing it (an icon with
 	its label as tooltip, as are the reset commands beside the hints), and the
 	command connecting it to another group address (projects/connect-group-address.view.xml,
 	haumacher/ehome #17).
@@ -319,10 +321,25 @@
 								direction="row"
 								gap="compact"
 							>
-								<text
+								<!--
+									The group address as a link to it (its display target: the group addresses
+									of the project, haumacher/ehome #102), and the direction.
+								-->
+								<form
+									css-class="ehomeConnection__form"
 									input="connection"
-									tone="secondary"
-								/>
+									mode-switch="false"
+									withEditMode="false"
+								>
+									<field attribute="target"
+										label-position="hide-label"
+										readonly="true"
+									/>
+									<field attribute="kind"
+										label-position="hide-label"
+										readonly="true"
+									/>
+								</form>
 								<button
 									appearance="ghost"
 									size="small"

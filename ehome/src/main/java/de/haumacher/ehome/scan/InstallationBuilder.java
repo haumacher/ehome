@@ -92,22 +92,55 @@ public class InstallationBuilder {
 			return new Outcome(Action.UPDATED, existing, "The device " + address + " was updated.");
 		}
 		TLObject line = line(project, found.address() >>> 12 & 0x0F, found.address() >>> 8 & 0x0F);
-		TLObject device = create("ehome.physical:Device");
-		device.tUpdateByName("address", Integer.valueOf(found.address() & 0xFF));
-		device.tUpdateByName("type", candidate.variant());
-		device.tUpdateByName("program", candidate.assignment());
-		if (found.serialStored() != null) {
-			device.tUpdateByName("serialNumber", found.serialStored());
-		}
 		Set<Object> loaded = new LinkedHashSet<>();
 		loaded.add(TLModelUtil.findPart("ehome.physical:DownloadPart#IndividualAddress"));
 		loaded.add(TLModelUtil.findPart("ehome.physical:DownloadPart#ApplicationProgram"));
-		device.tUpdateByName("loaded", loaded);
+		TLObject device = createDevice(line, found.address() & 0xFF, candidate.variant(), candidate.assignment(), loaded);
+		if (found.serialStored() != null) {
+			device.tUpdateByName("serialNumber", found.serialStored());
+		}
+		removeUnidentified(project, found.address());
+		return new Outcome(Action.CREATED, device, "The device " + address + " was created: " + candidate.label() + ".");
+	}
+
+	/**
+	 * Creates a device (<code>ehome.physical:Device</code>) from the catalog in the given line: of
+	 * the given product variant, running the program of the given assignment, with the given device
+	 * number in the line, and with an external ID. It has no parameter settings of its own (the
+	 * program's defaults apply) and no connections; it is marked as modified now.
+	 *
+	 * <p>
+	 * Shared by the scan, which creates a device found on the bus, and the planning of a device in
+	 * the app (<code>de.haumacher.ehome.planning.DevicePlanning</code>, haumacher/ehome #104). The
+	 * caller checks that the number is free in the line.
+	 * </p>
+	 *
+	 * @param line
+	 *        The line (<code>ehome.physical:Line</code>) the device is added to; it belongs to a
+	 *        project, which numbers the external ID.
+	 * @param number
+	 *        The device number in the line (the last part of the individual address).
+	 * @param variant
+	 *        The product variant (<code>ehome.catalog:Variant</code>).
+	 * @param assignment
+	 *        The program assignment (<code>ehome.catalog:ProgramAssignment</code>) of the product
+	 *        of the variant.
+	 * @param loaded
+	 *        The parts of the configuration the real device holds already
+	 *        (<code>ehome.physical:DownloadPart</code>): none for a planned device.
+	 * @return The new device.
+	 */
+	public static TLObject createDevice(TLObject line, int number, TLObject variant, TLObject assignment,
+			Collection<?> loaded) {
+		TLObject device = create("ehome.physical:Device");
+		device.tUpdateByName("address", Integer.valueOf(number));
+		device.tUpdateByName("type", variant);
+		device.tUpdateByName("program", assignment);
+		device.tUpdateByName("loaded", new LinkedHashSet<>(loaded));
 		device.tUpdateByName("lastModified", new Date());
 		add(line, "devices", device);
 		ExtIds.assign(device);
-		removeUnidentified(project, found.address());
-		return new Outcome(Action.CREATED, device, "The device " + address + " was created: " + candidate.label() + ".");
+		return device;
 	}
 
 	/**

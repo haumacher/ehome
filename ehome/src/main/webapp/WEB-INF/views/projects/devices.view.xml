@@ -10,6 +10,11 @@
 	defaults (projects/device-change-group.view.xml per page), and its programming
 	(projects/device-programming.view.xml).
 
+	Besides the import and the bus scan, a device is planned here (haumacher/ehome #104): "New",
+	"Device" plans one from the catalog in the selected line (projects/create-device.view.xml), and
+	"Duplicate the device" copies the selected one with its parameter settings to the next free address
+	of its line (DevicePlanning).
+
 	The changes are computed by the Java functions of DeviceChangeFunctions (haumacher/ehome #15): the
 	channels and lists reading them name the settings, connectors and connections of devices and the
 	devices (a download moves the reference) as observed types.
@@ -29,6 +34,11 @@
 		/>
 		<derived-channel name="selectedArea"
 			expr="if($selected.instanceOf(`ehome.physical:Area`), $selected, null)"
+			inputs="selected"
+		/>
+		<!-- The line a new device is planned in: the selected line, or the line of the selected device. -->
+		<derived-channel name="planLine"
+			expr="devicePlanLine($selected)"
 			inputs="selected"
 		/>
 		<!-- The tabs of a device. -->
@@ -195,6 +205,77 @@
 									</open-dialog>
 								</with-result>
 							</create-transient>
+						</generic-command>
+						<!--
+							A device planned from the catalog in the selected line (or the line of the selected
+							device), haumacher/ehome #104: projects/create-device.view.xml.
+						-->
+						<generic-command
+							clique="new"
+							image="css:fa-solid fa-mobile-screen-button"
+							inputs="planLine"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Device</en>
+								<de>Gerät</de>
+							</label>
+							<tooltip>
+								<en>Plans a new device from the catalog in the selected line: product, application program, individual address. The device is configured in the app and needs a full download.</en>
+								<de>Plant ein neues Gerät aus dem Katalog in der gewählten Linie: Produkt, Applikationsprogramm, physikalische Adresse. Das Gerät wird in der App konfiguriert und braucht einen vollständigen Download.</de>
+							</tooltip>
+							<access>
+								<operation name="Write"
+									object="$planLine"
+									type="ehome.physical:Line"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="line"
+								dialog-view="projects/create-device.view.xml"
+							>
+								<bind
+									channel="selection"
+									to="selected"
+								/>
+							</open-dialog>
+						</generic-command>
+						<!--
+							A copy of the selected device with its parameter settings in its line, at the next
+							free address, without connections, nothing loaded (haumacher/ehome #104).
+						-->
+						<generic-command
+							image="css:bi bi-copy"
+							inputs="device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Duplicate the device</en>
+								<de>Gerät duplizieren</de>
+							</label>
+							<tooltip>
+								<en>Creates a copy of the selected device with its parameter values in the same line, at the next free individual address. The copy has no group addresses connected and needs a full download.</en>
+								<de>Erstellt eine Kopie des gewählten Geräts mit seinen Parameterwerten in derselben Linie, an der nächsten freien physikalischen Adresse. Die Kopie hat keine Gruppenadressen verbunden und braucht einen vollständigen Download.</de>
+							</tooltip>
+							<access>
+								<operation name="Write"
+									object="$device"
+									type="ehome.physical:Device"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="devicePlanDuplicateVeto($device)"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="devicePlanDuplicate($device)"/>
+								<with-result>
+									<write-channel name="selected"/>
+								</with-result>
+							</with-transaction>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
