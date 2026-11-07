@@ -79,6 +79,10 @@
 											<en>Propose functions</en>
 											<de>Funktionen vorschlagen</de>
 										</label>
+										<tooltip>
+											<en>Adds a function for every set of device channels linked by a group address, named after the address, and an unused one for every channel without a group address. Of existing functions, it only fills the roles of unused ones that got linked; edited names, bound roles and dismissed proposals stay.</en>
+											<de>Legt für jede über eine Gruppenadresse verbundene Gruppe von Gerätekanälen eine Funktion mit dem Namen der Adresse an und für jeden Kanal ohne Gruppenadresse eine unbenutzte. An bestehenden Funktionen ergänzt er nur die Rollen unbenutzter, die inzwischen verbunden sind; bearbeitete Namen, gebundene Rollen und verworfene Vorschläge bleiben.</de>
+										</tooltip>
 										<access>
 											<operation name="Write"
 												object="$project"
