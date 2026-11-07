@@ -15,8 +15,9 @@
 	(haumacher/ehome #61).
 
 	Deleting a proposed function remembers it as dismissed (haumacher/ehome #49), so the next proposal
-	does not bring it back; the dismissed proposals are listed below the functions, and "Restore
-	proposal" deletes the dismissal, so the next proposal adds the function again.
+	does not bring it back; the dismissed proposals are listed below the functions, and "Undo
+	dismissal" (haumacher/ehome #99) deletes the dismissal, so the next proposal adds the function
+	again.
 
 	A button whose press is the command of another function (haumacher/ehome #92: a key operating an
 	actuator's channel, which the proposal no longer makes a button) shows a warning in the column
@@ -184,9 +185,13 @@
 										placement="TOOLBAR"
 									>
 										<label>
-											<en>Restore proposal</en>
-											<de>Vorschlag zurückholen</de>
+											<en>Undo dismissal</en>
+											<de>Verwerfen aufheben</de>
 										</label>
+										<tooltip>
+											<en>The next run of "Propose functions" proposes the function again.</en>
+											<de>Der nächste Lauf von „Funktionen vorschlagen“ schlägt die Funktion wieder vor.</de>
+										</tooltip>
 										<executability>
 											<null-input-disabled/>
 										</executability>
