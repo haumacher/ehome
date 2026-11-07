@@ -83,7 +83,8 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * main object has no group address is an unused function, named "&lt;device&gt;: &lt;channel&gt;"
  * ("AKK-04 16.03: Channel D"), with its device, channel and kind but no role bound. "Unused" is no
  * attribute of its own: it follows from the content ({@link #unused(TLObject)}, the derived attribute
- * <code>Function#unused</code>). The runtime image leaves unused functions out without refusing them
+ * <code>Function#unused</code>), for every function whose main role is empty, also one the user
+ * made. The runtime image leaves unused functions out without refusing them
  * and its summary counts them; they are a hint where the installation is incomplete. A channel
  * whose connected objects give a candidate gives no unused one besides (the actuator channel only
  * switched, whose dimming objects are connected to nothing, is a light).
@@ -623,15 +624,17 @@ public final class FunctionProposal {
 	}
 
 	/**
-	 * Whether the given function is unused (haumacher/ehome #98): one the proposal made (it has a
-	 * channel: of a KNX device, a Zigbee datapoint or a virtual device) whose main role has no
-	 * datapoint, as the proposal makes it for a channel whose main object has no group address. The
-	 * runtime image leaves it out. A function the user made without its main role is no unused one
-	 * but incomplete: the controller refuses it, and says why.
+	 * Whether the given function is unused (haumacher/ehome #98): its main role has no datapoint, as
+	 * the proposal makes it for a channel whose main object has no group address. This holds for
+	 * every function, proposed or made by the user, and for every kind of datapoint the main role may
+	 * name: a group address, or an application datapoint (of a Zigbee function, of a virtual device),
+	 * which counts the same way - a function whose datapoint was deleted (haumacher/ehome #94) is
+	 * unused as well. The runtime image leaves an unused function out, and its summary and the
+	 * message of a deployment count it. A function without a kind is none.
 	 */
 	public static boolean unused(TLObject function) {
 		String main = FunctionKinds.mainRole(kind(function));
-		return main != null && function.tValueByName("channel") != null && function.tValueByName(main) == null;
+		return main != null && function.tValueByName(main) == null;
 	}
 
 	/**

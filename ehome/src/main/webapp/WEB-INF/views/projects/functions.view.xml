@@ -11,8 +11,9 @@
 	receiving its address are one function, of the actuator's kind, named after the group address of
 	its main role; a key no actuator receives is a button, a measured value a sensor. A channel
 	whose main object has no group address gives an unused function, named "<device>: <channel>",
-	without datapoints: the column "Unused" (and its filter) marks it, and the runtime image leaves
-	it out. It adds the functions the project lacks, and a function for each application datapoint
+	without datapoints. Every function whose main role has no datapoint, also one the user made, is
+	unused: the column "Unused" (and its filter) marks it, and the runtime image leaves it out and
+	counts it in its summary. It adds the functions the project lacks, and a function for each application datapoint
 	bound to a function of a Zigbee device (haumacher/ehome #68: a sensor, a switch or light, a
 	dimmer), keyed by the device's IEEE address, the endpoint and the function. The only change it
 	makes to an existing function: an unused one whose channel got its group address gets its

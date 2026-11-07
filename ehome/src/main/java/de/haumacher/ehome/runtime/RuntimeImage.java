@@ -65,9 +65,9 @@ import de.haumacher.ehome.rules.Schedule;
  * haumacher/ehome #71); buildings, floors and rooms by their kind, every other part (corridor,
  * stairway, distribution board, ...) as an area.</li>
  * <li><code>functions</code>: the project's functions (<code>ehome.runtime:Function</code>) but the
- * unused ones ({@link FunctionProposal#unused(TLObject)}, haumacher/ehome #98: proposed for a channel
- * whose main object has no group address, which the image leaves out without refusing and
- * {@link #getUnusedFunctions()} counts), each with its identifier (derived from its name where it has none), its label (its name as a map of the
+ * unused ones ({@link FunctionProposal#unused(TLObject)}, haumacher/ehome #98: functions whose main
+ * role has no datapoint, proposed for a channel whose main object has no group address or made so by
+ * the user, which the image leaves out without refusing and {@link #getUnusedFunctions()} counts), each with its identifier (derived from its name where it has none), its label (its name as a map of the
  * languages it has to its texts, haumacher/ehome #51: <code>{"de": "Taste 1", "en": "Button 1"}</code>;
  * a name of a program written only in German has only the German text), its room and the datapoints of the
  * roles of its kind; a role bound to an address of the time master names the controller's datapoint

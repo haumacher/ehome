@@ -65,7 +65,10 @@ public class TestLocalizedRefusals extends BasicTestCase {
 
 	/**
 	 * The issue's case: a sensor without the datapoint of its role, and a role that needs a writable
-	 * datapoint, in a project built without an import.
+	 * datapoint, in a project built without an import. The sensor is an unused function
+	 * (haumacher/ehome #98): the export leaves it out and counts it instead of refusing it, so the
+	 * refusal of a missing main role is reached only by an image built otherwise
+	 * ({@link #testMissingRole()}).
 	 */
 	public void testFunctionRoles() throws Exception {
 		TLObject project;
@@ -90,17 +93,13 @@ public class TestLocalizedRefusals extends BasicTestCase {
 			tx.commit();
 		}
 		try {
-			ImageReport report = RuntimeImage.build(project, 1, NOW).validate();
-			assertEquals(report.toString(), 2, report.getRefusals().size());
+			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
+			ImageReport report = image.validate();
+			assertEquals(report.toString(), 1, report.getRefusals().size());
+			assertEquals(1, image.getUnusedFunctions());
 
-			Refusal role = report.getRefusals().get(0);
-			assertEquals("functions[0].datapoints", role.path());
-			assertEquals("a sensor needs the role value", role.reason());
-			assertEquals("Eine Funktion der Art „sensor“ braucht die Rolle „value“.", text(role, Locale.GERMAN));
-			assertEquals("A sensor needs the role value.", text(role, Locale.ENGLISH));
-
-			Refusal writable = report.getRefusals().get(1);
-			assertEquals("functions[1].datapoints.levelCommand", writable.path());
+			Refusal writable = report.getRefusals().get(0);
+			assertEquals("functions[0].datapoints.levelCommand", writable.path());
 			assertEquals("the role levelCommand needs a writable datapoint; 'virtual.level' is not", writable.reason());
 			assertEquals("Die Rolle „levelCommand“ braucht einen beschreibbaren Datenpunkt; „virtual.level“ ist es nicht.",
 				text(writable, Locale.GERMAN));
@@ -115,6 +114,18 @@ public class TestLocalizedRefusals extends BasicTestCase {
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}
+	}
+
+	/**
+	 * A function without the datapoint of its main role in an image E-Home did not export (E-Home
+	 * leaves such a function out): the validator refuses it, as the controller does.
+	 */
+	public void testMissingRole() {
+		Refusal role = single(image("\"functions\": [{\"id\": \"t\", \"label\": \"T\", \"kind\": \"sensor\", \"datapoints\": {}}]"));
+		assertEquals("functions[0].datapoints", role.path());
+		assertEquals("a sensor needs the role value", role.reason());
+		assertEquals("Eine Funktion der Art „sensor“ braucht die Rolle „value“.", text(role, Locale.GERMAN));
+		assertEquals("A sensor needs the role value.", text(role, Locale.ENGLISH));
 	}
 
 	/**

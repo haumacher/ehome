@@ -302,7 +302,9 @@ public class TestApplicationDatapoints extends BasicTestCase {
 
 	/**
 	 * Probe (#61): a role follows its application datapoint: a changed id shows in the image, a
-	 * datapoint of another project is refused, a deleted datapoint leaves the role unbound.
+	 * datapoint of another project is refused, a deleted datapoint leaves the role unbound - the
+	 * function's main role, so the function is unused (haumacher/ehome #98): the image leaves it out
+	 * without refusing and counts it.
 	 */
 	public void testRolesFollowTheDatapoint() throws Exception {
 		TLObject project;
@@ -358,10 +360,11 @@ public class TestApplicationDatapoints extends BasicTestCase {
 				tx.commit();
 			}
 			assertNull(light.tValueByName("command"));
+			assertTrue(FunctionProposal.unused(light));
 			image = RuntimeImage.build(project, 1, NOW);
-			exported = (Map<?, ?>) ((List<?>) image.getJson().get("functions")).get(0);
-			Object datapoints = exported.get("datapoints");
-			assertTrue(String.valueOf(datapoints), datapoints == null || ((Map<?, ?>) datapoints).isEmpty());
+			assertNull(Json.write(image.getJson()), image.getJson().get("functions"));
+			assertEquals(1, image.getUnusedFunctions());
+			assertTrue(image.validate().toString(), image.validate().isValid());
 		} finally {
 			SharedData.deleteProjects(List.of(project, other));
 		}
