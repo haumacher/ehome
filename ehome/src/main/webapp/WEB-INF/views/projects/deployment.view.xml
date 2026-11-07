@@ -4,7 +4,9 @@
 	Deployment of the project's runtime image to a HomeControl controller (haumacher/ehome #39,
 	de.haumacher.ehome.runtime): the controller the project is deployed to, the revision a controller
 	last loaded, and the deployments, newest first, with the refusals of the selected one against the
-	objects of the project their paths lead to.
+	objects of the project their paths lead to. A refusal shows its reason in the language of the user
+	where E-Home gave it one (haumacher/ehome #95), the controller's English text otherwise; that text
+	is a column of its own, hidden at the start.
 
 	"Download image" checks the image as the controller would and offers it as a JSON file with its
 	detached signature (the .sig file, when the project has an installation key), or shows why it
@@ -432,8 +434,19 @@
 									</inputs>
 									<columns>
 										<column attribute="path"/>
-										<column attribute="reason"/>
+										<computed-column name="text"
+											type="tl.core:String"
+										>
+											<label>
+												<en>Reason</en>
+												<de>Grund</de>
+											</label>
+											<value>$row.get(`ehome.runtime:Refusal#message`).localize() || $row.get(`ehome.runtime:Refusal#reason`)</value>
+										</computed-column>
 										<column attribute="element"/>
+										<column attribute="reason"
+											visible="false"
+										/>
 									</columns>
 									<rows>if($deployment == null, [], $deployment.get(`ehome.runtime:Deployment#refusals`))</rows>
 								</table>

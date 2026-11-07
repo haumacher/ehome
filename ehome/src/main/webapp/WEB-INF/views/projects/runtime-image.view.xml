@@ -90,12 +90,22 @@
 								</label>
 								<value>$row["path"]</value>
 							</computed-column>
-							<computed-column name="reason"
+							<computed-column name="text"
 								type="tl.core:String"
 							>
 								<label>
 									<en>Reason</en>
 									<de>Grund</de>
+								</label>
+								<value>$row["text"]</value>
+							</computed-column>
+							<computed-column name="reason"
+								type="tl.core:String"
+								visible="false"
+							>
+								<label>
+									<en>Controller text</en>
+									<de>Text des Controllers</de>
 								</label>
 								<value>$row["reason"]</value>
 							</computed-column>

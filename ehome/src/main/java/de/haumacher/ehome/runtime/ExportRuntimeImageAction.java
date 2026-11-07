@@ -41,8 +41,9 @@ import de.haumacher.ehome.runtime.ImageReport.Refusal;
  * {@link InstallationKeys#signer(TLObject, TLObject)}; <code>null</code> for a project without a key or
  * a refused image), <code>summary</code> (whether the image is valid; for a valid one what it holds, see
  * {@link #summary(RuntimeImage)}, and the key it is signed with),
- * <code>refusals</code> (one map per refusal with <code>path</code>, <code>reason</code> and the
- * <code>element</code> of the project the path leads to) and <code>notes</code> (what the export left
+ * <code>refusals</code> (one map per refusal with <code>path</code>, <code>text</code> in the user's
+ * language, <code>reason</code> in English as the controller gives it and the <code>element</code> of
+ * the project the path leads to) and <code>notes</code> (what the export left
  * out, one line each).
  * </p>
  */
@@ -94,6 +95,7 @@ public class ExportRuntimeImageAction implements ViewAction {
 		for (Refusal refusal : report.getRefusals()) {
 			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("path", refusal.path());
+			row.put("text", refusal.text());
 			row.put("reason", refusal.reason());
 			row.put("element", image.elementAt(refusal.path()));
 			refusals.add(row);

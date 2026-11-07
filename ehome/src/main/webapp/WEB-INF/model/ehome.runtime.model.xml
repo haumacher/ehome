@@ -866,8 +866,13 @@
 				<property name="path"
 					type="tl.core:String"
 				/>
+				<!-- The reason in English, as the controller gives it. -->
 				<property name="reason"
 					type="tl.core:Text"
+				/>
+				<!-- The reason for the user, in the languages of the application; empty for a refusal of the controller and for a refusal stored before E-Home gave one (haumacher/ehome #95). -->
+				<property name="message"
+					type="tl.model.i18n:I18NString"
 				/>
 				<!-- The object of the project the path leads to: a group address, a part of a building. -->
 				<reference name="element"

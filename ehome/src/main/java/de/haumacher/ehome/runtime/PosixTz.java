@@ -3,6 +3,9 @@
  */
 package de.haumacher.ehome.runtime;
 
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKey1;
+
 /**
  * The check of a POSIX TZ rule as the controller makes it for its setting <code>tz</code>
  * (homecontrol <code>core/src/tz.cpp</code>): <code>std offset [dst [offset] ,start ,end]</code>,
@@ -19,47 +22,98 @@ final class PosixTz {
 	}
 
 	/**
+	 * Why a text is no POSIX TZ rule.
+	 */
+	enum Problem {
+		/** The text is empty. */
+		EMPTY("empty time zone", I18NConstants.IMAGE_TZ_EMPTY__TZ),
+		/** A zone file instead of a rule. */
+		ZONE_FILE("zone files (\":name\") are not supported, give a POSIX TZ rule", I18NConstants.IMAGE_TZ_ZONE_FILE__TZ),
+		/** The name of the standard zone. */
+		STANDARD_NAME("standard zone name must be 3+ letters or <...>", I18NConstants.IMAGE_TZ_STANDARD_NAME__TZ),
+		/** The offset of the standard zone. */
+		STANDARD_OFFSET("standard offset missing or invalid ([+-]hh[:mm[:ss]], hh <= 24)", I18NConstants.IMAGE_TZ_STANDARD_OFFSET__TZ),
+		/** The name of the daylight saving zone. */
+		DAYLIGHT_NAME("daylight zone name must be 3+ letters or <...>", I18NConstants.IMAGE_TZ_DAYLIGHT_NAME__TZ),
+		/** The offset of the daylight saving zone. */
+		DAYLIGHT_OFFSET("daylight offset invalid ([+-]hh[:mm[:ss]], hh <= 24)", I18NConstants.IMAGE_TZ_DAYLIGHT_OFFSET__TZ),
+		/** The transition rules are missing. */
+		RULES("a zone with daylight saving time needs both transition rules (,start,end)", I18NConstants.IMAGE_TZ_RULES__TZ),
+		/** The start rule. */
+		START_RULE("start rule invalid (Jn, n or Mm.w.d, optional /time)", I18NConstants.IMAGE_TZ_START_RULE__TZ),
+		/** The end rule is missing. */
+		END_MISSING("end rule missing", I18NConstants.IMAGE_TZ_END_MISSING__TZ),
+		/** The end rule. */
+		END_RULE("end rule invalid (Jn, n or Mm.w.d, optional /time)", I18NConstants.IMAGE_TZ_END_RULE__TZ),
+		/** Characters after the end rule. */
+		TRAILING("unexpected characters after the end rule", I18NConstants.IMAGE_TZ_TRAILING__TZ);
+
+		private final String _text;
+
+		private final ResKey1 _message;
+
+		Problem(String text, ResKey1 message) {
+			_text = text;
+			_message = message;
+		}
+
+		/**
+		 * The English reason, as the controller gives it.
+		 */
+		String text() {
+			return _text;
+		}
+
+		/**
+		 * The whole sentence for the user about the given time zone.
+		 */
+		ResKey message(String tz) {
+			return _message.fill(tz);
+		}
+	}
+
+	/**
 	 * Why the given text is no POSIX TZ rule, <code>null</code> if it is one.
 	 */
-	static String check(String tz) {
+	static Problem check(String tz) {
 		if (tz.isEmpty()) {
-			return "empty time zone";
+			return Problem.EMPTY;
 		}
 		if (tz.charAt(0) == ':') {
-			return "zone files (\":name\") are not supported, give a POSIX TZ rule";
+			return Problem.ZONE_FILE;
 		}
 		PosixTz p = new PosixTz(tz);
 		if (!p.name()) {
-			return "standard zone name must be 3+ letters or <...>";
+			return Problem.STANDARD_NAME;
 		}
 		if (!p.time(24)) {
-			return "standard offset missing or invalid ([+-]hh[:mm[:ss]], hh <= 24)";
+			return Problem.STANDARD_OFFSET;
 		}
 		if (p.atEnd()) {
 			return null;
 		}
 		if (!p.name()) {
-			return "daylight zone name must be 3+ letters or <...>";
+			return Problem.DAYLIGHT_NAME;
 		}
 		if (p.peek() != ',' && !p.atEnd() && !p.time(24)) {
-			return "daylight offset invalid ([+-]hh[:mm[:ss]], hh <= 24)";
+			return Problem.DAYLIGHT_OFFSET;
 		}
 		if (p.peek() != ',') {
-			return "a zone with daylight saving time needs both transition rules (,start,end)";
+			return Problem.RULES;
 		}
 		p._pos++;
 		if (!p.rule()) {
-			return "start rule invalid (Jn, n or Mm.w.d, optional /time)";
+			return Problem.START_RULE;
 		}
 		if (p.peek() != ',') {
-			return "end rule missing";
+			return Problem.END_MISSING;
 		}
 		p._pos++;
 		if (!p.rule()) {
-			return "end rule invalid (Jn, n or Mm.w.d, optional /time)";
+			return Problem.END_RULE;
 		}
 		if (!p.atEnd()) {
-			return "unexpected characters after the end rule";
+			return Problem.TRAILING;
 		}
 		return null;
 	}

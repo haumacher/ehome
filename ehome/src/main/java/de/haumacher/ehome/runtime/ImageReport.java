@@ -6,6 +6,11 @@ package de.haumacher.ehome.runtime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResourcesModule;
+import com.top_logic.util.Resources;
 
 /**
  * The outcome of checking a runtime image: whether it is valid, and if not, why, with the JSON path
@@ -48,9 +53,43 @@ public final class ImageReport {
 	 * @param path
 	 *        The JSON path, e.g. <code>datapoints[3].knx.send</code>; empty for the whole document.
 	 * @param reason
-	 *        The English reason.
+	 *        The English reason, as the controller's loader gives it.
+	 * @param message
+	 *        The same for the user, in the languages of the application; <code>null</code> where there
+	 *        is none (a refusal of the controller, or of a loader of rules, schedules or blocks).
 	 */
-	public record Refusal(String path, String reason) {
+	public record Refusal(String path, String reason, ResKey message) {
+
+		/**
+		 * A refusal without a message for the user, e.g. one the controller gave.
+		 */
+		public Refusal(String path, String reason) {
+			this(path, reason, null);
+		}
+
+		/**
+		 * What the user reads: the {@link #message()} in the language of the current user, the
+		 * English {@link #reason()} where there is none.
+		 */
+		public String text() {
+			return message == null ? reason : Resources.getInstance().getString(message);
+		}
+
+		/**
+		 * The {@link #message()} in every language of the application, as an internationalized text
+		 * that keeps them without the message's key (for an attribute of the type
+		 * <code>tl.model.i18n:I18NString</code>); <code>null</code> where there is no message.
+		 */
+		public ResKey translations() {
+			if (message == null) {
+				return null;
+			}
+			ResKey.Builder builder = ResKey.builder();
+			for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+				builder.add(locale, Resources.getInstance(locale).getString(message));
+			}
+			return builder.build();
+		}
 
 		@Override
 		public String toString() {
@@ -65,13 +104,26 @@ public final class ImageReport {
 	private final List<String> _notes = new ArrayList<>();
 
 	/**
-	 * Adds a refusal; the first one decides the {@link #getKind() kind}.
+	 * Adds a refusal without a message for the user (a refusal of a loader of rules, schedules or
+	 * blocks); the first one decides the {@link #getKind() kind}.
 	 */
 	public void add(Kind kind, String path, String reason) {
+		add(kind, path, reason, null);
+	}
+
+	/**
+	 * Adds a refusal; the first one decides the {@link #getKind() kind}.
+	 *
+	 * @param reason
+	 *        The English reason, as the controller's loader gives it.
+	 * @param message
+	 *        The same for the user.
+	 */
+	public void add(Kind kind, String path, String reason, ResKey message) {
 		if (_kind == Kind.NONE) {
 			_kind = kind;
 		}
-		_refusals.add(new Refusal(path, reason));
+		_refusals.add(new Refusal(path, reason, message));
 	}
 
 	/**

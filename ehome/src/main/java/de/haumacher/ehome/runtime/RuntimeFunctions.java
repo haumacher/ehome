@@ -283,7 +283,7 @@ public class RuntimeFunctions extends GenericMethod {
 	 * Why the text is no POSIX TZ string; <code>null</code> if it is one.
 	 */
 	public static ResKey timeZoneProblem(String text) {
-		String error = text.length() > 127 ? "longer than 127 characters" : PosixTz.check(text);
+		String error = text.length() > 127 ? "longer than 127 characters" : text(PosixTz.check(text));
 		return error == null ? null : I18NConstants.INVALID_TIME_ZONE__DETAIL.fill(error);
 	}
 
@@ -291,8 +291,16 @@ public class RuntimeFunctions extends GenericMethod {
 	 * Why the text is no host name; <code>null</code> if it is one.
 	 */
 	public static ResKey hostNameProblem(String text) {
-		String error = text.length() > 127 ? "longer than 127 characters" : ImageValidator.hostNameError(text);
+		String error = text.length() > 127 ? "longer than 127 characters" : text(ImageValidator.hostNameError(text));
 		return error == null ? null : I18NConstants.INVALID_HOST_NAME__DETAIL.fill(error);
+	}
+
+	private static String text(PosixTz.Problem problem) {
+		return problem == null ? null : problem.text();
+	}
+
+	private static String text(ImageValidator.HostProblem problem) {
+		return problem == null ? null : problem.text();
 	}
 
 	/**

@@ -5,6 +5,9 @@ package de.haumacher.ehome.runtime;
 
 import java.util.List;
 
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKey1;
+
 /**
  * The value types of the controller's datapoints and the KNX datapoint types it supports, as the
  * controller's codec maps them (homecontrol <code>doc/datapoints.md</code>, "DPT codecs", and
@@ -72,15 +75,63 @@ public final class ValueTypes {
 	 *        The sub number, 0 for the main type alone.
 	 */
 	public static String unsupported(int main, int sub) {
+		Unsupported unsupported = unsupportedType(main, sub);
+		return unsupported == null ? null : unsupported.text();
+	}
+
+	/**
+	 * Why the controller does not support the datapoint type, <code>null</code> if it does.
+	 *
+	 * @param sub
+	 *        The sub number, 0 for the main type alone.
+	 */
+	public static Unsupported unsupportedType(int main, int sub) {
 		switch (main) {
 			case 6:
-				return sub == 20 ? "6.020 (status with mode) is not implemented" : null;
+				return sub == 20 ? Unsupported.STATUS_WITH_MODE : null;
 			case 232:
-				return sub == 0 || sub == 600 ? null : "of main type 232 only 232.600 (RGB) is implemented";
+				return sub == 0 || sub == 600 ? null : Unsupported.RGB;
 			case 251:
-				return sub == 0 || sub == 600 ? null : "of main type 251 only 251.600 (RGBW) is implemented";
+				return sub == 0 || sub == 600 ? null : Unsupported.RGBW;
 			default:
-				return valueType(main, sub) == null ? "main type not implemented" : null;
+				return valueType(main, sub) == null ? Unsupported.MAIN_TYPE : null;
+		}
+	}
+
+	/**
+	 * Why the controller does not support a datapoint type.
+	 */
+	public enum Unsupported {
+		/** 6.020. */
+		STATUS_WITH_MODE("6.020 (status with mode) is not implemented", I18NConstants.IMAGE_DPT_6020_UNSUPPORTED__DPT),
+		/** 232 other than 232.600. */
+		RGB("of main type 232 only 232.600 (RGB) is implemented", I18NConstants.IMAGE_DPT_232_UNSUPPORTED__DPT),
+		/** 251 other than 251.600. */
+		RGBW("of main type 251 only 251.600 (RGBW) is implemented", I18NConstants.IMAGE_DPT_251_UNSUPPORTED__DPT),
+		/** A main type without codec. */
+		MAIN_TYPE("main type not implemented", I18NConstants.IMAGE_DPT_MAIN_UNSUPPORTED__DPT);
+
+		private final String _text;
+
+		private final ResKey1 _message;
+
+		Unsupported(String text, ResKey1 message) {
+			_text = text;
+			_message = message;
+		}
+
+		/**
+		 * The English reason, as the controller gives it.
+		 */
+		public String text() {
+			return _text;
+		}
+
+		/**
+		 * The whole sentence for the user about the datapoint type as written.
+		 */
+		public ResKey message(String dpt) {
+			return _message.fill(dpt);
 		}
 	}
 

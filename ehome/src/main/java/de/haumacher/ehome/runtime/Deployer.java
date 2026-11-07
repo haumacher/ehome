@@ -453,6 +453,7 @@ public final class Deployer {
 				TLObject stored = create("ehome.runtime:Refusal");
 				stored.tUpdateByName("path", refusal.path());
 				stored.tUpdateByName("reason", refusal.reason());
+				stored.tUpdateByName("message", refusal.translations());
 				stored.tUpdateByName("element", image.elementAt(refusal.path()));
 				refusals.add(stored);
 			}

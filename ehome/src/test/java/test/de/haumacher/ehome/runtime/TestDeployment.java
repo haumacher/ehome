@@ -9,6 +9,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import junit.framework.Test;
@@ -133,6 +134,8 @@ public class TestDeployment extends BasicTestCase {
 			assertEquals("DPT 9.001 carries real values, the datapoint is boolean", refusal.tValueByName("reason"));
 			assertEquals(RuntimeImage.build(project, 3, NOW).getDatapointSources().get(0), refusal.tValueByName("element"));
 			assertNull(((TLObject) refusals.get(1)).tValueByName("element"));
+			// The controller's refusals are English only: no message.
+			assertNull(refusal.tValueByName("message"));
 			assertEquals(text(I18NConstants.DEPLOY_REFUSED__STATUS_ERROR.fill(422, "the image is invalid")),
 				refused.tValueByName("message"));
 
@@ -191,6 +194,13 @@ public class TestDeployment extends BasicTestCase {
 			TLObject duplicate = (TLObject) local.get(0);
 			assertTrue(String.valueOf(duplicate.tValueByName("path")).endsWith(".id"));
 			assertTrue(String.valueOf(duplicate.tValueByName("reason")).startsWith("duplicate id"));
+			// The finding for the user, stored in both languages (haumacher/ehome #95).
+			ResKey message = (ResKey) duplicate.tValueByName("message");
+			assertNotNull(message);
+			assertTrue(Resources.getInstance(Locale.GERMAN).getString(message),
+				Resources.getInstance(Locale.GERMAN).getString(message).startsWith("Die ID „"));
+			assertTrue(Resources.getInstance(Locale.ENGLISH).getString(message),
+				Resources.getInstance(Locale.ENGLISH).getString(message).startsWith("The id \""));
 			assertTrue(duplicate.tValueByName("element") == copy || duplicate.tValueByName("element") == original);
 
 			// Drift: the project claims a revision the controller does not run.

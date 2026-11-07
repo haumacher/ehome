@@ -1156,6 +1156,731 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey3 REFERER__KIND_NAME_REFERENCES;
 
+	/**
+	 * @en The image has {0} bytes, the limit is {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_LARGE__BYTES_LIMIT;
+
+	/**
+	 * @en The image is not JSON: {0} at character {1}.
+	 */
+	public static ResKey2 IMAGE_NOT_JSON__ERROR_OFFSET;
+
+	/**
+	 * @en The image must be a JSON object.
+	 */
+	public static ResKey IMAGE_NOT_A_JSON_OBJECT;
+
+	/**
+	 * @en The member image (schemaVersion, projectId, revision) is missing.
+	 */
+	public static ResKey IMAGE_HEADER_MISSING;
+
+	/**
+	 * @en {0} is missing.
+	 */
+	public static ResKey1 IMAGE_MISSING__MEMBER;
+
+	/**
+	 * @en The schemaVersion "{0}" is not of the form major.minor with a major version from 1.
+	 */
+	public static ResKey1 IMAGE_VERSION_MALFORMED__VERSION;
+
+	/**
+	 * @en The schemaVersion {0} is newer than this firmware reads (up to {1}): update the firmware.
+	 */
+	public static ResKey2 IMAGE_VERSION_NEWER__VERSION_SUPPORTED;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: it is empty.
+	 */
+	public static ResKey1 IMAGE_TZ_EMPTY__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: zone files (":name") are not supported, give a POSIX TZ rule.
+	 */
+	public static ResKey1 IMAGE_TZ_ZONE_FILE__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: the name of the standard zone must have 3 or more letters or be written in angle brackets.
+	 */
+	public static ResKey1 IMAGE_TZ_STANDARD_NAME__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: the offset of the standard zone is missing or invalid ([+-]hh[:mm[:ss]], hh at most 24).
+	 */
+	public static ResKey1 IMAGE_TZ_STANDARD_OFFSET__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: the name of the daylight saving zone must have 3 or more letters or be written in angle brackets.
+	 */
+	public static ResKey1 IMAGE_TZ_DAYLIGHT_NAME__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: the offset of the daylight saving zone is invalid ([+-]hh[:mm[:ss]], hh at most 24).
+	 */
+	public static ResKey1 IMAGE_TZ_DAYLIGHT_OFFSET__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: a zone with daylight saving time needs both transition rules (,start,end).
+	 */
+	public static ResKey1 IMAGE_TZ_RULES__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: the start rule is invalid (Jn, n or Mm.w.d, optional /time).
+	 */
+	public static ResKey1 IMAGE_TZ_START_RULE__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: the end rule is missing.
+	 */
+	public static ResKey1 IMAGE_TZ_END_MISSING__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: the end rule is invalid (Jn, n or Mm.w.d, optional /time).
+	 */
+	public static ResKey1 IMAGE_TZ_END_RULE__TZ;
+
+	/**
+	 * @en The time zone "{0}" is not a POSIX TZ rule: unexpected characters follow the end rule.
+	 */
+	public static ResKey1 IMAGE_TZ_TRAILING__TZ;
+
+	/**
+	 * @en The server "{0}" is not a host name: it has an empty part between dots.
+	 */
+	public static ResKey1 IMAGE_HOST_EMPTY_LABEL__SERVER;
+
+	/**
+	 * @en The server "{0}" is not a host name: it may contain only letters, digits, "-" and ".".
+	 */
+	public static ResKey1 IMAGE_HOST_CHARACTER__SERVER;
+
+	/**
+	 * @en The server "{0}" is not a host name: a part between the dots is longer than 63 characters.
+	 */
+	public static ResKey1 IMAGE_HOST_LONG_LABEL__SERVER;
+
+	/**
+	 * @en The server "{0}" is not a host name: it ends with a dot.
+	 */
+	public static ResKey1 IMAGE_HOST_TRAILING_DOT__SERVER;
+
+	/**
+	 * @en The location needs lat and lon.
+	 */
+	public static ResKey IMAGE_LOCATION_NEEDS_LAT_LON;
+
+	/**
+	 * @en The NTP setting needs a server.
+	 */
+	public static ResKey IMAGE_NTP_NEEDS_SERVER;
+
+	/**
+	 * @en The time master names no address (time, date, dateTime).
+	 */
+	public static ResKey IMAGE_TIME_MASTER_NO_ADDRESS;
+
+	/**
+	 * @en {0} and {1} of the time master use the same group address.
+	 */
+	public static ResKey2 IMAGE_TIME_MASTER_SAME_ADDRESS__FIRST_SECOND;
+
+	/**
+	 * @en The address of the time master is the sending address of datapoints[{0}] "{1}".
+	 */
+	public static ResKey2 IMAGE_TIME_MASTER_ADDRESS_SENT__INDEX_ID;
+
+	/**
+	 * @en {0} datapoints exceed the limit of {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_DATAPOINTS__COUNT_LIMIT;
+
+	/**
+	 * @en {0} locations exceed the limit of {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_LOCATIONS__COUNT_LIMIT;
+
+	/**
+	 * @en {0} functions exceed the limit of {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_FUNCTIONS__COUNT_LIMIT;
+
+	/**
+	 * @en {0} Zigbee bindings exceed the limit of {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_ZIGBEE_BINDINGS__COUNT_LIMIT;
+
+	/**
+	 * @en {0} pages exceed the limit of {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_PAGES__COUNT_LIMIT;
+
+	/**
+	 * @en {0} sections of the pages exceed the limit of {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_SECTIONS__COUNT_LIMIT;
+
+	/**
+	 * @en {0} elements of the pages exceed the limit of {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_ELEMENTS__COUNT_LIMIT;
+
+	/**
+	 * @en {0} chart series exceed the limit of {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_CHART_SERIES__COUNT_LIMIT;
+
+	/**
+	 * @en {0} reference lines exceed the limit of {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_REFERENCE_LINES__COUNT_LIMIT;
+
+	/**
+	 * @en The id "{0}" is used twice (also datapoints[{1}]).
+	 */
+	public static ResKey2 IMAGE_DUPLICATE_DATAPOINT_ID__ID_INDEX;
+
+	/**
+	 * @en The id "{0}" is reserved for the datapoints of knx.timeMaster.
+	 */
+	public static ResKey1 IMAGE_ID_RESERVED_TIME_MASTER__ID;
+
+	/**
+	 * @en The id "{0}" begins with "{1}", which is reserved for the datapoints of rule parameters.
+	 */
+	public static ResKey2 IMAGE_ID_RESERVED_RULES__ID_PREFIX;
+
+	/**
+	 * @en The id "{0}" begins with "{1}", which is reserved for the datapoints of the schedules.
+	 */
+	public static ResKey2 IMAGE_ID_RESERVED_SCHEDULES__ID_PREFIX;
+
+	/**
+	 * @en The id "{0}" begins with "{1}", which is reserved for the datapoints of the virtual devices.
+	 */
+	public static ResKey2 IMAGE_ID_RESERVED_BLOCKS__ID_PREFIX;
+
+	/**
+	 * @en Unknown type "{0}" ({1}).
+	 */
+	public static ResKey2 IMAGE_UNKNOWN_TYPE__TYPE_TYPES;
+
+	/**
+	 * @en A datapoint is either zigbee or virtual.
+	 */
+	public static ResKey IMAGE_ZIGBEE_OR_VIRTUAL;
+
+	/**
+	 * @en A datapoint is either knx or zigbee.
+	 */
+	public static ResKey IMAGE_KNX_OR_ZIGBEE;
+
+	/**
+	 * @en A datapoint is either knx or virtual.
+	 */
+	public static ResKey IMAGE_KNX_OR_VIRTUAL;
+
+	/**
+	 * @en "{0}" is not a datapoint type (expected e.g. 1.001, 9.001).
+	 */
+	public static ResKey1 IMAGE_NOT_A_DPT__TEXT;
+
+	/**
+	 * @en DPT {0}: 6.020 (status with mode) is not implemented.
+	 */
+	public static ResKey1 IMAGE_DPT_6020_UNSUPPORTED__DPT;
+
+	/**
+	 * @en DPT {0}: of the main type 232 only 232.600 (RGB) is implemented.
+	 */
+	public static ResKey1 IMAGE_DPT_232_UNSUPPORTED__DPT;
+
+	/**
+	 * @en DPT {0}: of the main type 251 only 251.600 (RGBW) is implemented.
+	 */
+	public static ResKey1 IMAGE_DPT_251_UNSUPPORTED__DPT;
+
+	/**
+	 * @en DPT {0}: the main type is not implemented.
+	 */
+	public static ResKey1 IMAGE_DPT_MAIN_UNSUPPORTED__DPT;
+
+	/**
+	 * @en DPT {0} carries {1} values, the datapoint is {2}.
+	 */
+	public static ResKey3 IMAGE_DPT_TYPE_MISMATCH__DPT_CARRIED_TYPE;
+
+	/**
+	 * @en A datapoint has more than {0} listening addresses.
+	 */
+	public static ResKey1 IMAGE_TOO_MANY_LISTEN__MAX;
+
+	/**
+	 * @en A KNX datapoint needs a sending or a listening group address.
+	 */
+	public static ResKey IMAGE_KNX_NEEDS_ADDRESS;
+
+	/**
+	 * @en A transmitting or readable KNX datapoint needs a sending address (send).
+	 */
+	public static ResKey IMAGE_KNX_NEEDS_SEND;
+
+	/**
+	 * @en The value "{1}" of {0} is not a group address: it has more than three levels.
+	 */
+	public static ResKey2 IMAGE_ADDRESS_LEVELS__PATH_TEXT;
+
+	/**
+	 * @en The value "{1}" of {0} is not a group address: a level is not a number.
+	 */
+	public static ResKey2 IMAGE_ADDRESS_NUMBER__PATH_TEXT;
+
+	/**
+	 * @en The value "{1}" of {0} is not a group address: a group address has two or three levels (1/2/3 or 1/515).
+	 */
+	public static ResKey2 IMAGE_ADDRESS_ONE_LEVEL__PATH_TEXT;
+
+	/**
+	 * @en The value "{1}" of {0} is not a group address: the main group must be 0 to 31.
+	 */
+	public static ResKey2 IMAGE_ADDRESS_MAIN__PATH_TEXT;
+
+	/**
+	 * @en The value "{1}" of {0} is not a group address: the sub group of a two-level address must be 0 to 2047.
+	 */
+	public static ResKey2 IMAGE_ADDRESS_SUB_TWO_LEVELS__PATH_TEXT;
+
+	/**
+	 * @en The value "{1}" of {0} is not a group address: the middle group must be 0 to 7.
+	 */
+	public static ResKey2 IMAGE_ADDRESS_MIDDLE__PATH_TEXT;
+
+	/**
+	 * @en The value "{1}" of {0} is not a group address: the sub group must be 0 to 255.
+	 */
+	public static ResKey2 IMAGE_ADDRESS_SUB__PATH_TEXT;
+
+	/**
+	 * @en "{0}" is not an IEEE address (16 hex digits, colons allowed; not 0 and not all ones).
+	 */
+	public static ResKey1 IMAGE_NOT_IEEE__TEXT;
+
+	/**
+	 * @en The attribute is missing; only a client binding (the commands of a button) has none.
+	 */
+	public static ResKey IMAGE_ZIGBEE_ATTRIBUTE_MISSING;
+
+	/**
+	 * @en Client cluster {0}: a client binding (button commands) needs cluster 6 (On/Off) or 8 (Level Control).
+	 */
+	public static ResKey1 IMAGE_ZIGBEE_CLIENT_CLUSTER__CLUSTER;
+
+	/**
+	 * @en Client cluster {0}: a client binding (button commands) cannot be commanded.
+	 */
+	public static ResKey1 IMAGE_ZIGBEE_CLIENT_COMMANDED__CLUSTER;
+
+	/**
+	 * @en Cluster {0} attribute {1}: no function is known for this cluster and attribute (doc/zigbee.md lists them).
+	 */
+	public static ResKey2 IMAGE_ZIGBEE_UNKNOWN_FUNCTION__CLUSTER_ATTRIBUTE;
+
+	/**
+	 * @en Cluster {0} attribute {1}: the command cluster cannot set this attribute.
+	 */
+	public static ResKey2 IMAGE_ZIGBEE_CANNOT_SET__CLUSTER_ATTRIBUTE;
+
+	/**
+	 * @en The function {0} carries {1} values, the datapoint is {2}.
+	 */
+	public static ResKey3 IMAGE_ZIGBEE_TYPE_MISMATCH__FUNCTION_CARRIED_TYPE;
+
+	/**
+	 * @en A transmitting Zigbee datapoint needs the cluster its commands go to (command); a client binding (button commands) cannot be commanded.
+	 */
+	public static ResKey IMAGE_ZIGBEE_TRANSMIT_CLIENT;
+
+	/**
+	 * @en A transmitting Zigbee datapoint needs the cluster its commands go to (command); without it the binding is read-only.
+	 */
+	public static ResKey IMAGE_ZIGBEE_TRANSMIT;
+
+	/**
+	 * @en Device {0} endpoint {1}: the function {2} is bound twice (also datapoints[{3}] "{4}").
+	 */
+	public static ResKey5 IMAGE_ZIGBEE_BOUND_TWICE__DEVICE_ENDPOINT_FUNCTION_INDEX_NAME;
+
+	/**
+	 * @en A history needs retention and spacing (seconds).
+	 */
+	public static ResKey IMAGE_HISTORY_NEEDS_RETENTION_SPACING;
+
+	/**
+	 * @en Retention / spacing gives more than {0} samples.
+	 */
+	public static ResKey1 IMAGE_HISTORY_TOO_MANY_SAMPLES__MAX;
+
+	/**
+	 * @en A history needs a boolean, unsigned, signed or real datapoint.
+	 */
+	public static ResKey IMAGE_HISTORY_TYPE;
+
+	/**
+	 * @en A history has more than {0} archives.
+	 */
+	public static ResKey1 IMAGE_TOO_MANY_ARCHIVES__MAX;
+
+	/**
+	 * @en An archive needs resolution and retention (seconds).
+	 */
+	public static ResKey IMAGE_ARCHIVE_NEEDS_RESOLUTION_RETENTION;
+
+	/**
+	 * @en The resolution must be larger than the spacing of the raw values ({0} s).
+	 */
+	public static ResKey1 IMAGE_ARCHIVE_RESOLUTION__SPACING;
+
+	/**
+	 * @en Two archives have the resolution {0} s.
+	 */
+	public static ResKey1 IMAGE_ARCHIVE_SAME_RESOLUTION__RESOLUTION;
+
+	/**
+	 * @en Retention / resolution gives more than {0} slots.
+	 */
+	public static ResKey1 IMAGE_ARCHIVE_TOO_MANY_SLOTS__MAX;
+
+	/**
+	 * @en The location id "{0}" is used twice.
+	 */
+	public static ResKey1 IMAGE_DUPLICATE_LOCATION_ID__ID;
+
+	/**
+	 * @en Unknown location kind "{0}" (building, floor, room, area, outside).
+	 */
+	public static ResKey1 IMAGE_UNKNOWN_LOCATION_KIND__KIND;
+
+	/**
+	 * @en Unknown location "{0}".
+	 */
+	public static ResKey1 IMAGE_UNKNOWN_LOCATION__ID;
+
+	/**
+	 * @en The parents of the locations form a cycle.
+	 */
+	public static ResKey IMAGE_LOCATION_CYCLE;
+
+	/**
+	 * @en The id "{1}" ({0}) must have 1 to 32 characters of A-Z a-z 0-9 _ . -.
+	 */
+	public static ResKey2 IMAGE_ID_PATTERN__PATH_ID;
+
+	/**
+	 * @en The function id "{0}" is used twice.
+	 */
+	public static ResKey1 IMAGE_DUPLICATE_FUNCTION_ID__ID;
+
+	/**
+	 * @en Unknown function kind "{0}" (light, dimmer, blind, switch, sensor, climate, scene, button).
+	 */
+	public static ResKey1 IMAGE_UNKNOWN_FUNCTION_KIND__KIND;
+
+	/**
+	 * @en A scene function needs scene (1 to 64).
+	 */
+	public static ResKey IMAGE_SCENE_NEEDS_NUMBER;
+
+	/**
+	 * @en The datapoints (the roles of a {0}) are missing.
+	 */
+	public static ResKey1 IMAGE_FUNCTION_ROLES_MISSING__KIND;
+
+	/**
+	 * @en A {0} needs the role {1}.
+	 */
+	public static ResKey2 IMAGE_ROLE_MISSING__KIND_ROLE;
+
+	/**
+	 * @en Unknown datapoint "{0}".
+	 */
+	public static ResKey1 IMAGE_UNKNOWN_DATAPOINT__NAME;
+
+	/**
+	 * @en The datapoint "{0}" is {1}, but the role {2} of a {3} takes {4}.
+	 */
+	public static ResKey5 IMAGE_ROLE_TYPE__NAME_TYPE_ROLE_KIND_TYPES;
+
+	/**
+	 * @en The datapoint "{0}" has no valid type, but the role {1} of a {2} takes {3}.
+	 */
+	public static ResKey4 IMAGE_ROLE_TYPE_NONE__NAME_ROLE_KIND_TYPES;
+
+	/**
+	 * @en The role {0} needs a writable datapoint; "{1}" is not.
+	 */
+	public static ResKey2 IMAGE_ROLE_WRITABLE__ROLE_NAME;
+
+	/**
+	 * @en An enumeration press needs a Zigbee action datapoint (a client binding), whose elements are known; "{0}" is not one.
+	 */
+	public static ResKey1 IMAGE_PRESS_NEEDS_ACTION__NAME;
+
+	/**
+	 * @en The presses are only for an enumeration press; "{0}" is {1}.
+	 */
+	public static ResKey2 IMAGE_PRESSES_NOT_ENUMERATION__NAME_TYPE;
+
+	/**
+	 * @en The presses are only for an enumeration press; "{0}" has no valid type.
+	 */
+	public static ResKey1 IMAGE_PRESSES_NOT_ENUMERATION_NONE__NAME;
+
+	/**
+	 * @en A button with an enumeration press needs presses (which elements are which press).
+	 */
+	public static ResKey IMAGE_PRESSES_MISSING;
+
+	/**
+	 * @en The presses must be an object of press kinds (press, on, off, up, down, release) to arrays of elements.
+	 */
+	public static ResKey IMAGE_PRESSES_MALFORMED;
+
+	/**
+	 * @en Unknown member "{0}".
+	 */
+	public static ResKey1 IMAGE_UNKNOWN_MEMBER__NAME;
+
+	/**
+	 * @en Unknown member "{0}": the schema {1} of the image is newer than this firmware reads (up to {2}); update the firmware.
+	 */
+	public static ResKey3 IMAGE_UNKNOWN_MEMBER_NEWER__NAME_SCHEMA_SUPPORTED;
+
+	/**
+	 * @en The press {0} must be a non-empty array of elements.
+	 */
+	public static ResKey1 IMAGE_PRESS_ELEMENTS__KIND;
+
+	/**
+	 * @en The presses name no press.
+	 */
+	public static ResKey IMAGE_PRESSES_NONE;
+
+	/**
+	 * @en An element must be an integer.
+	 */
+	public static ResKey IMAGE_ELEMENT_NOT_INTEGER;
+
+	/**
+	 * @en The element {0} is no element of "{1}" (a Zigbee action: 0 to {2}).
+	 */
+	public static ResKey3 IMAGE_ELEMENT_RANGE__ELEMENT_NAME_MAX;
+
+	/**
+	 * @en The element {0} is a press of {1} already.
+	 */
+	public static ResKey2 IMAGE_ELEMENT_TAKEN__ELEMENT_KIND;
+
+	/**
+	 * @en The page id "{0}" is used twice.
+	 */
+	public static ResKey1 IMAGE_DUPLICATE_PAGE_ID__ID;
+
+	/**
+	 * @en The icon "{0}" must have 1 to {1} characters of A-Z a-z 0-9 _ . -.
+	 */
+	public static ResKey2 IMAGE_ICON_PATTERN__ICON_MAX;
+
+	/**
+	 * @en An element names exactly one of function, datapoint or chart; this one names none.
+	 */
+	public static ResKey IMAGE_ELEMENT_KIND_NONE;
+
+	/**
+	 * @en An element names exactly one of function, datapoint or chart; this one names several.
+	 */
+	public static ResKey IMAGE_ELEMENT_KIND_SEVERAL;
+
+	/**
+	 * @en The member readOnly applies to a datapoint element only.
+	 */
+	public static ResKey IMAGE_READ_ONLY_DATAPOINT;
+
+	/**
+	 * @en Unknown function "{0}".
+	 */
+	public static ResKey1 IMAGE_UNKNOWN_FUNCTION__ID;
+
+	/**
+	 * @en The width must be 1, 2, 3, 4 (columns) or "full".
+	 */
+	public static ResKey IMAGE_CHART_WIDTH;
+
+	/**
+	 * @en The height must be 2 or 4 (tile rows).
+	 */
+	public static ResKey IMAGE_CHART_HEIGHT;
+
+	/**
+	 * @en The preset {0} is listed twice.
+	 */
+	public static ResKey1 IMAGE_PRESET_TWICE__PRESET;
+
+	/**
+	 * @en The presets must name at least one range (or be left out: the range alone).
+	 */
+	public static ResKey IMAGE_PRESETS_EMPTY;
+
+	/**
+	 * @en The presets do not offer the range {0} of the chart.
+	 */
+	public static ResKey1 IMAGE_PRESETS_LACK_RANGE__RANGE;
+
+	/**
+	 * @en A chart needs its series (an empty array draws an empty chart).
+	 */
+	public static ResKey IMAGE_CHART_NEEDS_SERIES;
+
+	/**
+	 * @en Unknown {0} "{1}" ({2}).
+	 */
+	public static ResKey3 IMAGE_UNKNOWN_CHOICE__MEMBER_NAME_CHOICES;
+
+	/**
+	 * @en The min of an axis must be less than its max.
+	 */
+	public static ResKey IMAGE_AXIS_MIN_MAX;
+
+	/**
+	 * @en A series needs its datapoint.
+	 */
+	public static ResKey IMAGE_SERIES_NEEDS_DATAPOINT;
+
+	/**
+	 * @en The datapoint "{0}" keeps no history: a series needs one.
+	 */
+	public static ResKey1 IMAGE_SERIES_NO_HISTORY__NAME;
+
+	/**
+	 * @en The consumption needs a numeric datapoint; "{0}" is boolean.
+	 */
+	public static ResKey1 IMAGE_CONSUMPTION_NUMERIC__NAME;
+
+	/**
+	 * @en A reference line has exactly one of value (a constant) or datapoint (its current value).
+	 */
+	public static ResKey IMAGE_REFERENCE_ONE;
+
+	/**
+	 * @en A reference line needs a numeric datapoint; "{0}" is {1}.
+	 */
+	public static ResKey2 IMAGE_REFERENCE_NUMERIC__NAME_TYPE;
+
+	/**
+	 * @en A reference line needs a numeric datapoint; "{0}" has no valid type.
+	 */
+	public static ResKey1 IMAGE_REFERENCE_NUMERIC_NONE__NAME;
+
+	/**
+	 * @en The histories need {0} bytes of RAM, the device allows at most {1}; the biggest, in bytes: {2}.
+	 */
+	public static ResKey3 IMAGE_HISTORY_RAM__NEED_CAP_BIGGEST;
+
+	/**
+	 * @en The archives need {0} bytes of flash, the device allows at most {1}; the biggest, in bytes: {2}.
+	 */
+	public static ResKey3 IMAGE_HISTORY_FLASH__NEED_CAP_BIGGEST;
+
+	/**
+	 * @en The image asks for {0} bytes of history RAM, the device allows at most {1}.
+	 */
+	public static ResKey2 IMAGE_HISTORY_BUDGET_CAP__BYTES_CAP;
+
+	/**
+	 * @en The image asks for {0} bytes of archive flash, the device allows at most {1}.
+	 */
+	public static ResKey2 IMAGE_ARCHIVE_BUDGET_CAP__BYTES_CAP;
+
+	/**
+	 * @en The rings and archives need {0} bytes of RAM, the budget of the image is {1}; the biggest, in bytes: {2}.
+	 */
+	public static ResKey3 IMAGE_HISTORY_OVER_BUDGET__NEED_BUDGET_BIGGEST;
+
+	/**
+	 * @en The archives need {0} bytes of flash, the archive budget of the image is {1}; the biggest, in bytes: {2}.
+	 */
+	public static ResKey3 IMAGE_ARCHIVE_OVER_BUDGET__NEED_BUDGET_BIGGEST;
+
+	/**
+	 * @en {0} must be an object.
+	 */
+	public static ResKey1 IMAGE_NOT_AN_OBJECT__PATH;
+
+	/**
+	 * @en {0} must be an array.
+	 */
+	public static ResKey1 IMAGE_NOT_AN_ARRAY__PATH;
+
+	/**
+	 * @en {0} must be a string.
+	 */
+	public static ResKey1 IMAGE_NOT_A_STRING__PATH;
+
+	/**
+	 * @en {0} must have {1} to {2} bytes.
+	 */
+	public static ResKey3 IMAGE_STRING_LENGTH__PATH_MIN_MAX;
+
+	/**
+	 * @en {0} contains a control character.
+	 */
+	public static ResKey1 IMAGE_CONTROL_CHARACTER__PATH;
+
+	/**
+	 * @en {0} must be an integer.
+	 */
+	public static ResKey1 IMAGE_NOT_AN_INTEGER__PATH;
+
+	/**
+	 * @en {0} must be {1} to {2}.
+	 */
+	public static ResKey3 IMAGE_RANGE__PATH_MIN_MAX;
+
+	/**
+	 * @en {0} must be {1} to {2} seconds.
+	 */
+	public static ResKey3 IMAGE_RANGE_SECONDS__PATH_MIN_MAX;
+
+	/**
+	 * @en {0} must be {1} to {2} bytes.
+	 */
+	public static ResKey3 IMAGE_RANGE_BYTES__PATH_MIN_MAX;
+
+	/**
+	 * @en {0} must be a number.
+	 */
+	public static ResKey1 IMAGE_NOT_A_NUMBER__PATH;
+
+	/**
+	 * @en {0} must be true or false.
+	 */
+	public static ResKey1 IMAGE_NOT_A_FLAG__PATH;
+
+	/**
+	 * @en The label {0} must be a string or an object of language tags to strings.
+	 */
+	public static ResKey1 IMAGE_LABEL_MALFORMED__PATH;
+
+	/**
+	 * @en The language tag "{1}" of the label {0} must have 2 to 8 characters of A-Z a-z 0-9 -.
+	 */
+	public static ResKey2 IMAGE_LABEL_LANGUAGE_TAG__PATH_TAG;
+
+	/**
+	 * @en The label {0} names no language.
+	 */
+	public static ResKey1 IMAGE_LABEL_NO_LANGUAGE__PATH;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

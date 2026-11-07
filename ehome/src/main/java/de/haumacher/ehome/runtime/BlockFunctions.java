@@ -399,7 +399,7 @@ public class BlockFunctions extends GenericMethod {
 		for (ImageReport.Refusal refusal : image.validate().getRefusals()) {
 			TLObject element = image.elementAt(refusal.path());
 			if (element == instance || (element != null && element.tContainer() == instance)) {
-				result.add(refusal.path() + ": " + refusal.reason());
+				result.add(refusal.path() + ": " + refusal.text());
 			}
 		}
 		return result.isEmpty() ? null : String.join("\n", result);
