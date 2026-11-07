@@ -3,7 +3,6 @@
  */
 package de.haumacher.ehome.runtime;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -1425,12 +1424,12 @@ public final class RuleExport {
 	}
 
 	/**
-	 * The datapoints of the project's image as the loaders see them.
+	 * The datapoints of the project's image as the loaders see them, with those the rules of the
+	 * project imply (the datapoints of their parameters, spec/rules.md 8.6): built once per state of
+	 * the data ({@link ImageCache}).
 	 */
 	static ImageValidator.Directory directory(TLObject project) {
-		// With the rules of the project: they imply the datapoints of their parameters (spec/rules.md 8.6).
-		return ImageValidator.directory(RuntimeImage.build(project, 0, Instant.EPOCH, false).getText(),
-			new RuleExport().rules(project));
+		return ImageCache.get(project).directory();
 	}
 
 }

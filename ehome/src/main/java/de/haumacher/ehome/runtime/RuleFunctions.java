@@ -6,8 +6,8 @@ package de.haumacher.ehome.runtime;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -634,8 +634,25 @@ public class RuleFunctions extends GenericMethod {
 		return null;
 	}
 
+	/**
+	 * The datapoints the rules of the project may name, as maps of <code>id</code>, <code>label</code>,
+	 * <code>type</code>, <code>writable</code> and <code>binding</code>: those of the image, of the
+	 * rules' parameters and of the adjustable times of the schedule entries.
+	 *
+	 * <p>
+	 * Computed once per state of the data and reader ({@link ImageCache}); the list and its maps
+	 * cannot be changed.
+	 * </p>
+	 */
 	public static List<Object> datapoints(TLObject project) {
-		RuntimeImage image = RuntimeImage.build(project, 0, Instant.EPOCH, false);
+		return ImageCache.get(project).derived(DATAPOINTS, entry -> datapoints(project, entry));
+	}
+
+	/** The key of {@link #datapoints(TLObject)} among the values derived from an {@link ImageCache.Entry}. */
+	private static final Object DATAPOINTS = new Object();
+
+	private static List<Object> datapoints(TLObject project, ImageCache.Entry cached) {
+		RuntimeImage image = cached.image();
 		if (!(image.getJson().get("datapoints") instanceof List<?> list)) {
 			return List.of();
 		}
@@ -654,7 +671,7 @@ public class RuleFunctions extends GenericMethod {
 		}
 		// The datapoints of the rule parameters (spec/rules.md 8.6), which the controller derives from the
 		// rules: another rule may read, trigger on and write them.
-		List<Object> rules = new RuleExport().rules(project);
+		List<Object> rules = cached.rules();
 		Map<String, TLObject> byId = new LinkedHashMap<>();
 		for (TLObject rule : RuleExport.objects(project.tValueByName("rules"))) {
 			if (rule.tValueByName("identifier") instanceof String id) {
@@ -691,7 +708,10 @@ public class RuleFunctions extends GenericMethod {
 			datapoint.put("schedule", id);
 			result.add(datapoint);
 		}
-		return result;
+		for (int n = 0; n < result.size(); n++) {
+			result.set(n, Collections.unmodifiableMap((Map<?, ?>) result.get(n)));
+		}
+		return Collections.unmodifiableList(result);
 	}
 
 	/**
