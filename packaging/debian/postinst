@@ -106,6 +106,11 @@ h2_passwd=$DB_PASSWORD
 # The password of the administrator "root", applied only when the database is created at the first
 # start. Change it in the application afterwards.
 tl_initial_password=$PASSWORD
+
+# The public address the users open in the browser, e.g. https://ehome.example.org (behind the
+# TLS-terminating nginx). Passkeys (sign-in without password) are bound to its host for good: they
+# work only when it is set, and changing the host later invalidates every registered passkey.
+#tl_host=https://ehome.example.org
 END
 		chgrp tomcat "$ENV_FILE"
 		umask 022

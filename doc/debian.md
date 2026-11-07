@@ -153,3 +153,18 @@ front of Tomcat on the same host: `/usr/share/doc/ehome/nginx-ehome.conf` is an 
 connecting from the loopback interface only, so that the enrollment's rate limit counts the clients;
 a proxy on another host needs its address in the valve's `internalProxies` (the context is rewritten
 by every upgrade of the package).
+
+## Passkeys
+
+Users sign in without a password with a passkey (the engine module `tl-security-passkey`,
+haumacher/ehome #86): each user adds one in the settings (Security, "Sign in with passkey"), the
+login dialog offers "Sign in with passkey", an administrator sees and deletes the passkeys of every
+account in the account administration. A passkey is bound to the host of the address the users open
+in the browser, which the installation states and nothing derives: set `tl_host` in
+`/etc/ehome/ehome.env` to that address, e.g. `tl_host=https://ehome.example.org` (the public `https`
+address of the nginx in front of Tomcat; the file has a commented example line), and apply it with
+`dpkg-reconfigure ehome`. It becomes a JNDI entry of E-Home's own context, never a setting of
+Tomcat's JVM. Changing the host later invalidates every registered passkey. Without `tl_host` the
+sign-in works with passwords as before, and the passkey buttons are disabled with the reason
+"Passkeys are not set up for this installation"; opened by another address than `tl_host` (e.g. the
+LAN address over `http`), they are disabled too.

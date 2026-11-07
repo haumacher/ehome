@@ -114,6 +114,15 @@
       <groupId>com.top-logic</groupId>
       <artifactId>tl-layout-view-agent</artifactId>
     </dependency>
+    <!--
+      Passkeys (haumacher/ehome #86): passwordless sign-in with a discoverable passkey (usage "login",
+      the module's default), managed in the settings (Security) and the account administration. The
+      relying party is the public address of the installation, tl_host (doc/debian.md, "Passkeys").
+    -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-security-passkey</artifactId>
+    </dependency>
 	
     <!--
       The controllers' WebSocket (haumacher/ehome #54, ControllerSocket): the Jakarta WebSocket API,
