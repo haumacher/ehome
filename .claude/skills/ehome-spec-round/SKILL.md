@@ -23,18 +23,32 @@ every proposal is considered on both sides.
    (`WEB-INF/model/*.model.xml`), the image writer (`RuntimeImage.java`), the views and the
    docs (`doc/`). Quote the evidence with `file:line` in the answer. Never design from memory: a
    recalled limit or member name is checked in the code first.
-2. **Decide what kind of answer it needs:**
-   - *Totally clear* (the user said what to do, the code shows where): file the ticket right
-     away and report its number.
-   - *Something is missing, or can be done better*: answer with what exists, then a short list of
-     **numbered** questions or suggestions, each with a recommendation the user can just accept
-     ("(a) ... — I'd do X because Y"). Ask only what changes the design: a conventional default
-     is stated as the default, not asked. Point out what the user forgot (limits, migration of
-     existing data, the older firmware, access rights, i18n, the simulation, the test corpus).
-3. **The user's answer is the design.** Take their words literally and quote them in the
+2. **"It already exists."** If what the user asks for seems to exist already (the device page's
+   firmware upload, the command "Vorschlag zurückholen"), show where with `file:line` and ask what
+   is missing. **Never file a different feature in its place**. The user: "If I request "A" and
+   you thing "A" already exist and instead file "B" I become angry."
+3. **Answer with what exists, then a short list of numbered questions or suggestions**, each with
+   a recommendation the user can just accept ("(a) ... — I'd do X because Y"). Ask only what
+   changes the design: a conventional default is stated as the default, not asked. Point out what
+   the user forgot (limits, migration of existing data, the older firmware, access rights, i18n,
+   the simulation, the test corpus).
+   - **Concrete examples.** Explain a term ("actuator channel", "bundling") with a table of real
+     objects and group addresses from the samples (`ehome/samples/KNX-Testsystem.knxproj`), not in
+     the abstract. An abstract term the user has to ask about ("???? what is this? Example!")
+     costs a round.
+   - **Structure over heuristics.** Prefer a structural rule (the user's design of #98:
+     candidates per device, linked by their sending group addresses) to rules on names and flags.
+     When the user says "too complicated, too much heuristics", drop the heuristics; don't add more.
+   - **Precise words.** Say what is stored and what is not ("no attribute of its own", not "not
+     stored"); a vague word gets misread.
+4. **The user's answer is the design.** Take their words literally and quote them in the
    ticket; don't re-argue a decision once made. If an answer opens a new gap, ask that one
-   follow-up and file then.
-4. **File** (§2) and continue with the next proposal.
+   follow-up.
+5. **Consensus before filing.** Even when it looks totally clear, restate the design in a few
+   numbered points and file only after the user's explicit agreement ("ok", "agreed"). Answer
+   only the questions the user answered: an open point (multi-selection, "delete all") is not
+   agreed by silence.
+6. **File** (§2), report, and continue with the next proposal.
 
 ## 2. Tickets
 
@@ -55,6 +69,12 @@ every proposal is considered on both sides.
   - *Acceptance*: what proves it done — host/unit tests, the shared corpus run on both sides
     (C++ and the Java simulation), a check on the board, a browser check.
   - *Out of scope*.
+- **Cross-check before filing.** Compare the written body with the agreed points and remove
+  anything the user did not agree to (an icon, a bulk command, a convention). What came up but
+  was not decided goes under *Out of scope* as "not decided", never into the design. Fix a slip
+  right after filing with `gh issue edit`.
+- **The report after filing** gives the ticket's number and link and its content in plain words:
+  what it does, in a few points, not just the title (the user: "what did you file then???").
 - Labels: the repository's existing ones only (`enhancement`, `bug`, `question`,
   `documentation`, and in homecontrol e.g. `decision`); don't invent new ones.
 - Product, not one home: the user's own house (`~/incoming/...`, openHAB configurations, the
@@ -94,5 +114,6 @@ machine, e.g. `ehome-11`):
 
 The memory rules hold in a round too: never delete outside the scratchpad; the user's home
 project file is for analysis only (unzip it into the scratchpad, never commit it, never program
-it); KNX hardware only via the test router; no confirmation question at the end of a turn —
-decide, file, report.
+it); KNX hardware only via the test router. "No confirmation question at the end of a turn" holds
+for everything except filing: a ticket waits for the user's agreement (§1.5); the question then
+is the design question, with a recommendation, never "shall I file it?" alone.
