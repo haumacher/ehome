@@ -173,6 +173,38 @@
 			</instance>
 		</config>
 
+		<!--
+			Where an object is shown when it is followed as a link (haumacher/ehome #102): a group address
+			in the group addresses of its project, selected in the tree. The drill-down starts at the list
+			of projects, so that the target is reached from any place of the app; the frame of the
+			project is labelled as the list labels it (projects.view.xml).
+		-->
+		<config service-class="com.top_logic.layout.view.navigation.DisplayTargetService">
+			<instance>
+				<targets>
+					<target type="ehome.logical:GroupAddress">
+						<show view="projects/overview.view.xml">
+							<bind
+								channel="project"
+								expr="recursion($object, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+							/>
+						</show>
+						<show frame="project"
+							label-expr="recursion($object, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+						>
+							<bind
+								channel="project"
+								expr="recursion($object, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+							/>
+						</show>
+						<show view="projects/addresses.view.xml">
+							<bind channel="selected"/>
+						</show>
+					</target>
+				</targets>
+			</instance>
+		</config>
+
 		<!-- The create commands of the structure trees, one per node type, folded into a menu. -->
 		<config service-class="com.top_logic.layout.view.command.CommandCliqueService">
 			<instance>

@@ -39,6 +39,17 @@
 	padding: 0 0 0 0.6em;
 }
 
+/* Its group address (a link to the address) and its direction on one line, not as a form grid. */
+.ehomeConnection__form {
+	display: flex;
+	align-items: baseline;
+	gap: 0.4em;
+}
+
+.ehomeConnection__form .tl-form-field + .tl-form-field {
+	color: var(--text-secondary);
+}
+
 /* The path of a page heading a group of changes. */
 .ehomeChangeGroup {
 	margin-top: 0.5em;
