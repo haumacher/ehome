@@ -279,8 +279,10 @@ public class TestTestHome extends BasicTestCase {
 
 		// frost: the Tastsensor's room temperature below 17 °C switches C on, from 17.5 °C off.
 		// The actuator's status telegrams of C arrive in between, so the steps wait for the room
-		// temperature to arrive rather than count telegrams.
+		// temperature to arrive rather than count telegrams, each after the telegrams of the step
+		// before have left (on a loaded CI machine a value sent into them did not arrive in 5 s).
 		for (String[] step : new String[][] { { "16.5", "true" }, { "17.2", "true" }, { "17.6", "false" } }) {
+			simulation.awaitSent();
 			running.send(ROOM_TEMPERATURE, step[0]);
 			awaitValue(simulation, ROOM_TEMPERATURE, Val.ofReal(Double.parseDouble(step[0])));
 			assertEquals(step[0], Val.ofBool(Boolean.parseBoolean(step[1])), simulation.value(C));
@@ -375,7 +377,7 @@ public class TestTestHome extends BasicTestCase {
 	}
 
 	private static void awaitValue(Simulation simulation, String datapoint, Val expected) throws InterruptedException {
-		long deadline = System.currentTimeMillis() + TIMEOUT;
+		long deadline = System.currentTimeMillis() + 4 * TIMEOUT;
 		while (!expected.equals(simulation.value(datapoint)) && System.currentTimeMillis() < deadline) {
 			Thread.sleep(10);
 		}
