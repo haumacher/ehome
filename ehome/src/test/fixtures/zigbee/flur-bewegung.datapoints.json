@@ -1,0 +1,71 @@
+{
+	"datapoints": [
+		{
+			"id": "flur.presence",
+			"label": {
+				"de": "Flur Bewegung",
+				"en": "Hall motion"
+			},
+			"type": "boolean",
+			"readOnStart": true,
+			"zigbee": {
+				"ieee": "0017880106498a49",
+				"endpoint": 2,
+				"cluster": 1030,
+				"attribute": 0
+			}
+		},
+		{
+			"id": "flur.lux",
+			"label": {
+				"de": "Flur Helligkeit",
+				"en": "Hall illuminance"
+			},
+			"type": "real",
+			"unit": "lx",
+			"readOnStart": true,
+			"zigbee": {
+				"ieee": "0017880106498a49",
+				"endpoint": 2,
+				"cluster": 1024,
+				"attribute": 0,
+				"reporting": {
+					"min": 10,
+					"max": 300
+				}
+			}
+		},
+		{
+			"id": "flur.temperature",
+			"label": {
+				"de": "Flur Temperatur",
+				"en": "Hall temperature"
+			},
+			"type": "real",
+			"unit": "°C",
+			"readOnStart": true,
+			"zigbee": {
+				"ieee": "0017880106498a49",
+				"endpoint": 2,
+				"cluster": 1026,
+				"attribute": 0
+			}
+		},
+		{
+			"id": "flur.battery",
+			"label": {
+				"de": "Flur Batterie",
+				"en": "Hall battery"
+			},
+			"type": "real",
+			"unit": "%",
+			"readOnStart": true,
+			"zigbee": {
+				"ieee": "0017880106498a49",
+				"endpoint": 2,
+				"cluster": 1,
+				"attribute": 33
+			}
+		}
+	]
+}

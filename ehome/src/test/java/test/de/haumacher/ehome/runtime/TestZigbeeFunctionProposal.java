@@ -37,7 +37,6 @@ import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.FunctionProposal.Proposal;
-import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleImport;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
@@ -50,10 +49,11 @@ import de.haumacher.ehome.zigbee.ZigbeeImport;
  * Functions proposed for the bound Zigbee datapoints of a project (haumacher/ehome #68).
  *
  * <ul>
- * <li>The test home (<code>doc/test-home.md</code>): the KNX test system with the hallway sensor "Flur
+ * <li>The KNX test system with the hallway sensor "Flur
  * Bewegung" (the controller's export <code>src/test/fixtures/zigbee/flur-bewegung.export.json</code>,
- * the Philips type of the catalog) and the four datapoints of <code>samples/KNX-Testsystem.home.json</code>
- * bound to it (the sample's plug datapoint left out): four sensors named by the device and the catalog's names of the functions, in the
+ * the Philips type of the catalog) and the four datapoints bound to it
+ * (<code>src/test/fixtures/zigbee/flur-bewegung.datapoints.json</code>, the test home's before it
+ * dropped the sensor): four sensors named by the device and the catalog's names of the functions, in the
  * device's room, keyed by IEEE address, endpoint and function; the KNX proposals are the ones without
  * the sensor. A dismissed one stays dismissed across runs and a new import of the export.</li>
  * <li>Devices of an export written here: on/off with level on one endpoint is a dimmer, on/off alone
@@ -84,13 +84,9 @@ public class TestZigbeeFunctionProposal extends BasicTestCase {
 			importExport(project);
 			TLObject sensor = ZigbeeImport.devices(project).get(0);
 			TestFunctionProposal.update(sensor, "location", hall);
-			Map<?, ?> sample = (Map<?, ?>) Json.parse(
-				Files.readString(Path.of("samples/KNX-Testsystem.home.json"), StandardCharsets.UTF_8), 100);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				// The hallway sensor's datapoints; the plug of the test home is not paired here.
-				List<?> hallway = ((List<?>) sample.get("datapoints")).stream()
-					.filter(d -> String.valueOf(((Map<?, ?>) d).get("id")).startsWith("flur.")).toList();
-				new RuleImport().importImage(project, Json.write(Map.of("datapoints", hallway)));
+				new RuleImport().importImage(project, Files.readString(
+					Path.of("src/test/fixtures/zigbee/flur-bewegung.datapoints.json"), StandardCharsets.UTF_8));
 				tx.commit();
 			}
 			Map<String, TLObject> datapoints = new LinkedHashMap<>();

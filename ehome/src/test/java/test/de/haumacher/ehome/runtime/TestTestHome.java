@@ -46,30 +46,29 @@ import de.haumacher.ehome.virtual.device.GroupObject;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
 import de.haumacher.ehome.zigbee.ZigbeeExport;
 import de.haumacher.ehome.zigbee.ZigbeeImport;
-import de.haumacher.ehome.zigbee.ZigbeeReporting;
 
 /**
  * The test home of the KNX test system (<code>samples/KNX-Testsystem.home.json</code>,
  * <code>doc/test-home.md</code>): the project <code>samples/KNX-Testsystem.knxproj</code>, the Hue
- * motion sensor "Flur Bewegung" and the Hue smart plug "Hue Steckdose" of the controller's Zigbee
- * network (the controller's exports, <code>src/test/fixtures/zigbee/flur-bewegung.export.json</code>
- * and <code>hue-steckdose.export.json</code>, imported as a file import does),
- * the sample's rules, schedule entries, application datapoints and location imported in the tab
+ * smart plug "Hue Steckdose" of the controller's Zigbee network (the controller's export,
+ * <code>src/test/fixtures/zigbee/hue-steckdose.export.json</code>, imported as a file import does),
+ * the sample's rules, schedule entries, application datapoint and location imported in the tab
  * "Rules" ({@link RuleImport#importImage(TLObject, String)}).
  *
  * <ul>
  * <li>The project leaves only the room temperature (0/0/28) without a datapoint type, which a rule
- * needs; the test sets 9.001 as the dialog "Set datapoint type" does. Every address the rules write
- * is writable as the project's objects give it.</li>
- * <li>The import creates the four <code>flur.*</code> datapoints bound to the sensor's functions and
- * the writable <code>steckdose.on</code> bound to the plug's on/off, the reporting override of the
- * illuminance, the project's location and time zone; a second import
- * keeps the datapoints and says so.</li>
+ * needs; the test sets 9.001 as the dialog "Set datapoint type" does. The keys 1 to 4 and 6, whose
+ * switching objects the rules feed with the state they switch, are set writable as the datapoint
+ * settings of the address do; every other address the rules write is writable as the project's
+ * objects give it.</li>
+ * <li>The import creates the writable datapoint <code>steckdose.on</code> bound to the plug's on/off,
+ * the project's location and time zone; a second import keeps the datapoint and says so.</li>
  * <li>The image is valid with every rule loaded, and its rules, schedule entries and datapoints are
  * the sample's (the round trip).</li>
  * <li>The simulation runs the scenarios of the hardware checklist, starting Monday 2026-10-19 12:00
- * in Nürnberg: illuminance, frost, presence, keys, LEDs, the battery alarm and its acknowledgement,
- * the comparison of the temperatures, key 6 switching the plug and LED 5 showing it, dusk, the silence of the sensor, the night and the morning.</li>
+ * in Nürnberg: frost by the Tastsensor's room temperature, keys, LEDs, key 6 switching the plug and
+ * LED 5 and the key's own object following the plug (as the keys 1 to 4 follow the channels), the alarm of a silent plug, cleared by its next report and by the
+ * acknowledgement, dusk, the night and the morning.</li>
  * </ul>
  */
 @SuppressWarnings("javadoc")
@@ -94,7 +93,14 @@ public class TestTestHome extends BasicTestCase {
 
 	private static final String PLUG = "steckdose.on";
 
+	private static final String ROOM_TEMPERATURE = "0/0/28";
+
 	private static final String LED_PLUG = "0/0/11";
+
+	private static final String KEY_PLUG = "0/0/6";
+
+	/** The keys whose switching objects the rules write (the "Writable" setting of the address). */
+	private static final List<String> KEYS = List.of("Taste1", "Taste2", "Taste3", "Taste4", "Taste6");
 
 	public void testTestHome() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
@@ -185,8 +191,13 @@ public class TestTestHome extends BasicTestCase {
 			.filter(t -> "DPST-9-1".equals(t.tValueByName("extId"))).findFirst().orElseThrow();
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			GroupAddressTypes.setType(temperature, type);
-			ZigbeeImport.importExport(project,
-				ZigbeeExport.parse(read("src/test/fixtures/zigbee/flur-bewegung.export.json")));
+			// The keys' switching objects transmit on their addresses, so the derivation does not make
+			// them writable; the rules feed the channels' and the plug's state back to them.
+			for (TLObject key : SharedData.within("ehome.logical:GroupAddress", List.of(project))) {
+				if (KEYS.contains(key.tValueByName("name"))) {
+					key.tUpdateByName("runtimeWritable", Boolean.TRUE);
+				}
+			}
 			ZigbeeImport.importExport(project,
 				ZigbeeExport.parse(read("src/test/fixtures/zigbee/hue-steckdose.export.json")));
 			tx.commit();
@@ -201,28 +212,22 @@ public class TestTestHome extends BasicTestCase {
 			imported = importer.importImage(project, text);
 			tx.commit();
 		}
-		assertEquals(11, imported.rules().size());
+		assertEquals(8, imported.rules().size());
 		assertEquals(6, imported.schedules().size());
-		assertEquals(5, imported.datapoints().size());
+		assertEquals(1, imported.datapoints().size());
 		// The location and the time zone set; nothing else to say.
 		assertEquals(importer.getNotes().toString(), 2, importer.getNotes().size());
 		assertEquals(Double.valueOf(49.45), project.tValueByName("latitude"));
 		assertEquals(Double.valueOf(11.08), project.tValueByName("longitude"));
 		assertEquals("CET-1CEST,M3.5.0,M10.5.0/3", project.tValueByName("timeZone"));
 
-		Map<String, String> functions = Map.of("flur.presence", "occupancy", "flur.lux", "illuminance",
-			"flur.temperature", "temperature", "flur.battery", "battery", "steckdose.on", "on_off");
-		for (TLObject datapoint : imported.datapoints()) {
-			TLObject function = ZigbeeBindings.function(datapoint);
-			assertNotNull(ApplicationDatapoints.id(datapoint), function);
-			assertEquals(functions.get(ApplicationDatapoints.id(datapoint)), function.tValueByName("function"));
-			boolean plug = "steckdose.on".equals(ApplicationDatapoints.id(datapoint));
-			assertEquals(plug ? "001788010f069c8e" : "0017880106498a49", ZigbeeBindings.device(function).tValueByName("ieee"));
-			assertEquals(Boolean.valueOf(plug), Boolean.valueOf(ApplicationDatapoints.writable(datapoint)));
-			if ("flur.lux".equals(ApplicationDatapoints.id(datapoint))) {
-				assertEquals(Map.of("min", Long.valueOf(10), "max", Long.valueOf(300)), ZigbeeReporting.json(function));
-			}
-		}
+		TLObject plug = imported.datapoints().get(0);
+		assertEquals(PLUG, ApplicationDatapoints.id(plug));
+		assertTrue(ApplicationDatapoints.writable(plug));
+		TLObject function = ZigbeeBindings.function(plug);
+		assertNotNull(function);
+		assertEquals("on_off", function.tValueByName("function"));
+		assertEquals("001788010f069c8e", ZigbeeBindings.device(function).tValueByName("ieee"));
 
 		// Imported again, nothing is added: the rules, entries and datapoints are kept and named, the
 		// location and time zone are the same.
@@ -232,9 +237,9 @@ public class TestTestHome extends BasicTestCase {
 			assertEquals(0, second.rules().size() + second.schedules().size() + second.datapoints().size());
 			tx.commit();
 		}
-		assertEquals(again.getNotes().toString(), 22, again.getNotes().size());
-		assertEquals(5, ApplicationDatapoints.of(project).size());
-		assertEquals(11, ((java.util.Collection<?>) project.tValueByName("rules")).size());
+		assertEquals(again.getNotes().toString(), 15, again.getNotes().size());
+		assertEquals(1, ApplicationDatapoints.of(project).size());
+		assertEquals(8, ((java.util.Collection<?>) project.tValueByName("rules")).size());
 	}
 
 	private static void roundTrip(Map<String, Object> image, Map<?, ?> sample) {
@@ -265,38 +270,21 @@ public class TestTestHome extends BasicTestCase {
 
 	private static void simulate(ProjectSimulation running) throws Exception {
 		Simulation simulation = running.simulation();
-		assertEquals(11, simulation.rules().rules().size());
+		assertEquals(8, simulation.rules().rules().size());
 		GroupDevice button = device(running, 0x1332);
 		GroupDevice actuator = device(running, 0x1305);
 
 		// At noon the start sets channel B off (between dawn and dusk).
 		assertEquals(Val.ofBool(false), simulation.value(B));
 
-		// dark-light: dark switches A on, bright off.
-		running.send("flur.lux", "10");
-		assertEquals(Val.ofBool(true), simulation.value(A));
-		assertTrue(actuator.awaitValue(receiver(actuator, A), new byte[] { 1 }, TIMEOUT));
-		running.send("flur.lux", "100");
-		assertEquals(Val.ofBool(false), simulation.value(A));
-
-		// frost: below 17 °C on, from 17.5 °C off.
-		running.send("flur.temperature", "16.5");
-		assertEquals(Val.ofBool(true), simulation.value(C));
-		running.send("flur.temperature", "17.2");
-		assertEquals(Val.ofBool(true), simulation.value(C));
-		running.send("flur.temperature", "17.6");
-		assertEquals(Val.ofBool(false), simulation.value(C));
-
-		// presence-light: motion in the dark switches D on, D goes off 2 min after the last motion.
-		running.send("flur.lux", "10");
-		running.send("flur.presence", "true");
-		assertEquals(Val.ofBool(true), simulation.value(D));
-		running.send("flur.presence", "false");
-		assertEquals(Long.valueOf(120_000), simulation.timerRemaining("presence-light", "off"));
-		simulation.advance(119_000);
-		assertEquals(Val.ofBool(true), simulation.value(D));
-		simulation.advance(1_000);
-		assertEquals(Val.ofBool(false), simulation.value(D));
+		// frost: the Tastsensor's room temperature below 17 °C switches C on, from 17.5 °C off.
+		// The actuator's status telegrams of C arrive in between, so the steps wait for the room
+		// temperature to arrive rather than count telegrams.
+		for (String[] step : new String[][] { { "16.5", "true" }, { "17.2", "true" }, { "17.6", "false" } }) {
+			running.send(ROOM_TEMPERATURE, step[0]);
+			awaitValue(simulation, ROOM_TEMPERATURE, Val.ofReal(Double.parseDouble(step[0])));
+			assertEquals(step[0], Val.ofBool(Boolean.parseBoolean(step[1])), simulation.value(C));
+		}
 
 		// keys: key 1 switches A with its value.
 		long received = simulation.received();
@@ -310,17 +298,18 @@ public class TestTestHome extends BasicTestCase {
 		assertEquals(Val.ofBool(true), simulation.value(A));
 		assertTrue(actuator.awaitValue(receiver(actuator, A), new byte[] { 1 }, TIMEOUT));
 
-		// leds: the state of channel A lights LED 1.
+		// leds: the state of channel A lights LED 1 and is fed back to key 1.
 		received = simulation.received();
 		running.send("0/0/37", "true");
 		assertTrue(simulation.awaitReceived(received + 1, TIMEOUT));
 		assertEquals(Val.ofBool(true), simulation.value("0/0/7"));
 		assertTrue(button.awaitValue(receiver(button, "0/0/7"), new byte[] { 1 }, TIMEOUT));
+		assertEquals(Val.ofBool(true), simulation.value("0/0/1"));
 
 		// plug: key 6 switches the plug with its value, LED 5 shows the plug's state, also when the plug
 		// is switched at its own button.
 		received = simulation.received();
-		running.send("0/0/6", "true");
+		running.send(KEY_PLUG, "true");
 		assertTrue(simulation.awaitReceived(received + 1, TIMEOUT));
 		assertEquals(Val.ofBool(true), simulation.value(PLUG));
 		assertEquals(Val.ofBool(true), simulation.value(LED_PLUG));
@@ -328,30 +317,31 @@ public class TestTestHome extends BasicTestCase {
 		running.send(PLUG, "false");
 		assertEquals(Val.ofBool(false), simulation.value(LED_PLUG));
 		assertTrue(button.awaitValue(receiver(button, LED_PLUG), new byte[] { 0 }, TIMEOUT));
+		// The key's own switching object learns it too, so a toggling key sends "on" next.
+		assertEquals(Val.ofBool(false), simulation.value(KEY_PLUG));
+		assertTrue(button.awaitValue(receiver(button, KEY_PLUG), new byte[] { 0 }, TIMEOUT));
 
-		// temp-compare: the room temperature 21.5 °C against 17.6 °C in the hall.
-		received = simulation.received();
-		running.send("0/0/28", "21.5");
-		assertTrue(simulation.awaitReceived(received + 1, TIMEOUT));
-		assertLogged(simulation, "Raumtemperatur 21.5 °C, Flur 17.6 °C: Abweichung über 3 K.");
-
-		// sensor-watch: a low battery raises the alarm, the acknowledgement clears it.
-		running.send("flur.battery", "15");
+		// plug-watch: a plug silent for 15 min raises the alarm, its next report clears it; silent
+		// again, the acknowledgement clears it.
+		simulation.advance(15 * 60_000);
 		assertEquals(Val.ofBool(true), simulation.value(ALARM));
-		assertLogged(simulation, "Die Batterie des Flur-Sensors ist bei 15 %.");
+		assertLogged(simulation, "Die Steckdose meldet seit 15min nichts.");
+		running.send(PLUG, "false");
+		assertEquals(Val.ofBool(false), simulation.value(ALARM));
+		assertLogged(simulation, "Die Steckdose meldet sich wieder.");
+		simulation.advance(15 * 60_000);
+		assertEquals(Val.ofBool(true), simulation.value(ALARM));
 		received = simulation.received();
 		running.send("0/0/30", "true");
 		assertTrue(simulation.awaitReceived(received + 1, TIMEOUT));
 		assertEquals(Val.ofBool(false), simulation.value(ALARM));
+		assertLogged(simulation, "Alarm quittiert.");
 
-		// 19:00: B on since dusk; the presence simulation is disabled and has not toggled it. The
-		// hall sensor has not reported a temperature for 2 h: the alarm again.
+		// 19:00: B on since dusk; the presence simulation is disabled and has not toggled it.
 		advanceTo(simulation, 0, 19, 0);
 		assertEquals(Val.ofBool(true), simulation.value(B));
 		assertTrue(simulation.status("dusk-dawn").lastTrigger(), simulation.status("dusk-dawn").lastTrigger().contains("dusk"));
 		assertEquals(0, simulation.status("presence-sim").firings());
-		assertEquals(Val.ofBool(true), simulation.value(ALARM));
-		assertLogged(simulation, "Der Flur-Sensor meldet seit 2h keine Temperatur.");
 
 		// 22:00: every channel off, the night setback on.
 		assertEquals(Val.ofBool(true), simulation.value(A));
@@ -361,6 +351,13 @@ public class TestTestHome extends BasicTestCase {
 		}
 		assertEquals(Val.ofBool(true), simulation.value(NIGHT_SETBACK));
 		assertTrue(button.awaitValue(receiver(button, NIGHT_SETBACK), new byte[] { 1 }, TIMEOUT));
+		// Key 1, which switched A on, learns from A's status (sent here, as the actuator does) that A
+		// is off, so a toggling key 1 sends "on" next.
+		long beforeStatus = simulation.received();
+		running.send("0/0/37", "false");
+		assertTrue(simulation.awaitReceived(beforeStatus + 1, TIMEOUT));
+		assertEquals(Val.ofBool(false), simulation.value("0/0/1"));
+		assertTrue(button.awaitValue(receiver(button, "0/0/1"), new byte[] { 0 }, TIMEOUT));
 
 		// Tuesday 08:00: the night setback off at 06:30, B switched off at dawn.
 		advanceTo(simulation, 1, 8, 0);
@@ -375,6 +372,14 @@ public class TestTestHome extends BasicTestCase {
 	private static void advanceTo(Simulation simulation, int day, int hour, int minute) {
 		long target = (day * 86400L + (hour - 12) * 3600L + minute * 60L) * 1000;
 		simulation.advance(target - simulation.now());
+	}
+
+	private static void awaitValue(Simulation simulation, String datapoint, Val expected) throws InterruptedException {
+		long deadline = System.currentTimeMillis() + TIMEOUT;
+		while (!expected.equals(simulation.value(datapoint)) && System.currentTimeMillis() < deadline) {
+			Thread.sleep(10);
+		}
+		assertEquals(datapoint, expected, simulation.value(datapoint));
 	}
 
 	private static void assertLogged(Simulation simulation, String text) {
