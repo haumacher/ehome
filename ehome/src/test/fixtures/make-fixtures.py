@@ -121,6 +121,23 @@ reference ReadWrite), "Verborgene Vorgabe" (None, value 5, its reference without
 warns about the values of the visible parameters ("Sichtbar", "Sichtbar am Ort", "Sichtbare Vorgabe")
 and about the setting, not about those of the hidden ones.
 
+TestFunctionKeys.knxproj: the samples contain no dimming or blind actuator and no push-button sensor
+whose keys send on the inputs of an actuator (haumacher/ehome #92). This copy of the Test project
+replaces its device by two devices of two artificial programs of the BCU 1 kind (as in
+TestBcu1.knxproj, without parameters), marked as test data by their names, with numbered channels:
+"TEST Aktor" (1.0.1, program M-0008_A-FFF5-01-0000) with "Kanal A" (Schalten 1.001 on 1/1/1,
+Status 1.011 on 1/1/8), "Kanal B" (Schalten 1.001 on 1/1/2, Dimmen 3.007 on 1/1/3, Helligkeitswert
+5.001 on 1/1/4, Status Helligkeitswert 5.001 on 1/1/5), "Kanal C" (Fahren 1.008 on 2/1/1,
+Stopp/Lamellenverstellung 1.007 on 2/1/2, Position anfahren 5.001 on 2/1/3, Status Position on
+2/1/4, Lamellenposition on 2/1/5, Status Lamellenposition on 2/1/6) and "Zentral" (Schalten
+Zentral 1.001 on 1/0/0); "TEST Taster" (1.0.2, program M-0008_A-FFF6-01-0000) with "Taste 1"
+(sending on 1/1/1), "Taste 2" (Schalten on 1/1/2, Dimmen 3.007 on 1/1/3), "Wippe 3" (Langzeit
+1.008 on 2/1/1, Kurzzeit 1.007 on 2/1/2), "Taste 4" (on 1/0/0), "Taste 5" (on 1/1/7) and
+"Status-LED" (receiving 1/1/7). The actuator's objects receive (write flag), its status objects
+send; the keys' objects send and have the write flag as well (as the Gira push-button sensor of the
+test system), the status LED only receives. The objects without a datapoint type are the keys'
+1-bit objects and the LED; 1/1/7 has no type at all.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -606,6 +623,140 @@ def keep_details(name, xml):
     return details(xml) if name == PROJECT else xml
 
 
+# TestFunctionKeys.knxproj: an actuator and a push-button sensor of artificial programs (see the module
+# comment). An object: (name, size, write flag, transmit flag, datapoint type or None, group address).
+W, T, WT = (True, False), (False, True), (True, True)
+FUNCTION_PROGRAMS = [
+    ('M-0008_A-FFF5-01-0000', 'FFF5', 65525, 'TEST: Aktor (künstliche Testdaten)', [
+        ('Kanal A', [('Schalten', '1 Bit', W, 'DPST-1-1', '1/1/1'), ('Status', '1 Bit', T, 'DPST-1-11', '1/1/8')]),
+        ('Kanal B', [('Schalten', '1 Bit', W, 'DPST-1-1', '1/1/2'), ('Dimmen', '4 Bit', W, 'DPST-3-7', '1/1/3'),
+            ('Helligkeitswert', '1 Byte', W, 'DPST-5-1', '1/1/4'),
+            ('Status Helligkeitswert', '1 Byte', T, 'DPST-5-1', '1/1/5')]),
+        ('Kanal C', [('Fahren', '1 Bit', W, 'DPST-1-8', '2/1/1'),
+            ('Stopp/Lamellenverstellung', '1 Bit', W, 'DPST-1-7', '2/1/2'),
+            ('Position anfahren', '1 Byte', W, 'DPST-5-1', '2/1/3'), ('Status Position', '1 Byte', T, 'DPST-5-1', '2/1/4'),
+            ('Lamellenposition', '1 Byte', W, 'DPST-5-1', '2/1/5'),
+            ('Status Lamellenposition', '1 Byte', T, 'DPST-5-1', '2/1/6')]),
+        ('Zentral', [('Schalten Zentral', '1 Bit', W, 'DPST-1-1', '1/0/0')]),
+    ]),
+    ('M-0008_A-FFF6-01-0000', 'FFF6', 65526, 'TEST: Taster (künstliche Testdaten)', [
+        ('Taste 1', [('Schalten', '1 Bit', WT, None, '1/1/1')]),
+        ('Taste 2', [('Schalten', '1 Bit', WT, None, '1/1/2'), ('Dimmen', '4 Bit', WT, 'DPST-3-7', '1/1/3')]),
+        ('Wippe 3', [('Langzeit', '1 Bit', WT, 'DPST-1-8', '2/1/1'), ('Kurzzeit', '1 Bit', WT, 'DPST-1-7', '2/1/2')]),
+        ('Taste 4', [('Schalten', '1 Bit', WT, None, '1/0/0')]),
+        ('Taste 5', [('Schalten', '1 Bit', WT, None, '1/1/7')]),
+        ('Status-LED', [('Status-LED', '1 Bit', W, None, '1/1/7')]),
+    ]),
+]
+FUNCTION_HARDWARE = 'M-0008_H-TEST.20FUNKTION-1'
+# The names of the group addresses, by address.
+FUNCTION_ADDRESSES = {'1/0/0': 'Zentral', '1/1/1': 'Licht', '1/1/2': 'Dimmer', '1/1/3': 'Dimmer relativ',
+    '1/1/4': 'Dimmer Wert', '1/1/5': 'Dimmer Wert Status', '1/1/7': 'Melder', '1/1/8': 'Licht Status',
+    '2/1/1': 'Jalousie auf/ab', '2/1/2': 'Jalousie Stopp', '2/1/3': 'Jalousie Position',
+    '2/1/4': 'Jalousie Position Status', '2/1/5': 'Jalousie Lamelle', '2/1/6': 'Jalousie Lamelle Status'}
+
+
+def ga_value(text):
+    main, middle, sub = (int(part) for part in text.split('/'))
+    return (main << 11) | (middle << 8) | sub
+
+
+def function_objects(channels):
+    """The objects of the channels, numbered from 0, each with its channel number."""
+    result = []
+    for number, (_, objects) in enumerate(channels, 1):
+        for obj in objects:
+            result.append((len(result), number) + obj)
+    return result
+
+
+def function_program(program, number, name, channels):
+    segment = program + '_AS-0100'
+    objects = function_objects(channels)
+    comobjects = ''.join(
+        '<ComObject Id="{p}_O-%d" Name="%s" Text="%s" FunctionText="%s" Number="%d" ObjectSize="%s" Priority="Low" '
+        'CommunicationFlag="Enabled" ReadFlag="%s" WriteFlag="%s" TransmitFlag="%s" UpdateFlag="Disabled" '
+        'ReadOnInitFlag="Disabled"%s />\n' % (n, channels[c - 1][0], channels[c - 1][0], text, n, size,
+            'Enabled' if flags[1] else 'Disabled', 'Enabled' if flags[0] else 'Disabled',
+            'Enabled' if flags[1] else 'Disabled', '' if dpt is None else ' DatapointType="' + dpt + '"')
+        for n, c, text, size, flags, dpt, _ in objects)
+    corefs = ''.join('<ComObjectRef Id="{p}_O-%d_R-%d" RefId="{p}_O-%d" />\n' % (o[0], o[0] + 1, o[0]) for o in objects)
+    dynamic = ''.join('<Channel Name="%s" Text="%s" Number="%d" Id="{p}_CH-%d"><ParameterBlock Id="{p}_PB-%d" '
+        'Name="Objekte" Text="Objekte">' % (label, label, c, c, c)
+        + ''.join('<ComObjectRefRef RefId="{p}_O-%d_R-%d" />' % (o[0], o[0] + 1) for o in objects if o[1] == c)
+        + '</ParameterBlock></Channel>\n' for c, (label, _) in enumerate(channels, 1))
+    xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<KNX xmlns="http://knx.org/xml/project/11" CreatedBy="make-fixtures.py" ToolVersion="test">\n'
+        '<ManufacturerData><Manufacturer RefId="M-0008"><ApplicationPrograms>\n'
+        '<ApplicationProgram Id="{p}" Name="' + name + '" ApplicationNumber="' + str(number) + '" '
+        'ApplicationVersion="1" ProgramType="ApplicationProgram" MaskVersion="MV-0012" '
+        'LoadProcedureStyle="DefaultProcedure" PeiType="0" DefaultLanguage="de-DE" DynamicTableManagement="1" '
+        'Linkable="0" MinEtsVersion="4.0" NonRegRelevantDataVersion="0">\n'
+        '<Static>\n<Code><AbsoluteSegment Id="' + segment + '" Address="256" Size="256" UserMemory="0" /></Code>\n'
+        '<ComObjectTable CodeSegment="' + segment + '" Offset="54">\n' + comobjects + '</ComObjectTable>\n'
+        '<ComObjectRefs>\n' + corefs + '</ComObjectRefs>\n'
+        '<AddressTable CodeSegment="' + segment + '" Offset="22" MaxEntries="20" />\n'
+        '<AssociationTable CodeSegment="' + segment + '" Offset="80" MaxEntries="20" />\n'
+        '<Options ParameterByteOrder="BigEndian" />\n'
+        '</Static>\n'
+        '<Dynamic>' + dynamic + '</Dynamic>\n'
+        '</ApplicationProgram>\n</ApplicationPrograms></Manufacturer></ManufacturerData>\n</KNX>\n')
+    return xml.replace('{p}', program)
+
+
+def function_hardware(xml):
+    end = xml.rindex('</Hardware>', 0, xml.index('<Languages>'))
+    hardware = ''
+    for program, number, _, name, _ in FUNCTION_PROGRAMS:
+        short = name.split(' ')[1]
+        hardware += ('<Hardware Id="' + FUNCTION_HARDWARE + number + '" Name="TEST ' + short + '" SerialNumber="TEST '
+            + number + '" VersionNumber="1" HasIndividualAddress="1" HasApplicationProgram="1"><Products><Product Id="'
+            + FUNCTION_HARDWARE + number + '_P-TEST.20' + number + '" Text="TEST ' + short
+            + ' (künstliche Testdaten)" OrderNumber="TEST ' + number + '" IsRailMounted="1" DefaultLanguage="de-DE" />'
+            '</Products><Hardware2Programs><Hardware2Program Id="' + FUNCTION_HARDWARE + number + '_HP-' + number
+            + '-01-0000" MediumTypes="MT-0"><ApplicationProgramRef RefId="' + program + '" /></Hardware2Program>'
+            '</Hardware2Programs></Hardware>\n')
+    return xml[:end] + hardware + xml[end:]
+
+
+def function_devices(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+    addresses = sorted(FUNCTION_ADDRESSES, key=ga_value)
+    devices = ''
+    for n, (program, number, _, name, channels) in enumerate(FUNCTION_PROGRAMS, 1):
+        refs = ''.join('<ComObjectInstanceRef RefId="' + program + '_O-%d_R-%d" IsActive="1"><Connectors>'
+            '<Send GroupAddressRefId="P-01A0-0_GA-%d" /></Connectors></ComObjectInstanceRef>\n'
+            % (o[0], o[0] + 1, addresses.index(o[6]) + 1) for o in function_objects(channels))
+        devices += ('<DeviceInstance Id="P-01A0-0_DI-' + str(n) + '" Name="TEST ' + name.split(' ')[1]
+            + '" ProductRefId="' + FUNCTION_HARDWARE + number + '_P-TEST.20' + number + '" Hardware2ProgramRefId="'
+            + FUNCTION_HARDWARE + number + '_HP-' + number + '-01-0000" Address="' + str(n)
+            + '" LastModified="2026-11-07T12:00:00">\n<ComObjectInstanceRefs>\n' + refs
+            + '</ComObjectInstanceRefs>\n</DeviceInstance>\n')
+    xml = xml[:start] + devices + xml[end:]
+    start = xml.index('<GroupRanges>')
+    end = xml.index('</GroupRanges>') + len('</GroupRanges>')
+    ranges = ''
+    for main in (1, 2):
+        ranges += ('<GroupRange Id="P-01A0-0_GR-%d" Name="HG%d" RangeStart="%d" RangeEnd="%d">'
+            % (main, main, main << 11, (main << 11) + 2047)
+            + ''.join('<GroupAddress Id="P-01A0-0_GA-%d" Address="%d" Name="%s" />'
+                % (addresses.index(a) + 1, ga_value(a), FUNCTION_ADDRESSES[a])
+                for a in addresses if a.startswith(str(main) + '/'))
+            + '</GroupRange>\n')
+    return xml[:start] + '<GroupRanges>\n' + ranges + '</GroupRanges>' + xml[end:]
+
+
+def function_keys(name, xml):
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestFunctionKeys')
+    if name == PROJECT:
+        return function_devices(xml)
+    if name == 'M-0008/Hardware.xml':
+        return function_hardware(xml)
+    return xml
+
+
 # Renames of the product data in TestNewProduct (applied to the entry names as well).
 NEW_PRODUCT_IDS = [
     (VERSION, '10D7-11-A0E5-O00F0'),
@@ -983,5 +1134,8 @@ languages_fixture('src/test/fixtures/TestLanguagesA.knxprod', {LANGUAGE_PROGRAMS
 languages_fixture('src/test/fixtures/TestLanguagesB.knxprod', {LANGUAGE_PROGRAMS[0][0]})
 write('src/test/fixtures/TestHiddenValues.knxproj', hidden_values,
     rename=lambda name: name.replace(VERSION, HIDDEN_VERSION))
+write('src/test/fixtures/TestFunctionKeys.knxproj', function_keys,
+    [('M-0008/' + program + '.xml', function_program(program, number, name, channels))
+     for program, _, number, name, channels in FUNCTION_PROGRAMS])
 master_data_only('src/test/fixtures/TestMasterDataOld.knxproj', 1001, False)
 master_data_only('src/test/fixtures/TestMasterDataNew.knxproj', 1002, True)

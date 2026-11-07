@@ -8,6 +8,7 @@ import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +24,7 @@ import java.util.regex.Pattern;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResourcesModule;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
@@ -89,7 +91,16 @@ import de.haumacher.ehome.zigbee.ZigbeeStatus;
  * input is the switching command of a dimmer as well. (A push-button sensor's status LEDs, inputs
  * of 1 bit named "Status-LED 1", stay without a function.)</li>
  * <li><code>button</code>: an output of a truth value in a channel named for a key
- * (Taste/Taster/Wippe/button/rocker/push) is the press.</li>
+ * (Taste/Taster/Wippe/button/rocker/push) is the press. A function is built from the receiving
+ * side (haumacher/ehome #92): a key channel gives no button where any address one of its objects
+ * sends on is a command role ({@link FunctionKinds#COMMAND_ROLES}) of a function of another device,
+ * one the project has or one the same run proposes, added or not (the key is then an operating
+ * element of that function, "Taste 1" switching the light "Kanal A"; a dismissed light does not
+ * turn its key into a button); the buttons are therefore decided after all
+ * other functions of the run. A key sending on an address only central objects without a function
+ * or other keys' status LEDs receive stays a button: nothing else represents it on the
+ * controller. A button the project has already stays as well; {@link #redundancy(TLObject)} says
+ * why it is redundant.</li>
  * <li><code>sensor</code>, one per object: an output of a measured value (DPT 9.x, 14.x) or of an
  * alarm, open/closed, occupancy or window contact (1.005, 1.009, 1.018, 1.019).</li>
  * </ol>
@@ -280,9 +291,12 @@ public final class FunctionProposal {
 	 *        key.
 	 * @param scene
 	 *        The scene number of a scene function, <code>null</code> for another kind.
+	 * @param sends
+	 *        For a button of a key channel, the group addresses the channel's objects send on (each
+	 *        object's sending address); empty for another function.
 	 */
 	public record Proposal(String kind, Map<String, String> label, Map<String, TLObject> roles, TLObject device,
-			String channel, Integer scene) {
+			String channel, Integer scene, List<TLObject> sends) {
 
 		/**
 		 * The name as multilingual text.
@@ -299,69 +313,79 @@ public final class FunctionProposal {
 	/**
 	 * Adds the proposed functions the project lacks; must run in a transaction.
 	 *
+	 * <p>
+	 * The buttons of key channels are decided last, after all other functions of the run
+	 * (haumacher/ehome #92): a key channel gives no button where one of the group addresses its
+	 * objects send on is a command role ({@link FunctionKinds#COMMAND_ROLES}) of a function of
+	 * another device, one the project has or one this run proposes (added or not: a dismissed
+	 * light does not turn its key into a button); the key is then an operating element of that
+	 * function.
+	 * </p>
+	 *
 	 * @return The functions added.
 	 */
 	public static List<TLObject> apply(TLObject project) {
 		List<TLObject> existing = functions(project);
-		Set<String> proposedChannels = new HashSet<>();
-		Set<String> boundMainRoles = new HashSet<>();
-		Set<TLObject> usedDatapoints = new HashSet<>();
-		Set<String> identifiers = new HashSet<>();
+		Decision decision = new Decision();
 		for (TLObject function : existing) {
 			String identity = identity(function.tValueByName("device"), function.tValueByName("channel"));
 			if (identity != null) {
-				proposedChannels.add(identity);
+				decision._proposedChannels.add(identity);
 			}
 			String kind = kind(function);
 			String main = FunctionKinds.mainRole(kind);
 			if (main != null && function.tValueByName(main) instanceof TLObject address) {
-				boundMainRoles.add(mainKey(kind, address, function.tValueByName("scene")));
+				decision._boundMainRoles.add(mainKey(kind, address, function.tValueByName("scene")));
 			}
 			for (String role : FunctionKinds.roles(kind)) {
 				if (function.tValueByName(role) instanceof TLObject datapoint) {
-					usedDatapoints.add(datapoint);
+					decision._usedDatapoints.add(datapoint);
+				}
+			}
+			for (String role : FunctionKinds.commandRoles(kind)) {
+				if (function.tValueByName(role) instanceof TLObject datapoint) {
+					decision.commands(datapoint, function.tValueByName("device"));
 				}
 			}
 			if (function.tValueByName("identifier") != null) {
-				identifiers.add(function.tValueByName("identifier").toString());
+				decision._identifiers.add(function.tValueByName("identifier").toString());
 			}
 		}
 
-		Set<String> dismissed = new HashSet<>();
 		for (TLObject dismissal : list(project, DISMISSED)) {
 			String identity = identity(dismissal.tValueByName("device"), dismissal.tValueByName("channel"));
 			if (identity != null) {
-				dismissed.add(kind(dismissal) + " " + identity);
+				decision._dismissed.add(kind(dismissal) + " " + identity);
+			}
+		}
+
+		List<Proposal> proposals = propose(project);
+		boolean[] accepted = new boolean[proposals.size()];
+		for (int n = 0; n < proposals.size(); n++) {
+			Proposal proposal = proposals.get(n);
+			if (proposal.sends().isEmpty()) {
+				accepted[n] = decision.accept(proposal);
+				// Added or not (dismissed, bound already): the key operates the actuator's channel.
+				for (String role : FunctionKinds.commandRoles(proposal.kind())) {
+					TLObject datapoint = proposal.roles().get(role);
+					if (datapoint != null) {
+						decision.commands(datapoint, proposal.device());
+					}
+				}
+			}
+		}
+		for (int n = 0; n < proposals.size(); n++) {
+			Proposal proposal = proposals.get(n);
+			if (!proposal.sends().isEmpty() && !decision.commandedElsewhere(proposal) && decision.accept(proposal)) {
+				accepted[n] = true;
 			}
 		}
 
 		List<TLObject> added = new ArrayList<>();
-		for (Proposal proposal : propose(project)) {
-			String identity = identity(proposal.device(), proposal.channel());
-			if (proposedChannels.contains(identity)) {
-				continue;
+		for (int n = 0; n < proposals.size(); n++) {
+			if (accepted[n]) {
+				added.add(create(proposals.get(n), decision._identifiers));
 			}
-			if (dismissed.contains(proposal.kind() + " " + identity)) {
-				continue;
-			}
-			if (zigbee(proposal.channel()) || proposal.channel().startsWith(BLOCK_CHANNEL)) {
-				if (proposal.roles().values().stream().anyMatch(usedDatapoints::contains)) {
-					continue;
-				}
-				TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
-				if (proposal.channel().startsWith(BLOCK_CHANNEL)
-					&& !boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()))) {
-					// A sun shading's blind moves the actuator whose channel was proposed a blind already.
-					continue;
-				}
-				usedDatapoints.addAll(proposal.roles().values());
-			} else {
-				TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
-				if (!boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()))) {
-					continue;
-				}
-			}
-			added.add(create(proposal, identifiers));
 		}
 		if (!added.isEmpty()) {
 			List<TLObject> all = new ArrayList<>(existing);
@@ -369,6 +393,106 @@ public final class FunctionProposal {
 			project.tUpdateByName("functions", all);
 		}
 		return added;
+	}
+
+	/**
+	 * What decides whether a proposal of a run of {@link FunctionProposal#apply(TLObject)} is
+	 * added: what the project's functions and the proposals added before bind.
+	 */
+	private static final class Decision {
+
+		final Set<String> _proposedChannels = new HashSet<>();
+
+		final Set<String> _boundMainRoles = new HashSet<>();
+
+		final Set<TLObject> _usedDatapoints = new HashSet<>();
+
+		final Set<String> _identifiers = new HashSet<>();
+
+		final Set<String> _dismissed = new HashSet<>();
+
+		/**
+		 * The datapoints bound to a command role, each with the devices of the functions binding it
+		 * (<code>null</code> for a function without a device).
+		 */
+		final Map<TLObject, List<Object>> _commanded = new HashMap<>();
+
+		void commands(TLObject datapoint, Object device) {
+			_commanded.computeIfAbsent(datapoint, d -> new ArrayList<>()).add(device);
+		}
+
+		/**
+		 * Whether one of the addresses the key channel of the button sends on is a command role of a
+		 * function of another device.
+		 */
+		boolean commandedElsewhere(Proposal button) {
+			for (TLObject address : button.sends()) {
+				for (Object device : _commanded.getOrDefault(address, List.of())) {
+					if (device != button.device()) {
+						return true;
+					}
+				}
+			}
+			return false;
+		}
+
+		/**
+		 * Whether the proposal is added: no function was proposed for its channel, it is not
+		 * dismissed, and no function binds what it binds; records what it binds if so.
+		 */
+		boolean accept(Proposal proposal) {
+			String identity = identity(proposal.device(), proposal.channel());
+			if (_proposedChannels.contains(identity)) {
+				return false;
+			}
+			if (_dismissed.contains(proposal.kind() + " " + identity)) {
+				return false;
+			}
+			TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
+			if (zigbee(proposal.channel()) || proposal.channel().startsWith(BLOCK_CHANNEL)) {
+				if (proposal.roles().values().stream().anyMatch(_usedDatapoints::contains)) {
+					return false;
+				}
+				if (proposal.channel().startsWith(BLOCK_CHANNEL)
+					&& !_boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()))) {
+					// A sun shading's blind moves the actuator whose channel was proposed a blind already.
+					return false;
+				}
+				_usedDatapoints.addAll(proposal.roles().values());
+				return true;
+			}
+			return _boundMainRoles.add(mainKey(proposal.kind(), main, proposal.scene()));
+		}
+	}
+
+	/**
+	 * Why the given function is redundant on the controller, as text in the user's language;
+	 * <code>null</code> if it is not (haumacher/ehome #92): a button whose press is bound to a command
+	 * role of another function of the project (of another device, where both have one), which the
+	 * proposal would not have added. The text names the address, the role and the function.
+	 */
+	public static String redundancy(TLObject function) {
+		if (!"button".equals(kind(function)) || !(function.tValueByName("press") instanceof TLObject press)
+			|| !(function.tContainer() instanceof TLObject project)) {
+			return null;
+		}
+		Object device = function.tValueByName("device");
+		for (TLObject other : functions(project)) {
+			if (other == function || (device != null && other.tValueByName("device") == device)) {
+				continue;
+			}
+			for (String role : FunctionKinds.commandRoles(kind(other))) {
+				if (other.tValueByName(role) == press) {
+					Resources resources = Resources.getInstance();
+					return resources.getString(I18NConstants.BUTTON_REPEATS_COMMAND__ADDRESS_ROLE_FUNCTION.fill(
+						MetaLabelProvider.INSTANCE.getLabel(press),
+						MetaLabelProvider.INSTANCE.getLabel(other.tType().getPart(role)),
+						other.tValueByName("name") instanceof ResKey name ? resources.getString(name)
+							: String.valueOf(other.tValueByName("identifier"))));
+				}
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -617,7 +741,7 @@ public final class FunctionProposal {
 		} else {
 			label.put("en", id);
 		}
-		result.add(new Proposal(kind, label, roles, instance, BLOCK_CHANNEL + id, null));
+		result.add(new Proposal(kind, label, roles, instance, BLOCK_CHANNEL + id, null, List.of()));
 	}
 
 	/** The datapoint the output of the instance is bound to, <code>null</code> for none. */
@@ -696,7 +820,7 @@ public final class FunctionProposal {
 					continue;
 				}
 				result.add(new Proposal(kind, zigbeeLabel(device, named, shared ? endpoint.getKey() : null), roles, device,
-					ZIGBEE_CHANNEL + device.tValueByName("ieee") + ":" + endpoint.getKey() + ":" + key, null));
+					ZIGBEE_CHANNEL + device.tValueByName("ieee") + ":" + endpoint.getKey() + ":" + key, null, List.of()));
 			}
 		}
 	}
@@ -924,7 +1048,7 @@ public final class FunctionProposal {
 			put(roles, "positionCommand", first(objects, o -> o.input() && o.is(5, 1) && !o.named(SLAT)));
 			put(roles, "slat", first(objects, o -> o.output() && o.is(5, 1) && o.named(SLAT)));
 			put(roles, "slatCommand", first(objects, o -> o.input() && o.is(5, 1) && o.named(SLAT)));
-			result.add(new Proposal("blind", channel.label(), roles, device, channel.key(), null));
+			result.add(new Proposal("blind", channel.label(), roles, device, channel.key(), null, List.of()));
 			return;
 		}
 
@@ -940,7 +1064,7 @@ public final class FunctionProposal {
 			put(roles, "command", command);
 			put(roles, "state", state);
 			put(roles, "step", first(objects, o -> o.input() && o.is(3, 7)));
-			result.add(new Proposal("dimmer", channel.label(), roles, device, channel.key(), null));
+			result.add(new Proposal("dimmer", channel.label(), roles, device, channel.key(), null, List.of()));
 			return;
 		}
 
@@ -957,7 +1081,7 @@ public final class FunctionProposal {
 			put(roles, "mode", mode);
 			put(roles, "modeCommand", modeCommand);
 			put(roles, "heating", first(objects, o -> o.output() && !o.input() && o.bool() && o.named(HEATING)));
-			result.add(new Proposal("climate", channel.label(), roles, device, channel.key(), null));
+			result.add(new Proposal("climate", channel.label(), roles, device, channel.key(), null, List.of()));
 			return;
 		}
 
@@ -968,14 +1092,20 @@ public final class FunctionProposal {
 			roles.put("command", command.address());
 			put(roles, "state", state);
 			String kind = channel.named(SOCKET) || command.named(SOCKET) ? "switch" : "light";
-			result.add(new Proposal(kind, channel.label(), roles, device, channel.key(), null));
+			result.add(new Proposal(kind, channel.label(), roles, device, channel.key(), null, List.of()));
 			return;
 		}
 
 		Obj press = channel.named(KEY) ? first(objects, o -> o.output() && !o.input() && o.bool()) : null;
 		if (press != null) {
 			roles.put("press", press.address());
-			result.add(new Proposal("button", channel.label(), roles, device, channel.key(), null));
+			List<TLObject> sends = new ArrayList<>();
+			for (Obj obj : objects) {
+				if (obj.output() && !sends.contains(obj.address())) {
+					sends.add(obj.address());
+				}
+			}
+			result.add(new Proposal("button", channel.label(), roles, device, channel.key(), null, sends));
 			return;
 		}
 
@@ -984,7 +1114,7 @@ public final class FunctionProposal {
 			Map<String, String> label = values.size() == 1 ? channel.label()
 				: texts(value.languages(), r -> channel.label().getOrDefault(language(r), "") + " "
 					+ GroupAddressConnections.function(value.connection(), r));
-			result.add(new Proposal("sensor", label, Map.of("value", value.address()), device, channel.key(), null));
+			result.add(new Proposal("sensor", label, Map.of("value", value.address()), device, channel.key(), null, List.of()));
 		}
 	}
 
@@ -1006,7 +1136,7 @@ public final class FunctionProposal {
 				}
 			}
 			result.add(new Proposal("scene", label, Map.of("command", scene.address()), device,
-				channel.key() + " scene " + number, number));
+				channel.key() + " scene " + number, number, List.of()));
 		}
 	}
 

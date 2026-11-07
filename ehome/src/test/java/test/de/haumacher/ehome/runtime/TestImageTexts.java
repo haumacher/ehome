@@ -62,7 +62,8 @@ public class TestImageTexts extends BasicTestCase {
 			apply(project);
 			RuntimeImage image = valid(project);
 			List<?> functions = (List<?>) image.getJson().get("functions");
-			assertEquals(6, functions.size());
+			// The three sockets; the keys sending on their commands are no buttons (haumacher/ehome #92).
+			assertEquals(3, functions.size());
 			for (int n = 0; n < functions.size(); n++) {
 				TLObject function = image.getFunctionSources().get(n);
 				Object label = ((Map<?, ?>) functions.get(n)).get("label");
@@ -122,7 +123,7 @@ public class TestImageTexts extends BasicTestCase {
 			image = RuntimeImage.build(project, 1, NOW);
 			assertNotNull(result.get("file"));
 			assertEquals("The runtime image is valid: " + datapoints + " datapoints, " + locations
-				+ " locations, 6 functions, 3 settings, " + number(image.getBytes().length)
+				+ " locations, 3 functions, 3 settings, " + number(image.getBytes().length)
 				+ " bytes. The time master sends on 0/0/60, 0/0/61.", english(result.get("summary")));
 		});
 	}

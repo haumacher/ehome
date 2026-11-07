@@ -17,12 +17,23 @@
 	Deleting a proposed function remembers it as dismissed (haumacher/ehome #49), so the next proposal
 	does not bring it back; the dismissed proposals are listed below the functions, and "Restore
 	proposal" deletes the dismissal, so the next proposal adds the function again.
+
+	A button whose press is the command of another function (haumacher/ehome #92: a key operating an
+	actuator's channel, which the proposal no longer makes a button) shows a warning in the column
+	"Warning" and above its form (functionRedundancy, de.haumacher.ehome.runtime.FunctionProposal);
+	the user deletes it.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="function"/>
 		<channel name="dismissal"/>
+		<!-- Why the selected function is redundant on the controller; nothing if it is not. -->
+		<derived-channel name="redundancy"
+			expr="functionRedundancy($function)"
+			inputs="function"
+			observed-types="ehome.runtime:Function"
+		/>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -142,6 +153,16 @@
 										<column attribute="room"/>
 										<column attribute="identifier"/>
 										<column attribute="device"/>
+										<computed-column name="warning"
+											type="tl.core:String"
+											width="300"
+										>
+											<label>
+												<en>Warning</en>
+												<de>Warnung</de>
+											</label>
+											<value>functionRedundancy($row)</value>
+										</computed-column>
 									</columns>
 									<rows>if($project == null, [], $project.get(`ehome.project:Project#functions`))</rows>
 								</table>
@@ -206,51 +227,64 @@
 						<en>Function</en>
 						<de>Funktion</de>
 					</title>
-					<form
-						input="function"
-						with-inset="true"
-					>
-						<field attribute="name"/>
-						<field attribute="kind"/>
-						<field attribute="room"/>
-						<field attribute="identifier"/>
-						<field attribute="unit"/>
-						<field attribute="scene"/>
-						<group>
-							<label>
-								<en>Datapoints</en>
-								<de>Datenpunkte</de>
-							</label>
-							<field attribute="command"/>
-							<field attribute="state"/>
-							<field attribute="levelCommand"/>
-							<field attribute="level"/>
-							<field attribute="step"/>
-							<field attribute="move"/>
-							<field attribute="stop"/>
-							<field attribute="position"/>
-							<field attribute="positionCommand"/>
-							<field attribute="slat"/>
-							<field attribute="slatCommand"/>
-							<field attribute="value"/>
-							<field attribute="temperature"/>
-							<field attribute="setpoint"/>
-							<field attribute="setpointCommand"/>
-							<field attribute="mode"/>
-							<field attribute="modeCommand"/>
-							<field attribute="heating"/>
-							<field attribute="press"/>
-						</group>
-						<group>
-							<label>
-								<en>Proposed for</en>
-								<de>Vorgeschlagen für</de>
-							</label>
-							<field attribute="device"
-								readonly="true"
-							/>
-						</group>
-					</form>
+					<stack>
+						<visible-if
+							expr="$redundancy != null"
+							input="redundancy"
+						>
+							<inset>
+								<text
+									input="redundancy"
+									tone="warning"
+								/>
+							</inset>
+						</visible-if>
+						<form
+							input="function"
+							with-inset="true"
+						>
+							<field attribute="name"/>
+							<field attribute="kind"/>
+							<field attribute="room"/>
+							<field attribute="identifier"/>
+							<field attribute="unit"/>
+							<field attribute="scene"/>
+							<group>
+								<label>
+									<en>Datapoints</en>
+									<de>Datenpunkte</de>
+								</label>
+								<field attribute="command"/>
+								<field attribute="state"/>
+								<field attribute="levelCommand"/>
+								<field attribute="level"/>
+								<field attribute="step"/>
+								<field attribute="move"/>
+								<field attribute="stop"/>
+								<field attribute="position"/>
+								<field attribute="positionCommand"/>
+								<field attribute="slat"/>
+								<field attribute="slatCommand"/>
+								<field attribute="value"/>
+								<field attribute="temperature"/>
+								<field attribute="setpoint"/>
+								<field attribute="setpointCommand"/>
+								<field attribute="mode"/>
+								<field attribute="modeCommand"/>
+								<field attribute="heating"/>
+								<field attribute="press"/>
+							</group>
+							<group>
+								<label>
+									<en>Proposed for</en>
+									<de>Vorgeschlagen für</de>
+								</label>
+								<field attribute="device"
+									readonly="true"
+								/>
+							</group>
+						</form>
+					</stack>
 				</panel>
 			</pane>
 		</panes>

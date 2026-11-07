@@ -27,9 +27,10 @@ import de.haumacher.ehome.runtime.FunctionProposal;
 
 /**
  * A deleted proposed function stays dismissed (haumacher/ehome #49): on the demo project
- * (<code>samples/EHomeDemo.knxproj</code>, three sockets and three buttons), deleting a proposed
- * button records a dismissal for its device, channel and kind, the next proposals do not bring it
- * back, deleting a function the user made records nothing, and deleting the dismissal brings the
+ * (<code>samples/EHomeDemo.knxproj</code>, three sockets; the keys sending on their commands give
+ * no buttons, haumacher/ehome #92), deleting a proposed socket records a dismissal for its device,
+ * channel and kind, the next proposals do not bring it back (nor a button for the key switching
+ * it), deleting a function the user made records nothing, and deleting the dismissal brings the
  * proposal back with the same name.
  */
 @SuppressWarnings("javadoc")
@@ -41,29 +42,29 @@ public class TestFunctionDismissal extends BasicTestCase {
 		List<TLObject> projects = SharedData.newProjects(before);
 		try {
 			TLObject project = projects.get(0);
-			assertEquals(6, apply(project).size());
-			TLObject button = FunctionProposal.functions(project).stream()
-				.filter(f -> "button".equals(FunctionProposal.kind(f))).findFirst().orElseThrow();
-			Object name = button.tValueByName("name");
-			Object device = button.tValueByName("device");
-			Object channel = button.tValueByName("channel");
+			assertEquals(3, apply(project).size());
+			TLObject socket = FunctionProposal.functions(project).stream()
+				.filter(f -> "switch".equals(FunctionProposal.kind(f))).findFirst().orElseThrow();
+			Object name = socket.tValueByName("name");
+			Object device = socket.tValueByName("device");
+			Object channel = socket.tValueByName("channel");
 			assertNotNull(device);
 			assertNotNull(channel);
 
-			TLObject dismissal = dismiss(button);
+			TLObject dismissal = dismiss(socket);
 			assertNotNull(dismissal);
-			assertFalse(button.tValid());
+			assertFalse(socket.tValid());
 			assertEquals(List.of(dismissal), dismissals(project));
 			assertEquals(name, dismissal.tValueByName("name"));
-			assertEquals("button", FunctionProposal.kind(dismissal));
+			assertEquals("switch", FunctionProposal.kind(dismissal));
 			assertSame(device, dismissal.tValueByName("device"));
 			assertEquals(channel, dismissal.tValueByName("channel"));
-			assertEquals(5, FunctionProposal.functions(project).size());
+			assertEquals(2, FunctionProposal.functions(project).size());
 
-			// Two more runs of the proposal: the button stays away, the dismissal stays.
+			// Two more runs of the proposal: the socket stays away, the dismissal stays.
 			assertEquals(List.of(), apply(project));
 			assertEquals(List.of(), apply(project));
-			assertEquals(5, FunctionProposal.functions(project).size());
+			assertEquals(2, FunctionProposal.functions(project).size());
 			assertEquals(List.of(dismissal), dismissals(project));
 
 			// A function the user made is deleted without a dismissal.
@@ -80,7 +81,7 @@ public class TestFunctionDismissal extends BasicTestCase {
 			assertNull(dismiss(own));
 			assertEquals(List.of(dismissal), dismissals(project));
 
-			// Undone: the next proposal brings the button back, named as before.
+			// Undone: the next proposal brings the socket back, named as before.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				dismissal.tDelete();
 				tx.commit();
@@ -88,7 +89,7 @@ public class TestFunctionDismissal extends BasicTestCase {
 			assertEquals(List.of(), dismissals(project));
 			List<TLObject> back = apply(project);
 			assertEquals(1, back.size());
-			assertEquals("button", FunctionProposal.kind(back.get(0)));
+			assertEquals("switch", FunctionProposal.kind(back.get(0)));
 			assertSame(device, back.get(0).tValueByName("device"));
 			assertEquals(channel, back.get(0).tValueByName("channel"));
 			assertEquals(name, back.get(0).tValueByName("name"));

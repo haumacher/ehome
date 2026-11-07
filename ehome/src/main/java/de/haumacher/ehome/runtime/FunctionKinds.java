@@ -29,6 +29,19 @@ public final class FunctionKinds {
 		"scene", List.of("command"),
 		"button", List.of("press", "state"));
 
+	/**
+	 * The command roles by kind: the roles through which the controller writes the datapoint
+	 * (italic in homecontrol <code>spec/runtime-image.md</code> 3.5), in the order of
+	 * {@link #ROLES}.
+	 */
+	public static final Map<String, List<String>> COMMAND_ROLES = Map.of(
+		"light", List.of("command"),
+		"dimmer", List.of("levelCommand", "command", "step"),
+		"blind", List.of("move", "stop", "positionCommand", "slatCommand"),
+		"switch", List.of("command"),
+		"climate", List.of("setpointCommand", "modeCommand"),
+		"scene", List.of("command"));
+
 	private FunctionKinds() {
 		// Static utility.
 	}
@@ -38,6 +51,15 @@ public final class FunctionKinds {
 	 */
 	public static List<String> roles(String kind) {
 		List<String> roles = kind == null ? null : ROLES.get(kind);
+		return roles == null ? List.of() : roles;
+	}
+
+	/**
+	 * The {@link #COMMAND_ROLES command roles} of the given kind; none for a kind without (a
+	 * sensor, a button) or an unknown kind.
+	 */
+	public static List<String> commandRoles(String kind) {
+		List<String> roles = kind == null ? null : COMMAND_ROLES.get(kind);
 		return roles == null ? List.of() : roles;
 	}
 

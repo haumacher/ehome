@@ -41,8 +41,9 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 	private static final Instant NOW = Instant.parse("2026-10-18T12:00:00Z");
 
 	/**
-	 * The demo: the actuator's channels are sockets (the addresses are named "Steckdose"), the keys
-	 * of the push-button sensor buttons on the same addresses; both are proposed.
+	 * The demo: the actuator's channels are sockets (the addresses are named "Steckdose"); the keys
+	 * of the push-button sensor send on the same addresses, the switches' commands, so they give no
+	 * buttons (haumacher/ehome #92).
 	 */
 	public void testDemo() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
@@ -50,9 +51,9 @@ public class TestFunctionProposalProbe extends BasicTestCase {
 		List<TLObject> projects = SharedData.newProjects(before);
 		try {
 			TLObject project = projects.get(0);
-			assertEquals(6, apply(project).size());
-			assertEquals(List.of("button press=0/0/1", "button press=0/0/2", "button press=0/0/3",
-				"switch command=0/0/1", "switch command=0/0/2", "switch command=0/0/3"), summary(project));
+			assertEquals(3, apply(project).size());
+			assertEquals(List.of("switch command=0/0/1", "switch command=0/0/2", "switch command=0/0/3"),
+				summary(project));
 			assertEquals(List.of(), apply(project));
 			valid(project);
 		} finally {

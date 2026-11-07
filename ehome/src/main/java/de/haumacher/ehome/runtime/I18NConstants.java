@@ -287,6 +287,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey NEW_FUNCTION_NAME;
 
 	/**
+	 * @en {0} is the datapoint "{1}" of the function "{2}": the controller offers what the button does there already. Delete the button; the proposal does not add it again.
+	 */
+	public static ResKey3 BUTTON_REPEATS_COMMAND__ADDRESS_ROLE_FUNCTION;
+
+	/**
 	 * @en {0}: scene {1}
 	 */
 	public static ResKey2 SCENE_FUNCTION__CHANNEL_NUMBER;

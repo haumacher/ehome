@@ -51,6 +51,8 @@
 					<!-- The options of a function's roles: group addresses and application datapoints (haumacher/ehome #61). -->
 					<method name="runtimeDatapoints" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeBuildingParts" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<!-- A button repeating the command of another function (haumacher/ehome #92). -->
+					<method name="functionRedundancy" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<!-- The virtual devices (haumacher/ehome #75). -->
 					<method name="blockTypeOptions" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>
 					<method name="blockTypeLabel" class="de.haumacher.ehome.runtime.BlockFunctions$Builder"/>

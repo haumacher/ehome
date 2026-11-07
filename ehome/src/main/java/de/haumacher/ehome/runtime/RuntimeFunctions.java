@@ -144,7 +144,13 @@ public class RuntimeFunctions extends GenericMethod {
 		 * <code>datapointFlagsSource(address)</code>: where the flags writable and read on start come
 		 * from, as text ({@link DatapointSettings#flagsSource(TLObject)}).
 		 */
-		datapointFlagsSource;
+		datapointFlagsSource,
+		/**
+		 * <code>functionRedundancy(function)</code>: why the function is redundant on the controller,
+		 * as text; <code>null</code> if it is not ({@link FunctionProposal#redundancy(TLObject)},
+		 * haumacher/ehome #92).
+		 */
+		functionRedundancy;
 	}
 
 	private final Function _function;
@@ -242,6 +248,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return DatapointSettings.unit(obj);
 			case datapointFlagsSource:
 				return resources.getString(DatapointSettings.flagsSource(obj));
+			case functionRedundancy:
+				return FunctionProposal.redundancy(obj);
 			default:
 				return null;
 		}
