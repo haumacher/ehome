@@ -116,14 +116,29 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 ERROR_INVALID_PROJECT_ARCHIVE__ENTRY_DETAIL;
 
 	/**
-	 * @en The master data of version {1} define "{0}" differently than the master data of version {2} it was imported from. The definition of version {2} is kept.
+	 * @en {0} is defined differently in the master data of version {1} than in those of version {2}, from which E-Home took its definition. The definition of version {2} is kept.
 	 */
-	public static ResKey3 WARN_MASTER_DATA_DIFFER__ID_VERSION_KNOWN;
+	public static ResKey3 WARN_MASTER_DATA_DIFFER__OBJECT_VERSION_KNOWN;
 
 	/**
-	 * @en "{0}" is updated from the master data of version {1} to the definition of the master data of version {2}.
+	 * @en {0} is updated from its definition in the master data of version {1} to the one in the master data of version {2}.
 	 */
-	public static ResKey3 INFO_MASTER_DATA_UPDATED__ID_KNOWN_VERSION;
+	public static ResKey3 INFO_MASTER_DATA_UPDATED__OBJECT_KNOWN_VERSION;
+
+	/**
+	 * An object of the master data in the messages of {@link #INFO_MASTER_DATA_UPDATED__OBJECT_KNOWN_VERSION}
+	 * and {@link #WARN_MASTER_DATA_DIFFER__OBJECT_VERSION_KNOWN}: the label of its type, its name and its ID.
+	 *
+	 * @en {0} "{1}" ({2})
+	 */
+	public static ResKey3 MASTER_DATA_OBJECT__TYPE_NAME_ID;
+
+	/**
+	 * An object of the master data without a name, see {@link #MASTER_DATA_OBJECT__TYPE_NAME_ID}.
+	 *
+	 * @en {0} {1}
+	 */
+	public static ResKey2 MASTER_DATA_OBJECT__TYPE_ID;
 
 	/**
 	 * @en Master data

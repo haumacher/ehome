@@ -14,8 +14,11 @@ import com.top_logic.basic.col.TypedAnnotatable;
 import com.top_logic.basic.col.TypedAnnotatable.Property;
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.xml.log.XMLStreamLog;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLStructuredTypePart;
+import com.top_logic.model.util.TLModelNamingConvention;
 import com.top_logic.xio.importer.binding.ImportContext;
 
 /**
@@ -50,6 +53,8 @@ public class MasterDataUpdates {
 			Location position) {
 		// Pure data.
 	}
+
+	private static final String NAME_ATTRIBUTE = "name";
 
 	private final List<Pending> _pending = new ArrayList<>();
 
@@ -140,14 +145,14 @@ public class MasterDataUpdates {
 				if (!same) {
 					merge.update(known, candidate, ignored, garbage);
 					log.log(Level.INFO, pending.position(),
-						I18NConstants.INFO_MASTER_DATA_UPDATED__ID_KNOWN_VERSION.fill(pending.id(),
+						I18NConstants.INFO_MASTER_DATA_UPDATED__OBJECT_KNOWN_VERSION.fill(label(known, pending.id()),
 							text(knownVersion), text(version)));
 				}
 				known.tUpdateByName(versionAttribute, version);
 			} else if (!same) {
 				log.log(Level.WARN, pending.position(),
-					I18NConstants.WARN_MASTER_DATA_DIFFER__ID_VERSION_KNOWN.fill(pending.id(), text(version),
-						text(knownVersion)));
+					I18NConstants.WARN_MASTER_DATA_DIFFER__OBJECT_VERSION_KNOWN.fill(label(known, pending.id()),
+						text(version), text(knownVersion)));
 			}
 		}
 		_pending.clear();
@@ -168,6 +173,20 @@ public class MasterDataUpdates {
 		if (!items.isEmpty()) {
 			items.get(0).getKnowledgeBase().deleteAll(items);
 		}
+	}
+
+	/**
+	 * The given object of the master data in a message: the label of its type, its name (if it has
+	 * one) and its ID in the master data, e.g. <i>Mask version "KNXnet/IP Router" (MV-091A)</i>.
+	 */
+	public static ResKey label(TLObject obj, String id) {
+		ResKey type = TLModelNamingConvention.getTypeLabelKey(obj.tType());
+		TLStructuredTypePart namePart = obj.tType().getPart(NAME_ATTRIBUTE);
+		Object name = namePart == null ? null : obj.tValue(namePart);
+		if (name == null || name.toString().isBlank()) {
+			return I18NConstants.MASTER_DATA_OBJECT__TYPE_ID.fill(type, id);
+		}
+		return I18NConstants.MASTER_DATA_OBJECT__TYPE_NAME_ID.fill(type, name.toString(), id);
 	}
 
 	private static String text(Integer version) {

@@ -15,10 +15,13 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import junit.framework.Test;
@@ -32,6 +35,7 @@ import com.top_logic.basic.Logger;
 import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
@@ -207,18 +211,21 @@ public class TestEts6TestsystemProbe extends BasicTestCase {
 		assertEquals(summary(empty), summary(ets6Plans()));
 		assertEquals(summary(empty), summary(_ets6BeforeEts4));
 		// The mask versions the two master data define differently, each reported once.
-		List<ResKey> expected = new ArrayList<>();
-		for (String mask : List.of("MV-0012", "MV-0705", "MV-07B0", "MV-0912", "MV-091A", "MV-17B0", "MV-1900",
-			"MV-5705", "MV-57B0")) {
-			expected.add(I18NConstants.WARN_MASTER_DATA_DIFFER__ID_VERSION_KNOWN.fill(mask, "92", "198"));
-		}
-		List<ResKey> warnings = new ArrayList<>();
+		List<String> expected = List.of("MV-0012", "MV-0705", "MV-07B0", "MV-0912", "MV-091A", "MV-17B0", "MV-1900",
+			"MV-5705", "MV-57B0");
+		List<String> warnings = new ArrayList<>();
 		for (BufferingI18NLog.Entry entry : _ets4AfterEts6Messages) {
 			Object[] arguments = entry.getMessage().arguments();
 			Object detail = arguments.length == 0 ? null : arguments[arguments.length - 1];
 			if (String.valueOf(detail).contains("_MASTER_DATA_")) {
 				assertEquals(Level.WARN, entry.getLevel());
-				warnings.add((ResKey) detail);
+				String text = ResourcesModule.getInstance().getBundle(Locale.ENGLISH).getString((ResKey) detail);
+				// Mask version "<name>" (<ID>) is defined differently in the master data of version 92 than in
+				// those of version 198, ...
+				Matcher match = Pattern.compile("Mask version \"[^\"]+\" \\((MV-[0-9A-F]{4})\\) is defined differently"
+					+ " in the master data of version 92 than in those of version 198, .*").matcher(text);
+				assertTrue(text, match.matches());
+				warnings.add(match.group(1));
 			}
 		}
 		assertEquals(expected, warnings);

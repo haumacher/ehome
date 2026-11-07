@@ -41,6 +41,7 @@ import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.importer.I18NConstants;
+import de.haumacher.ehome.importer.MasterDataUpdates;
 
 /**
  * The mask versions by the version of the master data they come from (haumacher/ehome #34), with the
@@ -101,8 +102,16 @@ public class TestMasterDataVersions extends BasicTestCase {
 		List<BufferingI18NLog.Entry> messages = masterDataEntries(importSample(NEW));
 		assertEquals(1, messages.size());
 		assertEquals(Level.INFO, messages.get(0).getLevel());
-		assertEquals(I18NConstants.INFO_MASTER_DATA_UPDATED__ID_KNOWN_VERSION.fill("MV-FFF1", "1001", "1002"),
-			inner(messages.get(0).getMessage()));
+		ResKey updated = I18NConstants.INFO_MASTER_DATA_UPDATED__OBJECT_KNOWN_VERSION.fill(
+			MasterDataUpdates.label(before.get("MV-FFF1"), "MV-FFF1"), "1001", "1002");
+		assertEquals(updated, inner(messages.get(0).getMessage()));
+		// The message names the kind of object and its name, not only its ID.
+		assertEquals("Mask version \"TEST Maske A (künstliche Testdaten)\" (MV-FFF1) is updated from its definition"
+			+ " in the master data of version 1001 to the one in the master data of version 1002.",
+			ResourcesModule.getInstance().getBundle(Locale.ENGLISH).getString(updated));
+		assertEquals("Maskenversion „TEST Maske A (künstliche Testdaten)“ (MV-FFF1) wird von der Definition der"
+			+ " Stammdaten der Version 1001 auf die der Stammdaten der Version 1002 aktualisiert.",
+			ResourcesModule.getInstance().getBundle(Locale.GERMAN).getString(updated));
 		assertEquals(fromNew, dumps());
 		assertEquals(Map.of("MV-FFF1", 1002, "MV-FFF2", 1002), versions());
 		// The new master data: the configuration by memory is the legacy one.
@@ -128,10 +137,12 @@ public class TestMasterDataVersions extends BasicTestCase {
 		assertEquals(1, messages.size());
 		BufferingI18NLog.Entry warning = messages.get(0);
 		assertEquals(Level.WARN, warning.getLevel());
-		ResKey message = I18NConstants.WARN_MASTER_DATA_DIFFER__ID_VERSION_KNOWN.fill("MV-FFF1", "1001", "1002");
+		ResKey message = I18NConstants.WARN_MASTER_DATA_DIFFER__OBJECT_VERSION_KNOWN.fill(
+			MasterDataUpdates.label(before.get("MV-FFF1"), "MV-FFF1"), "1001", "1002");
 		assertEquals(message, inner(warning.getMessage()));
-		assertEquals("The master data of version 1001 define \"MV-FFF1\" differently than the master data of version"
-			+ " 1002 it was imported from. The definition of version 1002 is kept.",
+		assertEquals("Mask version \"TEST Maske A (künstliche Testdaten)\" (MV-FFF1) is defined differently in the"
+			+ " master data of version 1001 than in those of version 1002, from which E-Home took its definition."
+			+ " The definition of version 1002 is kept.",
 			ResourcesModule.getInstance().getBundle(Locale.ENGLISH).getString(message));
 		// The warning points to the mask version in the master data.
 		Object[] location = warning.getMessage().arguments();
