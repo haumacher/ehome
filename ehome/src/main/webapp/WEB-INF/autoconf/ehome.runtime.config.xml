@@ -120,6 +120,12 @@
 					<!-- The options of the references of rules and schedule entries (haumacher/ehome #90). -->
 					<method name="ruleOptions" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<method name="ruleOptionLabel" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<!-- The create dialogs of rules, schedule entries, application datapoints and pages (haumacher/ehome #91). -->
+					<method name="ruleDraft" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="rulePageDraft" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleDraftField" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleDraftTitle" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleAdd" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<!-- The control pages (haumacher/ehome #72, de.haumacher.ehome.runtime.PageFunctions). -->
 					<method name="pageOptions" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
 					<method name="pageChildren" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>

@@ -20,6 +20,9 @@
 	series of a datapoint without history, a chart without series, a room without functions); the
 	export and the deployment show the image's refusals with their paths. A deleted function,
 	datapoint, room or rule takes its elements with it (the model's deletion policy).
+	A page, a section, a chart and a reference line are created in the dialog
+	projects/create-part.view.xml (haumacher/ehome #91) over a draft for the place the selection names
+	when the dialog opens; nothing is stored before "Create".
 -->
 <view>
 	<channels>
@@ -91,12 +94,19 @@
 							<executability>
 								<disabled-if expr="pageInsertVeto($project, $selected, 'page')"/>
 							</executability>
-							<with-transaction>
-								<execute-script function="pageInsert($project, $selected, 'page', [])"/>
+							<execute-script function="rulePageDraft($project, $selected, 'page')">
 								<with-result>
-									<write-channel name="selected"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="new"
@@ -117,12 +127,19 @@
 							<executability>
 								<disabled-if expr="pageInsertVeto($project, $selected, 'section')"/>
 							</executability>
-							<with-transaction>
-								<execute-script function="pageInsert($project, $selected, 'section', [])"/>
+							<execute-script function="rulePageDraft($project, $selected, 'section')">
 								<with-result>
-									<write-channel name="selected"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="new"
@@ -295,12 +312,19 @@
 							<executability>
 								<disabled-if expr="pageInsertVeto($project, $selected, 'chart')"/>
 							</executability>
-							<with-transaction>
-								<execute-script function="pageInsert($project, $selected, 'chart', [])"/>
+							<execute-script function="rulePageDraft($project, $selected, 'chart')">
 								<with-result>
-									<write-channel name="selected"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="new"
@@ -359,12 +383,19 @@
 							<executability>
 								<disabled-if expr="pageInsertVeto($project, $selected, 'reference')"/>
 							</executability>
-							<with-transaction>
-								<execute-script function="pageInsert($project, $selected, 'reference', [])"/>
+							<execute-script function="rulePageDraft($project, $selected, 'reference')">
 								<with-result>
-									<write-channel name="selected"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="selected"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="new"

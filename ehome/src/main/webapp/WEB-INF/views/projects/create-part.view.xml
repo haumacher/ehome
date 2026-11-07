@@ -1,0 +1,285 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Create dialog of a part of the rules, a schedule entry, an application datapoint or a node of the
+	control pages (haumacher/ehome #91): "model" carries the draft the "New" command made
+	(ruleDraft, rulePageDraft: transient, created in the object it will be added to, with the defaults
+	of its kind and a proposed unique id). The dialog shows only the fields that make the object
+	meaningful (ruleDraftField); they are checked as the detail form checks them, the controller's
+	refusals as warnings, a text that does not parse as an error that blocks "Create". "Create" stores
+	the draft at its place (ruleAdd) and writes the stored object to "selection"; "Cancel" leaves
+	nothing.
+-->
+<view>
+	<channels>
+		<channel name="model"/>
+		<channel name="selection"/>
+		<derived-channel name="kind"
+			expr="ruleDraftTitle($model)"
+			inputs="model"
+		/>
+	</channels>
+	<window width="560px">
+		<title>
+			<en>New</en>
+			<de>Neu</de>
+		</title>
+		<form
+			initial-edit-mode="true"
+			input="model"
+			mode-switch="false"
+			with-inset="true"
+		>
+			<text
+				input="kind"
+				tone="secondary"
+			/>
+			<visible-if
+				expr="ruleDraftField($model, 'label')"
+				input="model"
+			>
+				<field attribute="label"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'name')"
+				input="model"
+			>
+				<field attribute="name"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'title')"
+				input="model"
+			>
+				<field attribute="title"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'identifier')"
+				input="model"
+			>
+				<field attribute="identifier"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'type')"
+				input="model"
+			>
+				<field attribute="type"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'default')"
+				input="model"
+			>
+				<field attribute="default"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'sun')"
+				input="model"
+			>
+				<field attribute="sun"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'offset')"
+				input="model"
+			>
+				<field attribute="offset"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'month')"
+				input="model"
+			>
+				<field attribute="month"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'day')"
+				input="model"
+			>
+				<field attribute="day"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'dates')"
+				input="model"
+			>
+				<field attribute="dates"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'at')"
+				input="model"
+			>
+				<field attribute="at"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'every')"
+				input="model"
+			>
+				<field attribute="every"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'from')"
+				input="model"
+			>
+				<field attribute="from"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'until')"
+				input="model"
+			>
+				<field attribute="until"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'time')"
+				input="model"
+			>
+				<field attribute="time"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'days')"
+				input="model"
+			>
+				<field attribute="days"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'datapoint')"
+				input="model"
+			>
+				<field attribute="datapoint"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'schedule')"
+				input="model"
+			>
+				<field attribute="schedule"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'timer')"
+				input="model"
+			>
+				<field attribute="timer"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'parameter')"
+				input="model"
+			>
+				<field attribute="parameter"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'after')"
+				input="model"
+			>
+				<field attribute="after">
+					<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+						<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+					</input-control>
+				</field>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'duration')"
+				input="model"
+			>
+				<field attribute="duration">
+					<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+						<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+					</input-control>
+				</field>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'value')"
+				input="model"
+			>
+				<field attribute="value">
+					<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+						<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+					</input-control>
+				</field>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'condition')"
+				input="model"
+			>
+				<field attribute="condition">
+					<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+						<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+					</input-control>
+				</field>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'onBoot')"
+				input="model"
+			>
+				<field attribute="onBoot"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'onImage')"
+				input="model"
+			>
+				<field attribute="onImage"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'onEnable')"
+				input="model"
+			>
+				<field attribute="onEnable"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'level')"
+				input="model"
+			>
+				<field attribute="level"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'message')"
+				input="model"
+			>
+				<field attribute="message"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'range')"
+				input="model"
+			>
+				<field attribute="range"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'output')"
+				input="model"
+			>
+				<field attribute="output"/>
+			</visible-if>
+			<commands>
+				<generic-command
+					image="css:bi bi-check-lg"
+					inputs="model"
+					placement="BUTTON_BAR"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$model.container()"
+							type="tl.model:TLObject"
+						/>
+					</access>
+					<store-form-state/>
+					<with-transaction>
+						<execute-script function="ruleAdd($model)"/>
+						<with-result>
+							<write-channel name="selection"/>
+						</with-result>
+					</with-transaction>
+					<close-dialog/>
+				</generic-command>
+			</commands>
+		</form>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

@@ -11,6 +11,8 @@
 	(rules.view.xml), where they are used. The history of a datapoint (haumacher/ehome #73) is derived
 	from the charts of the control pages unless it is set by hand ("Set history by hand", "Derive
 	history").
+	"New" opens the create dialog projects/create-part.view.xml (haumacher/ehome #91): id, label and
+	type; nothing is stored before "Create".
 -->
 <view>
 	<channels>
@@ -43,12 +45,19 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<with-transaction>
-					<execute-script function="ruleCreate($project, 'applicationDatapoints', `ehome.runtime:ApplicationDatapoint`)"/>
+				<execute-script function="ruleDraft($project, 'applicationDatapoints', `ehome.runtime:ApplicationDatapoint`)">
 					<with-result>
-						<write-channel name="datapoint"/>
+						<open-dialog
+							bind-input-to="model"
+							dialog-view="projects/create-part.view.xml"
+						>
+							<bind
+								channel="selection"
+								to="datapoint"
+							/>
+						</open-dialog>
 					</with-result>
-				</with-transaction>
+				</execute-script>
 			</generic-command>
 			<generic-command
 				image="css:bi bi-trash"

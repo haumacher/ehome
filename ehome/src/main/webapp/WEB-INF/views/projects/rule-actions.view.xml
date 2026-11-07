@@ -7,6 +7,8 @@
 	"Move up" and "Move down" change it. The form shows the fields of the selected action's kind;
 	expressions are written in the rule language (de.haumacher.ehome.rules.RuleText) and checked as the
 	controller would check them, the reason shown at the field.
+	"New" opens the create dialog projects/create-part.view.xml (haumacher/ehome #91) over a draft for
+	the end of the list; nothing is stored before "Create".
 -->
 <view>
 	<channels>
@@ -39,16 +41,22 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<with-transaction>
-					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:WriteAction`)">
-						<inputs>
-							<input channel="listName"/>
-						</inputs>
-					</execute-script>
+				<execute-script function="ruleDraft($owner, $listName, `ehome.runtime:WriteAction`)">
+					<inputs>
+						<input channel="listName"/>
+					</inputs>
 					<with-result>
-						<write-channel name="action"/>
+						<open-dialog
+							bind-input-to="model"
+							dialog-view="projects/create-part.view.xml"
+						>
+							<bind
+								channel="selection"
+								to="action"
+							/>
+						</open-dialog>
 					</with-result>
-				</with-transaction>
+				</execute-script>
 			</generic-command>
 			<generic-command
 				clique="new"
@@ -69,16 +77,22 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<with-transaction>
-					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:ReadAction`)">
-						<inputs>
-							<input channel="listName"/>
-						</inputs>
-					</execute-script>
+				<execute-script function="ruleDraft($owner, $listName, `ehome.runtime:ReadAction`)">
+					<inputs>
+						<input channel="listName"/>
+					</inputs>
 					<with-result>
-						<write-channel name="action"/>
+						<open-dialog
+							bind-input-to="model"
+							dialog-view="projects/create-part.view.xml"
+						>
+							<bind
+								channel="selection"
+								to="action"
+							/>
+						</open-dialog>
 					</with-result>
-				</with-transaction>
+				</execute-script>
 			</generic-command>
 			<generic-command
 				clique="new"
@@ -99,16 +113,22 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<with-transaction>
-					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:StartTimerAction`)">
-						<inputs>
-							<input channel="listName"/>
-						</inputs>
-					</execute-script>
+				<execute-script function="ruleDraft($owner, $listName, `ehome.runtime:StartTimerAction`)">
+					<inputs>
+						<input channel="listName"/>
+					</inputs>
 					<with-result>
-						<write-channel name="action"/>
+						<open-dialog
+							bind-input-to="model"
+							dialog-view="projects/create-part.view.xml"
+						>
+							<bind
+								channel="selection"
+								to="action"
+							/>
+						</open-dialog>
 					</with-result>
-				</with-transaction>
+				</execute-script>
 			</generic-command>
 			<generic-command
 				clique="new"
@@ -129,16 +149,22 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<with-transaction>
-					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:RestartTimerAction`)">
-						<inputs>
-							<input channel="listName"/>
-						</inputs>
-					</execute-script>
+				<execute-script function="ruleDraft($owner, $listName, `ehome.runtime:RestartTimerAction`)">
+					<inputs>
+						<input channel="listName"/>
+					</inputs>
 					<with-result>
-						<write-channel name="action"/>
+						<open-dialog
+							bind-input-to="model"
+							dialog-view="projects/create-part.view.xml"
+						>
+							<bind
+								channel="selection"
+								to="action"
+							/>
+						</open-dialog>
 					</with-result>
-				</with-transaction>
+				</execute-script>
 			</generic-command>
 			<generic-command
 				clique="new"
@@ -159,16 +185,22 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<with-transaction>
-					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:CancelTimerAction`)">
-						<inputs>
-							<input channel="listName"/>
-						</inputs>
-					</execute-script>
+				<execute-script function="ruleDraft($owner, $listName, `ehome.runtime:CancelTimerAction`)">
+					<inputs>
+						<input channel="listName"/>
+					</inputs>
 					<with-result>
-						<write-channel name="action"/>
+						<open-dialog
+							bind-input-to="model"
+							dialog-view="projects/create-part.view.xml"
+						>
+							<bind
+								channel="selection"
+								to="action"
+							/>
+						</open-dialog>
 					</with-result>
-				</with-transaction>
+				</execute-script>
 			</generic-command>
 			<generic-command
 				clique="new"
@@ -189,16 +221,22 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<with-transaction>
-					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:SetParameterAction`)">
-						<inputs>
-							<input channel="listName"/>
-						</inputs>
-					</execute-script>
+				<execute-script function="ruleDraft($owner, $listName, `ehome.runtime:SetParameterAction`)">
+					<inputs>
+						<input channel="listName"/>
+					</inputs>
 					<with-result>
-						<write-channel name="action"/>
+						<open-dialog
+							bind-input-to="model"
+							dialog-view="projects/create-part.view.xml"
+						>
+							<bind
+								channel="selection"
+								to="action"
+							/>
+						</open-dialog>
 					</with-result>
-				</with-transaction>
+				</execute-script>
 			</generic-command>
 			<generic-command
 				clique="new"
@@ -219,16 +257,22 @@
 				<executability>
 					<null-input-disabled/>
 				</executability>
-				<with-transaction>
-					<execute-script function="ruleCreate($owner, $listName, `ehome.runtime:LogAction`)">
-						<inputs>
-							<input channel="listName"/>
-						</inputs>
-					</execute-script>
+				<execute-script function="ruleDraft($owner, $listName, `ehome.runtime:LogAction`)">
+					<inputs>
+						<input channel="listName"/>
+					</inputs>
 					<with-result>
-						<write-channel name="action"/>
+						<open-dialog
+							bind-input-to="model"
+							dialog-view="projects/create-part.view.xml"
+						>
+							<bind
+								channel="selection"
+								to="action"
+							/>
+						</open-dialog>
 					</with-result>
-				</with-transaction>
+				</execute-script>
 			</generic-command>
 			<generic-command
 				image="css:bi bi-trash"

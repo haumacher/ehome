@@ -23,6 +23,10 @@
 	owns and which are edited in the tab "Application datapoints" (application-datapoints.view.xml):
 	they are the rules' and the schedule's own values, so they are edited where they are used. The
 	choices of a parameter are listed beside its form, each with its value and label.
+
+	Each "New" (a rule, a reaction, a trigger, a parameter, a choice, a timer, a state) opens the create
+	dialog projects/create-part.view.xml (haumacher/ehome #91) over a draft that goes to the end of its
+	list, asking for the fields that define it; nothing is stored before "Create".
 -->
 <view>
 	<channels>
@@ -84,12 +88,19 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<with-transaction>
-								<execute-script function="ruleCreate($project, 'rules', `ehome.runtime:Rule`)"/>
+							<execute-script function="ruleDraft($project, 'rules', `ehome.runtime:Rule`)">
 								<with-result>
-									<write-channel name="rule"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="rule"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<upload-command
 							accept=".json,application/json"
@@ -232,12 +243,19 @@
 													<executability>
 														<null-input-disabled/>
 													</executability>
-													<with-transaction>
-														<execute-script function="ruleCreate($rule, 'reactions', `ehome.runtime:Reaction`)"/>
+													<execute-script function="ruleDraft($rule, 'reactions', `ehome.runtime:Reaction`)">
 														<with-result>
-															<write-channel name="reaction"/>
+															<open-dialog
+																bind-input-to="model"
+																dialog-view="projects/create-part.view.xml"
+															>
+																<bind
+																	channel="selection"
+																	to="reaction"
+																/>
+															</open-dialog>
 														</with-result>
-													</with-transaction>
+													</execute-script>
 												</generic-command>
 												<generic-command
 													image="css:bi bi-trash"
@@ -395,12 +413,19 @@
 																<executability>
 																	<null-input-disabled/>
 																</executability>
-																<with-transaction>
-																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:DatapointTrigger`)"/>
+																<execute-script function="ruleDraft($reaction, 'triggers', `ehome.runtime:DatapointTrigger`)">
 																	<with-result>
-																		<write-channel name="trigger"/>
+																		<open-dialog
+																			bind-input-to="model"
+																			dialog-view="projects/create-part.view.xml"
+																		>
+																			<bind
+																				channel="selection"
+																				to="trigger"
+																			/>
+																		</open-dialog>
 																	</with-result>
-																</with-transaction>
+																</execute-script>
 															</generic-command>
 															<generic-command
 																clique="new"
@@ -421,12 +446,19 @@
 																<executability>
 																	<null-input-disabled/>
 																</executability>
-																<with-transaction>
-																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:MatchTrigger`)"/>
+																<execute-script function="ruleDraft($reaction, 'triggers', `ehome.runtime:MatchTrigger`)">
 																	<with-result>
-																		<write-channel name="trigger"/>
+																		<open-dialog
+																			bind-input-to="model"
+																			dialog-view="projects/create-part.view.xml"
+																		>
+																			<bind
+																				channel="selection"
+																				to="trigger"
+																			/>
+																		</open-dialog>
 																	</with-result>
-																</with-transaction>
+																</execute-script>
 															</generic-command>
 															<generic-command
 																clique="new"
@@ -447,12 +479,19 @@
 																<executability>
 																	<null-input-disabled/>
 																</executability>
-																<with-transaction>
-																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:TimerTrigger`)"/>
+																<execute-script function="ruleDraft($reaction, 'triggers', `ehome.runtime:TimerTrigger`)">
 																	<with-result>
-																		<write-channel name="trigger"/>
+																		<open-dialog
+																			bind-input-to="model"
+																			dialog-view="projects/create-part.view.xml"
+																		>
+																			<bind
+																				channel="selection"
+																				to="trigger"
+																			/>
+																		</open-dialog>
 																	</with-result>
-																</with-transaction>
+																</execute-script>
 															</generic-command>
 															<generic-command
 																clique="new"
@@ -473,12 +512,19 @@
 																<executability>
 																	<null-input-disabled/>
 																</executability>
-																<with-transaction>
-																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:ScheduleTrigger`)"/>
+																<execute-script function="ruleDraft($reaction, 'triggers', `ehome.runtime:ScheduleTrigger`)">
 																	<with-result>
-																		<write-channel name="trigger"/>
+																		<open-dialog
+																			bind-input-to="model"
+																			dialog-view="projects/create-part.view.xml"
+																		>
+																			<bind
+																				channel="selection"
+																				to="trigger"
+																			/>
+																		</open-dialog>
 																	</with-result>
-																</with-transaction>
+																</execute-script>
 															</generic-command>
 															<generic-command
 																clique="new"
@@ -499,12 +545,19 @@
 																<executability>
 																	<null-input-disabled/>
 																</executability>
-																<with-transaction>
-																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:ParameterTrigger`)"/>
+																<execute-script function="ruleDraft($reaction, 'triggers', `ehome.runtime:ParameterTrigger`)">
 																	<with-result>
-																		<write-channel name="trigger"/>
+																		<open-dialog
+																			bind-input-to="model"
+																			dialog-view="projects/create-part.view.xml"
+																		>
+																			<bind
+																				channel="selection"
+																				to="trigger"
+																			/>
+																		</open-dialog>
 																	</with-result>
-																</with-transaction>
+																</execute-script>
 															</generic-command>
 															<generic-command
 																clique="new"
@@ -525,12 +578,19 @@
 																<executability>
 																	<null-input-disabled/>
 																</executability>
-																<with-transaction>
-																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:SilenceTrigger`)"/>
+																<execute-script function="ruleDraft($reaction, 'triggers', `ehome.runtime:SilenceTrigger`)">
 																	<with-result>
-																		<write-channel name="trigger"/>
+																		<open-dialog
+																			bind-input-to="model"
+																			dialog-view="projects/create-part.view.xml"
+																		>
+																			<bind
+																				channel="selection"
+																				to="trigger"
+																			/>
+																		</open-dialog>
 																	</with-result>
-																</with-transaction>
+																</execute-script>
 															</generic-command>
 															<generic-command
 																clique="new"
@@ -551,12 +611,19 @@
 																<executability>
 																	<null-input-disabled/>
 																</executability>
-																<with-transaction>
-																	<execute-script function="ruleCreate($reaction, 'triggers', `ehome.runtime:StartTrigger`)"/>
+																<execute-script function="ruleDraft($reaction, 'triggers', `ehome.runtime:StartTrigger`)">
 																	<with-result>
-																		<write-channel name="trigger"/>
+																		<open-dialog
+																			bind-input-to="model"
+																			dialog-view="projects/create-part.view.xml"
+																		>
+																			<bind
+																				channel="selection"
+																				to="trigger"
+																			/>
+																		</open-dialog>
 																	</with-result>
-																</with-transaction>
+																</execute-script>
 															</generic-command>
 															<generic-command
 																image="css:bi bi-trash"
@@ -757,12 +824,19 @@
 										<executability>
 											<null-input-disabled/>
 										</executability>
-										<with-transaction>
-											<execute-script function="ruleCreate($rule, 'parameters', `ehome.runtime:RuleParameter`)"/>
+										<execute-script function="ruleDraft($rule, 'parameters', `ehome.runtime:RuleParameter`)">
 											<with-result>
-												<write-channel name="parameter"/>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="projects/create-part.view.xml"
+												>
+													<bind
+														channel="selection"
+														to="parameter"
+													/>
+												</open-dialog>
 											</with-result>
-										</with-transaction>
+										</execute-script>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"
@@ -911,12 +985,19 @@
 																	<executability>
 																		<null-input-disabled/>
 																	</executability>
-																	<with-transaction>
-																		<execute-script function="ruleCreate($parameter, 'choices', `ehome.runtime:RuleChoice`)"/>
+																	<execute-script function="ruleDraft($parameter, 'choices', `ehome.runtime:RuleChoice`)">
 																		<with-result>
-																			<write-channel name="choice"/>
+																			<open-dialog
+																				bind-input-to="model"
+																				dialog-view="projects/create-part.view.xml"
+																			>
+																				<bind
+																					channel="selection"
+																					to="choice"
+																				/>
+																			</open-dialog>
 																		</with-result>
-																	</with-transaction>
+																	</execute-script>
 																</generic-command>
 																<generic-command
 																	image="css:bi bi-trash"
@@ -1060,12 +1141,19 @@
 										<executability>
 											<null-input-disabled/>
 										</executability>
-										<with-transaction>
-											<execute-script function="ruleCreate($rule, 'timers', `ehome.runtime:RuleTimer`)"/>
+										<execute-script function="ruleDraft($rule, 'timers', `ehome.runtime:RuleTimer`)">
 											<with-result>
-												<write-channel name="timer"/>
+												<open-dialog
+													bind-input-to="model"
+													dialog-view="projects/create-part.view.xml"
+												>
+													<bind
+														channel="selection"
+														to="timer"
+													/>
+												</open-dialog>
 											</with-result>
-										</with-transaction>
+										</execute-script>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-trash"
@@ -1212,12 +1300,19 @@
 													<executability>
 														<null-input-disabled/>
 													</executability>
-													<with-transaction>
-														<execute-script function="ruleCreate($rule, 'states', `ehome.runtime:RuleState`)"/>
+													<execute-script function="ruleDraft($rule, 'states', `ehome.runtime:RuleState`)">
 														<with-result>
-															<write-channel name="state"/>
+															<open-dialog
+																bind-input-to="model"
+																dialog-view="projects/create-part.view.xml"
+															>
+																<bind
+																	channel="selection"
+																	to="state"
+																/>
+															</open-dialog>
 														</with-result>
-													</with-transaction>
+													</execute-script>
 												</generic-command>
 												<generic-command
 													image="css:bi bi-trash"

@@ -106,7 +106,33 @@ public class RuleFunctions extends GenericMethod {
 		 * <code>ruleOptionLabel(option, kind)</code>: the label of an option of a reference of the given
 		 * kind, with the id the image names it by ({@link RuleReferences#optionLabel(Object, String)}).
 		 */
-		ruleOptionLabel(2, true);
+		ruleOptionLabel(2, true),
+		/**
+		 * <code>ruleDraft(owner, reference, type)</code>: the draft of a create dialog, a transient part
+		 * of the given type for the end of the given reference of the owner, with a unique id and the
+		 * defaults of its kind ({@link RuleDrafts#draft(TLObject, String, TLClass)}); nothing is stored.
+		 */
+		ruleDraft(3, false),
+		/**
+		 * <code>rulePageDraft(project, selected, kind)</code>: the draft of a create dialog of a page, a
+		 * section, a chart or a reference line, for the place the pages insert it at for the selected
+		 * node ({@link RuleDrafts#pageDraft(TLObject, TLObject, String)}); nothing is stored.
+		 */
+		rulePageDraft(3, false),
+		/**
+		 * <code>ruleDraftField(draft, attribute)</code>: whether the create dialog of the draft asks for
+		 * the attribute ({@link RuleDrafts#hasField(TLObject, String)}).
+		 */
+		ruleDraftField(2, true),
+		/**
+		 * <code>ruleDraftTitle(draft)</code>: the name of the kind the create dialog creates.
+		 */
+		ruleDraftTitle(1, true),
+		/**
+		 * <code>ruleAdd(draft)</code>: stores the draft of a create dialog at its place, with the values
+		 * entered ({@link RuleDrafts#add(TLObject)}); must run in a transaction.
+		 */
+		ruleAdd(1, false);
 
 		private final int _arity;
 
@@ -156,8 +182,11 @@ public class RuleFunctions extends GenericMethod {
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
 		if (!(arguments[0] instanceof TLObject obj) || !obj.tValid()) {
-			if (_function == Function.ruleOptionLabel) {
+			if (_function == Function.ruleOptionLabel || _function == Function.ruleDraftTitle) {
 				return "";
+			}
+			if (_function == Function.ruleDraftField) {
+				return Boolean.FALSE;
 			}
 			return _function == Function.ruleList || _function == Function.ruleDatapoints
 				|| _function == Function.ruleSuggestions || _function == Function.ruleOptions ? List.of() : null;
@@ -185,6 +214,17 @@ public class RuleFunctions extends GenericMethod {
 				return RuleReferences.options(obj, String.valueOf(arguments[1]));
 			case ruleOptionLabel:
 				return RuleReferences.optionLabel(obj, String.valueOf(arguments[1]));
+			case ruleDraft:
+				return RuleDrafts.draft(obj, String.valueOf(arguments[1]), (TLClass) arguments[2]);
+			case rulePageDraft:
+				return RuleDrafts.pageDraft(obj, arguments[1] instanceof TLObject selected ? selected : null,
+					String.valueOf(arguments[2]));
+			case ruleDraftField:
+				return Boolean.valueOf(RuleDrafts.hasField(obj, String.valueOf(arguments[1])));
+			case ruleDraftTitle:
+				return RuleDrafts.title(obj);
+			case ruleAdd:
+				return RuleDrafts.add(obj);
 			default:
 				return null;
 		}
@@ -391,6 +431,18 @@ public class RuleFunctions extends GenericMethod {
 	public static TLObject create(TLObject owner, String reference, TLClass type) {
 		TLObject result = ModelService.getInstance().getFactory().createObject(type);
 		List<TLObject> parts = RuleExport.objects(owner.tValueByName(reference));
+		initialize(result, owner, type, parts);
+		parts.add(result);
+		owner.tUpdateByName(reference, parts);
+		return result;
+	}
+
+	/**
+	 * Gives a new part of the given type a unique id among the given parts of its owner and the
+	 * defaults of its kind, for {@link #create(TLObject, String, TLClass)} and the draft of a create
+	 * dialog ({@link RuleDrafts}).
+	 */
+	static void initialize(TLObject result, TLObject owner, TLClass type, List<TLObject> parts) {
 		switch (type.getName()) {
 			case "Rule": {
 				result.tUpdateByName("identifier", unique("rule", parts, "-"));
@@ -455,9 +507,6 @@ public class RuleFunctions extends GenericMethod {
 				}
 				break;
 		}
-		parts.add(result);
-		owner.tUpdateByName(reference, parts);
-		return result;
 	}
 
 	private static void schedule(TLObject entry, List<TLObject> entries) {

@@ -214,7 +214,7 @@ public final class RuleExport {
 	 */
 	public List<Object> schedules(TLObject project) {
 		_project = project;
-		List<TLObject> entries = objects(project.tValueByName("schedules"));
+		List<TLObject> entries = list(project, "schedules");
 		if (entries.isEmpty()) {
 			return null;
 		}
@@ -240,7 +240,14 @@ public final class RuleExport {
 	}
 
 	private List<TLObject> list(TLObject obj, String attribute) {
-		return objects(get(obj, attribute));
+		List<TLObject> result = objects(get(obj, attribute));
+		if (_target != null && _target.tTransient() && obj == _target.tContainer()
+			&& attribute.equals(RuleDrafts.reference(_target)) && !result.contains(_target)) {
+			// The draft of a create dialog (haumacher/ehome #91) is checked at the place it will be
+			// added to.
+			result.add(_target);
+		}
+		return result;
 	}
 
 	static List<TLObject> objects(Object value) {

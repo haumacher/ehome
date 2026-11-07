@@ -6,6 +6,8 @@
 	the entry's id react. Six kinds: weekly, yearly, on dates, at a sun event, at intervals, once.
 	Times are written as 06:30, dates as 2027-01-08, durations as 15min; each field is checked while
 	it is edited as the controller would check it. The entries are part of the runtime image.
+	"New" opens the create dialog projects/create-part.view.xml (haumacher/ehome #91) over a draft
+	of the kind, asking for the fields that define it; nothing is stored before "Create".
 -->
 <view>
 	<channels>
@@ -46,12 +48,19 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<with-transaction>
-								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:WeeklySchedule`)"/>
+							<execute-script function="ruleDraft($project, 'schedules', `ehome.runtime:WeeklySchedule`)">
 								<with-result>
-									<write-channel name="entry"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="entry"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="new"
@@ -72,12 +81,19 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<with-transaction>
-								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:YearlySchedule`)"/>
+							<execute-script function="ruleDraft($project, 'schedules', `ehome.runtime:YearlySchedule`)">
 								<with-result>
-									<write-channel name="entry"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="entry"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="new"
@@ -98,12 +114,19 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<with-transaction>
-								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:DatesSchedule`)"/>
+							<execute-script function="ruleDraft($project, 'schedules', `ehome.runtime:DatesSchedule`)">
 								<with-result>
-									<write-channel name="entry"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="entry"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="new"
@@ -124,12 +147,19 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<with-transaction>
-								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:AstroSchedule`)"/>
+							<execute-script function="ruleDraft($project, 'schedules', `ehome.runtime:AstroSchedule`)">
 								<with-result>
-									<write-channel name="entry"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="entry"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="new"
@@ -150,12 +180,19 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<with-transaction>
-								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:IntervalSchedule`)"/>
+							<execute-script function="ruleDraft($project, 'schedules', `ehome.runtime:IntervalSchedule`)">
 								<with-result>
-									<write-channel name="entry"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="entry"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							clique="new"
@@ -176,12 +213,19 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<with-transaction>
-								<execute-script function="ruleCreate($project, 'schedules', `ehome.runtime:OnceSchedule`)"/>
+							<execute-script function="ruleDraft($project, 'schedules', `ehome.runtime:OnceSchedule`)">
 								<with-result>
-									<write-channel name="entry"/>
+									<open-dialog
+										bind-input-to="model"
+										dialog-view="projects/create-part.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="entry"
+										/>
+									</open-dialog>
 								</with-result>
-							</with-transaction>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
