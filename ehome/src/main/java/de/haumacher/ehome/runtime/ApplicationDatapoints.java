@@ -201,9 +201,14 @@ public final class ApplicationDatapoints {
 	 * @param entry
 	 *        The schedule entry, in a form the form's object.
 	 * @param output
-	 *        The id of the output entered.
+	 *        The output entered: the application datapoint referenced (or its id).
 	 */
 	public static ResKey outputProblem(Object entry, Object output) {
+		if (output instanceof TLObject datapoint) {
+			// The reference of the entry (haumacher/ehome #90).
+			return datapoint.tValid() && isApplicationDatapoint(datapoint) && writable(datapoint)
+				? I18NConstants.OUTPUT_WRITABLE__ID.fill(id(datapoint)) : null;
+		}
 		if (output == null || output.toString().isBlank()) {
 			return null;
 		}

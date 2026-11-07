@@ -427,6 +427,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey ERROR_RULE_IMPORT_NOTHING;
 
 	/**
+	 * @en The image does not belong to this project: it names what the project does not have: {0}.
+	 */
+	public static ResKey1 ERROR_RULE_IMPORT_UNRESOLVED__IDS;
+
+	/**
 	 * @en The rules of the file cannot be read: {0}
 	 */
 	public static ResKey1 ERROR_RULE_IMPORT_UNREADABLE__REASON;

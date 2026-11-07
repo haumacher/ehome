@@ -85,6 +85,9 @@ public final class RuleExport {
 	/** {@link #_target} and its containers. */
 	private Set<TLObject> _chain;
 
+	/** The project exported: the references of the rules and entries name their targets by ids of its image. */
+	private TLObject _project;
+
 	/**
 	 * Creates a {@link RuleExport} for the whole project.
 	 */
@@ -183,6 +186,7 @@ public final class RuleExport {
 	 * member <code>rules</code>; <code>null</code> for none.
 	 */
 	public List<Object> rules(TLObject project) {
+		_project = project;
 		List<TLObject> rules = orderedRules(project);
 		if (rules.isEmpty()) {
 			return null;
@@ -209,6 +213,7 @@ public final class RuleExport {
 	 * for none.
 	 */
 	public List<Object> schedules(TLObject project) {
+		_project = project;
 		List<TLObject> entries = objects(project.tValueByName("schedules"));
 		if (entries.isEmpty()) {
 			return null;
@@ -680,7 +685,15 @@ public final class RuleExport {
 
 	private void id(Map<String, Object> result, TLObject obj, String member, String attribute, String path) {
 		source(path + "." + member, obj, attribute);
-		result.put(member, orEmpty(text(obj, attribute)));
+		result.put(member, orEmpty(RuleReferences.ATTRIBUTES.contains(attribute) ? reference(obj, attribute) : text(obj, attribute)));
+	}
+
+	/**
+	 * The id the image names the target of the reference by (haumacher/ehome #90), <code>null</code>
+	 * for none.
+	 */
+	private String reference(TLObject obj, String attribute) {
+		return RuleReferences.id(_project, get(obj, attribute), attribute);
 	}
 
 	private Map<String, Object> trigger(TLObject trigger, String path) {
@@ -830,7 +843,7 @@ public final class RuleExport {
 			result.put("missed", missed);
 		}
 		source(path + ".output", entry, "output");
-		String output = text(entry, "output");
+		String output = reference(entry, "output");
 		if (output != null) {
 			result.put("output", output);
 		}
@@ -1061,6 +1074,7 @@ public final class RuleExport {
 			return null;
 		}
 		RuleExport export = new RuleExport();
+		export._project = project;
 		export._target = stored;
 		export._overlay = overlay;
 		export._attribute = attribute;

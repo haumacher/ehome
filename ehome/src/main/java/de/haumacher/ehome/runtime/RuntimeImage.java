@@ -604,6 +604,20 @@ public final class RuntimeImage {
 		{ "timeMasterDateTime", "dateTime", "knx.datetime", "19" },
 	};
 
+	/**
+	 * The id of the datapoint the controller adds for the given address of the project's time master
+	 * (<code>knx.time</code>, <code>knx.date</code>, <code>knx.datetime</code>), <code>null</code> if
+	 * the address is none of them.
+	 */
+	public static String timeMasterId(TLObject project, TLObject address) {
+		for (String[] member : TIME_MASTER) {
+			if (project.tValueByName(member[0]) == address) {
+				return member[2];
+			}
+		}
+		return null;
+	}
+
 	private void timeMasterAddresses(TLObject project) {
 		for (String[] member : TIME_MASTER) {
 			if (project.tValueByName(member[0]) instanceof TLObject address) {

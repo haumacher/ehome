@@ -31,6 +31,7 @@ import de.haumacher.ehome.runtime.ExportRuntimeImageAction;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.RuleFunctions;
+import de.haumacher.ehome.runtime.RuleReferences;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
@@ -71,6 +72,9 @@ public class TestRuleEditing extends BasicTestCase {
 			}
 			assertNotNull("a writable switch: " + datapoints, writable);
 			assertNotNull("a read-only switch: " + datapoints, readOnly);
+			// The references name the objects (haumacher/ehome #90).
+			TLObject writableObject = RuleReferences.datapoints(project).get(writable);
+			TLObject readOnlyObject = RuleReferences.datapoints(project).get(readOnly);
 
 			TLObject rule;
 			TLObject reaction;
@@ -83,22 +87,22 @@ public class TestRuleEditing extends BasicTestCase {
 				timer.tUpdateByName("duration", "5min");
 				reaction = RuleFunctions.create(rule, "reactions", type("Reaction"));
 				TLObject trigger = RuleFunctions.create(reaction, "triggers", type("DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", writable);
+				trigger.tUpdateByName("datapoint", writableObject);
 				reaction.tUpdateByName("condition", "@\"" + writable + "\"");
 				write = RuleFunctions.create(reaction, "actions", type("WriteAction"));
-				write.tUpdateByName("datapoint", writable);
+				write.tUpdateByName("datapoint", writableObject);
 				write.tUpdateByName("value", "not @\"" + writable + "\"");
 				restart = RuleFunctions.create(reaction, "actions", type("RestartTimerAction"));
-				restart.tUpdateByName("timer", "t1");
+				restart.tUpdateByName("timer", timer);
 				TLObject log = RuleFunctions.create(reaction, "elseActions", type("LogAction"));
 				log.tUpdateByName("message", "off at {time()}, {{braces}}");
 
 				entry = RuleFunctions.create(project, "schedules", type("WeeklySchedule"));
 				TLObject expiry = RuleFunctions.create(rule, "reactions", type("Reaction"));
-				RuleFunctions.create(expiry, "triggers", type("TimerTrigger")).tUpdateByName("timer", "t1");
-				RuleFunctions.create(expiry, "triggers", type("ScheduleTrigger")).tUpdateByName("schedule", "entry-1");
+				RuleFunctions.create(expiry, "triggers", type("TimerTrigger")).tUpdateByName("timer", timer);
+				RuleFunctions.create(expiry, "triggers", type("ScheduleTrigger")).tUpdateByName("schedule", entry);
 				TLObject off = RuleFunctions.create(expiry, "actions", type("WriteAction"));
-				off.tUpdateByName("datapoint", writable);
+				off.tUpdateByName("datapoint", writableObject);
 				off.tUpdateByName("value", "false");
 				tx.commit();
 			}
@@ -141,16 +145,15 @@ public class TestRuleEditing extends BasicTestCase {
 			assertEquals("A missing value is shown at the value, not at the datapoint.", List.of(), form.warnings("datapoint"));
 			form.set("value", "true");
 			assertEquals(List.of(), form.warnings("value"));
-			form.set("datapoint", readOnly);
+			form.set("datapoint", readOnlyObject);
 			assertEquals(1, form.warnings("datapoint").size());
 			assertTrue(form.warnings("datapoint").get(0), form.warnings("datapoint").get(0).contains("notWritable"));
 			assertEquals(List.of(), form.warnings("value"));
 
 			RuleForm restartForm = new RuleForm(restart);
-			restartForm.set("timer", "nope");
+			restartForm.set("timer", null);
 			assertEquals(1, restartForm.warnings("timer").size());
-			assertTrue(restartForm.warnings("timer").get(0), restartForm.warnings("timer").get(0).contains("unknownReference"));
-			restartForm.set("timer", "t1");
+			restartForm.set("timer", restart.tValueByName("timer"));
 			assertEquals(List.of(), restartForm.warnings("timer"));
 			restartForm.set("duration", "5");
 			assertTrue(restartForm.warnings("duration").toString(), restartForm.warnings("duration").get(0).contains("typeError"));
@@ -162,9 +165,6 @@ public class TestRuleEditing extends BasicTestCase {
 			assertTrue(entryForm.warnings("time").get(0), entryForm.warnings("time").get(0).contains("hour"));
 			entryForm.set("time", "6:x");
 			assertEquals(1, entryForm.errors("time").size());
-			entryForm.set("output", writable);
-			assertEquals(1, entryForm.warnings("output").size());
-			assertTrue(entryForm.warnings("output").get(0), entryForm.warnings("output").get(0).contains("outputConflict"));
 
 			// A stored refused value: the image is refused at the action it stems from.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {

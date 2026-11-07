@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The ids of rules and schedule entries become references (haumacher/ehome #90): the datapoint of a
+	trigger or action, the output of a schedule entry, the entry of a schedule trigger, the timer and
+	the parameter of a trigger or action. A property changing into a reference of the same name would
+	be deleted with its values and created again by the automatic model upgrade. Here the SQL first
+	moves the id texts of these objects (in every revision) to flex attributes of their own,
+	issue90.<attribute>; then the properties are deleted from the stored model and the references
+	created as the model declares them, and the rules become datapoints (their enable switch). After
+	the start, the startup action RuleReferenceMigration resolves each moved id in its project (a
+	timer or parameter in its rule) and sets the reference; an id naming nothing of the project leaves
+	the reference empty and is logged. The history keeps the old texts in the flex attributes until
+	the action removes them from the current state.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_90_Rule_references"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_73_History_set_by_hand"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30079_Remove_comments"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_29092_multi_factor_authentication"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<sql file-name-prefix="webinf://kbase/migration/ehome/Issue_90_Rule_references_scripts/moveIds"/>
+		<delete-property name="ehome.runtime:DatapointTrigger#datapoint"/>
+		<delete-property name="ehome.runtime:ScheduleTrigger#schedule"/>
+		<delete-property name="ehome.runtime:TimerTrigger#timer"/>
+		<delete-property name="ehome.runtime:ParameterTrigger#parameter"/>
+		<delete-property name="ehome.runtime:SilenceTrigger#datapoint"/>
+		<delete-property name="ehome.runtime:WriteAction#datapoint"/>
+		<delete-property name="ehome.runtime:ReadAction#datapoint"/>
+		<delete-property name="ehome.runtime:StartTimerAction#timer"/>
+		<delete-property name="ehome.runtime:RestartTimerAction#timer"/>
+		<delete-property name="ehome.runtime:CancelTimerAction#timer"/>
+		<delete-property name="ehome.runtime:SetParameterAction#parameter"/>
+		<delete-property name="ehome.runtime:ScheduleEntry#output"/>
+		<create-reference name="ehome.runtime:DatapointTrigger#datapoint"
+			type="ehome.logical:ProjectDatapoint"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "trigger")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'trigger')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:ScheduleTrigger#schedule"
+			type="ehome.runtime:ScheduleEntry"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "schedule")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'schedule')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:TimerTrigger#timer"
+			type="ehome.runtime:RuleTimer"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "timer")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'timer')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:ParameterTrigger#parameter"
+			type="ehome.runtime:RuleParameter"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "parameter")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'parameter')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:SilenceTrigger#datapoint"
+			type="ehome.logical:ProjectDatapoint"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "trigger")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'trigger')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:WriteAction#datapoint"
+			type="ehome.logical:ProjectDatapoint"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "write")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'write')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:ReadAction#datapoint"
+			type="ehome.logical:ProjectDatapoint"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "read")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'read')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:StartTimerAction#timer"
+			type="ehome.runtime:RuleTimer"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "timer")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'timer')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:RestartTimerAction#timer"
+			type="ehome.runtime:RuleTimer"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "timer")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'timer')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:CancelTimerAction#timer"
+			type="ehome.runtime:RuleTimer"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "timer")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'timer')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:SetParameterAction#parameter"
+			type="ehome.runtime:RuleParameter"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "parameter")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'parameter')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<create-reference name="ehome.runtime:ScheduleEntry#output"
+			type="ehome.runtime:ApplicationDatapoint"
+		>
+			<annotations>
+				<constraints>
+					<rule-constraint/>
+				</constraints>
+				<options>
+					<options-by-expression alphabetic-order="false">
+						<function><![CDATA[e -> ruleOptions($e, "output")]]></function>
+						<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+							label="x -> ruleOptionLabel($x, 'output')"
+						/>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</create-reference>
+		<add-class-generalizations name="ehome.runtime:Rule">
+			<generalizations>
+				<generalization type="ehome.logical:ProjectDatapoint"/>
+			</generalizations>
+		</add-class-generalizations>
+		<reorder-part name="ehome.runtime:DatapointTrigger#datapoint"
+			before="on"
+		/>
+		<reorder-part name="ehome.runtime:ScheduleTrigger#schedule"/>
+		<reorder-part name="ehome.runtime:TimerTrigger#timer"/>
+		<reorder-part name="ehome.runtime:ParameterTrigger#parameter"/>
+		<reorder-part name="ehome.runtime:SilenceTrigger#datapoint"
+			before="after"
+		/>
+		<reorder-part name="ehome.runtime:WriteAction#datapoint"
+			before="value"
+		/>
+		<reorder-part name="ehome.runtime:ReadAction#datapoint"/>
+		<reorder-part name="ehome.runtime:StartTimerAction#timer"
+			before="duration"
+		/>
+		<reorder-part name="ehome.runtime:RestartTimerAction#timer"
+			before="duration"
+		/>
+		<reorder-part name="ehome.runtime:CancelTimerAction#timer"/>
+		<reorder-part name="ehome.runtime:SetParameterAction#parameter"
+			before="value"
+		/>
+		<reorder-part name="ehome.runtime:ScheduleEntry#output"/>
+	</processors>
+	<post-processors/>
+	<startup-actions>
+		<startup-action class="de.haumacher.ehome.runtime.RuleReferenceMigration"/>
+	</startup-actions>
+</migration>

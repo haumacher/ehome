@@ -176,10 +176,10 @@ public class TestControlPages extends BasicTestCase {
 			_setpoint.tUpdateByName("identifier", "setpoint");
 			_setpoint.tUpdateByName("default", "21.0");
 			TLObject reaction = RuleFunctions.create(_rule, "reactions", runtime("Reaction"));
-			RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")).tUpdateByName("datapoint", "1/3/1");
+			RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")).tUpdateByName("datapoint", _temperature);
 			reaction.tUpdateByName("condition", "@\"1/3/1\" < $setpoint");
 			TLObject write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", "1/1/7");
+			write.tUpdateByName("datapoint", _heating);
 			write.tUpdateByName("value", "true");
 			tx.commit();
 		}

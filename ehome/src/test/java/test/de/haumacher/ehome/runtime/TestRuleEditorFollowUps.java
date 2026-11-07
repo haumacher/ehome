@@ -8,6 +8,8 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.derived;
 import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,6 +33,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.annotate.util.ValueNormalizer;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.Resources;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
@@ -47,8 +50,8 @@ import de.haumacher.ehome.runtime.RuleImport;
  * only datapoint is an application datapoint:
  *
  * <ul>
- * <li>Each field is checked on its own: two refused fields of one action (an unknown datapoint and a
- * value naming an unknown parameter; an unknown timer and a duration that is no duration) both show
+ * <li>Each field is checked on its own: two refused fields of one action (no datapoint and a
+ * value naming an unknown parameter; no timer and a duration that is no duration) both show
  * their refusal at once.</li>
  * <li>Reactions, triggers and actions are labeled by their content, the summary of their table.</li>
  * <li>Saving stores the texts of the rule language in their canonical form (a text that does not
@@ -70,8 +73,9 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 		try {
 			TLObject write;
 			TLObject start;
+			TLObject light;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+				light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
 				light.tUpdateByName("identifier", "light");
 				light.tUpdateByName("writable", Boolean.TRUE);
 				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
@@ -79,24 +83,24 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
 				write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-				write.tUpdateByName("datapoint", "nope");
+				// No datapoint: the reference is empty (haumacher/ehome #90).
 				write.tUpdateByName("value", "$missing");
 				start = RuleFunctions.create(reaction, "actions", runtime("StartTimerAction"));
-				start.tUpdateByName("timer", "unknownTimer");
+				// No timer.
 				start.tUpdateByName("duration", "true");
 				tx.commit();
 			}
 
 			RuleForm writeForm = new RuleForm(write);
-			assertRefused(writeForm, "datapoint", "'nope'");
+			assertRefused(writeForm, "datapoint", "'datapoint'");
 			assertRefused(writeForm, "value", "missing");
 
 			RuleForm startForm = new RuleForm(start);
-			assertRefused(startForm, "timer", "unknownTimer");
+			assertRefused(startForm, "timer", "'timer'");
 			assertRefused(startForm, "duration", "duration");
 
 			// Fixed, the other field's refusal stays and its own disappears.
-			writeForm.set("datapoint", "light");
+			writeForm.set("datapoint", light);
 			assertEquals(List.of(), writeForm.warnings("datapoint"));
 			assertRefused(writeForm, "value", "missing");
 			writeForm.set("value", "true");
@@ -104,7 +108,7 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 
 			startForm.set("duration", "5min");
 			assertEquals(List.of(), startForm.warnings("duration"));
-			assertRefused(startForm, "timer", "unknownTimer");
+			assertRefused(startForm, "timer", "'timer'");
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}
@@ -123,13 +127,18 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			TLObject trigger;
 			TLObject action;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				TLObject light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+				light.tUpdateByName("identifier", "light");
+				TLObject lamp = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+				lamp.tUpdateByName("identifier", "lamp");
+				lamp.tUpdateByName("writable", Boolean.TRUE);
 				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
 				reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				trigger = RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger"));
-				trigger.tUpdateByName("datapoint", "light");
+				trigger.tUpdateByName("datapoint", light);
 				reaction.tUpdateByName("condition", "@light");
 				action = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-				action.tUpdateByName("datapoint", "lamp");
+				action.tUpdateByName("datapoint", lamp);
 				action.tUpdateByName("value", "true");
 				tx.commit();
 			}
@@ -280,6 +289,22 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 		TLObject viaImport = TestRuleAuthoring.createProject();
 		try {
 			byte[] content = Files.readAllBytes(EXAMPLE.toPath());
+			Map<?, ?> image = (Map<?, ?>) Json.parse(new String(content, StandardCharsets.UTF_8), 100);
+
+			// The datapoints of the example bound to KNX have ids of their own, no group addresses of a
+			// project: their rules name nothing of the project, and the import is refused, naming them
+			// (haumacher/ehome #90).
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				RuleFunctions.importImage(viaFile,
+					BinaryDataFactory.createBinaryData(content, "application/json", EXAMPLE.getName()));
+				fail("The rules name datapoints the project does not have.");
+			} catch (TopLogicException ex) {
+				String message = Resources.getInstance().getString(ex.getErrorKey());
+				assertTrue(message, message.contains("hall.presence") && message.contains("living.light"));
+			}
+			knxAsApplicationDatapoints(viaFile, image);
+			knxAsApplicationDatapoints(viaImport, image);
+
 			String result;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				result = RuleFunctions.importImage(viaFile,
@@ -288,11 +313,18 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			}
 			assertTrue(result, result.startsWith("2 rules, 2 schedule entries and 2 datapoints imported."));
 
-			Map<?, ?> image = (Map<?, ?>) Json.parse(new String(content, StandardCharsets.UTF_8), 100);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				RuleImport importer = new RuleImport();
-				importer.importRules(viaImport, (List<?>) image.get("rules"));
+				// The datapoints first, then the entries: the entries and rules name them.
+				List<Object> own = new ArrayList<>();
+				for (Object datapoint : (List<?>) image.get("datapoints")) {
+					if (!((Map<?, ?>) datapoint).containsKey("knx")) {
+						own.add(datapoint);
+					}
+				}
+				importer.importDatapoints(viaImport, own);
 				importer.importSchedules(viaImport, (List<?>) image.get("schedules"));
+				importer.importRules(viaImport, (List<?>) image.get("rules"));
 				tx.commit();
 			}
 			assertEquals(Json.write(new RuleExport().rules(viaImport)), Json.write(new RuleExport().rules(viaFile)));
@@ -312,6 +344,26 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 			assertEquals(2, ((java.util.Collection<?>) viaFile.tValueByName("rules")).size());
 		} finally {
 			SharedData.deleteProjects(List.of(viaFile, viaImport));
+		}
+	}
+
+	/**
+	 * Gives the project an application datapoint for each datapoint of the image bound to KNX, so that
+	 * the rules of the image name datapoints of the project.
+	 */
+	private static void knxAsApplicationDatapoints(TLObject project, Map<?, ?> image) {
+		List<Object> datapoints = new ArrayList<>();
+		for (Object item : (List<?>) image.get("datapoints")) {
+			Map<?, ?> datapoint = (Map<?, ?>) item;
+			if (datapoint.containsKey("knx")) {
+				Map<Object, Object> copy = new LinkedHashMap<>(datapoint);
+				copy.remove("knx");
+				datapoints.add(copy);
+			}
+		}
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			new RuleImport().importDatapoints(project, datapoints);
+			tx.commit();
 		}
 	}
 

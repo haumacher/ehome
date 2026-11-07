@@ -95,7 +95,18 @@ public class RuleFunctions extends GenericMethod {
 		 * location where it has none ({@link RuleImport#importImage(TLObject, String)});
 		 * the sentence saying what was imported, followed by what the import did not keep.
 		 */
-		ruleImportImage(2, false);
+		ruleImportImage(2, false),
+		/**
+		 * <code>ruleOptions(obj, kind)</code>: the objects a reference of the given kind of a rule or
+		 * schedule entry may name ({@link RuleReferences#options(Object, String)}); obj is the edited
+		 * part (or the form's overlay of it).
+		 */
+		ruleOptions(2, true),
+		/**
+		 * <code>ruleOptionLabel(option, kind)</code>: the label of an option of a reference of the given
+		 * kind, with the id the image names it by ({@link RuleReferences#optionLabel(Object, String)}).
+		 */
+		ruleOptionLabel(2, true);
 
 		private final int _arity;
 
@@ -145,8 +156,11 @@ public class RuleFunctions extends GenericMethod {
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
 		if (!(arguments[0] instanceof TLObject obj) || !obj.tValid()) {
+			if (_function == Function.ruleOptionLabel) {
+				return "";
+			}
 			return _function == Function.ruleList || _function == Function.ruleDatapoints
-				|| _function == Function.ruleSuggestions ? List.of() : null;
+				|| _function == Function.ruleSuggestions || _function == Function.ruleOptions ? List.of() : null;
 		}
 		switch (_function) {
 			case ruleSummary:
@@ -167,6 +181,10 @@ public class RuleFunctions extends GenericMethod {
 					arguments[2] instanceof Number caret ? caret.intValue() : 0);
 			case ruleImportImage:
 				return importImage(obj, arguments[1]);
+			case ruleOptions:
+				return RuleReferences.options(obj, String.valueOf(arguments[1]));
+			case ruleOptionLabel:
+				return RuleReferences.optionLabel(obj, String.valueOf(arguments[1]));
 			default:
 				return null;
 		}
@@ -234,7 +252,7 @@ public class RuleFunctions extends GenericMethod {
 		StringBuilder out = new StringBuilder(kind);
 		switch (kind) {
 			case "datapoint": {
-				append(out, " ", text(obj, "datapoint"));
+				append(out, " ", reference(obj, "datapoint"));
 				List<String> flags = new ArrayList<>();
 				if (obj.tValueByName("on") instanceof TLClassifier on && !on.getName().equals("change")) {
 					flags.add(on.getName());
@@ -251,17 +269,17 @@ public class RuleFunctions extends GenericMethod {
 				append(out, " ", text(obj, "condition"));
 				break;
 			case "silence":
-				append(out, " ", text(obj, "datapoint"));
+				append(out, " ", reference(obj, "datapoint"));
 				append(out, " after ", text(obj, "after"));
 				break;
 			case "read":
-				append(out, " ", text(obj, "datapoint"));
+				append(out, " ", reference(obj, "datapoint"));
 				break;
 			case "schedule":
 			case "parameter":
 			case "timer":
 			case "cancelTimer":
-				append(out, " ", text(obj, kind.equals("cancelTimer") ? "timer" : kind));
+				append(out, " ", reference(obj, kind.equals("cancelTimer") ? "timer" : kind));
 				break;
 			case "start": {
 				List<String> reasons = new ArrayList<>();
@@ -276,7 +294,7 @@ public class RuleFunctions extends GenericMethod {
 				break;
 			}
 			case "write":
-				append(out, " ", text(obj, "datapoint"));
+				append(out, " ", reference(obj, "datapoint"));
 				append(out, " := ", text(obj, "value"));
 				if (Boolean.TRUE.equals(obj.tValueByName("onlyOnChange"))) {
 					out.append(" (onlyOnChange)");
@@ -284,11 +302,11 @@ public class RuleFunctions extends GenericMethod {
 				break;
 			case "startTimer":
 			case "restartTimer":
-				append(out, " ", text(obj, "timer"));
+				append(out, " ", reference(obj, "timer"));
 				append(out, " ", text(obj, "duration"));
 				break;
 			case "setParameter":
-				append(out, " ", text(obj, "parameter"));
+				append(out, " ", reference(obj, "parameter"));
 				append(out, " := ", text(obj, "value"));
 				break;
 			case "log":
@@ -345,6 +363,11 @@ public class RuleFunctions extends GenericMethod {
 		if (text != null) {
 			out.append(separator).append(text);
 		}
+	}
+
+	/** The id of the target of a reference of a rule or schedule entry (haumacher/ehome #90). */
+	private static String reference(TLObject obj, String attribute) {
+		return RuleReferences.id(RuntimeFunctions.project(obj), obj.tValueByName(attribute), attribute);
 	}
 
 	private static String text(TLObject obj, String attribute) {

@@ -117,6 +117,9 @@
 					<method name="ruleSuggestions" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<!-- The import of rules from a runtime image (haumacher/ehome #60). -->
 					<method name="ruleImportImage" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<!-- The options of the references of rules and schedule entries (haumacher/ehome #90). -->
+					<method name="ruleOptions" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
+					<method name="ruleOptionLabel" class="de.haumacher.ehome.runtime.RuleFunctions$Builder"/>
 					<!-- The control pages (haumacher/ehome #72, de.haumacher.ehome.runtime.PageFunctions). -->
 					<method name="pageOptions" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>
 					<method name="pageChildren" class="de.haumacher.ehome.runtime.PageFunctions$Builder"/>

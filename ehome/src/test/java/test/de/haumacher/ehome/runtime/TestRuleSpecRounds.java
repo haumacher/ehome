@@ -5,6 +5,7 @@ package test.de.haumacher.ehome.runtime;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -57,6 +58,8 @@ public class TestRuleSpecRounds extends BasicTestCase {
 	public void testImportExport() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
+			// The datapoint the rule names (haumacher/ehome #90).
+			TestRuleAuthoring.createDatapoints(project, List.of(Map.of("name", "1/0/1", "type", "boolean")));
 			RuleImport importer = new RuleImport();
 			TLObject rule;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -71,11 +74,12 @@ public class TestRuleSpecRounds extends BasicTestCase {
 			TLObject reaction = RuleFunctions.objects(rule, "reactions").get(0);
 			TLObject silence = RuleFunctions.objects(reaction, "triggers").get(0);
 			assertEquals("SilenceTrigger", silence.tType().getName());
-			assertEquals("1/0/1", silence.tValueByName("datapoint"));
+			TLObject address = (TLObject) silence.tValueByName("datapoint");
+			assertEquals("1/0/1", address.tValueByName("name"));
 			assertEquals("$quiet", silence.tValueByName("after"));
 			TLObject read = RuleFunctions.objects(reaction, "actions").get(0);
 			assertEquals("ReadAction", read.tType().getName());
-			assertEquals("1/0/1", read.tValueByName("datapoint"));
+			assertSame(address, read.tValueByName("datapoint"));
 			assertEquals("silence 1/0/1 after $quiet", RuleFunctions.summary(silence));
 			assertEquals("read 1/0/1", RuleFunctions.summary(read));
 			TLObject mode = RuleFunctions.objects(rule, "parameters").get(1);
@@ -115,9 +119,9 @@ public class TestRuleSpecRounds extends BasicTestCase {
 				TLObject reaction = RuleFunctions.create(rule, "reactions", type("Reaction"));
 				RuleFunctions.create(reaction, "triggers", type("StartTrigger"));
 				read = RuleFunctions.create(reaction, "actions", type("ReadAction"));
-				read.tUpdateByName("datapoint", "calc");
+				read.tUpdateByName("datapoint", calc);
 				write = RuleFunctions.create(reaction, "actions", type("WriteAction"));
-				write.tUpdateByName("datapoint", "rule/rule-1/enabled");
+				write.tUpdateByName("datapoint", rule);
 				write.tUpdateByName("value", "false");
 				tx.commit();
 			}

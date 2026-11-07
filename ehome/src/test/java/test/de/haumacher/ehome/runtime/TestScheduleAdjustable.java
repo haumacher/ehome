@@ -173,7 +173,7 @@ public class TestScheduleAdjustable extends BasicTestCase {
 				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger"))
-					.tUpdateByName("datapoint", "schedule/workdayMorning/time");
+					.tUpdateByName("datapoint", entry);
 				reaction.tUpdateByName("condition", "@\"schedule/workdayMorning/time\" > 07:00");
 				RuleFunctions.create(reaction, "actions", runtime("LogAction")).tUpdateByName("message", "late riser");
 				tx.commit();

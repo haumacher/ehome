@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -50,6 +51,20 @@ public final class RuleImport {
 
 	private final List<String> _notes = new ArrayList<>();
 
+	/** The references read, resolved when the rules and entries are in the project (haumacher/ehome #90). */
+	private final List<Pending> _pending = new ArrayList<>();
+
+	/** The rule being read, the scope of the ids of its timers and parameters. */
+	private TLObject _rule;
+
+	/** Whether the references are resolved by the caller, after rules and entries are imported both. */
+	private boolean _deferred;
+
+	/** A reference read by its id, not yet resolved. */
+	private record Pending(TLObject obj, String attribute, String id, TLObject rule) {
+		// Value only.
+	}
+
 	/**
 	 * What the import did not keep.
 	 */
@@ -77,6 +92,7 @@ public final class RuleImport {
 		}
 		all.addAll(result);
 		project.tUpdateByName("rules", all);
+		resolveUnlessDeferred(project);
 		return result;
 	}
 
@@ -92,6 +108,7 @@ public final class RuleImport {
 		}
 		all.addAll(result);
 		project.tUpdateByName("schedules", all);
+		resolveUnlessDeferred(project);
 		return result;
 	}
 
@@ -127,11 +144,20 @@ public final class RuleImport {
 			List<TLObject> datapoints =
 				image.get("datapoints") instanceof List<?> list ? importDatapoints(project, list) : List.of();
 			importSettings(project, image.get("settings"));
-			List<TLObject> rules = image.get("rules") instanceof List<?> list
-				? importRules(project, unknown(project, "rules", list, I18NConstants.IMPORT_RULE_KEPT__ID)) : List.of();
-			List<TLObject> schedules = image.get("schedules") instanceof List<?> list
-				? importSchedules(project, unknown(project, "schedules", list, I18NConstants.IMPORT_SCHEDULE_KEPT__ID))
-				: List.of();
+			// A rule may name an entry imported after it, an entry the parameter of a rule.
+			_deferred = true;
+			List<TLObject> rules;
+			List<TLObject> schedules;
+			try {
+				rules = image.get("rules") instanceof List<?> list
+					? importRules(project, unknown(project, "rules", list, I18NConstants.IMPORT_RULE_KEPT__ID)) : List.of();
+				schedules = image.get("schedules") instanceof List<?> list
+					? importSchedules(project, unknown(project, "schedules", list, I18NConstants.IMPORT_SCHEDULE_KEPT__ID))
+					: List.of();
+			} finally {
+				_deferred = false;
+			}
+			resolve(project);
 			return new Imported(rules, schedules, datapoints);
 		} catch (TopLogicException ex) {
 			throw ex;
@@ -426,6 +452,7 @@ public final class RuleImport {
 
 	private TLObject rule(Map<?, ?> json) {
 		TLObject rule = create("Rule");
+		_rule = rule;
 		rule.tUpdateByName("identifier", json.get("id"));
 		rule.tUpdateByName("name", label(json.get("name"), "rule " + json.get("id")));
 		rule.tUpdateByName("description", json.get("description"));
@@ -537,7 +564,7 @@ public final class RuleImport {
 		switch (kind) {
 			case "datapoint":
 				result = create("DatapointTrigger");
-				result.tUpdateByName("datapoint", json.get("datapoint"));
+				reference(result, "datapoint", json.get("datapoint"));
 				result.tUpdateByName("on", classifier("UpdateKind", json.get("on") == null ? "change" : json.get("on")));
 				result.tUpdateByName("origin", classifier("UpdateOrigin", json.get("origin") == null ? "any" : json.get("origin")));
 				break;
@@ -547,19 +574,19 @@ public final class RuleImport {
 				break;
 			case "schedule":
 				result = create("ScheduleTrigger");
-				result.tUpdateByName("schedule", json.get("schedule"));
+				reference(result, "schedule", json.get("schedule"));
 				break;
 			case "timer":
 				result = create("TimerTrigger");
-				result.tUpdateByName("timer", json.get("timer"));
+				reference(result, "timer", json.get("timer"));
 				break;
 			case "parameter":
 				result = create("ParameterTrigger");
-				result.tUpdateByName("parameter", json.get("parameter"));
+				reference(result, "parameter", json.get("parameter"));
 				break;
 			case "silence":
 				result = create("SilenceTrigger");
-				result.tUpdateByName("datapoint", json.get("datapoint"));
+				reference(result, "datapoint", json.get("datapoint"));
 				result.tUpdateByName("after", text(json.get("after")));
 				break;
 			case "start": {
@@ -592,27 +619,27 @@ public final class RuleImport {
 		switch (kind) {
 			case "write":
 				result = create("WriteAction");
-				result.tUpdateByName("datapoint", json.get("datapoint"));
+				reference(result, "datapoint", json.get("datapoint"));
 				result.tUpdateByName("value", text(json.get("value")));
 				result.tUpdateByName("onlyOnChange", Boolean.valueOf(Boolean.TRUE.equals(json.get("onlyOnChange"))));
 				break;
 			case "startTimer":
 			case "restartTimer":
 				result = create(kind.equals("startTimer") ? "StartTimerAction" : "RestartTimerAction");
-				result.tUpdateByName("timer", json.get("timer"));
+				reference(result, "timer", json.get("timer"));
 				result.tUpdateByName("duration", text(json.get("duration")));
 				break;
 			case "cancelTimer":
 				result = create("CancelTimerAction");
-				result.tUpdateByName("timer", json.get("timer"));
+				reference(result, "timer", json.get("timer"));
 				break;
 			case "read":
 				result = create("ReadAction");
-				result.tUpdateByName("datapoint", json.get("datapoint"));
+				reference(result, "datapoint", json.get("datapoint"));
 				break;
 			case "setParameter":
 				result = create("SetParameterAction");
-				result.tUpdateByName("parameter", json.get("parameter"));
+				reference(result, "parameter", json.get("parameter"));
 				result.tUpdateByName("value", text(json.get("value")));
 				break;
 			case "log":
@@ -650,7 +677,8 @@ public final class RuleImport {
 		result.tUpdateByName("enabled", Boolean.valueOf(!Boolean.FALSE.equals(json.get("enabled"))));
 		result.tUpdateByName("enabledAdjustable", Boolean.valueOf(!Boolean.FALSE.equals(json.get("enabledAdjustable"))));
 		result.tUpdateByName("missed", classifier("MissedFiring", json.get("missed") == null ? "skip" : json.get("missed")));
-		result.tUpdateByName("output", json.get("output"));
+		_rule = null;
+		reference(result, "output", json.get("output"));
 		if (json.containsKey("days")) {
 			List<TLClassifier> days = new ArrayList<>();
 			for (Object day : list(json.get("days"))) {
@@ -710,6 +738,46 @@ public final class RuleImport {
 			}
 		}
 		return result;
+	}
+
+	// ---- references --------------------------------------------------------------------------
+
+	/** Reads a reference of a part of the current rule by the id of the image. */
+	private void reference(TLObject obj, String attribute, Object id) {
+		if (id != null && !id.toString().isBlank()) {
+			_pending.add(new Pending(obj, attribute, id.toString(), _rule));
+		}
+	}
+
+	private void resolveUnlessDeferred(TLObject project) {
+		if (!_deferred) {
+			resolve(project);
+		}
+	}
+
+	/**
+	 * Sets the references read to the objects of the project their ids name (haumacher/ehome #90): a
+	 * datapoint, a schedule entry of the project, a timer or parameter of the rule.
+	 *
+	 * @throws TopLogicException
+	 *         If an id names nothing of the project: the image does not belong to it. The message
+	 *         names every such id.
+	 */
+	private void resolve(TLObject project) {
+		Map<String, TLObject> datapoints = RuleReferences.datapoints(project);
+		Set<String> unresolved = new LinkedHashSet<>();
+		for (Pending pending : _pending) {
+			TLObject target = RuleReferences.resolve(project, pending.rule(), pending.attribute(), pending.id(), datapoints);
+			if (target == null) {
+				unresolved.add(pending.id());
+			} else {
+				pending.obj().tUpdateByName(pending.attribute(), target);
+			}
+		}
+		_pending.clear();
+		if (!unresolved.isEmpty()) {
+			throw new TopLogicException(I18NConstants.ERROR_RULE_IMPORT_UNRESOLVED__IDS.fill(String.join(", ", unresolved)));
+		}
 	}
 
 	// ---- helpers -----------------------------------------------------------------------------

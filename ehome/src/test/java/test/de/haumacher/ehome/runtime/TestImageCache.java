@@ -18,6 +18,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
@@ -30,7 +31,7 @@ import de.haumacher.ehome.runtime.RuleFunctions;
  * The checks of the fields of a schedule entry and a rule build the project's image once per
  * revision of the knowledge base (haumacher/ehome #89, {@link ImageCache}): checking every field of a
  * form and changing one of them builds it at most once; after a commit the next check sees the new
- * state; another reader gets an image of its own.
+ * state (a changed datapoint makes an output or a write accepted); another reader gets an image of its own.
  *
  * <p>
  * An empty project serves; no ETS import.
@@ -43,17 +44,22 @@ public class TestImageCache extends BasicTestCase {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
 			TLObject entry;
+			TLObject light;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				// An output that is no truth value: refused.
+				light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+				light.tUpdateByName("identifier", "light");
+				light.tUpdateByName("type", valueType("unsigned"));
 				entry = RuleFunctions.create(project, "schedules", runtime("AstroSchedule"));
 				entry.tUpdateByName("identifier", "dusk");
-				entry.tUpdateByName("output", "light");
+				entry.tUpdateByName("output", light);
 				tx.commit();
 			}
 
 			long before = ImageCache.builds();
 			RuleForm form = new RuleForm(entry);
 			checkAll(form, entry);
-			assertRefused(form, "output", "light");
+			assertRefused(form, "output", "typeError");
 			form.set("enabledAdjustable", Boolean.FALSE);
 			checkAll(form, entry);
 			form.set("enabledAdjustable", Boolean.TRUE);
@@ -61,10 +67,9 @@ public class TestImageCache extends BasicTestCase {
 			RuleFunctions.datapoints(project);
 			assertEquals("One build for every check and the datapoint list.", 1, ImageCache.builds() - before);
 
-			// A datapoint of the name makes the output accepted.
+			// A truth value makes the output accepted.
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-				light.tUpdateByName("identifier", "light");
+				light.tUpdateByName("type", valueType("boolean"));
 				tx.commit();
 			}
 			before = ImageCache.builds();
@@ -72,7 +77,7 @@ public class TestImageCache extends BasicTestCase {
 			checkAll(form, entry);
 			assertEquals(List.of(), form.warnings("output"));
 			assertTrue(RuleFunctions.datapoints(project).stream()
-				.anyMatch(datapoint -> "light".equals(((Map<?, ?>) datapoint).get("id"))));
+				.anyMatch(datapoint -> "boolean".equals(((Map<?, ?>) datapoint).get("type"))));
 			assertEquals(1, ImageCache.builds() - before);
 		} finally {
 			SharedData.deleteProjects(List.of(project));
@@ -83,12 +88,16 @@ public class TestImageCache extends BasicTestCase {
 		TLObject project = TestRuleAuthoring.createProject();
 		try {
 			TLObject write;
+			TLObject light;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				// A datapoint that is not writable: refused.
+				light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
+				light.tUpdateByName("identifier", "light");
 				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
 				write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-				write.tUpdateByName("datapoint", "light");
+				write.tUpdateByName("datapoint", light);
 				write.tUpdateByName("value", "true");
 				tx.commit();
 			}
@@ -96,14 +105,12 @@ public class TestImageCache extends BasicTestCase {
 			long before = ImageCache.builds();
 			RuleForm form = new RuleForm(write);
 			checkAll(form, write);
-			assertRefused(form, "datapoint", "light");
+			assertRefused(form, "datapoint", "notWritable");
 			form.set("value", "false");
 			checkAll(form, write);
 			assertEquals(1, ImageCache.builds() - before);
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
-				light.tUpdateByName("identifier", "light");
 				light.tUpdateByName("writable", Boolean.TRUE);
 				tx.commit();
 			}
@@ -154,6 +161,10 @@ public class TestImageCache extends BasicTestCase {
 		List<String> warnings = form.warnings(attribute);
 		assertEquals(attribute + ": " + warnings, 1, warnings.size());
 		assertTrue(attribute + ": " + warnings, warnings.get(0).contains(part));
+	}
+
+	private static Object valueType(String name) {
+		return ((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType")).getClassifier(name);
 	}
 
 	private static TLClass runtime(String name) {

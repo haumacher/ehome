@@ -46,9 +46,9 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * <p>
  * The image carries them after the datapoint of the group address, with their labels in both
  * languages, flags, history and an empty <code>virtual</code> member, and the controller's checks
- * accept it with a schedule entry whose output is one and a rule reading and writing them. A
- * schedule output on the group address's datapoint stays refused (<code>outputConflict</code>), at
- * the field and in the image; a writable output is refused at the field. An id that is the one of
+ * accept it with a schedule entry whose output is one and a rule reading and writing them. The output
+ * of a schedule entry is an application datapoint (haumacher/ehome #90, a group address cannot be
+ * chosen); a writable output is refused at the field. An id that is the one of
  * the group address's datapoint, of the form of a group address, of another application datapoint
  * or reserved for the controller is refused at the field and on commit.
  * </p>
@@ -98,17 +98,16 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			counter.tUpdateByName("historySpacing", Integer.valueOf(60));
 
 			entry = RuleFunctions.create(project, "schedules", runtime("WeeklySchedule"));
-			entry.tUpdateByName("output", "schedule.morning");
+			entry.tUpdateByName("output", morning);
 			TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
 			TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
-			RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")).tUpdateByName("datapoint",
-				"schedule.morning");
+			RuleFunctions.create(reaction, "triggers", runtime("DatapointTrigger")).tUpdateByName("datapoint", morning);
 			reaction.tUpdateByName("condition", "@schedule.morning and not @holiday");
 			write = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			write.tUpdateByName("datapoint", "value1");
+			write.tUpdateByName("datapoint", counter);
 			write.tUpdateByName("value", "1");
 			TLObject light = RuleFunctions.create(reaction, "actions", runtime("WriteAction"));
-			light.tUpdateByName("datapoint", "1/0/1");
+			light.tUpdateByName("datapoint", address);
 			light.tUpdateByName("value", "true");
 			tx.commit();
 		}
@@ -150,22 +149,19 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			// The output of a schedule entry at the field.
 			RuleForm entryForm = new RuleForm(entry);
 			assertEquals(List.of(), entryForm.warnings("output"));
-			entryForm.set("output", "1/0/1");
-			assertEquals(1, entryForm.warnings("output").size());
-			assertTrue(entryForm.warnings("output").get(0),
-				entryForm.warnings("output").get(0).contains("outputConflict: output '1/0/1' is owned by the KNX adapter"));
-			entryForm.set("output", "holiday");
+			// A group address is no option: the output is an application datapoint (haumacher/ehome #90).
+			entryForm.set("output", holiday);
 			assertEquals(List.of(resources.getString(I18NConstants.OUTPUT_WRITABLE__ID.fill("holiday"))),
 				entryForm.warnings("output"));
-			entryForm.set("output", "value1");
+			entryForm.set("output", counter);
 			assertTrue(entryForm.warnings("output").toString(), entryForm.warnings("output").get(0).contains("typeError"));
-			entryForm.set("output", "schedule.morning");
+			entryForm.set("output", morning);
 			assertEquals(List.of(), entryForm.warnings("output"));
 
 			// A rule writing to the schedule's output, which is not writable.
 			RuleForm writeForm = new RuleForm(write);
 			assertEquals(List.of(), writeForm.warnings("datapoint"));
-			writeForm.set("datapoint", "schedule.morning");
+			writeForm.set("datapoint", morning);
 			assertEquals(1, writeForm.warnings("datapoint").size());
 			assertTrue(writeForm.warnings("datapoint").get(0), writeForm.warnings("datapoint").get(0).contains("notWritable"));
 
@@ -201,19 +197,6 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			} catch (TopLogicException ex) {
 				// Expected.
 			}
-
-			// A stored output on the group address's datapoint: the image is refused at the entry.
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				entry.tUpdateByName("output", "1/0/1");
-				tx.commit();
-			}
-			image = RuntimeImage.build(project, 1, NOW);
-			report = image.validate();
-			assertFalse(report.isValid());
-			ImageReport.Refusal refusal = report.getRefusals().get(0);
-			assertEquals("schedules[0].output", refusal.path());
-			assertTrue(refusal.reason(), refusal.reason().startsWith("outputConflict"));
-			assertSame(entry, image.elementAt(refusal.path()));
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {

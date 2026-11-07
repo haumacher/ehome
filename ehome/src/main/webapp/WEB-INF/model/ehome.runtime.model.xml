@@ -1136,6 +1136,8 @@
 		<class name="Rule">
 			<generalizations>
 				<generalization type="tl.model:TLObject"/>
+				<!-- Its enable switch is a datapoint of the image (rule/<id>/enabled, spec/rules.md 8.6) a trigger or action names (haumacher/ehome #90). -->
+				<generalization type="ehome.logical:ProjectDatapoint"/>
 			</generalizations>
 			<annotations>
 				<instance-presentation icon="css:bi bi-diagram-3"/>
@@ -1651,16 +1653,25 @@
 				<generalization type="Trigger"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of the datapoint in the image (a group address in three levels, 1/2/3). -->
-				<property name="datapoint"
-					type="tl.core:String"
+				<!-- The datapoint whose updates trigger: a datapoint of the image (a group address, an application datapoint, a parameter or the enable switch of a rule, the adjustable time of a schedule entry). The image names it by its id (haumacher/ehome #90). -->
+				<reference name="datapoint"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "trigger")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'trigger')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 				<!-- Changes of value or quality only, or every update. -->
 				<reference name="on"
 					kind="forwards"
@@ -1701,16 +1712,25 @@
 				<generalization type="Trigger"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of the schedule entry. -->
-				<property name="schedule"
-					type="tl.core:String"
+				<!-- The schedule entry whose firing triggers. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="schedule"
+					kind="forwards"
+					type="ScheduleEntry"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "schedule")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'schedule')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 			</attributes>
 		</class>
 		<!-- The expiry of a timer of the rule. -->
@@ -1719,16 +1739,25 @@
 				<generalization type="Trigger"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of a timer of the rule. -->
-				<property name="timer"
-					type="tl.core:String"
+				<!-- A timer of the rule. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="timer"
+					kind="forwards"
+					type="RuleTimer"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "timer")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'timer')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 			</attributes>
 		</class>
 		<!-- The start of the rule. -->
@@ -1775,16 +1804,25 @@
 				<generalization type="Trigger"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of a parameter of the rule. -->
-				<property name="parameter"
-					type="tl.core:String"
+				<!-- A parameter of the rule. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="parameter"
+					kind="forwards"
+					type="RuleParameter"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "parameter")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'parameter')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 			</attributes>
 		</class>
 		<!-- A datapoint without an update for a period (spec/rules.md 2.3, 7.11): fires once per silent period. -->
@@ -1793,16 +1831,25 @@
 				<generalization type="Trigger"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of the datapoint watched. -->
-				<property name="datapoint"
-					type="tl.core:String"
+				<!-- The datapoint watched: a datapoint of the image. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="datapoint"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "trigger")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'trigger')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 				<!-- The period: an expression of type duration of literals and the rule's parameters (10min, $timeout). -->
 				<property name="after"
 					type="tl.core:String"
@@ -1849,16 +1896,25 @@
 				<generalization type="Action"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of the datapoint commanded (writable). -->
-				<property name="datapoint"
-					type="tl.core:String"
+				<!-- The datapoint commanded: a writable datapoint of the image. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="datapoint"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "write")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'write')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 				<!-- The value: an expression converting to the datapoint's type. -->
 				<property name="value"
 					type="tl.core:String"
@@ -1885,16 +1941,25 @@
 				<generalization type="Action"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of the datapoint read (bound to a technology that reads values). -->
-				<property name="datapoint"
-					type="tl.core:String"
+				<!-- The datapoint read: a datapoint of the image bound to a technology that reads values. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="datapoint"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "read")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'read')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 			</attributes>
 		</class>
 		<!-- Starts a timer if it is stopped. -->
@@ -1903,16 +1968,25 @@
 				<generalization type="Action"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of a timer of the rule. -->
-				<property name="timer"
-					type="tl.core:String"
+				<!-- A timer of the rule. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="timer"
+					kind="forwards"
+					type="RuleTimer"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "timer")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'timer')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 				<!-- The duration of this start: an expression of type duration; empty for the timer's own. -->
 				<property name="duration"
 					type="tl.core:String"
@@ -1935,16 +2009,25 @@
 				<generalization type="Action"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of a timer of the rule. -->
-				<property name="timer"
-					type="tl.core:String"
+				<!-- A timer of the rule. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="timer"
+					kind="forwards"
+					type="RuleTimer"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "timer")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'timer')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 				<!-- The duration of this start: an expression of type duration; empty for the timer's own. -->
 				<property name="duration"
 					type="tl.core:String"
@@ -1967,16 +2050,25 @@
 				<generalization type="Action"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of a timer of the rule. -->
-				<property name="timer"
-					type="tl.core:String"
+				<!-- A timer of the rule. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="timer"
+					kind="forwards"
+					type="RuleTimer"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "timer")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'timer')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 			</attributes>
 		</class>
 		<!-- Sets a parameter of the rule. -->
@@ -1985,16 +2077,25 @@
 				<generalization type="Action"/>
 			</generalizations>
 			<attributes>
-				<!-- The id of a parameter of the rule. -->
-				<property name="parameter"
-					type="tl.core:String"
+				<!-- A parameter of the rule. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="parameter"
+					kind="forwards"
+					type="RuleParameter"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "parameter")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'parameter')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 				<!-- The value: an expression of the parameter's type. -->
 				<property name="value"
 					type="tl.core:String"
@@ -2094,16 +2195,25 @@
 					kind="forwards"
 					type="MissedFiring"
 				/>
-				<!-- The id of a boolean application datapoint the entry sets from a firing until midnight; empty for none. A datapoint of a group address cannot be an output. -->
-				<property name="output"
-					type="tl.core:String"
+				<!-- A boolean application datapoint the entry sets from a firing until midnight; empty for none. A datapoint of a group address cannot be an output, a writable one is refused. The image names it by its id (haumacher/ehome #90). -->
+				<reference name="output"
+					kind="forwards"
+					type="ApplicationDatapoint"
 				>
 					<annotations>
 						<constraints>
 							<rule-constraint/>
 						</constraints>
+						<options>
+							<options-by-expression alphabetic-order="false">
+								<function><![CDATA[e -> ruleOptions($e, "output")]]></function>
+								<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+									label="x -> ruleOptionLabel($x, 'output')"
+								/>
+							</options-by-expression>
+						</options>
 					</annotations>
-				</property>
+				</reference>
 			</attributes>
 		</class>
 		<!-- On the given days of the week at a time. -->

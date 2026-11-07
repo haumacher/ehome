@@ -30,10 +30,14 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.runtime.Json;
@@ -57,39 +61,92 @@ import de.haumacher.ehome.runtime.RuleImport;
 public class TestRuleAuthoring extends BasicTestCase {
 
 	public void testCorpusRoundTrip() throws Exception {
-		TLObject project = createProject();
-		try {
-			List<String> failures = new ArrayList<>();
-			int rules = 0;
-			File[] files = TestRuleCorpus.CORPUS.listFiles((dir, name) -> name.endsWith(".json"));
-			Arrays.sort(files);
-			for (File file : files) {
-				Map<?, ?> json = (Map<?, ?>) Json.parse(Files.readString(file.toPath(), StandardCharsets.UTF_8), 100);
-				List<Object> images = new ArrayList<>();
-				images.add(json.get("rules"));
-				if (json.get("timeline") instanceof List<?> timeline) {
-					for (Object step : timeline) {
-						if (((Map<?, ?>) step).get("image") instanceof Map<?, ?> image) {
-							images.add(image.get("rules"));
-						}
+		List<String> failures = new ArrayList<>();
+		List<String> refused = new ArrayList<>();
+		int rules = 0;
+		File[] files = TestRuleCorpus.CORPUS.listFiles((dir, name) -> name.endsWith(".json"));
+		Arrays.sort(files);
+		for (File file : files) {
+			Map<?, ?> json = (Map<?, ?>) Json.parse(Files.readString(file.toPath(), StandardCharsets.UTF_8), 100);
+			List<Map<?, ?>> images = new ArrayList<>();
+			images.add(json);
+			if (json.get("timeline") instanceof List<?> timeline) {
+				for (Object step : timeline) {
+					if (((Map<?, ?>) step).get("image") instanceof Map<?, ?> image) {
+						images.add(image);
 					}
 				}
-				for (int i = 0; i < images.size(); i++) {
-					List<?> original = (List<?>) images.get(i);
-					rules += original.size();
-					List<Object> exported = roundTrip(project, original);
+			}
+			for (int i = 0; i < images.size(); i++) {
+				Map<?, ?> image = images.get(i);
+				List<?> original = (List<?>) image.get("rules");
+				rules += original.size();
+				// The rules name the datapoints and schedule entries of the case (haumacher/ehome #90): a
+				// project of its own has them.
+				TLObject project = createProject();
+				try {
+					// An image of the timeline swaps the rules of the case, its datapoints stay.
+					createDatapoints(project, image.containsKey("datapoints") ? image.get("datapoints") : json.get("datapoints"));
+					List<Object> exported;
+					try {
+						exported = roundTrip(project, original,
+							image.containsKey("schedules") ? image.get("schedules") : json.get("schedules"));
+					} catch (TopLogicException ex) {
+						// A case of the loader's refusal of a name the image does not have: the import
+						// refuses it already (haumacher/ehome #90).
+						refused.add(file.getName() + " image " + i);
+						continue;
+					}
 					Object expected = normalize(original);
 					Object actual = normalize(exported);
 					if (!TestRuleText.same(expected, actual)) {
 						failures.add(file.getName() + " image " + i + ":\nexpected " + Json.write(expected) + "but was "
 							+ Json.write(actual));
 					}
+				} finally {
+					SharedData.deleteProjects(List.of(project));
 				}
 			}
-			assertEquals(String.join("\n", failures), List.of(), failures);
-			assertTrue(String.valueOf(rules), rules >= 40);
-		} finally {
-			SharedData.deleteProjects(List.of(project));
+		}
+		assertEquals(String.join("\n", failures), List.of(), failures);
+		// An unknown timer, an output that is no application datapoint: what a form cannot choose.
+		assertEquals(List.of("33-load-refused-unknown-timer.json image 0", "39-load-refused-schedule-output.json image 0"),
+			refused);
+		assertTrue(String.valueOf(rules), rules >= 40);
+	}
+
+	/**
+	 * Creates the datapoints of a case of the corpus (its member <code>datapoints</code>, each with a
+	 * <code>name</code> and a <code>type</code>) in the project: a group address for a name in three
+	 * levels, an application datapoint (writable) otherwise.
+	 */
+	static void createDatapoints(TLObject project, Object datapoints) {
+		if (!(datapoints instanceof List<?> list)) {
+			return;
+		}
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			List<Object> addresses = new ArrayList<>((java.util.Collection<?>) project.tValueByName("groupAddresses"));
+			for (Object item : list) {
+				Map<?, ?> datapoint = (Map<?, ?>) item;
+				String name = String.valueOf(datapoint.get("name") != null ? datapoint.get("name") : datapoint.get("id"));
+				if (name.matches("\\d+/\\d+/\\d+")) {
+					TLObject address = ModelService.getInstance().getFactory()
+						.createObject((TLClass) TLModelUtil.findType("ehome.logical:GroupAddress"));
+					address.tUpdateByName("name", name);
+					address.tUpdateByName("address", GA.parse(name, GroupAddressStyle.ThreeLevel));
+					addresses.add(address);
+				} else if (!name.startsWith("rule/") && !name.startsWith("schedule/")) {
+					TLObject created = RuleFunctions.create(project, "applicationDatapoints", type("ApplicationDatapoint"));
+					created.tUpdateByName("identifier", name);
+					if (datapoint.get("type") != null) {
+						created.tUpdateByName("type", ((TLEnumeration) TLModelUtil.findType("ehome.runtime:DatapointValueType"))
+							.getClassifier(String.valueOf(datapoint.get("type"))));
+					}
+					created.tUpdateByName("writable", Boolean.TRUE);
+				}
+			}
+			project.tUpdateByName("groupAddresses", addresses);
+			tx.commit();
 		}
 	}
 
@@ -117,6 +174,9 @@ public class TestRuleAuthoring extends BasicTestCase {
 				   "at": {"year": 2026, "month": 12, "day": 31, "hour": 23, "minute": 59, "second": 30}}
 				]""", 100);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				// The output the first entry names (haumacher/ehome #90).
+				RuleFunctions.create(project, "applicationDatapoints", type("ApplicationDatapoint"))
+					.tUpdateByName("identifier", "schedule.morning");
 				new RuleImport().importSchedules(project, original);
 				tx.commit();
 			}
@@ -239,20 +299,31 @@ public class TestRuleAuthoring extends BasicTestCase {
 		return (TLClass) TLModelUtil.findType("ehome.runtime:" + name);
 	}
 
-	private static List<Object> roundTrip(TLObject project, List<?> rules) {
-		List<TLObject> imported;
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			imported = new RuleImport().importRules(project, rules);
-			tx.commit();
-		}
-		List<Object> exported = new RuleExport().rules(project);
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			for (TLObject rule : imported) {
-				rule.tDelete();
+	private static List<Object> roundTrip(TLObject project, List<?> rules, Object schedules) {
+		Map<String, Object> image = new LinkedHashMap<>();
+		image.put("rules", rules);
+		if (schedules instanceof List<?> list) {
+			// A case lists its schedule entries, or only their ids (a schedule the rules name).
+			List<Object> entries = new ArrayList<>();
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				for (Object item : list) {
+					if (item instanceof String id) {
+						RuleFunctions.create(project, "schedules", type("WeeklySchedule")).tUpdateByName("identifier", id);
+					} else {
+						entries.add(item);
+					}
+				}
+				tx.commit();
 			}
+			if (!entries.isEmpty()) {
+				image.put("schedules", entries);
+			}
+		}
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			new RuleImport().importImage(project, Json.write(image));
 			tx.commit();
 		}
-		return exported;
+		return new RuleExport().rules(project);
 	}
 
 	/**
