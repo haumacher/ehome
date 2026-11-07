@@ -5,6 +5,7 @@ package de.haumacher.ehome.knx;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -35,8 +36,9 @@ import de.haumacher.ehome.model.operational.Switch;
 /**
  * The pages of an application program as its catalog shows them (haumacher/ehome #20): the
  * channels, the channel independent part and the parameter blocks in the order of the structure,
- * each with the parameters and communication objects placed on it, and the parameters and
- * communication objects placed nowhere.
+ * each with the parameters and communication objects placed on it in the order ETS shows them
+ * ({@link PageOrder}, haumacher/ehome #88), and the parameters and communication objects placed
+ * nowhere.
  *
  * <p>
  * The structure is walked without a device, so no value selects a case: every case of every switch
@@ -50,9 +52,9 @@ import de.haumacher.ehome.model.operational.Switch;
  *
  * <p>
  * The pages are listed with their parameters (communication objects), each once per page with the
- * first of its placements there; a parameter placed on several pages is listed on each. The views
- * read them as rows of a table grouped by the page (dictionaries, see {@link #parameterRows(String,
- * boolean)} and {@link #portRows(String, boolean)}).
+ * first of its placements there in the order of display; a parameter placed on several pages is
+ * listed on each. The views read them as rows of a table grouped by the page (dictionaries, see
+ * {@link #parameterRows(String, boolean)} and {@link #portRows(String, boolean)}).
  * </p>
  */
 public class ProgramPages {
@@ -64,8 +66,9 @@ public class ProgramPages {
 	public static final String DEFINITION = "definition";
 
 	/**
-	 * Key of a row: the first placement of the definition on the page (a {@link ParameterView}, an
-	 * {@link Interface}); <code>null</code> for a definition placed nowhere.
+	 * Key of a row: the first placement of the definition on the page in the order of display (a
+	 * {@link ParameterView}, an {@link Interface}); <code>null</code> for a definition placed
+	 * nowhere.
 	 */
 	public static final String PLACEMENT = "placement";
 
@@ -83,17 +86,22 @@ public class ProgramPages {
 
 	private final Map<Port, Set<Interface>> _portPlacements = new HashMap<>();
 
+	/** The inputs of the switches the walk is in, outermost first. */
+	private final List<ParameterView> _inputs = new ArrayList<>();
+
 	/**
-	 * One page: the parameters and communication objects placed on it, each with its first
-	 * placement there, in the order of the structure.
+	 * One page: the parameters and communication objects placed on it in the order of
+	 * {@link PageOrder}, each once with the first of its placements there in that order.
 	 */
 	public static final class Page {
 
 		private final String _title;
 
-		private final Map<Parameter, ParameterView> _parameters = new LinkedHashMap<>();
+		private final PageOrder _order = new PageOrder();
 
-		private final Map<Port, Interface> _ports = new LinkedHashMap<>();
+		private Map<Parameter, ParameterView> _orderedParameters;
+
+		private Map<Port, Interface> _orderedPorts;
 
 		Page(String title) {
 			_title = title;
@@ -107,17 +115,53 @@ public class ProgramPages {
 		}
 
 		/**
-		 * The parameters placed on the page, each with its first placement there.
+		 * The parameters placed on the page in the order of display ({@link PageOrder}), each with
+		 * the first of its placements there in that order.
 		 */
 		public Map<Parameter, ParameterView> getParameters() {
-			return _parameters;
+			if (_orderedParameters == null) {
+				order();
+			}
+			return _orderedParameters;
 		}
 
 		/**
-		 * The communication objects placed on the page, each with its first placement there.
+		 * The communication objects placed on the page in the order of display ({@link PageOrder}),
+		 * each with the first of its placements there in that order.
 		 */
 		public Map<Port, Interface> getPorts() {
-			return _ports;
+			if (_orderedPorts == null) {
+				order();
+			}
+			return _orderedPorts;
+		}
+
+		private void order() {
+			Map<Parameter, ParameterView> parameters = new LinkedHashMap<>();
+			Map<Port, Interface> ports = new LinkedHashMap<>();
+			for (Option item : _order.getItems()) {
+				if (item instanceof ParameterView view) {
+					parameters.putIfAbsent(view.getParameter(), view);
+				} else if (item instanceof Interface placed) {
+					ports.putIfAbsent(placed.getPort(), placed);
+				}
+			}
+			_orderedParameters = Collections.unmodifiableMap(parameters);
+			_orderedPorts = Collections.unmodifiableMap(ports);
+		}
+
+		void addParameter(ParameterView view, boolean title) {
+			if (title) {
+				_order.addTitle(view);
+			} else {
+				_order.addParameter(view, view.getOrder());
+			}
+			_orderedParameters = null;
+		}
+
+		void addPort(Interface placed, List<ParameterView> inputs) {
+			_order.addObject(placed, inputs);
+			_orderedPorts = null;
 		}
 	}
 
@@ -309,14 +353,16 @@ public class ProgramPages {
 				walk(shared.getPlaced(), page, path);
 			}
 		} else if (option instanceof ParameterView view) {
-			addParameter(page(page, path), view);
+			addParameter(page(page, path), view, false);
 		} else if (option instanceof Interface placed) {
 			addPort(page(page, path), placed);
 		} else if (option instanceof Switch choice) {
 			// Without a device no value selects a case: every case is part of the catalog.
+			_inputs.add(choice.getInput());
 			for (ConfigFragment alternative : choice.getAlternatives()) {
 				walk(alternative, page, path);
 			}
+			_inputs.remove(_inputs.size() - 1);
 		} else if (option instanceof ConfigFragment fragment) {
 			Page inner = page;
 			String innerPath = path;
@@ -328,7 +374,7 @@ public class ProgramPages {
 			}
 			if (option instanceof ParameterGroup group && group.getInput() != null) {
 				// The parameter a block shows as its title is placed on the block.
-				addParameter(inner, group.getInput());
+				addParameter(inner, group.getInput(), true);
 			}
 			walk(fragment, inner, innerPath);
 		}
@@ -349,13 +395,13 @@ public class ProgramPages {
 			|| fragment instanceof ParameterGroup;
 	}
 
-	private void addParameter(Page page, ParameterView view) {
+	private void addParameter(Page page, ParameterView view, boolean title) {
 		Parameter parameter = view.getParameter();
 		if (parameter == null) {
 			return;
 		}
 		_parameterPlacements.computeIfAbsent(parameter, x -> new LinkedHashSet<>()).add(view);
-		page.getParameters().putIfAbsent(parameter, view);
+		page.addParameter(view, title);
 	}
 
 	private void addPort(Page page, Interface placed) {
@@ -364,7 +410,7 @@ public class ProgramPages {
 			return;
 		}
 		_portPlacements.computeIfAbsent(port, x -> new LinkedHashSet<>()).add(placed);
-		page.getPorts().putIfAbsent(port, placed);
+		page.addPort(placed, _inputs);
 	}
 
 	private static boolean matches(Parameter parameter, ParameterView view, String term) {

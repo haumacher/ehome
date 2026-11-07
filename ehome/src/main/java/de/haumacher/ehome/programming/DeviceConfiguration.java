@@ -16,6 +16,7 @@ import java.util.Set;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
+import de.haumacher.ehome.knx.PageOrder;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Channel;
@@ -90,6 +91,8 @@ public class DeviceConfiguration {
 
 		private final Map<ParameterView, String> _defaults = new HashMap<>();
 
+		private final Map<ParameterView, Integer> _orders = new HashMap<>();
+
 		/**
 		 * The object an option refers to: the port of a placed object, the placement of a shared one,
 		 * the title of a block.
@@ -149,6 +152,15 @@ public class DeviceConfiguration {
 			return result;
 		}
 
+		Integer order(ParameterView view) {
+			Integer result = _orders.get(view);
+			if (result == null && !_orders.containsKey(view)) {
+				result = view.getOrder();
+				_orders.put(view, result);
+			}
+			return result;
+		}
+
 		String defaultValue(ParameterView view) {
 			String result = _defaults.get(view);
 			if (result == null && !_defaults.containsKey(view)) {
@@ -191,7 +203,10 @@ public class DeviceConfiguration {
 
 	private final Map<Object, Set<ConfigFragment>> _pages = new HashMap<>();
 
-	private final Map<Object, Set<Option>> _items = new HashMap<>();
+	private final Map<Object, PageOrder> _items = new HashMap<>();
+
+	/** The inputs of the switches the walk is in, outermost first. */
+	private final List<ParameterView> _inputs = new ArrayList<>();
 
 	private final Map<ConfigFragment, Object> _parents = new HashMap<>();
 
@@ -334,16 +349,18 @@ public class DeviceConfiguration {
 			}
 		} else if (option instanceof ParameterView view) {
 			addView(view);
-			addItem(page, view);
+			items(page).addParameter(view, _structure.order(view));
 		} else if (option instanceof Interface placed) {
 			_activeInterfaces.putIfAbsent((Port) _structure.ref(placed), placed);
-			addItem(page, placed);
+			items(page).addObject(placed, _inputs);
 		} else if (option instanceof Switch choice) {
 			_switches.add(choice);
 			Case selected = select(choice);
 			if (selected != null) {
 				_selectedCases.add(selected);
+				_inputs.add(input(choice));
 				walk(selected, page);
+				_inputs.remove(_inputs.size() - 1);
 			}
 		} else if (option instanceof ConfigFragment fragment) {
 			Object inner = page;
@@ -355,7 +372,7 @@ public class DeviceConfiguration {
 			if (option instanceof ParameterGroup && _structure.ref(option) instanceof ParameterView input) {
 				// The parameter a block shows as its title is in effect with the block.
 				addView(input);
-				addItem(inner, input);
+				items(inner).addTitle(input);
 			}
 			walk(fragment, inner);
 		}
@@ -366,8 +383,8 @@ public class DeviceConfiguration {
 			|| fragment instanceof ParameterGroup;
 	}
 
-	private void addItem(Object page, Option item) {
-		_items.computeIfAbsent(page, x -> new LinkedHashSet<>()).add(item);
+	private PageOrder items(Object page) {
+		return _items.computeIfAbsent(page, x -> new PageOrder());
 	}
 
 	private void addView(ParameterView view) {
@@ -461,9 +478,10 @@ public class DeviceConfiguration {
 	}
 
 	/**
-	 * The parameters and communication objects shown on the given page, in the order of the
-	 * structure, with the cases of its switches resolved (pages nested in it not included).
-	 * Parameters ETS does not show (access <code>None</code>) are left out.
+	 * The parameters and communication objects shown on the given page, in the order ETS shows them
+	 * ({@link PageOrder}: the parameters by their display order, a communication object after the
+	 * parameter that brought it in), with the cases of its switches resolved (pages nested in it not
+	 * included). Parameters ETS does not show (access <code>None</code>) are left out.
 	 *
 	 * @param page
 	 *        The device for the top of the structure, otherwise a page of this configuration.
@@ -471,12 +489,12 @@ public class DeviceConfiguration {
 	 *         in effect.
 	 */
 	public List<Option> getItems(Object page) {
-		Set<Option> items = _items.get(page);
+		PageOrder items = _items.get(page);
 		if (items == null) {
 			return Collections.emptyList();
 		}
 		List<Option> result = new ArrayList<>();
-		for (Option item : items) {
+		for (Option item : items.getItems()) {
 			if (!(item instanceof ParameterView view) || !"None".equals(accessName(view))) {
 				result.add(item);
 			}
@@ -489,7 +507,7 @@ public class DeviceConfiguration {
 	 * hidden by its access.
 	 */
 	public boolean isShown(ParameterView view) {
-		for (Map.Entry<Object, Set<Option>> entry : _items.entrySet()) {
+		for (Map.Entry<Object, PageOrder> entry : _items.entrySet()) {
 			if (entry.getValue().contains(view)) {
 				Object page = entry.getKey();
 				return !"None".equals(accessName(view))
@@ -501,8 +519,8 @@ public class DeviceConfiguration {
 
 	/**
 	 * The parameters and communication objects shown in this configuration with the page each is
-	 * shown on (the device for the top of the structure), in the order of the structure: the
-	 * entries of a page, then those of the pages below it.
+	 * shown on (the device for the top of the structure): the entries of a page in the order of
+	 * {@link #getItems(Object)}, then those of the pages below it in the order of the structure.
 	 */
 	public Map<Option, Object> getShownItems() {
 		Map<Option, Object> result = new LinkedHashMap<>();
