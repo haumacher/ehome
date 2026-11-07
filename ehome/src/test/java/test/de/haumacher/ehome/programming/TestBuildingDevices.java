@@ -109,7 +109,7 @@ public class TestBuildingDevices extends BasicTestCase {
 		assertNull(reserve.tValueByName("location"));
 		assertEquals(Set.of(device), new HashSet<>((Collection<?>) kitchen.tValueByName("devices")));
 		assertEquals(List.of(device), BuildingDevices.devices(kitchen));
-		assertEquals("Haus / Erdgeschoss / Küche", BuildingDevices.path(kitchen));
+		checkPath(project, house, floor, kitchen);
 
 		QueryExecutor children = script(viewText(BUILDINGS_VIEW, "children", 0), "project", "node");
 		QueryExecutor parents = script(viewText(BUILDINGS_VIEW, "parents", 0), "project", "node");
@@ -253,6 +253,40 @@ public class TestBuildingDevices extends BasicTestCase {
 		assertNull(reserve.tValueByName("location"));
 		assertEquals(List.of(), children(children, project, house));
 		assertTrue(BuildingDevices.connections(house).isEmpty());
+	}
+
+	/**
+	 * The path of a part is details first (haumacher/ehome #85); the building is left out while it
+	 * is the only one of the project.
+	 */
+	private void checkPath(TLObject project, TLObject house, TLObject floor, TLObject kitchen) {
+		assertEquals("Küche, Erdgeschoss", BuildingDevices.path(kitchen));
+		assertEquals("Erdgeschoss", BuildingDevices.path(floor));
+		assertEquals("Haus", BuildingDevices.path(house));
+		assertNull(BuildingDevices.path(null));
+
+		TLObject second;
+		try (Transaction tx = kb().beginTransaction()) {
+			second = ModelService.getInstance().getFactory()
+				.createObject((TLClass) TLModelUtil.findType("ehome.building:Building"));
+			second.tUpdateByName("name", "Garage");
+			List<TLObject> buildings = list(project, "buildings");
+			buildings.add(second);
+			project.tUpdateByName("buildings", buildings);
+			tx.commit();
+		}
+		try {
+			assertEquals("Küche, Erdgeschoss, Haus", BuildingDevices.path(kitchen));
+			assertEquals("Erdgeschoss, Haus", BuildingDevices.path(floor));
+			assertEquals("Haus", BuildingDevices.path(house));
+			assertEquals("Garage", BuildingDevices.path(second));
+		} finally {
+			try (Transaction tx = kb().beginTransaction()) {
+				second.tDelete();
+				tx.commit();
+			}
+		}
+		assertEquals("Küche, Erdgeschoss", BuildingDevices.path(kitchen));
 	}
 
 	private static void assertSorted(List<TLObject> connections) {

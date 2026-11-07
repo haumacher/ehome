@@ -37,7 +37,7 @@
 			expr="if($selected.instanceOf(`ehome.physical:Device`), $selected, null)"
 			inputs="selected"
 		/>
-		<!-- Where the selected device is placed, as the path of its building part ("Haus / Erdgeschoss / Küche"). -->
+		<!-- Where the selected device is placed, as the path of its building part, details first ("Küche, Erdgeschoss"). -->
 		<derived-channel name="locationPath"
 			expr="buildingPath($device.get(`ehome.physical:Device#location`))"
 			inputs="device"

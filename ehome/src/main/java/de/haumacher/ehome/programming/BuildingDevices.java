@@ -43,7 +43,7 @@ public class BuildingDevices {
 
 	private static final String BUILDINGS = "buildings";
 
-	private static final String PATH_SEPARATOR = " / ";
+	private static final String PATH_SEPARATOR = ", ";
 
 	/**
 	 * The order of devices: by their individual address, devices in no line last, then by label.
@@ -125,17 +125,27 @@ public class BuildingDevices {
 	}
 
 	/**
-	 * The path of the given building part from its building, e.g. "Haus / Erdgeschoss / Küche";
-	 * <code>null</code> for no part.
+	 * The path of the given building part, details first: the part, then its containers up to the
+	 * building, e.g. "Küche, Erdgeschoss, Haus"; <code>null</code> for no part.
+	 *
+	 * <p>
+	 * The building is left out when the project has exactly one building ("Küche, Erdgeschoss"):
+	 * then it tells no parts apart. The single building itself is labelled with its name, a path is
+	 * never empty.
+	 * </p>
 	 */
 	public static String path(TLObject part) {
 		if (part == null) {
 			return null;
 		}
 		List<String> names = new ArrayList<>();
-		for (TLObject current = part; current != null && isA(current, "ehome.building:BuildingDefinition");
-				current = current.tContainer()) {
-			names.add(0, MetaLabelProvider.INSTANCE.getLabel(current));
+		TLObject current = part;
+		for (; current != null && isA(current, "ehome.building:BuildingDefinition"); current = current.tContainer()) {
+			names.add(MetaLabelProvider.INSTANCE.getLabel(current));
+		}
+		if (names.size() > 1 && current != null && isA(current, "ehome.project:Project")
+			&& ((Collection<?>) current.tValueByName(BUILDINGS)).size() == 1) {
+			names.remove(names.size() - 1);
 		}
 		return String.join(PATH_SEPARATOR, names);
 	}

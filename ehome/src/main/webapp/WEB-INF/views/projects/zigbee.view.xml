@@ -297,7 +297,7 @@
 							/>
 						</inset>
 						<table
-							observed-types="ehome.zigbee:ZigbeeDevice,ehome.project:Project"
+							observed-types="ehome.zigbee:ZigbeeDevice,ehome.project:Project,ehome.building:BuildingDefinition"
 							selection="device"
 							types="ehome.zigbee:ZigbeeDevice"
 						>
@@ -316,7 +316,17 @@
 									</label>
 									<value>zigbeeDeviceState($row)</value>
 								</computed-column>
-								<column attribute="location"/>
+								<!-- Where the device is placed, details first (haumacher/ehome #85). -->
+								<computed-column name="location"
+									type="tl.core:String"
+									width="200"
+								>
+									<label>
+										<en>Location</en>
+										<de>Standort</de>
+									</label>
+									<value>buildingPath($row.get(`ehome.zigbee:ZigbeeDevice#location`))</value>
+								</computed-column>
 								<column attribute="deviceType"/>
 								<column attribute="manufacturer"/>
 								<column attribute="model"/>

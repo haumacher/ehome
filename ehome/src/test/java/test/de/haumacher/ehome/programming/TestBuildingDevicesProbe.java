@@ -55,7 +55,7 @@ public class TestBuildingDevicesProbe extends BasicTestCase {
 			TLObject unplaced = devices.stream().filter(d -> d.tValueByName("location") == null).findFirst().orElseThrow();
 			TLObject room = (TLObject) placed.tValueByName("location");
 			String path = BuildingDevices.path(room);
-			assertTrue(path, path.contains(" / "));
+			assertTrue(path, path.startsWith(room.tValueByName("name") + ", "));
 			TLObject floor = room.tContainer();
 			TLObject house = floor.tContainer();
 
