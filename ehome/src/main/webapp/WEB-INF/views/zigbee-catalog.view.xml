@@ -91,6 +91,10 @@
 								<en>Import</en>
 								<de>Importieren</de>
 							</label>
+							<tooltip>
+								<en>Reads a catalog file (JSON): a device type unknown by manufacturer and model is created, a known one is overwritten with the content of the file.</en>
+								<de>Liest eine Katalogdatei (JSON): Ein nach Hersteller und Modell unbekannter Gerätetyp wird angelegt, ein bekannter mit dem Inhalt der Datei überschrieben.</de>
+							</tooltip>
 							<access>
 								<!-- The import is Java, which the model access check does not cover. -->
 								<operation name="Write"
@@ -124,6 +128,10 @@
 								<en>Export</en>
 								<de>Exportieren</de>
 							</label>
+							<tooltip>
+								<en>Writes the selected device type into a catalog file (JSON), which "Import" of another installation reads.</en>
+								<de>Schreibt den gewählten Gerätetyp in eine Katalogdatei (JSON), die „Importieren“ einer anderen Installation liest.</de>
+							</tooltip>
 							<executability>
 								<null-input-disabled/>
 							</executability>
@@ -145,6 +153,10 @@
 								<en>Export all</en>
 								<de>Alle exportieren</de>
 							</label>
+							<tooltip>
+								<en>Writes all device types of the catalog into one catalog file (JSON).</en>
+								<de>Schreibt alle Gerätetypen des Katalogs in eine Katalogdatei (JSON).</de>
+							</tooltip>
 							<executability>
 								<null-input-disabled/>
 							</executability>

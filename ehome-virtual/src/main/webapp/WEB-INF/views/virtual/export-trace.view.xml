@@ -19,7 +19,7 @@
 			<stack gap="loose">
 				<text>
 					<label>
-						<en>The trace as text file: a header, then one line per service with its time, direction, sender, receiver, parameters and data.</en>
+						<en>The trace as a text file: a header, then one line per service with its time, direction, sender, receiver, parameters and data.</en>
 						<de>Die Aufzeichnung als Textdatei: ein Kopf, dann eine Zeile je Dienst mit Zeit, Richtung, Absender, Empfänger, Parametern und Daten.</de>
 					</label>
 				</text>

@@ -30,6 +30,10 @@
 					<en>Search</en>
 					<de>Suchen</de>
 				</label>
+				<tooltip>
+					<en>Searches the local networks for KNXnet/IP gateways with the settings below and lists those that answer; the search takes 10 seconds.</en>
+					<de>Sucht mit den Einstellungen unten in den lokalen Netzen nach KNXnet/IP-Gateways und listet die, die antworten; die Suche dauert 10 Sekunden.</de>
+				</tooltip>
 				<access>
 					<!--
 						The search only lists the gateways that answer; it reads no object of the model.

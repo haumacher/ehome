@@ -126,6 +126,10 @@
 								<en>Choose the gateway</en>
 								<de>Gateway wählen</de>
 							</label>
+							<tooltip>
+								<en>Sets the KNXnet/IP gateway of the project, entered by address or chosen from a search; the monitor connects to the bus through it.</en>
+								<de>Legt das KNXnet/IP-Gateway des Projekts fest, als Adresse eingegeben oder aus einer Suche gewählt; der Monitor verbindet sich darüber mit dem Bus.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -149,6 +153,10 @@
 								<en>Connect</en>
 								<de>Verbinden</de>
 							</label>
+							<tooltip>
+								<en>Attaches the monitor to the bus through the project's gateway and shows the group telegrams; it only listens until "Allow sending".</en>
+								<de>Verbindet den Monitor über das Gateway des Projekts mit dem Bus und zeigt die Gruppentelegramme; er hört nur zu, bis „Senden erlauben“.</de>
+							</tooltip>
 							<access>
 								<!-- The monitor listens to the bus of the project; sending needs "Allow sending" (Write). -->
 								<operation name="Read"
@@ -170,6 +178,10 @@
 								<en>Connect to a controller</en>
 								<de>Mit einem Controller verbinden</de>
 							</label>
+							<tooltip>
+								<en>Attaches the monitor to the monitor stream of a HomeControl controller instead of a gateway: the project's, another registered one or one entered with its token. It then also shows the other events of the controller.</en>
+								<de>Verbindet den Monitor statt mit einem Gateway mit dem Monitor-Datenstrom eines HomeControl-Controllers: dem des Projekts, einem anderen registrierten oder einem mit seinem Token eingegebenen. Er zeigt dann auch die übrigen Ereignisse des Controllers.</de>
+							</tooltip>
 							<access>
 								<operation name="Read"
 									object="$project"
@@ -230,6 +242,10 @@
 								<en>Allow sending</en>
 								<de>Senden erlauben</de>
 							</label>
+							<tooltip>
+								<en>Unlocks Send and Read for this connection: they then put telegrams on the real bus, which switch what is connected to the addresses. Connecting again locks it.</en>
+								<de>Gibt Senden und Lesen für diese Verbindung frei: Sie legen dann Telegramme auf den echten Bus, die schalten, was mit den Adressen verbunden ist. Ein erneutes Verbinden sperrt es wieder.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -256,6 +272,10 @@
 								<en>Lock sending</en>
 								<de>Senden sperren</de>
 							</label>
+							<tooltip>
+								<en>Locks Send and Read again: the monitor only listens to the bus.</en>
+								<de>Sperrt Senden und Lesen wieder: Der Monitor hört dem Bus nur noch zu.</de>
+							</tooltip>
 							<access>
 								<operation name="Read"
 									object="$project"
@@ -333,6 +353,10 @@
 								<en>Clear the values and the log</en>
 								<de>Werte und Protokoll leeren</de>
 							</label>
+							<tooltip>
+								<en>Empties the log and the values and counts of the state board; the recordings stay.</en>
+								<de>Leert das Protokoll sowie die Werte und Zähler der Zustandstafel; die Aufzeichnungen bleiben erhalten.</de>
+							</tooltip>
 							<access>
 								<operation name="Read"
 									object="$project"
@@ -1227,6 +1251,10 @@
 											<en>Hold</en>
 											<de>Anhalten</de>
 										</label>
+										<tooltip>
+											<en>Holds the log as it is, to read it; telegrams keep arriving and the state board goes on.</en>
+											<de>Hält das Protokoll an, um es in Ruhe zu lesen; Telegramme kommen weiter an, und die Zustandstafel läuft weiter.</de>
+										</tooltip>
 										<access>
 											<operation name="Read"
 												object="$project"
@@ -1251,6 +1279,10 @@
 											<en>Continue</en>
 											<de>Fortsetzen</de>
 										</label>
+										<tooltip>
+											<en>Lets the log follow the telegrams again, including those received while it was held.</en>
+											<de>Lässt das Protokoll wieder den Telegrammen folgen, auch denen, die während des Anhaltens ankamen.</de>
+										</tooltip>
 										<access>
 											<operation name="Read"
 												object="$project"

@@ -132,6 +132,10 @@
 								<en>Real time</en>
 								<de>Echtzeit</de>
 							</label>
+							<tooltip>
+								<en>Lets the simulated clock run by itself in real time until "Pause"; timers and schedules fire when they fall due.</en>
+								<de>Lässt die simulierte Uhr in Echtzeit von selbst laufen, bis „Pause“; Timer und Zeitpläne lösen aus, wenn sie fällig werden.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -156,6 +160,10 @@
 								<en>10 times real time</en>
 								<de>10-fache Echtzeit</de>
 							</label>
+							<tooltip>
+								<en>Lets the simulated clock run by itself ten times as fast as real time until "Pause": an hour passes in six minutes.</en>
+								<de>Lässt die simulierte Uhr zehnmal so schnell wie in Echtzeit laufen, bis „Pause“: Eine Stunde vergeht in sechs Minuten.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -180,6 +188,10 @@
 								<en>60 times real time</en>
 								<de>60-fache Echtzeit</de>
 							</label>
+							<tooltip>
+								<en>Lets the simulated clock run by itself sixty times as fast as real time until "Pause": an hour passes in a minute.</en>
+								<de>Lässt die simulierte Uhr sechzigmal so schnell wie in Echtzeit laufen, bis „Pause“: Eine Stunde vergeht in einer Minute.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -228,6 +240,10 @@
 								<en>Step</en>
 								<de>Schritt</de>
 							</label>
+							<tooltip>
+								<en>Moves the simulated clock at once to the next timer, schedule firing or midnight (at most a day ahead) and runs what is due then.</en>
+								<de>Stellt die simulierte Uhr sofort auf den nächsten Timer, die nächste Auslösung eines Zeitplans oder Mitternacht vor (höchstens einen Tag) und führt aus, was dann fällig ist.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -252,6 +268,10 @@
 								<en>Fast-forward</en>
 								<de>Vorspulen</de>
 							</label>
+							<tooltip>
+								<en>Moves the simulated clock at once forward by the duration entered (30min if empty); the timers and schedules on the way fire each at its own time.</en>
+								<de>Stellt die simulierte Uhr sofort um die eingegebene Dauer vor (30min, wenn leer); Timer und Zeitpläne auf dem Weg lösen jeweils zu ihrer Zeit aus.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -303,6 +323,10 @@
 								<en>Refresh</en>
 								<de>Aktualisieren</de>
 							</label>
+							<tooltip>
+								<en>Reads the state of the simulation again; while the tab is shown, it also updates by itself on every change.</en>
+								<de>Liest den Zustand der Simulation neu; solange der Reiter angezeigt wird, aktualisiert er sich auch bei jeder Änderung von selbst.</de>
+							</tooltip>
 							<execute-script function="simulationState($state['project'])">
 								<with-result>
 									<write-channel name="refresh"/>
@@ -1139,6 +1163,10 @@
 														<en>New object follower</en>
 														<de>Neue Objektfolge</de>
 													</label>
+													<tooltip>
+														<en>Adds a pair of objects of a device: the state object takes every value the switching object receives and sends it. Takes effect at the next start of a simulation.</en>
+														<de>Legt ein Objektpaar eines Geräts an: Das Statusobjekt übernimmt jeden Wert, den das Schaltobjekt empfängt, und sendet ihn. Gilt ab dem nächsten Start einer Simulation.</de>
+													</tooltip>
 													<access>
 														<operation name="Write"
 															object="$project"

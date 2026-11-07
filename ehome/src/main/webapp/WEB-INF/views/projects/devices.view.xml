@@ -222,6 +222,10 @@
 								<en>Discard all changes of all devices since their last download</en>
 								<de>Alle Änderungen aller Geräte seit dem letzten Download verwerfen</de>
 							</label>
+							<tooltip>
+								<en>Sets the parameter values and connections of every device back to the state of its last download; the changes since are lost.</en>
+								<de>Setzt die Parameterwerte und Verbindungen aller Geräte auf den Stand ihres letzten Downloads zurück; die Änderungen seither gehen verloren.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -381,6 +385,10 @@
 														<en>Choose the location</en>
 														<de>Standort wählen</de>
 													</label>
+													<tooltip>
+														<en>Places the device in a building part of the project (a room, a floor, …) or removes it from its part. The building parts are created in the tab Buildings.</en>
+														<de>Ordnet das Gerät einem Gebäudeteil des Projekts zu (einem Raum, einer Etage …) oder hebt die Zuordnung auf. Die Gebäudeteile werden im Reiter „Gebäude“ angelegt.</de>
+													</tooltip>
 													<access>
 														<operation name="Write"
 															object="$device"
@@ -602,6 +610,10 @@
 																	<en>Connect a group address</en>
 																	<de>Gruppenadresse verbinden</de>
 																</label>
+																<tooltip>
+																	<en>Connects the selected communication object to a group address of the project, sending to it or receiving from it. The device gets the connection with its next download.</en>
+																	<de>Verbindet das gewählte Kommunikationsobjekt mit einer Gruppenadresse des Projekts, an die es sendet oder von der es empfängt. Das Gerät erhält die Verbindung mit seinem nächsten Download.</de>
+																</tooltip>
 																<access>
 																	<operation name="Write"
 																		object="$device"
@@ -705,6 +717,10 @@
 														<en>Discard all changes since the last download</en>
 														<de>Alle Änderungen seit dem letzten Download verwerfen</de>
 													</label>
+													<tooltip>
+														<en>Sets the parameter values and connections of this device back to the state of its last download; the changes since are lost.</en>
+														<de>Setzt die Parameterwerte und Verbindungen dieses Geräts auf den Stand seines letzten Downloads zurück; die Änderungen seither gehen verloren.</de>
+													</tooltip>
 													<access>
 														<operation name="Write"
 															object="$device"

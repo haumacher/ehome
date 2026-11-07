@@ -71,6 +71,10 @@
 								<en>Add controller</en>
 								<de>Controller hinzufügen</de>
 							</label>
+							<tooltip>
+								<en>Creates an enrollment code, valid for 15 minutes and one controller, which is entered on the controller's Settings page; a new code replaces an open one.</en>
+								<de>Erzeugt einen Anmeldecode, 15 Minuten für einen Controller gültig, der auf der Seite „Einstellungen“ des Controllers eingegeben wird; ein neuer Code ersetzt einen offenen.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -98,6 +102,10 @@
 								<en>Create key</en>
 								<de>Schlüssel erzeugen</de>
 							</label>
+							<tooltip>
+								<en>Creates the installation key the runtime images of the project are signed with and offers it to the controllers; each owner accepts it on the device after comparing its fingerprint.</en>
+								<de>Erzeugt den Installationsschlüssel, mit dem die Laufzeitabbilder des Projekts signiert werden, und bietet ihn den Controllern an; jeder Besitzer nimmt ihn am Gerät an, nachdem er den Fingerabdruck verglichen hat.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -126,6 +134,10 @@
 								<en>Renew key</en>
 								<de>Schlüssel erneuern</de>
 							</label>
+							<tooltip>
+								<en>Offers a new installation key to the controllers; the images are signed with the current key until the owner accepts the new one on the device.</en>
+								<de>Bietet den Controllern einen neuen Installationsschlüssel an; die Abbilder werden mit dem bisherigen signiert, bis der Besitzer den neuen am Gerät annimmt.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -155,6 +167,10 @@
 								<en>Forget</en>
 								<de>Vergessen</de>
 							</label>
+							<tooltip>
+								<en>Deletes the controller from E-Home and closes its connection, which is refused from then on; to connect it again, it is enrolled with a new code, as a new controller.</en>
+								<de>Löscht den Controller aus E-Home und schließt seine Verbindung, die ab dann abgelehnt wird; um ihn wieder zu verbinden, wird er mit einem neuen Code als neuer Controller angemeldet.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$controller"

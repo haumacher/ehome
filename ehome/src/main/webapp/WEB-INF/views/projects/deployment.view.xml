@@ -239,6 +239,10 @@
 											<en>Download image</en>
 											<de>Abbild herunterladen</de>
 										</label>
+										<tooltip>
+											<en>Checks the runtime image as the controller would and offers it as a JSON file, signed where the project has an installation key, or shows why it would be refused; nothing is sent.</en>
+											<de>Prüft das Laufzeitabbild wie der Controller und bietet es als JSON-Datei an, signiert, wenn das Projekt einen Installationsschlüssel hat, oder zeigt, warum es abgelehnt würde; es wird nichts gesendet.</de>
+										</tooltip>
 										<access>
 											<!--
 												Not a mere read: a valid image is signed with the private installation key of the project,
@@ -271,6 +275,10 @@
 											<en>Deploy</en>
 											<de>Bereitstellen</de>
 										</label>
+										<tooltip>
+											<en>Sends the runtime image to the project's controller after showing what differs from the one it holds. Once it accepts it, the controller runs the functions, rules and pages of this image.</en>
+											<de>Sendet das Laufzeitabbild an den Controller des Projekts, nachdem angezeigt wurde, was sich von seinem gespeicherten unterscheidet. Nimmt er es an, arbeitet der Controller danach mit den Funktionen, Regeln und Seiten dieses Abbilds.</de>
+										</tooltip>
 										<access>
 											<operation name="Write"
 												object="$project"
@@ -311,6 +319,10 @@
 											<en>Unload</en>
 											<de>Entladen</de>
 										</label>
+										<tooltip>
+											<en>Removes the runtime image from the controller, with its stored values and history; the controller returns to setup and runs no rules or pages until the next deployment.</en>
+											<de>Entfernt das Laufzeitabbild mit seinen gespeicherten Werten und seinem Verlauf vom Controller; er kehrt in die Einrichtung zurück und führt bis zur nächsten Bereitstellung keine Regeln und Seiten mehr aus.</de>
+										</tooltip>
 										<access>
 											<operation name="Write"
 												object="$project"
@@ -351,6 +363,10 @@
 											<en>Status</en>
 											<de>Status</de>
 										</label>
+										<tooltip>
+											<en>Asks the project's controller what it runs and compares it with the last deployment; nothing is changed.</en>
+											<de>Fragt den Controller des Projekts, was er ausführt, und vergleicht es mit der letzten Bereitstellung; es wird nichts geändert.</de>
+										</tooltip>
 										<access>
 											<!-- Only asks the controller of the project what it runs. -->
 											<operation name="Read"

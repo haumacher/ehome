@@ -133,6 +133,10 @@
 								<en>Open network for pairing</en>
 								<de>Netz zum Koppeln öffnen</de>
 							</label>
+							<tooltip>
+								<en>Opens the Zigbee network of the project's controller for 254 seconds: put the device into pairing mode meanwhile, then read the Zigbee devices.</en>
+								<de>Öffnet das Zigbee-Netz des Controllers des Projekts für 254 Sekunden: Währenddessen das Gerät in den Kopplungsmodus versetzen, danach die Zigbee-Geräte lesen.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -161,6 +165,10 @@
 								<en>Close network</en>
 								<de>Netz schließen</de>
 							</label>
+							<tooltip>
+								<en>Closes the Zigbee network of the controller to new devices before the 254 seconds are over; paired devices stay.</en>
+								<de>Schließt das Zigbee-Netz des Controllers vor Ablauf der 254 Sekunden für neue Geräte; gekoppelte Geräte bleiben.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -189,6 +197,10 @@
 								<en>Read Zigbee devices</en>
 								<de>Zigbee-Geräte lesen</de>
 							</label>
+							<tooltip>
+								<en>Reads the Zigbee devices the project's controller has paired: new ones are created, known ones updated. Names, rooms and bound datapoints set here are kept.</en>
+								<de>Liest die Zigbee-Geräte, die der Controller des Projekts gekoppelt hat: Neue werden angelegt, bekannte aktualisiert. Namen, Räume und gebundene Datenpunkte, die hier gesetzt wurden, bleiben erhalten.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
@@ -217,6 +229,10 @@
 								<en>Create datapoints</en>
 								<de>Datenpunkte anlegen</de>
 							</label>
+							<tooltip>
+								<en>Creates a datapoint for every function of the device that is unbound and not hidden, with the name, type and reporting the Zigbee catalog recommends.</en>
+								<de>Legt für jede ungebundene, nicht ausgeblendete Funktion des Geräts einen Datenpunkt an, mit Name, Typ und Berichten, wie der Zigbee-Katalog sie empfiehlt.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$device"
@@ -246,6 +262,10 @@
 								<en>Remove absent functions</en>
 								<de>Fehlende Funktionen entfernen</de>
 							</label>
+							<tooltip>
+								<en>Deletes the functions of the device that the controller no longer exports and no datapoint is bound to; bound ones are kept and named.</en>
+								<de>Löscht die Funktionen des Geräts, die der Controller nicht mehr exportiert und an die kein Datenpunkt gebunden ist; gebundene bleiben und werden genannt.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$device"
@@ -442,6 +462,10 @@
 														<en>Bind datapoint</en>
 														<de>Datenpunkt binden</de>
 													</label>
+													<tooltip>
+														<en>Binds an existing application datapoint of a fitting type, bound to no function yet, to the selected function.</en>
+														<de>Bindet einen vorhandenen, noch an keine Funktion gebundenen Anwendungsdatenpunkt passenden Typs an die gewählte Funktion.</de>
+													</tooltip>
 													<access>
 														<operation name="Write"
 															object="$function"
@@ -466,6 +490,10 @@
 														<en>Unbind</en>
 														<de>Bindung lösen</de>
 													</label>
+													<tooltip>
+														<en>Removes the binding of the function; its datapoint stays as a value of the application.</en>
+														<de>Löst die Bindung der Funktion; ihr Datenpunkt bleibt als Wert der Anwendung erhalten.</de>
+													</tooltip>
 													<access>
 														<operation name="Write"
 															object="$function"

@@ -113,6 +113,10 @@
 								<en>Import rules</en>
 								<de>Regeln importieren</de>
 							</label>
+							<tooltip>
+								<en>Adds the rules, schedule entries and application datapoints of a runtime image (JSON file) to the project. The existing ones stay; what the project already has under the same id is not imported again.</en>
+								<de>Fügt dem Projekt die Regeln, Zeitplaneinträge und Anwendungsdatenpunkte eines Laufzeitabbilds (JSON-Datei) hinzu. Die vorhandenen bleiben; was das Projekt unter derselben Kennung schon hat, wird nicht erneut importiert.</de>
+							</tooltip>
 							<access>
 								<operation name="Write"
 									object="$project"
