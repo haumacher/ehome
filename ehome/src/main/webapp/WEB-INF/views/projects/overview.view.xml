@@ -11,7 +11,11 @@
 	(de.haumacher.ehome.etsImport.ImportEtsProjectJob, haumacher/ehome #84) shown above the table while
 	it runs: its phases, the progress by the entries of the file and what is being imported; a failed
 	import stays shown there with its reason, a cancelled one has imported nothing. The selected project is exported as an (unsigned) ETS project file
-	offered for download in a dialog (export-knxproj.view.xml). "Read the installation" builds the
+	offered for download in a dialog (export-knxproj.view.xml). A whole project moves to another installation or
+	is backed up as project file (.ehome, de.haumacher.ehome.projectfile.ProjectFile, haumacher/ehome #117):
+	exported without secrets and operating history (export-ehome.view.xml), imported as a new project
+	by the same kind of job as the ETS import (de.haumacher.ehome.etsImport.ImportProjectFileJob), whose
+	report always shows (the controllers have to be paired again). "Read the installation" builds the
 	selected project from the devices on the bus (scan.view.xml, haumacher/ehome #9). The table observes
 	projects, so a created, imported or deleted project is reflected without a reload.
 -->
@@ -134,6 +138,70 @@
 					</with-result>
 				</start-job>
 			</upload-command>
+			<upload-command
+				accept=".ehome"
+				image="css:bi bi-box-arrow-in-down"
+				inputs="importJob"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Import project file</en>
+					<de>Projektdatei importieren</de>
+				</label>
+				<tooltip>
+					<en>Reads a project file (.ehome) exported by E-Home into a new project: the KNX part with rules, schedules, virtual devices, functions, pages, Zigbee devices and settings. The file holds no secrets: controllers have to be paired again.</en>
+					<de>Liest eine von E-Home exportierte Projektdatei (.ehome) als neues Projekt ein: den KNX-Teil mit Regeln, Zeitplänen, virtuellen Geräten, Funktionen, Seiten, Zigbee-Geräten und Einstellungen. Die Datei enthält keine Geheimnisse: Controller müssen neu gekoppelt werden.</de>
+				</tooltip>
+				<access>
+					<create type="ehome.project:Project"/>
+				</access>
+				<executability>
+					<disabled-if expr="if(jobIsRunning($importJob), #('An import is running.'@en, 'Ein Import läuft.'@de), null)"/>
+				</executability>
+				<start-job
+					cancelable="true"
+					job="importJob"
+					update-interval="200"
+				>
+					<phases>
+						<phase name="read">
+							<label>
+								<en>Reading</en>
+								<de>Lesen</de>
+							</label>
+						</phase>
+						<phase name="import">
+							<label>
+								<en>Importing</en>
+								<de>Importieren</de>
+							</label>
+						</phase>
+						<phase name="save">
+							<label>
+								<en>Saving</en>
+								<de>Speichern</de>
+							</label>
+						</phase>
+					</phases>
+					<body class="de.haumacher.ehome.etsImport.ImportProjectFileJob"/>
+					<with-result as="report">
+						<write-channel name="importJob" clear="true"/>
+						<if test='$report["messages"]'>
+							<then>
+								<open-dialog
+									bind-input-to="report"
+									dialog-view="projects/import-report.view.xml"
+								/>
+							</then>
+						</if>
+						<execute-script function='$report["project"]'>
+							<with-result>
+								<write-channel name="project"/>
+							</with-result>
+						</execute-script>
+					</with-result>
+				</start-job>
+			</upload-command>
 			<generic-command
 				image="css:fa-solid fa-download"
 				inputs="project"
@@ -165,6 +233,38 @@
 						/>
 					</with-result>
 				</export-knxproj>
+			</generic-command>
+			<generic-command
+				image="css:bi bi-box-arrow-up"
+				inputs="project"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Export project file</en>
+					<de>Projektdatei exportieren</de>
+				</label>
+				<tooltip>
+					<en>Writes the whole project into a project file (.ehome) to download, to move it to another E-Home or to back it up: the KNX part as .knxproj with rules, schedules, virtual devices, functions, pages, Zigbee devices and settings. Without secrets and without recordings or deployments.</en>
+					<de>Schreibt das ganze Projekt in eine Projektdatei (.ehome) zum Herunterladen, um es in ein anderes E-Home umzuziehen oder zu sichern: den KNX-Teil als .knxproj mit Regeln, Zeitplänen, virtuellen Geräten, Funktionen, Seiten, Zigbee-Geräten und Einstellungen. Ohne Geheimnisse und ohne Aufzeichnungen oder Bereitstellungen.</de>
+				</tooltip>
+				<access>
+					<!-- The export only reads the project; it holds no secrets. -->
+					<operation name="Read"
+						object="$project"
+						type="ehome.project:Project"
+					/>
+				</access>
+				<executability>
+					<null-input-disabled/>
+				</executability>
+				<export-ehome>
+					<with-result>
+						<open-dialog
+							bind-input-to="file"
+							dialog-view="projects/export-ehome.view.xml"
+						/>
+					</with-result>
+				</export-ehome>
 			</generic-command>
 			<generic-command
 				image="css:bi bi-broadcast-pin"

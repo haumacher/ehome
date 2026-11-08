@@ -370,6 +370,22 @@ public class TestAccessRights extends BasicTestCase {
 	}
 
 	/**
+	 * The project file (haumacher/ehome #117): its export only reads the project and holds no
+	 * secrets, so a viewer may export it; its import creates a project, which only an installer may.
+	 */
+	public void testProjectFileCommands() {
+		ViewCommandScan.Site export = ViewCommandScan.command("projects/overview.view.xml", "ExportProjectFileAction");
+		assertTrue(as(_viewer, () -> export.decide(_project)).isExecutable());
+		assertTrue(as(_installer, () -> export.decide(_project)).isExecutable());
+		assertHidden(as(_stranger, () -> export.decide(_project)));
+
+		ViewCommandScan.Site upload = ViewCommandScan.command("projects/overview.view.xml", "ImportProjectFileJob");
+		assertTrue(as(_installer, () -> upload.decide((Object) null)).isExecutable());
+		assertHidden(as(_viewer, () -> upload.decide((Object) null)));
+		assertHidden(as(_stranger, () -> upload.decide((Object) null)));
+	}
+
+	/**
 	 * The search for gateways reads no object: Read on the security root, which both E-Home roles
 	 * hold and an account without an E-Home group not (the command is hidden for it).
 	 */

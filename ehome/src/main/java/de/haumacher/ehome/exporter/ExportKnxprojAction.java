@@ -70,12 +70,20 @@ public class ExportKnxprojAction implements ViewAction {
 	 * <code>.knxproj</code>, without characters a file system may refuse.
 	 */
 	static String fileName(TLObject project) {
+		return fileName(project, ".knxproj");
+	}
+
+	/**
+	 * The file name of an export of the given project: its name (or its ID) with the given
+	 * extension, without characters a file system may refuse.
+	 */
+	public static String fileName(TLObject project, String extension) {
 		Object name = project.tValueByName("name");
 		String base = name == null || name.toString().isBlank() ? Values.extId(project) : name.toString();
 		if (base == null || base.isBlank()) {
 			base = "project";
 		}
-		return base.replaceAll("[\\\\/:*?\"<>|]", "_").trim() + ".knxproj";
+		return base.replaceAll("[\\\\/:*?\"<>|]", "_").trim() + extension;
 	}
 
 }

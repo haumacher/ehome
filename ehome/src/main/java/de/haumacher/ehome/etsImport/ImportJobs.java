@@ -9,6 +9,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import javax.xml.stream.XMLStreamException;
 
@@ -30,7 +31,7 @@ import de.haumacher.ehome.importer.Importer;
 
 /**
  * The import of one uploaded file as a step of an import job (haumacher/ehome #84), shared by
- * {@link ImportEtsProjectJob} and {@link ImportProductDataJob}.
+ * {@link ImportEtsProjectJob}, {@link ImportProjectFileJob} and {@link ImportProductDataJob}.
  *
  * <p>
  * The file goes through the phases the <code>&lt;start-job&gt;</code> of the view declares:
@@ -105,6 +106,21 @@ final class ImportJobs {
 	 *         If the file cannot be imported, with the reason.
 	 */
 	static Importer importFile(JobMonitor job, BinaryData data, String password, boolean productData) {
+		return importFile(job, data, password, productData, importer -> {
+			// Nothing more to import.
+		});
+	}
+
+	/**
+	 * Imports the given file as {@link #importFile(JobMonitor, BinaryData, String, boolean)} does,
+	 * and runs the given step in the transaction of the import, before its commit.
+	 *
+	 * @param then
+	 *        What to import besides, given the importer of the file (the import of a project file
+	 *        adds the E-Home part to the project of its <code>.knxproj</code>).
+	 */
+	static Importer importFile(JobMonitor job, BinaryData data, String password, boolean productData,
+			Consumer<Importer> then) {
 		String file = data.getName() == null ? "" : data.getName();
 		job.beginPhase(PHASE_READ);
 		job.indeterminate();
@@ -132,6 +148,7 @@ final class ImportJobs {
 				} else {
 					importer.importStream(in, password, contents, progress);
 				}
+				then.accept(importer);
 				// The last point a cancel is answered at. The commit has none; a cancel during it ends
 				// the job as cancelled although the file is saved (TL #30194, doc/tl-todo.md).
 				job.beginPhase(PHASE_SAVE);

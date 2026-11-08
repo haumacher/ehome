@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Download of the export of a project as project file (.ehome, haumacher/ehome #117). "file" carries
+	the result of <export-ehome> (de.haumacher.ehome.projectfile.ExportProjectFileAction): the file
+	named after the project, offered by a read-only binary input as a download link.
+
+	The file holds the KNX part as .knxproj and the E-Home part as JSON
+	(de.haumacher.ehome.projectfile.ProjectFile), without secrets and without operating history.
+-->
+<view>
+	<channels>
+		<channel name="file"/>
+	</channels>
+	<window width="600px">
+		<title>
+			<en>Export project file</en>
+			<de>Projektdatei exportieren</de>
+		</title>
+		<inset>
+			<stack gap="loose">
+				<text>
+					<label>
+						<en>The project has been exported as project file: the KNX part with the catalog data it uses, the rules, schedules, application datapoints, virtual devices, functions, pages, Zigbee devices, the settings of the group addresses and the controllers' addresses. The file holds no secrets (installation key, connection secrets, HTTP tokens) and no recordings or deployments: after importing it, pair the controllers again.</en>
+						<de>Das Projekt wurde als Projektdatei exportiert: der KNX-Teil mit den Katalogdaten, die er verwendet, die Regeln, Zeitpläne, Anwendungsdatenpunkte, virtuellen Geräte, Funktionen, Seiten, Zigbee-Geräte, die Einstellungen der Gruppenadressen und die Adressen der Controller. Die Datei enthält keine Geheimnisse (Installationsschlüssel, Verbindungsgeheimnisse, HTTP-Tokens) und keine Aufzeichnungen oder Bereitstellungen: Nach dem Import die Controller neu koppeln.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						readonly="true"
+						type="tl.core:Binary"
+						value="file"
+					>
+						<label>
+							<en>File</en>
+							<de>Datei</de>
+						</label>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>
