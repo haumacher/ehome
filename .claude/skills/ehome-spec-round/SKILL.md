@@ -49,6 +49,11 @@ every proposal is considered on both sides.
    only the questions the user answered: an open point (multi-selection, "delete all") is not
    agreed by silence.
 6. **File** (§2), report, and continue with the next proposal.
+7. **Put off, not filed.** A proposal the user defers ("erst mal so lassen") or that stays undecided
+   goes into `doc/ideas.md` of ehome, the master list of open points for both repositories (not a
+   ticket, so no implementing agent takes it): the user's words, today's evidence with `file:line`,
+   the open questions with the proposals made. Commit and push it like any record; when it is
+   agreed and filed, remove the entry.
 
 ## 2. Tickets
 
