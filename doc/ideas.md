@@ -63,3 +63,20 @@ Open (proposals, not decided):
 
 Would be two tickets: homecontrol (bindings/groups, image format) and ehome (model, editor, image
 writer, simulation).
+
+## Modules: compare E-Home's download with an ETS download
+
+Put off in the round of haumacher/ehome #119 (dynamic modules); the user: "for 6 we start with b"
+(unit tests on the computed object numbers and offsets only).
+
+Today:
+- No device with modules on the test system: the MDT actuator's program `M-0083_A-000C-21` has
+  no `ModuleDefs` (`ehome/samples/KNX-Testsystem.knxproj`).
+- The tooling records ETS downloads to the virtual device (`ehome-virtual`, package
+  `de.haumacher.ehome.virtual.tooling`, traces in `ehome-virtual/src/test/fixtures/ets-traces/`).
+
+Proposal: record an ETS 6 download of a device with modules (e.g. an MDT switching actuator
+12-fold, program `M-0083_A-0014-32-1A2C`) to the virtual device and compare E-Home's download of
+the same device against the trace. Open: which device and project to record from (the
+verification project of #119 must not be committed, so the trace would come from a project made for
+it).
