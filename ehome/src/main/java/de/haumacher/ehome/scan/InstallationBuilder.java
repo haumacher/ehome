@@ -17,14 +17,15 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddresses;
 import de.haumacher.ehome.scan.CatalogMatch.Candidate;
-import de.haumacher.ehome.modules.ModuleInstances;
 
 /**
  * Builds the project of an installation from the devices a scan found: a matched device becomes a
@@ -143,6 +144,9 @@ public class InstallationBuilder {
 		ExtIds.assign(device);
 		// The instances of its program's dynamic modules for the default values (haumacher/ehome #119).
 		ModuleInstances.update(device);
+		// The R values of its calculations from its L values (haumacher/ehome #123): the defaults of a
+		// program need not be consistent.
+		DeviceCalculations.recompute(device);
 		return device;
 	}
 

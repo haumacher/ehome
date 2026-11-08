@@ -2,6 +2,22 @@
   xmlns:config="http://www.top-logic.com/ns/config/6.0"
 >
   <services>
+    <!--
+      A device whose program changed gets the module instances and the computed R values of the new program
+      (haumacher/ehome #123, de.haumacher.ehome.programming.ProgramChanges).
+    -->
+    <config service-class="com.top_logic.basic.module.ModuleSystem">
+      <instance class="com.top_logic.basic.module.ModuleSystem">
+        <modules>
+          <module key="de.haumacher.ehome.programming.ProgramChanges$Module"
+            value="true"
+          />
+        </modules>
+      </instance>
+    </config>
+    <config service-class="de.haumacher.ehome.programming.ProgramChanges">
+      <instance class="de.haumacher.ehome.programming.ProgramChanges"/>
+    </config>
     <config service-class="com.top_logic.basic.util.ResourcesModule">
       <instance class="com.top_logic.util.resource.analyzer.IDEResources">
         <bundles>

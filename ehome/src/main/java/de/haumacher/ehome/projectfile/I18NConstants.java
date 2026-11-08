@@ -70,6 +70,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 WARN_UNKNOWN_GROUP_ADDRESS__ADDRESS;
 
 	/**
+	 * @en The device {0} of the file is not in the project; its attributes are skipped.
+	 */
+	public static ResKey1 WARN_UNKNOWN_DEVICE__DEVICE;
+
+	/**
 	 * @en The project''s controller on the LAN {0} ({1}) was not known in this installation and has been created; enter its HTTP token again.
 	 */
 	public static ResKey2 INFO_LAN_CONTROLLER_CREATED__NAME_ADDRESS;

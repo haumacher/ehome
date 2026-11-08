@@ -117,7 +117,9 @@ final class ModuleCompletion {
 	}
 
 	private void walk(Element xml, TLObject fragment, boolean topLevel) throws Mismatch {
-		List<TLObject> contents = list(fragment, CONTENTS);
+		// A rename (haumacher/ehome #122) is no structure element the plan places anything relative to.
+		List<TLObject> contents = list(fragment, CONTENTS).stream()
+			.filter(option -> !(TYPE_PREFIX + "Rename").equals(TLModelUtil.qualifiedName(option.tType()))).toList();
 		Set<String> options = topLevel ? TOP_LEVEL : CHANNEL_LEVEL;
 		int index = 0;
 		for (Element child : ModuleScan.childElements(xml)) {

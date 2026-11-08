@@ -498,6 +498,20 @@
 											/>
 										</form>
 									</case>
+									<!-- Another title of a block or channel while the case containing it is taken (ETS 6, haumacher/ehome #122). -->
+									<case test="$selected.instanceOf(`ehome.operational:Rename`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="text"/>
+											<field
+												attribute="target"
+												readonly="true"
+											/>
+											<field attribute="extId"/>
+										</form>
+									</case>
 									<case test="$selected.instanceOf(`ehome.operational:Case`)">
 										<form
 											input="selected"

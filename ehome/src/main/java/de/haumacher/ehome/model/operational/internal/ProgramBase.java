@@ -61,6 +61,24 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String ASSOCIATION_TABLE_ATTR = "associationTable";
 
 	/**
+	 * Part <code>calculations</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ParameterCalculation</code> in configuration.
+	 * </p>
+	 */
+	String CALCULATIONS_ATTR = "calculations";
+
+	/**
+	 * Part <code>calculationsRead</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String CALCULATIONS_READ_ATTR = "calculationsRead";
+
+	/**
 	 * Part <code>downloadInvisibleParameters</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -277,6 +295,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String PREFER_PARTIAL_DOWNLOAD_ATTR = "preferPartialDownload";
 
 	/**
+	 * Part <code>script</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Text</code> in configuration.
+	 * </p>
+	 */
+	String SCRIPT_ATTR = "script";
+
+	/**
 	 * Part <code>segments</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -432,6 +459,63 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setAssociationTable(de.haumacher.ehome.model.operational.TableLocation newValue) {
 		tUpdateByName(ASSOCIATION_TABLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #CALCULATIONS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.ParameterCalculation> getCalculations() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.ParameterCalculation>) tValueByName(CALCULATIONS_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #CALCULATIONS_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.ParameterCalculation> getCalculationsModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(CALCULATIONS_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.ParameterCalculation> result = (java.util.List<de.haumacher.ehome.model.operational.ParameterCalculation>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #CALCULATIONS_ATTR}.
+	 */
+	default void setCalculations(java.util.List<de.haumacher.ehome.model.operational.ParameterCalculation> newValue) {
+		tUpdateByName(CALCULATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #CALCULATIONS_ATTR} reference.
+	 */
+	default void addCalculation(de.haumacher.ehome.model.operational.ParameterCalculation newValue) {
+		tAddByName(CALCULATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #CALCULATIONS_ATTR} reference.
+	 */
+	default void removeCalculation(de.haumacher.ehome.model.operational.ParameterCalculation oldValue) {
+		tRemoveByName(CALCULATIONS_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #CALCULATIONS_READ_ATTR}.
+	 */
+	default boolean getCalculationsRead() {
+		return (Boolean) tValueByName(CALCULATIONS_READ_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #CALCULATIONS_READ_ATTR}.
+	 */
+	default void setCalculationsRead(boolean newValue) {
+		tUpdateByName(CALCULATIONS_READ_ATTR, newValue);
 	}
 
 	/**
@@ -921,6 +1005,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setPreferPartialDownload(boolean newValue) {
 		tUpdateByName(PREFER_PARTIAL_DOWNLOAD_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #SCRIPT_ATTR}.
+	 */
+	default String getScript() {
+		return (String) tValueByName(SCRIPT_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #SCRIPT_ATTR}.
+	 */
+	default void setScript(String newValue) {
+		tUpdateByName(SCRIPT_ATTR, newValue);
 	}
 
 	/**

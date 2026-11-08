@@ -25,6 +25,15 @@ public interface ConfigFragmentBase extends com.top_logic.model.TLObject {
 	String CONTENTS_ATTR = "contents";
 
 	/**
+	 * Part <code>renames</code> of <code>ConfigFragment</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:Rename</code> in configuration.
+	 * </p>
+	 */
+	String RENAMES_ATTR = "renames";
+
+	/**
 	 * Getter for part {@link #CONTENTS_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")
@@ -65,6 +74,14 @@ public interface ConfigFragmentBase extends com.top_logic.model.TLObject {
 	 */
 	default void removeContent(de.haumacher.ehome.model.operational.Option oldValue) {
 		tRemoveByName(CONTENTS_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #RENAMES_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.Set<? extends de.haumacher.ehome.model.operational.Rename> getRenames() {
+		return (java.util.Set<? extends de.haumacher.ehome.model.operational.Rename>) tValueByName(RENAMES_ATTR);
 	}
 
 }

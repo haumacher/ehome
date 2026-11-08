@@ -30,6 +30,11 @@
 #   skip LdCtrlMasterReset
 #   skip ParameterType/TypeColor
 #   skip Options@DownloadInvisibleParameters
+#   skip DeviceInstance/ChannelInstances   (haumacher/ehome #122; carried by the .ehome document)
+#   skip Rename                            (haumacher/ehome #122)
+#   skip ParameterCalculations             (haumacher/ehome #123)
+#   skip Static/Script                     (haumacher/ehome #123)
+#   skip ProjectTraces                     (ETS 6's history of the project, not read)
 # besides rules for what the import does not read of schema 23 (doc/knx/schema-coverage.md,
 # "Project schema 23").
 

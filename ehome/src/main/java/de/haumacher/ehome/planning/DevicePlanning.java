@@ -23,13 +23,14 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.modules.ModuleInstances;
+import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.scan.InstallationBuilder;
-import de.haumacher.ehome.modules.ModuleInstances;
-import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * Planning devices in the app (haumacher/ehome #104): a new device from the catalog in a line, and
@@ -356,8 +357,14 @@ public final class DevicePlanning {
 			}
 			settings.add(copied);
 		}
+		// The values the creation computed for the defaults (haumacher/ehome #123) give way to the copied ones.
+		for (TLObject computed : ExtIds.list(copy, SETTINGS)) {
+			computed.tDelete();
+		}
 		copy.tUpdateByName(SETTINGS, settings);
 		ModuleInstances.update(copy);
+		// The R values of its calculations from the copied L values (haumacher/ehome #123).
+		DeviceCalculations.recompute(copy);
 		return copy;
 	}
 

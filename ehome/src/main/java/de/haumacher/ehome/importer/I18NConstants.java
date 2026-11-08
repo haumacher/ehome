@@ -97,6 +97,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 INFO_MODULES_COMPLETED__PROGRAM;
 
 	/**
+	 * @en The application program "{0}", imported earlier without its parameter calculations, is completed: its calculations are added. The devices of the program imported before keep their values; a change of a parameter computes the others from now on.
+	 */
+	public static ResKey1 INFO_CALCULATIONS_COMPLETED__PROGRAM;
+
+	/**
 	 * @en The application program "{0}" was imported earlier without its dynamic modules, and its structure in the database does not fit the file: the modules are not added, and a download of the program stays refused.
 	 */
 	public static ResKey1 WARN_MODULES_NOT_COMPLETED__PROGRAM;
@@ -105,6 +110,16 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Device "{0}": {1} parameter settings and {2} communication objects refer to parts of its application program that were not found (e.g. of dynamic modules the import could not read, or a part a module does not have); they are left out.
 	 */
 	public static ResKey3 WARN_UNRESOLVED_PROGRAM_PARTS__DEVICE_SETTINGS_OBJECTS;
+
+	/**
+	 * @en Program {0}: E-Home cannot evaluate the parameter calculation {1} ({2}). Its parameters cannot be changed in E-Home; the devices keep the values of the project file.
+	 */
+	public static ResKey3 WARN_CALCULATION_NOT_EVALUATED__PROGRAM_CALCULATION_PROBLEM;
+
+	/**
+	 * @en Device "{0}": the values of a parameter calculation could not be checked, the device keeps the values of the project file: {1}
+	 */
+	public static ResKey2 WARN_CALCULATION_KEPT__DEVICE_PROBLEM;
 
 	/**
 	 * @en Device "{0}", module instance {1}: the project file gives the argument {2} the value "{3}", E-Home computes "{4}". The device''s memory was written with the other layout: a download of the device is refused until a full download you confirm writes E-Home''s layout.

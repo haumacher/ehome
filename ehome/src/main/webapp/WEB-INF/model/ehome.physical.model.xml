@@ -423,6 +423,47 @@
 					ordered="true"
 					type="ModuleInstance"
 				/>
+				<!--
+					What the project says per channel of the device's program (ETS 6: ChannelInstances,
+					haumacher/ehome #122): the description the user gave a channel and whether it is active.
+				-->
+				<reference name="channelInstances"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ChannelInstance"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A channel of the program in a device (ETS 6: ChannelInstance, haumacher/ehome #122): the description
+			the user entered and whether the channel is active. The parameter editor shows the description beside
+			the channel's title (de.haumacher.ehome.programming.DeviceTexts).
+		-->
+		<class name="ChannelInstance">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-diagram-3"/>
+			</annotations>
+			<attributes>
+				<!--
+					The ETS ID of the channel in the device (ETS: RefId, relative to the program: CH-4, of a
+					module instance's channel MD-1_M-1_MI-1_CH-1). An ID, not a reference: a channel of a module
+					instance exists only in the instance E-Home computes from the device's values.
+				-->
+				<property name="channel"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<property name="description"
+					type="tl.core:String"
+				/>
+				<property name="active"
+					type="tl.core:Boolean"
+				/>
 			</attributes>
 		</class>
 		<class name="Line">

@@ -200,6 +200,21 @@ public final class ProjectFileImport {
 			}
 		}
 
+		if (contents.document().get(ProjectFile.DEVICES_MEMBER) instanceof List<?> devices) {
+			for (Object element : devices) {
+				if (!(element instanceof Map<?, ?> entry)) {
+					continue;
+				}
+				String key = Objects.toString(entry.get(ProjectFile.KNX), "");
+				TLObject device = device(key);
+				if (device == null) {
+					_log.log(Level.WARN, I18NConstants.WARN_UNKNOWN_DEVICE__DEVICE.fill(key), null);
+					continue;
+				}
+				readAttributes(device, entry, ProjectFile.DEVICES_MEMBER + "/" + key);
+			}
+		}
+
 		for (Runnable reference : _references) {
 			reference.run();
 		}
@@ -247,6 +262,15 @@ public final class ProjectFileImport {
 		}
 	}
 
+	private TLObject device(String key) {
+		for (TLObject candidate : _byExtId.getOrDefault(key, List.of())) {
+			if (TLModelUtil.qualifiedName(candidate.tType()).equals(ProjectFile.DEVICE_TYPE)) {
+				return candidate;
+			}
+		}
+		return null;
+	}
+
 	private TLObject address(String text) {
 		GA address;
 		try {
@@ -260,6 +284,7 @@ public final class ProjectFileImport {
 	private void readAttributes(TLObject obj, Map<?, ?> json, String path) {
 		boolean project = TLModelUtil.qualifiedName(obj.tType()).equals(ProjectFile.PROJECT_TYPE);
 		boolean address = TLModelUtil.qualifiedName(obj.tType()).equals(ProjectFile.GROUP_ADDRESS_TYPE);
+		boolean device = TLModelUtil.qualifiedName(obj.tType()).equals(ProjectFile.DEVICE_TYPE);
 		for (Map.Entry<?, ?> entry : json.entrySet()) {
 			String name = String.valueOf(entry.getKey());
 			if (name.startsWith("$")) {
@@ -269,13 +294,13 @@ public final class ProjectFileImport {
 				// From the .knxproj.
 				continue;
 			}
-			if (address && name.equals(ProjectFile.GA)) {
+			if (address && name.equals(ProjectFile.GA) || device && name.equals(ProjectFile.KNX)) {
 				continue;
 			}
 			String at = path + "." + name;
 			TLStructuredTypePart part = obj.tType().getPart(name);
 			if (part == null || ProjectFile.leftOut(part) || project && ProjectFile.projectKnx(part)
-				|| address && !ProjectFile.groupAddressSetting(part)) {
+				|| address && !ProjectFile.groupAddressSetting(part) || device && !ProjectFile.deviceSetting(part)) {
 				_log.log(Level.WARN, I18NConstants.WARN_UNKNOWN_ATTRIBUTE__ATTRIBUTE_PATH.fill(name, path), null);
 				continue;
 			}

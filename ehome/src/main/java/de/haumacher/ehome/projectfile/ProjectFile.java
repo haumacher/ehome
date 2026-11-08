@@ -26,7 +26,9 @@ import de.haumacher.ehome.modules.ModuleParts;
  * <li>{@value #JSON_ENTRY}: everything else, in the terms of the model: the project's own attributes
  * and its compositions (rules, schedule entries, application datapoints, virtual devices, functions,
  * control pages, Zigbee devices, dismissed proposals, the simulation's followers, the controllers),
- * and the settings E-Home keeps per group address.</li>
+ * the settings E-Home keeps per group address, and the attributes of devices schema 11 of the
+ * <code>.knxproj</code> has no place for (the channels of a device with their descriptions, ETS 6:
+ * <code>ChannelInstances</code>, haumacher/ehome #122).</li>
  * </ul>
  *
  * <p>
@@ -52,7 +54,9 @@ import de.haumacher.ehome.modules.ModuleParts;
  *     "zigbeeDevices": [{"ieee": "001788010f069c8e", "location": {"knx": "P-0123-0_BP-3"},
  *       "functions": [{"$id": "zigbeeDevices/001788010f069c8e/functions/on_off@11", "function": "on_off", "endpoint": 11}]}]
  *   },
- *   "groupAddresses": [{"ga": "0/0/6", "runtimeWritable": true}]
+ *   "groupAddresses": [{"ga": "0/0/6", "runtimeWritable": true}],
+ *   "devices": [{"knx": "P-0123-0_DI-1",
+ *     "channelInstances": [{"extId": "P-0123-0_DI-1_CI-1", "channel": "CH-4", "description": "Küchentür", "active": true}]}]
  * }
  * </pre>
  *
@@ -131,7 +135,7 @@ public final class ProjectFile {
 	/**
 	 * The minor version of the format this version of E-Home writes.
 	 */
-	public static final int MINOR = 0;
+	public static final int MINOR = 1;
 
 	/** Member of the document naming the format. */
 	public static final String FORMAT_MEMBER = "format";
@@ -147,6 +151,9 @@ public final class ProjectFile {
 
 	/** Member of the document holding the settings of the group addresses. */
 	public static final String GROUP_ADDRESSES_MEMBER = "groupAddresses";
+
+	/** Member of the document holding the attributes of devices the <code>.knxproj</code> does not hold (version 1.1). */
+	public static final String DEVICES_MEMBER = "devices";
 
 	/** Member of the project holding its external ID. */
 	public static final String ID_MEMBER = "id";
@@ -175,6 +182,9 @@ public final class ProjectFile {
 	/** The type of a group address. */
 	public static final String GROUP_ADDRESS_TYPE = "ehome.logical:GroupAddress";
 
+	/** The type of a device. */
+	public static final String DEVICE_TYPE = "ehome.physical:Device";
+
 	/** The type of a controller. */
 	public static final String CONTROLLER_TYPE = "ehome.runtime:Controller";
 
@@ -190,6 +200,14 @@ public final class ProjectFile {
 	 */
 	private static final Set<String> GROUP_ADDRESS_KNX = Set.of("extId", "name", "description", "unfiltered",
 		"address", "central", "datapointTypes");
+
+	/**
+	 * The attributes of a device the <code>.knxproj</code> holds (or E-Home computes again on import:
+	 * the module instances); the others are written into the document (haumacher/ehome #122).
+	 */
+	private static final Set<String> DEVICE_KNX = Set.of("extId", "title", "description", "installationHints",
+		"serialNumber", "lastModified", "lastDownload", "loaded", "address", "type", "program", "location", "settings",
+		"connectors", "moduleInstances");
 
 	/**
 	 * The attributes of a controller the file holds.
@@ -257,6 +275,14 @@ public final class ProjectFile {
 	 */
 	public static boolean groupAddressSetting(TLStructuredTypePart part) {
 		return !GROUP_ADDRESS_KNX.contains(part.getName()) && !leftOut(part);
+	}
+
+	/**
+	 * Whether the given attribute of a device is written into the document (not held by the
+	 * <code>.knxproj</code>).
+	 */
+	public static boolean deviceSetting(TLStructuredTypePart part) {
+		return !DEVICE_KNX.contains(part.getName()) && !leftOut(part);
 	}
 
 	/**

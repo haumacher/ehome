@@ -15,6 +15,7 @@ import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 
+import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.ParameterView;
 
@@ -69,6 +70,11 @@ public class DeviceFunctions extends GenericMethod {
 		deviceItems(2, true),
 		/** <code>deviceText(device, part)</code>: {@link DeviceTexts#label(TLObject, Object)}. */
 		deviceText(2, true),
+		/**
+		 * <code>deviceCalculationHint(device, view)</code>:
+		 * {@link de.haumacher.ehome.calculation.DeviceCalculations#hint(TLObject, ParameterView)}.
+		 */
+		deviceCalculationHint(2, true),
 		/** <code>deviceSelectedCases(device)</code>: {@link DeviceConfiguration#getSelectedCases()}. */
 		deviceSelectedCases(1, true),
 		/** <code>deviceInterfaces(device)</code>: {@link DeviceSettings#interfaces(TLObject)}. */
@@ -170,6 +176,8 @@ public class DeviceFunctions extends GenericMethod {
 				return new DeviceConfiguration(device).getItems(arguments[1]);
 			case deviceText:
 				return arguments[1] == null ? null : DeviceTexts.label(device, arguments[1]);
+			case deviceCalculationHint:
+				return arguments[1] instanceof ParameterView view ? DeviceCalculations.hint(device, view) : null;
 			case deviceSelectedCases:
 				return new DeviceConfiguration(device).getSelectedCases();
 			case deviceInterfaces:

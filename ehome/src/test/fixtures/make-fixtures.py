@@ -222,6 +222,54 @@ receives, the temperature on 4/1/1 "Raumtemperatur Küche"; "Taste 2" and "Wippe
 nothing. The addresses 4/0/4 "Licht Bad" and 4/2/1 "Markise fahren" have no object; the test
 connects some later.
 
+TestChannels.knxproj: the samples contain no channel descriptions of a device (ETS 6: ChannelInstances)
+and no renamed parameter block (Rename, haumacher/ehome #122). This file (schema 23, the master data and
+the project of the Test project) holds an artificial program of the BCU 1 kind, M-0008_A-FFF9-01-0000,
+marked as test data by its name, on its own hardware "TEST Kanäle": the parameter "Funktion" (Aus 0 / Ein
+1, default Aus) in the block "Allgemein" of the channel 1 "Kanal A" (English "Channel A"), whose case Ein
+renames the block "LED" of the same channel to "LED oben rechts" (English "LED top right"); the channel 2
+"Kanal B" with the block "Reserve", which a case Ein of a switch directly in the dynamic part renames to
+"Kanal B (frei)"; and a module "Modul" (MD-1, arguments ParamOffsBase and No) placed once (No 1), with a
+channel "Modul {{No}}" whose block "Wert" places the parameter "Wert" (Aus/Ein) and is renamed to "Wert
+{{No}} (ein)" by its case Ein. The device "TEST Kanalgerät" (1.0.1) sets "Funktion" and the module's "Wert"
+to Ein and describes its channels: CH-1 "Binäreingang Küchentür" (active), CH-2 "Reserve" (IsActive
+false), the module instance's channel MD-1_M-1_MI-1_CH-1 "Modulkanal Flur" (active); it carries a
+Security element (KNX Secure, not read: the import warns). The device "TEST Kanalgerät ohne" (1.0.2) has
+the defaults and no channel descriptions. project.xml holds ProjectTraces (ETS 6's history of the
+project, skipped without a warning).
+
+TestCalculations.knxproj: the samples contain no parameter calculation (ETS 6: ParameterCalculation,
+haumacher/ehome #123). This file (schema 23, the master data and the project of the Test project) holds
+two artificial programs of the BCU 1 kind on their own hardware "TEST Berechnungen", marked as test data
+by their names. M-0008_A-FFFA-01-0000 has the L parameters (without memory) "Dauer" (seconds, 0..86399,
+default 60), "Schwelle" (Niedrig 1 / Mittel 2 / Hoch 3, default Hoch) and "Fehlerwert" (0..10, default 1),
+and the R parameters (access None, in memory from 0x158) "Dauer_h" (0..23, default 0), "Dauer_min"
+(0..59, default 1), "Dauer_s" (0..59, default 0), "Szene" (0..255, default 0: not what the calculation
+gives for the default of "Schwelle") and "FehlerR" (0..255, default 30), with the calculations, their
+code inline as ETS 6 writes it (RLTransformation, LRTransformation, then the parameters): PC-1
+"s2hms" in VBScript without aliases (the names of the parameters: LR Dauer_h = (Dauer \\ 3600), Dauer_min =
+(Dauer - (3600 * Dauer_h)) \\ 60, Dauer_s = Dauer - (3600 * Dauer_h) - (60 * Dauer_min); RL Dauer =
+(3600 * Dauer_h) + (60 * Dauer_min) + Dauer_s), PC-2 in JavaScript with the aliases BlindsActionThreshold
+and BlindScene as functions of the program's Script (LRTransformationFunc "szeneLR" with
+LRTransformationParameters {"Faktor": 1}: if input.BlindsActionThreshold is 3, output.BlindScene =
+verdoppeln(context.Faktor), another function of the Script; RLTransformationFunc "szeneRL": if
+input.BlindScene is 2, output.BlindsActionThreshold = 3), PC-3 in
+JavaScript with the aliases x and r (LR: an exception for 7, an endless loop for 9, else r = x * 30, which
+is out of range for 10; RL x = r / 30). Its module "Teil" (MD-1, argument ParamOffsBase) has the L
+parameters "Zeit" (0..1000, default 50) and "Teiler" (1..100, default 10) and the R parameters "Stufe"
+(offset 0, default 0: inconsistent) and "Rest" (offset 1, default 5), with the calculation of the issue,
+MD-1_PC-1 in JavaScript with the aliases p1 (Zeit), p3 (Teiler), p2 (Stufe), p4 (Rest): LR p2 = p1 / p3;
+if (p2 < 1) p2 = 1; p4 = p1 / p3; if (p4 < 1) p4 = 0; RL p1 = mal(p2, p3), a function of the module's
+own Script. The module is placed twice, at 0x160 and 0x168. M-0008_A-FFFB-01-0000 has the L parameter
+"Gesperrt" and the R parameter "GesperrtR" (0x158) of a VBScript calculation with Select Case, which E-Home
+does not support, and the L parameter "Minuten" (default 1) and the R parameter "Sekunden" (0x159, default
+60) of a VBScript calculation calling the function InSekunden of the program's VBScript Script (LR
+Sekunden = InSekunden(Minuten), RL Minuten = Sekunden \\ 60). Devices: "TEST
+Rechengerät" (1.0.1, FFFA) with consistent values (Dauer 3725 = 1 h 2 min 5 s, Szene 2, Zeit 55 → Stufe
+5 and Rest 5 in the first instance, Stufe 5 in the second); "TEST Rechengerät RL" (1.0.2, FFFA) with R
+values only (Dauer_h 2, Dauer_min 0, Dauer_s 30, Stufe 7 in the first instance), from which RL derives
+the L values; "TEST Rechengerät gesperrt" (1.0.3, FFFB) with GesperrtR 1.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -1588,6 +1636,316 @@ def master_data_only(target, version, new):
         out.writestr(info, (MASTER_DATA_HEADER % version + test_masks(new) + MASTER_DATA_FOOTER).encode('utf-8'))
 
 
+# TestChannels.knxproj: channel descriptions of a device and renamed blocks (haumacher/ehome #122), see
+# the module comment.
+CHANNEL_PROGRAM = 'M-0008_A-FFF9-01-0000'
+CHANNEL_HARDWARE = 'M-0008_H-TEST.20KANAL-1'
+CHANNEL_PRODUCT = CHANNEL_HARDWARE + '_P-TEST.20KANAL'
+CHANNEL_ASSIGNMENT = CHANNEL_HARDWARE + '_HP-FFF9-01-0000'
+
+
+def bcu1_program_file(p, number, name, static, module_defs, dynamic, languages=''):
+    """An application program of the BCU 1 kind (memory of "TEST BCU1 mit Daten"), schema 23."""
+    segment = p + '_AS-0100'
+    data, mask = bcu1_memory()
+    xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<KNX xmlns="http://knx.org/xml/project/23" CreatedBy="make-fixtures.py" ToolVersion="test">\n'
+        '<ManufacturerData><Manufacturer RefId="M-0008"><ApplicationPrograms>\n'
+        '<ApplicationProgram Id="{p}" Name="' + name + '" ApplicationNumber="' + str(number) + '" '
+        'ApplicationVersion="1" ProgramType="ApplicationProgram" MaskVersion="MV-0012" '
+        'LoadProcedureStyle="DefaultProcedure" PeiType="0" DefaultLanguage="de-DE" DynamicTableManagement="1" '
+        'Linkable="0" MinEtsVersion="6.0" NonRegRelevantDataVersion="0">\n'
+        '<Static>\n<Code><AbsoluteSegment Id="{s}" Address="256" Size="256" UserMemory="0"><Data>' + data
+        + '</Data><Mask>' + mask + '</Mask></AbsoluteSegment></Code>\n' + static
+        + '<AddressTable CodeSegment="{s}" Offset="22" MaxEntries="6" />\n'
+        '<AssociationTable CodeSegment="{s}" Offset="37" MaxEntries="8" />\n'
+        '<Options ParameterByteOrder="BigEndian" />\n'
+        '</Static>\n' + module_defs + dynamic
+        + '</ApplicationProgram>\n</ApplicationPrograms>' + languages + '</Manufacturer></ManufacturerData>\n</KNX>\n')
+    return xml.replace('{s}', segment).replace('{p}', p)
+
+
+def test_hardware(hardware, product, name, assignments):
+    """The hardware of artificial programs: (assignment ID, program ID) per program."""
+    return ('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<KNX xmlns="http://knx.org/xml/project/23" CreatedBy="make-fixtures.py" ToolVersion="test">\n'
+        '<ManufacturerData><Manufacturer RefId="M-0008"><Hardware>'
+        '<Hardware Id="' + hardware + '" Name="' + name + '" SerialNumber="' + name + '" VersionNumber="1" '
+        'HasIndividualAddress="1" HasApplicationProgram="1"><Products><Product Id="' + product + '" '
+        'Text="' + name + ' (künstliche Testdaten)" OrderNumber="' + name + '" IsRailMounted="1" DefaultLanguage="de-DE" />'
+        '</Products><Hardware2Programs>'
+        + ''.join('<Hardware2Program Id="%s" MediumTypes="MT-0"><ApplicationProgramRef RefId="%s" /></Hardware2Program>'
+            % assignment for assignment in assignments)
+        + '</Hardware2Programs></Hardware></Hardware></Manufacturer></ManufacturerData>\n</KNX>\n')
+
+
+SWITCH_TYPE = ('<ParameterType Id="{p}_PT-Funktion" Name="Funktion"><TypeRestriction Base="Value" SizeInBit="8">'
+    '<Enumeration Id="{p}_PT-Funktion_EN-0" Text="Aus" Value="0" DisplayOrder="0" />'
+    '<Enumeration Id="{p}_PT-Funktion_EN-1" Text="Ein" Value="1" DisplayOrder="1" />'
+    '</TypeRestriction></ParameterType>\n')
+
+
+def channel_program():
+    flags = ('Priority="Low" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Enabled" '
+        'TransmitFlag="Disabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled"')
+    static = ('<ParameterTypes>\n' + SWITCH_TYPE + '</ParameterTypes>\n'
+        '<Parameters>\n<Parameter Id="{p}_P-1" Name="Funktion" Text="Funktion" ParameterType="{p}_PT-Funktion" '
+        'Access="ReadWrite" Value="0"><Memory CodeSegment="{s}" Offset="88" BitOffset="0" /></Parameter>\n</Parameters>\n'
+        '<ParameterRefs>\n<ParameterRef Id="{p}_P-1_R-1" RefId="{p}_P-1" />\n</ParameterRefs>\n'
+        '<ComObjectTable CodeSegment="{s}" Offset="54">\n<ComObject Id="{p}_O-0" Name="LED" Text="LED" Number="0" '
+        'ObjectSize="1 Bit" ' + flags + ' DatapointType="DPST-1-1" />\n</ComObjectTable>\n'
+        '<ComObjectRefs>\n<ComObjectRef Id="{p}_O-0_R-1" RefId="{p}_O-0" />\n</ComObjectRefs>\n')
+    module = ('<ModuleDefs><ModuleDef Id="{p}_MD-1" Name="Modul"><Arguments>'
+        '<Argument Id="{p}_MD-1_A-1" Name="ParamOffsBase" /><Argument Id="{p}_MD-1_A-2" Name="No" /></Arguments>\n'
+        '<Static><Parameters><Parameter Id="{p}_MD-1_P-1" Name="Wert" Text="Modul {{No}}: Wert" '
+        'ParameterType="{p}_PT-Funktion" Access="ReadWrite" Value="0"><Memory CodeSegment="{s}" Offset="0" '
+        'BitOffset="0" BaseOffset="{p}_MD-1_A-1" /></Parameter></Parameters>\n'
+        '<ParameterRefs><ParameterRef Id="{p}_MD-1_P-1_R-1" RefId="{p}_MD-1_P-1" /></ParameterRefs></Static>\n'
+        '<Dynamic><Channel Id="{p}_MD-1_CH-1" Name="Modul" Text="Modul {{No}}">'
+        '<ParameterBlock Id="{p}_MD-1_PB-1" Name="Wert" Text="Wert"><ParameterRefRef RefId="{p}_MD-1_P-1_R-1" />'
+        '<choose ParamRefId="{p}_MD-1_P-1_R-1"><when test="1"><Rename Id="{p}_MD-1_PR-1" RefId="{p}_MD-1_PB-1" '
+        'Text="Wert {{No}} (ein)" /></when></choose></ParameterBlock></Channel></Dynamic>'
+        '</ModuleDef></ModuleDefs>\n')
+    dynamic = ('<Dynamic><Channel Id="{p}_CH-1" Name="KanalA" Text="Kanal A" Number="1">'
+        '<ParameterBlock Id="{p}_PB-1" Name="Allgemein" Text="Allgemein"><ParameterRefRef RefId="{p}_P-1_R-1" />'
+        '<choose ParamRefId="{p}_P-1_R-1"><when test="1"><Rename Id="{p}_PR-1" RefId="{p}_PB-2" '
+        'Text="LED oben rechts" /></when></choose></ParameterBlock>'
+        '<ParameterBlock Id="{p}_PB-2" Name="LED" Text="LED"><ComObjectRefRef RefId="{p}_O-0_R-1" /></ParameterBlock>'
+        '</Channel>\n'
+        '<Channel Id="{p}_CH-2" Name="KanalB" Text="Kanal B" Number="2"><ParameterBlock Id="{p}_PB-3" Name="Reserve" '
+        'Text="Reserve" /></Channel>\n'
+        '<choose ParamRefId="{p}_P-1_R-1"><when test="1"><Rename Id="{p}_PR-2" RefId="{p}_CH-2" Text="Kanal B (frei)" />'
+        '</when><when default="true" /></choose>\n'
+        '<Module Id="{p}_MD-1_M-1" RefId="{p}_MD-1" Name="Modul 1"><NumericArg RefId="{p}_MD-1_A-1" Value="96" />'
+        '<TextArg RefId="{p}_MD-1_A-2" Value="1" /></Module>\n</Dynamic>\n')
+    english = [('{p}_PR-1', 'LED top right'), ('{p}_CH-1', 'Channel A'), ('{p}_PR-2', 'Channel B (free)')]
+    languages = ('<Languages><Language Identifier="en-US"><TranslationUnit RefId="{p}" Version="0">'
+        + ''.join('<TranslationElement RefId="%s"><Translation AttributeName="Text" Text="%s" /></TranslationElement>'
+            % entry for entry in english)
+        + '</TranslationUnit></Language></Languages>')
+    return bcu1_program_file(CHANNEL_PROGRAM, 65529, 'TEST: Kanäle und Umbenennungen (künstliche Testdaten)',
+        static, module, dynamic, languages)
+
+
+def channel_devices(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+    p = CHANNEL_PROGRAM
+    instance = ('<ModuleInstances><ModuleInstance Id="MD-1_M-1_MI-1" RefId="MD-1_M-1"><Arguments>'
+        '<Argument RefId="MD-1_A-1" Value="96" /><Argument RefId="MD-1_A-2" Value="1" /></Arguments>'
+        '</ModuleInstance></ModuleInstances>\n')
+    devices = ('<DeviceInstance Id="P-01A0-0_DI-1" Name="TEST Kanalgerät" ProductRefId="' + CHANNEL_PRODUCT
+        + '" Hardware2ProgramRefId="' + CHANNEL_ASSIGNMENT + '" Address="1" LastModified="2026-11-08T12:00:00">\n'
+        '<ParameterInstanceRefs>\n<ParameterInstanceRef RefId="P-1_R-1" Value="1" />\n'
+        '<ParameterInstanceRef RefId="' + p + '_MD-1_M-1_MI-1_P-1_R-1" Value="1" />\n</ParameterInstanceRefs>\n'
+        + instance +
+        '<ChannelInstances>\n'
+        '<ChannelInstance Id="P-01A0-0_DI-1_CI-1" Description="Binäreingang Küchentür" IsActive="true" RefId="CH-1" />\n'
+        '<ChannelInstance Id="P-01A0-0_DI-1_CI-2" Description="Reserve" IsActive="false" RefId="CH-2" />\n'
+        '<ChannelInstance Id="P-01A0-0_DI-1_CI-3" Description="Modulkanal Flur" IsActive="true" '
+        'RefId="MD-1_M-1_MI-1_CH-1" />\n'
+        '</ChannelInstances>\n'
+        '<Security LoadedToolKey="false" SequenceNumber="0" />\n'
+        '</DeviceInstance>\n'
+        '<DeviceInstance Id="P-01A0-0_DI-2" Name="TEST Kanalgerät ohne" ProductRefId="' + CHANNEL_PRODUCT
+        + '" Hardware2ProgramRefId="' + CHANNEL_ASSIGNMENT + '" Address="2" LastModified="2026-11-08T12:00:00">\n'
+        + instance + '</DeviceInstance>')
+    return xml[:start] + devices + xml[end:]
+
+
+def channels(name, xml):
+    xml = replace_once(xml, SCHEMA_11, SCHEMA_23)
+    if name == PROJECT_INFO:
+        xml = rename_project(xml, 'TestChannels')
+        return replace_once(xml, '  </Project>', '    <ProjectTraces><ProjectTrace Date="2026-11-08T12:00:00" '
+            'UserName="TEST" Comment="künstliche Testdaten" /></ProjectTraces>\n  </Project>')
+    if name == PROJECT:
+        return channel_devices(xml)
+    return xml
+
+
+# TestCalculations.knxproj: parameter calculations (haumacher/ehome #123), see the module comment.
+CALC_PROGRAM = 'M-0008_A-FFFA-01-0000'
+LOCKED_PROGRAM = 'M-0008_A-FFFB-01-0000'
+CALC_HARDWARE = 'M-0008_H-TEST.20RECHNUNG-1'
+CALC_PRODUCT = CALC_HARDWARE + '_P-TEST.20RECHNUNG'
+CALC_ASSIGNMENT = CALC_HARDWARE + '_HP-FFFA-01-0000'
+LOCKED_ASSIGNMENT = CALC_HARDWARE + '_HP-FFFB-01-0000'
+# A line break in the code of a transformation.
+NL = '\n'
+
+
+def number_type(name, bits, low, high):
+    return ('<ParameterType Id="{p}_PT-%s" Name="%s"><TypeNumber SizeInBit="%d" Type="unsignedInt" '
+        'minInclusive="%d" maxInclusive="%d" /></ParameterType>\n' % (name, name, bits, low, high))
+
+
+def parameter(ident, name, type_name, value, offset=None, base=None):
+    """A parameter: an L parameter without memory, an R parameter (access None) at the given offset."""
+    if offset is None:
+        return ('<Parameter Id="{p}_%s" Name="%s" Text="%s" ParameterType="{p}_PT-%s" Access="ReadWrite" '
+            'Value="%d" />' % (ident, name, name, type_name, value))
+    return ('<Parameter Id="{p}_%s" Name="%s" Text="%s" ParameterType="{p}_PT-%s" Access="None" Value="%d">'
+        '<Memory CodeSegment="{s}" Offset="%d" BitOffset="0"%s /></Parameter>'
+        % (ident, name, name, type_name, value, offset, '' if base is None else ' BaseOffset="{p}_%s"' % base))
+
+
+def xml_text(text):
+    return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+
+def calculation(ident, name, language, lr, rl, inputs, outputs, functions=None):
+    """A calculation: the parameter references of each side as (RefId, AliasName or None).
+
+    The code inline as ETS 6 writes it (RLTransformation before LRTransformation, then the parameters), or,
+    with functions = (LR function, its parameters, RL function, its parameters), as functions of the
+    program's script named by the attributes LRTransformationFunc and RLTransformationFunc.
+    """
+    def refs(side):
+        return ''.join('<ParameterRefRef RefId="{p}_%s"%s />' % (ref, '' if alias is None else ' AliasName="%s"' % alias)
+            for ref, alias in side)
+    if functions is None:
+        return ('<ParameterCalculation Id="{p}_%s" Name="%s" Language="%s">\n'
+            '<RLTransformation>%s</RLTransformation>\n<LRTransformation>%s</LRTransformation>\n'
+            '<LParameters>%s</LParameters><RParameters>%s</RParameters></ParameterCalculation>\n'
+            % (ident, name, language, xml_text(rl), xml_text(lr), refs(inputs), refs(outputs)))
+    lr_function, lr_parameters, rl_function, rl_parameters = functions
+    return ('<ParameterCalculation Id="{p}_%s" Name="%s" Language="%s" LRTransformationFunc="%s" '
+        'RLTransformationFunc="%s" LRTransformationParameters="%s" RLTransformationParameters="%s">'
+        '<LParameters>%s</LParameters><RParameters>%s</RParameters></ParameterCalculation>\n'
+        % (ident, name, language, lr_function, rl_function, xml_text(lr_parameters), xml_text(rl_parameters),
+            refs(inputs), refs(outputs)))
+
+
+def bcu1_objects():
+    """The three objects of the object table of the BCU 1 memory, placed nowhere."""
+    flags = ('Priority="Low" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Enabled" '
+        'TransmitFlag="Disabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled"')
+    return ('<ComObjectTable CodeSegment="{s}" Offset="54">\n'
+        + ''.join('<ComObject Id="{p}_O-%d" Name="Objekt %d" Text="Objekt %d" Number="%d" ObjectSize="1 Bit" %s />\n'
+            % (n, n, n, n, flags) for n in range(3))
+        + '</ComObjectTable>\n<ComObjectRefs>\n'
+        + ''.join('<ComObjectRef Id="{p}_O-%d_R-1" RefId="{p}_O-%d" />\n' % (n, n) for n in range(3))
+        + '</ComObjectRefs>\n')
+
+
+def calc_program():
+    types = (number_type('Dauer', 32, 0, 86399) + number_type('Std', 8, 0, 23) + number_type('Min', 8, 0, 59)
+        + number_type('Byte', 8, 0, 255) + number_type('Klein', 8, 0, 10) + number_type('Zeit', 16, 0, 1000)
+        + number_type('Teiler', 8, 1, 100)
+        + '<ParameterType Id="{p}_PT-Schwelle" Name="Schwelle"><TypeRestriction Base="Value" SizeInBit="8">'
+        '<Enumeration Id="{p}_PT-Schwelle_EN-1" Text="Niedrig" Value="1" DisplayOrder="0" />'
+        '<Enumeration Id="{p}_PT-Schwelle_EN-2" Text="Mittel" Value="2" DisplayOrder="1" />'
+        '<Enumeration Id="{p}_PT-Schwelle_EN-3" Text="Hoch" Value="3" DisplayOrder="2" />'
+        '</TypeRestriction></ParameterType>\n')
+    params = [('P-1', 'Dauer', 'Dauer', 60, None), ('P-2', 'Dauer_h', 'Std', 0, 0x58), ('P-3', 'Dauer_min', 'Min', 1, 0x59),
+        ('P-4', 'Dauer_s', 'Min', 0, 0x5A), ('P-5', 'Schwelle', 'Schwelle', 3, None), ('P-6', 'Szene', 'Byte', 0, 0x5B),
+        ('P-7', 'Fehlerwert', 'Klein', 1, None), ('P-8', 'FehlerR', 'Byte', 30, 0x5C)]
+    calculations = (
+        calculation('PC-1', 's2hms', 'VBScript',
+            'Dauer_h = (Dauer \\ 3600)' + NL + 'Dauer_min = (Dauer - (3600 * Dauer_h)) \\ 60' + NL
+            + 'Dauer_s = Dauer - (3600 * Dauer_h) - (60 * Dauer_min)',
+            'Dauer = (3600 * Dauer_h) + (60 * Dauer_min) + Dauer_s',
+            [('P-1_R-1', None)], [('P-2_R-1', None), ('P-3_R-1', None), ('P-4_R-1', None)])
+        + calculation('PC-2', 'Szene', 'JavaScript', None, None,
+            [('P-5_R-1', 'BlindsActionThreshold')], [('P-6_R-1', 'BlindScene')],
+            ('szeneLR', '{"Faktor": 1}', 'szeneRL', ''))
+        + calculation('PC-3', 'Fehler', 'JavaScript',
+            "if (x == 7) { throw new Error('kaputt'); }" + NL + 'if (x == 9) { while (true) {} }' + NL + 'r = x * 30;',
+            'x = r / 30;', [('P-7_R-1', 'x')], [('P-8_R-1', 'r')]))
+    script = ('<Script>' + xml_text('function verdoppeln(x) { return x * 2; }\n'
+        'function szeneLR(input, output, context) { if (input.BlindsActionThreshold == 3) { '
+        'output.BlindScene = verdoppeln(context.Faktor); } }\n'
+        'function szeneRL(input, output, context) { if (input.BlindScene == 2) { output.BlindsActionThreshold = 3; } }\n'
+        'function ParameterCalculationFunc1(input, output, context) {}\n') + '</Script>\n')
+    static = ('<ParameterTypes>\n' + types + '</ParameterTypes>\n<Parameters>\n'
+        + '\n'.join(parameter(i, n, t, v, o) for i, n, t, v, o in params) + '\n</Parameters>\n<ParameterRefs>\n'
+        + ''.join('<ParameterRef Id="{p}_%s_R-1" RefId="{p}_%s" />\n' % (i, i) for i, _, _, _, _ in params)
+        + '</ParameterRefs>\n' + bcu1_objects()
+        + '<ParameterCalculations>\n' + calculations + '</ParameterCalculations>\n' + script)
+    module_params = [('MD-1_P-1', 'Zeit', 'Zeit', 50, None), ('MD-1_P-2', 'Teiler', 'Teiler', 10, None),
+        ('MD-1_P-3', 'Stufe', 'Byte', 0, 0), ('MD-1_P-4', 'Rest', 'Byte', 5, 1)]
+    module = ('<ModuleDefs><ModuleDef Id="{p}_MD-1" Name="Teil"><Arguments>'
+        '<Argument Id="{p}_MD-1_A-1" Name="ParamOffsBase" /></Arguments>\n<Static><Parameters>'
+        + ''.join(parameter(i, n, t, v, o, None if o is None else 'MD-1_A-1') for i, n, t, v, o in module_params)
+        + '</Parameters>\n<ParameterRefs>'
+        + ''.join('<ParameterRef Id="{p}_%s_R-1" RefId="{p}_%s" />' % (i, i) for i, _, _, _, _ in module_params)
+        + '</ParameterRefs>\n<ParameterCalculations>'
+        + calculation('MD-1_PC-1', 'Stufen', 'JavaScript',
+            'p2 = p1 / p3; if (p2 < 1) p2 = 1; p4 = p1 / p3; if (p4 < 1) p4 = 0', 'p1 = mal(p2, p3)',
+            [('MD-1_P-1_R-1', 'p1'), ('MD-1_P-2_R-1', 'p3')], [('MD-1_P-3_R-1', 'p2'), ('MD-1_P-4_R-1', 'p4')])
+        + '</ParameterCalculations><Script>function mal(a, b) { return a * b; }</Script></Static>\n'
+        '<Dynamic><Channel Id="{p}_MD-1_CH-1" Name="Teil" Text="Teil"><ParameterBlock Id="{p}_MD-1_PB-1" Name="Teil" '
+        'Text="Teil">'
+        + ''.join('<ParameterRefRef RefId="{p}_%s_R-1" />' % i for i, _, _, _, _ in module_params)
+        + '</ParameterBlock></Channel></Dynamic></ModuleDef></ModuleDefs>\n')
+    dynamic = ('<Dynamic><Channel Id="{p}_CH-1" Name="Allgemein" Text="Allgemein" Number="1">'
+        '<ParameterBlock Id="{p}_PB-1" Name="Allgemein" Text="Allgemein">'
+        + ''.join('<ParameterRefRef RefId="{p}_%s_R-1" />' % i for i, _, _, _, _ in params)
+        + '</ParameterBlock></Channel>\n'
+        + ''.join('<Module Id="{p}_MD-1_M-%d" RefId="{p}_MD-1" Name="Teil %d"><NumericArg RefId="{p}_MD-1_A-1" '
+            'Value="%d" /></Module>\n' % (n, n, base) for n, base in ((1, 0x60), (2, 0x68)))
+        + '</Dynamic>\n')
+    return bcu1_program_file(CALC_PROGRAM, 65530, 'TEST: Parameterberechnungen (künstliche Testdaten)', static,
+        module, dynamic)
+
+
+def locked_program():
+    static = ('<ParameterTypes>\n' + number_type('Byte', 8, 0, 255) + '</ParameterTypes>\n<Parameters>\n'
+        + parameter('P-1', 'Gesperrt', 'Byte', 0) + '\n' + parameter('P-2', 'GesperrtR', 'Byte', 0, 0x58) + '\n'
+        + parameter('P-3', 'Minuten', 'Byte', 1) + '\n' + parameter('P-4', 'Sekunden', 'Byte', 60, 0x59)
+        + '\n</Parameters>\n<ParameterRefs>\n'
+        + ''.join('<ParameterRef Id="{p}_P-%d_R-1" RefId="{p}_P-%d" />\n' % (n, n) for n in range(1, 5))
+        + '</ParameterRefs>\n' + bcu1_objects() + '<ParameterCalculations>\n'
+        + calculation('PC-1', 'Auswahl', 'VBScript',
+            'Select Case Gesperrt' + NL + 'Case 1' + NL + 'GesperrtR = 1' + NL + 'End Select', 'Gesperrt = GesperrtR',
+            [('P-1_R-1', None)], [('P-2_R-1', None)])
+        + calculation('PC-2', 'Sekunden', 'VBScript', 'Sekunden = InSekunden(Minuten)', 'Minuten = Sekunden \\ 60',
+            [('P-3_R-1', None)], [('P-4_R-1', None)])
+        + '</ParameterCalculations>\n<Script>' + xml_text('Function InSekunden(m)' + NL + '  InSekunden = m * 60'
+            + NL + 'End Function') + '</Script>\n')
+    dynamic = ('<Dynamic><Channel Id="{p}_CH-1" Name="Allgemein" Text="Allgemein" Number="1">'
+        '<ParameterBlock Id="{p}_PB-1" Name="Allgemein" Text="Allgemein">'
+        + ''.join('<ParameterRefRef RefId="{p}_P-%d_R-1" />' % n for n in range(1, 5))
+        + '</ParameterBlock></Channel></Dynamic>\n')
+    return bcu1_program_file(LOCKED_PROGRAM, 65531, 'TEST: nicht auswertbare Berechnung (künstliche Testdaten)',
+        static, '', dynamic)
+
+
+def calc_devices(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+
+    def device(number, name, assignment, values, instances):
+        return ('<DeviceInstance Id="P-01A0-0_DI-%d" Name="%s" ProductRefId="%s" Hardware2ProgramRefId="%s" '
+            'Address="%d" LastModified="2026-11-08T12:00:00">\n<ParameterInstanceRefs>\n' % (number, name, CALC_PRODUCT,
+                assignment, number)
+            + ''.join('<ParameterInstanceRef RefId="%s" Value="%s" />\n' % entry for entry in values)
+            + '</ParameterInstanceRefs>\n'
+            + ('' if not instances else '<ModuleInstances>' + ''.join(
+                '<ModuleInstance Id="MD-1_M-%d_MI-1" RefId="MD-1_M-%d"><Arguments><Argument RefId="MD-1_A-1" '
+                'Value="%d" /></Arguments></ModuleInstance>' % (n, n, base) for n, base in ((1, 0x60), (2, 0x68)))
+                + '</ModuleInstances>\n')
+            + '</DeviceInstance>')
+    p = CALC_PROGRAM
+    consistent = device(1, 'TEST Rechengerät', CALC_ASSIGNMENT, [('P-1_R-1', '3725'), ('P-2_R-1', '1'),
+        ('P-3_R-1', '2'), ('P-4_R-1', '5'), ('P-6_R-1', '2'), (p + '_MD-1_M-1_MI-1_P-1_R-1', '55'),
+        (p + '_MD-1_M-1_MI-1_P-3_R-1', '5'), (p + '_MD-1_M-2_MI-1_P-3_R-1', '5')], True)
+    r_only = device(2, 'TEST Rechengerät RL', CALC_ASSIGNMENT, [('P-2_R-1', '2'), ('P-3_R-1', '0'), ('P-4_R-1', '30'),
+        (p + '_MD-1_M-1_MI-1_P-3_R-1', '7')], True)
+    locked = device(3, 'TEST Rechengerät gesperrt', LOCKED_ASSIGNMENT, [('P-2_R-1', '1')], False)
+    return xml[:start] + consistent + '\n' + r_only + '\n' + locked + xml[end:]
+
+
+def calculations_fixture(name, xml):
+    xml = replace_once(xml, SCHEMA_11, SCHEMA_23)
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestCalculations')
+    if name == PROJECT:
+        return calc_devices(xml)
+    return xml
+
+
 write('src/test/fixtures/TestDetails.knxproj', keep_details)
 write('src/test/fixtures/TestDynamic.knxproj', dynamic,
     rename=lambda name: name.replace(VERSION, NEW_VERSION))
@@ -1618,3 +1976,12 @@ write('src/test/fixtures/TestFunctionLinks.knxproj',
     function_fixture('TestFunctionLinks', LINK_DEVICES, LINK_ADDRESSES), FUNCTION_PROGRAM_FILES)
 master_data_only('src/test/fixtures/TestMasterDataOld.knxproj', 1001, False)
 master_data_only('src/test/fixtures/TestMasterDataNew.knxproj', 1002, True)
+write('src/test/fixtures/TestChannels.knxproj', channels,
+    [('M-0008/Hardware.xml', test_hardware(CHANNEL_HARDWARE, CHANNEL_PRODUCT, 'TEST Kanäle',
+        [(CHANNEL_ASSIGNMENT, CHANNEL_PROGRAM)])), ('M-0008/' + CHANNEL_PROGRAM + '.xml', channel_program())],
+    keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))
+write('src/test/fixtures/TestCalculations.knxproj', calculations_fixture,
+    [('M-0008/Hardware.xml', test_hardware(CALC_HARDWARE, CALC_PRODUCT, 'TEST Berechnungen',
+        [(CALC_ASSIGNMENT, CALC_PROGRAM), (LOCKED_ASSIGNMENT, LOCKED_PROGRAM)])),
+     ('M-0008/' + CALC_PROGRAM + '.xml', calc_program()), ('M-0008/' + LOCKED_PROGRAM + '.xml', locked_program())],
+    keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))

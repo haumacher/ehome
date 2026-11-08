@@ -619,6 +619,7 @@
 										<mapping type="ehome.operational:Interface" xml-attribute="FunctionText" attribute="function"/>
 										<mapping type="ehome.operational:ParameterGroup" xml-attribute="Text" attribute="description"/>
 										<mapping type="ehome.operational:Channel" xml-attribute="Text" attribute="description"/>
+										<mapping type="ehome.operational:Rename" xml-attribute="Text" attribute="text"/>
 									</mappings>
 								</translations>
 							</tag>
@@ -927,6 +928,14 @@
 																								</tag>
 																								<tag name="ComObjectRefs">
 																									<ref handler-id="com-object-refs"/>
+																								</tag>
+																								<!-- The functions the calculations of the template may call (haumacher/ehome #123). -->
+																								<tag name="Script">
+																									<text-content name="script"/>
+																								</tag>
+																								<!-- The calculations of the template, evaluated per instance (haumacher/ehome #123). -->
+																								<tag name="ParameterCalculations">
+																									<ref handler-id="calculations"/>
 																								</tag>
 																								<tag name="Allocators">
 																									<dispatch>
@@ -1503,6 +1512,73 @@
 																			</property>
 																			<dispatch/>
 																		</tag>
+																		<!-- The calculations of the manufacturer between L and R parameters (haumacher/ehome #123), evaluated by E-Home (de.haumacher.ehome.calculation). -->
+																		<tag name="ParameterCalculations">
+																			<dispatch id="calculations">
+																				<tag name="ParameterCalculation">
+																					<object model-type="ehome.operational:ParameterCalculation" id-attribute="Id">
+																						<linking>
+																							<list-linking name="ehome.operational:Program#calculations"/>
+																							<list-linking name="ehome.operational:ModuleDefinition#calculations"/>
+																						</linking>
+
+																						<property name="extId" xml-attribute="Id"/>
+																						<property name="name" xml-attribute="Name"/>
+																						<property name="language" xml-attribute="Language"/>
+																						<!-- The code is inline (LRTransformation, RLTransformation), or a function of the script with its parameters. -->
+																						<property name="lrFunction" xml-attribute="LRTransformationFunc"/>
+																						<property name="lrParameters" xml-attribute="LRTransformationParameters"/>
+																						<property name="rlFunction" xml-attribute="RLTransformationFunc"/>
+																						<property name="rlParameters" xml-attribute="RLTransformationParameters"/>
+
+																						<dispatch>
+																							<tag name="LRTransformation">
+																								<text-content name="lrCode"/>
+																							</tag>
+																							<tag name="RLTransformation">
+																								<text-content name="rlCode"/>
+																							</tag>
+																							<tag name="LParameters">
+																								<dispatch>
+																									<tag name="ParameterRefRef">
+																										<object model-type="ehome.operational:CalculationParameter">
+																											<linking>
+																												<list-linking name="ehome.operational:ParameterCalculation#inputs"/>
+																											</linking>
+
+																											<reference name="parameter" id-attribute="RefId"/>
+																											<property name="alias" xml-attribute="AliasName"/>
+
+																											<dispatch/>
+																										</object>
+																									</tag>
+																								</dispatch>
+																							</tag>
+																							<tag name="RParameters">
+																								<dispatch>
+																									<tag name="ParameterRefRef">
+																										<object model-type="ehome.operational:CalculationParameter">
+																											<linking>
+																												<list-linking name="ehome.operational:ParameterCalculation#outputs"/>
+																											</linking>
+
+																											<reference name="parameter" id-attribute="RefId"/>
+																											<property name="alias" xml-attribute="AliasName"/>
+
+																											<dispatch/>
+																										</object>
+																									</tag>
+																								</dispatch>
+																							</tag>
+																						</dispatch>
+																					</object>
+																				</tag>
+																			</dispatch>
+																		</tag>
+																		<!-- The functions the calculations may call (haumacher/ehome #123). -->
+																		<tag name="Script">
+																			<text-content name="script"/>
+																		</tag>
 																		<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
 																		<tag name="Extension"><skip-deep/></tag>
 																		<!-- The allocators of the program, handing out argument values of module instances (haumacher/ehome #119). -->
@@ -1597,6 +1673,10 @@
 																		<tag name="ParameterBlock">
 																			<ref handler-id="parameter-block"/>
 																		</tag>
+																		<!-- ETS 6: another title of a block while the case containing it is taken (haumacher/ehome #122). -->
+																		<tag name="Rename">
+																			<ref handler-id="rename"/>
+																		</tag>
 																		<tag name="ChannelIndependentBlock">
 																			<object model-type="ehome.operational:ChannelIndependent">
 																				<linking>
@@ -1680,6 +1760,22 @@
 																					<tag name="ComObjectRefRef">
 																						<place-reference id-attribute="RefId"/>
 																					</tag>
+																					<!-- ETS 6: another title of a block while the case containing it is taken (haumacher/ehome #122). -->
+																					<tag name="Rename">
+																						<object model-type="ehome.operational:Rename" id-attribute="Id" id="rename">
+																							<linking>
+																								<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																							</linking>
+
+																							<property name="extId" xml-attribute="Id"/>
+																							<reference name="target" id-attribute="RefId"/>
+																							<group id="rename-texts">
+																								<set-translation name="text" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																							</group>
+
+																							<dispatch/>
+																						</object>
+																					</tag>
 																					<!-- Not modeled (gap 7, doc/knx/schema-coverage.md): skipped without a warning. -->
 																					<tag name="ParameterSeparator"><skip-deep/></tag>
 																					<tag name="Assign"><skip-deep/></tag>
@@ -1718,16 +1814,19 @@
 															</dispatch>
 															<!-- Parameter and communication object references that no structure element places. -->
 															<assign argument-var="this" property="unplaced" value="p -> concat($p.get(`ehome.operational:Program#parameters`).get(`ehome.operational:Parameter#views`), $p.get(`ehome.operational:Program#ports`).get(`ehome.operational:Port#interfaces`)).filter(x -> $x.container() == null)"/>
+															<!-- Its calculations are read (also where it has none): an import of its file does not complete it (haumacher/ehome #123). -->
+															<assign argument-var="this" property="calculationsRead" value="p -> true"/>
 															<!-- The program is read: the languages of its texts are recorded, the held-back warnings about the values of its parameters decided. -->
 															<program-imported/>
 														</object>
-														<!-- A known program: completed with its dynamic modules (module definitions, allocators, placements), if an earlier import left it without them (#119); otherwise the texts of the file's language, if the program lacks it, set by the text handlers of its elements. -->
+														<!-- A known program: completed with its dynamic modules (module definitions, allocators, placements), if an earlier import left it without them (#119), and with its parameter calculations (#123); otherwise the texts of the file's language, if the program lacks it, set by the text handlers of its elements. -->
 														<update var="program">
 															<complete-modules>
 																<allocators><ref handler-id="allocators"/></allocators>
 																<module-defs><ref handler-id="module-defs"/></module-defs>
 																<module><ref handler-id="module-placement"/></module>
 																<repeat><ref handler-id="repeat"/></repeat>
+																<calculations><ref handler-id="calculations"/></calculations>
 																<known-program-texts>
 																	<ref handler-id="program-texts"/>
 																	<update-known>
@@ -1751,6 +1850,9 @@
 																		</tag>
 																		<tag name="ParameterBlock" id-attribute="Id">
 																			<ref handler-id="parameter-block-texts"/>
+																		</tag>
+																		<tag name="Rename" id-attribute="Id">
+																			<ref handler-id="rename-texts"/>
 																		</tag>
 																	</update-known>
 																</known-program-texts>
@@ -1805,8 +1907,13 @@
 									/>
 								</property>
 
-								<dispatch/>
+								<dispatch>
+									<!-- Not modeled (ETS 6: the change history of the project, doc/knx/schema-coverage.md): skipped without a warning. -->
+									<tag name="ProjectTraces"><skip-deep/></tag>
+								</dispatch>
 							</tag>
+							<!-- Not modeled (ETS 6: the change history of the project, doc/knx/schema-coverage.md): skipped without a warning. -->
+							<tag name="ProjectTraces"><skip-deep/></tag>
 							<tag name="Installations">
 								<dispatch>
 									<tag name="Installation">
@@ -2002,6 +2109,26 @@
 																							</tag>
 																							<!-- The instances of the dynamic modules with their arguments: E-Home computes the instances itself; the arguments are compared with E-Home's (ModuleImport). -->
 																							<tag name="ModuleInstances"><device-module-instances/></tag>
+																							<!-- ETS 6: per channel of the program the description the user gave it and whether it is active (haumacher/ehome #122). -->
+																							<tag name="ChannelInstances">
+																								<dispatch>
+																									<tag name="ChannelInstance">
+																										<object model-type="ehome.physical:ChannelInstance">
+																											<linking>
+																												<list-linking name="ehome.physical:Device#channelInstances"/>
+																											</linking>
+
+																											<property name="extId" xml-attribute="Id"/>
+																											<property name="channel" xml-attribute="RefId"/>
+																											<property name="description" xml-attribute="Description"/>
+																											<assign argument-var="this" property="active" value="c -> true"/>
+																											<property name="active" xml-attribute="IsActive" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+
+																											<dispatch/>
+																										</object>
+																									</tag>
+																								</dispatch>
+																							</tag>
 																							<!-- Not modeled (ETS 6, doc/knx/schema-coverage.md): the tree view of the group objects. Skipped without a warning. -->
 																							<tag name="GroupObjectTree"><skip-deep/></tag>
 																						</dispatch>

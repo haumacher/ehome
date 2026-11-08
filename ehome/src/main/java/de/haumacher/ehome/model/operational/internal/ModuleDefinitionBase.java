@@ -34,6 +34,15 @@ public interface ModuleDefinitionBase extends de.haumacher.ehome.model.operation
 	String ARGUMENTS_ATTR = "arguments";
 
 	/**
+	 * Part <code>calculations</code> of <code>ModuleDefinition</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ParameterCalculation</code> in configuration.
+	 * </p>
+	 */
+	String CALCULATIONS_ATTR = "calculations";
+
+	/**
 	 * Part <code>locations</code> of <code>ModuleDefinition</code>
 	 * 
 	 * <p>
@@ -77,6 +86,15 @@ public interface ModuleDefinitionBase extends de.haumacher.ehome.model.operation
 	 * </p>
 	 */
 	String PORTS_ATTR = "ports";
+
+	/**
+	 * Part <code>script</code> of <code>ModuleDefinition</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Text</code> in configuration.
+	 * </p>
+	 */
+	String SCRIPT_ATTR = "script";
 
 	/**
 	 * Part <code>unplaced</code> of <code>ModuleDefinition</code>
@@ -176,6 +194,49 @@ public interface ModuleDefinitionBase extends de.haumacher.ehome.model.operation
 	 */
 	default void removeArgument(de.haumacher.ehome.model.operational.ModuleArgument oldValue) {
 		tRemoveByName(ARGUMENTS_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #CALCULATIONS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.ParameterCalculation> getCalculations() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.ParameterCalculation>) tValueByName(CALCULATIONS_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #CALCULATIONS_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.ParameterCalculation> getCalculationsModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(CALCULATIONS_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.ParameterCalculation> result = (java.util.List<de.haumacher.ehome.model.operational.ParameterCalculation>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #CALCULATIONS_ATTR}.
+	 */
+	default void setCalculations(java.util.List<de.haumacher.ehome.model.operational.ParameterCalculation> newValue) {
+		tUpdateByName(CALCULATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #CALCULATIONS_ATTR} reference.
+	 */
+	default void addCalculation(de.haumacher.ehome.model.operational.ParameterCalculation newValue) {
+		tAddByName(CALCULATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #CALCULATIONS_ATTR} reference.
+	 */
+	default void removeCalculation(de.haumacher.ehome.model.operational.ParameterCalculation oldValue) {
+		tRemoveByName(CALCULATIONS_ATTR, oldValue);
 	}
 
 	/**
@@ -348,6 +409,20 @@ public interface ModuleDefinitionBase extends de.haumacher.ehome.model.operation
 	 */
 	default void removePort(de.haumacher.ehome.model.operational.Port oldValue) {
 		tRemoveByName(PORTS_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #SCRIPT_ATTR}.
+	 */
+	default String getScript() {
+		return (String) tValueByName(SCRIPT_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #SCRIPT_ATTR}.
+	 */
+	default void setScript(String newValue) {
+		tUpdateByName(SCRIPT_ATTR, newValue);
 	}
 
 	/**

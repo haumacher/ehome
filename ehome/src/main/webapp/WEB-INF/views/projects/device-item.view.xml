@@ -12,7 +12,11 @@
 	default (or an emptied input) removes it. A refused value is reported with its reason, and the
 	input shows the effective value again. A parameter that can only be read, or that the user may not
 	change (no Write on the device, e.g. a viewer; the submit checks it as well), shows its value as
-	text, a parameter without value (a heading) only its text.
+	text with the reason beside it (the refusal of a change, else the missing right), a parameter
+	without value (a heading) only its text. A change of a parameter runs the
+	calculations of the manufacturer it feeds (haumacher/ehome #123); a parameter of a calculation
+	E-Home cannot evaluate can only be read, with the reason beside it, and one a calculation computes
+	says so.
 
 	A communication object shows its connections, each with its group address as a link to the
 	address in the group addresses of the project (the display target of ehomeConf.config.xml,
@@ -114,6 +118,30 @@
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting"
 		/>
+		<!--
+			What the calculations of the manufacturer say about a parameter (haumacher/ehome #123): why it cannot
+			be changed (a calculation E-Home cannot evaluate), or that a calculation computes it.
+		-->
+		<derived-channel name="calculationHint"
+			inputs="kind, device, item"
+			observed-types="ehome.physical:ParameterSetting"
+		>
+			<expr><![CDATA[{
+    hint = if($kind == 'readonly' or !$item.instanceOf(`ehome.operational:ParameterView`), null, deviceCalculationHint($device, $item));
+    if($hint == null, null, $hint.localize())
+}]]></expr>
+		</derived-channel>
+		<!-- Why a parameter shown as text cannot be changed: the refusal of a change, else the missing right to change the device. -->
+		<derived-channel name="readonlyReason"
+			inputs="kind, device, item"
+			observed-types="ehome.physical:ParameterSetting"
+		>
+			<expr><![CDATA[if($kind != 'readonly', null, {
+    veto = deviceEditVeto($device, $item);
+    if($veto != null, $veto.localize(),
+        if(!canWrite($device), #("You may not change the device."@en, "Sie dürfen das Gerät nicht ändern."@de).localize(), null))
+})]]></expr>
+		</derived-channel>
 		<!-- The connection a connect command made. -->
 		<channel name="newConnection"/>
 		<!--
@@ -302,7 +330,23 @@
 				</value-input>
 			</case>
 			<case test="$kind == 'readonly'">
-				<text input="display"/>
+				<stack
+					align="center"
+					direction="row"
+					gap="compact"
+					wrap="true"
+				>
+					<text input="display"/>
+					<visible-if
+						expr="$readonlyReason != null"
+						input="readonlyReason"
+					>
+						<text
+							input="readonlyReason"
+							tone="secondary"
+						/>
+					</visible-if>
+				</stack>
 			</case>
 			<case test="$kind == 'object'">
 				<!-- The connections, each removable, and the way to another group address. -->
@@ -419,6 +463,16 @@
 				</stack>
 			</case>
 		</switch>
+		<!-- What the calculations of the manufacturer say about the parameter. -->
+		<visible-if
+			expr="$calculationHint != null"
+			input="calculationHint"
+		>
+			<text
+				input="calculationHint"
+				tone="secondary"
+			/>
+		</visible-if>
 		<!-- The datapoint type of a communication object: the field with the inherited type greyed, edited with its own buttons. -->
 		<visible-if
 			expr="$connector != null"

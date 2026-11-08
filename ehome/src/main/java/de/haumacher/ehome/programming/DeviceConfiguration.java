@@ -35,6 +35,7 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.PlacementArgument;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.Rename;
 import de.haumacher.ehome.model.operational.Repeat;
 import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
@@ -279,6 +280,9 @@ public class DeviceConfiguration {
 
 	private final Map<ConfigFragment, Object> _parents = new HashMap<>();
 
+	/** The titles of the renames in effect, by the block or channel they rename. */
+	private final Map<Object, ResKey> _renames = new HashMap<>();
+
 	/**
 	 * Creates the {@link DeviceConfiguration} of the given device.
 	 */
@@ -427,8 +431,26 @@ public class DeviceConfiguration {
 
 	private void walk(ConfigFragment fragment, Object page) {
 		for (Option option : _structure.contents(fragment)) {
+			if (option instanceof Rename rename) {
+				// Another title of a block while this part is in effect (haumacher/ehome #122).
+				InstanceInfo instance = ModuleParts.instance(fragment);
+				if (rename.getTarget() != null) {
+					_renames.put(ModuleParts.wrap(rename.getTarget(), instance),
+						ModuleParts.substitute(rename.getText(), instance));
+				}
+				continue;
+			}
 			walk(option, page);
 		}
+	}
+
+	/**
+	 * The title the given block or channel has under the device's values (ETS 6: the text of the last
+	 * <code>Rename</code> of it in effect, haumacher/ehome #122); <code>null</code> if no rename of it is
+	 * in effect.
+	 */
+	public ResKey getRename(Object part) {
+		return _renames.get(part);
 	}
 
 	private void walk(Option option, Object page) {
@@ -861,8 +883,16 @@ public class DeviceConfiguration {
 	}
 
 	/**
-	 * Whether the value of the given placement can be changed: its access and that of every block
-	 * around it allows it, and its parameter has a value at all.
+	 * Whether the value of the given placement can be changed: its own access allows it, no block
+	 * around it is hidden (access <code>None</code>), and its parameter has a value at all.
+	 *
+	 * <p>
+	 * The access of a block does not make the parameters in it read-only: a block's
+	 * <code>Access="Read"</code> concerns the block itself (e.g. its title parameter), not its
+	 * contents. The program STYA662AN (M-0009_A-E0CE-10-8EBD) declares 41 of its 43 blocks
+	 * <code>Access="Read"</code>, and its parameters in them are edited in ETS (a project holds values
+	 * other than their defaults); until 2026-11-08 E-Home showed all of them read-only.
+	 * </p>
 	 */
 	public static boolean isEditable(ParameterView view) {
 		if (!editable(accessName(view))) {
@@ -870,7 +900,7 @@ public class DeviceConfiguration {
 		}
 		for (TLObject container = view.tContainer(); container != null; container = container.tContainer()) {
 			if (container instanceof ParameterGroup group && group.getAccess() != null
-				&& !editable(group.getAccess().getName())) {
+				&& "None".equals(group.getAccess().getName())) {
 				return false;
 			}
 		}

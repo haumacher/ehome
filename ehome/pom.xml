@@ -69,6 +69,17 @@
 			<version>2.11.5</version>
 		</dependency>
 
+		<!--
+			Evaluating the JavaScript parameter calculations of application programs (ETS 6:
+			ParameterCalculation, haumacher/ehome #123) in a sandbox without Java access. 1.9.1: the newest
+			release older than a few weeks (1.9.2 came out on 2026-10-27). License: MPL 2.0.
+		-->
+		<dependency>
+			<groupId>org.mozilla</groupId>
+			<artifactId>rhino</artifactId>
+			<version>1.9.1</version>
+		</dependency>
+
     <dependency>
       <groupId>com.top-logic</groupId>
       <artifactId>tl-contact</artifactId>

@@ -1420,7 +1420,7 @@ public class ReadBack {
 				TLObject setting = now.get(entry.getKey());
 				Object value = setting == null ? null : ParameterValues.value(setting);
 				if (!java.util.Objects.equals(value, entry.getValue())) {
-					DeviceSettings.restoreValue(_device, entry.getKey(), entry.getValue());
+					DeviceSettings.restoreValue(_device, entry.getKey(), entry.getValue(), false);
 				}
 			}
 			_configuration = null;

@@ -1298,6 +1298,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link ConfigFragment#RENAMES_ATTR} of {@link ConfigFragment}.
+	 */
+	public static com.top_logic.model.TLReference getRenamesConfigFragmentAttr() {
+		return (com.top_logic.model.TLReference) getConfigFragmentType().getPart(ConfigFragment.RENAMES_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Case} type.
 	 */
 	public static com.top_logic.model.TLClass getCaseType() {
@@ -2341,6 +2348,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#CALCULATIONS_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getCalculationsProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.CALCULATIONS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#CALCULATIONS_READ_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getCalculationsReadProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.CALCULATIONS_READ_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#DOWNLOAD_INVISIBLE_PARAMETERS_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLProperty getDownloadInvisibleParametersProgramAttr() {
@@ -2509,6 +2530,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#SCRIPT_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getScriptProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.SCRIPT_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#SEGMENTS_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getSegmentsProgramAttr() {
@@ -2572,6 +2600,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link ModuleDefinition#CALCULATIONS_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLReference getCalculationsModuleDefinitionAttr() {
+		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.CALCULATIONS_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ModuleDefinition#LOCATIONS_ATTR} of {@link ModuleDefinition}.
 	 */
 	public static com.top_logic.model.TLReference getLocationsModuleDefinitionAttr() {
@@ -2604,6 +2639,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLReference getPortsModuleDefinitionAttr() {
 		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.PORTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#SCRIPT_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLProperty getScriptModuleDefinitionAttr() {
+		return (com.top_logic.model.TLProperty) getModuleDefinitionType().getPart(ModuleDefinition.SCRIPT_ATTR);
 	}
 
 	/**
@@ -2786,6 +2828,132 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLProperty getOrderRepeatAttr() {
 		return (com.top_logic.model.TLProperty) getRepeatType().getPart(Repeat.ORDER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Rename} type.
+	 */
+	public static com.top_logic.model.TLClass getRenameType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(Rename.RENAME_TYPE);
+	}
+
+	/**
+	 * Lookup {@link Rename#DISPLAY_NAME_ATTR} of {@link Rename}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameRenameAttr() {
+		return (com.top_logic.model.TLProperty) getRenameType().getPart(Rename.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Rename#TARGET_ATTR} of {@link Rename}.
+	 */
+	public static com.top_logic.model.TLReference getTargetRenameAttr() {
+		return (com.top_logic.model.TLReference) getRenameType().getPart(Rename.TARGET_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Rename#TEXT_ATTR} of {@link Rename}.
+	 */
+	public static com.top_logic.model.TLProperty getTextRenameAttr() {
+		return (com.top_logic.model.TLProperty) getRenameType().getPart(Rename.TEXT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation} type.
+	 */
+	public static com.top_logic.model.TLClass getParameterCalculationType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(ParameterCalculation.PARAMETER_CALCULATION_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#INPUTS_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLReference getInputsParameterCalculationAttr() {
+		return (com.top_logic.model.TLReference) getParameterCalculationType().getPart(ParameterCalculation.INPUTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#LANGUAGE_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLProperty getLanguageParameterCalculationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterCalculationType().getPart(ParameterCalculation.LANGUAGE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#LR_CODE_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLProperty getLrCodeParameterCalculationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterCalculationType().getPart(ParameterCalculation.LR_CODE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#LR_FUNCTION_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLProperty getLrFunctionParameterCalculationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterCalculationType().getPart(ParameterCalculation.LR_FUNCTION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#LR_PARAMETERS_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLProperty getLrParametersParameterCalculationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterCalculationType().getPart(ParameterCalculation.LR_PARAMETERS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#NAME_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLProperty getNameParameterCalculationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterCalculationType().getPart(ParameterCalculation.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#OUTPUTS_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLReference getOutputsParameterCalculationAttr() {
+		return (com.top_logic.model.TLReference) getParameterCalculationType().getPart(ParameterCalculation.OUTPUTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#RL_CODE_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLProperty getRlCodeParameterCalculationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterCalculationType().getPart(ParameterCalculation.RL_CODE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#RL_FUNCTION_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLProperty getRlFunctionParameterCalculationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterCalculationType().getPart(ParameterCalculation.RL_FUNCTION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterCalculation#RL_PARAMETERS_ATTR} of {@link ParameterCalculation}.
+	 */
+	public static com.top_logic.model.TLProperty getRlParametersParameterCalculationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterCalculationType().getPart(ParameterCalculation.RL_PARAMETERS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link CalculationParameter} type.
+	 */
+	public static com.top_logic.model.TLClass getCalculationParameterType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(CalculationParameter.CALCULATION_PARAMETER_TYPE);
+	}
+
+	/**
+	 * Lookup {@link CalculationParameter#ALIAS_ATTR} of {@link CalculationParameter}.
+	 */
+	public static com.top_logic.model.TLProperty getAliasCalculationParameterAttr() {
+		return (com.top_logic.model.TLProperty) getCalculationParameterType().getPart(CalculationParameter.ALIAS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link CalculationParameter#PARAMETER_ATTR} of {@link CalculationParameter}.
+	 */
+	public static com.top_logic.model.TLReference getParameterCalculationParameterAttr() {
+		return (com.top_logic.model.TLReference) getCalculationParameterType().getPart(CalculationParameter.PARAMETER_ATTR);
 	}
 
 	/**
@@ -5504,6 +5672,54 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String KO_NAME_REPEAT = de.haumacher.ehome.model.operational.internal.RepeatBase.TABLE_NAME;
 
 	/**
+	 * Name of type <code>Rename</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link Rename#RENAME_TYPE}.
+	 */
+	@Deprecated
+	public static final String RENAME_NODE = Rename.RENAME_TYPE;
+
+	/**
+	 * Storage table name of {@link #RENAME_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.RenameBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_RENAME = de.haumacher.ehome.model.operational.internal.RenameBase.TABLE_NAME;
+
+	/**
+	 * Name of type <code>ParameterCalculation</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link ParameterCalculation#PARAMETER_CALCULATION_TYPE}.
+	 */
+	@Deprecated
+	public static final String PARAMETER_CALCULATION_NODE = ParameterCalculation.PARAMETER_CALCULATION_TYPE;
+
+	/**
+	 * Storage table name of {@link #PARAMETER_CALCULATION_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.ParameterCalculationBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_PARAMETER_CALCULATION = de.haumacher.ehome.model.operational.internal.ParameterCalculationBase.TABLE_NAME;
+
+	/**
+	 * Name of type <code>CalculationParameter</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link CalculationParameter#CALCULATION_PARAMETER_TYPE}.
+	 */
+	@Deprecated
+	public static final String CALCULATION_PARAMETER_NODE = CalculationParameter.CALCULATION_PARAMETER_TYPE;
+
+	/**
+	 * Storage table name of {@link #CALCULATION_PARAMETER_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.CalculationParameterBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_CALCULATION_PARAMETER = de.haumacher.ehome.model.operational.internal.CalculationParameterBase.TABLE_NAME;
+
+	/**
 	 * Name of type <code>TableLocation</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link TableLocation#TABLE_LOCATION_TYPE}.
@@ -6133,6 +6349,48 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public final Repeat createRepeat() {
 		return createRepeat(null);
+	}
+
+	/**
+	 * Create an instance of {@link Rename} type.
+	 */
+	public final Rename createRename(com.top_logic.model.TLObject context) {
+		return (Rename) createObject(getRenameType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link Rename} type.
+	 */
+	public final Rename createRename() {
+		return createRename(null);
+	}
+
+	/**
+	 * Create an instance of {@link ParameterCalculation} type.
+	 */
+	public final ParameterCalculation createParameterCalculation(com.top_logic.model.TLObject context) {
+		return (ParameterCalculation) createObject(getParameterCalculationType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link ParameterCalculation} type.
+	 */
+	public final ParameterCalculation createParameterCalculation() {
+		return createParameterCalculation(null);
+	}
+
+	/**
+	 * Create an instance of {@link CalculationParameter} type.
+	 */
+	public final CalculationParameter createCalculationParameter(com.top_logic.model.TLObject context) {
+		return (CalculationParameter) createObject(getCalculationParameterType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link CalculationParameter} type.
+	 */
+	public final CalculationParameter createCalculationParameter() {
+		return createCalculationParameter(null);
 	}
 
 	/**

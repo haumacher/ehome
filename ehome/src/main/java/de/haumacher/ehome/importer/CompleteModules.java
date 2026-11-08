@@ -28,7 +28,8 @@ import com.top_logic.xio.importer.handlers.NestedImportHandler;
 /**
  * Completes a known application program (the <code>this</code> of an <code>&lt;update&gt;</code> of
  * <code>&lt;unless-known&gt;</code>) that an earlier import left without its dynamic modules
- * (haumacher/ehome #119), if the scan of the file planned it (see {@link ModuleCompletion}); otherwise
+ * (haumacher/ehome #119), if the scan of the file planned it (see {@link ModuleCompletion}), or without
+ * its parameter calculations (haumacher/ehome #123, <code>calculationsRead</code> not set); otherwise
  * applies its content handlers (the update of a known program).
  *
  * <p>
@@ -37,7 +38,10 @@ import com.top_logic.xio.importer.handlers.NestedImportHandler;
  * ({@link Config#getModuleDefs()}), and each <code>Module</code> and <code>Repeat</code> of the dynamic
  * part (not nested in another one, {@link Config#getModule()}, {@link Config#getRepeat()}) into the
  * structure element its plan names, moved to its position there. Then the mark
- * <code>usesModules</code> is removed, and the import reports the completion.
+ * <code>usesModules</code> is removed, and the import reports the completion. The calculations of the
+ * program and of its module definitions ({@link Config#getCalculations()}) and their scripts are read
+ * into the program and its module definitions (those the module completion creates read their
+ * calculations themselves), and <code>calculationsRead</code> is set.
  * </p>
  */
 public class CompleteModules<C extends CompleteModules.Config<?>> extends NestedImportHandler<C> {
@@ -82,6 +86,13 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		@Name("repeat")
 		List<PolymorphicConfiguration<? extends Handler>> getRepeat();
 
+		/**
+		 * The handler reading the calculations (the content of the element
+		 * <code>ParameterCalculations</code>) into a program or module definition.
+		 */
+		@Name("calculations")
+		List<PolymorphicConfiguration<? extends Handler>> getCalculations();
+
 	}
 
 	private final Handler _allocators;
@@ -91,6 +102,12 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 	private final Handler _module;
 
 	private final Handler _repeat;
+
+	private final Handler _calculations;
+
+	private static final String CALCULATIONS_READ = "calculationsRead";
+
+	private static final String MODULE_DEF = "ModuleDef";
 
 	/**
 	 * Creates a {@link CompleteModules} from configuration.
@@ -102,6 +119,7 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		_moduleDefs = buildHandlers(context, config.getModuleDefs());
 		_module = buildHandlers(context, config.getModule());
 		_repeat = buildHandlers(context, config.getRepeat());
+		_calculations = buildHandlers(context, config.getCalculations());
 	}
 
 	@Override
@@ -111,26 +129,33 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		if (known instanceof TLObject program && Boolean.TRUE.equals(program.tValueByName(USES_MODULES))) {
 			completion = ModuleScan.get(context).getCompletion(ProgramImported.id(program));
 		}
-		if (completion == null || completion.getProgram() != known) {
+		boolean modules = completion != null && completion.getProgram() == known;
+		boolean calculations = known instanceof TLObject program
+			&& program.tType().getPart(CALCULATIONS_READ) != null
+			&& !Boolean.TRUE.equals(program.tValueByName(CALCULATIONS_READ));
+		if (!modules && !calculations) {
 			return importXmlInScope(context, in);
 		}
-		complete(context, in, completion);
+		complete(context, in, (TLObject) known, modules ? completion : null, calculations);
 		return null;
 	}
 
-	private void complete(ImportContext context, XMLStreamReader in, ModuleCompletion completion)
-			throws XMLStreamException {
-		TLObject program = completion.getProgram();
+	private void complete(ImportContext context, XMLStreamReader in, TLObject program, ModuleCompletion completion,
+			boolean calculations) throws XMLStreamException {
 		String id = ProgramImported.id(program);
 		ProgramLanguages languages = ProgramLanguages.get(context);
 		if (languages != null) {
 			// The translations of the new parts are set in every language (see TranslationsImport).
 			languages.known(id, program);
 		}
+		boolean modules = completion != null;
 		Map<TLObject, Integer> inserted = new HashMap<>();
 		String section = null;
 		int depth = 0;
 		int sequence = 0;
+		// The names of the open elements and the IDs of the open module definitions.
+		List<String> path = new ArrayList<>();
+		List<String> definitions = new ArrayList<>();
 		while (true) {
 			int event = in.next();
 			if (event == XMLStreamConstants.START_ELEMENT) {
@@ -142,11 +167,35 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 				Handler handler = null;
 				TLObject target = program;
 				ModuleCompletion.Target place = null;
-				if (depth == 1 && "ModuleDefs".equals(name)) {
+				if (depth == 1 && "ModuleDefs".equals(name) && modules) {
 					handler = _moduleDefs;
-				} else if (depth == 2 && STATIC.equals(section) && "Allocators".equals(name)) {
+				} else if (depth == 2 && STATIC.equals(section) && "Allocators".equals(name) && modules) {
 					handler = _allocators;
-				} else if (DYNAMIC.equals(section) && ModuleCompletion.isPlacement(name)) {
+				} else if (calculations && depth == 2 && STATIC.equals(section) && "Script".equals(name)) {
+					context.setProperty(this, program, "script", in.getElementText());
+					depth--;
+					continue;
+				} else if (calculations && "Script".equals(name) && path.size() >= 2
+					&& STATIC.equals(path.get(path.size() - 1)) && MODULE_DEF.equals(path.get(path.size() - 2))) {
+					Object definition = context.resolveObjectBackwards(this, in.getLocation(),
+						definitions.get(definitions.size() - 2));
+					String text = in.getElementText();
+					if (definition instanceof TLObject module) {
+						context.setProperty(this, module, "script", text);
+					}
+					depth--;
+					continue;
+				} else if (calculations && "ParameterCalculations".equals(name) && path.size() >= 1
+					&& STATIC.equals(path.get(path.size() - 1))) {
+					if (depth == 2) {
+						handler = _calculations;
+					} else if (path.size() >= 2 && MODULE_DEF.equals(path.get(path.size() - 2))
+						&& context.resolveObjectBackwards(this, in.getLocation(),
+							definitions.get(definitions.size() - 2)) instanceof TLObject definition) {
+						handler = _calculations;
+						target = definition;
+					}
+				} else if (modules && DYNAMIC.equals(section) && ModuleCompletion.isPlacement(name)) {
 					place = completion.target(sequence++);
 					if (place == null) {
 						XMLStreamUtil.skipUpToMatchingEndTag(in);
@@ -164,19 +213,30 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 					}
 					// The handler consumed the element up to its end tag.
 					depth--;
+				} else {
+					path.add(name);
+					definitions.add(MODULE_DEF.equals(name) ? in.getAttributeValue(null, "Id") : null);
 				}
 			} else if (event == XMLStreamConstants.END_ELEMENT) {
 				if (depth == 0) {
 					break;
 				}
 				depth--;
+				path.remove(path.size() - 1);
+				definitions.remove(definitions.size() - 1);
 			} else if (event == XMLStreamConstants.END_DOCUMENT) {
 				break;
 			}
 		}
-		context.setProperty(this, program, USES_MODULES, Boolean.FALSE);
-		HiddenProgramValues.reportPending(context);
-		context.log(Level.INFO, in.getLocation(), I18NConstants.INFO_MODULES_COMPLETED__PROGRAM.fill(id));
+		if (modules) {
+			context.setProperty(this, program, USES_MODULES, Boolean.FALSE);
+			HiddenProgramValues.reportPending(context);
+			context.log(Level.INFO, in.getLocation(), I18NConstants.INFO_MODULES_COMPLETED__PROGRAM.fill(id));
+		}
+		if (calculations) {
+			context.setProperty(this, program, CALCULATIONS_READ, Boolean.TRUE);
+			context.log(Level.INFO, in.getLocation(), I18NConstants.INFO_CALCULATIONS_COMPLETED__PROGRAM.fill(id));
+		}
 	}
 
 	/**

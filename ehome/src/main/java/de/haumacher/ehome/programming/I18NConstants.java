@@ -251,6 +251,16 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey4 ERROR_ALLOCATOR_LIMIT__MODULE_INSTANCE_ALLOCATOR_LIMIT;
 
+	/**
+	 * @en {0} – {1}
+	 */
+	public static ResKey2 CHANNEL_DESCRIPTION__CHANNEL_DESCRIPTION;
+
+	/**
+	 * @en {0} (inactive)
+	 */
+	public static ResKey1 CHANNEL_INACTIVE__CHANNEL;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

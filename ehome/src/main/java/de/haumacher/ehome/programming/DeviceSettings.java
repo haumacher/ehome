@@ -25,9 +25,8 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.knx.ExtIds;
-import de.haumacher.ehome.modules.ModuleInstances;
-import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.EnumerationType;
@@ -40,6 +39,8 @@ import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.model.operational.TextType;
 import de.haumacher.ehome.model.operational.TimeType;
+import de.haumacher.ehome.modules.ModuleInstances;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * Changes of the configuration of a device (<code>ehome.physical:Device</code>): its parameter
@@ -116,6 +117,11 @@ public class DeviceSettings {
 
 	private static ResKey editVeto(DeviceConfiguration configuration, ParameterView view) {
 		if (!configuration.isShown(view)) {
+			// A hidden R parameter a calculation computes (haumacher/ehome #123) is in the configuration.
+			ResKey computed = DeviceCalculations.computedBy(configuration, view);
+			if (computed != null) {
+				return computed;
+			}
 			return I18NConstants.ERROR_NOT_IN_CONFIGURATION__ELEMENT.fill(view);
 		}
 		if (!DeviceConfiguration.isEditable(view)) {
@@ -124,7 +130,8 @@ public class DeviceSettings {
 			}
 			return I18NConstants.ERROR_READ_ONLY__PARAMETER.fill(view);
 		}
-		return null;
+		// A parameter of a calculation E-Home cannot evaluate (haumacher/ehome #123).
+		return DeviceCalculations.editVeto(configuration, view);
 	}
 
 	/**
@@ -173,19 +180,26 @@ public class DeviceSettings {
 			throw new TopLogicException(denied);
 		}
 		List<TLObject> settings = settings(device, view);
+		ParameterType type = ParameterValues.valueType(view);
+		Object before = settings.isEmpty() ? null : ParameterValues.value(settings.get(0));
+		String old = ParameterValues.encode(DeviceConfiguration.valueHolder(device, view));
 		if (value == null) {
-			// Back to the default is always possible, also for a setting the structure no longer shows.
+			// Back to the default is always possible, also for a setting the structure no longer shows
+			// (unless a calculation the default feeds refuses it).
+			ResKey calculationVeto = DeviceCalculations.editVeto(new DeviceConfiguration(device), view);
+			if (calculationVeto != null && !settings.isEmpty()) {
+				throw new TopLogicException(calculationVeto);
+			}
 			TLObject result = store(device, view, settings, null, null);
 			ModuleInstances.update(device);
+			calculate(device, view, type, before, old);
 			return result;
 		}
 		ResKey veto = editVeto(device, view);
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
-		ParameterType type = ParameterValues.valueType(view);
 		Object typed = typed(type, value);
-		Object before = settings.isEmpty() ? null : ParameterValues.value(settings.get(0));
 		TLObject result = store(device, view, settings, type, typed);
 		List<ResKey> problems = ModuleInstances.update(device);
 		if (!problems.isEmpty()) {
@@ -195,7 +209,41 @@ public class DeviceSettings {
 			ModuleInstances.update(device);
 			throw new TopLogicException(problems.get(0));
 		}
+		calculate(device, view, type, before, old);
 		return result;
+	}
+
+	/**
+	 * Runs the calculations the changed value of the given placement feeds (haumacher/ehome #123); if
+	 * one refuses, the value before is restored and the refusal thrown.
+	 */
+	private static void calculate(TLObject device, ParameterView view, ParameterType type, Object before,
+			String old) {
+		if (Objects.equals(old, ParameterValues.encode(DeviceConfiguration.valueHolder(device, view)))) {
+			// Nothing changed.
+			return;
+		}
+		try {
+			DeviceCalculations.changed(device, List.of(view));
+		} catch (TopLogicException ex) {
+			store(device, view, settings(device, view), type, before);
+			ModuleInstances.update(device);
+			throw ex;
+		}
+	}
+
+	/**
+	 * Stores a value a calculation computed for the given placement (haumacher/ehome #123): as
+	 * {@link #setValue(TLObject, ParameterView, Object)} keeps it (a setting only where it differs from
+	 * the default), without checking the access of the placement (an R parameter is usually hidden) and
+	 * without running calculations.
+	 *
+	 * @param value
+	 *        The typed value (see {@link #typed(ParameterType, Object)}); <code>null</code> for the
+	 *        default.
+	 */
+	public static void storeComputed(TLObject device, ParameterView view, Object value) {
+		store(device, view, settings(device, view), ParameterValues.valueType(view), value);
 	}
 
 	/**
@@ -222,15 +270,31 @@ public class DeviceSettings {
 	 * @return The setting holding the value, <code>null</code> if the device has the default now.
 	 */
 	public static TLObject restoreValue(TLObject device, ParameterView view, Object value) {
+		return restoreValue(device, view, value, true);
+	}
+
+	/**
+	 * Restores a value like {@link #restoreValue(TLObject, ParameterView, Object)}.
+	 *
+	 * @param calculate
+	 *        Whether the calculations the value feeds run (haumacher/ehome #123): not when a former
+	 *        state of all values is restored, whose computed values are restored with it.
+	 */
+	public static TLObject restoreValue(TLObject device, ParameterView view, Object value, boolean calculate) {
 		List<TLObject> settings = settings(device, view);
+		ParameterType type = ParameterValues.valueType(view);
+		Object before = settings.isEmpty() ? null : ParameterValues.value(settings.get(0));
+		String old = ParameterValues.encode(DeviceConfiguration.valueHolder(device, view));
 		TLObject result;
 		if (value == null) {
 			result = store(device, view, settings, null, null);
 		} else {
-			ParameterType type = ParameterValues.valueType(view);
 			result = store(device, view, settings, type, typed(type, value));
 		}
 		ModuleInstances.update(device);
+		if (calculate) {
+			calculate(device, view, type, before, old);
+		}
 		return result;
 	}
 
@@ -271,8 +335,12 @@ public class DeviceSettings {
 
 	/**
 	 * The given value as a value of the given type, see {@link #setValue(TLObject, ParameterView, Object)}.
+	 *
+	 * @throws TopLogicException
+	 *         With the reason, if the value does not fit the type (not a whole number, outside the
+	 *         range, no entry, a text too long).
 	 */
-	private static Object typed(ParameterType type, Object value) {
+	public static Object typed(ParameterType type, Object value) {
 		String attribute = ParameterValues.valueAttribute(type);
 		if (attribute == null) {
 			return null;

@@ -42,6 +42,7 @@ import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.io.Content;
 import com.top_logic.basic.io.binary.ClassRelativeBinaryContent;
 import com.top_logic.basic.logging.Level;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.basic.xml.XMLStreamUtil;
 import com.top_logic.element.meta.MetaElementUtil;
@@ -56,7 +57,13 @@ import com.top_logic.xio.importer.binding.ModelBinding;
 import com.top_logic.xio.importer.handlers.DispatchingImporter;
 import com.top_logic.xio.importer.handlers.Handler;
 
+import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.operational.CalculationParameter;
+import de.haumacher.ehome.model.operational.ParameterCalculation;
+import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.modules.ModuleParts;
+import de.haumacher.ehome.programming.DeviceConfiguration;
 
 /**
  * Imports an ETS project file (<code>.knxproj</code>) or a product file of a manufacturer
@@ -99,6 +106,8 @@ public class Importer {
 	private static final String CONNECTOR_TYPE = "ehome.physical:Connector";
 
 	private static final String DEVICE_TYPE = "ehome.physical:Device";
+
+	private static final String CALCULATION_TYPE = "ehome.operational:ParameterCalculation";
 
 	/**
 	 * Name of the folder holding the baggage of a manufacturer (pictures, help and plug-in files of
@@ -540,6 +549,8 @@ public class Importer {
 		// The module instances of the devices, with their settings and objects (haumacher/ehome #119).
 		modules.attach(getCreated(DEVICE_TYPE), _messages);
 		dropUnresolvedProgramParts();
+		// The parameter calculations of the programs and devices read (haumacher/ehome #123).
+		checkCalculations();
 		// All done only when the references are resolved, which the import context does when closed.
 		_progress.finish();
 	}
@@ -575,6 +586,49 @@ public class Importer {
 			_messages.log(Level.WARN, I18NConstants.WARN_UNRESOLVED_PROGRAM_PARTS__DEVICE_SETTINGS_OBJECTS.fill(
 				MetaLabelProvider.INSTANCE.getLabel(entry.getKey()), Integer.valueOf(entry.getValue()[0]),
 				Integer.valueOf(entry.getValue()[1])));
+		}
+	}
+
+	/**
+	 * Reports the parameter calculations the import read that E-Home cannot evaluate, and brings the
+	 * values of the devices it created in line with the calculations of their programs (see
+	 * {@link DeviceCalculations#imported(TLObject)}).
+	 */
+	private void checkCalculations() {
+		// Reported per import for the programs it read and those of the devices it read.
+		Set<Program> programs = new LinkedHashSet<>();
+		for (TLObject calculation : getCreated(CALCULATION_TYPE)) {
+			programs.add(ModuleParts.programOf(calculation));
+		}
+		for (TLObject device : getCreated(DEVICE_TYPE)) {
+			programs.add(DeviceConfiguration.program(device));
+		}
+		programs.remove(null);
+		for (Program program : programs) {
+			for (ParameterCalculation calculation : DeviceCalculations.all(program)) {
+				String problem = DeviceCalculations.problem(calculation);
+				if (problem == null) {
+					for (List<? extends CalculationParameter> side : List.of(calculation.getInputs(),
+						calculation.getOutputs())) {
+						for (CalculationParameter parameter : side) {
+							if (parameter.getParameter() == null || DeviceCalculations.variable(parameter) == null) {
+								problem = "a parameter of the calculation was not found";
+							}
+						}
+					}
+				}
+				if (problem != null) {
+					_messages.log(Level.WARN,
+						I18NConstants.WARN_CALCULATION_NOT_EVALUATED__PROGRAM_CALCULATION_PROBLEM.fill(
+							program.getExtId(), DeviceCalculations.label(calculation), problem));
+				}
+			}
+		}
+		for (TLObject device : getCreated(DEVICE_TYPE)) {
+			for (ResKey problem : DeviceCalculations.imported(device)) {
+				_messages.log(Level.WARN, I18NConstants.WARN_CALCULATION_KEPT__DEVICE_PROBLEM.fill(
+					MetaLabelProvider.INSTANCE.getLabel(device), problem));
+			}
 		}
 	}
 

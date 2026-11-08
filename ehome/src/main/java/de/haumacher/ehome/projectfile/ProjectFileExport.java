@@ -110,6 +110,9 @@ public final class ProjectFileExport {
 			assignIds(address, ProjectFile.GROUP_ADDRESSES_MEMBER + "/"
 				+ RuntimeImage.threeLevel(((GA) address.tValueByName("address")).getValue()));
 		}
+		for (TLObject device : devices()) {
+			assignIds(device, ProjectFile.DEVICES_MEMBER + "/" + device.tValueByName("extId"));
+		}
 
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put(ProjectFile.FORMAT_MEMBER, ProjectFile.FORMAT);
@@ -132,7 +135,37 @@ public final class ProjectFileExport {
 			}
 		}
 		result.put(ProjectFile.GROUP_ADDRESSES_MEMBER, settings);
+
+		List<Object> devices = new ArrayList<>();
+		for (TLObject device : devices()) {
+			Map<String, Object> entry = new LinkedHashMap<>();
+			entry.put(ProjectFile.KNX, device.tValueByName("extId"));
+			writeAttributes(entry, device);
+			if (entry.size() > 1) {
+				devices.add(entry);
+			}
+		}
+		if (!devices.isEmpty()) {
+			result.put(ProjectFile.DEVICES_MEMBER, devices);
+		}
 		return result;
+	}
+
+	/**
+	 * The devices of the project with an external ID, by it.
+	 */
+	private List<TLObject> devices() {
+		TreeMap<String, TLObject> result = new TreeMap<>();
+		for (TLObject obj : _knx) {
+			if (isDevice(obj) && obj.tValueByName("extId") instanceof String extId) {
+				result.put(extId, obj);
+			}
+		}
+		return new ArrayList<>(result.values());
+	}
+
+	private static boolean isDevice(TLObject obj) {
+		return TLModelUtil.qualifiedName(obj.tType()).equals(ProjectFile.DEVICE_TYPE);
 	}
 
 	/**
@@ -179,6 +212,7 @@ public final class ProjectFileExport {
 		List<TLStructuredTypePart> result = new ArrayList<>();
 		boolean project = obj == _project;
 		boolean address = _knx.contains(obj) && isGroupAddress(obj);
+		boolean device = _knx.contains(obj) && isDevice(obj);
 		for (TLStructuredTypePart part : obj.tType().getAllParts()) {
 			if (ProjectFile.leftOut(part)) {
 				continue;
@@ -187,6 +221,9 @@ public final class ProjectFileExport {
 				continue;
 			}
 			if (address && !ProjectFile.groupAddressSetting(part)) {
+				continue;
+			}
+			if (device && !ProjectFile.deviceSetting(part)) {
 				continue;
 			}
 			result.add(part);

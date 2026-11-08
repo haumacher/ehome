@@ -302,6 +302,13 @@
 					ordered="true"
 					type="Option"
 				/>
+				<!-- The renames giving this block or channel another title (haumacher/ehome #122). -->
+				<reference name="renames"
+					inverse-reference="target"
+					kind="backwards"
+					multiple="true"
+					type="Rename"
+				/>
 			</attributes>
 		</interface>
 		<class name="Case">
@@ -2008,6 +2015,25 @@
 					ordered="true"
 					type="Option"
 				/>
+				<!-- The calculations of the manufacturer between L and R parameters (ETS: ParameterCalculations, haumacher/ehome #123). -->
+				<reference name="calculations"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ParameterCalculation"
+				/>
+				<!-- The functions the calculations may call (ETS: Static/Script), loaded before each calculation. -->
+				<property name="script"
+					type="tl.core:Text"
+				/>
+				<!--
+					Whether the import read the calculations of the program (haumacher/ehome #123). A program an
+					earlier import left without them is completed by the next import of its file.
+				-->
+				<property name="calculationsRead"
+					type="tl.core:Boolean"
+				/>
 			</attributes>
 		</class>
 		<!--
@@ -2084,6 +2110,18 @@
 					multiple="true"
 					ordered="true"
 					type="Option"
+				/>
+				<!-- The functions the calculations of the template may call (ETS: ModuleDef/Static/Script), after the program's. -->
+				<property name="script"
+					type="tl.core:Text"
+				/>
+				<!-- The calculations of the template (ETS: ModuleDef/Static/ParameterCalculations), evaluated per instance. -->
+				<reference name="calculations"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ParameterCalculation"
 				/>
 			</attributes>
 		</class>
@@ -2259,6 +2297,128 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
+			</attributes>
+		</class>
+		<!--
+			Another title of a parameter block (or channel) while the case containing it is taken (ETS 6:
+			Rename in a when, haumacher/ehome #122): the editor of a device titles the target with the text of
+			the last rename in effect (de.haumacher.ehome.programming.DeviceConfiguration#getRename).
+		-->
+		<class name="Rename">
+			<generalizations>
+				<generalization type="Option"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-input-cursor-text"/>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<!-- The block or channel getting the title (ETS: RefId). -->
+				<reference name="target"
+					kind="forwards"
+					type="ConfigFragment"
+				/>
+				<!-- The title while the rename is in effect (ETS: Text, translated like the other texts of the program). -->
+				<property name="text"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The label in the structure tree. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[r -> #("Title: {0}"@en, "Titel: {0}"@de).fill($r.get(`ehome.operational:Rename#text`).localize()).localize()]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!--
+			A calculation of the manufacturer converting the parameters a person edits (L) into those the
+			memory of the device holds (R) and back (ETS 6: ParameterCalculation, haumacher/ehome #123). E-Home
+			evaluates it (de.haumacher.ehome.calculation): LR when an L parameter changes, RL where the R values
+			are the source (an import whose L values do not give its R values, the read-back of a device).
+			The scripts bind the parameters by their aliases (else by the name of their parameter).
+		-->
+		<class name="ParameterCalculation">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-calculator"/>
+				<id-column value="name"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The language of the scripts (ETS: Language): JavaScript or VBScript. -->
+				<property name="language"
+					type="tl.core:String"
+				/>
+				<!-- The code computing the R parameters from the L parameters (ETS: LRTransformation, the code inline). -->
+				<property name="lrCode"
+					type="tl.core:Text"
+				/>
+				<!-- The code computing the L parameters from the R parameters (ETS: RLTransformation, the code inline). -->
+				<property name="rlCode"
+					type="tl.core:Text"
+				/>
+				<!--
+					The function of the program's script computing the R parameters, where the code is not inline
+					(ETS: LRTransformationFunc), called with the L parameters, the R parameters and the parameters
+					of the transformation (LRTransformationParameters).
+				-->
+				<property name="lrFunction"
+					type="tl.core:String"
+				/>
+				<property name="lrParameters"
+					type="tl.core:String"
+				/>
+				<!-- The function computing the L parameters (ETS: RLTransformationFunc, RLTransformationParameters). -->
+				<property name="rlFunction"
+					type="tl.core:String"
+				/>
+				<property name="rlParameters"
+					type="tl.core:String"
+				/>
+				<!-- The parameters a person edits (ETS: LParameters). -->
+				<reference name="inputs"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="CalculationParameter"
+				/>
+				<!-- The parameters the memory of the device holds (ETS: RParameters). -->
+				<reference name="outputs"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="CalculationParameter"
+				/>
+			</attributes>
+		</class>
+		<!-- A parameter of a calculation, with the name the scripts know it by (ETS: ParameterRefRef with AliasName). -->
+		<class name="CalculationParameter">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="parameter"
+					kind="forwards"
+					mandatory="true"
+					type="ParameterView"
+				/>
+				<!-- The name of the variable; empty: the name of the parameter. -->
+				<property name="alias"
+					type="tl.core:String"
+				/>
 			</attributes>
 		</class>
 		<!-- Where a table of the device lies in the memory of the program, and how many entries it takes. -->
