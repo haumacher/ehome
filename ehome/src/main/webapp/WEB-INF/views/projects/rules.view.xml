@@ -22,8 +22,9 @@
 	with states, after state() == " its states, and while a reference @"… is typed the datapoints of
 	the project's image that expressions and actions may name: those of the
 	group addresses (KNX) and the application datapoints (haumacher/ehome #59), which no technology
-	owns and which are edited in the tab "Application datapoints" (application-datapoints.view.xml):
-	they are the rules' and the schedule's own values, so they are edited where they are used. The
+	owns and which are edited in the project's tab "Application datapoints"
+	(application-datapoints.view.xml, haumacher/ehome #115): they are the values of the whole
+	project, used by the rules, the schedule and the Zigbee functions. The
 	choices of a parameter are listed beside its form, each with its value and label.
 
 	Each "New" (a rule, a reaction, a trigger, a parameter, a choice, a timer, a state) opens the create
@@ -1472,20 +1473,6 @@
 									</pane>
 								</panes>
 							</split-panel>
-						</tab>
-						<tab id="datapoints"
-							icon="css:bi bi-box"
-						>
-							<label>
-								<en>Application datapoints</en>
-								<de>Anwendungsdatenpunkte</de>
-							</label>
-							<view-ref view="projects/application-datapoints.view.xml">
-								<bind
-									channel="project"
-									to="project"
-								/>
-							</view-ref>
 						</tab>
 					</tabs>
 				</tab-bar>

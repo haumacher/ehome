@@ -412,7 +412,7 @@
 						>
 							<!--
 								The datapoints an entry may set as its output (haumacher/ehome #59): the boolean
-								application datapoints of the project, edited in the rules' tab "Application
+								application datapoints of the project, edited in the project's tab "Application
 								datapoints". A datapoint of a group address is owned by the KNX adapter and refused.
 							-->
 							<panel>

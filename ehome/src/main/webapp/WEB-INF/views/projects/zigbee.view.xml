@@ -16,7 +16,7 @@
 	datapoint bound to it, its id derived from the device's name and the function), or an existing
 	unbound datapoint of a fitting type with "Bind datapoint" (projects/zigbee-bind.view.xml);
 	"Unbind" keeps the datapoint as a value of the application. The datapoints themselves are edited
-	with the application datapoints (application-datapoints.view.xml, the rules' tab); whether the
+	with the application datapoints (application-datapoints.view.xml, the project's tab); whether the
 	bindings are valid is checked with the image (Deployment tab).
 
 	Live (haumacher/ehome #64, ZigbeeLive): while the project's controller is connected to E-Home, its

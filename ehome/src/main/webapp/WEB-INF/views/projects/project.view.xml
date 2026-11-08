@@ -39,6 +39,21 @@
 					/>
 				</view-ref>
 			</tab>
+			<!-- The values of the whole project, not of a rule (haumacher/ehome #115). -->
+			<tab id="datapoints"
+				icon="css:bi bi-box"
+			>
+				<label>
+					<en>Application datapoints</en>
+					<de>Anwendungsdatenpunkte</de>
+				</label>
+				<view-ref view="projects/application-datapoints.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="devices"
 				icon="css:bi bi-hdd-network-fill"
 			>

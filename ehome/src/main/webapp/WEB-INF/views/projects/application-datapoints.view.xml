@@ -7,8 +7,8 @@
 	(spec/schedules.md 5). They are part of the image after the datapoints of the group addresses and
 	are listed with them in the rules' "Datapoints" table. One bound to a function of a Zigbee device
 	(zigbeeFunction, haumacher/ehome #40; created and bound in projects/zigbee.view.xml) is the
-	datapoint of that function instead. Shown in the rules' tab-bar
-	(rules.view.xml), where they are used. The history of a datapoint (haumacher/ehome #73) is derived
+	datapoint of that function instead. Shown in the project's tab-bar after "Group addresses"
+	(project.view.xml, haumacher/ehome #115): the values of the whole project, not of one rule. The history of a datapoint (haumacher/ehome #73) is derived
 	from the charts of the control pages unless it is set by hand ("Set history by hand", "Derive
 	history").
 	"New" opens the create dialog projects/create-part.view.xml (haumacher/ehome #91): id, label and
