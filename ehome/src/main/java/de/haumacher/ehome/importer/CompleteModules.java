@@ -29,8 +29,9 @@ import com.top_logic.xio.importer.handlers.NestedImportHandler;
  * Completes a known application program (the <code>this</code> of an <code>&lt;update&gt;</code> of
  * <code>&lt;unless-known&gt;</code>) that an earlier import left without its dynamic modules
  * (haumacher/ehome #119), if the scan of the file planned it (see {@link ModuleCompletion}), or without
- * its parameter calculations (haumacher/ehome #123, <code>calculationsRead</code> not set); otherwise
- * applies its content handlers (the update of a known program).
+ * its parameter calculations (haumacher/ehome #123, <code>calculationsRead</code> not set) or without its
+ * parameter validations (haumacher/ehome #124, <code>validationsRead</code> not set); otherwise applies its
+ * content handlers (the update of a known program).
  *
  * <p>
  * The completion reads what the earlier import skipped; the rest of the program exists: the
@@ -41,7 +42,8 @@ import com.top_logic.xio.importer.handlers.NestedImportHandler;
  * <code>usesModules</code> is removed, and the import reports the completion. The calculations of the
  * program and of its module definitions ({@link Config#getCalculations()}) and their scripts are read
  * into the program and its module definitions (those the module completion creates read their
- * calculations themselves), and <code>calculationsRead</code> is set.
+ * calculations themselves), and <code>calculationsRead</code> is set. Likewise the validations
+ * ({@link Config#getValidations()}), and <code>validationsRead</code> is set.
  * </p>
  */
 public class CompleteModules<C extends CompleteModules.Config<?>> extends NestedImportHandler<C> {
@@ -93,6 +95,13 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		@Name("calculations")
 		List<PolymorphicConfiguration<? extends Handler>> getCalculations();
 
+		/**
+		 * The handler reading the validations (the content of the element
+		 * <code>ParameterValidations</code>) into a program or module definition.
+		 */
+		@Name("validations")
+		List<PolymorphicConfiguration<? extends Handler>> getValidations();
+
 	}
 
 	private final Handler _allocators;
@@ -105,7 +114,11 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 
 	private final Handler _calculations;
 
+	private final Handler _validations;
+
 	private static final String CALCULATIONS_READ = "calculationsRead";
+
+	private static final String VALIDATIONS_READ = "validationsRead";
 
 	private static final String MODULE_DEF = "ModuleDef";
 
@@ -120,6 +133,7 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		_module = buildHandlers(context, config.getModule());
 		_repeat = buildHandlers(context, config.getRepeat());
 		_calculations = buildHandlers(context, config.getCalculations());
+		_validations = buildHandlers(context, config.getValidations());
 	}
 
 	@Override
@@ -130,18 +144,25 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 			completion = ModuleScan.get(context).getCompletion(ProgramImported.id(program));
 		}
 		boolean modules = completion != null && completion.getProgram() == known;
-		boolean calculations = known instanceof TLObject program
-			&& program.tType().getPart(CALCULATIONS_READ) != null
-			&& !Boolean.TRUE.equals(program.tValueByName(CALCULATIONS_READ));
-		if (!modules && !calculations) {
+		boolean calculations = unread(known, CALCULATIONS_READ);
+		boolean validations = unread(known, VALIDATIONS_READ);
+		if (!modules && !calculations && !validations) {
 			return importXmlInScope(context, in);
 		}
-		complete(context, in, (TLObject) known, modules ? completion : null, calculations);
+		complete(context, in, (TLObject) known, modules ? completion : null, calculations, validations);
 		return null;
 	}
 
+	/**
+	 * Whether the given known program lacks the part the given mark records as read.
+	 */
+	private static boolean unread(Object known, String mark) {
+		return known instanceof TLObject program && program.tType().getPart(mark) != null
+			&& !Boolean.TRUE.equals(program.tValueByName(mark));
+	}
+
 	private void complete(ImportContext context, XMLStreamReader in, TLObject program, ModuleCompletion completion,
-			boolean calculations) throws XMLStreamException {
+			boolean calculations, boolean validations) throws XMLStreamException {
 		String id = ProgramImported.id(program);
 		ProgramLanguages languages = ProgramLanguages.get(context);
 		if (languages != null) {
@@ -195,6 +216,16 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 						handler = _calculations;
 						target = definition;
 					}
+				} else if (validations && "ParameterValidations".equals(name) && path.size() >= 1
+					&& STATIC.equals(path.get(path.size() - 1))) {
+					if (depth == 2) {
+						handler = _validations;
+					} else if (path.size() >= 2 && MODULE_DEF.equals(path.get(path.size() - 2))
+						&& context.resolveObjectBackwards(this, in.getLocation(),
+							definitions.get(definitions.size() - 2)) instanceof TLObject definition) {
+						handler = _validations;
+						target = definition;
+					}
 				} else if (modules && DYNAMIC.equals(section) && ModuleCompletion.isPlacement(name)) {
 					place = completion.target(sequence++);
 					if (place == null) {
@@ -236,6 +267,10 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		if (calculations) {
 			context.setProperty(this, program, CALCULATIONS_READ, Boolean.TRUE);
 			context.log(Level.INFO, in.getLocation(), I18NConstants.INFO_CALCULATIONS_COMPLETED__PROGRAM.fill(id));
+		}
+		if (validations) {
+			context.setProperty(this, program, VALIDATIONS_READ, Boolean.TRUE);
+			context.log(Level.INFO, in.getLocation(), I18NConstants.INFO_VALIDATIONS_COMPLETED__PROGRAM.fill(id));
 		}
 	}
 

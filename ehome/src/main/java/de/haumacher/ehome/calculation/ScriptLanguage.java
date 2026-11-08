@@ -78,4 +78,34 @@ public interface ScriptLanguage {
 	Map<String, Object> call(String library, String function, Map<String, Object> inputs, Map<String, Object> outputs,
 			String parameters) throws CalculationException;
 
+	/**
+	 * Why the function of the given name cannot be called as a validation (ETS:
+	 * <code>ParameterValidation@ValidationFunc</code>, haumacher/ehome #124): the library is not of this
+	 * language (its syntax error), or it defines no such function; <code>null</code> if it can.
+	 */
+	String checkValidation(String library, String function);
+
+	/**
+	 * Calls a function of the library as a validation:
+	 * <code>function(input, changed, prevValue, context)</code>.
+	 *
+	 * @param input
+	 *        The parameters of the validation by their names, with their current values (the members of
+	 *        <code>input</code>; the changed one with its new value).
+	 * @param changed
+	 *        The name of the changed parameter.
+	 * @param previous
+	 *        The value of the changed parameter before the change.
+	 * @param parameters
+	 *        The parameters of the validation (ETS: <code>ValidationParameters</code>), as
+	 *        <code>context</code>: the value of a JSON text, else the text; <code>null</code> for none.
+	 * @return <code>null</code> if the function accepts the values (it answers <code>true</code>, or
+	 *         anything else that is true and no text); the text it answers if it refuses them, the empty
+	 *         text for a refusal without a text (an answer that is false).
+	 * @throws CalculationException
+	 *         If the function cannot be called or fails.
+	 */
+	String validate(String library, String function, Map<String, Object> input, String changed, Object previous,
+			String parameters) throws CalculationException;
+
 }

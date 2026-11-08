@@ -106,6 +106,15 @@ public interface ModuleDefinitionBase extends de.haumacher.ehome.model.operation
 	String UNPLACED_ATTR = "unplaced";
 
 	/**
+	 * Part <code>validations</code> of <code>ModuleDefinition</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ParameterValidation</code> in configuration.
+	 * </p>
+	 */
+	String VALIDATIONS_ATTR = "validations";
+
+	/**
 	 * Name of the table storing {@link #MODULE_DEFINITION_TYPE} objects.
 	 */
 	String TABLE_NAME = "GenericObject";
@@ -466,6 +475,49 @@ public interface ModuleDefinitionBase extends de.haumacher.ehome.model.operation
 	 */
 	default void removeUnplaced(de.haumacher.ehome.model.operational.Option oldValue) {
 		tRemoveByName(UNPLACED_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #VALIDATIONS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.ParameterValidation> getValidations() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.ParameterValidation>) tValueByName(VALIDATIONS_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #VALIDATIONS_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.ParameterValidation> getValidationsModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(VALIDATIONS_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.ParameterValidation> result = (java.util.List<de.haumacher.ehome.model.operational.ParameterValidation>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #VALIDATIONS_ATTR}.
+	 */
+	default void setValidations(java.util.List<de.haumacher.ehome.model.operational.ParameterValidation> newValue) {
+		tUpdateByName(VALIDATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #VALIDATIONS_ATTR} reference.
+	 */
+	default void addValidation(de.haumacher.ehome.model.operational.ParameterValidation newValue) {
+		tAddByName(VALIDATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #VALIDATIONS_ATTR} reference.
+	 */
+	default void removeValidation(de.haumacher.ehome.model.operational.ParameterValidation oldValue) {
+		tRemoveByName(VALIDATIONS_ATTR, oldValue);
 	}
 
 }

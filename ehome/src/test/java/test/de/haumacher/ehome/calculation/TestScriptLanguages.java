@@ -16,8 +16,9 @@ import de.haumacher.ehome.calculation.ScriptLanguage;
 import de.haumacher.ehome.calculation.VbScriptLanguage;
 
 /**
- * The script languages of parameter calculations (haumacher/ehome #123) without a device: the subset
- * of VBScript the interpreter supports, with the numbers of VBScript, and the JavaScript sandbox.
+ * The script languages of parameter calculations (haumacher/ehome #123) and validations
+ * (haumacher/ehome #124) without a device: the subset of VBScript the interpreter supports, with the
+ * numbers of VBScript, and the JavaScript sandbox.
  */
 @SuppressWarnings("javadoc")
 public class TestScriptLanguages extends TestCase {
@@ -128,6 +129,92 @@ public class TestScriptLanguages extends TestCase {
 		assertEquals("abc", JS.call(library, "text", vars(), vars("r", 0.0), "abc").get("r"));
 		assertNull(JS.checkFunction(library, "lr"));
 		assertContains("nichtda", JS.checkFunction(library, "nichtda"));
+	}
+
+	/**
+	 * Validations (haumacher/ehome #124) in the calling convention of the programs in the field
+	 * (<code>function(input, changed, prevValue, context)</code>, as in OpenKNX OFM-PresenceModule and
+	 * OFM-AccessControl; the functions here are artificial), in a script that also holds a function of a
+	 * button (Button@EventHandler, not called by E-Home) and a top-level variable.
+	 */
+	public void testJavaScriptValidation() throws CalculationException {
+		String library = "function abstand(input, changed, prevValue, context) {\n"
+			+ "    if (input.Low < input.High) { return true; }\n"
+			+ "    return \"Die Untergrenze muss unter der Obergrenze liegen.\";\n}\n"
+			+ "function knopf(device, online, progress, context) {\n"
+			+ "    device.getParameterByName(\"Knopf\").value = 0;\n}\n"
+			+ "var stufen = [100, 1000];\n"
+			+ "function kapazitaet(input, changed, prevValue, context) {\n"
+			+ "    var max = stufen[input.Modell];\n"
+			+ "    if (input.Nummer <= max) { return true; }\n"
+			+ "    return changed == \"Nummer\" ? \"Nummer \" + input.Nummer + \" liegt über \" + max + \".\"\n"
+			+ "        : \"Das Modell erlaubt höchstens \" + max + \" Nummern.\";\n}\n"
+			+ "function grenze(input, changed, prevValue, context) { return input.x <= context.Max ? 1 : "
+			+ "'Höchstens ' + context.Max + ', bisher ' + prevValue; }\n"
+			+ "function nein(input, changed, prevValue, context) { return false; }\n"
+			+ "function kaputt(input, changed, prevValue, context) { throw new Error('kaputt'); }\n"
+			+ "function text(input, changed, prevValue, context) { return context === 'abc' && changed === 'x'; }";
+		assertNull(JS.checkValidation(library, "abstand"));
+		assertNull(JS.validate(library, "abstand", vars("Low", 1.0, "High", 5.0), "Low", 0.0, null));
+		assertContains("Untergrenze muss", JS.validate(library, "abstand", vars("Low", 5.0, "High", 5.0), "High", 8.0,
+			null));
+		assertContains("Nummer 200 liegt über 100", JS.validate(library, "kapazitaet",
+			vars("Modell", 0.0, "Nummer", 200.0), "Nummer", 1.0, null));
+		assertContains("höchstens 100 Nummern", JS.validate(library, "kapazitaet",
+			vars("Modell", 0.0, "Nummer", 200.0), "Modell", 1.0, null));
+		assertNull(JS.validate(library, "kapazitaet", vars("Modell", 1.0, "Nummer", 999.0), "Nummer", 1.0, null));
+		// A JSON context, the value before; anything true accepts, anything false refuses without a text.
+		assertNull(JS.validate(library, "grenze", vars("x", 50.0), "x", 10.0, "{\"Max\": 50}"));
+		assertEquals("Höchstens 50, bisher 10", JS.validate(library, "grenze", vars("x", 51.0), "x", 10.0,
+			"{\"Max\": 50}"));
+		assertEquals("", JS.validate(library, "nein", vars("x", 1.0), "x", 0.0, null));
+		assertNull("A context that is no JSON is the text.", JS.validate(library, "text", vars("x", 1.0), "x", 0.0,
+			"abc"));
+		try {
+			JS.validate(library, "kaputt", vars("x", 1.0), "x", 0.0, null);
+			fail("A script error was not refused.");
+		} catch (CalculationException ex) {
+			assertContains("kaputt", ex.getMessage());
+		}
+		assertContains("nichtda", JS.checkValidation(library, "nichtda"));
+		assertNotNull("A syntax error of the script.", JS.checkValidation("function f( {", "f"));
+		assertNotNull("No JavaScript.", JS.checkValidation("Function f(a, b, c, d)\n  f = True\nEnd Function", "f"));
+	}
+
+	/**
+	 * Validations in VBScript: a Function of four parameters reading the members of the objects
+	 * <code>input</code> and <code>context</code>, answering True or a text.
+	 */
+	public void testVbScriptValidation() throws CalculationException {
+		String library = "Function Pruefe(input, changed, prevValue, context)\n"
+			+ "  If input.Von > input.bis Then\n"
+			+ "    If changed = \"Von\" Then\n"
+			+ "      Pruefe = \"Von \" & input.Von & \" ist zu groß, bisher \" & prevValue\n"
+			+ "    Else\n      Pruefe = \"Bis ist zu klein\"\n    End If\n"
+			+ "  Else\n    Pruefe = True\n  End If\nEnd Function\n"
+			+ "Function Grenze(input, changed, prevValue, context)\n  Grenze = input.Wert <= context.Grenze\n"
+			+ "End Function\n"
+			+ "Function Drei(a, b, c)\n  Drei = True\nEnd Function\n"
+			+ "Function Falsch(input, changed, prevValue, context)\n  Falsch = input.Fehlt\nEnd Function";
+		assertNull(VB.checkValidation(library, "Pruefe"));
+		assertNull(VB.validate(library, "Pruefe", vars("Von", 1.0, "Bis", 10.0), "Von", 0.0, null));
+		assertEquals("Von 20 ist zu groß, bisher 1", VB.validate(library, "Pruefe", vars("Von", 20.0, "Bis", 10.0),
+			"Von", 1.0, null));
+		assertEquals("Bis ist zu klein", VB.validate(library, "Pruefe", vars("Von", 20.0, "Bis", 10.0), "Bis", 30.0,
+			null));
+		assertNull(VB.validate(library, "Grenze", vars("Wert", 50.0), "Wert", 1.0, "{\"Grenze\": 50}"));
+		assertEquals("", VB.validate(library, "Grenze", vars("Wert", 51.0), "Wert", 1.0, "{\"Grenze\": 50}"));
+		assertContains("4", VB.checkValidation(library, "Drei"));
+		assertContains("Nicht", VB.checkValidation(library, "Nicht"));
+		try {
+			VB.validate(library, "Falsch", vars("Wert", 1.0), "Wert", 0.0, null);
+			fail("A member the object does not have.");
+		} catch (CalculationException ex) {
+			assertContains("Fehlt", ex.getMessage());
+		}
+		// A member is read, never assigned.
+		assertContains("'.'", VB.check(null, "output.x = 1"));
+		assertNotNull("No VBScript.", VB.checkValidation("function f(a, b, c, d) { return true; }", "f"));
 	}
 
 	private static String runError(String code) {

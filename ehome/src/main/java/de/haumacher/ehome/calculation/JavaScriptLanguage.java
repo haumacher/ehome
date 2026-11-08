@@ -3,13 +3,16 @@
  */
 package de.haumacher.ehome.calculation;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.EvaluatorException;
 import org.mozilla.javascript.Function;
+import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
@@ -36,6 +39,11 @@ import org.mozilla.javascript.json.JsonParser;
  * <li>A function of the library: called as <code>function(input, output, context)</code> with an
  * object of the source parameters, one of the target parameters (their current values) the function
  * sets, and the parameters of the transformation (a JSON value, else the text).</li>
+ * <li>A validation of the library (haumacher/ehome #124): called as
+ * <code>function(input, changed, prevValue, context)</code> with an object of its parameters (the
+ * changed one with its new value), the name of the changed one, its value before and the parameters of
+ * the validation (a JSON value, else the text). <code>true</code>, or anything else that is true and no
+ * text, accepts; a text refuses with it; anything false refuses without a text.</li>
  * </ul>
  */
 public final class JavaScriptLanguage implements ScriptLanguage {
@@ -104,15 +112,7 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 			for (Map.Entry<String, Object> entry : outputs.entrySet()) {
 				ScriptableObject.putProperty(output, entry.getKey(), entry.getValue());
 			}
-			Object context = parameters == null ? Undefined.instance : parameters;
-			if (parameters != null && !parameters.isBlank()) {
-				try {
-					context = new JsonParser(cx, scope).parseValue(parameters);
-				} catch (JsonParser.ParseException ex) {
-					// Not JSON: the text itself.
-				}
-			}
-			callee.call(cx, scope, scope, new Object[] { input, output, context });
+			callee.call(cx, scope, scope, new Object[] { input, output, context(cx, scope, parameters) });
 			Map<String, Object> result = new LinkedHashMap<>();
 			for (String name : outputs.keySet()) {
 				result.put(name, value(ScriptableObject.getProperty(output, name)));
@@ -123,6 +123,114 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 		} catch (LimitExceeded ex) {
 			throw new CalculationException(ex.getMessage());
 		}
+	}
+
+	@Override
+	public String checkValidation(String library, String function) {
+		try (Context cx = FACTORY.enterContext()) {
+			start(cx);
+			if (library != null && !library.isBlank()) {
+				try {
+					cx.compileString(library, "script", 1, null);
+				} catch (EvaluatorException ex) {
+					return message(ex);
+				}
+			}
+			ScriptableObject scope = scope(cx, library);
+			if (ScriptableObject.getProperty(scope, function.trim()) instanceof Function) {
+				return null;
+			}
+			return "the script defines no function " + function.trim();
+		} catch (RhinoException ex) {
+			return message(ex);
+		} catch (LimitExceeded ex) {
+			return ex.getMessage();
+		}
+	}
+
+	@Override
+	public String validate(String library, String function, Map<String, Object> input, String changed,
+			Object previous, String parameters) throws CalculationException {
+		try (Context cx = FACTORY.enterContext()) {
+			start(cx);
+			ScriptableObject scope = scope(cx, library);
+			if (!(ScriptableObject.getProperty(scope, function.trim()) instanceof Function callee)) {
+				throw new CalculationException("the script defines no function " + function.trim());
+			}
+			Scriptable values = cx.newObject(scope);
+			for (Map.Entry<String, Object> entry : input.entrySet()) {
+				ScriptableObject.putProperty(values, entry.getKey(), entry.getValue());
+			}
+			Object result = callee.call(cx, scope, scope,
+				new Object[] { values, changed, previous, context(cx, scope, parameters) });
+			if (result instanceof CharSequence text) {
+				return text.toString();
+			}
+			return Context.toBoolean(result) ? null : "";
+		} catch (RhinoException ex) {
+			throw new CalculationException(message(ex));
+		} catch (LimitExceeded ex) {
+			throw new CalculationException(ex.getMessage());
+		}
+	}
+
+	/**
+	 * The parameters of a transformation or validation as the argument <code>context</code>: the value of
+	 * a JSON text, else the text, <code>undefined</code> for none.
+	 */
+	private static Object context(Context cx, Scriptable scope, String parameters) {
+		if (parameters == null) {
+			return Undefined.instance;
+		}
+		if (!parameters.isBlank()) {
+			try {
+				return new JsonParser(cx, scope).parseValue(parameters);
+			} catch (JsonParser.ParseException ex) {
+				// Not JSON: the text itself.
+			}
+		}
+		return parameters;
+	}
+
+	/**
+	 * The value of the given JSON text as Java values (a {@link Map} for an object, a {@link List} for an
+	 * array, a {@link Double}, a {@link String}, a {@link Boolean}, <code>null</code>); the text itself if
+	 * it is no JSON, <code>null</code> for none.
+	 */
+	public static Object json(String text) {
+		if (text == null) {
+			return null;
+		}
+		try (Context cx = FACTORY.enterContext()) {
+			start(cx);
+			ScriptableObject scope = cx.initSafeStandardObjects(null, true);
+			return java(new JsonParser(cx, scope).parseValue(text));
+		} catch (JsonParser.ParseException | RhinoException ex) {
+			return text;
+		}
+	}
+
+	private static Object java(Object value) {
+		if (value instanceof NativeArray array) {
+			List<Object> result = new ArrayList<>();
+			for (long n = 0, cnt = array.getLength(); n < cnt; n++) {
+				result.add(java(array.get((int) n, array)));
+			}
+			return result;
+		}
+		if (value instanceof Scriptable object) {
+			Map<String, Object> result = new LinkedHashMap<>();
+			for (Object id : object.getIds()) {
+				Object member = id instanceof Number index ? object.get(index.intValue(), object)
+					: object.get(id.toString(), object);
+				result.put(id.toString(), java(member));
+			}
+			return result;
+		}
+		if (value instanceof Number number) {
+			return Double.valueOf(number.doubleValue());
+		}
+		return value(value);
 	}
 
 	private static void start(Context cx) {

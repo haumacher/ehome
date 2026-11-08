@@ -358,6 +358,24 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String USES_MODULES_ATTR = "usesModules";
 
 	/**
+	 * Part <code>validations</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ParameterValidation</code> in configuration.
+	 * </p>
+	 */
+	String VALIDATIONS_ATTR = "validations";
+
+	/**
+	 * Part <code>validationsRead</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String VALIDATIONS_READ_ATTR = "validationsRead";
+
+	/**
 	 * Name of the table storing {@link #PROGRAM_TYPE} objects.
 	 */
 	String TABLE_NAME = "EHProgram";
@@ -1161,6 +1179,63 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setUsesModules(boolean newValue) {
 		tUpdateByName(USES_MODULES_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #VALIDATIONS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.ParameterValidation> getValidations() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.ParameterValidation>) tValueByName(VALIDATIONS_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #VALIDATIONS_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.ParameterValidation> getValidationsModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(VALIDATIONS_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.ParameterValidation> result = (java.util.List<de.haumacher.ehome.model.operational.ParameterValidation>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #VALIDATIONS_ATTR}.
+	 */
+	default void setValidations(java.util.List<de.haumacher.ehome.model.operational.ParameterValidation> newValue) {
+		tUpdateByName(VALIDATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #VALIDATIONS_ATTR} reference.
+	 */
+	default void addValidation(de.haumacher.ehome.model.operational.ParameterValidation newValue) {
+		tAddByName(VALIDATIONS_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #VALIDATIONS_ATTR} reference.
+	 */
+	default void removeValidation(de.haumacher.ehome.model.operational.ParameterValidation oldValue) {
+		tRemoveByName(VALIDATIONS_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #VALIDATIONS_READ_ATTR}.
+	 */
+	default boolean getValidationsRead() {
+		return (Boolean) tValueByName(VALIDATIONS_READ_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #VALIDATIONS_READ_ATTR}.
+	 */
+	default void setValidationsRead(boolean newValue) {
+		tUpdateByName(VALIDATIONS_READ_ATTR, newValue);
 	}
 
 }

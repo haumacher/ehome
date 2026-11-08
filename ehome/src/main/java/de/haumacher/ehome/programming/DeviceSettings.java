@@ -26,6 +26,7 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.calculation.DeviceCalculations;
+import de.haumacher.ehome.calculation.DeviceValidations;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
@@ -131,7 +132,12 @@ public class DeviceSettings {
 			return I18NConstants.ERROR_READ_ONLY__PARAMETER.fill(view);
 		}
 		// A parameter of a calculation E-Home cannot evaluate (haumacher/ehome #123).
-		return DeviceCalculations.editVeto(configuration, view);
+		ResKey calculation = DeviceCalculations.editVeto(configuration, view);
+		if (calculation != null) {
+			return calculation;
+		}
+		// A parameter of a validation E-Home cannot evaluate (haumacher/ehome #124).
+		return DeviceValidations.editVeto(configuration, view);
 	}
 
 	/**
@@ -183,15 +189,22 @@ public class DeviceSettings {
 		ParameterType type = ParameterValues.valueType(view);
 		Object before = settings.isEmpty() ? null : ParameterValues.value(settings.get(0));
 		String old = ParameterValues.encode(DeviceConfiguration.valueHolder(device, view));
+		Object previous = value(device, view);
 		if (value == null) {
 			// Back to the default is always possible, also for a setting the structure no longer shows
-			// (unless a calculation the default feeds refuses it).
-			ResKey calculationVeto = DeviceCalculations.editVeto(new DeviceConfiguration(device), view);
+			// (unless a calculation the default feeds refuses it, or a check of the manufacturer refuses
+			// the default with the other values).
+			DeviceConfiguration configuration = new DeviceConfiguration(device);
+			ResKey calculationVeto = DeviceCalculations.editVeto(configuration, view);
+			if (calculationVeto == null) {
+				calculationVeto = DeviceValidations.editVeto(configuration, view);
+			}
 			if (calculationVeto != null && !settings.isEmpty()) {
 				throw new TopLogicException(calculationVeto);
 			}
 			TLObject result = store(device, view, settings, null, null);
 			ModuleInstances.update(device);
+			validate(device, view, type, before, old, previous);
 			calculate(device, view, type, before, old);
 			return result;
 		}
@@ -209,8 +222,32 @@ public class DeviceSettings {
 			ModuleInstances.update(device);
 			throw new TopLogicException(problems.get(0));
 		}
+		validate(device, view, type, before, old, previous);
 		calculate(device, view, type, before, old);
 		return result;
+	}
+
+	/**
+	 * Checks the changed value of the given placement with the validations of the manufacturer that read
+	 * it (haumacher/ehome #124), before the calculations it feeds run: a person's input is checked as
+	 * entered. If one refuses, the value before is restored and the refusal thrown.
+	 *
+	 * @param previous
+	 *        The value in effect before the change.
+	 */
+	private static void validate(TLObject device, ParameterView view, ParameterType type, Object before, String old,
+			Object previous) {
+		if (Objects.equals(old, ParameterValues.encode(DeviceConfiguration.valueHolder(device, view)))) {
+			// Nothing changed.
+			return;
+		}
+		try {
+			DeviceValidations.check(device, view, previous);
+		} catch (TopLogicException ex) {
+			store(device, view, settings(device, view), type, before);
+			ModuleInstances.update(device);
+			throw ex;
+		}
 	}
 
 	/**
@@ -265,7 +302,8 @@ public class DeviceSettings {
 	/**
 	 * Restores a value the device had before (see {@link DeviceChanges}): like
 	 * {@link #setValue(TLObject, ParameterView, Object)}, but also for a placement the current
-	 * values do not show (a value that opens it may be restored after it).
+	 * values do not show (a value that opens it may be restored after it), and without the checks of the
+	 * manufacturer (haumacher/ehome #124): the value is one the device had, not a person's input.
 	 *
 	 * @return The setting holding the value, <code>null</code> if the device has the default now.
 	 */

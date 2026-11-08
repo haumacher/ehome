@@ -58,9 +58,11 @@ import com.top_logic.xio.importer.handlers.DispatchingImporter;
 import com.top_logic.xio.importer.handlers.Handler;
 
 import de.haumacher.ehome.calculation.DeviceCalculations;
+import de.haumacher.ehome.calculation.DeviceValidations;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.CalculationParameter;
 import de.haumacher.ehome.model.operational.ParameterCalculation;
+import de.haumacher.ehome.model.operational.ParameterValidation;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
@@ -108,6 +110,8 @@ public class Importer {
 	private static final String DEVICE_TYPE = "ehome.physical:Device";
 
 	private static final String CALCULATION_TYPE = "ehome.operational:ParameterCalculation";
+
+	private static final String VALIDATION_TYPE = "ehome.operational:ParameterValidation";
 
 	/**
 	 * Name of the folder holding the baggage of a manufacturer (pictures, help and plug-in files of
@@ -551,6 +555,9 @@ public class Importer {
 		dropUnresolvedProgramParts();
 		// The parameter calculations of the programs and devices read (haumacher/ehome #123).
 		checkCalculations();
+		// The parameter validations of the programs and devices read (haumacher/ehome #124), after the
+		// calculations, which may have derived L values.
+		checkValidations();
 		// All done only when the references are resolved, which the import context does when closed.
 		_progress.finish();
 	}
@@ -627,6 +634,45 @@ public class Importer {
 		for (TLObject device : getCreated(DEVICE_TYPE)) {
 			for (ResKey problem : DeviceCalculations.imported(device)) {
 				_messages.log(Level.WARN, I18NConstants.WARN_CALCULATION_KEPT__DEVICE_PROBLEM.fill(
+					MetaLabelProvider.INSTANCE.getLabel(device), problem));
+			}
+		}
+	}
+
+	/**
+	 * Reports the parameter validations the import read that E-Home cannot evaluate, and the devices it
+	 * created whose values a validation of their program refuses (see
+	 * {@link DeviceValidations#imported(TLObject)}); the devices keep their values.
+	 */
+	private void checkValidations() {
+		Set<Program> programs = new LinkedHashSet<>();
+		for (TLObject validation : getCreated(VALIDATION_TYPE)) {
+			programs.add(ModuleParts.programOf(validation));
+		}
+		for (TLObject device : getCreated(DEVICE_TYPE)) {
+			programs.add(DeviceConfiguration.program(device));
+		}
+		programs.remove(null);
+		for (Program program : programs) {
+			for (ParameterValidation validation : DeviceValidations.all(program)) {
+				String problem = DeviceValidations.problem(validation);
+				if (problem == null) {
+					for (CalculationParameter parameter : validation.getParameters()) {
+						if (parameter.getParameter() == null || DeviceCalculations.variable(parameter) == null) {
+							problem = "a parameter of the validation was not found";
+						}
+					}
+				}
+				if (problem != null) {
+					_messages.log(Level.WARN,
+						I18NConstants.WARN_VALIDATION_NOT_EVALUATED__PROGRAM_VALIDATION_PROBLEM.fill(
+							program.getExtId(), DeviceValidations.label(validation), problem));
+				}
+			}
+		}
+		for (TLObject device : getCreated(DEVICE_TYPE)) {
+			for (ResKey problem : DeviceValidations.imported(device)) {
+				_messages.log(Level.WARN, I18NConstants.WARN_VALIDATION_FAILED__DEVICE_PROBLEM.fill(
 					MetaLabelProvider.INSTANCE.getLabel(device), problem));
 			}
 		}

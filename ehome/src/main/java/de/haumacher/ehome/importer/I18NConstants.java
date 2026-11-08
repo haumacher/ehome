@@ -122,6 +122,21 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 WARN_CALCULATION_KEPT__DEVICE_PROBLEM;
 
 	/**
+	 * @en The application program "{0}", imported earlier without its parameter validations, is completed: its validations are added. They check the values entered from now on.
+	 */
+	public static ResKey1 INFO_VALIDATIONS_COMPLETED__PROGRAM;
+
+	/**
+	 * @en Program {0}: E-Home cannot evaluate the parameter validation {1} ({2}). Its parameters cannot be changed in E-Home; the devices keep the values of the project file.
+	 */
+	public static ResKey3 WARN_VALIDATION_NOT_EVALUATED__PROGRAM_VALIDATION_PROBLEM;
+
+	/**
+	 * @en Device "{0}": the values of the project file do not pass a check of the manufacturer, the device keeps them: {1}
+	 */
+	public static ResKey2 WARN_VALIDATION_FAILED__DEVICE_PROBLEM;
+
+	/**
 	 * @en Device "{0}", module instance {1}: the project file gives the argument {2} the value "{3}", E-Home computes "{4}". The device''s memory was written with the other layout: a download of the device is refused until a full download you confirm writes E-Home''s layout.
 	 */
 	public static ResKey5 WARN_ARGUMENT_DIFFERS__DEVICE_INSTANCE_ARGUMENT_FILE_EHOME;

@@ -44,15 +44,29 @@ import java.util.Set;
  * <li>The functions <code>Int</code>, <code>Fix</code>, <code>Abs</code>, <code>Sgn</code>,
  * <code>Sqr</code>, <code>Round</code> (half to even, optionally to a number of decimals),
  * <code>CInt</code>, <code>CLng</code> (rounded half to even), <code>CDbl</code>.</li>
+ * <li>Reading a member of an object the caller passes (<code>input.RangeMin</code>,
+ * <code>context.Limit</code>; names case-insensitive): the objects of a validation. A script cannot
+ * create objects or assign their members.</li>
  * </ul>
  *
  * <p>
- * Anything else (loops, <code>Select Case</code>, objects, other functions) is a construct not
- * supported: {@link #check(String, String)} names it. A name read before anything gave it a value is
- * an error naming it; so is a division by zero. True is -1 as in VBScript. A script of the subset has
- * no loops; calls nest at most {@value #MAX_DEPTH} deep, so it always ends. A function of the library
- * as the transformation (ETS: <code>LRTransformationFunc</code>) would take objects, which the subset
- * does not have: it is not supported.
+ * Anything else (loops, <code>Select Case</code>, creating objects or assigning their members, other
+ * functions) is a construct not supported: {@link #check(String, String)} names it. A name read before
+ * anything gave it a value is an error naming it; so is a division by zero. True is -1 as in VBScript. A
+ * script of the subset has no loops; calls nest at most {@value #MAX_DEPTH} deep, so it always ends. A
+ * function of the library as the transformation (ETS: <code>LRTransformationFunc</code>) would assign
+ * the members of its object <code>output</code>, which the subset does not support: it is not
+ * supported.
+ * </p>
+ *
+ * <p>
+ * A validation (haumacher/ehome #124) is a <code>Function</code> of the library with four parameters,
+ * called as <code>f(input, changed, prevValue, context)</code>: <code>input</code> an object of the
+ * parameters of the validation by their names, <code>changed</code> the name of the changed one (a
+ * text), <code>prevValue</code> its value before, <code>context</code> the parameters of the
+ * validation, an object for a JSON object, else the text. The function answers by assigning its name:
+ * <code>True</code> (or a number other than 0) accepts, a text refuses with it, <code>False</code> (or
+ * no assignment) refuses without a text.
  * </p>
  */
 public final class VbScriptLanguage implements ScriptLanguage {
@@ -90,13 +104,58 @@ public final class VbScriptLanguage implements ScriptLanguage {
 	@Override
 	public String checkFunction(String library, String function) {
 		return "a function of the script as the transformation (" + function
-			+ ") takes objects, which E-Home's VBScript does not support";
+			+ ") assigns the members of an object, which E-Home's VBScript does not support";
 	}
 
 	@Override
 	public Map<String, Object> call(String library, String function, Map<String, Object> inputs,
 			Map<String, Object> outputs, String parameters) throws CalculationException {
 		throw new CalculationException(checkFunction(library, function));
+	}
+
+	@Override
+	public String checkValidation(String library, String function) {
+		Program lib;
+		try {
+			lib = new Parser(library, Set.of()).parse();
+		} catch (CalculationException ex) {
+			return ex.getMessage();
+		}
+		Procedure procedure = lib.procedures().get(key(function.trim()));
+		if (procedure == null || !procedure.function()) {
+			return "the script defines no Function " + function.trim();
+		}
+		if (procedure.parameters().size() != 4) {
+			return "the Function " + function.trim() + " takes " + procedure.parameters().size()
+				+ " arguments instead of the 4 of a validation (input, changed, prevValue, context)";
+		}
+		return null;
+	}
+
+	@Override
+	public String validate(String library, String function, Map<String, Object> input, String changed,
+			Object previous, String parameters) throws CalculationException {
+		String problem = checkValidation(library, function);
+		if (problem != null) {
+			throw new CalculationException(problem);
+		}
+		Program lib = library(library);
+		Env env = new Env(new HashMap<>(), null, lib.procedures(), 0);
+		runAll(lib.statements(), env);
+		Object context = parameters == null ? "" : JavaScriptLanguage.json(parameters);
+		List<Expression> arguments = new ArrayList<>();
+		arguments.add(new Literal(new LinkedHashMap<>(input)));
+		arguments.add(new Literal(changed));
+		arguments.add(new Literal(previous == null ? "" : previous));
+		arguments.add(new Literal(context == null ? "" : context));
+		Object result = new Invocation(function.trim(), arguments, 0).eval(env);
+		if (result instanceof String text) {
+			return text;
+		}
+		if (result instanceof Map<?, ?> || result instanceof List<?>) {
+			throw new CalculationException("the Function " + function.trim() + " answers an object");
+		}
+		return truth(result) ? null : "";
 	}
 
 	@Override
@@ -214,6 +273,10 @@ public final class VbScriptLanguage implements ScriptLanguage {
 				}
 				String number = text.substring(start, pos);
 				result.add(new Token(Kind.NUMBER, number, Double.valueOf(number), line));
+			} else if (c == '.' && pos + 1 < length && Character.isLetter(text.charAt(pos + 1))) {
+				// The member of an object.
+				pos++;
+				result.add(new Token(Kind.OPERATOR, ".", null, line));
 			} else if (c == '&' && pos + 1 < length && (text.charAt(pos + 1) == 'H' || text.charAt(pos + 1) == 'h')) {
 				int start = pos + 2;
 				pos = start;
@@ -415,6 +478,27 @@ public final class VbScriptLanguage implements ScriptLanguage {
 				throw new CalculationException("the name '" + name + "' has no value (line " + line + ")");
 			}
 			return result;
+		}
+	}
+
+	/** A member of an object the caller passed (<code>input.RangeMin</code>). */
+	private record Member(Expression object, String name, int line) implements Expression {
+		@Override
+		public Object eval(Env env) throws CalculationException {
+			Object value = object.eval(env);
+			if (!(value instanceof Map<?, ?> members)) {
+				throw new CalculationException("'" + text(value) + "' is no object, it has no member '" + name
+					+ "' (line " + line + ")");
+			}
+			for (Map.Entry<?, ?> entry : members.entrySet()) {
+				if (String.valueOf(entry.getKey()).equalsIgnoreCase(name)) {
+					if (entry.getValue() == null) {
+						throw new CalculationException("the member '" + name + "' has no value (line " + line + ")");
+					}
+					return entry.getValue();
+				}
+			}
+			throw new CalculationException("the object has no member '" + name + "' (line " + line + ")");
 		}
 	}
 
@@ -970,7 +1054,16 @@ public final class VbScriptLanguage implements ScriptLanguage {
 						}
 						return new Call(function, arguments, token.line());
 					}
-					return new Variable(token.text(), token.line());
+					Expression result = new Variable(token.text(), token.line());
+					while (peek().is(".")) {
+						_pos++;
+						Token member = next();
+						if (member.kind() != Kind.NAME) {
+							throw unsupported(member);
+						}
+						result = new Member(result, member.text(), member.line());
+					}
+					return result;
 				}
 				default:
 					throw unsupported(token);

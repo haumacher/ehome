@@ -2034,6 +2034,21 @@
 				<property name="calculationsRead"
 					type="tl.core:Boolean"
 				/>
+				<!-- The manufacturer's checks of the values a person enters (ETS: ParameterValidations, haumacher/ehome #124). -->
+				<reference name="validations"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ParameterValidation"
+				/>
+				<!--
+					Whether the import read the validations of the program (haumacher/ehome #124). A program an
+					earlier import left without them is completed by the next import of its file.
+				-->
+				<property name="validationsRead"
+					type="tl.core:Boolean"
+				/>
 			</attributes>
 		</class>
 		<!--
@@ -2122,6 +2137,14 @@
 					multiple="true"
 					ordered="true"
 					type="ParameterCalculation"
+				/>
+				<!-- The checks of the template (ETS: ModuleDef/Static/ParameterValidations), evaluated per instance. -->
+				<reference name="validations"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ParameterValidation"
 				/>
 			</attributes>
 		</class>
@@ -2404,7 +2427,47 @@
 				/>
 			</attributes>
 		</class>
-		<!-- A parameter of a calculation, with the name the scripts know it by (ETS: ParameterRefRef with AliasName). -->
+		<!--
+			A check of the manufacturer refusing values a person enters (ETS: ParameterValidation, haumacher/ehome
+			#124): a function of the script (the program's, followed by its module definition's), called when a
+			person changes one of its parameters as function(input, changed, prevValue, context); it answers true or
+			the message refusing the value (de.haumacher.ehome.calculation.DeviceValidations).
+		-->
+		<class name="ParameterValidation">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-check2-square"/>
+				<id-column value="name"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The function of the script doing the check (ETS: ValidationFunc). -->
+				<property name="function"
+					type="tl.core:String"
+				/>
+				<!-- The parameters of the check, its context argument (ETS: ValidationParameters): a JSON value or a text. -->
+				<property name="arguments"
+					type="tl.core:String"
+				/>
+				<!-- The manufacturer's note on the check (ETS: InternalDescription). -->
+				<property name="internalDescription"
+					type="tl.core:Text"
+				/>
+				<!-- The parameters the check reads, by the names the function knows them by (ETS: Parameters/ParameterRefRef with AliasName). -->
+				<reference name="parameters"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="CalculationParameter"
+				/>
+			</attributes>
+		</class>
+		<!-- A parameter of a calculation or a validation, with the name the scripts know it by (ETS: ParameterRefRef with AliasName). -->
 		<class name="CalculationParameter">
 			<generalizations>
 				<generalization type="tl.model:TLObject"/>

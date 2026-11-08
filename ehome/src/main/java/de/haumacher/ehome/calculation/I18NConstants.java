@@ -60,6 +60,46 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 COMPUTED_BY__CALCULATION;
 
+	/**
+	 * @en The parameter "{0}" is checked by the validation {1} of the manufacturer, which E-Home cannot evaluate ({2}): it cannot be changed in E-Home.
+	 */
+	public static ResKey3 ERROR_NOT_EVALUATED__PARAMETER_VALIDATION_PROBLEM;
+
+	/**
+	 * @en {1} (the check {0} of the manufacturer refuses the value; nothing was changed)
+	 */
+	public static ResKey2 ERROR_REFUSED__VALIDATION_MESSAGE;
+
+	/**
+	 * @en The check {0} of the manufacturer refuses the value. Nothing was changed.
+	 */
+	public static ResKey1 ERROR_REFUSED__VALIDATION;
+
+	/**
+	 * @en The check {0} of the manufacturer failed: {1}. Nothing was changed.
+	 */
+	public static ResKey2 ERROR_FAILED__VALIDATION_PROBLEM;
+
+	/**
+	 * @en A parameter of the validation {0} was not found or has neither an alias nor a name.
+	 */
+	public static ResKey1 ERROR_NO_NAME__VALIDATION;
+
+	/**
+	 * @en The check {0} refuses them: {1}
+	 */
+	public static ResKey2 IMPORT_REFUSED__VALIDATION_MESSAGE;
+
+	/**
+	 * @en The check {0} refuses them.
+	 */
+	public static ResKey1 IMPORT_REFUSED__VALIDATION;
+
+	/**
+	 * @en The check {0} failed: {1}
+	 */
+	public static ResKey2 IMPORT_FAILED__VALIDATION_PROBLEM;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

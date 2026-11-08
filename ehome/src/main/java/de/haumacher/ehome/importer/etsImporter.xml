@@ -937,6 +937,10 @@
 																								<tag name="ParameterCalculations">
 																									<ref handler-id="calculations"/>
 																								</tag>
+																								<!-- The checks of the template, evaluated per instance (haumacher/ehome #124). -->
+																								<tag name="ParameterValidations">
+																									<ref handler-id="validations"/>
+																								</tag>
 																								<tag name="Allocators">
 																									<dispatch>
 																										<tag name="Allocator">
@@ -1575,6 +1579,44 @@
 																				</tag>
 																			</dispatch>
 																		</tag>
+																		<!-- The checks of the manufacturer refusing values a person enters (haumacher/ehome #124), evaluated by E-Home (de.haumacher.ehome.calculation.DeviceValidations). -->
+																		<tag name="ParameterValidations">
+																			<dispatch id="validations">
+																				<tag name="ParameterValidation">
+																					<object model-type="ehome.operational:ParameterValidation" id-attribute="Id">
+																						<linking>
+																							<list-linking name="ehome.operational:Program#validations"/>
+																							<list-linking name="ehome.operational:ModuleDefinition#validations"/>
+																						</linking>
+
+																						<property name="extId" xml-attribute="Id"/>
+																						<property name="name" xml-attribute="Name"/>
+																						<property name="function" xml-attribute="ValidationFunc"/>
+																						<property name="arguments" xml-attribute="ValidationParameters"/>
+																						<property name="internalDescription" xml-attribute="InternalDescription"/>
+
+																						<dispatch>
+																							<tag name="Parameters">
+																								<dispatch>
+																									<tag name="ParameterRefRef">
+																										<object model-type="ehome.operational:CalculationParameter">
+																											<linking>
+																												<list-linking name="ehome.operational:ParameterValidation#parameters"/>
+																											</linking>
+
+																											<reference name="parameter" id-attribute="RefId"/>
+																											<property name="alias" xml-attribute="AliasName"/>
+
+																											<dispatch/>
+																										</object>
+																									</tag>
+																								</dispatch>
+																							</tag>
+																						</dispatch>
+																					</object>
+																				</tag>
+																			</dispatch>
+																		</tag>
 																		<!-- The functions the calculations may call (haumacher/ehome #123). -->
 																		<tag name="Script">
 																			<text-content name="script"/>
@@ -1816,6 +1858,8 @@
 															<assign argument-var="this" property="unplaced" value="p -> concat($p.get(`ehome.operational:Program#parameters`).get(`ehome.operational:Parameter#views`), $p.get(`ehome.operational:Program#ports`).get(`ehome.operational:Port#interfaces`)).filter(x -> $x.container() == null)"/>
 															<!-- Its calculations are read (also where it has none): an import of its file does not complete it (haumacher/ehome #123). -->
 															<assign argument-var="this" property="calculationsRead" value="p -> true"/>
+															<!-- Its validations are read (also where it has none): an import of its file does not complete it (haumacher/ehome #124). -->
+															<assign argument-var="this" property="validationsRead" value="p -> true"/>
 															<!-- The program is read: the languages of its texts are recorded, the held-back warnings about the values of its parameters decided. -->
 															<program-imported/>
 														</object>
@@ -1827,6 +1871,7 @@
 																<module><ref handler-id="module-placement"/></module>
 																<repeat><ref handler-id="repeat"/></repeat>
 																<calculations><ref handler-id="calculations"/></calculations>
+																<validations><ref handler-id="validations"/></validations>
 																<known-program-texts>
 																	<ref handler-id="program-texts"/>
 																	<update-known>

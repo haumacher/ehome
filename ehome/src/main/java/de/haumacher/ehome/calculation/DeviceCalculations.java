@@ -451,7 +451,11 @@ public final class DeviceCalculations {
 				label(calculation), problem));
 		}
 		ScriptLanguage language = language(calculation.getLanguage());
+		// The variables of inline code; the members of input and output of a function, which may have the
+		// same names (programs in the field give a parameter the same alias on both sides).
 		Map<String, Object> variables = new LinkedHashMap<>();
+		Map<String, Object> sources = new LinkedHashMap<>();
+		Map<String, Object> current = new LinkedHashMap<>();
 		Map<String, ParameterView> targets = new LinkedHashMap<>();
 		List<? extends CalculationParameter> inputs = calculation.getInputs();
 		List<? extends CalculationParameter> outputs = calculation.getOutputs();
@@ -462,9 +466,13 @@ public final class DeviceCalculations {
 					throw new TopLogicException(I18NConstants.ERROR_NO_NAME__CALCULATION.fill(label(calculation)));
 				}
 				ParameterView view = bound.view(parameter);
-				variables.put(name, scriptValue(DeviceSettings.value(device, view)));
+				Object value = scriptValue(DeviceSettings.value(device, view));
+				variables.put(name, value);
 				if (input != lr) {
 					targets.put(name, view);
+					current.put(name, value);
+				} else {
+					sources.put(name, value);
 				}
 			}
 		}
@@ -476,11 +484,6 @@ public final class DeviceCalculations {
 			if (code != null && !code.isBlank()) {
 				values = language.run(library, code, variables);
 			} else if (function != null && !function.isBlank()) {
-				Map<String, Object> sources = new LinkedHashMap<>(variables);
-				Map<String, Object> current = new LinkedHashMap<>();
-				for (String name : targets.keySet()) {
-					current.put(name, sources.remove(name));
-				}
 				values = language.call(library, function, sources, current,
 					lr ? calculation.getLrParameters() : calculation.getRlParameters());
 			} else {

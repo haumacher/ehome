@@ -34,6 +34,7 @@
 #   skip Rename                            (haumacher/ehome #122)
 #   skip ParameterCalculations             (haumacher/ehome #123)
 #   skip Static/Script                     (haumacher/ehome #123)
+#   skip ParameterValidations              (haumacher/ehome #124)
 #   skip ProjectTraces                     (ETS 6's history of the project, not read)
 # besides rules for what the import does not read of schema 23 (doc/knx/schema-coverage.md,
 # "Project schema 23").

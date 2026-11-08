@@ -270,6 +270,34 @@ Rechengerät" (1.0.1, FFFA) with consistent values (Dauer 3725 = 1 h 2 min 5 s, 
 values only (Dauer_h 2, Dauer_min 0, Dauer_s 30, Stufe 7 in the first instance), from which RL derives
 the L values; "TEST Rechengerät gesperrt" (1.0.3, FFFB) with GesperrtR 1.
 
+TestValidations.knxproj: the samples contain no parameter validation (ETS 6: ParameterValidation,
+haumacher/ehome #124). This file (schema 23, the master data and the project of the Test project) holds
+two artificial programs of the BCU 1 kind on their own hardware "TEST Prüfungen", marked as test data by
+their names, with the validations in the shape of the KNX schema (Static/ParameterValidations/
+ParameterValidation with Id, Name, ValidationFunc, optional ValidationParameters and InternalDescription,
+Parameters/ParameterRefRef with RefId and AliasName) and with the calling convention of the programs in the
+field (as in OpenKNX OFM-PresenceModule and OFM-AccessControl; the functions are artificial).
+M-0008_A-FFFC-01-0000 (JavaScript Script, after the association table as the schema orders it) has the L
+parameters (without memory) "Untergrenze" (0..100, default 1), "Obergrenze" (default 5), "Modell" (Basis
+0 / Profi 1, default Basis), "Nummer" (0..2000, default 1), "Helligkeit" (0..255, default 10),
+"Fehlerwert" (0..10, default 0), "Typ" (0..5, default 0) and the R parameter "TypR" (access None, 0x158,
+default 0), with the validations PV-1 "Abstand" (TEST_abstand, aliases Low and High: Low below High, an
+InternalDescription), PV-2 "Kapazitaet" (TEST_kapazitaet: Nummer at most 100 or 1000 by the value of
+Modell, the text by changed), PV-3 "Helligkeit" (without an alias, ValidationParameters {"Max": 50}: at
+most context.Max, else a text with prevValue), PV-4 "Fehler" (alias Wert: 7 throws, 8 answers false) and
+PV-5 "Typ" (alias Art: 4 is refused), the calculation PC-1 "Typ" with the LR and RL function
+TEST_uebernehmen (the alias Art on both sides: Typ to TypR), and a function of a button
+(Button@EventHandler, not called) and a top-level variable in the Script. Its module "Kanal" (MD-1, placed
+twice) has the parameters "Ein" (default 10) and "Aus" (default 20) and the validation MD-1_PV-1
+"EinVorAus" (TEST_kanal of the program's Script: Ein below Aus). M-0008_A-FFFD-01-0000 (VBScript Script)
+has the parameters "Von" (default 1), "Bis" (default 10), "Wert" (default 5) and "Gesperrt" (default 0),
+with the validations PV-1 "Bereich" (PruefeBereich: Von not above Bis, a text by changed with prevValue),
+PV-2 "Grenze" (PruefeGrenze without an alias, ValidationParameters {"Grenze": 50}: False above it) and
+PV-3 "Fehlt" (ValidationFunc PruefeFehlt, which the Script does not define). Devices: "TEST Prüfgerät"
+(1.0.1, FFFC, Untergrenze 2, Obergrenze 8), "TEST Prüfgerät ungültig" (1.0.2, FFFC, Untergrenze 9 and
+Obergrenze 3, and Ein 50 in the second module instance: values the validations refuse), "TEST Prüfgerät
+VBScript" (1.0.3, FFFD, defaults).
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -1644,8 +1672,11 @@ CHANNEL_PRODUCT = CHANNEL_HARDWARE + '_P-TEST.20KANAL'
 CHANNEL_ASSIGNMENT = CHANNEL_HARDWARE + '_HP-FFF9-01-0000'
 
 
-def bcu1_program_file(p, number, name, static, module_defs, dynamic, languages=''):
-    """An application program of the BCU 1 kind (memory of "TEST BCU1 mit Daten"), schema 23."""
+def bcu1_program_file(p, number, name, static, module_defs, dynamic, languages='', script=''):
+    """An application program of the BCU 1 kind (memory of "TEST BCU1 mit Daten"), schema 23.
+
+    The script (a Script element) goes where the schema places it, after the association table.
+    """
     segment = p + '_AS-0100'
     data, mask = bcu1_memory()
     xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
@@ -1658,8 +1689,8 @@ def bcu1_program_file(p, number, name, static, module_defs, dynamic, languages='
         '<Static>\n<Code><AbsoluteSegment Id="{s}" Address="256" Size="256" UserMemory="0"><Data>' + data
         + '</Data><Mask>' + mask + '</Mask></AbsoluteSegment></Code>\n' + static
         + '<AddressTable CodeSegment="{s}" Offset="22" MaxEntries="6" />\n'
-        '<AssociationTable CodeSegment="{s}" Offset="37" MaxEntries="8" />\n'
-        '<Options ParameterByteOrder="BigEndian" />\n'
+        '<AssociationTable CodeSegment="{s}" Offset="37" MaxEntries="8" />\n' + script
+        + '<Options ParameterByteOrder="BigEndian" />\n'
         '</Static>\n' + module_defs + dynamic
         + '</ApplicationProgram>\n</ApplicationPrograms>' + languages + '</Manufacturer></ManufacturerData>\n</KNX>\n')
     return xml.replace('{s}', segment).replace('{p}', p)
@@ -1946,6 +1977,185 @@ def calculations_fixture(name, xml):
     return xml
 
 
+# TestValidations.knxproj: parameter validations (haumacher/ehome #124), see the module comment.
+CHECK_PROGRAM = 'M-0008_A-FFFC-01-0000'
+VB_CHECK_PROGRAM = 'M-0008_A-FFFD-01-0000'
+CHECK_HARDWARE = 'M-0008_H-TEST.20PRUEFUNG-1'
+CHECK_PRODUCT = CHECK_HARDWARE + '_P-TEST.20PRUEFUNG'
+CHECK_ASSIGNMENT = CHECK_HARDWARE + '_HP-FFFC-01-0000'
+VB_CHECK_ASSIGNMENT = CHECK_HARDWARE + '_HP-FFFD-01-0000'
+
+
+def validation(ident, name, function, refs, parameters=None, description=None):
+    """A validation in the shape of the KNX schema: the parameter references as (RefId,
+    AliasName or None)."""
+    return ('<ParameterValidation Id="{p}_%s" Name="%s" ValidationFunc="%s"%s%s>\n<Parameters>\n' % (ident, name,
+            function, '' if parameters is None else ' ValidationParameters="%s"' % xml_text(parameters),
+            '' if description is None else ' InternalDescription="%s"' % xml_text(description))
+        + ''.join('<ParameterRefRef RefId="{p}_%s"%s />\n' % (ref, '' if alias is None else ' AliasName="%s"' % alias)
+            for ref, alias in refs)
+        + '</Parameters>\n</ParameterValidation>\n')
+
+
+# The calling convention of the functions (validations: function(input, changed, prevValue, context);
+# calculations: function(input, output, context), the same alias on both sides) is that of the programs in the
+# field, e.g. OpenKNX OFM-PresenceModule (src/PMmodul.script.js), OFM-AccessControl
+# (src/AccessControl.script.js) and OGM-Common (src/Common.script.js); the code below is artificial.
+CHECK_SCRIPT = (
+    'function TEST_abstand(input, changed, prevValue, context) {\n'
+    '    if (input.Low < input.High) {\n'
+    '        return true;\n'
+    '    }\n'
+    '    return "Die Untergrenze muss unter der Obergrenze liegen.";\n'
+    '}\n\n'
+    # A function of a button (Button@EventHandler), which E-Home does not call, and a top-level variable.
+    'function TEST_knopf(device, online, progress, context) {\n'
+    '    device.getParameterByName("TEST_Knopf").value = 0;\n'
+    '}\n\n'
+    'var TEST_stufen = [100, 1000];\n\n'
+    'function TEST_kapazitaet(input, changed, prevValue, context) {\n'
+    '    var max = TEST_stufen[input.Modell];\n'
+    '    if (input.Nummer <= max) {\n'
+    '        return true;\n'
+    '    }\n'
+    '    return changed == "Nummer" ? "Nummer " + input.Nummer + " liegt über " + max + "."\n'
+    '        : "Das Modell erlaubt höchstens " + max + " Nummern.";\n'
+    '}\n\n'
+    'function TEST_helligkeit(input, changed, prevValue, context) {\n'
+    '    return input.Helligkeit <= context.Max || ("Höchstens " + context.Max + " (bisher " + prevValue + ")");\n'
+    '}\n\n'
+    'function TEST_fehler(input, changed, prevValue, context) {\n'
+    '    if (input.Wert == 7) { throw new Error("kaputt"); }\n'
+    '    return input.Wert != 8;\n'
+    '}\n\n'
+    'function TEST_typ(input, changed, prevValue, context) {\n'
+    '    return input.Art != 4 || "Die Art 4 gibt es nicht.";\n'
+    '}\n\n'
+    'function TEST_uebernehmen(input, output, context) {\n'
+    '    output.Art = input.Art;\n'
+    '}\n\n'
+    'function TEST_kanal(input, changed, prevValue, context) {\n'
+    '    return input.Ein < input.Aus || "Ein muss kleiner als Aus sein.";\n'
+    '}\n')
+
+
+def check_program():
+    types = (number_type('Weite', 8, 0, 100) + number_type('Nummer', 16, 0, 2000) + number_type('Byte', 8, 0, 255)
+        + number_type('Klein', 8, 0, 10) + number_type('Typ', 8, 0, 5)
+        + '<ParameterType Id="{p}_PT-Modell" Name="Modell"><TypeRestriction Base="Value" SizeInBit="8">'
+        '<Enumeration Id="{p}_PT-Modell_EN-0" Text="Basis" Value="0" DisplayOrder="0" />'
+        '<Enumeration Id="{p}_PT-Modell_EN-1" Text="Profi" Value="1" DisplayOrder="1" />'
+        '</TypeRestriction></ParameterType>\n')
+    params = [('P-1', 'Untergrenze', 'Weite', 1, None), ('P-2', 'Obergrenze', 'Weite', 5, None),
+        ('P-3', 'Modell', 'Modell', 0, None), ('P-4', 'Nummer', 'Nummer', 1, None),
+        ('P-5', 'Helligkeit', 'Byte', 10, None), ('P-6', 'Fehlerwert', 'Klein', 0, None),
+        ('P-7', 'Typ', 'Typ', 0, None), ('P-8', 'TypR', 'Byte', 0, 0x58)]
+    validations = (
+        validation('PV-1', 'Abstand', 'TEST_abstand', [('P-1_R-1', 'Low'), ('P-2_R-1', 'High')],
+            description='Untergrenze unter Obergrenze')
+        + validation('PV-2', 'Kapazitaet', 'TEST_kapazitaet', [('P-3_R-1', 'Modell'), ('P-4_R-1', 'Nummer')])
+        + validation('PV-3', 'Helligkeit', 'TEST_helligkeit', [('P-5_R-1', None)], '{"Max": 50}')
+        + validation('PV-4', 'Fehler', 'TEST_fehler', [('P-6_R-1', 'Wert')])
+        + validation('PV-5', 'Typ', 'TEST_typ', [('P-7_R-1', 'Art')]))
+    calculations = calculation('PC-1', 'Typ', 'JavaScript', None, None, [('P-7_R-1', 'Art')],
+        [('P-8_R-1', 'Art')], ('TEST_uebernehmen', '', 'TEST_uebernehmen', ''))
+    static = ('<ParameterTypes>\n' + types + '</ParameterTypes>\n<Parameters>\n'
+        + '\n'.join(parameter(i, n, t, v, o) for i, n, t, v, o in params) + '\n</Parameters>\n<ParameterRefs>\n'
+        + ''.join('<ParameterRef Id="{p}_%s_R-1" RefId="{p}_%s" />\n' % (i, i) for i, _, _, _, _ in params)
+        + '</ParameterRefs>\n<ParameterCalculations>\n' + calculations + '</ParameterCalculations>\n'
+        + '<ParameterValidations>\n' + validations + '</ParameterValidations>\n' + bcu1_objects())
+    module_params = [('MD-1_P-1', 'Ein', 'Weite', 10, None), ('MD-1_P-2', 'Aus', 'Weite', 20, None)]
+    module = ('<ModuleDefs><ModuleDef Id="{p}_MD-1" Name="Kanal"><Arguments>'
+        '<Argument Id="{p}_MD-1_A-1" Name="ParamOffsBase" /></Arguments>\n<Static><Parameters>'
+        + ''.join(parameter(i, n, t, v, o) for i, n, t, v, o in module_params)
+        + '</Parameters>\n<ParameterRefs>'
+        + ''.join('<ParameterRef Id="{p}_%s_R-1" RefId="{p}_%s" />' % (i, i) for i, _, _, _, _ in module_params)
+        + '</ParameterRefs>\n<ParameterValidations>\n'
+        + validation('MD-1_PV-1', 'EinVorAus', 'TEST_kanal', [('MD-1_P-1_R-1', 'Ein'), ('MD-1_P-2_R-1', 'Aus')])
+        + '</ParameterValidations>\n</Static>\n'
+        '<Dynamic><Channel Id="{p}_MD-1_CH-1" Name="Kanal" Text="Kanal"><ParameterBlock Id="{p}_MD-1_PB-1" '
+        'Name="Kanal" Text="Kanal">'
+        + ''.join('<ParameterRefRef RefId="{p}_%s_R-1" />' % i for i, _, _, _, _ in module_params)
+        + '</ParameterBlock></Channel></Dynamic></ModuleDef></ModuleDefs>\n')
+    dynamic = ('<Dynamic><Channel Id="{p}_CH-1" Name="Allgemein" Text="Allgemein" Number="1">'
+        '<ParameterBlock Id="{p}_PB-1" Name="Allgemein" Text="Allgemein">'
+        + ''.join('<ParameterRefRef RefId="{p}_%s_R-1" />' % i for i, _, _, _, _ in params)
+        + '</ParameterBlock></Channel>\n'
+        + ''.join('<Module Id="{p}_MD-1_M-%d" RefId="{p}_MD-1" Name="Kanal %d"><NumericArg RefId="{p}_MD-1_A-1" '
+            'Value="%d" /></Module>\n' % (n, n, base) for n, base in ((1, 0x60), (2, 0x68)))
+        + '</Dynamic>\n')
+    return bcu1_program_file(CHECK_PROGRAM, 65532, 'TEST: Parameterprüfungen (künstliche Testdaten)', static, module,
+        dynamic, script='<Script>' + xml_text(CHECK_SCRIPT) + '</Script>\n')
+
+
+VB_CHECK_SCRIPT = NL.join([
+    'Function PruefeBereich(input, changed, prevValue, context)',
+    '  If input.Von > input.Bis Then',
+    '    If changed = "Von" Then',
+    '      PruefeBereich = "Von (" & input.Von & ") darf nicht größer als Bis sein, bisher " & prevValue',
+    '    Else',
+    '      PruefeBereich = "Bis darf nicht kleiner als Von sein"',
+    '    End If',
+    '  Else',
+    '    PruefeBereich = True',
+    '  End If',
+    'End Function',
+    'Function PruefeGrenze(input, changed, prevValue, context)',
+    '  PruefeGrenze = input.Wert <= context.Grenze',
+    'End Function'])
+
+
+def vb_check_program():
+    static = ('<ParameterTypes>\n' + number_type('Byte', 8, 0, 255) + '</ParameterTypes>\n<Parameters>\n'
+        + parameter('P-1', 'Von', 'Byte', 1) + '\n' + parameter('P-2', 'Bis', 'Byte', 10) + '\n'
+        + parameter('P-3', 'Wert', 'Byte', 5) + '\n' + parameter('P-4', 'Gesperrt', 'Byte', 0)
+        + '\n</Parameters>\n<ParameterRefs>\n'
+        + ''.join('<ParameterRef Id="{p}_P-%d_R-1" RefId="{p}_P-%d" />\n' % (n, n) for n in range(1, 5))
+        + '</ParameterRefs>\n<ParameterValidations>\n'
+        + validation('PV-1', 'Bereich', 'PruefeBereich', [('P-1_R-1', 'Von'), ('P-2_R-1', 'Bis')])
+        + validation('PV-2', 'Grenze', 'PruefeGrenze', [('P-3_R-1', None)], '{"Grenze": 50}')
+        + validation('PV-3', 'Fehlt', 'PruefeFehlt', [('P-4_R-1', None)])
+        + '</ParameterValidations>\n' + bcu1_objects())
+    dynamic = ('<Dynamic><Channel Id="{p}_CH-1" Name="Allgemein" Text="Allgemein" Number="1">'
+        '<ParameterBlock Id="{p}_PB-1" Name="Allgemein" Text="Allgemein">'
+        + ''.join('<ParameterRefRef RefId="{p}_P-%d_R-1" />' % n for n in range(1, 5))
+        + '</ParameterBlock></Channel></Dynamic>\n')
+    return bcu1_program_file(VB_CHECK_PROGRAM, 65533, 'TEST: Parameterprüfungen in VBScript (künstliche Testdaten)',
+        static, '', dynamic, script='<Script>' + xml_text(VB_CHECK_SCRIPT) + '</Script>\n')
+
+
+def check_devices(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+
+    def device(number, name, assignment, values, instances):
+        return ('<DeviceInstance Id="P-01A0-0_DI-%d" Name="%s" ProductRefId="%s" Hardware2ProgramRefId="%s" '
+            'Address="%d" LastModified="2026-11-08T12:00:00">\n<ParameterInstanceRefs>\n' % (number, name,
+                CHECK_PRODUCT, assignment, number)
+            + ''.join('<ParameterInstanceRef RefId="%s" Value="%s" />\n' % entry for entry in values)
+            + '</ParameterInstanceRefs>\n'
+            + ('' if not instances else '<ModuleInstances>' + ''.join(
+                '<ModuleInstance Id="MD-1_M-%d_MI-1" RefId="MD-1_M-%d"><Arguments><Argument RefId="MD-1_A-1" '
+                'Value="%d" /></Arguments></ModuleInstance>' % (n, n, base) for n, base in ((1, 0x60), (2, 0x68)))
+                + '</ModuleInstances>\n')
+            + '</DeviceInstance>')
+    p = CHECK_PROGRAM
+    valid = device(1, 'TEST Prüfgerät', CHECK_ASSIGNMENT, [('P-1_R-1', '2'), ('P-2_R-1', '8')], True)
+    invalid = device(2, 'TEST Prüfgerät ungültig', CHECK_ASSIGNMENT, [('P-1_R-1', '9'), ('P-2_R-1', '3'),
+        (p + '_MD-1_M-2_MI-1_P-1_R-1', '50')], True)
+    basic = device(3, 'TEST Prüfgerät VBScript', VB_CHECK_ASSIGNMENT, [], False)
+    return xml[:start] + valid + '\n' + invalid + '\n' + basic + xml[end:]
+
+
+def validations_fixture(name, xml):
+    xml = replace_once(xml, SCHEMA_11, SCHEMA_23)
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestValidations')
+    if name == PROJECT:
+        return check_devices(xml)
+    return xml
+
+
 write('src/test/fixtures/TestDetails.knxproj', keep_details)
 write('src/test/fixtures/TestDynamic.knxproj', dynamic,
     rename=lambda name: name.replace(VERSION, NEW_VERSION))
@@ -1984,4 +2194,10 @@ write('src/test/fixtures/TestCalculations.knxproj', calculations_fixture,
     [('M-0008/Hardware.xml', test_hardware(CALC_HARDWARE, CALC_PRODUCT, 'TEST Berechnungen',
         [(CALC_ASSIGNMENT, CALC_PROGRAM), (LOCKED_ASSIGNMENT, LOCKED_PROGRAM)])),
      ('M-0008/' + CALC_PROGRAM + '.xml', calc_program()), ('M-0008/' + LOCKED_PROGRAM + '.xml', locked_program())],
+    keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))
+write('src/test/fixtures/TestValidations.knxproj', validations_fixture,
+    [('M-0008/Hardware.xml', test_hardware(CHECK_HARDWARE, CHECK_PRODUCT, 'TEST Prüfungen',
+        [(CHECK_ASSIGNMENT, CHECK_PROGRAM), (VB_CHECK_ASSIGNMENT, VB_CHECK_PROGRAM)])),
+     ('M-0008/' + CHECK_PROGRAM + '.xml', check_program()),
+     ('M-0008/' + VB_CHECK_PROGRAM + '.xml', vb_check_program())],
     keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))

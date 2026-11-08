@@ -2579,6 +2579,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#VALIDATIONS_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getValidationsProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.VALIDATIONS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#VALIDATIONS_READ_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getValidationsReadProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.VALIDATIONS_READ_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ModuleDefinition} type.
 	 */
 	public static com.top_logic.model.TLClass getModuleDefinitionType() {
@@ -2653,6 +2667,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLReference getUnplacedModuleDefinitionAttr() {
 		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.UNPLACED_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#VALIDATIONS_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLReference getValidationsModuleDefinitionAttr() {
+		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.VALIDATIONS_ATTR);
 	}
 
 	/**
@@ -2933,6 +2954,48 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLProperty getRlParametersParameterCalculationAttr() {
 		return (com.top_logic.model.TLProperty) getParameterCalculationType().getPart(ParameterCalculation.RL_PARAMETERS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValidation} type.
+	 */
+	public static com.top_logic.model.TLClass getParameterValidationType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(ParameterValidation.PARAMETER_VALIDATION_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ParameterValidation#ARGUMENTS_ATTR} of {@link ParameterValidation}.
+	 */
+	public static com.top_logic.model.TLProperty getArgumentsParameterValidationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterValidationType().getPart(ParameterValidation.ARGUMENTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValidation#FUNCTION_ATTR} of {@link ParameterValidation}.
+	 */
+	public static com.top_logic.model.TLProperty getFunctionParameterValidationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterValidationType().getPart(ParameterValidation.FUNCTION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValidation#INTERNAL_DESCRIPTION_ATTR} of {@link ParameterValidation}.
+	 */
+	public static com.top_logic.model.TLProperty getInternalDescriptionParameterValidationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterValidationType().getPart(ParameterValidation.INTERNAL_DESCRIPTION_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValidation#NAME_ATTR} of {@link ParameterValidation}.
+	 */
+	public static com.top_logic.model.TLProperty getNameParameterValidationAttr() {
+		return (com.top_logic.model.TLProperty) getParameterValidationType().getPart(ParameterValidation.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterValidation#PARAMETERS_ATTR} of {@link ParameterValidation}.
+	 */
+	public static com.top_logic.model.TLReference getParametersParameterValidationAttr() {
+		return (com.top_logic.model.TLReference) getParameterValidationType().getPart(ParameterValidation.PARAMETERS_ATTR);
 	}
 
 	/**
@@ -5704,6 +5767,22 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String KO_NAME_PARAMETER_CALCULATION = de.haumacher.ehome.model.operational.internal.ParameterCalculationBase.TABLE_NAME;
 
 	/**
+	 * Name of type <code>ParameterValidation</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link ParameterValidation#PARAMETER_VALIDATION_TYPE}.
+	 */
+	@Deprecated
+	public static final String PARAMETER_VALIDATION_NODE = ParameterValidation.PARAMETER_VALIDATION_TYPE;
+
+	/**
+	 * Storage table name of {@link #PARAMETER_VALIDATION_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.ParameterValidationBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_PARAMETER_VALIDATION = de.haumacher.ehome.model.operational.internal.ParameterValidationBase.TABLE_NAME;
+
+	/**
 	 * Name of type <code>CalculationParameter</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link CalculationParameter#CALCULATION_PARAMETER_TYPE}.
@@ -6377,6 +6456,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public final ParameterCalculation createParameterCalculation() {
 		return createParameterCalculation(null);
+	}
+
+	/**
+	 * Create an instance of {@link ParameterValidation} type.
+	 */
+	public final ParameterValidation createParameterValidation(com.top_logic.model.TLObject context) {
+		return (ParameterValidation) createObject(getParameterValidationType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link ParameterValidation} type.
+	 */
+	public final ParameterValidation createParameterValidation() {
+		return createParameterValidation(null);
 	}
 
 	/**
