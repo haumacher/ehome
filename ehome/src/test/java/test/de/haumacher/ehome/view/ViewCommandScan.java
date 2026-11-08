@@ -28,7 +28,9 @@ import com.top_logic.layout.view.command.NullInputDisabled;
 import com.top_logic.layout.view.command.UploadCommand;
 import com.top_logic.layout.view.command.ViewCommand;
 import com.top_logic.layout.view.command.ViewExecutabilityRule;
+import com.top_logic.layout.view.dnd.DropConfig;
 import com.top_logic.layout.view.security.CommandAccess;
+import com.top_logic.layout.view.security.OperationAccess;
 import com.top_logic.model.search.expr.GenericMethod;
 import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.SearchBuilder;
@@ -67,6 +69,9 @@ public class ViewCommandScan {
 	private static final Set<String> ENGINE_WRITES = Set.of(
 		"com.top_logic.layout.view.command.WithTransactionAction");
 
+	/** The TL-Script function testing the write access of an object. */
+	private static final String CAN_WRITE = "canWrite";
+
 	/** Package prefix of the actions of the app and of the tooling. */
 	private static final String APP_PACKAGE = "de.haumacher.ehome.";
 
@@ -87,22 +92,7 @@ public class ViewCommandScan {
 		 * The simple names of the actions of the command changing data, see the class comment.
 		 */
 		public Set<String> writes() {
-			Set<String> result = new TreeSet<>();
-			for (ConfigurationItem action : items(config)) {
-				if (action == config || action instanceof ViewCommand.Config
-					|| !(action instanceof PolymorphicConfiguration<?> polymorphic)
-					|| polymorphic.getImplementationClass() == null) {
-					continue;
-				}
-				String name = polymorphic.getImplementationClass().getName();
-				if (ENGINE_WRITES.contains(name) || name.startsWith(APP_PACKAGE)) {
-					result.add(polymorphic.getImplementationClass().getSimpleName());
-				}
-				if (action instanceof ExecuteScriptAction.Config script) {
-					writingFunctions(script.getFunction(), result);
-				}
-			}
-			return result;
+			return ViewCommandScan.writes(config);
 		}
 
 		/**
@@ -144,6 +134,90 @@ public class ViewCommandScan {
 		public String toString() {
 			return view + ": " + String.join(", ", writes());
 		}
+	}
+
+	/**
+	 * The simple names of the actions in the given command or drop that change data, see the class
+	 * comment: the engine's transaction, actions of the app, and the functions of the app with side
+	 * effects that its scripts call (as <code>name()</code>). Nested commands are not included.
+	 */
+	static Set<String> writes(ConfigurationItem config) {
+		Set<String> result = new TreeSet<>();
+		for (ConfigurationItem action : items(config)) {
+			if (action == config || action instanceof ViewCommand.Config
+				|| !(action instanceof PolymorphicConfiguration<?> polymorphic)
+				|| polymorphic.getImplementationClass() == null) {
+				continue;
+			}
+			String name = polymorphic.getImplementationClass().getName();
+			if (ENGINE_WRITES.contains(name) || name.startsWith(APP_PACKAGE)) {
+				result.add(polymorphic.getImplementationClass().getSimpleName());
+			}
+			if (action instanceof ExecuteScriptAction.Config script) {
+				writingFunctions(script.getFunction(), result);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Whether the given drop checks the access of the user (haumacher/ehome #108): a drop has no
+	 * <code>&lt;access&gt;</code> of its own, it declares an <code>&lt;operation&gt;</code> rule in its
+	 * <code>&lt;executability&gt;</code> or <code>&lt;target-executability&gt;</code>, or tests the
+	 * write access of the dragged objects one by one with <code>canWrite()</code> in its
+	 * <code>refuse-if</code>.
+	 */
+	public static boolean dropChecked(DropConfig drop) {
+		List<ConfigurationItem> rules = new ArrayList<>();
+		collect(drop.getExecutability(), rules, new IdentityHashMap<>());
+		collect(drop.getTargetExecutability(), rules, new IdentityHashMap<>());
+		if (rules.stream().anyMatch(rule -> rule instanceof OperationAccess.Config)) {
+			return true;
+		}
+		Expr refuseIf = drop.getRefuseIf();
+		if (refuseIf == null) {
+			return false;
+		}
+		boolean[] found = { false };
+		SearchExpression compiled = SearchBuilder.toSearchExpression(ModelService.getApplicationModel(), refuseIf);
+		compiled.visit(new DefaultDescendingVisitor<Void, Void>() {
+			@Override
+			protected Void composeGenericMethod(GenericMethod expr, Void arg, List<Void> argumentsResult) {
+				if (CAN_WRITE.equals(expr.getName())) {
+					found[0] = true;
+				}
+				return null;
+			}
+		}, null);
+		return found[0];
+	}
+
+	/**
+	 * The drops of the views in the given directory that change data (see {@link #writes(ConfigurationItem)})
+	 * without an access check (see {@link #dropChecked(DropConfig)}).
+	 */
+	public static List<String> uncheckedDrops(Path views) throws IOException {
+		List<String> result = new ArrayList<>();
+		try (Stream<Path> files = Files.walk(views)) {
+			for (Path file : (Iterable<Path>) files.filter(f -> f.toString().endsWith(".view.xml")).sorted()::iterator) {
+				String view = views.relativize(file).toString().replace('\\', '/');
+				ConfigurationItem root;
+				try {
+					root = ViewLoader.loadConfig(ViewLoader.fullPath(view));
+				} catch (Exception ex) {
+					throw new AssertionError("The view " + view + " does not load.", ex);
+				}
+				for (ConfigurationItem item : items(root)) {
+					if (item instanceof DropConfig drop) {
+						Set<String> writes = writes(drop);
+						if (!writes.isEmpty() && !dropChecked(drop)) {
+							result.add(view + " (" + drop.location() + "): drop " + String.join(", ", writes));
+						}
+					}
+				}
+			}
+		}
+		return result;
 	}
 
 	/**

@@ -25,6 +25,12 @@ public class TestCommandAccessProbe extends BasicTestCase {
 			unchecked);
 	}
 
+	public void testDataChangingDropsAreChecked() throws Exception {
+		List<String> unchecked = ViewCommandScan.uncheckedDrops(ViewCommandScan.VIEWS);
+		assertEquals("Drops changing data without an access check:\n" + String.join("\n", unchecked), List.of(),
+			unchecked);
+	}
+
 	public void testDeclaredChecksAreValid() throws Exception {
 		List<String> invalid = ViewCommandScan.invalidChecks(ViewCommandScan.VIEWS);
 		assertEquals("Access checks that do not build:\n" + String.join("\n", invalid), List.of(), invalid);
