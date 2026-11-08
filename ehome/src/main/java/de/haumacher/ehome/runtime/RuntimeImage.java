@@ -34,7 +34,7 @@ import de.haumacher.ehome.rules.Schedule;
 
 /**
  * The runtime image of a project: the JSON document a HomeControl controller runs
- * (homecontrol <code>spec/runtime-image.md</code>, schema 1.3), derived from the project.
+ * (homecontrol <code>spec/runtime-image.md</code>, schema 1.5), derived from the project.
  *
  * <p>
  * The mapping:
@@ -92,8 +92,11 @@ import de.haumacher.ehome.rules.Schedule;
  */
 public final class RuntimeImage {
 
-	/** The version of the schema of the images E-Home writes. */
-	public static final String SCHEMA_VERSION = "1.4";
+	/**
+	 * The version of the schema of the images E-Home writes; 1.5 brings the parameter ids of the rule
+	 * id characters (homecontrol <code>spec/rules.md</code> 2.1, haumacher/ehome #110).
+	 */
+	public static final String SCHEMA_VERSION = "1.5";
 
 	/**
 	 * The <code>presses</code> E-Home writes for a button whose press is the action of a Zigbee remote

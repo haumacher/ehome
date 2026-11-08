@@ -39,6 +39,7 @@ import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageComparison;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
+import de.haumacher.ehome.runtime.RuleImport;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
@@ -337,6 +338,82 @@ public class TestDeployment extends BasicTestCase {
 			SharedData.deleteProjects(List.of(project));
 			SharedData.deleteProjects(controllers);
 			TestZigbeeRemoteProposal.delete(types);
+		}
+	}
+
+	/**
+	 * An image with a rule parameter whose id is no identifier (<code>max-helligkeit</code>,
+	 * haumacher/ehome #110, homecontrol spec/rules.md 2.1) goes only to a controller that reads schema
+	 * 1.5: refused, recorded with its reason and not sent, for a controller reporting 1.4 and for one
+	 * reporting no schema; accepted for 1.5. With an identifier as the id the image (written as 1.5)
+	 * still goes to 1.4, and the confirmation does not warn of the older schema.
+	 */
+	public void testParameterIdsNeedSchema15() throws Exception {
+		TLObject project = TestRuleAuthoring.createProject();
+		List<TLObject> controllers = new ArrayList<>();
+		try {
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				new RuleImport().importImage(project, """
+					{"rules": [{"id": "dimmer", "name": "Dimmer",
+						"parameters": [{"id": "max-helligkeit", "label": "Max", "type": "real", "default": 80.0}],
+						"reactions": [{"triggers": [{"kind": "start"}], "actions": [{"kind": "log", "level": "info",
+						"message": ["max ", {"kind": "parameter", "id": "max-helligkeit"}]}]}]}]}
+					""");
+				tx.commit();
+			}
+			TLObject parameter = (TLObject) ((List<?>) ((TLObject) ((List<?>) project.tValueByName("rules")).get(0))
+				.tValueByName("parameters")).get(0);
+			assertEquals("max-helligkeit", parameter.tValueByName("identifier"));
+			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
+			assertTrue(image.validate().toString(), image.validate().isValid());
+			assertEquals("1.5", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+
+			TLObject controller = controller("Fake 1.4", _fake.getPort(), TOKEN);
+			controllers.add(controller);
+			update(project, "controller", controller);
+
+			_fake.setSchema("1.4");
+			int puts = _fake.getPuts();
+			TLObject refused = Deployer.deploy(project, NOW);
+			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
+			assertEquals(
+				text(I18NConstants.DEPLOY_REFUSED_PARAMETER_IDS_SCHEMA__CONTROLLER_SCHEMA.fill("Fake 1.4", "1.4")),
+				refused.tValueByName("message"));
+			assertEquals("Nothing is sent.", puts, _fake.getPuts());
+			assertNull(project.tValueByName("imageRevision"));
+
+			_fake.setSchema(null);
+			refused = Deployer.deploy(project, NOW);
+			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED_PARAMETER_IDS_NO_SCHEMA__CONTROLLER.fill("Fake 1.4")),
+				refused.tValueByName("message"));
+			assertEquals(puts, _fake.getPuts());
+
+			_fake.setSchema("1.5");
+			assertAccepted(Deployer.deploy(project, NOW), 1);
+			assertEquals(puts + 1, _fake.getPuts());
+
+			// With an identifier as the id the image goes to a controller reading 1.4 as before.
+			TLObject rule = (TLObject) ((List<?>) project.tValueByName("rules")).get(0);
+			TLObject reaction = (TLObject) ((List<?>) rule.tValueByName("reactions")).get(0);
+			TLObject log = (TLObject) ((List<?>) reaction.tValueByName("actions")).get(0);
+			assertEquals("max {$\"max-helligkeit\"}", log.tValueByName("message"));
+			update(parameter, "identifier", "max_helligkeit");
+			update(log, "message", "max {$max_helligkeit}");
+			_fake.setSchema("1.4");
+			assertNull(ImageComparison.schemaWarning("1.4"));
+			assertAccepted(Deployer.deploy(project, NOW), 2);
+			assertEquals(puts + 2, _fake.getPuts());
+
+			assertNull(Deployer.parameterIdsRefusal("1.5", "x"));
+			assertNull(Deployer.parameterIdsRefusal("2.0", "x"));
+			assertNull(Deployer.parameterIdsRefusal("1.12", "x"));
+			assertNotNull(Deployer.parameterIdsRefusal("1.4", "x"));
+			assertNotNull(Deployer.parameterIdsRefusal("", "x"));
+		} finally {
+			_fake.setSchema("1.4");
+			SharedData.deleteProjects(List.of(project));
+			SharedData.deleteProjects(controllers);
 		}
 	}
 

@@ -533,6 +533,29 @@ public final class RuleLoader {
 	}
 
 	/**
+	 * Whether the text is the id of a rule parameter (homecontrol <code>spec/rules.md</code> 2.1,
+	 * haumacher/ehome #110): 1..24 characters of <code>A-Z a-z 0-9 _ -</code> (the characters of a rule
+	 * id), not a keyword. The id <code>enabled</code> is one, reserved for the enable switch.
+	 */
+	public static boolean validParameterId(String text) {
+		return parameterIdCharacters(text) && !isKeyword(text);
+	}
+
+	/**
+	 * Whether the text is 1..24 characters of <code>A-Z a-z 0-9 _ -</code>.
+	 */
+	public static boolean parameterIdCharacters(String text) {
+		return text.length() <= 24 && validRuleId(text);
+	}
+
+	/**
+	 * Whether the given word is a keyword of the rule language (<code>and or not true false</code>).
+	 */
+	public static boolean keyword(String text) {
+		return isKeyword(text);
+	}
+
+	/**
 	 * Whether the text is a rule or schedule id: 1..32 characters of <code>A-Z a-z 0-9 _ -</code>.
 	 */
 	public static boolean validRuleId(String text) {
@@ -649,7 +672,7 @@ public final class RuleLoader {
 					break;
 				}
 				if (!(p instanceof Map<?, ?> parameter) || !(parameter.get("id") instanceof String pid)
-					|| !validIdentifier(pid) || pid.equals("enabled") || !(parameter.get("type") instanceof String typeText)) {
+					|| !validParameterId(pid) || pid.equals("enabled") || !(parameter.get("type") instanceof String typeText)) {
 					continue;
 				}
 				Type type = Type.fromName(typeText);
@@ -877,10 +900,15 @@ public final class RuleLoader {
 		Map<?, ?> map = only(json, "id", "label", "type", "default", "min", "max", "step", "unit", "choices",
 			"adjustable");
 		String id = stringMember(map, "id", true, 1, 24);
-		if (!validIdentifier(id)) {
+		if (!parameterIdCharacters(id)) {
 			enter(".id");
-			throw fail(LoadError.MALFORMED, "parameter id '" + id + "' is not an identifier",
+			throw fail(LoadError.MALFORMED, "parameter id '" + id + "' is not 1..24 characters of A-Z a-z 0-9 _ -",
 				I18NConstants.RULE_PARAMETER_ID_INVALID__ID.fill(id));
+		}
+		if (isKeyword(id)) {
+			enter(".id");
+			throw fail(LoadError.MALFORMED, "parameter id '" + id + "' is a keyword",
+				I18NConstants.RULE_PARAMETER_ID_KEYWORD__ID.fill(id));
 		}
 		if (id.equals("enabled")) {
 			enter(".id");

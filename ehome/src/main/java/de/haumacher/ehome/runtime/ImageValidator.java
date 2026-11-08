@@ -58,9 +58,10 @@ public final class ImageValidator {
 	/**
 	 * The minor version of the schema this validator reads (1.2: the adjustable schedule members,
 	 * homecontrol #58; 1.3: the blocks; 1.4: the enumeration press of a button with its
-	 * <code>presses</code>, the Zigbee remotes, haumacher/ehome #70).
+	 * <code>presses</code>, the Zigbee remotes, haumacher/ehome #70; 1.5: the parameter ids of the rule
+	 * id characters, haumacher/ehome #110).
 	 */
-	public static final int SCHEMA_MINOR = 4;
+	public static final int SCHEMA_MINOR = 5;
 
 	/** The largest image in bytes. */
 	public static final int MAX_IMAGE_BYTES = 262144;

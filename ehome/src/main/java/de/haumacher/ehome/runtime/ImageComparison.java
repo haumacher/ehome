@@ -230,6 +230,14 @@ public final class ImageComparison {
 	}
 
 	/**
+	 * The schema below which the deploy confirmation warns ({@link #schemaWarning(String)}). The
+	 * additions of a newer schema are refused by the deployer itself only where the image uses them
+	 * (the parameter ids of schema 1.5, {@link Deployer#parameterIdsRefusal(String, Object)}), so an
+	 * image without them goes to a controller reading 1.4 as before, without a warning.
+	 */
+	static final String WARNED_SCHEMA = "1.4";
+
+	/**
 	 * The line of the deploy confirmation that warns of a controller reading an older image schema than
 	 * the image's (homecontrol <code>spec/runtime-image.md</code> I4): its firmware refuses the
 	 * adjustable schedule members of schema 1.2. <code>null</code> when the controller reads the
@@ -243,7 +251,7 @@ public final class ImageComparison {
 			return text(I18NConstants.CONFIRM_SCHEMA_UNKNOWN__IMAGE.fill(RuntimeImage.SCHEMA_VERSION));
 		}
 		int[] have = version(reported);
-		int[] need = version(RuntimeImage.SCHEMA_VERSION);
+		int[] need = version(WARNED_SCHEMA);
 		if (have != null && (have[0] > need[0] || have[0] == need[0] && have[1] >= need[1])) {
 			return null;
 		}

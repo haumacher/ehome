@@ -90,7 +90,7 @@ public class TestScheduleAdjustable extends BasicTestCase {
 			assertTrue(Json.write(exported.get(0)), TestRuleText.same(expected, exported.get(0)));
 
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
-			assertEquals("1.4", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+			assertEquals("1.5", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
 			ImageReport report = image.validate();
 			assertTrue(report.toString(), report.isValid());
 		} finally {
@@ -254,10 +254,10 @@ public class TestScheduleAdjustable extends BasicTestCase {
 				project.tUpdateByName("controller", controller);
 				tx.commit();
 			}
-			String older = text(I18NConstants.CONFIRM_SCHEMA_OLDER__READS_IMAGE.fill("1.1", "1.4"));
-			assertEquals("The controller reads the image schema up to 1.1; this image is 1.4: update the controller's "
+			String older = text(I18NConstants.CONFIRM_SCHEMA_OLDER__READS_IMAGE.fill("1.1", "1.5"));
+			assertEquals("The controller reads the image schema up to 1.1; this image is 1.5: update the controller's "
 				+ "firmware first, or what is newer in the image (adjustable schedules) is refused.", older);
-			String unknown = text(I18NConstants.CONFIRM_SCHEMA_UNKNOWN__IMAGE.fill("1.4"));
+			String unknown = text(I18NConstants.CONFIRM_SCHEMA_UNKNOWN__IMAGE.fill("1.5"));
 
 			String current = ImageComparison.confirmation(project, NOW);
 			assertFalse(current, current.contains(older) || current.contains(unknown));

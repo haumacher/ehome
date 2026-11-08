@@ -38,6 +38,12 @@ Synced again at `c4de11b5ea1d9522f3cc5b8ea954f85a6ea480bb` (2026-11-04, the rule
 `sunAzimuth()` and `sunElevation()`, `spec/rules.md` 4.7), which added the cases `59-sun-position` to
 `64-sun-follow-timer` (with the case member `location`) and changed the rule corpus `README.md`; the
 image and block fixtures did not change.
+Synced again at `9c3a1f147d0f2c113e687afc38478f685c63badb` (2026-11-08, "Rules: parameter ids of
+the rule-id characters (A-Z a-z 0-9 _ -), referenced as $"…", schema 1.5", haumacher/homecontrol#81),
+which added the rule cases `65-parameter-id-quoted` to
+`71-load-refused-parameter-id-keyword`, the image cases `images/cases/accept-parameter-ids.json` and
+`images/cases/refuse-parameter-id.json` and changed the rule corpus `README.md`; the block fixtures
+did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

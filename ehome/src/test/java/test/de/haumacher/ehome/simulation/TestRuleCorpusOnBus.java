@@ -148,7 +148,14 @@ public class TestRuleCorpusOnBus extends TestCase {
 		"61-sun-position-no-clock.json",
 		"62-sun-position-no-location.json",
 		"63-load-refused-match-sun.json",
-		"64-sun-follow-timer.json");
+		"64-sun-follow-timer.json",
+		"65-parameter-id-quoted.json",
+		"66-load-refused-parameter-id-slash.json",
+		"67-load-refused-parameter-id-space.json",
+		"68-load-refused-parameter-id-umlaut.json",
+		"69-load-refused-parameter-id-length.json",
+		"70-load-refused-parameter-id-enabled.json",
+		"71-load-refused-parameter-id-keyword.json");
 
 	private static final long TIMEOUT = 5000;
 

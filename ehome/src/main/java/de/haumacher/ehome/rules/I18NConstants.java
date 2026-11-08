@@ -161,9 +161,14 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 RULE_TOO_MANY_REACTIONS__MAX;
 
 	/**
-	 * @en The parameter id "{0}" is no identifier (1 to 24 letters, digits and _, no digit first, no keyword).
+	 * @en The parameter id "{0}" is not 1 to 24 letters, digits, _ or -.
 	 */
 	public static ResKey1 RULE_PARAMETER_ID_INVALID__ID;
+
+	/**
+	 * @en The parameter id "{0}" is a keyword of the rule language (and, or, not, true, false).
+	 */
+	public static ResKey1 RULE_PARAMETER_ID_KEYWORD__ID;
 
 	/**
 	 * @en The parameter id "enabled" is reserved for the on/off switch of the rule.

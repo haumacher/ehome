@@ -28,6 +28,7 @@ import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.connection.Signatures;
 import de.haumacher.ehome.connection.Signatures.Keys;
+import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 
@@ -205,6 +206,11 @@ public final class Deployer {
 			// spec/runtime-image.md 3.5, 1.4): nothing is sent.
 			outcome._code = CODE_SCHEMA;
 			outcome._message = text(pressesRefusal(image, controller));
+		} else if (parameterIdsRefusal(image, controller) != null) {
+			// An older firmware refuses a parameter id that is no identifier, so the whole image
+			// (homecontrol spec/rules.md 2.1, 1.5): nothing is sent.
+			outcome._code = CODE_SCHEMA;
+			outcome._message = text(parameterIdsRefusal(image, controller));
 		} else {
 			ControllerStatus.Loaded before = ControllerStatus.read(client);
 			outcome._before = before.text();
@@ -297,6 +303,57 @@ public final class Deployer {
 		}
 		return reads.booleanValue() ? null
 			: I18NConstants.DEPLOY_REFUSED_PRESSES_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
+	}
+
+	/** The schema that brings the parameter ids of the rule id characters (homecontrol spec/rules.md 2.1). */
+	static final int[] PARAMETER_IDS_SCHEMA = { 1, 5 };
+
+	/**
+	 * Why the image cannot go to the controller (homecontrol <code>spec/rules.md</code> 2.1,
+	 * haumacher/ehome #110): an image with a rule parameter whose id is no identifier
+	 * (<code>max-helligkeit</code>) needs a controller that reports schema 1.5 or newer, since an older
+	 * one refuses the whole image. <code>null</code> for an image without one or a controller that
+	 * reads it.
+	 */
+	static ResKey parameterIdsRefusal(RuntimeImage image, TLObject controller) {
+		if (!hasParameterIdBeyondIdentifier(image.getJson().get("rules"))) {
+			return null;
+		}
+		return parameterIdsRefusal(ImageComparison.reportedSchema(controller), controller.tValueByName("name"));
+	}
+
+	/**
+	 * Whether a rule of the given <code>rules</code> of an image has a parameter whose id is no
+	 * identifier of the rule language.
+	 */
+	static boolean hasParameterIdBeyondIdentifier(Object rules) {
+		if (!(rules instanceof List<?> list)) {
+			return false;
+		}
+		for (Object rule : list) {
+			if (rule instanceof Map<?, ?> map && map.get("parameters") instanceof List<?> parameters) {
+				for (Object parameter : parameters) {
+					if (parameter instanceof Map<?, ?> p && p.get("id") instanceof String id
+						&& !RuleLoader.validIdentifier(id)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Why an image with a parameter id that is no identifier cannot go to a controller reporting the
+	 * schema (<code>null</code> or empty: none), <code>null</code> when it reads it.
+	 */
+	public static ResKey parameterIdsRefusal(String reported, Object controller) {
+		Boolean reads = reads(reported, PARAMETER_IDS_SCHEMA);
+		if (reads == null) {
+			return I18NConstants.DEPLOY_REFUSED_PARAMETER_IDS_NO_SCHEMA__CONTROLLER.fill(controller);
+		}
+		return reads.booleanValue() ? null
+			: I18NConstants.DEPLOY_REFUSED_PARAMETER_IDS_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
 	}
 
 	/**

@@ -333,7 +333,7 @@ public final class RuleText {
 				}
 				return;
 			case "parameter":
-				out.append('$').append(map.get("id"));
+				out.append(parameterReference(String.valueOf(map.get("id"))));
 				return;
 			case "timer":
 				out.append(map.get("id"));
@@ -410,6 +410,22 @@ public final class RuleText {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * The reference to a rule parameter in the text of an expression (<code>spec/rules.md</code> 4.3,
+	 * haumacher/ehome #110): <code>$id</code> for an id that is an identifier (not a keyword), else the
+	 * id quoted as a string (<code>$"max-helligkeit"</code>), as the controller prints it.
+	 */
+	public static String parameterReference(String id) {
+		StringBuilder out = new StringBuilder();
+		out.append('$');
+		if (isIdentifier(id)) {
+			out.append(id);
+		} else {
+			quote(out, id);
+		}
+		return out.toString();
 	}
 
 	private static boolean isIdentifier(String text) {
@@ -708,6 +724,13 @@ public final class RuleText {
 					return datapoint(start);
 				case '$': {
 					_pos++;
+					if (at(_pos) == '"') {
+						// A parameter id that is no identifier: $"max-helligkeit" (haumacher/ehome #110).
+						int end = stringEnd(_pos);
+						String quoted = string(_pos);
+						_pos = end;
+						return new Token(TokenKind.PARAMETER, start, _pos, quoted, null);
+					}
 					String id = word();
 					if (id.isEmpty() || !isLetter(id.charAt(0)) && id.charAt(0) != '_') {
 						throw error("a parameter id expected after '$'", start);

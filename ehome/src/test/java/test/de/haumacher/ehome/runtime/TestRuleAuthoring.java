@@ -109,8 +109,12 @@ public class TestRuleAuthoring extends BasicTestCase {
 			}
 		}
 		assertEquals(String.join("\n", failures), List.of(), failures);
-		// An unknown timer, an output that is no application datapoint: what a form cannot choose.
-		assertEquals(List.of("33-load-refused-unknown-timer.json image 0", "39-load-refused-schedule-output.json image 0"),
+		// An unknown timer, an output that is no application datapoint: what a form cannot choose. A
+		// parameter id the input refuses as an error (haumacher/ehome #110) is not stored either.
+		assertEquals(List.of("33-load-refused-unknown-timer.json image 0", "39-load-refused-schedule-output.json image 0",
+			"66-load-refused-parameter-id-slash.json image 0", "67-load-refused-parameter-id-space.json image 0",
+			"68-load-refused-parameter-id-umlaut.json image 0", "69-load-refused-parameter-id-length.json image 0",
+			"70-load-refused-parameter-id-enabled.json image 0", "71-load-refused-parameter-id-keyword.json image 0"),
 			refused);
 		assertTrue(String.valueOf(rules), rules >= 40);
 	}

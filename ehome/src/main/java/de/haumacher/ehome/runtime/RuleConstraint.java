@@ -62,6 +62,11 @@ public class RuleConstraint extends AbstractConfiguredInstance<RuleConstraint.Co
 	@Override
 	public ResKey check(TLObject object, TLStructuredTypePart attribute) {
 		boolean syntax = getConfig().isSyntax();
+		if (!syntax && "identifier".equals(attribute.getName()) && "RuleParameter".equals(object.tType().getName())
+			&& RuleExport.parameterIdProblem(object.tValue(attribute), object) != null) {
+			// Reported as the error of the input (haumacher/ehome #110), not again as a warning.
+			return null;
+		}
 		ResKey problem = RuleExport.fieldProblem(object, attribute.getName(), object.tValue(attribute), syntax);
 		if (problem == null && !syntax && "output".equals(attribute.getName())) {
 			// Accepted by the loader, but commands to the output would be refused.

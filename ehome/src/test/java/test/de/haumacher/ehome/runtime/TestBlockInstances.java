@@ -154,7 +154,7 @@ public class TestBlockInstances extends BasicTestCase {
 		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
 		ImageReport report = image.validate();
 		assertTrue(report.toString(), report.isValid());
-		assertEquals("1.4", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+		assertEquals("1.5", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
 		// The JSON values compared, the numbers as numbers (E-Home writes 21.0 as 21).
 		assertEquals(numbers(Json.parse(EXAMPLE, 20)), numbers(Json.parse(image.getText(), 20) instanceof Map<?, ?> json
 			? json.get("blocks") : null));

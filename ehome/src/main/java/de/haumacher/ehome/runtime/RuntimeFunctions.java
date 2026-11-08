@@ -121,6 +121,12 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		runtimeDatapointIdProblem,
 		/**
+		 * <code>runtimeParameterIdProblem(text, parameter)</code>: why the text cannot be the id of
+		 * the rule parameter ({@link RuleExport#parameterIdProblem(Object, Object)});
+		 * <code>null</code> if it can.
+		 */
+		runtimeParameterIdProblem,
+		/**
 		 * <code>runtimeUnitProblem(text)</code>: why the text cannot be the unit of a datapoint;
 		 * <code>null</code> for an empty text or one that can.
 		 */
@@ -209,6 +215,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return timeMasterConstraint(argument, arguments[1], String.valueOf(arguments[2]));
 			case runtimeDatapointIdProblem:
 				return ApplicationDatapoints.idProblem(argument, arguments[1]);
+			case runtimeParameterIdProblem:
+				return RuleExport.parameterIdProblem(argument, arguments[1]);
 			case runtimeUnitProblem:
 				return problem(argument, ApplicationDatapoints::unitProblem);
 			default:
@@ -450,7 +458,7 @@ public class RuntimeFunctions extends GenericMethod {
 		@Override
 		public RuntimeFunctions build(Expr expr, SearchExpression[] args) throws ConfigurationException {
 			int arity = _function == Function.runtimeTimeMasterProblem ? 3
-				: _function == Function.runtimeDatapointIdProblem ? 2 : 1;
+				: _function == Function.runtimeDatapointIdProblem || _function == Function.runtimeParameterIdProblem ? 2 : 1;
 			checkArgs(expr, args, arity, arity);
 			return new RuntimeFunctions(getConfig().getName(), _function, args);
 		}

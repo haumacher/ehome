@@ -213,6 +213,35 @@ public class TestRuleText extends TestCase {
 		assertCanonical("2026 - 10 - 17", "2026 - 10 - 17");
 	}
 
+	/**
+	 * A parameter id that is no identifier (haumacher/ehome #110, homecontrol spec/rules.md 4.3) is
+	 * written <code>$"max-helligkeit"</code>, quoted and escaped as <code>@"…"</code>; an identifier
+	 * stays bare, a keyword is quoted.
+	 */
+	public void testParameterReferences() throws SyntaxError {
+		assertEquals(Map.of("kind", "parameter", "id", "x"), RuleText.parse("$x"));
+		assertEquals(Map.of("kind", "parameter", "id", "x-y"), RuleText.parse("$\"x-y\""));
+		assertEquals("$x", RuleText.print(Map.of("kind", "parameter", "id", "x")));
+		assertEquals("$\"x-y\"", RuleText.print(Map.of("kind", "parameter", "id", "x-y")));
+		assertEquals("$\"not\"", RuleText.print(Map.of("kind", "parameter", "id", "not")));
+		assertEquals("$\"2nd\"", RuleText.print(Map.of("kind", "parameter", "id", "2nd")));
+		assertEquals("$\"a\\\"b\"", RuleText.print(Map.of("kind", "parameter", "id", "a\"b")));
+		assertEquals("$_a1", RuleText.parameterReference("_a1"));
+		assertEquals("$\"max-helligkeit\"", RuleText.parameterReference("max-helligkeit"));
+		assertEquals("$\"true\"", RuleText.parameterReference("true"));
+		assertEquals(Map.of("kind", "parameter", "id", "not"), RuleText.parse("$\"not\""));
+		// A quoted identifier is printed bare.
+		assertCanonical("$x", "$\"x\"");
+		assertCanonical("@lamp.dim > $\"max-helligkeit\"", "@lamp.dim>$\"max-helligkeit\"");
+		assertCanonical("$\"max-helligkeit\" - $max_helligkeit", "($\"max-helligkeit\") - $max_helligkeit");
+		assertCanonical("min($\"a-b\", 3)", "min( $\"a-b\" ,3)");
+		List<Object> message = RuleText.parseMessage("max {$\"max-helligkeit\"}");
+		assertEquals(List.of("max ", Map.of("kind", "parameter", "id", "max-helligkeit")), message);
+		assertEquals("max {$\"max-helligkeit\"}", RuleText.printMessage(message));
+		assertSyntaxError("$\"open", 1, RuleText::parse);
+		assertSyntaxError("$-x", 0, RuleText::parse);
+	}
+
 	public void testAst() throws SyntaxError {
 		Map<String, Object> ast = RuleText.parse("remaining(off) > 1min30s");
 		assertTrue(same(Map.of("kind", "binary", "op", ">",

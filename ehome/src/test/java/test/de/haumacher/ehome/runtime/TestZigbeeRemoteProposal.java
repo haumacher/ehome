@@ -120,7 +120,7 @@ public class TestZigbeeRemoteProposal extends BasicTestCase {
 			ImageReport report = image.validate();
 			assertTrue(report.toString(), report.isValid());
 			Map<?, ?> json = image.getJson();
-			assertEquals("1.4", ((Map<?, ?>) json.get("image")).get("schemaVersion"));
+			assertEquals("1.5", ((Map<?, ?>) json.get("image")).get("schemaVersion"));
 			Map<?, ?> function = (Map<?, ?>) ((List<?>) json.get("functions")).get(0);
 			assertEquals("button", function.get("kind"));
 			assertEquals(Map.of("press", ApplicationDatapoints.id(action)), function.get("datapoints"));
@@ -139,10 +139,10 @@ public class TestZigbeeRemoteProposal extends BasicTestCase {
 			assertEquals(1, refused.getRefusals().size());
 			assertEquals("functions[0].presses", refused.getRefusals().get(0).path());
 			assertEquals("malformed: unknown member 'longPress'", refused.getRefusals().get(0).reason());
-			((Map<String, Object>) changed.get("image")).put("schemaVersion", "1.5");
+			((Map<String, Object>) changed.get("image")).put("schemaVersion", "1.6");
 			refused = ImageValidator.validate(Json.write(changed));
-			assertEquals("malformed: unknown member 'longPress' (the image's schema 1.5 is newer than this firmware "
-				+ "reads, up to 1.4: update the firmware)", refused.getRefusals().get(0).reason());
+			assertEquals("malformed: unknown member 'longPress' (the image's schema 1.6 is newer than this firmware "
+				+ "reads, up to 1.5: update the firmware)", refused.getRefusals().get(0).reason());
 
 			// Dismissed: it stays away, also after the export is imported again.
 			TLObject dismissal;

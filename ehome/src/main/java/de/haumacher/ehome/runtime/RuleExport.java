@@ -1108,6 +1108,44 @@ public final class RuleExport {
 		return null;
 	}
 
+	/**
+	 * Why the text cannot be the id of the given rule parameter, an error of its input
+	 * (haumacher/ehome #110): not 1..24 characters of <code>A-Z a-z 0-9 _ -</code>, a keyword,
+	 * <code>enabled</code> (the enable switch) or the id of another parameter of the rule;
+	 * <code>null</code> if it can (or is empty, which the mandatory field refuses).
+	 *
+	 * @param value
+	 *        The id entered.
+	 * @param obj
+	 *        The parameter, in a form the form's object (in the create dialog a draft whose container
+	 *        is the rule).
+	 */
+	public static ResKey parameterIdProblem(Object value, Object obj) {
+		if (value == null || value.toString().isBlank()) {
+			return null;
+		}
+		String id = value.toString().trim();
+		if (!RuleLoader.parameterIdCharacters(id)) {
+			return de.haumacher.ehome.rules.I18NConstants.RULE_PARAMETER_ID_INVALID__ID.fill(id);
+		}
+		if (RuleLoader.keyword(id)) {
+			return de.haumacher.ehome.rules.I18NConstants.RULE_PARAMETER_ID_KEYWORD__ID.fill(id);
+		}
+		if (id.equals("enabled")) {
+			return de.haumacher.ehome.rules.I18NConstants.RULE_PARAMETER_ID_ENABLED;
+		}
+		TLObject self = obj instanceof TLFormObjectBase form ? form.getEditedObject() : obj instanceof TLObject o ? o : null;
+		TLObject rule = self == null || !self.tValid() ? null : self.tContainer();
+		if (rule != null) {
+			for (TLObject other : objects(rule.tValueByName("parameters"))) {
+				if (other != self && id.equals(text(other.tValueByName("identifier")))) {
+					return de.haumacher.ehome.rules.I18NConstants.RULE_PARAMETER_ID_TWICE__ID.fill(id);
+				}
+			}
+		}
+		return null;
+	}
+
 	private String syntaxProblem(Source field) {
 		for (Problem problem : _problems) {
 			if (problem.source().equals(field)) {

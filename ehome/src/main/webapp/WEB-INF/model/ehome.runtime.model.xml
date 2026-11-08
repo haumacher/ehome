@@ -1311,13 +1311,20 @@
 				<id-column value="identifier"/>
 			</annotations>
 			<attributes>
-				<!-- The id of the parameter, referenced as $id in expressions. -->
+				<!--
+					The id of the parameter (1..24 of A-Z a-z 0-9 _ -, no keyword, not "enabled", unique in
+					the rule; an error on input, haumacher/ehome #110), referenced as $id in expressions, as
+					$"max-helligkeit" when it is no identifier.
+				-->
 				<property name="identifier"
 					mandatory="true"
 					type="tl.core:String"
 				>
 					<annotations>
 						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeParameterIdProblem($value, $obj)]]></check>
+							</constraint-by-expression>
 							<rule-constraint/>
 						</constraints>
 					</annotations>
