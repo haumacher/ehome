@@ -63,3 +63,24 @@ Open (proposals, not decided):
 
 Would be two tickets: homecontrol (bindings/groups, image format) and ehome (model, editor, image
 writer, simulation).
+
+## Firmware: composed rule texts in the device UI
+
+The user: "Lass über die Firmware nochmal getrennt reden - diese automatisch zusammengesetzten Texte
+sind eigentlich nichts für den Endanwender - daher haben die in der Firmware eigentlich nichts
+verloren."
+
+Today:
+- The controller prints rule texts (`core/src/rules/printer.cpp`; a datapoint by its name only,
+  `:104`, e.g. `@"11/0/4"`), used by the engine for diagnostics and log lines
+  (`core/src/rules/engine.cpp`).
+- The rules page of the device UI shows per rule the last trigger, the last action and the last
+  error as such texts (`web/ui/dist/rules.js:119`–`:126`, from `GET /api/rules`, homecontrol
+  `spec/api.md:845`; per-rule diagnostics `spec/rules.md` 9.1, log entries 9.2).
+- The image carries the label of every datapoint (the group address's name,
+  `ehome/src/main/java/de/haumacher/ehome/runtime/RuntimeImage.java:51`).
+- E-Home names datapoints in its display texts as `Name (id)` (haumacher/ehome#113).
+
+Open: what the inhabitant sees of a rule on the device instead (only its name, parameters and
+enable switch? the diagnostics only for the installer, e.g. in E-Home over the connection?), and
+whether the printer stays for the installer's diagnostics only.
