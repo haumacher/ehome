@@ -9,10 +9,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLFormObjectBase;
 import com.top_logic.model.TLObject;
-import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.rules.Schedule;
 
@@ -269,7 +267,7 @@ public final class RuleReferences {
 
 	/**
 	 * The label of an option of a reference: the label of the object and the id the image names it
-	 * by.
+	 * by, in the format of every display text naming a datapoint ({@link DatapointNames#format(String, String)}).
 	 *
 	 * @param kind
 	 *        The kind of options ({@link #options(Object, String)}): it decides the id, a parameter of
@@ -285,30 +283,8 @@ public final class RuleReferences {
 			case SCHEDULE, TIMER, PARAMETER -> identifier(target);
 			default -> datapointId(project, target);
 		};
-		String label = label(target);
-		if (id == null) {
-			return label == null ? "" : label;
-		}
-		return label == null || label.equals(id) ? id : label + " (" + id + ")";
-	}
-
-	private static String label(TLObject target) {
-		for (String attribute : new String[] { "title", "label", "name" }) {
-			if (target.tType().getPart(attribute) != null) {
-				String text = text(target.tValueByName(attribute));
-				if (text != null) {
-					return text;
-				}
-			}
-		}
-		return null;
-	}
-
-	private static String text(Object value) {
-		if (value instanceof ResKey key) {
-			return Resources.getInstance().getString(key, null);
-		}
-		return value == null || value.toString().isBlank() ? null : value.toString();
+		String label = DatapointNames.label(target);
+		return id == null && label == null ? "" : DatapointNames.format(label, id);
 	}
 
 	// ---- context -----------------------------------------------------------------------------

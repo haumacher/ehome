@@ -80,7 +80,8 @@ public class TestRuleSpecRounds extends BasicTestCase {
 			TLObject read = RuleFunctions.objects(reaction, "actions").get(0);
 			assertEquals("ReadAction", read.tType().getName());
 			assertSame(address, read.tValueByName("datapoint"));
-			assertEquals("silence 1/0/1 after $quiet", RuleFunctions.summary(silence));
+			// The parameter by its title (haumacher/ehome #113).
+			assertEquals("silence 1/0/1 after Quiet period ($quiet)", RuleFunctions.summary(silence));
 			assertEquals("read 1/0/1", RuleFunctions.summary(read));
 			TLObject mode = RuleFunctions.objects(rule, "parameters").get(1);
 			// de-CH is not a language of E-Home: the German text is what a controller in German shows.

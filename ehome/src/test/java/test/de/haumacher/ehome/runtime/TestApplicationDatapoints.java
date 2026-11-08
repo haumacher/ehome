@@ -30,6 +30,7 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageReport;
@@ -151,7 +152,7 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			assertEquals(List.of(), entryForm.warnings("output"));
 			// A group address is no option: the output is an application datapoint (haumacher/ehome #90).
 			entryForm.set("output", holiday);
-			assertEquals(List.of(resources.getString(I18NConstants.OUTPUT_WRITABLE__ID.fill("holiday"))),
+			assertEquals(List.of(resources.getString(I18NConstants.OUTPUT_WRITABLE__ID.fill(DatapointNames.name(holiday)))),
 				entryForm.warnings("output"));
 			entryForm.set("output", counter);
 			assertTrue(entryForm.warnings("output").toString(), entryForm.warnings("output").get(0).contains("not boolean"));
@@ -168,7 +169,7 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			// The id at the field.
 			RuleForm idForm = new RuleForm(counter);
 			idForm.set("identifier", "1/0/1");
-			assertEquals(List.of(resources.getString(I18NConstants.DATAPOINT_ID_OF_GROUP_ADDRESS__ADDRESS.fill("1/0/1 Licht"))),
+			assertEquals(List.of(resources.getString(I18NConstants.DATAPOINT_ID_OF_GROUP_ADDRESS__ADDRESS.fill("Licht (1/0/1)"))),
 				idForm.errors("identifier"));
 			idForm.set("identifier", "1/0/2");
 			assertEquals(List.of(resources.getString(I18NConstants.DATAPOINT_ID_ADDRESS_FORM)), idForm.errors("identifier"));

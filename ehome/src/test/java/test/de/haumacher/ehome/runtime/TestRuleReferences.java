@@ -193,7 +193,7 @@ public class TestRuleReferences extends BasicTestCase {
 		}
 		assertEquals(List.of("evening", "level2", "off"), ids());
 		assertEquals("flag2", schedule(1).get("output"));
-		assertEquals("write level2 := 1", RuleFunctions.summary(write));
+		assertEquals("write New datapoint (level2) := 1", RuleFunctions.summary(write));
 	}
 
 	/** The ids of the schedule trigger, the write and the timer start of the rule's reaction. */

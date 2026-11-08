@@ -17,7 +17,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.connection.ControllerConnections;
-import de.haumacher.ehome.runtime.ApplicationDatapoints;
+import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.Deployer;
 
 /**
@@ -250,7 +250,7 @@ public final class ZigbeeStatus {
 			} else {
 				remaining.add(function);
 				kept.add(resources.getString(I18NConstants.ABSENT_KEPT__FUNCTION_DATAPOINTS.fill(name(function),
-					bound.stream().map(ApplicationDatapoints::id).collect(Collectors.joining(", ")))));
+					bound.stream().map(DatapointNames::name).collect(Collectors.joining(", ")))));
 			}
 		}
 		if (!removed.isEmpty()) {

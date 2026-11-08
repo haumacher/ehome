@@ -23,7 +23,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.runtime.ApplicationDatapoints;
+import de.haumacher.ehome.runtime.DatapointNames;
 
 /**
  * Imports the devices of a controller's Zigbee export ({@link ZigbeeExport}) into a project
@@ -226,7 +226,7 @@ public final class ZigbeeImport {
 				set(function, "absent", Boolean.TRUE);
 				after.add(function);
 				_notes.add(resources.getString(I18NConstants.NOTE_FUNCTION_ABSENT__FUNCTION_DEVICE_DATAPOINT.fill(label,
-					deviceName, bound.stream().map(ApplicationDatapoints::id).collect(Collectors.joining(", ")))));
+					deviceName, bound.stream().map(DatapointNames::name).collect(Collectors.joining(", ")))));
 			}
 		}
 		if (!after.equals(before)) {

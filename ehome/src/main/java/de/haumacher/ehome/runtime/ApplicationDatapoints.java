@@ -169,8 +169,7 @@ public final class ApplicationDatapoints {
 		if (project != null) {
 			for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
 				if (address.tValueByName("address") instanceof GA ga && id.equals(RuntimeImage.threeLevel(ga.getValue()))) {
-					return I18NConstants.DATAPOINT_ID_OF_GROUP_ADDRESS__ADDRESS.fill(ga.toString() + " "
-						+ String.valueOf(address.tValueByName("name")));
+					return I18NConstants.DATAPOINT_ID_OF_GROUP_ADDRESS__ADDRESS.fill(DatapointNames.name(address));
 				}
 			}
 			for (TLObject other : of(project)) {
@@ -207,7 +206,7 @@ public final class ApplicationDatapoints {
 		if (output instanceof TLObject datapoint) {
 			// The reference of the entry (haumacher/ehome #90).
 			return datapoint.tValid() && isApplicationDatapoint(datapoint) && writable(datapoint)
-				? I18NConstants.OUTPUT_WRITABLE__ID.fill(id(datapoint)) : null;
+				? I18NConstants.OUTPUT_WRITABLE__ID.fill(DatapointNames.name(datapoint)) : null;
 		}
 		if (output == null || output.toString().isBlank()) {
 			return null;
@@ -221,7 +220,7 @@ public final class ApplicationDatapoints {
 		String id = output.toString().trim();
 		for (TLObject datapoint : of(project)) {
 			if (id.equals(id(datapoint)) && writable(datapoint)) {
-				return I18NConstants.OUTPUT_WRITABLE__ID.fill(id);
+				return I18NConstants.OUTPUT_WRITABLE__ID.fill(DatapointNames.name(datapoint));
 			}
 		}
 		return null;

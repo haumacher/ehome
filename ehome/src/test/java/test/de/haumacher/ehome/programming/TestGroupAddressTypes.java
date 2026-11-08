@@ -84,7 +84,7 @@ public class TestGroupAddressTypes extends BasicTestCase {
 			assertEquals(List.of(temperature), untyped);
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 			assertEquals(1, image.getNotes().size());
-			assertTrue(image.getNotes().get(0), image.getNotes().get(0).contains("0/0/28 Raumtemperatur"));
+			assertTrue(image.getNotes().get(0), image.getNotes().get(0).contains("Raumtemperatur (0/0/28)"));
 			assertFalse(image.getDatapointSources().contains(temperature));
 
 			// A key's address is typed by the size of its 1-bit object: the main type 1.

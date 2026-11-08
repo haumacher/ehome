@@ -488,7 +488,7 @@ public class GroupMonitor {
 			entry.put("sender", Resources.getInstance().getString(describe(event)));
 			entry.put("source", "");
 			entry.put("address", "");
-			entry.put("name", event.name() == null ? "" : event.name());
+			entry.put("name", event.name() == null ? "" : _index.datapointName(event.name()));
 			entry.put("value", DatapointCodec.valueText(null, event.value()));
 			entry.put("data", "");
 			entry.put("own", Boolean.FALSE);

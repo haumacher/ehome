@@ -142,11 +142,12 @@ public class TestRuleEditorFollowUps extends BasicTestCase {
 				action.tUpdateByName("value", "true");
 				tx.commit();
 			}
-			assertEquals("datapoint light", derived(trigger, "summary"));
-			assertEquals("write lamp := true", derived(action, "summary"));
-			assertEquals("when datapoint light if @light", derived(reaction, "summary"));
+			// The datapoints by their labels, in the language of the reader (haumacher/ehome #113).
+			assertEquals("datapoint Neuer Datenpunkt (light)", derived(trigger, "summary"));
+			assertEquals("write Neuer Datenpunkt (lamp) := true", derived(action, "summary"));
+			assertEquals("when datapoint Neuer Datenpunkt (light) if Neuer Datenpunkt (light)", derived(reaction, "summary"));
 			for (TLObject obj : List.of(reaction, trigger, action)) {
-				assertEquals(RuleFunctions.summary(obj), asRoot(obj));
+				assertEquals(derived(obj, "summary"), asRoot(obj));
 			}
 		} finally {
 			SharedData.deleteProjects(List.of(project));

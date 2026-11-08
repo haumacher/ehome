@@ -262,18 +262,23 @@ public class RuleFunctions extends GenericMethod {
 
 	/**
 	 * A line describing a reaction, a trigger, an action or a schedule entry in the notation of the
-	 * rule language.
+	 * rule language, naming the datapoints, parameters, timers and schedule entries it references by
+	 * their labels and ids ({@link DatapointNames}, haumacher/ehome #113).
 	 */
 	public static String summary(TLObject obj) {
+		return summary(obj, DatapointNames.of(RuntimeFunctions.project(obj)), RuleReferences.rule(obj));
+	}
+
+	private static String summary(TLObject obj, DatapointNames names, TLObject rule) {
 		String type = obj.tType().getName();
 		if (type.equals("Reaction")) {
 			StringBuilder out = new StringBuilder("when ");
 			List<String> triggers = new ArrayList<>();
 			for (TLObject trigger : RuleExport.objects(obj.tValueByName("triggers"))) {
-				triggers.add(summary(trigger));
+				triggers.add(summary(trigger, names, rule));
 			}
 			out.append(triggers.isEmpty() ? "-" : String.join(" | ", triggers));
-			String condition = text(obj, "condition");
+			String condition = names.expression(rule, text(obj, "condition"));
 			if (condition != null) {
 				out.append(" if ").append(condition);
 			}
@@ -293,7 +298,7 @@ public class RuleFunctions extends GenericMethod {
 		StringBuilder out = new StringBuilder(kind);
 		switch (kind) {
 			case "datapoint": {
-				append(out, " ", reference(obj, "datapoint"));
+				append(out, " ", reference(names, obj, "datapoint"));
 				List<String> flags = new ArrayList<>();
 				if (obj.tValueByName("on") instanceof TLClassifier on && !on.getName().equals("change")) {
 					flags.add(on.getName());
@@ -307,20 +312,20 @@ public class RuleFunctions extends GenericMethod {
 				break;
 			}
 			case "match":
-				append(out, " ", text(obj, "condition"));
+				append(out, " ", names.expression(rule, text(obj, "condition")));
 				break;
 			case "silence":
-				append(out, " ", reference(obj, "datapoint"));
-				append(out, " after ", text(obj, "after"));
+				append(out, " ", reference(names, obj, "datapoint"));
+				append(out, " after ", names.expression(rule, text(obj, "after")));
 				break;
 			case "read":
-				append(out, " ", reference(obj, "datapoint"));
+				append(out, " ", reference(names, obj, "datapoint"));
 				break;
 			case "schedule":
 			case "parameter":
 			case "timer":
 			case "cancelTimer":
-				append(out, " ", reference(obj, kind.equals("cancelTimer") ? "timer" : kind));
+				append(out, " ", reference(names, obj, kind.equals("cancelTimer") ? "timer" : kind));
 				break;
 			case "start": {
 				List<String> reasons = new ArrayList<>();
@@ -335,26 +340,26 @@ public class RuleFunctions extends GenericMethod {
 				break;
 			}
 			case "write":
-				append(out, " ", reference(obj, "datapoint"));
-				append(out, " := ", text(obj, "value"));
+				append(out, " ", reference(names, obj, "datapoint"));
+				append(out, " := ", names.expression(rule, text(obj, "value")));
 				if (Boolean.TRUE.equals(obj.tValueByName("onlyOnChange"))) {
 					out.append(" (onlyOnChange)");
 				}
 				break;
 			case "startTimer":
 			case "restartTimer":
-				append(out, " ", reference(obj, "timer"));
-				append(out, " ", text(obj, "duration"));
+				append(out, " ", reference(names, obj, "timer"));
+				append(out, " ", names.expression(rule, text(obj, "duration")));
 				break;
 			case "setParameter":
-				append(out, " ", reference(obj, "parameter"));
-				append(out, " := ", text(obj, "value"));
+				append(out, " ", reference(names, obj, "parameter"));
+				append(out, " := ", names.expression(rule, text(obj, "value")));
 				break;
 			case "log":
 				if (obj.tValueByName("level") instanceof TLClassifier level) {
 					out.append(' ').append(level.getName());
 				}
-				append(out, ": ", text(obj, "message"));
+				append(out, ": ", names.message(rule, text(obj, "message")));
 				break;
 			case "weekly":
 				append(out, " ", days(obj));
@@ -387,6 +392,10 @@ public class RuleFunctions extends GenericMethod {
 			default:
 				break;
 		}
+		if (obj.tType().getPart("output") != null) {
+			// The output of a schedule entry: true from a firing until midnight.
+			append(out, " output ", reference(names, obj, "output"));
+		}
 		return out.toString();
 	}
 
@@ -406,9 +415,12 @@ public class RuleFunctions extends GenericMethod {
 		}
 	}
 
-	/** The id of the target of a reference of a rule or schedule entry (haumacher/ehome #90). */
-	private static String reference(TLObject obj, String attribute) {
-		return RuleReferences.id(RuntimeFunctions.project(obj), obj.tValueByName(attribute), attribute);
+	/**
+	 * The target of a reference of a rule or schedule entry (haumacher/ehome #90) by its label and id
+	 * (haumacher/ehome #113).
+	 */
+	private static String reference(DatapointNames names, TLObject obj, String attribute) {
+		return names.reference(obj.tValueByName(attribute), attribute);
 	}
 
 	private static String text(TLObject obj, String attribute) {

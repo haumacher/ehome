@@ -1298,7 +1298,7 @@ public final class HistoryConfig {
 
 	/**
 	 * The given number of biggest of the histories for the user by the given bytes: the datapoint and
-	 * its bytes; histories without such bytes are left out.
+	 * its bytes (<code>Temperatur (1/3/1): 12288 B</code>); histories without such bytes are left out.
 	 */
 	private static String biggest(Map<TLObject, History> consumers, int count, ToLongFunction<History> bytes) {
 		List<Map.Entry<TLObject, History>> entries = new ArrayList<>(consumers.entrySet());
@@ -1310,7 +1310,7 @@ public final class HistoryConfig {
 			if (result.size() == count || value == 0) {
 				break;
 			}
-			result.add(Pages.targetLabel(entry.getKey()) + " (" + value + " B)");
+			result.add(Pages.targetLabel(entry.getKey()) + ": " + value + " B");
 		}
 		return String.join(", ", result);
 	}

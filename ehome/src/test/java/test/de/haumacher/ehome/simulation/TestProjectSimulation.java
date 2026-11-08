@@ -171,6 +171,23 @@ public class TestProjectSimulation extends BasicTestCase {
 		running.resetParameter("key-light/delay");
 		assertNull(parameter.tValueByName(Overrides.SIMULATION_VALUE));
 
+		// The timeline names the addresses, datapoints and parameters as "Name (id)" (haumacher/ehome #113).
+		String light = simulation.names().datapoint("0/0/34");
+		assertTrue(light, light.endsWith(" (0/0/34)") && light.length() > " (0/0/34)".length());
+		assertEquals(light, simulation.names().address(34));
+		String keyAddress = simulation.names().address(1);
+		assertTrue(keyAddress, keyAddress.endsWith(" (0/0/1)") && keyAddress.length() > " (0/0/1)".length());
+		List<Simulation.Entry> timeline = simulation.timeline();
+		assertTrue(timeline.toString(), timeline.stream()
+			.anyMatch(entry -> entry.kind() == Kind.RECEIVED && entry.source().equals(keyAddress)));
+		assertTrue(timeline.toString(), timeline.stream()
+			.anyMatch(entry -> entry.kind() == Kind.COMMAND && entry.text().equals("write " + light + " = true")));
+		assertTrue(timeline.toString(), timeline.stream()
+			.anyMatch(entry -> entry.kind() == Kind.PARAMETER && entry.text().startsWith("Delay (delay) = ")));
+		Map<?, ?> datapoint = (Map<?, ?>) ((List<?>) running.snapshot().get("datapoints")).stream()
+			.filter(row -> "0/0/34".equals(((Map<?, ?>) row).get("id"))).findFirst().orElseThrow();
+		assertEquals(light, datapoint.get("name"));
+
 		before = changes.get();
 		running.step();
 		assertTrue(changes.get() > before);

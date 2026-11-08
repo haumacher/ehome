@@ -124,7 +124,7 @@ public class TestImageTexts extends BasicTestCase {
 			assertNotNull(result.get("file"));
 			assertEquals("The runtime image is valid: " + datapoints + " datapoints, " + locations
 				+ " locations, 3 functions, 3 settings, " + number(image.getBytes().length)
-				+ " bytes. The time master sends on 0/0/60, 0/0/61.", english(result.get("summary")));
+				+ " bytes. The time master sends on Uhrzeit (0/0/60), Datum (0/0/61).", english(result.get("summary")));
 		});
 	}
 

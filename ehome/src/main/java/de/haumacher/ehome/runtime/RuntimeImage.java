@@ -460,15 +460,14 @@ public final class RuntimeImage {
 		String id = threeLevel(ga.getValue());
 		Dpt dpt = GroupAddressTypes.effective(address);
 		if (dpt == null) {
-			_notes.add(message(I18NConstants.NOTE_NO_DATAPOINT_TYPE__ADDRESS.fill(ga.toString() + " "
-				+ String.valueOf(address.tValueByName("name")))));
+			_notes.add(message(I18NConstants.NOTE_NO_DATAPOINT_TYPE__ADDRESS.fill(DatapointNames.name(address))));
 			return null;
 		}
 		int sub = dpt.isMainType() ? 0 : dpt.sub();
 		String type = ValueTypes.valueType(dpt.main(), sub);
 		if (type == null || ValueTypes.unsupported(dpt.main(), sub) != null) {
 			_notes.add(message(I18NConstants.NOTE_UNSUPPORTED_DATAPOINT_TYPE__ADDRESS_TYPE.fill(
-				ga.toString() + " " + String.valueOf(address.tValueByName("name")), dpt.code())));
+				DatapointNames.name(address), dpt.code())));
 			return null;
 		}
 
@@ -655,7 +654,7 @@ public final class RuntimeImage {
 			Dpt dpt = GroupAddressTypes.effective(address);
 			if (dpt != null && dpt.main() != Integer.parseInt(member[3])) {
 				_notes.add(message(I18NConstants.NOTE_TIME_MASTER_TYPE__ADDRESS_TYPE_EXPECTED.fill(
-					ga.toString() + " " + address.tValueByName("name"), dpt.code(), member[3] + ".001")));
+					DatapointNames.name(address), dpt.code(), member[3] + ".001")));
 			}
 			timeMaster.put(member[1], threeLevel(ga.getValue()));
 		}
@@ -882,13 +881,13 @@ public final class RuntimeImage {
 					if (sender != null) {
 						_blockProblems.add(new BlockInstances.Problem("blocks[" + b + "].outputs." + port,
 							message(I18NConstants.BLOCK_OUTPUT_SENT_BY_OBJECT__BLOCK_PORT_ADDRESS_OBJECT.fill(blockName, port,
-								datapoint + " " + String.valueOf(target.tValueByName("name")), sender))));
+								DatapointNames.name(target), sender))));
 					}
 				}
 				String rule = ruleWrites.get(datapoint);
 				if (rule != null) {
 					_notes.add(message(I18NConstants.NOTE_BLOCK_OUTPUT_WRITTEN_BY_RULE__BLOCK_PORT_DATAPOINT_RULE.fill(blockName,
-						port, datapoint, rule)));
+						port, target != null ? DatapointNames.name(target) : datapoint, rule)));
 				}
 			}
 		}

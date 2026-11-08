@@ -5,6 +5,7 @@ package de.haumacher.ehome.runtime;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -203,11 +204,11 @@ public final class RuleImport {
 	 */
 	public List<TLObject> importDatapoints(TLObject project, List<?> datapoints) {
 		List<TLObject> all = ApplicationDatapoints.of(project);
-		Set<String> known = new HashSet<>();
+		Map<String, TLObject> known = new HashMap<>();
 		for (TLObject datapoint : all) {
 			String id = ApplicationDatapoints.id(datapoint);
 			if (id != null) {
-				known.add(id);
+				known.putIfAbsent(id, datapoint);
 			}
 		}
 		Set<String> listed = new HashSet<>();
@@ -229,8 +230,8 @@ public final class RuleImport {
 			if (!listed.add(id)) {
 				throw new TopLogicException(I18NConstants.ERROR_IMPORT_DATAPOINT_TWICE__ID.fill(id));
 			}
-			if (known.contains(id)) {
-				note(I18NConstants.IMPORT_DATAPOINT_KEPT__ID.fill(id));
+			if (known.containsKey(id)) {
+				note(I18NConstants.IMPORT_DATAPOINT_KEPT__ID.fill(DatapointNames.name(known.get(id))));
 				continue;
 			}
 			created.add(datapoint(id, json));
@@ -335,7 +336,8 @@ public final class RuleImport {
 		}
 		List<TLObject> bound = ZigbeeBindings.boundDatapoints(function);
 		if (!bound.isEmpty()) {
-			note(I18NConstants.IMPORT_ZIGBEE_BOUND__ID_OTHER.fill(id, ApplicationDatapoints.id(bound.get(0))));
+			note(I18NConstants.IMPORT_ZIGBEE_BOUND__ID_OTHER.fill(DatapointNames.name(datapoint),
+				DatapointNames.name(bound.get(0))));
 			return;
 		}
 		ZigbeeBindings.bind(function, datapoint);
@@ -352,7 +354,7 @@ public final class RuleImport {
 					function.tUpdateByName(ZigbeeReporting.CHANGE, Double.valueOf(change.doubleValue()));
 				}
 			} else if (!sameJson(current, reporting)) {
-				note(I18NConstants.IMPORT_REPORTING_KEPT__ID_PROJECT_FILE.fill(id, Json.write(current).trim(),
+				note(I18NConstants.IMPORT_REPORTING_KEPT__ID_PROJECT_FILE.fill(DatapointNames.name(datapoint), Json.write(current).trim(),
 					Json.write(reporting).trim()));
 			}
 		}

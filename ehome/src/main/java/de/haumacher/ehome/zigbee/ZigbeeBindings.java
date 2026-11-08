@@ -23,6 +23,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
+import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.RuleFunctions;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
@@ -101,7 +102,7 @@ public final class ZigbeeBindings {
 	 */
 	public static ResKey bindVeto(TLObject function) {
 		List<TLObject> bound = boundDatapoints(function);
-		return bound.isEmpty() ? null : I18NConstants.VETO_BOUND__DATAPOINT.fill(ApplicationDatapoints.id(bound.get(0)));
+		return bound.isEmpty() ? null : I18NConstants.VETO_BOUND__DATAPOINT.fill(DatapointNames.name(bound.get(0)));
 	}
 
 	/**
@@ -222,7 +223,7 @@ public final class ZigbeeBindings {
 	public static String createdSummary(List<TLObject> datapoints) {
 		List<String> ids = new ArrayList<>();
 		for (TLObject datapoint : datapoints) {
-			ids.add(ApplicationDatapoints.id(datapoint));
+			ids.add(DatapointNames.name(datapoint));
 		}
 		return Resources.getInstance().getString(
 			I18NConstants.DATAPOINTS_CREATED__COUNT_IDS.fill(Integer.valueOf(ids.size()), String.join(", ", ids)));
@@ -242,7 +243,7 @@ public final class ZigbeeBindings {
 		}
 		TLObject other = function(datapoint);
 		if (other != null && other != function) {
-			throw new TopLogicException(I18NConstants.ERROR_BIND_TAKEN__DATAPOINT.fill(ApplicationDatapoints.id(datapoint)));
+			throw new TopLogicException(I18NConstants.ERROR_BIND_TAKEN__DATAPOINT.fill(DatapointNames.name(datapoint)));
 		}
 		if (RuntimeFunctions.project(function) != RuntimeFunctions.project(datapoint)) {
 			throw new TopLogicException(I18NConstants.ERROR_BIND_OTHER_PROJECT);
@@ -250,7 +251,7 @@ public final class ZigbeeBindings {
 		String type = ApplicationDatapoints.valueType(datapoint);
 		if (!fits(valueType(function), type)) {
 			throw new TopLogicException(I18NConstants.ERROR_BIND_TYPE__FUNCTION_TYPE_DATAPOINT_DATAPOINT_TYPE.fill(
-				function.tValueByName("function"), valueType(function), ApplicationDatapoints.id(datapoint), type));
+				function.tValueByName("function"), valueType(function), DatapointNames.name(datapoint), type));
 		}
 		datapoint.tUpdateByName("zigbeeFunction", function);
 		return datapoint;

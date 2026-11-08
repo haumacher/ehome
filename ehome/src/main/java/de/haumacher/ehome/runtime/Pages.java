@@ -264,21 +264,16 @@ public final class Pages {
 	}
 
 	/**
-	 * The target for the user: a function or rule by its name, a group address by its address and
-	 * name, a datapoint by its id, a part of a building by its path.
+	 * The target for the user: a function or rule by its name, a datapoint by its name and id
+	 * (<code>Licht Flur (11/0/4)</code>, {@link DatapointNames}), a part of a building by its path.
 	 */
 	public static String targetLabel(TLObject target) {
 		if (target == null || !target.tValid()) {
 			return "";
 		}
-		if (isGroupAddress(target)) {
-			Object address = target.tValueByName("address");
-			String name = text(target.tValueByName("name"));
-			return address == null ? String.valueOf(name) : name == null ? address.toString() : address + " " + name;
-		}
-		if (ApplicationDatapoints.isApplicationDatapoint(target) || isRuleParameter(target) || isTimeSchedule(target)
-			|| BlockInstances.isBlockDatapoint(target)) {
-			return String.valueOf(imageId(target));
+		if (isGroupAddress(target) || ApplicationDatapoints.isApplicationDatapoint(target) || isRuleParameter(target)
+			|| isTimeSchedule(target) || BlockInstances.isBlockDatapoint(target)) {
+			return String.valueOf(DatapointNames.name(target));
 		}
 		if (is(target, "Function") || is(target, "Rule")) {
 			return String.valueOf(text(target.tValueByName("name")));

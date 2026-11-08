@@ -153,6 +153,34 @@ public final class Simulation implements AutoCloseable {
 	}
 
 	/**
+	 * How the timeline names the datapoints, addresses and parameters in the entries the simulation
+	 * writes itself (haumacher/ehome #113): E-Home names them as <code>Name (id)</code>; the lines
+	 * of the controller's own logs (rules, scheduler, blocks, bindings) keep its ids.
+	 */
+	public interface Names {
+
+		/** The ids alone. */
+		Names IDS = new Names() {
+			// The defaults.
+		};
+
+		/** The datapoint of the image with the given id. */
+		default String datapoint(String id) {
+			return id;
+		}
+
+		/** The group address with the given value. */
+		default String address(int address) {
+			return RuntimeImage.threeLevel(address);
+		}
+
+		/** The parameter of the rule with the given ids. */
+		default String parameter(String rule, String id) {
+			return id;
+		}
+	}
+
+	/**
 	 * An entry of the timeline.
 	 *
 	 * @param ms
@@ -228,6 +256,8 @@ public final class Simulation implements AutoCloseable {
 
 	private final Deque<Entry> _timeline = new ArrayDeque<>();
 
+	private Names _names = Names.IDS;
+
 	private long _dropped;
 
 	private long _now;
@@ -251,7 +281,8 @@ public final class Simulation implements AutoCloseable {
 	});
 
 	private final DatapointModel.Technology _notSimulated = (datapoint, value) -> {
-		problem(datapoint.name(), "the command for '" + datapoint.name() + "' is refused: its technology ("
+		problem(_names.datapoint(datapoint.name()), "the command for '" + _names.datapoint(datapoint.name())
+			+ "' is refused: its technology ("
 			+ _owners.get(datapoint.name()) + ") is not simulated");
 		return false;
 	};
@@ -461,17 +492,17 @@ public final class Simulation implements AutoCloseable {
 
 			@Override
 			public void ruleCommanded(String rule, Datapoint datapoint, Val value) {
-				add(Kind.COMMAND, rule, "write " + datapoint.name() + " = " + Values.format(value));
+				add(Kind.COMMAND, rule, "write " + _names.datapoint(datapoint.name()) + " = " + Values.format(value));
 			}
 
 			@Override
 			public void parameterChanged(String rule, String parameter, Val value) {
-				add(Kind.PARAMETER, rule, parameter + " = " + Values.format(value));
+				add(Kind.PARAMETER, rule, _names.parameter(rule, parameter) + " = " + Values.format(value));
 			}
 
 			@Override
 			public void ruleRead(String rule, Datapoint datapoint) {
-				add(Kind.COMMAND, rule, "read " + datapoint.name());
+				add(Kind.COMMAND, rule, "read " + _names.datapoint(datapoint.name()));
 			}
 		});
 		_scheduler.addListener(_engine::scheduleFired);
@@ -586,7 +617,7 @@ public final class Simulation implements AutoCloseable {
 
 			@Override
 			public void blockCommanded(String block, Datapoint datapoint, Val value) {
-				add(Kind.COMMAND, "block " + block, "write " + datapoint.name() + " = " + Values.format(value));
+				add(Kind.COMMAND, "block " + block, "write " + _names.datapoint(datapoint.name()) + " = " + Values.format(value));
 			}
 		});
 		_blockRuntime.adopt(set);
@@ -935,7 +966,7 @@ public final class Simulation implements AutoCloseable {
 			if (_closed) {
 				return;
 			}
-			add(Kind.RECEIVED, RuntimeImage.threeLevel(telegram.destination()),
+			add(Kind.RECEIVED, _names.address(telegram.destination()),
 				telegram.service().classifier() + " " + telegram.hex() + " from " + telegram.sourceText()
 					+ datapointsText(telegram.destination()));
 			_binding.received(telegram.source(), telegram.destination(), telegram.service(), telegram.data());
@@ -950,7 +981,7 @@ public final class Simulation implements AutoCloseable {
 		List<String> names = new ArrayList<>();
 		for (KnxBinding.Mapping mapping : _binding.mappings()) {
 			if (mapping.addresses().contains(Integer.valueOf(address))) {
-				names.add(mapping.datapoint());
+				names.add(_names.datapoint(mapping.datapoint()));
 			}
 		}
 		return names.isEmpty() ? "" : " (" + String.join(", ", names) + ")";
@@ -969,7 +1000,7 @@ public final class Simulation implements AutoCloseable {
 
 	private void send(int destination, byte[] apdu) {
 		BusLink link = _link;
-		String address = RuntimeImage.threeLevel(destination);
+		String address = _names.address(destination);
 		Service service = BusTelegram.Service.ofCode(apdu[1] & 0xC0);
 		String data = apdu.length > 2 ? HexFormat.ofDelimiter(" ").withUpperCase().formatHex(apdu, 2, apdu.length)
 			: service == Service.READ ? "" : String.format("%02X", apdu[1] & 0x3F);
@@ -1041,7 +1072,8 @@ public final class Simulation implements AutoCloseable {
 		checkRunning();
 		CommandStatus status = _model.command(datapoint, value);
 		add(status == CommandStatus.OK ? Kind.COMMAND : Kind.PROBLEM, "-",
-			"write " + datapoint + " = " + Values.format(value) + (status == CommandStatus.OK ? "" : ": " + status.text()));
+			"write " + _names.datapoint(datapoint) + " = " + Values.format(value)
+				+ (status == CommandStatus.OK ? "" : ": " + status.text()));
 		settle();
 		return status;
 	}
@@ -1063,7 +1095,7 @@ public final class Simulation implements AutoCloseable {
 		if (refusal != null) {
 			VirtualZigbee.Point point = _zigbee.point(datapoint);
 			problem(point == null ? datapoint : point.source(),
-				"report " + Values.format(value) + " of '" + datapoint + "' refused: " + refusal);
+				"report " + Values.format(value) + " of '" + _names.datapoint(datapoint) + "' refused: " + refusal);
 			return refusal;
 		}
 		if (_started) {
@@ -1237,6 +1269,20 @@ public final class Simulation implements AutoCloseable {
 			_dropped++;
 		}
 		changed();
+	}
+
+	/**
+	 * Sets how the timeline names datapoints, addresses and parameters; {@link Names#IDS} by default.
+	 */
+	public synchronized void setNames(Names names) {
+		_names = names == null ? Names.IDS : names;
+	}
+
+	/**
+	 * How the timeline names datapoints, addresses and parameters.
+	 */
+	public synchronized Names names() {
+		return _names;
 	}
 
 	/**

@@ -105,7 +105,7 @@ public class TestRuntimeImage extends BasicTestCase {
 			RuntimeImage withoutType = RuntimeImage.build(project, 7, NOW);
 			assertEquals(53, ((List<?>) withoutType.getJson().get("datapoints")).size());
 			assertEquals(1, withoutType.getNotes().size());
-			assertTrue(withoutType.getNotes().get(0), withoutType.getNotes().get(0).contains("0/0/28 Raumtemperatur"));
+			assertTrue(withoutType.getNotes().get(0), withoutType.getNotes().get(0).contains("Raumtemperatur (0/0/28)"));
 			assertNull(datapoint((List<?>) withoutType.getJson().get("datapoints"), "0/0/28"));
 
 			setDatapointType(project, "Raumtemperatur", "DPST-9-1");

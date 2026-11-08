@@ -248,7 +248,7 @@ public class BlockFunctions extends GenericMethod {
 				List<String> result = new ArrayList<>();
 				for (TLObject binding : RuleExport.objects(obj.tValueByName("bindings"))) {
 					if (binding.tValueByName("datapoint") instanceof TLObject datapoint && datapoint.tValid()) {
-						result.add(BlockInstances.datapointImageId(datapoint));
+						result.add(DatapointNames.format(DatapointNames.label(datapoint), BlockInstances.datapointImageId(datapoint)));
 					} else {
 						result.add(Resources.getInstance().getString(
 							I18NConstants.BLOCK_BINDING_GONE__ID.fill(String.valueOf(binding.tValueByName("boundId")))));

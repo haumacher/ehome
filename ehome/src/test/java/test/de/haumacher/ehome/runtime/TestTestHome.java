@@ -183,7 +183,7 @@ public class TestTestHome extends BasicTestCase {
 	private static void setUp(TLObject project) throws Exception {
 		List<String> notes = RuntimeImage.build(project, 1, Instant.ofEpochSecond(START)).getNotes();
 		assertEquals(notes.toString(), 1, notes.size());
-		assertTrue(notes.get(0), notes.get(0).contains("0/0/28 Raumtemperatur"));
+		assertTrue(notes.get(0), notes.get(0).contains("Raumtemperatur (0/0/28)"));
 
 		TLObject temperature = SharedData.within("ehome.logical:GroupAddress", List.of(project)).stream()
 			.filter(a -> "Raumtemperatur".equals(a.tValueByName("name"))).findFirst().orElseThrow();

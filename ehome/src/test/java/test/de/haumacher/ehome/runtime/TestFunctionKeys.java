@@ -101,7 +101,7 @@ public class TestFunctionKeys extends BasicTestCase {
 				tx.commit();
 			}
 			String warning = FunctionProposal.redundancy(key5);
-			assertEquals("1/1/7 Melder is the datapoint \"Command\" of the function \"" + TestFunctionProposal.name(own)
+			assertEquals("Melder (1/1/7) is the datapoint \"Command\" of the function \"" + TestFunctionProposal.name(own)
 				+ "\": the controller offers what the button does there already. Delete the button; the proposal does not"
 				+ " add it again.", warning);
 			assertNull(FunctionProposal.redundancy(own));

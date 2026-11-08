@@ -189,7 +189,9 @@ public class TestZigbeeDevices extends BasicTestCase {
 				}
 				fail("A bound function is bound again.");
 			} catch (TopLogicException ex) {
-				assertEquals(I18NConstants.VETO_BOUND__DATAPOINT.fill("philips-sml002-temperature"), ex.getErrorKey());
+				// The datapoint by its label and id (haumacher/ehome #113).
+				assertEquals(I18NConstants.VETO_BOUND__DATAPOINT.fill("Philips SML002 temperature (philips-sml002-temperature)"),
+					ex.getErrorKey());
 			}
 			TLObject second;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {

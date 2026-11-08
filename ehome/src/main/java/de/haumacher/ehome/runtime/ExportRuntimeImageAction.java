@@ -147,9 +147,10 @@ public class ExportRuntimeImageAction implements ViewAction {
 		}
 		List<String> addresses = new ArrayList<>();
 		if (json.get("knx") instanceof Map<?, ?> knx && knx.get("timeMaster") instanceof Map<?, ?> timeMaster) {
+			DatapointNames names = DatapointNames.of(image.elementAt("knx"));
 			for (String member : List.of("time", "date", "dateTime")) {
 				if (timeMaster.get(member) != null) {
-					addresses.add(timeMaster.get(member).toString());
+					addresses.add(names.groupAddress(timeMaster.get(member).toString()));
 				}
 			}
 		}

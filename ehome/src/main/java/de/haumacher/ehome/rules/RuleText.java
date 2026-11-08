@@ -75,6 +75,35 @@ public final class RuleText {
 		}
 	}
 
+	/**
+	 * How {@link RuleText#print(Object, Names)} writes the references to datapoints and parameters:
+	 * a display text names them by their labels (haumacher/ehome #113), the canonical text by their
+	 * ids.
+	 */
+	public interface Names {
+
+		/** The references by their ids: the canonical text. */
+		Names CANONICAL = new Names() {
+			// The defaults.
+		};
+
+		/**
+		 * The text written for a reference to the datapoint with the given name,
+		 * <code>null</code> for the canonical <code>@name</code>.
+		 */
+		default String datapoint(String name) {
+			return null;
+		}
+
+		/**
+		 * The text written for a reference to the parameter with the given id, <code>null</code>
+		 * for the canonical <code>$id</code>.
+		 */
+		default String parameter(String id) {
+			return null;
+		}
+	}
+
 	private RuleText() {
 		// Static API.
 	}
@@ -97,8 +126,18 @@ public final class RuleText {
 	 * The canonical text of an expression given as its JSON AST.
 	 */
 	public static String print(Object node) {
+		return print(node, Names.CANONICAL);
+	}
+
+	/**
+	 * The text of an expression given as its JSON AST, with the references to datapoints and
+	 * parameters written as the given {@link Names} say: for a display text naming them by their
+	 * labels (haumacher/ehome #113); with {@link Names#CANONICAL} the canonical text
+	 * ({@link #print(Object)}).
+	 */
+	public static String print(Object node, Names names) {
 		StringBuilder out = new StringBuilder();
-		print(out, node);
+		print(out, node, names);
 		return out.toString();
 	}
 
@@ -146,13 +185,22 @@ public final class RuleText {
 	 * The text of a log message given as its parts (see {@link #parseMessage(String)}).
 	 */
 	public static String printMessage(List<?> parts) {
+		return printMessage(parts, Names.CANONICAL);
+	}
+
+	/**
+	 * The text of a log message given as its parts (see {@link #parseMessage(String)}), with the
+	 * references in its placeholders written as the given {@link Names} say
+	 * ({@link #print(Object, Names)}).
+	 */
+	public static String printMessage(List<?> parts, Names names) {
 		StringBuilder out = new StringBuilder();
 		for (Object part : parts) {
 			if (part instanceof String text) {
 				out.append(text.replace("{", "{{").replace("}", "}}"));
 			} else {
 				out.append('{');
-				print(out, part);
+				print(out, part, names);
 				out.append('}');
 			}
 		}
@@ -313,7 +361,7 @@ public final class RuleText {
 		}
 	}
 
-	private static void print(StringBuilder out, Object node) {
+	private static void print(StringBuilder out, Object node, Names names) {
 		if (!(node instanceof Map<?, ?> map)) {
 			out.append(String.valueOf(node));
 			return;
@@ -323,18 +371,27 @@ public final class RuleText {
 			case "literal":
 				printLiteral(out, String.valueOf(map.get("type")), map.get("value"));
 				return;
-			case "datapoint":
-				out.append('@');
+			case "datapoint": {
 				String name = String.valueOf(map.get("name"));
+				String display = names.datapoint(name);
+				if (display != null) {
+					out.append(display);
+					return;
+				}
+				out.append('@');
 				if (isBareName(name)) {
 					out.append(name);
 				} else {
 					quote(out, name);
 				}
 				return;
-			case "parameter":
-				out.append(parameterReference(String.valueOf(map.get("id"))));
+			}
+			case "parameter": {
+				String id = String.valueOf(map.get("id"));
+				String display = names.parameter(id);
+				out.append(display != null ? display : parameterReference(id));
 				return;
+			}
 			case "timer":
 				out.append(map.get("id"));
 				return;
@@ -342,13 +399,13 @@ public final class RuleText {
 				Object operand = map.get("operand");
 				if ("not".equals(map.get("op"))) {
 					out.append("not ");
-					operand(out, operand, level(operand) < LEVEL_NOT);
+					operand(out, operand, level(operand) < LEVEL_NOT, names);
 				} else {
 					out.append('-');
 					String text = print(operand);
 					boolean literal = operand instanceof Map<?, ?> o && "literal".equals(o.get("kind"))
 						&& isSigned(String.valueOf(o.get("type")));
-					operand(out, operand, level(operand) < LEVEL_PRIMARY || text.startsWith("-") || literal);
+					operand(out, operand, level(operand) < LEVEL_PRIMARY || text.startsWith("-") || literal, names);
 				}
 				return;
 			}
@@ -358,9 +415,9 @@ public final class RuleText {
 				Object left = map.get("left");
 				Object right = map.get("right");
 				int leftLevel = level(left);
-				operand(out, left, leftLevel < level || (level == LEVEL_COMPARISON && leftLevel == LEVEL_COMPARISON));
+				operand(out, left, leftLevel < level || (level == LEVEL_COMPARISON && leftLevel == LEVEL_COMPARISON), names);
 				out.append(' ').append(op).append(' ');
-				operand(out, right, level(right) <= level);
+				operand(out, right, level(right) <= level, names);
 				return;
 			}
 			case "call": {
@@ -370,7 +427,7 @@ public final class RuleText {
 						if (i > 0) {
 							out.append(", ");
 						}
-						print(out, args.get(i));
+						print(out, args.get(i), names);
 					}
 				}
 				out.append(')');
@@ -385,11 +442,11 @@ public final class RuleText {
 		return type.equals("integer") || type.equals("real") || type.equals("duration");
 	}
 
-	private static void operand(StringBuilder out, Object node, boolean parenthesize) {
+	private static void operand(StringBuilder out, Object node, boolean parenthesize, Names names) {
 		if (parenthesize) {
 			out.append('(');
 		}
-		print(out, node);
+		print(out, node, names);
 		if (parenthesize) {
 			out.append(')');
 		}

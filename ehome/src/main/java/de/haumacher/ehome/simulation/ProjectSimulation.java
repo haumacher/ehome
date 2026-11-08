@@ -32,6 +32,7 @@ import de.haumacher.ehome.rules.Engine.ParameterStatus;
 import de.haumacher.ehome.rules.Engine.RuleStatus;
 import de.haumacher.ehome.blocks.BlockRuntime;
 import de.haumacher.ehome.rules.ParameterStore;
+import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleSet;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.RuleText.SyntaxError;
@@ -39,6 +40,7 @@ import de.haumacher.ehome.rules.Type;
 import de.haumacher.ehome.rules.Val;
 import de.haumacher.ehome.rules.Values;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
+import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.simulation.KnxValues.CodingException;
@@ -198,6 +200,7 @@ public final class ProjectSimulation implements AutoCloseable {
 			// controller), not a restart of E-Home.
 			simulation.setRecords(RECORDS.computeIfAbsent(project.tId(), id -> new BlockRuntime.MemoryRecords()));
 			simulation.setLanguage(Resources.getInstance().getLocale().getLanguage());
+			simulation.setNames(timelineNames(project));
 			for (String problem : problems) {
 				simulation.reportProblem("-", problem);
 			}
@@ -321,13 +324,13 @@ public final class ProjectSimulation implements AutoCloseable {
 			String refusal = _simulation.zigbeeReport(datapoint, datapointValue(datapoint, value));
 			if (refusal != null) {
 				throw new TopLogicException(I18NConstants.ERROR_ZIGBEE_REPORT_REFUSED__TEXT_DATAPOINT_REASON.fill(value,
-					datapoint, refusal));
+					names().datapoint(datapoint), refusal));
 			}
 			return;
 		}
 		KnxBinding.Mapping mapping = _simulation.binding().mapping(datapoint);
 		if (mapping == null || mapping.addresses().isEmpty()) {
-			throw new TopLogicException(I18NConstants.ERROR_NOT_ON_BUS__DATAPOINT.fill(datapoint));
+			throw new TopLogicException(I18NConstants.ERROR_NOT_ON_BUS__DATAPOINT.fill(names().datapoint(datapoint)));
 		}
 		Val parsed = datapointValue(datapoint, value);
 		byte[] data;
@@ -335,7 +338,7 @@ public final class ProjectSimulation implements AutoCloseable {
 			data = KnxValues.encode(mapping.dpt(), parsed);
 		} catch (CodingException ex) {
 			throw new TopLogicException(
-				I18NConstants.ERROR_INVALID_VALUE__TEXT_DATAPOINT_DETAIL.fill(value, datapoint, ex.getMessage()));
+				I18NConstants.ERROR_INVALID_VALUE__TEXT_DATAPOINT_DETAIL.fill(value, names().datapoint(datapoint), ex.getMessage()));
 		}
 		int address = mapping.addresses().get(0).intValue();
 		for (GroupDevice device : _installation.devices()) {
@@ -368,7 +371,8 @@ public final class ProjectSimulation implements AutoCloseable {
 	public void command(String datapoint, String value) {
 		CommandStatus status = _simulation.command(datapoint, datapointValue(datapoint, value));
 		if (status != CommandStatus.OK) {
-			throw new TopLogicException(I18NConstants.ERROR_COMMAND_REFUSED__DATAPOINT_REASON.fill(datapoint, status.text()));
+			throw new TopLogicException(
+				I18NConstants.ERROR_COMMAND_REFUSED__DATAPOINT_REASON.fill(names().datapoint(datapoint), status.text()));
 		}
 	}
 
@@ -382,12 +386,12 @@ public final class ProjectSimulation implements AutoCloseable {
 		Val parsed = parse(value, type);
 		if (parsed == null) {
 			throw new TopLogicException(
-				I18NConstants.ERROR_INVALID_PARAMETER_VALUE__TEXT_PARAMETER.fill(value, key));
+				I18NConstants.ERROR_INVALID_PARAMETER_VALUE__TEXT_PARAMETER.fill(value, parameterName(parts)));
 		}
 		ParameterStatus status = _simulation.setParameter(parts[0], parts[1], parsed);
 		saveOverrides();
 		if (status != ParameterStatus.OK) {
-			throw new TopLogicException(I18NConstants.ERROR_PARAMETER_REFUSED__PARAMETER_REASON.fill(key, status));
+			throw new TopLogicException(I18NConstants.ERROR_PARAMETER_REFUSED__PARAMETER_REASON.fill(parameterName(parts), status));
 		}
 	}
 
@@ -399,8 +403,44 @@ public final class ProjectSimulation implements AutoCloseable {
 		ParameterStatus status = _simulation.resetParameter(parts[0], parts[1]);
 		saveOverrides();
 		if (status != ParameterStatus.OK) {
-			throw new TopLogicException(I18NConstants.ERROR_PARAMETER_REFUSED__PARAMETER_REASON.fill(key, status));
+			throw new TopLogicException(I18NConstants.ERROR_PARAMETER_REFUSED__PARAMETER_REASON.fill(parameterName(parts), status));
 		}
+	}
+
+	/**
+	 * The names of the datapoints, addresses and parameters in the timeline (haumacher/ehome #113):
+	 * resolved at the start, in the language of the person starting the simulation (the language of
+	 * its rules' texts too), since the timeline is written by the threads of the simulation.
+	 */
+	private static Simulation.Names timelineNames(TLObject project) {
+		Map<String, String> labels = Map.copyOf(DatapointNames.of(project).labels());
+		return new Simulation.Names() {
+			@Override
+			public String datapoint(String id) {
+				return DatapointNames.format(labels.get(id), id);
+			}
+
+			@Override
+			public String address(int address) {
+				return datapoint(RuntimeImage.threeLevel(address));
+			}
+
+			@Override
+			public String parameter(String rule, String id) {
+				return DatapointNames.format(labels.get(RuleLoader.parameterDatapointName(rule, id)), id);
+			}
+		};
+	}
+
+	/** The names of the datapoints of the project in the texts of the simulation (haumacher/ehome #113). */
+	private DatapointNames names() {
+		return DatapointNames.of(_project.tValid() ? _project : null);
+	}
+
+	/** The parameter (<code>rule</code>, <code>parameter</code>) by its title and key: <code>Max. Helligkeit (licht/max)</code>. */
+	private String parameterName(String[] parts) {
+		return DatapointNames.format(names().label(RuleLoader.parameterDatapointName(parts[0], parts[1])),
+			parts[0] + "/" + parts[1]);
 	}
 
 	private static String[] split(String key) {
@@ -531,7 +571,8 @@ public final class ProjectSimulation implements AutoCloseable {
 			row.put("timers", String.join(", ", timers));
 			List<String> parameters = new ArrayList<>();
 			for (int p = 1; p < rule.parameters().size(); p++) {
-				parameters.add(rule.parameters().get(p).id() + " = " + Values.format(engine.parameterValue(r, p))
+				parameters.add(s.names().parameter(rule.id(), rule.parameters().get(p).id()) + " = "
+					+ Values.format(engine.parameterValue(r, p))
 					+ (engine.parameterOverridden(r, p) ? " *" : ""));
 			}
 			row.put("parameters", String.join(", ", parameters));
@@ -579,6 +620,7 @@ public final class ProjectSimulation implements AutoCloseable {
 		for (Datapoint dp : s.model().datapoints()) {
 			Map<String, Object> row = new MonitorRow(dp.name());
 			row.put("id", dp.name());
+			row.put("name", s.names().datapoint(dp.name()));
 			row.put("type", dp.type().externalName());
 			row.put("value", dp.quality() == Quality.UNKNOWN ? "" : Values.format(dp.value()));
 			row.put("quality", dp.quality().externalName());
@@ -613,6 +655,7 @@ public final class ProjectSimulation implements AutoCloseable {
 			Object name = known ? ZigbeeBindings.device(function).tValueByName("name") : null;
 			Map<String, Object> row = new MonitorRow(point.datapoint());
 			row.put("id", point.datapoint());
+			row.put("name", s.names().datapoint(point.datapoint()));
 			row.put("device", name == null ? point.ieee() : name + " (" + point.ieee() + ")");
 			row.put("endpoint", Integer.valueOf(point.endpoint()));
 			row.put("function", known ? ZigbeeStatus.functionLabel(function) : ZigbeeStatus.functionLabel(point.function()));

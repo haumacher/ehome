@@ -17,10 +17,11 @@ import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.runtime.DatapointNames;
 
 /**
  * What the group monitor knows of a project: its group addresses with their names and datapoint
- * types, and its devices by their individual addresses.
+ * types, its devices by their individual addresses, and the labels of the datapoints of its image.
  *
  * <p>
  * Built once when the monitor attaches, in the request of the user (labels in the user's language,
@@ -73,12 +74,15 @@ public class ProjectIndex {
 
 	private final Map<Integer, DeviceInfo> _devices;
 
+	private final Map<String, String> _datapointLabels;
+
 	private ProjectIndex(TLObject project, GroupAddressStyle style, Map<Integer, AddressInfo> addresses,
-			Map<Integer, DeviceInfo> devices) {
+			Map<Integer, DeviceInfo> devices, Map<String, String> datapointLabels) {
 		_project = project;
 		_style = style;
 		_addresses = Collections.unmodifiableMap(addresses);
 		_devices = Collections.unmodifiableMap(devices);
+		_datapointLabels = Map.copyOf(datapointLabels);
 	}
 
 	/**
@@ -107,7 +111,7 @@ public class ProjectIndex {
 				devices.put(address, new DeviceInfo(address, GroupAddressConnections.deviceLabel(device), device));
 			}
 		}
-		return new ProjectIndex(project, style, addresses, devices);
+		return new ProjectIndex(project, style, addresses, devices, DatapointNames.of(project).labels());
 	}
 
 	/**
@@ -138,6 +142,14 @@ public class ProjectIndex {
 	 */
 	public DeviceInfo device(int address) {
 		return _devices.get(address);
+	}
+
+	/**
+	 * The datapoint of the controller's image with the given id as a person reads it:
+	 * <code>Licht Flur (11/0/4)</code> ({@link DatapointNames}, haumacher/ehome #113).
+	 */
+	public String datapointName(String id) {
+		return DatapointNames.format(_datapointLabels.get(id), id);
 	}
 
 	/**

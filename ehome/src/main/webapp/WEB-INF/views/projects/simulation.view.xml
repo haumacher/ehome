@@ -718,13 +718,13 @@
 											<columns>
 												<computed-column name="id"
 													type="tl.core:String"
-													width="160"
+													width="240"
 												>
 													<label>
 														<en>Datapoint</en>
 														<de>Datenpunkt</de>
 													</label>
-													<value>$row['id']</value>
+													<value>$row['name']</value>
 												</computed-column>
 												<computed-column name="type"
 													type="tl.core:String"
@@ -940,13 +940,13 @@
 												</computed-column>
 												<computed-column name="id"
 													type="tl.core:String"
-													width="160"
+													width="240"
 												>
 													<label>
 														<en>Datapoint</en>
 														<de>Datenpunkt</de>
 													</label>
-													<value>$row['id']</value>
+													<value>$row['name']</value>
 												</computed-column>
 												<computed-column name="value"
 													type="tl.core:String"
@@ -1109,7 +1109,7 @@
 									</computed-column>
 									<computed-column name="source"
 										type="tl.core:String"
-										width="160"
+										width="240"
 									>
 										<label>
 											<en>Source</en>

@@ -416,7 +416,7 @@ public class TestHistoryConfig extends BasicTestCase {
 					Integer.valueOf(65536)))
 				+ " " + resources.getString(I18NConstants.HISTORY_USAGE_COARSENED__DATAPOINTS.fill(temperature + ", " + humidity)),
 			HistoryConfig.usage(_project));
-		assertTrue(HistoryConfig.usage(_project), HistoryConfig.usage(_project).contains("1/3/1 Temperatur"));
+		assertTrue(HistoryConfig.usage(_project), HistoryConfig.usage(_project).contains("Temperatur (1/3/1)"));
 		TLObject yearChart = HistoryConfig.charts(_project).get(0);
 		assertEquals(584 + 584, HistoryConfig.chartRamBytes(yearChart));
 		assertEquals(61440, HistoryConfig.chartFlashBytes(yearChart));
@@ -526,8 +526,8 @@ public class TestHistoryConfig extends BasicTestCase {
 		assertAnswered();
 		assertTrue(HistoryConfig.usage(_project), HistoryConfig.usage(_project).contains(
 			Resources.getInstance().getString(I18NConstants.HISTORY_USAGE_FLASH_EXCEEDED__BYTES_CAP_BIGGEST.fill(
-				Long.valueOf(73728), Integer.valueOf(65536), Pages.targetLabel(_temperature) + " (12288 B), "
-					+ Pages.targetLabel(_humidity) + " (12288 B), " + Pages.targetLabel(_meter) + " (12288 B)"))));
+				Long.valueOf(73728), Integer.valueOf(65536), Pages.targetLabel(_temperature) + ": 12288 B, "
+					+ Pages.targetLabel(_humidity) + ": 12288 B, " + Pages.targetLabel(_meter) + ": 12288 B"))));
 	}
 
 	/** The history of a year chart (the day in the raw ring) with the given resolutions of its archives. */
@@ -621,8 +621,8 @@ public class TestHistoryConfig extends BasicTestCase {
 		Resources resources = Resources.getInstance();
 		assertTrue(HistoryConfig.usage(_project), HistoryConfig.usage(_project).endsWith(
 			resources.getString(I18NConstants.HISTORY_USAGE_FLASH_EXCEEDED__BYTES_CAP_BIGGEST.fill(Long.valueOf(151552),
-				Integer.valueOf(65536), Pages.targetLabel(_humidity) + " (114688 B), " + Pages.targetLabel(_temperature)
-					+ " (36864 B)"))));
+				Integer.valueOf(65536), Pages.targetLabel(_humidity) + ": 114688 B, " + Pages.targetLabel(_temperature)
+					+ ": 36864 B"))));
 	}
 
 	/**

@@ -32,7 +32,7 @@ import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.runtime.ApplicationDatapoints;
+import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.zigbee.I18NConstants;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
@@ -154,7 +154,7 @@ public class TestZigbeeTab extends BasicTestCase {
 			assertEquals(Resources.getInstance().getString(I18NConstants.ABSENT_REMOVED__REMOVED_KEPT_DETAILS.fill(
 				Integer.valueOf(1), Integer.valueOf(1),
 				Resources.getInstance().getString(I18NConstants.ABSENT_KEPT__FUNCTION_DATAPOINTS.fill(
-					"zigbee." + IEEE + ".2.occupancy", ApplicationDatapoints.id(occupancyDp))))), message);
+					"zigbee." + IEEE + ".2.occupancy", DatapointNames.name(occupancyDp))))), message);
 			assertFalse(illuminance.tValid());
 			assertTrue(occupancy.tValid());
 			assertTrue(((Collection<?>) device.tValueByName("functions")).contains(occupancy));

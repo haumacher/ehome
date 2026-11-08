@@ -447,7 +447,7 @@
 														<execute-script function="zigbeeCreateDatapoint($function)"/>
 														<with-result>
 															<notify
-																expr="#('Datapoint {0} created.'@en, 'Datenpunkt {0} angelegt.'@de).fill($result.get(`ehome.runtime:ApplicationDatapoint#identifier`))"
+																expr="#('Datapoint {0} created.'@en, 'Datenpunkt {0} angelegt.'@de).fill(ruleOptionLabel($result, 'trigger'))"
 																kind="info"
 															/>
 														</with-result>

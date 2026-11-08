@@ -775,7 +775,7 @@ public final class FunctionProposal {
 				if (other.tValueByName(role) == press) {
 					Resources resources = Resources.getInstance();
 					return resources.getString(I18NConstants.BUTTON_REPEATS_COMMAND__ADDRESS_ROLE_FUNCTION.fill(
-						MetaLabelProvider.INSTANCE.getLabel(press),
+						DatapointNames.name(press),
 						MetaLabelProvider.INSTANCE.getLabel(other.tType().getPart(role)),
 						other.tValueByName("name") instanceof ResKey name ? resources.getString(name)
 							: String.valueOf(other.tValueByName("identifier"))));
