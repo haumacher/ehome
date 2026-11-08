@@ -77,20 +77,41 @@ writes a project (schema 23, haumacher/ehome #32), with artificial content marke
   named value of the subtype), the medium KNX IoT (MT-6) and an artificial mask version
   "MV-FFF0" on it with a resource in the address space RelativeMemoryByObjectType and a load
   procedure with a master reset.
-- The program gets a new ID (version O0023, so that an import does not skip it as known) and a name
+- The program gets a new ID (version O0024, so that an import does not skip it as known) and a name
   marking it as test data. It adds a channel independent block whose switch places one parameter
   reference and one communication object reference in two cases (ETS 6 shares a reference between
   cases), a parameter block directly in the program with a color parameter (TypeColor), and a
-  dynamic module (ModuleDefs, a module in a case), which E-Home does not import.
+  dynamic module (ModuleDefs, a module in a case) whose argument comes from an allocator (Allocators),
+  which E-Home does not expand (haumacher/ehome #119).
 - The project part is the folder P-01A0 with project.xml (lower case, ETS 5/6) and 0.xml: the
   device lies in a segment of its line, names its communication objects by IDs relative to its
   program and links them to group addresses by the attribute Links (IDs relative to the
   installation; one object sends to GA-3 and receives from GA-1), reports its load state as "true"
   and "false", sets the shared parameter, sets a parameter of an instance of the module and links one
-  of its objects (IDs MD-1_M-1_MI-1_..., which do not resolve, since the module is not imported), and
+  of its objects (IDs MD-1_M-1_MI-1_..., which do not resolve, since the module is not expanded), and
   the building is a location with spaces.
 The test builds the protected variants (the project part as P-01A0.zip, AES and password, or plain)
 from this file with zip4j.
+
+TestModules.knxproj: the samples contain no dynamic module (ETS 5.6 and later, haumacher/ehome #119).
+This file (schema 23, the master data and the project of the Test project) holds an artificial program
+of the BCU 1 kind (as in TestBcu1.knxproj, with the memory of "TEST BCU1 mit Daten"), marked as test data by its name, M-0008_A-FFF7-01-0000 on
+its own hardware "TEST Module", with one module definition "Kanal" (MD-1) with the arguments
+ParamOffsBase, ObjNumberBase and ChNo: the parameters "Modus" (2 bits at byte 2, bit 4, default 2
+"Treppenlicht") and "Beschreibung" (a text of 4 bytes at byte 3, default "Flur") at BaseOffset
+ParamOffsBase, the objects "Schalten" (Number 0) and "Status" (Number 1) at BaseNumber ObjNumberBase,
+the reference of "Schalten" with the text "Kanal {{ChNo}}: {{0}}" filled from "Beschreibung"
+(TextParameterRefId), and the structure: a channel "Kanal {{ChNo}}" with a block placing both
+parameters, "Schalten" in a switch on "Modus" = 1, and "Status". The texts of the module have English
+translations. The program places the module twice: "Kanal A" (0x60, 1, A) at the top of its dynamic
+part after a channel independent block, "Kanal B" (0x70, 3, B) in the case "Ein" of a switch on the
+program's parameter "Kanal B" (default "Aus"). The program's own object "Zentral" has the text
+"Zentral {{0}}" filled from its parameter "Bezeichnung" (default "Haus"). The device "TEST Modulgerät"
+(1.0.1, as ETS 6 writes it: objects relative to the program, Links, ModuleInstances with their
+arguments) sets "Kanal B" = "Ein", "Modus" of Kanal A = 1 and its "Beschreibung" = "WZ", the
+"Beschreibung" of Kanal B empty, and links
+"Zentral" to GA-1, Kanal A "Schalten" to GA-2, its "Status" to GA-3, and Kanal B "Schalten" to GA-4 and
+GA-1.
 
 TestLanguagesA.knxprod and TestLanguagesB.knxprod: product files holding the master data (trimmed) and
 two artificial programs of the BCU 1 kind (as in TestBcu1.knxproj), marked as test data by their
@@ -999,7 +1020,7 @@ def encrypted(target, source, entry, password, content):
 
 
 # TestEts6.knxproj: an ETS 6 project file (schema 23), see the module comment.
-ETS6_VERSION = '10D7-11-A0E5-O0023'
+ETS6_VERSION = '10D7-11-A0E5-O0024'
 ETS6_PROGRAM = 'M-0008_A-' + ETS6_VERSION
 ETS6_PROGRAM_NAME = 'TEST: ETS 6 (künstliche Testdaten)'
 SCHEMA_11 = 'xmlns="http://knx.org/xml/project/11"'
@@ -1071,12 +1092,14 @@ def ets6_program(xml):
         'Priority="Low" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Enabled" TransmitFlag="Disabled" '
         'UpdateFlag="Disabled" ReadOnInitFlag="Disabled" DatapointType="DPST-20-102" />\n')
     objref = '<ComObjectRef Id="' + p + 'O-9110_R-9110" RefId="' + p + 'O-9110" />\n'
+    allocators = ('<Allocators><Allocator Id="' + p + 'L-1" Name="TestAllocator" Start="0" maxInclusive="10" />'
+        '</Allocators>\n')
     for end, content in (('</ParameterTypes>', types), ('</Parameters>', params), ('</ParameterRefs>', refs),
-                         ('</ComObjectTable>', obj), ('</ComObjectRefs>', objref)):
+                         ('</ComObjectTable>', obj), ('</ComObjectRefs>', objref), ('</Static>', allocators)):
         xml = replace_once(xml, end, content + end)
     shared = ('<ParameterRefRef RefId="' + p + 'P-9102_R-9102" /><ComObjectRefRef RefId="' + p + 'O-9110_R-9110" />')
     module = ('<Module Id="' + p + 'MD-1_M-1" RefId="' + p + 'MD-1"><NumericArg RefId="' + p
-        + 'MD-1_A-1" Value="0" /></Module>')
+        + 'MD-1_A-1" AllocatorRefId="' + p + 'L-1" /></Module>')
     block = ('<ChannelIndependentBlock><ParameterBlock Id="' + p + 'PB-9100" Name="Test ETS6" Text="TEST ETS 6">'
         '<ParameterRefRef RefId="' + p + 'P-9101_R-9101" /><choose ParamRefId="' + p + 'P-9101_R-9101">'
         '<when test="1">' + shared + '</when><when test="2">' + shared + module + '</when><when default="true" />'
@@ -1147,6 +1170,154 @@ def ets6_name(name):
     return 'P-01A0/project.xml' if name == PROJECT_INFO else name
 
 
+# TestModules.knxproj: an application program with a dynamic module (haumacher/ehome #119), see the
+# module comment.
+MODULE_PROGRAM = 'M-0008_A-FFF7-01-0000'
+MODULE_PROGRAM_NAME = 'TEST: dynamische Module (künstliche Testdaten)'
+MODULE_HARDWARE = 'M-0008_H-TEST.20MODULE-1'
+MODULE_PRODUCT = MODULE_HARDWARE + '_P-TEST.20MODULE'
+MODULE_ASSIGNMENT = MODULE_HARDWARE + '_HP-FFF7-01-0000'
+# The placements of the module: (number, name, ParamOffsBase, ObjNumberBase, ChNo).
+MODULE_PLACEMENTS = [(1, 'Kanal A', 0x60, 1, 'A'), (2, 'Kanal B', 0x70, 3, 'B')]
+
+
+def module_program():
+    p = MODULE_PROGRAM
+    segment = p + '_AS-0100'
+    # The memory of the BCU 1 programs (header, tables); the parameters lie above it.
+    data, mask = bcu1_memory()
+    flags = ('Priority="Low" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Enabled" '
+        'TransmitFlag="Disabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled"')
+    types = ('<ParameterType Id="{p}_PT-Schalter" Name="Schalter"><TypeRestriction Base="Value" SizeInBit="8">'
+        '<Enumeration Id="{p}_PT-Schalter_EN-0" Text="Aus" Value="0" DisplayOrder="0" />'
+        '<Enumeration Id="{p}_PT-Schalter_EN-1" Text="Ein" Value="1" DisplayOrder="1" />'
+        '</TypeRestriction></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Modus" Name="Modus"><TypeRestriction Base="Value" SizeInBit="2">'
+        '<Enumeration Id="{p}_PT-Modus_EN-0" Text="Aus" Value="0" DisplayOrder="0" />'
+        '<Enumeration Id="{p}_PT-Modus_EN-1" Text="Schalten" Value="1" DisplayOrder="1" />'
+        '<Enumeration Id="{p}_PT-Modus_EN-2" Text="Treppenlicht" Value="2" DisplayOrder="2" />'
+        '</TypeRestriction></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Text" Name="Text"><TypeText SizeInBit="32" /></ParameterType>\n')
+    params = ('<Parameter Id="{p}_P-1" Name="KanalB" Text="Kanal B" ParameterType="{p}_PT-Schalter" '
+        'Access="ReadWrite" Value="0"><Memory CodeSegment="' + segment + '" Offset="80" BitOffset="0" /></Parameter>\n'
+        '<Parameter Id="{p}_P-2" Name="Bezeichnung" Text="Bezeichnung" ParameterType="{p}_PT-Text" '
+        'Access="ReadWrite" Value="Haus"><Memory CodeSegment="' + segment + '" Offset="84" BitOffset="0" /></Parameter>\n')
+    refs = ('<ParameterRef Id="{p}_P-1_R-1" RefId="{p}_P-1" />\n<ParameterRef Id="{p}_P-2_R-1" RefId="{p}_P-2" />\n')
+    objects = ('<ComObject Id="{p}_O-0" Name="Zentral" Text="Zentral" FunctionText="Ein/Aus" Number="0" '
+        'ObjectSize="1 Bit" ' + flags + ' DatapointType="DPST-1-1" />\n')
+    objrefs = '<ComObjectRef Id="{p}_O-0_R-1" RefId="{p}_O-0" Text="Zentral {{0}}" TextParameterRefId="{p}_P-2_R-1" />\n'
+    module = ('<ModuleDefs><ModuleDef Id="{p}_MD-1" Name="Kanal"><Arguments>'
+        '<Argument Id="{p}_MD-1_A-1" Name="ParamOffsBase" /><Argument Id="{p}_MD-1_A-2" Name="ObjNumberBase" />'
+        '<Argument Id="{p}_MD-1_A-3" Name="ChNo" /></Arguments>\n<Static><Parameters>'
+        '<Parameter Id="{p}_MD-1_P-1" Name="Modus" Text="Kanal {{ChNo}}: Modus" ParameterType="{p}_PT-Modus" '
+        'Access="ReadWrite" Value="2"><Memory CodeSegment="' + segment + '" Offset="2" BitOffset="4" '
+        'BaseOffset="{p}_MD-1_A-1" /></Parameter>'
+        '<Parameter Id="{p}_MD-1_P-2" Name="Beschreibung" Text="Kanal {{ChNo}}: Beschreibung" '
+        'ParameterType="{p}_PT-Text" Access="ReadWrite" Value="Flur"><Memory CodeSegment="' + segment + '" Offset="3" '
+        'BitOffset="0" BaseOffset="{p}_MD-1_A-1" /></Parameter></Parameters>\n'
+        '<ParameterRefs><ParameterRef Id="{p}_MD-1_P-1_R-1" RefId="{p}_MD-1_P-1" />'
+        '<ParameterRef Id="{p}_MD-1_P-2_R-1" RefId="{p}_MD-1_P-2" /></ParameterRefs>\n'
+        '<ComObjects><ComObject Id="{p}_MD-1_O-2-0" Name="Schalten" Text="Kanal {{ChNo}}: Schalten" FunctionText="Ein/Aus" '
+        'Number="0" BaseNumber="{p}_MD-1_A-2" ObjectSize="1 Bit" ' + flags + ' DatapointType="DPST-1-1" />'
+        '<ComObject Id="{p}_MD-1_O-2-1" Name="Status" Text="Kanal {{ChNo}}: Status" FunctionText="Status" '
+        'Number="1" BaseNumber="{p}_MD-1_A-2" ObjectSize="1 Bit" ' + flags + ' DatapointType="DPST-1-11" />'
+        '</ComObjects>\n<ComObjectRefs>'
+        '<ComObjectRef Id="{p}_MD-1_O-2-0_R-1" RefId="{p}_MD-1_O-2-0" Text="Kanal {{ChNo}}: {{0}}" '
+        'TextParameterRefId="{p}_MD-1_P-2_R-1" />'
+        '<ComObjectRef Id="{p}_MD-1_O-2-1_R-1" RefId="{p}_MD-1_O-2-1" /></ComObjectRefs></Static>\n'
+        '<Dynamic><Channel Id="{p}_MD-1_CH-1" Name="Kanal" Text="Kanal {{ChNo}}">'
+        '<ParameterBlock Id="{p}_MD-1_PB-1" Name="Kanal" Text="Kanal {{ChNo}}">'
+        '<ParameterRefRef RefId="{p}_MD-1_P-1_R-1" /><ParameterRefRef RefId="{p}_MD-1_P-2_R-1" />'
+        '<choose ParamRefId="{p}_MD-1_P-1_R-1"><when test="1"><ComObjectRefRef RefId="{p}_MD-1_O-2-0_R-1" /></when>'
+        '</choose><ComObjectRefRef RefId="{p}_MD-1_O-2-1_R-1" /></ParameterBlock></Channel></Dynamic>'
+        '</ModuleDef></ModuleDefs>\n')
+
+    def placement(number, name, offset, base, channel):
+        return ('<Module Id="{p}_MD-1_M-%d" RefId="{p}_MD-1" Name="%s"><NumericArg RefId="{p}_MD-1_A-1" Value="%d" />'
+            '<NumericArg RefId="{p}_MD-1_A-2" Value="%d" /><TextArg RefId="{p}_MD-1_A-3" Value="%s" /></Module>'
+            % (number, name, offset, base, channel))
+
+    first, second = (placement(*m) for m in MODULE_PLACEMENTS)
+    dynamic = ('<Dynamic><ChannelIndependentBlock><ParameterBlock Id="{p}_PB-1" Name="Allgemein" Text="Allgemein">'
+        '<ParameterRefRef RefId="{p}_P-1_R-1" /><ParameterRefRef RefId="{p}_P-2_R-1" />'
+        '<ComObjectRefRef RefId="{p}_O-0_R-1" /></ParameterBlock></ChannelIndependentBlock>\n'
+        + first + '\n<choose ParamRefId="{p}_P-1_R-1"><when test="1">' + second + '</when><when default="true" />'
+        '</choose></Dynamic>\n')
+    # The texts of the module in English; ETS writes a translation per language and text.
+    english = [('{p}_MD-1_O-2-0_R-1', 'Channel {{ChNo}}: {{0}}'), ('{p}_MD-1_O-2-0', 'Channel {{ChNo}}: Switching'),
+               ('{p}_MD-1_CH-1', 'Channel {{ChNo}}'), ('{p}_MD-1_P-1', 'Channel {{ChNo}}: Mode')]
+    languages = ('<Languages><Language Identifier="en-US"><TranslationUnit RefId="{p}" Version="0">'
+        + ''.join('<TranslationElement RefId="%s"><Translation AttributeName="Text" Text="%s" /></TranslationElement>'
+            % entry for entry in english)
+        + '</TranslationUnit></Language></Languages>')
+    xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<KNX xmlns="http://knx.org/xml/project/23" CreatedBy="make-fixtures.py" ToolVersion="test">\n'
+        '<ManufacturerData><Manufacturer RefId="M-0008"><ApplicationPrograms>\n'
+        '<ApplicationProgram Id="{p}" Name="' + MODULE_PROGRAM_NAME + '" ApplicationNumber="65527" '
+        'ApplicationVersion="1" ProgramType="ApplicationProgram" MaskVersion="MV-0012" '
+        'LoadProcedureStyle="DefaultProcedure" PeiType="0" DefaultLanguage="de-DE" DynamicTableManagement="1" '
+        'Linkable="0" MinEtsVersion="5.7" NonRegRelevantDataVersion="0">\n'
+        '<Static>\n<Code><AbsoluteSegment Id="' + segment + '" Address="256" Size="256" UserMemory="0"><Data>' + data
+        + '</Data><Mask>' + mask + '</Mask></AbsoluteSegment></Code>\n'
+        '<ParameterTypes>\n' + types + '</ParameterTypes>\n'
+        '<Parameters>\n' + params + '</Parameters>\n'
+        '<ParameterRefs>\n' + refs + '</ParameterRefs>\n'
+        '<ComObjectTable CodeSegment="' + segment + '" Offset="54">\n' + objects + '</ComObjectTable>\n'
+        '<ComObjectRefs>\n' + objrefs + '</ComObjectRefs>\n'
+        '<AddressTable CodeSegment="' + segment + '" Offset="22" MaxEntries="6" />\n'
+        '<AssociationTable CodeSegment="' + segment + '" Offset="37" MaxEntries="8" />\n'
+        '<Options ParameterByteOrder="BigEndian" />\n'
+        '</Static>\n' + module + dynamic
+        + '</ApplicationProgram>\n</ApplicationPrograms>' + languages + '</Manufacturer></ManufacturerData>\n</KNX>\n')
+    return xml.replace('{p}', p)
+
+
+def module_hardware():
+    return ('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<KNX xmlns="http://knx.org/xml/project/23" CreatedBy="make-fixtures.py" ToolVersion="test">\n'
+        '<ManufacturerData><Manufacturer RefId="M-0008"><Hardware>'
+        '<Hardware Id="' + MODULE_HARDWARE + '" Name="TEST Module" SerialNumber="TEST MODULE" VersionNumber="1" '
+        'HasIndividualAddress="1" HasApplicationProgram="1"><Products><Product Id="' + MODULE_PRODUCT + '" '
+        'Text="TEST Module (künstliche Testdaten)" OrderNumber="TEST MODULE" IsRailMounted="1" DefaultLanguage="de-DE" />'
+        '</Products><Hardware2Programs><Hardware2Program Id="' + MODULE_ASSIGNMENT + '" MediumTypes="MT-0">'
+        '<ApplicationProgramRef RefId="' + MODULE_PROGRAM + '" /></Hardware2Program></Hardware2Programs></Hardware>'
+        '</Hardware></Manufacturer></ManufacturerData>\n</KNX>\n')
+
+
+def module_device(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+    p = MODULE_PROGRAM
+    device = ('<DeviceInstance Id="P-01A0-0_DI-1" Name="TEST Modulgerät" ProductRefId="' + MODULE_PRODUCT
+        + '" Hardware2ProgramRefId="' + MODULE_ASSIGNMENT + '" Address="1" LastModified="2026-11-08T12:00:00">\n'
+        '<ParameterInstanceRefs>\n'
+        '<ParameterInstanceRef RefId="' + p + '_P-1_R-1" Value="1" />\n'
+        '<ParameterInstanceRef RefId="' + p + '_MD-1_M-1_MI-1_P-1_R-1" Value="1" />\n'
+        '<ParameterInstanceRef RefId="' + p + '_MD-1_M-1_MI-1_P-2_R-1" Value="WZ" />\n'
+        '<ParameterInstanceRef RefId="' + p + '_MD-1_M-2_MI-1_P-2_R-1" Value="" />\n'
+        '</ParameterInstanceRefs>\n<ComObjectInstanceRefs>\n'
+        '<ComObjectInstanceRef RefId="O-0_R-1" IsActive="true" Links="GA-1" />\n'
+        '<ComObjectInstanceRef RefId="MD-1_M-1_MI-1_O-2-0_R-1" IsActive="true" Links="GA-2" />\n'
+        '<ComObjectInstanceRef RefId="MD-1_M-1_MI-1_O-2-1_R-1" IsActive="true" Links="GA-3" />\n'
+        '<ComObjectInstanceRef RefId="MD-1_M-2_MI-1_O-2-0_R-1" IsActive="true" Links="GA-4 GA-1" />\n'
+        '</ComObjectInstanceRefs>\n<ModuleInstances>\n'
+        + ''.join('<ModuleInstance Id="MD-1_M-%d_MI-1" RefId="MD-1_M-%d"><Arguments>'
+            '<Argument RefId="MD-1_A-1" Value="%d" /><Argument RefId="MD-1_A-2" Value="%d" />'
+            '<Argument RefId="MD-1_A-3" Value="%s" /></Arguments></ModuleInstance>\n'
+            % (n, n, offset, base, channel) for n, _, offset, base, channel in MODULE_PLACEMENTS)
+        + '</ModuleInstances>\n</DeviceInstance>')
+    return xml[:start] + device + xml[end:]
+
+
+def modules(name, xml):
+    xml = replace_once(xml, SCHEMA_11, SCHEMA_23)
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestModules')
+    if name == PROJECT:
+        return module_device(xml)
+    return xml
+
+
 MASTER_DATA_HEADER = ('<?xml version="1.0" encoding="UTF-8"?>\n<KNX xmlns="http://knx.org/xml/project/11">\n'
     '  <MasterData Version="%d">\n'
     '    <MediumTypes><MediumType Id="MT-0" Number="0" Name="TP" Text="Twisted Pair" DomainAddressLength="0" />'
@@ -1208,6 +1379,9 @@ write('src/test/fixtures/TestBcu1.knxproj', bcu1,
     [('M-0008/' + program + '.xml', bcu1_program(program, number, name, with_data))
      for program, _, number, name, with_data in BCU1_PROGRAMS])
 write('src/test/fixtures/TestEts6.knxproj', ets6, rename=ets6_name, master=('MV-FFF0', 'DPT-10', 'DPT-20'))
+write('src/test/fixtures/TestModules.knxproj', modules,
+    [('M-0008/Hardware.xml', module_hardware()), ('M-0008/' + MODULE_PROGRAM + '.xml', module_program())],
+    keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))
 languages_fixture('src/test/fixtures/TestLanguagesA.knxprod', {LANGUAGE_PROGRAMS[1][0]})
 languages_fixture('src/test/fixtures/TestLanguagesB.knxprod', {LANGUAGE_PROGRAMS[0][0]})
 write('src/test/fixtures/TestHiddenValues.knxproj', hidden_values,

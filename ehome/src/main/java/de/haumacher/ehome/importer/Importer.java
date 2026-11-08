@@ -27,6 +27,8 @@ import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.util.StreamReaderDelegate;
 
+import org.w3c.dom.Document;
+
 import com.top_logic.basic.Log;
 import com.top_logic.basic.Logger;
 import com.top_logic.basic.SyserrProtocol;
@@ -186,7 +188,9 @@ public class Importer {
 				checkProductEntry(name, path);
 			}
 			if (!entry.isDirectory() && !isBaggage(path)) {
-				if (name.endsWith(".xml")) {
+				if (isProgram(path)) {
+					importXml(context, handler, name, new ByteArrayInputStream(expandModules(context, entryIn.readAllBytes())));
+				} else if (name.endsWith(".xml")) {
 					importXml(context, handler, name, entryIn);
 				} else if (isProjectArchive(name, path)) {
 					// ETS 5/6: the project part is an archive of its own (protected by the project
@@ -214,6 +218,53 @@ public class Importer {
 		if (productData && _manufacturers.isEmpty()) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_MANUFACTURER_DATA);
 		}
+	}
+
+	/**
+	 * Expands the dynamic modules of the application programs of the given program file into ordinary
+	 * program parts (haumacher/ehome #119, see {@link ModuleExpansion}), and plans the completion of a
+	 * program an earlier import left without its modules (see {@link ModuleCompletion}).
+	 *
+	 * @return The content to import: the given one if it has no modules or none could be expanded.
+	 */
+	private byte[] expandModules(ImportContext context, byte[] content) throws IOException {
+		if (!ModuleExpansion.mentionsModules(content)) {
+			return content;
+		}
+		Document document = ModuleExpansion.parse(content);
+		boolean expanded = false;
+		ExpandedModules modules = ExpandedModules.get(context);
+		for (ModuleExpansion.Result result : ModuleExpansion.expand(document)) {
+			String id = result.getProgram();
+			if (!result.isExpanded()) {
+				modules.refused(id, result.getConstruct());
+				continue;
+			}
+			expanded = true;
+			TLObject existing = existingProgram(id);
+			if (existing != null && Boolean.TRUE.equals(existing.tValueByName("usesModules"))) {
+				try {
+					modules.complete(id, ModuleCompletion.plan(result, existing));
+				} catch (ModuleCompletion.Mismatch ex) {
+					Logger.warn("Program '" + id + "' cannot be completed: " + ex.getMessage(), Importer.class);
+					_messages.log(Level.WARN, I18NConstants.WARN_MODULES_NOT_COMPLETED__PROGRAM.fill(id));
+				}
+			}
+		}
+		return expanded ? ModuleExpansion.serialize(document) : content;
+	}
+
+	/**
+	 * The application program with the given ID in the database, <code>null</code> if there is none.
+	 */
+	private static TLObject existingProgram(String id) {
+		TLClass type = (TLClass) TLModelUtil.findType(PROGRAM_TYPE);
+		for (TLObject program : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
+			if (id.equals(program.tValueByName("extId"))) {
+				return program;
+			}
+		}
+		return null;
 	}
 
 	private void importXml(ImportContext context, Handler handler, String name, InputStream content)
@@ -470,6 +521,7 @@ public class Importer {
 		ZipInputStream zip = new ZipInputStream(in);
 		try (ImportContext importContext = new DefaultImportContext(
 			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)).tee(_messages), _binding)) {
+			importContext.set(JoiningModelBinding.PROPERTY, _binding);
 			MasterDataUpdates updates = new MasterDataUpdates(_binding);
 			importContext.set(MasterDataUpdates.PROPERTY, updates);
 			_programLanguages = new ProgramLanguages();
@@ -493,8 +545,9 @@ public class Importer {
 	 *
 	 * <p>
 	 * They refer to parts the import does not create: the parameters and communication objects of
-	 * the dynamic modules of a program (<code>ModuleDefs</code>, see {@link ModulesNotImported}),
-	 * whose instances a device names by IDs of the form <code>MD-1_M-1_MI-1_P-2_R-3</code>. Kept
+	 * the dynamic modules of a program the import could not expand (<code>ModuleDefs</code>, see
+	 * {@link ModulesNotImported}), whose instances a device names by IDs of the form
+	 * <code>MD-1_M-1_MI-1_P-2_R-3</code>. Kept
 	 * without their part, they would fail the model's check of the mandatory reference and refuse the
 	 * whole import (a production import of a project with MDT devices).
 	 * </p>

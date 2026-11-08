@@ -133,6 +133,15 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	String TAG_ATTR = "tag";
 
 	/**
+	 * Part <code>textParameter</code> of <code>Interface</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ParameterView</code> in configuration.
+	 * </p>
+	 */
+	String TEXT_PARAMETER_ATTR = "textParameter";
+
+	/**
 	 * Part <code>transmission</code> of <code>Interface</code>
 	 * 
 	 * <p>
@@ -343,6 +352,20 @@ public interface InterfaceBase extends de.haumacher.ehome.model.operational.Opti
 	 */
 	default void setTag(Integer newValue) {
 		tUpdateByName(TAG_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #TEXT_PARAMETER_ATTR}.
+	 */
+	default de.haumacher.ehome.model.operational.ParameterView getTextParameter() {
+		return (de.haumacher.ehome.model.operational.ParameterView) tValueByName(TEXT_PARAMETER_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #TEXT_PARAMETER_ATTR}.
+	 */
+	default void setTextParameter(de.haumacher.ehome.model.operational.ParameterView newValue) {
+		tUpdateByName(TEXT_PARAMETER_ATTR, newValue);
 	}
 
 	/**

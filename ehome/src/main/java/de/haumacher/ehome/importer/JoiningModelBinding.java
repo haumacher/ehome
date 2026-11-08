@@ -4,6 +4,8 @@
 package de.haumacher.ehome.importer;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -11,11 +13,14 @@ import java.util.function.Consumer;
 
 import javax.xml.stream.Location;
 
+import com.top_logic.basic.col.TypedAnnotatable;
+import com.top_logic.basic.col.TypedAnnotatable.Property;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.impl.TransientModelFactory;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.binding.ModelBinding;
 import com.top_logic.xio.importer.handlers.ImportPart;
 
@@ -25,9 +30,18 @@ import com.top_logic.xio.importer.handlers.ImportPart;
  */
 public class JoiningModelBinding implements ModelBinding {
 
+	/**
+	 * The {@link JoiningModelBinding} of an import in its {@link ImportContext}.
+	 */
+	public static final Property<JoiningModelBinding> PROPERTY =
+		TypedAnnotatable.property(JoiningModelBinding.class, "joiningModelBinding");
+
 	private final ModelBinding _impl;
 
 	private List<Object> _created = new ArrayList<>();
+
+	/** The objects of {@link #_created}, for {@link #isCreated(Object)}. */
+	private Set<Object> _createdSet = Collections.newSetFromMap(new IdentityHashMap<>());
 
 	private Set<Object> _resolved = new LinkedHashSet<>();
 
@@ -95,6 +109,7 @@ public class JoiningModelBinding implements ModelBinding {
 		}
 		Object result = _impl.createObject(handler, location, modelType, id);
 		_created.add(result);
+		_createdSet.add(result);
 		return result;
 	}
 
@@ -103,6 +118,23 @@ public class JoiningModelBinding implements ModelBinding {
 	 */
 	public List<Object> getCreated() {
 		return _created;
+	}
+
+	/**
+	 * Whether the given object was created through this binding since the last
+	 * {@link #clearCreated()}.
+	 */
+	public boolean isCreated(Object obj) {
+		return _createdSet.contains(obj);
+	}
+
+	/**
+	 * Whether the given object was created by the import of the given context, see
+	 * {@link #isCreated(Object)}; <code>false</code> if the context has no {@link JoiningModelBinding}.
+	 */
+	public static boolean isCreated(ImportContext context, Object obj) {
+		JoiningModelBinding binding = context.get(PROPERTY);
+		return binding != null && binding.isCreated(obj);
 	}
 
 	/**
@@ -120,6 +152,7 @@ public class JoiningModelBinding implements ModelBinding {
 	 */
 	public void clearCreated() {
 		_created = new ArrayList<>();
+		_createdSet = Collections.newSetFromMap(new IdentityHashMap<>());
 		_resolved = new LinkedHashSet<>();
 	}
 

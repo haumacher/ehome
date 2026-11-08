@@ -764,7 +764,7 @@
 												
 															<dispatch>
 																<tag name="ModuleDefs">
-																	<!-- Dynamic modules (ETS 5.6 and later) are not imported: the program is marked, and the import warns. -->
+																	<!-- Dynamic modules (ETS 5.6 and later) the import could not expand (ModuleExpansion): the program is marked, and the import warns naming the construct. The modules of every other program are expanded into its parts before the file is read. -->
 																	<modules-not-imported/>
 																</tag>
 																<tag name="Static">
@@ -953,13 +953,15 @@
 																			</dispatch>
 																		</tag>
 																		<tag name="Parameters">
-																			<dispatch>
+																			<dispatch id="parameters">
+																				<!-- The parts of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
+																				<tag name="ExpandedModule"><ref handler-id="parameters"/></tag>
 																				<tag name="Union">
 																					<!--
 																						The parameters of a union share one location, which the first child element defines: a forward
 																						reference filled with the pointer or property location created from it.
 																					-->
-																					<forward var="location">
+																					<forward var="location" id="union">
 																						<property name="bits" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
 																						<dispatch>
@@ -1024,7 +1026,7 @@
 																					</forward>
 																				</tag>
 																				<tag name="Parameter">
-																					<object model-type="ehome.operational:Parameter" id-attribute="Id">
+																					<object model-type="ehome.operational:Parameter" id-attribute="Id" id="parameter">
 																						<linking>
 																							<list-linking name="ehome.operational:Program#parameters"/>
 																						</linking>
@@ -1084,9 +1086,11 @@
 																			</dispatch>
 																		</tag>
 																		<tag name="ParameterRefs">
-																			<dispatch>
+																			<dispatch id="parameter-refs">
+																				<!-- The parts of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
+																				<tag name="ExpandedModule"><ref handler-id="parameter-refs"/></tag>
 																				<tag name="ParameterRef">
-																					<object model-type="ehome.operational:ParameterView" id-attribute="Id">
+																					<object model-type="ehome.operational:ParameterView" id-attribute="Id" id="parameter-ref">
 																						<!-- Owned by the structure element placing it; if placed nowhere, by the program (Program#unplaced). -->
 																						<reference name="parameter" id-attribute="RefId"/>
 
@@ -1119,9 +1123,11 @@
 																				<reference name="segment" id-attribute="CodeSegment"/>
 																				<property name="offset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
-																				<dispatch>
+																				<dispatch id="com-objects">
+																					<!-- The parts of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
+																					<tag name="ExpandedModule"><ref handler-id="com-objects"/></tag>
 																					<tag name="ComObject">
-																						<object model-type="ehome.operational:Port" id-attribute="Id">
+																						<object model-type="ehome.operational:Port" id-attribute="Id" id="com-object">
 																							<linking target-var="program">
 																								<list-linking name="ehome.operational:Program#ports"/>
 																							</linking>
@@ -1180,9 +1186,11 @@
 																			</object>
 																		</tag>
 																		<tag name="ComObjectRefs">
-																			<dispatch>
+																			<dispatch id="com-object-refs">
+																				<!-- The parts of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
+																				<tag name="ExpandedModule"><ref handler-id="com-object-refs"/></tag>
 																				<tag name="ComObjectRef">
-																					<object model-type="ehome.operational:Interface" id-attribute="Id">
+																					<object model-type="ehome.operational:Interface" id-attribute="Id" id="com-object-ref">
 																						<!-- Owned by the structure element placing it; if placed nowhere, by the program (Program#unplaced). -->
 																						<reference name="port" id-attribute="RefId"/>
 
@@ -1193,6 +1201,8 @@
 																						</group>
 																						<property name="description" xml-attribute="VisibleDescription"/>
 																						<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
+																						<!-- The text parameter whose value fills the placeholder {{0}} of the text (Connector#displayName). -->
+																						<reference name="textParameter" id-attribute="TextParameterRefId"/>
 																						<property name="tag" xml-attribute="Tag" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 																						<!-- Size and flags the reference overrides; empty where it takes those of the object. -->
 																						<property name="size" xml-attribute="ObjectSize" format="de.haumacher.ehome.etsImport.importer.format.ObjectSizeFormat"/>
@@ -1304,12 +1314,19 @@
 																		</tag>
 																		<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
 																		<tag name="Extension"><skip-deep/></tag>
+																		<!-- Allocators of dynamic modules (ETS 6): a program whose module arguments refer to one is not expanded (ModulesNotImported). -->
+																		<tag name="Allocators"><skip-deep/></tag>
 																		<tag name="FixupList"><skip-deep/></tag>
 																	</dispatch>
 																</tag>
 																<tag name="Dynamic">
 																	<!-- The configuration structure of the program: channels, the channel independent part, and parts that depend on parameter values. -->
 																	<dispatch id="dynamic-contents">
+																		<!-- The structure of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
+																		<tag name="ExpandedModule"><ref handler-id="dynamic-contents"/></tag>
+																		<!-- Not expanded (ModulesNotImported): skipped without a warning. -->
+																		<tag name="Module"><skip-deep/></tag>
+																		<tag name="Repeat"><skip-deep/></tag>
 																		<!-- ETS 6: a parameter block directly in the program or in a case of one of its switches. -->
 																		<tag name="ParameterBlock">
 																			<ref handler-id="parameter-block"/>
@@ -1337,6 +1354,8 @@
 																				<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
 																				<dispatch id="channel-contents">
+																					<!-- The structure of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
+																					<tag name="ExpandedModule"><ref handler-id="channel-contents"/></tag>
 																					<tag name="ParameterBlock">
 																						<object model-type="ehome.operational:ParameterGroup" id-attribute="Id" id="parameter-block">
 																							<linking>
@@ -1393,10 +1412,11 @@
 																					<tag name="ComObjectRefRef">
 																						<place-reference id-attribute="RefId"/>
 																					</tag>
-																					<!-- Not modeled (gap 7 and dynamic modules, doc/knx/schema-coverage.md): skipped without a warning. -->
+																					<!-- Not modeled (gap 7) and modules not expanded (ModulesNotImported, doc/knx/schema-coverage.md): skipped without a warning. -->
 																					<tag name="ParameterSeparator"><skip-deep/></tag>
 																					<tag name="Assign"><skip-deep/></tag>
 																					<tag name="Module"><skip-deep/></tag>
+																					<tag name="Repeat"><skip-deep/></tag>
 																				</dispatch>
 																			</object>
 																		</tag>
@@ -1432,34 +1452,47 @@
 															<!-- The program is read: the languages of its texts are recorded, the held-back warnings about the values of its parameters decided. -->
 															<program-imported/>
 														</object>
-														<!-- A known program: the texts of the file's language, if the program lacks it, set by the text handlers of its elements. -->
-														<update>
-															<known-program-texts>
-																<ref handler-id="program-texts"/>
-																<update-known>
-																	<tag name="Enumeration" id-attribute="Id">
-																		<ref handler-id="enumeration-texts"/>
-																	</tag>
-																	<tag name="Parameter" id-attribute="Id">
-																		<ref handler-id="parameter-texts"/>
-																	</tag>
-																	<tag name="ParameterRef" id-attribute="Id">
-																		<ref handler-id="parameter-ref-texts"/>
-																	</tag>
-																	<tag name="ComObject" id-attribute="Id">
-																		<ref handler-id="com-object-texts"/>
-																	</tag>
-																	<tag name="ComObjectRef" id-attribute="Id">
-																		<ref handler-id="com-object-ref-texts"/>
-																	</tag>
-																	<tag name="Channel" id-attribute="Id">
-																		<ref handler-id="channel-texts"/>
-																	</tag>
-																	<tag name="ParameterBlock" id-attribute="Id">
-																		<ref handler-id="parameter-block-texts"/>
-																	</tag>
-																</update-known>
-															</known-program-texts>
+														<!-- A known program: completed with its dynamic modules, if an earlier import left it without them (#119); otherwise the texts of the file's language, if the program lacks it, set by the text handlers of its elements. -->
+														<update var="program">
+															<complete-modules>
+																<static-parts>
+																	<dispatch>
+																		<tag name="Parameter"><ref handler-id="parameter"/></tag>
+																		<tag name="Union"><ref handler-id="union"/></tag>
+																		<tag name="ParameterRef"><ref handler-id="parameter-ref"/></tag>
+																		<tag name="ComObject"><ref handler-id="com-object"/></tag>
+																		<tag name="ComObjectRef"><ref handler-id="com-object-ref"/></tag>
+																	</dispatch>
+																</static-parts>
+																<top-level><ref handler-id="dynamic-contents"/></top-level>
+																<channel-level><ref handler-id="channel-contents"/></channel-level>
+																<known-program-texts>
+																	<ref handler-id="program-texts"/>
+																	<update-known>
+																		<tag name="Enumeration" id-attribute="Id">
+																			<ref handler-id="enumeration-texts"/>
+																		</tag>
+																		<tag name="Parameter" id-attribute="Id">
+																			<ref handler-id="parameter-texts"/>
+																		</tag>
+																		<tag name="ParameterRef" id-attribute="Id">
+																			<ref handler-id="parameter-ref-texts"/>
+																		</tag>
+																		<tag name="ComObject" id-attribute="Id">
+																			<ref handler-id="com-object-texts"/>
+																		</tag>
+																		<tag name="ComObjectRef" id-attribute="Id">
+																			<ref handler-id="com-object-ref-texts"/>
+																		</tag>
+																		<tag name="Channel" id-attribute="Id">
+																			<ref handler-id="channel-texts"/>
+																		</tag>
+																		<tag name="ParameterBlock" id-attribute="Id">
+																			<ref handler-id="parameter-block-texts"/>
+																		</tag>
+																	</update-known>
+																</known-program-texts>
+															</complete-modules>
 														</update>
 													</unless-known>
 												</with-var>
@@ -1705,6 +1738,8 @@
 																									</tag>
 																								</dispatch>
 																							</tag>
+																							<!-- The instances of the dynamic modules and their arguments: the arguments are those of the program, whose modules the import expanded (ModuleExpansion). Skipped without a warning. -->
+																							<tag name="ModuleInstances"><skip-deep/></tag>
 																							<!-- Not modeled (ETS 6, doc/knx/schema-coverage.md): the tree view of the group objects. Skipped without a warning. -->
 																							<tag name="GroupObjectTree"><skip-deep/></tag>
 																						</dispatch>

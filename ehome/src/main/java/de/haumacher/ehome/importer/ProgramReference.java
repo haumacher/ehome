@@ -50,9 +50,9 @@ public class ProgramReference<C extends ProgramReference.Config<?>> extends Abst
 		String rawId = readRawId(in);
 		if (rawId != null && !rawId.isBlank()) {
 			String id = DeviceScope.absolute(context, DeviceScope.PROGRAM_VAR, MANUFACTURER_PREFIX, rawId.trim());
-			// A part of an instance of a dynamic module (MD-1_M-1_MI-1_P-2_R-3) does not exist: the
-			// modules are not imported (ModulesNotImported). The importer leaves out what refers to it
-			// and says so per device, instead of an error per ID.
+			// A part of an instance of a dynamic module (MD-1_M-1_MI-1_P-2_R-3) exists if the import
+			// expanded the modules of the program (ModuleExpansion); if it could not (ModulesNotImported),
+			// the importer leaves out what refers to it and says so per device, instead of an error per ID.
 			boolean required = !id.contains(MODULE_PART);
 			storeReference(context, context.resolveObject(this, in.getLocation(), id, required));
 		}

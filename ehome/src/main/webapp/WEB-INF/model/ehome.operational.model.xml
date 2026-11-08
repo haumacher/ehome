@@ -586,6 +586,27 @@
 					ordered="true"
 					type="ehome.datapoint:DatapointType"
 				/>
+				<!--
+					The text parameter whose value in a device fills the placeholder {{0}} of the text (ETS:
+					ComObjectRef@TextParameterRefId), see ehome.physical:Connector#displayName.
+				-->
+				<reference name="textParameter"
+					kind="forwards"
+					type="ParameterView"
+				>
+					<annotations>
+						<!-- Only the parameter references of the program containing this placement. -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> recursion($self, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
+    .firstElement()
+    .get(`ehome.operational:Program#parameters`)
+    .get(`ehome.operational:Parameter#views`)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<property name="tag"
 					type="tl.core:Integer"
 				/>
@@ -1907,9 +1928,10 @@
 					type="tl.core:String"
 				/>
 				<!--
-					Whether the program uses dynamic modules (ETS 5.6 and later: ModuleDefs), which E-Home does
-					not import: the parameters and communication objects of its modules are missing, so a
-					download of the program is refused.
+					Whether the program uses dynamic modules (ETS 5.6 and later: ModuleDefs) the import could not
+					expand into its parts (Repeat, an argument of an Allocator, SubModuleDefs): the parameters and
+					communication objects of its modules are missing, so a download of the program is refused. An
+					import of a file whose modules can be expanded completes the program and removes the mark.
 				-->
 				<property name="usesModules"
 					type="tl.core:Boolean"

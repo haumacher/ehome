@@ -1539,6 +1539,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Interface#TEXT_PARAMETER_ATTR} of {@link Interface}.
+	 */
+	public static com.top_logic.model.TLReference getTextParameterInterfaceAttr() {
+		return (com.top_logic.model.TLReference) getInterfaceType().getPart(Interface.TEXT_PARAMETER_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Interface#TRANSMISSION_ATTR} of {@link Interface}.
 	 */
 	public static com.top_logic.model.TLReference getTransmissionInterfaceAttr() {

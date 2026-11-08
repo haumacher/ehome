@@ -103,6 +103,9 @@
 					The label (haumacher/ehome #62): the number of the communication object, its text and function in
 					this device (else the program's), and the description entered in the project, as ETS lists the
 					objects of a device: "7 Kanal A: Status (KanalAStatus)".
+					A placeholder {{0}} in the program's text is filled with the device's value of the text
+					parameter of the object (haumacher/ehome #119): "Kanal B: {{0}}" with the value "WZ" is
+					"Kanal B: WZ"; with an empty value the placeholder is left out.
 				-->
 				<property name="displayName"
 					type="tl.core:String"
@@ -113,7 +116,11 @@
 								<expr><![CDATA[c -> {
     placed = $c.get(`ehome.physical:Connector#port`);
     port = $placed.get(`ehome.operational:Interface#port`);
-    text = $c.get(`ehome.physical:Connector#text`) || $placed.get(`ehome.operational:Interface#displayName`);
+    textParameter = $placed.get(`ehome.operational:Interface#textParameter`);
+    text = $c.get(`ehome.physical:Connector#text`)
+        || if($textParameter == null, $placed.get(`ehome.operational:Interface#displayName`),
+            fillTextParameter($placed.get(`ehome.operational:Interface#displayName`),
+                deviceValue($c.container(), $textParameter)));
     function = $c.get(`ehome.physical:Connector#function`)
         || $placed.get(`ehome.operational:Interface#function`).localize()
         || $port.get(`ehome.operational:Port#function`).localize();

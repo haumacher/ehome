@@ -47,7 +47,8 @@ import com.top_logic.xio.importer.handlers.ConfiguredImportHandler;
  * <p>
  * The translations of an application program of the import (a translation unit named by its ID)
  * record their languages in the program; those of a known program set only the texts of the
- * languages it lacks, see {@link ProgramLanguages}.
+ * languages it lacks, see {@link ProgramLanguages}, and the texts of the parts the import added to it
+ * (see {@link CompleteModules}).
  * </p>
  */
 public class TranslationsImport<C extends TranslationsImport.Config<?>> extends ConfiguredImportHandler<C> {
@@ -155,6 +156,10 @@ public class TranslationsImport<C extends TranslationsImport.Config<?>> extends 
 								I18NTexts.set(target, attribute, locale, text, false);
 							} else if (attribute != null && program.lacks(locale)) {
 								program.set(target, attribute, locale, text);
+							} else if (attribute != null && JoiningModelBinding.isCreated(context, target)) {
+								// A part the import added to a known program (the modules of a program
+								// completed, see CompleteModules) gets its texts in every language.
+								I18NTexts.set(target, attribute, locale, text, false);
 							}
 						}
 						break;

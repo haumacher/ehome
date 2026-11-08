@@ -66,7 +66,7 @@ import de.haumacher.ehome.programming.download.DownloadPlanner;
 @SuppressWarnings("javadoc")
 public class TestEts6Import extends BasicTestCase {
 
-	private static final String PROGRAM = "M-0008_A-10D7-11-A0E5-O0023";
+	private static final String PROGRAM = "M-0008_A-10D7-11-A0E5-O0024";
 
 	private static final String P = PROGRAM + "_";
 
@@ -81,14 +81,15 @@ public class TestEts6Import extends BasicTestCase {
 			assertEquals(23, importer.getSchemaVersion());
 			List<BufferingI18NLog.Entry> messages = importer.getMessages();
 			assertEquals(List.of(), Ets6Files.errors(messages));
-			// The only warnings: the dynamic module of the program, and the device's setting and object
-			// of an instance of it, which are left out (besides those about mask versions the database
-			// holds from other master data, see TestEtsImport.withoutMasterData).
+			// The only warnings: the dynamic module of the program, which takes an argument from an
+			// allocator and is not expanded, and the device's setting and object of an instance of it,
+			// which are left out (besides those about mask versions the database holds from other master
+			// data, see TestEtsImport.withoutMasterData).
 			List<ResKey> warnings = TestEtsImport.withoutMasterData(messages).stream().filter(m -> m.getLevel() == Level.WARN)
 				.map(m -> m.getMessage()).toList();
 			assertEquals(warnings.toString(), 2, warnings.size());
 			assertTrue(warnings.get(0).toString(), warnings.get(0).toString().contains(
-				String.valueOf(I18NConstants.WARN_MODULES_NOT_IMPORTED__PROGRAM.fill(PROGRAM))));
+				String.valueOf(I18NConstants.WARN_MODULES_NOT_EXPANDED__PROGRAM_CONSTRUCT.fill(PROGRAM, "Allocator"))));
 			String left = Resources.getInstance(Locale.GERMAN).getString(warnings.get(1));
 			assertTrue(left, left.startsWith("Gerät \""));
 			assertTrue(left, left.endsWith("\": 1 Parametereinstellungen und 1 Kommunikationsobjekte beziehen sich auf "
@@ -170,7 +171,7 @@ public class TestEts6Import extends BasicTestCase {
 		assertEquals(1, devices.size());
 		TLObject device = devices.get(0);
 		assertEquals("P-01A0-0_L-1", ((TLObject) device.tContainer()).tValueByName("extId"));
-		assertEquals(P + "P-9102_R-9102", setting(device, "M-0008_A-10D7-11-A0E5-O0023_P-9102_R-9102"));
+		assertEquals(P + "P-9102_R-9102", setting(device, "M-0008_A-10D7-11-A0E5-O0024_P-9102_R-9102"));
 		for (TLObject setting : list(device, "settings")) {
 			assertNotNull("The setting of the module's parameter is left out.", setting.tValueByName("parameter"));
 		}
@@ -189,7 +190,7 @@ public class TestEts6Import extends BasicTestCase {
 		assertEquals(10, connectors.stream().filter(c -> !list(c, "connections").isEmpty()).count());
 		assertEquals(11, SharedData.within("ehome.physical:Connection", projects).size());
 		TLObject twoLinks = connectors.stream()
-			.filter(c -> "M-0008_A-10D7-11-A0E5-O0023_O-0_R-81".equals(((TLObject) c.tValueByName("port")).tValueByName("extId")))
+			.filter(c -> "M-0008_A-10D7-11-A0E5-O0024_O-0_R-81".equals(((TLObject) c.tValueByName("port")).tValueByName("extId")))
 			.findFirst().orElseThrow();
 		List<TLObject> connections = list(twoLinks, "connections");
 		// The connections of an object are a set.
@@ -247,7 +248,7 @@ public class TestEts6Import extends BasicTestCase {
 		assertEquals("TEST: ETS 6 (künstliche Testdaten)", derived(program, "name") instanceof ResKey key
 			? ResKeyUtil.getTranslation(key, Locale.GERMAN) : null);
 		// The parameters of the Test program (2187, union members included) and the four of the test;
-		// the parameter of the module is not imported.
+		// the parameter of the module is not imported (its argument comes from an allocator).
 		assertEquals(2191, program.getParameters().size());
 		assertEquals(3925, program.getParameters().stream().mapToInt(p -> p.getViews().size()).sum());
 		assertEquals(92, program.getPorts().size());

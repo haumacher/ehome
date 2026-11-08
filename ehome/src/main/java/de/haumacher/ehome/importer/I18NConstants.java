@@ -86,9 +86,19 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey ERROR_NO_MANUFACTURER_DATA;
 
 	/**
-	 * @en The application program "{0}" uses dynamic modules (ETS 5.6 and later), which E-Home does not import: the parameters and communication objects of its modules are missing, and a download of the program is refused.
+	 * @en The application program "{0}" uses dynamic modules (ETS 5.6 and later) with "{1}", which E-Home cannot expand into the program: the parameters and communication objects of its modules are missing, and a download of the program is refused.
 	 */
-	public static ResKey1 WARN_MODULES_NOT_IMPORTED__PROGRAM;
+	public static ResKey2 WARN_MODULES_NOT_EXPANDED__PROGRAM_CONSTRUCT;
+
+	/**
+	 * @en The application program "{0}", imported earlier without its dynamic modules, is completed: the parameters and communication objects of its modules are added. Import the projects of its devices again to give them their module settings and group addresses.
+	 */
+	public static ResKey1 INFO_MODULES_COMPLETED__PROGRAM;
+
+	/**
+	 * @en The application program "{0}" was imported earlier without its dynamic modules, and its structure in the database does not fit the file: the modules are not added, and a download of the program stays refused.
+	 */
+	public static ResKey1 WARN_MODULES_NOT_COMPLETED__PROGRAM;
 
 	/**
 	 * @en Device "{0}": {1} parameter settings and {2} communication objects refer to parts of its application program that were not imported (dynamic modules); they are left out.
