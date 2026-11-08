@@ -378,7 +378,20 @@
 					kind="forwards"
 					mandatory="true"
 					type="ehome.catalog:ProgramAssignment"
-				/>
+				>
+					<annotations>
+						<!--
+							Only the programs of the device's product (its hardware): a program of another product does not
+							run on the device (haumacher/ehome #121).
+						-->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> $self.get(`ehome.physical:Device#type`).container()
+    .get(`ehome.catalog:Product#programs`)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<reference name="location"
 					kind="forwards"
 					type="ehome.building:BuildingDefinition"
