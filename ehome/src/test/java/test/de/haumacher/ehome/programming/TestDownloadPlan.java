@@ -79,6 +79,7 @@ public class TestDownloadPlan extends BasicTestCase {
 			checkAddressPlan();
 			checkStampsAgainstDevice();
 			checkDownload();
+			checkRefusedStamps();
 			checkFailure();
 			checkHardwareMismatch();
 			checkCompareActuator();
@@ -405,6 +406,47 @@ public class TestDownloadPlan extends BasicTestCase {
 			}
 			assertTrue("The device holds another project's parameters.", different > 0);
 		}
+	}
+
+	/**
+	 * A device that computes its download stamps itself and refuses their write (the Gira
+	 * Tastsensor 3 of the test system, mask 7.5): the download goes on where the device already holds
+	 * the stamp, and fails where it holds another value.
+	 */
+	private void checkRefusedStamps() throws Exception {
+		DownloadPlan plan = DownloadPlanner.plan(device(SENSOR), DownloadPlan.Kind.FULL);
+		List<Operation.WriteProperty> stamps = plan.getOperations().stream()
+			.filter(o -> o instanceof Operation.WriteProperty w && w.propertyId() == 27)
+			.map(Operation.WriteProperty.class::cast).toList();
+		assertFalse(stamps.isEmpty());
+
+		MockDevice computing = sensorDevice(plan).refuseWrites(27);
+		for (Operation.WriteProperty stamp : stamps) {
+			computing.setPropertyElement(stamp.objectIndex(), 27, stamp.start(), stamp.data());
+		}
+		DownloadExecutor.Result result =
+			new DownloadExecutor(ms -> { /* No wait. */ }).execute(plan, computing, (n, c, o) -> { /* Ignore. */ });
+		assertTrue(result.failure(), result.success());
+
+		MockDevice other = sensorDevice(plan).refuseWrites(27);
+		Operation.WriteProperty first = stamps.get(0);
+		other.setPropertyElement(first.objectIndex(), 27, first.start(), new byte[first.data().length]);
+		result = new DownloadExecutor(ms -> { /* No wait. */ }).execute(plan, other, (n, c, o) -> { /* Ignore. */ });
+		assertFalse(result.success());
+		assertSame(first, result.failed());
+	}
+
+	/**
+	 * A device of mask 7.5 holding what the plan compares.
+	 */
+	private MockDevice sensorDevice(DownloadPlan plan) {
+		MockDevice result = new MockDevice().setState(1, 1).setState(2, 1).setState(3, 1);
+		for (Operation operation : plan.getOperations()) {
+			if (operation instanceof Operation.CompareProperty compare) {
+				result.setProperty(compare.objectIndex(), compare.propertyId(), hex(compare.expected()).replace(" ", ""));
+			}
+		}
+		return result;
 	}
 
 	private MockDevice actuatorDevice() {

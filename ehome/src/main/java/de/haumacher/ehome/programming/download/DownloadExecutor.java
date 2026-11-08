@@ -166,7 +166,7 @@ public class DownloadExecutor {
 					Operation.hex(read), Operation.hex(compare.expected())));
 			}
 		} else if (operation instanceof Operation.WriteProperty write) {
-			access.writeProperty(write.objectIndex(), write.propertyId(), write.start(), write.count(), write.data());
+			writeProperty(write, access);
 		} else if (operation instanceof Operation.Restart) {
 			access.restart();
 		} else if (operation instanceof Operation.Delay delay) {
@@ -177,6 +177,34 @@ public class DownloadExecutor {
 			access.writeIndividualAddress(write.address());
 		} else {
 			throw new IllegalArgumentException("Unknown operation: " + operation);
+		}
+	}
+
+	/**
+	 * Writes a property; a write the device refuses counts as done when the device already holds the
+	 * value.
+	 *
+	 * <p>
+	 * A device may compute a property itself and refuse its write: the Gira Tastsensor 3 of the test
+	 * system (mask 7.5) computes the download stamps (<code>PID_MCB_TABLE</code>) when a load state
+	 * machine completes and answers the write of the stamp ETS's load procedure names with
+	 * "failed/forbidden", while it holds exactly that stamp (read back on 2026-11-08). The read-back
+	 * keeps a refusal of another value an error.
+	 * </p>
+	 */
+	private static void writeProperty(Operation.WriteProperty write, DeviceAccess access) throws BusException {
+		try {
+			access.writeProperty(write.objectIndex(), write.propertyId(), write.start(), write.count(), write.data());
+		} catch (BusException ex) {
+			byte[] held;
+			try {
+				held = access.readProperty(write.objectIndex(), write.propertyId(), write.start(), write.count());
+			} catch (BusException readFailure) {
+				throw ex;
+			}
+			if (!Arrays.equals(held, write.data())) {
+				throw ex;
+			}
 		}
 	}
 

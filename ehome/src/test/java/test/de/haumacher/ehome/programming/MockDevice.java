@@ -32,6 +32,8 @@ public class MockDevice implements DeviceAccess {
 
 	private final List<String> _calls = new ArrayList<>();
 
+	private final java.util.Set<Integer> _refusedWrites = new java.util.HashSet<>();
+
 	private byte[] _descriptor = { 0x07, 0x05 };
 
 	/** Script: (object index, control) to the state to answer, or null for the regular one. */
@@ -52,6 +54,23 @@ public class MockDevice implements DeviceAccess {
 
 	public MockDevice setProperty(int object, int property, String hex) {
 		_properties.put(object + "/" + property, HexFormat.of().parseHex(hex));
+		return this;
+	}
+
+	/**
+	 * Sets one element of a property, as a device holds it without a write (e.g. a download stamp the
+	 * device computes itself).
+	 */
+	public MockDevice setPropertyElement(int object, int property, int start, byte[] value) {
+		_properties.put(object + "/" + property + "/" + start, value);
+		return this;
+	}
+
+	/**
+	 * Refuses every write of the given property, as a device that computes it itself does.
+	 */
+	public MockDevice refuseWrites(int property) {
+		_refusedWrites.add(Integer.valueOf(property));
 		return this;
 	}
 
@@ -89,7 +108,10 @@ public class MockDevice implements DeviceAccess {
 		if (propertyId == LoadControls.PID_LOAD_STATE_CONTROL && objectIndex < _states.length) {
 			return new byte[] { (byte) _states[objectIndex] };
 		}
-		byte[] value = _properties.get(objectIndex + "/" + propertyId);
+		byte[] value = _properties.get(objectIndex + "/" + propertyId + "/" + start);
+		if (value == null) {
+			value = _properties.get(objectIndex + "/" + propertyId);
+		}
 		if (value == null) {
 			throw new BusException("property access OI " + objectIndex + " PID " + propertyId + " failed/forbidden");
 		}
@@ -138,9 +160,12 @@ public class MockDevice implements DeviceAccess {
 	}
 
 	@Override
-	public void writeProperty(int objectIndex, int propertyId, int start, int count, byte[] data) {
+	public void writeProperty(int objectIndex, int propertyId, int start, int count, byte[] data) throws BusException {
 		_calls.add("writeProperty " + objectIndex + " " + propertyId + " " + start + " " + count + " "
 			+ HexFormat.of().formatHex(data));
+		if (_refusedWrites.contains(Integer.valueOf(propertyId))) {
+			throw new BusException("property access OI " + objectIndex + " PID " + propertyId + " failed/forbidden");
+		}
 		_properties.put(objectIndex + "/" + propertyId + "/" + start, data);
 	}
 
