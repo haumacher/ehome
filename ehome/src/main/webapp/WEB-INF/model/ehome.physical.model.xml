@@ -306,6 +306,21 @@
 				<property name="serialNumber"
 					type="tl.core:String"
 				/>
+				<!--
+					The serial number as KNX writes it, manufacturer and number in hex ("000A:2A4A2711"); the
+					stored serialNumber is in the form of ETS's project (Base64, haumacher/ehome #120).
+				-->
+				<property name="serialText"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[d -> serialNumberText($d.get(`ehome.physical:Device#serialNumber`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 				<property name="lastModified"
 					type="tl.core:DateTime"
 				/>

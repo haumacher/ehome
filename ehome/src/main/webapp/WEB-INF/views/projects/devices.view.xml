@@ -718,7 +718,7 @@
 											</value-input>
 											<field attribute="description"/>
 											<field attribute="installationHints"/>
-											<field attribute="serialNumber"/>
+											<field attribute="serialText"/>
 											<field attribute="loaded"/>
 											<field attribute="lastModified"/>
 											<field attribute="lastDownload"/>
