@@ -38,6 +38,8 @@ public class BuildingFunctions extends GenericMethod {
 		buildingDevices(1, true),
 		/** <code>buildingAllDevices(part)</code>: {@link BuildingDevices#devicesWithin(TLObject)}. */
 		buildingAllDevices(1, true),
+		/** <code>buildingUnplacedDevices(project)</code>: {@link BuildingDevices#unplaced(TLObject)}. */
+		buildingUnplacedDevices(1, true),
 		/**
 		 * <code>buildingAllZigbeeDevices(part)</code>:
 		 * {@link BuildingDevices#zigbeeDevicesWithin(TLObject)}.
@@ -137,6 +139,8 @@ public class BuildingFunctions extends GenericMethod {
 				return BuildingDevices.devices(obj);
 			case buildingAllDevices:
 				return BuildingDevices.devicesWithin(obj);
+			case buildingUnplacedDevices:
+				return BuildingDevices.unplaced(obj);
 			case buildingAllZigbeeDevices:
 				return BuildingDevices.zigbeeDevicesWithin(obj);
 			case buildingConnections:

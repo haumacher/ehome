@@ -68,6 +68,21 @@ public class BuildingDevices {
 	}
 
 	/**
+	 * The devices of the given project placed in no building part, by their individual address: the
+	 * node "No location" of the device tree by building part (haumacher/ehome #106).
+	 */
+	public static List<TLObject> unplaced(TLObject project) {
+		List<TLObject> result = new ArrayList<>();
+		for (TLObject device : GroupAddressConnections.devices(project)) {
+			if (device.tValueByName(LOCATION) == null) {
+				result.add(device);
+			}
+		}
+		result.sort(BY_ADDRESS);
+		return result;
+	}
+
+	/**
 	 * The devices placed in the given building part and in all its sub-parts.
 	 */
 	public static Set<TLObject> allDevices(TLObject part) {
