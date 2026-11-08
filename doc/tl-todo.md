@@ -224,6 +224,30 @@ cancelable. Four gaps of the job support:
 point of no return. TL #30195: continue the chain of a cancelled multi-file import with the report
 of the files imported.
 
+## A job in the sub-session of its window (TL #30216)
+
+`JobRunner` runs the body of a `<start-job>` in the sub-session of the browser window that started
+it. A commit of another interaction on that sub-session (a save in the same window, a second job
+started from it) moves its session revision past the revision the job's interaction fixed at its
+first database access; a KB cache the job then has to build (its soft reference cleared by the
+garbage collector, or never filled) fails with "Session revision invalid"
+(`AbstractKBCache#getCurrentCache`), as an ETS import did at 95 % (haumacher/ehome #107).
+Workaround in `de.haumacher.ehome.job.Uninterruptible#inOwnSubSession`, which every job of the app
+passes through (`Uninterruptible.run`, see above): the body runs in a sub-session of its own,
+`TLContextManager.inPersonContext` with the window's person (access checks on, as on the body's
+thread before) and the window's locale and time zone; a sub-session without a person (a test in the
+system context) runs the body in itself as before. The job's commits reach the window like those of
+another session, through its model events; the engine synthesizes them only after what the end of a
+job sets off in the window (`ReactWindowReplay#enter`), so the `<with-result>` of the import selected
+the imported project in a table that did not show it yet (seen in the browser with a project created in
+the window during the import). `Uninterruptible#catchUp` therefore enters the window
+(`ReactWindowReplay.inWindow`, which synthesizes them first) before the job ends.
+`test.de.haumacher.ehome.job.TestUninterruptible` reproduces the failure.
+
+**When fixed:** remove `Uninterruptible#inOwnSubSession` and `#catchUp` and run the work directly (or,
+once TL #30196 is fixed as well, `Uninterruptible` altogether, see above); the fix of `JobRunner` must
+bring the window up to date with the job's commits before the `<with-result>` runs.
+
 ## A constraint veto without its problems (TL #30201)
 
 The model's commit check (`ModelService#checkCommit`) refuses with "Cannot store, constraints
@@ -284,3 +308,4 @@ carry `readonly="true"`.
 - TL #30191: see above (a failing class load aborts the module shutdown).
 - TL #30193, #30194, #30195, #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the interrupt of a cancelled job closing H2).
 - TL #30215: see above (a value channel remembered per user; the structure of the device tree).
+- TL #30216: see above (a job runs in the sub-session of its window; a commit there breaks the job's KB caches).

@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -168,10 +169,12 @@ public class TestImportProgress extends BasicTestCase {
 		RecordingJobMonitor job = new RecordingJobMonitor();
 		try {
 			Thread.currentThread().interrupt();
-			job.run(new ImportEtsProjectJob(null, null),
+			Map<?, ?> report = (Map<?, ?>) job.run(new ImportEtsProjectJob(null, null),
 				List.of(BinaryDataFactory.createBinaryData(file, "application/zip", "Testsystem.knxproj")));
 			assertFalse("The interrupt of the worker is dropped.", Thread.interrupted());
 			assertEquals(1, SharedData.newProjects(before).size());
+			// The project the import created (haumacher/ehome #107).
+			assertSame(SharedData.newProjects(before).get(0), report.get(ImportEtsProjectJob.PROJECT));
 		} finally {
 			Thread.interrupted();
 			SharedData.deleteProjects(SharedData.newProjects(before));

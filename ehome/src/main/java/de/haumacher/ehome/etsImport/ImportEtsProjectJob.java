@@ -4,22 +4,17 @@
 package de.haumacher.ehome.etsImport;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.io.binary.BinaryData;
-import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
-import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
-import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.importer.Importer;
@@ -64,6 +59,8 @@ public class ImportEtsProjectJob implements JobBody {
 	 * Key of the report holding the project created by the last import.
 	 */
 	public static final String PROJECT = "project";
+
+	private static final String PROJECT_TYPE = "ehome.project:Project";
 
 	/**
 	 * Key of the report holding the sentence summarizing the import.
@@ -185,15 +182,10 @@ public class ImportEtsProjectJob implements JobBody {
 	}
 
 	private static void importFile(JobMonitor job, ImportReport report, BinaryData data, String password) {
-		Set<TLObject> before = new HashSet<>(projects());
 		Importer importer = ImportJobs.importFile(job, data, password, false);
-		TLObject project = projects().stream().filter(p -> !before.contains(p)).findFirst().orElse(null);
+		// The project the import created, not one created meanwhile in another session.
+		TLObject project = importer.getCreated(PROJECT_TYPE).stream().findFirst().orElse(null);
 		report.addProject(data.getName(), project, importer.getMessages());
-	}
-
-	private static List<TLObject> projects() {
-		TLClass type = (TLClass) TLModelUtil.findType("ehome.project:Project");
-		return MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class);
 	}
 
 }
