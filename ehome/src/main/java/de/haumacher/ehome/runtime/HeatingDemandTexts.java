@@ -112,7 +112,7 @@ public final class HeatingDemandTexts {
 	/** The English help texts of the ports and parameters by id, as {@link #HELP_DE}. */
 	public static final Map<String, String> HELP_EN = Map.ofEntries(
 		Map.entry("valves", "The rooms' valve positions (0–100 %), up to 32, for example the outputs \"Valve\" of the room controllers. "
-			+ "The parameter \"Demand level\" decides how they make the output \"Demand level\"; every value received triggers a computation. "
+			+ "\"Demand mode\" decides how they make the output \"Demand level\"; every value received triggers a computation. "
 			+ "How a valve without a valid value counts is set by \"Input not good\"."),
 		Map.entry("demands", "The rooms' on/off requests, up to 32, for example the outputs \"Heat demand\" of the room controllers or thermostats with a switching output. "
 			+ "For the demand level, a request counts like a valve at 100 %, no request like one at 0 %."),
@@ -125,7 +125,7 @@ public final class HeatingDemandTexts {
 			+ "and off when it falls to the \"Switch-off level\" (20 % and 5 %: on at 20 %, off at 5 %), "
 			+ "staying on for at least the \"Minimum on time\" and off for at least the \"Minimum off time\". "
 			+ "When the virtual device stops, it switches on, so the house does not cool down."),
-		Map.entry("level", "How much heat the rooms need, 0–100 %: the highest valve or the mean of the highest, as the parameter \"Demand level\" chooses "
+		Map.entry("level", "How much heat the rooms need, 0–100 %: the highest valve or the mean of the highest, as \"Demand mode\" chooses "
 			+ "(valves at 80, 60, 20 and 10 %: 80 %, or 53 % averaging 3). "
 			+ "For the power demand of a modulating heat pump, say, or for display. When the virtual device stops, it goes to 100 %."),
 		Map.entry("pump", "The circulation pump of the heating circuit: on while the heat source is requested, and for the \"Pump run-on\" after that. "
@@ -146,7 +146,7 @@ public final class HeatingDemandTexts {
 			+ "A single room with a wide open valve, such as a bathroom with a high setpoint, then does not keep the heat source running on its own. "
 			+ "With fewer values, the mean is taken over those there are."),
 		Map.entry("topCount", "How many of the highest valve positions are averaged, 3, say; heat demands count as 100 %. "
-			+ "Only with \"Demand level\" \"Mean of the highest\"."),
+			+ "Only with \"Demand mode\" \"Mean of the highest\"."),
 		Map.entry("onThreshold", "From this demand level on, the heat source is requested, 20 %, say. "
 			+ "Between the \"Switch-off level\" and this one, the request stays as it is. Must be above the \"Switch-off level\"."),
 		Map.entry("offThreshold", "When the demand level falls to this value, the request ends, 5 %, say. Must be below the \"Switch-on level\"."),

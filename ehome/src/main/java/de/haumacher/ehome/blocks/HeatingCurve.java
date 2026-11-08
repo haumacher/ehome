@@ -175,7 +175,7 @@ public final class HeatingCurve extends BlockType {
 		result.add(real("roomTemperature", "Room temperature of the curve", "°C", 20, 10, 30, 0.5, false));
 		result.add(real("designOutside", "Design outside temperature", "°C", -12, -30, 10, 1, false));
 		result.add(real("designFlow", "Design flow temperature", "°C", 55, 20, 90, 1, false));
-		result.add(new Param("pointCount", ParamType.INTEGER, "Points", "", 6, Double.valueOf(2), Double.valueOf(6), 1,
+		result.add(new Param("pointCount", ParamType.INTEGER, "Number of points", "", 6, Double.valueOf(2), Double.valueOf(6), 1,
 			List.of(), false));
 		double[] outside = { -15, -10, -5, 0, 10, 20 };
 		double[] flow = { 60, 55, 49, 43, 32, 20 };

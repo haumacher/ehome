@@ -271,7 +271,7 @@ public final class SunShading extends BlockType {
 		result.add(real("shadePosition", "Shading position", "%", 100, 0, 100, 5, true));
 		result.add(new Param("slatMode", ParamType.ENUMERATION, "Slats while shading", "", 0, null, null, 0,
 			List.of(new Choice(0, "fixed", "Fixed"), new Choice(1, "tracking", "Following the sun")), false));
-		result.add(real("shadeSlat", "Slat position", "%", 75, 0, 100, 5, false));
+		result.add(real("shadeSlat", "Slat position when shading", "%", 75, 0, 100, 5, false));
 		result.add(real("slatRatio", "Slat spacing to width", "", 0.9, 0.2, 1, 0.01, false));
 		result.add(real("slatOpen", "Slat position when horizontal", "%", 0, 0, 90, 5, false));
 		result.add(real("slatStep", "Slat step", "%", 10, 1, 50, 1, false));

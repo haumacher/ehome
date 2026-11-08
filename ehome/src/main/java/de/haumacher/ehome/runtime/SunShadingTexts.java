@@ -249,11 +249,11 @@ public final class SunShadingTexts {
 			Map.entry("shadePosition", "How far the blind goes down while shading: 100 % fully down, 80 %, say, to let some light in at the bottom. "
 				+ "0 %: the blind stays up and only the slats are set. The residents may change it."),
 			Map.entry("slatMode", "How the slats of a venetian blind stand while shading. Of no meaning for shutters and awnings.\n\n"
-				+ "Fixed: the slats always stand at \"Slat position\" (the parameter), 75 %, say. Simple and calm, but lets more or less light through depending on the sun; "
+				+ "Fixed: the slats always stand at \"Slat position when shading\", 75 %, say. Simple and calm, but lets more or less light through depending on the sun; "
 				+ "\"Slat spacing to width\", \"Slat position when horizontal\" and \"Slat step\" do not apply.\n\n"
 				+ "Following the sun: the slats close just far enough that no direct sun falls through: almost closed with a low sun, "
 				+ "further open with a high one, so more daylight comes in. \"Slat spacing to width\", \"Slat position when horizontal\" "
-				+ "and \"Slat step\" apply; \"Slat position\" (the parameter) does not."),
+				+ "and \"Slat step\" apply; \"Slat position when shading\" does not."),
 			Map.entry("shadeSlat", "The slat position while shading: 0 % open, 100 % closed, 75 %, say. Only with \"Slats while shading\" \"Fixed\"."),
 			Map.entry("slatRatio", "The spacing of two slats divided by their width, from the blind's data sheet: 72 mm spacing at 80 mm width gives 0.9. "
 				+ "It decides how far the slats have to close at which position of the sun. Only with \"Slats while shading\" \"Following the sun\"."),

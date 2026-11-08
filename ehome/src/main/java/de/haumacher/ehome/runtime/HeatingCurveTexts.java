@@ -193,7 +193,7 @@ public final class HeatingCurveTexts {
 				+ "Right when the heat load calculation or the heating engineer names these values; the two design values and \"Room temperature of the curve\" apply, \"Slope\" does not.\n\n"
 				+ "Points: 2 to 6 pairs of outside temperature and flow, joined by straight lines between them and flat beyond the first and the last "
 				+ "(by default -15 °C 60 °C through 20 °C 20 °C, which gives 37.5 °C at 5 °C). For a curve with a bend, for a heat pump, say; "
-				+ "\"Points\" (the number) and the points apply, \"Slope\" does not."),
+				+ "\"Number of points\" and the points apply, \"Slope\" does not."),
 			Map.entry("slope", "How steeply the flow rises as the outside gets colder: by this many kelvin per kelvin colder "
 				+ "(1.2: 10 K colder outside, 12 K more flow). Floor heating lies around 0.3–0.6, radiators around 1.0–1.6. "
 				+ "Only with \"Curve\" \"Slope and level\". The residents may change it."),
@@ -233,10 +233,10 @@ public final class HeatingCurveTexts {
 			int n = i + 1;
 			result.put("outside" + n, "The outside temperature of point " + n + " (" + POINT_OUTSIDE[i] + " °C by default); \"Flow " + n
 				+ "\" belongs to it. The outside temperatures must rise from point to point. "
-				+ "Only with \"Curve\" \"Points\" and when \"Points\" (the number) is at least " + n + ".");
+				+ "Only with \"Curve\" \"Points\" and when \"Number of points\" is at least " + n + ".");
 			result.put("flow" + n, "The flow at point " + n + " (" + POINT_FLOW[i] + " °C by default), that is at \"Outside temperature " + n
 				+ "\"; two points are joined by a straight line. "
-				+ "Only with \"Curve\" \"Points\" and when \"Points\" (the number) is at least " + n + ".");
+				+ "Only with \"Curve\" \"Points\" and when \"Number of points\" is at least " + n + ".");
 		}
 		return Map.copyOf(result);
 	}

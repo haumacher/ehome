@@ -154,7 +154,7 @@ public final class HeatingDemand extends BlockType {
 			Port.diagnostic("state", PortType.ENUMERATION, "State", "", Double.valueOf(0), Double.valueOf(5)),
 			Port.diagnostic("staleInputs", PortType.INTEGER, "Inputs not good", "", null, null)),
 		List.of(
-			new Param("mode", ParamType.ENUMERATION, "Demand level", "", 0, null, null, 0,
+			new Param("mode", ParamType.ENUMERATION, "Demand mode", "", 0, null, null, 0,
 				List.of(new Choice(0, "max", "Highest valve"), new Choice(1, "topMean", "Mean of the highest")), false),
 			new Param("topCount", ParamType.INTEGER, "Valves averaged", "", 3, Double.valueOf(1), Double.valueOf(32), 1,
 				List.of(), false),
