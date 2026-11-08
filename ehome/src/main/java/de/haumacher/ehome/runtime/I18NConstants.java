@@ -612,6 +612,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 CONFIRM_TOO_LARGE__BYTES_STORABLE;
 
 	/**
+	 * @en Datapoint {0} has no name; the controller shows its id.
+	 */
+	public static ResKey1 DEPLOY_UNNAMED_DATAPOINT__ID;
+
+	/**
 	 * @en The controller does not report which image schema it reads (a firmware before schema 1.2); this image is {0}: update the controller''s firmware first, or what is newer in the image (adjustable schedules) is refused.
 	 */
 	public static ResKey1 CONFIRM_SCHEMA_UNKNOWN__IMAGE;

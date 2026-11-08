@@ -43,7 +43,9 @@ import de.haumacher.ehome.runtime.ImageReport.Refusal;
  * controller checks it ({@link ImageValidator}); a refused image is not sent and the refusals are
  * recorded as those of the controller would be. Before the image is sent, the status of the
  * controller is read, and what it ran is recorded with the deployment. Each refusal is recorded
- * with the object of the project its path leads to ({@link RuntimeImage#elementAt(String)}).
+ * with the object of the project its path leads to ({@link RuntimeImage#elementAt(String)}). The
+ * message of an accepted image warns for each datapoint the controller shows on the inhabitant's pages
+ * by its id, having no name ({@link UnnamedDatapoints}, haumacher/ehome #114); it does not refuse it.
  * </p>
  *
  * <p>
@@ -457,6 +459,10 @@ public final class Deployer {
 				Integer.valueOf(outcome._bytes)));
 			if (image.getUnusedFunctions() > 0) {
 				message += " " + text(I18NConstants.EXPORT_UNUSED__COUNT.fill(Integer.valueOf(image.getUnusedFunctions())));
+			}
+			// A datapoint the inhabitant's pages show by its id, having no name (haumacher/ehome #114).
+			for (ResKey warning : UnnamedDatapoints.warnings(json)) {
+				message += " " + text(warning);
 			}
 			if (Boolean.FALSE.equals(answer.body().get("stored"))) {
 				message += " " + text(I18NConstants.DEPLOY_NOT_STORED__ERROR.fill(answer.string("storeError")));

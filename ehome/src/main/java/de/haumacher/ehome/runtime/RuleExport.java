@@ -463,7 +463,10 @@ public final class RuleExport {
 		source(path + ".id", parameter, "identifier");
 		result.put("id", orEmpty(text(parameter, "identifier")));
 		source(path + ".label", parameter, "title");
-		result.put("label", label(parameter, "title", "label"));
+		Object label = label(parameter, "title", "label");
+		// A parameter without title is shown by its id, as the controller shows a datapoint without a
+		// name; the deployment warns of it (haumacher/ehome #114).
+		result.put("label", "".equals(label) ? result.get("id") : label);
 		String typeName = classifier(parameter, "type", "real");
 		source(path + ".type", parameter, "type");
 		result.put("type", typeName);

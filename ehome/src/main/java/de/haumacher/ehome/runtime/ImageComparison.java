@@ -298,7 +298,10 @@ public final class ImageComparison {
 
 	/**
 	 * The question asked before the image of the project is deployed: whether to deploy, with what
-	 * differs from the image the controller stores; whether to deploy again if nothing differs.
+	 * differs from the image the controller stores; whether to deploy again if nothing differs. Below
+	 * it the warnings: the datapoints the inhabitant's pages show by their id, having no name
+	 * ({@link UnnamedDatapoints}, haumacher/ehome #114), a controller reading an older schema, an image
+	 * larger than the controller can store.
 	 */
 	public static String confirmation(TLObject project, Instant now) {
 		TLObject controller = Deployer.controller(project);
@@ -311,6 +314,15 @@ public final class ImageComparison {
 			text = text(I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(next, controller.tValueByName("name")))
 				+ "\n\n" + result.text();
 		}
+		// The datapoints the inhabitant's pages will show by their id, having no name (haumacher/ehome #114).
+		RuntimeImage image = RuntimeImage.build(project, next.longValue(), now);
+		List<String> unnamed = new ArrayList<>();
+		for (ResKey warning : UnnamedDatapoints.warnings(image.getJson())) {
+			unnamed.add(text(warning));
+		}
+		if (!unnamed.isEmpty()) {
+			text += "\n\n" + String.join("\n", unnamed);
+		}
 		if (result.state() != State.UNKNOWN) {
 			String reported = reportedSchema(controller);
 			String warning = "".equals(reported) ? null : schemaWarning(reported);
@@ -321,8 +333,7 @@ public final class ImageComparison {
 			// not survive a restart; a controller that reports no limit gets no warning.
 			Long storable = ControllerStatus.read(Deployer.client(controller)).storable();
 			if (storable != null) {
-				ResKey tooLarge = Deployer.storableWarning(RuntimeImage.build(project, next.longValue(), now).getBytes().length,
-					storable);
+				ResKey tooLarge = Deployer.storableWarning(image.getBytes().length, storable);
 				if (tooLarge != null) {
 					text += "\n\n" + text(tooLarge);
 				}
