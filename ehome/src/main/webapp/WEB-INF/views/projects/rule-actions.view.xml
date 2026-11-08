@@ -380,7 +380,7 @@
 						with-inset="true"
 					>
 						<field attribute="datapoint"/>
-						<!-- Offers the datapoints of the project while a reference @"… is typed (TL #29887). -->
+						<!-- Suggests what the field may name after @, $, running(, state(" and the start of a function (ruleSuggestions, TL #29887, haumacher/ehome #109). -->
 						<field attribute="value">
 							<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
 								<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
@@ -388,10 +388,18 @@
 						</field>
 						<field attribute="onlyOnChange"/>
 						<field attribute="timer"/>
-						<field attribute="duration"/>
+						<field attribute="duration">
+							<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+								<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+							</input-control>
+						</field>
 						<field attribute="parameter"/>
 						<field attribute="level"/>
-						<field attribute="message"/>
+						<field attribute="message">
+							<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+								<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+							</input-control>
+						</field>
 					</form>
 				</pane>
 			</panes>

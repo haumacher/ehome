@@ -228,7 +228,11 @@
 				expr="ruleDraftField($model, 'message')"
 				input="model"
 			>
-				<field attribute="message"/>
+				<field attribute="message">
+					<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+						<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+					</input-control>
+				</field>
 			</visible-if>
 			<visible-if
 				expr="ruleDraftField($model, 'range')"

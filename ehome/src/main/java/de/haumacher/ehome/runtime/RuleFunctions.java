@@ -30,6 +30,7 @@ import com.top_logic.model.search.expr.GenericMethod;
 import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
+import com.top_logic.model.util.TLModelI18N;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
@@ -82,11 +83,11 @@ public class RuleFunctions extends GenericMethod {
 		 */
 		ruleDatapoints(1, true),
 		/**
-		 * <code>ruleSuggestions(obj, text, caret)</code>: the datapoints a reference <code>@"…</code>
-		 * left unfinished before the caret may name, or the functions whose name starts with the
-		 * identifier before the caret, as suggestions of a text field
+		 * <code>ruleSuggestions(obj, text, caret)</code>: what a reference, a parameter, a timer, a
+		 * state or a function name left unfinished before the caret may name, as far as the field of
+		 * obj may name it, as suggestions of a text field
 		 * ({@link RuleFunctions#suggestions(TLObject, String, int)}); obj is the edited part of a
-		 * rule (or the form's overlay of it).
+		 * rule (or the form's overlay of it, or the draft of a create dialog).
 		 */
 		ruleSuggestions(3, true),
 		/**
@@ -585,20 +586,33 @@ public class RuleFunctions extends GenericMethod {
 	// ---- datapoints --------------------------------------------------------------------------
 
 	/**
-	 * The datapoints of the project's image, each a copy of its map in the image with its label in
-	 * the language of the user and its <code>binding</code>: KNX for the datapoint of a group
-	 * address, application for an application datapoint ({@link ApplicationDatapoints}), Zigbee for
-	 * one bound to a function of a Zigbee device.
-	 */
-	/**
-	 * The suggestions of a text field of the rule language: where the text before the caret ends in
-	 * a reference left unfinished (<code>@</code> or <code>@"</code> followed by the start of a
-	 * name), the datapoints of the project of the given part whose id or label contains what is
-	 * typed, each replacing the reference by the complete <code>@"id"</code>; where it ends in the
-	 * start of a function name, the functions of the rule language with that start.
+	 * The suggestions of a text field of the rule language (haumacher/ehome #109): what the text
+	 * before the caret leaves unfinished, offered as far as the field may name it
+	 * ({@link ExpressionKind}).
+	 *
+	 * <ul>
+	 * <li>Inside <code>running(</code> and <code>remaining(</code>: the timers of the rule.</li>
+	 * <li>Inside <code>state("</code>: the rules of the project that have states; after
+	 * <code>state() == "</code> (or <code>!=</code>, or <code>state("r") == "</code>): the states of
+	 * the rule (of rule <code>r</code>).</li>
+	 * <li>After <code>$</code> (or <code>$"</code>) and the start of an id: the parameters of the rule,
+	 * its enable switch <code>enabled</code> included, whose id or label contains what is typed, each
+	 * replacing the reference by its complete text ({@link RuleText#parameterReference(String)}); in
+	 * a field outside a rule (a schedule entry) nothing.</li>
+	 * <li>After the start of a function name (two letters): the functions of the rule language with
+	 * that start, in a match condition and a silence period only the pure ones.</li>
+	 * <li>After <code>@</code> or <code>@"</code>: the datapoints of the project whose id or label
+	 * contains what is typed, each replacing the reference by the complete <code>@"id"</code>; not in
+	 * a silence period.</li>
+	 * </ul>
+	 *
+	 * <p>
+	 * A log message suggests only inside an open placeholder <code>{…</code>, as a value does.
+	 * </p>
 	 *
 	 * @param part
-	 *        The edited part of a rule, or the form's overlay of it.
+	 *        The edited part of a rule (or the form's overlay of it, or the draft of a create dialog,
+	 *        whose container is the part it is created in).
 	 * @param text
 	 *        The text typed so far.
 	 * @param caret
@@ -607,37 +621,167 @@ public class RuleFunctions extends GenericMethod {
 	 */
 	public static List<Object> suggestions(TLObject part, String text, int caret) {
 		String before = text.substring(0, Math.max(0, Math.min(caret, text.length())));
-		List<Object> functions = functionSuggestions(before);
-		if (!functions.isEmpty()) {
-			return functions;
+		ExpressionKind kind = ExpressionKind.of(part);
+		int offset = 0;
+		if (kind == ExpressionKind.MESSAGE) {
+			offset = openPlaceholder(before);
+			if (offset < 0) {
+				return List.of();
+			}
+			before = before.substring(offset);
+		}
+		TLObject rule = kind.inRule() ? rule(part) : null;
+		Suggestions result = new Suggestions(offset, before.length());
+
+		Matcher timer = UNFINISHED_TIMER.matcher(before);
+		if (timer.find() && !insideString(before)) {
+			if (kind.timersAndStates() && rule != null) {
+				timerSuggestions(result, rule, timer);
+			}
+			return result.entries();
+		}
+		if (insideString(before)) {
+			Matcher ruleState = UNFINISHED_RULE_STATE.matcher(before);
+			if (ruleState.find()) {
+				if (kind.timersAndStates()) {
+					stateRuleSuggestions(result, project(part), ruleState);
+				}
+				return result.entries();
+			}
+			Matcher state = UNFINISHED_STATE.matcher(before);
+			if (state.find()) {
+				if (kind.timersAndStates() && rule != null) {
+					stateSuggestions(result, rule, project(part), state);
+				}
+				return result.entries();
+			}
+		}
+		Matcher parameter = UNFINISHED_PARAMETER.matcher(before);
+		if (parameter.find() && !insideString(before.substring(0, parameter.start()))) {
+			if (rule != null) {
+				parameterSuggestions(result, rule, parameter);
+			}
+			return result.entries();
+		}
+		functionSuggestions(result, before, kind.pureOnly());
+		if (!result.isEmpty()) {
+			return result.entries();
 		}
 		Matcher reference = UNFINISHED_REFERENCE.matcher(before);
-		if (!reference.find()) {
+		if (!kind.datapoints() || !reference.find()) {
 			return List.of();
 		}
 		TLObject project = project(part);
 		if (project == null) {
 			return List.of();
 		}
-		String typed = reference.group(1).toLowerCase(Locale.ROOT);
-		List<Object> result = new ArrayList<>();
+		String typed = reference.group(1);
 		for (Object entry : datapoints(project)) {
 			Map<?, ?> datapoint = (Map<?, ?>) entry;
 			String id = String.valueOf(datapoint.get("id"));
 			Object label = datapoint.get("label");
-			String name = label == null ? "" : label.toString();
-			if (!id.toLowerCase(Locale.ROOT).contains(typed) && !name.toLowerCase(Locale.ROOT).contains(typed)) {
-				continue;
+			String name = label == null ? null : label.toString();
+			if (matches(typed, id, name)) {
+				result.add("@\"" + id + "\"", name, reference.start());
 			}
-			String inserted = "@\"" + id + "\"";
-			Map<String, Object> suggestion = new LinkedHashMap<>();
-			suggestion.put("label", name.isEmpty() ? inserted : inserted + " " + name);
-			suggestion.put("text", inserted);
-			suggestion.put("from", Integer.valueOf(reference.start()));
-			suggestion.put("to", Integer.valueOf(before.length()));
-			result.add(suggestion);
 		}
-		return result;
+		return result.entries();
+	}
+
+	/**
+	 * The timers of the rule whose id contains what is typed inside <code>running(</code> or
+	 * <code>remaining(</code>, each completing the call.
+	 */
+	private static void timerSuggestions(Suggestions result, TLObject rule, Matcher timer) {
+		String typed = timer.group(2);
+		for (TLObject candidate : RuleExport.objects(rule.tValueByName("timers"))) {
+			if (candidate.tValueByName("identifier") instanceof String id && matches(typed, id, null)) {
+				Object duration = candidate.tValueByName("duration");
+				result.add(id + ")", id + (duration == null ? "" : " " + duration), timer.start(2));
+			}
+		}
+	}
+
+	/**
+	 * The rules of the project that have states, inside <code>state("</code>, each completing the
+	 * call with its id.
+	 */
+	private static void stateRuleSuggestions(Suggestions result, TLObject project, Matcher ruleState) {
+		if (project == null) {
+			return;
+		}
+		Resources resources = Resources.getInstance();
+		String typed = ruleState.group(1);
+		for (TLObject candidate : RuleExport.objects(project.tValueByName("rules"))) {
+			if (candidate.tValueByName("identifier") instanceof String id
+				&& !RuleExport.objects(candidate.tValueByName("states")).isEmpty()) {
+				String name = text(candidate.tValueByName("name"), resources);
+				if (matches(typed, id, name)) {
+					result.add("\"" + id + "\")", name, ruleState.start(1) - 1);
+				}
+			}
+		}
+	}
+
+	/**
+	 * The states compared with <code>state()</code> (those of the rule) or with
+	 * <code>state("r")</code> (those of rule <code>r</code> of the project), each completing the
+	 * string.
+	 */
+	private static void stateSuggestions(Suggestions result, TLObject rule, TLObject project, Matcher state) {
+		TLObject owner = rule;
+		String named = state.group(1);
+		if (named != null) {
+			owner = null;
+			if (project != null) {
+				for (TLObject candidate : RuleExport.objects(project.tValueByName("rules"))) {
+					if (named.equals(candidate.tValueByName("identifier"))) {
+						owner = candidate;
+						break;
+					}
+				}
+			}
+			if (owner == null) {
+				return;
+			}
+		}
+		String typed = state.group(2);
+		for (TLObject candidate : RuleExport.objects(owner.tValueByName("states"))) {
+			if (candidate.tValueByName("identifier") instanceof String id && matches(typed, id, null)) {
+				result.add("\"" + id + "\"", null, state.start(2) - 1);
+			}
+		}
+	}
+
+	/**
+	 * The parameters of the rule, its enable switch <code>enabled</code> last (spec/rules.md 8.3),
+	 * whose id or label contains what is typed after <code>$</code>.
+	 */
+	private static void parameterSuggestions(Suggestions result, TLObject rule, Matcher parameter) {
+		Resources resources = Resources.getInstance();
+		String typed = parameter.group(1) != null ? parameter.group(1) : parameter.group(2);
+		for (TLObject candidate : RuleExport.objects(rule.tValueByName("parameters"))) {
+			if (candidate.tValueByName("identifier") instanceof String id) {
+				String label = parameterLabel(rule, id, resources);
+				if (matches(typed, id, label)) {
+					result.add(RuleText.parameterReference(id), label, parameter.start());
+				}
+			}
+		}
+		String enabled = resources.getString(TLModelI18N.getI18NKey(rule.tType().getPart("enabled")), null);
+		if (matches(typed, ENABLED, enabled)) {
+			result.add(RuleText.parameterReference(ENABLED), enabled, parameter.start());
+		}
+	}
+
+	/** The id of the enable switch of a rule, a parameter of every rule (spec/rules.md 8.3). */
+	private static final String ENABLED = "enabled";
+
+	/** Whether the id or the label contains what is typed, ignoring case. */
+	private static boolean matches(String typed, String id, String label) {
+		String search = typed.toLowerCase(Locale.ROOT);
+		return id.toLowerCase(Locale.ROOT).contains(search)
+			|| (label != null && label.toLowerCase(Locale.ROOT).contains(search));
 	}
 
 	/**
@@ -646,29 +790,34 @@ public class RuleFunctions extends GenericMethod {
 	 * parameter <code>$…</code> or the unit of a number), each with its label in the language of the
 	 * user, replacing the identifier by the name and the opening parenthesis (both parentheses for a
 	 * function without arguments).
+	 *
+	 * @param pureOnly
+	 *        Whether only the pure functions are offered: no time, history, timer or state
+	 *        functions (a match condition, a silence period, spec/rules.md 2.3).
 	 */
-	private static List<Object> functionSuggestions(String before) {
+	private static void functionSuggestions(Suggestions result, String before, boolean pureOnly) {
 		Matcher identifier = UNFINISHED_FUNCTION.matcher(before);
 		if (!identifier.find() || insideString(before)) {
-			return List.of();
+			return;
 		}
 		String typed = identifier.group(1);
 		Resources resources = Resources.getInstance();
-		List<Object> result = new ArrayList<>();
 		for (Fn fn : Fn.values()) {
 			String name = fn.externalName();
-			if (!name.startsWith(typed)) {
+			if (!name.startsWith(typed) || (pureOnly && !isPure(fn))) {
 				continue;
 			}
 			String inserted = name + (RuleLoader.maxArguments(fn) == 0 ? "()" : "(");
-			Map<String, Object> suggestion = new LinkedHashMap<>();
-			suggestion.put("label", inserted + " " + resources.getString(ResKey.forEnum(fn)));
-			suggestion.put("text", inserted);
-			suggestion.put("from", Integer.valueOf(identifier.start(1)));
-			suggestion.put("to", Integer.valueOf(before.length()));
-			result.add(suggestion);
+			result.add(inserted, resources.getString(ResKey.forEnum(fn)), identifier.start(1));
 		}
-		return result;
+	}
+
+	/**
+	 * Whether the function may be used in a match condition and a silence period: no time, history,
+	 * timer or state function (spec/rules.md 2.3, as the loader checks it).
+	 */
+	private static boolean isPure(Fn fn) {
+		return !(fn.isTime() || fn.isHistory() || fn == Fn.RUNNING || fn == Fn.REMAINING || fn == Fn.STATE);
 	}
 
 	/** Whether the text ends inside a string literal (an odd number of unescaped quotes). */
@@ -686,6 +835,133 @@ public class RuleFunctions extends GenericMethod {
 	}
 
 	/**
+	 * The start of the expression of a placeholder of a log message left open at the end of the text
+	 * (the position after its <code>{</code>), -1 if the text ends outside a placeholder;
+	 * <code>{{</code> and <code>}}</code> outside a placeholder are braces of the text
+	 * ({@link RuleText#parseMessage(String)}).
+	 */
+	private static int openPlaceholder(String text) {
+		int start = -1;
+		boolean string = false;
+		for (int n = 0; n < text.length(); n++) {
+			char c = text.charAt(n);
+			if (start < 0) {
+				if ((c == '{' || c == '}') && n + 1 < text.length() && text.charAt(n + 1) == c) {
+					n++;
+				} else if (c == '{') {
+					start = n + 1;
+				}
+			} else if (string) {
+				if (c == '\\') {
+					n++;
+				} else if (c == '"') {
+					string = false;
+				}
+			} else if (c == '"') {
+				string = true;
+			} else if (c == '}') {
+				start = -1;
+			}
+		}
+		return start;
+	}
+
+	/**
+	 * What an expression field of a rule may name (spec/rules.md 2.3, 4.3), decided by the type of
+	 * the edited part, which has one expression field each.
+	 */
+	private enum ExpressionKind {
+		/** No expression of a rule (a schedule entry, a reference line): functions and datapoints. */
+		OTHER,
+		/** A condition, a value, a duration: datapoints, parameters, timers and states. */
+		FULL,
+		/** A match condition: datapoints, parameters and the pure functions. */
+		MATCH,
+		/** The period of a silence trigger: parameters and the pure functions. */
+		SILENCE,
+		/** A log message: as {@link #FULL} inside a placeholder <code>{…}</code>. */
+		MESSAGE;
+
+		boolean inRule() {
+			return this != OTHER;
+		}
+
+		boolean timersAndStates() {
+			return this == FULL || this == MESSAGE;
+		}
+
+		boolean pureOnly() {
+			return this == MATCH || this == SILENCE;
+		}
+
+		boolean datapoints() {
+			return this != SILENCE;
+		}
+
+		static ExpressionKind of(TLObject part) {
+			if (part == null || !RUNTIME_MODULE.equals(part.tType().getModule().getName())) {
+				return OTHER;
+			}
+			switch (part.tType().getName()) {
+				case "Reaction":
+				case "WriteAction":
+				case "SetParameterAction":
+				case "RuleTimer":
+				case "StartTimerAction":
+				case "RestartTimerAction":
+					return FULL;
+				case "MatchTrigger":
+					return MATCH;
+				case "SilenceTrigger":
+					return SILENCE;
+				case "LogAction":
+					return MESSAGE;
+				default:
+					return OTHER;
+			}
+		}
+	}
+
+	/** The model module of the rules. */
+	private static final String RUNTIME_MODULE = "ehome.runtime";
+
+	/**
+	 * The entries of a text field's suggestions, each replacing the text from its start up to the
+	 * caret; the positions of an expression inside a placeholder of a log message are shifted to
+	 * those of the whole text.
+	 */
+	private static final class Suggestions {
+
+		private final int _offset;
+
+		private final int _to;
+
+		private final List<Object> _entries = new ArrayList<>();
+
+		Suggestions(int offset, int to) {
+			_offset = offset;
+			_to = to;
+		}
+
+		void add(String inserted, String label, int from) {
+			Map<String, Object> suggestion = new LinkedHashMap<>();
+			suggestion.put("label", label == null || label.isEmpty() ? inserted : inserted + " " + label);
+			suggestion.put("text", inserted);
+			suggestion.put("from", Integer.valueOf(_offset + from));
+			suggestion.put("to", Integer.valueOf(_offset + _to));
+			_entries.add(suggestion);
+		}
+
+		boolean isEmpty() {
+			return _entries.isEmpty();
+		}
+
+		List<Object> entries() {
+			return _entries;
+		}
+	}
+
+	/**
 	 * An identifier of at least two letters at the end of a text that is not part of a reference,
 	 * a parameter, a number with its unit or a dotted name.
 	 */
@@ -693,6 +969,39 @@ public class RuleFunctions extends GenericMethod {
 
 	/** A reference left unfinished at the end of a text: <code>@</code> or <code>@"</code>, then no quote. */
 	private static final Pattern UNFINISHED_REFERENCE = Pattern.compile("@\"?([^\"@]*)$");
+
+	/**
+	 * A parameter left unfinished at the end of a text: <code>$</code>, then the start of an id or a
+	 * string left open (group 1: the string's content, group 2: the id).
+	 */
+	private static final Pattern UNFINISHED_PARAMETER = Pattern.compile("\\$(?:\"([^\"\\\\]*)|([A-Za-z0-9_-]*))$");
+
+	/** A timer function left open: <code>running(</code> or <code>remaining(</code>, then the start of an id (group 2). */
+	private static final Pattern UNFINISHED_TIMER =
+		Pattern.compile("(?<![@$\\w.])(running|remaining)\\(\\s*([A-Za-z0-9_]*)$");
+
+	/** The rule id of <code>state("</code> left open (group 1). */
+	private static final Pattern UNFINISHED_RULE_STATE = Pattern.compile("(?<![@$\\w.])state\\(\\s*\"([^\"\\\\]*)$");
+
+	/**
+	 * A state compared with <code>state()</code> or <code>state("r")</code> left open: the rule id
+	 * (group 1, absent for the rule's own state), the start of the state id (group 2).
+	 */
+	private static final Pattern UNFINISHED_STATE = Pattern.compile(
+		"(?<![@$\\w.])state\\(\\s*(?:\"([^\"\\\\]*)\"\\s*)?\\)\\s*[!=]=\\s*\"([^\"\\\\]*)$");
+
+	/**
+	 * The rule the given part of a rule belongs to, <code>null</code> if none: the first rule of its
+	 * container chain, which is also that of the draft of a create dialog.
+	 */
+	private static TLObject rule(TLObject part) {
+		for (TLObject obj = part; obj != null; obj = obj.tContainer()) {
+			if ("Rule".equals(obj.tType().getName()) && RUNTIME_MODULE.equals(obj.tType().getModule().getName())) {
+				return obj;
+			}
+		}
+		return null;
+	}
 
 	/**
 	 * The project the given part of a rule or schedule entry belongs to, <code>null</code> if none.

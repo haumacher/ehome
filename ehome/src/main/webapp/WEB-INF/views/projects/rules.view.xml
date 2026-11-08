@@ -16,9 +16,11 @@
 	refused fields of an object both show their refusal (haumacher/ehome #60). An entered text is
 	stored in its canonical form, the form the image carries (the value normalizer rule-text of the
 	model, RuleTextNormalizer). "Import rules"
-	adds the rules and schedule entries of a runtime image (a JSON file) to the project. A condition
-	or a value offers, while a reference @"… is typed, the datapoints of the project's image that
-	expressions and actions may name (ruleSuggestions, TL #29887): those of the
+	adds the rules and schedule entries of a runtime image (a JSON file) to the project. Every
+	expression field of a rule suggests what it may name (ruleSuggestions, TL #29887, haumacher/ehome
+	#109): after $ the parameters of the rule, inside running( and state(" its timers and the rules
+	with states, after state() == " its states, and while a reference @"… is typed the datapoints of
+	the project's image that expressions and actions may name: those of the
 	group addresses (KNX) and the application datapoints (haumacher/ehome #59), which no technology
 	owns and which are edited in the tab "Application datapoints" (application-datapoints.view.xml):
 	they are the rules' and the schedule's own values, so they are edited where they are used. The
@@ -359,7 +361,7 @@
 															input="reaction"
 															with-inset="true"
 														>
-															<!-- Offers the datapoints of the project while a reference @"… is typed (TL #29887). -->
+															<!-- Suggests what the field may name after @, $, running(, state(" and the start of a function (ruleSuggestions, TL #29887, haumacher/ehome #109). -->
 															<field attribute="condition">
 																<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
 																	<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
@@ -730,7 +732,7 @@
 																		<field attribute="datapoint"/>
 																		<field attribute="on"/>
 																		<field attribute="origin"/>
-																		<!-- Offers the datapoints of the project while a reference @"… is typed (TL #29887). -->
+																		<!-- Suggests what the field may name after @, $, running(, state(" and the start of a function (ruleSuggestions, TL #29887, haumacher/ehome #109). -->
 																		<field attribute="condition">
 																			<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
 																				<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
@@ -739,7 +741,11 @@
 																		<field attribute="timer"/>
 																		<field attribute="schedule"/>
 																		<field attribute="parameter"/>
-																		<field attribute="after"/>
+																		<field attribute="after">
+																			<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+																				<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+																			</input-control>
+																		</field>
 																		<field attribute="onBoot"/>
 																		<field attribute="onImage"/>
 																		<field attribute="onEnable"/>
@@ -1251,7 +1257,11 @@
 												with-inset="true"
 											>
 												<field attribute="identifier"/>
-												<field attribute="duration"/>
+												<field attribute="duration">
+													<input-control class="com.top_logic.layout.view.form.TextInputControlProvider">
+														<suggestions>self -> text -> caret -> ruleSuggestions($self, $text, $caret)</suggestions>
+													</input-control>
+												</field>
 											</form>
 										</pane>
 									</panes>
