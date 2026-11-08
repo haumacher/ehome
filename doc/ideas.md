@@ -64,19 +64,20 @@ Open (proposals, not decided):
 Would be two tickets: homecontrol (bindings/groups, image format) and ehome (model, editor, image
 writer, simulation).
 
-## Modules: compare E-Home's download with an ETS download
+## Modules: check the allocator rule on a real device
 
-Put off in the round of haumacher/ehome #119 (dynamic modules); the user: "for 6 we start with b"
-(unit tests on the computed object numbers and offsets only).
+Put off in the round of haumacher/ehome #119 (dynamic modules). E-Home computes the argument values
+of allocator-fed module instances by its own rule (#119, design point 2: active instances in
+document order, each allocator-fed argument takes the allocator's current value, which then advances
+by the argument's `Allocates`). The unit tests check it on artificial fixtures only; the KNX
+documentation at hand (Project Scheme 20) does not describe the allocation.
 
 Today:
 - No device with modules on the test system: the MDT actuator's program `M-0083_A-000C-21` has
   no `ModuleDefs` (`ehome/samples/KNX-Testsystem.knxproj`).
-- The tooling records ETS downloads to the virtual device (`ehome-virtual`, package
-  `de.haumacher.ehome.virtual.tooling`, traces in `ehome-virtual/src/test/fixtures/ets-traces/`).
+- E-Home reads device memory back (`ehome/src/main/java/de/haumacher/ehome/scan/ReadBack.java`,
+  `programming/download/DeviceComparison.java`).
 
-Proposal: record an ETS 6 download of a device with modules (e.g. an MDT switching actuator
-12-fold, program `M-0083_A-0014-32-1A2C`) to the virtual device and compare E-Home's download of
-the same device against the trace. Open: which device and project to record from (the
-verification project of #119 must not be committed, so the trace would come from a project made for
-it).
+Proposal: with a device that uses `Repeat` and allocators on the desk (e.g. a Zennio DALI BOX
+Interface 64 v3 or the ABB Modbus RTU Gateway, programs in #119), configured with several counts,
+read its parameter memory back and compare it with the layout E-Home computes. Open: which device.
