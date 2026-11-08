@@ -19,7 +19,9 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.knx.FillTextParameter;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.template.ObjectTypes;
 
@@ -89,7 +91,7 @@ public class GroupAddressConnections {
 	public static String label(TLObject connection) {
 		Interface placed = object(connection);
 		return deviceLabel(device(connection)) + SEPARATOR + placed.getPort().getIndex() + " "
-			+ objectName(placed) + SEPARATOR + MetaLabelProvider.INSTANCE.getLabel(connection.tValueByName("kind"));
+			+ objectName(device(connection), placed, Resources.getInstance()) + SEPARATOR + MetaLabelProvider.INSTANCE.getLabel(connection.tValueByName("kind"));
 	}
 
 	/**
@@ -124,6 +126,34 @@ public class GroupAddressConnections {
 	 */
 	public static String objectName(Interface placed) {
 		return objectName(placed, Resources.getInstance());
+	}
+
+	/**
+	 * The text of the object of a connection in the given device: {@link #objectName(Interface)} with
+	 * the placeholder <code>{{0}}</code> filled with the device's value of the object's text parameter
+	 * (haumacher/ehome #119), <code>null</code> for a connection without an object.
+	 */
+	public static String objectText(TLObject connection) {
+		Interface placed = object(connection);
+		return placed == null ? null : objectName(device(connection), placed, Resources.getInstance());
+	}
+
+	/**
+	 * The text of a communication object in the given device in the language of the given resources:
+	 * {@link #objectName(Interface, Resources)} with the placeholder <code>{{0}}</code> filled with
+	 * the device's value of the object's text parameter (haumacher/ehome #119, as
+	 * <code>ehome.physical:Connector#displayName</code> does).
+	 *
+	 * @param device
+	 *        The device, <code>null</code> for the program's text with its placeholder.
+	 */
+	public static String objectName(TLObject device, Interface placed, Resources resources) {
+		String text = objectName(placed, resources);
+		ParameterView parameter = placed.getTextParameter();
+		if (device == null || parameter == null) {
+			return text;
+		}
+		return FillTextParameter.fill(text, DeviceSettings.value(device, parameter));
 	}
 
 	/**

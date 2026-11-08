@@ -46,6 +46,7 @@ import de.haumacher.ehome.knx.FillTextParameter;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.planning.DevicePlanning;
 import de.haumacher.ehome.programming.DeviceConfiguration;
+import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
@@ -281,6 +282,16 @@ public class TestDynamicModules extends BasicTestCase {
 		assertEquals("1 Kanal A: WZ: Ein/Aus", label(connectors.get(A + "O-2-0_R-1"), Locale.GERMAN));
 		assertEquals("2 Kanal A: Status: Status", label(connectors.get(A + "O-2-1_R-1"), Locale.GERMAN));
 		assertEquals("3 Kanal B: Ein/Aus", label(connectors.get(B + "O-2-0_R-1"), Locale.GERMAN));
+
+		// The same text where a group address lists its objects: the table "Connected objects" and the
+		// label of a connection.
+		TLObject connection = list(connectors.get(A + "O-2-0_R-1"), "connections").get(0);
+		String objectText = GroupAddressConnections.objectText(connection);
+		assertTrue(objectText, objectText.contains("WZ") && !objectText.contains("{{"));
+		String connectionLabel = GroupAddressConnections.label(connection);
+		assertTrue(connectionLabel, connectionLabel.contains("WZ") && !connectionLabel.contains("{{"));
+		TLObject empty = list(connectors.get(B + "O-2-0_R-1"), "connections").get(0);
+		assertFalse(GroupAddressConnections.objectText(empty).contains("{{"));
 	}
 
 	/**

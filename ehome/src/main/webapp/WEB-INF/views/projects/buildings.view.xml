@@ -843,7 +843,7 @@
 															<en>Object</en>
 															<de>Objekt</de>
 														</label>
-														<value>connectionObject($row).get(`ehome.operational:Interface#displayName`)</value>
+														<value>connectionObjectText($row)</value>
 													</computed-column>
 													<column attribute="kind"
 														width="130"

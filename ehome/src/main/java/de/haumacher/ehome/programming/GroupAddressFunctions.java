@@ -64,6 +64,8 @@ public class GroupAddressFunctions extends GenericMethod {
 		connectionDevice(1, true),
 		/** <code>connectionObject(connection)</code>: {@link GroupAddressConnections#object(TLObject)}. */
 		connectionObject(1, true),
+		/** <code>connectionObjectText(connection)</code>: {@link GroupAddressConnections#objectText(TLObject)}. */
+		connectionObjectText(1, true),
 		/** <code>connectionFunction(connection)</code>: {@link GroupAddressConnections#function(TLObject)}. */
 		connectionFunction(1, true),
 		/**
@@ -200,6 +202,8 @@ public class GroupAddressFunctions extends GenericMethod {
 				return GroupAddressConnections.device(obj);
 			case connectionObject:
 				return GroupAddressConnections.object(obj);
+			case connectionObjectText:
+				return GroupAddressConnections.objectText(obj);
 			case connectionFunction:
 				return GroupAddressConnections.object(obj) == null ? null : GroupAddressConnections.function(obj);
 			case connectionDatapointType:

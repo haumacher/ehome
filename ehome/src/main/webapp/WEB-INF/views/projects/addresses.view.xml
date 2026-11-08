@@ -632,7 +632,7 @@
 																<en>Object</en>
 																<de>Objekt</de>
 															</label>
-															<value>connectionObject($row).get(`ehome.operational:Interface#displayName`)</value>
+															<value>connectionObjectText($row)</value>
 														</computed-column>
 														<computed-column name="function"
 															type="tl.core:String"

@@ -94,6 +94,7 @@
 					<method name="connectionLabel" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="connectionDevice" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="connectionObject" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="connectionObjectText" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="connectionFunction" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="connectionDatapointType" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="deviceLabel" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>

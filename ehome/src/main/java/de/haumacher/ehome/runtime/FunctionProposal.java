@@ -1280,7 +1280,7 @@ public final class FunctionProposal {
 				continue;
 			}
 			Map<String, Resources> languages = languages(placed);
-			Map<String, String> objectName = texts(languages, r -> GroupAddressConnections.objectName(placed, r));
+			Map<String, String> objectName = texts(languages, r -> GroupAddressConnections.objectName(device, placed, r));
 			TLObject programChannel = programChannel(placed);
 			String key;
 			Map<String, String> label;
@@ -1352,7 +1352,7 @@ public final class FunctionProposal {
 				output = communicates && transmits;
 			}
 			Map<String, Resources> languages = languages(placed);
-			Map<String, String> objectName = texts(languages, r -> GroupAddressConnections.objectName(placed, r));
+			Map<String, String> objectName = texts(languages, r -> GroupAddressConnections.objectName(device, placed, r));
 			String key = channelKey(placed);
 			Map<String, String> label = channelLabel(placed, languages, objectName);
 			String text = (String.join(" ", objectName.values()) + " "
