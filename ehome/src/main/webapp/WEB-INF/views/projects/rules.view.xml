@@ -247,19 +247,13 @@
 													<executability>
 														<null-input-disabled/>
 													</executability>
-													<execute-script function="ruleDraft($rule, 'reactions', `ehome.runtime:Reaction`)">
+													<!-- No dialog: a reaction has no defining field; its triggers, condition and actions are edited in its detail form (#112). -->
+													<with-transaction>
+														<execute-script function="ruleCreate($rule, 'reactions', `ehome.runtime:Reaction`)"/>
 														<with-result>
-															<open-dialog
-																bind-input-to="model"
-																dialog-view="projects/create-part.view.xml"
-															>
-																<bind
-																	channel="selection"
-																	to="reaction"
-																/>
-															</open-dialog>
+															<write-channel name="reaction"/>
 														</with-result>
-													</execute-script>
+													</with-transaction>
 												</generic-command>
 												<generic-command
 													image="css:bi bi-trash"

@@ -45,7 +45,6 @@ public final class RuleDrafts {
 		Map.entry("RuleChoice", List.of("value", "title")),
 		Map.entry("RuleTimer", List.of("identifier", "duration")),
 		Map.entry("RuleState", List.of("identifier")),
-		Map.entry("Reaction", List.of()),
 		Map.entry("DatapointTrigger", List.of("datapoint")),
 		Map.entry("SilenceTrigger", List.of("datapoint", "after")),
 		Map.entry("ScheduleTrigger", List.of("schedule")),
