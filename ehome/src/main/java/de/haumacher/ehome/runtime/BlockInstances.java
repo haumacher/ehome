@@ -614,11 +614,16 @@ public final class BlockInstances {
 	 *
 	 * @param path
 	 *        The path (<code>blocks[0].inputs.temperature[1]</code>).
-	 * @param reason
-	 *        Why, naming the instance and the port.
+	 * @param message
+	 *        Why, naming the instance and the port, for the user (haumacher/ehome #116: kept as a key,
+	 *        so that it is read in the language of the reader).
 	 */
-	public record Problem(String path, String reason) {
-		// A value.
+	public record Problem(String path, ResKey message) {
+
+		/** The reason in English, as the findings keep it beside the message. */
+		public String reason() {
+			return com.top_logic.util.Resources.getInstance(java.util.Locale.ENGLISH).getString(message);
+		}
 	}
 
 	/**
@@ -688,8 +693,8 @@ public final class BlockInstances {
 					String datapointId = datapoint instanceof TLObject dp && dp.tValid() ? ids.apply(dp) : null;
 					if (datapointId == null) {
 						Object was = binding.tValueByName("boundId");
-						problems.add(new Problem(at, message(I18NConstants.BLOCK_BINDING_DELETED__BLOCK_PORT_DATAPOINT
-							.fill(name + " (" + id + ")", decl.id(), was == null ? "?" : was))));
+						problems.add(new Problem(at, I18NConstants.BLOCK_BINDING_DELETED__BLOCK_PORT_DATAPOINT
+							.fill(name + " (" + id + ")", decl.id(), was == null ? "?" : was)));
 						continue;
 					}
 					names.add(datapointId);
@@ -708,8 +713,8 @@ public final class BlockInstances {
 				} else {
 					outputs.put(decl.id(), names.get(0));
 					if (names.size() > 1) {
-						problems.add(new Problem(path + ".outputs." + decl.id(), message(
-							I18NConstants.BLOCK_OUTPUT_SEVERAL__BLOCK_PORT.fill(name + " (" + id + ")", decl.id()))));
+						problems.add(new Problem(path + ".outputs." + decl.id(),
+							I18NConstants.BLOCK_OUTPUT_SEVERAL__BLOCK_PORT.fill(name + " (" + id + ")", decl.id())));
 					}
 				}
 			}
@@ -764,10 +769,6 @@ public final class BlockInstances {
 					: Double.valueOf(value);
 			}
 		}
-	}
-
-	private static String message(ResKey key) {
-		return com.top_logic.util.Resources.getInstance().getString(key);
 	}
 
 }

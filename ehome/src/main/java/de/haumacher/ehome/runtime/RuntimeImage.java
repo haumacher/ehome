@@ -23,6 +23,7 @@ import java.util.regex.Pattern;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey.LiteralKey;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.ExtIds;
@@ -328,36 +329,105 @@ public final class RuntimeImage {
 
 	/**
 	 * Checks the image as the controller would (see {@link ImageValidator}).
+	 *
+	 * <p>
+	 * Every refusal carries a message for the user (haumacher/ehome #116): a text that does not parse
+	 * the message of the rule editor's syntax check, a refused label text of a rule, parameter,
+	 * choice or schedule entry the message naming that object, its language and its length
+	 * ({@link LabelLimit}); a datapoint a loader names by its id named as <code>Name (id)</code>
+	 * (haumacher/ehome #118, {@link DatapointNames#names(ResKey)}).
+	 * </p>
 	 */
 	public ImageReport validate() {
-		List<RuleExport.Problem> problems = new ArrayList<>(_automation.getProblems());
-		for (BlockInstances.Problem problem : _blockProblems) {
-			problems.add(new RuleExport.Problem(problem.path(), problem.reason(), null));
-		}
+		List<RuleExport.Problem> problems = _automation.getProblems();
 		ImageReport report = ImageValidator.validate(_text);
-		if (problems.isEmpty()) {
-			return report;
-		}
+		_named.clear();
+		ImageReport result = new ImageReport();
 		// The texts that do not parse first; the validator's refusals of the same values (a text where
 		// an expression is expected) would only repeat them.
-		ImageReport result = new ImageReport();
 		for (RuleExport.Problem problem : problems) {
-			result.add(ImageReport.Kind.INVALID, problem.path(), problem.reason());
+			result.add(ImageReport.Kind.INVALID, problem.path(), problem.reason(),
+				I18NConstants.RULE_SYNTAX__REASON.fill(problem.reason().replaceFirst("^malformed: ", "")));
 		}
+		for (BlockInstances.Problem problem : _blockProblems) {
+			result.add(ImageReport.Kind.INVALID, problem.path(), problem.reason(), problem.message());
+		}
+		// The datapoints the loaders name by their ids by their names (haumacher/ehome #118).
+		DatapointNames names = DatapointNames.of(_project);
 		for (ImageReport.Refusal refusal : report.getRefusals()) {
 			boolean repeated = false;
 			for (RuleExport.Problem problem : problems) {
 				repeated |= refusal.path().startsWith(problem.path());
 			}
-			if (!repeated) {
-				result.add(report.getKind() == ImageReport.Kind.NONE ? ImageReport.Kind.INVALID : report.getKind(),
-					refusal.path(), refusal.reason(), refusal.message());
+			for (BlockInstances.Problem problem : _blockProblems) {
+				repeated |= refusal.path().startsWith(problem.path());
+			}
+			if (repeated) {
+				continue;
+			}
+			ImageReport.Kind kind = report.getKind() == ImageReport.Kind.NONE ? ImageReport.Kind.INVALID : report.getKind();
+			ResKey label = labelProblem(refusal.path());
+			if (label != null) {
+				ImageReport.Refusal named = new ImageReport.Refusal(refusal.path(), refusal.reason(), label);
+				_named.add(named);
+				result.add(kind, named.path(), named.reason(), named.message());
+			} else {
+				result.add(kind, refusal.path(), refusal.reason(), names.names(refusal.message()));
 			}
 		}
 		for (String note : report.getNotes()) {
 			result.note(note);
 		}
 		return result;
+	}
+
+	/**
+	 * The refusals of the last {@link #validate()} whose message names their object itself.
+	 */
+	private final Set<ImageReport.Refusal> _named = new HashSet<>();
+
+	/**
+	 * A label text of the image the loader refused as too long, at the given path
+	 * (<code>rules[0].parameters[0].label.de</code>): the message naming its object, the language and
+	 * the length; <code>null</code> for another refusal.
+	 */
+	private ResKey labelProblem(String path) {
+		Matcher matcher = LABEL_PATH.matcher(path);
+		if (!matcher.matches()) {
+			return null;
+		}
+		RuleExport.Source source = _automation.sourceAt(path);
+		if (source == null || source.attribute() == null || !source.attribute().equals(LabelLimit.attribute(source.object()))) {
+			return null;
+		}
+		return LabelLimit.problem(source.object(), matcher.group(1));
+	}
+
+	/** The path of a label text of the image, the language tag of a text of a language map in group 1. */
+	private static final Pattern LABEL_PATH = Pattern.compile(".*\\.(?:name|label)(?:\\.([A-Za-z0-9-]{2,8}))?");
+
+	/**
+	 * A refusal of the last {@link #validate()} as the user reads it (haumacher/ehome #116): its
+	 * message, named by the object of the project it concerns where the message does not name it
+	 * itself, by its path where there is no such object.
+	 */
+	public ResKey describe(ImageReport.Refusal refusal) {
+		ResKey message = refusal.message() != null ? refusal.message() : ResKey.text(refusal.reason());
+		if (_named.contains(refusal)) {
+			return message;
+		}
+		TLObject element = elementAt(refusal.path());
+		String name = element == null ? null
+			// A datapoint in a display text: Name (id), haumacher/ehome #113; another object by its
+			// label and its own label (its id where it has one, Max. Helligkeit (maxHelligkeit)).
+			: Pages.isGroupAddress(element) || ApplicationDatapoints.isApplicationDatapoint(element)
+				? DatapointNames.name(element)
+				: DatapointNames.format(DatapointNames.label(element), MetaLabelProvider.INSTANCE.getLabel(element));
+		if (name != null && !name.isBlank()) {
+			return I18NConstants.REFUSAL_OF__ELEMENT_MESSAGE.fill(name, message);
+		}
+		return I18NConstants.REFUSAL_AT__PATH_MESSAGE.fill(refusal.path().isEmpty() ? "(document)" : refusal.path(),
+			message);
 	}
 
 	/**
@@ -880,8 +950,8 @@ public final class RuntimeImage {
 					String sender = DatapointSettings.sender(target);
 					if (sender != null) {
 						_blockProblems.add(new BlockInstances.Problem("blocks[" + b + "].outputs." + port,
-							message(I18NConstants.BLOCK_OUTPUT_SENT_BY_OBJECT__BLOCK_PORT_ADDRESS_OBJECT.fill(blockName, port,
-								DatapointNames.name(target), sender))));
+							I18NConstants.BLOCK_OUTPUT_SENT_BY_OBJECT__BLOCK_PORT_ADDRESS_OBJECT.fill(blockName, port,
+								DatapointNames.name(target), sender)));
 					}
 				}
 				String rule = ruleWrites.get(datapoint);

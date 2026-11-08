@@ -1214,7 +1214,8 @@ public final class RuleExport {
 				RuleLoader.Refusal refusal = ex.getRefusal();
 				Source source = sourceAt(refusal.path(), refusal.text());
 				if (field.equals(source)) {
-					return I18NConstants.RULE_REFUSED__REASON.fill(refusal.message());
+					// The datapoints by their names (haumacher/ehome #118).
+					return I18NConstants.RULE_REFUSED__REASON.fill(DatapointNames.of(project).names(refusal.message()));
 				}
 				// The loader stops at its first refusal; one of another field must not hide the
 				// field's own (haumacher/ehome #60): that field is neutralized and the rule loaded
@@ -1483,7 +1484,8 @@ public final class RuleExport {
 		Schedule.Loaded loaded = Schedule.load(schedules == null ? List.of() : schedules, directory(project));
 		for (Schedule.Refusal refusal : loaded.refusals()) {
 			if (field.equals(sourceAt(refusal.path()))) {
-				return I18NConstants.RULE_REFUSED__REASON.fill(refusal.message());
+				// The datapoints by their names (haumacher/ehome #118).
+				return I18NConstants.RULE_REFUSED__REASON.fill(DatapointNames.of(project).names(refusal.message()));
 			}
 		}
 		return null;

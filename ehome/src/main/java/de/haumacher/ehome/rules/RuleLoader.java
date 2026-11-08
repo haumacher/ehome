@@ -1070,13 +1070,13 @@ public final class RuleLoader {
 				if (!_datapoints.writable(name)) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_WRITABLE, "datapoint '" + name + "' is not writable",
-						I18NConstants.RULE_NOT_WRITABLE__NAME.fill(name));
+						I18NConstants.RULE_NOT_WRITABLE__NAME.fill(DatapointId.of(name)));
 				}
 				if (_schedules != null && _schedules.ownsOutput(name)) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_WRITABLE,
 						"datapoint '" + name + "' is the output of a schedule entry; the scheduler owns it",
-							I18NConstants.RULE_SCHEDULE_OUTPUT__NAME.fill(name));
+							I18NConstants.RULE_SCHEDULE_OUTPUT__NAME.fill(DatapointId.of(name)));
 				}
 				boolean onlyOnChange = boolMember(map, "onlyOnChange", false);
 				if (!map.containsKey("value")) {
@@ -1088,7 +1088,8 @@ public final class RuleLoader {
 				if (!Values.writeAllowed(value._type, target)) {
 					throw fail(LoadError.TYPE_ERROR, "a " + typeName(value._type) + " value cannot be written to the "
 						+ target.externalName() + " datapoint '" + name + "'",
-							I18NConstants.RULE_WRITE_TYPE__VALUE_TARGET_NAME.fill(typeName(value._type), target.externalName(), name));
+							I18NConstants.RULE_WRITE_TYPE__VALUE_TARGET_NAME.fill(typeName(value._type), target.externalName(),
+								DatapointId.of(name)));
 				}
 				leave(mark);
 				Action action = new Action(ActionKind.WRITE);
@@ -1104,17 +1105,17 @@ public final class RuleLoader {
 				if (name.startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX)) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a rule parameter: no technology reads it",
-						I18NConstants.RULE_READ_PARAMETER__NAME.fill(name));
+						I18NConstants.RULE_READ_PARAMETER__NAME.fill(DatapointId.of(name)));
 				}
 				if (name.startsWith(Schedule.DATAPOINT_PREFIX)) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a schedule's time: no technology reads it",
-						I18NConstants.RULE_READ_SCHEDULE__NAME.fill(name));
+						I18NConstants.RULE_READ_SCHEDULE__NAME.fill(DatapointId.of(name)));
 				}
 				if (_schedules != null && (_schedules.ownsOutput(name) || !_schedules.technologyReads(name))) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' is bound to no technology that reads values",
-						I18NConstants.RULE_READ_UNBOUND__NAME.fill(name));
+						I18NConstants.RULE_READ_UNBOUND__NAME.fill(DatapointId.of(name)));
 				}
 				Action action = new Action(ActionKind.READ);
 				action._datapoint = name;
@@ -1557,12 +1558,12 @@ public final class RuleLoader {
 		int mark = enter(".datapoint");
 		if (_datapoints.type(name) == null) {
 			throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'",
-				I18NConstants.RULE_NO_DATAPOINT__NAME.fill(name));
+				I18NConstants.RULE_NO_DATAPOINT__NAME.fill(DatapointId.of(name)));
 		}
 		if (ownParameterDatapoint(name)) {
 			throw fail(LoadError.FORBIDDEN,
 				"'" + name + "' is a parameter of this rule: use the parameter (setParameter, $id)",
-					I18NConstants.RULE_OWN_PARAMETER_DATAPOINT__NAME.fill(name));
+					I18NConstants.RULE_OWN_PARAMETER_DATAPOINT__NAME.fill(DatapointId.of(name)));
 		}
 		leave(mark);
 		return name;
@@ -1670,13 +1671,13 @@ public final class RuleLoader {
 				if (type == null) {
 					enter(".name");
 					throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'",
-						I18NConstants.RULE_NO_DATAPOINT__NAME.fill(name));
+						I18NConstants.RULE_NO_DATAPOINT__NAME.fill(DatapointId.of(name)));
 				}
 				if (ownParameterDatapoint(name)) {
 					enter(".name");
 					throw fail(LoadError.FORBIDDEN,
 						"'" + name + "' is a parameter of this rule: reference it as a parameter ($id)",
-							I18NConstants.RULE_OWN_PARAMETER_REFERENCE__NAME.fill(name));
+							I18NConstants.RULE_OWN_PARAMETER_REFERENCE__NAME.fill(DatapointId.of(name)));
 				}
 				return new Node(Kind.DATAPOINT, null, null, type.expressionType(), List.of(), null, name, -1);
 			}

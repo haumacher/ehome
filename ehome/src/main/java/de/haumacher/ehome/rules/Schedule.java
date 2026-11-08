@@ -1231,14 +1231,14 @@ public final class Schedule {
 					String owner = _datapoints.owner(output);
 					if (type == null) {
 						refuse("unknownReference: output '" + output + "' is no datapoint of the image",
-							I18NConstants.SCHEDULE_OUTPUT_UNKNOWN__NAME.fill(output));
+							I18NConstants.SCHEDULE_OUTPUT_UNKNOWN__NAME.fill(DatapointId.of(output)));
 					} else if (type != ValueType.BOOLEAN) {
 						refuse("typeError: output '" + output + "' is " + type.externalName() + ", not boolean",
-							I18NConstants.SCHEDULE_OUTPUT_TYPE__NAME_TYPE.fill(output, type.externalName()));
+							I18NConstants.SCHEDULE_OUTPUT_TYPE__NAME_TYPE.fill(DatapointId.of(output), type.externalName()));
 					} else if (owner != null || _outputs.contains(output)) {
 						refuse("outputConflict: output '" + output + "' is owned by "
 							+ (owner != null ? owner : "another schedule entry"),
-								I18NConstants.SCHEDULE_OUTPUT_OWNED__NAME_OWNER.fill(output, OwnerLabel.of(owner != null ? owner : "another schedule entry")));
+								I18NConstants.SCHEDULE_OUTPUT_OWNED__NAME_OWNER.fill(DatapointId.of(output), OwnerLabel.of(owner != null ? owner : "another schedule entry")));
 					} else {
 						_outputs.add(output);
 						spec._output = output;

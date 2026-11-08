@@ -19,6 +19,7 @@ import com.top_logic.basic.util.ResKey2;
 import com.top_logic.basic.util.ResKey3;
 
 import de.haumacher.ehome.blocks.BlockSet;
+import de.haumacher.ehome.rules.DatapointId;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.RuleLoader.LoadException;
 import de.haumacher.ehome.rules.RuleSet;
@@ -921,7 +922,7 @@ public final class ImageValidator {
 						String id = _ids.get(i);
 						_report.add(Kind.INVALID, "knx.timeMaster." + member, "the address is the sending address of datapoints["
 							+ i + "] '" + (id == null ? "?" : id) + "'",
-							I18NConstants.IMAGE_TIME_MASTER_ADDRESS_SENT__INDEX_ID.fill(String.valueOf(i), id == null ? "?" : id));
+							I18NConstants.IMAGE_TIME_MASTER_ADDRESS_SENT__INDEX_ID.fill(String.valueOf(i), id == null ? "?" : DatapointId.of(id)));
 					}
 				}
 			}
@@ -1319,7 +1320,7 @@ public final class ImageValidator {
 						+ d.endpoint() + ": the function " + d.function() + " is bound twice (also datapoints[" + e.index()
 						+ "] '" + e.name() + "')",
 						I18NConstants.IMAGE_ZIGBEE_BOUND_TWICE__DEVICE_ENDPOINT_FUNCTION_INDEX_NAME.fill(d.ieee(),
-							String.valueOf(d.endpoint()), d.function(), String.valueOf(e.index()), e.name()));
+							String.valueOf(d.endpoint()), d.function(), String.valueOf(e.index()), DatapointId.of(e.name())));
 					break;
 				}
 			}
@@ -1875,19 +1876,19 @@ public final class ImageValidator {
 				if (name != null) {
 					int dp = _ids.indexOf(name);
 					if (dp < 0) {
-						refuse("unknown datapoint '" + name + "'", I18NConstants.IMAGE_UNKNOWN_DATAPOINT__NAME.fill(name));
+						refuse("unknown datapoint '" + name + "'", I18NConstants.IMAGE_UNKNOWN_DATAPOINT__NAME.fill(DatapointId.of(name)));
 					} else {
 						String type = _types.get(dp);
 						if (role.types() != null && !role.types().contains(type)) {
 							String types = String.join(", ", role.types());
 							refuse("datapoint '" + name + "' is " + (type == null ? "none" : type) + ", but the role "
 								+ role.name() + " of a " + kind + " takes " + role.typesText(),
-								type == null ? I18NConstants.IMAGE_ROLE_TYPE_NONE__NAME_ROLE_KIND_TYPES.fill(name, role.name(), kind, types)
-									: I18NConstants.IMAGE_ROLE_TYPE__NAME_TYPE_ROLE_KIND_TYPES.fill(name, type, role.name(), kind, types));
+								type == null ? I18NConstants.IMAGE_ROLE_TYPE_NONE__NAME_ROLE_KIND_TYPES.fill(DatapointId.of(name), role.name(), kind, types)
+									: I18NConstants.IMAGE_ROLE_TYPE__NAME_TYPE_ROLE_KIND_TYPES.fill(DatapointId.of(name), type, role.name(), kind, types));
 						}
 						if (role.writable() && !_writable.get(dp).booleanValue()) {
 							refuse("the role " + role.name() + " needs a writable datapoint; '" + name + "' is not",
-								I18NConstants.IMAGE_ROLE_WRITABLE__ROLE_NAME.fill(role.name(), name));
+								I18NConstants.IMAGE_ROLE_WRITABLE__ROLE_NAME.fill(role.name(), DatapointId.of(name)));
 						}
 						if (button && "press".equals(role.name())) {
 							pressType = type;
@@ -1896,7 +1897,7 @@ public final class ImageValidator {
 							if (ValueTypes.ENUMERATION.equals(type) && !action) {
 								refuse("an enumeration press needs a Zigbee action datapoint (a client binding), whose "
 									+ "elements are known; '" + name + "' is not one",
-									I18NConstants.IMAGE_PRESS_NEEDS_ACTION__NAME.fill(name));
+									I18NConstants.IMAGE_PRESS_NEEDS_ACTION__NAME.fill(DatapointId.of(name)));
 							}
 						}
 					}
@@ -1941,8 +1942,8 @@ public final class ImageValidator {
 			if (!ValueTypes.ENUMERATION.equals(type)) {
 				if (has) {
 					refuse("presses is only for an enumeration press; '" + press + "' is " + (type == null ? "none" : type),
-						type == null ? I18NConstants.IMAGE_PRESSES_NOT_ENUMERATION_NONE__NAME.fill(press)
-							: I18NConstants.IMAGE_PRESSES_NOT_ENUMERATION__NAME_TYPE.fill(press, type));
+						type == null ? I18NConstants.IMAGE_PRESSES_NOT_ENUMERATION_NONE__NAME.fill(DatapointId.of(press))
+							: I18NConstants.IMAGE_PRESSES_NOT_ENUMERATION__NAME_TYPE.fill(DatapointId.of(press), type));
 				}
 				return;
 			}
@@ -2258,7 +2259,7 @@ public final class ImageValidator {
 		}
 		int index = datapointIndex(name);
 		if (index < 0) {
-			refuse("unknown datapoint '" + name + "'", I18NConstants.IMAGE_UNKNOWN_DATAPOINT__NAME.fill(name));
+			refuse("unknown datapoint '" + name + "'", I18NConstants.IMAGE_UNKNOWN_DATAPOINT__NAME.fill(DatapointId.of(name)));
 		}
 		return index;
 	}
@@ -2418,7 +2419,7 @@ public final class ImageValidator {
 			index = knownDatapoint(series.get("datapoint"));
 			if (index >= 0 && !_withHistory.contains(Integer.valueOf(index))) {
 				refuse("datapoint '" + _ids.get(index) + "' keeps no history: a series needs one",
-					I18NConstants.IMAGE_SERIES_NO_HISTORY__NAME.fill(_ids.get(index)));
+					I18NConstants.IMAGE_SERIES_NO_HISTORY__NAME.fill(DatapointId.of(_ids.get(index))));
 				index = -1;
 			}
 			leave();
@@ -2434,7 +2435,7 @@ public final class ImageValidator {
 			String consolidation = choice(series.get("consolidation"), "consolidation", CHART_CONSOLIDATIONS);
 			if ("consumption".equals(consolidation) && index >= 0 && ValueTypes.BOOLEAN.equals(_types.get(index))) {
 				refuse("consumption needs a numeric datapoint; '" + _ids.get(index) + "' is boolean",
-					I18NConstants.IMAGE_CONSUMPTION_NUMERIC__NAME.fill(_ids.get(index)));
+					I18NConstants.IMAGE_CONSUMPTION_NUMERIC__NAME.fill(DatapointId.of(_ids.get(index))));
 			}
 			leave();
 		}
@@ -2460,8 +2461,8 @@ public final class ImageValidator {
 			if (index >= 0 && !NUMERIC_TYPES.contains(type)) {
 				refuse("a reference line needs a numeric datapoint; '" + _ids.get(index) + "' is "
 					+ (type == null ? "none" : type),
-					type == null ? I18NConstants.IMAGE_REFERENCE_NUMERIC_NONE__NAME.fill(_ids.get(index))
-						: I18NConstants.IMAGE_REFERENCE_NUMERIC__NAME_TYPE.fill(_ids.get(index), type));
+					type == null ? I18NConstants.IMAGE_REFERENCE_NUMERIC_NONE__NAME.fill(DatapointId.of(_ids.get(index)))
+						: I18NConstants.IMAGE_REFERENCE_NUMERIC__NAME_TYPE.fill(DatapointId.of(_ids.get(index)), type));
 			}
 			leave();
 		}
@@ -2498,14 +2499,17 @@ public final class ImageValidator {
 
 	/**
 	 * The three biggest of the given histories for the message of a refusal of a budget, without
-	 * words: <code>id (n), ...</code>; <code>-</code> for none.
+	 * words: <code>id: n, ...</code>, the datapoints as {@link DatapointId} (named where the message is
+	 * shown, haumacher/ehome #118); <code>-</code> for none.
 	 */
-	private static String biggestList(Map<String, Long> consumers) {
-		List<String> names = new ArrayList<>();
+	private static ResKey biggestList(Map<String, Long> consumers) {
+		ResKey result = null;
 		for (Map.Entry<String, Long> entry : biggestEntries(consumers)) {
-			names.add(entry.getKey() + " (" + entry.getValue() + ")");
+			ResKey item = I18NConstants.IMAGE_BIGGEST__DATAPOINT_BYTES.fill(DatapointId.of(entry.getKey()),
+				String.valueOf(entry.getValue()));
+			result = result == null ? item : I18NConstants.IMAGE_BIGGEST_MORE__LIST_ITEM.fill(result, item);
 		}
-		return names.isEmpty() ? "-" : String.join(", ", names);
+		return result == null ? ResKey.text("-") : result;
 	}
 
 	private static List<Map.Entry<String, Long>> biggestEntries(Map<String, Long> consumers) {

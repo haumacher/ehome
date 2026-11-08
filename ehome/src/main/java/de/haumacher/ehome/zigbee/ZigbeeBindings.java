@@ -25,6 +25,7 @@ import com.top_logic.util.error.TopLogicException;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.LabelLimit;
 import de.haumacher.ehome.runtime.RuleFunctions;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
 import de.haumacher.ehome.runtime.ValueTypes;
@@ -156,7 +157,8 @@ public final class ZigbeeBindings {
 		TLObject datapoint = RuleFunctions.create(project, ApplicationDatapoints.REFERENCE,
 			(TLClass) TLModelUtil.findType("ehome.runtime:" + ApplicationDatapoints.TYPE));
 		datapoint.tUpdateByName("identifier", FunctionProposal.uniqueIdentifier(name, ids));
-		datapoint.tUpdateByName("label", label);
+		// The controller shows at most 63 bytes (haumacher/ehome #116).
+		datapoint.tUpdateByName("label", LabelLimit.fit(label));
 		String type = ZigbeeCatalog.recommendedType(entry);
 		if (type == null) {
 			type = valueType(function);

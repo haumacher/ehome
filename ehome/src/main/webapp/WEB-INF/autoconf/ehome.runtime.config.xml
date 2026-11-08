@@ -105,6 +105,7 @@
 					<method name="runtimeTimeMasterProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeDatapointIdProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeParameterIdProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
+					<method name="runtimeLabelProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeUnitProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<method name="runtimeHistoryProblem" class="de.haumacher.ehome.runtime.RuntimeFunctions$Builder"/>
 					<!-- The histories of the datapoints, derived from the charts or set by hand (haumacher/ehome #73, de.haumacher.ehome.runtime.HistoryFunctions). -->

@@ -67,6 +67,11 @@ public class RuleConstraint extends AbstractConfiguredInstance<RuleConstraint.Co
 			// Reported as the error of the input (haumacher/ehome #110), not again as a warning.
 			return null;
 		}
+		if (!syntax && attribute.getName().equals(LabelLimit.attribute(object))
+			&& LabelLimit.problem(object.tValue(attribute), object) != null) {
+			// Reported as the error of the input (haumacher/ehome #116), not again as a warning.
+			return null;
+		}
 		ResKey problem = RuleExport.fieldProblem(object, attribute.getName(), object.tValue(attribute), syntax);
 		if (problem == null && !syntax && "output".equals(attribute.getName())) {
 			// Accepted by the loader, but commands to the output would be refused.

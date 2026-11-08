@@ -1941,6 +1941,106 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey3 PARAMETER_VALUE_LOST__RULE_OLD_NEW;
 
+	/**
+	 * @en The German name of the rule "{0}" is too long: {1} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey2 LABEL_TOO_LONG_RULE_DE__RULE_BYTES;
+
+	/**
+	 * @en The English name of the rule "{0}" is too long: {1} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey2 LABEL_TOO_LONG_RULE_EN__RULE_BYTES;
+
+	/**
+	 * @en The name of the rule "{0}" in the language {2} is too long: {1} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey3 LABEL_TOO_LONG_RULE__RULE_BYTES_LANGUAGE;
+
+	/**
+	 * @en The German label of the parameter "{0}" of the rule "{1}" is too long: {2} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey3 LABEL_TOO_LONG_PARAMETER_DE__PARAMETER_RULE_BYTES;
+
+	/**
+	 * @en The English label of the parameter "{0}" of the rule "{1}" is too long: {2} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey3 LABEL_TOO_LONG_PARAMETER_EN__PARAMETER_RULE_BYTES;
+
+	/**
+	 * @en The label of the parameter "{0}" of the rule "{1}" in the language {3} is too long: {2} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey4 LABEL_TOO_LONG_PARAMETER__PARAMETER_RULE_BYTES_LANGUAGE;
+
+	/**
+	 * @en The German label of the choice "{0}" of the parameter "{1}" of the rule "{2}" is too long: {3} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey4 LABEL_TOO_LONG_CHOICE_DE__CHOICE_PARAMETER_RULE_BYTES;
+
+	/**
+	 * @en The English label of the choice "{0}" of the parameter "{1}" of the rule "{2}" is too long: {3} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey4 LABEL_TOO_LONG_CHOICE_EN__CHOICE_PARAMETER_RULE_BYTES;
+
+	/**
+	 * @en The label of the choice "{0}" of the parameter "{1}" of the rule "{2}" in the language {4} is too long: {3} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey5 LABEL_TOO_LONG_CHOICE__CHOICE_PARAMETER_RULE_BYTES_LANGUAGE;
+
+	/**
+	 * @en The German label of the application datapoint "{0}" is too long: {1} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey2 LABEL_TOO_LONG_DATAPOINT_DE__DATAPOINT_BYTES;
+
+	/**
+	 * @en The English label of the application datapoint "{0}" is too long: {1} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey2 LABEL_TOO_LONG_DATAPOINT_EN__DATAPOINT_BYTES;
+
+	/**
+	 * @en The label of the application datapoint "{0}" in the language {2} is too long: {1} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey3 LABEL_TOO_LONG_DATAPOINT__DATAPOINT_BYTES_LANGUAGE;
+
+	/**
+	 * @en The German label of the schedule entry "{0}" is too long: {1} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey2 LABEL_TOO_LONG_SCHEDULE_DE__ENTRY_BYTES;
+
+	/**
+	 * @en The English label of the schedule entry "{0}" is too long: {1} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey2 LABEL_TOO_LONG_SCHEDULE_EN__ENTRY_BYTES;
+
+	/**
+	 * @en The label of the schedule entry "{0}" in the language {2} is too long: {1} bytes, at most 63 (umlauts count twice).
+	 */
+	public static ResKey3 LABEL_TOO_LONG_SCHEDULE__ENTRY_BYTES_LANGUAGE;
+
+	/**
+	 * @en {0}: {1}
+	 */
+	public static ResKey2 REFUSAL_OF__ELEMENT_MESSAGE;
+
+	/**
+	 * @en {0}: {1}
+	 */
+	public static ResKey2 REFUSAL_AT__PATH_MESSAGE;
+
+	/**
+	 * @en {0}; {1}
+	 */
+	public static ResKey2 REFUSALS__FIRST_REST;
+
+	/**
+	 * @en {0}: {1}
+	 */
+	public static ResKey2 IMAGE_BIGGEST__DATAPOINT_BYTES;
+
+	/**
+	 * @en {0}, {1}
+	 */
+	public static ResKey2 IMAGE_BIGGEST_MORE__LIST_ITEM;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

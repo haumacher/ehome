@@ -8,9 +8,11 @@ import java.util.List;
 import java.util.Map;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKeyN;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.rules.DatapointId;
 import de.haumacher.ehome.rules.RuleText;
 import de.haumacher.ehome.rules.RuleText.SyntaxError;
 
@@ -150,6 +152,38 @@ public final class DatapointNames {
 	 */
 	public String label(String id) {
 		return label(datapoints().get(id));
+	}
+
+	/**
+	 * A message of a loader of the image as the user reads it (haumacher/ehome #118): every datapoint
+	 * the message names by its id ({@link DatapointId}, also in a message given as an argument of the
+	 * message) named as {@link #datapoint(String) Name (id)}.
+	 *
+	 * @param message
+	 *        The message, <code>null</code> for none.
+	 * @return The message with the names, the same message if it names no datapoint.
+	 */
+	public ResKey names(ResKey message) {
+		if (message == null) {
+			return null;
+		}
+		Object[] arguments = message.arguments();
+		if (arguments == null || arguments.length == 0 || !(message.plain() instanceof ResKeyN key)) {
+			return message;
+		}
+		Object[] named = null;
+		for (int n = 0; n < arguments.length; n++) {
+			Object argument = arguments[n];
+			Object name = argument instanceof DatapointId id ? datapoint(id.id())
+				: argument instanceof ResKey inner ? names(inner) : argument;
+			if (name != argument) {
+				if (named == null) {
+					named = arguments.clone();
+				}
+				named[n] = name;
+			}
+		}
+		return named == null ? message : key.fill(named);
 	}
 
 	/**

@@ -101,9 +101,10 @@ public class TestLocalizedRefusals extends BasicTestCase {
 			Refusal writable = report.getRefusals().get(0);
 			assertEquals("functions[0].datapoints.levelCommand", writable.path());
 			assertEquals("the role levelCommand needs a writable datapoint; 'virtual.level' is not", writable.reason());
-			assertEquals("Die Rolle „levelCommand“ braucht einen beschreibbaren Datenpunkt; „virtual.level“ ist es nicht.",
-				text(writable, Locale.GERMAN));
-			assertEquals("The role levelCommand needs a writable datapoint; \"virtual.level\" is not.",
+			// The datapoint by its name, as the image was built for the reader (haumacher/ehome #118).
+			assertEquals("Die Rolle „levelCommand“ braucht einen beschreibbaren Datenpunkt; „New datapoint (virtual.level)“ "
+				+ "ist es nicht.", text(writable, Locale.GERMAN));
+			assertEquals("The role levelCommand needs a writable datapoint; \"New datapoint (virtual.level)\" is not.",
 				text(writable, Locale.ENGLISH));
 
 			// What a deployment stores: the message in both languages, without its key.

@@ -127,6 +127,12 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		runtimeParameterIdProblem,
 		/**
+		 * <code>runtimeLabelProblem(label, obj)</code>: why the label entered for the object is too
+		 * long for the controller ({@link LabelLimit#problem(Object, Object)}); <code>null</code> if it
+		 * is not.
+		 */
+		runtimeLabelProblem,
+		/**
 		 * <code>runtimeUnitProblem(text)</code>: why the text cannot be the unit of a datapoint;
 		 * <code>null</code> for an empty text or one that can.
 		 */
@@ -217,6 +223,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return ApplicationDatapoints.idProblem(argument, arguments[1]);
 			case runtimeParameterIdProblem:
 				return RuleExport.parameterIdProblem(argument, arguments[1]);
+			case runtimeLabelProblem:
+				return LabelLimit.problem(argument, arguments[1]);
 			case runtimeUnitProblem:
 				return problem(argument, ApplicationDatapoints::unitProblem);
 			default:
@@ -458,7 +466,8 @@ public class RuntimeFunctions extends GenericMethod {
 		@Override
 		public RuntimeFunctions build(Expr expr, SearchExpression[] args) throws ConfigurationException {
 			int arity = _function == Function.runtimeTimeMasterProblem ? 3
-				: _function == Function.runtimeDatapointIdProblem || _function == Function.runtimeParameterIdProblem ? 2 : 1;
+				: _function == Function.runtimeDatapointIdProblem || _function == Function.runtimeParameterIdProblem
+					|| _function == Function.runtimeLabelProblem ? 2 : 1;
 			checkArgs(expr, args, arity, arity);
 			return new RuntimeFunctions(getConfig().getName(), _function, args);
 		}

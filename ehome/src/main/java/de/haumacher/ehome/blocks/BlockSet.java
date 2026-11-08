@@ -19,6 +19,7 @@ import de.haumacher.ehome.blocks.Manifest.Choice;
 import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.ParamType;
 import de.haumacher.ehome.blocks.Manifest.Port;
+import de.haumacher.ehome.rules.DatapointId;
 import de.haumacher.ehome.rules.OwnerLabel;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.rules.RuleLoader.DatapointDirectory;
@@ -644,7 +645,7 @@ public final class BlockSet {
 			}
 			if (_datapoints.type(name) == null) {
 				throw refuse(BlockError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'",
-					I18NConstants.BLOCK_NO_DATAPOINT__NAME.fill(name));
+					I18NConstants.BLOCK_NO_DATAPOINT__NAME.fill(DatapointId.of(name)));
 			}
 			return name;
 		}
@@ -802,14 +803,14 @@ public final class BlockSet {
 						if (name.startsWith("block/" + id + "/")) {
 							throw refuse(BlockError.FORBIDDEN,
 								"'" + name + "' is a datapoint of this block: it cannot be its input",
-									I18NConstants.BLOCK_OWN_DATAPOINT_INPUT__NAME.fill(name));
+									I18NConstants.BLOCK_OWN_DATAPOINT_INPUT__NAME.fill(DatapointId.of(name)));
 						}
 						ValueType type = _datapoints.type(name);
 						if (!decl.type().reads(type)) {
 							throw refuse(BlockError.TYPE_ERROR, "the " + decl.type().externalName() + " port '" + portId
 								+ "' cannot read the " + type.externalName() + " datapoint '" + name + "'",
 									I18NConstants.BLOCK_INPUT_TYPE__PORTTYPE_PORT_TYPE_NAME.fill(decl.type().externalName(), portId,
-										type.externalName(), name));
+										type.externalName(), DatapointId.of(name)));
 						}
 						if (bound.contains(name)) {
 							throw refuse(BlockError.MALFORMED, "'" + name + "' is listed twice",
@@ -896,32 +897,32 @@ public final class BlockSet {
 				String owner = _owners.owner(name);
 				if (owner != null) {
 					throw refuse(BlockError.OUTPUT_CONFLICT, "'" + name + "' is owned by " + owner,
-						I18NConstants.BLOCK_OUTPUT_OWNED__NAME_OWNER.fill(name, OwnerLabel.of(owner)));
+						I18NConstants.BLOCK_OUTPUT_OWNED__NAME_OWNER.fill(DatapointId.of(name), OwnerLabel.of(owner)));
 				}
 				if (!_datapoints.writable(name)) {
 					throw refuse(BlockError.NOT_WRITABLE, "'" + name + "' is not writable",
-						I18NConstants.BLOCK_NOT_WRITABLE__NAME.fill(name));
+						I18NConstants.BLOCK_NOT_WRITABLE__NAME.fill(DatapointId.of(name)));
 				}
 				ValueType type = _datapoints.type(name);
 				if (!decl.type().commands(type)) {
 					throw refuse(BlockError.TYPE_ERROR, "the " + decl.type().externalName() + " port '" + portId
 						+ "' cannot command the " + type.externalName() + " datapoint '" + name + "'",
 							I18NConstants.BLOCK_OUTPUT_TYPE__PORTTYPE_PORT_TYPE_NAME.fill(decl.type().externalName(), portId,
-								type.externalName(), name));
+								type.externalName(), DatapointId.of(name)));
 				}
 				for (int q = 0; q < m.ports().size(); q++) {
 					// spec/blocks.md B22: a block does not read its own output.
 					if (m.ports().get(q).isInput() && bindings.get(q).contains(name)) {
 						throw refuse(BlockError.FORBIDDEN, "'" + name + "' is bound to the input '" + m.ports().get(q).id()
 							+ "': a block does not read its own output",
-								I18NConstants.BLOCK_READS_OWN_OUTPUT__NAME_PORT.fill(name, m.ports().get(q).id()));
+								I18NConstants.BLOCK_READS_OWN_OUTPUT__NAME_PORT.fill(DatapointId.of(name), m.ports().get(q).id()));
 					}
 				}
 				for (int q = 0; q < m.ports().size(); q++) {
 					if (!m.ports().get(q).isInput() && bindings.get(q).contains(name)) {
 						throw refuse(BlockError.OUTPUT_CONFLICT,
 							"'" + name + "' is bound to the output '" + m.ports().get(q).id() + "' already",
-								I18NConstants.BLOCK_OUTPUT_BOUND_TWICE__NAME_PORT.fill(name, m.ports().get(q).id()));
+								I18NConstants.BLOCK_OUTPUT_BOUND_TWICE__NAME_PORT.fill(DatapointId.of(name), m.ports().get(q).id()));
 					}
 				}
 				for (BlockSpec other : earlier) {
@@ -930,7 +931,7 @@ public final class BlockSet {
 						if (!ports.get(q).isInput() && other.ports().get(q).datapoints().contains(name)) {
 							throw refuse(BlockError.OUTPUT_CONFLICT, "'" + name + "' is the output '" + ports.get(q).id()
 								+ "' of the block '" + other.id() + "'",
-									I18NConstants.BLOCK_OUTPUT_OF_OTHER__NAME_PORT_BLOCK.fill(name, ports.get(q).id(), other.id()));
+									I18NConstants.BLOCK_OUTPUT_OF_OTHER__NAME_PORT_BLOCK.fill(DatapointId.of(name), ports.get(q).id(), other.id()));
 						}
 					}
 				}

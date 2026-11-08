@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
@@ -165,12 +166,15 @@ public final class ProjectSimulation implements AutoCloseable {
 		RuntimeImage image = RuntimeImage.build(project, 1, Instant.ofEpochSecond(startUtc));
 		ImageReport report = image.validate();
 		if (!report.isValid()) {
-			List<String> refusals = new ArrayList<>();
+			// In the language of the reader, each named by its object (haumacher/ehome #116): kept as keys,
+			// the frame and the refusals are read in the same language.
+			ResKey refusals = null;
 			for (ImageReport.Refusal refusal : report.getRefusals()) {
-				// In the user's language; the English reason stays with the deployment's findings.
-				refusals.add((refusal.path().isEmpty() ? "(document)" : refusal.path()) + ": " + refusal.text());
+				ResKey described = image.describe(refusal);
+				refusals = refusals == null ? described
+					: de.haumacher.ehome.runtime.I18NConstants.REFUSALS__FIRST_REST.fill(refusals, described);
 			}
-			throw new TopLogicException(I18NConstants.ERROR_IMAGE_INVALID__PROBLEMS.fill(String.join("; ", refusals)));
+			throw new TopLogicException(I18NConstants.ERROR_IMAGE_INVALID__PROBLEMS.fill(refusals));
 		}
 		ParameterStore store = Overrides.load(project);
 		// The overrides of the blocks' parameters (@<block>/<parameter>) are kept for the session, as

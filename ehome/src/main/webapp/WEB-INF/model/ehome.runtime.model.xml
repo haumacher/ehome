@@ -956,10 +956,18 @@
 						</constraints>
 					</annotations>
 				</property>
-				<!-- The label the controller shows, in the languages it has. -->
+				<!-- The label the controller shows, in the languages it has (1..63 bytes per language; an error on input, haumacher/ehome #116). -->
 				<property name="label"
 					type="tl.model.i18n:I18NString"
-				/>
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeLabelProblem($value, $obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
 				<!-- The value type. -->
 				<reference name="type"
 					kind="forwards"
@@ -1194,6 +1202,9 @@
 				>
 					<annotations>
 						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeLabelProblem($value, $obj)]]></check>
+							</constraint-by-expression>
 							<rule-constraint/>
 						</constraints>
 					</annotations>
@@ -1337,6 +1348,9 @@
 				>
 					<annotations>
 						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeLabelProblem($value, $obj)]]></check>
+							</constraint-by-expression>
 							<rule-constraint/>
 						</constraints>
 					</annotations>
@@ -1481,6 +1495,9 @@
 				>
 					<annotations>
 						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeLabelProblem($value, $obj)]]></check>
+							</constraint-by-expression>
 							<rule-constraint/>
 						</constraints>
 					</annotations>
@@ -2206,6 +2223,9 @@
 				>
 					<annotations>
 						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> runtimeLabelProblem($value, $obj)]]></check>
+							</constraint-by-expression>
 							<rule-constraint/>
 						</constraints>
 					</annotations>
