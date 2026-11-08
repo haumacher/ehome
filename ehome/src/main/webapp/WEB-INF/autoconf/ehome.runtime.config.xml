@@ -11,6 +11,19 @@
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
 >
 	<services>
+		<!-- A renamed id rewrites the expressions naming it (haumacher/ehome #111, de.haumacher.ehome.runtime.IdRenames). -->
+		<config service-class="com.top_logic.basic.module.ModuleSystem">
+			<instance class="com.top_logic.basic.module.ModuleSystem">
+				<modules>
+					<module key="de.haumacher.ehome.runtime.IdRenames$Module"
+						value="true"
+					/>
+				</modules>
+			</instance>
+		</config>
+		<config service-class="de.haumacher.ehome.runtime.IdRenames">
+			<instance class="de.haumacher.ehome.runtime.IdRenames"/>
+		</config>
 		<config service-class="com.top_logic.basic.util.ResourcesModule">
 			<instance class="com.top_logic.util.resource.analyzer.IDEResources">
 				<bundles>

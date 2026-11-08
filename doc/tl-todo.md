@@ -317,6 +317,19 @@ workaround: the problem stays visible. The access variant is added to TL #30211 
 
 **When fixed:** nothing to remove; check that "Neu › Linie" is hidden in the structure "Gebäude".
 
+## A `ModificationListener` cannot report what it changed after a successful commit (TL #30218)
+
+A renamed id rewrites the expressions that name it (haumacher/ehome #111): a `ModificationListener`
+(`de.haumacher.ehome.runtime.IdRenames`) does the rewrite in the commit, whatever code made the
+rename. The message "3 expressions adjusted to the new id." and the note that the controller's value
+of a renamed parameter is lost may only appear once the commit succeeded. The engine has no
+supported hook for that. Workaround: the legacy `Committable` (the knowledge base cast to
+`CommitHandler`, `IdRenames.Messages#complete`) shows the messages through `InfoService` as plain
+text fragments, which the view layer forwards to the window's snackbar.
+
+**When fixed:** replace `IdRenames.Messages` and `IdRenames.show` with the supported message sink;
+check in the browser that renaming a parameter of a rule shows both messages.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).

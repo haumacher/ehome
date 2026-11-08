@@ -1926,6 +1926,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey INVALID_HOST_NAME_TOO_LONG;
 
+	/**
+	 * @en 1 expression adjusted to the new id.
+	 */
+	public static ResKey EXPRESSION_ADJUSTED;
+
+	/**
+	 * @en {0} expressions adjusted to the new id.
+	 */
+	public static ResKey1 EXPRESSIONS_ADJUSTED__COUNT;
+
+	/**
+	 * @en The parameter {1} of the rule {0} is now called {2}: a value set on the controller is lost, the next image resets it to the default.
+	 */
+	public static ResKey3 PARAMETER_VALUE_LOST__RULE_OLD_NEW;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

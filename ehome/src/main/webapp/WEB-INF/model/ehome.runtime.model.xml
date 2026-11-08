@@ -1111,7 +1111,9 @@
 			references to datapoints, timers, parameters and schedules as the ids of the image. The export
 			(de.haumacher.ehome.runtime.RuleExport) parses them into the JSON AST of the image; each field
 			is checked while it is edited by the controller's loader (de.haumacher.ehome.rules.RuleLoader,
-			Schedule), its refusal shown at the field.
+			Schedule), its refusal shown at the field. A renamed id (of a parameter, timer, state or
+			application datapoint, the address of a group address) rewrites the expressions naming it in
+			the same transaction (de.haumacher.ehome.runtime.IdRenames, haumacher/ehome #111).
 		-->
 		<!-- The type of a rule parameter (spec/rules.md 8.1). -->
 		<enum name="RuleParameterType">
