@@ -296,6 +296,27 @@ carry `readonly="true"`.
 **When fixed:** remove `readonly="true"` from the derived columns `number`, `function`, `size` and
 `untypedConnected` there (keep it on `placement`).
 
+## A tree table rebuilt by an input keeps the selection but not its parents open (TL ticket pending)
+
+A `<tree-table>` whose `children` depend on an input channel is rebuilt when the input changes;
+`TreeSelectionBinding.structureChanged` keeps a surviving selection without opening the nodes
+above it, and `applyChannelValue` then skips it as already shown. The same after a drop moves a
+selected node under a closed one. In `projects/devices.view.xml` (haumacher/ehome #106: the switch
+"Struktur" and the drop into a building part) the selection is cleared and written again, which
+opens its parents. Trac was unreachable when this was found (2026-11-08); the ticket is to be filed.
+
+**When fixed:** write the selection once in the switch and the drop of `projects/devices.view.xml`.
+
+## A command hidden by `<visible-if>` shows disabled when its `<access>` refuses (TL ticket pending)
+
+The access checks of a command run before `<visible-if>`, and the first refusal wins: a command
+with `<access><operation name="Write" object="$x"/></access>` and a `<visible-if>` that is false
+shows greyed out when `$x` is null, instead of hidden. In `projects/devices.view.xml` (#106)
+"Neu › Linie" stays greyed out in the structure "Gebäude" when no area is selected. No
+workaround: the problem stays visible. Trac was unreachable (2026-11-08); the ticket is to be filed.
+
+**When fixed:** nothing to remove; check that "Neu › Linie" is hidden in the structure "Gebäude".
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).

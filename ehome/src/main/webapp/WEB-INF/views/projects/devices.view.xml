@@ -19,6 +19,18 @@
 	channels and lists reading them name the settings, connectors and connections of devices and the
 	devices (a download moves the reference) as observed types.
 
+	The switch "Structure" above the tree shows the devices by line (the topology above, the default)
+	or by building part (haumacher/ehome #106): the buildings of the project and their parts, nested in
+	their order, all parts including the empty ones, each part with the KNX devices placed in it
+	(ehome.physical:Device#location) by individual address, and the node "No location" (the text
+	"noLocation", no object) with the devices placed in no part. There one or several selected devices
+	are dragged onto a building part to place them there, or onto "No location" to remove their
+	placement (buildingPlace); dragging a device takes the access check Write on it. Areas and lines
+	are created only in the structure by line, building parts only in the tab Buildings; a selected
+	part shows its name, type and path. The tree selects several nodes (for the drag); "selected" is
+	the single selected node. The choice holds for the session: remembering it per user waits for
+	TL #30215 (doc/tl-todo.md).
+
 	The tab bar of a device has the id "device-tabs" and its tabs are keyed by their ids, so that a
 	module depending on the app adds a tab with a same-path overlay of this view addressing the tab
 	bar by config:ref (TL #29896): the development tooling (module ehome-virtual) adds its "Virtual
@@ -27,10 +39,45 @@
 <view>
 	<channels>
 		<channel name="project"/>
-		<channel name="selected"/>
+		<!--
+			The structure the tree shows the devices in: "line" (areas, lines, devices) or "building"
+			(buildings, their parts, devices by location). For the session: remembered per user once a
+			value channel can be (TL #30215), then personalize="true".
+		-->
+		<channel name="structure"
+			init="'line'"
+		/>
+		<!-- The nodes selected in the tree: one node, the set of several, or nothing. -->
+		<channel name="treeSelection"/>
+		<!-- The single selected node; writing it selects that node in the tree. -->
+		<derived-channel name="selected"
+			expr="if($treeSelection.size() == 1, $treeSelection.singleElement(), null)"
+			inputs="treeSelection"
+			reverse="$value"
+		/>
+		<!-- The selected node deleted by "Delete": an area, a line or a device, not a building part. -->
 		<derived-channel name="selectedNode"
-			expr="if($selected.instanceOf(`ehome.project:Project`), null, $selected)"
+			expr="if($selected.instanceOf(`ehome.physical:Area`) or $selected.instanceOf(`ehome.physical:Line`) or $selected.instanceOf(`ehome.physical:Device`), $selected, null)"
 			inputs="selected"
+		/>
+		<!-- The selected building part (structure by building part), shown read-only. -->
+		<derived-channel name="part"
+			expr="if($selected.instanceOf(`ehome.building:BuildingDefinition`), $selected, null)"
+			inputs="selected"
+		/>
+		<derived-channel name="partName"
+			expr="$part.get(`ehome.building:BuildingDefinition#name`)"
+			inputs="part"
+			observed-types="ehome.building:BuildingDefinition"
+		/>
+		<derived-channel name="partType"
+			expr="if($part == null, null, $part.type().label())"
+			inputs="part"
+		/>
+		<derived-channel name="partPath"
+			expr="buildingPath($part)"
+			inputs="part"
+			observed-types="ehome.building:BuildingDefinition"
 		/>
 		<derived-channel name="selectedArea"
 			expr="if($selected.instanceOf(`ehome.physical:Area`), $selected, null)"
@@ -132,10 +179,11 @@
 						<de>Geräte</de>
 					</title>
 					<commands>
+						<!-- Areas and lines are created in the structure by line only. -->
 						<generic-command
 							clique="new"
 							image="css:bi bi-diagram-3"
-							inputs="project"
+							inputs="project, structure"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -149,6 +197,7 @@
 								/>
 							</access>
 							<executability>
+								<visible-if expr="$structure == 'line'"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.physical:Area">
@@ -172,7 +221,7 @@
 						<generic-command
 							clique="new"
 							image="css:bi bi-dash-lg"
-							inputs="selectedArea"
+							inputs="selectedArea, structure"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -186,6 +235,7 @@
 								/>
 							</access>
 							<executability>
+								<visible-if expr="$structure == 'line'"/>
 								<null-input-disabled/>
 							</executability>
 							<create-transient type="ehome.physical:Line">
@@ -323,78 +373,202 @@
 							</with-transaction>
 						</generic-command>
 					</commands>
-					<!-- The topology with the columns of the classic tree grid (exported to Excel as an outline). -->
-					<tree-table
-						observed-types="ehome.physical:Area,ehome.physical:Line,ehome.physical:Device"
-						selection="selected"
-					>
-						<inputs>
-							<input channel="project"/>
-						</inputs>
-						<root>$project</root>
-						<children><![CDATA[switch {
-    $node.instanceOf(`ehome.project:Project`):
-        concat(
-            $node.get(`ehome.project:Project#areas`),
-            $node.get(`ehome.project:Project#unassignedDevices`));
-    $node.instanceOf(`ehome.physical:Area`):
-        $node.get(`ehome.physical:Area#lines`);
-    $node.instanceOf(`ehome.physical:Line`):
-        $node.get(`ehome.physical:Line#devices`);
-    default: [];
-}]]></children>
-						<parents>$node.container()</parents>
-						<export download-name="#('Devices of {0}'@en, 'Geräte von {0}'@de).fill($project.get(`ehome.project:Project#name`))">
-							<sheet-name>
-								<en>Devices</en>
-								<de>Geräte</de>
-							</sheet-name>
-						</export>
-						<columns>
-							<!-- A device changed since its last download is marked (it changes with every change of its configuration). -->
-							<computed-column name="name"
-								width="260"
+					<stack>
+						<inset>
+							<fields>
+								<!-- The structure of the tree (haumacher/ehome #106); a further structure is a further option. -->
+								<value-input
+									mandatory="true"
+									options="['line', 'building']"
+									value="structure"
+								>
+									<label>
+										<en>Structure</en>
+										<de>Struktur</de>
+									</label>
+									<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+										display="radio"
+										orientation="horizontal"
+									>
+										<option-labels class="com.top_logic.model.search.providers.LabelProviderByExpression"
+											label="x -> if($x == 'building', #('Building'@en, 'Gebäude'@de), #('Line'@en, 'Linie'@de)).localize()"
+										/>
+									</input-control>
+									<!--
+										The tree built anew for the other structure keeps the selected nodes selected but
+										does not open the nodes above them (engine gap, TL ticket pending): the selection is
+										written again, which reveals it.
+									-->
+									<on-submit inputs="treeSelection as kept">
+										<write-channel name="treeSelection" clear="true"/>
+										<execute-script function="$kept">
+											<with-result>
+												<write-channel name="treeSelection"/>
+											</with-result>
+										</execute-script>
+									</on-submit>
+								</value-input>
+							</fields>
+						</inset>
+						<!--
+							The devices in the chosen structure with the columns of the classic tree grid (exported
+							to Excel as an outline, in the structure shown). By building part, the devices are
+							dragged onto a part or onto "No location"; by line there is no drag (another line is
+							another individual address).
+						-->
+						<tree-table
+							observed-types="ehome.physical:Area,ehome.physical:Line,ehome.physical:Device,ehome.building:BuildingDefinition"
+							selection="treeSelection"
+							selection-mode="multi"
+						>
+							<inputs>
+								<input channel="project"/>
+								<input channel="structure"/>
+							</inputs>
+							<root>$project</root>
+							<children><![CDATA[if($structure == 'building',
+    switch {
+        $node.instanceOf(`ehome.project:Project`):
+            concat($node.get(`ehome.project:Project#buildings`), ['noLocation']);
+        $node.instanceOf(`ehome.building:BuildingDefinition`):
+            concat($node.get(`ehome.building:BuildingDefinition#parts`), buildingDevices($node));
+        $node == 'noLocation':
+            buildingUnplacedDevices($project);
+        default: [];
+    },
+    switch {
+        $node.instanceOf(`ehome.project:Project`):
+            concat(
+                $node.get(`ehome.project:Project#areas`),
+                $node.get(`ehome.project:Project#unassignedDevices`));
+        $node.instanceOf(`ehome.physical:Area`):
+            $node.get(`ehome.physical:Area#lines`);
+        $node.instanceOf(`ehome.physical:Line`):
+            $node.get(`ehome.physical:Line#devices`);
+        default: [];
+    })]]></children>
+							<parents><![CDATA[if($structure == 'building',
+    switch {
+        $node == 'noLocation':
+            $project;
+        $node.instanceOf(`ehome.physical:Device`):
+            if($node.get(`ehome.physical:Device#location`) == null, 'noLocation', $node.get(`ehome.physical:Device#location`));
+        $node.instanceOf(`ehome.building:BuildingDefinition`):
+            $node.container();
+        default: null;
+    },
+    if($node.instanceOf(`ehome.physical:Area`) or $node.instanceOf(`ehome.physical:Line`) or $node.instanceOf(`ehome.physical:Device`), $node.container(), null))]]></parents>
+							<!--
+								By building part, the selected devices (only devices, and only those the user may
+								change) are dragged onto a part or onto "No location"; there is no place between two
+								devices, as the devices of a part have no order.
+							-->
+							<drag
+								input="structure"
+								kind="ehomeDevice"
 							>
-								<label>
-									<en>Name</en>
-									<de>Name</de>
-								</label>
-								<value>$row</value>
-								<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"
-									css-class="if($value.instanceOf(`ehome.physical:Device`) and deviceChanged($value, $value), 'ehomeChanged', null)"
-								/>
-							</computed-column>
-							<computed-column name="extId"
-								type="tl.core:String"
-								width="160"
+								<executability>
+									<disabled-if expr="$structure != 'building'"/>
+								</executability>
+								<row-executability>
+									<disabled-if expr="if(!$row.instanceOf(`ehome.physical:Device`), #('Only devices are placed in a building part.'@en, 'Nur Geräte werden einem Gebäudeteil zugeordnet.'@de))"/>
+									<operation name="Write"
+										object="$row"
+										type="ehome.physical:Device"
+									/>
+								</row-executability>
+							</drag>
+							<drop
+								accept="ehomeDevice"
+								input="structure"
+								target="row"
 							>
-								<label>
-									<en>External ID</en>
-									<de>Externe ID</de>
-								</label>
-								<value>$row.get(`ehome.core:Externalized#extId`)</value>
-							</computed-column>
-							<!-- Where a device is placed in the building structure. -->
-							<computed-column name="location"
-								type="tl.core:String"
-								width="200"
-							>
-								<label>
-									<en>Location</en>
-									<de>Standort</de>
-								</label>
-								<value>if($row.instanceOf(`ehome.physical:Device`), buildingPath($row.get(`ehome.physical:Device#location`)), null)</value>
-							</computed-column>
-							<!-- The individual address: area, area.line, area.line.device; the number alone of a device in no line. -->
-							<computed-column name="address"
-								type="tl.core:String"
-								width="100"
-							>
-								<label>
-									<en>Address</en>
-									<de>Adresse</de>
-								</label>
-								<value><![CDATA[switch {
+								<executability>
+									<disabled-if expr="$structure != 'building'"/>
+								</executability>
+								<refuse-if><![CDATA[switch {
+    !$objects.filter(d -> !$d.instanceOf(`ehome.physical:Device`)).isEmpty():
+        #("Only devices are placed in a building part."@en, "Nur Geräte werden einem Gebäudeteil zugeordnet."@de);
+    !$objects.filter(d -> !canWrite($d)).isEmpty():
+        #("You may not change the location of these devices."@en, "Sie dürfen den Standort dieser Geräte nicht ändern."@de);
+    !$target.instanceOf(`ehome.building:BuildingDefinition`) and $target != 'noLocation':
+        #("Drop the devices onto a building part or onto \"No location\"."@en, "Die Geräte auf ein Gebäudeteil oder auf „Ohne Standort“ ziehen."@de);
+    default: null;
+}]]></refuse-if>
+								<with-transaction>
+									<!--
+										The dropped devices stay selected in their new place, which is opened: the selection
+										is written again, as the tree does not reveal a selection that moved (see the switch).
+									-->
+									<execute-script>
+										<function><![CDATA[{
+    part = if($target.instanceOf(`ehome.building:BuildingDefinition`), $target, null);
+    $objects.foreach(d -> buildingPlace($d, $part));
+    $objects
+}]]></function>
+									</execute-script>
+									<with-result>
+										<write-channel name="treeSelection" clear="true"/>
+										<write-channel name="treeSelection"/>
+									</with-result>
+								</with-transaction>
+							</drop>
+							<export download-name="#('Devices of {0}'@en, 'Geräte von {0}'@de).fill($project.get(`ehome.project:Project#name`))">
+								<sheet-name>
+									<en>Devices</en>
+									<de>Geräte</de>
+								</sheet-name>
+							</export>
+							<columns>
+								<!--
+									A device changed since its last download is marked (it changes with every change of its
+									configuration). The node "No location" (no object, structure by building part) is shown by its
+									text, also in the Excel export.
+								-->
+								<computed-column name="name"
+									width="260"
+								>
+									<label>
+										<en>Name</en>
+										<de>Name</de>
+									</label>
+									<value>if($row == 'noLocation', #('No location'@en, 'Ohne Standort'@de).localize(), $row)</value>
+									<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"
+										css-class="if($value.instanceOf(`ehome.physical:Device`) and deviceChanged($value, $value), 'ehomeChanged', null)"
+										icon="if($value.instanceOf(`ehome.core:Externalized`), null, 'css:bi bi-question-circle')"
+									/>
+								</computed-column>
+								<computed-column name="extId"
+									type="tl.core:String"
+									width="160"
+								>
+									<label>
+										<en>External ID</en>
+										<de>Externe ID</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.core:Externalized`), $row.get(`ehome.core:Externalized#extId`), null)</value>
+								</computed-column>
+								<!-- Where a device is placed in the building structure. -->
+								<computed-column name="location"
+									type="tl.core:String"
+									width="200"
+								>
+									<label>
+										<en>Location</en>
+										<de>Standort</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.physical:Device`), buildingPath($row.get(`ehome.physical:Device#location`)), null)</value>
+								</computed-column>
+								<!-- The individual address: area, area.line, area.line.device; the number alone of a device in no line. -->
+								<computed-column name="address"
+									type="tl.core:String"
+									width="100"
+								>
+									<label>
+										<en>Address</en>
+										<de>Adresse</de>
+									</label>
+									<value><![CDATA[switch {
     $row.instanceOf(`ehome.physical:Area`):
         toString($row.get(`ehome.physical:Area#address`));
     $row.instanceOf(`ehome.physical:Line`):
@@ -405,9 +579,10 @@
         toString($row.get(`ehome.physical:Device#address`));
     default: null;
 }]]></value>
-							</computed-column>
-						</columns>
-					</tree-table>
+								</computed-column>
+							</columns>
+						</tree-table>
+					</stack>
 				</panel>
 			</pane>
 			<pane
@@ -429,6 +604,43 @@
 								<field attribute="address"/>
 								<field attribute="extId"/>
 							</form>
+						</case>
+						<!-- A building part (structure by building part), read-only: parts are edited in the tab Buildings. -->
+						<case test="$selected.instanceOf(`ehome.building:BuildingDefinition`)">
+							<inset>
+								<fields>
+									<value-input
+										readonly="true"
+										type="tl.core:String"
+										value="partName"
+									>
+										<label>
+											<en>Name</en>
+											<de>Name</de>
+										</label>
+									</value-input>
+									<value-input
+										readonly="true"
+										type="tl.core:String"
+										value="partType"
+									>
+										<label>
+											<en>Type</en>
+											<de>Typ</de>
+										</label>
+									</value-input>
+									<value-input
+										readonly="true"
+										type="tl.core:String"
+										value="partPath"
+									>
+										<label>
+											<en>Path</en>
+											<de>Pfad</de>
+										</label>
+									</value-input>
+								</fields>
+							</inset>
 						</case>
 						<case test="$selected.instanceOf(`ehome.physical:Device`)">
 							<!--

@@ -100,6 +100,7 @@
 					<!-- The devices placed in the parts of a building and the order of the parts (de.haumacher.ehome.programming.BuildingDevices): one builder, the function by its name. -->
 					<method name="buildingDevices" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
 					<method name="buildingAllDevices" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
+					<method name="buildingUnplacedDevices" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
 					<method name="buildingAllZigbeeDevices" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
 					<method name="buildingConnections" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
 					<method name="buildingDeviceChoices" class="de.haumacher.ehome.programming.BuildingFunctions$Builder"/>
