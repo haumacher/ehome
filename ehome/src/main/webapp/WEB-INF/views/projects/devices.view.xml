@@ -396,7 +396,7 @@
 									</input-control>
 									<!--
 										The tree built anew for the other structure keeps the selected nodes selected but
-										does not open the nodes above them (engine gap, TL ticket pending): the selection is
+										does not open the nodes above them (engine gap, TL #30217): the selection is
 										written again, which reveals it.
 									-->
 									<on-submit inputs="treeSelection as kept">
