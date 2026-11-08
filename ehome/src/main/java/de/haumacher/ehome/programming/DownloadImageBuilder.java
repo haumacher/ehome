@@ -35,6 +35,7 @@ import de.haumacher.ehome.model.operational.RelativeSegment;
 import de.haumacher.ehome.model.operational.ResourceLocation;
 import de.haumacher.ehome.model.operational.Segment;
 import de.haumacher.ehome.model.operational.TableLocation;
+import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.GroupTables.Association;
 
@@ -268,7 +269,8 @@ class DownloadImageBuilder {
 		// The group addresses and associations of the device's connections.
 		List<int[]> links = new ArrayList<>();
 		for (TLObject connector : _configuration.getConnectors()) {
-			Port port = connector.tValueByName("port") instanceof Interface placed ? placed.getPort() : null;
+			Interface placed = ModuleParts.port(connector);
+			Port port = placed == null ? null : placed.getPort();
 			if (port == null) {
 				continue;
 			}
@@ -588,13 +590,15 @@ class DownloadImageBuilder {
 			return;
 		}
 
+		// The objects of the program and of the device's module instances, by their numbers in effect.
 		Map<Integer, Port> ports = new HashMap<>();
-		for (Port port : _program.getPorts()) {
-			ports.put(port.getIndex(), port);
+		for (Port port : _configuration.getPorts()) {
+			ports.putIfAbsent(port.getIndex(), port);
 		}
 		Map<Port, TLObject> connectors = new HashMap<>();
 		for (TLObject connector : _configuration.getConnectors()) {
-			if (connector.tValueByName("port") instanceof Interface placed) {
+			Interface placed = ModuleParts.port(connector);
+			if (placed != null) {
 				connectors.putIfAbsent(placed.getPort(), connector);
 			}
 		}
@@ -607,7 +611,7 @@ class DownloadImageBuilder {
 				continue;
 			}
 			TLObject connector = connectors.get(port);
-			Interface placed = connector != null ? (Interface) connector.tValueByName("port")
+			Interface placed = connector != null ? ModuleParts.port(connector)
 				: _configuration.getActiveInterfaces().get(port);
 			int position = start + format.header() + format.descriptor() * number + format.config();
 			if (connector == null && placed == null && keepsStaticConfig) {

@@ -25,6 +25,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String ADDRESS_TABLE_ATTR = "addressTable";
 
 	/**
+	 * Part <code>allocators</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:Allocator</code> in configuration.
+	 * </p>
+	 */
+	String ALLOCATORS_ATTR = "allocators";
+
+	/**
 	 * Part <code>applicationNumber</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -149,6 +158,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 * </p>
 	 */
 	String MASK_ATTR = "mask";
+
+	/**
+	 * Part <code>modules</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ModuleDefinition</code> in configuration.
+	 * </p>
+	 */
+	String MODULES_ATTR = "modules";
 
 	/**
 	 * Part <code>name</code> of <code>Program</code>
@@ -329,6 +347,49 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setAddressTable(de.haumacher.ehome.model.operational.TableLocation newValue) {
 		tUpdateByName(ADDRESS_TABLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #ALLOCATORS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.Allocator> getAllocators() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.Allocator>) tValueByName(ALLOCATORS_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #ALLOCATORS_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.Allocator> getAllocatorsModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(ALLOCATORS_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.Allocator> result = (java.util.List<de.haumacher.ehome.model.operational.Allocator>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #ALLOCATORS_ATTR}.
+	 */
+	default void setAllocators(java.util.List<de.haumacher.ehome.model.operational.Allocator> newValue) {
+		tUpdateByName(ALLOCATORS_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #ALLOCATORS_ATTR} reference.
+	 */
+	default void addAllocator(de.haumacher.ehome.model.operational.Allocator newValue) {
+		tAddByName(ALLOCATORS_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #ALLOCATORS_ATTR} reference.
+	 */
+	default void removeAllocator(de.haumacher.ehome.model.operational.Allocator oldValue) {
+		tRemoveByName(ALLOCATORS_ATTR, oldValue);
 	}
 
 	/**
@@ -576,6 +637,49 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setMask(de.haumacher.ehome.model.operational.MaskVersion newValue) {
 		tUpdateByName(MASK_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #MODULES_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.ModuleDefinition> getModules() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.ModuleDefinition>) tValueByName(MODULES_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #MODULES_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.ModuleDefinition> getModulesModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(MODULES_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.ModuleDefinition> result = (java.util.List<de.haumacher.ehome.model.operational.ModuleDefinition>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #MODULES_ATTR}.
+	 */
+	default void setModules(java.util.List<de.haumacher.ehome.model.operational.ModuleDefinition> newValue) {
+		tUpdateByName(MODULES_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #MODULES_ATTR} reference.
+	 */
+	default void addModule(de.haumacher.ehome.model.operational.ModuleDefinition newValue) {
+		tAddByName(MODULES_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #MODULES_ATTR} reference.
+	 */
+	default void removeModule(de.haumacher.ehome.model.operational.ModuleDefinition oldValue) {
+		tRemoveByName(MODULES_ATTR, oldValue);
 	}
 
 	/**

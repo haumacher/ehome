@@ -281,6 +281,38 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String I_PV6_IP_VERSION_CLASSIFIER = IPVersion.I_PV6_CLASSIFIER;
 
 	/**
+	 * Name of the enumeration <code>ArgumentKind</code> in module {@value #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link ArgumentKind#TYPE_NAME}.
+	 */
+	@Deprecated
+	public static final String ARGUMENT_KIND_ENUM = ArgumentKind.TYPE_NAME;
+
+	/**
+	 * Name of the classifier <code>AllocatorRef</code> in enumeration <code>ArgumentKind</code>.
+	 * 
+	 * @deprecated Use {@link ArgumentKind#ALLOCATOR_REF_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String ALLOCATOR_REF_ARGUMENT_KIND_CLASSIFIER = ArgumentKind.ALLOCATOR_REF_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>Numeric</code> in enumeration <code>ArgumentKind</code>.
+	 * 
+	 * @deprecated Use {@link ArgumentKind#NUMERIC_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String NUMERIC_ARGUMENT_KIND_CLASSIFIER = ArgumentKind.NUMERIC_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>Text</code> in enumeration <code>ArgumentKind</code>.
+	 * 
+	 * @deprecated Use {@link ArgumentKind#TEXT_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String TEXT_ARGUMENT_KIND_CLASSIFIER = ArgumentKind.TEXT_CLASSIFIER;
+
+	/**
 	 * Name of the enumeration <code>ValueKind</code> in module {@value #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link ValueKind#TYPE_NAME}.
@@ -1329,6 +1361,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Channel#TEXT_PARAMETER_ATTR} of {@link Channel}.
+	 */
+	public static com.top_logic.model.TLReference getTextParameterChannelAttr() {
+		return (com.top_logic.model.TLReference) getChannelType().getPart(Channel.TEXT_PARAMETER_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ChannelIndependent} type.
 	 */
 	public static com.top_logic.model.TLClass getChannelIndependentType() {
@@ -1396,6 +1435,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLProperty getNameParameterGroupAttr() {
 		return (com.top_logic.model.TLProperty) getParameterGroupType().getPart(ParameterGroup.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterGroup#TEXT_PARAMETER_ATTR} of {@link ParameterGroup}.
+	 */
+	public static com.top_logic.model.TLReference getTextParameterParameterGroupAttr() {
+		return (com.top_logic.model.TLReference) getParameterGroupType().getPart(ParameterGroup.TEXT_PARAMETER_ATTR);
 	}
 
 	/**
@@ -2043,6 +2089,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Location#BASE_OFFSET_ATTR} of {@link Location}.
+	 */
+	public static com.top_logic.model.TLReference getBaseOffsetLocationAttr() {
+		return (com.top_logic.model.TLReference) getLocationType().getPart(Location.BASE_OFFSET_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Location#BIT_OFFSET_ATTR} of {@link Location}.
 	 */
 	public static com.top_logic.model.TLProperty getBitOffsetLocationAttr() {
@@ -2124,6 +2177,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLClass getPortType() {
 		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(Port.PORT_TYPE);
+	}
+
+	/**
+	 * Lookup {@link Port#BASE_NUMBER_ATTR} of {@link Port}.
+	 */
+	public static com.top_logic.model.TLReference getBaseNumberPortAttr() {
+		return (com.top_logic.model.TLReference) getPortType().getPart(Port.BASE_NUMBER_ATTR);
 	}
 
 	/**
@@ -2253,6 +2313,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#ALLOCATORS_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getAllocatorsProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.ALLOCATORS_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#APPLICATION_NUMBER_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLProperty getApplicationNumberProgramAttr() {
@@ -2348,6 +2415,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLReference getMaskProgramAttr() {
 		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.MASK_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#MODULES_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getModulesProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.MODULES_ATTR);
 	}
 
 	/**
@@ -2474,6 +2548,244 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLProperty getUsesModulesProgramAttr() {
 		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.USES_MODULES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition} type.
+	 */
+	public static com.top_logic.model.TLClass getModuleDefinitionType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(ModuleDefinition.MODULE_DEFINITION_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#ALLOCATORS_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLReference getAllocatorsModuleDefinitionAttr() {
+		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.ALLOCATORS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#ARGUMENTS_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLReference getArgumentsModuleDefinitionAttr() {
+		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.ARGUMENTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#LOCATIONS_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLReference getLocationsModuleDefinitionAttr() {
+		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.LOCATIONS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#MODULES_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLReference getModulesModuleDefinitionAttr() {
+		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.MODULES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#NAME_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLProperty getNameModuleDefinitionAttr() {
+		return (com.top_logic.model.TLProperty) getModuleDefinitionType().getPart(ModuleDefinition.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#PARAMETERS_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLReference getParametersModuleDefinitionAttr() {
+		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.PARAMETERS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#PORTS_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLReference getPortsModuleDefinitionAttr() {
+		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.PORTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleDefinition#UNPLACED_ATTR} of {@link ModuleDefinition}.
+	 */
+	public static com.top_logic.model.TLReference getUnplacedModuleDefinitionAttr() {
+		return (com.top_logic.model.TLReference) getModuleDefinitionType().getPart(ModuleDefinition.UNPLACED_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleArgument} type.
+	 */
+	public static com.top_logic.model.TLClass getModuleArgumentType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(ModuleArgument.MODULE_ARGUMENT_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ModuleArgument#ALLOCATES_ATTR} of {@link ModuleArgument}.
+	 */
+	public static com.top_logic.model.TLProperty getAllocatesModuleArgumentAttr() {
+		return (com.top_logic.model.TLProperty) getModuleArgumentType().getPart(ModuleArgument.ALLOCATES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleArgument#KIND_ATTR} of {@link ModuleArgument}.
+	 */
+	public static com.top_logic.model.TLReference getKindModuleArgumentAttr() {
+		return (com.top_logic.model.TLReference) getModuleArgumentType().getPart(ModuleArgument.KIND_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModuleArgument#NAME_ATTR} of {@link ModuleArgument}.
+	 */
+	public static com.top_logic.model.TLProperty getNameModuleArgumentAttr() {
+		return (com.top_logic.model.TLProperty) getModuleArgumentType().getPart(ModuleArgument.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Allocator} type.
+	 */
+	public static com.top_logic.model.TLClass getAllocatorType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(Allocator.ALLOCATOR_TYPE);
+	}
+
+	/**
+	 * Lookup {@link Allocator#MAX_INCLUSIVE_ATTR} of {@link Allocator}.
+	 */
+	public static com.top_logic.model.TLProperty getMaxInclusiveAllocatorAttr() {
+		return (com.top_logic.model.TLProperty) getAllocatorType().getPart(Allocator.MAX_INCLUSIVE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Allocator#NAME_ATTR} of {@link Allocator}.
+	 */
+	public static com.top_logic.model.TLProperty getNameAllocatorAttr() {
+		return (com.top_logic.model.TLProperty) getAllocatorType().getPart(Allocator.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Allocator#START_ATTR} of {@link Allocator}.
+	 */
+	public static com.top_logic.model.TLProperty getStartAllocatorAttr() {
+		return (com.top_logic.model.TLProperty) getAllocatorType().getPart(Allocator.START_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModulePlacement} type.
+	 */
+	public static com.top_logic.model.TLClass getModulePlacementType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(ModulePlacement.MODULE_PLACEMENT_TYPE);
+	}
+
+	/**
+	 * Lookup {@link ModulePlacement#ARGUMENTS_ATTR} of {@link ModulePlacement}.
+	 */
+	public static com.top_logic.model.TLReference getArgumentsModulePlacementAttr() {
+		return (com.top_logic.model.TLReference) getModulePlacementType().getPart(ModulePlacement.ARGUMENTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModulePlacement#DISPLAY_NAME_ATTR} of {@link ModulePlacement}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameModulePlacementAttr() {
+		return (com.top_logic.model.TLProperty) getModulePlacementType().getPart(ModulePlacement.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModulePlacement#MODULE_ATTR} of {@link ModulePlacement}.
+	 */
+	public static com.top_logic.model.TLReference getModuleModulePlacementAttr() {
+		return (com.top_logic.model.TLReference) getModulePlacementType().getPart(ModulePlacement.MODULE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModulePlacement#NAME_ATTR} of {@link ModulePlacement}.
+	 */
+	public static com.top_logic.model.TLProperty getNameModulePlacementAttr() {
+		return (com.top_logic.model.TLProperty) getModulePlacementType().getPart(ModulePlacement.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ModulePlacement#ORDER_ATTR} of {@link ModulePlacement}.
+	 */
+	public static com.top_logic.model.TLProperty getOrderModulePlacementAttr() {
+		return (com.top_logic.model.TLProperty) getModulePlacementType().getPart(ModulePlacement.ORDER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link PlacementArgument} type.
+	 */
+	public static com.top_logic.model.TLClass getPlacementArgumentType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(PlacementArgument.PLACEMENT_ARGUMENT_TYPE);
+	}
+
+	/**
+	 * Lookup {@link PlacementArgument#ALLOCATOR_ATTR} of {@link PlacementArgument}.
+	 */
+	public static com.top_logic.model.TLReference getAllocatorPlacementArgumentAttr() {
+		return (com.top_logic.model.TLReference) getPlacementArgumentType().getPart(PlacementArgument.ALLOCATOR_ATTR);
+	}
+
+	/**
+	 * Lookup {@link PlacementArgument#ARGUMENT_ATTR} of {@link PlacementArgument}.
+	 */
+	public static com.top_logic.model.TLReference getArgumentPlacementArgumentAttr() {
+		return (com.top_logic.model.TLReference) getPlacementArgumentType().getPart(PlacementArgument.ARGUMENT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link PlacementArgument#BASE_ATTR} of {@link PlacementArgument}.
+	 */
+	public static com.top_logic.model.TLReference getBasePlacementArgumentAttr() {
+		return (com.top_logic.model.TLReference) getPlacementArgumentType().getPart(PlacementArgument.BASE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link PlacementArgument#VALUE_ATTR} of {@link PlacementArgument}.
+	 */
+	public static com.top_logic.model.TLProperty getValuePlacementArgumentAttr() {
+		return (com.top_logic.model.TLProperty) getPlacementArgumentType().getPart(PlacementArgument.VALUE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Repeat} type.
+	 */
+	public static com.top_logic.model.TLClass getRepeatType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(Repeat.REPEAT_TYPE);
+	}
+
+	/**
+	 * Lookup {@link Repeat#COUNT_ATTR} of {@link Repeat}.
+	 */
+	public static com.top_logic.model.TLProperty getCountRepeatAttr() {
+		return (com.top_logic.model.TLProperty) getRepeatType().getPart(Repeat.COUNT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Repeat#COUNT_PARAMETER_ATTR} of {@link Repeat}.
+	 */
+	public static com.top_logic.model.TLReference getCountParameterRepeatAttr() {
+		return (com.top_logic.model.TLReference) getRepeatType().getPart(Repeat.COUNT_PARAMETER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Repeat#DISPLAY_NAME_ATTR} of {@link Repeat}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameRepeatAttr() {
+		return (com.top_logic.model.TLProperty) getRepeatType().getPart(Repeat.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Repeat#NAME_ATTR} of {@link Repeat}.
+	 */
+	public static com.top_logic.model.TLProperty getNameRepeatAttr() {
+		return (com.top_logic.model.TLProperty) getRepeatType().getPart(Repeat.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Repeat#ORDER_ATTR} of {@link Repeat}.
+	 */
+	public static com.top_logic.model.TLProperty getOrderRepeatAttr() {
+		return (com.top_logic.model.TLProperty) getRepeatType().getPart(Repeat.ORDER_ATTR);
 	}
 
 	/**
@@ -3505,6 +3817,46 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	@Deprecated
 	public static com.top_logic.model.TLClassifier getIPv6IPVersionClassifier() {
 		return IPVersion.iPv6Classifier();
+	}
+
+	/**
+	 * Lookup the enumeration <code>ArgumentKind</code>.
+	 * 
+	 * @deprecated Use {@link ArgumentKind#type()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLEnumeration getArgumentKindEnum() {
+		return ArgumentKind.type();
+	}
+
+	/**
+	 * Lookup classifier <code>AllocatorRef</code> of enumeration <code>ArgumentKind</code>.
+	 * 
+	 * @deprecated Use {@link ArgumentKind#allocatorRefClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getAllocatorRefArgumentKindClassifier() {
+		return ArgumentKind.allocatorRefClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>Numeric</code> of enumeration <code>ArgumentKind</code>.
+	 * 
+	 * @deprecated Use {@link ArgumentKind#numericClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getNumericArgumentKindClassifier() {
+		return ArgumentKind.numericClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>Text</code> of enumeration <code>ArgumentKind</code>.
+	 * 
+	 * @deprecated Use {@link ArgumentKind#textClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getTextArgumentKindClassifier() {
+		return ArgumentKind.textClassifier();
 	}
 
 	/**
@@ -5056,6 +5408,102 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String KO_NAME_PROGRAM = de.haumacher.ehome.model.operational.internal.ProgramBase.TABLE_NAME;
 
 	/**
+	 * Name of type <code>ModuleDefinition</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link ModuleDefinition#MODULE_DEFINITION_TYPE}.
+	 */
+	@Deprecated
+	public static final String MODULE_DEFINITION_NODE = ModuleDefinition.MODULE_DEFINITION_TYPE;
+
+	/**
+	 * Storage table name of {@link #MODULE_DEFINITION_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.ModuleDefinitionBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_MODULE_DEFINITION = de.haumacher.ehome.model.operational.internal.ModuleDefinitionBase.TABLE_NAME;
+
+	/**
+	 * Name of type <code>ModuleArgument</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link ModuleArgument#MODULE_ARGUMENT_TYPE}.
+	 */
+	@Deprecated
+	public static final String MODULE_ARGUMENT_NODE = ModuleArgument.MODULE_ARGUMENT_TYPE;
+
+	/**
+	 * Storage table name of {@link #MODULE_ARGUMENT_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.ModuleArgumentBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_MODULE_ARGUMENT = de.haumacher.ehome.model.operational.internal.ModuleArgumentBase.TABLE_NAME;
+
+	/**
+	 * Name of type <code>Allocator</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link Allocator#ALLOCATOR_TYPE}.
+	 */
+	@Deprecated
+	public static final String ALLOCATOR_NODE = Allocator.ALLOCATOR_TYPE;
+
+	/**
+	 * Storage table name of {@link #ALLOCATOR_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.AllocatorBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_ALLOCATOR = de.haumacher.ehome.model.operational.internal.AllocatorBase.TABLE_NAME;
+
+	/**
+	 * Name of type <code>ModulePlacement</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link ModulePlacement#MODULE_PLACEMENT_TYPE}.
+	 */
+	@Deprecated
+	public static final String MODULE_PLACEMENT_NODE = ModulePlacement.MODULE_PLACEMENT_TYPE;
+
+	/**
+	 * Storage table name of {@link #MODULE_PLACEMENT_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.ModulePlacementBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_MODULE_PLACEMENT = de.haumacher.ehome.model.operational.internal.ModulePlacementBase.TABLE_NAME;
+
+	/**
+	 * Name of type <code>PlacementArgument</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link PlacementArgument#PLACEMENT_ARGUMENT_TYPE}.
+	 */
+	@Deprecated
+	public static final String PLACEMENT_ARGUMENT_NODE = PlacementArgument.PLACEMENT_ARGUMENT_TYPE;
+
+	/**
+	 * Storage table name of {@link #PLACEMENT_ARGUMENT_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.PlacementArgumentBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_PLACEMENT_ARGUMENT = de.haumacher.ehome.model.operational.internal.PlacementArgumentBase.TABLE_NAME;
+
+	/**
+	 * Name of type <code>Repeat</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link Repeat#REPEAT_TYPE}.
+	 */
+	@Deprecated
+	public static final String REPEAT_NODE = Repeat.REPEAT_TYPE;
+
+	/**
+	 * Storage table name of {@link #REPEAT_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.RepeatBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_REPEAT = de.haumacher.ehome.model.operational.internal.RepeatBase.TABLE_NAME;
+
+	/**
 	 * Name of type <code>TableLocation</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link TableLocation#TABLE_LOCATION_TYPE}.
@@ -5601,6 +6049,90 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public final Program createProgram() {
 		return createProgram(null);
+	}
+
+	/**
+	 * Create an instance of {@link ModuleDefinition} type.
+	 */
+	public final ModuleDefinition createModuleDefinition(com.top_logic.model.TLObject context) {
+		return (ModuleDefinition) createObject(getModuleDefinitionType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link ModuleDefinition} type.
+	 */
+	public final ModuleDefinition createModuleDefinition() {
+		return createModuleDefinition(null);
+	}
+
+	/**
+	 * Create an instance of {@link ModuleArgument} type.
+	 */
+	public final ModuleArgument createModuleArgument(com.top_logic.model.TLObject context) {
+		return (ModuleArgument) createObject(getModuleArgumentType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link ModuleArgument} type.
+	 */
+	public final ModuleArgument createModuleArgument() {
+		return createModuleArgument(null);
+	}
+
+	/**
+	 * Create an instance of {@link Allocator} type.
+	 */
+	public final Allocator createAllocator(com.top_logic.model.TLObject context) {
+		return (Allocator) createObject(getAllocatorType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link Allocator} type.
+	 */
+	public final Allocator createAllocator() {
+		return createAllocator(null);
+	}
+
+	/**
+	 * Create an instance of {@link ModulePlacement} type.
+	 */
+	public final ModulePlacement createModulePlacement(com.top_logic.model.TLObject context) {
+		return (ModulePlacement) createObject(getModulePlacementType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link ModulePlacement} type.
+	 */
+	public final ModulePlacement createModulePlacement() {
+		return createModulePlacement(null);
+	}
+
+	/**
+	 * Create an instance of {@link PlacementArgument} type.
+	 */
+	public final PlacementArgument createPlacementArgument(com.top_logic.model.TLObject context) {
+		return (PlacementArgument) createObject(getPlacementArgumentType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link PlacementArgument} type.
+	 */
+	public final PlacementArgument createPlacementArgument() {
+		return createPlacementArgument(null);
+	}
+
+	/**
+	 * Create an instance of {@link Repeat} type.
+	 */
+	public final Repeat createRepeat(com.top_logic.model.TLObject context) {
+		return (Repeat) createObject(getRepeatType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link Repeat} type.
+	 */
+	public final Repeat createRepeat() {
+		return createRepeat(null);
 	}
 
 	/**

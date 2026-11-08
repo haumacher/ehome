@@ -246,6 +246,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey3 ERROR_TYPE_SIZE_DIFFERS__TYPE_TYPE_SIZE_OBJECT_SIZE;
 
+	/**
+	 * @en The module "{0}" (instance {1}) needs a value of the allocator "{2}" beyond its limit {3}.
+	 */
+	public static ResKey4 ERROR_ALLOCATOR_LIMIT__MODULE_INSTANCE_ALLOCATOR_LIMIT;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

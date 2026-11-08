@@ -31,9 +31,24 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_IMAGE__PROBLEM;
 
 	/**
-	 * @en The program uses dynamic modules (ETS 5.6 and later) that the import could not expand into the program (Repeat, an argument of an allocator, sub-modules): the parameters and communication objects of its modules are missing.
+	 * @en The program uses dynamic modules (ETS 5.6 and later) with a construct the import could not interpret, or was imported without them: parts of its modules are missing.
 	 */
 	public static ResKey ERROR_PROGRAM_USES_MODULES;
+
+	/**
+	 * @en The device holds another layout of its dynamic modules than E-Home computes ({0}); a download with E-Home''s layout would scramble its configuration. Use "Download with E-Home''s module layout" to replace the device''s layout.
+	 */
+	public static ResKey1 ERROR_MODULE_LAYOUT_DIFFERS__DIFFERENCES;
+
+	/**
+	 * @en No difference between the layout of the device's dynamic modules and E-Home's is recorded.
+	 */
+	public static ResKey ERROR_NO_LAYOUT_DIFFERENCE;
+
+	/**
+	 * @en Download "{0}" ({1}) through {2} with E-Home''s layout of its dynamic modules? The device holds another layout (argument values: {3}); the download replaces it, so that the device''s configuration is E-Home''s.
+	 */
+	public static ResKey4 CONFIRM_LAYOUT__DEVICE_ADDRESS_GATEWAY_DIFFERENCES;
 
 	/**
 	 * @en The program has no mask version; its load procedure is not known.

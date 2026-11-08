@@ -56,6 +56,7 @@ import de.haumacher.ehome.zigbee.ZigbeeCatalog;
 import de.haumacher.ehome.zigbee.ZigbeeFunctionTable;
 import de.haumacher.ehome.zigbee.ZigbeeImport;
 import de.haumacher.ehome.zigbee.ZigbeeStatus;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * Proposes the functions (<code>ehome.runtime:Function</code>) of a project from its device channels
@@ -1260,12 +1261,12 @@ public final class FunctionProposal {
 	private static List<Channel> channels(TLObject device) {
 		Map<String, Channel> channels = new LinkedHashMap<>();
 		List<TLObject> connectors = list(device, "connectors");
-		connectors.sort(Comparator.comparingInt(c -> ((Interface) c.tValueByName("port")).getPort().getIndex()));
+		connectors.sort(Comparator.comparingInt(c -> ModuleParts.port(c).getPort().getIndex()));
 		for (TLObject connector : connectors) {
-			if (Boolean.FALSE.equals(connector.tValueByName("active"))) {
+			if (!ModuleParts.inEffect(connector)) {
 				continue;
 			}
-			Interface placed = (Interface) connector.tValueByName("port");
+			Interface placed = ModuleParts.port(connector);
 			TLObject connection = sendingConnection(connector);
 			if (connection == null || !(connection.tValueByName("target") instanceof TLObject address)
 				|| !DatapointSettings.communicates(connection)) {
@@ -1285,7 +1286,7 @@ public final class FunctionProposal {
 			String key;
 			Map<String, String> label;
 			if (programChannel != null) {
-				key = "channel:" + programChannel.tValueByName("extId");
+				key = "channel:" + ModuleParts.partId(programChannel);
 				label = texts(languages, r -> channelLabel(programChannel, r));
 			} else {
 				// Keyed by a text that does not depend on the user's language.
@@ -1318,7 +1319,7 @@ public final class FunctionProposal {
 		}
 		Map<Object, TLObject> connectors = new HashMap<>();
 		for (TLObject connector : list(device, "connectors")) {
-			if (connector.tValueByName("port") instanceof Interface placed) {
+			if (ModuleParts.port(connector) instanceof Interface placed) {
 				connectors.putIfAbsent(placed.getPort(), connector);
 			}
 		}
@@ -1326,7 +1327,7 @@ public final class FunctionProposal {
 		objects.sort(Comparator.comparingInt(placed -> placed.getPort().getIndex()));
 		for (Interface placed : objects) {
 			TLObject connector = connectors.get(placed.getPort());
-			if (connector != null && Boolean.FALSE.equals(connector.tValueByName("active"))) {
+			if (connector != null && !ModuleParts.inEffect(connector)) {
 				continue;
 			}
 			TLObject connection = connector == null ? null : sendingConnection(connector);
@@ -1396,7 +1397,7 @@ public final class FunctionProposal {
 	private static String channelKey(Interface placed) {
 		TLObject programChannel = programChannel(placed);
 		if (programChannel != null) {
-			return "channel:" + programChannel.tValueByName("extId");
+			return "channel:" + ModuleParts.partId(programChannel);
 		}
 		// Keyed by a text that does not depend on the user's language.
 		return "object:" + GroupAddressConnections.objectName(placed,
@@ -1433,6 +1434,10 @@ public final class FunctionProposal {
 	private static TLObject programChannel(Interface placed) {
 		for (TLObject node = placed.tContainer(); node != null; node = node.tContainer()) {
 			if (isA(node, "ehome.operational:Channel")) {
+				if (ModuleParts.instance(node) != null) {
+					// A channel of a module instance (haumacher/ehome #119): one per instance.
+					return node;
+				}
 				if (!(node.tValueByName("number") instanceof Number number) || number.intValue() <= 0) {
 					return null;
 				}

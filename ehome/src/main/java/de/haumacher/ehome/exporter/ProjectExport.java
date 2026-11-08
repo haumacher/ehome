@@ -26,6 +26,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * Writes the files of a project: <code>P-xxxx/Project.xml</code> (the project information) and
@@ -139,19 +140,19 @@ final class ProjectExport {
 			out.open("ParameterInstanceRefs");
 			for (TLObject setting : settings) {
 				out.open("ParameterInstanceRef")
-					.attr("RefId", extId(ref(setting, "parameter")))
+					.attr("RefId", ModuleParts.partId(setting, ModuleParts.PARAMETER))
 					.attr("Value", ParameterValues.encode(setting))
 					.close();
 			}
 			out.close();
 		}
 		List<TLObject> connectors = Values.sortedById(list(device, "connectors"));
-		connectors.sort(Comparator.comparing(c -> extId(ref(c, "port")), Values::compareIds));
+		connectors.sort(Comparator.comparing(c -> ModuleParts.partId(c, ModuleParts.PORT), Values::compareIds));
 		if (!connectors.isEmpty()) {
 			out.open("ComObjectInstanceRefs");
 			for (TLObject connector : connectors) {
 				out.open("ComObjectInstanceRef")
-					.attr("RefId", extId(ref(connector, "port")))
+					.attr("RefId", ModuleParts.partId(connector, ModuleParts.PORT))
 					.attr("Text", string(connector, "text"))
 					.attr("FunctionText", string(connector, "function"))
 					.attr("Description", string(connector, "description"))

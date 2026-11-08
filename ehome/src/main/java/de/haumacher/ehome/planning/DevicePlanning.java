@@ -6,8 +6,10 @@ package de.haumacher.ehome.planning;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.top_logic.basic.util.ResKey;
@@ -26,6 +28,8 @@ import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.scan.InstallationBuilder;
+import de.haumacher.ehome.modules.ModuleInstances;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * Planning devices in the app (haumacher/ehome #104): a new device from the catalog in a line, and
@@ -340,12 +344,61 @@ public final class DevicePlanning {
 		TLObject line = line(device);
 		TLObject copy = InstallationBuilder.createDevice(line, nextFree(line).intValue(),
 			(TLObject) device.tValueByName("type"), (TLObject) device.tValueByName("program"), List.of());
+		// The module instances of the original (haumacher/ehome #119), so that the copied settings of
+		// module parameters name the copy's instances of the same IDs.
+		Map<String, TLObject> instances = copyInstances(device, copy);
 		List<TLObject> settings = new ArrayList<>();
 		for (TLObject setting : ExtIds.list(device, SETTINGS)) {
-			settings.add(copySetting(setting));
+			TLObject copied = copySetting(setting);
+			String instance = ModuleParts.instanceId(setting);
+			if (instance != null) {
+				copied.tUpdateByName(ModuleParts.INSTANCE, instances.get(instance));
+			}
+			settings.add(copied);
 		}
 		copy.tUpdateByName(SETTINGS, settings);
+		ModuleInstances.update(copy);
 		return copy;
+	}
+
+	/**
+	 * Gives the copy of a device the module instances of the original (with their argument values,
+	 * without a recorded difference to a project file).
+	 *
+	 * @return The copy's instances by their IDs.
+	 */
+	private static Map<String, TLObject> copyInstances(TLObject device, TLObject copy) {
+		Map<TLObject, TLObject> copies = new HashMap<>();
+		Map<String, TLObject> result = new HashMap<>();
+		List<TLObject> instances = new ArrayList<>();
+		for (TLObject instance : ModuleInstances.stored(device)) {
+			TLObject copied = create(ModuleInstances.INSTANCE_TYPE);
+			for (String attribute : List.of(ModuleInstances.NAME, ModuleInstances.PLACEMENT, ModuleInstances.REPEAT_INDEX,
+				ModuleInstances.ACTIVE)) {
+				copied.tUpdateByName(attribute, instance.tValueByName(attribute));
+			}
+			copied.tUpdateByName(ModuleInstances.PARENT, copies.get(instance.tValueByName(ModuleInstances.PARENT)));
+			List<TLObject> arguments = new ArrayList<>();
+			for (TLObject argument : ExtIds.list(instance, ModuleInstances.ARGUMENTS)) {
+				TLObject value = create(ModuleInstances.ARGUMENT_TYPE);
+				value.tUpdateByName(ModuleInstances.ARGUMENT, argument.tValueByName(ModuleInstances.ARGUMENT));
+				value.tUpdateByName(ModuleInstances.VALUE, argument.tValueByName(ModuleInstances.VALUE));
+				arguments.add(value);
+			}
+			copied.tUpdateByName(ModuleInstances.ARGUMENTS, arguments);
+			copies.put(instance, copied);
+			result.put((String) instance.tValueByName(ModuleInstances.NAME), copied);
+			instances.add(copied);
+		}
+		for (TLObject existing : ModuleInstances.stored(copy)) {
+			existing.tDelete();
+		}
+		copy.tUpdateByName(ModuleInstances.MODULE_INSTANCES, instances);
+		return result;
+	}
+
+	private static TLObject create(String typeName) {
+		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(typeName));
 	}
 
 	/**

@@ -33,7 +33,14 @@ public class DownloadPlan {
 		FULL,
 
 		/** The individual address only, into the device in programming mode. */
-		ADDRESS;
+		ADDRESS,
+
+		/**
+		 * A full download that replaces the layout of the device's dynamic modules the device holds
+		 * by E-Home's, where an imported project recorded a difference of their argument values
+		 * (haumacher/ehome #119); the user confirms it naming the difference.
+		 */
+		LAYOUT;
 	}
 
 	private final String _device;

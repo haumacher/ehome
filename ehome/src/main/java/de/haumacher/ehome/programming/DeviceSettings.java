@@ -26,6 +26,8 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.modules.ModuleInstances;
+import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.EnumerationType;
@@ -136,7 +138,7 @@ public class DeviceSettings {
 	private static List<TLObject> settings(TLObject device, ParameterView view) {
 		List<TLObject> result = new ArrayList<>();
 		for (Object setting : (Collection<?>) device.tValueByName(SETTINGS)) {
-			if (((TLObject) setting).tValueByName(PARAMETER) == view) {
+			if (ModuleParts.refersTo((TLObject) setting, PARAMETER, view)) {
 				result.add((TLObject) setting);
 			}
 		}
@@ -173,14 +175,27 @@ public class DeviceSettings {
 		List<TLObject> settings = settings(device, view);
 		if (value == null) {
 			// Back to the default is always possible, also for a setting the structure no longer shows.
-			return store(device, view, settings, null, null);
+			TLObject result = store(device, view, settings, null, null);
+			ModuleInstances.update(device);
+			return result;
 		}
 		ResKey veto = editVeto(device, view);
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
 		ParameterType type = ParameterValues.valueType(view);
-		return store(device, view, settings, type, typed(type, value));
+		Object typed = typed(type, value);
+		Object before = settings.isEmpty() ? null : ParameterValues.value(settings.get(0));
+		TLObject result = store(device, view, settings, type, typed);
+		List<ResKey> problems = ModuleInstances.update(device);
+		if (!problems.isEmpty()) {
+			// The value would give the device's modules no valid layout: it is refused, the value before
+			// restored.
+			store(device, view, settings(device, view), type, before);
+			ModuleInstances.update(device);
+			throw new TopLogicException(problems.get(0));
+		}
+		return result;
 	}
 
 	/**
@@ -208,11 +223,15 @@ public class DeviceSettings {
 	 */
 	public static TLObject restoreValue(TLObject device, ParameterView view, Object value) {
 		List<TLObject> settings = settings(device, view);
+		TLObject result;
 		if (value == null) {
-			return store(device, view, settings, null, null);
+			result = store(device, view, settings, null, null);
+		} else {
+			ParameterType type = ParameterValues.valueType(view);
+			result = store(device, view, settings, type, typed(type, value));
 		}
-		ParameterType type = ParameterValues.valueType(view);
-		return store(device, view, settings, type, typed(type, value));
+		ModuleInstances.update(device);
+		return result;
 	}
 
 	private static TLObject store(TLObject device, ParameterView view, List<TLObject> settings, ParameterType type,
@@ -230,7 +249,7 @@ public class DeviceSettings {
 		TLObject setting;
 		if (settings.isEmpty()) {
 			setting = create("ehome.physical:ParameterSetting");
-			setting.tUpdateByName(PARAMETER, view);
+			ModuleParts.bind(setting, PARAMETER, view);
 			add(device, SETTINGS, setting);
 		} else {
 			setting = settings.get(0);
@@ -321,7 +340,8 @@ public class DeviceSettings {
 	 */
 	public static void reset(TLObject setting) {
 		TLObject device = setting == null ? null : setting.tContainer();
-		if (device == null || !(setting.tValueByName(PARAMETER) instanceof ParameterView view)) {
+		ParameterView view = setting == null ? null : ModuleParts.parameter(setting);
+		if (device == null || view == null) {
 			throw new TopLogicException(I18NConstants.ERROR_NOT_A_SETTING__ELEMENT.fill(setting));
 		}
 		setValue(device, view, null);
@@ -336,8 +356,8 @@ public class DeviceSettings {
 		Map<Port, Interface> result = new LinkedHashMap<>(configuration.getActiveInterfaces());
 		for (Object connector : (Collection<?>) device.tValueByName(CONNECTORS)) {
 			TLObject value = (TLObject) connector;
-			if (value.tValueByName(PORT) instanceof Interface placed
-				&& !((Collection<?>) value.tValueByName(CONNECTIONS)).isEmpty()) {
+			Interface placed = ModuleParts.port(value);
+			if (placed != null && !((Collection<?>) value.tValueByName(CONNECTIONS)).isEmpty()) {
 				result.putIfAbsent(placed.getPort(), placed);
 			}
 		}
@@ -362,7 +382,8 @@ public class DeviceSettings {
 		List<TLObject> result = new ArrayList<>();
 		for (Object connector : (Collection<?>) device.tValueByName(CONNECTORS)) {
 			TLObject value = (TLObject) connector;
-			if (value.tValueByName(PORT) instanceof Interface placed && placed.getPort() == port) {
+			Interface placed = ModuleParts.port(value);
+			if (placed != null && Objects.equals(placed.getPort(), port)) {
 				result.add(value);
 			}
 		}
@@ -479,7 +500,7 @@ public class DeviceSettings {
 		TLObject connector;
 		if (connectors.isEmpty()) {
 			connector = create("ehome.physical:Connector");
-			connector.tUpdateByName(PORT, placed);
+			ModuleParts.bind(connector, PORT, placed);
 			add(device, CONNECTORS, connector);
 		} else {
 			connector = connectors.get(0);
@@ -532,6 +553,7 @@ public class DeviceSettings {
 			setting.tDelete();
 		}
 		touch(device);
+		ModuleInstances.update(device);
 	}
 
 	private static void touch(TLObject device) {

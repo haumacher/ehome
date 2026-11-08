@@ -105,7 +105,8 @@
 					objects of a device: "7 Kanal A: Status (KanalAStatus)".
 					A placeholder {{0}} in the program's text is filled with the device's value of the text
 					parameter of the object (haumacher/ehome #119): "Kanal B: {{0}}" with the value "WZ" is
-					"Kanal B: WZ"; with an empty value the placeholder is left out.
+					"Kanal B: WZ"; with an empty value (or without a text parameter) the placeholder is left
+					out, {{0:default}} gives its default.
 				-->
 				<property name="displayName"
 					type="tl.core:String"
@@ -114,13 +115,12 @@
 						<storage-algorithm>
 							<query>
 								<expr><![CDATA[c -> {
-    placed = $c.get(`ehome.physical:Connector#port`);
+    placed = connectorPort($c);
     port = $placed.get(`ehome.operational:Interface#port`);
     textParameter = $placed.get(`ehome.operational:Interface#textParameter`);
     text = $c.get(`ehome.physical:Connector#text`)
-        || if($textParameter == null, $placed.get(`ehome.operational:Interface#displayName`),
-            fillTextParameter($placed.get(`ehome.operational:Interface#displayName`),
-                deviceValue($c.container(), $textParameter)));
+        || fillTextParameter($placed.get(`ehome.operational:Interface#displayName`),
+            if($textParameter == null, null, deviceValue($c.container(), $textParameter)));
     function = $c.get(`ehome.physical:Connector#function`)
         || $placed.get(`ehome.operational:Interface#function`).localize()
         || $port.get(`ehome.operational:Port#function`).localize();
@@ -141,6 +141,14 @@
 					kind="forwards"
 					mandatory="true"
 					type="ehome.operational:Interface"
+				/>
+				<!--
+					Of an object of a dynamic module (haumacher/ehome #119): the module instance of the device
+					whose object it is; port names the reference of the module definition (the template).
+				-->
+				<reference name="instance"
+					kind="forwards"
+					type="ModuleInstance"
 				/>
 				<!-- The text of the communication object in this device, if it differs from the program's (ETS: Text). -->
 				<property name="text"
@@ -178,7 +186,7 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[c -> placementInheritedTypes($c.get(`ehome.physical:Connector#port`))]]></expr>
+								<expr><![CDATA[c -> placementInheritedTypes(connectorPort($c))]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>
@@ -204,7 +212,7 @@
 						</storage-algorithm>
 						<options>
 							<options-by-expression>
-								<function><![CDATA[self -> placementTypeChoices($self.get(`ehome.physical:Connector#port`))]]></function>
+								<function><![CDATA[self -> placementTypeChoices(connectorPort($self))]]></function>
 							</options-by-expression>
 						</options>
 					</annotations>
@@ -389,6 +397,19 @@
 					multiple="true"
 					type="Connector"
 				/>
+				<!--
+					The instances of the dynamic modules of the device's program (haumacher/ehome #119), as
+					E-Home computes them from the program and the device's values (in effect: active), and
+					those a change of a value removed (inactive), which keep their settings and connectors
+					until they are in effect again.
+				-->
+				<reference name="moduleInstances"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ModuleInstance"
+				/>
 			</attributes>
 		</class>
 		<class name="Line">
@@ -415,6 +436,92 @@
 			</attributes>
 		</class>
 		<!--
+			An instance of a dynamic module in a device (haumacher/ehome #119, ETS: ModuleInstance): E-Home
+			computes it from the device's program and values (de.haumacher.ehome.modules.ModuleInstances)
+			for each placement in effect, in the order of the structure, and stores the placement, the
+			repeat index and the argument values. The settings and connectors of the module's parameters
+			and objects name it.
+		-->
+		<class name="ModuleInstance">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-box"/>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<!-- The ID ETS gives the instance, relative to the program: MD-1_M-1_MI-1, MD-1_M-1_MI-1_SM-1_M-1_MI-2 for a sub-module. -->
+				<property name="name"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<reference name="placement"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.operational:ModulePlacement"
+				/>
+				<!-- The instance of the enclosing module of a sub-module's instance. -->
+				<reference name="parent"
+					kind="forwards"
+					type="ModuleInstance"
+				/>
+				<!-- Per enclosing Repeat: its position in the program's document and the iteration, as in "37x2 41x1" (ETS: RepeatIndex). -->
+				<property name="repeatIndex"
+					type="tl.core:String"
+				/>
+				<!-- Whether the instance is in effect under the device's current values. -->
+				<property name="active"
+					type="tl.core:Boolean"
+				/>
+				<reference name="arguments"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="InstanceArgument"
+				/>
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[i -> "{0} ({1})".fill(
+    $i.get(`ehome.physical:ModuleInstance#placement`).get(`ehome.operational:ModulePlacement#displayName`),
+    $i.get(`ehome.physical:ModuleInstance#name`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!--
+			The value of an argument in a module instance of a device, as E-Home computes it. Where the
+			project file an import read gave another value (the device's memory was written with that
+			layout), the difference is recorded in deviceValue until a full download the user confirms
+			writes E-Home's layout (haumacher/ehome #119).
+		-->
+		<class name="InstanceArgument">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="argument"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.operational:ModuleArgument"
+				/>
+				<property name="value"
+					type="tl.core:String"
+				/>
+				<!-- The value of the imported project file where it differs from value; empty without a difference. -->
+				<property name="deviceValue"
+					type="tl.core:String"
+				/>
+			</attributes>
+		</class>
+		<!--
 			A parameter value of a device that differs from the default of its application program. The
 			value is typed like every parameter value (ehome.operational:ParameterValue).
 		-->
@@ -432,6 +539,15 @@
 					mandatory="true"
 					type="ehome.operational:ParameterView"
 				/>
+				<!--
+					Of a parameter of a dynamic module (haumacher/ehome #119): the module instance of the
+					device whose parameter it sets; parameter names the reference of the module definition
+					(the template).
+				-->
+				<reference name="instance"
+					kind="forwards"
+					type="ModuleInstance"
+				/>
 				<property name="name"
 					type="tl.core:String"
 				>
@@ -439,7 +555,7 @@
 						<storage-algorithm>
 							<query>
 								<expr><![CDATA[s -> {
-    parameter = $s.get(`ehome.physical:ParameterSetting#parameter`);
+    parameter = settingParameter($s);
     if($parameter == null,
         #("{0}: setting of a parameter the import did not find in the application program (e.g. of a dynamic module)"@en,
           "{0}: Einstellung eines Parameters, den der Import im Applikationsprogramm nicht gefunden hat (z.B. eines dynamischen Moduls)"@de)
@@ -457,7 +573,7 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[s -> $s.get(`ehome.physical:ParameterSetting#parameter`).get(`ehome.operational:ParameterView#displayDefault`)]]></expr>
+								<expr><![CDATA[s -> settingParameter($s).get(`ehome.operational:ParameterView#displayDefault`)]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

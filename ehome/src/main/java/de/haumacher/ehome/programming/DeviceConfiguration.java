@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
@@ -23,15 +24,24 @@ import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ChannelIndependent;
 import de.haumacher.ehome.model.operational.ConfigFragment;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.operational.Allocator;
+import de.haumacher.ehome.model.operational.ModuleArgument;
+import de.haumacher.ehome.model.operational.ModuleDefinition;
+import de.haumacher.ehome.model.operational.ModulePlacement;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.model.operational.PlacementArgument;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.model.operational.Repeat;
 import de.haumacher.ehome.model.operational.SharedPlacement;
 import de.haumacher.ehome.model.operational.Switch;
 import de.haumacher.ehome.model.operational.VoidType;
+import de.haumacher.ehome.modules.InstanceInfo;
+import de.haumacher.ehome.modules.ModuleInstances;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * The configuration of a device (<code>ehome.physical:Device</code>): the effective value of each
@@ -59,6 +69,19 @@ import de.haumacher.ehome.model.operational.VoidType;
  * <p>
  * Values are changed through {@link DeviceSettings}, which keeps a setting exactly where a value
  * differs from its default.
+ * </p>
+ *
+ * <p>
+ * Dynamic modules (haumacher/ehome #119): the walk computes the module instances of the device. A
+ * placement of a module ({@link ModulePlacement}) in effect is an instance, a {@link Repeat} places
+ * its content as many times as its counting parameter (or its count) says, in the order of the
+ * structure; an instance's arguments are the fixed values of its placement or the next values of
+ * allocators. The structure of the module is walked in the instance: its parameters, objects and
+ * structure elements are {@link de.haumacher.ehome.modules.InstancePart}s, whose numbers, offsets and
+ * texts are those of the instance ({@link ModuleParts}), and the device's values of them are the
+ * settings naming the part of the template and the instance. Placements in modules (sub-modules) are
+ * walked the same way. {@link #getInstances()} gives the instances, {@link ModuleInstances} stores
+ * them.
  * </p>
  */
 public class DeviceConfiguration {
@@ -125,38 +148,51 @@ public class DeviceConfiguration {
 		}
 
 		private Object ref(Option option) {
-			Object result = _refs.get(option);
-			if (result == null && !_refs.containsKey(option)) {
-				if (option instanceof Interface placed) {
+			Option template = ModuleParts.template(option);
+			Object result = _refs.get(template);
+			if (result == null && !_refs.containsKey(template)) {
+				if (template instanceof Interface placed) {
 					result = placed.getPort();
-				} else if (option instanceof SharedPlacement shared) {
+				} else if (template instanceof SharedPlacement shared) {
 					result = shared.getPlaced();
-				} else if (option instanceof ParameterGroup group) {
+				} else if (template instanceof ParameterGroup group) {
 					result = group.getInput();
 				}
-				_refs.put(option, result);
+				_refs.put(template, result);
 			}
-			return result;
+			return result instanceof TLObject obj ? ModuleParts.wrap(obj, ModuleParts.instance(option)) : result;
 		}
 
 		List<Option> contents(ConfigFragment fragment) {
-			return _contents.computeIfAbsent(fragment, f -> new ArrayList<>(f.getContents()));
+			ConfigFragment template = ModuleParts.template(fragment);
+			List<Option> result = _contents.computeIfAbsent(template, f -> new ArrayList<>(f.getContents()));
+			InstanceInfo instance = ModuleParts.instance(fragment);
+			if (instance == null) {
+				return result;
+			}
+			List<Option> wrapped = new ArrayList<>(result.size());
+			for (Option option : result) {
+				wrapped.add((Option) ModuleParts.wrap(option, instance));
+			}
+			return wrapped;
 		}
 
 		Parameter parameter(ParameterView view) {
-			Parameter result = _parameters.get(view);
-			if (result == null && !_parameters.containsKey(view)) {
-				result = view.getParameter();
-				_parameters.put(view, result);
+			ParameterView template = ModuleParts.template(view);
+			Parameter result = _parameters.get(template);
+			if (result == null && !_parameters.containsKey(template)) {
+				result = template.getParameter();
+				_parameters.put(template, result);
 			}
-			return result;
+			return (Parameter) ModuleParts.wrap(result, ModuleParts.instance(view));
 		}
 
 		Integer order(ParameterView view) {
-			Integer result = _orders.get(view);
-			if (result == null && !_orders.containsKey(view)) {
-				result = view.getOrder();
-				_orders.put(view, result);
+			ParameterView template = ModuleParts.template(view);
+			Integer result = _orders.get(template);
+			if (result == null && !_orders.containsKey(template)) {
+				result = template.getOrder();
+				_orders.put(template, result);
 			}
 			return result;
 		}
@@ -171,6 +207,20 @@ public class DeviceConfiguration {
 		}
 
 		private SwitchInfo info(Switch choice) {
+			SwitchInfo result = templateInfo(ModuleParts.template(choice));
+			InstanceInfo instance = ModuleParts.instance(choice);
+			if (instance == null) {
+				return result;
+			}
+			List<Case> alternatives = new ArrayList<>();
+			for (Case alternative : result.alternatives()) {
+				alternatives.add((Case) ModuleParts.wrap(alternative, instance));
+			}
+			return new SwitchInfo((ParameterView) ModuleParts.wrap(result.input(), instance), alternatives,
+				result.patterns(), result.defaults());
+		}
+
+		private SwitchInfo templateInfo(Switch choice) {
 			return _switches.computeIfAbsent(choice, c -> {
 				List<Case> alternatives = new ArrayList<>(c.getAlternatives());
 				List<String> patterns = new ArrayList<>();
@@ -191,7 +241,26 @@ public class DeviceConfiguration {
 
 	private final Structure _structure;
 
-	private final Map<ParameterView, TLObject> _settings = new HashMap<>();
+	/** The device's settings by {@link #key(ParameterView)} of their placement. */
+	private final Map<Object, TLObject> _settings = new HashMap<>();
+
+	/** The module instances the walk computed, in the order of the structure. */
+	private final List<InstanceInfo> _instances = new ArrayList<>();
+
+	/** The IDs of {@link #_instances}. */
+	private final Set<String> _instanceIds = new java.util.HashSet<>();
+
+	/** Why the values give no valid layout of the modules. */
+	private final List<ResKey> _moduleProblems = new ArrayList<>();
+
+	/** The module instances the device stores, by their IDs. */
+	private final Map<String, TLObject> _storedInstances = new HashMap<>();
+
+	/** The position in the document and the iteration of the enclosing repeats, outermost first. */
+	private List<int[]> _repeatPath = new ArrayList<>();
+
+	/** The next value of each allocator (of a module: per instance of the module). */
+	private final Map<Object, Long> _allocators = new HashMap<>();
 
 	private final Map<Parameter, ParameterView> _activeViews = new LinkedHashMap<>();
 
@@ -225,10 +294,14 @@ public class DeviceConfiguration {
 		_device = device;
 		_structure = structure;
 		_program = program(device);
+		for (TLObject instance : ModuleInstances.stored(device)) {
+			_storedInstances.putIfAbsent((String) instance.tValueByName(ModuleInstances.NAME), instance);
+		}
 		for (Object setting : (Collection<?>) device.tValueByName("settings")) {
 			TLObject value = (TLObject) setting;
 			if (value.tValueByName("parameter") instanceof ParameterView view) {
-				_settings.putIfAbsent(view, value);
+				String instance = ModuleParts.instanceId(value);
+				_settings.putIfAbsent(instance == null ? view : new PartKey(view, instance), value);
 			}
 		}
 		if (_program != null) {
@@ -277,7 +350,7 @@ public class DeviceConfiguration {
 	public static TLObject valueHolder(TLObject device, ParameterView view) {
 		for (Object setting : (Collection<?>) device.tValueByName("settings")) {
 			TLObject value = (TLObject) setting;
-			if (value.tValueByName("parameter") == view) {
+			if (ModuleParts.refersTo(value, ModuleParts.PARAMETER, view)) {
 				return value;
 			}
 		}
@@ -285,11 +358,28 @@ public class DeviceConfiguration {
 	}
 
 	/**
+	 * A placement of a parameter in a module instance: the placement of the template and the ID of
+	 * the instance.
+	 */
+	private record PartKey(TLObject template, String instance) {
+		// Value.
+	}
+
+	/**
+	 * The key of a placement in {@link #_settings}: the placement itself, for a placement in a module
+	 * instance its template and instance.
+	 */
+	private static Object key(ParameterView view) {
+		InstanceInfo instance = ModuleParts.instance(view);
+		return instance == null ? view : new PartKey(ModuleParts.template(view), instance.getId());
+	}
+
+	/**
 	 * The object holding the effective value of the given placement for the device of this
 	 * configuration, see {@link #valueHolder(TLObject, ParameterView)}.
 	 */
 	public TLObject valueHolder(ParameterView view) {
-		TLObject setting = _settings.get(view);
+		TLObject setting = _settings.get(key(view));
 		return setting != null ? setting : defaultHolder(view);
 	}
 
@@ -315,7 +405,7 @@ public class DeviceConfiguration {
 	 * The effective value of the given placement in ETS notation, <code>null</code> if it has none.
 	 */
 	public String value(ParameterView view) {
-		TLObject setting = _settings.get(view);
+		TLObject setting = _settings.get(key(view));
 		return setting != null ? ParameterValues.encode(setting) : _structure.defaultValue(view);
 	}
 
@@ -353,6 +443,16 @@ public class DeviceConfiguration {
 		} else if (option instanceof Interface placed) {
 			_activeInterfaces.putIfAbsent((Port) _structure.ref(placed), placed);
 			items(page).addObject(placed, _inputs);
+		} else if (option instanceof ModulePlacement placement) {
+			place(placement, page);
+		} else if (option instanceof Repeat repeat) {
+			int count = count(repeat);
+			Integer order = ModuleParts.template(repeat).getOrder();
+			for (int iteration = 1; iteration <= count; iteration++) {
+				_repeatPath.add(new int[] { order == null ? 0 : order.intValue(), iteration });
+				walk((ConfigFragment) repeat, page);
+				_repeatPath.remove(_repeatPath.size() - 1);
+			}
 		} else if (option instanceof Switch choice) {
 			_switches.add(choice);
 			Case selected = select(choice);
@@ -376,6 +476,195 @@ public class DeviceConfiguration {
 			}
 			walk(fragment, inner);
 		}
+	}
+
+	/**
+	 * How many times a repeat places its content: the value of its parameter, else its count.
+	 */
+	private int count(Repeat repeat) {
+		ParameterView counter = repeat.getCountParameter();
+		if (counter != null) {
+			long value = InstanceInfo.parse(value(counter));
+			return (int) Math.max(0, Math.min(value, 10000));
+		}
+		Integer count = repeat.getCount();
+		return count == null ? 0 : Math.max(0, count.intValue());
+	}
+
+	/**
+	 * Computes the instance of a placement of a module in effect and walks the structure of the module
+	 * in it.
+	 */
+	private void place(ModulePlacement placement, Object page) {
+		ModulePlacement template = ModuleParts.template(placement);
+		InstanceInfo parent = ModuleParts.instance(placement);
+		ModuleDefinition definition = template.getModule();
+		if (definition == null) {
+			return;
+		}
+		List<int[]> index = new ArrayList<>(_repeatPath);
+		Integer order = template.getOrder();
+		index.add(new int[] { order == null ? 0 : order.intValue(), 1 });
+		StringBuilder counters = new StringBuilder();
+		StringBuilder repeatIndex = new StringBuilder();
+		for (int n = 0; n < index.size(); n++) {
+			int[] entry = index.get(n);
+			if (n > 0) {
+				repeatIndex.append(' ');
+			}
+			repeatIndex.append(entry[0]).append('x').append(entry[1]);
+			if (n < index.size() - 1) {
+				if (counters.length() > 0) {
+					counters.append('-');
+				}
+				counters.append(entry[1]);
+			}
+		}
+		String number = counters.length() == 0 ? "1" : counters.toString();
+		String id = (parent == null ? local(template.getExtId(), _program.getExtId())
+			: parent.getId() + "_" + local(template.getExtId(), parent.getDefinition().getExtId())) + "_MI-" + number;
+		if (!_instanceIds.add(id)) {
+			// Placed once more under the same ID (a shared case): the first placement counts.
+			return;
+		}
+		Map<ModuleArgument, String> values = arguments(template, parent, id);
+		InstanceInfo instance = new InstanceInfo(_device, id, template, parent, repeatIndex.toString(), values,
+			_storedInstances.get(id));
+		_instances.add(instance);
+		List<int[]> outer = _repeatPath;
+		_repeatPath = index;
+		try {
+			walk((ConfigFragment) ModuleParts.wrap(definition, instance), page);
+		} finally {
+			_repeatPath = outer;
+		}
+	}
+
+	/**
+	 * The ID of a part relative to the given scope (the program or the module definition containing it).
+	 */
+	private static String local(String id, String scope) {
+		if (id == null) {
+			return "";
+		}
+		return scope != null && id.startsWith(scope + "_") ? id.substring(scope.length() + 1) : id;
+	}
+
+	/**
+	 * The values of the arguments of an instance of the given placement: a fixed value, or the next
+	 * value of an allocator (which then advances by the argument's Allocates), plus the value of the
+	 * enclosing instance's argument a base names.
+	 */
+	private Map<ModuleArgument, String> arguments(ModulePlacement placement, InstanceInfo parent, String id) {
+		Map<ModuleArgument, String> result = new LinkedHashMap<>();
+		for (PlacementArgument argument : placement.getArguments()) {
+			ModuleArgument definition = argument.getArgument();
+			if (definition == null) {
+				continue;
+			}
+			Allocator allocator = argument.getAllocator();
+			String value;
+			if (allocator != null) {
+				Object key = ModuleParts.definitionOf(allocator) == null || parent == null ? allocator
+					: List.of(allocator, parent.getId());
+				Long start = allocator.getStart();
+				long current = _allocators.getOrDefault(key, Long.valueOf(start == null ? 0 : start.longValue()));
+				Long step = definition.getAllocates();
+				_allocators.put(key, Long.valueOf(current + (step == null ? 1 : step.longValue())));
+				Long max = allocator.getMaxInclusive();
+				if (max != null && current > max.longValue()) {
+					_moduleProblems.add(I18NConstants.ERROR_ALLOCATOR_LIMIT__MODULE_INSTANCE_ALLOCATOR_LIMIT.fill(
+						moduleName(placement), id, allocator.getName(), max));
+				}
+				value = Long.toString(current);
+			} else {
+				value = argument.getValue();
+			}
+			ModuleArgument base = argument.getBase();
+			if (base != null && parent != null) {
+				value = Long.toString(InstanceInfo.parse(value) + parent.number(base));
+			}
+			result.put(definition, value);
+		}
+		return result;
+	}
+
+	private static String moduleName(ModulePlacement placement) {
+		if (placement.getName() != null && !placement.getName().isEmpty()) {
+			return placement.getName();
+		}
+		ModuleDefinition definition = placement.getModule();
+		return definition == null ? placement.getExtId() : definition.getName();
+	}
+
+	/**
+	 * The module instances in effect for the device's values, in the order of the structure (an
+	 * instance of a sub-module after the instance of its enclosing module).
+	 */
+	public List<InstanceInfo> getInstances() {
+		return Collections.unmodifiableList(_instances);
+	}
+
+	/**
+	 * Why the device's values give no valid layout of its modules (an allocator beyond its limit);
+	 * empty if they do.
+	 */
+	public List<ResKey> getModuleProblems() {
+		return Collections.unmodifiableList(_moduleProblems);
+	}
+
+	/**
+	 * The communication objects of the device: those of the program, then those of the module
+	 * instances in effect, as they are in their instance.
+	 */
+	public List<Port> getPorts() {
+		List<Port> result = new ArrayList<>();
+		if (_program == null) {
+			return result;
+		}
+		result.addAll(_program.getPorts());
+		for (InstanceInfo instance : _instances) {
+			for (Port port : instance.getDefinition().getPorts()) {
+				result.add((Port) ModuleParts.wrap(port, instance));
+			}
+		}
+		// The objects of the placements not in effect whose arguments are fixed: their numbers are
+		// known and taken in the object table, as those of the program's objects not in effect.
+		for (ModulePlacement placement : fixedPlacements(_program, new ArrayList<>())) {
+			String id = local(placement.getExtId(), _program.getExtId()) + "_MI-1";
+			if (_instanceIds.contains(id) || placement.getModule() == null) {
+				continue;
+			}
+			Map<ModuleArgument, String> values = new LinkedHashMap<>();
+			for (PlacementArgument argument : placement.getArguments()) {
+				values.put(argument.getArgument(), argument.getValue());
+			}
+			InstanceInfo instance = new InstanceInfo(_device, id, placement, null, null, values, null);
+			for (Port port : placement.getModule().getPorts()) {
+				result.add((Port) ModuleParts.wrap(port, instance));
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The placements of modules in the structure of the program (in every case, not in a repeat)
+	 * whose arguments all have fixed values.
+	 */
+	private static List<ModulePlacement> fixedPlacements(TLObject fragment, List<ModulePlacement> result) {
+		Collection<?> contents = fragment instanceof ConfigFragment config ? config.getContents()
+			: fragment instanceof Switch choice ? choice.getAlternatives() : List.of();
+		for (Object element : contents) {
+			if (element instanceof ModulePlacement placement) {
+				if (placement.getArguments().stream()
+					.allMatch(a -> a.getAllocator() == null && a.getBase() == null && a.getArgument() != null)) {
+					result.add(placement);
+				}
+			} else if (element instanceof Switch || element instanceof ConfigFragment && !(element instanceof Repeat)) {
+				fixedPlacements((TLObject) element, result);
+			}
+		}
+		return result;
 	}
 
 	private static boolean isPage(ConfigFragment fragment) {
@@ -411,7 +700,7 @@ public class DeviceConfiguration {
 	 *         If the value cannot be encoded.
 	 */
 	public ParameterEncoding.Bits encode(ParameterView view) {
-		TLObject setting = _settings.get(view);
+		TLObject setting = _settings.get(key(view));
 		if (setting != null) {
 			return ParameterEncoding.encode(_structure.parameter(view).getType(), setting, _program);
 		}
@@ -675,15 +964,26 @@ public class DeviceConfiguration {
 
 	/**
 	 * The connectors of the device (<code>ehome.physical:Connector</code>) that are in use: all not
-	 * marked inactive.
+	 * marked inactive whose module instance (if any) is in effect, of the device's program (not of a
+	 * program the device ran before).
 	 */
 	public List<TLObject> getConnectors() {
 		List<TLObject> result = new ArrayList<>();
 		for (Object connector : (Collection<?>) _device.tValueByName("connectors")) {
 			TLObject value = (TLObject) connector;
-			if (!Boolean.FALSE.equals(value.tValueByName("active"))) {
-				result.add(value);
+			if (Boolean.FALSE.equals(value.tValueByName("active"))) {
+				continue;
 			}
+			String instance = ModuleParts.instanceId(value);
+			if (instance != null && !_instanceIds.contains(instance)) {
+				// An object of a module instance the values no longer place.
+				continue;
+			}
+			if (ModuleParts.programOf(ModuleParts.port(value)) != _program) {
+				// An object of another program: the device was switched to another program.
+				continue;
+			}
+			result.add(value);
 		}
 		return result;
 	}

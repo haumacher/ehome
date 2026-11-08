@@ -763,8 +763,10 @@
 														<children>devicePages($device, $node)</children>
 														<parents>deviceParentPage($device, $node)</parents>
 														<!-- A page holding a change since the last download (on it or below it) is marked. -->
+														<!-- The label with {{0}} filled from the device's values (DeviceTexts). -->
 														<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
 															css-class="if(deviceChanged($device, $value), 'ehomeChanged', null)"
+															label="deviceText($device, $value)"
 															inputs="device"
 														/>
 													</tree>
@@ -845,9 +847,20 @@
 																</label>
 																<value>$row.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
 															</computed-column>
-															<column attribute="displayName"
+															<!-- The text with {{0}} filled from the device's values (DeviceTexts). -->
+															<computed-column name="displayName"
+																type="tl.core:String"
 																width="170"
-															/>
+															>
+																<inputs>
+																	<input channel="device"/>
+																</inputs>
+																<label>
+																	<en>Text</en>
+																	<de>Text</de>
+																</label>
+																<value>deviceText($device, $row)</value>
+															</computed-column>
 															<column attribute="function"
 																width="130"
 															/>

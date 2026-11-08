@@ -197,6 +197,57 @@
 						</with-result>
 					</start-job>
 				</generic-command>
+				<!--
+					A full download replacing the device's layout of its dynamic modules (haumacher/ehome #119): only
+					where an imported project recorded that the device holds another layout than E-Home computes;
+					the confirmation names the difference.
+				-->
+				<generic-command
+					image="css:bi bi-arrow-repeat"
+					inputs="device"
+					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:InstanceArgument"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Download with E-Home's module layout</en>
+						<de>Mit E-Homes Modul-Layout herunterladen</de>
+					</label>
+					<tooltip>
+						<en>The device holds another layout of its dynamic modules than E-Home computes (recorded by the import of its project). This full download writes E-Home's layout: the device's configuration is then E-Home's.</en>
+						<de>Das Gerät hält ein anderes Layout seiner dynamischen Module als E-Home berechnet (beim Import seines Projekts festgestellt). Dieser vollständige Download schreibt E-Homes Layout: die Konfiguration des Geräts ist danach die von E-Home.</de>
+					</tooltip>
+					<access>
+						<operation name="Write"
+							object="$device"
+							type="ehome.physical:Device"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr="layoutVeto($device)"/>
+					</executability>
+					<confirm expr="layoutConfirmation($device)"/>
+					<start-job
+						cancelable="false"
+						job="programmingJob"
+						update-interval="200"
+					>
+						<inputs>
+							<input channel="device"/>
+						</inputs>
+						<body class="de.haumacher.ehome.programming.download.DownloadJob"
+							kind="LAYOUT"
+						/>
+						<with-result>
+							<open-dialog
+								bind-input-to="report"
+								dialog-view="projects/programming-report.view.xml"
+							/>
+							<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
+							<write-channel name="programmingJob" clear="true"/>
+						</with-result>
+					</start-job>
+				</generic-command>
 				<generic-command
 					image="css:bi bi-hand-index"
 					inputs="device"

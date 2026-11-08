@@ -16,6 +16,15 @@ public interface LocationBase extends com.top_logic.model.TLObject {
 	String LOCATION_TYPE = "Location";
 
 	/**
+	 * Part <code>baseOffset</code> of <code>Location</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ModuleArgument</code> in configuration.
+	 * </p>
+	 */
+	String BASE_OFFSET_ATTR = "baseOffset";
+
+	/**
 	 * Part <code>bitOffset</code> of <code>Location</code>
 	 * 
 	 * <p>
@@ -50,6 +59,20 @@ public interface LocationBase extends com.top_logic.model.TLObject {
 	 * </p>
 	 */
 	String USAGE_ATTR = "usage";
+
+	/**
+	 * Getter for part {@link #BASE_OFFSET_ATTR}.
+	 */
+	default de.haumacher.ehome.model.operational.ModuleArgument getBaseOffset() {
+		return (de.haumacher.ehome.model.operational.ModuleArgument) tValueByName(BASE_OFFSET_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #BASE_OFFSET_ATTR}.
+	 */
+	default void setBaseOffset(de.haumacher.ehome.model.operational.ModuleArgument newValue) {
+		tUpdateByName(BASE_OFFSET_ATTR, newValue);
+	}
 
 	/**
 	 * Getter for part {@link #BIT_OFFSET_ATTR}.

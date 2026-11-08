@@ -67,6 +67,8 @@ public class DeviceFunctions extends GenericMethod {
 		deviceParentPage(2, true),
 		/** <code>deviceItems(device, page)</code>: {@link DeviceConfiguration#getItems(Object)}. */
 		deviceItems(2, true),
+		/** <code>deviceText(device, part)</code>: {@link DeviceTexts#label(TLObject, Object)}. */
+		deviceText(2, true),
 		/** <code>deviceSelectedCases(device)</code>: {@link DeviceConfiguration#getSelectedCases()}. */
 		deviceSelectedCases(1, true),
 		/** <code>deviceInterfaces(device)</code>: {@link DeviceSettings#interfaces(TLObject)}. */
@@ -166,6 +168,8 @@ public class DeviceFunctions extends GenericMethod {
 				return new DeviceConfiguration(device).getParentPage(arguments[1]);
 			case deviceItems:
 				return new DeviceConfiguration(device).getItems(arguments[1]);
+			case deviceText:
+				return arguments[1] == null ? null : DeviceTexts.label(device, arguments[1]);
 			case deviceSelectedCases:
 				return new DeviceConfiguration(device).getSelectedCases();
 			case deviceInterfaces:

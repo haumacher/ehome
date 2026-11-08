@@ -98,6 +98,8 @@ public class Importer {
 
 	private static final String CONNECTOR_TYPE = "ehome.physical:Connector";
 
+	private static final String DEVICE_TYPE = "ehome.physical:Device";
+
 	/**
 	 * Name of the folder holding the baggage of a manufacturer (pictures, help and plug-in files of
 	 * ETS), and of its index <code>Baggages.xml</code> beside it.
@@ -189,7 +191,9 @@ public class Importer {
 			}
 			if (!entry.isDirectory() && !isBaggage(path)) {
 				if (isProgram(path)) {
-					importXml(context, handler, name, new ByteArrayInputStream(expandModules(context, entryIn.readAllBytes())));
+					byte[] program = entryIn.readAllBytes();
+					scanModules(context, program);
+					importXml(context, handler, name, new ByteArrayInputStream(program));
 				} else if (name.endsWith(".xml")) {
 					importXml(context, handler, name, entryIn);
 				} else if (isProjectArchive(name, path)) {
@@ -221,37 +225,34 @@ public class Importer {
 	}
 
 	/**
-	 * Expands the dynamic modules of the application programs of the given program file into ordinary
-	 * program parts (haumacher/ehome #119, see {@link ModuleExpansion}), and plans the completion of a
-	 * program an earlier import left without its modules (see {@link ModuleCompletion}).
-	 *
-	 * @return The content to import: the given one if it has no modules or none could be expanded.
+	 * Scans the dynamic modules of the application programs of the given program file
+	 * (haumacher/ehome #119, see {@link ModuleScan}) for the handlers reading them, and plans the
+	 * completion of a program an earlier import left without its modules (see
+	 * {@link ModuleCompletion}).
 	 */
-	private byte[] expandModules(ImportContext context, byte[] content) throws IOException {
-		if (!ModuleExpansion.mentionsModules(content)) {
-			return content;
+	private void scanModules(ImportContext context, byte[] content) throws IOException {
+		if (!ModuleScan.mentionsModules(content)) {
+			return;
 		}
-		Document document = ModuleExpansion.parse(content);
-		boolean expanded = false;
-		ExpandedModules modules = ExpandedModules.get(context);
-		for (ModuleExpansion.Result result : ModuleExpansion.expand(document)) {
-			String id = result.getProgram();
-			if (!result.isExpanded()) {
-				modules.refused(id, result.getConstruct());
+		ModuleScan modules = ModuleScan.get(context);
+		Document document = null;
+		for (String id : modules.scan(content)) {
+			if (modules.getRefusal(id) != null) {
 				continue;
 			}
-			expanded = true;
 			TLObject existing = existingProgram(id);
 			if (existing != null && Boolean.TRUE.equals(existing.tValueByName("usesModules"))) {
+				if (document == null) {
+					document = ModuleScan.parse(content);
+				}
 				try {
-					modules.complete(id, ModuleCompletion.plan(result, existing));
+					modules.complete(id, ModuleCompletion.plan(ModuleScan.dynamicOf(document, id), existing));
 				} catch (ModuleCompletion.Mismatch ex) {
 					Logger.warn("Program '" + id + "' cannot be completed: " + ex.getMessage(), Importer.class);
 					_messages.log(Level.WARN, I18NConstants.WARN_MODULES_NOT_COMPLETED__PROGRAM.fill(id));
 				}
 			}
 		}
-		return expanded ? ModuleExpansion.serialize(document) : content;
 	}
 
 	/**
@@ -519,6 +520,7 @@ public class Importer {
 		SharedObjects shared = new SharedObjects(_binding);
 		Handler handler = (importContext, xml) -> importContext.withIdLookup(shared, xml, configured);
 		ZipInputStream zip = new ZipInputStream(in);
+		ModuleImport modules;
 		try (ImportContext importContext = new DefaultImportContext(
 			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)).tee(_messages), _binding)) {
 			importContext.set(JoiningModelBinding.PROPERTY, _binding);
@@ -526,6 +528,7 @@ public class Importer {
 			importContext.set(MasterDataUpdates.PROPERTY, updates);
 			_programLanguages = new ProgramLanguages();
 			importContext.set(ProgramLanguages.PROPERTY, _programLanguages);
+			modules = ModuleImport.get(importContext);
 			importETS(zip, importContext, handler, productData, contents);
 			// Reported at the end of each program already; none is left unless a parameter lies
 			// outside a program.
@@ -534,6 +537,8 @@ public class Importer {
 		}
 		// Numbers the app allocates for new objects lie above those of the imported ones.
 		ExtIds.raiseImported(_binding.getCreated());
+		// The module instances of the devices, with their settings and objects (haumacher/ehome #119).
+		modules.attach(getCreated(DEVICE_TYPE), _messages);
 		dropUnresolvedProgramParts();
 		// All done only when the references are resolved, which the import context does when closed.
 		_progress.finish();
@@ -544,10 +549,10 @@ public class Importer {
 	 * the application program it could not resolve, and reports them per device.
 	 *
 	 * <p>
-	 * They refer to parts the import does not create: the parameters and communication objects of
-	 * the dynamic modules of a program the import could not expand (<code>ModuleDefs</code>, see
-	 * {@link ModulesNotImported}), whose instances a device names by IDs of the form
-	 * <code>MD-1_M-1_MI-1_P-2_R-3</code>. Kept
+	 * They refer to parts of module instances the import could not attach (see {@link ModuleImport}):
+	 * of the dynamic modules of a program the import could not read (<code>ModuleDefs</code>, see
+	 * {@link ReadModules}), or of an instance E-Home does not compute for the device's values, named
+	 * by IDs of the form <code>MD-1_M-1_MI-1_P-2_R-3</code>. Kept
 	 * without their part, they would fail the model's check of the mandatory reference and refuse the
 	 * whole import (a production import of a project with MDT devices).
 	 * </p>

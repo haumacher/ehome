@@ -24,6 +24,7 @@ import com.top_logic.util.Resources;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
+import de.haumacher.ehome.modules.ModuleInstances;
 
 /**
  * The TL-Script functions of the programming tab of a device: the plan of its download for the
@@ -59,7 +60,17 @@ public class ProgrammingFunctions extends GenericMethod {
 		/** <code>downloadConfirmation(device)</code>: the question before a full download. */
 		downloadConfirmation,
 		/** <code>addressConfirmation(device)</code>: the question before writing the address. */
-		addressConfirmation;
+		addressConfirmation,
+		/**
+		 * <code>layoutVeto(device)</code>: why the full download replacing the layout of the device's
+		 * modules is disabled, or nothing (haumacher/ehome #119).
+		 */
+		layoutVeto,
+		/**
+		 * <code>layoutConfirmation(device)</code>: the question before the full download replacing the
+		 * layout of the device's modules, naming the recorded difference.
+		 */
+		layoutConfirmation;
 	}
 
 	private final Function _function;
@@ -127,6 +138,11 @@ public class ProgrammingFunctions extends GenericMethod {
 					address(device), Gateways.of(device), changes(device));
 			case addressConfirmation:
 				return I18NConstants.CONFIRM_ADDRESS__ADDRESS_GATEWAY.fill(address(device), Gateways.of(device));
+			case layoutVeto:
+				return downloadVeto(device, DownloadPlan.Kind.LAYOUT);
+			case layoutConfirmation:
+				return I18NConstants.CONFIRM_LAYOUT__DEVICE_ADDRESS_GATEWAY_DIFFERENCES.fill(device.tValueByName("name"),
+					address(device), Gateways.of(device), ModuleInstances.differenceText(device));
 		}
 		return null;
 	}

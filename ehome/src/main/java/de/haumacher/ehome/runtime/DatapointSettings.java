@@ -15,6 +15,7 @@ import de.haumacher.ehome.monitor.DatapointCodec;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * The runtime settings of the datapoint of a group address (<code>ehome.logical:GroupAddress</code>)
@@ -79,7 +80,7 @@ public final class DatapointSettings {
 	 */
 	public static boolean communicates(TLObject connection) {
 		TLObject connector = connection.tContainer();
-		return !Boolean.FALSE.equals(connector.tValueByName("active")) && enabled("communication", connection);
+		return ModuleParts.inEffect(connector) && enabled("communication", connection);
 	}
 
 	/**

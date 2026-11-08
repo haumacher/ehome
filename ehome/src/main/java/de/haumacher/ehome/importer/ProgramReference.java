@@ -9,6 +9,7 @@ import javax.xml.stream.XMLStreamReader;
 import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.config.annotation.TagName;
+import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.AbstractReferenceImport;
 
@@ -23,11 +24,6 @@ public class ProgramReference<C extends ProgramReference.Config<?>> extends Abst
 	 * The beginning of the ID of manufacturer data.
 	 */
 	private static final String MANUFACTURER_PREFIX = "M-";
-
-	/**
-	 * The part of an ID that names a module definition, in the ID of a part of a module instance.
-	 */
-	private static final String MODULE_PART = "_MD-";
 
 	/**
 	 * Configuration of {@link ProgramReference}.
@@ -50,11 +46,16 @@ public class ProgramReference<C extends ProgramReference.Config<?>> extends Abst
 		String rawId = readRawId(in);
 		if (rawId != null && !rawId.isBlank()) {
 			String id = DeviceScope.absolute(context, DeviceScope.PROGRAM_VAR, MANUFACTURER_PREFIX, rawId.trim());
-			// A part of an instance of a dynamic module (MD-1_M-1_MI-1_P-2_R-3) exists if the import
-			// expanded the modules of the program (ModuleExpansion); if it could not (ModulesNotImported),
-			// the importer leaves out what refers to it and says so per device, instead of an error per ID.
-			boolean required = !id.contains(MODULE_PART);
-			storeReference(context, context.resolveObject(this, in.getLocation(), id, required));
+			if (ModuleImport.isInstancePart(id)) {
+				// A part of an instance of a dynamic module (MD-1_M-1_MI-1_P-2_R-3): attached after the
+				// import, when the device's instances are computed (ModuleImport); left out with a warning
+				// per device if it is not found (Importer).
+				if (context.getVarOrNull(getConfig().getTargetVar()) instanceof TLObject holder) {
+					ModuleImport.get(context).pending(holder, getConfig().getName(), id);
+				}
+			} else {
+				storeReference(context, context.resolveObject(this, in.getLocation(), id, true));
+			}
 		}
 		return null;
 	}

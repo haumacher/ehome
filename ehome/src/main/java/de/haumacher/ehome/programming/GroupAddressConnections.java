@@ -19,10 +19,9 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.ExtIds;
-import de.haumacher.ehome.knx.FillTextParameter;
 import de.haumacher.ehome.model.operational.Interface;
-import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.template.ObjectTypes;
 
 /**
@@ -80,7 +79,8 @@ public class GroupAddressConnections {
 	 */
 	public static Interface object(TLObject connection) {
 		TLObject connector = connection == null ? null : connection.tContainer();
-		return connector != null && connector.tValueByName("port") instanceof Interface placed ? placed : null;
+		// The object as it is in the connector's module instance (haumacher/ehome #119).
+		return connector == null ? null : ModuleParts.port(connector);
 	}
 
 	/**
@@ -148,12 +148,7 @@ public class GroupAddressConnections {
 	 *        The device, <code>null</code> for the program's text with its placeholder.
 	 */
 	public static String objectName(TLObject device, Interface placed, Resources resources) {
-		String text = objectName(placed, resources);
-		ParameterView parameter = placed.getTextParameter();
-		if (device == null || parameter == null) {
-			return text;
-		}
-		return FillTextParameter.fill(text, DeviceSettings.value(device, parameter));
+		return DeviceTexts.fill(device, objectName(placed, resources), placed.getTextParameter());
 	}
 
 	/**

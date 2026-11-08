@@ -8,6 +8,7 @@ import com.top_logic.basic.util.ResKey1;
 import com.top_logic.basic.util.ResKey2;
 import com.top_logic.basic.util.ResKey3;
 import com.top_logic.basic.util.ResKey4;
+import com.top_logic.basic.util.ResKey5;
 import com.top_logic.layout.I18NConstantsBase;
 
 /**
@@ -86,12 +87,12 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey ERROR_NO_MANUFACTURER_DATA;
 
 	/**
-	 * @en The application program "{0}" uses dynamic modules (ETS 5.6 and later) with "{1}", which E-Home cannot expand into the program: the parameters and communication objects of its modules are missing, and a download of the program is refused.
+	 * @en The application program "{0}" uses dynamic modules (ETS 5.6 and later) with "{1}", which E-Home cannot interpret: its modules are not imported, and a download of the program is refused.
 	 */
-	public static ResKey2 WARN_MODULES_NOT_EXPANDED__PROGRAM_CONSTRUCT;
+	public static ResKey2 WARN_MODULES_NOT_READ__PROGRAM_CONSTRUCT;
 
 	/**
-	 * @en The application program "{0}", imported earlier without its dynamic modules, is completed: the parameters and communication objects of its modules are added. Import the projects of its devices again to give them their module settings and group addresses.
+	 * @en The application program "{0}", imported earlier without its dynamic modules, is completed: its module definitions and their placements are added. Import the projects of its devices again to give them their module instances, settings and group addresses.
 	 */
 	public static ResKey1 INFO_MODULES_COMPLETED__PROGRAM;
 
@@ -101,9 +102,19 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 WARN_MODULES_NOT_COMPLETED__PROGRAM;
 
 	/**
-	 * @en Device "{0}": {1} parameter settings and {2} communication objects refer to parts of its application program that were not imported (dynamic modules); they are left out.
+	 * @en Device "{0}": {1} parameter settings and {2} communication objects refer to parts of its application program that were not found (e.g. of dynamic modules the import could not read, or a part a module does not have); they are left out.
 	 */
 	public static ResKey3 WARN_UNRESOLVED_PROGRAM_PARTS__DEVICE_SETTINGS_OBJECTS;
+
+	/**
+	 * @en Device "{0}", module instance {1}: the project file gives the argument {2} the value "{3}", E-Home computes "{4}". The device''s memory was written with the other layout: a download of the device is refused until a full download you confirm writes E-Home''s layout.
+	 */
+	public static ResKey5 WARN_ARGUMENT_DIFFERS__DEVICE_INSTANCE_ARGUMENT_FILE_EHOME;
+
+	/**
+	 * @en Device "{0}": {1}
+	 */
+	public static ResKey2 WARN_MODULE_LAYOUT__DEVICE_PROBLEM;
 
 	/**
 	 * @en The named value "{0}" of a datapoint type is not a number: {1}

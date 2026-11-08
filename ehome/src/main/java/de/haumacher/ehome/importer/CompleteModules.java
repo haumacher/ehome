@@ -19,6 +19,7 @@ import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.annotation.Name;
 import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.logging.Level;
+import com.top_logic.basic.xml.XMLStreamUtil;
 import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 import com.top_logic.xio.importer.handlers.Handler;
@@ -27,18 +28,16 @@ import com.top_logic.xio.importer.handlers.NestedImportHandler;
 /**
  * Completes a known application program (the <code>this</code> of an <code>&lt;update&gt;</code> of
  * <code>&lt;unless-known&gt;</code>) that an earlier import left without its dynamic modules
- * (haumacher/ehome #119), if the expansion of the file planned it (see {@link ModuleCompletion});
- * otherwise applies its content handlers (the update of a known program).
+ * (haumacher/ehome #119), if the scan of the file planned it (see {@link ModuleCompletion}); otherwise
+ * applies its content handlers (the update of a known program).
  *
  * <p>
- * The completion reads the parts of the expanded modules only, the wrappers
- * {@link ModuleExpansion#WRAPPER} of the file; the rest of the program exists. A wrapper in a
- * section of <code>Static</code> is read with the {@link Config#getStaticParts() static parts}
- * handlers, which create its parameters, references and communication objects in the program. A
- * wrapper in <code>Dynamic</code> is read with the handlers of the contents of the program
- * ({@link Config#getTopLevel()}) or of a channel ({@link Config#getChannelLevel()}) in the structure
- * element its plan names, and its new elements are moved to the position of the module. Then the
- * mark <code>usesModules</code> is removed, and the import reports the completion.
+ * The completion reads what the earlier import skipped; the rest of the program exists: the
+ * allocators of the program ({@link Config#getAllocators()}), its module definitions
+ * ({@link Config#getModuleDefs()}), and each <code>Module</code> and <code>Repeat</code> of the dynamic
+ * part (not nested in another one, {@link Config#getModule()}, {@link Config#getRepeat()}) into the
+ * structure element its plan names, moved to its position there. Then the mark
+ * <code>usesModules</code> is removed, and the import reports the completion.
  * </p>
  */
 public class CompleteModules<C extends CompleteModules.Config<?>> extends NestedImportHandler<C> {
@@ -47,9 +46,9 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 
 	private static final String STATIC = "Static";
 
-	private static final String USES_MODULES = "usesModules";
+	private static final String DYNAMIC = "Dynamic";
 
-	private static final String UNPLACED = "unplaced";
+	private static final String USES_MODULES = "usesModules";
 
 	/**
 	 * Configuration of {@link CompleteModules}.
@@ -58,32 +57,40 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 	public interface Config<I extends CompleteModules<?>> extends NestedImportHandler.Config<I> {
 
 		/**
-		 * The handlers reading a wrapper of static parts (its parameters, unions, parameter
-		 * references, communication objects and their references).
+		 * The handler reading the allocators of the program (the element <code>Allocators</code>).
 		 */
-		@Name("static-parts")
-		List<PolymorphicConfiguration<? extends Handler>> getStaticParts();
+		@Name("allocators")
+		List<PolymorphicConfiguration<? extends Handler>> getAllocators();
 
 		/**
-		 * The handlers reading a wrapper of structure in the program or a case of a switch in it.
+		 * The handler reading the module definitions (the element <code>ModuleDefs</code>).
 		 */
-		@Name("top-level")
-		List<PolymorphicConfiguration<? extends Handler>> getTopLevel();
+		@Name("module-defs")
+		List<PolymorphicConfiguration<? extends Handler>> getModuleDefs();
 
 		/**
-		 * The handlers reading a wrapper of structure in a channel, a block, or a case of a switch in
-		 * them.
+		 * The handler reading a placement of a module (the element <code>Module</code>) into a
+		 * structure element.
 		 */
-		@Name("channel-level")
-		List<PolymorphicConfiguration<? extends Handler>> getChannelLevel();
+		@Name("module")
+		List<PolymorphicConfiguration<? extends Handler>> getModule();
+
+		/**
+		 * The handler reading a repeated part (the element <code>Repeat</code>) into a structure
+		 * element.
+		 */
+		@Name("repeat")
+		List<PolymorphicConfiguration<? extends Handler>> getRepeat();
 
 	}
 
-	private final Handler _staticParts;
+	private final Handler _allocators;
 
-	private final Handler _topLevel;
+	private final Handler _moduleDefs;
 
-	private final Handler _channelLevel;
+	private final Handler _module;
+
+	private final Handler _repeat;
 
 	/**
 	 * Creates a {@link CompleteModules} from configuration.
@@ -91,9 +98,10 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 	@CalledByReflection
 	public CompleteModules(InstantiationContext context, C config) {
 		super(context, config);
-		_staticParts = buildHandlers(context, config.getStaticParts());
-		_topLevel = buildHandlers(context, config.getTopLevel());
-		_channelLevel = buildHandlers(context, config.getChannelLevel());
+		_allocators = buildHandlers(context, config.getAllocators());
+		_moduleDefs = buildHandlers(context, config.getModuleDefs());
+		_module = buildHandlers(context, config.getModule());
+		_repeat = buildHandlers(context, config.getRepeat());
 	}
 
 	@Override
@@ -101,7 +109,7 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		Object known = context.getVarOrNull(ImportContext.THIS_VAR);
 		ModuleCompletion completion = null;
 		if (known instanceof TLObject program && Boolean.TRUE.equals(program.tValueByName(USES_MODULES))) {
-			completion = ExpandedModules.get(context).getCompletion(ProgramImported.id(program));
+			completion = ModuleScan.get(context).getCompletion(ProgramImported.id(program));
 		}
 		if (completion == null || completion.getProgram() != known) {
 			return importXmlInScope(context, in);
@@ -122,21 +130,39 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		Map<TLObject, Integer> inserted = new HashMap<>();
 		String section = null;
 		int depth = 0;
+		int sequence = 0;
 		while (true) {
 			int event = in.next();
 			if (event == XMLStreamConstants.START_ELEMENT) {
 				depth++;
+				String name = in.getLocalName();
 				if (depth == 1) {
-					section = in.getLocalName();
+					section = name;
 				}
-				if (ModuleExpansion.WRAPPER.equals(in.getLocalName())) {
-					if (STATIC.equals(section)) {
-						_staticParts.importXml(context, in);
-					} else {
-						String sequence = in.getAttributeValue(null, ModuleExpansion.SEQUENCE);
-						insert(context, in, completion.target(Integer.parseInt(sequence)), inserted);
+				Handler handler = null;
+				TLObject target = program;
+				ModuleCompletion.Target place = null;
+				if (depth == 1 && "ModuleDefs".equals(name)) {
+					handler = _moduleDefs;
+				} else if (depth == 2 && STATIC.equals(section) && "Allocators".equals(name)) {
+					handler = _allocators;
+				} else if (DYNAMIC.equals(section) && ModuleCompletion.isPlacement(name)) {
+					place = completion.target(sequence++);
+					if (place == null) {
+						XMLStreamUtil.skipUpToMatchingEndTag(in);
+						depth--;
+						continue;
 					}
-					// The handlers consumed the wrapper up to its end tag.
+					handler = "Module".equals(name) ? _module : _repeat;
+					target = place.fragment();
+				}
+				if (handler != null) {
+					if (place != null) {
+						insert(context, in, place, handler, inserted);
+					} else {
+						context.withVar(ImportContext.THIS_VAR, target, in, handler);
+					}
+					// The handler consumed the element up to its end tag.
 					depth--;
 				}
 			} else if (event == XMLStreamConstants.END_ELEMENT) {
@@ -148,21 +174,20 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 				break;
 			}
 		}
-		addUnplaced(program);
 		context.setProperty(this, program, USES_MODULES, Boolean.FALSE);
 		HiddenProgramValues.reportPending(context);
 		context.log(Level.INFO, in.getLocation(), I18NConstants.INFO_MODULES_COMPLETED__PROGRAM.fill(id));
 	}
 
 	/**
-	 * Reads the structure of a module into the structure element of its target, and moves it to the
-	 * position of the module.
+	 * Reads a placement or repeat into the structure element of its target, and moves it to its
+	 * position there.
 	 */
-	private void insert(ImportContext context, XMLStreamReader in, ModuleCompletion.Target target,
+	private void insert(ImportContext context, XMLStreamReader in, ModuleCompletion.Target target, Handler handler,
 			Map<TLObject, Integer> inserted) throws XMLStreamException {
 		TLObject fragment = target.fragment();
 		int before = contents(fragment).size();
-		context.withVar(ImportContext.THIS_VAR, fragment, in, target.topLevel() ? _topLevel : _channelLevel);
+		context.withVar(ImportContext.THIS_VAR, fragment, in, handler);
 		List<Object> contents = contents(fragment);
 		int added = contents.size() - before;
 		if (added <= 0) {
@@ -176,47 +201,8 @@ public class CompleteModules<C extends CompleteModules.Config<?>> extends Nested
 		inserted.put(fragment, Integer.valueOf(offset + added));
 	}
 
-	/**
-	 * Adds the new parameter and object references no structure element places to the program's
-	 * unplaced references.
-	 */
-	private static void addUnplaced(TLObject program) {
-		List<Object> unplaced = new ArrayList<>((Collection<?>) program.tValueByName(UNPLACED));
-		boolean changed = false;
-		for (TLObject parameter : objects(program.tValueByName("parameters"))) {
-			changed |= addUnplaced(unplaced, parameter.tValueByName("views"));
-		}
-		for (TLObject port : objects(program.tValueByName("ports"))) {
-			changed |= addUnplaced(unplaced, port.tValueByName("interfaces"));
-		}
-		if (changed) {
-			program.tUpdateByName(UNPLACED, unplaced);
-		}
-	}
-
-	private static boolean addUnplaced(List<Object> unplaced, Object references) {
-		boolean result = false;
-		for (TLObject reference : objects(references)) {
-			if (reference.tContainer() == null) {
-				unplaced.add(reference);
-				result = true;
-			}
-		}
-		return result;
-	}
-
 	private static List<Object> contents(TLObject fragment) {
 		return new ArrayList<>((Collection<?>) fragment.tValueByName(CONTENTS));
-	}
-
-	private static List<TLObject> objects(Object value) {
-		List<TLObject> result = new ArrayList<>();
-		if (value instanceof Collection<?> collection) {
-			for (Object element : collection) {
-				result.add((TLObject) element);
-			}
-		}
-		return result;
 	}
 
 }

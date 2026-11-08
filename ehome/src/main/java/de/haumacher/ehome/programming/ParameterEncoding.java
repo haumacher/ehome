@@ -278,6 +278,10 @@ public class ParameterEncoding {
 			return null;
 		}
 		String text = ParameterValues.encode(holder);
+		if (text == null && type instanceof TextType) {
+			// An empty text is held as no text (ETS writes Value="").
+			text = "";
+		}
 		if (text == null) {
 			throw new IllegalArgumentException("No value.");
 		}

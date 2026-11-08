@@ -31,8 +31,8 @@
 			<expr><![CDATA[{
     type = deviceObjectType($device, $interface);
     if($type == null,
-        #("“{0}” has no datapoint type."@en, "„{0}“ hat keinen Datenpunkttyp."@de).fill($interface.get(`ehome.operational:Interface#displayName`)),
-        #("“{0}” has the datapoint type {1}."@en, "„{0}“ hat den Datenpunkttyp {1}."@de).fill($interface.get(`ehome.operational:Interface#displayName`), $type.label()))
+        #("“{0}” has no datapoint type."@en, "„{0}“ hat keinen Datenpunkttyp."@de).fill(deviceText($device, $interface)),
+        #("“{0}” has the datapoint type {1}."@en, "„{0}“ hat den Datenpunkttyp {1}."@de).fill(deviceText($device, $interface), $type.label()))
         .localize()
 }]]></expr>
 		</derived-channel>

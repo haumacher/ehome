@@ -81,14 +81,15 @@ writes a project (schema 23, haumacher/ehome #32), with artificial content marke
   marking it as test data. It adds a channel independent block whose switch places one parameter
   reference and one communication object reference in two cases (ETS 6 shares a reference between
   cases), a parameter block directly in the program with a color parameter (TypeColor), and a
-  dynamic module (ModuleDefs, a module in a case) whose argument comes from an allocator (Allocators),
-  which E-Home does not expand (haumacher/ehome #119).
+  dynamic module (ModuleDefs, a module in a case) whose argument comes from an allocator (Allocators,
+  haumacher/ehome #119).
 - The project part is the folder P-01A0 with project.xml (lower case, ETS 5/6) and 0.xml: the
   device lies in a segment of its line, names its communication objects by IDs relative to its
   program and links them to group addresses by the attribute Links (IDs relative to the
   installation; one object sends to GA-3 and receives from GA-1), reports its load state as "true"
-  and "false", sets the shared parameter, sets a parameter of an instance of the module and links one
-  of its objects (IDs MD-1_M-1_MI-1_..., which do not resolve, since the module is not expanded), and
+  and "false", sets the shared parameter, sets a parameter of an instance of the module and links an
+  object of the instance (IDs MD-1_M-1_MI-1_...), which do not resolve: the device does not take the
+  case placing the module, so it has no instance of it, and the module has no such object; and
   the building is a location with spaces.
 The test builds the protected variants (the project part as P-01A0.zip, AES and password, or plain)
 from this file with zip4j.
@@ -111,7 +112,44 @@ program's parameter "Kanal B" (default "Aus"). The program's own object "Zentral
 arguments) sets "Kanal B" = "Ein", "Modus" of Kanal A = 1 and its "Beschreibung" = "WZ", the
 "Beschreibung" of Kanal B empty, and links
 "Zentral" to GA-1, Kanal A "Schalten" to GA-2, its "Status" to GA-3, and Kanal B "Schalten" to GA-4 and
-GA-1.
+GA-1. The device "TEST Modulgerät alt" (1.0.2, the same program) lists for the instance of Kanal A the
+argument ParamOffsBase 80 instead of 96 (0x60): its memory was written with another layout. It has
+the default "Aus" of "Kanal B", so E-Home computes no instance of the placement "Kanal B", but it sets
+the "Beschreibung" of that instance ("Bad") and links its "Schalten" to GA-4 (as ETS keeps the values
+of a module whose placement is not in effect).
+
+TestModules.knxproj also holds a second artificial program of the BCU 1 kind, M-0008_A-FFF8-01-0000,
+marked as test data by its name, assigned to "TEST Module" as well, with repeats, allocators and a
+sub-module (haumacher/ehome #119, the layouts of the ABB Modbus RTU Gateway and the Zennio DALI BOX):
+- the parameters "Anzahl Signale" (0 to 8, default 2, byte 0x58) and "Anzahl Kanäle" (0 to 3, default
+  2, byte 0x59) in the block "Allgemein";
+- the objects 0 to 2 of its object table ("Allgemein 0" to "Allgemein 2"), placed nowhere;
+- a Repeat over "Anzahl Signale" placing the module "Signal" (MD-1): its ParamsOffsetBase from the
+  allocator Signal_params (Start 160, maxInclusive 224, Allocates 32), its ObjNumberBase from
+  Signal_objs (Start 10, Allocates 2), its number SigNo from Nummer (Start 1, maxInclusive 6, Allocates
+  1). The module has the parameters "Typ" (an enumeration Aus 0 / Analog 1 / Digital 2, default 1, at
+  offset 0) and "Name" (a text of 4 bytes, default "Sig", at offset 1), the objects "Wert" (Number 0)
+  and "Status" (Number 1), the reference of "Wert" with the text "Signal {{SigNo}}: {{0}}" filled from
+  "Name", and the structure: a channel "Signal {{SigNo}}: {{0}}" and in it a block
+  "{{0:Signal {{SigNo}}}}", both filled from "Name" (TextParameterRefId), placing the parameters and
+  objects. So the signals lie at 160, 192, 224, their objects at 10/11, 12/13, 14/15, and a fourth
+  signal (offset 256) exceeds Signal_params;
+- a Repeat over "Anzahl Kanäle" placing the module "Kanal" (MD-2): its KaOffs from Kanal_params (Start
+  96, Allocates 12), its KaObj from Kanal_objs (Start 20, Allocates 4), its number KaNo from Nummer
+  (shared with the signals: the channels are numbered after them). The module has the parameter
+  "Anzahl Szenen" (0 to 5, default 1, at offset 0), the object "Kanal {{KaNo}}" (Number 0), allocators
+  of its own (Szene_params Start 2 maxInclusive 6, Szene_objs Start 1, Szene_num Start 1), and in its
+  channel a Repeat over "Anzahl Szenen" placing the sub-module "Szene" (MD-2_SM-1): SzOffs from
+  Szene_params on top of KaOffs (BaseValue), SzObj from Szene_objs on top of KaObj, KaNo as 0 on top of
+  the channel's KaNo, SzNo from Szene_num. The scene has the parameter "Wert" (0 to 255, default 5, at
+  offset 0) and the object "Szene" (Number 0) with the text "Kanal {{KaNo}}, Szene {{SzNo}}". So with
+  two scenes in the second channel (offset 108), its scenes lie at 110 and 112, their objects at 25 and
+  26 (after 21 of the first channel's scene).
+The device "TEST Repeat-Gerät" (1.0.3, this program) sets "Anzahl Signale" = 3, the "Name" of signal 2
+= "Süd", that of signal 3 empty, "Anzahl Szenen" of channel 2 = 2 and the "Wert" of its scene 2 = 7 (named as
+MD-2_M-1_MI-2-1-2_SM-1_P-1_R-1), links "Wert" of signal 2 to GA-2 and the object of scene 2 of channel 2
+(MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-2_O-1-0_R-1) to GA-3, and lists its module instances with their arguments
+as ETS writes them (an argument fed by an allocator by the allocator's ID).
 
 TestLanguagesA.knxprod and TestLanguagesB.knxprod: product files holding the master data (trimmed) and
 two artificial programs of the BCU 1 kind (as in TestBcu1.knxproj), marked as test data by their
@@ -1141,7 +1179,7 @@ def ets6_project(xml):
     xml = (xml[:start] + '<Segment Id="P-01A0-0_L-1_S-0" Name="" Number="0" MediumTypeRefId="MT-0">'
         + xml[start:end] + '</Segment>' + xml[end:])
     # The shared parameter set by the device, and a setting and a linked object of an instance of the
-    # dynamic module, which E-Home does not import: both are left out with a warning.
+    # dynamic module the device does not have: both are left out with a warning.
     xml = replace_once(xml, '<ParameterInstanceRefs>', '<ParameterInstanceRefs>\n<ParameterInstanceRef RefId="'
         + ETS6_PROGRAM + '_P-9102_R-9102" Value="42" />\n<ParameterInstanceRef RefId="'
         + ETS6_PROGRAM + '_MD-1_M-1_MI-1_P-1_R-1" Value="7" />')
@@ -1280,7 +1318,9 @@ def module_hardware():
         'HasIndividualAddress="1" HasApplicationProgram="1"><Products><Product Id="' + MODULE_PRODUCT + '" '
         'Text="TEST Module (künstliche Testdaten)" OrderNumber="TEST MODULE" IsRailMounted="1" DefaultLanguage="de-DE" />'
         '</Products><Hardware2Programs><Hardware2Program Id="' + MODULE_ASSIGNMENT + '" MediumTypes="MT-0">'
-        '<ApplicationProgramRef RefId="' + MODULE_PROGRAM + '" /></Hardware2Program></Hardware2Programs></Hardware>'
+        '<ApplicationProgramRef RefId="' + MODULE_PROGRAM + '" /></Hardware2Program>'
+        '<Hardware2Program Id="' + REPEAT_ASSIGNMENT + '" MediumTypes="MT-0">'
+        '<ApplicationProgramRef RefId="' + REPEAT_PROGRAM + '" /></Hardware2Program></Hardware2Programs></Hardware>'
         '</Hardware></Manufacturer></ManufacturerData>\n</KNX>\n')
 
 
@@ -1306,7 +1346,188 @@ def module_device(xml):
             '<Argument RefId="MD-1_A-3" Value="%s" /></Arguments></ModuleInstance>\n'
             % (n, n, offset, base, channel) for n, _, offset, base, channel in MODULE_PLACEMENTS)
         + '</ModuleInstances>\n</DeviceInstance>')
-    return xml[:start] + device + xml[end:]
+    return xml[:start] + device + '\n' + repeat_devices() + xml[end:]
+
+
+REPEAT_PROGRAM = 'M-0008_A-FFF8-01-0000'
+REPEAT_PROGRAM_NAME = 'TEST: Repeat, Allocatoren, Untermodule (künstliche Testdaten)'
+REPEAT_ASSIGNMENT = MODULE_HARDWARE + '_HP-FFF8-01-0000'
+
+
+def repeat_program():
+    p = REPEAT_PROGRAM
+    segment = p + '_AS-0100'
+    data, mask = bcu1_memory()
+    flags = ('Priority="Low" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Enabled" '
+        'TransmitFlag="Disabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled"')
+    types = ('<ParameterType Id="{p}_PT-Anzahl8" Name="Anzahl8"><TypeNumber SizeInBit="8" Type="unsignedInt" '
+        'minInclusive="0" maxInclusive="8" /></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Anzahl3" Name="Anzahl3"><TypeNumber SizeInBit="8" Type="unsignedInt" '
+        'minInclusive="0" maxInclusive="3" /></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Anzahl5" Name="Anzahl5"><TypeNumber SizeInBit="8" Type="unsignedInt" '
+        'minInclusive="0" maxInclusive="5" /></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Wert" Name="Wert"><TypeNumber SizeInBit="8" Type="unsignedInt" '
+        'minInclusive="0" maxInclusive="255" /></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Typ" Name="Typ"><TypeRestriction Base="Value" SizeInBit="8">'
+        '<Enumeration Id="{p}_PT-Typ_EN-0" Text="Aus" Value="0" DisplayOrder="0" />'
+        '<Enumeration Id="{p}_PT-Typ_EN-1" Text="Analog" Value="1" DisplayOrder="1" />'
+        '<Enumeration Id="{p}_PT-Typ_EN-2" Text="Digital" Value="2" DisplayOrder="2" />'
+        '</TypeRestriction></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Text" Name="Text"><TypeText SizeInBit="32" /></ParameterType>\n')
+    params = ('<Parameter Id="{p}_P-1" Name="AnzahlSignale" Text="Anzahl Signale" ParameterType="{p}_PT-Anzahl8" '
+        'Access="ReadWrite" Value="2"><Memory CodeSegment="' + segment + '" Offset="88" BitOffset="0" /></Parameter>\n'
+        '<Parameter Id="{p}_P-2" Name="AnzahlKanaele" Text="Anzahl Kanäle" ParameterType="{p}_PT-Anzahl3" '
+        'Access="ReadWrite" Value="2"><Memory CodeSegment="' + segment + '" Offset="89" BitOffset="0" /></Parameter>\n')
+    refs = '<ParameterRef Id="{p}_P-1_R-1" RefId="{p}_P-1" />\n<ParameterRef Id="{p}_P-2_R-1" RefId="{p}_P-2" />\n'
+    # The objects 0 to 2 of the object table of the static data: the program's own.
+    objects = ''.join('<ComObject Id="{p}_O-%d" Name="Allgemein%d" Text="Allgemein %d" Number="%d" ObjectSize="1 Bit" '
+        % (n, n, n, n) + flags + ' />' for n in range(3))
+    objrefs = ''.join('<ComObjectRef Id="{p}_O-%d_R-1" RefId="{p}_O-%d" />' % (n, n) for n in range(3))
+    allocators = ('<Allocators><Allocator Id="{p}_L-1" Name="Signal_params" Start="160" maxInclusive="224" />'
+        '<Allocator Id="{p}_L-2" Name="Signal_objs" Start="10" maxInclusive="15" />'
+        '<Allocator Id="{p}_L-3" Name="Nummer" Start="1" maxInclusive="6" />'
+        '<Allocator Id="{p}_L-4" Name="Kanal_params" Start="96" maxInclusive="120" />'
+        '<Allocator Id="{p}_L-5" Name="Kanal_objs" Start="20" maxInclusive="28" /></Allocators>\n')
+    signal = ('<ModuleDef Id="{p}_MD-1" Name="Signal"><Arguments>'
+        '<Argument Id="{p}_MD-1_A-1" Name="ParamsOffsetBase" Allocates="32" />'
+        '<Argument Id="{p}_MD-1_A-2" Name="ObjNumberBase" Allocates="2" />'
+        '<Argument Id="{p}_MD-1_A-3" Name="SigNo" Allocates="1" /></Arguments>\n<Static><Parameters>'
+        '<Parameter Id="{p}_MD-1_P-1" Name="Typ" Text="Signal {{SigNo}}: Typ" ParameterType="{p}_PT-Typ" '
+        'Access="ReadWrite" Value="1"><Memory CodeSegment="' + segment + '" Offset="0" BitOffset="0" '
+        'BaseOffset="{p}_MD-1_A-1" /></Parameter>'
+        '<Parameter Id="{p}_MD-1_P-2" Name="Name" Text="Signal {{SigNo}}: Name" ParameterType="{p}_PT-Text" '
+        'Access="ReadWrite" Value="Sig"><Memory CodeSegment="' + segment + '" Offset="1" BitOffset="0" '
+        'BaseOffset="{p}_MD-1_A-1" /></Parameter></Parameters>\n'
+        '<ParameterRefs><ParameterRef Id="{p}_MD-1_P-1_R-1" RefId="{p}_MD-1_P-1" />'
+        '<ParameterRef Id="{p}_MD-1_P-2_R-1" RefId="{p}_MD-1_P-2" /></ParameterRefs>\n'
+        '<ComObjects><ComObject Id="{p}_MD-1_O-1-0" Name="Wert" Text="Signal {{SigNo}}: Wert" FunctionText="Wert" '
+        'Number="0" BaseNumber="{p}_MD-1_A-2" ObjectSize="1 Byte" ' + flags + ' />'
+        '<ComObject Id="{p}_MD-1_O-1-1" Name="Status" Text="Signal {{SigNo}}: Status" FunctionText="Status" '
+        'Number="1" BaseNumber="{p}_MD-1_A-2" ObjectSize="1 Bit" ' + flags + ' DatapointType="DPST-1-11" />'
+        '</ComObjects>\n<ComObjectRefs>'
+        '<ComObjectRef Id="{p}_MD-1_O-1-0_R-1" RefId="{p}_MD-1_O-1-0" Text="Signal {{SigNo}}: {{0}}" '
+        'TextParameterRefId="{p}_MD-1_P-2_R-1" />'
+        '<ComObjectRef Id="{p}_MD-1_O-1-1_R-1" RefId="{p}_MD-1_O-1-1" /></ComObjectRefs></Static>\n'
+        '<Dynamic><Channel Id="{p}_MD-1_CH-1" Name="Signal" Text="Signal {{SigNo}}: {{0}}" '
+        'TextParameterRefId="{p}_MD-1_P-2_R-1">'
+        '<ParameterBlock Id="{p}_MD-1_PB-1" Name="Signal" Text="{{0:Signal {{SigNo}}}}" '
+        'TextParameterRefId="{p}_MD-1_P-2_R-1">'
+        '<ParameterRefRef RefId="{p}_MD-1_P-1_R-1" /><ParameterRefRef RefId="{p}_MD-1_P-2_R-1" />'
+        '<ComObjectRefRef RefId="{p}_MD-1_O-1-0_R-1" /><ComObjectRefRef RefId="{p}_MD-1_O-1-1_R-1" />'
+        '</ParameterBlock></Channel></Dynamic></ModuleDef>\n')
+    q = '{p}_MD-2_SM-1'
+    scene = ('<SubModuleDefs><ModuleDef Id="' + q + '" Name="Szene"><Arguments>'
+        '<Argument Id="' + q + '_A-1" Name="SzOffs" Allocates="2" /><Argument Id="' + q + '_A-2" Name="SzObj" Allocates="1" />'
+        '<Argument Id="' + q + '_A-3" Name="KaNo" /><Argument Id="' + q + '_A-4" Name="SzNo" Allocates="1" /></Arguments>'
+        '<Static><Parameters><Parameter Id="' + q + '_P-1" Name="Wert" Text="Kanal {{KaNo}}, Szene {{SzNo}}: Wert" '
+        'ParameterType="{p}_PT-Wert" Access="ReadWrite" Value="5"><Memory CodeSegment="' + segment + '" Offset="0" '
+        'BitOffset="0" BaseOffset="' + q + '_A-1" /></Parameter></Parameters>'
+        '<ParameterRefs><ParameterRef Id="' + q + '_P-1_R-1" RefId="' + q + '_P-1" /></ParameterRefs>'
+        '<ComObjects><ComObject Id="' + q + '_O-1-0" Name="Szene" Text="Szene {{SzNo}}" FunctionText="Szene" Number="0" '
+        'BaseNumber="' + q + '_A-2" ObjectSize="1 Byte" ' + flags + ' /></ComObjects>'
+        '<ComObjectRefs><ComObjectRef Id="' + q + '_O-1-0_R-1" RefId="' + q + '_O-1-0" '
+        'Text="Kanal {{KaNo}}, Szene {{SzNo}}" /></ComObjectRefs></Static>'
+        '<Dynamic><ParameterBlock Id="' + q + '_PB-1" Name="Szene" Text="Szene {{SzNo}}">'
+        '<ParameterRefRef RefId="' + q + '_P-1_R-1" /><ComObjectRefRef RefId="' + q + '_O-1-0_R-1" />'
+        '</ParameterBlock></Dynamic></ModuleDef></SubModuleDefs>')
+    channel = ('<ModuleDef Id="{p}_MD-2" Name="Kanal"><Arguments>'
+        '<Argument Id="{p}_MD-2_A-1" Name="KaOffs" Allocates="12" />'
+        '<Argument Id="{p}_MD-2_A-2" Name="KaObj" Allocates="4" />'
+        '<Argument Id="{p}_MD-2_A-3" Name="KaNo" Allocates="1" /></Arguments>\n<Static><Parameters>'
+        '<Parameter Id="{p}_MD-2_P-1" Name="AnzahlSzenen" Text="Kanal {{KaNo}}: Anzahl Szenen" '
+        'ParameterType="{p}_PT-Anzahl5" Access="ReadWrite" Value="1"><Memory CodeSegment="' + segment + '" Offset="0" '
+        'BitOffset="0" BaseOffset="{p}_MD-2_A-1" /></Parameter></Parameters>\n'
+        '<ParameterRefs><ParameterRef Id="{p}_MD-2_P-1_R-1" RefId="{p}_MD-2_P-1" /></ParameterRefs>\n'
+        '<ComObjects><ComObject Id="{p}_MD-2_O-1-0" Name="Kanal" Text="Kanal {{KaNo}}" FunctionText="Kanal" Number="0" '
+        'BaseNumber="{p}_MD-2_A-2" ObjectSize="1 Bit" ' + flags + ' /></ComObjects>\n'
+        '<ComObjectRefs><ComObjectRef Id="{p}_MD-2_O-1-0_R-1" RefId="{p}_MD-2_O-1-0" /></ComObjectRefs>\n'
+        '<Allocators><Allocator Id="{p}_MD-2_L-1" Name="Szene_params" Start="2" maxInclusive="6" />'
+        '<Allocator Id="{p}_MD-2_L-2" Name="Szene_objs" Start="1" maxInclusive="3" />'
+        '<Allocator Id="{p}_MD-2_L-3" Name="Szene_num" Start="1" maxInclusive="3" /></Allocators></Static>\n'
+        + scene +
+        '<Dynamic><Channel Id="{p}_MD-2_CH-1" Name="Kanal" Text="Kanal {{KaNo}}">'
+        '<ParameterBlock Id="{p}_MD-2_PB-1" Name="Kanal" Text="Kanal {{KaNo}}">'
+        '<ParameterRefRef RefId="{p}_MD-2_P-1_R-1" /><ComObjectRefRef RefId="{p}_MD-2_O-1-0_R-1" /></ParameterBlock>'
+        '<Repeat Id="{p}_MD-2_X-1" Name="Szenen" ParameterRefId="{p}_MD-2_P-1_R-1">'
+        '<Module Id="' + q + '_M-1" RefId="' + q + '" Name="Szene">'
+        '<NumericArg RefId="' + q + '_A-1" AllocatorRefId="{p}_MD-2_L-1" BaseValue="{p}_MD-2_A-1" />'
+        '<NumericArg RefId="' + q + '_A-2" AllocatorRefId="{p}_MD-2_L-2" BaseValue="{p}_MD-2_A-2" />'
+        '<NumericArg RefId="' + q + '_A-3" Value="0" BaseValue="{p}_MD-2_A-3" />'
+        '<NumericArg RefId="' + q + '_A-4" AllocatorRefId="{p}_MD-2_L-3" /></Module>'
+        '</Repeat></Channel></Dynamic></ModuleDef>\n')
+    # The positions of the elements of the dynamic part (ETS: XmlOrder, the dynamic part counting 0):
+    # X-1 is 5, MD-1_M-1 6, X-2 10, MD-2_M-1 11; in MD-2, MD-2_X-1 is 5 and the placement of the scene 6.
+    dynamic = ('<Dynamic><ChannelIndependentBlock><ParameterBlock Id="{p}_PB-1" Name="Allgemein" Text="Allgemein">'
+        '<ParameterRefRef RefId="{p}_P-1_R-1" /><ParameterRefRef RefId="{p}_P-2_R-1" /></ParameterBlock>'
+        '</ChannelIndependentBlock>\n'
+        '<Repeat Id="{p}_X-1" Name="Signale" ParameterRefId="{p}_P-1_R-1"><Module Id="{p}_MD-1_M-1" RefId="{p}_MD-1" '
+        'Name="Signal"><NumericArg RefId="{p}_MD-1_A-1" AllocatorRefId="{p}_L-1" />'
+        '<NumericArg RefId="{p}_MD-1_A-2" AllocatorRefId="{p}_L-2" /><NumericArg RefId="{p}_MD-1_A-3" '
+        'AllocatorRefId="{p}_L-3" /></Module></Repeat>\n'
+        '<Repeat Id="{p}_X-2" Name="Kanäle" ParameterRefId="{p}_P-2_R-1"><Module Id="{p}_MD-2_M-1" RefId="{p}_MD-2" '
+        'Name="Kanal"><NumericArg RefId="{p}_MD-2_A-1" AllocatorRefId="{p}_L-4" />'
+        '<NumericArg RefId="{p}_MD-2_A-2" AllocatorRefId="{p}_L-5" /><NumericArg RefId="{p}_MD-2_A-3" '
+        'AllocatorRefId="{p}_L-3" /></Module></Repeat></Dynamic>\n')
+    xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<KNX xmlns="http://knx.org/xml/project/23" CreatedBy="make-fixtures.py" ToolVersion="test">\n'
+        '<ManufacturerData><Manufacturer RefId="M-0008"><ApplicationPrograms>\n'
+        '<ApplicationProgram Id="{p}" Name="' + REPEAT_PROGRAM_NAME + '" ApplicationNumber="65528" '
+        'ApplicationVersion="1" ProgramType="ApplicationProgram" MaskVersion="MV-0012" '
+        'LoadProcedureStyle="DefaultProcedure" PeiType="0" DefaultLanguage="de-DE" DynamicTableManagement="1" '
+        'Linkable="0" MinEtsVersion="6.0" NonRegRelevantDataVersion="0">\n'
+        '<Static>\n<Code><AbsoluteSegment Id="' + segment + '" Address="256" Size="256" UserMemory="0"><Data>' + data
+        + '</Data><Mask>' + mask + '</Mask></AbsoluteSegment></Code>\n'
+        '<ParameterTypes>\n' + types + '</ParameterTypes>\n'
+        '<Parameters>\n' + params + '</Parameters>\n'
+        '<ParameterRefs>\n' + refs + '</ParameterRefs>\n'
+        '<ComObjectTable CodeSegment="' + segment + '" Offset="54">' + objects + '</ComObjectTable>\n'
+        '<ComObjectRefs>' + objrefs + '</ComObjectRefs>\n'
+        '<AddressTable CodeSegment="' + segment + '" Offset="22" MaxEntries="6" />\n'
+        '<AssociationTable CodeSegment="' + segment + '" Offset="37" MaxEntries="8" />\n'
+        '<Options ParameterByteOrder="BigEndian" />\n' + allocators +
+        '</Static>\n<ModuleDefs>' + signal + channel + '</ModuleDefs>\n' + dynamic
+        + '</ApplicationProgram>\n</ApplicationPrograms></Manufacturer></ManufacturerData>\n</KNX>\n')
+    return xml.replace('{p}', p)
+
+
+def repeat_devices():
+    p = REPEAT_PROGRAM
+
+    def instance(ident, ref, index, arguments):
+        return ('<ModuleInstance Id="%s" RefId="%s" RepeatIndex="%s"><Arguments>' % (ident, ref, index)
+            + ''.join('<Argument RefId="%s" Value="%s" />' % arg for arg in arguments) + '</Arguments></ModuleInstance>\n')
+
+    signals = ''.join(instance('MD-1_M-1_MI-%d' % n, 'MD-1_M-1', '5x%d 6x1' % n,
+        [('MD-1_A-1', 'L-1'), ('MD-1_A-2', 'L-2'), ('MD-1_A-3', 'L-3')]) for n in (1, 2, 3))
+    channels = ''.join(instance('MD-2_M-1_MI-%d' % n, 'MD-2_M-1', '10x%d 11x1' % n,
+        [('MD-2_A-1', 'L-4'), ('MD-2_A-2', 'L-5'), ('MD-2_A-3', 'L-3')]) for n in (1, 2))
+    scenes = ''.join(instance('MD-2_M-1_MI-%d_SM-1_M-1_MI-%d-1-%d' % (c, c, k), 'MD-2_M-1', '10x%d 11x1 5x%d 6x1' % (c, k),
+        [('SM-1_A-1', 'MD-2_L-1'), ('SM-1_A-2', 'MD-2_L-2'), ('SM-1_A-3', '0'), ('SM-1_A-4', 'MD-2_L-3')])
+        for c, k in ((1, 1), (2, 1), (2, 2)))
+    repeat = ('<DeviceInstance Id="P-01A0-0_DI-3" Name="TEST Repeat-Gerät" ProductRefId="' + MODULE_PRODUCT
+        + '" Hardware2ProgramRefId="' + REPEAT_ASSIGNMENT + '" Address="3" LastModified="2026-11-08T12:00:00">\n'
+        '<ParameterInstanceRefs>\n'
+        '<ParameterInstanceRef RefId="' + p + '_P-1_R-1" Value="3" />\n'
+        '<ParameterInstanceRef RefId="' + p + '_MD-1_M-1_MI-2_P-2_R-1" Value="Süd" />\n'
+        '<ParameterInstanceRef RefId="' + p + '_MD-1_M-1_MI-3_P-2_R-1" Value="" />\n'
+        '<ParameterInstanceRef RefId="' + p + '_MD-2_M-1_MI-2_P-1_R-1" Value="2" />\n'
+        '<ParameterInstanceRef RefId="' + p + '_MD-2_M-1_MI-2-1-2_SM-1_P-1_R-1" Value="7" />\n'
+        '</ParameterInstanceRefs>\n<ComObjectInstanceRefs>\n'
+        '<ComObjectInstanceRef RefId="MD-1_M-1_MI-2_O-1-0_R-1" IsActive="true" Links="GA-2" />\n'
+        '<ComObjectInstanceRef RefId="MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-2_O-1-0_R-1" IsActive="true" Links="GA-3" />\n'
+        '</ComObjectInstanceRefs>\n<ModuleInstances>\n' + signals + channels + scenes
+        + '</ModuleInstances>\n</DeviceInstance>')
+    # The same program as 1.0.1, its memory written with another layout: ParamOffsBase of Kanal A 80.
+    old = ('<DeviceInstance Id="P-01A0-0_DI-2" Name="TEST Modulgerät alt" ProductRefId="' + MODULE_PRODUCT
+        + '" Hardware2ProgramRefId="' + MODULE_ASSIGNMENT + '" Address="2" LastModified="2026-11-08T12:00:00">\n'
+        '<ParameterInstanceRefs>\n<ParameterInstanceRef RefId="' + MODULE_PROGRAM + '_MD-1_M-2_MI-1_P-2_R-1" '
+        'Value="Bad" />\n</ParameterInstanceRefs>\n<ComObjectInstanceRefs>\n'
+        '<ComObjectInstanceRef RefId="MD-1_M-2_MI-1_O-2-0_R-1" IsActive="true" Links="GA-4" />\n'
+        '</ComObjectInstanceRefs>\n<ModuleInstances>\n'
+        '<ModuleInstance Id="MD-1_M-1_MI-1" RefId="MD-1_M-1"><Arguments><Argument RefId="MD-1_A-1" Value="80" />'
+        '<Argument RefId="MD-1_A-2" Value="1" /><Argument RefId="MD-1_A-3" Value="A" /></Arguments></ModuleInstance>\n'
+        '</ModuleInstances>\n</DeviceInstance>')
+    return old + '\n' + repeat
 
 
 def modules(name, xml):
@@ -1380,7 +1601,8 @@ write('src/test/fixtures/TestBcu1.knxproj', bcu1,
      for program, _, number, name, with_data in BCU1_PROGRAMS])
 write('src/test/fixtures/TestEts6.knxproj', ets6, rename=ets6_name, master=('MV-FFF0', 'DPT-10', 'DPT-20'))
 write('src/test/fixtures/TestModules.knxproj', modules,
-    [('M-0008/Hardware.xml', module_hardware()), ('M-0008/' + MODULE_PROGRAM + '.xml', module_program())],
+    [('M-0008/Hardware.xml', module_hardware()), ('M-0008/' + MODULE_PROGRAM + '.xml', module_program()),
+     ('M-0008/' + REPEAT_PROGRAM + '.xml', repeat_program())],
     keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))
 languages_fixture('src/test/fixtures/TestLanguagesA.knxprod', {LANGUAGE_PROGRAMS[1][0]})
 languages_fixture('src/test/fixtures/TestLanguagesB.knxprod', {LANGUAGE_PROGRAMS[0][0]})

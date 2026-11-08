@@ -64,6 +64,7 @@ import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
 import de.haumacher.ehome.programming.download.LoadControls;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * Reads the configuration of a device back into the project: its group addresses and connections,
@@ -624,7 +625,7 @@ public class ReadBack {
 		Set<Object> active = new HashSet<>(configuration.getActiveViews().keySet());
 		for (Object setting : new ArrayList<>((Collection<?>) device.tValueByName("settings"))) {
 			TLObject value = (TLObject) setting;
-			if (!(value.tValueByName("parameter") instanceof ParameterView view) || !active.contains(view.getParameter())) {
+			if (!(ModuleParts.parameter(value) instanceof ParameterView view) || !active.contains(view.getParameter())) {
 				value.tDelete();
 				configuration = null;
 			}
@@ -659,7 +660,7 @@ public class ReadBack {
 		List<String> result = new ArrayList<>();
 		for (Object element : (Collection<?>) device.tValueByName("settings")) {
 			TLObject setting = (TLObject) element;
-			if (setting.tValueByName("parameter") instanceof ParameterView view && view.getParameter() != null
+			if (ModuleParts.parameter(setting) instanceof ParameterView view && view.getParameter() != null
 				&& view.getParameter().getAddress() == null) {
 				result.add(view.getParameter().getName() + " (" + view.getParameter().getExtId() + ") = "
 					+ ParameterValues.encode(setting));
@@ -1171,7 +1172,7 @@ public class ReadBack {
 			for (int attempt = 0; attempt < MAX_DEPTH * 2; attempt++) {
 				decode();
 				Interface now = configuration().getActiveInterfaces().get(port);
-				if (now == candidate) {
+				if (candidate.equals(now)) {
 					return true;
 				}
 				if (now == null || !unblock(now, moves)) {
@@ -1179,7 +1180,7 @@ public class ReadBack {
 				}
 			}
 			decode();
-			return configuration().getActiveInterfaces().get(port) == candidate;
+			return candidate.equals(configuration().getActiveInterfaces().get(port));
 		}
 
 		/**
@@ -1391,7 +1392,7 @@ public class ReadBack {
 			Map<ParameterView, Object> result = new LinkedHashMap<>();
 			for (Object element : (Collection<?>) _device.tValueByName("settings")) {
 				TLObject setting = (TLObject) element;
-				if (setting.tValueByName("parameter") instanceof ParameterView view) {
+				if (ModuleParts.parameter(setting) instanceof ParameterView view) {
 					result.put(view, ParameterValues.value(setting));
 				}
 			}
@@ -1406,7 +1407,7 @@ public class ReadBack {
 			List<TLObject> removed = new ArrayList<>();
 			for (Object element : (Collection<?>) _device.tValueByName("settings")) {
 				TLObject setting = (TLObject) element;
-				if (setting.tValueByName("parameter") instanceof ParameterView view) {
+				if (ModuleParts.parameter(setting) instanceof ParameterView view) {
 					if (state.containsKey(view)) {
 						now.put(view, setting);
 					} else {
@@ -1637,7 +1638,7 @@ public class ReadBack {
 		}
 		Set<String> existing = new HashSet<>();
 		for (TLObject connector : configuration.getConnectors()) {
-			Port port = connector.tValueByName("port") instanceof Interface placed ? placed.getPort() : null;
+			Port port = ModuleParts.port(connector) instanceof Interface placed ? placed.getPort() : null;
 			for (Object element : new ArrayList<>((Collection<?>) connector.tValueByName("connections"))) {
 				TLObject connection = (TLObject) element;
 				String key = (port == null ? "?" : port.getIndex()) + "/"
@@ -1777,12 +1778,12 @@ public class ReadBack {
 
 	private static TLObject connector(TLObject device, DeviceConfiguration configuration, Interface placed) {
 		for (TLObject connector : configuration.getConnectors()) {
-			if (connector.tValueByName("port") instanceof Interface other && other.getPort() == placed.getPort()) {
+			if (ModuleParts.port(connector) instanceof Interface other && other.getPort().equals(placed.getPort())) {
 				return connector;
 			}
 		}
 		TLObject connector = InstallationBuilder.create("ehome.physical:Connector");
-		connector.tUpdateByName("port", placed);
+		ModuleParts.bind(connector, ModuleParts.PORT, placed);
 		connector.tUpdateByName("active", Boolean.TRUE);
 		InstallationBuilder.add(device, "connectors", connector);
 		return connector;

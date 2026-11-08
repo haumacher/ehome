@@ -34,6 +34,7 @@ import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.DownloadImage.PropertyWrite;
 import de.haumacher.ehome.programming.ParameterEncoding;
+import de.haumacher.ehome.modules.ModuleInstances;
 
 /**
  * Computes the {@link DownloadPlan} of a device from its project data, without any bus.
@@ -282,6 +283,17 @@ public class DownloadPlanner {
 		if (_program.getUsesModules()) {
 			_problems.add(I18NConstants.ERROR_PROGRAM_USES_MODULES);
 			return result(device, address, kind);
+		}
+		if (!_program.getModules().isEmpty()) {
+			// The layout of the device's dynamic modules (haumacher/ehome #119).
+			_problems.addAll(new DeviceConfiguration(_device).getModuleProblems());
+			String differences = ModuleInstances.differenceText(_device);
+			if (differences != null && kind != DownloadPlan.Kind.LAYOUT) {
+				_problems.add(I18NConstants.ERROR_MODULE_LAYOUT_DIFFERS__DIFFERENCES.fill(differences));
+			}
+		}
+		if (kind == DownloadPlan.Kind.LAYOUT && ModuleInstances.differenceText(_device) == null) {
+			_problems.add(I18NConstants.ERROR_NO_LAYOUT_DIFFERENCE);
 		}
 		_image = DownloadImage.compute(_device);
 		for (String problem : _image.getProblems()) {

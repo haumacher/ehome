@@ -40,11 +40,9 @@ import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
-import com.top_logic.util.Resources;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.importer.I18NConstants;
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.monitor.DatapointCodec;
@@ -81,20 +79,16 @@ public class TestEts6Import extends BasicTestCase {
 			assertEquals(23, importer.getSchemaVersion());
 			List<BufferingI18NLog.Entry> messages = importer.getMessages();
 			assertEquals(List.of(), Ets6Files.errors(messages));
-			// The only warnings: the dynamic module of the program, which takes an argument from an
-			// allocator and is not expanded, and the device's setting and object of an instance of it,
-			// which are left out (besides those about mask versions the database holds from other master
+			// The only warning: the device's object of an instance of the dynamic module, which is none of
+			// the module and is left out. The setting of the instance is kept: the module (its argument from
+			// an allocator) is placed in a case the device's value does not take, so its instance is kept
+			// not in effect (besides the warnings about mask versions the database holds from other master
 			// data, see TestEtsImport.withoutMasterData).
 			List<ResKey> warnings = TestEtsImport.withoutMasterData(messages).stream().filter(m -> m.getLevel() == Level.WARN)
 				.map(m -> m.getMessage()).toList();
-			assertEquals(warnings.toString(), 2, warnings.size());
-			assertTrue(warnings.get(0).toString(), warnings.get(0).toString().contains(
-				String.valueOf(I18NConstants.WARN_MODULES_NOT_EXPANDED__PROGRAM_CONSTRUCT.fill(PROGRAM, "Allocator"))));
-			String left = Resources.getInstance(Locale.GERMAN).getString(warnings.get(1));
-			assertTrue(left, left.startsWith("Gerät \""));
-			assertTrue(left, left.endsWith("\": 1 Parametereinstellungen und 1 Kommunikationsobjekte beziehen sich auf "
-				+ "Teile seines Applikationsprogramms, die nicht importiert wurden (dynamische Module); sie werden "
-				+ "weggelassen."));
+			assertEquals(warnings.toString(), 1, warnings.size());
+			String left = warnings.get(0).toString();
+			assertTrue(left, left.contains("WARN_UNRESOLVED_PROGRAM_PARTS__DEVICE_SETTINGS_OBJECTS") && left.endsWith("/i0/i1"));
 
 			checkProject();
 			checkProgram();
@@ -248,11 +242,14 @@ public class TestEts6Import extends BasicTestCase {
 		assertEquals("TEST: ETS 6 (künstliche Testdaten)", derived(program, "name") instanceof ResKey key
 			? ResKeyUtil.getTranslation(key, Locale.GERMAN) : null);
 		// The parameters of the Test program (2187, union members included) and the four of the test;
-		// the parameter of the module is not imported (its argument comes from an allocator).
+		// the parameter of the module is part of its definition (haumacher/ehome #119).
 		assertEquals(2191, program.getParameters().size());
 		assertEquals(3925, program.getParameters().stream().mapToInt(p -> p.getViews().size()).sum());
 		assertEquals(92, program.getPorts().size());
-		assertTrue(program.getUsesModules());
+		assertFalse(program.getUsesModules());
+		assertEquals(1, program.getModules().size());
+		assertEquals(1, program.getModules().get(0).getParameters().size());
+		assertEquals(1, program.getAllocators().size());
 
 		List<?> contents = program.getContents();
 		assertEquals(3, contents.size());
@@ -268,7 +265,9 @@ public class TestEts6Import extends BasicTestCase {
 		List<TLObject> first = list(cases.get(0), "contents");
 		List<TLObject> second = list(cases.get(1), "contents");
 		assertEquals(List.of("ehome.operational:ParameterView", "ehome.operational:Interface"), types(first));
-		assertEquals(List.of("ehome.operational:SharedPlacement", "ehome.operational:SharedPlacement"), types(second));
+		// ... and the placement of the module (haumacher/ehome #119).
+		assertEquals(List.of("ehome.operational:SharedPlacement", "ehome.operational:SharedPlacement",
+			"ehome.operational:ModulePlacement"), types(second));
 		assertSame(first.get(0), second.get(0).tValueByName("placed"));
 		assertSame(first.get(1), second.get(1).tValueByName("placed"));
 		assertEquals(P + "P-9102_R-9102", first.get(0).tValueByName("extId"));
@@ -291,10 +290,10 @@ public class TestEts6Import extends BasicTestCase {
 
 		assertEquals("ehome.operational:Channel", TLModelUtil.qualifiedName(((TLObject) contents.get(2)).tType()));
 
-		// A download of a program with modules is refused with the reason.
+		// A program whose modules are read is not refused for its modules.
 		TLObject device = SharedData.within("ehome.physical:Device", projects()).get(0);
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
-		assertTrue(plan.getProblems().toString(), plan.getProblems().contains(
+		assertFalse(plan.getProblems().toString(), plan.getProblems().contains(
 			de.haumacher.ehome.programming.download.I18NConstants.ERROR_PROGRAM_USES_MODULES));
 	}
 

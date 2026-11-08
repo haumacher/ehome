@@ -34,6 +34,9 @@ import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.modules.InstanceInfo;
+import de.haumacher.ehome.modules.ModuleInstances;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * The changes of the configuration of a device (<code>ehome.physical:Device</code>) against a
@@ -247,7 +250,8 @@ public class DeviceChanges {
 		List<Entry> entries = new ArrayList<>();
 		for (Object setting : (Collection<?>) _device.tValueByName("settings")) {
 			TLObject value = (TLObject) setting;
-			if (value.tValueByName("parameter") instanceof ParameterView view) {
+			ParameterView view = ModuleParts.parameter(value);
+			if (view != null) {
 				TLObject holder = DeviceConfiguration.defaultHolder(view);
 				String reference = ParameterValues.encode(holder);
 				String current = ParameterValues.encode(value);
@@ -264,27 +268,27 @@ public class DeviceChanges {
 		List<Entry> entries = new ArrayList<>();
 
 		// Values: every placement with a setting now or then.
-		Map<ObjectReference, TLObject> referenceSettings = new LinkedHashMap<>();
+		Map<PartRef, TLObject> referenceSettings = new LinkedHashMap<>();
 		for (Object setting : (Collection<?>) historic.tValueByName("settings")) {
 			TLObject value = (TLObject) setting;
 			if (value.tValueByName("parameter") instanceof TLObject view) {
-				referenceSettings.putIfAbsent(identity(view), value);
+				referenceSettings.putIfAbsent(new PartRef(identity(view), ModuleParts.instanceId(value)), value);
 			}
 		}
 		Set<ParameterView> views = new LinkedHashSet<>();
 		for (Object setting : (Collection<?>) _device.tValueByName("settings")) {
-			if (((TLObject) setting).tValueByName("parameter") instanceof ParameterView view) {
+			ParameterView view = ModuleParts.parameter((TLObject) setting);
+			if (view != null) {
 				views.add(view);
 			}
 		}
 		for (TLObject setting : referenceSettings.values()) {
-			if (WrapperHistoryUtils.getCurrent((TLObject) setting.tValueByName("parameter")) instanceof ParameterView view
-				&& view.tValid()) {
+			if (current(setting, "parameter") instanceof ParameterView view && view.tValid()) {
 				views.add(view);
 			}
 		}
 		for (ParameterView view : views) {
-			TLObject referenceSetting = referenceSettings.get(identity(view));
+			TLObject referenceSetting = referenceSettings.get(ref(view));
 			TLObject holder = referenceSetting != null ? referenceSetting : DeviceConfiguration.defaultHolder(view);
 			String reference = ParameterValues.encode(holder);
 			String current = _configuration.value(view);
@@ -295,12 +299,12 @@ public class DeviceChanges {
 
 		// Connections: per communication object (by its definition), the group addresses with the
 		// direction.
-		Map<ObjectReference, List<TLObject>> referenceConnections = connectionsByPort(historic);
-		Map<ObjectReference, List<TLObject>> currentConnections = connectionsByPort(_device);
-		Set<ObjectReference> ports = new LinkedHashSet<>(currentConnections.keySet());
+		Map<PartRef, List<TLObject>> referenceConnections = connectionsByPort(historic);
+		Map<PartRef, List<TLObject>> currentConnections = connectionsByPort(_device);
+		Set<PartRef> ports = new LinkedHashSet<>(currentConnections.keySet());
 		ports.addAll(referenceConnections.keySet());
-		Map<ObjectReference, Interface> placements = placements(historic);
-		for (ObjectReference port : ports) {
+		Map<PartRef, Interface> placements = placements(historic);
+		for (PartRef port : ports) {
 			List<TLObject> before = referenceConnections.getOrDefault(port, List.of());
 			List<TLObject> now = currentConnections.getOrDefault(port, List.of());
 			if (keys(before).equals(keys(now))) {
@@ -341,26 +345,59 @@ public class DeviceChanges {
 	 * The current placement of each communication object the device or its historic self has
 	 * connectors for: the one in effect, else the one a connector names.
 	 */
-	private Map<ObjectReference, Interface> placements(TLObject historic) {
-		Map<ObjectReference, Interface> result = new HashMap<>();
+	private Map<PartRef, Interface> placements(TLObject historic) {
+		Map<PartRef, Interface> result = new HashMap<>();
 		for (Map.Entry<Port, Interface> active : _configuration.getActiveInterfaces().entrySet()) {
-			result.put(identity(active.getKey()), active.getValue());
+			result.put(ref(active.getKey()), active.getValue());
 		}
 		for (TLObject device : List.of(_device, historic)) {
 			for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
-				if (((TLObject) connector).tValueByName("port") instanceof TLObject port) {
-					TLObject current = WrapperHistoryUtils.getCurrent(port);
-					if (current instanceof Interface placed && placed.tValid() && placed.getPort() != null) {
-						result.putIfAbsent(identity(placed.getPort()), placed);
-					}
+				if (current((TLObject) connector, "port") instanceof Interface placed && placed.tValid()
+					&& placed.getPort() != null) {
+					result.putIfAbsent(ref(placed.getPort()), placed);
 				}
 			}
 		}
 		return result;
 	}
 
-	private static Map<ObjectReference, List<TLObject>> connectionsByPort(TLObject device) {
-		Map<ObjectReference, List<TLObject>> result = new LinkedHashMap<>();
+	/**
+	 * A part of the program as a device has it: the unversioned identity of the part of the program
+	 * (of a module, of its template) and the ID of the module instance (haumacher/ehome #119),
+	 * <code>null</code> outside of modules.
+	 */
+	private record PartRef(ObjectReference part, String instance) {
+		// Value.
+	}
+
+	private static PartRef ref(TLObject part) {
+		InstanceInfo instance = ModuleParts.instance(part);
+		return new PartRef(identity(ModuleParts.template(part)), instance == null ? null : instance.getId());
+	}
+
+	/**
+	 * The part a setting or connector of the device, now or at an earlier revision, names, as it is
+	 * now in the device's module instance of the same ID; <code>null</code> if it is gone.
+	 */
+	private TLObject current(TLObject holder, String attribute) {
+		if (!(holder.tValueByName(attribute) instanceof TLObject part)) {
+			return null;
+		}
+		TLObject template = WrapperHistoryUtils.getCurrent(part);
+		String instance = ModuleParts.instanceId(holder);
+		if (template == null || instance == null) {
+			return template;
+		}
+		for (TLObject stored : ModuleInstances.stored(_device)) {
+			if (instance.equals(stored.tValueByName(ModuleInstances.NAME))) {
+				return ModuleParts.wrap(template, InstanceInfo.of(stored));
+			}
+		}
+		return null;
+	}
+
+	private static Map<PartRef, List<TLObject>> connectionsByPort(TLObject device) {
+		Map<PartRef, List<TLObject>> result = new LinkedHashMap<>();
 		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
 			TLObject value = (TLObject) connector;
 			if (!(value.tValueByName("port") instanceof TLObject placed)
@@ -371,7 +408,8 @@ public class DeviceChanges {
 			if (connections.isEmpty()) {
 				continue;
 			}
-			List<TLObject> list = result.computeIfAbsent(identity(port), x -> new ArrayList<>());
+			PartRef key = new PartRef(identity(port), ModuleParts.instanceId(value));
+			List<TLObject> list = result.computeIfAbsent(key, x -> new ArrayList<>());
 			for (Object connection : connections) {
 				list.add((TLObject) connection);
 			}
@@ -486,7 +524,7 @@ public class DeviceChanges {
 		}
 		List<String> path = new ArrayList<>();
 		for (Object page = group; page != null; page = _configuration.getParentPage(page)) {
-			path.add(0, MetaLabelProvider.INSTANCE.getLabel(page));
+			path.add(0, DeviceTexts.label(_device, page));
 			if (page == _device) {
 				break;
 			}

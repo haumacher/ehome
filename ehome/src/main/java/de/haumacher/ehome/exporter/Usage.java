@@ -83,14 +83,25 @@ final class Usage {
 				_masterManufacturers.add(original);
 			}
 			addMask(ref(program, "mask"));
-			for (TLObject port : list(program, "ports")) {
-				addDatapointTypes(port);
-				for (TLObject reference : list(port, "interfaces")) {
-					addDatapointTypes(reference);
-				}
-			}
+			addPortTypes(program);
 		}
 		_masterManufacturers.addAll(_manufacturers);
+	}
+
+	/**
+	 * Adds the datapoint types of the communication objects of the given program or module
+	 * definition, and of its module definitions (haumacher/ehome #119).
+	 */
+	private void addPortTypes(TLObject holder) {
+		for (TLObject port : list(holder, "ports")) {
+			addDatapointTypes(port);
+			for (TLObject reference : list(port, "interfaces")) {
+				addDatapointTypes(reference);
+			}
+		}
+		for (TLObject module : list(holder, "modules")) {
+			addPortTypes(module);
+		}
 	}
 
 	private void addProduct(TLObject product) {

@@ -23,6 +23,7 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * The TL-Script functions of the device templates and of the datapoint type in effect at a
@@ -171,7 +172,7 @@ public class TemplateFunctions extends GenericMethod {
 		}
 		TLObject connector = ModelService.getInstance().getFactory()
 			.createObject((TLClass) TLModelUtil.findType("ehome.physical:Connector"));
-		connector.tUpdateByName("port", placed);
+		ModuleParts.bind(connector, ModuleParts.PORT, placed);
 		List<Object> connectors = new ArrayList<>((Collection<?>) device.tValueByName("connectors"));
 		connectors.add(connector);
 		device.tUpdateByName("connectors", connectors);

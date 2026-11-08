@@ -29,15 +29,18 @@ import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.etsImport.ImportProjectFileJob;
+import de.haumacher.ehome.modules.ModuleInstances;
+import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.projectfile.ProjectFile;
 import de.haumacher.ehome.projectfile.ProjectFileExport;
 
 /**
- * Probe of the module expansion (haumacher/ehome #119) with the project file (haumacher/ehome #117),
- * whose KNX part is the <code>.knxproj</code> export (schema 11, no modules): a device of a program
- * with expanded modules keeps its module settings, its module objects with their group addresses and
- * their labels with the filled text parameter through export and import, and the program is not
- * imported a second time.
+ * Probe of the dynamic modules (haumacher/ehome #119) with the project file (haumacher/ehome #117),
+ * whose KNX part is the <code>.knxproj</code> export (schema 11, no modules; a part of a module
+ * instance named by the ID of the instance's part): the devices of programs with modules keep their
+ * module instances, module settings, module objects with their group addresses and their labels with
+ * the filled text parameter through export and import, and the programs are not imported a second
+ * time.
  */
 @SuppressWarnings("javadoc")
 public class TestModulesRoundTripProbe extends BasicTestCase {
@@ -51,9 +54,11 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 		try {
 			assertEquals(1, projects.size());
 			TLObject original = projects.get(0);
-			String signature = signature(device(original));
+			String signature = signature(original);
 			assertTrue(signature, signature.contains("_MD-1_M-2_MI-1_O-2-0_R-1"));
 			assertTrue(signature, signature.contains("WZ"));
+			// The repeat program (haumacher/ehome #119): an object of a sub-module's instance.
+			assertTrue(signature, signature.contains("_MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-2_O-1-0_R-1"));
 			int programs = programs();
 
 			ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -65,7 +70,7 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 			projects.addAll(imported);
 			assertEquals(1, imported.size());
 
-			assertEquals(signature, signature(device(imported.get(0))));
+			assertEquals(signature, signature(imported.get(0)));
 			assertEquals(programs, programs());
 		} finally {
 			SharedData.deleteProjects(projects);
@@ -77,22 +82,27 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 			.filter(p -> PROGRAM.equals(p.tValueByName("extId"))).count();
 	}
 
-	private static TLObject device(TLObject project) {
-		List<TLObject> devices = SharedData.within("ehome.physical:Device", List.of(project));
-		assertEquals(1, devices.size());
-		return devices.get(0);
+	/**
+	 * The settings and objects of the devices of the project, see {@link #signature(TLObject, TreeSet)}.
+	 */
+	private static String signature(TLObject project) {
+		TreeSet<String> result = new TreeSet<>();
+		for (TLObject device : SharedData.within("ehome.physical:Device", List.of(project))) {
+			signature(device, result);
+		}
+		return String.join("\n", result);
 	}
 
 	/**
-	 * The settings and objects of the device: the parameter by its ID with its value, the object by
-	 * its ID with its label and its group addresses.
+	 * The settings and objects of the device: the parameter by its ID (in its module instance) with its
+	 * value, the object by its ID with its label and its group addresses.
 	 */
-	private static String signature(TLObject device) {
-		TreeSet<String> result = new TreeSet<>();
+	private static void signature(TLObject device, TreeSet<String> result) {
+		String prefix = device.tValueByName("address") + " ";
 		for (TLObject setting : list(device, "settings")) {
 			StringBuilder values = new StringBuilder();
 			for (TLStructuredTypePart part : setting.tType().getAllParts()) {
-				if (part.isDerived() || part.getName().equals("parameter")) {
+				if (part.isDerived() || part.getName().equals("parameter") || part.getName().equals("instance")) {
 					continue;
 				}
 				Object value = setting.tValue(part);
@@ -101,7 +111,7 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 				}
 				values.append(' ').append(part.getName()).append('=').append(value);
 			}
-			result.add("setting " + ((TLObject) setting.tValueByName("parameter")).tValueByName("extId") + values);
+			result.add(prefix + "setting " + ModuleParts.partId(setting, ModuleParts.PARAMETER) + values);
 		}
 		for (TLObject connector : list(device, "connectors")) {
 			TreeSet<String> connections = new TreeSet<>();
@@ -109,10 +119,13 @@ public class TestModulesRoundTripProbe extends BasicTestCase {
 				connections.add(((TLClassifier) connection.tValueByName("kind")).getName() + " "
 					+ ((TLObject) connection.tValueByName("target")).tValueByName("extId"));
 			}
-			result.add("object " + ((TLObject) connector.tValueByName("port")).tValueByName("extId") + " '"
+			result.add(prefix + "object " + ModuleParts.partId(connector, ModuleParts.PORT) + " '"
 				+ derived(connector, "displayName") + "' " + connections);
 		}
-		return String.join("\n", result);
+		for (String instance : ModuleInstances.stored(device).stream()
+			.map(i -> i.tValueByName(ModuleInstances.NAME) + " " + i.tValueByName(ModuleInstances.ACTIVE)).toList()) {
+			result.add(prefix + "instance " + instance);
+		}
 	}
 
 	@SuppressWarnings("unchecked")

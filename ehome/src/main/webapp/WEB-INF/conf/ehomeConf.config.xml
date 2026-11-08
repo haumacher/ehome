@@ -26,6 +26,9 @@
 					<method name="parameterValueType" class="de.haumacher.ehome.knx.ParameterValueType$Builder"/>
 					<method name="matchesPattern" class="de.haumacher.ehome.knx.MatchesPattern$Builder"/>
 					<method name="fillTextParameter" class="de.haumacher.ehome.knx.FillTextParameter$Builder"/>
+					<!-- The parts of dynamic modules in a device's module instance (de.haumacher.ehome.modules.ModuleParts, haumacher/ehome #119). -->
+					<method name="settingParameter" class="de.haumacher.ehome.modules.ModuleFunctions$Builder"/>
+					<method name="connectorPort" class="de.haumacher.ehome.modules.ModuleFunctions$Builder"/>
 					<method name="serialNumberText" class="de.haumacher.ehome.knx.SerialNumberText$Builder"/>
 					<!-- Editing an application program (de.haumacher.ehome.knx.ProgramStructure): one builder per function. -->
 					<method name="structureInsertVeto" class="de.haumacher.ehome.knx.EhomeFunctions$StructureInsertVeto$Builder"/>
@@ -50,6 +53,7 @@
 					<method name="devicePages" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceParentPage" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceItems" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceText" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceSelectedCases" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceInterfaces" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceConnections" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
@@ -137,6 +141,8 @@
 					<method name="compareVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="downloadConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="addressConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="layoutVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="layoutConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<!-- Reading an installation from the bus (de.haumacher.ehome.scan.ScanFunctions): one builder, the function by its name. -->
 					<method name="scanVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanApplyVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>

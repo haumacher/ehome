@@ -51,6 +51,15 @@
 			<classifier name="IPv4"/>
 			<classifier name="IPv6"/>
 		</enum>
+		<!--
+			The kind of an argument of a module definition (ETS: ModuleDef/Arguments/Argument@Type): a
+			number, a text, or an allocator handed on to the placements inside the module.
+		-->
+		<enum name="ArgumentKind">
+			<classifier name="Numeric"/>
+			<classifier name="Text"/>
+			<classifier name="AllocatorRef"/>
+		</enum>
 		<enum name="ValueKind">
 			<classifier name="Value"/>
 			<classifier name="BinaryValue"/>
@@ -372,6 +381,14 @@
 				<property name="number"
 					type="tl.core:Integer"
 				/>
+				<!--
+					The text parameter whose value in a device fills the placeholder {{0}} of the text (ETS:
+					TextParameterRefId), see de.haumacher.ehome.programming.DeviceTexts.
+				-->
+				<reference name="textParameter"
+					kind="forwards"
+					type="ParameterView"
+				/>
 				<!-- The label in the structure tree: number and text of the channel. -->
 				<property name="displayName"
 					type="tl.core:String"
@@ -455,6 +472,14 @@
 						</options>
 					</annotations>
 				</reference>
+				<!--
+					The text parameter whose value in a device fills the placeholder {{0}} of the text (ETS:
+					TextParameterRefId), see de.haumacher.ehome.programming.DeviceTexts.
+				-->
+				<reference name="textParameter"
+					kind="forwards"
+					type="ParameterView"
+				/>
 				<!-- The label in the structure tree: the text of the parameter block. -->
 				<property name="displayName"
 					type="tl.core:String"
@@ -1144,10 +1169,13 @@
 					type="ParameterType"
 				>
 					<annotations>
-						<!-- Only the types of the program defining the parameter. -->
+						<!-- Only the types of the program defining the parameter (directly or in a module definition). -->
 						<options>
 							<options-by-expression>
-								<function><![CDATA[self -> $self.container().get(`ehome.operational:Program#parameterTypes`)]]></function>
+								<function><![CDATA[self -> recursion($self, x -> $x.container())
+    .filter(x -> $x.instanceOf(`ehome.operational:Program`))
+    .firstElement()
+    .get(`ehome.operational:Program#parameterTypes`)]]></function>
 							</options-by-expression>
 						</options>
 					</annotations>
@@ -1547,6 +1575,14 @@
 				<property name="bits"
 					type="tl.core:Integer"
 				/>
+				<!--
+					Of a location of a parameter of a module definition: the argument whose value in a module
+					instance is added to the byte offset (ETS: Memory@BaseOffset, Property@BaseOffset).
+				-->
+				<reference name="baseOffset"
+					kind="forwards"
+					type="ModuleArgument"
+				/>
 				<reference name="usage"
 					inverse-reference="address"
 					kind="backwards"
@@ -1723,6 +1759,14 @@
 						</default-value>
 					</annotations>
 				</reference>
+				<!--
+					Of a communication object of a module definition: the argument whose value in a module
+					instance is added to the number (ETS: ComObject@BaseNumber).
+				-->
+				<reference name="baseNumber"
+					kind="forwards"
+					type="ModuleArgument"
+				/>
 				<!-- The references placing this communication object in the structure. -->
 				<reference name="interfaces"
 					inverse-reference="port"
@@ -1929,12 +1973,32 @@
 				/>
 				<!--
 					Whether the program uses dynamic modules (ETS 5.6 and later: ModuleDefs) the import could not
-					expand into its parts (Repeat, an argument of an Allocator, SubModuleDefs): the parameters and
-					communication objects of its modules are missing, so a download of the program is refused. An
-					import of a file whose modules can be expanded completes the program and removes the mark.
+					read (a construct it cannot interpret, or a program an import before haumacher/ehome #119
+					left without its modules): parts of its modules are missing, so a download of the program is
+					refused. An import of the program's file that reads its modules completes the program and
+					removes the mark.
 				-->
 				<property name="usesModules"
 					type="tl.core:Boolean"
+				/>
+				<!--
+					The module definitions of the program (ETS: ModuleDefs, haumacher/ehome #119): templates
+					its structure places (ModulePlacement), each device computing its instances.
+				-->
+				<reference name="modules"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ModuleDefinition"
+				/>
+				<!-- The allocators handing out the argument values of module instances one after the other (ETS: Allocator). -->
+				<reference name="allocators"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Allocator"
 				/>
 				<!-- Parameter and communication object references that no structure element places. -->
 				<reference name="unplaced"
@@ -1944,6 +2008,257 @@
 					ordered="true"
 					type="Option"
 				/>
+			</attributes>
+		</class>
+		<!--
+			A module definition of a program (ETS: ModuleDef, haumacher/ehome #119): a template of
+			parameters, communication objects and structure that the structure of the program places
+			(ModulePlacement), once or repeated (Repeat), each placement with arguments of its own. The
+			parts of the template are the parts of every instance: a device computes its instances
+			(ehome.physical:ModuleInstance) and names a part of one by the part of the template and the
+			instance; the number of an object, the offset of a parameter and the texts of an instance
+			follow from the arguments (de.haumacher.ehome.modules.ModuleParts).
+
+			Its contents are the structure of the template (ETS: ModuleDef/Dynamic).
+		-->
+		<class name="ModuleDefinition">
+			<generalizations>
+				<generalization type="ConfigFragment"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-boxes"/>
+				<id-column value="name"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The arguments an instance gets from its placement, in the order of ETS. -->
+				<reference name="arguments"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ModuleArgument"
+				/>
+				<reference name="parameters"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Parameter"
+				/>
+				<reference name="ports"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Port"
+				/>
+				<!-- Where the parameters of the template are stored, before an instance's offset is added. -->
+				<reference name="locations"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="Location"
+				/>
+				<!-- The allocators of the module (ETS: ModuleDef/Static/Allocators). -->
+				<reference name="allocators"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Allocator"
+				/>
+				<!-- The module definitions the structure of this one places (ETS: SubModuleDefs). -->
+				<reference name="modules"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ModuleDefinition"
+				/>
+				<!-- Parameter and communication object references of the template that no structure element places. -->
+				<reference name="unplaced"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Option"
+				/>
+			</attributes>
+		</class>
+		<!-- An argument of a module definition (ETS: ModuleDef/Arguments/Argument). -->
+		<class name="ModuleArgument">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<id-column value="name"/>
+			</annotations>
+			<attributes>
+				<!-- The name; {{name}} in a text of the module stands for the value of an instance. -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<reference name="kind"
+					kind="forwards"
+					type="ArgumentKind"
+				/>
+				<!-- By how much an allocator handing out the value of this argument advances (ETS: Allocates). -->
+				<property name="allocates"
+					type="tl.core:Long"
+				/>
+			</attributes>
+		</class>
+		<!--
+			An allocator (ETS: Allocator): hands out the values of the arguments of the module instances
+			of a device that name it, one after the other in the order of the structure, starting at its
+			start value; each value advances it by the Allocates of the argument. A value beyond
+			maxInclusive is refused.
+		-->
+		<class name="Allocator">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<id-column value="name"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="start"
+					type="tl.core:Long"
+				/>
+				<property name="maxInclusive"
+					type="tl.core:Long"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A placement of a module definition in the structure (ETS: Module in Dynamic): where it is in
+			effect, a device has an instance of the module, with the arguments given here.
+		-->
+		<class name="ModulePlacement">
+			<generalizations>
+				<generalization type="Option"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-box"/>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<reference name="module"
+					kind="forwards"
+					mandatory="true"
+					type="ModuleDefinition"
+				/>
+				<reference name="arguments"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="PlacementArgument"
+				/>
+				<!--
+					The position of the element in the document of the program (ETS: XmlOrder), the first part
+					of the repeat index of an instance.
+				-->
+				<property name="order"
+					type="tl.core:Integer"
+				/>
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[p -> #("Module {0}"@en, "Modul {0}"@de).fill(
+    $p.get(`ehome.operational:ModulePlacement#name`)
+        || $p.get(`ehome.operational:ModulePlacement#module`).get(`ehome.operational:ModuleDefinition#name`)).localize()]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!--
+			An argument of a placement (ETS: NumericArg, TextArg): a fixed value, or the next value of an
+			allocator, or the value of an argument of the enclosing module (an allocator handed on).
+		-->
+		<class name="PlacementArgument">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<attributes>
+				<reference name="argument"
+					kind="forwards"
+					mandatory="true"
+					type="ModuleArgument"
+				/>
+				<property name="value"
+					type="tl.core:String"
+				/>
+				<reference name="allocator"
+					kind="forwards"
+					type="Allocator"
+				/>
+				<!-- An argument of the enclosing module whose value is the base the value is added to (ETS: BaseValue). -->
+				<reference name="base"
+					kind="forwards"
+					type="ModuleArgument"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A part of the structure placed several times (ETS: Repeat): as many times as the value of its
+			parameter says, or its fixed count.
+		-->
+		<class name="Repeat">
+			<generalizations>
+				<generalization type="ConfigFragment"/>
+				<generalization type="Option"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-repeat"/>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<property name="count"
+					type="tl.core:Integer"
+				/>
+				<reference name="countParameter"
+					kind="forwards"
+					type="ParameterView"
+				/>
+				<!-- The position of the element in the document of the program (ETS: XmlOrder), see ModulePlacement#order. -->
+				<property name="order"
+					type="tl.core:Integer"
+				/>
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[r -> {
+    view = $r.get(`ehome.operational:Repeat#countParameter`);
+    if($view == null,
+        #("Repeated {0} times"@en, "{0}-mal wiederholt"@de).fill($r.get(`ehome.operational:Repeat#count`)),
+        #("Repeated by {0}"@en, "Wiederholt nach {0}"@de).fill($view.get(`ehome.operational:ParameterView#title`))).localize()
+}]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!-- Where a table of the device lies in the memory of the program, and how many entries it takes. -->

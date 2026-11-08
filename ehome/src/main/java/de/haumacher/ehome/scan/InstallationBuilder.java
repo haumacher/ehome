@@ -24,6 +24,7 @@ import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddresses;
 import de.haumacher.ehome.scan.CatalogMatch.Candidate;
+import de.haumacher.ehome.modules.ModuleInstances;
 
 /**
  * Builds the project of an installation from the devices a scan found: a matched device becomes a
@@ -140,6 +141,8 @@ public class InstallationBuilder {
 		device.tUpdateByName("lastModified", new Date());
 		add(line, "devices", device);
 		ExtIds.assign(device);
+		// The instances of its program's dynamic modules for the default values (haumacher/ehome #119).
+		ModuleInstances.update(device);
 		return device;
 	}
 

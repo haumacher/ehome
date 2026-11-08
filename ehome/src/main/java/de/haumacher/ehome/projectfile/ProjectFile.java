@@ -10,6 +10,8 @@ import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.modules.ModuleParts;
+
 /**
  * The project file <code>&lt;name&gt;.ehome</code> (haumacher/ehome #117): a whole project, to move it
  * to another E-Home installation or to back it up, without secrets and without operating history.
@@ -268,10 +270,11 @@ public final class ProjectFile {
 		if (obj.tType().getPart("extId") != null && obj.tValueByName("extId") instanceof String extId) {
 			return extId;
 		}
-		if (obj.tType().getPart("port") != null && obj.tValueByName("port") instanceof TLObject port
+		if (obj.tType().getPart("port") != null && obj.tValueByName("port") instanceof TLObject
 			&& obj.tContainer() != null) {
 			String device = knxKey(obj.tContainer());
-			String object = knxKey(port);
+			// An object of a module instance by the ID of the instance's part (haumacher/ehome #119).
+			String object = ModuleParts.partId(obj, ModuleParts.PORT);
 			return device == null || object == null ? null : device + "/" + object;
 		}
 		return null;

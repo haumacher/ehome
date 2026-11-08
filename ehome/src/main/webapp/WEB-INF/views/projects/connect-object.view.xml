@@ -83,9 +83,20 @@
 							</label>
 							<value>$row.get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)</value>
 						</computed-column>
-						<column attribute="displayName"
+						<!-- The text with {{0}} filled from the device's values (DeviceTexts). -->
+						<computed-column name="displayName"
+							type="tl.core:String"
 							width="220"
-						/>
+						>
+							<inputs>
+								<input channel="device"/>
+							</inputs>
+							<label>
+								<en>Text</en>
+								<de>Text</de>
+							</label>
+							<value>deviceText($device, $row)</value>
+						</computed-column>
 						<computed-column name="function"
 							type="tl.core:String"
 							width="180"

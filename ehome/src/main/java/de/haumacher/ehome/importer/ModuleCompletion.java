@@ -17,14 +17,16 @@ import com.top_logic.model.util.TLModelUtil;
 /**
  * Where the modules of an application program go that an earlier import left without them
  * (haumacher/ehome #119): the program in the database is marked <code>usesModules</code> and lacks
- * the parts of its modules; the file read now can be expanded (see {@link ModuleExpansion}).
+ * its module definitions, its allocators and the placements of its modules; the file read now has
+ * modules the import can read (see {@link ModuleScan}).
  *
  * <p>
  * The structure of the program in the database is the structure of the file without the
- * <code>&lt;Module&gt;</code> elements, which the earlier import skipped: the plan walks both in
- * parallel and finds for each placement of a module (each wrapper of the expanded file) the structure
- * element and the position in its contents where its structure belongs. The parts with an ID are
- * checked against the file; if the two do not fit, the program is not completed.
+ * <code>&lt;Module&gt;</code> and <code>&lt;Repeat&gt;</code> elements, which the earlier import
+ * skipped: the plan walks both in parallel and finds for each of these elements (not nested in
+ * another one), in the order of the document, the structure element and the position in its contents
+ * where its placement belongs. The parts with an ID are checked against the file; if the two do not
+ * fit, the program is not completed.
  * </p>
  *
  * @see CompleteModules
@@ -80,18 +82,14 @@ final class ModuleCompletion {
 	}
 
 	/**
-	 * Plans the completion of the given program from the given expansion of its file, and numbers the
-	 * wrappers of the expanded structure (attribute {@link ModuleExpansion#SEQUENCE}) by the index of
-	 * their {@link #target(int)}.
+	 * Plans the completion of the given program from the dynamic part of its file: the targets of the
+	 * <code>Module</code> and <code>Repeat</code> elements (not nested in another one), in the order
+	 * of the document ({@link #target(int)}).
 	 */
-	static ModuleCompletion plan(ModuleExpansion.Result expansion, TLObject program) throws Mismatch {
+	static ModuleCompletion plan(Element dynamic, TLObject program) throws Mismatch {
 		ModuleCompletion result = new ModuleCompletion(program);
-		Element dynamic = expansion.getDynamic();
 		if (dynamic != null) {
 			result.walk(dynamic, program, true);
-		}
-		if (result._targets.size() != expansion.getWrappers().size()) {
-			throw new Mismatch("Not every module placement found its place.");
 		}
 		return result;
 	}
@@ -104,20 +102,27 @@ final class ModuleCompletion {
 	}
 
 	/**
-	 * The target of the wrapper with the given {@link ModuleExpansion#SEQUENCE}.
+	 * The target of the <code>Module</code> or <code>Repeat</code> element with the given index in the
+	 * order of the document, <code>null</code> if there is none.
 	 */
 	Target target(int sequence) {
-		return _targets.get(sequence);
+		return sequence < _targets.size() ? _targets.get(sequence) : null;
+	}
+
+	/**
+	 * Whether the element of the given name is a placement the earlier import skipped.
+	 */
+	static boolean isPlacement(String name) {
+		return "Module".equals(name) || "Repeat".equals(name);
 	}
 
 	private void walk(Element xml, TLObject fragment, boolean topLevel) throws Mismatch {
 		List<TLObject> contents = list(fragment, CONTENTS);
 		Set<String> options = topLevel ? TOP_LEVEL : CHANNEL_LEVEL;
 		int index = 0;
-		for (Element child : ModuleExpansion.childElements(xml)) {
+		for (Element child : ModuleScan.childElements(xml)) {
 			String name = child.getLocalName();
-			if (ModuleExpansion.WRAPPER.equals(name)) {
-				child.setAttribute(ModuleExpansion.SEQUENCE, Integer.toString(_targets.size()));
+			if (isPlacement(name)) {
 				_targets.add(new Target(fragment, index, topLevel));
 				continue;
 			}
@@ -144,7 +149,7 @@ final class ModuleCompletion {
 					break;
 				case "choose":
 					expect(option, "Switch", null);
-					List<Element> cases = ModuleExpansion.children(child, "when");
+					List<Element> cases = ModuleScan.children(child, "when");
 					List<TLObject> alternatives = list(option, ALTERNATIVES);
 					if (cases.size() != alternatives.size()) {
 						throw new Mismatch("Cases of a switch differ.");

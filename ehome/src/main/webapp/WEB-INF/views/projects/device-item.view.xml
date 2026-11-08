@@ -108,6 +108,12 @@
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
 		/>
+		<!-- The label of the entry, with {{0}} filled from the device's values (DeviceTexts). -->
+		<derived-channel name="itemLabel"
+			expr="deviceText($device, $item)"
+			inputs="device, item"
+			observed-types="ehome.physical:ParameterSetting"
+		/>
 		<!-- The connection a connect command made. -->
 		<channel name="newConnection"/>
 		<!--
@@ -153,7 +159,7 @@
 			direction="row"
 			gap="compact"
 		>
-			<text input="item"/>
+			<text input="itemLabel"/>
 			<visible-if
 				expr="$changed"
 				input="changed"

@@ -15,6 +15,8 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.modules.ModuleInstances;
+
 /**
  * Records a successful download at the device: what is loaded now (<code>Device#loaded</code>),
  * when (<code>Device#lastDownload</code>) and, for a full download, the revision of the project data
@@ -49,6 +51,10 @@ public class DownloadRecord {
 					loaded.add(part(part));
 				}
 				device.tUpdateByName("downloadRevision", Long.valueOf(revision));
+			}
+			if (kind == DownloadPlan.Kind.LAYOUT) {
+				// The device holds E-Home's layout of its modules now (haumacher/ehome #119).
+				ModuleInstances.clearDifferences(device);
 			}
 			device.tUpdateByName("loaded", loaded);
 			device.tUpdateByName("lastDownload", new Date());

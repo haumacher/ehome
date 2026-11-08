@@ -14,6 +14,7 @@ import com.top_logic.model.util.TLModelUtil;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * The datapoint type in effect at a communication object (haumacher/ehome #103): the one place of
@@ -96,7 +97,7 @@ public final class ObjectTypes {
 		if (own != null) {
 			return own;
 		}
-		return connector.tValueByName("port") instanceof Interface placed ? first(inherited(placed)) : null;
+		return ModuleParts.port(connector) instanceof Interface placed ? first(inherited(placed)) : null;
 	}
 
 	/**
@@ -119,11 +120,11 @@ public final class ObjectTypes {
 		TLObject fallback = null;
 		for (Object element : (Collection<?>) device.tValueByName("connectors")) {
 			TLObject connector = (TLObject) element;
-			if (connector.tValueByName("port") instanceof Interface other) {
-				if (other == placed) {
+			if (ModuleParts.port(connector) instanceof Interface other) {
+				if (other.equals(placed)) {
 					return connector;
 				}
-				if (fallback == null && other.getPort() == placed.getPort()) {
+				if (fallback == null && java.util.Objects.equals(other.getPort(), placed.getPort())) {
 					fallback = connector;
 				}
 			}

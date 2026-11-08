@@ -16,6 +16,15 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	String PORT_TYPE = "Port";
 
 	/**
+	 * Part <code>baseNumber</code> of <code>Port</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ModuleArgument</code> in configuration.
+	 * </p>
+	 */
+	String BASE_NUMBER_ATTR = "baseNumber";
+
+	/**
 	 * Part <code>canRead</code> of <code>Port</code>
 	 * 
 	 * <p>
@@ -163,6 +172,20 @@ public interface PortBase extends de.haumacher.ehome.model.core.Externalized, co
 	 * Name of the table storing {@link #PORT_TYPE} objects.
 	 */
 	String TABLE_NAME = "EHPort";
+
+	/**
+	 * Getter for part {@link #BASE_NUMBER_ATTR}.
+	 */
+	default de.haumacher.ehome.model.operational.ModuleArgument getBaseNumber() {
+		return (de.haumacher.ehome.model.operational.ModuleArgument) tValueByName(BASE_NUMBER_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #BASE_NUMBER_ATTR}.
+	 */
+	default void setBaseNumber(de.haumacher.ehome.model.operational.ModuleArgument newValue) {
+		tUpdateByName(BASE_NUMBER_ATTR, newValue);
+	}
 
 	/**
 	 * Getter for part {@link #CAN_READ_ATTR}.

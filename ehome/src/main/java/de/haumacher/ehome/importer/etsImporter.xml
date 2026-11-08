@@ -764,8 +764,201 @@
 												
 															<dispatch>
 																<tag name="ModuleDefs">
-																	<!-- Dynamic modules (ETS 5.6 and later) the import could not expand (ModuleExpansion): the program is marked, and the import warns naming the construct. The modules of every other program are expanded into its parts before the file is read. -->
-																	<modules-not-imported/>
+																	<!--
+																		Dynamic modules (ETS 5.6 and later, haumacher/ehome #119): each module definition is read once into the
+																		program as a template, which the structure places (Module, Repeat); a device computes its instances. A
+																		program using a construct the import cannot interpret is marked, and the import warns naming the
+																		construct (ReadModules, ModuleScan).
+																	-->
+																	<read-modules definitions="true" id="module-defs">
+																		<dispatch id="module-def-list">
+																			<tag name="ModuleDef">
+																				<object model-type="ehome.operational:ModuleDefinition" id-attribute="Id" var="module">
+																					<linking>
+																						<list-linking name="ehome.operational:Program#modules"/>
+																						<list-linking name="ehome.operational:ModuleDefinition#modules"/>
+																					</linking>
+
+																					<property name="extId" xml-attribute="Id"/>
+																					<property name="name" xml-attribute="Name"/>
+
+																					<dispatch>
+																						<tag name="Arguments">
+																							<dispatch>
+																								<tag name="Argument">
+																									<object model-type="ehome.operational:ModuleArgument" id-attribute="Id">
+																										<linking>
+																											<list-linking name="ehome.operational:ModuleDefinition#arguments"/>
+																										</linking>
+
+																										<property name="extId" xml-attribute="Id"/>
+																										<property name="name" xml-attribute="Name"/>
+																										<property name="kind" xml-attribute="Type">
+																											<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat"
+																												type="ehome.operational:ArgumentKind"
+																											/>
+																										</property>
+																										<property name="allocates" xml-attribute="Allocates" format="com.top_logic.basic.config.format.LongWrapperFormat"/>
+
+																										<dispatch/>
+																									</object>
+																								</tag>
+																							</dispatch>
+																						</tag>
+																						<tag name="Static">
+																							<dispatch>
+																								<tag name="Parameters">
+																									<dispatch>
+																										<tag name="Union">
+																											<forward var="location">
+																												<property name="bits" xml-attribute="SizeInBit" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+																												<dispatch>
+																													<tag name="Memory">
+																														<object model-type="ehome.operational:Pointer" fill-forward-var="location">
+																															<linking target-var="module">
+																																<list-linking name="ehome.operational:ModuleDefinition#locations"/>
+																															</linking>
+																															<reference name="segment" id-attribute="CodeSegment"/>
+																															<property name="byteOffset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																															<property name="bitOffset" xml-attribute="BitOffset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																															<reference name="baseOffset" id-attribute="BaseOffset"/>
+
+																															<dispatch/>
+																														</object>
+																													</tag>
+																													<tag name="Property">
+																														<object model-type="ehome.operational:PropertyLocation" fill-forward-var="location">
+																															<linking target-var="module">
+																																<list-linking name="ehome.operational:ModuleDefinition#locations"/>
+																															</linking>
+																															<ref handler-id="property-location"/>
+																															<reference name="baseOffset" id-attribute="BaseOffset"/>
+
+																															<dispatch/>
+																														</object>
+																													</tag>
+																													<tag name="Parameter">
+																														<object model-type="ehome.operational:Parameter" id-attribute="Id">
+																															<linking>
+																																<ref-linking name="ehome.operational:Parameter#address" reverse="true"/>
+																															</linking>
+																															<linking target-var="module">
+																																<list-linking name="ehome.operational:ModuleDefinition#parameters"/>
+																															</linking>
+
+																															<ref handler-id="parameter-properties"/>
+																															<property name="unionOffset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																															<property name="unionBitOffset" xml-attribute="BitOffset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+
+																															<dispatch/>
+																														</object>
+																													</tag>
+																												</dispatch>
+																											</forward>
+																										</tag>
+																										<tag name="Parameter">
+																											<object model-type="ehome.operational:Parameter" id-attribute="Id">
+																												<linking target-var="module">
+																													<list-linking name="ehome.operational:ModuleDefinition#parameters"/>
+																												</linking>
+
+																												<ref handler-id="parameter-properties"/>
+
+																												<dispatch>
+																													<tag name="Memory">
+																														<object model-type="ehome.operational:Pointer">
+																															<linking target-var="module">
+																																<list-linking name="ehome.operational:ModuleDefinition#locations"/>
+																															</linking>
+																															<linking>
+																																<ref-linking name="ehome.operational:Parameter#address"/>
+																															</linking>
+
+																															<reference name="segment" id-attribute="CodeSegment"/>
+																															<property name="byteOffset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																															<property name="bitOffset" xml-attribute="BitOffset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																															<!-- The argument whose value in an instance is added to the offset. -->
+																															<reference name="baseOffset" id-attribute="BaseOffset"/>
+
+																															<dispatch/>
+																														</object>
+																													</tag>
+																													<tag name="Property">
+																														<object model-type="ehome.operational:PropertyLocation">
+																															<linking target-var="module">
+																																<list-linking name="ehome.operational:ModuleDefinition#locations"/>
+																															</linking>
+																															<linking>
+																																<ref-linking name="ehome.operational:Parameter#address"/>
+																															</linking>
+
+																															<ref handler-id="property-location"/>
+																															<reference name="baseOffset" id-attribute="BaseOffset"/>
+
+																															<dispatch/>
+																														</object>
+																													</tag>
+																												</dispatch>
+																											</object>
+																										</tag>
+																									</dispatch>
+																								</tag>
+																								<tag name="ParameterRefs">
+																									<ref handler-id="parameter-refs"/>
+																								</tag>
+																								<!-- The communication objects of a module (ETS: ComObjects, the program's are in ComObjectTable). -->
+																								<tag name="ComObjects">
+																									<dispatch>
+																										<tag name="ComObject">
+																											<object model-type="ehome.operational:Port" id-attribute="Id">
+																												<linking target-var="module">
+																													<list-linking name="ehome.operational:ModuleDefinition#ports"/>
+																												</linking>
+
+																												<ref handler-id="com-object-properties"/>
+																												<!-- The argument whose value in an instance is added to the number. -->
+																												<reference name="baseNumber" id-attribute="BaseNumber"/>
+
+																												<dispatch/>
+																											</object>
+																										</tag>
+																									</dispatch>
+																								</tag>
+																								<tag name="ComObjectRefs">
+																									<ref handler-id="com-object-refs"/>
+																								</tag>
+																								<tag name="Allocators">
+																									<dispatch>
+																										<tag name="Allocator">
+																											<object model-type="ehome.operational:Allocator" id-attribute="Id">
+																												<linking>
+																													<list-linking name="ehome.operational:ModuleDefinition#allocators"/>
+																												</linking>
+
+																												<ref handler-id="allocator-properties"/>
+
+																												<dispatch/>
+																											</object>
+																										</tag>
+																									</dispatch>
+																								</tag>
+																							</dispatch>
+																						</tag>
+																						<tag name="SubModuleDefs">
+																							<ref handler-id="module-def-list"/>
+																						</tag>
+																						<!-- The structure of the template. -->
+																						<tag name="Dynamic">
+																							<ref handler-id="dynamic-contents"/>
+																						</tag>
+																					</dispatch>
+																					<!-- Parameter and communication object references of the template that no structure element places. -->
+																					<assign argument-var="this" property="unplaced" value="m -> concat($m.get(`ehome.operational:ModuleDefinition#parameters`).get(`ehome.operational:Parameter#views`), $m.get(`ehome.operational:ModuleDefinition#ports`).get(`ehome.operational:Port#interfaces`)).filter(x -> $x.container() == null)"/>
+																				</object>
+																			</tag>
+																		</dispatch>
+																	</read-modules>
 																</tag>
 																<tag name="Static">
 																	<dispatch>
@@ -954,8 +1147,6 @@
 																		</tag>
 																		<tag name="Parameters">
 																			<dispatch id="parameters">
-																				<!-- The parts of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
-																				<tag name="ExpandedModule"><ref handler-id="parameters"/></tag>
 																				<tag name="Union">
 																					<!--
 																						The parameters of a union share one location, which the first child element defines: a forward
@@ -1031,16 +1222,18 @@
 																							<list-linking name="ehome.operational:Program#parameters"/>
 																						</linking>
 
-																						<property name="extId" xml-attribute="Id"/>
-																						<property name="name" xml-attribute="Name"/>
-																						<ref handler-id="parameter-texts"/>
-																						<reference name="type" id-attribute="ParameterType"/>
-																						<property name="access" xml-attribute="Access">
-																							<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																								type="ehome.operational:AccessKind"
-																							/>
-																						</property>
-																						<typed-value xml-attribute="Value"/>
+																						<group id="parameter-properties">
+																							<property name="extId" xml-attribute="Id"/>
+																							<property name="name" xml-attribute="Name"/>
+																							<ref handler-id="parameter-texts"/>
+																							<reference name="type" id-attribute="ParameterType"/>
+																							<property name="access" xml-attribute="Access">
+																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																									type="ehome.operational:AccessKind"
+																								/>
+																							</property>
+																							<typed-value xml-attribute="Value"/>
+																						</group>
 
 																						<dispatch>
 																							<tag name="Memory">
@@ -1070,12 +1263,14 @@
 																										<ref-linking name="ehome.operational:Parameter#address"/>
 																									</linking>
 
-																									<property name="objectIndex" xml-attribute="ObjectIndex" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																									<property name="objectType" xml-attribute="ObjectType" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																									<property name="occurrence" xml-attribute="Occurrence" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																									<property name="propertyId" xml-attribute="PropertyId" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																									<property name="byteOffset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																									<property name="bitOffset" xml-attribute="BitOffset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																									<group id="property-location">
+																										<property name="objectIndex" xml-attribute="ObjectIndex" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																										<property name="objectType" xml-attribute="ObjectType" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																										<property name="occurrence" xml-attribute="Occurrence" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																										<property name="propertyId" xml-attribute="PropertyId" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																										<property name="byteOffset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																										<property name="bitOffset" xml-attribute="BitOffset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																									</group>
 
 																									<dispatch/>
 																								</object>
@@ -1087,8 +1282,6 @@
 																		</tag>
 																		<tag name="ParameterRefs">
 																			<dispatch id="parameter-refs">
-																				<!-- The parts of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
-																				<tag name="ExpandedModule"><ref handler-id="parameter-refs"/></tag>
 																				<tag name="ParameterRef">
 																					<object model-type="ehome.operational:ParameterView" id-attribute="Id" id="parameter-ref">
 																						<!-- Owned by the structure element placing it; if placed nowhere, by the program (Program#unplaced). -->
@@ -1124,60 +1317,60 @@
 																				<property name="offset" xml-attribute="Offset" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
 
 																				<dispatch id="com-objects">
-																					<!-- The parts of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
-																					<tag name="ExpandedModule"><ref handler-id="com-objects"/></tag>
 																					<tag name="ComObject">
 																						<object model-type="ehome.operational:Port" id-attribute="Id" id="com-object">
 																							<linking target-var="program">
 																								<list-linking name="ehome.operational:Program#ports"/>
 																							</linking>
 																			
-																							<property name="extId" xml-attribute="Id"/>
-																							<property name="name" xml-attribute="Name"/>
-																							<group id="com-object-texts">
-																								<set-translation name="function" xml-attribute="FunctionText" language-var="language" default-language="en" fill-fallback="true"/>
-																								<set-translation name="text" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
-																							</group>
-																							<property name="description" xml-attribute="VisibleDescription"/>
-																							<property name="index" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																							<property name="size" xml-attribute="ObjectSize" format="de.haumacher.ehome.etsImport.importer.format.ObjectSizeFormat"/>
+																							<group id="com-object-properties">
+																								<property name="extId" xml-attribute="Id"/>
+																								<property name="name" xml-attribute="Name"/>
+																								<group id="com-object-texts">
+																									<set-translation name="function" xml-attribute="FunctionText" language-var="language" default-language="en" fill-fallback="true"/>
+																									<set-translation name="text" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																								</group>
+																								<property name="description" xml-attribute="VisibleDescription"/>
+																								<property name="index" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																								<property name="size" xml-attribute="ObjectSize" format="de.haumacher.ehome.etsImport.importer.format.ObjectSizeFormat"/>
 																			
-																							<property name="priority" xml-attribute="Priority">
-																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																									type="ehome.physical:Priority"
-																								/>
-																							</property>
-																							<property name="canRead" xml-attribute="ReadFlag">
-																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																									type="ehome.common:Enablement"
-																								/>
-																							</property>
-																							<property name="canWrite" xml-attribute="WriteFlag">
-																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																									type="ehome.common:Enablement"
-																								/>
-																							</property>
-																							<property name="communication" xml-attribute="CommunicationFlag">
-																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																									type="ehome.common:Enablement"
-																								/>
-																							</property>
-																							<property name="transmission" xml-attribute="TransmitFlag">
-																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																									type="ehome.common:Enablement"
-																								/>
-																							</property>
-																							<property name="update" xml-attribute="UpdateFlag">
-																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																									type="ehome.common:Enablement"
-																								/>
-																							</property>
-																							<property name="readOnInit" xml-attribute="ReadOnInitFlag">
-																								<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
-																									type="ehome.common:Enablement"
-																								/>
-																							</property>
-																							<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
+																								<property name="priority" xml-attribute="Priority">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																										type="ehome.physical:Priority"
+																									/>
+																								</property>
+																								<property name="canRead" xml-attribute="ReadFlag">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																										type="ehome.common:Enablement"
+																									/>
+																								</property>
+																								<property name="canWrite" xml-attribute="WriteFlag">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																										type="ehome.common:Enablement"
+																									/>
+																								</property>
+																								<property name="communication" xml-attribute="CommunicationFlag">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																										type="ehome.common:Enablement"
+																									/>
+																								</property>
+																								<property name="transmission" xml-attribute="TransmitFlag">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																										type="ehome.common:Enablement"
+																									/>
+																								</property>
+																								<property name="update" xml-attribute="UpdateFlag">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																										type="ehome.common:Enablement"
+																									/>
+																								</property>
+																								<property name="readOnInit" xml-attribute="ReadOnInitFlag">
+																									<format class="de.haumacher.ehome.etsImport.importer.format.TLEnumerationFormat" 
+																										type="ehome.common:Enablement"
+																									/>
+																								</property>
+																								<multi-reference name="datapointTypes" id-attribute="DatapointType"/>
+																							</group>
 
 																							<dispatch/>
 																						</object>
@@ -1187,8 +1380,6 @@
 																		</tag>
 																		<tag name="ComObjectRefs">
 																			<dispatch id="com-object-refs">
-																				<!-- The parts of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
-																				<tag name="ExpandedModule"><ref handler-id="com-object-refs"/></tag>
 																				<tag name="ComObjectRef">
 																					<object model-type="ehome.operational:Interface" id-attribute="Id" id="com-object-ref">
 																						<!-- Owned by the structure element placing it; if placed nowhere, by the program (Program#unplaced). -->
@@ -1314,19 +1505,94 @@
 																		</tag>
 																		<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
 																		<tag name="Extension"><skip-deep/></tag>
-																		<!-- Allocators of dynamic modules (ETS 6): a program whose module arguments refer to one is not expanded (ModulesNotImported). -->
-																		<tag name="Allocators"><skip-deep/></tag>
+																		<!-- The allocators of the program, handing out argument values of module instances (haumacher/ehome #119). -->
+																		<tag name="Allocators">
+																			<dispatch id="allocators">
+																				<tag name="Allocator">
+																					<object model-type="ehome.operational:Allocator" id-attribute="Id">
+																						<linking>
+																							<list-linking name="ehome.operational:Program#allocators"/>
+																						</linking>
+
+																						<group id="allocator-properties">
+																							<property name="extId" xml-attribute="Id"/>
+																							<property name="name" xml-attribute="Name"/>
+																							<property name="start" xml-attribute="Start" format="com.top_logic.basic.config.format.LongWrapperFormat"/>
+																							<property name="maxInclusive" xml-attribute="maxInclusive" format="com.top_logic.basic.config.format.LongWrapperFormat"/>
+																						</group>
+
+																						<dispatch/>
+																					</object>
+																				</tag>
+																			</dispatch>
+																		</tag>
 																		<tag name="FixupList"><skip-deep/></tag>
 																	</dispatch>
 																</tag>
 																<tag name="Dynamic">
 																	<!-- The configuration structure of the program: channels, the channel independent part, and parts that depend on parameter values. -->
 																	<dispatch id="dynamic-contents">
-																		<!-- The structure of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
-																		<tag name="ExpandedModule"><ref handler-id="dynamic-contents"/></tag>
-																		<!-- Not expanded (ModulesNotImported): skipped without a warning. -->
-																		<tag name="Module"><skip-deep/></tag>
-																		<tag name="Repeat"><skip-deep/></tag>
+																		<!-- A placement of a module and a repeated part (haumacher/ehome #119); skipped if the program's modules are not read (ReadModules). -->
+																		<tag name="Module">
+																			<read-modules id="module-placement">
+																				<object model-type="ehome.operational:ModulePlacement" id-attribute="Id">
+																					<linking>
+																						<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																					</linking>
+
+																					<property name="extId" xml-attribute="Id"/>
+																					<property name="name" xml-attribute="Name"/>
+																					<reference name="module" id-attribute="RefId"/>
+																					<module-order/>
+
+																					<dispatch>
+																						<tag name="NumericArg">
+																							<object model-type="ehome.operational:PlacementArgument">
+																								<linking>
+																									<list-linking name="ehome.operational:ModulePlacement#arguments"/>
+																								</linking>
+
+																								<reference name="argument" id-attribute="RefId"/>
+																								<property name="value" xml-attribute="Value"/>
+																								<reference name="allocator" id-attribute="AllocatorRefId"/>
+																								<reference name="base" id-attribute="BaseValue"/>
+
+																								<dispatch/>
+																							</object>
+																						</tag>
+																						<tag name="TextArg">
+																							<object model-type="ehome.operational:PlacementArgument">
+																								<linking>
+																									<list-linking name="ehome.operational:ModulePlacement#arguments"/>
+																								</linking>
+
+																								<reference name="argument" id-attribute="RefId"/>
+																								<property name="value" xml-attribute="Value"/>
+
+																								<dispatch/>
+																							</object>
+																						</tag>
+																					</dispatch>
+																				</object>
+																			</read-modules>
+																		</tag>
+																		<tag name="Repeat">
+																			<read-modules id="repeat">
+																				<object model-type="ehome.operational:Repeat" id-attribute="Id">
+																					<linking>
+																						<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																					</linking>
+
+																					<property name="extId" xml-attribute="Id"/>
+																					<property name="name" xml-attribute="Name"/>
+																					<property name="count" xml-attribute="Count" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																					<reference name="countParameter" id-attribute="ParameterRefId"/>
+																					<module-order/>
+
+																					<ref handler-id="channel-contents"/>
+																				</object>
+																			</read-modules>
+																		</tag>
 																		<!-- ETS 6: a parameter block directly in the program or in a case of one of its switches. -->
 																		<tag name="ParameterBlock">
 																			<ref handler-id="parameter-block"/>
@@ -1352,10 +1618,10 @@
 																					<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																				</group>
 																				<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																				<!-- The text parameter whose value fills {{0}} of the text (DeviceTexts). -->
+																				<reference name="textParameter" id-attribute="TextParameterRefId"/>
 
 																				<dispatch id="channel-contents">
-																					<!-- The structure of a placement of a dynamic module, expanded by the import (ModuleExpansion): read as content of this element. -->
-																					<tag name="ExpandedModule"><ref handler-id="channel-contents"/></tag>
 																					<tag name="ParameterBlock">
 																						<object model-type="ehome.operational:ParameterGroup" id-attribute="Id" id="parameter-block">
 																							<linking>
@@ -1373,6 +1639,8 @@
 																								/>
 																							</property>
 																							<reference name="input" id-attribute="ParamRefId"/>
+																							<!-- The text parameter whose value fills {{0}} of the text (DeviceTexts). -->
+																							<reference name="textParameter" id-attribute="TextParameterRefId"/>
 
 																							<ref handler-id="channel-contents"/>
 																						</object>
@@ -1412,11 +1680,12 @@
 																					<tag name="ComObjectRefRef">
 																						<place-reference id-attribute="RefId"/>
 																					</tag>
-																					<!-- Not modeled (gap 7) and modules not expanded (ModulesNotImported, doc/knx/schema-coverage.md): skipped without a warning. -->
+																					<!-- Not modeled (gap 7, doc/knx/schema-coverage.md): skipped without a warning. -->
 																					<tag name="ParameterSeparator"><skip-deep/></tag>
 																					<tag name="Assign"><skip-deep/></tag>
-																					<tag name="Module"><skip-deep/></tag>
-																					<tag name="Repeat"><skip-deep/></tag>
+																					<!-- A placement of a module and a repeated part (haumacher/ehome #119). -->
+																					<tag name="Module"><ref handler-id="module-placement"/></tag>
+																					<tag name="Repeat"><ref handler-id="repeat"/></tag>
 																				</dispatch>
 																			</object>
 																		</tag>
@@ -1452,20 +1721,13 @@
 															<!-- The program is read: the languages of its texts are recorded, the held-back warnings about the values of its parameters decided. -->
 															<program-imported/>
 														</object>
-														<!-- A known program: completed with its dynamic modules, if an earlier import left it without them (#119); otherwise the texts of the file's language, if the program lacks it, set by the text handlers of its elements. -->
+														<!-- A known program: completed with its dynamic modules (module definitions, allocators, placements), if an earlier import left it without them (#119); otherwise the texts of the file's language, if the program lacks it, set by the text handlers of its elements. -->
 														<update var="program">
 															<complete-modules>
-																<static-parts>
-																	<dispatch>
-																		<tag name="Parameter"><ref handler-id="parameter"/></tag>
-																		<tag name="Union"><ref handler-id="union"/></tag>
-																		<tag name="ParameterRef"><ref handler-id="parameter-ref"/></tag>
-																		<tag name="ComObject"><ref handler-id="com-object"/></tag>
-																		<tag name="ComObjectRef"><ref handler-id="com-object-ref"/></tag>
-																	</dispatch>
-																</static-parts>
-																<top-level><ref handler-id="dynamic-contents"/></top-level>
-																<channel-level><ref handler-id="channel-contents"/></channel-level>
+																<allocators><ref handler-id="allocators"/></allocators>
+																<module-defs><ref handler-id="module-defs"/></module-defs>
+																<module><ref handler-id="module-placement"/></module>
+																<repeat><ref handler-id="repeat"/></repeat>
 																<known-program-texts>
 																	<ref handler-id="program-texts"/>
 																	<update-known>
@@ -1738,8 +2000,8 @@
 																									</tag>
 																								</dispatch>
 																							</tag>
-																							<!-- The instances of the dynamic modules and their arguments: the arguments are those of the program, whose modules the import expanded (ModuleExpansion). Skipped without a warning. -->
-																							<tag name="ModuleInstances"><skip-deep/></tag>
+																							<!-- The instances of the dynamic modules with their arguments: E-Home computes the instances itself; the arguments are compared with E-Home's (ModuleImport). -->
+																							<tag name="ModuleInstances"><device-module-instances/></tag>
 																							<!-- Not modeled (ETS 6, doc/knx/schema-coverage.md): the tree view of the group objects. Skipped without a warning. -->
 																							<tag name="GroupObjectTree"><skip-deep/></tag>
 																						</dispatch>

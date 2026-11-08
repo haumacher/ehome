@@ -22,6 +22,7 @@ import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
+import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * The {@link GroupDevice}s of the devices of a project: what each device does with group telegrams
@@ -118,7 +119,7 @@ public class ProjectGroupDevices {
 	 */
 	private static Integer number(TLObject device, TLObject object) {
 		for (TLObject connector : new DeviceConfiguration(device).getConnectors()) {
-			if (connector == object && connector.tValueByName("port") instanceof Interface placed) {
+			if (connector == object && ModuleParts.port(connector) instanceof Interface placed) {
 				return Integer.valueOf(placed.getPort().getIndex());
 			}
 		}
@@ -147,7 +148,7 @@ public class ProjectGroupDevices {
 		boolean any = false;
 		Set<Integer> numbers = new HashSet<>();
 		for (TLObject connector : new DeviceConfiguration(device).getConnectors()) {
-			if (!(connector.tValueByName("port") instanceof Interface placed)) {
+			if (!(ModuleParts.port(connector) instanceof Interface placed)) {
 				continue;
 			}
 			Port port = placed.getPort();
