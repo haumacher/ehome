@@ -14,9 +14,19 @@
 		<channel name="localHost"/>
 		<channel name="useNat"/>
 		<channel name="noMulticast"/>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Discover (KNX gateways on the network)'"
+		/>
 	</channels>
 
 	<panel>
+		<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+		<page-selection to="pageView">
+			<inputs>
+				<input channel="assistantPage"/>
+			</inputs>
+		</page-selection>
 		<title>
 			<en>KNX gateways</en>
 			<de>KNX-Gateways</de>

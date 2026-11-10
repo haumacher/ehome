@@ -111,6 +111,13 @@ tl_initial_password=$PASSWORD
 # TLS-terminating nginx). Passkeys (sign-in without password) are bound to its host for good: they
 # work only when it is set, and changing the host later invalidates every registered passkey.
 #tl_host=https://ehome.example.org
+
+# The assistant (chat in the app, doc/ai.md): the API key of Anthropic (console.anthropic.com).
+# Without it the chat says which key is missing. The use is billed to the account of the key.
+#tl_anthropic_api_key=sk-ant-...
+# Optional: other models (comma separated, the default first) and the model the assistant runs on.
+#tl_anthropic_models=claude-sonnet-5-5,claude-opus-5-5,claude-haiku-5-5
+#tl_ai_default_model=claude-sonnet-5-5
 END
 		chgrp tomcat "$ENV_FILE"
 		umask 022

@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <root>
+	<alias>
+		<!--
+			The models of the assistant (haumacher/ehome #126, doc/ai.md): the current Claude models instead
+			of the ones tl-ai-core names (its tl-ai-core.conf.xml defines the same aliases; the application's
+			definition wins). The variables still override them: tl_anthropic_models (comma separated, the
+			default first) and tl_ai_default_model. The metadata of the models (context window, output
+			limit, prices) is in WEB-INF/autoconf/ehome.ai.config.xml.
+		-->
+		<entry name="%ANTHROPIC_MODELS%" value="${env:tl_anthropic_models:claude-sonnet-5-5,claude-opus-5-5,claude-haiku-5-5}" comment="Comma separated models of the provider anthropic, the default one first."/>
+		<entry name="%AI_DEFAULT_MODEL%" value="${env:tl_ai_default_model:claude-sonnet-5-5}" comment="Model the assistant runs on."/>
+	</alias>
 </root>

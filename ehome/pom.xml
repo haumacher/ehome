@@ -134,6 +134,36 @@
       <groupId>com.top-logic</groupId>
       <artifactId>tl-security-passkey</artifactId>
     </dependency>
+    <!--
+      The assistant (haumacher/ehome #126, #129, doc/ai.md): the agent framework with its providers, tools
+      and security layers (tl-ai-core), the chat in the shell (tl-chat, <chat-dock> in app.view.xml), and
+      the MCP endpoint /ehome/mcp for external agents with a personal access token (tl-ai-mcp-server,
+      WEB-INF/autoconf/ehome.mcp.config.xml). Not the whole tl-starter-ai: no agents rewriting views
+      (tl-ai-views), no A2A.
+    -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-ai-core</artifactId>
+      <exclusions>
+        <!--
+          The browsers of Playwright (200 MB), for the agent's browser tools (group egress), which
+          E-Home grants nobody; without them a browser tool fails when called, the app is unaffected.
+          doc/tl-todo.md, "AI modules".
+        -->
+        <exclusion>
+          <groupId>com.microsoft.playwright</groupId>
+          <artifactId>driver-bundle</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-chat</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-ai-mcp-server</artifactId>
+    </dependency>
 	
     <!--
       The controllers' WebSocket (haumacher/ehome #54, ControllerSocket): the Jakarta WebSocket API,
@@ -161,6 +191,14 @@
     <dependency>
       <groupId>com.top-logic</groupId>
       <artifactId>tl-core</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- The scripted provider of the assistant's tests (ai/testing-agents): recorded answers, no model, no key. -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-ai-core</artifactId>
       <type>test-jar</type>
       <scope>test</scope>
     </dependency>

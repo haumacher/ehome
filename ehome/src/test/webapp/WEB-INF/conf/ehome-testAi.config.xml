@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+	The assistant's tests (test.de.haumacher.ehome.ai) run on recorded answers, without a model and
+	without a key (ai/testing-agents): a scripted provider beside the providers of the application,
+	serving the model "scripted-model", which a test names for its run. The application's own default
+	model stays configured, so a run without that override meets the real providers without their keys.
+-->
+<application xmlns:config="http://www.top-logic.com/ns/config/6.0">
+	<services>
+		<config service-class="com.top_logic.tl.ai.core.provider.LLMProviderService">
+			<instance class="com.top_logic.tl.ai.core.provider.LLMProviderService">
+				<providers>
+					<provider class="com.top_logic.tl.ai.core.provider.ScriptedProvider"
+						models="scripted-model"
+						name="scripted"
+					/>
+				</providers>
+				<model-catalog fetch-remote-catalog="false">
+					<model-overrides>
+						<model name="scripted-model"
+							context-window="200000"
+							max-output="8192"
+							reasoning="false"
+							temperature="false"
+							tool-call="true"
+						/>
+					</model-overrides>
+				</model-catalog>
+			</instance>
+		</config>
+	</services>
+</application>

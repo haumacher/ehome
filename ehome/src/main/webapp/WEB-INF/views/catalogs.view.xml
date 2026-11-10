@@ -54,6 +54,10 @@
 			expr="if($selected.instanceOf(`ehome.catalog:Variant`), $selected, null)"
 			inputs="selected"
 		/>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Catalogs'"
+		/>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -65,6 +69,17 @@
 				size="40"
 				unit="%"
 			>
+				<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+				<page-selection to="pageView">
+					<inputs>
+						<input channel="assistantPage"/>
+					</inputs>
+				</page-selection>
+				<page-selection to="pageSelection">
+					<inputs>
+						<input channel="selected"/>
+					</inputs>
+				</page-selection>
 				<panel>
 					<title>
 						<en>Catalogs</en>

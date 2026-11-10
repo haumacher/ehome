@@ -92,6 +92,10 @@
 			inputs="address"
 			observed-types="ehome.physical:Connection,ehome.physical:Connector"
 		/>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Project, tab Group addresses'"
+		/>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -103,6 +107,19 @@
 				size="40"
 				unit="%"
 			>
+				<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+				<page-selection to="pageView">
+					<inputs>
+						<input channel="assistantPage"/>
+					</inputs>
+				</page-selection>
+				<page-selection to="pageSelection">
+					<inputs>
+						<input channel="selectedRow"/>
+						<input channel="selected"/>
+						<input channel="project"/>
+					</inputs>
+				</page-selection>
 				<panel>
 					<title>
 						<en>Group addresses</en>

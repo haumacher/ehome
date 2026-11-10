@@ -57,6 +57,10 @@
 			expr="'exit'"
 			inputs="state"
 		/>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Project, tab Rules'"
+		/>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -67,6 +71,18 @@
 				size="30"
 				unit="%"
 			>
+				<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+				<page-selection to="pageView">
+					<inputs>
+						<input channel="assistantPage"/>
+					</inputs>
+				</page-selection>
+				<page-selection to="pageSelection">
+					<inputs>
+						<input channel="rule"/>
+						<input channel="project"/>
+					</inputs>
+				</page-selection>
 				<panel>
 					<title>
 						<en>Rules</en>

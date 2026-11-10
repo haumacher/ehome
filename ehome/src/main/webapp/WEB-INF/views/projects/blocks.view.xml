@@ -108,6 +108,10 @@
         #("The image refuses the virtual device:"@en, "Das Abbild lehnt das virtuelle Gerät ab:"@de).localize() + "\n" + $problem)
 })]]></expr>
 		</derived-channel>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Project, tab Virtual devices'"
+		/>
 	</channels>
 	<split-panel
 		orientation="horizontal"
@@ -119,6 +123,18 @@
 				size="40"
 				unit="%"
 			>
+				<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+				<page-selection to="pageView">
+					<inputs>
+						<input channel="assistantPage"/>
+					</inputs>
+				</page-selection>
+				<page-selection to="pageSelection">
+					<inputs>
+						<input channel="block"/>
+						<input channel="project"/>
+					</inputs>
+				</page-selection>
 				<panel>
 					<title>
 						<en>Virtual devices</en>
