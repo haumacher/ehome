@@ -215,23 +215,60 @@ public class GroupAddressConnections {
 	 * @return The problems, empty if the objects fit together.
 	 */
 	public static List<ResKey> problems(TLObject groupAddress) {
-		List<TLObject> connections = connections(groupAddress);
+		List<ConnectedObject> objects = new ArrayList<>();
+		for (TLObject connection : connections(groupAddress)) {
+			objects.add(new ConnectedObject(device(connection), object(connection), size(connection),
+				datapointType(connection)));
+		}
+		return problems(groupAddress, objects);
+	}
+
+	/**
+	 * The {@link #problems(TLObject) problems} the given group address would have if the given
+	 * communication object of the device were connected to it as well: the check the assistant makes
+	 * before it connects an object (haumacher/ehome #127), with the rule and the messages the group
+	 * address view shows after a connection.
+	 *
+	 * @param device
+	 *        The device of the object.
+	 * @param placed
+	 *        The communication object in the device's configuration.
+	 */
+	public static List<ResKey> problemsWith(TLObject groupAddress, TLObject device, Interface placed) {
+		List<ConnectedObject> objects = new ArrayList<>();
+		for (TLObject connection : connections(groupAddress)) {
+			objects.add(new ConnectedObject(device(connection), object(connection), size(connection),
+				datapointType(connection)));
+		}
+		objects.add(new ConnectedObject(device, placed, ObjectTypes.size(placed), ObjectTypes.effective(device, placed)));
+		return problems(groupAddress, objects);
+	}
+
+	/**
+	 * A communication object at a group address: its device, its placement, its size in bits and its
+	 * datapoint type in effect.
+	 */
+	private record ConnectedObject(TLObject device, Interface placed, int size, TLObject type) {
+		// A value.
+	}
+
+	private static List<ResKey> problems(TLObject groupAddress, List<ConnectedObject> objects) {
 		List<ResKey> result = new ArrayList<>();
 		TLObject addressType = first(groupAddress.tValueByName("datapointTypes"));
 		Integer addressMain = mainNumber(addressType);
 		Integer addressSize = addressType == null ? null : sizeInBit(addressType);
 		Set<Integer> sizes = new LinkedHashSet<>();
 		Set<Integer> mainTypes = new LinkedHashSet<>();
-		for (TLObject connection : connections) {
-			int size = size(connection);
+		for (ConnectedObject connected : objects) {
+			int size = connected.size();
 			sizes.add(size);
-			TLObject type = datapointType(connection);
+			TLObject type = connected.type();
 			Integer main = mainNumber(type);
 			if (main != null) {
 				mainTypes.add(main);
 			}
-			String object = deviceLabel(device(connection)) + SEPARATOR + object(connection).getPort().getIndex() + " "
-				+ objectName(object(connection));
+			String object = deviceLabel(connected.device()) + SEPARATOR + connected.placed().getPort().getIndex() + " "
+				+ objectName(connected.placed());
 			if (main != null && addressMain != null && !main.equals(addressMain)) {
 				result.add(I18NConstants.WARNING_TYPE_DIFFERS_FROM_ADDRESS__OBJECT_TYPE_ADDRESS_TYPE.fill(object,
 					MetaLabelProvider.INSTANCE.getLabel(type), MetaLabelProvider.INSTANCE.getLabel(addressType)));

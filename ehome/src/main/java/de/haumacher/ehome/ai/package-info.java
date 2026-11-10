@@ -7,7 +7,7 @@
  * agents of the TopLogic AI modules.
  *
  * <p>
- * The foundation configures the modules and adds no tool: the chat in the shell
+ * The foundation (#126) configures the modules: the chat in the shell
  * (<code>WEB-INF/views/app.view.xml</code>), the models and E-Home's application context
  * (<code>WEB-INF/autoconf/ehome.ai.config.xml</code>), and the rights per role
  * (<code>WEB-INF/autoconf/ehome.security.config.xml</code>, <code>AiToolAccessService</code>). The
@@ -15,7 +15,21 @@
  * <code>present</code>, <code>updateObject</code>, ...).
  * </p>
  *
- * <h2>Where the domain tools join</h2>
+ * <h2>E-Home's tools (haumacher/ehome #127)</h2>
+ *
+ * <ul>
+ * <li>{@link de.haumacher.ehome.ai.BuildingTools} (factory <code>ehome-building</code>): the building
+ * structure, creating and moving parts, placing a device.</li>
+ * <li>{@link de.haumacher.ehome.ai.DeviceTools} (<code>ehome-devices</code>): the catalog, the devices
+ * by line, planning and duplicating a device, its parameter pages and setting a parameter.</li>
+ * <li>{@link de.haumacher.ehome.ai.WiringTools} (<code>ehome-wiring</code>): the group addresses with
+ * what tells their purpose (paged), creating one, setting its datapoint type, naming several at once,
+ * a device's communication objects, connecting and disconnecting them.</li>
+ * <li>{@link de.haumacher.ehome.ai.NewPartsSecurityContextFactory}: the workaround of an engine gap of
+ * the pre-commit guard (doc/tl-todo.md, "AI modules").</li>
+ * </ul>
+ *
+ * <h2>Where further domain tools join</h2>
  *
  * <p>
  * The tools for buildings, devices and wiring (haumacher/ehome #127) and for rules, functions,

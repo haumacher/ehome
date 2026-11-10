@@ -24,6 +24,12 @@
 	the tools of de.haumacher.ehome.ai, and the skills in <skills> of TopLogicAgentDefinitions, both
 	added to the agent TL_SingleAgent ("Albert", the chat's entry point) the way tl-chat adds its tools
 	(tl-chat.conf.config.xml). The package documentation of de.haumacher.ehome.ai describes the contract.
+
+	The tools of #127 (doc/ai.md, "E-Home's tools"): the building structure (ehome-building), the
+	catalog, the devices and their parameters (ehome-devices), the group addresses and the connections
+	of the communication objects (ehome-wiring). They are on the agent, so that a question about them
+	needs no skill load; the skills EHome_buildingLayout, EHome_devicePlanning and EHome_wiring carry
+	the knowledge the tools do not, and name the tools.
 -->
 <application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
@@ -69,6 +75,19 @@
 			</instance>
 		</config>
 
+		<!--
+			The security context of every run (chat, MCP): the shipped one, except that a part created in an
+			object the same turn created is not refused by the pre-commit guard, which decides such a
+			container as deleted (engine gap, doc/tl-todo.md "AI modules"; NewPartsSecurityContextFactory).
+			Without it a floor with its rooms, the first connection of a communication object and a
+			duplicated device are rolled back. Remove when the guard is fixed.
+		-->
+		<config service-class="com.top_logic.tl.ai.core.agent.AgentRuntimeService">
+			<instance class="com.top_logic.tl.ai.core.agent.AgentRuntimeService">
+				<security-context class="de.haumacher.ehome.ai.NewPartsSecurityContextFactory"/>
+			</instance>
+		</config>
+
 		<config service-class="com.top_logic.tl.ai.core.agent.AgentApplicationService">
 			<instance class="com.top_logic.tl.ai.core.agent.AgentApplicationService">
 				<environment>
@@ -99,7 +118,7 @@ E-Home plans, configures and runs KNX home installations - the tool of an instal
 - Project: one installation. Holds its topology, buildings, group addresses, functions, rules, schedules, pages, virtual devices, application datapoints, controllers and deployments.
 - Area and line: the topology. A device's individual address is area.line.device (1.1.5).
 - Device: a KNX device of a line. Its type is a product variant of the catalog, its program the application program; its parameter settings are the values set in the project (all others have their defaults); its location is a building part.
-- Connector (communication object): an object of a device's program with its datapoint types and flags. A connection links it to a group address as sending or receiving; one sender per address.
+- Connector (communication object): an object of a device's program with its datapoint types and flags. A connection links it to a group address: its first address is its sending address (also for an input), further ones are listening addresses.
 - Group address: the address telegrams are sent to; notation by the project's style: three levels (main/middle/sub, 1/2/3), two levels (1/2) or free. Group ranges structure them.
 - Datapoint type (DPT): the meaning and coding of a value, a main type and a subtype (DPST-1-1 is switching).
 - Building part: building, floor, room, corridor, stairway, distribution board, location - a tree; devices are placed in it.
@@ -113,7 +132,7 @@ E-Home plans, configures and runs KNX home installations - the tool of an instal
 
 ## Rules
 - Deploying a runtime image to a controller, programming a KNX device (download, individual address) and writing to the bus are the installer's commands in the views. Never do them and never try; say which command does it and where.
-- Planning devices, connecting objects to group addresses and creating group addresses follow rules the views check (next free address, datapoint types, sizes). Until E-Home's own tools for them exist, tell the user the command and the tab instead of composing low-level object edits; change attributes such as names and descriptions directly when asked.
+- Building parts, planning devices, parameters, group addresses and connections have E-Home's own tools (buildingStructure, createBuildingParts, planDevice, setDeviceParameter, createGroupAddress, connectObject, ...): they follow the rules the views check (next free address, datapoint types, sizes). Use them, never createObject or updateObject for these; change attributes such as names and descriptions directly when asked. The skills EHome_buildingLayout, EHome_devicePlanning and EHome_wiring explain how an installer does it.
 - Change data only when the user asks for it.]]></en>
 							<de><![CDATA[# E-Home
 
@@ -127,7 +146,7 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 - Projekt: eine Installation. Enthält Topologie, Gebäude, Gruppenadressen, Funktionen, Regeln, Zeitplan, Seiten, virtuelle Geräte, Anwendungsdatenpunkte, Controller und Bereitstellungen.
 - Bereich und Linie: die Topologie. Die physikalische Adresse eines Geräts ist Bereich.Linie.Gerät (1.1.5).
 - Gerät: ein KNX-Gerät einer Linie. Sein Typ ist eine Produktvariante des Katalogs, sein Programm das Applikationsprogramm; seine Parametereinstellungen sind die im Projekt gesetzten Werte (alle anderen haben ihren Standardwert); sein Standort ist ein Gebäudeteil.
-- Anschluss (Kommunikationsobjekt): ein Objekt des Programms eines Geräts mit Datenpunkttypen und Flags. Eine Verbindung verknüpft es sendend oder empfangend mit einer Gruppenadresse; je Adresse ein Sender.
+- Anschluss (Kommunikationsobjekt): ein Objekt des Programms eines Geräts mit Datenpunkttypen und Flags. Eine Verbindung verknüpft es mit einer Gruppenadresse: seine erste Adresse ist seine sendende (auch bei einem Eingang), weitere sind hörende Adressen.
 - Gruppenadresse: die Adresse, an die Telegramme gehen; Schreibweise nach dem Stil des Projekts: dreistufig (Haupt-/Mittel-/Untergruppe, 1/2/3), zweistufig (1/2) oder frei. Gruppenbereiche gliedern sie.
 - Datenpunkttyp (DPT): Bedeutung und Kodierung eines Werts, Haupttyp und Untertyp (DPST-1-1 ist Schalten).
 - Gebäudeteil: Gebäude, Stockwerk, Zimmer, Korridor, Treppe, Verteilerschrank, Standort - ein Baum, in dem die Geräte platziert sind.
@@ -141,11 +160,178 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 
 ## Regeln
 - Ein Laufzeitabbild auf einen Controller bereitstellen, ein KNX-Gerät programmieren (Download, physikalische Adresse) und auf den Bus schreiben sind Befehle des Installateurs in den Ansichten. Tu das nie und versuche es nicht; sag, welcher Befehl es tut und wo.
-- Geräte planen, Kommunikationsobjekte mit Gruppenadressen verbinden und Gruppenadressen anlegen folgt Regeln, die die Ansichten prüfen (nächste freie Adresse, Datenpunkttypen, Größen). Solange E-Homes eigene Werkzeuge dafür fehlen, nenne dem Benutzer Befehl und Reiter, statt Objekte einzeln zu ändern; Attribute wie Namen und Beschreibungen änderst du auf Wunsch direkt.
+- Für Gebäudeteile, das Planen von Geräten, Parameter, Gruppenadressen und Verbindungen hat E-Home eigene Werkzeuge (buildingStructure, createBuildingParts, planDevice, setDeviceParameter, createGroupAddress, connectObject, ...): Sie folgen den Regeln, die die Ansichten prüfen (nächste freie Adresse, Datenpunkttypen, Größen). Nutze sie, nie createObject oder updateObject dafür; Attribute wie Namen und Beschreibungen änderst du auf Wunsch direkt. Die Skills EHome_buildingLayout, EHome_devicePlanning und EHome_wiring erklären, wie ein Installateur dabei vorgeht.
 - Ändere Daten nur, wenn der Benutzer darum bittet.]]></de>
 						</text>
 					</contributor>
 				</prompt-contributors>
+			</instance>
+		</config>
+
+		<!--
+			E-Home's tools (haumacher/ehome #127): classes of de.haumacher.ehome.ai with @ToolMethod methods,
+			reading tools in data.read, changing ones in data.write (ehome.security.config.xml grants them per
+			role; ehome.mcp.config.xml publishes both groups over MCP).
+		-->
+		<config service-class="com.top_logic.tl.ai.tool.api.registry.ToolRegistryService">
+			<instance>
+				<tool-factories>
+					<factory name="ehome-building">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.BuildingTools"
+						/>
+					</factory>
+					<factory name="ehome-devices">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.DeviceTools"
+						/>
+					</factory>
+					<factory name="ehome-wiring">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.WiringTools"
+						/>
+					</factory>
+				</tool-factories>
+			</instance>
+		</config>
+
+		<!--
+			The chat's agent carries E-Home's tools, and the skills with the knowledge an installer brings to
+			them. Additive, as tl-chat adds its tools to the agent tl-ai-core defines.
+		-->
+		<config service-class="com.top_logic.tl.ai.core.agent.TopLogicAgentDefinitions">
+			<instance>
+				<skills>
+					<skill name="EHome_buildingLayout"
+						description="Load before laying out the building structure of an E-Home project: which buildings, floors and rooms a home gets, their names and order, distribution boards and locations. Names the tools buildingStructure, createBuildingParts, moveBuildingParts and placeDevice."
+					>
+						<content><![CDATA[# Building layout in E-Home
+
+The building structure is where devices are placed: the installer finds a device by its room, the controller's pages list the rooms in this order, and an ETS export carries the structure.
+
+## Structure
+- Project -> Building -> Floor -> Room / Corridor / Stairway -> Location / DistributionBoard.
+- A building or BuildingPart (a wing, an annex, the garden) takes floors and everything a floor takes. A floor takes rooms, corridors, stairways, locations and distribution boards. A room, corridor or stairway takes locations (a niche, "Decke", "Wand Nord") and distribution boards. A distribution board takes devices only.
+- Rail-mounted devices (actuators, power supply, IP router, line coupler) go in the DistributionBoard ("UV EG", "Hauptverteilung") of the floor or building that houses them; wall devices (push buttons, sensors, room controllers) in their room. Never place an actuator in the room it switches - the room shows its consumers through the connections, not through the actuator.
+- Order is meaningful: floors from bottom to top (Keller, Erdgeschoss, Obergeschoss, Dachgeschoss), rooms in a walking order. New parts go after the existing ones unless 'before' names a part; moveBuildingParts reorders.
+
+## Names
+- Use the user's language and words. In German homes: Erdgeschoss (EG), Obergeschoss (OG), Dachgeschoss (DG), Keller (KG); rooms Küche, Wohnzimmer, Esszimmer, Schlafzimmer, Kinderzimmer, Bad, WC, Flur, Diele, Treppenhaus, Hauswirtschaftsraum (HWR), Technikraum, Garage, Terrasse, Garten.
+- Short unique names; a floor prefix only where the same room exists on two floors ("Bad EG", "Bad OG").
+
+## How to work
+1. buildingStructure first - never create a part twice.
+2. One createBuildingParts call per building or floor with its rooms nested in 'parts'. Check with dryRun=true when unsure whether a kind fits.
+3. placeDevice puts a device in a part; planDevice takes 'location' directly.
+4. Report the created parts by name; the ids are for further calls.]]></content>
+					</skill>
+					<skill name="EHome_devicePlanning"
+						description="Load before planning KNX devices in an E-Home project: choosing products and application programs from the catalog, lines and individual addresses, duplicating devices and setting their parameters. Names the tools searchCatalog, listDevices, planDevice, duplicateDevice, deviceParameters, setDeviceParameter and placeDevice."
+					>
+						<content><![CDATA[# Device planning in E-Home
+
+E-Home replaces ETS: a planned device is a full device of the project - product, application program, individual address, parameters - that the installer later programs with one download. Never send the user to ETS for any of this.
+
+## Products
+- searchCatalog finds the products of the catalog: manufacturer, product name, order number, catalog section. Names are often German: Schaltaktor (switching actuator), Dimmaktor/Dimmer, Jalousieaktor/Rollladenaktor (blind actuator), Heizungsaktor (heating actuator), Tastsensor/Taster (push button), Präsenzmelder/Bewegungsmelder (presence/motion detector), Raumtemperaturregler (room controller), Binäreingang (binary input), Spannungsversorgung (power supply), IP-Router/Linienkoppler.
+- "8fach"/"8-fold" is the number of channels. Pick the product whose order number or channel count the user named; ask when several fit and the choice matters.
+- A product has one or more application programs; the newest is the default and right unless the user names a version.
+- A product missing from the catalog is imported first (an ETS project or the manufacturer's product data, tab Catalog); E-Home cannot plan it before.
+
+## Lines and addresses
+- An individual address is area.line.device. Device number 0 belongs to the line coupler; the IP router or coupler usually has .0 or .1, devices start at .1.
+- listDevices shows the lines with their next free number; planDevice takes the next free number unless the user wants a number (convention: actuators first, then sensors; or gaps per floor). Use dryRun=true to tell the user the address before planning.
+- A line takes up to 255 devices, practically about 64 per line segment with one power supply.
+
+## Parameters
+- deviceParameters without 'page' gives the page tree; read the page you need, then setDeviceParameter with the parameter's id. A choice takes the number of its entry.
+- A value can switch channels, objects and pages on: read the page again after setting one. Set the channel function (e.g. "Schalten"/"switching") before its details.
+- The application refuses values out of range and checks the manufacturer's rules; relay its reason.
+- Planned devices and changed parameters need a download; the installer starts it in the device view (programming is never yours).
+
+## Duplicates
+- duplicateDevice copies product, program and parameters to the next free address of the same line, without connections and without location; rename it with updateObject (attribute title) and place it with placeDevice.]]></content>
+					</skill>
+					<skill name="EHome_wiring"
+						description="Load before creating group addresses and connecting communication objects in an E-Home project: group address structure by function or by floor, names, datapoint types, sending and receiving objects, status addresses. Names the tools listGroupAddresses, createGroupAddress, setGroupAddressType, deviceObjects, connectObject and disconnectObject."
+					>
+						<content><![CDATA[# Wiring in E-Home: group addresses and connections
+
+## Structure
+- Three-level addresses main/middle/sub (1/2/3) are usual. Two common structures - follow the one the project already has (listGroupAddresses):
+  - by function: main group = function (1 Licht, 2 Jalousie, 3 Heizung, 4 Zentral), middle group = floor (1 EG, 2 OG), sub = the single address;
+  - by floor: main group = floor, middle group = function.
+- Addresses are created in the range that takes addresses (a middle group); createGroupAddress picks its next free address. Group ranges themselves are created by the user in the tab Group addresses (command "Group range"); say so when the fitting range is missing.
+- Names say room, consumer and function: "Küche Licht Decke schalten", "Küche Licht Decke Status", "Wohnzimmer Jalousie Auf/Ab".
+
+## Datapoint types
+- Give each address the type of the object that sends to it: 1.001 switch (1 bit), 1.008 up/down, 1.007 step, 1.010 start/stop, 3.007 dimming control (4 bit), 5.001 percentage (1 byte), 5.010 counter, 9.001 temperature (2 byte), 9.004 lux, 14.x (4 byte float), 16.000 text, 17.001 scene number, 18.001 scene control.
+- deviceObjects shows each object's size and type. Objects at one address must have the same size; the application refuses a mismatch and names it - choose another object or address rather than forcing it.
+
+## Connections
+- As in KNX, every object's first address is its sending address ('send'): the object transmits on it (flag T) and takes values from it (flag W). This holds for inputs too: an actuator's switching object (flags CW) is connected with 'send' to the address that commands it. Further addresses are listening addresses ('receive'): central addresses, the status address a toggle key or an LED follows. An object has exactly one sending address. Of the objects at one address, normally one transmits (flag T) - several only for buttons operating the same function.
+- A switching light: one address "schalten": the push button's switching object transmits on it, the actuator channel's switching object takes it - for both it is their sending address. A status address "Status": the actuator's status/feedback object transmits on it (its sending address); the push button's switching object listens to it as an additional address ('receive') so a toggle key knows the state, and an LED object takes it as its sending address.
+- A dimmer: addresses for switch (1.001), relative dimming (3.007), value (5.001) and the statuses.
+- A blind: up/down (1.008), stop/step (1.007), position (5.001) and its status.
+- Central functions (all off) are extra receiving connections of the actuator objects to a central address.
+- connectObject chooses 'send' for an object's first address and 'receive' for every further one, as KNX does; omit 'direction' unless an object's sending address is to be another one.
+- Connections take effect with the devices' next download, which the installer starts.]]></content>
+					</skill>
+					<skill name="EHome_namingGroupAddresses"
+						description="Load before giving the group addresses of an E-Home project names (or better names), e.g. when the installer asks to name the addresses an ETS import left without names. Names the tools listGroupAddresses and nameGroupAddresses."
+					>
+						<content><![CDATA[# Naming group addresses in E-Home
+
+A good name tells room, consumer and function, and whether the address carries a command or a status - the installer, the group monitor, rules and control pages read it.
+
+## Conventions
+- Room + consumer/function + kind: "Küche Licht Schalten", "Küche Licht Status", "Küche Licht Dimmen", "Küche Licht Helligkeit", "Wohnen Jalousie Auf/Ab", "Wohnen Jalousie Stopp", "Wohnen Jalousie Position", "Bad Temperatur Ist", "Bad Temperatur Soll", "Flur Präsenz", "Zentral Licht Aus".
+- Keep the language of the project: the names, descriptions, rooms and channels it already has. German projects get German names.
+- Mark status/feedback addresses as such ("Status", "Rückmeldung"): an address whose sender is an actuator's status, feedback or state object, or whose description says so.
+- Use the same pattern for every address of one kind, and the project's own abbreviations where it uses them ("EG", "Wohnen", "WC").
+- Keep names short (well below 255 characters); the address itself is not part of the name.
+
+## Where the meaning comes from
+listGroupAddresses gives per address: its description (often the name ETS lost or the planner's note), its datapoint type, its range with name and description (often the function or floor: "Licht", "EG"), the functions using it with their room, and its connections - device, the device's room, object text, function text, channel with its description, and send/receive. The sender usually tells the purpose best: a push button's "Taste 1" sending to an actuator channel's switching object in the kitchen is "Küche Licht Schalten".
+- Never invent what the data does not say. An address without description and connections gets no guessed name: list it as unclear.
+- Ask the user when an address is ambiguous (two rooms, no channel description, conflicting description).
+
+## How to work
+1. listGroupAddresses for the open project (page with 'offset' while it answers 'nextOffset'; 'unnamedOnly' when only the unnamed ones are to be named).
+2. Propose the names as a table first - address, current name, description, proposed name, and the reason in a few words - and wait until the user agrees or corrects it.
+3. Write the agreed names with ONE nameGroupAddresses call per project (dryRun=true first if the list is long). Leave 'description' out unless the user wants it changed; it stays as it is.
+4. Report how many addresses were named; list the ones left unclear.]]></content>
+					</skill>
+				</skills>
+				<agents>
+					<agent name="TL_SingleAgent">
+						<tools>
+							<tool name="ehome-building.buildingStructure"/>
+							<tool name="ehome-building.createBuildingParts"/>
+							<tool name="ehome-building.moveBuildingParts"/>
+							<tool name="ehome-building.placeDevice"/>
+							<tool name="ehome-devices.searchCatalog"/>
+							<tool name="ehome-devices.listDevices"/>
+							<tool name="ehome-devices.planDevice"/>
+							<tool name="ehome-devices.duplicateDevice"/>
+							<tool name="ehome-devices.deviceParameters"/>
+							<tool name="ehome-devices.setDeviceParameter"/>
+							<tool name="ehome-wiring.listGroupAddresses"/>
+							<tool name="ehome-wiring.createGroupAddress"/>
+							<tool name="ehome-wiring.setGroupAddressType"/>
+							<tool name="ehome-wiring.nameGroupAddresses"/>
+							<tool name="ehome-wiring.deviceObjects"/>
+							<tool name="ehome-wiring.connectObject"/>
+							<tool name="ehome-wiring.disconnectObject"/>
+						</tools>
+						<skills>
+							<skill name="EHome_buildingLayout"/>
+							<skill name="EHome_devicePlanning"/>
+							<skill name="EHome_wiring"/>
+							<skill name="EHome_namingGroupAddresses"/>
+						</skills>
+					</agent>
+				</agents>
 			</instance>
 		</config>
 	</services>

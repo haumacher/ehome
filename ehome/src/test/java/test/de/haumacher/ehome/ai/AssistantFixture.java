@@ -3,9 +3,11 @@
  */
 package test.de.haumacher.ehome.ai;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.function.Supplier;
 
 import com.top_logic.base.security.device.TLSecurityDeviceManager;
@@ -18,7 +20,23 @@ import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.tl.ai.core.agent.AgentFactory;
+import com.top_logic.tl.ai.core.agent.AgentRuntimeService;
+import com.top_logic.tl.ai.core.agent.ToolContext;
+import com.top_logic.tl.ai.core.agent.TransactionScope;
+import com.top_logic.tl.ai.core.agent.approval.ApprovalCallback;
+import com.top_logic.tl.ai.core.execution.AgentRunner;
+import com.top_logic.tl.ai.core.message.ContentPart;
+import com.top_logic.tl.ai.core.message.Conversation;
+import com.top_logic.tl.ai.core.message.TextContent;
+import com.top_logic.tl.ai.core.message.UserMessage;
+import com.top_logic.tl.ai.core.provider.ProviderRequest;
+import com.top_logic.tl.ai.core.security.RunEntryPoint;
+import com.top_logic.tl.ai.core.security.RunPrincipal;
+import com.top_logic.tl.ai.core.security.RunSecurity;
+import com.top_logic.tl.ai.tool.api.CancellationToken;
 import com.top_logic.tool.boundsec.wrap.Group;
+import com.top_logic.util.TLContext;
 import com.top_logic.util.TLContextManager;
 import com.top_logic.util.model.ModelService;
 
@@ -191,6 +209,55 @@ public class AssistantFixture {
 	}
 
 	/**
+	 * Runs the chat's agent as the chat runs it, for the account of the calling thread
+	 * (<code>ChatProcessor.buildToolContext</code>): the account is the principal, the run is attended,
+	 * approvals are given automatically.
+	 *
+	 * @param model
+	 *        The model of the run, <code>null</code> for the configured default.
+	 */
+	public static AgentRunner.RecordedRun run(Conversation conversation, String model) {
+		CancellationToken cancellation = new CancellationToken();
+		ToolContext context = new ToolContext(
+			RunSecurity.contextFor(new RunPrincipal(TLContext.currentUser(), RunEntryPoint.CHAT, false)),
+			ApprovalCallback.AUTO_APPROVE, new TransactionScope(cancellation), Collections.emptySet());
+		try {
+			return AgentRunner.run(AgentRuntimeService.chatEntryPoint(), conversation, null, context, event -> {
+				// No window to show the run in.
+			}, null, null, null, null, new AgentFactory.RunOverrides(model, null, null));
+		} finally {
+			context.transaction().close();
+		}
+	}
+
+	/**
+	 * A tool context as the chat builds it for the account of the calling thread, for calling a tool
+	 * directly, without the agent loop and its permission filter.
+	 */
+	public static ToolContext toolContext() {
+		return new ToolContext(
+			RunSecurity.contextFor(new RunPrincipal(TLContext.currentUser(), RunEntryPoint.CHAT, false)),
+			ApprovalCallback.AUTO_APPROVE, new TransactionScope(new CancellationToken()), Collections.emptySet());
+	}
+
+	/**
+	 * A conversation of one question of the user.
+	 */
+	public static Conversation conversation(String question) {
+		Conversation result = new Conversation();
+		result.add(new UserMessage(UUID.randomUUID().toString(), Instant.now(),
+			List.<ContentPart> of(new TextContent(question))));
+		return result;
+	}
+
+	/**
+	 * The names of the tools a request offered the model.
+	 */
+	public static List<String> toolNames(ProviderRequest request) {
+		return request.tools().stream().map(tool -> tool.name()).toList();
+	}
+
+	/**
 	 * Runs a modification in a transaction of its own, without access checks.
 	 */
 	public static void inTransaction(Runnable modification) {
@@ -217,7 +284,11 @@ public class AssistantFixture {
 		return result;
 	}
 
-	private static Person person(String name, String group) {
+	/**
+	 * A new account of the given name in the given group (an existing one of that name is replaced).
+	 * Must be called in a transaction.
+	 */
+	static Person person(String name, String group) {
 		Person existing = Person.byName(name);
 		if (existing != null) {
 			existing.tDelete();

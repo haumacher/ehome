@@ -2,9 +2,9 @@
 
 E-Home has an assistant: a chat docked over every page, answered by an agent of the TopLogic AI
 modules (haumacher/ehome #126). External agents - Claude Code, Claude Desktop - work with E-Home
-through its MCP endpoint with the same tools and rights (haumacher/ehome #129). The domain tools and
-skills follow in haumacher/ehome #127 (buildings, devices, wiring) and #128 (rules, functions,
-schedules, pages); until then the assistant reads and changes data with the engine's data tools.
+through its MCP endpoint with the same tools and rights (haumacher/ehome #129). E-Home's own tools
+and skills for buildings, devices, parameters and wiring are those of haumacher/ehome #127 (below);
+rules, functions, schedules and pages follow in #128.
 
 ## What is in the app
 
@@ -24,6 +24,48 @@ schedules, pages); until then the assistant reads and changes data with the engi
   system prompt of every run, in German and in English.
 - **Rights** (`WEB-INF/autoconf/ehome.security.config.xml`, `AiToolAccessService`), see below.
 - **The MCP endpoint** (`WEB-INF/autoconf/ehome.mcp.config.xml`), see below.
+
+## E-Home's tools
+
+Classes of `de.haumacher.ehome.ai` (`ehome.ai.config.xml`): on the chat's agent, published over MCP
+as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`. Reading tools are in `data.read`
+(installers and viewers), changing ones in `data.write` (installers; a dry run needs no approval).
+
+| Tool | Changes | Runs |
+|---|---|---|
+| `buildingStructure` | - | the building tree of a project |
+| `createBuildingParts` | yes, dry run | parts with their parts, in order (`BuildingDevices.insertVeto`) |
+| `moveBuildingParts` | yes | `BuildingDevices.moveVeto` / `move` |
+| `placeDevice` | yes | `BuildingDevices.place` |
+| `searchCatalog` | - | `DevicePlanning.variants`, words in manufacturer, name, order number, catalog section |
+| `listDevices` | - | lines with the next free number, devices with address, product, program, room |
+| `planDevice` | yes, dry run | `DevicePlanning.addressVeto` / `nextFree` / `create` |
+| `duplicateDevice` | yes, dry run | `DevicePlanning.duplicateVeto` / `duplicate` |
+| `deviceParameters` | - | `DeviceConfiguration`: the page tree, a page's parameters with value, default, allowed values, edit veto |
+| `setDeviceParameter` | yes | `DeviceSettings.setValue` (type, range, manufacturer's validations and calculations) |
+| `listGroupAddresses` | - | ranges, and per address (paged) name, description, type, range, functions, connections with device, room, object, function, channel, direction |
+| `createGroupAddress` | yes, dry run | `GroupAddresses.veto` / `nextFree` / `create`, in the project's notation |
+| `setGroupAddressType` | yes | `GroupAddressTypes.veto` / `setType` |
+| `nameGroupAddresses` | yes, dry run | names (and descriptions) of several addresses of one project in one call |
+| `deviceObjects` | - | communication objects with size, type, flags, default direction, connections |
+| `connectObject` | yes, dry run | `DeviceSettings.connect`; refuses an object that does not fit the address (`GroupAddressConnections.problemsWith`) unless `despiteProblems` |
+| `disconnectObject` | yes | `DeviceSettings.disconnect` |
+
+- **Rights.** A changing tool checks `Write` on the project of its objects before it changes
+  anything (E-Home's Java code is not access checked) and refuses without a user account. Objects
+  come in as `Type:id` and are resolved with the read rights of the run.
+- **Refusals** are the views' own reasons (their veto functions), in the user's language, as the
+  shipped refusal object `{"refused": true, "reasons": [...]}`; nothing is changed then.
+- **Answers** name what was created or changed by id and display text.
+- **The open project:** every tab of a project passes the project in the page selection; the
+  agent hands its id to the tools, which take any object of the project as well.
+- **Not a tool:** programming a device, deploying, writing to the bus; creating group ranges (the
+  view creates a range with its name only and its bounds in the form: there is no rule to run yet,
+  the agent names the command).
+
+Skills (`loadSkill`): `EHome_buildingLayout`, `EHome_devicePlanning`, `EHome_wiring`,
+`EHome_namingGroupAddresses` (room + function + kind, the project's language, status marked,
+nothing invented, a table first, then one `nameGroupAddresses` call after the user agreed).
 
 ## Key and models
 
@@ -67,8 +109,8 @@ metadata of the three Claude models (context window, output limit, prices) is in
   These stay the installer's commands in the views; no tool does them, and the application context
   tells the agent so.
 - Planning devices, connecting objects and creating group addresses follow rules the views check;
-  until E-Home's own tools exist (#127), the agent names the command and the tab instead of
-  composing low-level object edits.
+  E-Home's own tools (below) run them, and the application context tells the agent to use them
+  instead of the object tools.
 
 ## Trying it
 
@@ -114,8 +156,7 @@ The endpoint is `<host>/ehome/mcp` (in development `http://localhost:8080/ehome/
    *Administration* → *Access tokens*.
 
 What the endpoint publishes (`<exposed-tools>`): the tool groups `model.read`, `data.read` and
-`data.write` - the groups of the chat. E-Home's own tools of #127/#128 are in `data.read` and
-`data.write` and are published as soon as they are registered. A call is decided for the token's
+`data.write` - the groups of the chat, E-Home's own tools included. A call is decided for the token's
 account exactly as in the chat: a viewer's client reads and is refused every writing tool. The tool
 list itself is the same for everybody (the MCP SDK answers it without the caller), so a viewer's
 client lists the writing tools it cannot use.
@@ -140,6 +181,7 @@ The same endpoint from a shell, without changing a client configuration: the tok
 ```bash
 bin/ehome-mcp.py tools
 bin/ehome-mcp.py call model-query__query '{"expression": "all(`ehome.project:Project`)"}'
+bin/ehome-mcp.py call ehome-building__buildingStructure '{"project": "EHProject:1234"}'
 bin/ehome-mcp.py resources
 bin/ehome-mcp.py read toplogic://model/modules/ehome.project/types
 ```
@@ -151,4 +193,9 @@ provider of `tl-ai-core` (`src/test/webapp/WEB-INF/conf/ehome-testAi.config.xml`
 `ai/testing-agents`) - an installer's turn reads the devices of a project, a viewer is refused a
 writing tool, a run without a key names the missing secret; `TestMcpEndpoint` over HTTP with
 personal access tokens - no token is 401, an installer initializes, lists and calls the query tool,
-a resource read of a controller leaves out its token, a viewer is refused a writing tool.
+a resource read of a controller leaves out its token, a viewer is refused a writing tool, an
+installer creates a building with a floor through `createBuildingParts` and a viewer is refused it.
+`TestAssistantTools` runs E-Home's tools on the test system (a floor with rooms, a planned actuator
+in the kitchen, a group address connected to channel A; the refusals of an address in use, a type or
+object of another size, a building part of another project, a viewer; parameters, duplicate, move,
+place), `TestAssistantNaming` the naming of unnamed addresses (`src/test/fixtures/TestNaming.knxproj`).

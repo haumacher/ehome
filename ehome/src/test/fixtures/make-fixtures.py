@@ -312,6 +312,11 @@ Reserve", adds "Taster Bad" (DI-4, 1.1.1, placed in the new room) and adds the r
 last part of "Erdgeschoss". TestUpdateAdopt.knxproj is the update with one device more, "Taster Diele"
 (DI-5, 1.0.5, the same product), for a device planned in E-Home at that place.
 
+TestNaming.knxproj: group addresses an ETS project left without names, the case of the assistant's
+naming of group addresses (haumacher/ehome #127). TestDetails, named "TestNaming", with every group
+address's name removed (Name="") and moved into its description, where the address had none ("GA-1"
+keeps its description "Raumtemperatur Küche").
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -789,6 +794,26 @@ def bcu1(name, xml):
     if name == 'M-0008/Hardware.xml':
         return bcu1_hardware(xml)
     return xml
+
+
+def naming(name, xml):
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestNaming')
+    if name != PROJECT:
+        return xml
+    xml = details(xml)
+
+    def strip(match):
+        element = match.group(0)
+        old = re.search(r' Name="([^"]*)"', element).group(1)
+        element = element.replace(' Name="' + old + '"', ' Name=""', 1)
+        if ' Description="' not in element:
+            element = element.replace('<GroupAddress ', '<GroupAddress Description="' + old + '" ', 1)
+        return element
+
+    result, count = re.subn(r'<GroupAddress [^>]*>', strip, xml)
+    assert count > 0
+    return result
 
 
 def keep_details(name, xml):
@@ -2240,6 +2265,7 @@ def update_name(name):
 
 
 write('src/test/fixtures/TestDetails.knxproj', keep_details)
+write('src/test/fixtures/TestNaming.knxproj', naming)
 write('src/test/fixtures/TestDynamic.knxproj', dynamic,
     rename=lambda name: name.replace(VERSION, NEW_VERSION))
 write('src/test/fixtures/TestProduct.knxprod', unchanged, keep=is_product_data)

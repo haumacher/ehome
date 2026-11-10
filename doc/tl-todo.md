@@ -293,7 +293,7 @@ opens its parents.
 
 **When fixed:** write the selection once in the switch and the drop of `projects/devices.view.xml`.
 
-## AI modules: models, catalog, MCP tool list (TL #30251, #30252, #30253, #30254)
+## AI modules: models, catalog, MCP tool list (TL #30251, #30252, #30253, #30254, #30255)
 
 The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on the modules of
 8.0.0-alpha12.819:
@@ -329,6 +329,22 @@ The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on 
   (`HttpServletStreamableServerTransportProvider`) matches the end of the path against `/mcp`.
   No workaround; `doc/ai.md` names the address without the slash. **When fixed:** nothing to undo.
 
+- **The pre-commit guard refuses a part created in an object of the same turn** (TL #30255).
+  `ModelSecurityPreCommitGuard.checkCreation` asks `canCreate(type, container)` in the committed view
+  (`withoutModifications`); a container created in the same turn is invalid there, and
+  `SecurityConfigurationService.isAllowedCreate` decides an invalid context as deleted ("nobody may
+  create an object in a deleted context") before it reaches its own rule for a context built in the
+  current transaction. The turn is rolled back with "Create on objects of type 'ehome.building:Floor'
+  ... without permission" - contrary to the guard's documented intent (a new parent is covered by its
+  own creation). Reproduction: `createBuildingParts` of a building with a floor, the first
+  `connectObject` of a communication object (new connector with its connection), `duplicateDevice`
+  (new device with its settings), each as an installer. Workaround: the security context factory
+  `de.haumacher.ehome.ai.NewPartsSecurityContextFactory` (`<security-context>` of
+  `AgentRuntimeService` in `ehome.ai.config.xml`) answers the two creation questions for a container
+  in state `NEW` with yes, as the engine's rule intends; everything else is the shipped answer.
+  **When fixed:** remove the factory and its configuration; `TestAssistantTools` and
+  `TestMcpEndpoint` must stay green.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -340,5 +356,5 @@ The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on 
 - TL #30200: see above (agent access: the size of an observation, `observe` without actions failing).
 - TL #30191: see above (a failing class load aborts the module shutdown).
 - TL #30249: see above (the `<with-result>` of a job runs before the window saw the job's commits).
-- TL ticket to file: see above (AI modules: the Claude 5.5 models in the catalog, the thinking budget of Haiku 5.5, the MCP tool list per caller, the Playwright browsers, the message of a missing key, the MCP path with a slash).
+- TL ticket to file: see above (AI modules: the Claude 5.5 models in the catalog, the thinking budget of Haiku 5.5, the MCP tool list per caller, the Playwright browsers, the message of a missing key, the MCP path with a slash, the pre-commit guard and parts of new objects).
 - TL #30193, #30194, #30195, #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the interrupt of a cancelled job closing H2).

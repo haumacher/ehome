@@ -6,13 +6,12 @@ package test.de.haumacher.ehome.ai;
 import static test.de.haumacher.ehome.ai.AssistantFixture.ACTUATOR;
 import static test.de.haumacher.ehome.ai.AssistantFixture.SENSOR;
 import static test.de.haumacher.ehome.ai.AssistantFixture.as;
+import static test.de.haumacher.ehome.ai.AssistantFixture.conversation;
 import static test.de.haumacher.ehome.ai.AssistantFixture.deviceTitles;
 import static test.de.haumacher.ehome.ai.AssistantFixture.tid;
+import static test.de.haumacher.ehome.ai.AssistantFixture.toolNames;
 
-import java.time.Instant;
-import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 
 import junit.framework.Test;
 
@@ -28,13 +27,9 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.search.expr.config.SearchBuilder;
 import com.top_logic.model.security.SecurityConfigurationService;
 import com.top_logic.tl.ai.core.agent.AgentApplicationService;
-import com.top_logic.tl.ai.core.agent.AgentFactory;
 import com.top_logic.tl.ai.core.agent.AgentPolicyService;
 import com.top_logic.tl.ai.core.agent.AgentRuntimeService;
-import com.top_logic.tl.ai.core.agent.ToolContext;
 import com.top_logic.tl.ai.core.agent.TopLogicAgentDefinitions;
-import com.top_logic.tl.ai.core.agent.TransactionScope;
-import com.top_logic.tl.ai.core.agent.approval.ApprovalCallback;
 import com.top_logic.tl.ai.core.execution.AgentRunner;
 import com.top_logic.tl.ai.core.message.AssistantMessage;
 import com.top_logic.tl.ai.core.message.ContentPart;
@@ -42,20 +37,14 @@ import com.top_logic.tl.ai.core.message.Conversation;
 import com.top_logic.tl.ai.core.message.Message;
 import com.top_logic.tl.ai.core.message.TextContent;
 import com.top_logic.tl.ai.core.message.ToolCall;
-import com.top_logic.tl.ai.core.message.UserMessage;
 import com.top_logic.tl.ai.core.provider.LLMProviderService;
 import com.top_logic.tl.ai.core.provider.ProviderRequest;
 import com.top_logic.tl.ai.core.provider.ScriptedModel.Reply;
 import com.top_logic.tl.ai.core.provider.ScriptedModel.Script;
 import com.top_logic.tl.ai.core.provider.ScriptedProvider;
 import com.top_logic.tl.ai.core.security.AiToolAccessService;
-import com.top_logic.tl.ai.core.security.RunEntryPoint;
-import com.top_logic.tl.ai.core.security.RunPrincipal;
-import com.top_logic.tl.ai.core.security.RunSecurity;
-import com.top_logic.tl.ai.tool.api.CancellationToken;
 import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.util.Resources;
-import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
@@ -164,24 +153,7 @@ public class TestAssistant extends BasicTestCase {
 	 * Runs the chat's agent as the chat runs it, for the account of the calling thread.
 	 */
 	private static AgentRunner.RecordedRun run(Conversation conversation, String model) {
-		CancellationToken cancellation = new CancellationToken();
-		ToolContext context = new ToolContext(
-			RunSecurity.contextFor(new RunPrincipal(TLContext.currentUser(), RunEntryPoint.CHAT, false)),
-			ApprovalCallback.AUTO_APPROVE, new TransactionScope(cancellation), Collections.emptySet());
-		try {
-			return AgentRunner.run(AgentRuntimeService.chatEntryPoint(), conversation, null, context, event -> {
-				// No window to show the run in.
-			}, null, null, null, null, new AgentFactory.RunOverrides(model, null, null));
-		} finally {
-			context.transaction().close();
-		}
-	}
-
-	private static Conversation conversation(String question) {
-		Conversation result = new Conversation();
-		result.add(new UserMessage(UUID.randomUUID().toString(), Instant.now(),
-			List.<ContentPart> of(new TextContent(question))));
-		return result;
+		return AssistantFixture.run(conversation, model);
 	}
 
 	private static String text(AssistantMessage message) {
@@ -192,10 +164,6 @@ public class TestAssistant extends BasicTestCase {
 			}
 		}
 		return result.toString();
-	}
-
-	private static List<String> toolNames(ProviderRequest request) {
-		return request.tools().stream().map(tool -> tool.name()).toList();
 	}
 
 	private static String json(String key, String value) {

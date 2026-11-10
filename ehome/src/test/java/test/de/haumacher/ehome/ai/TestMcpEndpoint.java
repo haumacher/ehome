@@ -16,6 +16,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -42,9 +43,11 @@ import com.top_logic.base.services.InitialGroupManager;
 import com.top_logic.base.services.InitialRolesManager;
 import com.top_logic.basic.module.ModuleUtil;
 import com.top_logic.basic.module.services.ServletContextService;
+import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.model.TLObject;
 import com.top_logic.model.search.expr.config.SearchBuilder;
 import com.top_logic.model.security.SecurityConfigurationService;
 import com.top_logic.tl.ai.core.access.AccessTokens;
@@ -81,6 +84,8 @@ public class TestMcpEndpoint extends BasicTestCase {
 	private static final String QUERY = "model-query__query";
 
 	private static final String UPDATE = "object-edit__updateObject";
+
+	private static final String CREATE_PARTS = "ehome-building__createBuildingParts";
 
 	private final AssistantFixture _fixture = new AssistantFixture("ehomeMcp");
 
@@ -170,6 +175,44 @@ public class TestMcpEndpoint extends BasicTestCase {
 			Map.of("name", UPDATE, "arguments", Map.of("id", id, "values", Map.of("title", "Renamed")))));
 		assertTrue("The refusal names the capability: " + write, write.contains("data.write"));
 		assertEquals(ACTUATOR, _fixture.actuator().tValueByName("title"));
+	}
+
+	/**
+	 * E-Home's own tools (haumacher/ehome #127) over MCP: an installer's client lays out a building
+	 * with a floor in one call; a viewer's client is refused the writing tool, and nothing is created.
+	 */
+	public void testEhomeToolWritesForInstallerOnly() throws Exception {
+		String viewer = token(_fixture.viewer());
+		String viewerSession = open(viewer);
+		String refused = Json.write(call(viewer, viewerSession, "tools/call", Map.of("name", CREATE_PARTS,
+			"arguments", Map.of("parent", tid(_fixture.project()), "parts", List.of(Map.of("kind", "Building",
+				"name", "Viewerhaus"))))));
+		assertTrue("The refusal names the capability: " + refused, refused.contains("data.write"));
+		assertTrue(buildings().isEmpty());
+
+		String installer = token(_fixture.installer());
+		String session = open(installer);
+		List<String> tools = toolNames(call(installer, session, "tools/list", Map.of()));
+		assertTrue("E-Home's tools are published: " + tools, tools.contains(CREATE_PARTS));
+		String created = Json.write(call(installer, session, "tools/call", Map.of("name", CREATE_PARTS,
+			"arguments", Map.of("parent", tid(_fixture.project()), "parts", List.of(Map.of("kind", "Building",
+				"name", "MCP-Haus", "parts", List.of(Map.of("kind", "Floor", "name", "Erdgeschoss"))))))));
+		assertTrue(created, created.contains("Created."));
+		PersistencyLayer.getKnowledgeBase().refetch();
+		List<TLObject> buildings = buildings();
+		assertEquals(1, buildings.size());
+		assertEquals("MCP-Haus", buildings.get(0).tValueByName("name"));
+		List<?> floors = (List<?>) buildings.get(0).tValueByName("parts");
+		assertEquals(1, floors.size());
+		assertEquals("Erdgeschoss", ((TLObject) floors.get(0)).tValueByName("name"));
+	}
+
+	private List<TLObject> buildings() {
+		List<TLObject> result = new ArrayList<>();
+		for (Object building : (Collection<?>) _fixture.project().tValueByName("buildings")) {
+			result.add((TLObject) building);
+		}
+		return result;
 	}
 
 	private String token(Person owner) {

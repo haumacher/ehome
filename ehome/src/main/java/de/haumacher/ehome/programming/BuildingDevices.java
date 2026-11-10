@@ -215,10 +215,19 @@ public class BuildingDevices {
 	 * </p>
 	 */
 	public static boolean canContain(TLObject container, TLStructuredType type) {
-		if (container == null || type == null) {
+		return container != null && canContain(container.tType(), type);
+	}
+
+	/**
+	 * Whether a building part of the given type may be created in a container of the given type,
+	 * see {@link #canContain(TLObject, TLStructuredType)}: also for a container that is to be created
+	 * with it (the assistant creates a floor with its rooms in one call).
+	 */
+	public static boolean canContain(TLStructuredType containerKind, TLStructuredType type) {
+		if (containerKind == null || type == null) {
 			return false;
 		}
-		String containerType = TLModelUtil.qualifiedName(container.tType());
+		String containerType = TLModelUtil.qualifiedName(containerKind);
 		String partType = TLModelUtil.qualifiedName(type);
 		switch (containerType) {
 			case "ehome.project:Project":
@@ -257,6 +266,21 @@ public class BuildingDevices {
 			return null;
 		}
 		return I18NConstants.ERROR_CANNOT_CONTAIN__TYPE_CONTAINER.fill(type, container);
+	}
+
+	/**
+	 * Why a building part of the given type cannot be created in a container of the given type that
+	 * is to be created with it; <code>null</code> if it can, see
+	 * {@link #canContain(TLStructuredType, TLStructuredType)}.
+	 *
+	 * @param containerName
+	 *        The name of the container to be created, for the reason.
+	 */
+	public static ResKey insertVeto(TLStructuredType containerKind, String containerName, TLStructuredType type) {
+		if (canContain(containerKind, type)) {
+			return null;
+		}
+		return I18NConstants.ERROR_CANNOT_CONTAIN__TYPE_CONTAINER.fill(type, containerName);
 	}
 
 	/**
