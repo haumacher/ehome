@@ -402,7 +402,29 @@
 				input="importJob"
 			>
 				<inset>
+					<stack gap="default">
 					<job-status input="importJob"/>
+					<!-- An ended job that failed or was cancelled stays displayed (its follow-up clears it only on success): the reader closes it (TL #30250). -->
+					<visible-if
+						expr="!jobIsRunning($importJob)"
+						input="importJob"
+					>
+						<button>
+							<action class="com.top_logic.layout.view.command.GenericViewCommand"
+								image="css:bi bi-x-lg"
+							>
+								<label>
+									<en>Close</en>
+									<de>Schließen</de>
+								</label>
+								<write-channel
+									clear="true"
+									name="importJob"
+								/>
+							</action>
+						</button>
+					</visible-if>
+				</stack>
 				</inset>
 			</visible-if>
 			<table

@@ -197,7 +197,7 @@ name into every `selectByKey`, `activateByKey` and `dropObjects` command, 84 MB 
 
 **When fixed:** check `observe` with and without `--actions` on a device page of a large project.
 
-## Jobs of the app: cancel, import jobs (TL #30193, #30194, #30195, #30196)
+## Jobs of the app: cancel, import jobs (TL #30193, #30194, #30195, #30196, #30250)
 
 The cancelable `<start-job>`s of the app: the ETS import, the password dialog and the product data
 import (`ImportEtsProjectJob`, `ImportProductDataJob`, haumacher/ehome #84), the bus scan and the
@@ -227,6 +227,11 @@ cancelable. Four gaps of the job support:
   No workaround.
 - A cancelled job carries no result (TL #30195): of a cancelled multi-file upload, the files committed
   before stay, but no report names them (the projects table shows them). No workaround.
+- A failed or cancelled job cannot be dismissed (TL #30250): its `<job-status>` stays above the table
+  until the next job starts, since the follow-up that clears it runs on success only. Workaround: a
+  button "Close" beside the display, shown while no job runs, that clears the job channel
+  (`projects/overview.view.xml`, `catalogs.view.xml`; the displays of the scan and the device
+  programming are part of their panel and stay).
 
 **When fixed:** TL #30196: remove `de.haumacher.ehome.job.Uninterruptible` (and its test `TestUninterruptible`) - its `run` from
 `ImportEtsProjectJob`, `ImportProductDataJob`, `ScanJob`, `ReadBackJob` and `CompareJob`, its
@@ -234,7 +239,8 @@ cancelable. Four gaps of the job support:
 `RecordingJobMonitor#run` in the tests. TL #30193: run the job in the dialog with its own `<job-status>` and the
 `<close-dialog>` first in the `<with-result>`, and drop the `importJob` binding of the dialog in
 `projects/overview.view.xml`. TL #30194: declare the commit in `ImportJobs#importFile` as past the
-point of no return. TL #30195: continue the chain of a cancelled multi-file import with the report
+point of no return. TL #30250: replace the "Close" buttons beside `<job-status>` in
+`projects/overview.view.xml` and `catalogs.view.xml` by the display's own dismissal. TL #30195: continue the chain of a cancelled multi-file import with the report
 of the files imported.
 
 ## The `<with-result>` of a job before the window saw its commits (TL #30249)
