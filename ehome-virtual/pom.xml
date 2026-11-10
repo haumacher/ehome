@@ -63,6 +63,14 @@
       <scope>test</scope>
     </dependency>
 
+    <!-- The scripted provider the test settings of the app configure for the assistant's tests (doc/ai.md). -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-ai-core</artifactId>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
+
     <!-- The access coverage test the test settings of the app switch on. -->
     <dependency>
       <groupId>com.top-logic</groupId>

@@ -100,6 +100,10 @@
 			expr="if($target == null, #('Choose an address in the table or enter one.'@en, 'Eine Adresse in der Tabelle wählen oder eingeben.'@de), if($target['problem'] != null, $target['problem'], $target['label']))"
 			inputs="target"
 		/>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Project, tab Monitor'"
+		/>
 	</channels>
 	<split-panel
 		orientation="vertical"
@@ -111,6 +115,18 @@
 				size="30"
 				unit="%"
 			>
+				<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+				<page-selection to="pageView">
+					<inputs>
+						<input channel="assistantPage"/>
+					</inputs>
+				</page-selection>
+				<page-selection to="pageSelection">
+					<inputs>
+						<input channel="selectedRecording"/>
+						<input channel="project"/>
+					</inputs>
+				</page-selection>
 				<panel>
 					<title>
 						<en>Group monitor</en>

@@ -6,9 +6,19 @@
 <view>
 	<channels>
 		<channel name="navPath"/>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Projects'"
+		/>
 	</channels>
 
 	<stack>
+		<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+		<page-selection to="pageView">
+			<inputs>
+				<input channel="assistantPage"/>
+			</inputs>
+		</page-selection>
 		<slot-content to="appbar-content">
 			<tile-breadcrumb path="navPath">
 				<home-label>

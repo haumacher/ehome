@@ -20,8 +20,24 @@
 		<channel name="datapoint"/>
 		<!-- Whether the form of the selected datapoint is being edited. -->
 		<channel name="datapointEditMode"/>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Project, tab Application datapoints'"
+		/>
 	</channels>
 	<panel>
+		<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+		<page-selection to="pageView">
+			<inputs>
+				<input channel="assistantPage"/>
+			</inputs>
+		</page-selection>
+		<page-selection to="pageSelection">
+			<inputs>
+				<input channel="datapoint"/>
+				<input channel="project"/>
+			</inputs>
+		</page-selection>
 		<title>
 			<en>Application datapoints</en>
 			<de>Anwendungsdatenpunkte</de>

@@ -1,1 +1,2 @@
 ehome-testSettings.config.xml
+ehome-testAi.config.xml

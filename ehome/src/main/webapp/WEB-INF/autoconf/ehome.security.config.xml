@@ -238,11 +238,94 @@
 					</class>
 					<class name="tl.agent:NewAccessToken" internal="true"/>
 					<class name="tl.agent:IssuedAccessToken" internal="true"/>
+					<!--
+						The AI modules (haumacher/ehome #126, #129). Their conversations, memories and personal
+						access tokens are their owner's by the policies the modules ship
+						(tl-ai-core.chatSecurity.config.xml, tl-ai-core.accessTokens.config.xml). The types
+						below are read and written by the modules' code and by administrators only: the form of
+						a new personal access token (transient, never persisted), the agents and skills authored
+						in the running application (E-Home's agents are configured, administrators author
+						further ones), the pages an agent publishes (the group "workspace", granted to nobody),
+						and the period of the agent monitor of the administration (transient).
+					-->
+					<class name="tl.ai.access:AccessTokenRequest" internal="true"/>
+					<class name="tl.ai.core:Agent" internal="true"/>
+					<class name="tl.ai.core:Skill" internal="true"/>
+					<class name="tl.ai.htmlpages:GeneratedHtmlPage" internal="true"/>
+					<class name="tl.ai.monitor:Period" internal="true"/>
 					<!-- The open enrollment code of a project: installers only, a viewer must not enroll a controller. -->
 					<part name="ehome.project:Project#enrollmentCode">
 						<grant operation="Read" roles="ehome.Installer"/>
 					</part>
 				</security-config>
+			</instance>
+		</config>
+
+		<!--
+			The assistant (haumacher/ehome #126, doc/ai.md): which agents, models and tools a run of the
+			chat may use, by the roles held on the security root (ai/security/tool-access-configuration,
+			ai/security/run-access). What a tool may then read or change is decided per object by the
+			grants above, so a viewer's read tools see what the viewer sees, and an installer's write
+			tools change what the installer may change - always after the user approved the call.
+
+			- ehome.Installer: reading the model and the data (model.read, data.read) and changing data
+			  with the object tools (data.write: updateObject, createObject, deleteObject, editText).
+			- ehome.Viewer: reading only.
+			- Not granted to anybody: changing data with a TL-Script (script, changeData). E-Home's
+			  TL-Script functions are not access checked and include writing to the bus (monitorSend),
+			  which no approval of a data change should cover; E-Home's own tools (haumacher/ehome #127,
+			  #128) check the project and join data.read and data.write. Equally egress (the web),
+			  workspace, and the privileged groups (model.structure, agent.authoring).
+			- Every other account: nothing beyond the implicit grants (asking the user, loading a skill),
+			  and no agent at all.
+
+			The roles run the chat's agent (TL_SingleAgent) and no other; the model is the operator's
+			choice through tl_anthropic_models and tl_ai_default_model, so every model a provider offers
+			may be picked.
+
+			A run without anybody to approve its calls - a call of an external agent over the MCP endpoint
+			(ehome.mcp.config.xml, haumacher/ehome #129) - is capped by the background allowlist. It admits
+			changing data: an installer's MCP client (Claude Code) changes data as the installer could in
+			the chat, and the client asks its user before a call the tool list marks destructive. The
+			roles still decide: a viewer's client is refused every writing tool. E-Home starts no agent
+			on a schedule.
+		-->
+		<config service-class="com.top_logic.tl.ai.core.security.AiToolAccessService">
+			<instance>
+				<tool-access>
+					<role name="ehome.Installer">
+						<grants>
+							<grant group="model.read"/>
+							<grant group="data.read"/>
+							<grant group="data.write"/>
+						</grants>
+					</role>
+					<role name="ehome.Viewer">
+						<grants>
+							<grant group="model.read"/>
+							<grant group="data.read"/>
+						</grants>
+					</role>
+				</tool-access>
+				<baseline/>
+				<background-allowlist>
+					<grant group="model.read"/>
+					<grant group="data.read"/>
+					<grant group="data.write"/>
+				</background-allowlist>
+				<agent-access default="none">
+					<role name="ehome.Installer">
+						<grants>
+							<grant agents="TL_SingleAgent"/>
+						</grants>
+					</role>
+					<role name="ehome.Viewer">
+						<grants>
+							<grant agents="TL_SingleAgent"/>
+						</grants>
+					</role>
+				</agent-access>
+				<model-access default="all"/>
 			</instance>
 		</config>
 

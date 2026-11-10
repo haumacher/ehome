@@ -4,8 +4,31 @@
 	The pages of E-Home in the application shell that tl-layout-view defines
 	(WEB-INF/views/app.view.xml): a same-path overlay that names the application and places its
 	pages in the application section of the sidebar, ahead of the system section.
+
+	The assistant (haumacher/ehome #126, doc/ai.md) is a chat docked over the page, in the footer of the
+	shell: a launcher in the corner that opens the conversation over the work, which stays usable behind
+	it. It is offered to the accounts that may run it - installers, viewers and administrators, the
+	accounts that read the security root (ehome.security.config.xml); every other account sees no
+	launcher, as the run access policy lets it run no agent. Each turn tells the agent which page is
+	open and what is selected on it: the pages write their name into the shell channel pageView and
+	their selection into pageSelection (<page-selection> in each page, published to the pages by
+	<chat-channels>); what the agent shows with its present tool opens in the rail beside the
+	conversation, and the rail lists the account's conversations.
 -->
 <view xmlns:config="http://www.top-logic.com/ns/config/6.0">
+	<channels>
+		<!-- Whether the account may use the assistant: computed once per session. -->
+		<derived-channel name="assistantAllowed"
+			expr="canRead(`SecurityStructure#ROOT`)"
+		/>
+		<!-- The conversation the dock shows; empty for a new one. -->
+		<channel name="assistantSession"/>
+		<!-- What the agent shows with its present tool, in the rail of the dock. -->
+		<channel name="assistantPane"/>
+		<!-- The page on screen and its selection, written by the pages (<page-selection>). -->
+		<channel name="pageView"/>
+		<channel name="pageSelection"/>
+	</channels>
 	<app-shell>
 		<content>
 			<sidebar active-item="projects">
@@ -80,5 +103,82 @@
 				</title>
 			</app-bar>
 		</header>
+		<footer>
+			<chat-channels channels="pageView, pageSelection"/>
+			<switch input="assistantAllowed">
+				<case test="$assistantAllowed">
+					<chat-dock chat-id="assistant"
+						icon="css:bi bi-stars"
+					>
+						<label>
+							<en>Assistant</en>
+							<de>Assistent</de>
+						</label>
+						<chat chat-id="assistant"
+							direction="row"
+						>
+							<panel fill="true">
+								<chat-conversation input="assistantSession"
+									present="assistantPane"
+								>
+									<context>
+										<inputs>
+											<input channel="pageView"/>
+										</inputs>
+										<fact name="Open page"
+											stable="false"
+										>
+											<value>view -> if(isEmpty($view), "none", $view)</value>
+										</fact>
+									</context>
+									<selection channel="pageSelection"
+										name="Selected on the page"
+									/>
+								</chat-conversation>
+							</panel>
+							<chat-rail input="assistantPane"
+								open="false"
+							>
+								<section name="conversations"
+									icon="css:bi bi-chat-left-text"
+								>
+									<label>
+										<en>Conversations</en>
+										<de>Unterhaltungen</de>
+									</label>
+									<data-list collapsible="false"
+										observed-types="tl.ai.execution:AgentSession"
+										search="false"
+										selection="assistantSession"
+									>
+										<rows>all(`tl.ai.execution:AgentSession`)
+	.filter(s -> $s.get(`tl.ai.execution:AgentSession#owner`) == currentUser()
+		&amp;&amp; $s.get(`tl.ai.execution:AgentSession#kind`) == `tl.ai.execution:SessionKind#CHAT`)
+	.sort((s -> $s.get(`tl.ai.execution:AgentSession#createdAt`)).comparator().desc())</rows>
+										<lines>
+											<line attribute="title"/>
+											<line attribute="createdAt"/>
+										</lines>
+										<commands>
+											<command class="com.top_logic.layout.view.command.GenericViewCommand"
+												image="css:bi bi-plus-lg"
+											>
+												<label>
+													<en>New conversation</en>
+													<de>Neue Unterhaltung</de>
+												</label>
+												<write-channel clear="true"
+													name="assistantSession"
+												/>
+											</command>
+										</commands>
+									</data-list>
+								</section>
+							</chat-rail>
+						</chat>
+					</chat-dock>
+				</case>
+			</switch>
+		</footer>
 	</app-shell>
 </view>

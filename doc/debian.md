@@ -168,3 +168,17 @@ Tomcat's JVM. Changing the host later invalidates every registered passkey. With
 sign-in works with passwords as before, and the passkey buttons are disabled with the reason
 "Passkeys are not set up for this installation"; opened by another address than `tl_host` (e.g. the
 LAN address over `http`), they are disabled too.
+
+## Assistant and MCP endpoint
+
+The assistant in the app (`doc/ai.md`) needs the API key of Anthropic: set
+`tl_anthropic_api_key=sk-ant-...` in `/etc/ehome/ehome.env` (a new installation has a commented
+line; an existing file gets the line added by hand) and apply it with `dpkg-reconfigure ehome`. Like
+every setting it becomes a JNDI entry of E-Home's own context, never a variable of Tomcat's JVM, and
+the file keeps it readable by root and Tomcat only. Without a key the chat answers that the key is
+missing; nothing is sent anywhere. `tl_anthropic_models` and `tl_ai_default_model` choose other
+models. The use is billed to the account of the key.
+
+The MCP endpoint for external agents (`/ehome/mcp`, `doc/ai.md`) is on and admits personal access
+tokens only. Behind the nginx of the example, its location `/ehome/mcp` passes the server-sent events
+unbuffered; a proxy of its own needs the same (`proxy_buffering off` or its equivalent).
