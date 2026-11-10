@@ -28,14 +28,17 @@ import com.top_logic.model.TLStructuredType;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.runtime.ExpressionRenames.RenamedDatapoint;
 import de.haumacher.ehome.runtime.ExpressionRenames.RenamedParameter;
 
 /**
  * Follows a renamed id in the expressions of the project (haumacher/ehome #111): when the id of a
- * rule parameter, a timer, a state or an application datapoint, or the address of a group address
- * changes, the expressions of the project's rules that name it are rewritten in the same
- * transaction ({@link ExpressionRenames}).
+ * rule parameter, a timer, a state or an application datapoint, or the id of the datapoint of a
+ * group address (its identifier, else its address, haumacher/ehome #130) changes, the expressions of
+ * the project's rules that name it are rewritten in the same transaction ({@link ExpressionRenames}).
+ * An expression entered or changed that names a group address with an identifier by its address
+ * (<code>@"1/2/3"</code>) is written with the identifier (<code>@kueche.licht</code>), the name of its
+ * datapoint in the image.
  *
  * <p>
  * A {@link ModificationListener} of the knowledge base: it sees every commit, whichever code changed
@@ -50,7 +53,9 @@ import de.haumacher.ehome.runtime.ExpressionRenames.RenamedParameter;
  * <p>
  * After the commit succeeded, the user is told how many expressions were adjusted and, for a
  * renamed parameter, that the value set on the controller is lost (homecontrol
- * <code>spec/rules.md</code> 8.4, D5): an after-commit action of the transaction
+ * <code>spec/rules.md</code> 8.4, D5), for a renamed datapoint with a persisted value or a history
+ * that the controller loses them with the next deployment, since it keeps them by id (homecontrol
+ * <code>spec/runtime-image.md</code> 3.3): an after-commit action of the transaction
  * ({@link CommitActions}) shows them through the {@link InfoService} of the interaction, which the
  * view layer shows in the window that saved (outside a window, e.g. in a job, nothing is shown).
  * </p>
@@ -76,8 +81,20 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 	 *        The number of expressions adjusted.
 	 * @param parameters
 	 *        The renamed parameters.
+	 * @param datapoints
+	 *        The renamed datapoints with a persisted value or a history.
 	 */
-	public record Report(int expressions, List<RenamedParameter> parameters) {
+	public record Report(int expressions, List<RenamedParameter> parameters, List<RenamedDatapoint> datapoints) {
+
+		/** The datapoints a message names at most. */
+		private static final int LISTED = 10;
+
+		/**
+		 * A report without renamed datapoints.
+		 */
+		public Report(int expressions, List<RenamedParameter> parameters) {
+			this(expressions, parameters, List.of());
+		}
 
 		/**
 		 * The message about the expressions adjusted, <code>null</code> if none was.
@@ -91,7 +108,9 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 		}
 
 		/**
-		 * The notes about the renamed parameters: the value set on the controller is lost.
+		 * The notes about the renamed parameters (the value set on the controller is lost) and the
+		 * renamed datapoints with a persisted value or a history (the controller keeps them by id,
+		 * haumacher/ehome #130).
 		 */
 		public List<ResKey> notes() {
 			List<ResKey> result = new ArrayList<>();
@@ -99,7 +118,28 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 				result.add(I18NConstants.PARAMETER_VALUE_LOST__RULE_OLD_NEW.fill(parameter.rule(), parameter.oldId(),
 					parameter.newId()));
 			}
+			if (datapoints.size() == 1) {
+				RenamedDatapoint datapoint = datapoints.get(0);
+				result.add(I18NConstants.DATAPOINT_VALUES_LOST__NAME_OLD_NEW.fill(name(datapoint), datapoint.oldId(),
+					datapoint.newId()));
+			} else if (!datapoints.isEmpty()) {
+				List<String> list = new ArrayList<>();
+				for (RenamedDatapoint datapoint : datapoints) {
+					if (list.size() == LISTED) {
+						list.add("…");
+						break;
+					}
+					list.add(name(datapoint) + ": " + datapoint.oldId() + " → " + datapoint.newId());
+				}
+				result.add(I18NConstants.DATAPOINTS_VALUES_LOST__COUNT_LIST.fill(Integer.valueOf(datapoints.size()),
+					String.join(", ", list)));
+			}
 			return result;
+		}
+
+		private static String name(RenamedDatapoint datapoint) {
+			String label = datapoint.datapoint().tValid() ? DatapointNames.label(datapoint.datapoint()) : null;
+			return label == null ? datapoint.newId() : label;
 		}
 	}
 
@@ -132,9 +172,13 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 			Map<ObjectKey, ? extends KnowledgeItem> updatedObjects,
 			Map<ObjectKey, ? extends KnowledgeItem> removedObjects) {
 		Map<TLObject, ExpressionRenames> renames = null;
+		Map<TLObject, List<TLObject>> entered = null;
 		for (KnowledgeItem item : updatedObjects.values()) {
 			if (!(item.getWrapper() instanceof TLObject obj)) {
 				continue;
+			}
+			if (ExpressionRenames.holdsExpression(obj)) {
+				entered = noteEntered(entered, obj);
 			}
 			Kind kind = Kind.of(obj);
 			if (kind == null) {
@@ -154,16 +198,76 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 			}
 			kind.note(renames.computeIfAbsent(project, x -> new ExpressionRenames()), obj, before, after);
 		}
-		if (renames == null) {
+		for (KnowledgeItem item : createdObjects.values()) {
+			if (item.getWrapper() instanceof TLObject obj && ExpressionRenames.holdsExpression(obj)) {
+				entered = noteEntered(entered, obj);
+			}
+		}
+		if (renames == null && entered == null) {
 			return Modification.NONE;
 		}
-		Map<TLObject, ExpressionRenames> all = renames;
+		Map<TLObject, ExpressionRenames> all = renames == null ? Map.of() : renames;
+		Map<TLObject, List<TLObject>> parts = entered == null ? Map.of() : entered;
 		return () -> {
 			Report report = apply(all);
+			normalize(parts);
 			if (DefaultDisplayContext.hasDisplayContext()) {
 				actions.afterCommit(changes -> show(report));
 			}
 		};
+	}
+
+	/**
+	 * Notes a part of a rule whose expression was entered or changed, by its project, if the
+	 * expression names a datapoint by a quoted id (the address of a group address).
+	 */
+	private static Map<TLObject, List<TLObject>> noteEntered(Map<TLObject, List<TLObject>> entered, TLObject part) {
+		if (!namesQuoted(part)) {
+			return entered;
+		}
+		TLObject project = RuntimeFunctions.project(part);
+		if (project == null) {
+			return entered;
+		}
+		Map<TLObject, List<TLObject>> result = entered == null ? new LinkedHashMap<>() : entered;
+		result.computeIfAbsent(project, x -> new ArrayList<>()).add(part);
+		return result;
+	}
+
+	private static boolean namesQuoted(TLObject part) {
+		for (String attribute : new String[] { "condition", "value", "duration", "after", "message" }) {
+			if (part.tType().getPart(attribute) != null && part.tValueByName(attribute) instanceof String text
+				&& text.contains("@\"")) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Writes the entered expressions naming a group address by its address (<code>@"1/2/3"</code>)
+	 * with the address's identifier instead (<code>@kueche.licht</code>, haumacher/ehome #130), the
+	 * name the image gives its datapoint; quietly, as the canonical form of an entered text.
+	 */
+	static void normalize(Map<TLObject, List<TLObject>> entered) {
+		for (Map.Entry<TLObject, List<TLObject>> entry : entered.entrySet()) {
+			ExpressionRenames identifiers = new ExpressionRenames();
+			for (TLObject address : RuntimeFunctions.groupAddresses(entry.getKey())) {
+				String identifier = GroupAddressIds.identifier(address);
+				String threeLevel = GroupAddressIds.address(address);
+				if (identifier != null && threeLevel != null) {
+					identifiers.datapoint(threeLevel, identifier);
+				}
+			}
+			if (identifiers.isEmpty()) {
+				continue;
+			}
+			for (TLObject part : entry.getValue()) {
+				if (part.tValid()) {
+					identifiers.applyTo(part);
+				}
+			}
+		}
 	}
 
 	/**
@@ -172,13 +276,37 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 	static Report apply(Map<TLObject, ExpressionRenames> renames) {
 		int expressions = 0;
 		List<RenamedParameter> parameters = new ArrayList<>();
+		List<RenamedDatapoint> datapoints = new ArrayList<>();
 		for (Map.Entry<TLObject, ExpressionRenames> entry : renames.entrySet()) {
-			if (!entry.getValue().isEmpty()) {
-				expressions += entry.getValue().apply(entry.getKey());
-				parameters.addAll(entry.getValue().getRenamedParameters());
+			ExpressionRenames project = entry.getValue();
+			if (!project.isEmpty()) {
+				expressions += project.apply(entry.getKey());
+				parameters.addAll(project.getRenamedParameters());
+			}
+			datapoints.addAll(keepingValues(entry.getKey(), project.getRenamedDatapoints()));
+		}
+		return new Report(expressions, parameters, datapoints);
+	}
+
+	/**
+	 * The renamed datapoints for which the controller keeps something by their id: a persisted
+	 * value or a history (set by hand or derived from the charts).
+	 */
+	private static List<RenamedDatapoint> keepingValues(TLObject project, List<RenamedDatapoint> renamed) {
+		if (renamed.isEmpty()) {
+			return List.of();
+		}
+		Map<TLObject, HistoryConfig.History> derived = HistoryConfig.derivedHistories(project);
+		List<RenamedDatapoint> result = new ArrayList<>();
+		for (RenamedDatapoint datapoint : renamed) {
+			TLObject obj = datapoint.datapoint();
+			boolean persist = Boolean.TRUE.equals(obj.tValueByName(Pages.isGroupAddress(obj) ? "runtimePersist" : "persist"));
+			boolean history = HistoryConfig.isManual(obj) ? HistoryConfig.manual(obj) != null : derived.get(obj) != null;
+			if (persist || history) {
+				result.add(datapoint);
 			}
 		}
-		return new Report(expressions, parameters);
+		return result;
 	}
 
 	@Override
@@ -229,20 +357,27 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 		APPLICATION_DATAPOINT(ApplicationDatapoints.TYPE) {
 			@Override
 			void note(ExpressionRenames renames, TLObject obj, String before, String after) {
-				renames.datapoint(before, after);
+				renames.datapoint(obj, before, after);
 			}
 		},
 
-		/** A group address: <code>@"1/2/3"</code>, its address in three levels. */
+		/**
+		 * A group address: <code>@kueche.licht</code> by its identifier, else <code>@"1/2/3"</code>
+		 * by its address in three levels (haumacher/ehome #130); setting, changing and removing the
+		 * identifier is a rename as a change of the address without one is.
+		 */
 		GROUP_ADDRESS(null) {
 			@Override
 			String id(TLObject obj) {
-				return obj.tValueByName("address") instanceof GA ga ? RuntimeImage.threeLevel(ga.getValue()) : null;
+				return GroupAddressIds.datapointId(obj);
 			}
 
 			@Override
 			void note(ExpressionRenames renames, TLObject obj, String before, String after) {
-				renames.datapoint(before, after);
+				// An identifier the model refuses is no name to follow; the commit fails.
+				if (GroupAddressIds.identifier(obj) == null || GroupAddressIds.syntaxProblem(after) == null) {
+					renames.datapoint(obj, before, after);
+				}
 			}
 		};
 

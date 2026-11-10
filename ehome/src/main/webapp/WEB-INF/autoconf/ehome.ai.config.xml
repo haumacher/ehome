@@ -119,7 +119,7 @@ E-Home plans, configures and runs KNX home installations - the tool of an instal
 - Area and line: the topology. A device's individual address is area.line.device (1.1.5).
 - Device: a KNX device of a line. Its type is a product variant of the catalog, its program the application program; its parameter settings are the values set in the project (all others have their defaults); its location is a building part.
 - Connector (communication object): an object of a device's program with its datapoint types and flags. A connection links it to a group address: its first address is its sending address (also for an input), further ones are listening addresses.
-- Group address: the address telegrams are sent to; notation by the project's style: three levels (main/middle/sub, 1/2/3), two levels (1/2) or free. Group ranges structure them.
+- Group address: the address telegrams are sent to; notation by the project's style: three levels (main/middle/sub, 1/2/3), two levels (1/2) or free. Group ranges structure them. Its identifier (optional, E-Home's own) is the readable id rules name its datapoint by: @kueche.licht instead of @"1/2/3".
 - Datapoint type (DPT): the meaning and coding of a value, a main type and a subtype (DPST-1-1 is switching).
 - Building part: building, floor, room, corridor, stairway, distribution board, location - a tree; devices are placed in it.
 - Catalog: the manufacturers with their products, variants and application programs, imported from ETS projects and product data, shared by all projects.
@@ -128,7 +128,7 @@ E-Home plans, configures and runs KNX home installations - the tool of an instal
 - Rule: reactions to triggers (a datapoint, a schedule, a timer, the start) with actions; written in E-Home's rule language.
 - Schedule entry, page (control page of the controller's user interface), virtual device (a block type the controller runs in a room, with its ports bound to datapoints).
 - Controller: a HomeControl controller that runs what E-Home deploys. Runtime image: the project's functions, rules, schedules, pages and datapoints compiled and signed for it. Deployment: one attempt to send the image to a controller.
-- A datapoint is named in texts as "Name (id)", e.g. "Licht Küche (1/2/3)"; an id alone where it has no name.
+- A datapoint is named in texts as "Name (id)", e.g. "Licht Küche (1/2/3)", "Licht Küche (kueche.licht)" for a group address with an identifier; an id alone where it has no name.
 
 ## Rules
 - Deploying a runtime image to a controller, programming a KNX device (download, individual address) and writing to the bus are the installer's commands in the views. Never do them and never try; say which command does it and where.
@@ -147,7 +147,7 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 - Bereich und Linie: die Topologie. Die physikalische Adresse eines Geräts ist Bereich.Linie.Gerät (1.1.5).
 - Gerät: ein KNX-Gerät einer Linie. Sein Typ ist eine Produktvariante des Katalogs, sein Programm das Applikationsprogramm; seine Parametereinstellungen sind die im Projekt gesetzten Werte (alle anderen haben ihren Standardwert); sein Standort ist ein Gebäudeteil.
 - Anschluss (Kommunikationsobjekt): ein Objekt des Programms eines Geräts mit Datenpunkttypen und Flags. Eine Verbindung verknüpft es mit einer Gruppenadresse: seine erste Adresse ist seine sendende (auch bei einem Eingang), weitere sind hörende Adressen.
-- Gruppenadresse: die Adresse, an die Telegramme gehen; Schreibweise nach dem Stil des Projekts: dreistufig (Haupt-/Mittel-/Untergruppe, 1/2/3), zweistufig (1/2) oder frei. Gruppenbereiche gliedern sie.
+- Gruppenadresse: die Adresse, an die Telegramme gehen; Schreibweise nach dem Stil des Projekts: dreistufig (Haupt-/Mittel-/Untergruppe, 1/2/3), zweistufig (1/2) oder frei. Gruppenbereiche gliedern sie. Ihr Bezeichner (optional, E-Homes eigene Angabe) ist die lesbare ID, mit der Regeln ihren Datenpunkt nennen: @kueche.licht statt @"1/2/3".
 - Datenpunkttyp (DPT): Bedeutung und Kodierung eines Werts, Haupttyp und Untertyp (DPST-1-1 ist Schalten).
 - Gebäudeteil: Gebäude, Stockwerk, Zimmer, Korridor, Treppe, Verteilerschrank, Standort - ein Baum, in dem die Geräte platziert sind.
 - Katalog: die Hersteller mit Produkten, Varianten und Applikationsprogrammen, importiert aus ETS-Projekten und Produktdaten, gemeinsam für alle Projekte.
@@ -156,7 +156,7 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 - Regel: Reaktionen auf Auslöser (ein Datenpunkt, der Zeitplan, ein Timer, der Start) mit Aktionen; geschrieben in der Regelsprache von E-Home.
 - Zeitplaneintrag, Seite (Bedienseite der Oberfläche des Controllers), virtuelles Gerät (ein Bausteintyp, den der Controller in einem Raum ausführt, die Ports an Datenpunkte gebunden).
 - Controller: ein HomeControl-Controller, der ausführt, was E-Home bereitstellt. Laufzeitabbild: Funktionen, Regeln, Zeitplan, Seiten und Datenpunkte des Projekts, für ihn übersetzt und signiert. Bereitstellung: ein Versuch, das Abbild an einen Controller zu senden.
-- Ein Datenpunkt heißt in Texten "Name (ID)", z. B. "Licht Küche (1/2/3)"; ohne Namen nur die ID.
+- Ein Datenpunkt heißt in Texten "Name (ID)", z. B. "Licht Küche (1/2/3)", "Licht Küche (kueche.licht)" bei einer Gruppenadresse mit Bezeichner; ohne Namen nur die ID.
 
 ## Regeln
 - Ein Laufzeitabbild auf einen Controller bereitstellen, ein KNX-Gerät programmieren (Download, physikalische Adresse) und auf den Bus schreiben sind Befehle des Installateurs in den Ansichten. Tu das nie und versuche es nicht; sag, welcher Befehl es tut und wo.
@@ -278,7 +278,7 @@ E-Home replaces ETS: a planned device is a full device of the project - product,
 - Connections take effect with the devices' next download, which the installer starts.]]></content>
 					</skill>
 					<skill name="EHome_namingGroupAddresses"
-						description="Load before giving the group addresses of an E-Home project names (or better names), e.g. when the installer asks to name the addresses an ETS import left without names. Names the tools listGroupAddresses and nameGroupAddresses."
+						description="Load before giving the group addresses of an E-Home project names (or better names) or identifiers (the readable ids rules name them by, @kueche.licht), e.g. when the installer asks to name the addresses an ETS import left without names or to give them reasonable names and IDs. Names the tools listGroupAddresses and nameGroupAddresses."
 					>
 						<content><![CDATA[# Naming group addresses in E-Home
 
@@ -291,6 +291,12 @@ A good name tells room, consumer and function, and whether the address carries a
 - Use the same pattern for every address of one kind, and the project's own abbreviations where it uses them ("EG", "Wohnen", "WC").
 - Keep names short (well below 255 characters); the address itself is not part of the name.
 
+## Identifiers
+An identifier is the readable id of the address's datapoint in the runtime image: rules name the address by it (@kueche.licht instead of @"1/2/3"), the controller's API and its persisted values too. It is E-Home's own data: an update from ETS keeps it.
+- Derive it from the name you assigned or found: room, then consumer/function, then the kind where the room has several, lower case, umlauts transliterated (ä ae, ö oe, ü ue, ß ss), parts joined by dots, words within a part by underscores: "Küche Licht Schalten" kueche.licht, "Küche Licht Status" kueche.licht.status, "Wohnen Jalousie Auf/Ab" wohnen.jalousie.auf_ab, "Bad Temperatur Ist" bad.temperatur, "Zentral Licht Aus" zentral.licht_aus. The command address of a function gets the short form, its status and other addresses a suffix.
+- Syntax: parts of letters, digits and underscores joined by dots; the first part starts with a letter and is no keyword (and, or, not, true, false); at most 63 bytes. Unique among the project's datapoints: the identifiers of its other addresses (listGroupAddresses shows them) and the ids of its application datapoints. knx.time, knx.date, knx.datetime and zigbee.... are reserved.
+- Keep an identifier an address has unless the user asks to change it: a changed identifier rewrites the rules naming it (E-Home does that), but the controller loses the persisted value and the history it keeps under the old id.
+
 ## Where the meaning comes from
 listGroupAddresses gives per address: its description (often the name ETS lost or the planner's note), its datapoint type, its range with name and description (often the function or floor: "Licht", "EG"), the functions using it with their room, and its connections - device, the device's room, object text, function text, channel with its description, and send/receive. The sender usually tells the purpose best: a push button's "Taste 1" sending to an actuator channel's switching object in the kitchen is "Küche Licht Schalten".
 - Never invent what the data does not say. An address without description and connections gets no guessed name: list it as unclear.
@@ -298,9 +304,9 @@ listGroupAddresses gives per address: its description (often the name ETS lost o
 
 ## How to work
 1. listGroupAddresses for the open project (page with 'offset' while it answers 'nextOffset'; 'unnamedOnly' when only the unnamed ones are to be named).
-2. Propose the names as a table first - address, current name, description, proposed name, and the reason in a few words - and wait until the user agrees or corrects it.
-3. Write the agreed names with ONE nameGroupAddresses call per project (dryRun=true first if the list is long). Leave 'description' out unless the user wants it changed; it stays as it is.
-4. Report how many addresses were named; list the ones left unclear.]]></content>
+2. Propose the names as a table first - address, current name, description, proposed name, proposed identifier where asked for (or where the user wants "names and IDs"), and the reason in a few words - and wait until the user agrees or corrects it.
+3. Write the agreed names and identifiers with ONE nameGroupAddresses call per project (dryRun=true first if the list is long): each entry with 'name' and/or 'identifier'. Leave 'description' out unless the user wants it changed; it stays as it is. A name assigned here survives an update from ETS while the ETS project has none for the address; a name ETS has wins.
+4. Report how many addresses were named and identified; list the ones left unclear.]]></content>
 					</skill>
 				</skills>
 				<agents>

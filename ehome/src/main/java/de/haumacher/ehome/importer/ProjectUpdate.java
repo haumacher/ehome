@@ -45,7 +45,9 @@ import de.haumacher.ehome.runtime.Referers;
  * project (the <em>target</em>) in place, and the source is deleted, all in the transaction of the
  * import: a refusal or failure leaves the target as it was. The split between ETS and E-Home is the
  * one of {@link ProjectParts}: ETS wins on what the file carries, E-Home keeps its compositions and
- * its own attributes of KNX objects.
+ * its own attributes of KNX objects (the identifier of a group address among them), and the name and
+ * description of a group address where the file has none ({@link ProjectParts#isKeptWhenEmpty},
+ * haumacher/ehome #130: names assigned in E-Home survive an export from ETS that still lacks them).
  * </p>
  *
  * <p>
@@ -512,6 +514,11 @@ public final class ProjectUpdate {
 		@Override
 		public boolean merges(TLStructuredTypePart part) {
 			return ProjectParts.isEtsOwned(part);
+		}
+
+		@Override
+		public boolean keepsWhenEmpty(TLStructuredTypePart part) {
+			return ProjectParts.isKeptWhenEmpty(part);
 		}
 
 		@Override

@@ -29,14 +29,16 @@ import com.top_logic.tl.ai.tool.api.ToolResult;
 
 import de.haumacher.ehome.ai.logic.LogicSupport.Outcome;
 import de.haumacher.ehome.blocks.BlockType;
-import de.haumacher.ehome.blocks.Manifest;
 import de.haumacher.ehome.blocks.Manifest.Param;
 import de.haumacher.ehome.blocks.Manifest.Port;
+import de.haumacher.ehome.blocks.Manifest;
 import de.haumacher.ehome.runtime.BlockDiagnostics;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.BlockTexts;
 import de.haumacher.ehome.runtime.BlockValues;
 import de.haumacher.ehome.runtime.DatapointNames;
+import de.haumacher.ehome.runtime.GroupAddressIds;
+import de.haumacher.ehome.runtime.Pages;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
 
 /**
@@ -118,7 +120,8 @@ public class BlockTools {
 	 */
 	@ToolMethod(description = "Creates a virtual device (an instance of a block type the controller runs) in a"
 		+ " room of an E-Home project, as the blocks view does: with its ports bound to datapoints (by their ids"
-		+ " in the image: \"1/2/3\" for a group address, the id of an application datapoint) and parameters set"
+		+ " in the image: the identifier of a group address or its address \"1/2/3\", the id of an application"
+		+ " datapoint) and parameters set"
 		+ " as the view's inputs take them (a number, true/false, the label of a choice, a duration in the"
 		+ " parameter's unit, a time of day as \"06:30\"). Only datapoints the port can bind are taken: of a"
 		+ " type it reads (input) or commands (output, writable), of its unit. The answer names what the"
@@ -228,7 +231,9 @@ public class BlockTools {
 				for (TLObject option : BlockInstances.bindingOptions(port)) {
 					String optionId = BlockInstances.datapointImageId(option);
 					options.add(optionId);
-					if (String.valueOf(id).equals(optionId)) {
+					// A group address also by its address where its datapoint has an identifier (haumacher/ehome #130).
+					if (String.valueOf(id).equals(optionId)
+						|| Pages.isGroupAddress(option) && String.valueOf(id).equals(GroupAddressIds.address(option))) {
 						datapoint = option;
 					}
 				}

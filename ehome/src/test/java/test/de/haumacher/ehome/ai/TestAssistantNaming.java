@@ -56,14 +56,17 @@ import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.programming.DeviceSettings;
+import de.haumacher.ehome.runtime.GroupAddressIds;
 import de.haumacher.ehome.runtime.Json;
+import de.haumacher.ehome.runtime.Pages;
 
 /**
  * The owner's case of haumacher/ehome #127 on a scripted model: "Assign reasonable names to the
  * project's group addresses" in a project whose addresses have no name, only a description
  * (<code>src/test/fixtures/TestNaming.knxproj</code>). The agent lists the addresses with what tells
- * their purpose, proposes names, and writes them with one call after the user agreed; the names are
- * set, the descriptions stay. A name that is empty is refused, and nothing changes.
+ * their purpose, proposes names, and writes them with their identifiers (haumacher/ehome #130) with
+ * one call after the user agreed; the names and identifiers are set, the descriptions stay. A name
+ * that is empty, an identifier given twice or ill-formed is refused, and nothing changes.
  */
 @SuppressWarnings("javadoc")
 public class TestAssistantNaming extends BasicTestCase {
@@ -116,6 +119,8 @@ public class TestAssistantNaming extends BasicTestCase {
 			Map<String, Object> entry = new LinkedHashMap<>();
 			entry.put("groupAddress", tid(address));
 			entry.put("name", "Küche " + address.tValueByName("description"));
+			// With the identifier derived from the name (haumacher/ehome #130).
+			entry.put("identifier", identifier(address));
 			names.add(entry);
 		}
 		Script script = (request, turn) -> {
@@ -131,6 +136,12 @@ public class TestAssistantNaming extends BasicTestCase {
 			}
 			if (last instanceof UserMessage user && text(user).startsWith("Yes")) {
 				return Reply.of(call("w1", "nameGroupAddresses", "names", names));
+			}
+			if (last instanceof UserMessage user && text(user).startsWith("Twice")) {
+				return Reply.of(call("w3", "nameGroupAddresses", "names", List.of(
+					Map.of("groupAddress", tid(addresses.get(0)), "identifier", "kueche.doppelt"),
+					Map.of("groupAddress", tid(addresses.get(1)), "identifier", "kueche.doppelt"),
+					Map.of("groupAddress", tid(addresses.get(2)), "identifier", "Küche Licht"))));
 			}
 			if (last instanceof UserMessage user && text(user).startsWith("Empty")) {
 				return Reply.of(call("w2", "nameGroupAddresses", "names", List.of(Map.of("groupAddress",
@@ -166,7 +177,22 @@ public class TestAssistantNaming extends BasicTestCase {
 		for (TLObject address : addresses) {
 			assertEquals("Küche " + descriptions.get(address), address.tValueByName("name"));
 			assertEquals(descriptions.get(address), address.tValueByName("description"));
+			assertEquals(identifier(address), GroupAddressIds.identifier(address));
+			assertEquals(identifier(address), Pages.imageId(address));
 		}
+
+		// Identifiers that are ill-formed or given twice are refused with the reasons, nothing changes.
+		reply(conversation, "Twice the same identifier.");
+		run(conversation, script);
+		String twice = answers(ScriptedProvider.requests().get(ScriptedProvider.requests().size() - 1),
+			"nameGroupAddresses");
+		// In the language of the user: each refused entry by its address and the identifier.
+		assertTrue(twice, twice.contains("Refused, nothing was changed"));
+		for (TLObject address : addresses.subList(0, 3)) {
+			assertTrue(twice, twice.contains(address.tValueByName("address") + " (" + tid(address) + ")"));
+		}
+		assertTrue(twice, twice.contains("kueche.doppelt") && twice.contains("Küche Licht"));
+		assertEquals(identifier(addresses.get(0)), GroupAddressIds.identifier(addresses.get(0)));
 
 		// An empty name is refused with the reason, nothing changes.
 		reply(conversation, "Empty the first name.");
@@ -175,6 +201,10 @@ public class TestAssistantNaming extends BasicTestCase {
 			"nameGroupAddresses");
 		assertTrue(refused, refused.contains("the name is empty"));
 		assertEquals("Küche " + descriptions.get(addresses.get(0)), addresses.get(0).tValueByName("name"));
+	}
+
+	private static String identifier(TLObject address) {
+		return "kueche." + GroupAddressIds.segment(String.valueOf(address.tValueByName("description")));
 	}
 
 	private static boolean blank(Object value) {

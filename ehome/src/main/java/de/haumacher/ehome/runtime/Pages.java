@@ -21,7 +21,6 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
-import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.GroupAddressTypes;
@@ -225,9 +224,10 @@ public final class Pages {
 	}
 
 	/**
-	 * The id the target has in the image as the project defines it: the address in three levels for a
-	 * group address, the id of an application datapoint, <code>rule/&lt;rule&gt;/&lt;parameter&gt;</code>
-	 * for a rule parameter, <code>rule/&lt;rule&gt;/enabled</code> for a rule,
+	 * The id the target has in the image as the project defines it: for a group address its identifier,
+	 * else its address in three levels ({@link GroupAddressIds#datapointId(TLObject)}), the id of an
+	 * application datapoint, <code>rule/&lt;rule&gt;/&lt;parameter&gt;</code> for a rule parameter,
+	 * <code>rule/&lt;rule&gt;/enabled</code> for a rule,
 	 * <code>schedule/&lt;id&gt;/time</code> for a weekly, yearly or dates entry, the identifier of a
 	 * function; <code>null</code> for none.
 	 */
@@ -239,7 +239,7 @@ public final class Pages {
 			return BlockInstances.imageId(target);
 		}
 		if (isGroupAddress(target)) {
-			return target.tValueByName("address") instanceof GA ga ? RuntimeImage.threeLevel(ga.getValue()) : null;
+			return GroupAddressIds.datapointId(target);
 		}
 		if (ApplicationDatapoints.isApplicationDatapoint(target)) {
 			return ApplicationDatapoints.id(target);

@@ -19,7 +19,8 @@ import de.haumacher.ehome.rules.RuleText.SyntaxError;
 /**
  * The names of the datapoints in the display texts of E-Home (haumacher/ehome #113): every text a
  * person reads that names a datapoint names it as <code>Name (id)</code>, as the option lists of
- * the forms do: <code>Licht Flur (11/0/4)</code>, the id alone where the datapoint has no name.
+ * the forms do: <code>Licht Flur (11/0/4)</code>, <code>Licht Küche (kueche.licht)</code> for a group
+ * address with an identifier (haumacher/ehome #130), the id alone where the datapoint has no name.
  *
  * <p>
  * The name is the label of the object the datapoint stands for ({@link #label(TLObject)}): a group
@@ -104,8 +105,8 @@ public final class DatapointNames {
 
 	/**
 	 * The display text of the datapoint the given object is, by its own id
-	 * ({@link Pages#imageId(TLObject)}: a group address by its three-level address, also where it
-	 * is the address of the time master): <code>Licht Flur (11/0/4)</code>; its label alone if it
+	 * ({@link Pages#imageId(TLObject)}: a group address by its identifier, else its three-level
+	 * address, also where it is the address of the time master): <code>Licht Flur (11/0/4)</code>; its label alone if it
 	 * has no id (a group address without an address), <code>null</code> without both.
 	 */
 	public static String name(TLObject datapoint) {
@@ -136,7 +137,8 @@ public final class DatapointNames {
 		}
 		if (_project != null) {
 			for (TLObject address : RuntimeFunctions.groupAddresses(_project)) {
-				String id = Pages.imageId(address);
+				// By the address also where the datapoint has an identifier (haumacher/ehome #130).
+				String id = GroupAddressIds.address(address);
 				String label = label(address);
 				if (id != null && label != null) {
 					result.putIfAbsent(id, label);
@@ -195,7 +197,7 @@ public final class DatapointNames {
 	public String groupAddress(String address) {
 		if (_project != null) {
 			for (TLObject candidate : RuntimeFunctions.groupAddresses(_project)) {
-				if (address.equals(Pages.imageId(candidate))) {
+				if (address.equals(GroupAddressIds.address(candidate))) {
 					return format(label(candidate), address);
 				}
 			}

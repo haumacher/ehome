@@ -127,6 +127,18 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		runtimeParameterIdProblem,
 		/**
+		 * <code>groupAddressIdentifierProblem(text, address)</code>: why the text cannot be the
+		 * identifier of the group address ({@link GroupAddressIds#problem(Object, Object)},
+		 * haumacher/ehome #130); <code>null</code> if it can.
+		 */
+		groupAddressIdentifierProblem,
+		/**
+		 * <code>groupAddressIdentifierProposal(project)</code>: the question asked before the
+		 * proposed identifiers are given to the project's group addresses, listing them
+		 * ({@link ProposeIdentifiersAction#confirmation(TLObject)}, haumacher/ehome #130).
+		 */
+		groupAddressIdentifierProposal,
+		/**
 		 * <code>runtimeLabelProblem(label, obj)</code>: why the label entered for the object is too
 		 * long for the controller ({@link LabelLimit#problem(Object, Object)}); <code>null</code> if it
 		 * is not.
@@ -223,6 +235,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return ApplicationDatapoints.idProblem(argument, arguments[1]);
 			case runtimeParameterIdProblem:
 				return RuleExport.parameterIdProblem(argument, arguments[1]);
+			case groupAddressIdentifierProblem:
+				return GroupAddressIds.problem(argument, arguments[1]);
 			case runtimeLabelProblem:
 				return LabelLimit.problem(argument, arguments[1]);
 			case runtimeUnitProblem:
@@ -275,6 +289,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return FunctionProposal.redundancy(obj);
 			case deleteConfirmation:
 				return Referers.deleteConfirmation(obj);
+			case groupAddressIdentifierProposal:
+				return ProposeIdentifiersAction.confirmation(obj);
 			default:
 				return null;
 		}
@@ -467,7 +483,8 @@ public class RuntimeFunctions extends GenericMethod {
 		public RuntimeFunctions build(Expr expr, SearchExpression[] args) throws ConfigurationException {
 			int arity = _function == Function.runtimeTimeMasterProblem ? 3
 				: _function == Function.runtimeDatapointIdProblem || _function == Function.runtimeParameterIdProblem
-					|| _function == Function.runtimeLabelProblem ? 2 : 1;
+					|| _function == Function.groupAddressIdentifierProblem || _function == Function.runtimeLabelProblem ? 2
+					: 1;
 			checkArgs(expr, args, arity, arity);
 			return new RuntimeFunctions(getConfig().getName(), _function, args);
 		}

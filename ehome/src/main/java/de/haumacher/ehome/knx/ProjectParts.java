@@ -43,7 +43,9 @@ import com.top_logic.model.util.TLModelUtil;
  * Every stored attribute of a type of the KNX part is declared as owned by ETS ({@link #isEtsOwned})
  * or by E-Home ({@link #isAppOwned}): on a group address E-Home's settings for the runtime image and
  * the history (with its composite reference to the archives), on a device the revision of its last
- * download by E-Home. A new attribute of such a type has to be declared here (checked by
+ * download by E-Home, the identifier of a group address (haumacher/ehome #130). Of ETS's texts, the
+ * name and the description of a group address are kept by an update where the file has none
+ * ({@link #isKeptWhenEmpty}). A new attribute of such a type has to be declared here (checked by
  * {@code test.de.haumacher.ehome.importer.TestProjectUpdate}), so that an update neither overwrites
  * E-Home's data nor leaves ETS's stale.
  * </p>
@@ -149,6 +151,7 @@ public final class ProjectParts {
 	 */
 	private static final Set<String> APP_OWNED = Set.of(
 		"ehome.physical:Device#downloadRevision",
+		"ehome.logical:GroupAddress#identifier",
 		"ehome.logical:GroupAddress#runtimeWritable",
 		"ehome.logical:GroupAddress#runtimeReadOnStart",
 		"ehome.logical:GroupAddress#runtimeReadable",
@@ -158,6 +161,15 @@ public final class ProjectParts {
 		"ehome.logical:GroupAddress#historySpacing",
 		"ehome.logical:GroupAddress#historyManual",
 		"ehome.logical:GroupAddress#historyArchives");
+
+	/**
+	 * The texts ETS owns that an update from ETS does not erase: an empty text in the file keeps the
+	 * text of the project, a text in the file replaces it (haumacher/ehome #130: the names and
+	 * descriptions of group addresses E-Home assigned where the ETS project has none).
+	 */
+	private static final Set<String> KEPT_WHEN_EMPTY = Set.of(
+		"ehome.logical:GroupAddressDefinition#name",
+		"ehome.logical:GroupAddressDefinition#description");
 
 	/**
 	 * The composite references of a project holding its operating history: recordings of the
@@ -197,6 +209,15 @@ public final class ProjectParts {
 	 */
 	public static boolean isAppOwned(TLStructuredTypePart part) {
 		return APP_OWNED.contains(qualifiedName(part));
+	}
+
+	/**
+	 * Whether an update from ETS keeps the project's value of the given attribute ETS owns where the
+	 * file has none: a text E-Home may fill in where the ETS project left it empty (the name and
+	 * description of a group address), which a text in the file replaces.
+	 */
+	public static boolean isKeptWhenEmpty(TLStructuredTypePart part) {
+		return KEPT_WHEN_EMPTY.contains(qualifiedName(part));
 	}
 
 	/**

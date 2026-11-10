@@ -27,7 +27,9 @@ checklist in the simulation.
 
 ## The rules
 
-The datapoints of the group addresses have the address in three levels as their id (`0/0/34`).
+The datapoints of the group addresses have the address in three levels as their id (`0/0/34`):
+the fixture's addresses have no identifier (haumacher/ehome #130; with one, the datapoint has the
+identifier as its id and the rules name it so, `@kueche.licht`).
 Actuator channels: A `0/0/34` (status `0/0/37`), B `0/0/40` (`0/0/43`), C `0/0/46` (`0/0/47`), D
 `0/0/48` (no status object). Rule names are given in German and English; the parameters are adjustable on
 the controller.

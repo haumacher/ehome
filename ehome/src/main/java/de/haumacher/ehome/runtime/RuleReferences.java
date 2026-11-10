@@ -164,8 +164,18 @@ public final class RuleReferences {
 				TLObject datapoint = datapoints.get(key);
 				return datapoint != null && ApplicationDatapoints.isApplicationDatapoint(datapoint) ? datapoint : null;
 			}
-			default:
-				return datapoints.get(key);
+			default: {
+				TLObject datapoint = datapoints.get(key);
+				if (datapoint == null) {
+					// A group address also by its address where its datapoint has an identifier (haumacher/ehome #130).
+					for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
+						if (key.equals(GroupAddressIds.address(address))) {
+							return address;
+						}
+					}
+				}
+				return datapoint;
+			}
 		}
 	}
 

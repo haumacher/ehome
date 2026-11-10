@@ -32,6 +32,7 @@ import de.haumacher.ehome.ai.logic.LogicSupport.Outcome;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionKinds;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.GroupAddressIds;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Pages;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
@@ -124,8 +125,9 @@ public class FunctionTools {
 	 */
 	@ToolMethod(description = "Creates a function of an E-Home project (what the inhabitant operates on the"
 		+ " controller's user interface), as the functions view creates one and its form fills it: a kind,"
-		+ " a name, a room, and its roles bound to datapoints by their ids in the image (\"1/2/3\" for a group"
-		+ " address, the id of an application datapoint). Roles by kind: light command, state; dimmer"
+		+ " a name, a room, and its roles bound to datapoints by their ids in the image (the identifier of a group"
+		+ " address or its address \"1/2/3\", the id of an application datapoint). Roles by kind: light command,"
+		+ " state; dimmer"
 		+ " levelCommand, level, command, state, step; blind move, stop, position, positionCommand, slat,"
 		+ " slatCommand; switch command, state; sensor value; climate temperature, setpoint, setpointCommand,"
 		+ " mode, modeCommand, heating; scene command (with 'scene' 1..64); button press, state. The first role"
@@ -163,6 +165,7 @@ public class FunctionTools {
 		for (TLObject datapoint : RuntimeFunctions.roleDatapoints(owner)) {
 			byImageId.putIfAbsent(Pages.imageId(datapoint), datapoint);
 		}
+		GroupAddressIds.addAddresses(byImageId);
 		if (roles != null) {
 			for (Map.Entry<String, Object> role : roles.entrySet()) {
 				if (!roleNames.contains(role.getKey())) {
@@ -237,6 +240,7 @@ public class FunctionTools {
 		for (TLObject datapoint : Pages.datapoints(owner)) {
 			byImageId.putIfAbsent(Pages.imageId(datapoint), datapoint);
 		}
+		GroupAddressIds.addAddresses(byImageId);
 		for (Map<String, Object> section : sections == null ? List.<Map<String, Object>> of() : sections) {
 			Map<String, List<TLObject>> elements = new LinkedHashMap<>();
 			for (String kind : new String[] { Pages.ROOM, Pages.FUNCTION, Pages.DATAPOINT, Pages.RULE }) {

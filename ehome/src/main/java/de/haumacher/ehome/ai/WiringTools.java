@@ -53,6 +53,7 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.programming.GroupAddresses;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.DatapointSettings;
+import de.haumacher.ehome.runtime.GroupAddressIds;
 import de.haumacher.ehome.template.ObjectTypes;
 
 /**
@@ -102,7 +103,8 @@ public class WiringTools {
 	@ToolMethod(description = "Lists the group addresses of an E-Home project with what tells their purpose,"
 		+ " a page at a time: the group ranges (main and middle groups) with their prefix, name, description"
 		+ " and - for a range that takes addresses - the next free address; and per address its id, address"
-		+ " in the project's notation (three-level 1/2/3, two-level 1/2 or free), name, description, datapoint"
+		+ " in the project's notation (three-level 1/2/3, two-level 1/2 or free), name, identifier (the readable"
+		+ " id rules name its datapoint by, @kueche.licht; without one rules use @\"1/2/3\"), description, datapoint"
 		+ " type, range, problems (objects that do not fit together), the functions that use it (with their"
 		+ " room) and its connections: device with name and individual address, the device's room, the"
 		+ " communication object's number and text, its function text, its channel and the channel's"
@@ -284,6 +286,10 @@ public class WiringTools {
 		Object ga = address.tValueByName("address");
 		entry.put("address", ga == null ? null : ga.toString());
 		entry.put("name", address.tValueByName("name"));
+		String identifier = GroupAddressIds.identifier(address);
+		if (identifier != null) {
+			entry.put("identifier", identifier);
+		}
 		String type = GroupAddressTypes.label(address);
 		entry.put("datapointType", type.isEmpty() ? null : type);
 		entry.put("connections", Integer.valueOf(GroupAddressConnections.connections(address).size()));
@@ -296,34 +302,42 @@ public class WiringTools {
 	}
 
 	/**
-	 * The name (and description) one call of {@link WiringTools#nameGroupAddresses} gives a group
-	 * address.
+	 * The name, description and identifier one call of {@link WiringTools#nameGroupAddresses} gives a
+	 * group address.
 	 *
 	 * @param groupAddress
 	 *        The group address.
 	 * @param name
-	 *        Its new name.
+	 *        Its new name; <code>null</code> leaves it unchanged.
 	 * @param description
 	 *        Its new description; <code>null</code> leaves it unchanged, an empty text removes it.
+	 * @param identifier
+	 *        Its new identifier (haumacher/ehome #130); <code>null</code> leaves it unchanged, an empty
+	 *        text removes it.
 	 */
-	public record GroupAddressName(TLObject groupAddress, String name, String description) {
+	public record GroupAddressName(TLObject groupAddress, String name, String description, String identifier) {
 		// A value.
 	}
 
 	/**
 	 * Names group addresses.
 	 */
-	@ToolMethod(description = "Sets the names - and optionally the descriptions - of several group addresses of"
-		+ " ONE E-Home project in one call: a list of {\"groupAddress\": id, \"name\": ..., \"description\": ...}."
-		+ " 'description' omitted leaves the description as it is, an empty text removes it. Every name must"
-		+ " be non-empty and at most " + MAX_NAME + " characters (the limit of an ETS project file); if one entry"
-		+ " is refused, nothing is changed and the answer names each refused entry. The answer lists every"
-		+ " address with its name before and after. With dryRun=true nothing is changed and the answer shows"
-		+ " the changes it would make.",
+	@ToolMethod(description = "Sets the names - and optionally the descriptions and identifiers - of several group"
+		+ " addresses of ONE E-Home project in one call: a list of {\"groupAddress\": id, \"name\": ...,"
+		+ " \"description\": ..., \"identifier\": ...}. 'name', 'description' and 'identifier' omitted leave them"
+		+ " as they are, an empty description or identifier removes it; each entry changes at least one. A name"
+		+ " must be non-empty and at most " + MAX_NAME + " characters (the limit of an ETS project file). The"
+		+ " identifier is the readable id of the address's datapoint that rules name it by (@kueche.licht instead"
+		+ " of @\"1/2/3\"): parts of letters, digits and underscores joined by dots, the first starting with a"
+		+ " letter, at most 63 bytes, unique among the project's datapoints (also the application datapoints);"
+		+ " rules naming the address are rewritten to it, and the controller keeps a persisted value or history"
+		+ " of the datapoint under its old id. If one entry is refused, nothing is changed and the answer names"
+		+ " each refused entry. The answer lists every address with its values before and after. With"
+		+ " dryRun=true nothing is changed and the answer shows the changes it would make.",
 		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT, dryRun = "dryRun")
 	public ToolResult nameGroupAddresses(ToolContext context,
-			@P("The new names: [{\"groupAddress\": \"id\", \"name\": \"Küche Licht Schalten\", \"description\":"
-				+ " optional}]") List<GroupAddressName> names,
+			@P("The changes: [{\"groupAddress\": \"id\", \"name\": \"Küche Licht Schalten\", \"description\":"
+				+ " optional, \"identifier\": \"kueche.licht\" optional}]") List<GroupAddressName> names,
 			@P(value = "true to only show what would change", required = false) Boolean dryRun) {
 		if (names == null || names.isEmpty()) {
 			return failure("'names' is empty. Pass the addresses and their new names. Nothing was changed.");
@@ -331,18 +345,28 @@ public class WiringTools {
 		List<String> problems = new ArrayList<>();
 		TLObject owner = null;
 		Set<TLObject> seen = new HashSet<>();
+		Map<TLObject, String> identifiers = new LinkedHashMap<>();
 		for (GroupAddressName entry : names) {
 			TLObject address = entry.groupAddress();
 			if (!ExtIds.isA(address, GROUP_ADDRESS)) {
 				problems.add("'" + id(address) + "' is no group address.");
 				continue;
 			}
-			String text = entry.name() == null ? "" : entry.name().trim();
 			String where = address.tValueByName("address") + " (" + id(address) + ")";
-			if (text.isEmpty()) {
-				problems.add(where + ": the name is empty.");
-			} else if (text.length() > MAX_NAME) {
-				problems.add(where + ": the name has " + text.length() + " characters, at most " + MAX_NAME + " are allowed.");
+			if (entry.name() == null && entry.description() == null && entry.identifier() == null) {
+				problems.add(where + ": neither a name, a description nor an identifier is given.");
+			}
+			if (entry.name() != null) {
+				String text = entry.name().trim();
+				if (text.isEmpty()) {
+					problems.add(where + ": the name is empty.");
+				} else if (text.length() > MAX_NAME) {
+					problems.add(
+						where + ": the name has " + text.length() + " characters, at most " + MAX_NAME + " are allowed.");
+				}
+			}
+			if (entry.identifier() != null) {
+				identifiers.put(address, entry.identifier().trim());
 			}
 			if (!seen.add(address)) {
 				problems.add(where + ": named twice in this call.");
@@ -353,6 +377,14 @@ public class WiringTools {
 			} else if (project != owner) {
 				problems.add(where + ": belongs to another project than the first address; name the addresses of"
 					+ " one project per call.");
+			}
+		}
+		if (problems.isEmpty() && !identifiers.isEmpty()) {
+			Resources resources = Resources.getInstance();
+			for (Map.Entry<TLObject, ResKey> problem : GroupAddressIds.problems(owner, identifiers).entrySet()) {
+				TLObject address = problem.getKey();
+				problems.add(address.tValueByName("address") + " (" + id(address) + "): "
+					+ resources.getString(problem.getValue()));
 			}
 		}
 		if (!problems.isEmpty()) {
@@ -369,16 +401,27 @@ public class WiringTools {
 			Map<String, Object> change = new LinkedHashMap<>();
 			change.put("id", id(address));
 			change.put("address", String.valueOf(address.tValueByName("address")));
-			change.put("nameBefore", address.tValueByName("name"));
-			change.put("name", entry.name().trim());
+			if (entry.name() != null) {
+				change.put("nameBefore", address.tValueByName("name"));
+				change.put("name", entry.name().trim());
+			}
 			if (entry.description() != null) {
 				change.put("descriptionBefore", address.tValueByName("description"));
-				change.put("description", entry.description().isBlank() ? null : entry.description().trim());
+				change.put("description", blankToNull(entry.description()));
+			}
+			if (entry.identifier() != null) {
+				change.put("identifierBefore", GroupAddressIds.identifier(address));
+				change.put("identifier", blankToNull(entry.identifier()));
 			}
 			if (!preview) {
-				address.tUpdateByName("name", entry.name().trim());
+				if (entry.name() != null) {
+					address.tUpdateByName("name", entry.name().trim());
+				}
 				if (entry.description() != null) {
-					address.tUpdateByName("description", entry.description().isBlank() ? null : entry.description().trim());
+					address.tUpdateByName("description", blankToNull(entry.description()));
+				}
+				if (entry.identifier() != null) {
+					address.tUpdateByName("identifier", blankToNull(entry.identifier()));
 				}
 			}
 			changes.add(change);
@@ -387,6 +430,10 @@ public class WiringTools {
 		result.put("project", ref(owner));
 		result.put("changes", changes);
 		return answer(preview ? "These changes would be made; nothing was changed:" : "Named. " + SAVED, result);
+	}
+
+	private static String blankToNull(String text) {
+		return text.isBlank() ? null : text.trim();
 	}
 
 	/**

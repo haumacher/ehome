@@ -65,6 +65,15 @@ final class ObjectMerge {
 		}
 
 		/**
+		 * Whether the given merged attribute keeps the target's value where the source has none (an
+		 * empty text, no value): a value the source does not know is no reason to erase the
+		 * target's.
+		 */
+		default boolean keepsWhenEmpty(TLStructuredTypePart part) {
+			return false;
+		}
+
+		/**
 		 * The part of the target the given part of the source was matched to beforehand, wherever it
 		 * is in the target; <code>null</code> to match it within its reference.
 		 */
@@ -338,6 +347,9 @@ final class ObjectMerge {
 					continue;
 				}
 				Object value = mapped(source.tValue(part));
+				if (isEmpty(value) && _policy.keepsWhenEmpty(part)) {
+					continue;
+				}
 				if (!sameValue(target.tValue(part), value)) {
 					target.tUpdate(part, value instanceof Collection<?> collection ? new ArrayList<>(collection) : value);
 					if (!_created.contains(target)) {
@@ -514,6 +526,11 @@ final class ObjectMerge {
 			result.add((TLObject) value);
 		}
 		return result;
+	}
+
+	private static boolean isEmpty(Object value) {
+		return value == null || value instanceof CharSequence text && text.toString().isBlank()
+			|| value instanceof Collection<?> collection && collection.isEmpty();
 	}
 
 	private static boolean sameValue(Object x, Object y) {

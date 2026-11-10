@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -60,9 +61,14 @@ import de.haumacher.ehome.projectfile.ProjectFile;
 import de.haumacher.ehome.projectfile.ProjectFileExport;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.GroupAddressIds;
+import de.haumacher.ehome.runtime.IdRenames;
+import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Pages;
+import de.haumacher.ehome.runtime.ProposeIdentifiersAction;
 import de.haumacher.ehome.runtime.RuleImport;
+import de.haumacher.ehome.runtime.RuntimeFunctions;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.zigbee.ZigbeeExport;
 import de.haumacher.ehome.zigbee.ZigbeeImport;
@@ -127,6 +133,27 @@ public class TestProjectFile extends BasicTestCase {
 		TLObject project = projects.get(0);
 		try {
 			setUp(project);
+
+			// Readable identifiers for the group addresses (haumacher/ehome #130), proposed on the test
+			// home: valid and unique; the rules follow, and the image stays as acceptable as it was.
+			ImageReport imageBefore = RuntimeImage.build(project, 1, TIME).validate();
+			assertTrue(ProposeIdentifiersAction.apply(project) > 0);
+			Set<String> identifiers = new HashSet<>();
+			for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
+				String identifier = GroupAddressIds.identifier(address);
+				if (identifier != null) {
+					assertTrue(identifier, identifiers.add(identifier));
+					assertNull(identifier, GroupAddressIds.problem(identifier, address));
+					assertEquals(identifier, Pages.imageId(address));
+				}
+			}
+			assertTrue(identifiers.toString(), identifiers.size() > 10);
+			String rules = Json.write(RuntimeImage.build(project, 1, TIME).getJson().get("rules"));
+			assertFalse(rules, rules.matches("(?s).*@\\\\\"\\d+/\\d+/\\d+.*"));
+			ImageReport imageAfter = RuntimeImage.build(project, 1, TIME).validate();
+			assertEquals(imageAfter.toString(), imageBefore.isValid(), imageAfter.isValid());
+			assertEquals(imageAfter.toString(), imageBefore.getRefusals().size(), imageAfter.getRefusals().size());
+
 			Map<String, Object> image = RuntimeImage.build(project, 1, TIME).getJson();
 			String dump = dump(project);
 
@@ -509,7 +536,7 @@ public class TestProjectFile extends BasicTestCase {
 
 	public static Test suite() {
 		return KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(TestProjectFile.class, ModelService.Module.INSTANCE,
-			LabelProviderService.Module.INSTANCE, PersonManager.Module.INSTANCE));
+			LabelProviderService.Module.INSTANCE, PersonManager.Module.INSTANCE, IdRenames.Module.INSTANCE));
 	}
 
 }

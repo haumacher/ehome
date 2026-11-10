@@ -69,6 +69,8 @@ public final class ExpressionRenames {
 
 	private final List<RenamedParameter> _renamedParameters = new ArrayList<>();
 
+	private final List<RenamedDatapoint> _renamedDatapoints = new ArrayList<>();
+
 	/**
 	 * A renamed parameter.
 	 *
@@ -84,11 +86,36 @@ public final class ExpressionRenames {
 	}
 
 	/**
+	 * A datapoint of the image that got another id: a group address (its identifier or its address,
+	 * haumacher/ehome #130) or an application datapoint.
+	 *
+	 * @param datapoint
+	 *        The group address or application datapoint.
+	 * @param oldId
+	 *        Its id before.
+	 * @param newId
+	 *        Its id now.
+	 */
+	public record RenamedDatapoint(TLObject datapoint, String oldId, String newId) {
+		// Value only.
+	}
+
+	/**
 	 * Notes that the datapoint of the image with the given id now has the new id (an application
 	 * datapoint, the three-level address of a group address).
 	 */
 	public void datapoint(String oldId, String newId) {
 		_datapoints.put(oldId, newId);
+	}
+
+	/**
+	 * Notes that the given datapoint of the image (a group address, an application datapoint) has
+	 * the new id: expressions naming the old one follow ({@link #datapoint(String, String)}), and
+	 * the controller loses what it keeps under the old id ({@link #getRenamedDatapoints()}).
+	 */
+	public void datapoint(TLObject datapoint, String oldId, String newId) {
+		datapoint(oldId, newId);
+		_renamedDatapoints.add(new RenamedDatapoint(datapoint, oldId, newId));
 	}
 
 	/**
@@ -128,6 +155,48 @@ public final class ExpressionRenames {
 	 */
 	public List<RenamedParameter> getRenamedParameters() {
 		return _renamedParameters;
+	}
+
+	/**
+	 * The datapoints noted with {@link #datapoint(TLObject, String, String)}: the controller keeps
+	 * the persisted value and the history of a datapoint by its id, so a datapoint with a new id
+	 * starts without them.
+	 */
+	public List<RenamedDatapoint> getRenamedDatapoints() {
+		return _renamedDatapoints;
+	}
+
+	/**
+	 * Whether the object is a part of a rule holding an expression or a log message, which a
+	 * rename rewrites.
+	 */
+	public static boolean holdsExpression(TLObject obj) {
+		if (obj == null || obj.tType() == null || !"ehome.runtime".equals(obj.tType().getModule().getName())) {
+			return false;
+		}
+		String type = obj.tType().getName();
+		return EXPRESSIONS.containsKey(type) || type.equals(LOG_ACTION);
+	}
+
+	/**
+	 * Rewrites the expression (or log message) of the given part of a rule alone, not its parts;
+	 * only the renamed datapoints apply (a part outside a rule has no parameters, timers, states).
+	 *
+	 * @return Whether the part was changed.
+	 */
+	public boolean applyTo(TLObject part) {
+		TLObject rule = RuleReferences.rule(part);
+		String ruleId = rule == null ? null : id(rule);
+		String scope = ruleId == null ? "" : ruleId;
+		String type = part.tType().getName();
+		String attribute = EXPRESSIONS.get(type);
+		if (attribute != null) {
+			return update(part, attribute, rewriteExpression(scope, text(part, attribute))) > 0;
+		}
+		if (type.equals(LOG_ACTION)) {
+			return update(part, MESSAGE, rewriteMessage(scope, text(part, MESSAGE))) > 0;
+		}
+		return false;
 	}
 
 	// ---- applying ----------------------------------------------------------------------------

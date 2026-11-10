@@ -43,10 +43,10 @@ as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`. Reading too
 | `duplicateDevice` | yes, dry run | `DevicePlanning.duplicateVeto` / `duplicate` |
 | `deviceParameters` | - | `DeviceConfiguration`: the page tree, a page's parameters with value, default, allowed values, edit veto |
 | `setDeviceParameter` | yes | `DeviceSettings.setValue` (type, range, manufacturer's validations and calculations) |
-| `listGroupAddresses` | - | ranges, and per address (paged) name, description, type, range, functions, connections with device, room, object, function, channel, direction |
+| `listGroupAddresses` | - | ranges, and per address (paged) name, identifier, description, type, range, functions, connections with device, room, object, function, channel, direction |
 | `createGroupAddress` | yes, dry run | `GroupAddresses.veto` / `nextFree` / `create`, in the project's notation |
 | `setGroupAddressType` | yes | `GroupAddressTypes.veto` / `setType` |
-| `nameGroupAddresses` | yes, dry run | names (and descriptions) of several addresses of one project in one call |
+| `nameGroupAddresses` | yes, dry run | names, descriptions and identifiers (haumacher/ehome #130) of several addresses of one project in one call; identifiers checked together (`GroupAddressIds.problems`: syntax, uniqueness against the project after the change, application datapoints, reserved ids) |
 | `deviceObjects` | - | communication objects with size, type, flags, default direction, connections |
 | `connectObject` | yes, dry run | `DeviceSettings.connect`; refuses an object that does not fit the address (`GroupAddressConnections.problemsWith`) unless `despiteProblems` |
 | `disconnectObject` | yes | `DeviceSettings.disconnect` |
@@ -65,7 +65,11 @@ as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`. Reading too
 
 Skills (`loadSkill`): `EHome_buildingLayout`, `EHome_devicePlanning`, `EHome_wiring`,
 `EHome_namingGroupAddresses` (room + function + kind, the project's language, status marked,
-nothing invented, a table first, then one `nameGroupAddresses` call after the user agreed).
+nothing invented, a table first, then one `nameGroupAddresses` call after the user agreed; the
+identifiers derived from the names, `kueche.licht`, when the user asks for IDs too). The rules
+skill (`EHome_rules`) names a group address by its identifier where it has one and suggests one
+where a rule uses an address without; the logic tools accept a group address also by its address
+where its datapoint has an identifier.
 
 ## Key and models
 

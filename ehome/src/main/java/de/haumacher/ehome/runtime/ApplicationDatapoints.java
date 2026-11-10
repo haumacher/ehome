@@ -14,7 +14,6 @@ import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLFormObjectBase;
 import com.top_logic.model.TLObject;
 
-import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.zigbee.ZigbeeBindings;
 
 /**
@@ -34,8 +33,9 @@ import de.haumacher.ehome.zigbee.ZigbeeBindings;
  * (else the controller refuses it, saying so); a server attribute but the multistate input is read
  * on start, as the controller's generic datapoint of the function is. Its id is checked as it
  * is entered ({@link #idProblem(Object, Object)}): an id of the image (1..63 bytes without control
- * characters), unique among the project's datapoints, not of the three-level form of a group
- * address, not one the controller adds itself.
+ * characters), unique among the project's datapoints (also the identifiers of its group addresses,
+ * haumacher/ehome #130), not of the three-level form of a group address, not one the controller adds
+ * itself.
  * </p>
  */
 public final class ApplicationDatapoints {
@@ -168,7 +168,8 @@ public final class ApplicationDatapoints {
 		TLObject project = self == null || !self.tValid() ? null : RuntimeFunctions.project(self);
 		if (project != null) {
 			for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
-				if (address.tValueByName("address") instanceof GA ga && id.equals(RuntimeImage.threeLevel(ga.getValue()))) {
+				// Its address in three levels, or its identifier (haumacher/ehome #130).
+				if (id.equals(GroupAddressIds.address(address)) || id.equals(GroupAddressIds.identifier(address))) {
 					return I18NConstants.DATAPOINT_ID_OF_GROUP_ADDRESS__ADDRESS.fill(DatapointNames.name(address));
 				}
 			}

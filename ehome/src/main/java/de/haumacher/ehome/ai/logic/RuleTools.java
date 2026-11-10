@@ -77,8 +77,8 @@ public class RuleTools {
 		+ " An application datapoint: {\"id\", \"label\", \"type\", \"unit\"?, \"writable\"?, \"persist\"?}."
 		+ " A schedule entry: {\"id\", \"label\", \"kind\": weekly|yearly|dates|astro|interval|once, ...,"
 		+ " \"days\"?: [1..7], \"output\"?}. Datapoints are named by their ids in the image: a group address"
-		+ " as \"1/2/3\" (in an expression @\"1/2/3\"), an application datapoint by its id"
-		+ " (automation lists them).";
+		+ " by its identifier where it has one (kueche.licht, in an expression @kueche.licht), else as \"1/2/3\""
+		+ " (in an expression @\"1/2/3\"), an application datapoint by its id (automation lists them).";
 
 	/**
 	 * The rules, schedule entries and datapoints of a project.
@@ -86,7 +86,7 @@ public class RuleTools {
 	@ToolMethod(description = "Lists the logic of an E-Home project: its rules (each with its identifier,"
 		+ " name, whether it is enabled and one line per reaction in the notation of the rule language,"
 		+ " datapoints named as Name (id)), its schedule entries, and the datapoints rules may name (group"
-		+ " addresses as \"1/2/3\", application datapoints, rule parameters \"rule/<rule>/<parameter>\","
+		+ " addresses by their identifier, else as \"1/2/3\", application datapoints, rule parameters \"rule/<rule>/<parameter>\","
 		+ " adjustable schedule times) with label, value type and whether they are writable. Read it before you"
 		+ " write or change a rule: rules name datapoints by these ids.",
 		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)

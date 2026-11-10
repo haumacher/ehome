@@ -15,6 +15,10 @@
 	addresses and the ranges holding them, the details say why, and "Set the datapoint type" chooses
 	a type for the address (projects/set-datapoint-type.view.xml).
 
+	An address may have an identifier (#130), the readable id of its datapoint that rules name it by
+	(@kueche.licht instead of @"1/2/3"); "Propose identifiers" fills the missing ones after a
+	confirmation listing them.
+
 	The details of an address include the settings of its datapoint in the runtime image (#45):
 	writable and read on start (derived from the connected objects unless set), readable, persistence,
 	history and unit. The history (#73) is derived from the charts of the control pages unless it is
@@ -208,6 +212,42 @@
 								</with-result>
 							</create-transient>
 						</generic-command>
+						<!--
+							The identifiers of the addresses without one (haumacher/ehome #130,
+							de.haumacher.ehome.runtime.GroupAddressIds): after a confirmation listing them.
+						-->
+						<generic-command
+							image="css:bi bi-tag"
+							inputs="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Propose identifiers</en>
+								<de>Bezeichner vorschlagen</de>
+							</label>
+							<tooltip>
+								<en>Gives every group address without an identifier a readable one that rules name its datapoint by (kueche.licht instead of "1/2/3"): from the room, name and role of the function using it, else from its name or description, made unique. Rules naming the addresses are adjusted.</en>
+								<de>Gibt jeder Gruppenadresse ohne Bezeichner einen lesbaren, mit dem Regeln ihren Datenpunkt nennen (kueche.licht statt "1/2/3"): aus Raum, Name und Rolle der Funktion, die sie nutzt, sonst aus ihrem Namen oder ihrer Beschreibung, eindeutig gemacht. Regeln, die die Adressen nennen, werden angepasst.</de>
+							</tooltip>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+							</executability>
+							<confirm expr="groupAddressIdentifierProposal($project)"/>
+							<propose-identifiers>
+								<with-result>
+									<notify
+										expr="$result"
+										kind="info"
+									/>
+								</with-result>
+							</propose-identifiers>
+						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
 							inputs="selectedDefinition"
@@ -392,6 +432,17 @@
     default: null;
 }]]></value>
 								</computed-column>
+								<!-- The readable id of the address's datapoint that rules name it by (haumacher/ehome #130). -->
+								<computed-column name="identifier"
+									type="tl.core:String"
+									width="160"
+								>
+									<label>
+										<en>Identifier</en>
+										<de>Bezeichner</de>
+									</label>
+									<value>if($row.instanceOf(`ehome.logical:GroupAddress`), $row.get(`ehome.logical:GroupAddress#identifier`), null)</value>
+								</computed-column>
 								<computed-column name="extId"
 									type="tl.core:String"
 									width="160"
@@ -546,6 +597,7 @@
 												</commands>
 												<field attribute="name"/>
 												<field attribute="address"/>
+												<field attribute="identifier"/>
 												<field attribute="effectiveDatapointType"/>
 												<field attribute="datapointTypes"/>
 												<field attribute="central"/>

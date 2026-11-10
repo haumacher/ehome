@@ -527,7 +527,10 @@ public final class RuntimeImage {
 			_notes.add(message(I18NConstants.NOTE_NO_ADDRESS__NAME.fill(String.valueOf(address.tValueByName("name")))));
 			return null;
 		}
-		String id = threeLevel(ga.getValue());
+		// The datapoint is named by the address's identifier where it has one (haumacher/ehome #130); the
+		// binding carries the address.
+		String knxAddress = threeLevel(ga.getValue());
+		String id = GroupAddressIds.datapointId(address);
 		Dpt dpt = GroupAddressTypes.effective(address);
 		if (dpt == null) {
 			_notes.add(message(I18NConstants.NOTE_NO_DATAPOINT_TYPE__ADDRESS.fill(DatapointNames.name(address))));
@@ -575,9 +578,9 @@ public final class RuntimeImage {
 		Map<String, Object> knx = new LinkedHashMap<>();
 		knx.put("dpt", String.format(Locale.ROOT, "%d.%03d", Integer.valueOf(dpt.main()), Integer.valueOf(sub)));
 		if (writable || readable) {
-			knx.put("send", id);
+			knx.put("send", knxAddress);
 		} else {
-			knx.put("listen", List.of(id));
+			knx.put("listen", List.of(knxAddress));
 		}
 		result.put("knx", knx);
 		return result;
@@ -825,8 +828,8 @@ public final class RuntimeImage {
 	/**
 	 * The id of the datapoint a role of a function refers to in the image (haumacher/ehome #61): for
 	 * an application datapoint its id; for a group address the datapoint's, the controller's datapoint
-	 * of a time master address, else the address in three levels (which the controller then refuses
-	 * as unknown, naming the function).
+	 * of a time master address, else its identifier or the address in three levels (which the
+	 * controller then refuses as unknown, naming the function).
 	 */
 	private String datapointId(TLObject datapoint) {
 		if (BlockInstances.isBlockDatapoint(datapoint)) {
@@ -839,8 +842,8 @@ public final class RuntimeImage {
 		if (id == null) {
 			id = _datapointIds.get(datapoint);
 		}
-		if (id == null && datapoint.tValueByName("address") instanceof GA ga) {
-			id = threeLevel(ga.getValue());
+		if (id == null) {
+			id = GroupAddressIds.datapointId(datapoint);
 		}
 		return id;
 	}

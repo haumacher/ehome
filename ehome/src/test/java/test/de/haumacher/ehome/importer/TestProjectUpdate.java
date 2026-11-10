@@ -9,6 +9,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.io.ByteArrayOutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
@@ -60,6 +61,7 @@ import de.haumacher.ehome.programming.GroupAddresses;
 import de.haumacher.ehome.runtime.IdRenames;
 import de.haumacher.ehome.runtime.Pages;
 import de.haumacher.ehome.runtime.RuleFunctions;
+import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
  * The update of a project from a new export of the same project in ETS (haumacher/ehome #125,
@@ -210,6 +212,84 @@ public class TestProjectUpdate extends BasicTestCase {
 			List<KnxprojDiff.Difference> differences = new KnxprojDiff(new KnxprojDiff.Rules())
 				.compare(KnxprojDiff.unzip(export(fresh)), KnxprojDiff.unzip(updated));
 			assertEquals(KnxprojDiff.summary(differences, 10), List.of(), differences);
+		} finally {
+			SharedData.deleteProjects(projects);
+		}
+	}
+
+	/**
+	 * E-Home's identifier of a group address and the rules naming it by it stay through a
+	 * re-addressing in ETS (haumacher/ehome #130); a name and description assigned in E-Home survive
+	 * an update from a file that has none for the address, a name the file has wins.
+	 */
+	public void testIdentifiersAndNames() throws Exception {
+		List<TLObject> before = instances(PROJECT_TYPE);
+		List<TLObject> projects = new ArrayList<>();
+		try {
+			TLObject project = importProject(BASE, before, projects);
+			TLObject ga1 = knx(project, P + "GA-1");
+			TLObject ga3 = knx(project, P + "GA-3");
+			Object etsName = ga1.tValueByName("name");
+			Object etsDescription = ga1.tValueByName("description");
+			assertFalse(String.valueOf(etsName).isBlank());
+
+			// An export of ETS that has no name and no description for GA-1.
+			try (Transaction tx = kb().beginTransaction()) {
+				ga1.tUpdateByName("name", null);
+				ga1.tUpdateByName("description", null);
+				tx.commit();
+			}
+			Path unnamed = Path.of("target/update/TestUpdateUnnamed.knxproj");
+			Files.createDirectories(unnamed.getParent());
+			Files.write(unnamed, export(project));
+
+			TLObject reaction;
+			TLObject write;
+			try (Transaction tx = kb().beginTransaction()) {
+				ga1.tUpdateByName("name", "Zentral Licht");
+				ga1.tUpdateByName("description", "Aus E-Home");
+				ga3.tUpdateByName("name", "Mein Name");
+				ga3.tUpdateByName("identifier", "kueche.licht");
+				ga3.tUpdateByName("runtimeWritable", Boolean.TRUE);
+				TLObject rule = RuleFunctions.create(project, "rules", type("ehome.runtime:Rule"));
+				rule.tUpdateByName("identifier", "licht");
+				reaction = RuleFunctions.create(rule, "reactions", type("ehome.runtime:Reaction"));
+				TLObject trigger = RuleFunctions.create(reaction, "triggers", type("ehome.runtime:DatapointTrigger"));
+				trigger.tUpdateByName("datapoint", ga1);
+				write = RuleFunctions.create(reaction, "actions", type("ehome.runtime:WriteAction"));
+				write.tUpdateByName("datapoint", ga3);
+				write.tUpdateByName("value", "not @\"0/0/3\"");
+				tx.commit();
+			}
+			// Entered with the address, stored with the identifier.
+			assertEquals("not @kueche.licht", write.tValueByName("value"));
+
+			// The file without the name of GA-1 keeps E-Home's name and description; GA-3's name in the
+			// file wins over the one given in E-Home.
+			update(project, unnamed.toString());
+			assertEquals("Zentral Licht", ga1.tValueByName("name"));
+			assertEquals("Aus E-Home", ga1.tValueByName("description"));
+			assertEquals("GA3", ga3.tValueByName("name"));
+			assertEquals("kueche.licht", ga3.tValueByName("identifier"));
+
+			// Re-addressed in ETS: the identifier, the rule and the datapoint's id stay, the binding follows.
+			update(project, NEW);
+			assertTrue(ga3.tValid());
+			assertEquals("Licht Küche", ga3.tValueByName("name"));
+			assertEquals("kueche.licht", ga3.tValueByName("identifier"));
+			assertEquals("kueche.licht", Pages.imageId(ga3));
+			assertEquals("not @kueche.licht", write.tValueByName("value"));
+			assertSame(ga3, write.tValueByName("datapoint"));
+			assertEquals(etsName, ga1.tValueByName("name"));
+			assertEquals(etsDescription == null ? "Aus E-Home" : etsDescription, ga1.tValueByName("description"));
+			boolean found = false;
+			for (Object datapoint : (List<?>) RuntimeImage.build(project, 1, Instant.now()).getJson().get("datapoints")) {
+				if ("kueche.licht".equals(((Map<?, ?>) datapoint).get("id"))) {
+					assertEquals("0/0/4", ((Map<?, ?>) ((Map<?, ?>) datapoint).get("knx")).get("send"));
+					found = true;
+				}
+			}
+			assertTrue(found);
 		} finally {
 			SharedData.deleteProjects(projects);
 		}

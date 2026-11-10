@@ -135,6 +135,25 @@
 						</constraints>
 					</annotations>
 				</property>
+				<!--
+					The readable id of the address's datapoint in the runtime image (haumacher/ehome #130):
+					the name rules reference it by (@kueche.licht instead of @"1/2/3"), a datapoint name of
+					the rule language (homecontrol spec/rules-grammar.ebnf: identifiers joined by dots), 1..63
+					bytes, unique among the datapoints of the project, not an id the controller adds itself.
+					Empty: the datapoint's id is the address in three levels. E-Home's own data: an update
+					from ETS keeps it (de.haumacher.ehome.knx.ProjectParts).
+				-->
+				<property name="identifier"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<constraint-by-expression>
+								<check><![CDATA[value -> obj -> groupAddressIdentifierProblem($value, $obj)]]></check>
+							</constraint-by-expression>
+						</constraints>
+					</annotations>
+				</property>
 				<!-- An address of a central function (e.g. all off), which couplers treat specially. -->
 				<property name="central"
 					type="tl.core:Boolean"

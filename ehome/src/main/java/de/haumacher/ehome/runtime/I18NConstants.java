@@ -2046,6 +2046,61 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 IMAGE_BIGGEST_MORE__LIST_ITEM;
 
+	/**
+	 * @en "{0}" is no datapoint name of the rule language: parts of letters, digits and underscores joined by dots, the first part starting with a letter or an underscore and no keyword (and, or, not, true, false), e.g. kueche.licht.
+	 */
+	public static ResKey1 GROUP_ADDRESS_ID_SYNTAX__ID;
+
+	/**
+	 * @en An identifier has at most {0} bytes.
+	 */
+	public static ResKey1 GROUP_ADDRESS_ID_TOO_LONG__LIMIT;
+
+	/**
+	 * @en The group address {1} has the identifier {0} already.
+	 */
+	public static ResKey2 GROUP_ADDRESS_ID_DUPLICATE__ID_ADDRESS;
+
+	/**
+	 * @en The group address {1} is to get the identifier {0} as well.
+	 */
+	public static ResKey2 GROUP_ADDRESS_ID_TWICE__ID_ADDRESS;
+
+	/**
+	 * @en The application datapoint {1} has the id {0} already.
+	 */
+	public static ResKey2 GROUP_ADDRESS_ID_OF_APPLICATION_DATAPOINT__ID_DATAPOINT;
+
+	/**
+	 * @en Give {0} group addresses these identifiers? Rules naming the addresses are adjusted to them.
+	 */
+	public static ResKey1 IDENTIFIERS_PROPOSAL_CONFIRM__COUNT;
+
+	/**
+	 * @en … and {0} more.
+	 */
+	public static ResKey1 IDENTIFIERS_PROPOSAL_MORE__COUNT;
+
+	/**
+	 * @en Every group address has an identifier, or nothing to derive one from (no function using it, no name, no description); nothing to propose.
+	 */
+	public static ResKey IDENTIFIERS_NOTHING_TO_PROPOSE;
+
+	/**
+	 * @en {0} group addresses got an identifier.
+	 */
+	public static ResKey1 IDENTIFIERS_PROPOSED__COUNT;
+
+	/**
+	 * @en The datapoint {0} now has the id {2} instead of {1}: the value and the history the controller keeps for it under the old id are lost with the next deployment.
+	 */
+	public static ResKey3 DATAPOINT_VALUES_LOST__NAME_OLD_NEW;
+
+	/**
+	 * @en {0} datapoints with a persisted value or a history have a new id ({1}): the values and histories the controller keeps for them under the old ids are lost with the next deployment.
+	 */
+	public static ResKey2 DATAPOINTS_VALUES_LOST__COUNT_LIST;
+
 	static {
 		initConstants(I18NConstants.class);
 	}
