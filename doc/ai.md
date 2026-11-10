@@ -80,6 +80,39 @@ metadata of the three Claude models (context window, output limit, prices) is in
 4. Log in as a viewer: the same questions are answered, a change is refused, naming the missing
    capability `data.write`.
 
+## Rules, simulation, functions, pages and blocks (#128)
+
+The tools of `de.haumacher.ehome.ai.logic`, configured with their skills in
+`WEB-INF/autoconf/ehome.ai.logic.config.xml`. The chat's agent loads a skill when a question needs it:
+
+| Skill | For | Tools (group) |
+|---|---|---|
+| `EHome_rules` | writing, changing, explaining and trying rules, schedule entries and application datapoints; the rule language with worked patterns | `automation`, `explainRule`, `datapointUsage`, `checkAutomation`, `simulate`, `imageProblems` (`data.read`); `saveAutomation`, `deleteAutomation` (`data.write`) |
+| `EHome_functionsAndPages` | functions from the proposal or by hand, control pages | `proposeFunctions`, `dismissFunctions`, `createFunction`, `createPage` (`data.write`) |
+| `EHome_blocks` | virtual devices (room controller, sun shading, ...) | `blockTypes`, `blockStatus` (`data.read`); `createBlock`, `bindBlock` (`data.write`) |
+| `EHome_diagnose` | "why did X not happen?" | `datapointUsage`, `explainRule`, `datapointRecordings`, `simulate`, `imageProblems`, `blockStatus` (`data.read`) |
+
+- **Definitions.** Rules, schedule entries and application datapoints are written in the JSON of the
+  runtime image with every expression, value and log message as text of the rule language. They are read
+  by the import of an image (`RuleImport`) and checked field by field as the rule editor checks them; an
+  item with the id of an existing one replaces it in place (what refers to it keeps referring to it).
+  `saveAutomation` saves nothing when a field is refused; `checkAutomation` and every dry run try the
+  change in a transaction that is rolled back.
+- **The simulation** (`simulate`) runs the project's image - or definitions not saved yet - in E-Home's
+  simulation of the controller, headless: the steps set values, let time pass (`wait`, `until`) and set
+  parameters; the answer is the timeline of the rules' writes and logs. Devices are not simulated (an
+  actuator does not answer), and nothing has a value before the scenario sets it.
+- Viewers read, explain, check and simulate; saving, deleting and creating need `data.write`.
+- No tool deploys, programs or writes to the bus; the skills name the installer's commands.
+
+Try it against a running app (an installer's token in `~/.config/ehome/mcp-token`):
+
+```bash
+bin/ehome-mcp.py call ehome-rules__automation '{"project": "<project id>"}'
+bin/ehome-mcp.py call ehome-rules__checkAutomation '{"project": "<project id>", "definitions": {"rules": [...]}}'
+bin/ehome-mcp.py call ehome-simulation__simulate '{"project": "<project id>", "start": "2026-11-10T22:00", "steps": [{"set": "1/0/0", "value": "1.5"}, {"wait": "1min"}]}'
+```
+
 ## Costs
 
 Every message is a request to Anthropic, billed to the account of the key: the price per million

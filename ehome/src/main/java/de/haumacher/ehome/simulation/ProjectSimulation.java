@@ -414,9 +414,10 @@ public final class ProjectSimulation implements AutoCloseable {
 	/**
 	 * The names of the datapoints, addresses and parameters in the timeline (haumacher/ehome #113):
 	 * resolved at the start, in the language of the person starting the simulation (the language of
-	 * its rules' texts too), since the timeline is written by the threads of the simulation.
+	 * its rules' texts too), since the timeline is written by the threads of the simulation. Also the
+	 * names of the assistant's simulation of a scenario (haumacher/ehome #128).
 	 */
-	private static Simulation.Names timelineNames(TLObject project) {
+	public static Simulation.Names timelineNames(TLObject project) {
 		Map<String, String> labels = Map.copyOf(DatapointNames.of(project).labels());
 		return new Simulation.Names() {
 			@Override
@@ -481,7 +482,19 @@ public final class ProjectSimulation implements AutoCloseable {
 	}
 
 	private Val datapointValue(String datapoint, String text) {
-		Datapoint dp = _simulation.model().get(datapoint);
+		return datapointValue(_simulation, datapoint, text);
+	}
+
+	/**
+	 * The value a literal of the rule language gives the datapoint of the simulation, converted to
+	 * its type as the controller converts a command (an integer for a real datapoint, ...); also the
+	 * value of the assistant's simulation of a scenario (haumacher/ehome #128).
+	 *
+	 * @throws TopLogicException
+	 *         If the simulation has no such datapoint or the text is no value of its type.
+	 */
+	public static Val datapointValue(Simulation simulation, String datapoint, String text) {
+		Datapoint dp = simulation.model().get(datapoint);
 		if (dp == null) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_DATAPOINT);
 		}

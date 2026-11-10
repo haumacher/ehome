@@ -1079,6 +1079,31 @@ public final class Simulation implements AutoCloseable {
 	}
 
 	/**
+	 * The datapoint is reported the value as its source reports one (origin report): for a datapoint
+	 * no simulated technology owns, an application datapoint, whose value comes from outside the
+	 * image (an external source, a controller's API), which a command cannot set when it is not
+	 * writable. The assistant's simulation of a scenario (haumacher/ehome #128) sets the value of such
+	 * a datapoint this way.
+	 *
+	 * @return <code>null</code>, or why the value is refused (also written to the timeline).
+	 */
+	public synchronized String report(String datapoint, Val value) {
+		checkRunning();
+		String refusal;
+		try {
+			_model.report(datapoint, value);
+			refusal = null;
+		} catch (IllegalArgumentException ex) {
+			refusal = ex.getMessage();
+		}
+		add(refusal == null ? Kind.RECEIVED : Kind.PROBLEM, _names.datapoint(datapoint),
+			"report " + Values.format(value) + (refusal == null ? "" : ": " + refusal));
+		settle();
+		changed();
+		return refusal;
+	}
+
+	/**
 	 * The virtual Zigbee device of the datapoint reports the value (a reading, a state, a press of a
 	 * button as an <code>action</code>): coded and decoded as the device and the controller do
 	 * ({@link VirtualZigbee#normalize(String, Val)}), an update of the datapoint at the simulated time,

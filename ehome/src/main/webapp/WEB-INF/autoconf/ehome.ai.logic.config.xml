@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+	The assistant's tools and skills for E-Home's logic (haumacher/ehome #128, doc/ai.md): rules, schedule
+	entries, application datapoints, the simulation, the diagnosis of the runtime image and the recordings,
+	functions, control pages and virtual devices. The tools are the classes of de.haumacher.ehome.ai.logic,
+	in the tool groups data.read and data.write, which the roles hold (ehome.security.config.xml) and the
+	MCP endpoint publishes (ehome.mcp.config.xml). Every list here is keyed (factories, skills, the skills of
+	an agent), so this file adds to the configuration of the AI modules and of ehome.ai.config.xml without
+	restating it.
+
+	The chat's agent TL_SingleAgent carries the skills; a skill hands over its instructions and its tools
+	when the agent loads it. No tool deploys, programs a device or writes to the bus: those stay the
+	installer's commands in the views, and the skills say so.
+
+	The examples of the skill EHome_rules are checked by test.de.haumacher.ehome.ai.logic.TestSkillExamples:
+	every ```json block of a skill must be valid definitions for checkAutomation in a project with the
+	application datapoints listed in the skill.
+-->
+<application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<services>
+		<config service-class="com.top_logic.tl.ai.tool.api.registry.ToolRegistryService">
+			<instance>
+				<tool-factories>
+					<factory name="ehome-rules">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.logic.RuleTools"
+						/>
+					</factory>
+					<factory name="ehome-simulation">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.logic.SimulationTools"
+						/>
+					</factory>
+					<factory name="ehome-diagnosis">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.logic.DiagnosisTools"
+						/>
+					</factory>
+					<factory name="ehome-functions">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.logic.FunctionTools"
+						/>
+					</factory>
+					<factory name="ehome-blocks">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.logic.BlockTools"
+						/>
+					</factory>
+				</tool-factories>
+			</instance>
+		</config>
+
+		<config service-class="com.top_logic.tl.ai.core.agent.TopLogicAgentDefinitions">
+			<instance>
+				<skills>
+					<skill name="EHome_rules"
+						description="Load to write, change, explain or try E-Home's rules, schedule entries and application datapoints (automations of the controller: presence and twilight lighting, staircase timers, frost and window protection, shading, scenes, central off, alarms, anything that reacts to values or time). Carries the rule language, worked patterns and the tools to check, simulate and save."
+					>
+						<content><![CDATA[<workflow>
+1. `automation` - the project's rules, schedule entries and the datapoints rules may name, by their ids. Never invent an id: a group address is "1/2/3" (in an expression @"1/2/3"), an application datapoint its id (@hall.light). A value the image lacks (a mode, a counter) is an application datapoint you define in the same definitions.
+2. Write the definitions (below). One saveAutomation call per change set: datapoints, schedule entries and rules that belong together go into one call.
+3. `checkAutomation` until it answers valid. Fix syntax errors at the given position, ids that name nothing, type errors, ranges.
+4. `simulate` with the definitions not saved yet: a scenario that shows the behaviour the user asked for. Set every input the rules read first (in the simulation nothing has a value before it is set; a "conditionNoValue" in the timeline names a missing one), then change them, wait, and look at the writes. Report what the timeline shows.
+5. Show the user the rule in words and the result of the simulation, then `saveAutomation`.
+6. To change a rule: `explainRule` gives its definition; change it and save it whole under the same id. To delete: `deleteAutomation` with dryRun first.
+Never deploy, program or write to the bus: deploying the runtime image to the controller is the installer's command in the view "Runtime image"; say so after saving.
+</workflow>
+
+<model>
+A rule: {"id", "name", "description"?, "enabled"?, "parameters"?, "timers"?, "states"?, "initialState"?, "reactions"}.
+- id: 1..32 of A-Z a-z 0-9 _ - ; unique in the project. A definition with an existing id replaces that rule.
+- parameter: {"id", "label", "type": boolean|integer|real|string|duration|timeOfDay|enumeration|color, "default", "min"?, "max"?, "step"?, "unit"?, "adjustable"?}; values as literals ("3min", "21.5", "06:30"). The inhabitant can change it; it is also the datapoint "rule/<rule>/<param>". `enabled` is reserved.
+- timer: {"id", "duration": expression}. Durations 100ms..30d.
+- state: {"id", "entry"?: [actions], "exit"?: [actions]}; with states the rule needs "initialState".
+- reaction: {"triggers": [...], "condition"?: boolean expression, "actions": [...], "elseActions"?: [...], "from"?: [state ids], "to"?: state id}. Any trigger activates it; the condition is checked then; no value counts as not satisfied (neither actions nor elseActions run). "from" limits it to states; "to" makes it a transition: exit actions, actions, new state, entry actions (also to the same state). "to" and "elseActions" exclude each other.
+- triggers: {"kind": "datapoint", "datapoint": id, "on"?: change (default) | update, "origin"?: any | report | command} - an update of the datapoint; {"kind": "match", "condition"} - the condition becomes true (no time, history, timer or state functions inside); {"kind": "schedule", "schedule": id}; {"kind": "timer", "timer": id} - expired; {"kind": "start"} - boot, new image, enabled; {"kind": "parameter", "parameter": id}; {"kind": "silence", "datapoint", "after": duration} - no update for that long.
+- actions: {"kind": "write", "datapoint", "value", "onlyOnChange"?}; {"kind": "startTimer"|"restartTimer", "timer", "duration"?}; {"kind": "cancelTimer", "timer"}; {"kind": "setParameter", "parameter", "value"}; {"kind": "read", "datapoint"}; {"kind": "log", "level": info|warning|error, "message": "text with {expression}"}. startTimer does nothing on a running timer, restartTimer restarts it.
+A schedule entry: {"id", "label", "kind", ...} - weekly {"days": [1..7], "time": "06:30"}, yearly {"month", "day", "time"}, dates {"dates": ["2026-12-24"], "time"}, astro {"sun": sunrise|sunset|dawn|dusk, "offset"?: "-30min", "days"?, "notBefore"?, "notAfter"?}, interval {"every": "15min", "from"?, "until"?, "days"?}, once {"at": "2026-12-31T23:59"}; "output"?: a writable application datapoint set true from the firing until midnight. A rule reacts with {"kind": "schedule", "schedule": "<id>"}.
+An application datapoint: {"id", "label", "type": boolean|unsigned|signed|real|string|timeOfDay|date|dateTime|enumeration|..., "unit"?, "writable"?: true (a rule or the UI may command it), "persist"?}.
+</model>
+
+<language>
+Expressions are typed and side-effect free.
+- References: @hall.light (a datapoint whose id is identifiers with dots), @"1/2/3" (any other id, quoted), $timeout (a parameter of the rule), running(t), remaining(t) (a timer of the rule), state(), state("rule").
+- Literals: true false 42 -7 21.5 1.5e-5 "text" 500ms 45s 30min 1h30min 2d 20:30 mon 07:30 2026-10-17 2026-10-17T20:30 #ff8000. No space inside a duration ("30 min" is an error), a real needs digits on both sides of the point.
+- Operators, loosest first: or; and; not; == != < <= > >= (not chained); + -; * / %; unary -. "and"/"or" are three-valued: false and <no value> is false. 7 / 2 is 3.5. Numbers become durations by multiplication ($minutes * 1min), durations numbers by division (d / 1s).
+- Functions: if(c, a, b), known(x), coalesce(x, y), between(x, lo, hi), hysteresis(x, lo, hi, previous) (true at >= hi, false at <= lo, else previous), abs, min, max, clamp(x, lo, hi), round, floor, ceil, trunc, roundTo(x, step), toInt; now(), today(), time(), weekday() (1 Monday..7), hour(x), minute(x), inWindow(t, from, until) (also across midnight), sunrise(), sunset(), dawn(), dusk(), sunAzimuth(), sunElevation(); sinceUpdate(@d), sinceChange(@d), changedWithin(@d, 5min), lastKnown(@d), quality(@d); length, contains, startsWith, endsWith, toString; rgb, controlled(bit, n).
+- No value: a datapoint without a good value, a time function before the clock is synchronized, sunrise() without a location. Use coalesce or known where a value may be missing.
+- Enumerations compare with integers (@mode == 3). Write to a datapoint only values of its type; reals are not exact (avoid == on reals).
+- The sun moves without an event: follow it with a timer that restarts itself (pattern "shading").
+</language>
+
+<patterns>
+The examples use the application datapoints hall.presence, hall.lux, hall.light, stairs.button, stairs.light, outdoor.temp, outdoor.wind, heating.frost, window.open, heating.windowOpen, blind.shade, blind.windAlarm, living.light, living.dimmer, kitchen.light, scene.evening, house.allOff, smoke.alarm, siren, outdoor.motion, outdoor.lux, door.open, door.locked, yard.light, entrance.light. In a project, use its own ids.
+
+Presence and twilight lighting - on only when dark (or already on), off a while after the last presence:
+```json
+{"rules": [{"id": "hall-presence", "name": "Hall light by presence",
+  "parameters": [{"id": "timeout", "label": "Switch-off delay", "type": "duration", "default": "3min", "min": "30s", "max": "1h", "unit": "min"},
+    {"id": "darkBelow", "label": "Dark below", "type": "real", "default": "80.0", "min": "0.0", "max": "2000.0", "unit": "lx"}],
+  "timers": [{"id": "off", "duration": "$timeout"}],
+  "reactions": [
+    {"triggers": [{"kind": "datapoint", "datapoint": "hall.presence"}],
+     "condition": "@hall.presence and (@hall.light or @hall.lux < $darkBelow)",
+     "actions": [{"kind": "cancelTimer", "timer": "off"}, {"kind": "write", "datapoint": "hall.light", "value": "true", "onlyOnChange": true}]},
+    {"triggers": [{"kind": "datapoint", "datapoint": "hall.presence"}], "condition": "not @hall.presence",
+     "actions": [{"kind": "restartTimer", "timer": "off"}]},
+    {"triggers": [{"kind": "timer", "timer": "off"}], "actions": [{"kind": "write", "datapoint": "hall.light", "value": "false"}]}]}]}
+```
+
+Staircase timer - every press restarts the time; a warning flash is a second timer:
+```json
+{"rules": [{"id": "staircase", "name": "Staircase light",
+  "parameters": [{"id": "time", "label": "Light time", "type": "duration", "default": "3min", "min": "30s", "max": "30min", "unit": "min"}],
+  "timers": [{"id": "off", "duration": "$time"}],
+  "reactions": [
+    {"triggers": [{"kind": "datapoint", "datapoint": "stairs.button", "on": "update"}], "condition": "@stairs.button",
+     "actions": [{"kind": "write", "datapoint": "stairs.light", "value": "true", "onlyOnChange": true}, {"kind": "restartTimer", "timer": "off"}]},
+    {"triggers": [{"kind": "timer", "timer": "off"}], "actions": [{"kind": "write", "datapoint": "stairs.light", "value": "false"}]}]}]}
+```
+
+Frost protection with hysteresis - on below the limit, off 2 K above it; the output is its own previous state:
+```json
+{"rules": [{"id": "frost", "name": "Frost protection",
+  "parameters": [{"id": "limit", "label": "Frost limit", "type": "real", "default": "3.0", "min": "-20.0", "max": "10.0", "unit": "°C"}],
+  "reactions": [{"triggers": [{"kind": "datapoint", "datapoint": "outdoor.temp"}, {"kind": "parameter", "parameter": "limit"}],
+    "actions": [{"kind": "write", "datapoint": "heating.frost", "onlyOnChange": true,
+      "value": "not hysteresis(@outdoor.temp, $limit, $limit + 2.0, not coalesce(@heating.frost, false))"}]}]}]}
+```
+
+Window-open protection - the heating pauses after the window has been open 1 min, resumes at once when closed:
+```json
+{"rules": [{"id": "window-heating", "name": "Window open: heating off",
+  "timers": [{"id": "delay", "duration": "1min"}],
+  "reactions": [
+    {"triggers": [{"kind": "datapoint", "datapoint": "window.open"}], "condition": "@window.open",
+     "actions": [{"kind": "startTimer", "timer": "delay"}],
+     "elseActions": [{"kind": "cancelTimer", "timer": "delay"}, {"kind": "write", "datapoint": "heating.windowOpen", "value": "false", "onlyOnChange": true}]},
+    {"triggers": [{"kind": "timer", "timer": "delay"}], "condition": "@window.open",
+     "actions": [{"kind": "write", "datapoint": "heating.windowOpen", "value": "true"}]}]}]}
+```
+
+Shading by sun position and wind - a timer follows the sun; strong wind wins and holds 10 min (blocks: the sun shading block does this with lock times, see EHome_blocks):
+```json
+{"rules": [{"id": "shading", "name": "Shading south facade",
+  "parameters": [{"id": "maxWind", "label": "Wind limit", "type": "real", "default": "10.0", "min": "2.0", "max": "25.0", "unit": "m/s"}],
+  "timers": [{"id": "tick", "duration": "5min"}, {"id": "windHold", "duration": "10min"}],
+  "reactions": [
+    {"triggers": [{"kind": "start"}, {"kind": "timer", "timer": "tick"}],
+     "actions": [{"kind": "restartTimer", "timer": "tick"}]},
+    {"triggers": [{"kind": "start"}, {"kind": "timer", "timer": "tick"}, {"kind": "timer", "timer": "windHold"}],
+     "condition": "not running(windHold)",
+     "actions": [{"kind": "write", "datapoint": "blind.shade", "onlyOnChange": true,
+       "value": "coalesce(between(sunAzimuth(), 120.0, 250.0) and sunElevation() > 15.0, false)"}]},
+    {"triggers": [{"kind": "datapoint", "datapoint": "outdoor.wind"}], "condition": "@outdoor.wind > $maxWind",
+     "actions": [{"kind": "restartTimer", "timer": "windHold"}, {"kind": "write", "datapoint": "blind.windAlarm", "value": "true", "onlyOnChange": true},
+       {"kind": "write", "datapoint": "blind.shade", "value": "false", "onlyOnChange": true}]},
+    {"triggers": [{"kind": "timer", "timer": "windHold"}], "actions": [{"kind": "write", "datapoint": "blind.windAlarm", "value": "false"}]}]}]}
+```
+
+Scene and central off - one input sets several outputs:
+```json
+{"rules": [{"id": "scene-evening", "name": "Evening scene",
+  "reactions": [{"triggers": [{"kind": "datapoint", "datapoint": "scene.evening", "on": "update"}], "condition": "@scene.evening",
+    "actions": [{"kind": "write", "datapoint": "living.dimmer", "value": "30.0"}, {"kind": "write", "datapoint": "kitchen.light", "value": "false"}]}]},
+  {"id": "all-off", "name": "Central off",
+  "reactions": [{"triggers": [{"kind": "datapoint", "datapoint": "house.allOff", "on": "update"}], "condition": "@house.allOff",
+    "actions": [{"kind": "write", "datapoint": "hall.light", "value": "false"}, {"kind": "write", "datapoint": "living.light", "value": "false"},
+      {"kind": "write", "datapoint": "kitchen.light", "value": "false"}, {"kind": "write", "datapoint": "stairs.light", "value": "false"}]}]}]}
+```
+
+Alarm notification - the controller's log is the notification; the siren and all lights follow:
+```json
+{"rules": [{"id": "smoke", "name": "Smoke alarm",
+  "reactions": [{"triggers": [{"kind": "datapoint", "datapoint": "smoke.alarm"}], "condition": "@smoke.alarm",
+    "actions": [{"kind": "log", "level": "error", "message": "Smoke alarm at {now()}"}, {"kind": "write", "datapoint": "siren", "value": "true"},
+      {"kind": "write", "datapoint": "hall.light", "value": "true"}, {"kind": "write", "datapoint": "stairs.light", "value": "true"}],
+    "elseActions": [{"kind": "write", "datapoint": "siren", "value": "false"}]}]}]}
+```
+
+A schedule entry and a rule reacting to it - workday mornings, the kitchen light on at 06:30:
+```json
+{"schedules": [{"id": "workdayMorning", "label": "Workday morning", "kind": "weekly", "days": [1, 2, 3, 4, 5], "time": "06:30"}],
+ "rules": [{"id": "morning-light", "name": "Morning light",
+  "reactions": [{"triggers": [{"kind": "schedule", "schedule": "workdayMorning"}], "condition": "coalesce(@outdoor.lux < 50.0, true)",
+    "actions": [{"kind": "write", "datapoint": "kitchen.light", "value": "true"}]}]}]}
+```
+
+Entrance at night (arriving / leaving) - a rule with states. Key ideas: darkness is judged only in state off, because the lights it switches brighten the lux sensor; coalesce falls back to sunset/sunrise when the lux sensor has no value; changedWithin(@outdoor.motion, 1min) tells locking from outside (someone left: path light 3 min) from locking from inside (bedtime: off after 1 min). Arriving: motion outside switches yard and entrance on; closing the door behind you switches the yard off at once and the entrance 1 min later. Leaving: opening the door at night switches both on until the door is closed and locked.
+```json
+{"rules": [{"id": "entrance-night", "name": "Entrance at night",
+  "parameters": [{"id": "darkBelow", "label": "Dark below", "type": "real", "default": "20.0", "min": "0.0", "max": "500.0", "unit": "lx"},
+    {"id": "welcomeTime", "label": "Welcome light", "type": "duration", "default": "5min", "min": "1min", "max": "30min", "unit": "min"},
+    {"id": "afterTime", "label": "Light after the door", "type": "duration", "default": "1min", "min": "10s", "max": "10min", "unit": "s"},
+    {"id": "leaveTime", "label": "Path light when leaving", "type": "duration", "default": "3min", "min": "1min", "max": "15min", "unit": "min"}],
+  "timers": [{"id": "t", "duration": "$welcomeTime"}],
+  "states": [
+    {"id": "off", "entry": [{"kind": "cancelTimer", "timer": "t"}, {"kind": "write", "datapoint": "yard.light", "value": "false", "onlyOnChange": true},
+      {"kind": "write", "datapoint": "entrance.light", "value": "false", "onlyOnChange": true}]},
+    {"id": "arriving", "entry": [{"kind": "write", "datapoint": "yard.light", "value": "true", "onlyOnChange": true},
+      {"kind": "write", "datapoint": "entrance.light", "value": "true", "onlyOnChange": true}, {"kind": "restartTimer", "timer": "t", "duration": "$welcomeTime"}]},
+    {"id": "inside", "entry": [{"kind": "write", "datapoint": "yard.light", "value": "false", "onlyOnChange": true}, {"kind": "restartTimer", "timer": "t", "duration": "$afterTime"}]},
+    {"id": "leaving", "entry": [{"kind": "write", "datapoint": "yard.light", "value": "true", "onlyOnChange": true},
+      {"kind": "write", "datapoint": "entrance.light", "value": "true", "onlyOnChange": true}, {"kind": "cancelTimer", "timer": "t"}]},
+    {"id": "closed", "entry": [{"kind": "restartTimer", "timer": "t", "duration": "$afterTime"}]},
+    {"id": "away", "entry": [{"kind": "restartTimer", "timer": "t", "duration": "$leaveTime"}]}],
+  "initialState": "off",
+  "reactions": [
+    {"from": ["off"], "triggers": [{"kind": "datapoint", "datapoint": "outdoor.motion"}],
+     "condition": "@outdoor.motion and not @door.open and coalesce(@outdoor.lux < $darkBelow, not inWindow(time(), sunrise(), sunset()))", "actions": [], "to": "arriving"},
+    {"from": ["arriving"], "triggers": [{"kind": "datapoint", "datapoint": "outdoor.motion"}], "condition": "@outdoor.motion", "actions": [], "to": "arriving"},
+    {"from": ["arriving"], "triggers": [{"kind": "datapoint", "datapoint": "door.open"}], "condition": "not @door.open", "actions": [], "to": "inside"},
+    {"from": ["inside", "arriving", "closed", "away"], "triggers": [{"kind": "timer", "timer": "t"}], "actions": [], "to": "off"},
+    {"from": ["off"], "triggers": [{"kind": "datapoint", "datapoint": "door.open"}],
+     "condition": "@door.open and coalesce(@outdoor.lux < $darkBelow, not inWindow(time(), sunrise(), sunset()))", "actions": [], "to": "leaving"},
+    {"from": ["leaving"], "triggers": [{"kind": "datapoint", "datapoint": "door.open"}], "condition": "not @door.open", "actions": [], "to": "closed"},
+    {"from": ["closed"], "triggers": [{"kind": "datapoint", "datapoint": "door.locked"}], "condition": "@door.locked and changedWithin(@outdoor.motion, 1min)", "actions": [], "to": "away"},
+    {"from": ["closed"], "triggers": [{"kind": "datapoint", "datapoint": "door.open"}], "condition": "@door.open", "actions": [], "to": "leaving"},
+    {"from": ["away"], "triggers": [{"kind": "datapoint", "datapoint": "outdoor.motion"}], "condition": "@outdoor.motion", "actions": [], "to": "away"}]}]}
+```
+Try it: simulate from "2026-11-10T22:00" with the inputs as the sensors report them first (outdoor.lux 5.0, outdoor.motion false, door.open false, door.locked false - nothing has a value before it is set), then set outdoor.motion true, set door.open true, set door.open false (yard off now), wait 1min (entrance off).
+
+Door not secured at night - a warning when the door is still open or unlocked 5 min after it was opened outside 06:00-22:00:
+```json
+{"rules": [{"id": "door-check", "name": "Door not secured at night",
+  "timers": [{"id": "check", "duration": "5min"}],
+  "reactions": [
+    {"triggers": [{"kind": "datapoint", "datapoint": "door.open"}], "condition": "@door.open and not inWindow(time(), 06:00, 22:00)",
+     "actions": [{"kind": "restartTimer", "timer": "check"}]},
+    {"triggers": [{"kind": "timer", "timer": "check"}], "condition": "@door.open or not @door.locked",
+     "actions": [{"kind": "log", "level": "warning", "message": "Front door not secured: open {@door.open}, locked {@door.locked}"}]}]}]}
+```
+</patterns>]]></content>
+						<tools>
+							<tool name="ehome-rules.automation"/>
+							<tool name="ehome-rules.explainRule"/>
+							<tool name="ehome-rules.datapointUsage"/>
+							<tool name="ehome-rules.checkAutomation"/>
+							<tool name="ehome-rules.saveAutomation"/>
+							<tool name="ehome-rules.deleteAutomation"/>
+							<tool name="ehome-simulation.simulate"/>
+							<tool name="ehome-diagnosis.imageProblems"/>
+						</tools>
+					</skill>
+
+					<skill name="EHome_functionsAndPages"
+						description="Load to create or change what the controller's user interface shows: functions (lights, dimmers, blinds, switches, sensors, climate, scenes, buttons, with their group addresses) from the function proposal or by hand, and control pages with sections of rooms, functions, datapoints and rule switches."
+					>
+						<content><![CDATA[<workflow>
+Functions are what the inhabitant operates; the controller shows them by room. Pages replace the controller's generated room overview.
+1. Functions from the devices: `proposeFunctions` with dryRun=true shows what the proposal would add (from the channels of the KNX devices, the Zigbee datapoints and the virtual devices). Show it; on agreement run it without dryRun. A function the user does not want: `dismissFunctions` - the proposal will not add it again.
+2. A function no device suggests (an application datapoint, a group of addresses): `createFunction` with kind, name, room and roles by datapoint ids from `automation`. The first role of a kind is its main role; without it the function is unused and left out of the image.
+3. A page: `createPage` with a name and sections, e.g. one section per room holding that room (a room element shows the room's functions and its sub-parts'), or a section "Automations" with rule switches. Room ids come from the building structure (query or the building tools); function and rule ids from `automation`/query.
+4. `imageProblems` afterwards: what the controller would refuse (a function role on a datapoint of the wrong type, a room without functions on a page).
+Never deploy: the installer deploys the runtime image in the view "Runtime image".
+</workflow>]]></content>
+						<tools>
+							<tool name="ehome-functions.proposeFunctions"/>
+							<tool name="ehome-functions.dismissFunctions"/>
+							<tool name="ehome-functions.createFunction"/>
+							<tool name="ehome-functions.createPage"/>
+							<tool name="ehome-rules.automation"/>
+							<tool name="ehome-rules.datapointUsage"/>
+							<tool name="ehome-diagnosis.imageProblems"/>
+						</tools>
+					</skill>
+
+					<skill name="EHome_blocks"
+						description="Load to add or inspect virtual devices: the blocks the controller runs in a room (room controller for heating, heating demand, heating curve, sun shading, house mode, PV surplus control), their ports bound to datapoints and their parameters."
+					>
+						<content><![CDATA[<workflow>
+A virtual device is an instance of a block type the controller runs (homecontrol spec/blocks.md): inputs read datapoints, outputs command them, parameters tune it, and it has datapoints of its own (block/<id>/...) a rule or page can use.
+1. `blockTypes` - the types with their ports and parameters and help texts. Choose the type for the task: a room controller regulates one room's heating (temperature in, valve or heating out, setpoints, window contact, mode); sun shading moves blinds by the sun's position with wind and lock times; heating demand and heating curve drive the heat source; house mode switches the presence modes of the room controllers; PV surplus switches loads by the surplus power.
+2. `automation` - the datapoint ids. An input takes datapoints of a type it reads, an output only writable ones of a type it commands, both of the port's unit.
+3. `createBlock` with dryRun=true in the room, with bindings and parameters; fix what it refuses, then without dryRun. `bindBlock` adds datapoints later (an input that aggregates takes several, e.g. two temperature sensors with min).
+4. `blockStatus` - what the image still refuses of it (a required input unbound); with live=true the diagnostics of the deployed instance from the controller.
+Never deploy: the installer deploys the runtime image in the view "Runtime image".
+</workflow>]]></content>
+						<tools>
+							<tool name="ehome-blocks.blockTypes"/>
+							<tool name="ehome-blocks.createBlock"/>
+							<tool name="ehome-blocks.bindBlock"/>
+							<tool name="ehome-blocks.blockStatus"/>
+							<tool name="ehome-rules.automation"/>
+							<tool name="ehome-diagnosis.imageProblems"/>
+						</tools>
+					</skill>
+
+					<skill name="EHome_diagnose"
+						description="Load when something did not happen as expected (&quot;why did the light not switch at 7?&quot;), when the runtime image is refused, or to find out what uses a datapoint: carries the recordings of the group monitor, the explanation of rules, the replay in the simulation and the problems of the runtime image."
+					>
+						<content><![CDATA[<workflow>
+Why did X (not) happen?
+1. `datapointUsage` on the datapoint that should have changed: which rules, schedule entries, functions and virtual devices write or read it.
+2. `explainRule` on each rule found: its triggers, condition and actions - which inputs must have which values at that time.
+3. `datapointRecordings` for the datapoint and the rule's inputs around the time: what the bus and the controller actually reported (a missing telegram, a value on the wrong side of a limit, a command from somewhere else).
+4. `simulate` the situation: start shortly before the time, set the inputs to the recorded values, wait past the time; the timeline shows each trigger, write and log. If the simulation does what was expected and reality did not, compare the deployed state (the runtime image view) and the devices; if it does not, the rule is the cause - propose a change and try it with the definitions in `simulate` before saving (EHome_rules).
+5. `imageProblems`: a refused image runs nothing new; every refusal names its object.
+Report the cause with the evidence (recorded values with times, the rule's condition, the timeline). Never deploy, program or write to the bus to find out: those are the installer's commands.
+</workflow>]]></content>
+						<tools>
+							<tool name="ehome-rules.datapointUsage"/>
+							<tool name="ehome-rules.explainRule"/>
+							<tool name="ehome-rules.automation"/>
+							<tool name="ehome-diagnosis.datapointRecordings"/>
+							<tool name="ehome-diagnosis.imageProblems"/>
+							<tool name="ehome-simulation.simulate"/>
+							<tool name="ehome-blocks.blockStatus"/>
+						</tools>
+					</skill>
+				</skills>
+				<agents>
+					<agent name="TL_SingleAgent">
+						<skills>
+							<skill name="EHome_rules"/>
+							<skill name="EHome_functionsAndPages"/>
+							<skill name="EHome_blocks"/>
+							<skill name="EHome_diagnose"/>
+						</skills>
+					</agent>
+				</agents>
+			</instance>
+		</config>
+	</services>
+</application>
