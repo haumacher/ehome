@@ -293,17 +293,17 @@ opens its parents.
 
 **When fixed:** write the selection once in the switch and the drop of `projects/devices.view.xml`.
 
-## AI modules: models, catalog, MCP tool list (TL ticket to file)
+## AI modules: models, catalog, MCP tool list (TL #30251, #30252, #30253, #30254)
 
 The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on the modules of
 8.0.0-alpha12.819:
 
-- **The bundled model catalog lacks the current Claude models.** `models-dev-snapshot.json` of
+- **The bundled model catalog lacks the current Claude models** (TL #30251). `models-dev-snapshot.json` of
   `tl-ai-core` knows `claude-sonnet-4-6` and `claude-opus-4-7`, not `claude-sonnet-5-5`,
   `claude-opus-5-5` and `claude-haiku-5-5`. Workaround: their metadata as `<model-overrides>` in
   `WEB-INF/autoconf/ehome.ai.config.xml`. **When fixed** (the snapshot knows them): remove the three
   overrides.
-- **A thinking effort for `claude-haiku-5-5` is sent as a budget.**
+- **A thinking effort for `claude-haiku-5-5` is sent as a budget** (TL #30251).
   `AnthropicRequestBuilder.requiresBudgetTokens` answers true for every model whose name contains
   `haiku`, so a run on `claude-haiku-5-5` with an effort (the chat's thinking picker) sends
   `thinking: {type: "enabled", budget_tokens: N}`, which that model refuses with HTTP 400 (it takes
@@ -311,21 +311,21 @@ The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on 
   chat. Workaround: the override of `claude-haiku-5-5` declares `reasoning="false"`, so the chat offers
   no effort for it and the model thinks adaptively as it does unasked. **When fixed** (only the Haiku
   models before 5 take a budget): set `reasoning="true"` on the override.
-- **`tools/list` of the MCP endpoint is the same for every caller** (the MCP Java SDK answers it from
+- **`tools/list` of the MCP endpoint is the same for every caller** (TL #30252) (the MCP Java SDK answers it from
   the global tool set; `ai/security/mcp-endpoint`, "What it does not do"): a viewer's client lists
   the writing tools of `data.write` and is refused when it calls one. No workaround. **When fixed**
   (the list follows the caller's tool access): `TestMcpEndpoint` asserts that a viewer does not list
   them.
-- **`tl-ai-core` brings the browsers of Playwright** (`com.microsoft.playwright:driver-bundle`,
+- **`tl-ai-core` brings the browsers of Playwright** (TL #30253) (`com.microsoft.playwright:driver-bundle`,
   200 MB) for its browser tools, also to an application that grants no browser tool: the war grew
   from 136 MB to 367 MB. Workaround: `ehome/pom.xml` excludes `driver-bundle` from `tl-ai-core`
   (the browser tools, group `egress`, granted to nobody, would fail when called). **When fixed**
   (the browser is an optional module): remove the exclusion.
-- **A missing key is announced as a rejected key.** Without `tl_anthropic_api_key` the chat's headline
+- **A missing key is announced as a rejected key** (TL #30254). Without `tl_anthropic_api_key` the chat's headline
   reads "Das Modell hat den Zugangsschlüssel abgelehnt. Bitte wende dich an deine Administration."
   (the provider error kind `AUTHENTICATION`); only the detail below says that the secret
   `tl_anthropic_api_key` is missing. No workaround. **When fixed:** check the chat without a key.
-- **`/ehome/mcp/` (with a slash) is answered with 404**: the transport of the MCP SDK
+- **`/ehome/mcp/` (with a slash) is answered with 404** (TL #30252): the transport of the MCP SDK
   (`HttpServletStreamableServerTransportProvider`) matches the end of the path against `/mcp`.
   No workaround; `doc/ai.md` names the address without the slash. **When fixed:** nothing to undo.
 
