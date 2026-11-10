@@ -4,7 +4,7 @@
   <parent>
     <groupId>com.top-logic</groupId>
     <artifactId>tl-parent-app</artifactId>
-    <version>8.0.0-alpha12.817</version>
+    <version>8.0.0-alpha12.819</version>
     <relativePath/>
   </parent>
   <artifactId>de.haumacher.ehome</artifactId>

@@ -12,13 +12,11 @@ import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.module.ConfiguredManagedClass;
 import com.top_logic.basic.module.ServiceDependencies;
 import com.top_logic.basic.module.TypedRuntimeModule;
-import com.top_logic.basic.sql.CommitContext;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.dob.identifier.ObjectKey;
 import com.top_logic.event.infoservice.InfoService;
 import com.top_logic.knowledge.objects.KnowledgeItem;
-import com.top_logic.knowledge.service.CommitHandler;
-import com.top_logic.knowledge.service.Committable;
+import com.top_logic.knowledge.service.CommitActions;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.event.Modification;
@@ -52,7 +50,8 @@ import de.haumacher.ehome.runtime.ExpressionRenames.RenamedParameter;
  * <p>
  * After the commit succeeded, the user is told how many expressions were adjusted and, for a
  * renamed parameter, that the value set on the controller is lost (homecontrol
- * <code>spec/rules.md</code> 8.4, D5): through the {@link InfoService} of the interaction, which the
+ * <code>spec/rules.md</code> 8.4, D5): an after-commit action of the transaction
+ * ({@link CommitActions}) shows them through the {@link InfoService} of the interaction, which the
  * view layer shows in the window that saved (outside a window, e.g. in a job, nothing is shown).
  * </p>
  *
@@ -128,7 +127,8 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 	}
 
 	@Override
-	public Modification createModification(KnowledgeBase kb, Map<ObjectKey, ? extends KnowledgeItem> createdObjects,
+	public Modification createModification(KnowledgeBase kb, CommitActions actions,
+			Map<ObjectKey, ? extends KnowledgeItem> createdObjects,
 			Map<ObjectKey, ? extends KnowledgeItem> updatedObjects,
 			Map<ObjectKey, ? extends KnowledgeItem> removedObjects) {
 		Map<TLObject, ExpressionRenames> renames = null;
@@ -160,8 +160,8 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 		Map<TLObject, ExpressionRenames> all = renames;
 		return () -> {
 			Report report = apply(all);
-			if (kb instanceof CommitHandler handler && DefaultDisplayContext.hasDisplayContext()) {
-				handler.addCommittable(new Messages(report));
+			if (DefaultDisplayContext.hasDisplayContext()) {
+				actions.afterCommit(changes -> show(report));
 			}
 		};
 	}
@@ -182,7 +182,7 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 	}
 
 	@Override
-	public Modification notifyUpcomingDeletion(KnowledgeBase kb, KnowledgeItem item) {
+	public Modification notifyUpcomingDeletion(KnowledgeBase kb, CommitActions actions, KnowledgeItem item) {
 		return Modification.NONE;
 	}
 
@@ -293,43 +293,6 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 	static String identifier(TLObject obj) {
 		Object id = obj.tValueByName("identifier");
 		return id == null || id.toString().isBlank() ? null : id.toString().trim();
-	}
-
-	/**
-	 * Tells the user what the commit rewrote, once it succeeded.
-	 */
-	private static final class Messages implements Committable {
-
-		private final Report _report;
-
-		Messages(Report report) {
-			_report = report;
-		}
-
-		@Override
-		public boolean prepare(CommitContext context) {
-			return true;
-		}
-
-		@Override
-		public boolean prepareDelete(CommitContext context) {
-			return true;
-		}
-
-		@Override
-		public boolean commit(CommitContext context) {
-			return true;
-		}
-
-		@Override
-		public boolean rollback(CommitContext context) {
-			return true;
-		}
-
-		@Override
-		public void complete(CommitContext context) {
-			show(_report);
-		}
 	}
 
 	/**

@@ -1,12 +1,25 @@
 # Waiting for TopLogic
 
 Gaps of the React UI (`ehome/src/main/webapp/WEB-INF/views/`; paths below are relative to the app module `ehome/` unless they name `ehome-virtual/`) and
-workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha12.817) cannot close yet.
+workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha12.819) cannot close yet.
 Check each item when upgrading TopLogic (an upgrade happens only when the user asks for one). Every
 entry names its TL ticket and what to remove once the engine covers it; a gap whose workaround would
 not be minimal is left visible instead.
 
-State of the upgrade to 8.0.0-alpha12.817 (2026-11-06): the fixes of TL #30086, #30088, #30125,
+State of the upgrade to 8.0.0-alpha12.819 (2026-11-10): the fixes of TL #30211, #30214, #30215, #30216
+and #30218 shipped. Removed: the tooltip rule of `style/ehome.css` (#30214); the own sub-session of
+`de.haumacher.ehome.job.Uninterruptible` (#30216: `JobRunner` runs the body in a sub-session derived
+from the window, `ThreadContextManager#inDerivedContext`; the body's thread of `Uninterruptible.run`
+stays in it; the catch-up of the window stays, now for TL #30249, see below); the `Committable` of
+`IdRenames`, whose messages are now an `AfterCommitAction` registered on the `CommitActions` the `ModificationListener` receives (#30218,
+a breaking change of `ModificationListener`, adapted in `ProgramChanges` as well). The structure of
+the device tree is remembered per user (`personalize="true"`, #30215), and "Neu › Linie" is hidden in
+the structure "Gebäude" (#30211). TL #30201 and #30205 are closed, but their fixes came after the
+build of 8.0.0-alpha12.819 (no `jobErrorDetails`, no `DynamicMandatoryConstraintCheck` in its jars):
+their workarounds stay until the next upgrade. TL #30200 (in testing) is not in 8.0.0-alpha12.819
+either. Still open: TL #29884, #29885, #30048, #30105, #30191, #30192, #30193 to #30196, #30217; new: #30249.
+
+Before (8.0.0-alpha12.817, 2026-11-06): the fixes of TL #30086, #30088, #30125,
 #30127, #30134, #30139 and #30140 shipped, and their workarounds are removed (`<unless-known-program>`
 with `TranslationsImport#importBaseTexts`, the 60 s check of `MonitorSource`, the redirect case of
 `bin/ehome-agent.py`, `HISTORY_ARCHIVES_NOT_MANUAL`, the unit in the label of a block parameter).
@@ -111,7 +124,7 @@ grant them to its users.
 Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: `SecurityCoverageCheck` excludes these
 15 modules.
 
-Still open, checked on 8.0.0-alpha12.817.
+Still open, checked on 8.0.0-alpha12.819.
 
 **When fixed** (the engine covers or marks its own modules, or the check can be limited to the
 application's modules): remove `excluded-modules`.
@@ -127,7 +140,7 @@ catalog) are disabled with only their own label as the reason. The ticket is sti
 Since TL #30025 (8.0.0-alpha12.817) a command is hidden for a user who holds no role granting it on
 any object; the roles of E-Home are global, so a viewer no longer sees the commands that write
 (nor the import commands), and the case of the ticket does not show in E-Home any more. Still open,
-checked on 8.0.0-alpha12.817.
+checked on 8.0.0-alpha12.819.
 
 **On the next upgrade:** check the ticket; nothing to remove.
 
@@ -139,7 +152,7 @@ the refusal only after the submit. Workaround in `projects/device-item.view.xml`
 inputs switch to their read-only form with `!canWrite($device)`, repeating the `<access>` check of
 their `<on-submit>` (haumacher/ehome #65).
 
-Still open, checked on 8.0.0-alpha12.817.
+Still open, checked on 8.0.0-alpha12.819.
 
 **When fixed** (the input follows the state of its submit command): remove the `!canWrite($device)`
 case of the input kind in `device-item.view.xml`.
@@ -171,7 +184,7 @@ for an installation in the cloud, without a workaround in the app: every logged-
 a token (an agent then acts with that account's rights, no more); a token of an ended session
 (logout, restart) stays listed until it expires, though it admits nobody; every admitted request
 writes `lastUsed` in a commit of its own, so a polling agent creates a revision per request; there is
-no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha12.817.
+no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha12.819.
 
 **When fixed:** decide whether E-Home restricts issuing tokens (e.g. to `ehome.Installer`) with the
 rule the module offers, and replace `bin/ehome-agent.py` by the MCP wrapper.
@@ -215,7 +228,7 @@ cancelable. Four gaps of the job support:
 - A cancelled job carries no result (TL #30195): of a cancelled multi-file upload, the files committed
   before stay, but no report names them (the projects table shows them). No workaround.
 
-**When fixed:** TL #30196: remove `de.haumacher.ehome.job.Uninterruptible` - its `run` from
+**When fixed:** TL #30196: remove `de.haumacher.ehome.job.Uninterruptible` (and its test `TestUninterruptible`) - its `run` from
 `ImportEtsProjectJob`, `ImportProductDataJob`, `ScanJob`, `ReadBackJob` and `CompareJob`, its
 `interruptible()` sections from `CalimeroScanBus` and `CalimeroReader` - and the refetch of
 `RecordingJobMonitor#run` in the tests. TL #30193: run the job in the dialog with its own `<job-status>` and the
@@ -224,29 +237,18 @@ cancelable. Four gaps of the job support:
 point of no return. TL #30195: continue the chain of a cancelled multi-file import with the report
 of the files imported.
 
-## A job in the sub-session of its window (TL #30216)
+## The `<with-result>` of a job before the window saw its commits (TL #30249)
 
-`JobRunner` runs the body of a `<start-job>` in the sub-session of the browser window that started
-it. A commit of another interaction on that sub-session (a save in the same window, a second job
-started from it) moves its session revision past the revision the job's interaction fixed at its
-first database access; a KB cache the job then has to build (its soft reference cleared by the
-garbage collector, or never filled) fails with "Session revision invalid"
-(`AbstractKBCache#getCurrentCache`), as an ETS import did at 95 % (haumacher/ehome #107).
-Workaround in `de.haumacher.ehome.job.Uninterruptible#inOwnSubSession`, which every job of the app
-passes through (`Uninterruptible.run`, see above): the body runs in a sub-session of its own,
-`TLContextManager.inPersonContext` with the window's person (access checks on, as on the body's
-thread before) and the window's locale and time zone; a sub-session without a person (a test in the
-system context) runs the body in itself as before. The job's commits reach the window like those of
-another session, through its model events; the engine synthesizes them only after what the end of a
-job sets off in the window (`ReactWindowReplay#enter`), so the `<with-result>` of the import selected
-the imported project in a table that did not show it yet (seen in the browser with a project created in
-the window during the import). `Uninterruptible#catchUp` therefore enters the window
-(`ReactWindowReplay.inWindow`, which synthesizes them first) before the job ends.
-`test.de.haumacher.ehome.job.TestUninterruptible` reproduces the failure.
+Since TL #30216 `JobRunner` runs a job's body in a sub-session derived from the window, with a session
+revision of its own; the window learns about the job's commits through its model events, which the
+engine synthesizes when the window is entered next, after the `<with-result>` of the job has run.
+When the window committed during the job (a project created while an import ran), the import's
+`<with-result>` selected the imported project in a table that did not show it yet, and no row was
+selected (seen in the browser on 8.0.0-alpha12.819). Workaround: `Uninterruptible#catchUp` enters the
+window (`ReactWindowReplay.inWindow` with the origin of the job's sub-session), which synthesizes the
+events, before the job ends.
 
-**When fixed:** remove `Uninterruptible#inOwnSubSession` and `#catchUp` and run the work directly (or,
-once TL #30196 is fixed as well, `Uninterruptible` altogether, see above); the fix of `JobRunner` must
-bring the window up to date with the job's commits before the `<with-result>` runs.
+**When fixed:** remove `Uninterruptible#catchUp` and its call in `Uninterruptible#run`.
 
 ## A constraint veto without its problems (TL #30201)
 
@@ -261,28 +263,6 @@ ERROR.
 **When fixed:** remove `ConstraintVeto`, its test, the catch in `ImportJobs#importFile` and the
 message `ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS`, if the engine's message or the job's failure
 display names the problems.
-
-## A tooltip loses the line breaks of its text (TL #30214)
-
-A cell tooltip of the view layer (`<tooltip>` of a column, `CellContent#tooltip()`) arrives with the
-`\n` of its text, but the client's `.tl-tooltip__body` wraps with `white-space: normal`, so the
-paragraphs of a help text (haumacher/ehome #101: an enumeration's choices, `blockHelp` as the tooltip
-of a parameter's or port's name in `projects/blocks.view.xml` and `projects/block-ports.view.xml`) run
-together; a `<text>` keeps them (`pre-line`). Workaround: `.tl-tooltip__body { white-space: pre-line; }`
-in `style/ehome.css`.
-
-**When fixed:** remove that rule from `style/ehome.css`.
-
-## A view channel is not remembered per user (TL #30215)
-
-A value channel (`<channel>`, `ValueChannelConfig`) has no personalization: its value falls back to
-`init` with every session, while elements (split panel, sidebar groups, accordion, table) remember
-their state per user through `PersonalConfiguration`. The structure of the device tree in
-`projects/devices.view.xml` (by line / by building part, haumacher/ehome #106) is therefore chosen per
-session and starts with "by line" at every login. No workaround (an attribute of the person and a
-command writing it would not be minimal).
-
-**When fixed:** give the structure channel of `projects/devices.view.xml` `personalize="true"`.
 
 ## A derived attribute is editable in a row-editing table (TL #30205)
 
@@ -307,29 +287,6 @@ opens its parents.
 
 **When fixed:** write the selection once in the switch and the drop of `projects/devices.view.xml`.
 
-## A command hidden by `<visible-if>` shows disabled when its `<access>` refuses (TL #30211)
-
-The access checks of a command run before `<visible-if>`, and the first refusal wins: a command
-with `<access><operation name="Write" object="$x"/></access>` and a `<visible-if>` that is false
-shows greyed out when `$x` is null, instead of hidden. In `projects/devices.view.xml` (#106)
-"Neu › Linie" stays greyed out in the structure "Gebäude" when no area is selected. No
-workaround: the problem stays visible. The access variant is added to TL #30211 (the built-in rules of `<delete-object>` precede `<visible-if>` the same way).
-
-**When fixed:** nothing to remove; check that "Neu › Linie" is hidden in the structure "Gebäude".
-
-## A `ModificationListener` cannot report what it changed after a successful commit (TL #30218)
-
-A renamed id rewrites the expressions that name it (haumacher/ehome #111): a `ModificationListener`
-(`de.haumacher.ehome.runtime.IdRenames`) does the rewrite in the commit, whatever code made the
-rename. The message "3 expressions adjusted to the new id." and the note that the controller's value
-of a renamed parameter is lost may only appear once the commit succeeded. The engine has no
-supported hook for that. Workaround: the legacy `Committable` (the knowledge base cast to
-`CommitHandler`, `IdRenames.Messages#complete`) shows the messages through `InfoService` as plain
-text fragments, which the view layer forwards to the window's snackbar.
-
-**When fixed:** replace `IdRenames.Messages` and `IdRenames.show` with the supported message sink;
-check in the browser that renaming a parameter of a rule shows both messages.
-
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -340,6 +297,5 @@ check in the browser that renaming a parameter of a rule shows both messages.
 - TL #30048: see above (agent access: the follow-ups of the module).
 - TL #30200: see above (agent access: the size of an observation, `observe` without actions failing).
 - TL #30191: see above (a failing class load aborts the module shutdown).
+- TL #30249: see above (the `<with-result>` of a job runs before the window saw the job's commits).
 - TL #30193, #30194, #30195, #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the interrupt of a cancelled job closing H2).
-- TL #30215: see above (a value channel remembered per user; the structure of the device tree).
-- TL #30216: see above (a job runs in the sub-session of its window; a commit there breaks the job's KB caches).

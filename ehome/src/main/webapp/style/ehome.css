@@ -65,12 +65,3 @@
 	margin-left: 0.4em;
 	font-size: 0.85em;
 }
-
-/*
- * A tooltip keeps the line breaks of its text (haumacher/ehome #101: the help of a parameter whose
- * choices stand in paragraphs of their own, as the tooltip of its name). The engine's tooltip wraps
- * with white-space: normal, so a \n of the text was lost; see doc/tl-todo.md.
- */
-.tl-tooltip__body {
-	white-space: pre-line;
-}

@@ -12,7 +12,6 @@ import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 
-import com.top_logic.base.context.TLSubSessionContext;
 import com.top_logic.basic.SubSessionContext;
 import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.basic.thread.ThreadContextManager;
@@ -36,13 +35,15 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.job.Uninterruptible;
 
 /**
- * The body of a job run with {@link Uninterruptible#run(java.util.concurrent.Callable)} runs in a
- * sub-session of its own for the person of the window that started it (TL #30216,
- * haumacher/ehome #107).
+ * The body of a job run with {@link Uninterruptible#run(java.util.concurrent.Callable)} runs in the
+ * sub-session of the job, which <code>JobRunner</code> derives from the window that started it (TL
+ * #30216, haumacher/ehome #107): the thread of the body must not fall back to the window's
+ * sub-session.
  *
  * <p>
  * The window is a sub-session of its own here, as the browser window of a user is; the job is
- * started in it, as <code>JobRunner</code> starts a job.
+ * started from it as <code>JobRunner</code> starts a job, with
+ * {@link ThreadContextManager#inDerivedContext(SubSessionContext, com.top_logic.basic.util.ComputationEx2)}.
  * </p>
  */
 @SuppressWarnings("javadoc")
@@ -58,7 +59,7 @@ public class TestUninterruptible extends BasicTestCase {
 		TLContext window = window(PersonManager.getManager().getRoot());
 		DBKnowledgeBase kb = (DBKnowledgeBase) PersistencyLayer.getKnowledgeBase();
 		AtomicReference<Throwable> commitProblem = new AtomicReference<>();
-		Long value = inWindow(window, () -> Uninterruptible.run(() -> {
+		Long value = asJob(window, () -> Uninterruptible.run(() -> {
 			// The job's interaction fixes its revision.
 			kb.getSessionRevision();
 
@@ -87,8 +88,8 @@ public class TestUninterruptible extends BasicTestCase {
 	}
 
 	/**
-	 * The job runs in a sub-session other than the window's, with the window's person, locale and
-	 * time zone, and with access checks on, as on the job's thread before.
+	 * The body runs in the job's sub-session, not the window's, with the window's person, locale and
+	 * time zone, and with access checks on.
 	 */
 	public void testIdentity() throws Exception {
 		Person root = PersonManager.getManager().getRoot();
@@ -98,36 +99,30 @@ public class TestUninterruptible extends BasicTestCase {
 		window.setCurrentLocale(locale);
 		window.setCurrentTimeZone(timeZone);
 
-		Object[] seen = inWindow(window, () -> Uninterruptible.run(() -> new Object[] {
+		Object[] seen = asJob(window, () -> new Object[] {
 			TLContextManager.getSubSession(),
-			TLContext.currentUser(),
-			ThreadContext.getLocale(),
-			Resources.getInstance().getLocale(),
-			ThreadContext.getTimeZone(),
-			Boolean.valueOf(ThreadContext.isSecurityBypassed()),
-		}));
-		assertNotSame("A sub-session of its own.", window, seen[0]);
-		assertNotNull(seen[0]);
-		assertSame(root, seen[1]);
-		assertEquals(locale, seen[2]);
-		assertEquals(locale, seen[3]);
-		assertEquals(timeZone, seen[4]);
-		assertEquals("Access checks are on.", Boolean.FALSE, seen[5]);
+			Uninterruptible.run(TLContextManager::getSubSession),
+			Uninterruptible.run(() -> new Object[] {
+				TLContext.currentUser(),
+				ThreadContext.getLocale(),
+				Resources.getInstance().getLocale(),
+				ThreadContext.getTimeZone(),
+				Boolean.valueOf(ThreadContext.isSecurityBypassed()),
+			}),
+		});
+		assertNotSame("The job has a sub-session of its own.", window, seen[0]);
+		assertSame("The body runs in the job's sub-session.", seen[0], seen[1]);
+		Object[] body = (Object[]) seen[2];
+		assertSame(root, body[0]);
+		assertEquals(locale, body[1]);
+		assertEquals(locale, body[2]);
+		assertEquals(timeZone, body[3]);
+		assertEquals("Access checks are on.", Boolean.FALSE, body[4]);
 
 		// The window is left as it was.
 		assertSame(root, window.getPerson());
 		assertEquals(locale, window.getCurrentLocale());
 		assertEquals(timeZone, window.getCurrentTimeZone());
-	}
-
-	/**
-	 * A sub-session without a person (a test in the system context) runs the job in itself, as
-	 * before.
-	 */
-	public void testWithoutPerson() throws Exception {
-		TLContext window = window(null);
-		SubSessionContext seen = inWindow(window, () -> Uninterruptible.run(TLContextManager::getSubSession));
-		assertSame(window, seen);
 	}
 
 	private static TLContext window(Person person) {
@@ -141,20 +136,20 @@ public class TestUninterruptible extends BasicTestCase {
 	}
 
 	/**
-	 * Computes the given value in the given window on a thread without interaction, as a request of
-	 * the window does.
+	 * Computes the given value as a job started from the given window, on a thread without
+	 * interaction, as <code>JobRunner</code> runs the body of a job.
 	 */
-	private static <T> T inWindow(TLSubSessionContext window, java.util.concurrent.Callable<T> computation)
+	private static <T> T asJob(SubSessionContext window, java.util.concurrent.Callable<T> computation)
 			throws Exception {
 		AtomicReference<T> result = new AtomicReference<>();
 		AtomicReference<Throwable> problem = new AtomicReference<>();
 		Thread thread = new Thread(() -> {
 			try {
-				result.set(ThreadContextManager.inContext(window, computation::call));
+				result.set(ThreadContextManager.inDerivedContext(window, computation::call));
 			} catch (Throwable ex) {
 				problem.set(ex);
 			}
-		}, "Request starting the job");
+		}, "Job worker");
 		thread.start();
 		thread.join();
 		Throwable ex = problem.get();

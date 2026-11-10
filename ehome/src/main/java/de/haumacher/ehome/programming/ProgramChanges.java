@@ -16,6 +16,7 @@ import com.top_logic.basic.module.TypedRuntimeModule;
 import com.top_logic.dob.identifier.ObjectKey;
 import com.top_logic.knowledge.objects.KnowledgeAssociation;
 import com.top_logic.knowledge.objects.KnowledgeItem;
+import com.top_logic.knowledge.service.CommitActions;
 import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -85,7 +86,8 @@ public class ProgramChanges extends ConfiguredManagedClass<ProgramChanges.Config
 	}
 
 	@Override
-	public Modification createModification(KnowledgeBase kb, Map<ObjectKey, ? extends KnowledgeItem> createdObjects,
+	public Modification createModification(KnowledgeBase kb, CommitActions actions,
+			Map<ObjectKey, ? extends KnowledgeItem> createdObjects,
 			Map<ObjectKey, ? extends KnowledgeItem> updatedObjects,
 			Map<ObjectKey, ? extends KnowledgeItem> removedObjects) {
 		// The program reference may be stored in a link (a new one is created) or in the device (updated).
@@ -127,7 +129,7 @@ public class ProgramChanges extends ConfiguredManagedClass<ProgramChanges.Config
 	}
 
 	@Override
-	public Modification notifyUpcomingDeletion(KnowledgeBase kb, KnowledgeItem item) {
+	public Modification notifyUpcomingDeletion(KnowledgeBase kb, CommitActions actions, KnowledgeItem item) {
 		return Modification.NONE;
 	}
 

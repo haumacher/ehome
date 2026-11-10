@@ -41,11 +41,11 @@
 		<channel name="project"/>
 		<!--
 			The structure the tree shows the devices in: "line" (areas, lines, devices) or "building"
-			(buildings, their parts, devices by location). For the session: remembered per user once a
-			value channel can be (TL #30215), then personalize="true".
+			(buildings, their parts, devices by location). Remembered per user (TL #30215).
 		-->
 		<channel name="structure"
 			init="'line'"
+			personalize="true"
 		/>
 		<!-- The nodes selected in the tree: one node, the set of several, or nothing. -->
 		<channel name="treeSelection"/>
