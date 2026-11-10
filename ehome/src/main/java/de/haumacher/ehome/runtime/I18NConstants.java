@@ -2057,7 +2057,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 GROUP_ADDRESS_ID_TOO_LONG__LIMIT;
 
 	/**
-	 * @en The group address {1} has the identifier {0} already.
+	 * @en The identifier {0} is taken by the group address {1}.
 	 */
 	public static ResKey2 GROUP_ADDRESS_ID_DUPLICATE__ID_ADDRESS;
 

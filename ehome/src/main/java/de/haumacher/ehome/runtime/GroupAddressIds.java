@@ -22,6 +22,7 @@ import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredTypePart;
 
 import de.haumacher.ehome.knx.GA;
+import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.rules.RuleText;
 
 /**
@@ -45,8 +46,10 @@ import de.haumacher.ehome.rules.RuleText;
  * <p>
  * The proposal ({@link #propose(TLObject)}) derives the missing identifiers: of an address a function
  * uses, from the function's room and name and the role (<code>kueche.licht</code>,
- * <code>kueche.licht.state</code>); else from the address's name (<code>licht_kueche</code>), else
- * from its description; made unique with a counter (<code>_2</code>).
+ * <code>kueche.licht.state</code>); else from the address's name, else from its description, after
+ * the room of the connected devices when they share one (<code>kueche.taste_2_kurz</code> for
+ * "Küche Taste 2 Kurz" of a push button in the kitchen, <code>licht_kueche</code> without a room); made
+ * unique with a counter (<code>_2</code>).
  * </p>
  */
 public final class GroupAddressIds {
@@ -135,7 +138,7 @@ public final class GroupAddressIds {
 		}
 		for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
 			if (address != self && id.equals(identifier(address))) {
-				return I18NConstants.GROUP_ADDRESS_ID_DUPLICATE__ID_ADDRESS.fill(id, DatapointNames.name(address));
+				return I18NConstants.GROUP_ADDRESS_ID_DUPLICATE__ID_ADDRESS.fill(id, holder(address));
 			}
 		}
 		for (TLObject datapoint : ApplicationDatapoints.of(project)) {
@@ -178,7 +181,7 @@ public final class GroupAddressIds {
 						problem = changes.containsKey(address)
 							? I18NConstants.GROUP_ADDRESS_ID_TWICE__ID_ADDRESS.fill(id,
 								DatapointNames.format(DatapointNames.label(address), address(address)))
-							: I18NConstants.GROUP_ADDRESS_ID_DUPLICATE__ID_ADDRESS.fill(id, DatapointNames.name(address));
+							: I18NConstants.GROUP_ADDRESS_ID_DUPLICATE__ID_ADDRESS.fill(id, holder(address));
 						break;
 					}
 				}
@@ -307,7 +310,45 @@ public final class GroupAddressIds {
 			String description = text(address.tValueByName("description"));
 			name = description == null ? null : segment(description.lines().findFirst().orElse(null));
 		}
-		return name == null ? null : new ArrayList<>(List.of(name));
+		if (name == null) {
+			return null;
+		}
+		String room = room(address);
+		if (room == null) {
+			return new ArrayList<>(List.of(name));
+		}
+		// "Küche Taste 2 Kurz" sent by a device in the kitchen: kueche.taste_2_kurz, as for a function.
+		List<String> words = new ArrayList<>(Arrays.asList(name.split("_")));
+		words.removeAll(Arrays.asList(room.split("_")));
+		return new ArrayList<>(List.of(room, words.isEmpty() ? name : String.join("_", words)));
+	}
+
+	/**
+	 * The room of the devices connected to the given address as a part of a datapoint name, when they
+	 * are all placed in the same one; <code>null</code> otherwise.
+	 */
+	private static String room(TLObject address) {
+		TLObject room = null;
+		for (TLObject connection : GroupAddressConnections.connections(address)) {
+			TLObject device = GroupAddressConnections.device(connection);
+			Object location = device == null ? null : device.tValueByName("location");
+			if (!(location instanceof TLObject place)) {
+				return null;
+			}
+			if (room != null && room != place) {
+				return null;
+			}
+			room = place;
+		}
+		return room == null ? null : segment(DatapointNames.label(room));
+	}
+
+	/**
+	 * The group address holding an identifier, by its name and address: the identifier itself is
+	 * named by the refusal already.
+	 */
+	private static String holder(TLObject address) {
+		return DatapointNames.format(DatapointNames.label(address), String.valueOf(address.tValueByName("address")));
 	}
 
 	private static String text(Object value) {

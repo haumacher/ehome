@@ -208,12 +208,12 @@ public class TestGroupAddressIds extends BasicTestCase {
 			resources.getString(GroupAddressIds.problem("urlaub", _licht)));
 
 		update(_status, "identifier", "kueche.status");
-		assertEquals("The group address Licht Küche Status (kueche.status) has the identifier kueche.status already.",
+		assertEquals("The identifier kueche.status is taken by the group address Licht Küche Status (1/2/4).",
 			resources.getString(GroupAddressIds.problem("kueche.status", _licht)));
 		assertNull(GroupAddressIds.problem("kueche.status", _status));
 
 		// On commit, also from Java.
-		assertRefused(_licht, "identifier", "kueche.status", "has the identifier kueche.status already");
+		assertRefused(_licht, "identifier", "kueche.status", "identifier kueche.status is taken");
 		assertRefused(_licht, "identifier", "kueche licht", "no datapoint name");
 		assertRefused(_holiday, "identifier", "kueche.status", "group address");
 		assertNull(GroupAddressIds.identifier(_licht));

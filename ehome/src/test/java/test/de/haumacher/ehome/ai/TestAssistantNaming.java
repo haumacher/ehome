@@ -103,6 +103,18 @@ public class TestAssistantNaming extends BasicTestCase {
 		super.tearDown();
 	}
 
+	/**
+	 * The proposal of identifiers for addresses no function uses puts the room of the connected
+	 * devices first, as for a function: the fixture's push button sits in the kitchen.
+	 */
+	public void testProposalByRoom() {
+		java.util.Collection<String> ids = de.haumacher.ehome.runtime.GroupAddressIds.propose(_project).values();
+		assertFalse(ids.isEmpty());
+		for (String id : ids) {
+			assertTrue(id, id.startsWith("kueche."));
+		}
+	}
+
 	public void testNameGroupAddresses() throws RefetchTimeout {
 		List<TLObject> addresses = DeviceSettings.groupAddresses(_project);
 		assertEquals(10, addresses.size());
