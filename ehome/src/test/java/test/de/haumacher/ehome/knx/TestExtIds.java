@@ -63,8 +63,10 @@ public class TestExtIds extends BasicTestCase {
 		try (Transaction tx = kb.beginTransaction()) {
 			assertEquals(maxNumber(program.getParameters(), Kind.PARAMETER), ExtIds.current(program, Kind.PARAMETER));
 			assertEquals(maxNumber(program.getPorts(), Kind.PORT), ExtIds.current(program, Kind.PORT));
-			assertEquals(10, ExtIds.current(project, Kind.GROUP_ADDRESS));
-			assertEquals(1, ExtIds.current(project, Kind.AREA));
+			// The parts of the project's installation E-Home creates are numbered in the app's range,
+			// which the numbers of ETS do not raise (haumacher/ehome #125).
+			assertEquals(0, ExtIds.current(project, Kind.GROUP_ADDRESS));
+			assertEquals(0, ExtIds.current(project, Kind.AREA));
 			tx.rollback();
 		}
 
@@ -126,12 +128,17 @@ public class TestExtIds extends BasicTestCase {
 		assertNumbered(port, prefix + "O-(\\d+)", ports);
 		assertNumbered(channel, prefix + "CH-(\\d+)", channels);
 		assertNumbered(block, prefix + "PB-(\\d+)", blocks);
-		assertNumbered(area, "P-01A0-0_A-(\\d+)", areas);
-		assertNumbered(line, "P-01A0-0_L-(\\d+)", lines);
-		assertNumbered(address, "P-01A0-0_GA-(\\d+)", addresses);
+		assertNumbered(area, "P-01A0-0_A-(\\d+)", Math.max(areas, ExtIds.APP_ID_BASE - 1));
+		assertNumbered(line, "P-01A0-0_L-(\\d+)", Math.max(lines, ExtIds.APP_ID_BASE - 1));
+		assertNumbered(address, "P-01A0-0_GA-(\\d+)", Math.max(addresses, ExtIds.APP_ID_BASE - 1));
 		assertEquals(PROGRAM + "_P-" + (parameters + 1), parameter.getExtId());
 		assertEquals(PROGRAM + "_CH-1", channel.getExtId());
-		assertEquals("P-01A0-0_GA-11", ExtIds.extId(address));
+		// The first number of the app's range: the project is new, the imported numbers lie below.
+		assertEquals("P-01A0-0_GA-" + ExtIds.APP_ID_BASE, ExtIds.extId(address));
+		assertTrue(ExtIds.isCreatedInApp(address));
+		assertTrue(ExtIds.isCreatedInApp(area));
+		assertFalse(ExtIds.isCreatedInApp(ExtIds.members(project, Kind.GROUP_RANGE).iterator().next()));
+		assertFalse(ExtIds.isCreatedInApp(parameter));
 
 		// A further import of the same project: nothing renumbered, the program is reused.
 		Map<String, Integer> counts = Map.of(
@@ -141,7 +148,7 @@ public class TestExtIds extends BasicTestCase {
 		importSample(SAMPLE);
 		assertEquals(PROGRAM + "_P-" + (parameters + 1), parameter.getExtId());
 		assertEquals(PROGRAM + "_CH-1", channel.getExtId());
-		assertEquals("P-01A0-0_GA-11", ExtIds.extId(address));
+		assertEquals("P-01A0-0_GA-" + ExtIds.APP_ID_BASE, ExtIds.extId(address));
 		assertNumbered(port, prefix + "O-(\\d+)", ports);
 		assertNumbered(block, prefix + "PB-(\\d+)", blocks);
 		assertNumbered(area, "P-01A0-0_A-(\\d+)", areas);
@@ -161,6 +168,22 @@ public class TestExtIds extends BasicTestCase {
 			tx.commit();
 		}
 		assertEquals(PROGRAM + "_P-" + (parameters + 2), next.getExtId());
+
+		// An imported number inside the app's range (an object of E-Home that went through a file and
+		// back) raises the range; one of ETS below it does not.
+		TLObject imported;
+		TLObject further;
+		try (Transaction tx = kb.beginTransaction()) {
+			TLObject range = ExtIds.members(project, Kind.GROUP_RANGE).iterator().next();
+			imported = create("ehome.logical:GroupAddress");
+			imported.tUpdateByName("extId", "P-01A0-0_GA-" + (ExtIds.APP_ID_BASE + 5));
+			add(range, "parts", imported);
+			ExtIds.raiseImported(List.of(imported));
+			further = create("ehome.logical:GroupAddress");
+			add(range, "parts", further);
+			tx.commit();
+		}
+		assertEquals("P-01A0-0_GA-" + (ExtIds.APP_ID_BASE + 6), ExtIds.extId(further));
 
 		// A manufacturer without KNX ID gets a number of the private range, one with its KNX ID.
 		TLObject custom;
@@ -187,7 +210,7 @@ public class TestExtIds extends BasicTestCase {
 		try (Transaction tx = kb.beginTransaction()) {
 			custom.tDelete();
 			known.tDelete();
-			for (TLObject created : List.of(parameter, next, port, channel, area, line, address)) {
+			for (TLObject created : List.of(parameter, next, port, channel, area, line, address, imported, further)) {
 				created.tDelete();
 			}
 			tx.commit();

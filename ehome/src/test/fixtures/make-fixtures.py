@@ -298,6 +298,20 @@ PV-3 "Fehlt" (ValidationFunc PruefeFehlt, which the Script does not define). Dev
 Obergrenze 3, and Ein 50 in the second module instance: values the validations refuse), "TEST Prüfgerät
 VBScript" (1.0.3, FFFD, defaults).
 
+TestUpdateBase.knxproj, TestUpdateNew.knxproj and TestUpdateAdopt.knxproj: a project updated in ETS
+(haumacher/ehome #125). The Test project with the ID P-0125 (its own ID, so that no other fixture is
+the same project), named "TestUpdate". The base adds to the area "Neuer Bereich" the empty line 1.1
+"Linie 2" (L-2); beside the device of the Test project (named "Taster Küche", 1.0.1, placed in "Küche") the
+devices "Taster Flur" (DI-2, 1.0.2) and "Taster Reserve" (DI-3, 1.0.3) of the same product, each setting
+one parameter and sending on one address; the group addresses "Unbenutzt" (GA-11, 1/0/1) and "Jalousie"
+(GA-12, 1/0/2), both connected to no object; and the building of TestDetails (Haus, Erdgeschoss:
+Wohnzimmer, Küche, Verteiler). The update ("updated in ETS") re-addresses and renames GA-3 (0/0/3
+"GA3" to 0/0/4 "Licht Küche"), adds "Neu" (GA-13, 0/0/5), removes GA-11 and GA-12, changes a parameter
+of "Taster Küche" (P-2384 "ZyklSenden" from 255 to 30), moves "Taster Flur" to the line 1.1 (1.1.2), removes "Taster
+Reserve", adds "Taster Bad" (DI-4, 1.1.1, placed in the new room) and adds the room "Bad" (BP-6) as the
+last part of "Erdgeschoss". TestUpdateAdopt.knxproj is the update with one device more, "Taster Diele"
+(DI-5, 1.0.5, the same product), for a device planned in E-Home at that place.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -2156,6 +2170,75 @@ def validations_fixture(name, xml):
     return xml
 
 
+# TestUpdateBase/New/Adopt.knxproj (haumacher/ehome #125, see the module comment).
+UPDATE_PROJECT = 'P-0125'
+UPDATE_PRODUCT = ('ProductRefId="M-0008_H-8.20.2F.2F.20zxy3.20xx-1_P-5133.2000" '
+    'Hardware2ProgramRefId="M-0008_H-8.20.2F.2F.20zxy3.20xx-1_HP-10D7-11-A0E5-O000A"')
+
+
+def update_device(number, name, address, ga, value='5'):
+    return ('<DeviceInstance Id="P-01A0-0_DI-%d" Name="%s" %s Address="%d" LastModified="2026-11-10T12:00:00">\n'
+        '<ParameterInstanceRefs><ParameterInstanceRef RefId="' + PROGRAM + '_P-579_R-579" Value="%s" />'
+        '</ParameterInstanceRefs>\n<ComObjectInstanceRefs><ComObjectInstanceRef RefId="' + PROGRAM
+        + '_O-0_R-81" IsActive="1"><Connectors><Send GroupAddressRefId="P-01A0-0_GA-%d" /></Connectors>'
+        '</ComObjectInstanceRef></ComObjectInstanceRefs>\n</DeviceInstance>\n') % (number, name, UPDATE_PRODUCT,
+            address, value, ga)
+
+
+def update_project(xml, updated, adopt=False):
+    xml = replace_once(xml, '<DeviceInstance Id="P-01A0-0_DI-1" ', '<DeviceInstance Id="P-01A0-0_DI-1" Name="Taster Küche" ')
+    if updated:
+        # A parameter of "Taster Küche" changed (before the devices of the fixture are added).
+        xml = replace_once(xml, 'RefId="' + PROGRAM + '_P-2384_R-2384" Value="255"', 'RefId="' + PROGRAM + '_P-2384_R-2384" Value="30"')
+    line1_end = xml.index('</Line>', xml.index('<Line Id="P-01A0-0_L-1"'))
+    devices = update_device(3, 'Taster Reserve', 3, 7) if not updated else ''
+    if not updated:
+        devices = update_device(2, 'Taster Flur', 2, 6) + devices
+    if adopt:
+        devices += update_device(5, 'Taster Diele', 5, 8)
+    line2 = ''
+    if updated:
+        line2 = update_device(4, 'Taster Bad', 1, 9) + update_device(2, 'Taster Flur', 2, 6)
+    xml = xml[:line1_end] + devices + xml[line1_end:]
+    line1_close = xml.index('</Line>', xml.index('<Line Id="P-01A0-0_L-1"')) + len('</Line>')
+    xml = (xml[:line1_close] + '\n<Line Id="P-01A0-0_L-2" Name="Linie 2" Address="1" MediumTypeRefId="MT-0">'
+        + line2 + '</Line>' + xml[line1_close:])
+    if updated:
+        xml = replace_once(xml, '<GroupAddress Id="P-01A0-0_GA-3" Address="3" Name="GA3" />',
+            '<GroupAddress Id="P-01A0-0_GA-3" Address="4" Name="Licht Küche" />'
+            '<GroupAddress Id="P-01A0-0_GA-13" Address="5" Name="Neu" />')
+    else:
+        xml = replace_once(xml, '<GroupRange Id="P-01A0-0_GR-2" Name="HG2" RangeStart="2048" RangeEnd="4095" />',
+            '<GroupRange Id="P-01A0-0_GR-2" Name="HG2" RangeStart="2048" RangeEnd="4095">'
+            '<GroupAddress Id="P-01A0-0_GA-11" Address="2049" Name="Unbenutzt" />'
+            '<GroupAddress Id="P-01A0-0_GA-12" Address="2050" Name="Jalousie" /></GroupRange>')
+    bath = ('<BuildingPart Id="P-01A0-0_BP-6" Name="Bad" Type="Room"><DeviceInstanceRef RefId="P-01A0-0_DI-4" />'
+        '</BuildingPart>') if updated else ''
+    xml = replace_once(xml, '<Buildings />', '<Buildings>\n'
+        '<BuildingPart Id="P-01A0-0_BP-1" Name="Haus" Type="Building">'
+        '<BuildingPart Id="P-01A0-0_BP-2" Name="Erdgeschoss" Type="Floor">'
+        '<BuildingPart Id="P-01A0-0_BP-5" Name="Wohnzimmer" Type="Room" />'
+        '<BuildingPart Id="P-01A0-0_BP-3" Name="Küche" Type="Room"><DeviceInstanceRef RefId="P-01A0-0_DI-1" />'
+        '</BuildingPart>'
+        '<BuildingPart Id="P-01A0-0_BP-4" Name="Verteiler" Type="DistributionBoard" />' + bath
+        + '</BuildingPart></BuildingPart>\n</Buildings>')
+    return xml
+
+
+def update_fixture(updated, adopt=False):
+    def modify(name, xml):
+        if name == PROJECT_INFO:
+            xml = rename_project(xml, 'TestUpdate')
+        elif name == PROJECT:
+            xml = update_project(xml, updated, adopt)
+        return xml.replace('P-01A0', UPDATE_PROJECT)
+    return modify
+
+
+def update_name(name):
+    return name.replace('P-01A0', UPDATE_PROJECT)
+
+
 write('src/test/fixtures/TestDetails.knxproj', keep_details)
 write('src/test/fixtures/TestDynamic.knxproj', dynamic,
     rename=lambda name: name.replace(VERSION, NEW_VERSION))
@@ -2201,3 +2284,6 @@ write('src/test/fixtures/TestValidations.knxproj', validations_fixture,
      ('M-0008/' + CHECK_PROGRAM + '.xml', check_program()),
      ('M-0008/' + VB_CHECK_PROGRAM + '.xml', vb_check_program())],
     keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))
+write('src/test/fixtures/TestUpdateBase.knxproj', update_fixture(False), rename=update_name)
+write('src/test/fixtures/TestUpdateNew.knxproj', update_fixture(True), rename=update_name)
+write('src/test/fixtures/TestUpdateAdopt.knxproj', update_fixture(True, True), rename=update_name)

@@ -410,15 +410,15 @@
 		}
 	],
 	"locations": [
-		{"id": "P-0563-0_BP-1", "label": "Test system", "kind": "room"},
-		{"id": "P-0563-0_BP-2", "label": "Push-button sensor", "kind": "area", "parent": "P-0563-0_BP-1"}
+		{"id": "P-0563-0_BP-1000000", "label": "Test system", "kind": "room"},
+		{"id": "P-0563-0_BP-1000001", "label": "Push-button sensor", "kind": "area", "parent": "P-0563-0_BP-1000000"}
 	],
 	"functions": [
 		{
 			"id": "channel-a-scene-1",
 			"label": {"de": "Kanal A: Szene 1", "en": "Channel A: scene 1"},
 			"kind": "scene",
-			"room": "P-0563-0_BP-1",
+			"room": "P-0563-0_BP-1000000",
 			"scene": 1,
 			"datapoints": {"command": "0/0/36"}
 		},
@@ -426,7 +426,7 @@
 			"id": "channel-a-scene-2",
 			"label": {"de": "Kanal A: Szene 2", "en": "Channel A: scene 2"},
 			"kind": "scene",
-			"room": "P-0563-0_BP-1",
+			"room": "P-0563-0_BP-1000000",
 			"scene": 2,
 			"datapoints": {"command": "0/0/36"}
 		},
@@ -434,70 +434,70 @@
 			"id": "channel-a",
 			"label": {"de": "Kanal A", "en": "Channel A"},
 			"kind": "light",
-			"room": "P-0563-0_BP-1",
+			"room": "P-0563-0_BP-1000000",
 			"datapoints": {"command": "0/0/34", "state": "0/0/37"}
 		},
 		{
 			"id": "channel-b",
 			"label": {"de": "Kanal B", "en": "Channel B"},
 			"kind": "light",
-			"room": "P-0563-0_BP-1",
+			"room": "P-0563-0_BP-1000000",
 			"datapoints": {"command": "0/0/40", "state": "0/0/43"}
 		},
 		{
 			"id": "channel-c",
 			"label": {"de": "Kanal C", "en": "Channel C"},
 			"kind": "light",
-			"room": "P-0563-0_BP-1",
+			"room": "P-0563-0_BP-1000000",
 			"datapoints": {"command": "0/0/46", "state": "0/0/47"}
 		},
 		{
 			"id": "channel-d",
 			"label": {"de": "Kanal D", "en": "Channel D"},
 			"kind": "light",
-			"room": "P-0563-0_BP-1",
+			"room": "P-0563-0_BP-1000000",
 			"datapoints": {"command": "0/0/48"}
 		},
 		{
 			"id": "button-2",
 			"label": {"de": "Taste 2", "en": "Button 2"},
 			"kind": "button",
-			"room": "P-0563-0_BP-2",
+			"room": "P-0563-0_BP-1000001",
 			"datapoints": {"press": "0/0/2"}
 		},
 		{
 			"id": "button-3",
 			"label": {"de": "Taste 3", "en": "Button 3"},
 			"kind": "button",
-			"room": "P-0563-0_BP-2",
+			"room": "P-0563-0_BP-1000001",
 			"datapoints": {"press": "0/0/3"}
 		},
 		{
 			"id": "button-4",
 			"label": {"de": "Taste 4", "en": "Button 4"},
 			"kind": "button",
-			"room": "P-0563-0_BP-2",
+			"room": "P-0563-0_BP-1000001",
 			"datapoints": {"press": "0/0/4"}
 		},
 		{
 			"id": "button-5",
 			"label": {"de": "Taste 5", "en": "Button 5"},
 			"kind": "button",
-			"room": "P-0563-0_BP-2",
+			"room": "P-0563-0_BP-1000001",
 			"datapoints": {"press": "0/0/5"}
 		},
 		{
 			"id": "button-6",
 			"label": {"de": "Taste 6", "en": "Button 6"},
 			"kind": "button",
-			"room": "P-0563-0_BP-2",
+			"room": "P-0563-0_BP-1000001",
 			"datapoints": {"press": "0/0/6"}
 		},
 		{
 			"id": "room-temperature-measurement",
 			"label": {"de": "Raumtemperatur-Messung", "en": "Room temperature measurement"},
 			"kind": "sensor",
-			"room": "P-0563-0_BP-2",
+			"room": "P-0563-0_BP-1000001",
 			"unit": "°C",
 			"datapoints": {"value": "0/0/28"}
 		},
@@ -505,7 +505,7 @@
 			"id": "button-1",
 			"label": {"de": "Taste 1", "en": "Button 1"},
 			"kind": "button",
-			"room": "P-0563-0_BP-2",
+			"room": "P-0563-0_BP-1000001",
 			"datapoints": {"press": "0/0/1"}
 		}
 	],

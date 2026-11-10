@@ -164,7 +164,7 @@ public class ImportEtsProjectJob implements JobBody {
 	/**
 	 * The project password among the arguments: the first text.
 	 */
-	private static String password(List<Object> arguments) {
+	static String password(List<Object> arguments) {
 		for (Object argument : arguments) {
 			if (argument instanceof CharSequence text) {
 				return text.toString();
@@ -173,7 +173,7 @@ public class ImportEtsProjectJob implements JobBody {
 		return null;
 	}
 
-	private static Map<String, Object> passwordRequired(BinaryData file, PasswordRequiredException ex) {
+	static Map<String, Object> passwordRequired(BinaryData file, PasswordRequiredException ex) {
 		Map<String, Object> result = new HashMap<>();
 		result.put(PASSWORD_REQUIRED, Boolean.TRUE);
 		result.put(FILE_DATA, file);

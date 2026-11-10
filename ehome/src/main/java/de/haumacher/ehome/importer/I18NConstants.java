@@ -216,6 +216,61 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 PROGRESS_PROJECT__NAME;
 
+	/**
+	 * @en The file holds the project {0} with the ID {1}, not the project {2} with the ID {3}: a project is updated from an export of the same project in ETS only.
+	 */
+	public static ResKey4 ERROR_UPDATE_OTHER_PROJECT__FILE_ID_PROJECT_ID;
+
+	/**
+	 * @en The update of {0} from ETS is refused; the project stays as it was. Change it in E-Home or in ETS and update again:{1}
+	 */
+	public static ResKey2 ERROR_UPDATE_REFUSED__PROJECT_PROBLEMS;
+
+	/**
+	 * @en {0} was created in E-Home at the place of {1} of the file, which is another product.
+	 */
+	public static ResKey2 UPDATE_OTHER_PRODUCT__OBJECT_FILE;
+
+	/**
+	 * @en {0} was created in E-Home and is kept, but the file no longer has {1}, which holds it.
+	 */
+	public static ResKey2 UPDATE_CONTAINER_REMOVED__OBJECT_CONTAINER;
+
+	/**
+	 * @en The file no longer has {0}, which is used here: {1}
+	 */
+	public static ResKey2 UPDATE_REMOVED_IN_USE__OBJECT_REFERER;
+
+	/**
+	 * @en The file no longer has {0}, whose address an expression of the rule {1} names.
+	 */
+	public static ResKey2 UPDATE_REMOVED_IN_EXPRESSION__OBJECT_RULE;
+
+	/**
+	 * @en {0}: added {1}, changed {2}, removed {3}.
+	 */
+	public static ResKey4 UPDATE_CHANGES__KIND_ADDED_CHANGED_REMOVED;
+
+	/**
+	 * @en Created in E-Home and adopted by the file, with the ID of ETS: {0}
+	 */
+	public static ResKey1 UPDATE_ADOPTED__OBJECTS;
+
+	/**
+	 * @en Created in E-Home and not in the file, kept: {0}
+	 */
+	public static ResKey1 UPDATE_KEPT__OBJECTS;
+
+	/**
+	 * @en The file brings no changes; the project is unchanged.
+	 */
+	public static ResKey UPDATE_NO_CHANGES;
+
+	/**
+	 * @en {0} "{1}"
+	 */
+	public static ResKey2 UPDATE_OBJECT__KIND_NAME;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

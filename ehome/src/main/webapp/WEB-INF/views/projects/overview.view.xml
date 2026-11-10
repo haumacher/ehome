@@ -15,7 +15,12 @@
 	is backed up as project file (.ehome, de.haumacher.ehome.projectfile.ProjectFile, haumacher/ehome #117):
 	exported without secrets and operating history (export-ehome.view.xml), imported as a new project
 	by the same kind of job as the ETS import (de.haumacher.ehome.etsImport.ImportProjectFileJob), whose
-	report always shows (the controllers have to be paired again). "Read the installation" builds the
+	report always shows (the controllers have to be paired again). "Update from ETS" brings the selected
+	project up to date with a new export of the same project from ETS (de.haumacher.ehome.etsImport.UpdateFromEtsJob,
+	de.haumacher.ehome.importer.ProjectUpdate, haumacher/ehome #125): the same kind of job, the password
+	dialog update-password.view.xml for a protected project, and a report that always shows (what was
+	added, changed, removed, kept or adopted, or that nothing changed); a refusal fails the job with its
+	reasons and changes nothing. "Read the installation" builds the
 	selected project from the devices on the bus (scan.view.xml, haumacher/ehome #9). The table observes
 	projects, so a created, imported or deleted project is reflected without a reload.
 -->
@@ -199,6 +204,87 @@
 								<write-channel name="project"/>
 							</with-result>
 						</execute-script>
+					</with-result>
+				</start-job>
+			</upload-command>
+			<upload-command
+				accept=".knxproj"
+				image="css:bi bi-arrow-repeat"
+				inputs="importJob, project"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Update from ETS</en>
+					<de>Aus ETS aktualisieren</de>
+				</label>
+				<tooltip>
+					<en>Brings the selected project up to date with a new export of the same project from ETS (.knxproj): topology, devices with their parameters, connections, group addresses and buildings as in ETS. Rules, functions, pages, Zigbee devices, controllers, settings and recordings stay, as do devices and addresses created in E-Home. Objects ETS removed but E-Home still uses refuse the update.</en>
+					<de>Bringt das ausgewählte Projekt mit einem neuen Export desselben Projekts aus der ETS (.knxproj) auf den aktuellen Stand: Topologie, Geräte mit ihren Parametern, Verbindungen, Gruppenadressen und Gebäude wie in der ETS. Regeln, Funktionen, Seiten, Zigbee-Geräte, Controller, Einstellungen und Aufzeichnungen bleiben erhalten, ebenso in E-Home angelegte Geräte und Adressen. Objekte, die die ETS entfernt hat und E-Home noch verwendet, lehnen die Aktualisierung ab.</de>
+				</tooltip>
+				<access>
+					<!-- The update changes the project through Java (de.haumacher.ehome.importer.ProjectUpdate). -->
+					<operation name="Write"
+						object="$project"
+						type="ehome.project:Project"
+					/>
+				</access>
+				<executability>
+					<disabled-if expr="if($project == null, #('Select the project to update.'@en, 'Wählen Sie das zu aktualisierende Projekt aus.'@de), if(jobIsRunning($importJob), #('An import is running.'@en, 'Ein Import läuft.'@de), null))"/>
+				</executability>
+				<start-job
+					cancelable="true"
+					job="importJob"
+					update-interval="200"
+				>
+					<phases>
+						<phase name="read">
+							<label>
+								<en>Reading</en>
+								<de>Lesen</de>
+							</label>
+						</phase>
+						<phase name="import">
+							<label>
+								<en>Importing</en>
+								<de>Importieren</de>
+							</label>
+						</phase>
+						<phase name="save">
+							<label>
+								<en>Saving</en>
+								<de>Speichern</de>
+							</label>
+						</phase>
+					</phases>
+					<body class="de.haumacher.ehome.etsImport.UpdateFromEtsJob"/>
+					<with-result as="report">
+						<!-- The report or the password dialog says how the job ended; its progress display is cleared. -->
+						<write-channel name="importJob" clear="true"/>
+						<if test='$report["passwordRequired"]'>
+							<then>
+								<!-- A protected project: the dialog asks for the password and updates from the file again. -->
+								<open-dialog
+									bind-input-to="request"
+									dialog-view="projects/update-password.view.xml"
+								>
+									<bind
+										channel="project"
+										to="project"
+									/>
+									<bind
+										channel="importJob"
+										to="importJob"
+									/>
+								</open-dialog>
+							</then>
+							<else>
+								<!-- The report always has something to say: the changes, or that there are none. -->
+								<open-dialog
+									bind-input-to="report"
+									dialog-view="projects/import-report.view.xml"
+								/>
+							</else>
+						</if>
 					</with-result>
 				</start-job>
 			</upload-command>

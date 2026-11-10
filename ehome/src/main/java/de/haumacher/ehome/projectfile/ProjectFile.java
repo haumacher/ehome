@@ -10,6 +10,7 @@ import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.knx.ProjectParts;
 import de.haumacher.ehome.modules.ModuleParts;
 
 /**
@@ -89,6 +90,12 @@ import de.haumacher.ehome.modules.ModuleParts;
  * in the report and skipped. A change that makes older files unreadable or changes the meaning of an
  * attribute (a renamed attribute, a moved type) raises the major version; added attributes raise
  * the minor one.
+ * </p>
+ *
+ * <p>
+ * The split between the KNX part (the <code>.knxproj</code>) and E-Home's own data (the document) is
+ * the one of {@link ProjectParts}, which the update of a project from ETS uses as well
+ * (haumacher/ehome #125); the document carries besides what ETS owns but schema 11 has no place for.
  * </p>
  *
  * <p>
@@ -189,25 +196,10 @@ public final class ProjectFile {
 	public static final String CONTROLLER_TYPE = "ehome.runtime:Controller";
 
 	/**
-	 * The attributes of a project the <code>.knxproj</code> holds.
+	 * The attributes ETS owns that the <code>.knxproj</code> of schema 11 has no place for: written
+	 * into the document (haumacher/ehome #122).
 	 */
-	private static final Set<String> PROJECT_KNX = Set.of("extId", "name", "areas", "unassignedDevices", "buildings",
-		"groupAddresses", "groupAddressStyle");
-
-	/**
-	 * The attributes of a group address the <code>.knxproj</code> holds; the others are E-Home's
-	 * settings.
-	 */
-	private static final Set<String> GROUP_ADDRESS_KNX = Set.of("extId", "name", "description", "unfiltered",
-		"address", "central", "datapointTypes");
-
-	/**
-	 * The attributes of a device the <code>.knxproj</code> holds (or E-Home computes again on import:
-	 * the module instances); the others are written into the document (haumacher/ehome #122).
-	 */
-	private static final Set<String> DEVICE_KNX = Set.of("extId", "title", "description", "installationHints",
-		"serialNumber", "lastModified", "lastDownload", "loaded", "address", "type", "program", "location", "settings",
-		"connectors", "moduleInstances");
+	private static final Set<String> NOT_IN_KNXPROJ = Set.of("ehome.physical:Device#channelInstances");
 
 	/**
 	 * The attributes of a controller the file holds.
@@ -226,11 +218,8 @@ public final class ProjectFile {
 		"ehome.project:Project#installationPublicKey",
 		"ehome.project:Project#newInstallationKey",
 		"ehome.project:Project#newInstallationPublicKey",
-		// Operating history.
-		"ehome.project:Project#recordings",
-		"ehome.project:Project#deployments",
+		// Operating history (besides the references of ProjectParts#isHistory).
 		"ehome.project:Project#imageRevision",
-		"ehome.project:Project#unidentifiedDevices",
 		"ehome.runtime:Rule#simulationEnabled",
 		"ehome.runtime:Rule#simulationState",
 		"ehome.runtime:RuleParameter#simulationValue",
@@ -259,14 +248,14 @@ public final class ProjectFile {
 		if (owner.equals(CONTROLLER_TYPE)) {
 			return !CONTROLLER_KEPT.contains(part.getName());
 		}
-		return LEFT_OUT.contains(owner + "#" + part.getName());
+		return LEFT_OUT.contains(owner + "#" + part.getName()) || ProjectParts.isHistory(part);
 	}
 
 	/**
 	 * Whether the given attribute of a project is held by the <code>.knxproj</code>.
 	 */
 	public static boolean projectKnx(TLStructuredTypePart part) {
-		return PROJECT_KNX.contains(part.getName());
+		return ProjectParts.isEtsOwned(part);
 	}
 
 	/**
@@ -274,7 +263,7 @@ public final class ProjectFile {
 	 * <code>.knxproj</code>).
 	 */
 	public static boolean groupAddressSetting(TLStructuredTypePart part) {
-		return !GROUP_ADDRESS_KNX.contains(part.getName()) && !leftOut(part);
+		return !ProjectParts.isEtsOwned(part) && !leftOut(part);
 	}
 
 	/**
@@ -282,7 +271,8 @@ public final class ProjectFile {
 	 * <code>.knxproj</code>).
 	 */
 	public static boolean deviceSetting(TLStructuredTypePart part) {
-		return !DEVICE_KNX.contains(part.getName()) && !leftOut(part);
+		return (!ProjectParts.isEtsOwned(part) || NOT_IN_KNXPROJ.contains(ProjectParts.qualifiedName(part)))
+			&& !leftOut(part);
 	}
 
 	/**
@@ -310,7 +300,7 @@ public final class ProjectFile {
 	 * The references of a project leading into its KNX part.
 	 */
 	public static Set<String> knxReferences() {
-		return Set.of("areas", "unassignedDevices", "buildings", "groupAddresses");
+		return ProjectParts.PROJECT_REFERENCES;
 	}
 
 }

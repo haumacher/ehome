@@ -93,6 +93,26 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey PROGRESS_SAVING;
 
+	/**
+	 * @en Updated from ETS: {0}. Messages of the update: {1}.
+	 */
+	public static ResKey2 UPDATE_SUMMARY__UPDATED_COUNT;
+
+	/**
+	 * @en Updating the project {0}
+	 */
+	public static ResKey1 PROGRESS_UPDATING__PROJECT;
+
+	/**
+	 * @en Select the project to update.
+	 */
+	public static ResKey ERROR_UPDATE_NO_PROJECT;
+
+	/**
+	 * @en The file holds no project.
+	 */
+	public static ResKey ERROR_UPDATE_NO_PROJECT_IN_FILE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

@@ -94,6 +94,8 @@ public class TestFunctionProposal extends BasicTestCase {
 	/**
 	 * The image of this test as E-Home exported it before the roles of a function referred to any
 	 * datapoint of the project (haumacher/ehome #61), when they were references to group addresses.
+	 * The IDs of the building parts the test creates are those of the app's range
+	 * (<code>ExtIds#APP_ID_BASE</code>, haumacher/ehome #125).
 	 */
 	private static final File BEFORE_61 = new File("src/test/fixtures/runtime/KNX-Testsystem.functions.before-61.json");
 

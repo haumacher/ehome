@@ -61,6 +61,20 @@ import com.top_logic.model.util.TLModelUtil;
  * </p>
  *
  * <p>
+ * <b>The app's range of a project</b> (haumacher/ehome #125). The objects of a project's installation
+ * (areas, lines, devices, group ranges, group addresses, building parts: the kinds numbered by the
+ * project, {@link Kind#isProjectPart()}) that E-Home creates itself are numbered from
+ * {@link #APP_ID_BASE} upward (<code>P-01A0-0_DI-1000000</code>), in the shape of ETS, which the
+ * <code>.knxproj</code> export writes. ETS numbers its own objects from 1 upward, far below, so the
+ * ID tells where an object comes from ({@link #isCreatedInApp(TLObject)}): an update of the project
+ * from ETS never confuses an object of E-Home with one ETS created after it, and keeps the objects of
+ * E-Home it does not find in the file. The numbers of the app's range are independent of the numbers
+ * ETS wrote: only imported numbers inside the range (an object of E-Home that went through a file and
+ * back) raise them. Objects created before the range existed carry numbers below it and count as
+ * objects of ETS.
+ * </p>
+ *
+ * <p>
  * An application program gets <code>&lt;manufacturer&gt;_A-&lt;number&gt;-01-&lt;counter&gt;</code>:
  * the application number from the manufacturer's sequence of programs, version 01, and as the last
  * group a second counter of the manufacturer, because the hash ETS writes there cannot be computed.
@@ -81,6 +95,12 @@ public final class ExtIds {
 	 * Name of the attribute holding the external ID.
 	 */
 	public static final String EXT_ID = "extId";
+
+	/**
+	 * The first number of the app's range of a project, see the class comment: the objects of a
+	 * project's installation E-Home creates are numbered from here on.
+	 */
+	public static final long APP_ID_BASE = 1_000_000;
 
 	/**
 	 * Base of the numbers of manufacturers created without KNX manufacturer ID: the first one gets
@@ -164,6 +184,24 @@ public final class ExtIds {
 		}
 
 		/**
+		 * Whether the project numbers objects of this kind: a part of its installation, numbered in
+		 * the app's range when E-Home creates it (see {@link ExtIds#APP_ID_BASE}).
+		 */
+		public boolean isProjectPart() {
+			switch (this) {
+				case AREA:
+				case LINE:
+				case DEVICE:
+				case GROUP_RANGE:
+				case GROUP_ADDRESS:
+				case BUILDING_PART:
+					return true;
+				default:
+					return false;
+			}
+		}
+
+		/**
 		 * The number of the given ID of this kind, <code>-1</code> if it has none.
 		 */
 		public long number(String id) {
@@ -184,6 +222,16 @@ public final class ExtIds {
 
 	private ExtIds() {
 		// Utility.
+	}
+
+	/**
+	 * Whether E-Home created the given object of a project's installation itself: its ID lies in the
+	 * app's range ({@link #APP_ID_BASE}); <code>false</code> for an object of another kind, without
+	 * ID, or with an ID ETS gave it.
+	 */
+	public static boolean isCreatedInApp(TLObject obj) {
+		Kind kind = kindOf(obj);
+		return kind != null && kind.isProjectPart() && kind.number(extId(obj)) >= APP_ID_BASE;
 	}
 
 	/**
@@ -462,8 +510,8 @@ public final class ExtIds {
 		raise(scope, kind);
 		try {
 			PooledConnection connection = connection();
-			return SEQUENCES.nextSequenceNumber(connection.getSQLDialect(), connection, RETRY_COUNT,
-				sequenceName(scope, kind));
+			return toNumber(kind, SEQUENCES.nextSequenceNumber(connection.getSQLDialect(), connection, RETRY_COUNT,
+				sequenceName(scope, kind)));
 		} catch (SQLException ex) {
 			throw new KnowledgeBaseRuntimeException("Cannot allocate a number for " + kind + ".", ex);
 		}
@@ -484,7 +532,7 @@ public final class ExtIds {
 	public static long raise(TLObject scope, Kind kind) {
 		long max = -1;
 		for (TLObject member : members(scope, kind)) {
-			max = Math.max(max, kind.number(extId(member)));
+			max = Math.max(max, toSequence(kind, kind.number(extId(member))));
 		}
 		try {
 			PooledConnection connection = connection();
@@ -501,13 +549,33 @@ public final class ExtIds {
 	}
 
 	/**
-	 * The current value of the sequence of the given kind in the given scope, <code>0</code> if
-	 * nothing was numbered there yet.
+	 * The number of a value of the sequence of the given kind: in the app's range for a part of a
+	 * project's installation, the value itself for any other kind.
+	 */
+	private static long toNumber(Kind kind, long sequence) {
+		return kind.isProjectPart() ? APP_ID_BASE + sequence - 1 : sequence;
+	}
+
+	/**
+	 * The value of the sequence of the given kind that allocated the given number, <code>-1</code>
+	 * for a number the sequence does not allocate (one ETS gave a part of a project's installation,
+	 * below the app's range).
+	 */
+	private static long toSequence(Kind kind, long number) {
+		if (!kind.isProjectPart()) {
+			return number;
+		}
+		return number >= APP_ID_BASE ? number - APP_ID_BASE + 1 : -1;
+	}
+
+	/**
+	 * The last number the sequence of the given kind in the given scope allocated (in the app's range
+	 * for a part of a project's installation), <code>0</code> if nothing was numbered there yet.
 	 */
 	public static long current(TLObject scope, Kind kind) {
 		try {
-			return Math.max(0,
-				SEQUENCES.getLastSequenceNumber(connection(), RETRY_COUNT, sequenceName(scope, kind)));
+			long last = SEQUENCES.getLastSequenceNumber(connection(), RETRY_COUNT, sequenceName(scope, kind));
+			return last <= 0 ? 0 : toNumber(kind, last);
 		} catch (SQLException ex) {
 			throw new KnowledgeBaseRuntimeException("Cannot read the numbers of " + kind + ".", ex);
 		}
@@ -525,7 +593,8 @@ public final class ExtIds {
 				continue;
 			}
 			Kind kind = kindOf(object);
-			if (kind == null || kind.number(extId(object)) < 0) {
+			// A number ETS gave a part of a project's installation lies below the app's range.
+			if (kind == null || toSequence(kind, kind.number(extId(object))) < 0) {
 				continue;
 			}
 			TLObject scope = scopeOf(object, kind);

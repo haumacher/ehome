@@ -12,6 +12,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
@@ -56,22 +57,39 @@ public final class Referers {
 	 *        The object about to be deleted.
 	 */
 	public static Map<TLObject, Set<String>> referers(TLObject obj) {
-		Set<TLObject> deleted = new LinkedHashSet<>();
-		addWithParts(deleted, obj);
-
+		Set<TLObject> deleted = withParts(obj);
 		TLObject project = obj;
 		while (project.tContainer() != null) {
 			project = project.tContainer();
 		}
+		return referers(project, deleted, deleted, referer -> false);
+	}
+
+	/**
+	 * The parts of the project referring to one of the given objects, each with the labels of the
+	 * references it does so in, ordered by kind and label (haumacher/ehome #125: the objects an update
+	 * from ETS removes).
+	 *
+	 * @param project
+	 *        The project the objects belong to: a referer is reported as the part of it it belongs to.
+	 * @param targets
+	 *        The objects referred to (with their parts, see {@link #withParts(TLObject)}).
+	 * @param deleted
+	 *        Everything deleted together with them: a referer among them is left out.
+	 * @param ignored
+	 *        Which further referers are left out.
+	 */
+	public static Map<TLObject, Set<String>> referers(TLObject project, Collection<TLObject> targets,
+			Set<TLObject> deleted, Predicate<TLObject> ignored) {
 		Resources resources = Resources.getInstance();
 		Map<TLStructuredType, List<TLReference>> referencesByType = new HashMap<>();
 		Map<TLObject, Set<String>> result = new LinkedHashMap<>();
-		for (TLObject target : deleted) {
+		for (TLObject target : targets) {
 			List<TLReference> references =
 				referencesByType.computeIfAbsent(target.tType(), Referers::referencesTo);
 			for (TLReference reference : references) {
 				for (TLObject referer : target.tReferers(reference)) {
-					if (referer == null || !referer.tValid() || deleted.contains(referer)) {
+					if (referer == null || !referer.tValid() || deleted.contains(referer) || ignored.test(referer)) {
 						continue;
 					}
 					TLObject part = part(referer, project);
@@ -99,11 +117,8 @@ public final class Referers {
 	 */
 	public static List<String> lines(TLObject obj) {
 		List<String> lines = new ArrayList<>();
-		Resources resources = Resources.getInstance();
 		for (Map.Entry<TLObject, Set<String>> entry : referers(obj).entrySet()) {
-			TLObject part = entry.getKey();
-			lines.add(resources.getString(I18NConstants.REFERER__KIND_NAME_REFERENCES
-				.fill(typeLabel(part), label(part), String.join(", ", entry.getValue()))));
+			lines.add(line(entry.getKey(), entry.getValue()));
 		}
 		return lines;
 	}
@@ -129,6 +144,16 @@ public final class Referers {
 		}
 		text.append("\n\n").append(resources.getString(I18NConstants.CONFIRM_DELETE_REFERRED_CONSEQUENCE));
 		return text.toString();
+	}
+
+	/**
+	 * The object and everything its deletion removes with it (the values of its composite
+	 * references, recursively).
+	 */
+	public static Set<TLObject> withParts(TLObject obj) {
+		Set<TLObject> result = new LinkedHashSet<>();
+		addWithParts(result, obj);
+		return result;
 	}
 
 	/**
@@ -182,14 +207,28 @@ public final class Referers {
 
 	/**
 	 * The part of the project the referer belongs to: its container just below the project (a
-	 * trigger of a rule: the rule), or the referer itself where it is not in the project.
+	 * trigger of a rule: the rule), within the KNX part the nearest container with an ID of ETS
+	 * (a connection: the device), or the referer itself where it is not in the project.
 	 */
 	private static TLObject part(TLObject referer, TLObject project) {
 		TLObject part = referer;
-		while (part.tContainer() != null && part.tContainer() != project) {
+		while (part.tContainer() != null && part.tContainer() != project && !hasExtId(part)) {
 			part = part.tContainer();
 		}
-		return part.tContainer() == project ? part : referer;
+		return part.tContainer() == project || hasExtId(part) ? part : referer;
+	}
+
+	private static boolean hasExtId(TLObject obj) {
+		return obj.tType().getPart("extId") != null && obj.tValueByName("extId") != null;
+	}
+
+	/**
+	 * The text naming a part of the project referring to an object, see {@link #referers(TLObject)}:
+	 * its kind, its label and the references, e.g. <code>Sensor „Flur Temperatur“: Wert</code>.
+	 */
+	public static String line(TLObject part, Set<String> references) {
+		return Resources.getInstance().getString(I18NConstants.REFERER__KIND_NAME_REFERENCES
+			.fill(typeLabel(part), label(part), String.join(", ", references)));
 	}
 
 	private static String typeLabel(TLObject obj) {

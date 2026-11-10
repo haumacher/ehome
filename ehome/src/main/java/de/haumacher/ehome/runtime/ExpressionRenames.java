@@ -149,6 +149,37 @@ public final class ExpressionRenames {
 		return result;
 	}
 
+	/**
+	 * Whether an expression of the given rule names one of the ids this {@link ExpressionRenames}
+	 * renames, without changing it (haumacher/ehome #125: a rule naming a group address an update
+	 * from ETS removes).
+	 */
+	public boolean names(TLObject rule) {
+		String ruleId = id(rule);
+		return ruleId != null && namesTree(ruleId, rule);
+	}
+
+	private boolean namesTree(String rule, TLObject obj) {
+		String type = obj.tType().getName();
+		String attribute = EXPRESSIONS.get(type);
+		if (attribute != null && rewriteExpression(rule, text(obj, attribute)) != null) {
+			return true;
+		}
+		if (type.equals(LOG_ACTION) && rewriteMessage(rule, text(obj, MESSAGE)) != null) {
+			return true;
+		}
+		for (TLStructuredTypePart part : obj.tType().getAllParts()) {
+			if (part.getModelKind() == ModelKind.REFERENCE && ((TLReference) part).isComposite()) {
+				for (TLObject child : RuleExport.objects(obj.tValue(part))) {
+					if (namesTree(rule, child)) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
 	private int applyTree(String rule, TLObject obj) {
 		int result = 0;
 		String type = obj.tType().getName();

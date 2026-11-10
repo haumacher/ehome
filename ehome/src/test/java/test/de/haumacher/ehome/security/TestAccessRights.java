@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.function.Supplier;
 
 import junit.framework.Test;
@@ -383,6 +384,22 @@ public class TestAccessRights extends BasicTestCase {
 		assertTrue(as(_installer, () -> upload.decide((Object) null)).isExecutable());
 		assertHidden(as(_viewer, () -> upload.decide((Object) null)));
 		assertHidden(as(_stranger, () -> upload.decide((Object) null)));
+	}
+
+	/**
+	 * The update of a project from ETS (haumacher/ehome #125) writes the project: allowed for an
+	 * installer, refused for a viewer and an account without an E-Home group; so is the password
+	 * dialog continuing it.
+	 */
+	public void testUpdateFromEtsCommand() {
+		ViewCommandScan.Site update = ViewCommandScan.command("projects/overview.view.xml", "UpdateFromEtsJob");
+		assertTrue(as(_installer, () -> update.decide(null, _project)).isExecutable());
+		assertFalse(as(_viewer, () -> update.decide(null, _project)).isExecutable());
+		assertHidden(as(_stranger, () -> update.decide(null, _project)));
+
+		ViewCommandScan.Site password = ViewCommandScan.command("projects/update-password.view.xml", "UpdateFromEtsJob");
+		assertTrue(as(_installer, () -> password.decide(Map.of(), "secret", _project)).isExecutable());
+		assertFalse(as(_viewer, () -> password.decide(Map.of(), "secret", _project)).isExecutable());
 	}
 
 	/**
