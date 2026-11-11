@@ -73,6 +73,10 @@ public class TestFunctionWiring extends BasicTestCase {
 		"1.0.6: Taste | button |  | Küche | unused",
 		"1.0.6: Temperatur | sensor |  | Küche | unused",
 		"1.0.6: Wippe 3 | button |  | Küche | unused",
+		// #135: a channel whose name leaves no room for the device part: an individual address alone stays as
+		// it is (no ellipsis), one after a shared name is kept behind the cut name; the channel cut at the end.
+		"1.0.8: Taste kurz | button |  | Küche | unused",
+		"1.0.8: Taste mit einem außergewöhnlich langen Namen für die | button |  | Küche | unused",
 		// #134: a blind by its objects, although its addresses are typed 1.001; the key in "Wohnzimmer".
 		"Jalousie Küche | blind | move=5/1/1, stop=5/1/2 | Wohnzimmer | used",
 		// #134: named after the switching address.
@@ -107,6 +111,11 @@ public class TestFunctionWiring extends BasicTestCase {
 		"TEST Taster mit einem sehr langen Namen, länger…: Taste | button |  | Küche | unused",
 		"TEST Taster mit einem sehr langen Namen, länger…: Temperatur | sensor |  | Küche | unused",
 		"TEST Taster mit einem sehr langen Namen, länger…: Wippe 3 | button |  | Küche | unused",
+		// #135: two devices of the same name with a channel too long for it: the name cut, the address kept.
+		"TEST… 1.0.10: Taste kurz | button |  | Küche | unused",
+		"TEST… 1.0.10: Taste mit einem außergewöhnlich langen Namen | button |  | Küche | unused",
+		"TEST… 1.0.9: Taste kurz | button |  | Küche | unused",
+		"TEST… 1.0.9: Taste mit einem außergewöhnlich langen Namen f | button |  | Küche | unused",
 		// #133: measured by the key in "Wohnzimmer", received by the heating actuator in the board.
 		"Temperatur Wohnzimmer | sensor | value=5/3/1 | Wohnzimmer | used");
 
@@ -120,9 +129,9 @@ public class TestFunctionWiring extends BasicTestCase {
 
 			FunctionProposal.Run run = run(project);
 			assertEquals(EXPECTED, TestFunctionLinks.table(project));
-			assertEquals(33, run.added().size());
+			assertEquals(39, run.added().size());
 			assertEquals(6, run.addedInUse().size());
-			assertEquals(27, run.addedUnused().size());
+			assertEquals(33, run.addedUnused().size());
 			for (TLObject function : run.added()) {
 				String name = TestFunctionProposal.name(function);
 				// Never the catalog text of the product ("TEST Taster Verdrahtung (künstliche Testdaten)").
@@ -141,7 +150,7 @@ public class TestFunctionWiring extends BasicTestCase {
 			// The notification: the unused functions apart from those in use, then the warnings, in the order
 			// of the channels.
 			assertEquals(resources.getString(I18NConstants.PROPOSAL_ADDED__COUNT.fill(Integer.valueOf(6))) + " "
-				+ resources.getString(I18NConstants.PROPOSAL_ADDED_UNUSED__COUNT.fill(Integer.valueOf(27))) + "\n"
+				+ resources.getString(I18NConstants.PROPOSAL_ADDED_UNUSED__COUNT.fill(Integer.valueOf(33))) + "\n"
 				+ resources.getString(I18NConstants.PROPOSAL_WARNING__FUNCTION_WARNING.fill("Licht Flur", lightWarning))
 				+ "\n"
 				+ resources.getString(I18NConstants.PROPOSAL_WARNING__FUNCTION_WARNING.fill("Jalousie Küche", blindWarning)),

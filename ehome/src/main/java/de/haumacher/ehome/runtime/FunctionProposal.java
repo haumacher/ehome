@@ -1922,6 +1922,12 @@ public final class FunctionProposal {
 
 		private final Map<TLObject, String> _devices = new HashMap<>();
 
+		/**
+		 * The individual address of a device whose device part ends with it (a device without a name,
+		 * or one of several devices of the same name): it tells the devices apart and is never cut.
+		 */
+		private final Map<TLObject, String> _addresses = new HashMap<>();
+
 		/** The device parts fitted to the device's channels, by device and language. */
 		private final Map<TLObject, Map<String, String>> _fitted = new HashMap<>();
 
@@ -1936,8 +1942,11 @@ public final class FunctionProposal {
 			for (TLObject device : devices) {
 				String title = title(device);
 				String address = GroupAddressConnections.addressText(device);
-				_devices.put(device,
-					title == null ? address : titles.get(title).intValue() > 1 ? title + " " + address : title);
+				boolean shared = title != null && titles.get(title).intValue() > 1;
+				_devices.put(device, title == null ? address : shared ? title + " " + address : title);
+				if (title == null || shared) {
+					_addresses.put(device, address);
+				}
 			}
 		}
 
@@ -1963,7 +1972,9 @@ public final class FunctionProposal {
 				}
 			}
 			Map<String, String> fitted = new TreeMap<>();
-			longest.forEach((language, rest) -> fitted.put(language, shorten(part, ImageValidator.MAX_NAME - rest)));
+			String address = _addresses.get(device);
+			longest.forEach(
+				(language, rest) -> fitted.put(language, shorten(part, address, ImageValidator.MAX_NAME - rest)));
 			_fitted.put(device, fitted);
 		}
 
@@ -1985,21 +1996,35 @@ public final class FunctionProposal {
 		}
 
 		/**
-		 * The device part cut to the given bytes (at least {@link #MIN_DEVICE_PART}): at the last word
-		 * boundary that fits, without trailing punctuation, followed by an ellipsis; within a word
-		 * where the part has no word boundary there.
+		 * The device part cut to the given bytes: its name (never the individual address it ends with,
+		 * which tells devices apart) at the last word boundary that fits, at least
+		 * {@link #MIN_DEVICE_PART} of it, without trailing punctuation, followed by an ellipsis; within
+		 * a word where the name has no word boundary there. A part that has nothing to cut (a name
+		 * already that short, the address alone) stays as it is, even where the channel's name then
+		 * makes the label too long.
+		 *
+		 * @param address
+		 *        The individual address the part ends with, <code>null</code> if it does not.
 		 */
-		private static String shorten(String part, int bytes) {
+		private static String shorten(String part, String address, int bytes) {
 			if (utf8(part) <= bytes) {
 				return part;
 			}
-			int room = Math.max(bytes, MIN_DEVICE_PART) - utf8(ELLIPSIS);
-			String cut = RuntimeImage.truncate(part, Math.max(room, 1));
+			String head = address == null ? part : part.substring(0, part.length() - address.length()).trim();
+			if (head.isEmpty()) {
+				return part;
+			}
+			String tail = address == null ? "" : " " + address;
+			int room = Math.max(bytes - utf8(tail), MIN_DEVICE_PART) - utf8(ELLIPSIS);
+			if (utf8(head) <= room + utf8(ELLIPSIS)) {
+				return part;
+			}
+			String cut = RuntimeImage.truncate(head, Math.max(room, 1));
 			int space = cut.lastIndexOf(' ');
-			if (space > 0 && part.charAt(cut.length()) != ' ') {
+			if (space > 0 && head.charAt(cut.length()) != ' ') {
 				cut = cut.substring(0, space);
 			}
-			return cut.replaceAll("[\\s,;:.\\-]+$", "") + ELLIPSIS;
+			return cut.replaceAll("[\\s,;:.\\-]+$", "") + ELLIPSIS + tail;
 		}
 
 		/**
@@ -2039,7 +2064,7 @@ public final class FunctionProposal {
 			Resources resources = Resources.getInstance(new Locale(entry.getKey()));
 			result.put(entry.getKey(), RuntimeImage.truncate(resources.getString(
 				I18NConstants.UNUSED_FUNCTION__DEVICE_CHANNEL.fill(names.device(device, entry.getKey()), entry.getValue())),
-				ImageValidator.MAX_NAME));
+				ImageValidator.MAX_NAME).strip());
 		}
 		return result;
 	}

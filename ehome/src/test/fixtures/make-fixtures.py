@@ -1045,6 +1045,12 @@ WIRING_PROGRAMS = [
         ('Taste', [('Schalten', '1 Bit', WT, None, None)]),
         ('Temperatur', [('Raumtemperatur', '2 Bytes', T, 'DPST-9-1', None)]),
     ]),
+    # A channel whose name leaves no room for the device part (as the heating actuator of the ETS6 demo):
+    # the individual address is never cut, nor given an ellipsis.
+    ('M-0008_A-FFD4-01-0000', 'FFD4', 65492, 'TEST: Langer Kanal (künstliche Testdaten)', [
+        ('Taste mit einem außergewöhnlich langen Namen für die Prüfung', [('Schalten', '1 Bit', WT, None, None)]),
+        ('Taste kurz', [('Schalten', '1 Bit', WT, None, None)]),
+    ]),
 ]
 WIRING_HARDWARE = 'M-0008_H-TEST.20WIRING-1'
 # The group addresses of TestFunctionWiring: name and datapoint type by address.
@@ -1065,6 +1071,9 @@ WIRING_DEVICES = [
     (2, 'TEST Taster', 'P-01A0-0_BP-3', {0: '5/0/1'}),
     (2, None, 'P-01A0-0_BP-7', {}),
     (2, 'TEST Taster mit einem sehr langen Namen, länger als jede Funktion', 'P-01A0-0_BP-7', {}),
+    (3, None, 'P-01A0-0_BP-7', {}),
+    (3, 'TEST Langkanal', 'P-01A0-0_BP-7', {}),
+    (3, 'TEST Langkanal', 'P-01A0-0_BP-7', {}),
 ]
 
 
