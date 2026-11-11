@@ -96,6 +96,8 @@
 					<method name="groupAddressConnections" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="groupAddressSenders" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="groupAddressProblems" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="deviceConnectionProblems" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
+					<method name="deviceObjectProblem" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="groupAddressDevices" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="connectionLabel" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>
 					<method name="connectionDevice" class="de.haumacher.ehome.programming.GroupAddressFunctions$Builder"/>

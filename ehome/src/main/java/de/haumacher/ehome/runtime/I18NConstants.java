@@ -337,6 +337,32 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 EXPORT_UNUSED__COUNT;
 
 	/**
+	 * @en Function "{0}": the role {1} commands {2}, but no object in effect takes values from it; the
+	 *     command reaches no device.
+	 */
+	public static ResKey3 FUNCTION_ROLE_NO_RECEIVER__FUNCTION_ROLE_ADDRESS;
+
+	/**
+	 * @en Function "{0}": the role {1} commands {2}, but no object in effect takes values from it; the
+	 *     command reaches no device. An object connected there is switched off by the parameters of its
+	 *     device.
+	 */
+	public static ResKey3 FUNCTION_ROLE_NO_RECEIVER_SWITCHED_OFF__FUNCTION_ROLE_ADDRESS;
+
+	/**
+	 * @en Function "{0}": the role {1} shows {2}, but no object in effect sends on it; the function
+	 *     never shows a value.
+	 */
+	public static ResKey3 FUNCTION_ROLE_NO_SENDER__FUNCTION_ROLE_ADDRESS;
+
+	/**
+	 * @en Function "{0}": the role {1} shows {2}, but no object in effect sends on it; the function
+	 *     never shows a value. An object connected there is switched off by the parameters of its
+	 *     device.
+	 */
+	public static ResKey3 FUNCTION_ROLE_NO_SENDER_SWITCHED_OFF__FUNCTION_ROLE_ADDRESS;
+
+	/**
 	 * @en The stored image could not be read from {0}: {1}
 	 */
 	public static ResKey2 COMPARE_UNREACHABLE__ADDRESS_ERROR;
@@ -1667,7 +1693,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey4 IMAGE_ROLE_TYPE_NONE__NAME_ROLE_KIND_TYPES;
 
 	/**
-	 * @en The role {0} needs a writable datapoint; "{1}" is not.
+	 * @en The role {0} needs a writable datapoint; "{1}" is not. A group address is writable when a connected object takes values from it (flag
+	 *     W; an object that also sends there needs the flag U or R as well), or by its setting
+	 *     "Writable (setting)"; an application datapoint by its setting "Writable".
 	 */
 	public static ResKey2 IMAGE_ROLE_WRITABLE__ROLE_NAME;
 

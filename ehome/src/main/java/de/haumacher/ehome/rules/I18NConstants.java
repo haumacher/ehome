@@ -241,7 +241,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey RULE_ACTION_NOT_AN_OBJECT;
 
 	/**
-	 * @en The datapoint "{0}" is not writable.
+	 * @en The datapoint "{0}" is not writable. A group address is writable when a connected object takes values from it (flag
+	 *     W; an object that also sends there needs the flag U or R as well), or by its setting
+	 *     "Writable (setting)"; an application datapoint by its setting "Writable".
 	 */
 	public static ResKey1 RULE_NOT_WRITABLE__NAME;
 

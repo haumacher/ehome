@@ -75,11 +75,15 @@
 			expr="connectionLabel($connection)"
 			inputs="connection"
 		/>
-		<!-- What does not fit together at the selected address; nothing if all fits. -->
+		<!--
+			What does not fit together at the selected address, and the objects connected to it that their
+			device's parameters switch off (haumacher/ehome #137); nothing if all fits. A changed parameter
+			recomputes it.
+		-->
 		<derived-channel name="problems"
 			expr="groupAddressProblems($address)"
 			inputs="address"
-			observed-types="ehome.physical:Connection,ehome.physical:Connector"
+			observed-types="ehome.physical:Connection,ehome.physical:Connector,ehome.physical:ParameterSetting"
 		/>
 		<!-- Why the selected address has no datapoint type; nothing for an address that has one. -->
 		<derived-channel name="typeHint"
@@ -94,7 +98,7 @@
 		<derived-channel name="senders"
 			expr="if($address == null, null, #('Sending objects: {0}'@en, 'Sendende Objekte: {0}'@de).fill(groupAddressSenders($address)).localize())"
 			inputs="address"
-			observed-types="ehome.physical:Connection,ehome.physical:Connector"
+			observed-types="ehome.physical:Connection,ehome.physical:Connector,ehome.physical:ParameterSetting"
 		/>
 		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
 		<derived-channel name="assistantPage"

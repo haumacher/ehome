@@ -196,7 +196,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 BLOCK_OUTPUT_OWNED__NAME_OWNER;
 
 	/**
-	 * @en The datapoint "{0}" is not writable.
+	 * @en The datapoint "{0}" is not writable. A group address is writable when a connected object takes values from it (flag
+	 *     W; an object that also sends there needs the flag U or R as well), or by its setting
+	 *     "Writable (setting)"; an application datapoint by its setting "Writable".
 	 */
 	public static ResKey1 BLOCK_NOT_WRITABLE__NAME;
 

@@ -32,18 +32,24 @@
 	A button whose press is the command of another function (haumacher/ehome #92: a key operating an
 	actuator's channel, which the proposal no longer makes a button) shows a warning in the column
 	"Warning" and above its form (functionRedundancy, de.haumacher.ehome.runtime.FunctionProposal);
-	the user deletes it.
+	the user deletes it. The same places warn about a role bound to a group address on which no object
+	in effect does what the role needs: no object taking the command of a command role, none sending
+	the value of any other role, e.g. because the object is switched off by its device's parameters
+	(functionWarning, de.haumacher.ehome.runtime.FunctionRoleCheck, haumacher/ehome #137).
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="function"/>
 		<channel name="dismissal"/>
-		<!-- Why the selected function is redundant on the controller; nothing if it is not. -->
+		<!--
+			Why the selected function is redundant on the controller, and its roles no object in effect
+			serves; nothing if all is well.
+		-->
 		<derived-channel name="redundancy"
-			expr="functionRedundancy($function)"
+			expr="functionWarning($function)"
 			inputs="function"
-			observed-types="ehome.runtime:Function"
+			observed-types="ehome.runtime:Function,ehome.physical:Connection,ehome.physical:Connector,ehome.physical:ParameterSetting"
 		/>
 		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
 		<derived-channel name="assistantPage"
@@ -220,7 +226,7 @@
 												<en>Warning</en>
 												<de>Warnung</de>
 											</label>
-											<value>functionRedundancy($row)</value>
+											<value>functionWarning($row)</value>
 										</computed-column>
 									</columns>
 									<rows>if($project == null, [], $project.get(`ehome.project:Project#functions`))</rows>

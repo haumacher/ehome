@@ -45,7 +45,9 @@ import de.haumacher.ehome.runtime.ImageReport.Refusal;
  * controller is read, and what it ran is recorded with the deployment. Each refusal is recorded
  * with the object of the project its path leads to ({@link RuntimeImage#elementAt(String)}). The
  * message of an accepted image warns for each datapoint the controller shows on the inhabitant's pages
- * by its id, having no name ({@link UnnamedDatapoints}, haumacher/ehome #114); it does not refuse it.
+ * by its id, having no name ({@link UnnamedDatapoints}, haumacher/ehome #114), and for each role of a
+ * function that no object in effect serves ({@link FunctionRoleCheck}, haumacher/ehome #137); it does
+ * not refuse it.
  * </p>
  *
  * <p>
@@ -223,6 +225,12 @@ public final class Deployer {
 				outcome._fingerprint = signer.fingerprint();
 			}
 			send(client, image, revision, outcome);
+			if (outcome._accepted) {
+				// A role of a function no object in effect serves (haumacher/ehome #137): taken, but it never works.
+				for (ResKey warning : FunctionRoleCheck.warnings(project)) {
+					outcome._message += " " + text(warning);
+				}
+			}
 		}
 		return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
 	}

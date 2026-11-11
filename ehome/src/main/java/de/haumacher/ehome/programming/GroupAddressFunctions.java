@@ -17,6 +17,8 @@ import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.operational.Interface;
+
 /**
  * The TL-Script functions reading the connections of a group address from the address's side, see
  * {@link GroupAddressConnections}. Connections are made and removed with the functions of
@@ -77,6 +79,18 @@ public class GroupAddressFunctions extends GenericMethod {
 		deviceLabel(1, true),
 		/** <code>deviceObjects(device)</code>: {@link GroupAddressConnections#objects(TLObject)}. */
 		deviceObjects(1, true),
+		/**
+		 * <code>deviceConnectionProblems(device)</code>: the objects of the device switched off by its
+		 * parameters but still connected, as text; <code>null</code> for none
+		 * ({@link GroupAddressConnections#deviceProblemText(TLObject)}, haumacher/ehome #137).
+		 */
+		deviceConnectionProblems(1, true),
+		/**
+		 * <code>deviceObjectProblem(device, object)</code>: the problem of the communication object of
+		 * the device, as text; <code>null</code> for none
+		 * ({@link GroupAddressConnections#objectProblem(TLObject, Interface)}, haumacher/ehome #137).
+		 */
+		deviceObjectProblem(2, true),
 		/** <code>groupAddressRanges(obj)</code>: {@link GroupAddresses#ranges(TLObject)}. */
 		groupAddressRanges(1, true),
 		/** <code>groupAddressParts(node)</code>: {@link GroupAddresses#parts(TLObject)}. */
@@ -213,6 +227,15 @@ public class GroupAddressFunctions extends GenericMethod {
 				return GroupAddressConnections.deviceLabel(obj);
 			case deviceObjects:
 				return GroupAddressConnections.objects(obj);
+			case deviceConnectionProblems:
+				return GroupAddressConnections.deviceProblemText(obj);
+			case deviceObjectProblem: {
+				if (!(arguments[1] instanceof Interface placed) || !placed.tValid()) {
+					return null;
+				}
+				ResKey problem = GroupAddressConnections.objectProblem(obj, placed);
+				return problem == null ? null : Resources.getInstance().getString(problem);
+			}
 			case groupAddressRanges:
 				return GroupAddresses.ranges(obj);
 			case groupAddressParts:
