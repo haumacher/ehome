@@ -172,6 +172,7 @@
 									</generic-command>
 								</commands>
 								<table
+									group-by="room"
 									observed-types="ehome.runtime:Function"
 									personalization-key="ehome-functions"
 									selection="function"

@@ -141,6 +141,22 @@ Still open, checked on 8.0.0-alpha12.820.
 **When fixed** (the engine covers or marks its own modules, or the check can be limited to the
 application's modules): remove `excluded-modules`.
 
+## Enumeration values unreadable without a grant on `tl.model` (TL #30275)
+
+`SecurityConfigurationService.isAllowed` exempts a model element only from the DISCOVER check; the
+READ of a `TLClassifier` is decided by roles like a business object, and E-Home grants nothing on
+`tl.model`. For an installer or a viewer every enumeration value was therefore unreadable, and the
+MCP tools (`ReadFilter` of tl-ai-core) left them out of every object they showed: a schedule's
+weekdays as `[]` ("every day" by the model), its handling of missed firings as `null`
+(haumacher/ehome #141). Root does not see it (administrator bypass).
+
+Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: `tl.model:TLClassifier` takes its roles
+from the security root (security parent rule `ehomeRootForClassifier`) and both E-Home roles get READ
+on it; `TestAccessRights.testClassifiersReadable`.
+
+**When fixed** (the engine treats the read of a classifier as model data): remove the rule
+`ehomeRootForClassifier` and the `<class name="tl.model:TLClassifier">` grant; the test stays.
+
 ## A refused command on a composition part (TL #29885)
 
 Under alpha11 a refused check on an object whose type delegates to its access parent (a device, a

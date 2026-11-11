@@ -32,6 +32,7 @@ import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
@@ -307,6 +308,23 @@ public class TestAccessRights extends BasicTestCase {
 			assertFalse(label(object), allowed(_stranger, object, WRITE));
 		}
 		assertFalse(rights().isAllowedCreate(_stranger, type("ehome.project:Project"), (TLObject) null));
+	}
+
+	/**
+	 * The values of an enumeration (a schedule's weekdays, its handling of missed firings) are read by
+	 * both roles: without that, the MCP tools leave them out of every object a user reads (haumacher/ehome
+	 * #141, TL #30275).
+	 */
+	public void testClassifiersReadable() {
+		for (String enumeration : List.of("ehome.runtime:Weekday", "ehome.runtime:MissedFiring")) {
+			TLEnumeration type = (TLEnumeration) TLModelUtil.findType(enumeration);
+			for (TLClassifier classifier : type.getClassifiers()) {
+				assertTrue(enumeration, allowed(_installer, classifier, READ));
+				assertTrue(enumeration, allowed(_viewer, classifier, READ));
+				assertFalse(enumeration, allowed(_installer, classifier, WRITE));
+				assertFalse(enumeration, allowed(_viewer, classifier, WRITE));
+			}
+		}
 	}
 
 	public void testTokenUnreadable() {

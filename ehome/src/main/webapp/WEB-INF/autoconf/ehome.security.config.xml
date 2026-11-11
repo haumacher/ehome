@@ -146,6 +146,13 @@
 					>
 						<singleton module="SecurityStructure"/>
 					</rule>
+					<!-- The values of the enumerations, see the grant of tl.model:TLClassifier below (TL #30275). -->
+					<rule id="ehomeRootForClassifier"
+						inherit="true"
+						meta-element="tl.model:TLClassifier"
+					>
+						<singleton module="SecurityStructure"/>
+					</rule>
 				</security-parents>
 			</instance>
 		</config>
@@ -253,6 +260,15 @@
 					<class name="tl.ai.core:Skill" internal="true"/>
 					<class name="tl.ai.htmlpages:GeneratedHtmlPage" internal="true"/>
 					<class name="tl.ai.monitor:Period" internal="true"/>
+					<!--
+						The values of the enumerations (a schedule's weekdays, the kind of a function, ...) are
+						model data both roles read, or the MCP tools leave them out of every object a user reads
+						(haumacher/ehome #141). Workaround of TL #30275: the engine decides the read of a
+						classifier by roles instead of treating it as model data (doc/tl-todo.md).
+					-->
+					<class name="tl.model:TLClassifier">
+						<grant operation="Read" roles="ehome.Installer, ehome.Viewer"/>
+					</class>
 					<!-- The open enrollment code of a project: installers only, a viewer must not enroll a controller. -->
 					<part name="ehome.project:Project#enrollmentCode">
 						<grant operation="Read" roles="ehome.Installer"/>
