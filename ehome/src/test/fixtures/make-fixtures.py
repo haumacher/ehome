@@ -2556,3 +2556,135 @@ write('src/test/fixtures/TestAssigns.knxproj', assigns_fixture,
     keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))
 write('src/test/fixtures/TestFunctionWiring.knxproj', wiring_fixture,
     [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in WIRING_PROGRAMS])
+
+
+# TestFunctionRoles.knxproj: the roles of the function proposal of schema 1.6 (haumacher/ehome #136, #138), with
+# three artificial programs of their own (M-0008_A-FFC1/FFC2/FFC5, marked as test data) in the building of
+# TestFunctionWiring. "TEST Jalousieaktor Endlagen" (1.0.1, in the distribution board): "Kanal A" an awning
+# without positioning (up/down 1.008 on 6/1/1, stop 1.007) that reports its end positions with the 1-bit objects
+# "Status obere Position" and "Status untere Position" (1.002) and its direction with "Status akt. Richtung"
+# (1.008, no end position), "Kanal B" a shutter with a position (5.001) and the end positions "Endlage oben" and
+# "Endlage unten" (1.001), "Kanal C" a blind whose one object "Position oben/unten" names both ends (no role).
+# "TEST Heizungsaktor Regler" (1.0.2, in the board), a heating actuator with its own controller: "Kanal A" receives
+# the room temperature (6/4/1) and the comfort setpoint, reports the current setpoint, takes the operating mode,
+# reports its actuating value "Status Stellwert" (5.001, 6/4/5) and "Heizen" (1.001); "Kanal B" the same without
+# "Heizen" and without the current setpoint and mode. Two room sensors "TEST Raumfühler" (1.0.3 in "Wohnzimmer"
+# on 6/4/1, 1.0.4 in "Küche" on 6/5/1) send the temperatures.
+ROLE_PROGRAMS = [
+    ('M-0008_A-FFC1-01-0000', 'FFC1', 65473, 'TEST: Jalousieaktor Endlagen (künstliche Testdaten)', [
+        ('Kanal A', [('Markise Auf/Ab', '1 Bit', W, 'DPST-1-8', '6/1/1'), ('Stopp', '1 Bit', W, 'DPST-1-7', '6/1/2'),
+            ('Status obere Position', '1 Bit', T, 'DPST-1-2', '6/1/3'),
+            ('Status untere Position', '1 Bit', T, 'DPST-1-2', '6/1/4'),
+            ('Status akt. Richtung', '1 Bit', T, 'DPST-1-8', '6/1/5')]),
+        ('Kanal B', [('Rollladen Auf/Ab', '1 Bit', W, 'DPST-1-8', '6/2/1'),
+            ('Status Position', '1 Byte', T, 'DPST-5-1', '6/2/2'), ('Endlage oben', '1 Bit', T, 'DPST-1-1', '6/2/3'),
+            ('Endlage unten', '1 Bit', T, 'DPST-1-1', '6/2/4')]),
+        ('Kanal C', [('Jalousie Auf/Ab', '1 Bit', W, 'DPST-1-8', '6/3/1'),
+            ('Position oben/unten', '1 Bit', T, 'DPST-1-1', '6/3/2')]),
+    ]),
+    ('M-0008_A-FFC2-01-0000', 'FFC2', 65474, 'TEST: Heizungsaktor Regler (künstliche Testdaten)', [
+        ('Kanal A', [('Isttemperatur', '2 Bytes', W, 'DPST-9-1', '6/4/1'),
+            ('Sollwert Komfort', '2 Bytes', W, 'DPST-9-1', '6/4/2'),
+            ('Aktueller Sollwert', '2 Bytes', T, 'DPST-9-1', '6/4/3'),
+            ('Betriebsart', '1 Byte', W, 'DPST-20-102', '6/4/4'),
+            ('Status Stellwert', '1 Byte', T, 'DPST-5-1', '6/4/5'), ('Heizen', '1 Bit', T, 'DPST-1-1', '6/4/6')]),
+        ('Kanal B', [('Isttemperatur', '2 Bytes', W, 'DPST-9-1', '6/5/1'),
+            ('Sollwert Komfort', '2 Bytes', W, 'DPST-9-1', '6/5/2'),
+            ('Status Stellwert', '1 Byte', T, 'DPST-5-1', '6/5/5')]),
+    ]),
+    ('M-0008_A-FFC5-01-0000', 'FFC5', 65477, 'TEST: Raumfühler (künstliche Testdaten)', [
+        ('Temperatur', [('Raumtemperatur', '2 Bytes', T, 'DPST-9-1', None)]),
+    ]),
+]
+ROLE_HARDWARE = 'M-0008_H-TEST.20ROLES-1'
+# The group addresses of TestFunctionRoles: name and datapoint type by address.
+ROLE_ADDRESSES = {'6/1/1': ('Markise Terrasse', 'DPST-1-8'), '6/1/2': ('Markise Terrasse Stopp', 'DPST-1-7'),
+    '6/1/3': ('Markise Terrasse oben', 'DPST-1-2'), '6/1/4': ('Markise Terrasse unten', 'DPST-1-2'),
+    '6/1/5': ('Markise Terrasse Richtung', 'DPST-1-8'), '6/2/1': ('Rollladen Büro', 'DPST-1-8'),
+    '6/2/2': ('Rollladen Büro Position', 'DPST-5-1'), '6/2/3': ('Rollladen Büro oben', 'DPST-1-1'),
+    '6/2/4': ('Rollladen Büro unten', 'DPST-1-1'), '6/3/1': ('Jalousie Gast', 'DPST-1-8'),
+    '6/3/2': ('Jalousie Gast Endlage', 'DPST-1-1'), '6/4/1': ('Temperatur Bad', 'DPST-9-1'),
+    '6/4/2': ('Sollwert Bad', 'DPST-9-1'), '6/4/3': ('Sollwert Bad Status', 'DPST-9-1'),
+    '6/4/4': ('Betriebsart Bad', 'DPST-20-102'), '6/4/5': ('Stellwert Bad', 'DPST-5-1'),
+    '6/4/6': ('Heizen Bad', 'DPST-1-1'), '6/5/1': ('Temperatur Kind', 'DPST-9-1'),
+    '6/5/2': ('Sollwert Kind', 'DPST-9-1'), '6/5/5': ('Stellwert Kind', 'DPST-5-1')}
+# The devices of TestFunctionRoles: (program, name, building part, the group address of each connected object by
+# its number, None for those the program gives).
+ROLE_DEVICES = [
+    (0, 'TEST Jalousieaktor Endlagen', 'P-01A0-0_BP-4', None),
+    (1, 'TEST Heizungsaktor Regler', 'P-01A0-0_BP-4', None),
+    (2, 'TEST Raumfühler', 'P-01A0-0_BP-5', {0: '6/4/1'}),
+    (2, 'TEST Raumfühler', 'P-01A0-0_BP-7', {0: '6/5/1'}),
+]
+
+
+def role_hardware(xml):
+    end = xml.rindex('</Hardware>', 0, xml.index('<Languages>'))
+    hardware = ''
+    for program, number, _, name, _ in ROLE_PROGRAMS:
+        short = name.split(' (')[0].split(': ')[1]
+        hardware += ('<Hardware Id="' + ROLE_HARDWARE + number + '" Name="TEST ' + short + '" SerialNumber="TEST '
+            + number + '" VersionNumber="1" HasIndividualAddress="1" HasApplicationProgram="1"><Products><Product Id="'
+            + ROLE_HARDWARE + number + '_P-TEST.20' + number + '" Text="TEST ' + short
+            + ' (künstliche Testdaten)" OrderNumber="TEST ' + number + '" IsRailMounted="1" DefaultLanguage="de-DE" />'
+            '</Products><Hardware2Programs><Hardware2Program Id="' + ROLE_HARDWARE + number + '_HP-' + number
+            + '-01-0000" MediumTypes="MT-0"><ApplicationProgramRef RefId="' + program + '" /></Hardware2Program>'
+            '</Hardware2Programs></Hardware>\n')
+    return xml[:end] + hardware + xml[end:]
+
+
+def role_devices(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+    addresses = sorted(ROLE_ADDRESSES, key=ga_value)
+    devices = ''
+    for n, (index, device_name, _, connected) in enumerate(ROLE_DEVICES, 1):
+        program, number, _, _, channels = ROLE_PROGRAMS[index]
+        objects = [(o[0], o[6] if connected is None else connected.get(o[0])) for o in function_objects(channels)]
+        refs = ''.join('<ComObjectInstanceRef RefId="' + program + '_O-%d_R-%d" IsActive="1"><Connectors>'
+            % (o, o + 1) + function_connectors(addresses, address) + '</Connectors></ComObjectInstanceRef>\n'
+            for o, address in objects if address is not None)
+        devices += ('<DeviceInstance Id="P-01A0-0_DI-' + str(n) + '" Name="' + device_name
+            + '" ProductRefId="' + ROLE_HARDWARE + number + '_P-TEST.20' + number + '" Hardware2ProgramRefId="'
+            + ROLE_HARDWARE + number + '_HP-' + number + '-01-0000" Address="' + str(n)
+            + '" LastModified="2026-11-12T12:00:00">\n<ComObjectInstanceRefs>\n' + refs
+            + '</ComObjectInstanceRefs>\n</DeviceInstance>\n')
+    xml = xml[:start] + devices + xml[end:]
+    start = xml.index('<GroupRanges>')
+    end = xml.index('</GroupRanges>') + len('</GroupRanges>')
+    ranges = ''
+    for main in sorted(set(int(a.split('/')[0]) for a in addresses)):
+        ranges += ('<GroupRange Id="P-01A0-0_GR-%d" Name="HG%d" RangeStart="%d" RangeEnd="%d">'
+            % (main, main, main << 11, (main << 11) + 2047)
+            + ''.join('<GroupAddress Id="P-01A0-0_GA-%d" Address="%d" Name="%s" DatapointType="%s" />'
+                % (addresses.index(a) + 1, ga_value(a), ROLE_ADDRESSES[a][0], ROLE_ADDRESSES[a][1])
+                for a in addresses if a.startswith(str(main) + '/'))
+            + '</GroupRange>\n')
+    xml = xml[:start] + '<GroupRanges>\n' + ranges + '</GroupRanges>' + xml[end:]
+
+    def refs(part):
+        return ''.join('<DeviceInstanceRef RefId="P-01A0-0_DI-%d" />' % n
+            for n, (_, _, placed, _) in enumerate(ROLE_DEVICES, 1) if placed == part)
+    return replace_once(xml, '<Buildings />', '<Buildings>\n'
+        '<BuildingPart Id="P-01A0-0_BP-1" Name="Haus" Type="Building">'
+        '<BuildingPart Id="P-01A0-0_BP-2" Name="Erdgeschoss" Type="Floor">'
+        '<BuildingPart Id="P-01A0-0_BP-3" Name="Flur" Type="Room">' + refs('P-01A0-0_BP-3')
+        + '<BuildingPart Id="P-01A0-0_BP-4" Name="Schaltschrank" Type="DistributionBoard">' + refs('P-01A0-0_BP-4')
+        + '</BuildingPart></BuildingPart>'
+        '<BuildingPart Id="P-01A0-0_BP-5" Name="Wohnzimmer" Type="Room">' + refs('P-01A0-0_BP-5') + '</BuildingPart>'
+        '<BuildingPart Id="P-01A0-0_BP-7" Name="Küche" Type="Room">' + refs('P-01A0-0_BP-7') + '</BuildingPart>'
+        '</BuildingPart></BuildingPart>\n</Buildings>')
+
+
+def role_fixture(name, xml):
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestFunctionRoles')
+    if name == PROJECT:
+        return role_devices(xml)
+    if name == 'M-0008/Hardware.xml':
+        return role_hardware(xml)
+    return xml
+
+
+write('src/test/fixtures/TestFunctionRoles.knxproj', role_fixture,
+    [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in ROLE_PROGRAMS])

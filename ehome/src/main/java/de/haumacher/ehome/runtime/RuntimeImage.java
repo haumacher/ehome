@@ -35,7 +35,7 @@ import de.haumacher.ehome.rules.Schedule;
 
 /**
  * The runtime image of a project: the JSON document a HomeControl controller runs
- * (homecontrol <code>spec/runtime-image.md</code>, schema 1.5), derived from the project.
+ * (homecontrol <code>spec/runtime-image.md</code>, schema 1.6), derived from the project.
  *
  * <p>
  * The mapping:
@@ -95,9 +95,12 @@ public final class RuntimeImage {
 
 	/**
 	 * The version of the schema of the images E-Home writes; 1.5 brings the parameter ids of the rule
-	 * id characters (homecontrol <code>spec/rules.md</code> 2.1, haumacher/ehome #110).
+	 * id characters (homecontrol <code>spec/rules.md</code> 2.1, haumacher/ehome #110); 1.6 the roles
+	 * <code>atTop</code>, <code>atBottom</code> and <code>heatingLevel</code>, a heating of a number, a
+	 * dimmer with its switching command alone, and rules writing an application datapoint that is not
+	 * writable (haumacher/ehome #134, #136, #138).
 	 */
-	public static final String SCHEMA_VERSION = "1.5";
+	public static final String SCHEMA_VERSION = "1.6";
 
 	/**
 	 * The <code>presses</code> E-Home writes for a button whose press is the action of a Zigbee remote
@@ -786,8 +789,11 @@ public final class RuntimeImage {
 				}
 			}
 			String unit = text(function.tValueByName("unit"));
-			if (unit == null && roles.get(FunctionKinds.mainRole(kind)) != null) {
-				unit = DatapointSettings.unit((TLObject) function.tValueByName(FunctionKinds.mainRole(kind)));
+			// The unit of the main role; of a dimmer the one of its level command (its switching command has none).
+			for (String role : FunctionKinds.requiredRoles(kind)) {
+				if (unit == null && roles.get(role) != null) {
+					unit = DatapointSettings.unit((TLObject) function.tValueByName(role));
+				}
 			}
 			if (unit != null) {
 				entry.put("unit", unit);

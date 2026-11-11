@@ -150,6 +150,8 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 
 		private final boolean _writable;
 
+		private final boolean _application;
+
 		Technology _technology;
 
 		Val _value;
@@ -158,10 +160,11 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 
 		long _updatedMs;
 
-		Datapoint(String name, ValueType type, boolean writable, Technology technology) {
+		Datapoint(String name, ValueType type, boolean writable, boolean application, Technology technology) {
 			_name = name;
 			_type = type;
 			_writable = writable;
+			_application = application;
 			_technology = technology;
 			_value = Val.none(type.expressionType());
 		}
@@ -176,9 +179,18 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 			return _type;
 		}
 
-		/** Whether rules, the UI and the API may command it. */
+		/** Whether the user (the UI, the API) and rules may command it. */
 		public boolean writable() {
 			return _writable;
+		}
+
+		/**
+		 * Whether it is a value of the application (homecontrol <code>spec/runtime-image.md</code> 3.3:
+		 * <code>virtual</code> or without a technology member), which rules write also when it is not
+		 * {@link #writable()} (schema 1.6, haumacher/ehome #138).
+		 */
+		public boolean application() {
+			return _application;
 		}
 
 		/** The owner, <code>null</code> for none. */
@@ -227,10 +239,23 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 	 *        The owner, <code>null</code> for an application value that every command sets.
 	 */
 	public Datapoint add(String name, ValueType type, boolean writable, Technology technology) {
+		return add(name, type, writable, false, technology);
+	}
+
+	/**
+	 * Adds a datapoint (unknown until reported or commanded).
+	 *
+	 * @param application
+	 *        Whether it is a value of the application ({@link Datapoint#application()}), which rules
+	 *        write also when it is not writable.
+	 * @param technology
+	 *        The owner, <code>null</code> for an application value that every command sets.
+	 */
+	public Datapoint add(String name, ValueType type, boolean writable, boolean application, Technology technology) {
 		if (_datapoints.containsKey(name)) {
 			throw new IllegalArgumentException("Datapoint '" + name + "' exists already.");
 		}
-		Datapoint datapoint = new Datapoint(name, type, writable, technology);
+		Datapoint datapoint = new Datapoint(name, type, writable, application, technology);
 		_datapoints.put(name, datapoint);
 		return datapoint;
 	}
@@ -255,6 +280,12 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 	public boolean writable(String name) {
 		Datapoint datapoint = _datapoints.get(name);
 		return datapoint != null && datapoint._writable;
+	}
+
+	@Override
+	public boolean ruleWritable(String name) {
+		Datapoint datapoint = _datapoints.get(name);
+		return datapoint != null && (datapoint._writable || datapoint._application);
 	}
 
 	/** Registers a listener. */
@@ -302,15 +333,29 @@ public final class DatapointModel implements RuleLoader.DatapointDirectory {
 	}
 
 	/**
-	 * The application commands a value (origin command).
+	 * The application commands a value (origin command): the user (the UI, the API), which needs the
+	 * datapoint {@link Datapoint#writable() writable}.
 	 */
 	public CommandStatus command(String name, Val value) {
+		return command(name, value, false);
+	}
+
+	/**
+	 * A rule's write (<code>spec/rules.md</code> 7.3): as {@link #command(String, Val)}, but a value of
+	 * the application ({@link Datapoint#application()}) that no technology owns takes it also when it
+	 * is not writable (schema 1.6, haumacher/ehome #138).
+	 */
+	public CommandStatus ruleCommand(String name, Val value) {
+		return command(name, value, true);
+	}
+
+	private CommandStatus command(String name, Val value, boolean byRule) {
 		checkNotNotifying();
 		Datapoint datapoint = _datapoints.get(name);
 		if (datapoint == null) {
 			return CommandStatus.UNKNOWN_DATAPOINT;
 		}
-		if (!datapoint._writable) {
+		if (!datapoint._writable && !(byRule && datapoint._application && datapoint._technology == null)) {
 			return CommandStatus.NOT_WRITABLE;
 		}
 		Val converted = convert(datapoint, value);

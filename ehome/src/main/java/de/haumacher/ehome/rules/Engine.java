@@ -1754,7 +1754,7 @@ public final class Engine implements DatapointModel.Listener {
 		if (action._onlyOnChange && datapoint.quality() == Quality.GOOD && Val.identical(datapoint.value(), converted)) {
 			return;
 		}
-		CommandStatus status = _model.command(name, converted);
+		CommandStatus status = _model.ruleCommand(name, converted);
 		if (status != CommandStatus.OK) {
 			logRule(rule, LogCode.WRITE_REFUSED, Level.ERROR, "command refused",
 				"command to '" + name + "' refused: " + status.text());

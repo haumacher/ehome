@@ -121,13 +121,23 @@ import de.haumacher.ehome.modules.ModuleParts;
  * <li><code>blind</code>: an input of DPT 1.008 (up/down) moves; an input of 1.007, 1.010 or 1.017
  * stops, as does one of 1.008 or 1.009 named for a stop or a short-term operation
  * (stop/Stopp/Kurzzeit/short/step/Schritt/Lamellenverstellung), which is no move; 5.001 objects are
- * the position or, named slat/Lamelle, the slats; inputs set, outputs report. All roles come from
- * the objects of the same channel.</li>
+ * the position or, named slat/Lamelle, the slats; inputs set, outputs report. An output of a truth
+ * value (DPT 1.x but 1.007, 1.008, 1.010, 1.017) whose own name names the upper end position
+ * (oben/obere/top/upper) reports <code>atTop</code>, one naming the lower end position
+ * (unten/untere/bottom/lower) <code>atBottom</code> (haumacher/ehome #136: "Status obere Position",
+ * "Endlage unten"); not where its name names both ("Position oben/unten") or a movement or direction
+ * (Richtung/direction/Fahrt/moving/Bewegung/Lauf: "Status akt. Richtung"). All roles come from the
+ * objects of the same channel.</li>
  * <li><code>dimmer</code>: an input of DPT 5.001 sets the level; a 5.001 output reports it; a 1.001
  * input switches, a state (below) reports; a 3.007 input dims relatively (the role
  * <code>step</code>).</li>
  * <li><code>climate</code>: an output of DPT 9.001 (the temperature) together with a setpoint
- * (9.001 named Soll/setpoint) or an operating mode (20.102); an output named Heiz/heat is heating.</li>
+ * (9.001 named Soll/setpoint) or an operating mode (20.102); an output of a truth value named
+ * Heiz/heat is heating; an output of DPT 5.001 named for the actuating value
+ * (Stellwert/Stellgröße/actuating/control value/Ventil/valve/Heiz/heat) is the heating level
+ * (haumacher/ehome #138). A channel with such an actuating value but no temperature output (a heating
+ * actuator with its own controller, which receives the room temperature) takes the input of 9.001 not
+ * named for a setpoint as its temperature.</li>
  * <li><code>light</code>, or <code>switch</code> where the channel is named for a socket
  * (Steckdose/socket/outlet): an input of DPT 1.001 (switch) is the command; an output of DPT 1.011
  * (state), or a truth value named Status/state/Rückmeldung, is the state. A role reporting a state
@@ -272,6 +282,25 @@ public final class FunctionProposal {
 	private static final Pattern SETPOINT = words("soll", "setpoint");
 
 	private static final Pattern HEATING = words("heiz", "heat");
+
+	/**
+	 * The words naming the actuating value of a heating (haumacher/ehome #138): a 5.001 output of a
+	 * climate channel named so is its heating level.
+	 */
+	private static final Pattern ACTUATING = words("stellwert", "stellgröße", "stellgroesse", "actuating", "control value",
+		"valve", "ventil", "heiz", "heat");
+
+	/** The words naming the upper end position of a blind (haumacher/ehome #136). */
+	private static final Pattern TOP = words("oben", "obere", "top", "upper");
+
+	/** The words naming the lower end position of a blind (haumacher/ehome #136). */
+	private static final Pattern BOTTOM = words("unten", "untere", "bottom", "lower");
+
+	/**
+	 * The words naming a blind's movement or direction, which a 1-bit report of an end position is
+	 * not ("Status akt. Richtung", "Fahrt auf").
+	 */
+	private static final Pattern MOVEMENT = words("richtung", "direction", "fahr", "moving", "beweg", "lauf");
 
 	private static final Pattern KEY = words("taste", "taster", "wippe", "button", "rocker", "push");
 
@@ -438,11 +467,21 @@ public final class FunctionProposal {
 		}
 
 		/**
-		 * Whether the proposed function is unused: its main role has no datapoint (a candidate of a
-		 * channel whose main object has no group address, haumacher/ehome #98).
+		 * Whether the proposed function is unused: none of its required roles has a datapoint (a
+		 * candidate of a channel whose main object has no group address, haumacher/ehome #98; a dimmer
+		 * has neither its switching nor its level command, #134).
 		 */
 		public boolean unused() {
-			return roles.get(FunctionKinds.mainRole(kind)) == null;
+			return FunctionKinds.boundMainRole(kind, roles::get) == null;
+		}
+
+		/**
+		 * The datapoint of the first of its required roles it binds ({@link FunctionKinds#boundMainRole}),
+		 * <code>null</code> for an unused proposal.
+		 */
+		TLObject main() {
+			String role = FunctionKinds.boundMainRole(kind, roles::get);
+			return role == null ? null : roles.get(role);
 		}
 	}
 
@@ -547,7 +586,7 @@ public final class FunctionProposal {
 				decision._proposedChannels.add(identity);
 				decision._byChannel.putIfAbsent(kind + " " + identity, function);
 			}
-			String main = FunctionKinds.mainRole(kind);
+			String main = FunctionKinds.boundMainRole(kind, function::tValueByName);
 			if (main != null && function.tValueByName(main) instanceof TLObject address) {
 				String key = mainKey(kind, address, function.tValueByName("scene"));
 				decision._boundMainRoles.add(key);
@@ -759,16 +798,19 @@ public final class FunctionProposal {
 
 	/**
 	 * Whether the given function is unused (haumacher/ehome #98): its main role has no datapoint, as
-	 * the proposal makes it for a channel whose main object has no group address. This holds for
-	 * every function, proposed or made by the user, and for every kind of datapoint the main role may
-	 * name: a group address, or an application datapoint (of a Zigbee function, of a virtual device),
-	 * which counts the same way - a function whose datapoint was deleted (haumacher/ehome #94) is
-	 * unused as well. The runtime image leaves an unused function out, and its summary and the
-	 * message of a deployment count it. A function without a kind is none.
+	 * the proposal makes it for a channel whose main object has no group address; for a dimmer neither
+	 * its switching command (its main role) nor its level command (haumacher/ehome #134,
+	 * {@link FunctionKinds#requiredRoles(String)}). This holds for every function, proposed or made by
+	 * the user, and for every kind of datapoint the main role may name: a group address, or an
+	 * application datapoint (of a Zigbee function, of a virtual device), which counts the same way - a
+	 * function whose datapoint was deleted (haumacher/ehome #94) is unused as well. The runtime image
+	 * leaves an unused function out, and its summary and the message of a deployment count it. A
+	 * function without a kind is none.
 	 */
 	public static boolean unused(TLObject function) {
-		String main = FunctionKinds.mainRole(kind(function));
-		return main != null && function.tValueByName(main) == null;
+		String kind = kind(function);
+		return !FunctionKinds.requiredRoles(kind).isEmpty()
+			&& FunctionKinds.boundMainRole(kind, function::tValueByName) == null;
 	}
 
 	/**
@@ -803,8 +845,7 @@ public final class FunctionProposal {
 			if (proposal.members().isEmpty() || proposal.unused()) {
 				return null;
 			}
-			TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
-			return _byMainRole.get(mainKey(proposal.kind(), main, proposal.scene()));
+			return _byMainRole.get(mainKey(proposal.kind(), proposal.main(), proposal.scene()));
 		}
 
 		final Set<TLObject> _usedDatapoints = new HashSet<>();
@@ -824,8 +865,7 @@ public final class FunctionProposal {
 		 */
 		void bound(Proposal proposal) {
 			if (!proposal.unused()) {
-				_boundMainRoles.add(mainKey(proposal.kind(), proposal.roles().get(FunctionKinds.mainRole(proposal.kind())),
-					proposal.scene()));
+				_boundMainRoles.add(mainKey(proposal.kind(), proposal.main(), proposal.scene()));
 			}
 		}
 
@@ -871,7 +911,7 @@ public final class FunctionProposal {
 				// Nothing bound: one function for the channel.
 				return _proposedChannels.add(identity);
 			}
-			TLObject main = proposal.roles().get(FunctionKinds.mainRole(proposal.kind()));
+			TLObject main = proposal.main();
 			if (zigbee(proposal.channel()) || proposal.channel().startsWith(BLOCK_CHANNEL)) {
 				if (proposal.roles().values().stream().anyMatch(_usedDatapoints::contains)) {
 					return false;
@@ -1722,6 +1762,8 @@ public final class FunctionProposal {
 			found(found, "positionCommand", first(objects, o -> o.input() && o.is(5, 1) && !o.named(SLAT)));
 			found(found, "slat", first(objects, o -> o.output() && o.is(5, 1) && o.named(SLAT)));
 			found(found, "slatCommand", first(objects, o -> o.input() && o.is(5, 1) && o.named(SLAT)));
+			found(found, "atTop", first(objects, o -> endPosition(o) && o.ownNamed(TOP) && !o.ownNamed(BOTTOM)));
+			found(found, "atBottom", first(objects, o -> endPosition(o) && o.ownNamed(BOTTOM) && !o.ownNamed(TOP)));
 			result.add(receiving("blind", found, device, channel, names));
 			return;
 		}
@@ -1743,6 +1785,11 @@ public final class FunctionProposal {
 		}
 
 		Obj temperature = first(objects, o -> o.output() && !o.input() && o.is(9, 1) && !o.named(SETPOINT));
+		Obj heatingLevel = first(objects, o -> o.output() && !o.input() && o.is(5, 1) && o.named(ACTUATING));
+		if (temperature == null && heatingLevel != null) {
+			// A heating actuator's channel with its own controller receives the room temperature.
+			temperature = first(objects, o -> o.input() && o.is(9, 1) && !o.named(SETPOINT));
+		}
 		Obj setpoint = first(objects, o -> o.output() && !o.input() && o.is(9, 1) && o.named(SETPOINT));
 		Obj setpointCommand = first(objects, o -> o.input() && o.is(9, 1) && o.named(SETPOINT));
 		Obj mode = first(objects, o -> o.output() && !o.input() && o.is(20, 102));
@@ -1755,6 +1802,7 @@ public final class FunctionProposal {
 			found(found, "mode", mode);
 			found(found, "modeCommand", modeCommand);
 			found(found, "heating", first(objects, o -> o.output() && !o.input() && o.bool() && o.named(HEATING)));
+			found(found, "heatingLevel", heatingLevel);
 			result.add(receiving("climate", found, device, channel, names));
 			return;
 		}
@@ -1853,7 +1901,8 @@ public final class FunctionProposal {
 			}
 			roles.put(role, obj.address());
 		}
-		Obj main = found.get(FunctionKinds.mainRole(kind));
+		// The object that decided the kind: the main role's; a dimmer's is its level command (5.001).
+		Obj main = found.get("dimmer".equals(kind) ? "levelCommand" : FunctionKinds.mainRole(kind));
 		if (main != null && main.address() != null && contradicts(main)) {
 			warnings.add(I18NConstants.TYPE_CONTRADICTS_OBJECT__ADDRESS_ADDRESS_TYPE_OBJECT_OBJECT_TYPE.fill(
 				DatapointNames.name(main.address()), main.addressDpt().code(), main.label(), main.dpt().code()));
@@ -2245,11 +2294,12 @@ public final class FunctionProposal {
 
 	/**
 	 * The role whose group address names a function: the main role, for a dimmer its switching
-	 * command where it has one (haumacher/ehome #134), as for a light: "Licht Esstisch", not "Licht
-	 * Esstisch Dimmwert".
+	 * command (haumacher/ehome #134), as for a light: "Licht Esstisch", not "Licht Esstisch Dimmwert";
+	 * its level command only where it has no switching command.
 	 */
 	private static String nameRole(String kind, Map<String, TLObject> roles) {
-		return "dimmer".equals(kind) && roles.get("command") != null ? "command" : FunctionKinds.mainRole(kind);
+		String role = FunctionKinds.boundMainRole(kind, roles::get);
+		return role == null ? FunctionKinds.mainRole(kind) : role;
 	}
 
 	/**
@@ -2375,6 +2425,16 @@ public final class FunctionProposal {
 
 	private static String language(Resources resources) {
 		return resources.getLocale().getLanguage();
+	}
+
+	/**
+	 * Whether the object may report an end position of a blind (haumacher/ehome #136): an output of a
+	 * truth value (DPT 1.x, not the up/down 1.008, the step 1.007 or the stop 1.010 and 1.017) whose
+	 * own name names no movement or direction; whether it is the upper or the lower one its name says.
+	 */
+	private static boolean endPosition(Obj obj) {
+		return obj.output() && !obj.input() && obj.bool() && obj.dpt().main() == 1 && !obj.is(1, 8) && !obj.is(1, 7)
+			&& !obj.is(1, 10) && !obj.is(1, 17) && !obj.ownNamed(MOVEMENT) && !obj.ownNamed(SLAT);
 	}
 
 	private static boolean measured(Obj obj) {

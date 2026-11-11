@@ -120,8 +120,18 @@ public final class RuleLoader {
 		/** The value type of the datapoint, <code>null</code> if there is no such datapoint. */
 		ValueType type(String name);
 
-		/** Whether rules may command the datapoint. */
+		/** Whether the user (the UI, the API) and rules may command the datapoint. */
 		boolean writable(String name);
+
+		/**
+		 * Whether a rule may write the datapoint: it is {@link #writable(String) writable}, or a value of
+		 * the application (homecontrol <code>spec/runtime-image.md</code> 3.3, <code>virtual</code> or
+		 * without a technology member), which rules write also when the user may not (schema 1.6,
+		 * <code>spec/rules.md</code> 7.3, haumacher/ehome #138).
+		 */
+		default boolean ruleWritable(String name) {
+			return writable(name);
+		}
 	}
 
 	/**
@@ -1067,7 +1077,7 @@ public final class RuleLoader {
 				only(map, "kind", "datapoint", "value", "onlyOnChange");
 				String name = datapointMember(map);
 				ValueType target = _datapoints.type(name);
-				if (!_datapoints.writable(name)) {
+				if (!_datapoints.ruleWritable(name)) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_WRITABLE, "datapoint '" + name + "' is not writable",
 						I18NConstants.RULE_NOT_WRITABLE__NAME.fill(DatapointId.of(name)));

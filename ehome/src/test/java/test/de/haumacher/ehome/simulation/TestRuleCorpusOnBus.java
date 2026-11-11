@@ -155,7 +155,8 @@ public class TestRuleCorpusOnBus extends TestCase {
 		"68-load-refused-parameter-id-umlaut.json",
 		"69-load-refused-parameter-id-length.json",
 		"70-load-refused-parameter-id-enabled.json",
-		"71-load-refused-parameter-id-keyword.json");
+		"71-load-refused-parameter-id-keyword.json",
+		"73-load-refused-not-writable-status.json");
 
 	private static final long TIMEOUT = 5000;
 
@@ -224,6 +225,9 @@ public class TestRuleCorpusOnBus extends TestCase {
 			}
 			if (Boolean.TRUE.equals(dp.get("refuseReads"))) {
 				return "the reads of a single datapoint refused (a bus refuses all of them or none)";
+			}
+			if (Boolean.TRUE.equals(dp.get("application"))) {
+				return "a value of the application, which no technology owns (not on the bus)";
 			}
 			types.put((String) dp.get("name"), type);
 		}

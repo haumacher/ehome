@@ -197,7 +197,9 @@ public final class RuleReferences {
 	 * <ul>
 	 * <li>{@link #TRIGGER}: every datapoint of the image, of the rules' parameters and of the
 	 * adjustable times of the schedule entries;</li>
-	 * <li>{@link #WRITE}: the writable ones of them;</li>
+	 * <li>{@link #WRITE}: those a rule may write: the writable ones, and every application datapoint
+	 * (homecontrol <code>spec/rules.md</code> 7.3, schema 1.6, haumacher/ehome #138), but not the output
+	 * of a schedule entry;</li>
 	 * <li>{@link #READ}: those bound to a technology that reads values;</li>
 	 * <li>{@link #OUTPUT}: the boolean application datapoints that are not writable (the controller
 	 * refuses commands to an output, {@link ApplicationDatapoints#outputProblem(Object, Object)});</li>
@@ -263,7 +265,7 @@ public final class RuleReferences {
 				fits = false;
 			} else {
 				fits = switch (kind) {
-					case WRITE -> directory.writable(id);
+					case WRITE -> directory.ruleWritable(id) && !directory.ownsOutput(id);
 					case READ -> directory.technologyReads(id);
 					default -> true;
 				};

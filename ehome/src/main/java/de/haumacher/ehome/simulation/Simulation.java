@@ -409,9 +409,10 @@ public final class Simulation implements AutoCloseable {
 					_model.add(id, type, writable, _notSimulated);
 				}
 			} else if (outputs.contains(id)) {
-				_model.add(id, type, writable, _scheduler);
+				_model.add(id, type, writable, true, _scheduler);
 			} else {
-				_model.add(id, type, writable, null);
+				// A value of the application: rules write it also when it is not writable (schema 1.6).
+				_model.add(id, type, writable, true, null);
 			}
 		}
 		for (KnxBinding.Mapping mapping : mappings) {

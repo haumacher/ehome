@@ -90,7 +90,7 @@ public class TestScheduleAdjustable extends BasicTestCase {
 			assertTrue(Json.write(exported.get(0)), TestRuleText.same(expected, exported.get(0)));
 
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
-			assertEquals("1.5", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+			assertEquals("1.6", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
 			ImageReport report = image.validate();
 			assertTrue(report.toString(), report.isValid());
 		} finally {

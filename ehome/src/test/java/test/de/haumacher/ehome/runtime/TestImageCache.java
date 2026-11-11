@@ -90,9 +90,11 @@ public class TestImageCache extends BasicTestCase {
 			TLObject write;
 			TLObject light;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				// A datapoint that is not writable: refused.
+				// A datapoint of another type: refused (that it is not writable does not matter: rules write
+				// every application datapoint, haumacher/ehome #138).
 				light = RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"));
 				light.tUpdateByName("identifier", "light");
+				light.tUpdateByName("type", valueType("unsigned"));
 				TLObject rule = RuleFunctions.create(project, "rules", runtime("Rule"));
 				TLObject reaction = RuleFunctions.create(rule, "reactions", runtime("Reaction"));
 				RuleFunctions.create(reaction, "triggers", runtime("StartTrigger"));
@@ -105,17 +107,18 @@ public class TestImageCache extends BasicTestCase {
 			long before = ImageCache.builds();
 			RuleForm form = new RuleForm(write);
 			checkAll(form, write);
-			assertRefused(form, "datapoint", "is not writable");
+			assertRefused(form, "value", "cannot be written");
 			form.set("value", "false");
 			checkAll(form, write);
 			assertEquals(1, ImageCache.builds() - before);
 
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				light.tUpdateByName("writable", Boolean.TRUE);
+				light.tUpdateByName("type", valueType("boolean"));
 				tx.commit();
 			}
 			form = new RuleForm(write);
 			checkAll(form, write);
+			assertEquals(List.of(), form.warnings("value"));
 			assertEquals(List.of(), form.warnings("datapoint"));
 		} finally {
 			SharedData.deleteProjects(List.of(project));

@@ -769,6 +769,11 @@ public class TestRuleCorpus extends TestCase {
 				boolean writable = !Boolean.FALSE.equals(dp.get("writable"));
 				boolean refuse = Boolean.TRUE.equals(dp.get("refuseCommands"));
 				boolean refuseReads = Boolean.TRUE.equals(dp.get("refuseReads"));
+				if (Boolean.TRUE.equals(dp.get("application"))) {
+					// A value of the application (schema 1.6): no technology owns it.
+					_model.add((String) dp.get("name"), type, writable, true, null);
+					continue;
+				}
 				_model.add((String) dp.get("name"), type, writable, new DatapointModel.Technology() {
 					@Override
 					public boolean command(Datapoint datapoint, Val value) {

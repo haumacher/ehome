@@ -335,6 +335,8 @@
 								<field attribute="positionCommand"/>
 								<field attribute="slat"/>
 								<field attribute="slatCommand"/>
+								<field attribute="atTop"/>
+								<field attribute="atBottom"/>
 								<field attribute="value"/>
 								<field attribute="temperature"/>
 								<field attribute="setpoint"/>
@@ -342,6 +344,7 @@
 								<field attribute="mode"/>
 								<field attribute="modeCommand"/>
 								<field attribute="heating"/>
+								<field attribute="heatingLevel"/>
 								<field attribute="press"/>
 							</group>
 							<group>

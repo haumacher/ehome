@@ -973,6 +973,36 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 DEPLOY_REFUSED_PARAMETER_IDS_NO_SCHEMA__CONTROLLER;
 
 	/**
+	 * @en Not deployed: the dimmer {2} has its switching command without a level command, which needs image schema 1.6; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey3 DEPLOY_REFUSED_DIMMER_SCHEMA__CONTROLLER_SCHEMA_FUNCTION;
+
+	/**
+	 * @en Not deployed: the dimmer {1} has its switching command without a level command, which needs image schema 1.6; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey2 DEPLOY_REFUSED_DIMMER_NO_SCHEMA__CONTROLLER_FUNCTION;
+
+	/**
+	 * @en Not deployed: the climate function {2} reports its heating as a number (an actuating value), which needs image schema 1.6; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey3 DEPLOY_REFUSED_HEATING_SCHEMA__CONTROLLER_SCHEMA_FUNCTION;
+
+	/**
+	 * @en Not deployed: the climate function {1} reports its heating as a number (an actuating value), which needs image schema 1.6; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey2 DEPLOY_REFUSED_HEATING_NO_SCHEMA__CONTROLLER_FUNCTION;
+
+	/**
+	 * @en Not deployed: a rule writes the application datapoint {2}, which the user may not change (not writable); that needs image schema 1.6; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey3 DEPLOY_REFUSED_RULE_WRITE_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT;
+
+	/**
+	 * @en Not deployed: a rule writes the application datapoint {1}, which the user may not change (not writable); that needs image schema 1.6; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey2 DEPLOY_REFUSED_RULE_WRITE_NO_SCHEMA__CONTROLLER_DATAPOINT;
+
+	/**
 	 * @en {0} (deleted)
 	 */
 	public static ResKey1 BLOCK_BINDING_GONE__ID;
@@ -1676,6 +1706,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en A {0} needs the role {1}.
 	 */
 	public static ResKey2 IMAGE_ROLE_MISSING__KIND_ROLE;
+
+	/**
+	 * @en A dimmer needs its switching command or its level command (the role command or levelCommand).
+	 */
+	public static ResKey IMAGE_DIMMER_NEEDS_COMMAND;
 
 	/**
 	 * @en Unknown datapoint "{0}".

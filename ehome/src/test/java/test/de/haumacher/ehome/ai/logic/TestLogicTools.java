@@ -37,6 +37,7 @@ import de.haumacher.ehome.ai.logic.DiagnosisTools;
 import de.haumacher.ehome.ai.logic.FunctionTools;
 import de.haumacher.ehome.ai.logic.RuleTools;
 import de.haumacher.ehome.ai.logic.SimulationTools;
+import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleExport;
@@ -55,7 +56,8 @@ import de.haumacher.ehome.runtime.RuleExport;
  * <li>a room controller created in the kitchen and bound has no problem in the image, and the function
  * proposal adds its climate function; a page of the kitchen is created;</li>
  * <li>a rule whose datapoint was deleted is reported by the image's problems;</li>
- * <li>a viewer reads, explains and simulates, and is refused saving.</li>
+ * <li>a viewer reads, explains and simulates, and is refused saving;</li>
+ * <li>a rule writes an application datapoint that is not writable, but no status address.</li>
  * </ul>
  */
 @SuppressWarnings("javadoc")
@@ -202,6 +204,36 @@ public class TestLogicTools extends BasicTestCase {
 		ToolResult broken = read(_fixture.installer(), () -> new DiagnosisTools().imageProblems(project));
 		assertTrue(broken.text(), broken.text().contains("\"valid\": false"));
 		assertTrue(broken.text(), broken.text().contains("„hall“"));
+	}
+
+	/**
+	 * A rule writes an application datapoint the user may not change (haumacher/ehome #138, homecontrol
+	 * spec/rules.md 7.3, schema 1.6): checkAutomation takes it; a write to a group address that only
+	 * reports a status (not writable) stays refused, with the reason naming the address.
+	 */
+	public void testRuleWritesApplicationDatapointNotWritable() throws Exception {
+		TLObject project = _fixture.project();
+		assertFalse(ApplicationDatapoints.writable(_fixture.datapoint("window.open")));
+		String mirror = """
+			{"rules": [{"id": "valve", "name": "Ventil",
+			"reactions": [{"triggers": [{"kind": "datapoint", "datapoint": "1/2/1"}],
+			"actions": [{"kind": "write", "datapoint": "window.open", "value": "@\\"1/2/1\\" > 0", "onlyOnChange": true}]}]}]}
+			""";
+		ToolResult checked = turn(_fixture.installer(), c -> _rules.checkAutomation(c, project, definitions(mirror)));
+		assertFalse(checked.text(), checked.failed());
+
+		String status = mirror.replace("\"datapoint\": \"window.open\", \"value\": \"@\\\"1/2/1\\\" > 0\"",
+			"\"datapoint\": \"1/2/0\", \"value\": \"21.0\"");
+		assertFalse("The write names the status address.", status.equals(mirror));
+		ToolResult refused = turn(_fixture.installer(), c -> _rules.checkAutomation(c, project, definitions(status)));
+		assertTrue(refused.text(), refused.failed());
+		assertTrue(refused.text(), refused.text().contains("1/2/0"));
+		assertTrue(refused.text(), refused.text().contains("/ datapoint"));
+
+		// The rule saved; the image takes it (written as schema 1.6).
+		assertFalse(turn(_fixture.installer(), c -> _rules.saveAutomation(c, project, definitions(mirror), null)).failed());
+		ToolResult image = read(_fixture.installer(), () -> new DiagnosisTools().imageProblems(project));
+		assertTrue(image.text(), image.text().contains("\"valid\": true"));
 	}
 
 	@SuppressWarnings("unchecked")

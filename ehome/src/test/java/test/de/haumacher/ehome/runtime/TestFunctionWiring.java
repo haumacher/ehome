@@ -79,8 +79,8 @@ public class TestFunctionWiring extends BasicTestCase {
 		"1.0.8: Taste mit einem außergewöhnlich langen Namen für die | button |  | Küche | unused",
 		// #134: a blind by its objects, although its addresses are typed 1.001; the key in "Wohnzimmer".
 		"Jalousie Küche | blind | move=5/1/1, stop=5/1/2 | Wohnzimmer | used",
-		// #134: named after the switching address.
-		"Licht Esstisch | dimmer | levelCommand=5/2/3, level=5/2/4, command=5/2/1, step=5/2/2 | Wohnzimmer | used",
+		// #134: named after the switching address, its main role.
+		"Licht Esstisch | dimmer | command=5/2/1, levelCommand=5/2/3, level=5/2/4, step=5/2/2 | Wohnzimmer | used",
 		// #134: no state, the status object sends on the command address; #133: not the distribution board.
 		"Licht Flur | light | command=5/0/3 | - | used",
 		// #133: one key in "Werkstatt", one in "Flur".

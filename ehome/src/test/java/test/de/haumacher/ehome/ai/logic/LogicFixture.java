@@ -48,7 +48,7 @@ public class LogicFixture {
 	/** The application datapoints of the examples of the skill EHome_rules, with their value types. */
 	public static final Map<String, String> SKILL_DATAPOINTS = new LinkedHashMap<>();
 
-	/** Which of {@link #SKILL_DATAPOINTS} a rule may command. */
+	/** Which of {@link #SKILL_DATAPOINTS} the user may command (rules write all of them). */
 	public static final List<String> WRITABLE = List.of("hall.light", "stairs.light", "heating.frost",
 		"heating.windowOpen", "blind.shade", "blind.windAlarm", "living.light", "living.dimmer", "kitchen.light", "siren",
 		"yard.light", "entrance.light");

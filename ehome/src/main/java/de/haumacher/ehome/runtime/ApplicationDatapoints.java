@@ -20,7 +20,7 @@ import de.haumacher.ehome.zigbee.ZigbeeBindings;
  * The application datapoints of a project (<code>ehome.runtime:ApplicationDatapoint</code>,
  * haumacher/ehome #59): datapoints of the runtime image that no technology owns (homecontrol
  * <code>spec/runtime-image.md</code> 3.3, <code>virtual</code>), values of the application that rules
- * and the user interface command, and the outputs of schedule entries
+ * write and the user commands where they are writable, and the outputs of schedule entries
  * (<code>spec/schedules.md</code> 5).
  *
  * <p>
@@ -89,7 +89,10 @@ public final class ApplicationDatapoints {
 	}
 
 	/**
-	 * Whether rules, the user interface and the API may command the application datapoint.
+	 * Whether the user (the controller's user interface, its API) may command the application
+	 * datapoint. Rules write every application datapoint, writable or not (homecontrol
+	 * <code>spec/rules.md</code> 7.3, schema 1.6, haumacher/ehome #138): a rule's own output, which the
+	 * user must not change, is not writable.
 	 */
 	public static boolean writable(TLObject datapoint) {
 		return Boolean.TRUE.equals(datapoint.tValueByName("writable"));

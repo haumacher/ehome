@@ -145,7 +145,8 @@ public class TestRuleReferences extends BasicTestCase {
 		List<TLObject> writes = RuleReferences.options(write, RuleReferences.WRITE);
 		assertTrue(writes.toString(), writes.containsAll(List.of(_light, _level, _switch)));
 		assertFalse(writes.contains(_sensor));
-		assertFalse(writes.contains(_flag));
+		// An application datapoint that is not writable: rules write it (haumacher/ehome #138).
+		assertTrue(writes.contains(_flag));
 
 		List<TLObject> reads = RuleReferences.options(read, RuleReferences.READ);
 		for (TLObject datapoint : List.of(_flag, _level, _switch)) {

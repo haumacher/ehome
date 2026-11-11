@@ -44,6 +44,13 @@ which added the rule cases `65-parameter-id-quoted` to
 `71-load-refused-parameter-id-keyword`, the image cases `images/cases/accept-parameter-ids.json` and
 `images/cases/refuse-parameter-id.json` and changed the rule corpus `README.md`; the block fixtures
 did not change.
+Synced again with the schema 1.6 round of haumacher/homecontrol (haumacher/ehome #134, #136, #138, on
+top of `a3f51b988c3dd581278c54fadae0b1813711b3cb`; fb80455), which added the image cases
+`images/cases/accept-function-roles-1-6.json` and `images/cases/refuse-function-roles-1-6.json`, changed
+`images/cases/refuse-rules.json` (the datapoint a rule may not write is a KNX status now: an application
+datapoint is the rules' to write), added the rule cases `72-application-write-not-writable` (with the
+datapoint member `application`) and `73-load-refused-not-writable-status` and changed the rule corpus
+`README.md`; the block fixtures did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

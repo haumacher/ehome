@@ -390,7 +390,7 @@
 						</dynamic-visibility>
 					</annotations>
 				</property>
-				<!-- The datapoint the function is commanded with (light, switch: on/off; dimmer: on/off; scene: the scene number); writable. -->
+				<!-- The datapoint the function is commanded with (light, switch: on/off; dimmer: on/off, its main role; scene: the scene number); writable. -->
 				<reference name="command"
 					kind="forwards"
 					type="ehome.logical:ProjectDatapoint"
@@ -426,7 +426,7 @@
 						</dynamic-visibility>
 					</annotations>
 				</reference>
-				<!-- The datapoint the brightness is set with; writable. -->
+				<!-- The datapoint the brightness is set with; writable. A dimmer needs it or its switching command. -->
 				<reference name="levelCommand"
 					kind="forwards"
 					type="ehome.logical:ProjectDatapoint"
@@ -588,6 +588,42 @@
 						</dynamic-visibility>
 					</annotations>
 				</reference>
+				<!-- The datapoint reporting that the blind is at its upper end position (1 bit: true at the top), where its actuator reports it (haumacher/ehome #136). -->
+				<reference name="atTop"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#blind`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint reporting that the blind is at its lower end position (1 bit: true at the bottom), where its actuator reports it (haumacher/ehome #136). -->
+				<reference name="atBottom"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#blind`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
 				<!-- The datapoint of the measured or reported value. -->
 				<reference name="value"
 					kind="forwards"
@@ -696,8 +732,26 @@
 						</dynamic-visibility>
 					</annotations>
 				</reference>
-				<!-- The datapoint reporting whether the room is heated. -->
+				<!-- The datapoint reporting whether the room is heated: a truth value, or the actuating value in percent (heated while above 0). -->
 				<reference name="heating"
+					kind="forwards"
+					type="ehome.logical:ProjectDatapoint"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> runtimeDatapoints($f)]]></function>
+							</options-by-expression>
+						</options>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[f -> editMode -> if([`ehome.runtime:FunctionKind#climate`].containsElement($f.get(`ehome.runtime:Function#kind`)), null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The datapoint reporting the actuating value of the heating in percent (KNX DPT 5.001), which the controller shows (haumacher/ehome #138). -->
+				<reference name="heatingLevel"
 					kind="forwards"
 					type="ehome.logical:ProjectDatapoint"
 				>
@@ -744,7 +798,8 @@
 				<!--
 					Whether the function is unused (haumacher/ehome #98): its main role has no datapoint, as the
 					proposal makes it for a channel whose main object has no group address; also a function the user
-					made without one. The runtime image leaves it out. Derived from the content, as
+					made without one. A dimmer is unused without its switching command and its level command (#134).
+					The runtime image leaves it out. Derived from the content, as
 					de.haumacher.ehome.runtime.FunctionProposal#unused does in Java.
 				-->
 				<property name="unused"
@@ -755,7 +810,7 @@
 							<query>
 								<expr><![CDATA[f -> {
     kind = $f.get(`ehome.runtime:Function#kind`);
-    main = if($kind == `ehome.runtime:FunctionKind#dimmer`, $f.get(`ehome.runtime:Function#levelCommand`),
+    main = if($kind == `ehome.runtime:FunctionKind#dimmer`, if($f.get(`ehome.runtime:Function#command`) != null, $f.get(`ehome.runtime:Function#command`), $f.get(`ehome.runtime:Function#levelCommand`)),
         if($kind == `ehome.runtime:FunctionKind#blind`, $f.get(`ehome.runtime:Function#move`),
         if($kind == `ehome.runtime:FunctionKind#sensor`, $f.get(`ehome.runtime:Function#value`),
         if($kind == `ehome.runtime:FunctionKind#climate`, $f.get(`ehome.runtime:Function#temperature`),
@@ -974,7 +1029,7 @@
 					mandatory="true"
 					type="DatapointValueType"
 				/>
-				<!-- Whether rules, the user interface and the API may command the value; not for the output of a schedule entry. -->
+				<!-- Whether the user may change the value on the controller (its user interface, its API); rules write every application datapoint, writable or not. Not for the output of a schedule entry. -->
 				<property name="writable"
 					type="tl.core:Boolean"
 				/>

@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -28,6 +29,7 @@ import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.connection.Signatures;
 import de.haumacher.ehome.connection.Signatures.Keys;
+import de.haumacher.ehome.rules.DatapointId;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
@@ -215,6 +217,12 @@ public final class Deployer {
 			// (homecontrol spec/rules.md 2.1, 1.5): nothing is sent.
 			outcome._code = CODE_SCHEMA;
 			outcome._message = text(parameterIdsRefusal(image, controller));
+		} else if (schema16Refusal(image, controller) != null) {
+			// An older firmware refuses a dimmer without its level command, a heating of a number and a
+			// rule writing an application datapoint that is not writable, so the whole image (homecontrol
+			// spec/runtime-image.md 1.6): nothing is sent.
+			outcome._code = CODE_SCHEMA;
+			outcome._message = text(schema16Refusal(image, controller));
 		} else {
 			ControllerStatus.Loaded before = ControllerStatus.read(client);
 			outcome._before = before.text();
@@ -364,6 +372,103 @@ public final class Deployer {
 		}
 		return reads.booleanValue() ? null
 			: I18NConstants.DEPLOY_REFUSED_PARAMETER_IDS_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
+	}
+
+	/** The schema that brings the roles and the rule writes of haumacher/ehome #134, #136, #138. */
+	static final int[] SCHEMA_16 = { 1, 6 };
+
+	/**
+	 * Why the image cannot go to the controller (homecontrol <code>spec/runtime-image.md</code> 3.5
+	 * and section 8, 1.6): an image with a dimmer without its level command (its switching command
+	 * alone), a climate whose heating is a number, or a rule writing an application datapoint that is
+	 * not writable needs a controller that reports schema 1.6 or newer, since an older one refuses the
+	 * whole image. The roles <code>atTop</code>, <code>atBottom</code> and <code>heatingLevel</code> need
+	 * no check: an older firmware ignores them (I5). <code>null</code> for an image without any of the
+	 * three or a controller that reads them.
+	 */
+	static ResKey schema16Refusal(RuntimeImage image, TLObject controller) {
+		String reported = ImageComparison.reportedSchema(controller);
+		if (Boolean.TRUE.equals(reads(reported, SCHEMA_16))) {
+			return null;
+		}
+		return schema16Refusal(image.getJson(), reported, controller.tValueByName("name"));
+	}
+
+	/**
+	 * Why the given image (its JSON document) cannot go to a controller reporting the schema
+	 * (<code>null</code> or empty: none), naming the first function or datapoint that needs schema 1.6;
+	 * <code>null</code> when the image needs no 1.6 or the controller reads it.
+	 */
+	public static ResKey schema16Refusal(Map<String, Object> json, String reported, Object controller) {
+		Boolean reads = reads(reported, SCHEMA_16);
+		if (Boolean.TRUE.equals(reads)) {
+			return null;
+		}
+		String schema = reads == null ? null : reported.trim();
+		Map<String, Map<?, ?>> datapoints = new HashMap<>();
+		if (json.get("datapoints") instanceof List<?> list) {
+			for (Object item : list) {
+				if (item instanceof Map<?, ?> dp && dp.get("id") instanceof String id) {
+					datapoints.put(id, dp);
+				}
+			}
+		}
+		if (json.get("functions") instanceof List<?> functions) {
+			for (Object item : functions) {
+				if (!(item instanceof Map<?, ?> function) || !(function.get("datapoints") instanceof Map<?, ?> roles)) {
+					continue;
+				}
+				Object label = function.get("id");
+				if ("dimmer".equals(function.get("kind")) && !roles.containsKey("levelCommand")) {
+					return schema == null ? I18NConstants.DEPLOY_REFUSED_DIMMER_NO_SCHEMA__CONTROLLER_FUNCTION.fill(controller, label)
+						: I18NConstants.DEPLOY_REFUSED_DIMMER_SCHEMA__CONTROLLER_SCHEMA_FUNCTION.fill(controller, schema, label);
+				}
+				if ("climate".equals(function.get("kind")) && roles.get("heating") instanceof String heating
+					&& datapoints.get(heating) != null && !ValueTypes.BOOLEAN.equals(datapoints.get(heating).get("type"))) {
+					return schema == null ? I18NConstants.DEPLOY_REFUSED_HEATING_NO_SCHEMA__CONTROLLER_FUNCTION.fill(controller, label)
+						: I18NConstants.DEPLOY_REFUSED_HEATING_SCHEMA__CONTROLLER_SCHEMA_FUNCTION.fill(controller, schema, label);
+				}
+			}
+		}
+		String written = ruleWriteOfApplication(json.get("rules"), datapoints);
+		if (written != null) {
+			return schema == null ? I18NConstants.DEPLOY_REFUSED_RULE_WRITE_NO_SCHEMA__CONTROLLER_DATAPOINT.fill(controller,
+				DatapointId.of(written))
+				: I18NConstants.DEPLOY_REFUSED_RULE_WRITE_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT.fill(controller, schema,
+					DatapointId.of(written));
+		}
+		return null;
+	}
+
+	/**
+	 * The first datapoint a <code>write</code> action of the rules writes that is a value of the
+	 * application (<code>virtual</code> or without a technology member) and not writable;
+	 * <code>null</code> for none.
+	 */
+	private static String ruleWriteOfApplication(Object node, Map<String, Map<?, ?>> datapoints) {
+		if (node instanceof Map<?, ?> map) {
+			if ("write".equals(map.get("kind")) && map.get("datapoint") instanceof String name) {
+				Map<?, ?> dp = datapoints.get(name);
+				if (dp != null && !Boolean.TRUE.equals(dp.get("writable"))
+					&& (dp.containsKey("virtual") || (!dp.containsKey("knx") && !dp.containsKey("zigbee")))) {
+					return name;
+				}
+			}
+			for (Object value : map.values()) {
+				String found = ruleWriteOfApplication(value, datapoints);
+				if (found != null) {
+					return found;
+				}
+			}
+		} else if (node instanceof List<?> list) {
+			for (Object value : list) {
+				String found = ruleWriteOfApplication(value, datapoints);
+				if (found != null) {
+					return found;
+				}
+			}
+		}
+		return null;
 	}
 
 	/**

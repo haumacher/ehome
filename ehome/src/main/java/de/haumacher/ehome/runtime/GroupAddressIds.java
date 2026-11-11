@@ -270,7 +270,7 @@ public final class GroupAddressIds {
 		Map<TLObject, List<String>> result = new LinkedHashMap<>();
 		for (TLObject function : FunctionProposal.functions(project)) {
 			String kind = function.tValueByName("kind") instanceof TLClassifier classifier ? classifier.getName() : null;
-			String main = FunctionKinds.mainRole(kind);
+			String main = FunctionKinds.boundMainRole(kind, function::tValueByName);
 			List<String> base = functionParts(function);
 			if (base == null) {
 				continue;

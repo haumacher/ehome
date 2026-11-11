@@ -60,9 +60,11 @@ public final class ImageValidator {
 	 * The minor version of the schema this validator reads (1.2: the adjustable schedule members,
 	 * homecontrol #58; 1.3: the blocks; 1.4: the enumeration press of a button with its
 	 * <code>presses</code>, the Zigbee remotes, haumacher/ehome #70; 1.5: the parameter ids of the rule
-	 * id characters, haumacher/ehome #110).
+	 * id characters, haumacher/ehome #110; 1.6: the roles atTop, atBottom and heatingLevel, a heating of a
+	 * number, a dimmer with its switching command alone, rules writing an application datapoint that is
+	 * not writable, haumacher/ehome #134, #136, #138).
 	 */
-	public static final int SCHEMA_MINOR = 5;
+	public static final int SCHEMA_MINOR = 6;
 
 	/** The largest image in bytes. */
 	public static final int MAX_IMAGE_BYTES = 262144;
@@ -199,6 +201,13 @@ public final class ImageValidator {
 
 	/** Per datapoint: what owns it (the KNX adapter, ...), null for nothing. */
 	private final List<String> _owners = new ArrayList<>();
+
+	/**
+	 * The indexes of the values of the application: datapoints declared <code>virtual</code> or without a
+	 * technology member, which rules write also when they are not writable (homecontrol
+	 * <code>spec/runtime-image.md</code> 3.3, schema 1.6, haumacher/ehome #138).
+	 */
+	private final Set<Integer> _application = new HashSet<>();
 
 	/** The valid Zigbee bindings, in the order of their datapoints. */
 	private final List<ZigbeeDraft> _zigbee = new ArrayList<>();
@@ -413,6 +422,12 @@ public final class ImageValidator {
 			public boolean writable(String name) {
 				int index = datapointIndex(name);
 				return index >= 0 && _writable.get(index).booleanValue();
+			}
+
+			@Override
+			public boolean ruleWritable(String name) {
+				int index = datapointIndex(name);
+				return index >= 0 && (_writable.get(index).booleanValue() || _application.contains(Integer.valueOf(index)));
 			}
 
 			@Override
@@ -1016,6 +1031,10 @@ public final class ImageValidator {
 			enter(".virtual");
 			object(dp.get("virtual"), "virtual");
 			leave();
+		}
+		if (hasVirtual || (!dp.containsKey("zigbee") && !dp.containsKey("knx"))) {
+			// A value of the application: rules write it also when it is not writable (1.6).
+			_application.add(Integer.valueOf(index));
 		}
 		if (dp.containsKey("zigbee")) {
 			enter(".zigbee");
@@ -1707,6 +1726,9 @@ public final class ImageValidator {
 			if (types == BOOL) {
 				return "boolean";
 			}
+			if (types == BOOL_OR_NUMBER) {
+				return "boolean or a number (unsigned, signed or real)";
+			}
 			if (types == NUMBER) {
 				return "a number (unsigned, signed or real)";
 			}
@@ -1721,6 +1743,10 @@ public final class ImageValidator {
 	}
 
 	private static final List<String> BOOL = List.of(ValueTypes.BOOLEAN);
+
+	/** A climate's heating (1.6): a boolean, or a number, the actuating value, heating while above 0. */
+	private static final List<String> BOOL_OR_NUMBER = List.of(ValueTypes.BOOLEAN, ValueTypes.UNSIGNED, ValueTypes.SIGNED,
+		ValueTypes.REAL, ValueTypes.ENUMERATION);
 
 	private static final List<String> NUMBER = List.of(ValueTypes.UNSIGNED, ValueTypes.SIGNED, ValueTypes.REAL,
 		ValueTypes.ENUMERATION);
@@ -1745,17 +1771,20 @@ public final class ImageValidator {
 
 	private static final Map<String, List<Role>> FUNCTION_KINDS = Map.of(
 		"light", List.of(new Role("command", BOOL, true, true), new Role("state", BOOL, false, false)),
-		"dimmer", List.of(new Role("levelCommand", NUMBER, true, true), new Role("level", NUMBER, false, false),
-			new Role("command", BOOL, true, false), new Role("state", BOOL, false, false),
+		// A dimmer needs command or levelCommand, at least one (1.6), checked after its roles.
+		"dimmer", List.of(new Role("command", BOOL, true, false), new Role("state", BOOL, false, false),
+			new Role("levelCommand", NUMBER, true, false), new Role("level", NUMBER, false, false),
 			new Role("step", CONTROLLED, true, false)),
 		"blind", List.of(new Role("move", BOOL, true, true), new Role("stop", BOOL, true, false),
 			new Role("position", NUMBER, false, false), new Role("positionCommand", NUMBER, true, false),
-			new Role("slat", NUMBER, false, false), new Role("slatCommand", NUMBER, true, false)),
+			new Role("slat", NUMBER, false, false), new Role("slatCommand", NUMBER, true, false),
+			new Role("atTop", BOOL, false, false), new Role("atBottom", BOOL, false, false)),
 		"switch", List.of(new Role("command", BOOL, true, true), new Role("state", BOOL, false, false)),
 		"sensor", List.of(new Role("value", null, false, true)),
 		"climate", List.of(new Role("temperature", NUMBER, false, true), new Role("setpoint", NUMBER, false, false),
 			new Role("setpointCommand", NUMBER, true, false), new Role("mode", ENUM_OR_NUMBER, false, false),
-			new Role("modeCommand", ENUM_OR_NUMBER, true, false), new Role("heating", BOOL, false, false)),
+			new Role("modeCommand", ENUM_OR_NUMBER, true, false), new Role("heating", BOOL_OR_NUMBER, false, false),
+			new Role("heatingLevel", NUMBER, false, false)),
 		"scene", List.of(new Role("command", List.of(ValueTypes.UNSIGNED, ValueTypes.SIGNED, ValueTypes.REAL,
 			ValueTypes.ENUMERATION, ValueTypes.CONTROLLED), true, true)),
 		"button", List.of(new Role("press", PRESS, false, true),
@@ -1903,6 +1932,10 @@ public final class ImageValidator {
 					}
 				}
 				leave();
+			}
+			if ("dimmer".equals(kind) && !refs.containsKey("command") && !refs.containsKey("levelCommand")) {
+				// Its switching command is its main role; an image of 1.5 had its level command (1.6).
+				refuse("a dimmer needs the role command or levelCommand", I18NConstants.IMAGE_DIMMER_NEEDS_COMMAND);
 			}
 		} finally {
 			leave();

@@ -243,7 +243,8 @@ public class I18NConstants extends I18NConstantsBase {
 	/**
 	 * @en The datapoint "{0}" is not writable. A group address is writable when a connected object takes values from it (flag
 	 *     W; an object that also sends there needs the flag U or R as well), or by its setting
-	 *     "Writable (setting)"; an application datapoint by its setting "Writable".
+	 *     "Writable (setting)"; an application datapoint bound to a Zigbee device by its setting "Writable". Rules
+	 *     write every other application datapoint, writable or not.
 	 */
 	public static ResKey1 RULE_NOT_WRITABLE__NAME;
 

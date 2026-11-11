@@ -159,12 +159,14 @@ public class TestApplicationDatapoints extends BasicTestCase {
 			entryForm.set("output", morning);
 			assertEquals(List.of(), entryForm.warnings("output"));
 
-			// A rule writing to the schedule's output, which is not writable.
+			// A rule writing to an application datapoint that is not writable: rules write every
+			// application datapoint, writable is the user's (haumacher/ehome #138, homecontrol spec/rules.md
+			// 7.3; the entry here has no time, so the image has no output of a schedule entry, which a rule
+			// may not write, corpus case 39).
 			RuleForm writeForm = new RuleForm(write);
 			assertEquals(List.of(), writeForm.warnings("datapoint"));
 			writeForm.set("datapoint", morning);
-			assertEquals(1, writeForm.warnings("datapoint").size());
-			assertTrue(writeForm.warnings("datapoint").get(0), writeForm.warnings("datapoint").get(0).contains("is not writable"));
+			assertEquals(List.of(), writeForm.warnings("datapoint"));
 
 			// The id at the field.
 			RuleForm idForm = new RuleForm(counter);

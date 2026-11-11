@@ -32,6 +32,8 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.rules.DatapointId;
+import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.ControllerStatus;
 import de.haumacher.ehome.runtime.Deployer;
@@ -342,6 +344,69 @@ public class TestDeployment extends BasicTestCase {
 	}
 
 	/**
+	 * An image with a rule writing an application datapoint the user may not change (haumacher/ehome
+	 * #138, homecontrol spec/rules.md 7.3) goes only to a controller that reads schema 1.6: refused,
+	 * recorded with its reason naming the datapoint and not sent, for a controller reporting 1.5 and for
+	 * one reporting no schema; accepted for 1.6. With the datapoint writable the image goes to 1.5 as
+	 * before.
+	 */
+	public void testRuleWriteOfApplicationNeedsSchema16() throws Exception {
+		TLObject project = TestRuleAuthoring.createProject();
+		List<TLObject> controllers = new ArrayList<>();
+		try {
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				new RuleImport().importImage(project, """
+					{"datapoints": [{"id": "valve", "type": "real", "writable": true, "virtual": {}},
+						{"id": "heats", "type": "boolean", "virtual": {}}],
+					"rules": [{"id": "mirror", "name": "Mirror", "reactions": [{"triggers": [{"kind": "datapoint",
+						"datapoint": "valve"}], "actions": [{"kind": "write", "datapoint": "heats", "value": {"kind": "binary",
+						"op": ">", "left": {"kind": "datapoint", "name": "valve"}, "right": {"kind": "literal", "type": "real",
+						"value": 0.0}}}]}]}]}
+					""");
+				tx.commit();
+			}
+			TLObject heats = ApplicationDatapoints.of(project).stream()
+				.filter(d -> "heats".equals(ApplicationDatapoints.id(d))).findFirst().orElseThrow();
+			assertFalse(ApplicationDatapoints.writable(heats));
+			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
+			assertTrue(image.validate().toString(), image.validate().isValid());
+
+			TLObject controller = controller("Fake 1.5", _fake.getPort(), TOKEN);
+			controllers.add(controller);
+			update(project, "controller", controller);
+
+			_fake.setSchema("1.5");
+			int puts = _fake.getPuts();
+			TLObject refused = Deployer.deploy(project, NOW);
+			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED_RULE_WRITE_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT.fill("Fake 1.5",
+				"1.5", DatapointId.of("heats"))), refused.tValueByName("message"));
+			assertEquals("Nothing is sent.", puts, _fake.getPuts());
+
+			_fake.setSchema(null);
+			refused = Deployer.deploy(project, NOW);
+			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED_RULE_WRITE_NO_SCHEMA__CONTROLLER_DATAPOINT.fill("Fake 1.5",
+				DatapointId.of("heats"))), refused.tValueByName("message"));
+			assertEquals(puts, _fake.getPuts());
+
+			_fake.setSchema("1.6");
+			assertAccepted(Deployer.deploy(project, NOW), 1);
+			assertEquals(puts + 1, _fake.getPuts());
+
+			// Writable for the user as well: the image goes to a controller reading 1.5 as before.
+			update(heats, "writable", Boolean.TRUE);
+			_fake.setSchema("1.5");
+			assertAccepted(Deployer.deploy(project, NOW), 2);
+			assertEquals(puts + 2, _fake.getPuts());
+		} finally {
+			_fake.setSchema("1.5");
+			SharedData.deleteProjects(List.of(project));
+			SharedData.deleteProjects(controllers);
+		}
+	}
+
+	/**
 	 * An image with a rule parameter whose id is no identifier (<code>max-helligkeit</code>,
 	 * haumacher/ehome #110, homecontrol spec/rules.md 2.1) goes only to a controller that reads schema
 	 * 1.5: refused, recorded with its reason and not sent, for a controller reporting 1.4 and for one
@@ -366,7 +431,7 @@ public class TestDeployment extends BasicTestCase {
 			assertEquals("max-helligkeit", parameter.tValueByName("identifier"));
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 			assertTrue(image.validate().toString(), image.validate().isValid());
-			assertEquals("1.5", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+			assertEquals("1.6", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
 
 			TLObject controller = controller("Fake 1.4", _fake.getPort(), TOKEN);
 			controllers.add(controller);

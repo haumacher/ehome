@@ -74,7 +74,10 @@ public class RuleTools {
 		+ " {\"kind\": \"parameter\", \"parameter\": id}, {\"kind\": \"silence\", \"datapoint\", \"after\"}."
 		+ " Actions: write {datapoint, value, onlyOnChange?}, startTimer|restartTimer {timer, duration?},"
 		+ " cancelTimer {timer}, setParameter {parameter, value}, read {datapoint}, log {level, message}."
-		+ " An application datapoint: {\"id\", \"label\", \"type\", \"unit\"?, \"writable\"?, \"persist\"?}."
+		+ " An application datapoint: {\"id\", \"label\", \"type\", \"unit\"?, \"writable\"?, \"persist\"?};"
+		+ " writable means the user may change it on the controller; rules write every application datapoint,"
+		+ " writable or not (a rule's own output stays not writable), but never a group address that is not"
+		+ " writable (a status)."
 		+ " A schedule entry: {\"id\", \"label\", \"kind\": weekly|yearly|dates|astro|interval|once, ...,"
 		+ " \"days\"?: [1..7], \"output\"?}. Datapoints are named by their ids in the image: a group address"
 		+ " by its identifier where it has one (kueche.licht, in an expression @kueche.licht), else as \"1/2/3\""
@@ -87,7 +90,8 @@ public class RuleTools {
 		+ " name, whether it is enabled and one line per reaction in the notation of the rule language,"
 		+ " datapoints named as Name (id)), its schedule entries, and the datapoints rules may name (group"
 		+ " addresses by their identifier, else as \"1/2/3\", application datapoints, rule parameters \"rule/<rule>/<parameter>\","
-		+ " adjustable schedule times) with label, value type and whether they are writable. Read it before you"
+		+ " adjustable schedule times) with label, value type and whether they are writable (by the user; rules"
+		+ " also write the application datapoints that are not). Read it before you"
 		+ " write or change a rule: rules name datapoints by these ids.",
 		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)
 	public ToolResult automation(

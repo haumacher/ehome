@@ -148,11 +148,12 @@ public class FunctionTools {
 		+ " controller's user interface), as the functions view creates one and its form fills it: a kind,"
 		+ " a name, a room, and its roles bound to datapoints by their ids in the image (the identifier of a group"
 		+ " address or its address \"1/2/3\", the id of an application datapoint). Roles by kind: light command,"
-		+ " state; dimmer"
-		+ " levelCommand, level, command, state, step; blind move, stop, position, positionCommand, slat,"
-		+ " slatCommand; switch command, state; sensor value; climate temperature, setpoint, setpointCommand,"
-		+ " mode, modeCommand, heating; scene command (with 'scene' 1..64); button press, state. The first role"
-		+ " is the main one. Prefer proposeFunctions where the devices suggest the function. The answer names"
+		+ " state; dimmer command, state, levelCommand, level, step (it needs command or levelCommand); blind move,"
+		+ " stop, position, positionCommand, slat, slatCommand, atTop, atBottom (1-bit end position reports);"
+		+ " switch command, state; sensor value; climate temperature, setpoint, setpointCommand, mode, modeCommand,"
+		+ " heating (a truth value or the actuating value in percent), heatingLevel (the actuating value in"
+		+ " percent); scene command (with 'scene' 1..64); button press, state. The first role is the main one."
+		+ " Prefer proposeFunctions where the devices suggest the function. The answer names"
 		+ " what the runtime image would refuse of the function. " + LogicSupport.REFUSALS,
 		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
 	public ToolResult createFunction(ToolContext context,
