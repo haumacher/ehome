@@ -39,11 +39,11 @@ public class DeviceFunctions extends GenericMethod {
 	 * The functions, named as they are registered.
 	 */
 	public enum Function {
-		/** <code>deviceValue(device, view)</code>: {@link DeviceSettings#value(TLObject, ParameterView)}. */
+		/** <code>deviceValue(device, view)</code>: {@link DeviceSettings#effectiveValue(TLObject, ParameterView)}. */
 		deviceValue(2, true),
 		/**
 		 * <code>deviceValueHolder(device, view)</code>:
-		 * {@link DeviceConfiguration#valueHolder(TLObject, ParameterView)}.
+		 * {@link DeviceSettings#effectiveHolder(TLObject, ParameterView)}.
 		 */
 		deviceValueHolder(2, true),
 		/** <code>deviceSetting(device, view)</code>: {@link DeviceSettings#setting(TLObject, ParameterView)}. */
@@ -153,10 +153,9 @@ public class DeviceFunctions extends GenericMethod {
 		switch (_function) {
 			case deviceValue:
 				// A number is a double in TL-Script.
-				return arguments[1] instanceof ParameterView view ? toNumber(DeviceSettings.value(device, view)) : null;
+				return arguments[1] instanceof ParameterView view ? toNumber(DeviceSettings.effectiveValue(device, view)) : null;
 			case deviceValueHolder:
-				return arguments[1] instanceof ParameterView view ? DeviceConfiguration.valueHolder(device, view)
-					: null;
+				return arguments[1] instanceof ParameterView view ? DeviceSettings.effectiveHolder(device, view) : null;
 			case deviceSetting:
 				return arguments[1] instanceof ParameterView view ? DeviceSettings.setting(device, view) : null;
 			case deviceEditVeto:

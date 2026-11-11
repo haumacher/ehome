@@ -311,9 +311,17 @@ final class ModuleScan {
 	 * none.
 	 */
 	static Element dynamicOf(Document document, String program) {
+		Element element = program(document, program);
+		return element == null ? null : child(element, DYNAMIC);
+	}
+
+	/**
+	 * The element of the given program in a parsed program file, <code>null</code> if it has none.
+	 */
+	static Element program(Document document, String program) {
 		for (Element element : descendants(document.getDocumentElement(), "ApplicationProgram")) {
 			if (program.equals(element.getAttribute(ID))) {
-				return child(element, DYNAMIC);
+				return element;
 			}
 		}
 		return null;

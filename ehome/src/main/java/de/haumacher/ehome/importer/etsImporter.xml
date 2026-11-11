@@ -1719,6 +1719,10 @@
 																		<tag name="Rename">
 																			<ref handler-id="rename"/>
 																		</tag>
+																		<!-- A value the program gives a parameter reference while the case containing it is taken (haumacher/ehome #142). -->
+																		<tag name="Assign">
+																			<ref handler-id="assign"/>
+																		</tag>
 																		<tag name="ChannelIndependentBlock">
 																			<object model-type="ehome.operational:ChannelIndependent">
 																				<linking>
@@ -1820,7 +1824,21 @@
 																					</tag>
 																					<!-- Not modeled (gap 7, doc/knx/schema-coverage.md): skipped without a warning. -->
 																					<tag name="ParameterSeparator"><skip-deep/></tag>
-																					<tag name="Assign"><skip-deep/></tag>
+																					<!-- A value the program gives a parameter reference while this case is taken (haumacher/ehome #142). -->
+																					<tag name="Assign">
+																						<object model-type="ehome.operational:Assign" id="assign">
+																							<linking>
+																								<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																							</linking>
+
+																							<reference name="parameter" id-attribute="TargetParamRefRef"/>
+																							<reference name="source" id-attribute="SourceParamRefRef"/>
+																							<!-- The constant, typed by the target. -->
+																							<typed-value xml-attribute="Value"/>
+
+																							<dispatch/>
+																						</object>
+																					</tag>
 																					<!-- A placement of a module and a repeated part (haumacher/ehome #119). -->
 																					<tag name="Module"><ref handler-id="module-placement"/></tag>
 																					<tag name="Repeat"><ref handler-id="repeat"/></tag>
@@ -1860,6 +1878,8 @@
 															<assign argument-var="this" property="calculationsRead" value="p -> true"/>
 															<!-- Its validations are read (also where it has none): an import of its file does not complete it (haumacher/ehome #124). -->
 															<assign argument-var="this" property="validationsRead" value="p -> true"/>
+															<!-- Its assignments are read (also where it has none): an import of its file does not complete it (haumacher/ehome #142). -->
+															<assign argument-var="this" property="assignsRead" value="p -> true"/>
 															<!-- The program is read: the languages of its texts are recorded, the held-back warnings about the values of its parameters decided. -->
 															<program-imported/>
 														</object>

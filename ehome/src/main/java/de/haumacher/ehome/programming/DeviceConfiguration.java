@@ -25,10 +25,12 @@ import de.haumacher.ehome.model.operational.ChannelIndependent;
 import de.haumacher.ehome.model.operational.ConfigFragment;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Allocator;
+import de.haumacher.ehome.model.operational.Assign;
 import de.haumacher.ehome.model.operational.ModuleArgument;
 import de.haumacher.ehome.model.operational.ModuleDefinition;
 import de.haumacher.ehome.model.operational.ModulePlacement;
 import de.haumacher.ehome.model.operational.Option;
+import de.haumacher.ehome.model.operational.ParameterType;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterGroup;
 import de.haumacher.ehome.model.operational.ParameterView;
@@ -84,8 +86,41 @@ import de.haumacher.ehome.modules.ModuleParts;
  * walked the same way. {@link #getInstances()} gives the instances, {@link ModuleInstances} stores
  * them.
  * </p>
+ *
+ * <p>
+ * Cases (haumacher/ehome #142): every case of a switch whose pattern matches the value of its input
+ * is taken, not only the first (ETS: all <code>when</code> of a <code>choose</code> that match; the
+ * MDT Taster Light <code>M-0083_A-0094-15-3CB3</code> shows the page of key 1 under
+ * <code>when test="2 3"</code> and the page of key 2 under <code>when test="2"</code> of the same
+ * switch); the default case only if none matches.
+ * </p>
+ *
+ * <p>
+ * Assignments (haumacher/ehome #142): an {@link Assign} in a case taken gives its target placement the
+ * effective value of its source placement, or its constant. The target's effective value is the
+ * assigned one ({@link #value(ParameterView)}, {@link #effectiveHolder(ParameterView)}) for every
+ * switch and repeat on it, and the memory of its parameter holds it ({@link #encode(ParameterView)});
+ * the device's setting of the target, if any, does not count while it is assigned. As an assignment
+ * may open or close cases with further assignments and switches (also before it in the document), the
+ * structure is walked in the order of the document, each assignment taking effect where the walk
+ * meets it, and walked again (starting with the assignments the walk before found) until every value
+ * the walk read is the one it ends with (a fixpoint, at most {@value #MAX_PASSES} walks; assignments that
+ * keep switching each other off stop there with the last walk). Of several assignments in effect to the
+ * same placement, the last in the order of the structure counts.
+ * </p>
  */
 public class DeviceConfiguration {
+
+	/** The most walks of the structure until the assignments in effect settle. */
+	public static final int MAX_PASSES = 16;
+
+	/**
+	 * An assignment in effect: the target placement (in its module instance), the source placement or
+	 * the assignment holding the constant, and the value in ETS notation it gives the target.
+	 */
+	private record Assignment(ParameterView target, ParameterView source, Assign assign, String value) {
+		// Value.
+	}
 
 	/**
 	 * The parts of a program's structure a {@link DeviceConfiguration} reads, each read once: the
@@ -284,6 +319,27 @@ public class DeviceConfiguration {
 	private final Map<Object, ResKey> _renames = new HashMap<>();
 
 	/**
+	 * The assignments in effect, by {@link #key(ParameterView)} of their target: during a walk those of
+	 * the walk before, updated by each assignment the walk meets.
+	 */
+	private Map<Object, Assignment> _assigned = new LinkedHashMap<>();
+
+	/** Whether the structure is being walked: {@link #value(ParameterView)} records what it gives. */
+	private boolean _walking;
+
+	/** The placements whose values the current walk read, with the values read. */
+	private final Map<Object, Object[]> _reads = new HashMap<>();
+
+	/** Whether the current walk read different values of the same placement. */
+	private boolean _conflict;
+
+	/** The assignments in effect the current walk found, by {@link #key(ParameterView)} of their target. */
+	private Map<Object, Assignment> _found = new LinkedHashMap<>();
+
+	/** The assignments in effect by the parameter of their target (the memory they give a value). */
+	private final Map<Parameter, Assignment> _assignedParameters = new HashMap<>();
+
+	/**
 	 * Creates the {@link DeviceConfiguration} of the given device.
 	 */
 	public DeviceConfiguration(TLObject device) {
@@ -309,8 +365,72 @@ public class DeviceConfiguration {
 			}
 		}
 		if (_program != null) {
-			walk(_program, device);
+			boolean settled = false;
+			for (int pass = 1;; pass++) {
+				_walking = true;
+				walk(_program, device);
+				_walking = false;
+				settled = settled();
+				if (settled || pass == MAX_PASSES) {
+					break;
+				}
+				_assigned = new LinkedHashMap<>(_found);
+				_found = new LinkedHashMap<>();
+				_reads.clear();
+				_conflict = false;
+				reset();
+			}
+			// The assignments in effect in the last walk.
+			_assigned = _found;
+			for (Assignment assignment : _assigned.values()) {
+				Parameter parameter = _structure.parameter(assignment.target());
+				if (parameter != null) {
+					_assignedParameters.put(parameter, assignment);
+					// The memory of an assigned parameter is written, also where no placement of it is shown.
+					_activeViews.putIfAbsent(parameter, assignment.target());
+				}
+			}
 		}
+	}
+
+	/**
+	 * Whether the walk just done read every placement with the value it has with the assignments the
+	 * walk found in effect: then walking again changes nothing. A program without assignments, or
+	 * whose assignments precede every switch on their targets, settles with one walk.
+	 */
+	private boolean settled() {
+		if (_conflict) {
+			return false;
+		}
+		for (Map.Entry<Object, Object[]> entry : _reads.entrySet()) {
+			Assignment assignment = _found.get(entry.getKey());
+			Object[] read = entry.getValue();
+			String effective = assignment != null ? assignment.value() : stored((ParameterView) read[0]);
+			if (!java.util.Objects.equals(read[1], effective)) {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Forgets what a walk computed, for walking again with other assignments.
+	 */
+	private void reset() {
+		_instances.clear();
+		_instanceIds.clear();
+		_moduleProblems.clear();
+		_repeatPath = new ArrayList<>();
+		_allocators.clear();
+		_activeViews.clear();
+		_activeInterfaces.clear();
+		_selectedCases.clear();
+		_switches.clear();
+		_pages.clear();
+		_items.clear();
+		_inputs.clear();
+		_parents.clear();
+		_renames.clear();
 	}
 
 	/**
@@ -409,13 +529,69 @@ public class DeviceConfiguration {
 	 * The effective value of the given placement in ETS notation, <code>null</code> if it has none.
 	 */
 	public String value(ParameterView view) {
+		Object key = key(view);
+		Assignment assignment = _assigned.get(key);
+		String result = assignment != null ? assignment.value() : stored(view);
+		if (_walking) {
+			Object[] read = _reads.putIfAbsent(key, new Object[] { view, result });
+			if (read != null && !java.util.Objects.equals(read[1], result)) {
+				_conflict = true;
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The value of the given placement the device holds (its setting, else the default) in ETS
+	 * notation, regardless of assignments.
+	 */
+	private String stored(ParameterView view) {
 		TLObject setting = _settings.get(key(view));
 		return setting != null ? ParameterValues.encode(setting) : _structure.defaultValue(view);
 	}
 
 	/**
+	 * Whether an assignment in effect gives the given placement its value (haumacher/ehome #142): the
+	 * value is then derived, not set by a person.
+	 */
+	public boolean isAssigned(ParameterView view) {
+		return _assigned.containsKey(key(view));
+	}
+
+	/**
+	 * The placement whose value an assignment in effect gives the given placement, <code>null</code> if
+	 * it is not assigned or assigned a constant.
+	 */
+	public ParameterView getAssignmentSource(ParameterView view) {
+		Assignment assignment = _assigned.get(key(view));
+		return assignment == null ? null : assignment.source();
+	}
+
+	/**
+	 * The object holding the effective value of the given placement: for a placement an assignment in
+	 * effect gives its value, the holder of the source's effective value or the assignment holding the
+	 * constant; otherwise {@link #valueHolder(ParameterView)}.
+	 */
+	public TLObject effectiveHolder(ParameterView view) {
+		ParameterView current = view;
+		for (int depth = 0; depth < MAX_PASSES; depth++) {
+			Assignment assignment = _assigned.get(key(current));
+			if (assignment == null) {
+				break;
+			}
+			if (assignment.source() == null) {
+				return assignment.assign();
+			}
+			current = assignment.source();
+		}
+		return valueHolder(current);
+	}
+
+	/**
 	 * The parameters in effect, each with the first placement in effect, in the order of the
-	 * structure.
+	 * structure; then the parameters only an assignment in effect gives a value (haumacher/ehome #142),
+	 * each with the target of the assignment. Their memory is written in a download
+	 * ({@link #encode(ParameterView)}).
 	 */
 	public Map<Parameter, ParameterView> getActiveViews() {
 		return Collections.unmodifiableMap(_activeViews);
@@ -437,6 +613,23 @@ public class DeviceConfiguration {
 				if (rename.getTarget() != null) {
 					_renames.put(ModuleParts.wrap(rename.getTarget(), instance),
 						ModuleParts.substitute(rename.getText(), instance));
+				}
+				continue;
+			}
+			if (option instanceof Assign assign) {
+				// A value the program gives a placement while this part is in effect (haumacher/ehome #142).
+				InstanceInfo instance = ModuleParts.instance(fragment);
+				if (assign.getParameter() != null) {
+					ParameterView target = (ParameterView) ModuleParts.wrap(assign.getParameter(), instance);
+					ParameterView source =
+						assign.getSource() == null ? null : (ParameterView) ModuleParts.wrap(assign.getSource(), instance);
+					String assigned = source != null ? value(source) : ParameterValues.encode(assign);
+					Object key = key(target);
+					// The last assignment in the order of the structure counts; it takes effect at once.
+					Assignment assignment = new Assignment(target, source, assign, assigned);
+					_found.remove(key);
+					_found.put(key, assignment);
+					_assigned.put(key, assignment);
 				}
 				continue;
 			}
@@ -477,8 +670,7 @@ public class DeviceConfiguration {
 			}
 		} else if (option instanceof Switch choice) {
 			_switches.add(choice);
-			Case selected = select(choice);
-			if (selected != null) {
+			for (Case selected : selectAll(choice)) {
 				_selectedCases.add(selected);
 				_inputs.add(input(choice));
 				walk(selected, page);
@@ -722,6 +914,12 @@ public class DeviceConfiguration {
 	 *         If the value cannot be encoded.
 	 */
 	public ParameterEncoding.Bits encode(ParameterView view) {
+		Assignment assignment = _assignedParameters.get(_structure.parameter(view));
+		if (assignment != null) {
+			// The memory of an assigned parameter holds the assigned value.
+			ParameterType type = _structure.parameter(assignment.target()).getType();
+			return ParameterEncoding.encode(type, assignment.value(), _program);
+		}
 		TLObject setting = _settings.get(key(view));
 		if (setting != null) {
 			return ParameterEncoding.encode(_structure.parameter(view).getType(), setting, _program);
@@ -912,23 +1110,62 @@ public class DeviceConfiguration {
 	}
 
 	/**
-	 * The case of the given switch that is in effect: the first whose pattern matches the effective
-	 * value of the switch's input, else the default case; <code>null</code> if none.
+	 * The first case of the given switch that is in effect, see {@link #selectAll(Switch)};
+	 * <code>null</code> if none.
 	 */
 	public Case select(Switch choice) {
+		List<Case> selected = selectAll(choice);
+		return selected.isEmpty() ? null : selected.get(0);
+	}
+
+	/**
+	 * The cases of the given switch that are in effect, in their order: every case whose pattern matches
+	 * the effective value of the switch's input, else the (first) default case; empty if none.
+	 */
+	public List<Case> selectAll(Switch choice) {
 		Structure.SwitchInfo info = _structure.info(choice);
 		String value = info.input() == null ? null : value(info.input());
+		List<Case> result = new ArrayList<>(1);
 		Case fallback = null;
 		for (int n = 0, cnt = info.alternatives().size(); n < cnt; n++) {
 			String pattern = info.patterns().get(n);
 			if (pattern != null && matches(pattern, value)) {
-				return info.alternatives().get(n);
-			}
-			if (info.defaults().get(n).booleanValue() && fallback == null) {
+				result.add(info.alternatives().get(n));
+			} else if (info.defaults().get(n).booleanValue() && fallback == null) {
 				fallback = info.alternatives().get(n);
 			}
 		}
-		return fallback;
+		if (result.isEmpty() && fallback != null) {
+			result.add(fallback);
+		}
+		return result;
+	}
+
+	/**
+	 * Whether the given case of the given switch is in effect, see {@link #selectAll(Switch)}.
+	 */
+	public boolean isSelected(Switch choice, Case alternative) {
+		return selectAll(choice).contains(alternative);
+	}
+
+	/**
+	 * The cases of the given switch a value of its input in ETS notation takes, see
+	 * {@link #selectAll(Switch)}.
+	 */
+	public static List<Case> casesFor(Switch choice, String value) {
+		List<Case> result = new ArrayList<>(1);
+		Case fallback = null;
+		for (Case alternative : choice.getAlternatives()) {
+			if (alternative.getPattern() != null && matches(alternative.getPattern(), value)) {
+				result.add(alternative);
+			} else if (alternative.getIsDefault() && fallback == null) {
+				fallback = alternative;
+			}
+		}
+		if (result.isEmpty() && fallback != null) {
+			result.add(fallback);
+		}
+		return result;
 	}
 
 	/**

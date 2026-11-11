@@ -914,10 +914,11 @@ public class ReadBack {
 				ParameterView input = choice.getInput();
 				if (input == null || input.getParameter() == null || input.getParameter().getAddress() != null
 					|| !(input.getParameter().getType() instanceof EnumerationType type)
-					|| !switches().contains(choice)) {
+					|| !switches().contains(choice) || configuration().isAssigned(input)) {
+					// An input the program assigns (haumacher/ehome #142) follows its source.
 					continue;
 				}
-				Case selected = configuration().select(choice);
+				List<Case> selected = configuration().selectAll(choice);
 				Map<ConfigFragment, Boolean> evidence = new HashMap<>();
 				Object current = DeviceSettings.value(_device, input);
 				Map<ParameterView, Object> before = snapshot();
@@ -927,10 +928,9 @@ public class ReadBack {
 					if (entry == current) {
 						continue;
 					}
-					Case target = caseFor(choice, Integer.toString(entry.getValue()));
-					if (target == selected
-						|| !(target != null && hasEvidence(target, best, evidence)
-							|| selected != null && hasEvidence(selected, best, evidence))) {
+					List<Case> target = cases(choice, Integer.toString(entry.getValue()));
+					if (target.equals(selected)
+						|| !(hasEvidence(target, best, evidence) || hasEvidence(selected, best, evidence))) {
 						continue;
 					}
 					List<String> nested = new ArrayList<>();
@@ -1159,13 +1159,13 @@ public class ReadBack {
 					return false;
 				}
 				String current = ParameterValues.encode(DeviceConfiguration.valueHolder(_device, input));
-				if (caseFor(step.choice(), current) != step.alternative()) {
+				if (!cases(step.choice(), current).contains(step.alternative())) {
 					set(input, entry, moves);
 				}
 			}
 			decode();
 			for (Step step : path) {
-				if (configuration().select(step.choice()) != step.alternative()) {
+				if (!configuration().isSelected(step.choice(), step.alternative())) {
 					return false;
 				}
 			}
@@ -1198,7 +1198,7 @@ public class ReadBack {
 		private static EnumerationValue entry(Step step) {
 			EnumerationType type = (EnumerationType) step.choice().getInput().getParameter().getType();
 			for (EnumerationValue entry : type.getValues()) {
-				if (caseFor(step.choice(), Integer.toString(entry.getValue())) == step.alternative()) {
+				if (cases(step.choice(), Integer.toString(entry.getValue())).contains(step.alternative())) {
 					return entry;
 				}
 			}
@@ -1212,7 +1212,7 @@ public class ReadBack {
 		private boolean unblock(Interface placed, List<String> moves) {
 			DeviceConfiguration configuration = configuration();
 			for (List<Step> path : paths().getOrDefault(placed, List.of())) {
-				if (!path.stream().allMatch(step -> configuration.select(step.choice()) == step.alternative())) {
+				if (!path.stream().allMatch(step -> configuration.isSelected(step.choice(), step.alternative()))) {
 					continue;
 				}
 				for (int n = path.size() - 1; n >= 0; n--) {
@@ -1223,8 +1223,7 @@ public class ReadBack {
 						continue;
 					}
 					for (EnumerationValue entry : type.getValues()) {
-						Case target = caseFor(step.choice(), Integer.toString(entry.getValue()));
-						if (target != step.alternative()) {
+						if (!cases(step.choice(), Integer.toString(entry.getValue())).contains(step.alternative())) {
 							set(input, entry, moves);
 							return true;
 						}
@@ -1282,7 +1281,7 @@ public class ReadBack {
 					boolean withoutMemory = input != null && input.getParameter() != null
 						&& input.getParameter().getAddress() == null
 						&& input.getParameter().getType() instanceof EnumerationType;
-					if (!withoutMemory && configuration.select(step.choice()) != step.alternative()) {
+					if (!withoutMemory && !configuration.isSelected(step.choice(), step.alternative())) {
 						possible = false;
 						break;
 					}
@@ -1315,19 +1314,23 @@ public class ReadBack {
 		}
 
 		/**
-		 * The case of a switch the given value selects.
+		 * The cases of a switch the given value selects (every case matching it, haumacher/ehome #142).
 		 */
-		private static Case caseFor(Switch choice, String value) {
-			Case fallback = null;
-			for (Case alternative : choice.getAlternatives()) {
-				if (alternative.getPattern() != null && DeviceConfiguration.matches(alternative.getPattern(), value)) {
-					return alternative;
-				}
-				if (alternative.getIsDefault() && fallback == null) {
-					fallback = alternative;
+		private static List<Case> cases(Switch choice, String value) {
+			return DeviceConfiguration.casesFor(choice, value);
+		}
+
+		/**
+		 * Whether one of the given parts of the program holds evidence, see
+		 * {@link #hasEvidence(ConfigFragment, Fit, Map)}.
+		 */
+		private boolean hasEvidence(List<Case> fragments, Fit fit, Map<ConfigFragment, Boolean> cache) {
+			for (Case fragment : fragments) {
+				if (hasEvidence(fragment, fit, cache)) {
+					return true;
 				}
 			}
-			return fallback;
+			return false;
 		}
 
 		/**

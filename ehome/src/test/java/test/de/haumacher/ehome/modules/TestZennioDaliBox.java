@@ -229,8 +229,9 @@ public class TestZennioDaliBox extends BasicTestCase {
 	/**
 	 * Sets the value of the given placement (by its ID in the device) through the editor where it is
 	 * shown. The channel count <code>P-1_R-1</code> is not: its parameter is not shown (access None),
-	 * ETS sets it from another placement by an <code>Assign</code>, which E-Home does not model (gap 7
-	 * of <code>doc/knx/schema-coverage.md</code>); it is set as a restore of a value does.
+	 * the program sets it from the placement <code>P-1_R-27</code> by an <code>Assign</code>
+	 * (haumacher/ehome #142); it is set as a restore of a value does, which checks the value against its
+	 * type.
 	 */
 	private static void set(TLObject device, String id, int value) {
 		DeviceConfiguration configuration = new DeviceConfiguration(device);

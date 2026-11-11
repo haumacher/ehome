@@ -31,6 +31,16 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_READ_ONLY__PARAMETER;
 
 	/**
+	 * @en The program sets "{0}" to the value of "{1}": change "{1}" instead.
+	 */
+	public static ResKey2 ERROR_ASSIGNED_FROM__PARAMETER_SOURCE;
+
+	/**
+	 * @en The program sets the value of "{0}" under the current values of the device.
+	 */
+	public static ResKey1 ERROR_ASSIGNED__PARAMETER;
+
+	/**
 	 * @en The parameter "{0}" has no value.
 	 */
 	public static ResKey1 ERROR_NO_VALUE__PARAMETER;

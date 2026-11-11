@@ -127,6 +127,16 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 INFO_VALIDATIONS_COMPLETED__PROGRAM;
 
 	/**
+	 * @en The application program "{0}", imported earlier without the assignments of its structure, is completed: {1} assignments are added. The values they give take effect at once.
+	 */
+	public static ResKey2 INFO_ASSIGNS_COMPLETED__PROGRAM_COUNT;
+
+	/**
+	 * @en The application program "{0}" was imported earlier without the assignments of its structure, and its structure in the database does not fit the file: the assignments are not added.
+	 */
+	public static ResKey1 WARN_ASSIGNS_NOT_COMPLETED__PROGRAM;
+
+	/**
 	 * @en Program {0}: E-Home cannot evaluate the parameter validation {1} ({2}). Its parameters cannot be changed in E-Home; the devices keep the values of the project file.
 	 */
 	public static ResKey3 WARN_VALIDATION_NOT_EVALUATED__PROGRAM_VALIDATION_PROBLEM;

@@ -978,6 +978,13 @@
 					kind="forwards"
 					type="AccessKind"
 				/>
+				<!-- The assignments of the structure giving this reference its value while they are in effect (haumacher/ehome #142). -->
+				<reference name="assigns"
+					inverse-reference="parameter"
+					kind="backwards"
+					multiple="true"
+					type="Assign"
+				/>
 				<!--
 					Who supplies the default at this place: the reference itself if it sets a default (its typed
 					value), otherwise the parameter.
@@ -2049,6 +2056,14 @@
 				<property name="validationsRead"
 					type="tl.core:Boolean"
 				/>
+				<!--
+					Whether the import read the assignments of the structure of the program and its module definitions
+					(ETS: Assign, haumacher/ehome #142). A program an earlier import left without them is completed by
+					the next import of its file.
+				-->
+				<property name="assignsRead"
+					type="tl.core:Boolean"
+				/>
 			</attributes>
 		</class>
 		<!--
@@ -2354,6 +2369,55 @@
 						<storage-algorithm>
 							<query>
 								<expr><![CDATA[r -> #("Title: {0}"@en, "Titel: {0}"@de).fill($r.get(`ehome.operational:Rename#text`).localize()).localize()]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!--
+			A value the program gives a parameter reference while the case containing it is taken (ETS: Assign in
+			a when, haumacher/ehome #142): the target reference (ETS: TargetParamRefRef) takes the effective value
+			of the source reference (ETS: SourceParamRefRef), or, without a source, the constant this element
+			holds as its typed value (ETS: Value). The target's value is then derived, not set by a person: every
+			switch on it, the pages and objects it brings in and the memory of its parameter in a download follow
+			the assigned value (de.haumacher.ehome.programming.DeviceConfiguration). An assignment in a case not
+			taken has no effect.
+		-->
+		<class name="Assign">
+			<generalizations>
+				<generalization type="Option"/>
+				<generalization type="ParameterValue"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-arrow-left-right"/>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<!-- The parameter reference getting the value (ETS: TargetParamRefRef); its type is the type of the constant. -->
+				<reference name="parameter"
+					kind="forwards"
+					type="ParameterView"
+				/>
+				<!-- The parameter reference whose effective value the target takes (ETS: SourceParamRefRef); none for a constant. -->
+				<reference name="source"
+					kind="forwards"
+					type="ParameterView"
+				/>
+				<!-- The label in the structure tree. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[a -> {
+    target = $a.get(`ehome.operational:Assign#parameter`).get(`ehome.operational:ParameterView#title`);
+    source = $a.get(`ehome.operational:Assign#source`);
+    if($source == null,
+        #("{0} := {1}"@en, "{0} := {1}"@de).fill($target, $a.get(`ehome.operational:ParameterValue#displayValue`)),
+        #("{0} := {1}"@en, "{0} := {1}"@de).fill($target, $source.get(`ehome.operational:ParameterView#title`))).localize()
+}]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

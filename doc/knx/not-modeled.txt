@@ -195,7 +195,6 @@ skip Options@Reconstructable
 skip Options@LineCoupler0912NewProgrammingStyle
 # Gap 7: UI structure of the parameter dialog.
 skip ParameterSeparator
-skip Assign
 skip ParameterBlockRename
 skip BinaryDataRef
 # The model keeps these as sets: their order in the file has no meaning.

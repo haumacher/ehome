@@ -140,7 +140,7 @@ public final class DeviceTexts {
 		if (text == null || !text.contains("{{")) {
 			return text;
 		}
-		Object value = device == null || textParameter == null ? null : DeviceSettings.value(device, textParameter);
+		Object value = device == null || textParameter == null ? null : DeviceSettings.effectiveValue(device, textParameter);
 		return FillTextParameter.fill(text, value);
 	}
 

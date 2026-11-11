@@ -277,7 +277,23 @@ public class ParameterEncoding {
 		if (type instanceof VoidType) {
 			return null;
 		}
-		String text = ParameterValues.encode(holder);
+		EnumerationValue choice = holder.tValueByName(ParameterValues.CHOICE) instanceof EnumerationValue entry ? entry : null;
+		return encode(type, choice, ParameterValues.encode(holder), program);
+	}
+
+	/**
+	 * The binary form of a value in ETS notation for a parameter of the given type (an assigned value,
+	 * haumacher/ehome #142), see {@link #encode(ParameterType, TLObject, Program)}.
+	 */
+	public static Bits encode(ParameterType type, String value, Program program) {
+		if (type instanceof VoidType) {
+			return null;
+		}
+		return encode(type, null, value, program);
+	}
+
+	private static Bits encode(ParameterType type, EnumerationValue choice, String encoded, Program program) {
+		String text = encoded;
 		if (text == null && type instanceof TextType) {
 			// An empty text is held as no text (ETS writes Value="").
 			text = "";
@@ -286,7 +302,7 @@ public class ParameterEncoding {
 			throw new IllegalArgumentException("No value.");
 		}
 		if (type instanceof EnumerationType enumeration) {
-			return encodeEnumeration(enumeration, holder, text);
+			return encodeEnumeration(enumeration, choice, text);
 		}
 		if (type instanceof NumericType numeric) {
 			long value = parseLong(text);
@@ -330,8 +346,8 @@ public class ParameterEncoding {
 		throw new IllegalArgumentException("Unsupported parameter type " + type.tType().getName() + ".");
 	}
 
-	private static Bits encodeEnumeration(EnumerationType type, TLObject holder, String text) {
-		EnumerationValue entry = holder.tValueByName(ParameterValues.CHOICE) instanceof EnumerationValue choice ? choice : null;
+	private static Bits encodeEnumeration(EnumerationType type, EnumerationValue choice, String text) {
+		EnumerationValue entry = choice;
 		if (entry == null) {
 			long value = parseLong(text);
 			for (EnumerationValue candidate : type.getValues()) {

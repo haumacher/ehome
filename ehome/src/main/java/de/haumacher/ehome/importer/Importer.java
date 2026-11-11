@@ -28,6 +28,7 @@ import javax.xml.stream.XMLStreamReader;
 import javax.xml.stream.util.StreamReaderDelegate;
 
 import org.w3c.dom.Document;
+import org.w3c.dom.Element;
 
 import com.top_logic.basic.Log;
 import com.top_logic.basic.Logger;
@@ -141,6 +142,11 @@ public class Importer {
 
 	private BufferingI18NLog _messages = new BufferingI18NLog();
 
+	/** The beginning of an <code>Assign</code> element in a program file. */
+	private static final byte[] ASSIGN_MARKER = "<Assign ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+
+	private static final String ASSIGNS_READ = "assignsRead";
+
 	/**
 	 * The languages of the application programs the last import read.
 	 */
@@ -207,6 +213,7 @@ public class Importer {
 					byte[] program = entryIn.readAllBytes();
 					scanModules(context, program);
 					importXml(context, handler, name, new ByteArrayInputStream(program));
+					completeAssigns(program);
 				} else if (name.endsWith(".xml")) {
 					importXml(context, handler, name, entryIn);
 				} else if (isProjectArchive(name, path)) {
@@ -266,6 +273,81 @@ public class Importer {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Adds the assignments (<code>Assign</code>, haumacher/ehome #142) of the given program file to the
+	 * known programs an earlier import left without them (<code>assignsRead</code> not set), see
+	 * {@link AssignCompletion}; the programs this import created read them themselves.
+	 */
+	private void completeAssigns(byte[] content) throws IOException {
+		if (!mentions(content, ASSIGN_MARKER)) {
+			return;
+		}
+		Document document = null;
+		for (String id : programIds(content)) {
+			TLObject existing = existingProgram(id);
+			if (existing == null || Boolean.TRUE.equals(existing.tValueByName(ASSIGNS_READ))) {
+				continue;
+			}
+			if (document == null) {
+				document = ModuleScan.parse(content);
+			}
+			Element program = ModuleScan.program(document, id);
+			if (program == null) {
+				continue;
+			}
+			try {
+				int count = AssignCompletion.complete(program, existing);
+				existing.tUpdateByName(ASSIGNS_READ, Boolean.TRUE);
+				if (count > 0) {
+					_messages.log(Level.INFO, I18NConstants.INFO_ASSIGNS_COMPLETED__PROGRAM_COUNT.fill(id, count));
+				}
+			} catch (ModuleCompletion.Mismatch ex) {
+				Logger.warn("Program '" + id + "' cannot be completed: " + ex.getMessage(), Importer.class);
+				_messages.log(Level.WARN, I18NConstants.WARN_ASSIGNS_NOT_COMPLETED__PROGRAM.fill(id));
+			}
+		}
+	}
+
+	/**
+	 * The IDs of the application programs of the given program file, in their order.
+	 */
+	private static List<String> programIds(byte[] content) throws IOException {
+		List<String> result = new ArrayList<>();
+		try {
+			XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
+				.createXMLStreamReader(new ByteArrayInputStream(content));
+			try {
+				while (in.hasNext()) {
+					if (in.next() == XMLStreamConstants.START_ELEMENT
+						&& "ApplicationProgram".equals(in.getLocalName())) {
+						result.add(in.getAttributeValue(null, "Id"));
+					}
+				}
+			} finally {
+				in.close();
+			}
+		} catch (XMLStreamException ex) {
+			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+		}
+		return result;
+	}
+
+	/**
+	 * Whether the given content holds the given bytes.
+	 */
+	private static boolean mentions(byte[] content, byte[] marker) {
+		outer:
+		for (int n = 0, last = content.length - marker.length; n <= last; n++) {
+			for (int k = 0; k < marker.length; k++) {
+				if (content[n + k] != marker[k]) {
+					continue outer;
+				}
+			}
+			return true;
+		}
+		return false;
 	}
 
 	/**

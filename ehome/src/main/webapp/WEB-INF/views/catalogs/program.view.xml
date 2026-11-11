@@ -512,6 +512,29 @@
 											<field attribute="extId"/>
 										</form>
 									</case>
+									<!--
+										A value the program gives a parameter reference while the case containing it is taken
+										(haumacher/ehome #142): the target, and the source whose value it takes or the constant.
+									-->
+									<case test="$selected.instanceOf(`ehome.operational:Assign`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field
+												attribute="parameter"
+												readonly="true"
+											/>
+											<field
+												attribute="source"
+												readonly="true"
+											/>
+											<field
+												attribute="displayValue"
+												readonly="true"
+											/>
+										</form>
+									</case>
 									<case test="$selected.instanceOf(`ehome.operational:Case`)">
 										<form
 											input="selected"

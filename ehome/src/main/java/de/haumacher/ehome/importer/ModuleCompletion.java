@@ -41,6 +41,9 @@ final class ModuleCompletion {
 
 	private static final String TYPE_PREFIX = "ehome.operational:";
 
+	/** The structure elements the plan does not count. */
+	private static final Set<String> SKIPPED = Set.of(TYPE_PREFIX + "Rename", TYPE_PREFIX + "Assign");
+
 	/** The elements creating a structure element in the program or a case of a switch in it. */
 	private static final Set<String> TOP_LEVEL = Set.of("ParameterBlock", "ChannelIndependentBlock", "Channel", "choose");
 
@@ -117,9 +120,10 @@ final class ModuleCompletion {
 	}
 
 	private void walk(Element xml, TLObject fragment, boolean topLevel) throws Mismatch {
-		// A rename (haumacher/ehome #122) is no structure element the plan places anything relative to.
+		// A rename (haumacher/ehome #122) or an assignment (#142) is no structure element the plan places
+		// anything relative to.
 		List<TLObject> contents = list(fragment, CONTENTS).stream()
-			.filter(option -> !(TYPE_PREFIX + "Rename").equals(TLModelUtil.qualifiedName(option.tType()))).toList();
+			.filter(option -> !SKIPPED.contains(TLModelUtil.qualifiedName(option.tType()))).toList();
 		Set<String> options = topLevel ? TOP_LEVEL : CHANNEL_LEVEL;
 		int index = 0;
 		for (Element child : ModuleScan.childElements(xml)) {

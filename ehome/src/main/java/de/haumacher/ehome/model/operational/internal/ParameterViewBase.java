@@ -25,6 +25,15 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	String ACCESS_ATTR = "access";
 
 	/**
+	 * Part <code>assigns</code> of <code>ParameterView</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:Assign</code> in configuration.
+	 * </p>
+	 */
+	String ASSIGNS_ATTR = "assigns";
+
+	/**
 	 * Part <code>defaultSource</code> of <code>ParameterView</code>
 	 * 
 	 * <p>
@@ -122,6 +131,14 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	 */
 	default void setAccess(com.top_logic.model.TLClassifier newValue) {
 		tUpdateByName(ACCESS_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #ASSIGNS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.Set<? extends de.haumacher.ehome.model.operational.Assign> getAssigns() {
+		return (java.util.Set<? extends de.haumacher.ehome.model.operational.Assign>) tValueByName(ASSIGNS_ATTR);
 	}
 
 	/**

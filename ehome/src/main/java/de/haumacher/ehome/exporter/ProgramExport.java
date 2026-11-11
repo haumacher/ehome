@@ -470,6 +470,13 @@ final class ProgramExport {
 							.close();
 					}
 				}
+				case "ehome.operational:Assign" ->
+					// A value the program gives a parameter reference in this case (haumacher/ehome #142).
+					out.open("Assign")
+						.attr("TargetParamRefRef", extId(ref(option, "parameter")))
+						.attr("SourceParamRefRef", extId(ref(option, "source")))
+						.attr("Value", ParameterValues.encode(option))
+						.close();
 				default -> {
 					// No other structure elements.
 				}

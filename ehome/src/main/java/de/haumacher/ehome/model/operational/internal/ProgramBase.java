@@ -52,6 +52,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String APPLICATION_VERSION_ATTR = "applicationVersion";
 
 	/**
+	 * Part <code>assignsRead</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String ASSIGNS_READ_ATTR = "assignsRead";
+
+	/**
 	 * Part <code>associationTable</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -463,6 +472,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setApplicationVersion(Integer newValue) {
 		tUpdateByName(APPLICATION_VERSION_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #ASSIGNS_READ_ATTR}.
+	 */
+	default boolean getAssignsRead() {
+		return (Boolean) tValueByName(ASSIGNS_READ_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ASSIGNS_READ_ATTR}.
+	 */
+	default void setAssignsRead(boolean newValue) {
+		tUpdateByName(ASSIGNS_READ_ATTR, newValue);
 	}
 
 	/**

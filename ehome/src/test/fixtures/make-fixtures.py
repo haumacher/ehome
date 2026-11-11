@@ -2313,3 +2313,102 @@ write('src/test/fixtures/TestValidations.knxproj', validations_fixture,
 write('src/test/fixtures/TestUpdateBase.knxproj', update_fixture(False), rename=update_name)
 write('src/test/fixtures/TestUpdateNew.knxproj', update_fixture(True), rename=update_name)
 write('src/test/fixtures/TestUpdateAdopt.knxproj', update_fixture(True, True), rename=update_name)
+
+
+# TestAssigns.knxproj: assignments of the structure (ETS: Assign, haumacher/ehome #142) and switches with
+# several matching cases. This file (schema 23, the master data and the project of the Test project) holds
+# an artificial program of the BCU 1 kind on its own hardware "TEST Zuweisungen", marked as test data by its
+# name, M-0008_A-FFE1-01-0000, modeled on the construct of the MDT Taster Light (the device type decides
+# whether the key mode is entered directly or assigned): the parameters "Geraet" (device type, "2-fach" 0 /
+# "1-fach" 1 / "4-fach" 4, default 0, memory 0x158), "Tasten" (key mode, "Einzel" 0 / "Zwei-Tasten" 1 /
+# "Wippe" 2, default 2, memory 0x159) and "Variante" ("Wahl" 0 / "Fest" 1, default 0, without memory). The
+# dynamic part begins (before the assignments in the order of the document) with a switch on the target
+# reference P-2_R-1 of "Tasten": "1 2" places the block "Taste 1" (object 0), "2" the block "Taste 2"
+# (objects 1 and 2), so that the value 2 takes both cases. Then the block "Tasten" with a switch on
+# "Geraet": "0" places P-2_R-1 itself; "1" places the reference P-2_R-3 (Value 1), assigns it to P-2_R-1 and
+# shows P-2_R-1 once more (read only while assigned);
+# "4" places "Variante", whose case "0" places the source P-2_R-2 and assigns it to P-2_R-1, and whose
+# case "1" assigns the constant 0 to P-2_R-1. Devices: "TEST Zuweisung Standard" (1.0.1, defaults) and
+# "TEST Zuweisung 4-fach" (1.0.2, Geraet 4 and P-2_R-2 = 1).
+ASSIGN_PROGRAM = 'M-0008_A-FFE1-01-0000'
+ASSIGN_HARDWARE = 'M-0008_H-TEST.20ZUWEISUNG-1'
+ASSIGN_PRODUCT = ASSIGN_HARDWARE + '_P-TEST.20ZUWEISUNG'
+ASSIGN_ASSIGNMENT = ASSIGN_HARDWARE + '_HP-FFE1-01-0000'
+
+
+def assign_enumeration(name, entries):
+    return ('<ParameterType Id="{p}_PT-%s" Name="%s"><TypeRestriction Base="Value" SizeInBit="8">' % (name, name)
+        + ''.join('<Enumeration Id="{p}_PT-%s_EN-%d" Text="%s" Value="%d" DisplayOrder="%d" />'
+            % (name, value, text, value, n) for n, (value, text) in enumerate(entries))
+        + '</TypeRestriction></ParameterType>\n')
+
+
+def assign_program():
+    static = ('<ParameterTypes>\n'
+        + assign_enumeration('Geraet', [(0, '2-fach'), (1, '1-fach'), (4, '4-fach')])
+        + assign_enumeration('Tasten', [(0, 'Einzel'), (1, 'Zwei-Tasten'), (2, 'Wippe')])
+        + assign_enumeration('Variante', [(0, 'Wahl'), (1, 'Fest')])
+        + '</ParameterTypes>\n<Parameters>\n'
+        '<Parameter Id="{p}_P-1" Name="Geraet" Text="Geräteauswahl" ParameterType="{p}_PT-Geraet" Access="ReadWrite" '
+        'Value="0"><Memory CodeSegment="{s}" Offset="88" BitOffset="0" /></Parameter>\n'
+        '<Parameter Id="{p}_P-2" Name="Tasten" Text="Tasten 1/2" ParameterType="{p}_PT-Tasten" Access="ReadWrite" '
+        'Value="2"><Memory CodeSegment="{s}" Offset="89" BitOffset="0" /></Parameter>\n'
+        '<Parameter Id="{p}_P-3" Name="Variante" Text="Variante" ParameterType="{p}_PT-Variante" Access="ReadWrite" '
+        'Value="0" />\n</Parameters>\n<ParameterRefs>\n'
+        '<ParameterRef Id="{p}_P-1_R-1" RefId="{p}_P-1" />\n'
+        '<ParameterRef Id="{p}_P-2_R-1" RefId="{p}_P-2" />\n'
+        '<ParameterRef Id="{p}_P-2_R-2" RefId="{p}_P-2" />\n'
+        '<ParameterRef Id="{p}_P-2_R-3" RefId="{p}_P-2" Value="1" />\n'
+        '<ParameterRef Id="{p}_P-3_R-1" RefId="{p}_P-3" />\n'
+        '</ParameterRefs>\n' + bcu1_objects())
+    dynamic = ('<Dynamic><ChannelIndependentBlock>'
+        '<choose ParamRefId="{p}_P-2_R-1">'
+        '<when test="1 2"><ParameterBlock Id="{p}_PB-1" Name="Taste1" Text="Taste 1">'
+        '<ComObjectRefRef RefId="{p}_O-0_R-1" /></ParameterBlock></when>'
+        '<when test="2"><ParameterBlock Id="{p}_PB-2" Name="Taste2" Text="Taste 2">'
+        '<ComObjectRefRef RefId="{p}_O-1_R-1" /><ComObjectRefRef RefId="{p}_O-2_R-1" /></ParameterBlock></when>'
+        '</choose>\n'
+        '<ParameterBlock Id="{p}_PB-3" Name="Tasten" Text="Tasten"><ParameterRefRef RefId="{p}_P-1_R-1" />'
+        '<choose ParamRefId="{p}_P-1_R-1">'
+        '<when test="0"><ParameterRefRef RefId="{p}_P-2_R-1" /></when>'
+        '<when test="1"><ParameterRefRef RefId="{p}_P-2_R-3" />'
+        '<Assign TargetParamRefRef="{p}_P-2_R-1" SourceParamRefRef="{p}_P-2_R-3" />'
+        '<ParameterRefRef RefId="{p}_P-2_R-1" /></when>'
+        '<when test="4"><ParameterRefRef RefId="{p}_P-3_R-1" /><choose ParamRefId="{p}_P-3_R-1">'
+        '<when test="0"><ParameterRefRef RefId="{p}_P-2_R-2" />'
+        '<Assign TargetParamRefRef="{p}_P-2_R-1" SourceParamRefRef="{p}_P-2_R-2" /></when>'
+        '<when test="1"><Assign TargetParamRefRef="{p}_P-2_R-1" Value="0" /></when>'
+        '</choose></when>'
+        '</choose></ParameterBlock>'
+        '</ChannelIndependentBlock></Dynamic>\n')
+    return bcu1_program_file(ASSIGN_PROGRAM, 65505, 'TEST: Zuweisungen (künstliche Testdaten)', static, '',
+        dynamic)
+
+
+def assign_devices(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+
+    def device(number, name, values):
+        return ('<DeviceInstance Id="P-01A0-0_DI-%d" Name="%s" ProductRefId="%s" Hardware2ProgramRefId="%s" '
+            'Address="%d" LastModified="2026-11-11T12:00:00">\n<ParameterInstanceRefs>\n'
+            % (number, name, ASSIGN_PRODUCT, ASSIGN_ASSIGNMENT, number)
+            + ''.join('<ParameterInstanceRef RefId="%s" Value="%s" />\n' % entry for entry in values)
+            + '</ParameterInstanceRefs>\n</DeviceInstance>')
+    return (xml[:start] + device(1, 'TEST Zuweisung Standard', []) + '\n'
+        + device(2, 'TEST Zuweisung 4-fach', [('P-1_R-1', '4'), ('P-2_R-2', '1')]) + xml[end:])
+
+
+def assigns_fixture(name, xml):
+    xml = replace_once(xml, SCHEMA_11, SCHEMA_23)
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestAssigns')
+    if name == PROJECT:
+        return assign_devices(xml)
+    return xml
+
+
+write('src/test/fixtures/TestAssigns.knxproj', assigns_fixture,
+    [('M-0008/Hardware.xml', test_hardware(ASSIGN_HARDWARE, ASSIGN_PRODUCT, 'TEST Zuweisungen',
+        [(ASSIGN_ASSIGNMENT, ASSIGN_PROGRAM)])), ('M-0008/' + ASSIGN_PROGRAM + '.xml', assign_program())],
+    keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))

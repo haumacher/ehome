@@ -373,7 +373,7 @@ public class DeviceTools {
 				ParameterType type = ParameterValues.valueType(view);
 				entry.put("id", ModuleParts.partId(view));
 				entry.put("title", DeviceTexts.label(device, view));
-				entry.put("value", display(type, DeviceSettings.value(device, view)));
+				entry.put("value", display(type, ParameterValues.value(configuration.effectiveHolder(view))));
 				entry.put("default", display(type, ParameterValues.value(DeviceConfiguration.defaultHolder(view))));
 				entry.put("changed", Boolean.valueOf(DeviceSettings.setting(device, view) != null));
 				ResKey veto = DeviceSettings.editVeto(device, view);

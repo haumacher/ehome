@@ -1683,6 +1683,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link ParameterView#ASSIGNS_ATTR} of {@link ParameterView}.
+	 */
+	public static com.top_logic.model.TLReference getAssignsParameterViewAttr() {
+		return (com.top_logic.model.TLReference) getParameterViewType().getPart(ParameterView.ASSIGNS_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ParameterView#DEFAULT_SOURCE_ATTR} of {@link ParameterView}.
 	 */
 	public static com.top_logic.model.TLReference getDefaultSourceParameterViewAttr() {
@@ -2341,6 +2348,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#ASSIGNS_READ_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getAssignsReadProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.ASSIGNS_READ_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#ASSOCIATION_TABLE_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getAssociationTableProgramAttr() {
@@ -2877,6 +2891,34 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLProperty getTextRenameAttr() {
 		return (com.top_logic.model.TLProperty) getRenameType().getPart(Rename.TEXT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Assign} type.
+	 */
+	public static com.top_logic.model.TLClass getAssignType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(Assign.ASSIGN_TYPE);
+	}
+
+	/**
+	 * Lookup {@link Assign#DISPLAY_NAME_ATTR} of {@link Assign}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameAssignAttr() {
+		return (com.top_logic.model.TLProperty) getAssignType().getPart(Assign.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Assign#PARAMETER_ATTR} of {@link Assign}.
+	 */
+	public static com.top_logic.model.TLReference getParameterAssignAttr() {
+		return (com.top_logic.model.TLReference) getAssignType().getPart(Assign.PARAMETER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Assign#SOURCE_ATTR} of {@link Assign}.
+	 */
+	public static com.top_logic.model.TLReference getSourceAssignAttr() {
+		return (com.top_logic.model.TLReference) getAssignType().getPart(Assign.SOURCE_ATTR);
 	}
 
 	/**
@@ -5751,6 +5793,22 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String KO_NAME_RENAME = de.haumacher.ehome.model.operational.internal.RenameBase.TABLE_NAME;
 
 	/**
+	 * Name of type <code>Assign</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link Assign#ASSIGN_TYPE}.
+	 */
+	@Deprecated
+	public static final String ASSIGN_NODE = Assign.ASSIGN_TYPE;
+
+	/**
+	 * Storage table name of {@link #ASSIGN_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.AssignBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_ASSIGN = de.haumacher.ehome.model.operational.internal.AssignBase.TABLE_NAME;
+
+	/**
 	 * Name of type <code>ParameterCalculation</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link ParameterCalculation#PARAMETER_CALCULATION_TYPE}.
@@ -6442,6 +6500,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public final Rename createRename() {
 		return createRename(null);
+	}
+
+	/**
+	 * Create an instance of {@link Assign} type.
+	 */
+	public final Assign createAssign(com.top_logic.model.TLObject context) {
+		return (Assign) createObject(getAssignType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link Assign} type.
+	 */
+	public final Assign createAssign() {
+		return createAssign(null);
 	}
 
 	/**

@@ -125,6 +125,12 @@ public class DeviceSettings {
 			}
 			return I18NConstants.ERROR_NOT_IN_CONFIGURATION__ELEMENT.fill(view);
 		}
+		if (configuration.isAssigned(view)) {
+			// The program gives the value (haumacher/ehome #142): a person changes the source.
+			ParameterView source = configuration.getAssignmentSource(view);
+			return source == null ? I18NConstants.ERROR_ASSIGNED__PARAMETER.fill(view)
+				: I18NConstants.ERROR_ASSIGNED_FROM__PARAMETER_SOURCE.fill(view, source);
+		}
 		if (!DeviceConfiguration.isEditable(view)) {
 			if (ParameterValues.valueAttribute(ParameterValues.valueType(view)) == null) {
 				return I18NConstants.ERROR_NO_VALUE__PARAMETER.fill(view);
@@ -164,6 +170,27 @@ public class DeviceSettings {
 	 */
 	public static Object value(TLObject device, ParameterView view) {
 		return ParameterValues.value(DeviceConfiguration.valueHolder(device, view));
+	}
+
+	/**
+	 * The effective value of the given placement for the device as its configuration has it, typed:
+	 * for a placement an assignment of the program in effect gives its value (haumacher/ehome #142) the
+	 * assigned value, otherwise {@link #value(TLObject, ParameterView)}.
+	 */
+	public static Object effectiveValue(TLObject device, ParameterView view) {
+		return ParameterValues.value(effectiveHolder(device, view));
+	}
+
+	/**
+	 * The object holding the effective value of the given placement for the device, see
+	 * {@link DeviceConfiguration#effectiveHolder(ParameterView)}; computes the configuration only for a
+	 * placement the program assigns somewhere.
+	 */
+	public static TLObject effectiveHolder(TLObject device, ParameterView view) {
+		if (ModuleParts.template(view).getAssigns().isEmpty()) {
+			return DeviceConfiguration.valueHolder(device, view);
+		}
+		return new DeviceConfiguration(device).effectiveHolder(view);
 	}
 
 	/**
