@@ -302,6 +302,36 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 PROPOSAL_UPDATED__COUNT;
 
 	/**
+	 * @en {0} unused functions were added: their channels have no group address, so they are not deployed.
+	 */
+	public static ResKey1 PROPOSAL_ADDED_UNUSED__COUNT;
+
+	/**
+	 * @en Function "{0}": {1}
+	 */
+	public static ResKey2 PROPOSAL_WARNING__FUNCTION_WARNING;
+
+	/**
+	 * @en The status object "{0}" sends on {1}, the command address of the function: the state stays empty. Connect the status object to an address of its own.
+	 */
+	public static ResKey2 STATUS_ON_COMMAND__OBJECT_ADDRESS;
+
+	/**
+	 * @en The group address {0} has the datapoint type {1}, the object "{2}" receiving it {3}: the function follows the object. Correct the datapoint type of the address.
+	 */
+	public static ResKey4 TYPE_CONTRADICTS_OBJECT__ADDRESS_ADDRESS_TYPE_OBJECT_OBJECT_TYPE;
+
+	/**
+	 * @en {0} ({1})
+	 */
+	public static ResKey2 UNUSED_FUNCTION_NUMBERED__NAME_NUMBER;
+
+	/**
+	 * @en {0}: {1}
+	 */
+	public static ResKey2 OBJECT_LABEL__NAME_FUNCTION;
+
+	/**
 	 * @en {0} unused functions are not deployed: their main datapoint has no group address.
 	 */
 	public static ResKey1 EXPORT_UNUSED__COUNT;

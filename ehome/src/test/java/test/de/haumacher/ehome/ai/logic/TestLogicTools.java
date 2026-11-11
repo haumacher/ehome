@@ -160,6 +160,10 @@ public class TestLogicTools extends BasicTestCase {
 		assertFalse(proposal.text(), proposal.failed());
 		assertTrue("The room controller proposes a climate function: " + proposal.text(),
 			FunctionProposal.functions(project).stream().anyMatch(f -> "climate".equals(FunctionProposal.kind(f))));
+		// The unused functions apart from those in use, and the warnings about the wiring (haumacher/ehome #134,
+		// #135).
+		assertTrue(proposal.text(), proposal.text().contains("\"addedUnused\": ["));
+		assertTrue(proposal.text(), proposal.text().contains("\"warnings\": ["));
 
 		ToolResult schedule = turn(_fixture.installer(), c -> _rules.saveAutomation(c, project, definitions(
 			"{\"schedules\": [{\"id\": \"workdayMorning\", \"label\": \"Workday morning\", \"kind\": \"weekly\","
