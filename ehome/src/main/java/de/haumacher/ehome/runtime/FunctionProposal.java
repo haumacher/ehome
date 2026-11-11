@@ -132,12 +132,15 @@ import de.haumacher.ehome.modules.ModuleParts;
  * input switches, a state (below) reports; a 3.007 input dims relatively (the role
  * <code>step</code>).</li>
  * <li><code>climate</code>: an output of DPT 9.001 (the temperature) together with a setpoint
- * (9.001 named Soll/setpoint) or an operating mode (20.102); an output of a truth value named
- * Heiz/heat is heating; an output of DPT 5.001 named for the actuating value
+ * (9.001 named Soll/setpoint), an operating mode (20.102) or a report of the heating; an output of a
+ * truth value named Heiz/heat is heating, else one named for the actuating value ("Stellwert &gt; 0%",
+ * 1.011); an output of DPT 5.001 named for the actuating value
  * (Stellwert/Stellgröße/actuating/control value/Ventil/valve/Heiz/heat) is the heating level
- * (haumacher/ehome #138). A channel with such an actuating value but no temperature output (a heating
- * actuator with its own controller, which receives the room temperature) takes the input of 9.001 not
- * named for a setpoint as its temperature.</li>
+ * (haumacher/ehome #138). A channel reporting its heating (with such objects in effect, connected or
+ * not) but without a temperature output, a heating actuator with its own controller, which receives the
+ * room temperature (also with an object that may send), takes the input of 9.001 not named for a
+ * setpoint as its temperature; linked with the room's key sending that temperature it is one climate
+ * function in the key's room, and the key gives no sensor of its own for it.</li>
  * <li><code>light</code>, or <code>switch</code> where the channel is named for a socket
  * (Steckdose/socket/outlet): an input of DPT 1.001 (switch) is the command; an output of DPT 1.011
  * (state), or a truth value named Status/state/Rückmeldung, is the state. A role reporting a state
@@ -1786,8 +1789,18 @@ public final class FunctionProposal {
 
 		Obj temperature = first(objects, o -> o.output() && !o.input() && o.is(9, 1) && !o.named(SETPOINT));
 		Obj heatingLevel = first(objects, o -> o.output() && !o.input() && o.is(5, 1) && o.named(ACTUATING));
-		if (temperature == null && heatingLevel != null) {
-			// A heating actuator's channel with its own controller receives the room temperature.
+		// Heating: a truth value named for heating, else one named for the actuating value ("Stellwert > 0%").
+		Obj heating = first(objects, o -> o.output() && !o.input() && o.bool() && o.named(HEATING));
+		if (heating == null) {
+			heating = first(objects, o -> o.output() && !o.input() && o.bool() && o.named(ACTUATING));
+		}
+		// A heating actuator's channel: it reports its heating, connected or not (its objects in effect).
+		boolean heats = heatingLevel != null || heating != null || all != null && all.objects().stream()
+			.anyMatch(o -> o.output() && !o.input() && (o.is(5, 1) && o.named(ACTUATING)
+				|| o.bool() && (o.named(HEATING) || o.named(ACTUATING))));
+		if (temperature == null && heats) {
+			// A heating actuator's channel with its own controller receives the room temperature (an object
+			// that may send as well, flags W and T).
 			temperature = first(objects, o -> o.input() && o.is(9, 1) && !o.named(SETPOINT));
 		}
 		Obj setpoint = first(objects, o -> o.output() && !o.input() && o.is(9, 1) && o.named(SETPOINT));
@@ -1795,13 +1808,13 @@ public final class FunctionProposal {
 		Obj mode = first(objects, o -> o.output() && !o.input() && o.is(20, 102));
 		Obj modeCommand = first(objects, o -> o.input() && o.is(20, 102));
 		if (temperature != null
-			&& (setpoint != null || setpointCommand != null || mode != null || modeCommand != null)) {
+			&& (setpoint != null || setpointCommand != null || mode != null || modeCommand != null || heats)) {
 			found.put("temperature", temperature);
 			found(found, "setpoint", setpoint);
 			found(found, "setpointCommand", setpointCommand);
 			found(found, "mode", mode);
 			found(found, "modeCommand", modeCommand);
-			found(found, "heating", first(objects, o -> o.output() && !o.input() && o.bool() && o.named(HEATING)));
+			found(found, "heating", heating);
 			found(found, "heatingLevel", heatingLevel);
 			result.add(receiving("climate", found, device, channel, names));
 			return;

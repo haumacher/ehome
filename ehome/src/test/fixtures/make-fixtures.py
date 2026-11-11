@@ -2688,3 +2688,124 @@ def role_fixture(name, xml):
 
 write('src/test/fixtures/TestFunctionRoles.knxproj', role_fixture,
     [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in ROLE_PROGRAMS])
+
+
+# TestFunctionHeating.knxproj: a heating actuator with its own controller in the distribution board and the room
+# keys sending the temperatures it receives (haumacher/ehome #138, the construct of the MDT AKH-0600.03 of the ETS6
+# demo), with two artificial programs of their own (M-0008_A-FFC6/FFC7, marked as test data) in the building of
+# TestFunctionWiring. "TEST Heizungsaktor Stellwert" (1.0.1, in the board): each channel receives the room
+# temperature with "Temperaturwert empfangen" (9.001, flags W and T, as the MDT actuator's), has a setpoint, an
+# operating mode and the current setpoint connected to nothing, and reports "Stellwert > 0%: Status senden" (1.011)
+# and "Stellwert Heizen: Status senden" (5.001); "Kanal A" on 7/1/1..3, "Kanal B" on 7/2/1..3, "Kanal C" connected
+# to nothing, "Kanal D" receives the temperature 7/4/1 alone (its reports connected to nothing). Four keys "TEST
+# Taster Raumtemperatur" send "Gemessene Raumtemperatur" (9.001): 1.0.2 in "Wohnzimmer" on 7/1/1, 1.0.3 in
+# "Küche" on 7/2/1, 1.0.4 in "Flur" on 7/3/1, which no heating receives, 1.0.5 in "Wohnzimmer" on 7/4/1.
+HEATING_CHANNEL = [('Temperaturwert empfangen', '2 Bytes', WT, 'DPST-9-1'), ('Sollwert vorgeben', '2 Bytes', W, 'DPST-9-1'),
+    ('Betriebsartvorwahl', '1 Byte', W, 'DPST-20-102'), ('Aktueller Sollwert senden', '2 Bytes', T, 'DPST-9-1'),
+    ('Stellwert > 0%: Status senden', '1 Bit', T, 'DPST-1-11'), ('Stellwert Heizen: Status senden', '1 Byte', T, 'DPST-5-1')]
+
+
+def heating_channel(name, addresses):
+    """A channel of the heating actuator: its objects, the temperature, the heating and its level on the addresses."""
+    connected = {n: a for n, a in zip((0, 4, 5), addresses or ()) if a is not None}
+    return (name, [obj + (connected.get(n),) for n, obj in enumerate(HEATING_CHANNEL)])
+
+
+HEATING_PROGRAMS = [
+    ('M-0008_A-FFC6-01-0000', 'FFC6', 65478, 'TEST: Heizungsaktor Stellwert (künstliche Testdaten)', [
+        heating_channel('Kanal A', ('7/1/1', '7/1/2', '7/1/3')), heating_channel('Kanal B', ('7/2/1', '7/2/2', '7/2/3')),
+        heating_channel('Kanal C', None), heating_channel('Kanal D', ('7/4/1', None, None))]),
+    ('M-0008_A-FFC7-01-0000', 'FFC7', 65479, 'TEST: Taster Raumtemperatur (künstliche Testdaten)', [
+        ('Temperatur', [('Gemessene Raumtemperatur', '2 Bytes', T, 'DPST-9-1', None)])]),
+]
+HEATING_HARDWARE = 'M-0008_H-TEST.20HEATING-1'
+# The group addresses of TestFunctionHeating: name and datapoint type by address.
+HEATING_ADDRESSES = {'7/1/1': ('Temperatur Wohnzimmer', 'DPST-9-1'), '7/1/2': ('Heizen Wohnzimmer', 'DPST-1-11'),
+    '7/1/3': ('Stellwert Wohnzimmer', 'DPST-5-1'), '7/2/1': ('Temperatur Küche', 'DPST-9-1'),
+    '7/2/2': ('Heizen Küche', 'DPST-1-11'), '7/2/3': ('Stellwert Küche', 'DPST-5-1'),
+    '7/3/1': ('Temperatur Flur', 'DPST-9-1'), '7/4/1': ('Temperatur Gast', 'DPST-9-1')}
+# The devices of TestFunctionHeating: (program, name, building part, the group address of each connected object by
+# its number, None for those the program gives).
+HEATING_DEVICES = [
+    (0, 'TEST Heizungsaktor Stellwert', 'P-01A0-0_BP-4', None),
+    (1, 'TEST Taster Raumtemperatur', 'P-01A0-0_BP-5', {0: '7/1/1'}),
+    (1, 'TEST Taster Raumtemperatur', 'P-01A0-0_BP-7', {0: '7/2/1'}),
+    (1, 'TEST Taster Raumtemperatur', 'P-01A0-0_BP-3', {0: '7/3/1'}),
+    (1, 'TEST Taster Raumtemperatur', 'P-01A0-0_BP-5', {0: '7/4/1'}),
+]
+
+
+def artificial_fixture(project, programs, hardware_id, addresses, devices):
+    """The modification of the Test project into a project of artificial programs (each channel a list of objects
+    (name, size, flags, datapoint type, group address or None)), named group addresses with their types, devices
+    placed in the building of TestFunctionWiring."""
+    def hardware(xml):
+        end = xml.rindex('</Hardware>', 0, xml.index('<Languages>'))
+        result = ''
+        for program, number, _, name, _ in programs:
+            short = name.split(' (')[0].split(': ')[1]
+            result += ('<Hardware Id="' + hardware_id + number + '" Name="TEST ' + short + '" SerialNumber="TEST '
+                + number + '" VersionNumber="1" HasIndividualAddress="1" HasApplicationProgram="1"><Products><Product Id="'
+                + hardware_id + number + '_P-TEST.20' + number + '" Text="TEST ' + short
+                + ' (künstliche Testdaten)" OrderNumber="TEST ' + number + '" IsRailMounted="1" DefaultLanguage="de-DE" />'
+                '</Products><Hardware2Programs><Hardware2Program Id="' + hardware_id + number + '_HP-' + number
+                + '-01-0000" MediumTypes="MT-0"><ApplicationProgramRef RefId="' + program + '" /></Hardware2Program>'
+                '</Hardware2Programs></Hardware>\n')
+        return xml[:end] + result + xml[end:]
+
+    def placed(xml):
+        start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+        end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+        ordered = sorted(addresses, key=ga_value)
+        result = ''
+        for n, (index, device_name, _, connected) in enumerate(devices, 1):
+            program, number, _, _, channels = programs[index]
+            objects = [(o[0], o[6] if connected is None else connected.get(o[0])) for o in function_objects(channels)]
+            refs = ''.join('<ComObjectInstanceRef RefId="' + program + '_O-%d_R-%d" IsActive="1"><Connectors>'
+                % (o, o + 1) + function_connectors(ordered, address) + '</Connectors></ComObjectInstanceRef>\n'
+                for o, address in objects if address is not None)
+            result += ('<DeviceInstance Id="P-01A0-0_DI-' + str(n) + '" Name="' + device_name
+                + '" ProductRefId="' + hardware_id + number + '_P-TEST.20' + number + '" Hardware2ProgramRefId="'
+                + hardware_id + number + '_HP-' + number + '-01-0000" Address="' + str(n)
+                + '" LastModified="2026-11-12T12:00:00">\n<ComObjectInstanceRefs>\n' + refs
+                + '</ComObjectInstanceRefs>\n</DeviceInstance>\n')
+        xml = xml[:start] + result + xml[end:]
+        start = xml.index('<GroupRanges>')
+        end = xml.index('</GroupRanges>') + len('</GroupRanges>')
+        ranges = ''
+        for main in sorted(set(int(a.split('/')[0]) for a in ordered)):
+            ranges += ('<GroupRange Id="P-01A0-0_GR-%d" Name="HG%d" RangeStart="%d" RangeEnd="%d">'
+                % (main, main, main << 11, (main << 11) + 2047)
+                + ''.join('<GroupAddress Id="P-01A0-0_GA-%d" Address="%d" Name="%s" DatapointType="%s" />'
+                    % (ordered.index(a) + 1, ga_value(a), addresses[a][0], addresses[a][1])
+                    for a in ordered if a.startswith(str(main) + '/'))
+                + '</GroupRange>\n')
+        xml = xml[:start] + '<GroupRanges>\n' + ranges + '</GroupRanges>' + xml[end:]
+
+        def refs(part):
+            return ''.join('<DeviceInstanceRef RefId="P-01A0-0_DI-%d" />' % n
+                for n, (_, _, at, _) in enumerate(devices, 1) if at == part)
+        return replace_once(xml, '<Buildings />', '<Buildings>\n'
+            '<BuildingPart Id="P-01A0-0_BP-1" Name="Haus" Type="Building">'
+            '<BuildingPart Id="P-01A0-0_BP-2" Name="Erdgeschoss" Type="Floor">'
+            '<BuildingPart Id="P-01A0-0_BP-3" Name="Flur" Type="Room">' + refs('P-01A0-0_BP-3')
+            + '<BuildingPart Id="P-01A0-0_BP-4" Name="Schaltschrank" Type="DistributionBoard">' + refs('P-01A0-0_BP-4')
+            + '</BuildingPart></BuildingPart>'
+            '<BuildingPart Id="P-01A0-0_BP-5" Name="Wohnzimmer" Type="Room">' + refs('P-01A0-0_BP-5') + '</BuildingPart>'
+            '<BuildingPart Id="P-01A0-0_BP-7" Name="Küche" Type="Room">' + refs('P-01A0-0_BP-7') + '</BuildingPart>'
+            '</BuildingPart></BuildingPart>\n</Buildings>')
+
+    def modify(name, xml):
+        if name == PROJECT_INFO:
+            return rename_project(xml, project)
+        if name == PROJECT:
+            return placed(xml)
+        if name == 'M-0008/Hardware.xml':
+            return hardware(xml)
+        return xml
+    return modify
+
+
+write('src/test/fixtures/TestFunctionHeating.knxproj',
+    artificial_fixture('TestFunctionHeating', HEATING_PROGRAMS, HEATING_HARDWARE, HEATING_ADDRESSES, HEATING_DEVICES),
+    [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in HEATING_PROGRAMS])
