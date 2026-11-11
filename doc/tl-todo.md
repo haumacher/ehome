@@ -1,12 +1,24 @@
 # Waiting for TopLogic
 
 Gaps of the React UI (`ehome/src/main/webapp/WEB-INF/views/`; paths below are relative to the app module `ehome/` unless they name `ehome-virtual/`) and
-workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha12.819) cannot close yet.
+workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha12.820) cannot close yet.
 Check each item when upgrading TopLogic (an upgrade happens only when the user asks for one). Every
 entry names its TL ticket and what to remove once the engine covers it; a gap whose workaround would
 not be minimal is left visible instead.
 
-State of the upgrade to 8.0.0-alpha12.819 (2026-11-10): the fixes of TL #30211, #30214, #30215, #30216
+State of the upgrade to 8.0.0-alpha12.820 (2026-11-11; its tickets are on the Gitea release page
+`PREVIEW/TL_8.0.0-alpha12.820` of `TopLogic/tl-engine-7`): the fixes of TL #30201 and #30205 shipped.
+Removed: `de.haumacher.ehome.etsImport.ConstraintVeto`, its test, the catch in `ImportJobs#importFile`
+and the message `ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS` (#30201: a failed job shows the problems of
+a constraint veto as its error details, `CommandErrors.messages`; the tests that name the problems of a
+refused commit read them with `CommandErrors.text`); `readonly="true"` of the derived columns of
+`device-templates.view.xml` (#30205). The breaking changes of the build (#30167, #30205's
+`DynamicVisibility`, #30207) touch no code of the app. TL #30196 is closed, and #30191, #30200, #30250
+(which absorbed #30193, #30194, #30195 and #30249 as duplicates) and #30251 to #30255 are in testing,
+but none of them is in 8.0.0-alpha12.820: their workarounds stay until the next upgrade. Still open:
+TL #29884, #29885, #30048, #30105, #30192, #30217.
+
+Before (8.0.0-alpha12.819, 2026-11-10): the fixes of TL #30211, #30214, #30215, #30216
 and #30218 shipped. Removed: the tooltip rule of `style/ehome.css` (#30214); the own sub-session of
 `de.haumacher.ehome.job.Uninterruptible` (#30216: `JobRunner` runs the body in a sub-session derived
 from the window, `ThreadContextManager#inDerivedContext`; the body's thread of `Uninterruptible.run`
@@ -124,7 +136,7 @@ grant them to its users.
 Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: `SecurityCoverageCheck` excludes these
 15 modules.
 
-Still open, checked on 8.0.0-alpha12.819.
+Still open, checked on 8.0.0-alpha12.820.
 
 **When fixed** (the engine covers or marks its own modules, or the check can be limited to the
 application's modules): remove `excluded-modules`.
@@ -140,7 +152,7 @@ catalog) are disabled with only their own label as the reason. The ticket is sti
 Since TL #30025 (8.0.0-alpha12.817) a command is hidden for a user who holds no role granting it on
 any object; the roles of E-Home are global, so a viewer no longer sees the commands that write
 (nor the import commands), and the case of the ticket does not show in E-Home any more. Still open,
-checked on 8.0.0-alpha12.819.
+checked on 8.0.0-alpha12.820.
 
 **On the next upgrade:** check the ticket; nothing to remove.
 
@@ -152,7 +164,7 @@ the refusal only after the submit. Workaround in `projects/device-item.view.xml`
 inputs switch to their read-only form with `!canWrite($device)`, repeating the `<access>` check of
 their `<on-submit>` (haumacher/ehome #65).
 
-Still open, checked on 8.0.0-alpha12.819.
+Still open, checked on 8.0.0-alpha12.820.
 
 **When fixed** (the input follows the state of its submit command): remove the `!canWrite($device)`
 case of the input kind in `device-item.view.xml`.
@@ -184,7 +196,7 @@ for an installation in the cloud, without a workaround in the app: every logged-
 a token (an agent then acts with that account's rights, no more); a token of an ended session
 (logout, restart) stays listed until it expires, though it admits nobody; every admitted request
 writes `lastUsed` in a commit of its own, so a polling agent creates a revision per request; there is
-no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha12.819.
+no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha12.820.
 
 **When fixed:** decide whether E-Home restricts issuing tokens (e.g. to `ehome.Installer`) with the
 rule the module offers, and replace `bin/ehome-agent.py` by the MCP wrapper.
@@ -255,32 +267,6 @@ window (`ReactWindowReplay.inWindow` with the origin of the job's sub-session), 
 events, before the job ends.
 
 **When fixed:** remove `Uninterruptible#catchUp` and its call in `Uninterruptible#run`.
-
-## A constraint veto without its problems (TL #30201)
-
-The model's commit check (`ModelService#checkCommit`) refuses with "Cannot store, constraints
-violated." alone and keeps the problems as the exception's causes; a failed job shows only the
-message and logs nothing, so a production import ended with "Speichern nicht möglich,
-Wertüberprüfung fehlgeschlagen" and no hint. Workaround: `ImportJobs#importFile` catches the veto at
-its commit, names the problems (`de.haumacher.ehome.etsImport.ConstraintVeto`, test
-`TestConstraintVeto`) in its own message `ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS` and logs it at
-ERROR.
-
-**When fixed:** remove `ConstraintVeto`, its test, the catch in `ImportJobs#importFile` and the
-message `ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS`, if the engine's message or the job's failure
-display names the problems.
-
-## A derived attribute is editable in a row-editing table (TL #30205)
-
-In a `<table row-edit="ALL">` an attribute column of a derived attribute (`<query>` storage) shows an
-input while the form is edited, and saving it fails. The objects of a device template
-(`device-templates.view.xml`, haumacher/ehome #103) list the number, function, size and "installed
-without type" of each object as derived attributes of `ehome.template:ObjectOverlay` beside the
-editable datapoint type. Workaround: those columns (and the placement, which the overlay must keep)
-carry `readonly="true"`.
-
-**When fixed:** remove `readonly="true"` from the derived columns `number`, `function`, `size` and
-`untypedConnected` there (keep it on `placement`).
 
 ## A tree table rebuilt by an input keeps the selection but not its parents open (TL #30217)
 
@@ -356,5 +342,5 @@ The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on 
 - TL #30200: see above (agent access: the size of an observation, `observe` without actions failing).
 - TL #30191: see above (a failing class load aborts the module shutdown).
 - TL #30249: see above (the `<with-result>` of a job runs before the window saw the job's commits).
-- TL ticket to file: see above (AI modules: the Claude 5.5 models in the catalog, the thinking budget of Haiku 5.5, the MCP tool list per caller, the Playwright browsers, the message of a missing key, the MCP path with a slash, the pre-commit guard and parts of new objects).
-- TL #30193, #30194, #30195, #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the interrupt of a cancelled job closing H2).
+- TL #30251 to #30255: see above (AI modules: the Claude 5.5 models in the catalog, the thinking budget of Haiku 5.5, the MCP tool list per caller, the Playwright browsers, the message of a missing key, the MCP path with a slash, the pre-commit guard and parts of new objects; in testing, not in 8.0.0-alpha12.820).
+- TL #30250 (with #30193, #30194, #30195, #30249 as duplicates), #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the follow-up seeing the job's commits, the interrupt of a cancelled job closing H2; fixed after 8.0.0-alpha12.820).

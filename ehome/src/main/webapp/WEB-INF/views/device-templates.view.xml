@@ -224,7 +224,6 @@
 							</inputs>
 							<columns>
 								<column attribute="number"
-									readonly="true"
 									width="70"
 								/>
 								<column attribute="placement"
@@ -232,15 +231,12 @@
 									width="240"
 								/>
 								<column attribute="function"
-									readonly="true"
 									width="160"
 								/>
 								<column attribute="size"
-									readonly="true"
 									width="90"
 								/>
 								<column attribute="untypedConnected"
-									readonly="true"
 									width="130"
 								/>
 								<column attribute="effectiveDatapointTypes"

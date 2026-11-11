@@ -26,8 +26,13 @@ Work is a pipeline, not a pile:
 0. **Engine upgrade — only when the user asks for it.** Do not look for a newer TopLogic version
    or poll the TL tickets at the start of a session. When the user requests an upgrade, it is a
    package of its own: set the new version in the parents of `ehome/pom.xml` and `ehome-virtual/pom.xml`, go through every entry of
-   `doc/tl-todo.md` (§8) and check whether its ticket has shipped (`get_ticket`), undo the
-   workarounds that have, re-run the gate, and tell the user which entries remain.
+   `doc/tl-todo.md` (§8) and check whether its ticket has shipped, undo the
+   workarounds that have, re-run the gate, and tell the user which entries remain. What a build
+   contains is its Gitea release page (tag `PREVIEW/TL_<version>` of `TopLogic/tl-engine-7`, also
+   `curl -s "https://git.top-logic.com/api/v1/repos/TopLogic/tl-engine-7/releases?limit=3"`): its
+   ticket list and its migration notes (the breaking changes to check against the app). A ticket
+   closed or in testing (`get_ticket`) is not shipped unless the release lists it; the newest
+   version is in `maven-metadata.xml` of `tl-parent-app` in the Nexus repository.
 1. **Intake**: user reports (chat, screenshots, ETS XML snippets, GitHub issues) and the open
    issues at `haumacher/ehome`. Bugs outrank queued features. Triage every new GitHub issue with a
    diagnosis comment *before* fixing; use the repository's labels (`bug`, `enhancement`,

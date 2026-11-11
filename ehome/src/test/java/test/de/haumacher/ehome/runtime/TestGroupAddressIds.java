@@ -31,6 +31,7 @@ import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.DisplayContext;
 import com.top_logic.layout.basic.DefaultDisplayContext;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.react.control.CommandErrors;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
@@ -39,7 +40,6 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.etsImport.ConstraintVeto;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
@@ -338,9 +338,9 @@ public class TestGroupAddressIds extends BasicTestCase {
 			tx.commit();
 			fail("The commit must be refused: " + value);
 		} catch (TopLogicException ex) {
-			List<String> problems = ConstraintVeto.problems(ex);
-			assertNotNull(ex.toString(), problems);
-			assertTrue(problems.toString(), problems.toString().contains(reason));
+			assertEquals(ex.toString(), com.top_logic.util.model.I18NConstants.CONSTRAINTS_VIOLATED, ex.getErrorKey());
+			String problems = CommandErrors.text(ex);
+			assertTrue(problems, problems.contains(reason));
 		}
 	}
 

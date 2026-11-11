@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -41,6 +42,7 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.react.control.CommandErrors;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
@@ -52,7 +54,6 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.blocks.RoomController;
-import de.haumacher.ehome.etsImport.ConstraintVeto;
 import de.haumacher.ehome.etsImport.ImportEtsProjectJob;
 import de.haumacher.ehome.etsImport.ImportProjectFileJob;
 import de.haumacher.ehome.knx.ExtIds;
@@ -207,7 +208,10 @@ public class TestProjectFile extends BasicTestCase {
 				importFile(refused, "Refused.ehome");
 				fail("Data violating the constraints must be refused.");
 			} catch (TopLogicException ex) {
-				String message = Resources.getInstance(Locale.ENGLISH).getString(ex.getErrorKey());
+				// The messages a failed job shows: the veto and, as its details, the problems (TL #30201).
+				Resources english = Resources.getInstance(Locale.ENGLISH);
+				String message = CommandErrors.messages(ex).stream().map(english::getString)
+					.collect(Collectors.joining(" "));
 				assertTrue(message, message.contains("slots") && message.contains("History archive"));
 			}
 			assertEquals(beforeRefused.size(), instances(ProjectFile.PROJECT_TYPE).size());
@@ -330,11 +334,7 @@ public class TestProjectFile extends BasicTestCase {
 		try {
 			tx.commit();
 		} catch (TopLogicException ex) {
-			List<String> problems = ConstraintVeto.problems(ex);
-			if (problems == null) {
-				throw ex;
-			}
-			throw new AssertionError("Commit refused: " + problems, ex);
+			throw new AssertionError("Commit refused: " + CommandErrors.text(ex), ex);
 		}
 	}
 
