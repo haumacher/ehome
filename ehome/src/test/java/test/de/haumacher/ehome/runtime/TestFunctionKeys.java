@@ -64,9 +64,10 @@ public class TestFunctionKeys extends BasicTestCase {
 				"light command=1/1/1, state=1/1/8",
 				"sensor unused"), summary(project));
 			assertEquals(6, added.size());
-			// Named after the address of the main role.
+			// Named after the address of the main role, a dimmer after its switching address (haumacher/ehome
+			// #134).
 			assertEquals("Licht", TestFunctionProposal.name(function(project, "light", "1/1/1")));
-			assertEquals("Dimmer Wert", TestFunctionProposal.name(function(project, "dimmer", "1/1/4")));
+			assertEquals("Dimmer", TestFunctionProposal.name(function(project, "dimmer", "1/1/4")));
 			assertEquals("Jalousie auf/ab", TestFunctionProposal.name(function(project, "blind", "2/1/1")));
 			assertEquals("Zentral", TestFunctionProposal.name(function(project, "button", "1/0/0")));
 			TLObject key5 = function(project, "button", "1/1/7");

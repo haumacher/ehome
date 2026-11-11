@@ -290,6 +290,28 @@ public class TestFunctionProposal extends BasicTestCase {
 			assertEquals("1.0", header.put("schemaVersion", RuntimeImage.SCHEMA_VERSION));
 			Map<Object, Object> previous = new LinkedHashMap<>(before61);
 			previous.put("image", header);
+			// The scene outputs of the Tastsensor (0/0/19 to 0/0/26, alone on their addresses) take values
+			// with their write and update flags although they transmit there: writable since
+			// haumacher/ehome #139, so the controller sends on these addresses instead of only listening.
+			List<Object> datapoints61 = new ArrayList<>();
+			for (Object entry : (List<?>) before61.get("datapoints")) {
+				Map<Object, Object> datapoint = new LinkedHashMap<>((Map<?, ?>) entry);
+				String id = (String) datapoint.get("id");
+				if (id.matches("0/0/(19|2[0-6])")) {
+					Map<Object, Object> rebuilt = new LinkedHashMap<>();
+					for (Map.Entry<Object, Object> member : datapoint.entrySet()) {
+						if (member.getKey().equals("readOnStart")) {
+							rebuilt.put("writable", Boolean.TRUE);
+							rebuilt.put("transmit", Boolean.TRUE);
+						}
+						rebuilt.put(member.getKey(), member.getKey().equals("knx")
+							? Map.of("dpt", ((Map<?, ?>) member.getValue()).get("dpt"), "send", id) : member.getValue());
+					}
+					datapoint = rebuilt;
+				}
+				datapoints61.add(datapoint);
+			}
+			previous.put("datapoints", datapoints61);
 			Set<String> changed = ImageComparison.changedParts(previous, json);
 			changed.remove("functions");
 			assertEquals(Set.of(), changed);

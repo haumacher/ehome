@@ -116,6 +116,15 @@
 			expr="if($page == null, $device, $page)"
 			inputs="device, page"
 		/>
+		<!--
+			The objects of the selected device switched off by its parameters but still connected to group
+			addresses (haumacher/ehome #137): they neither send nor receive there; nothing if there are none.
+		-->
+		<derived-channel name="connectionProblems"
+			expr="if($device == null, null, deviceConnectionProblems($device))"
+			inputs="device"
+			observed-types="ehome.physical:Connection,ehome.physical:Connector,ehome.physical:ParameterSetting"
+		/>
 		<!-- The communication object selected (only one of the selected device), and the connection selected of it. -->
 		<channel name="selectedInterface"/>
 		<derived-channel name="interface"
@@ -680,67 +689,80 @@
 											(projects/choose-location.view.xml), not from the plain reference field, which
 											would offer the parts of every project without their path.
 										-->
-										<form
-											input="selected"
-											with-inset="true"
-										>
-											<commands>
-												<generic-command
-													image="css:fa-solid fa-location-dot"
-													inputs="device"
-													placement="TOOLBAR"
+										<stack>
+											<visible-if
+												expr="$connectionProblems != null"
+												input="connectionProblems"
+											>
+												<inset>
+													<text
+														input="connectionProblems"
+														tone="warning"
+													/>
+												</inset>
+											</visible-if>
+											<form
+												input="selected"
+												with-inset="true"
+											>
+												<commands>
+													<generic-command
+														image="css:fa-solid fa-location-dot"
+														inputs="device"
+														placement="TOOLBAR"
+													>
+														<label>
+															<en>Choose the location</en>
+															<de>Standort wählen</de>
+														</label>
+														<tooltip>
+															<en>Places the device in a building part of the project (a room, a floor, …) or removes it from its part. The building parts are created in the tab Buildings.</en>
+															<de>Ordnet das Gerät einem Gebäudeteil des Projekts zu (einem Raum, einer Etage …) oder hebt die Zuordnung auf. Die Gebäudeteile werden im Reiter „Gebäude“ angelegt.</de>
+														</tooltip>
+														<access>
+															<operation name="Write"
+																object="$device"
+																type="ehome.physical:Device"
+															/>
+														</access>
+														<executability>
+															<null-input-disabled/>
+														</executability>
+														<open-dialog
+															bind-input-to="device"
+															dialog-view="projects/choose-location.view.xml"
+														>
+															<bind
+																channel="selection"
+																to="selected"
+															/>
+														</open-dialog>
+													</generic-command>
+												</commands>
+												<field attribute="title"/>
+												<field attribute="address"/>
+												<field attribute="type"/>
+												<field attribute="program"/>
+												<value-input
+													readonly="true"
+													type="tl.core:String"
+													value="locationPath"
 												>
 													<label>
-														<en>Choose the location</en>
-														<de>Standort wählen</de>
+														<en>Location</en>
+														<de>Standort</de>
 													</label>
-													<tooltip>
-														<en>Places the device in a building part of the project (a room, a floor, …) or removes it from its part. The building parts are created in the tab Buildings.</en>
-														<de>Ordnet das Gerät einem Gebäudeteil des Projekts zu (einem Raum, einer Etage …) oder hebt die Zuordnung auf. Die Gebäudeteile werden im Reiter „Gebäude“ angelegt.</de>
-													</tooltip>
-													<access>
-														<operation name="Write"
-															object="$device"
-															type="ehome.physical:Device"
-														/>
-													</access>
-													<executability>
-														<null-input-disabled/>
-													</executability>
-													<open-dialog
-														bind-input-to="device"
-														dialog-view="projects/choose-location.view.xml"
-													>
-														<bind
-															channel="selection"
-															to="selected"
-														/>
-													</open-dialog>
-												</generic-command>
-											</commands>
-											<field attribute="title"/>
-											<field attribute="address"/>
-											<field attribute="type"/>
-											<field attribute="program"/>
-											<value-input
-												readonly="true"
-												type="tl.core:String"
-												value="locationPath"
-											>
-												<label>
-													<en>Location</en>
-													<de>Standort</de>
-												</label>
-											</value-input>
-											<field attribute="description"/>
-											<field attribute="installationHints"/>
-											<field attribute="serialText"/>
-											<field attribute="loaded"/>
-											<field attribute="lastModified"/>
-											<field attribute="lastDownload"/>
-											<field attribute="downloadPending"/>
-											<field attribute="extId"/>
-										</form>
+												</value-input>
+												<field attribute="description"/>
+												<field attribute="installationHints"/>
+												<field attribute="serialText"/>
+												<field attribute="loaded"/>
+												<field attribute="lastModified"/>
+												<field attribute="lastDownload"/>
+												<field attribute="downloadPending"/>
+												<field attribute="extId"/>
+											</form>
+										</stack>
 									</tab>
 									<tab id="parameters"
 										icon="css:bi bi-sliders"
@@ -907,6 +929,20 @@
 																	<de>Seit dem letzten Download</de>
 																</label>
 																<value>deviceReferenceHint($device, $row)</value>
+															</computed-column>
+															<!-- An object switched off by the parameters but still connected (haumacher/ehome #137). -->
+															<computed-column name="problem"
+																type="tl.core:String"
+																width="260"
+															>
+																<inputs>
+																	<input channel="device"/>
+																</inputs>
+																<label>
+																	<en>Problem</en>
+																	<de>Problem</de>
+																</label>
+																<value>deviceObjectProblem($device, $row)</value>
 															</computed-column>
 														</columns>
 														<rows>deviceInterfaces($device)</rows>

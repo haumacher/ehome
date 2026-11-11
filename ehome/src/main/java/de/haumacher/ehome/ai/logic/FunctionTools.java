@@ -53,7 +53,10 @@ public class FunctionTools {
 		+ " functions\" of the functions view does: it adds the functions the channels of the devices, the Zigbee"
 		+ " datapoints and the virtual devices suggest and the project lacks (lights, dimmers, blinds, switches,"
 		+ " sensors, climate, scenes, buttons, each with its roles bound to group addresses), and updates the"
-		+ " existing proposed ones. Functions dismissed earlier are not added again. With dryRun=true it answers"
+		+ " existing proposed ones. Functions dismissed earlier are not added again. The answer lists the functions in"
+		+ " use apart from the unused ones (a channel without group address: stored, but not deployed to the"
+		+ " controller), and the warnings about the wiring the devices' objects show (a status object sending on the"
+		+ " command address, an address whose datapoint type contradicts the object). With dryRun=true it answers"
 		+ " what it would add and update without changing anything; show that to the user before accepting. "
 		+ LogicSupport.REFUSALS,
 		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
@@ -67,10 +70,28 @@ public class FunctionTools {
 		boolean dry = Boolean.TRUE.equals(dryRun);
 		return LogicSupport.perform(context, owner, dry, () -> {
 			FunctionProposal.Run run = FunctionProposal.run(owner);
+			List<TLObject> inUse = run.addedInUse();
+			List<TLObject> unused = run.addedUnused();
 			Map<String, Object> data = new LinkedHashMap<>();
-			data.put(dry ? "wouldAdd" : "added", functions(run.added(), !dry));
+			data.put(dry ? "wouldAdd" : "added", functions(inUse, !dry));
+			data.put(dry ? "wouldAddUnused" : "addedUnused", functions(unused, !dry));
 			data.put(dry ? "wouldUpdate" : "updated", functions(run.updated(), true));
-			String sentence = run.added().size() + " functions added, " + run.updated().size() + " updated.";
+			List<Object> warnings = new ArrayList<>();
+			run.warnings().forEach((function, texts) -> {
+				for (ResKey text : texts) {
+					Map<String, Object> warning = new LinkedHashMap<>();
+					if (!dry || !run.added().contains(function)) {
+						warning.put("id", id(function));
+					}
+					warning.put("function", label(function));
+					warning.put("warning", LogicSupport.text(text));
+					warnings.add(warning);
+				}
+			});
+			data.put("warnings", warnings);
+			String sentence = (dry ? "Would add " : "Added ") + inUse.size() + " functions in use and " + unused.size()
+				+ " unused functions (no group address: not deployed), " + (dry ? "would update " : "updated ")
+				+ run.updated().size() + "; " + warnings.size() + " warnings about the wiring.";
 			return Outcome.done(sentence, data);
 		});
 	}

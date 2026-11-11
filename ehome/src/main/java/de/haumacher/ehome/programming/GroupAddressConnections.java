@@ -59,10 +59,22 @@ public class GroupAddressConnections {
 	}
 
 	/**
-	 * The number of connections sending to the given group address.
+	 * The number of connections sending to the given group address, of objects {@link #inEffect(TLObject) in
+	 * effect} (one switched off by the device's parameters sends nothing, haumacher/ehome #137).
 	 */
 	public static int senders(TLObject groupAddress) {
-		return (int) connections(groupAddress).stream().filter(GroupAddressConnections::isSend).count();
+		return (int) connections(groupAddress).stream()
+			.filter(c -> isSend(c) && inEffect(c))
+			.count();
+	}
+
+	/**
+	 * Whether the object of the connection is in effect in its device: its connector is in use and the
+	 * device's parameters place the object ({@link ObjectsInEffect#inEffect(TLObject)}). A connection of an
+	 * object not in effect neither sends nor receives (haumacher/ehome #137).
+	 */
+	public static boolean inEffect(TLObject connection) {
+		return ObjectsInEffect.inEffect(connection.tContainer());
 	}
 
 	/**
@@ -210,24 +222,115 @@ public class GroupAddressConnections {
 	/**
 	 * What does not fit together at the given group address: objects of different sizes, or of
 	 * datapoint types of different main types (among themselves or compared with the address's own
-	 * type). Objects without a datapoint type are compared by their size only.
+	 * type), and objects connected to it that are not {@link #inEffect(TLObject) in effect} (switched
+	 * off by the parameters of their device, haumacher/ehome #137: they neither send nor receive
+	 * there). Objects without a datapoint type are compared by their size only; objects not in effect
+	 * are not compared.
 	 *
 	 * @return The problems, empty if the objects fit together.
 	 */
 	public static List<ResKey> problems(TLObject groupAddress) {
 		List<ConnectedObject> objects = new ArrayList<>();
+		List<ResKey> inactive = new ArrayList<>();
 		for (TLObject connection : connections(groupAddress)) {
+			if (!inEffect(connection)) {
+				inactive.add(I18NConstants.WARNING_NOT_IN_EFFECT__OBJECT.fill(objectLabel(connection)));
+				continue;
+			}
 			objects.add(new ConnectedObject(device(connection), object(connection), size(connection),
 				datapointType(connection)));
 		}
-		return problems(groupAddress, objects);
+		List<ResKey> result = problems(groupAddress, objects);
+		result.addAll(inactive);
+		return result;
+	}
+
+	/**
+	 * The connections of objects of the device that are not {@link #inEffect(TLObject) in effect}:
+	 * objects switched off by the device's parameters (or whose connector or module instance is not in
+	 * use) that are still connected to group addresses (haumacher/ehome #137), each a problem of the
+	 * device and of the address.
+	 *
+	 * @return The problems, one per object, empty if every connected object is in effect.
+	 */
+	public static List<ResKey> deviceProblems(TLObject device) {
+		List<ResKey> result = new ArrayList<>();
+		List<TLObject> connectors = new ArrayList<>();
+		for (Object value : (Collection<?>) device.tValueByName("connectors")) {
+			TLObject connector = (TLObject) value;
+			if (ModuleParts.port(connector) != null
+				&& !((Collection<?>) connector.tValueByName("connections")).isEmpty()
+				&& !ObjectsInEffect.inEffect(connector)) {
+				connectors.add(connector);
+			}
+		}
+		connectors.sort(Comparator.comparingInt(c -> ModuleParts.port(c).getPort().getIndex()));
+		for (TLObject connector : connectors) {
+			ResKey problem = connectorProblem(device, connector);
+			if (problem != null) {
+				result.add(problem);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The problem of the given communication object of the device: it is not {@link #inEffect(TLObject)
+	 * in effect} but connected to group addresses (haumacher/ehome #137); <code>null</code> if it is in
+	 * effect or connected to none.
+	 */
+	public static ResKey objectProblem(TLObject device, Interface placed) {
+		for (Object value : (Collection<?>) device.tValueByName("connectors")) {
+			TLObject connector = (TLObject) value;
+			Interface own = ModuleParts.port(connector);
+			if (own != null && own.getPort().equals(placed.getPort()) && !ObjectsInEffect.inEffect(connector)) {
+				ResKey problem = connectorProblem(device, connector);
+				if (problem != null) {
+					return problem;
+				}
+			}
+		}
+		return null;
+	}
+
+	/**
+	 * The {@link #deviceProblems(TLObject) problems} of the device as one text for a person,
+	 * <code>null</code> if there are none.
+	 */
+	public static String deviceProblemText(TLObject device) {
+		return text(deviceProblems(device));
+	}
+
+	private static ResKey connectorProblem(TLObject device, TLObject connector) {
+		List<String> addresses = new ArrayList<>();
+		for (Object value : (Collection<?>) connector.tValueByName("connections")) {
+			if (((TLObject) value).tValueByName("target") instanceof TLObject target) {
+				Object address = target.tValueByName("address");
+				addresses.add(address == null ? "?" : address.toString());
+			}
+		}
+		if (addresses.isEmpty()) {
+			return null;
+		}
+		Interface placed = ModuleParts.port(connector);
+		return I18NConstants.WARNING_OBJECT_NOT_IN_EFFECT__OBJECT_ADDRESSES.fill(
+			placed.getPort().getIndex() + " " + objectName(device, placed, Resources.getInstance()),
+			String.join(", ", addresses));
+	}
+
+	private static String objectLabel(TLObject connection) {
+		Interface placed = object(connection);
+		return deviceLabel(device(connection)) + SEPARATOR + placed.getPort().getIndex() + " "
+			+ objectName(device(connection), placed, Resources.getInstance());
 	}
 
 	/**
 	 * The {@link #problems(TLObject) problems} the given group address would have if the given
 	 * communication object of the device were connected to it as well: the check the assistant makes
 	 * before it connects an object (haumacher/ehome #127), with the rule and the messages the group
-	 * address view shows after a connection.
+	 * address view shows after a connection. Objects connected to the address that are not
+	 * {@link #inEffect(TLObject) in effect} are neither compared nor reported here: they are a problem
+	 * of the address already, not one the new connection makes.
 	 *
 	 * @param device
 	 *        The device of the object.
@@ -237,6 +340,9 @@ public class GroupAddressConnections {
 	public static List<ResKey> problemsWith(TLObject groupAddress, TLObject device, Interface placed) {
 		List<ConnectedObject> objects = new ArrayList<>();
 		for (TLObject connection : connections(groupAddress)) {
+			if (!inEffect(connection)) {
+				continue;
+			}
 			objects.add(new ConnectedObject(device(connection), object(connection), size(connection),
 				datapointType(connection)));
 		}
@@ -291,7 +397,10 @@ public class GroupAddressConnections {
 	 * there are none.
 	 */
 	public static String problemText(TLObject groupAddress) {
-		List<ResKey> problems = problems(groupAddress);
+		return text(problems(groupAddress));
+	}
+
+	private static String text(List<ResKey> problems) {
 		if (problems.isEmpty()) {
 			return null;
 		}

@@ -302,9 +302,65 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 PROPOSAL_UPDATED__COUNT;
 
 	/**
+	 * @en {0} unused functions were added: their channels have no group address, so they are not deployed.
+	 */
+	public static ResKey1 PROPOSAL_ADDED_UNUSED__COUNT;
+
+	/**
+	 * @en Function "{0}": {1}
+	 */
+	public static ResKey2 PROPOSAL_WARNING__FUNCTION_WARNING;
+
+	/**
+	 * @en The status object "{0}" sends on {1}, the command address of the function: the state stays empty. Connect the status object to an address of its own.
+	 */
+	public static ResKey2 STATUS_ON_COMMAND__OBJECT_ADDRESS;
+
+	/**
+	 * @en The group address {0} has the datapoint type {1}, the object "{2}" receiving it {3}: the function follows the object. Correct the datapoint type of the address.
+	 */
+	public static ResKey4 TYPE_CONTRADICTS_OBJECT__ADDRESS_ADDRESS_TYPE_OBJECT_OBJECT_TYPE;
+
+	/**
+	 * @en {0} ({1})
+	 */
+	public static ResKey2 UNUSED_FUNCTION_NUMBERED__NAME_NUMBER;
+
+	/**
+	 * @en {0}: {1}
+	 */
+	public static ResKey2 OBJECT_LABEL__NAME_FUNCTION;
+
+	/**
 	 * @en {0} unused functions are not deployed: their main datapoint has no group address.
 	 */
 	public static ResKey1 EXPORT_UNUSED__COUNT;
+
+	/**
+	 * @en Function "{0}": the role {1} commands {2}, but no object in effect takes values from it; the
+	 *     command reaches no device.
+	 */
+	public static ResKey3 FUNCTION_ROLE_NO_RECEIVER__FUNCTION_ROLE_ADDRESS;
+
+	/**
+	 * @en Function "{0}": the role {1} commands {2}, but no object in effect takes values from it; the
+	 *     command reaches no device. An object connected there is switched off by the parameters of its
+	 *     device.
+	 */
+	public static ResKey3 FUNCTION_ROLE_NO_RECEIVER_SWITCHED_OFF__FUNCTION_ROLE_ADDRESS;
+
+	/**
+	 * @en Function "{0}": the role {1} shows {2}, but no object in effect sends on it; the function
+	 *     never shows a value.
+	 */
+	public static ResKey3 FUNCTION_ROLE_NO_SENDER__FUNCTION_ROLE_ADDRESS;
+
+	/**
+	 * @en Function "{0}": the role {1} shows {2}, but no object in effect sends on it; the function
+	 *     never shows a value. An object connected there is switched off by the parameters of its
+	 *     device.
+	 */
+	public static ResKey3 FUNCTION_ROLE_NO_SENDER_SWITCHED_OFF__FUNCTION_ROLE_ADDRESS;
 
 	/**
 	 * @en The stored image could not be read from {0}: {1}
@@ -1637,7 +1693,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey4 IMAGE_ROLE_TYPE_NONE__NAME_ROLE_KIND_TYPES;
 
 	/**
-	 * @en The role {0} needs a writable datapoint; "{1}" is not.
+	 * @en The role {0} needs a writable datapoint; "{1}" is not. A group address is writable when a connected object takes values from it (flag
+	 *     W; an object that also sends there needs the flag U or R as well), or by its setting
+	 *     "Writable (setting)"; an application datapoint by its setting "Writable".
 	 */
 	public static ResKey2 IMAGE_ROLE_WRITABLE__ROLE_NAME;
 

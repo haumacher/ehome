@@ -49,6 +49,7 @@ import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceTexts;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddressConnections;
+import de.haumacher.ehome.programming.ObjectsInEffect;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.programming.GroupAddresses;
 import de.haumacher.ehome.runtime.DatapointNames;
@@ -105,12 +106,15 @@ public class WiringTools {
 		+ " and - for a range that takes addresses - the next free address; and per address its id, address"
 		+ " in the project's notation (three-level 1/2/3, two-level 1/2 or free), name, identifier (the readable"
 		+ " id rules name its datapoint by, @kueche.licht; without one rules use @\"1/2/3\"), description, datapoint"
-		+ " type, range, problems (objects that do not fit together), the functions that use it (with their"
+		+ " type, range, 'senders' (the objects in effect sending on it), problems (objects that do not fit"
+		+ " together, and objects switched off by their device's parameters that are still connected: they neither"
+		+ " send nor receive), the functions that use it (with their"
 		+ " room) and its connections: device with name and individual address, the device's room, the"
 		+ " communication object's number and text, its function text, its channel and the channel's"
-		+ " description, and the direction: 'send' marks the object's sending address (the first address of an"
+		+ " description, the direction: 'send' marks the object's sending address (the first address of an"
 		+ " object, also of an input such as a switching object, flags CW), 'receive' an additional address the"
-		+ " object listens to. Read it before you create, connect or name"
+		+ " object listens to, and 'inEffect': false for an object switched off by its device's parameters."
+		+ " Read it before you create, connect or name"
 		+ " addresses; page with 'offset' while the answer gives 'nextOffset'.",
 		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = ToolSupport.PROJECT)
 	public ToolResult listGroupAddresses(
@@ -238,6 +242,10 @@ public class WiringTools {
 			result.put("channel", channel);
 		}
 		result.put("direction", connection.tValueByName("kind") instanceof TLClassifier kind ? kind.getName() : null);
+		if (!GroupAddressConnections.inEffect(connection)) {
+			// Switched off by the device's parameters (haumacher/ehome #137): neither sends nor receives.
+			result.put("inEffect", Boolean.FALSE);
+		}
 		return result;
 	}
 
@@ -569,7 +577,9 @@ public class WiringTools {
 		+ " sending address, the first address of every object, inputs included; 'receive': an additional"
 		+ " listening address). The flags say what the object does: W it takes values from the bus, T it"
 		+ " transmits its value. An object"
-		+ " switched off by a parameter is not listed; set the parameter first.",
+		+ " switched off by a parameter is not listed unless it is still connected; then it is marked"
+		+ " 'inEffect': false, and 'problems' names it: such a connection neither sends nor receives, remove it"
+		+ " or set the parameter that switches the object on.",
 		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = ToolSupport.PROJECT)
 	public ToolResult deviceObjects(
 			@P("The device") TLObject device) {
@@ -600,7 +610,8 @@ public class WiringTools {
 				}
 			}
 			entry.put("flags", flags.toString());
-			if (!configuration.getActiveInterfaces().containsKey(placed.getPort())) {
+			if (!configuration.getActiveInterfaces().containsKey(placed.getPort())
+				|| connector != null && !ObjectsInEffect.inEffect(connector)) {
 				entry.put("inEffect", Boolean.FALSE);
 			}
 			entry.put("defaultDirection", DeviceSettings.defaultKind(device, placed).getName());
@@ -619,6 +630,11 @@ public class WiringTools {
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("device", ref(device, GroupAddressConnections.deviceLabel(device)));
 		result.put("objects", objects);
+		// Objects switched off by the parameters but still connected (haumacher/ehome #137).
+		String problems = GroupAddressConnections.deviceProblemText(device);
+		if (problems != null) {
+			result.put("problems", problems);
+		}
 		return answer("The communication objects:", result);
 	}
 

@@ -1005,6 +1005,139 @@ def function_fixture(project, specs, names=None):
     return modify
 
 
+# TestFunctionWiring.knxproj: the wiring of the function proposal (haumacher/ehome #133, #134, #135), with three
+# artificial programs of their own (M-0008_A-FFD1/FFD2/FFD3, marked as test data) and the building "Haus",
+# "Erdgeschoss" holding the room "Flur" with the distribution board "Schaltschrank" in it, then the rooms
+# "Wohnzimmer", "Werkstatt" and "Küche". "TEST Aktor Verteiler" (1.0.1, in the board): "Kanal A" a light on
+# 5/0/1 "Licht Werkstatt" (status 5/0/2), "Kanal B" a light whose status object sends on its switching address
+# 5/0/3, "Kanal C" a blind whose up/down (1.008) and slat/stop (1.007) objects are on addresses typed 1.001
+# ("Jalousie Küche"), "Kanal D" a blind whose stop is a 1.008 object "Kurzzeitbetrieb/Stop" on an address typed
+# 1.009, "Kanal E" a dimmer (switching 5/2/1 "Licht Esstisch", 3.007, value 5/2/3 "Licht Esstisch Dimmwert",
+# its status), "Kanal F" connected to nothing. "TEST Heizungsaktor" (1.0.2, in the board): "Kanal A" receives
+# the temperature 5/3/1 "Temperatur Wohnzimmer" with an object whose transmit flag is set (as the MDT
+# heating actuator's), "Kanal B" connected to nothing. Five push-button sensors: three named "TEST Taster"
+# (1.0.3 in "Wohnzimmer": Taste 1 on 5/2/1, Wippe 3 on 5/1/1 and 5/1/2, the temperature on 5/3/1; 1.0.4 in
+# "Werkstatt" and 1.0.5 in "Flur": Taste 1 on 5/0/1), one without a name (1.0.6) and one with a name too long
+# for a function (1.0.7), both in "Küche" and connected to nothing. The program of the keys has two channels
+# with the same name "Taste".
+WIRING_PROGRAMS = [
+    ('M-0008_A-FFD1-01-0000', 'FFD1', 65489, 'TEST: Aktor Verdrahtung (künstliche Testdaten)', [
+        ('Kanal A', [('Schalten', '1 Bit', W, 'DPST-1-1', '5/0/1'), ('Status', '1 Bit', T, 'DPST-1-11', '5/0/2')]),
+        ('Kanal B', [('Schalten', '1 Bit', W, 'DPST-1-1', '5/0/3'), ('Status', '1 Bit', T, 'DPST-1-11', '5/0/3')]),
+        ('Kanal C', [('Jalousie Auf/Ab', '1 Bit', W, 'DPST-1-8', '5/1/1'),
+            ('Lamellenverstellung / Stopp', '1 Bit', W, 'DPST-1-7', '5/1/2')]),
+        ('Kanal D', [('Rollladen Auf/Ab', '1 Bit', W, 'DPST-1-8', '5/1/3'),
+            ('Kurzzeitbetrieb/Stop', '1 Bit', W, 'DPST-1-8', '5/1/4'),
+            ('Position anfahren', '1 Byte', W, 'DPST-5-1', '5/1/5'), ('Status Position', '1 Byte', T, 'DPST-5-1', '5/1/6')]),
+        ('Kanal E', [('Schalten', '1 Bit', W, 'DPST-1-1', '5/2/1'), ('Dimmen', '4 Bit', W, 'DPST-3-7', '5/2/2'),
+            ('Dimmwert', '1 Byte', W, 'DPST-5-1', '5/2/3'), ('Status Dimmwert', '1 Byte', T, 'DPST-5-1', '5/2/4')]),
+        ('Kanal F', [('Schalten', '1 Bit', W, 'DPST-1-1', None), ('Status', '1 Bit', T, 'DPST-1-11', None)]),
+    ]),
+    ('M-0008_A-FFD2-01-0000', 'FFD2', 65490, 'TEST: Heizungsaktor (künstliche Testdaten)', [
+        ('Kanal A', [('Isttemperatur empfangen', '2 Bytes', WT, 'DPST-9-1', '5/3/1')]),
+        ('Kanal B', [('Isttemperatur empfangen', '2 Bytes', WT, 'DPST-9-1', None)]),
+    ]),
+    ('M-0008_A-FFD3-01-0000', 'FFD3', 65491, 'TEST: Taster Verdrahtung (künstliche Testdaten)', [
+        ('Taste 1', [('Schalten', '1 Bit', WT, None, None)]),
+        ('Taste 2', [('Schalten', '1 Bit', WT, None, None)]),
+        ('Wippe 3', [('Langzeit', '1 Bit', WT, 'DPST-1-8', None), ('Kurzzeit', '1 Bit', WT, 'DPST-1-7', None)]),
+        ('Taste', [('Schalten', '1 Bit', WT, None, None)]),
+        ('Taste', [('Schalten', '1 Bit', WT, None, None)]),
+        ('Temperatur', [('Raumtemperatur', '2 Bytes', T, 'DPST-9-1', None)]),
+    ]),
+]
+WIRING_HARDWARE = 'M-0008_H-TEST.20WIRING-1'
+# The group addresses of TestFunctionWiring: name and datapoint type by address.
+WIRING_ADDRESSES = {'5/0/1': ('Licht Werkstatt', 'DPST-1-1'), '5/0/2': ('Licht Werkstatt Status', 'DPST-1-11'),
+    '5/0/3': ('Licht Flur', 'DPST-1-1'), '5/1/1': ('Jalousie Küche', 'DPST-1-1'),
+    '5/1/2': ('Jalousie Küche Stopp', 'DPST-1-1'), '5/1/3': ('Rollladen Bad', 'DPST-1-8'),
+    '5/1/4': ('Rollladen Bad Stopp', 'DPST-1-9'), '5/1/5': ('Rollladen Bad Position', 'DPST-5-1'),
+    '5/1/6': ('Rollladen Bad Position Status', 'DPST-5-1'), '5/2/1': ('Licht Esstisch', 'DPST-1-1'),
+    '5/2/2': ('Licht Esstisch dimmen', 'DPST-3-7'), '5/2/3': ('Licht Esstisch Dimmwert', 'DPST-5-1'),
+    '5/2/4': ('Licht Esstisch Dimmwert Status', 'DPST-5-1'), '5/3/1': ('Temperatur Wohnzimmer', 'DPST-9-1')}
+# The devices of TestFunctionWiring: (program, name or None, building part, the group address of each connected
+# object by its number, None for those the program gives).
+WIRING_DEVICES = [
+    (0, 'TEST Aktor Verteiler', 'P-01A0-0_BP-4', None),
+    (1, 'TEST Heizungsaktor', 'P-01A0-0_BP-4', None),
+    (2, 'TEST Taster', 'P-01A0-0_BP-5', {0: '5/2/1', 2: '5/1/1', 3: '5/1/2', 6: '5/3/1'}),
+    (2, 'TEST Taster', 'P-01A0-0_BP-6', {0: '5/0/1'}),
+    (2, 'TEST Taster', 'P-01A0-0_BP-3', {0: '5/0/1'}),
+    (2, None, 'P-01A0-0_BP-7', {}),
+    (2, 'TEST Taster mit einem sehr langen Namen, länger als jede Funktion', 'P-01A0-0_BP-7', {}),
+]
+
+
+def wiring_hardware(xml):
+    end = xml.rindex('</Hardware>', 0, xml.index('<Languages>'))
+    hardware = ''
+    for program, number, _, name, _ in WIRING_PROGRAMS:
+        short = name.split(' (')[0].split(': ')[1]
+        hardware += ('<Hardware Id="' + WIRING_HARDWARE + number + '" Name="TEST ' + short + '" SerialNumber="TEST '
+            + number + '" VersionNumber="1" HasIndividualAddress="1" HasApplicationProgram="1"><Products><Product Id="'
+            + WIRING_HARDWARE + number + '_P-TEST.20' + number + '" Text="TEST ' + short
+            + ' (künstliche Testdaten)" OrderNumber="TEST ' + number + '" IsRailMounted="1" DefaultLanguage="de-DE" />'
+            '</Products><Hardware2Programs><Hardware2Program Id="' + WIRING_HARDWARE + number + '_HP-' + number
+            + '-01-0000" MediumTypes="MT-0"><ApplicationProgramRef RefId="' + program + '" /></Hardware2Program>'
+            '</Hardware2Programs></Hardware>\n')
+    return xml[:end] + hardware + xml[end:]
+
+
+def wiring_devices(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+    addresses = sorted(WIRING_ADDRESSES, key=ga_value)
+    devices = ''
+    for n, (index, device_name, _, connected) in enumerate(WIRING_DEVICES, 1):
+        program, number, _, _, channels = WIRING_PROGRAMS[index]
+        objects = [(o[0], o[6] if connected is None else connected.get(o[0])) for o in function_objects(channels)]
+        refs = ''.join('<ComObjectInstanceRef RefId="' + program + '_O-%d_R-%d" IsActive="1"><Connectors>'
+            % (o, o + 1) + function_connectors(addresses, address) + '</Connectors></ComObjectInstanceRef>\n'
+            for o, address in objects if address is not None)
+        devices += ('<DeviceInstance Id="P-01A0-0_DI-' + str(n) + '"'
+            + ('' if device_name is None else ' Name="' + device_name + '"')
+            + ' ProductRefId="' + WIRING_HARDWARE + number + '_P-TEST.20' + number + '" Hardware2ProgramRefId="'
+            + WIRING_HARDWARE + number + '_HP-' + number + '-01-0000" Address="' + str(n)
+            + '" LastModified="2026-11-11T12:00:00">\n<ComObjectInstanceRefs>\n' + refs
+            + '</ComObjectInstanceRefs>\n</DeviceInstance>\n')
+    xml = xml[:start] + devices + xml[end:]
+    start = xml.index('<GroupRanges>')
+    end = xml.index('</GroupRanges>') + len('</GroupRanges>')
+    ranges = ''
+    for main in sorted(set(int(a.split('/')[0]) for a in addresses)):
+        ranges += ('<GroupRange Id="P-01A0-0_GR-%d" Name="HG%d" RangeStart="%d" RangeEnd="%d">'
+            % (main, main, main << 11, (main << 11) + 2047)
+            + ''.join('<GroupAddress Id="P-01A0-0_GA-%d" Address="%d" Name="%s" DatapointType="%s" />'
+                % (addresses.index(a) + 1, ga_value(a), WIRING_ADDRESSES[a][0], WIRING_ADDRESSES[a][1])
+                for a in addresses if a.startswith(str(main) + '/'))
+            + '</GroupRange>\n')
+    xml = xml[:start] + '<GroupRanges>\n' + ranges + '</GroupRanges>' + xml[end:]
+
+    def refs(part):
+        return ''.join('<DeviceInstanceRef RefId="P-01A0-0_DI-%d" />' % n
+            for n, (_, _, placed, _) in enumerate(WIRING_DEVICES, 1) if placed == part)
+    return replace_once(xml, '<Buildings />', '<Buildings>\n'
+        '<BuildingPart Id="P-01A0-0_BP-1" Name="Haus" Type="Building">'
+        '<BuildingPart Id="P-01A0-0_BP-2" Name="Erdgeschoss" Type="Floor">'
+        '<BuildingPart Id="P-01A0-0_BP-3" Name="Flur" Type="Room">' + refs('P-01A0-0_BP-3')
+        + '<BuildingPart Id="P-01A0-0_BP-4" Name="Schaltschrank" Type="DistributionBoard">' + refs('P-01A0-0_BP-4')
+        + '</BuildingPart></BuildingPart>'
+        '<BuildingPart Id="P-01A0-0_BP-5" Name="Wohnzimmer" Type="Room">' + refs('P-01A0-0_BP-5') + '</BuildingPart>'
+        '<BuildingPart Id="P-01A0-0_BP-6" Name="Werkstatt" Type="Room">' + refs('P-01A0-0_BP-6') + '</BuildingPart>'
+        '<BuildingPart Id="P-01A0-0_BP-7" Name="Küche" Type="Room">' + refs('P-01A0-0_BP-7') + '</BuildingPart>'
+        '</BuildingPart></BuildingPart>\n</Buildings>')
+
+
+def wiring_fixture(name, xml):
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestFunctionWiring')
+    if name == PROJECT:
+        return wiring_devices(xml)
+    if name == 'M-0008/Hardware.xml':
+        return wiring_hardware(xml)
+    return xml
+
+
 # Renames of the product data in TestNewProduct (applied to the entry names as well).
 NEW_PRODUCT_IDS = [
     (VERSION, '10D7-11-A0E5-O00F0'),
@@ -2412,3 +2545,5 @@ write('src/test/fixtures/TestAssigns.knxproj', assigns_fixture,
     [('M-0008/Hardware.xml', test_hardware(ASSIGN_HARDWARE, ASSIGN_PRODUCT, 'TEST Zuweisungen',
         [(ASSIGN_ASSIGNMENT, ASSIGN_PROGRAM)])), ('M-0008/' + ASSIGN_PROGRAM + '.xml', assign_program())],
     keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))
+write('src/test/fixtures/TestFunctionWiring.knxproj', wiring_fixture,
+    [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in WIRING_PROGRAMS])

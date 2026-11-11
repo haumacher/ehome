@@ -176,6 +176,13 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		functionRedundancy,
 		/**
+		 * <code>functionWarning(function)</code>: what is wrong with the function, as text, one line
+		 * each: why it is redundant on the controller ({@link FunctionProposal#redundancy(TLObject)}),
+		 * and its roles no object in effect serves ({@link FunctionRoleCheck#problems(TLObject)},
+		 * haumacher/ehome #137); <code>null</code> if nothing is.
+		 */
+		functionWarning,
+		/**
 		 * <code>deleteConfirmation(obj)</code>: the question asked before the object is deleted,
 		 * naming the parts of the project that refer to it, such as the functions, rules and
 		 * schedule entries naming a datapoint ({@link Referers#deleteConfirmation(TLObject)},
@@ -287,6 +294,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return resources.getString(DatapointSettings.flagsSource(obj));
 			case functionRedundancy:
 				return FunctionProposal.redundancy(obj);
+			case functionWarning:
+				return functionWarning(obj);
 			case deleteConfirmation:
 				return Referers.deleteConfirmation(obj);
 			case groupAddressIdentifierProposal:
@@ -294,6 +303,19 @@ public class RuntimeFunctions extends GenericMethod {
 			default:
 				return null;
 		}
+	}
+
+	/**
+	 * What is wrong with the function, see {@link Function#functionWarning}; <code>null</code> if
+	 * nothing is.
+	 */
+	public static String functionWarning(TLObject function) {
+		String redundancy = FunctionProposal.redundancy(function);
+		String roles = FunctionRoleCheck.problemText(function);
+		if (redundancy == null) {
+			return roles;
+		}
+		return roles == null ? redundancy : redundancy + "\n" + roles;
 	}
 
 	private static ResKey problem(Object value, java.util.function.Function<String, ResKey> check) {

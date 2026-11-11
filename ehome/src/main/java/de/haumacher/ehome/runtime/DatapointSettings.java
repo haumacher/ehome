@@ -15,7 +15,6 @@ import de.haumacher.ehome.monitor.DatapointCodec;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
-import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * The runtime settings of the datapoint of a group address (<code>ehome.logical:GroupAddress</code>)
@@ -23,12 +22,41 @@ import de.haumacher.ehome.modules.ModuleParts;
  * for the address (haumacher/ehome #45).
  *
  * <p>
- * Derived: an object that receives from the address (write flag) without transmitting on it is an
- * actuator input, which the controller may command, so the datapoint is <i>writable</i>; an object
- * that transmits its value on the address and answers a read there (read flag) is a status or a
- * measured value, so the datapoint is <i>read on start</i>. Each object counts with its flags in
- * effect (the device's own, else those of the object's placement, else those of the object), and only
- * where it communicates and its connector is active.
+ * Derived: an object that takes values from the address (write flag, {@link #accepts(TLObject)}) is
+ * one the controller may command, so the datapoint is <i>writable</i>; an object that transmits its
+ * value on the address and answers a read there (read and transmit flag) is a status or a measured
+ * value, so the datapoint is <i>read on start</i>. Each object counts with its flags in effect (the
+ * device's own, else those of the object's placement, else those of the object), and only where it
+ * communicates: its object is in effect in the device (its connector in use and placed by the
+ * device's parameters, {@link GroupAddressConnections#inEffect(TLObject)}, haumacher/ehome #137) and
+ * its communication flag is set.
+ * </p>
+ *
+ * <p>
+ * Which objects take values (haumacher/ehome #139): an object with the write flag that does not
+ * transmit on the address; one that transmits there as well when it also has the update flag (C W T
+ * U) or the read flag (C R W T). The transmit flag alone does not make the address a mere feedback:
+ * the inputs of MDT devices carry C W T U (the stop of a blind, the LED and the status for toggle of a
+ * key, summer/winter of a heating actuator), which before #139 left such an address without a
+ * receiver. The KNX program says no more than the flags (no direction of an object within its
+ * channel), so the flags decide, as the catalogs at hand use them:
+ * </p>
+ * <ul>
+ * <li>C W T U: the object takes over the value of the bus, also from the answers to reads: an input
+ * that reports its value. Writable.</li>
+ * <li>C R W T (the status that can also be written, the case an exclusion of every transmitting
+ * object would cover): in the catalogs at hand inputs whose value the bus may set and query (MDT:
+ * "Block functions", "Block absolute position", the counter reading). Writable, and read on start;
+ * the setting overrides it where writing would only overwrite a reported state.</li>
+ * <li>C W T without R and U: a sender that keeps its own state in step with the address (a Gira
+ * key's switching object, an MDT key's value object): the address is the sender's, writing it would
+ * only change what the key sends next. Not writable for it (as the homecontrol template of the test
+ * home has the keys: listen only).</li>
+ * <li>C R T: a state output. Not writable.</li>
+ * </ul>
+ * <p>
+ * Where the derivation does not fit, the setting <code>runtimeWritable</code> of the address
+ * overrides it; the refusals of a write to a datapoint that is not writable name it.
  * </p>
  *
  * <p>
@@ -45,7 +73,7 @@ public final class DatapointSettings {
 	 * The flags the connected objects give a group address's datapoint.
 	 *
 	 * @param writable
-	 *        Whether an actuator input receives from the address.
+	 *        Whether an object in effect takes values written to the address ({@link DatapointSettings#accepts(TLObject)}).
 	 * @param readOnStart
 	 *        Whether an object reports its value on the address and answers reads.
 	 */
@@ -64,7 +92,7 @@ public final class DatapointSettings {
 		boolean receiver = false;
 		boolean reporter = false;
 		for (TLObject connection : GroupAddressConnections.connections(address)) {
-			if (receives(connection)) {
+			if (accepts(connection)) {
 				receiver = true;
 			}
 			if (transmits(connection) && enabled("canRead", connection)) {
@@ -75,12 +103,12 @@ public final class DatapointSettings {
 	}
 
 	/**
-	 * Whether the object of the connection takes part in the communication: its connector is active
-	 * and its communication flag is set.
+	 * Whether the object of the connection takes part in the communication: it is in effect in its
+	 * device (its connector in use, the object placed by the device's parameters,
+	 * {@link GroupAddressConnections#inEffect(TLObject)}) and its communication flag is set.
 	 */
 	public static boolean communicates(TLObject connection) {
-		TLObject connector = connection.tContainer();
-		return ModuleParts.inEffect(connector) && enabled("communication", connection);
+		return GroupAddressConnections.inEffect(connection) && enabled("communication", connection);
 	}
 
 	/**
@@ -115,8 +143,24 @@ public final class DatapointSettings {
 	}
 
 	/**
-	 * Whether the object of the connection is an input taking values from the address: its write flag
-	 * is set and it does not transmit on the address.
+	 * Whether the object of the connection takes values written to the address: it
+	 * {@link #communicates(TLObject) communicates} and its write flag is set; if it also
+	 * {@link #transmits(TLObject) transmits} there, its update or read flag is set as well (C W T U,
+	 * C R W T; see the class comment, haumacher/ehome #139). One such object makes the address
+	 * {@link Derived#writable() writable}.
+	 */
+	public static boolean accepts(TLObject connection) {
+		if (!communicates(connection) || !enabled("canWrite", connection)) {
+			return false;
+		}
+		return !transmits(connection) || enabled("update", connection) || enabled("canRead", connection);
+	}
+
+	/**
+	 * Whether the object of the connection is a pure input of the address: it
+	 * {@link #accepts(TLObject) takes values} from it and does not transmit there. The function
+	 * proposal tells inputs from outputs of a channel by it (a key's C W T switching object is an
+	 * output there); whether the address is writable is decided by {@link #accepts(TLObject)}.
 	 */
 	public static boolean receives(TLObject connection) {
 		return communicates(connection) && enabled("canWrite", connection) && !transmits(connection);

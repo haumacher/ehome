@@ -127,6 +127,20 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey WARNING_OBJECT_SIZES_DIFFER;
 
 	/**
+	 * @en {0} is switched off by the parameters of its device but still connected: it neither sends
+	 *     nor receives on this group address. Remove the connection, or switch the object on in the
+	 *     parameters of the device.
+	 */
+	public static ResKey1 WARNING_NOT_IN_EFFECT__OBJECT;
+
+	/**
+	 * @en The object {0} is switched off by the parameters of the device but still connected to {1}:
+	 *     it neither sends nor receives there. Remove its connections, or switch it on in the
+	 *     parameters.
+	 */
+	public static ResKey2 WARNING_OBJECT_NOT_IN_EFFECT__OBJECT_ADDRESSES;
+
+	/**
 	 * @en Communication objects
 	 */
 	public static ResKey CHANGES_OBJECTS;

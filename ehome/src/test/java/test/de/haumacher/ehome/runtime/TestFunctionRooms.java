@@ -32,7 +32,8 @@ import de.haumacher.ehome.runtime.FunctionProposal;
  * <code>src/test/fixtures/TestFunctionRooms.knxproj</code>): the actuator sits in the distribution
  * board "Verteiler", the keys switching its channels in "Küche" and "Wohnzimmer". The functions are
  * named after the group addresses of their main roles (haumacher/ehome #98); the keys connected to
- * no address are unused buttons, in the room of their device.
+ * no address are unused buttons, in the room of their device. Between rooms with as many senders,
+ * the function gets no room (haumacher/ehome #133).
  */
 @SuppressWarnings("javadoc")
 public class TestFunctionRooms extends BasicTestCase {
@@ -51,11 +52,11 @@ public class TestFunctionRooms extends BasicTestCase {
 			assertEquals(Map.of(
 				// One key in "Wohnzimmer".
 				"light Licht", "Wohnzimmer",
-				// Two keys in "Küche" (one switching, one dimming), one in "Wohnzimmer" (dimming).
-				"dimmer Dimmer Wert", "Küche",
-				// One key each: "Wohnzimmer" comes first in the building, although the key in "Küche"
-				// has the lower address.
-				"blind Jalousie auf/ab", "Wohnzimmer",
+				// Two keys in "Küche" (one switching, one dimming), one in "Wohnzimmer" (dimming); named
+				// after its switching address (haumacher/ehome #134).
+				"dimmer Dimmer", "Küche",
+				// One key each: no room (haumacher/ehome #133), the user decides.
+				"blind Jalousie auf/ab", "-",
 				// The sensor is where its device is.
 				"sensor Temperatur", "Küche"), rooms(project));
 			// An unused function has no senders: it is where its device is.
@@ -64,7 +65,7 @@ public class TestFunctionRooms extends BasicTestCase {
 
 			// Running again changes no room, also one the user changed.
 			TLObject light = function(project, "Licht");
-			TLObject kitchen = (TLObject) function(project, "Dimmer Wert").tValueByName("room");
+			TLObject kitchen = (TLObject) function(project, "Dimmer").tValueByName("room");
 			update(light, "room", kitchen);
 			assertEquals(List.of(), apply(project));
 			assertSame(kitchen, light.tValueByName("room"));
@@ -75,7 +76,7 @@ public class TestFunctionRooms extends BasicTestCase {
 			update(device(project, "1.0.4"), "location", null);
 			deleteFunctions(project);
 			apply(project);
-			assertEquals(Map.of("light Licht", "-", "dimmer Dimmer Wert", "Küche", "blind Jalousie auf/ab", "Küche",
+			assertEquals(Map.of("light Licht", "-", "dimmer Dimmer", "Küche", "blind Jalousie auf/ab", "Küche",
 				"sensor Temperatur", "Küche"), rooms(project));
 
 			// The actuator in a room: the light without a placed sender is there.
