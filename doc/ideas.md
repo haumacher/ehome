@@ -182,3 +182,32 @@ Open (proposals, not decided):
    the controls, for the inhabitant.
 
 Why it waits: it needs the controls and presets of #146 and #147 first.
+
+## Shared service: self-registration and inviting people without an account
+
+Put off in the round of 2026-11-12, when the access per project was filed (haumacher/ehome #152):
+accounts are created by administrators, and a project owner adds only existing accounts.
+
+The user: "Administrators create "initial" users - when self-registration becomes available, we'll
+add it."
+
+Today:
+- The engine's self-service invites a person by mail to create an account (TL #30041, in
+  8.0.0-alpha12.820, modules `tl-security-selfservice-core` and `tl-layout-view-selfservice`); the
+  invitation is an administrator's, and it does not add to an existing account. E-Home does not
+  depend on these modules (`ehome/pom.xml`).
+- Not in a release up to 8.0.0-alpha12.820: the language of an invitation and editable mail texts
+  (TL #30223), open self-registration with approval, account lock and captcha (TL #30183).
+- Mail must be configured for either.
+
+Open (proposals, not decided):
+1. Open registration on the hosted service once TL #30183 has shipped: directly or with an
+   administrator's approval; whether a registered account may create projects at once.
+2. A project owner invites an address without an account: E-Home sends the engine's invitation and
+   the new account joins the project when it is accepted. Not verified: whether a non-administrator
+   can create an engine invitation and whether it can carry "join this project"; if not, a TL
+   ticket.
+3. Whether an account that was only invited to a project may create projects of its own (proposed:
+   not until an administrator grants it).
+
+Why it waits: an engine upgrade the user asks for, and the access per project first.
