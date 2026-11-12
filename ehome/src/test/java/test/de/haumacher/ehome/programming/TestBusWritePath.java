@@ -118,7 +118,9 @@ public class TestBusWritePath extends TestCase {
 		for (String root : List.of("src/main/java", "src/main/webapp", "src/test/java")) {
 			try (Stream<Path> files = Files.walk(Path.of(root))) {
 				for (Path file : (Iterable<Path>) files.filter(Files::isRegularFile)::iterator) {
-					if (file.getFileName().toString().equals(TestBusWritePath.class.getSimpleName() + ".java")) {
+					String name = file.getFileName().toString();
+					// The backups the bundle generator leaves (name~, ignored by the repository).
+					if (name.equals(TestBusWritePath.class.getSimpleName() + ".java") || name.endsWith("~")) {
 						continue;
 					}
 					if (Files.readString(file, StandardCharsets.ISO_8859_1).contains("ehome.programming." + "writeEnabled")) {
