@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 
+import test.de.haumacher.ehome.runtime.ControllerFixture;
+
 import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.knowledge.service.KnowledgeBase;
@@ -110,7 +112,7 @@ public class AssistantFixture {
 
 			_project = create("ehome.project:Project");
 			_project.tUpdateByName("name", PROJECT_NAME);
-			_project.tUpdateByName("controller", _controller);
+			ControllerFixture.own(_project, _controller);
 			_actuator = device(ACTUATOR, variant, assignment);
 			TLObject sensor = device(SENSOR, variant, assignment);
 			TLObject line = create("ehome.physical:Line");

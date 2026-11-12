@@ -2,8 +2,9 @@
 
 <!--
 	Dialog attaching the group monitor of a project (projects/monitor.view.xml) to a HomeControl controller
-	(haumacher/ehome #56): the project's controller (chosen when the dialog opens), any registered controller
-	(ehome.runtime:Controller), or one entered by host, port and token.
+	(haumacher/ehome #56): the project's controller (chosen when the dialog opens), another controller of the
+	project (only the project's own, haumacher/ehome #151; ControllerTarget refuses another project's), or
+	one entered by host, port and token.
 
 	"project" and "state" are the channels of the monitor view; "controller" is seeded with the project's
 	controller. An entered host wins over the chosen controller; a token entered with a chosen controller is
@@ -14,7 +15,7 @@
 
 	Unless the installation reaches local networks (configuration variable tl_ehome_local_network,
 	haumacher/ehome #150, TL-Script localNetworkVeto()), the dialog offers no host, port and token: only a
-	registered controller connected to E-Home is reached, over the connection it opens itself.
+	controller of the project connected to E-Home is reached, over the connection it opens itself.
 -->
 <view>
 	<channels>
@@ -52,8 +53,8 @@
 					<case test="$localNetworkVeto == null">
 						<text>
 							<label>
-								<en>Choose a registered controller, or enter the address and token of another one. An entered address and token are used for this connection only and are not stored.</en>
-								<de>Einen registrierten Controller wählen oder Adresse und Token eines anderen eingeben. Eine eingegebene Adresse und ein eingegebenes Token gelten nur für diese Verbindung und werden nicht gespeichert.</de>
+								<en>Choose a controller of the project, or enter the address and token of another one. An entered address and token are used for this connection only and are not stored.</en>
+								<de>Einen Controller des Projekts wählen oder Adresse und Token eines anderen eingeben. Eine eingegebene Adresse und ein eingegebenes Token gelten nur für diese Verbindung und werden nicht gespeichert.</de>
 							</label>
 						</text>
 					</case>
@@ -65,10 +66,13 @@
 					</default>
 				</switch>
 				<table
-					observed-types="ehome.runtime:Controller"
+					observed-types="ehome.runtime:Controller,ehome.project:Project"
 					selection="controller"
 					types="ehome.runtime:Controller"
 				>
+					<inputs>
+						<input channel="project"/>
+					</inputs>
 					<columns>
 						<column attribute="name"/>
 						<column attribute="host"/>
@@ -83,7 +87,7 @@
 							<value>controllerTokenHint($row)</value>
 						</computed-column>
 					</columns>
-					<rows>all(`ehome.runtime:Controller`)</rows>
+					<rows>if($project == null, [], $project.get(`ehome.project:Project#controllers`))</rows>
 				</table>
 				<!-- A controller by host and token is reached over the local network (haumacher/ehome #150). -->
 				<visible-if

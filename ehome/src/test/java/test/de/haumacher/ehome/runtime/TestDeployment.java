@@ -91,7 +91,7 @@ public class TestDeployment extends BasicTestCase {
 			assertEquals(text(I18NConstants.ERROR_NO_CONTROLLER), ControllerStatus.drift(project));
 			TLObject controller = controller("Fake", _fake.getPort(), null);
 			controllers.add(controller);
-			update(project, "controller", controller);
+			ControllerFixture.deployTo(project, controller);
 			assertNotNull(Deployer.veto(project));
 			try {
 				Deployer.deploy(project, NOW);
@@ -244,7 +244,7 @@ public class TestDeployment extends BasicTestCase {
 		try {
 			TLObject controller = controller("Fake 1.2", _fake.getPort(), TOKEN);
 			controllers.add(controller);
-			update(project, "controller", controller);
+			ControllerFixture.deployTo(project, controller);
 
 			_fake.setSchema("1.2");
 			int puts = _fake.getPuts();
@@ -301,7 +301,7 @@ public class TestDeployment extends BasicTestCase {
 				.orElseThrow();
 			TLObject controller = controller("Fake 1.3", _fake.getPort(), TOKEN);
 			controllers.add(controller);
-			update(project, "controller", controller);
+			ControllerFixture.deployTo(project, controller);
 
 			_fake.setSchema("1.3");
 			int puts = _fake.getPuts();
@@ -373,7 +373,7 @@ public class TestDeployment extends BasicTestCase {
 
 			TLObject controller = controller("Fake 1.5", _fake.getPort(), TOKEN);
 			controllers.add(controller);
-			update(project, "controller", controller);
+			ControllerFixture.deployTo(project, controller);
 
 			_fake.setSchema("1.5");
 			int puts = _fake.getPuts();
@@ -435,7 +435,7 @@ public class TestDeployment extends BasicTestCase {
 
 			TLObject controller = controller("Fake 1.4", _fake.getPort(), TOKEN);
 			controllers.add(controller);
-			update(project, "controller", controller);
+			ControllerFixture.deployTo(project, controller);
 
 			_fake.setSchema("1.4");
 			int puts = _fake.getPuts();
@@ -494,7 +494,7 @@ public class TestDeployment extends BasicTestCase {
 		try {
 			TLObject controller = controller("Fake storable", _fake.getPort(), TOKEN);
 			controllers.add(controller);
-			update(project, "controller", controller);
+			ControllerFixture.deployTo(project, controller);
 			int bytes = RuntimeImage.build(project, 1, NOW).getBytes().length;
 			ResKey tooLarge = I18NConstants.CONFIRM_TOO_LARGE__BYTES_STORABLE.fill(Integer.valueOf(bytes),
 				Long.valueOf(bytes - 1));

@@ -17,6 +17,7 @@ import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
+import test.de.haumacher.ehome.runtime.ControllerFixture;
 import test.de.haumacher.ehome.runtime.FakeController;
 
 import com.top_logic.basic.io.binary.BinaryDataFactory;
@@ -262,7 +263,7 @@ public class TestZigbeeDevices extends BasicTestCase {
 			controller.tUpdateByName("host", "127.0.0.1");
 			controller.tUpdateByName("port", Integer.valueOf(fake.getPort()));
 			controller.tUpdateByName("token", TOKEN);
-			project.tUpdateByName("controller", controller);
+			ControllerFixture.own(project, controller);
 			tx.commit();
 		}
 		try {

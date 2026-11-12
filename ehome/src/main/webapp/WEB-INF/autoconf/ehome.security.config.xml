@@ -10,25 +10,30 @@
 	  master data (KNX master data, datapoint types, manufacturers with their catalogs and application
 	  programs, the Zigbee catalog of known devices), imports ETS projects and product data, programs devices on the bus, registers
 	  controllers, sets their tokens and deploys runtime images to them.
-	- ehome.Viewer: reads the projects, the master data and the controllers, changes nothing and
-	  neither programs devices nor deploys.
+	- ehome.Viewer: reads the projects with their controllers and the master data, changes nothing
+	  and neither programs devices nor deploys.
 
 	An account holds a role through its membership in the group of the same purpose, "ehome.installers"
 	or "ehome.viewers"; an administrator adds the account to the group (Administration, Access control,
 	Groups or Accounts).
 
 	The roles reach the objects in two steps (access-configuration article):
-	- The groups hold their roles on the security root (singleton rules), and the seven types whose
-	  objects no composition holds name the security root as their role parent: the projects, the
-	  controllers and the five singletons of the shared master data (manufacturers, datapoint types,
-	  mask versions, the Zigbee catalog, the device templates). These seven types decide by the grants
-	  below.
+	- The groups hold their roles on the security root (singleton rules), and the six types whose
+	  objects no composition holds name the security root as their role parent: the projects and the
+	  five singletons of the shared master data (manufacturers, datapoint types, mask versions, the
+	  Zigbee catalog, the device templates). These six types decide by the grants below.
 	- Every other E-Home type is held in a composition of one of them and delegates the whole decision
 	  to its container (the default access parent of a composition part): a device, a group address, a
-	  function or a deployment is read where its project is read and changed where the project is
-	  written; a catalog entry or an application program where the manufacturers are; a Zigbee
-	  device type with its function entries where the Zigbee catalog is; a device template with its
-	  object overlays where the device templates are.
+	  function, a deployment or a controller is read where its project is read and changed where the
+	  project is written; a catalog entry or an application program where the manufacturers are; a
+	  Zigbee device type with its function entries where the Zigbee catalog is; a device template with
+	  its object overlays where the device templates are.
+	- Every controller is a part of exactly one project (ehome.project:Project#controllers, haumacher/ehome
+	  #151), the one on the LAN as well as the enrolled one; whoever sees the project sees its
+	  controllers, nobody else. A controller without a project, which only the migration of existing
+	  data leaves (one no project deployed to), has no container to take its access from: nobody but an
+	  administrator sees it, who assigns it to a project or deletes it (Administration, E-Home
+	  controllers).
 
 	The bearer token of a controller (ehome.runtime:Controller#token) is never readable through the
 	model: its read grant lists no role, which denies the read for every user but an administrator.
@@ -110,12 +115,6 @@
 					>
 						<singleton module="SecurityStructure"/>
 					</rule>
-					<rule id="ehomeRootForController"
-						inherit="true"
-						meta-element="ehome.runtime:Controller"
-					>
-						<singleton module="SecurityStructure"/>
-					</rule>
 					<rule id="ehomeRootForManufacturers"
 						inherit="true"
 						meta-element="ehome.catalog:ManufacturerRoot"
@@ -161,18 +160,12 @@
 			<instance>
 				<security-config>
 					<!--
-						The modules of six of the seven types deciding for themselves; the seventh, the root
+						The modules of five of the six types deciding for themselves; the sixth, the root
 						of the mask versions, has grants of its own below. The types of the other modules
 						(ehome.building, ehome.logical, ehome.physical, ehome.operational, ehome.monitor,
-						ehome.zigbee) are composition parts and delegate to their containers.
+						ehome.runtime, ehome.zigbee) are composition parts and delegate to their containers.
 					-->
 					<module name="ehome.project">
-						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
-						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
-					</module>
-					<module name="ehome.runtime">
 						<grant inherit="true" operation="Read" roles="ehome.Installer, ehome.Viewer"/>
 						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
 						<grant inherit="true" operation="Create" roles="ehome.Installer"/>

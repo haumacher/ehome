@@ -75,7 +75,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 WARN_UNKNOWN_DEVICE__DEVICE;
 
 	/**
-	 * @en The project''s controller on the LAN {0} ({1}) was not known in this installation and has been created; enter its HTTP token again.
+	 * @en The project''s controller on the LAN {0} ({1}) has been created among the controllers of the project; enter its HTTP token again.
 	 */
 	public static ResKey2 INFO_LAN_CONTROLLER_CREATED__NAME_ADDRESS;
 

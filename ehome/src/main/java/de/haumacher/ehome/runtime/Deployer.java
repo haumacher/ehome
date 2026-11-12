@@ -30,6 +30,7 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.InstallationKeys;
+import de.haumacher.ehome.connection.ProjectControllers;
 import de.haumacher.ehome.connection.Signatures;
 import de.haumacher.ehome.connection.Signatures.Keys;
 import de.haumacher.ehome.rules.DatapointId;
@@ -96,6 +97,13 @@ public final class Deployer {
 	 * Why the project cannot be deployed now, <code>null</code> if it can.
 	 */
 	public static ResKey veto(TLObject project) {
+		if (project.tValueByName("controller") instanceof TLObject target && target.tValid()) {
+			// A project deploys to its own controllers only (haumacher/ehome #151).
+			ResKey foreign = ProjectControllers.foreignVeto(project, target);
+			if (foreign != null) {
+				return foreign;
+			}
+		}
 		TLObject controller = controller(project);
 		if (controller == null) {
 			return I18NConstants.ERROR_NO_CONTROLLER;
@@ -148,11 +156,12 @@ public final class Deployer {
 	}
 
 	/**
-	 * The controller the project is deployed to, <code>null</code> if none is chosen.
+	 * The controller the project is deployed to, <code>null</code> if none is chosen or the chosen one
+	 * is not one of the project's own (haumacher/ehome #151, {@link #veto(TLObject)} names it).
 	 */
 	public static TLObject controller(TLObject project) {
-		return project.tValueByName("controller") instanceof TLObject controller && controller.tValid() ? controller
-			: null;
+		return project.tValueByName("controller") instanceof TLObject controller
+			&& ProjectControllers.isOwn(project, controller) ? controller : null;
 	}
 
 	/**

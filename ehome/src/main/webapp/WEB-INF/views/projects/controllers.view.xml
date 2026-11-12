@@ -1,10 +1,22 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The controllers enrolled for the project (haumacher/ehome #54, doc/controllers.md): each connects to
-	E-Home by itself over its WebSocket; the table shows whether it is connected now
-	(controllerConnection, de.haumacher.ehome.connection.ConnectionFunctions), its last contact and the
-	firmware it reported.
+	The controllers of the project (doc/controllers.md): every controller is a part of exactly one project
+	(haumacher/ehome #151), the one enrolled for it (haumacher/ehome #54), which connects to E-Home by
+	itself over its WebSocket, as well as the one on the LAN, reached by host and token (haumacher/ehome
+	#69). The table shows whether it is connected now (controllerConnection,
+	de.haumacher.ehome.connection.ConnectionFunctions; "On the LAN" for one reached by host and token
+	only), its address, its last contact and the firmware it reported.
+
+	"Controller on the LAN" creates a controller on the LAN in the project by name, host, port and token
+	(controllers/create-controller.view.xml), "Search controllers" lists the controllers announcing
+	themselves over mDNS and creates the one chosen (controllers/discover-controllers.view.xml, haumacher/ehome
+	#42), "Set token" stores the token of the selected controller (controllers/controller-token.view.xml);
+	the token is never shown again, the detail says only whether one is set. All three reach the local
+	network and are not offered unless the installation reaches local networks (configuration variable
+	tl_ehome_local_network, haumacher/ehome #150, TL-Script localNetworkVeto()); the Java paths refuse
+	as well (de.haumacher.ehome.connection.ProjectControllers#create). A controller created here becomes
+	the project's deployment target if the project has none.
 
 	"Add controller" creates an enrollment code for the project (de.haumacher.ehome.connection
 	.CreateEnrollmentCodeAction): valid 15 minutes for one controller, shown once in a dialog with the
@@ -45,6 +57,12 @@
 			inputs="controller"
 			observed-types="ehome.runtime:Controller"
 		/>
+		<!-- Whether the selected controller has a token, without the token. -->
+		<derived-channel name="tokenHint"
+			expr="if($controller == null, null, #('Token: {0}'@en, 'Token: {0}'@de).fill(controllerTokenHint($controller)))"
+			inputs="controller"
+			observed-types="ehome.runtime:Controller"
+		/>
 		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
 		<derived-channel name="assistantPage"
 			expr="'Project, tab Controllers'"
@@ -78,6 +96,103 @@
 						<de>Controller des Projekts</de>
 					</title>
 					<commands>
+						<generic-command
+							image="css:bi bi-hdd-network"
+							inputs="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Controller on the LAN</en>
+								<de>Controller im LAN</de>
+							</label>
+							<tooltip>
+								<en>Creates a controller on the local network, reached by its address and the token created on its console (web token create e-home).</en>
+								<de>Legt einen Controller im lokalen Netz an, erreicht über seine Adresse und das auf seiner Konsole erzeugte Token (web token create e-home).</de>
+							</tooltip>
+							<access>
+								<create
+									in="$project"
+									reference="ehome.project:Project#controllers"
+								/>
+							</access>
+							<executability>
+								<!-- Not offered unless the installation reaches local networks (haumacher/ehome #150). -->
+								<visible-if expr="localNetworkVeto() == null"/>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="project"
+								dialog-view="controllers/create-controller.view.xml"
+							>
+								<bind
+									channel="selection"
+									to="controller"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-broadcast"
+							inputs="project"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Search controllers</en>
+								<de>Controller suchen</de>
+							</label>
+							<tooltip>
+								<en>Lists the HomeControl controllers that announce themselves in the local networks (mDNS) and creates the one chosen in the project; its token is set afterwards.</en>
+								<de>Listet die HomeControl-Controller, die sich in den lokalen Netzen ankündigen (mDNS), und legt den gewählten im Projekt an; sein Token wird danach gesetzt.</de>
+							</tooltip>
+							<access>
+								<create
+									in="$project"
+									reference="ehome.project:Project#controllers"
+								/>
+							</access>
+							<executability>
+								<!-- Not offered unless the installation reaches local networks (haumacher/ehome #150). -->
+								<visible-if expr="localNetworkVeto() == null"/>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="project"
+								dialog-view="controllers/discover-controllers.view.xml"
+							>
+								<bind
+									channel="selection"
+									to="controller"
+								/>
+							</open-dialog>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-key"
+							inputs="controller"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Set token</en>
+								<de>Token setzen</de>
+							</label>
+							<tooltip>
+								<en>Stores the token created on the controller's console (web token create e-home), with which E-Home authenticates on the local network when it deploys, unloads or asks the status. It is never shown again.</en>
+								<de>Speichert das auf der Konsole des Controllers erzeugte Token (web token create e-home), mit dem sich E-Home im lokalen Netz beim Bereitstellen, Entladen und Abfragen des Status ausweist. Es wird nie wieder angezeigt.</de>
+							</tooltip>
+							<access>
+								<operation name="Write"
+									object="$controller"
+									type="ehome.runtime:Controller"
+								/>
+							</access>
+							<executability>
+								<!-- The token is used on the local network only (haumacher/ehome #150). -->
+								<visible-if expr="localNetworkVeto() == null"/>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="controller"
+								dialog-view="controllers/controller-token.view.xml"
+							/>
+						</generic-command>
 						<generic-command
 							image="css:bi bi-plus-lg"
 							inputs="project"
@@ -227,6 +342,7 @@
 									</label>
 									<value>controllerConnection($row)</value>
 								</computed-column>
+								<column attribute="host"/>
 								<column attribute="lastContact"/>
 								<column attribute="firmwareVersion"/>
 								<column attribute="firmwareBuild"/>
@@ -264,11 +380,16 @@
 						<inset>
 							<text input="controllerKey"/>
 						</inset>
+						<inset>
+							<text input="tokenHint"/>
+						</inset>
 						<form
 							input="controller"
 							with-inset="true"
 						>
 							<field attribute="name"/>
+							<field attribute="host"/>
+							<field attribute="port"/>
 							<field attribute="installation"
 								readonly="true"
 							/>

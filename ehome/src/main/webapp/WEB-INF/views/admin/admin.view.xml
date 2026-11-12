@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Overlay contributing E-Home's section to the administration defined by tl-layout-view
+	(WEB-INF/views/admin/admin.view.xml), merged onto the base in dependency order:
+	- "E-Home controllers": the HomeControl controllers of all projects with their project, and the
+	  controllers without a project the migration of haumacher/ehome #151 left, which an administrator
+	  assigns to a project or deletes (controllers.view.xml).
+	A section of its own, at the end of the sections: a tab inside an existing section would not merge
+	(see the overlay of tl-ai-core).
+-->
+<view xmlns:config="http://www.top-logic.com/ns/config/6.0">
+	<tab-bar config:ref="sections">
+		<tabs>
+			<tab id="ehome-controllers"
+				config:operation="add"
+				config:position="end"
+			>
+				<label>
+					<en>E-Home controllers</en>
+					<de>E-Home-Controller</de>
+				</label>
+				<view-ref view="controllers.view.xml"/>
+			</tab>
+		</tabs>
+	</tab-bar>
+</view>

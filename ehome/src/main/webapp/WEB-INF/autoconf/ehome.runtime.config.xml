@@ -61,6 +61,9 @@
 					<method name="controllerOnline" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
 					<method name="enrollmentCodeState" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
 					<method name="forgetConfirmation" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
+					<!-- Every controller is a part of one project (haumacher/ehome #151, de.haumacher.ehome.connection.ProjectControllers); these write. -->
+					<method name="controllerCreate" class="de.haumacher.ehome.connection.ProjectControllerFunctions$Builder"/>
+					<method name="controllerAssign" class="de.haumacher.ehome.connection.ProjectControllerFunctions$Builder"/>
 					<!-- The installation key of a project and the keys the controllers hold (homecontrol issue #35, de.haumacher.ehome.connection.InstallationKeys). -->
 					<method name="installationKeyState" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>
 					<method name="controllerKeyState" class="de.haumacher.ehome.connection.ConnectionFunctions$Builder"/>

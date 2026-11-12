@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	An administrator assigns a controller without a project to a project (haumacher/ehome #151, the
+	administration's list controllers.view.xml): "controller" carries it, "project" the project chosen.
+	controllerAssign (de.haumacher.ehome.connection.ProjectControllers#assign) makes it one of the
+	project's controllers, its deployment target if the project has none, and refuses a controller that
+	belongs to a project already.
+-->
+<view>
+	<channels>
+		<channel name="controller"/>
+		<channel name="project"/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>Assign to project</en>
+			<de>Einem Projekt zuordnen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text>
+					<label>
+						<en>The controller becomes one of the controllers of the project chosen; the project deploys to it if it has no controller yet.</en>
+						<de>Der Controller wird einer der Controller des gewählten Projekts; das Projekt stellt auf ihm bereit, wenn es noch keinen Controller hat.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						mandatory="true"
+						options="all(`ehome.project:Project`)"
+						type="ehome.project:Project"
+						value="project"
+					>
+						<label>
+							<en>Project</en>
+							<de>Projekt</de>
+						</label>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-check-lg"
+					inputs="controller, project"
+				>
+					<label>
+						<en>Assign</en>
+						<de>Zuordnen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$controller"
+							type="ehome.runtime:Controller"
+						/>
+						<create
+							in="$project"
+							reference="ehome.project:Project#controllers"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="controllerAssign($controller, $project)"/>
+					</with-transaction>
+					<close-dialog/>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

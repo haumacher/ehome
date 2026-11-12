@@ -3,10 +3,12 @@
  */
 package de.haumacher.ehome.monitor;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.connection.ControllerConnections;
+import de.haumacher.ehome.connection.ProjectControllers;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.Deployer;
@@ -14,8 +16,9 @@ import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * The HomeControl controller the group monitor attaches to (haumacher/ehome #56): the project's
- * controller, any registered controller (<code>ehome.runtime:Controller</code>), or one entered ad
- * hoc by host, port and token. A registered controller connected to E-Home is attached over its
+ * controller, another controller of the project (<code>ehome.project:Project#controllers</code>; a
+ * controller of another project is refused, haumacher/ehome #151), or one entered ad hoc by host, port
+ * and token. A registered controller connected to E-Home is attached over its
  * connection ({@link SocketBusLink}, haumacher/ehome #54) unless a token is entered for it, which
  * means its LAN address. Unless this installation reaches local networks (haumacher/ehome #150), only
  * the connection of a registered controller is used.
@@ -57,7 +60,7 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 	 *        The project; its controller (<code>ehome.project:Project#controller</code>) is used if
 	 *        neither a controller is chosen nor a host entered.
 	 * @param controller
-	 *        The registered controller chosen, <code>null</code> for none.
+	 *        The registered controller chosen, <code>null</code> for none; one of the project's own.
 	 * @param host
 	 *        The host name or address entered, <code>null</code> or empty for none. An entered host wins
 	 *        over a chosen controller.
@@ -67,7 +70,8 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 	 *        The token entered, <code>null</code> or empty for the stored token of a registered
 	 *        controller; required with a host.
 	 * @throws TopLogicException
-	 *         If no controller is chosen and none entered, the port is invalid, or no token is at hand.
+	 *         If no controller is chosen and none entered, the chosen one is not the project's, the port
+	 *         is invalid, or no token is at hand.
 	 */
 	public static ControllerTarget of(TLObject project, Object controller, Object host, Object port, Object token) {
 		String enteredToken = blank(token) ? null : token.toString().trim();
@@ -85,6 +89,11 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 			: project == null ? null : Deployer.controller(project);
 		if (registered == null) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_CONTROLLER_CHOSEN);
+		}
+		// The monitor of a project attaches to the project's own controllers only (haumacher/ehome #151).
+		ResKey foreign = project == null ? null : ProjectControllers.foreignVeto(project, registered);
+		if (foreign != null) {
+			throw new TopLogicException(foreign);
 		}
 		String name = String.valueOf(registered.tValueByName("name"));
 		ControllerClient client = Deployer.client(registered);

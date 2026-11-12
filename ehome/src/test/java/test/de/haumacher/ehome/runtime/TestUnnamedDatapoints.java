@@ -172,7 +172,7 @@ public class TestUnnamedDatapoints extends BasicTestCase {
 			controller.tUpdateByName("host", "127.0.0.1");
 			controller.tUpdateByName("port", Integer.valueOf(fake.getPort()));
 			controller.tUpdateByName("token", TOKEN);
-			project.tUpdateByName("controller", controller);
+			ControllerFixture.own(project, controller);
 			tx.commit();
 		}
 		try {

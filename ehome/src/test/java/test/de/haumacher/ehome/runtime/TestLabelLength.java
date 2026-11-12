@@ -259,7 +259,7 @@ public class TestLabelLength extends BasicTestCase {
 					tx.commit();
 				}
 				controllers.add(controller);
-				update(_project, "controller", controller);
+				ControllerFixture.deployTo(_project, controller);
 				TLObject deployment = de(() -> Deployer.deploy(_project, NOW));
 				assertEquals(Deployer.CODE_INVALID, deployment.tValueByName("code"));
 				List<?> findings = (List<?>) deployment.tValueByName("refusals");

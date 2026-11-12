@@ -3,6 +3,10 @@
  */
 package test.de.haumacher.ehome.monitor;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
@@ -28,9 +32,9 @@ import de.haumacher.ehome.monitor.ProjectIndex;
 
 /**
  * The controller the group monitor attaches to (haumacher/ehome #56, {@link ControllerTarget}): the
- * project's controller, a registered controller that is not the project's, or one entered by host,
- * port and token, which is not stored; a wrong token is refused and leaves the monitor where it was.
- * The status line names the controller.
+ * project's controller, another controller of the project, or one entered by host, port and token,
+ * which is not stored; a wrong token is refused and leaves the monitor where it was. A controller of
+ * another project is refused (haumacher/ehome #151). The status line names the controller.
  *
  * <p>
  * Runs on an empty project of its own against a {@link FakeController}: no import.
@@ -45,16 +49,24 @@ public class TestControllerChoice extends BasicTestCase {
 
 	public void testChoice() throws Exception {
 		TLObject project = createProject("TestControllerChoice");
+		TLObject other = createProject("TestControllerChoice (other)");
 		FakeController fake = new FakeController(TOKEN, 262144);
-		TLObject registered = createController("Fake registered", fake.getPort(), TOKEN);
-		TLObject withoutToken = createController("Fake without token", fake.getPort(), null);
+		TLObject registered = createController(project, "Fake registered", fake.getPort(), TOKEN);
+		TLObject withoutToken = createController(project, "Fake without token", fake.getPort(), null);
+		TLObject foreign = createController(other, "Fake foreign", fake.getPort(), TOKEN);
 		GroupMonitor monitor = new GroupMonitor(ProjectIndex.of(project));
 		String address = "127.0.0.1:" + fake.getPort();
 		try {
 			// Nothing chosen, and the project has no controller.
 			assertError(I18NConstants.ERROR_NO_CONTROLLER_CHOSEN, () -> ControllerTarget.of(project, null, null, null, null));
 
-			// A registered controller that is not the project's.
+			// A controller of another project is refused, also with a token entered for it.
+			assertError(de.haumacher.ehome.connection.I18NConstants.ERROR_FOREIGN_CONTROLLER__CONTROLLER_PROJECT.fill("", ""),
+				() -> ControllerTarget.of(project, foreign, null, null, null));
+			assertError(de.haumacher.ehome.connection.I18NConstants.ERROR_FOREIGN_CONTROLLER__CONTROLLER_PROJECT.fill("", ""),
+				() -> ControllerTarget.of(project, foreign, null, null, TOKEN));
+
+			// A controller of the project that is not its deployment target.
 			ControllerTarget target = ControllerTarget.of(project, registered, null, null, null);
 			assertFalse(target.entered());
 			target.attach(monitor);
@@ -116,8 +128,7 @@ public class TestControllerChoice extends BasicTestCase {
 			monitor.close();
 			fake.stop();
 			delete(project);
-			delete(registered);
-			delete(withoutToken);
+			delete(other);
 		}
 	}
 
@@ -151,7 +162,7 @@ public class TestControllerChoice extends BasicTestCase {
 		}
 	}
 
-	private static TLObject createController(String name, int port, String token) {
+	private static TLObject createController(TLObject project, String name, int port, String token) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject controller = ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
@@ -159,6 +170,9 @@ public class TestControllerChoice extends BasicTestCase {
 			controller.tUpdateByName("host", "127.0.0.1");
 			controller.tUpdateByName("port", Integer.valueOf(port));
 			controller.tUpdateByName("token", token);
+			List<Object> controllers = new ArrayList<>((Collection<?>) project.tValueByName("controllers"));
+			controllers.add(controller);
+			project.tUpdateByName("controllers", controllers);
 			tx.commit();
 			return controller;
 		}

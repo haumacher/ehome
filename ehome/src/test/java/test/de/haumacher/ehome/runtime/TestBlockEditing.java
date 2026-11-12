@@ -555,7 +555,7 @@ public class TestBlockEditing extends BasicTestCase {
 			controller.tUpdateByName("port", Integer.valueOf(port));
 			controller.tUpdateByName("token", TOKEN);
 			_cleanup.add(controller);
-			_project.tUpdateByName("controller", controller);
+			ControllerFixture.own(_project, controller);
 			tx.commit();
 		}
 	}

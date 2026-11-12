@@ -50,8 +50,8 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * every attribute of the project that the <code>.knxproj</code> does not hold and that is not
  * {@link ProjectFile#leftOut(TLStructuredTypePart) left out}, with the parts of its composite
  * references in place, and the settings of the group addresses. A reference to an object neither in
- * the file nor in the KNX part (nor a controller on the LAN) refuses the export, as the import could
- * not restore it.
+ * the file nor in the KNX part (a controller of another project, haumacher/ehome #151) refuses the
+ * export, as the import could not restore it.
  * </p>
  */
 public final class ProjectFileExport {
@@ -360,17 +360,6 @@ public final class ProjectFileExport {
 			if (key != null) {
 				return Map.of(ProjectFile.KNX, key);
 			}
-		}
-		if (TLModelUtil.qualifiedName(target.tType()).equals(ProjectFile.CONTROLLER_TYPE)
-			&& target.tContainer() == null) {
-			Map<String, Object> lan = new LinkedHashMap<>();
-			for (String name : List.of("name", "host", "port")) {
-				Object value = target.tValueByName(name);
-				if (value != null) {
-					lan.put(name, value instanceof Number number ? Long.valueOf(number.longValue()) : value);
-				}
-			}
-			return Map.of(ProjectFile.LAN, lan);
 		}
 		throw new TopLogicException(I18NConstants.ERROR_REFERENCE_OUTSIDE__ATTRIBUTE_OBJECT_TARGET.fill(
 			TLModelUtil.qualifiedName(reference), label(obj), label(target)));

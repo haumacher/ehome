@@ -33,7 +33,7 @@ variable `EHOME_AGENT_INVITATION`); the script never prints the token.
 ```bash
 bin/ehome-agent.py windows                              # the windows (browser tabs) of the session
 bin/ehome-agent.py observe --actions                    # the controls of the window and their commands
-bin/ehome-agent.py act /appShell/sidebar selectItem '{"itemId": "controllers"}'
+bin/ehome-agent.py act /appShell/sidebar selectItem '{"itemId": "catalogs"}'
 bin/ehome-agent.py navigate /ehome/view/projects
 ```
 

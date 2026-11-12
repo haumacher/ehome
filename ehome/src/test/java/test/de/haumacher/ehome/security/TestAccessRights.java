@@ -18,6 +18,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.importer.TestEtsImport;
+import test.de.haumacher.ehome.runtime.ControllerFixture;
 import test.de.haumacher.ehome.view.ViewCommandScan;
 
 import com.top_logic.base.security.device.TLSecurityDeviceManager;
@@ -146,7 +147,7 @@ public class TestAccessRights extends BasicTestCase {
 
 			_project = create("ehome.project:Project");
 			_project.tUpdateByName("name", "Access test");
-			_project.tUpdateByName("controller", _controller);
+			ControllerFixture.own(_project, _controller);
 
 			_groupAddress = create("ehome.logical:GroupAddress");
 			_groupAddress.tUpdateByName("name", "Light");
@@ -261,7 +262,8 @@ public class TestAccessRights extends BasicTestCase {
 		assertTrue(allowed(_installer, _controller, DELETE));
 		assertTrue(allowed(_installer, _device, DELETE));
 		assertTrue(rights().isAllowedCreate(_installer, type("ehome.project:Project"), (TLObject) null));
-		assertTrue(rights().isAllowedCreate(_installer, type("ehome.runtime:Controller"), (TLObject) null));
+		assertTrue("An installer creates a controller in a project.",
+			rights().isAllowedCreate(_installer, _project, part("ehome.project:Project#controllers")));
 		assertTrue("An installer creates a group address in a project.",
 			rights().isAllowedCreate(_installer, _groupRange, part("ehome.logical:GroupRange#parts")));
 		assertTrue("An installer adds a reaction to a rule.",
@@ -288,7 +290,7 @@ public class TestAccessRights extends BasicTestCase {
 			assertFalse(label(object), allowed(_viewer, object, DELETE));
 		}
 		assertFalse(rights().isAllowedCreate(_viewer, type("ehome.project:Project"), (TLObject) null));
-		assertFalse(rights().isAllowedCreate(_viewer, type("ehome.runtime:Controller"), (TLObject) null));
+		assertFalse(rights().isAllowedCreate(_viewer, _project, part("ehome.project:Project#controllers")));
 		assertFalse(rights().isAllowedCreate(_viewer, _groupRange, part("ehome.logical:GroupRange#parts")));
 		assertFalse(rights().isAllowedCreate(_viewer, _rule, part("ehome.runtime:Rule#reactions")));
 		assertFalse(rights().isAllowedCreate(_viewer, _project, part("ehome.project:Project#schedules")));
@@ -308,6 +310,43 @@ public class TestAccessRights extends BasicTestCase {
 			assertFalse(label(object), allowed(_stranger, object, WRITE));
 		}
 		assertFalse(rights().isAllowedCreate(_stranger, type("ehome.project:Project"), (TLObject) null));
+	}
+
+	/**
+	 * A controller is a part of its project and is accessed where the project is (haumacher/ehome
+	 * #151): the roles that read or write the project read or write its controllers, an account without
+	 * them neither. A controller without a project (left by the migration of existing data) is
+	 * accessed by nobody but an administrator. Until the roles per project (haumacher/ehome #152), the
+	 * roles are global, so "those who see its project" are the installers and viewers.
+	 */
+	public void testControllerFollowsItsProject() {
+		assertTrue(allowed(_viewer, _controller, READ));
+		assertFalse(allowed(_viewer, _controller, WRITE));
+		assertTrue(allowed(_installer, _controller, WRITE));
+		assertFalse(allowed(_stranger, _controller, READ));
+		assertSame("The controller takes its access from its project.", _project, _controller.tContainer());
+
+		TLObject[] orphan = new TLObject[1];
+		inTransaction(() -> {
+			orphan[0] = create("ehome.runtime:Controller");
+			orphan[0].tUpdateByName("name", "Access test without project");
+			orphan[0].tUpdateByName("host", "192.0.2.9");
+		});
+		for (Person person : List.of(_installer, _viewer, _stranger)) {
+			assertFalse(person.getName(), allowed(person, orphan[0], READ));
+			assertFalse(person.getName(), allowed(person, orphan[0], WRITE));
+		}
+
+		// A controller on the LAN is created in a project by whoever writes the project.
+		ViewCommandScan.Site create = ViewCommandScan.command("controllers/create-controller.view.xml", "controllerCreate()");
+		assertTrue(as(_installer, () -> create.decide(_project)).isExecutable());
+		assertHidden(as(_viewer, () -> create.decide(_project)));
+		assertHidden(as(_stranger, () -> create.decide(_project)));
+
+		// Only an administrator assigns a controller without a project.
+		ViewCommandScan.Site assign = ViewCommandScan.command("controllers/assign-controller.view.xml", "controllerAssign()");
+		assertFalse(as(_installer, () -> assign.decide(orphan[0], _project)).isExecutable());
+		assertFalse(as(_viewer, () -> assign.decide(orphan[0], _project)).isExecutable());
 	}
 
 	/**

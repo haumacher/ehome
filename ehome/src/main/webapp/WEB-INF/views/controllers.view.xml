@@ -1,251 +1,127 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The HomeControl controllers the runtime images of projects are deployed to (haumacher/ehome #39):
-	all controllers, and the selected one in a form. The bearer token of a controller is entered in a
-	dialog of its own (controllers/controller-token.view.xml) and never shown again: the table and the
-	form say only whether one is set (controllerTokenHint, de.haumacher.ehome.runtime.RuntimeFunctions).
-	"Status" asks the controller what it runs (GET /api/status, de.haumacher.ehome.runtime.ControllerStatusAction).
-	"Search controllers" lists the controllers announcing themselves over mDNS and creates one of them
-	(controllers/discover-controllers.view.xml, haumacher/ehome #42).
-	Controllers enrolled for a project (haumacher/ehome #54, projects/controllers.view.xml) appear here
-	too, with their connection state ("In the LAN" for one reached by host and token only). "Delete"
-	forgets a controller: an enrolled one's connection is closed and refused from then on.
+	The HomeControl controllers of all projects, for administrators (haumacher/ehome #151): a section of
+	the administration (admin/admin.view.xml), read only. Every controller is a part of exactly one
+	project and is created, changed and forgotten in the project's tab "Controllers"
+	(projects/controllers.view.xml); this list shows each with its project.
+
+	A controller without a project is left only by the migration of existing data
+	(de.haumacher.ehome.connection.ControllerOwnershipMigration: one no project deployed to); nobody but
+	an administrator sees it. "Assign to project" makes it one of a project's controllers
+	(controllers/assign-controller.view.xml, controllerAssign), "Delete" forgets it (ForgetControllerAction).
+	Both are offered for a controller without a project only; the others are the projects' business.
 -->
 <view>
 	<channels>
 		<channel name="controller"/>
-		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
-		<derived-channel name="assistantPage"
-			expr="'Controllers'"
-		/>
 	</channels>
-	<split-panel
-		orientation="horizontal"
-		resizable="true"
-	>
-		<panes>
-			<pane
-				min-size="320"
-				size="60"
-				unit="%"
+	<panel>
+		<title>
+			<en>HomeControl controllers of all projects</en>
+			<de>HomeControl-Controller aller Projekte</de>
+		</title>
+		<commands>
+			<generic-command
+				image="css:bi bi-box-arrow-in-right"
+				inputs="controller"
+				placement="TOOLBAR"
 			>
-				<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
-				<page-selection to="pageView">
-					<inputs>
-						<input channel="assistantPage"/>
-					</inputs>
-				</page-selection>
-				<page-selection to="pageSelection">
-					<inputs>
-						<input channel="controller"/>
-					</inputs>
-				</page-selection>
-				<panel>
-					<title>
-						<en>HomeControl controllers</en>
-						<de>HomeControl-Controller</de>
-					</title>
-					<commands>
-						<generic-command
-							image="css:bi bi-plus-lg"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>New controller</en>
-								<de>Neuer Controller</de>
-							</label>
-							<create-transient type="ehome.runtime:Controller">
-								<with-result>
-									<open-dialog
-										bind-input-to="model"
-										dialog-view="controllers/create-controller.view.xml"
-									>
-										<bind
-											channel="selection"
-											to="controller"
-										/>
-									</open-dialog>
-								</with-result>
-							</create-transient>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-broadcast"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Search controllers</en>
-								<de>Controller suchen</de>
-							</label>
-							<tooltip>
-								<en>Lists the HomeControl controllers that announce themselves in the local networks (mDNS) and creates the one chosen; its token is set afterwards.</en>
-								<de>Listet die HomeControl-Controller, die sich in den lokalen Netzen ankündigen (mDNS), und legt den gewählten an; sein Token wird danach gesetzt.</de>
-							</tooltip>
-							<executability>
-								<!-- Not offered unless the installation reaches local networks (haumacher/ehome #150). -->
-								<visible-if expr="localNetworkVeto() == null"/>
-							</executability>
-							<open-dialog dialog-view="controllers/discover-controllers.view.xml">
-								<bind
-									channel="selection"
-									to="controller"
-								/>
-							</open-dialog>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-key"
-							inputs="controller"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Set token</en>
-								<de>Token setzen</de>
-							</label>
-							<tooltip>
-								<en>Stores the token created on the controller's console (web token create e-home), with which E-Home authenticates when it deploys, unloads or asks the status. It is never shown again.</en>
-								<de>Speichert das auf der Konsole des Controllers erzeugte Token (web token create e-home), mit dem sich E-Home beim Bereitstellen, Entladen und Abfragen des Status ausweist. Es wird nie wieder angezeigt.</de>
-							</tooltip>
-							<access>
-								<operation name="Write"
-									object="$controller"
-									type="ehome.runtime:Controller"
-								/>
-							</access>
-							<executability>
-								<null-input-disabled/>
-							</executability>
-							<open-dialog
-								bind-input-to="controller"
-								dialog-view="controllers/controller-token.view.xml"
-							/>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-activity"
-							inputs="controller"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Status</en>
-								<de>Status</de>
-							</label>
-							<tooltip>
-								<en>Asks the controller what it runs and shows the answer; nothing is changed.</en>
-								<de>Fragt den Controller, was er ausführt, und zeigt die Antwort; es wird nichts geändert.</de>
-							</tooltip>
-							<access>
-								<!-- Only asks the controller what it runs (with the stored token, in Java). -->
-								<operation name="Read"
-									object="$controller"
-									type="ehome.runtime:Controller"
-								/>
-							</access>
-							<executability>
-								<null-input-disabled/>
-							</executability>
-							<controller-status>
-								<with-result>
-									<notify
-										display="dialog"
-										expr="$result"
-									/>
-								</with-result>
-							</controller-status>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-trash"
-							inputs="controller"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Delete</en>
-								<de>Löschen</de>
-							</label>
-							<access>
-								<operation name="Write"
-									object="$controller"
-									type="ehome.runtime:Controller"
-								/>
-							</access>
-							<executability>
-								<null-input-disabled/>
-							</executability>
-							<confirm expr="forgetConfirmation($controller)"/>
-							<forget-controller>
-								<with-result>
-									<notify
-										expr="$result"
-										kind="info"
-									/>
-								</with-result>
-							</forget-controller>
-						</generic-command>
-					</commands>
-					<table
-						observed-types="ehome.runtime:Controller"
-						selection="controller"
-						types="ehome.runtime:Controller"
-					>
-						<columns>
-							<column attribute="name"/>
-							<column attribute="host"/>
-							<column attribute="port"/>
-							<computed-column name="connection"
-								type="tl.core:String"
-							>
-								<label>
-									<en>Connection</en>
-									<de>Verbindung</de>
-								</label>
-								<value>controllerConnection($row)</value>
-							</computed-column>
-							<column attribute="installation"/>
-							<column attribute="lastContact"/>
-							<column attribute="firmwareVersion"/>
-							<computed-column name="token"
-								type="tl.core:String"
-							>
-								<label>
-									<en>Token</en>
-									<de>Token</de>
-								</label>
-								<value>controllerTokenHint($row)</value>
-							</computed-column>
-						</columns>
-						<rows>all(`ehome.runtime:Controller`)</rows>
-					</table>
-				</panel>
-			</pane>
-			<pane
-				size="40"
-				unit="%"
+				<label>
+					<en>Assign to project</en>
+					<de>Einem Projekt zuordnen</de>
+				</label>
+				<tooltip>
+					<en>Makes the controller, which belongs to no project, one of the controllers of the project chosen.</en>
+					<de>Macht den Controller, der zu keinem Projekt gehört, zu einem Controller des gewählten Projekts.</de>
+				</tooltip>
+				<access>
+					<operation name="Write"
+						object="$controller"
+						type="ehome.runtime:Controller"
+					/>
+				</access>
+				<executability>
+					<null-input-disabled/>
+					<!-- A controller of a project is managed in the project's tab Controllers. -->
+					<disabled-if expr="if($controller.container() == null, null, #('The controller belongs to the project {0}; it is managed in the tab Controllers of the project.'@en, 'Der Controller gehört zum Projekt {0}; er wird im Reiter „Controller“ des Projekts verwaltet.'@de).fill($controller.container().get(`ehome.project:Project#name`)))"/>
+				</executability>
+				<open-dialog
+					bind-input-to="controller"
+					dialog-view="controllers/assign-controller.view.xml"
+				/>
+			</generic-command>
+			<generic-command
+				image="css:bi bi-trash"
+				inputs="controller"
+				placement="TOOLBAR"
 			>
-				<panel>
-					<title>
-						<en>Controller</en>
-						<de>Controller</de>
-					</title>
-					<form
-						input="controller"
-						with-inset="true"
-					>
-						<field attribute="name"/>
-						<field attribute="host"/>
-						<field attribute="port"/>
-						<field attribute="installation"
-							readonly="true"
+				<label>
+					<en>Delete</en>
+					<de>Löschen</de>
+				</label>
+				<access>
+					<operation name="Write"
+						object="$controller"
+						type="ehome.runtime:Controller"
+					/>
+				</access>
+				<executability>
+					<null-input-disabled/>
+					<!-- A controller of a project is managed in the project's tab Controllers. -->
+					<disabled-if expr="if($controller.container() == null, null, #('The controller belongs to the project {0}; it is managed in the tab Controllers of the project.'@en, 'Der Controller gehört zum Projekt {0}; er wird im Reiter „Controller“ des Projekts verwaltet.'@de).fill($controller.container().get(`ehome.project:Project#name`)))"/>
+				</executability>
+				<confirm expr="forgetConfirmation($controller)"/>
+				<forget-controller>
+					<with-result>
+						<notify
+							expr="$result"
+							kind="info"
 						/>
-						<field attribute="lastContact"
-							readonly="true"
-						/>
-						<field attribute="firmwareVersion"
-							readonly="true"
-						/>
-						<field attribute="firmwareBuild"
-							readonly="true"
-						/>
-					</form>
-				</panel>
-			</pane>
-		</panes>
-	</split-panel>
+					</with-result>
+				</forget-controller>
+			</generic-command>
+		</commands>
+		<table
+			observed-types="ehome.runtime:Controller,ehome.project:Project"
+			selection="controller"
+			types="ehome.runtime:Controller"
+		>
+			<columns>
+				<column attribute="name"/>
+				<computed-column name="project"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Project</en>
+						<de>Projekt</de>
+					</label>
+					<value>if($row.container() == null, #('(none)'@en, '(keines)'@de).localize(), $row.container().get(`ehome.project:Project#name`))</value>
+				</computed-column>
+				<column attribute="host"/>
+				<column attribute="port"/>
+				<computed-column name="connection"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Connection</en>
+						<de>Verbindung</de>
+					</label>
+					<value>controllerConnection($row)</value>
+				</computed-column>
+				<column attribute="lastContact"/>
+				<column attribute="firmwareVersion"/>
+				<computed-column name="token"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Token</en>
+						<de>Token</de>
+					</label>
+					<value>controllerTokenHint($row)</value>
+				</computed-column>
+			</columns>
+			<rows>all(`ehome.runtime:Controller`)</rows>
+		</table>
+	</panel>
 </view>

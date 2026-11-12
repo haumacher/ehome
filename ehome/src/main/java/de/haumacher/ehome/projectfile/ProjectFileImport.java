@@ -34,6 +34,7 @@ import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.connection.ProjectControllers;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -72,6 +73,9 @@ public final class ProjectFileImport {
 
 	/** The references to set when all objects exist. */
 	private final List<Runnable> _references = new ArrayList<>();
+
+	/** The project the file is applied to ({@link #apply(TLObject, Contents, List)}). */
+	private TLObject _project;
 
 	/**
 	 * The contents of a project file.
@@ -180,6 +184,7 @@ public final class ProjectFileImport {
 	 *        The projects of the installation with the file's project ID before the import.
 	 */
 	public void apply(TLObject project, Contents contents, List<TLObject> existing) {
+		_project = project;
 		indexKnx(project);
 
 		Map<?, ?> json = contents.project();
@@ -430,25 +435,27 @@ public final class ProjectFileImport {
 	}
 
 	/**
-	 * The controller on the LAN no project holds with the given host and port, created if the
-	 * installation does not know it.
+	 * The controller on the LAN a file of an earlier version names by name, host and port (a
+	 * controller no project held then): the project's controller with this host and port, created in
+	 * the project if it has none (haumacher/ehome #151: every controller is a part of one project).
 	 */
 	private TLObject lanController(Map<?, ?> lan) {
 		String host = Objects.toString(lan.get("host"), null);
 		Number port = lan.get("port") instanceof Number number ? number : Long.valueOf(80);
-		TLClass type = (TLClass) TLModelUtil.findType(ProjectFile.CONTROLLER_TYPE);
-		for (TLObject controller : MetaElementUtil.getAllDirectInstancesOf(type,
-			TLObject.class)) {
-			if (controller.tContainer() == null && host != null && host.equals(controller.tValueByName("host"))
-				&& controller.tValueByName("port") instanceof Number other && other.longValue() == port.longValue()) {
-				return controller;
-			}
+		if (host == null || host.isBlank()) {
+			return null;
 		}
+		TLObject known = ProjectControllers.find(_project, host.trim(), port.intValue());
+		if (known != null) {
+			return known;
+		}
+		TLClass type = (TLClass) TLModelUtil.findType(ProjectFile.CONTROLLER_TYPE);
 		TLObject controller = ModelService.getInstance().getFactory().createObject(type);
 		String name = Objects.toString(lan.get("name"), host);
 		controller.tUpdateByName("name", name);
-		controller.tUpdateByName("host", host);
+		controller.tUpdateByName("host", host.trim());
 		controller.tUpdateByName("port", primitive(type.getPart("port"), port, ProjectFile.LAN));
+		ProjectControllers.add(_project, controller);
 		_log.log(Level.INFO, I18NConstants.INFO_LAN_CONTROLLER_CREATED__NAME_ADDRESS.fill(name, host + ":" + port),
 			null);
 		return controller;

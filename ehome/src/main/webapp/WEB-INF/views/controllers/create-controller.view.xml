@@ -1,69 +1,71 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	Create dialog of a HomeControl controller. "model" carries the transient controller bound by the
-	opening command; the created controller is written to "selection". The bearer token (created on
-	the controller's console with "web token create e-home") may be entered right away; it is masked
-	and stored with the controller.
+	Creates a HomeControl controller on the LAN in a project (haumacher/ehome #151, the project's tab
+	"Controllers", projects/controllers.view.xml): "project" carries the project, the created controller
+	is written to "selection". Name (empty: the host), host, port (empty: 80) and the bearer token
+	(created on the controller's console with "web token create e-home"; masked, may be set later) go to
+	controllerCreate (de.haumacher.ehome.connection.ProjectControllers#create), which refuses a missing
+	host, an invalid port, an address the project has a controller with already, and every creation
+	unless the installation reaches local networks (haumacher/ehome #150); the refusal keeps the dialog
+	open with its reason.
 -->
 <view>
 	<channels>
-		<channel name="model"/>
+		<channel name="project"/>
 		<channel name="selection"/>
+		<channel name="name"/>
+		<channel name="host"/>
+		<channel name="port"/>
 		<channel name="token"/>
 	</channels>
 	<window width="500px">
 		<title>
-			<en>New controller</en>
-			<de>Neuer Controller</de>
+			<en>Controller on the LAN</en>
+			<de>Controller im LAN</de>
 		</title>
-		<form
-			initial-edit-mode="true"
-			input="model"
-			mode-switch="false"
-			with-inset="true"
-		>
-			<field attribute="name"/>
-			<field attribute="host"/>
-			<field attribute="port"/>
-			<commands>
-				<generic-command
-					image="css:bi bi-check-lg"
-					inputs="model"
-					placement="BUTTON_BAR"
-				>
-					<label>
-						<en>Create</en>
-						<de>Erstellen</de>
-					</label>
-					<access>
-						<!-- Persisting brings this check as well; the token is set on the new controller in a further transaction. -->
-						<create type="ehome.runtime:Controller"/>
-					</access>
-					<store-form-state/>
-					<persist-transient>
-						<with-result>
-							<with-transaction>
-								<execute-script function='{
-	if($token != null and $token.trim() != "", $result.set(`ehome.runtime:Controller#token`, $token.trim()));
-	$result
-}'>
-									<inputs>
-										<input channel="token"/>
-									</inputs>
-								</execute-script>
-								<with-result>
-									<write-channel name="selection"/>
-									<close-dialog/>
-								</with-result>
-							</with-transaction>
-						</with-result>
-					</persist-transient>
-				</generic-command>
-			</commands>
-		</form>
 		<inset>
 			<fields>
+				<value-input
+					type="tl.core:String"
+					value="name"
+				>
+					<label>
+						<en>Name</en>
+						<de>Name</de>
+					</label>
+					<placeholder>
+						<en>The host</en>
+						<de>Der Host</de>
+					</placeholder>
+				</value-input>
+				<value-input
+					mandatory="true"
+					type="tl.core:String"
+					value="host"
+				>
+					<label>
+						<en>Host</en>
+						<de>Host</de>
+					</label>
+					<placeholder>
+						<en>Host name or IP address</en>
+						<de>Hostname oder IP-Adresse</de>
+					</placeholder>
+				</value-input>
+				<value-input
+					type="tl.core:String"
+					value="port"
+				>
+					<label>
+						<en>Port</en>
+						<de>Port</de>
+					</label>
+					<placeholder>
+						<en>80</en>
+						<de>80</de>
+					</placeholder>
+				</value-input>
 				<value-input
 					type="tl.core:String"
 					value="token"
@@ -77,6 +79,42 @@
 			</fields>
 		</inset>
 		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-check-lg"
+					inputs="project"
+				>
+					<label>
+						<en>Create</en>
+						<de>Erstellen</de>
+					</label>
+					<access>
+						<create
+							in="$project"
+							reference="ehome.project:Project#controllers"
+						/>
+					</access>
+					<executability>
+						<!-- Not offered unless the installation reaches local networks (haumacher/ehome #150). -->
+						<visible-if expr="localNetworkVeto() == null"/>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="controllerCreate($project, $name, $host, $port, $token)">
+							<inputs>
+								<input channel="name"/>
+								<input channel="host"/>
+								<input channel="port"/>
+								<input channel="token"/>
+							</inputs>
+						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
 			<button>
 				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
 					image="css:bi bi-x-lg"

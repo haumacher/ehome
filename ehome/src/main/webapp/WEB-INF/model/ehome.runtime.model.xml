@@ -18,6 +18,11 @@
 			connection"): a controller enrolled with a project's enrollment code connects to E-Home by
 			itself and authenticates with its secret (de.haumacher.ehome.connection); such a controller
 			has an id and a secret, and its host is empty unless it is also reachable on the LAN.
+
+			Either way the controller is a part of exactly one project (ehome.project:Project#controllers,
+			haumacher/ehome #151) and is read and changed where its project is. A controller without a project
+			is left only by the migration Issue_151_Controllers_in_projects (one no project deployed to); an
+			administrator assigns it to a project or deletes it.
 		-->
 		<class name="Controller">
 			<generalizations>

@@ -206,14 +206,18 @@ public final class Enrollment {
 				if (project.tValueByName("controllers") instanceof Collection<?> before) {
 					controllers.addAll(before);
 				}
-				key = InstallationKeys.enrollmentKey(project, controllers.isEmpty());
+				// The first enrolled controller; the project's controllers on the LAN do not count (haumacher/ehome #151).
+				key = InstallationKeys.enrollmentKey(project,
+					controllers.stream().noneMatch(c -> c instanceof TLObject other && ControllerConnections.controllerId(other) != null));
 				controller.tUpdateByName(InstallationKeys.DEVICE_KEY, key == null ? null : key.fingerprint());
 				controllers.add(controller);
 				project.tUpdateByName("controllers", controllers);
 				// The new controller becomes the target unless the target is one of the project's own
-				// controllers already (haumacher/ehome #69): a LAN controller or a foreign one gives way.
+				// enrolled controllers already (haumacher/ehome #69): a controller on the LAN, which is one of
+				// the project's own as well since haumacher/ehome #151, gives way.
 				Object target = project.tValueByName("controller");
-				if (target == null || !controllers.contains(target)) {
+				if (!(target instanceof TLObject current) || !controllers.contains(current)
+					|| ControllerConnections.controllerId(current) == null) {
 					project.tUpdateByName("controller", controller);
 				}
 				project.tUpdateByName("enrollmentCode", null);

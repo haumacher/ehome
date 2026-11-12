@@ -174,6 +174,46 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 COMMIT_CONTROLLER_FORGOTTEN__CONTROLLER;
 
+	/**
+	 * @en No project is chosen.
+	 */
+	public static ResKey ERROR_NO_PROJECT;
+
+	/**
+	 * @en No controller is chosen.
+	 */
+	public static ResKey ERROR_NO_CONTROLLER_CHOSEN;
+
+	/**
+	 * @en Enter the host name or IP address of the controller.
+	 */
+	public static ResKey ERROR_CONTROLLER_HOST_MISSING;
+
+	/**
+	 * @en The port {0} is no port: enter a number from 1 to 65535.
+	 */
+	public static ResKey1 ERROR_CONTROLLER_PORT_INVALID__PORT;
+
+	/**
+	 * @en The controller {0} of the project has this address already.
+	 */
+	public static ResKey1 ERROR_CONTROLLER_ADDRESS_KNOWN__CONTROLLER;
+
+	/**
+	 * @en The controller {0} belongs to the project {1} already.
+	 */
+	public static ResKey2 ERROR_CONTROLLER_HAS_PROJECT__CONTROLLER_PROJECT;
+
+	/**
+	 * @en The controller {0} belongs to the project {1}, not to this one: a project uses only its own controllers.
+	 */
+	public static ResKey2 ERROR_FOREIGN_CONTROLLER__CONTROLLER_PROJECT;
+
+	/**
+	 * @en The controller {0} belongs to no project: an administrator assigns it to a project first.
+	 */
+	public static ResKey1 ERROR_CONTROLLER_WITHOUT_PROJECT__CONTROLLER;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

@@ -84,7 +84,7 @@ public class TestImageComparison extends BasicTestCase {
 			TLObject project = projects.get(0);
 			TLObject controller = controller(_fake.getPort());
 			controllers.add(controller);
-			update(project, "controller", controller);
+			ControllerFixture.deployTo(project, controller);
 
 			// No image stored: the comparison says so and names what the image to deploy holds.
 			Result none = ImageComparison.compare(project, NOW);
@@ -229,7 +229,7 @@ public class TestImageComparison extends BasicTestCase {
 			TLObject project = projects.get(0);
 			TLObject controller = controller(_fake.getPort());
 			controllers.add(controller);
-			update(project, "controller", controller);
+			ControllerFixture.deployTo(project, controller);
 			TestFunctionProposal.apply(project);
 			int functions = FunctionProposal.functions(project).size();
 			assertTrue(functions > 2);

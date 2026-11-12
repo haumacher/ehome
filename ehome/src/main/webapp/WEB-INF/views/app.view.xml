@@ -77,13 +77,6 @@
 								<de>Gerätevorlagen</de>
 							</label>
 						</nav-item>
-						<nav-item id="controllers" icon="css:bi bi-cpu">
-							<view-ref view="controllers.view.xml"/>
-							<label>
-								<en>Controllers</en>
-								<de>Controller</de>
-							</label>
-						</nav-item>
 						<nav-item id="discover" icon="css:bi bi-broadcast">
 							<view-ref view="discover.view.xml"/>
 							<label>

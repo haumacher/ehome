@@ -77,9 +77,10 @@ import de.haumacher.ehome.modules.ModuleParts;
  * address in three levels (<code>{"ga": "0/0/40"}</code>); another object of the KNX part by its
  * external ID (<code>{"knx": "P-0123-0_BP-3"}</code>), as the <code>.knxproj</code> writes it (a
  * communication object of a device, which has no ID of its own, as
- * <code>&lt;device&gt;/&lt;object of the program&gt;</code>, see {@link #knxKey(TLObject)}); a
- * controller on the LAN that no project holds by its name, host and port
- * (<code>{"lan": {...}}</code>).</li>
+ * <code>&lt;device&gt;/&lt;object of the program&gt;</code>, see {@link #knxKey(TLObject)}). A
+ * file written before every controller became a part of its project (haumacher/ehome #151) may name
+ * a controller on the LAN by its name, host and port (<code>{"lan": {...}}</code>): the import finds
+ * it among the project's controllers or creates it there.</li>
  * <li><code>project.id</code> and <code>project.name</code> repeat what the <code>.knxproj</code>
  * holds, so the import can check the ID before it reads the archive.</li>
  * </ul>
@@ -180,7 +181,7 @@ public final class ProjectFile {
 	/** Member of a reference to an object of the KNX part: its external ID. */
 	public static final String KNX = "knx";
 
-	/** Member of a reference to a controller on the LAN no project holds. */
+	/** Member of a reference to a controller on the LAN in a file of before haumacher/ehome #151 (read only). */
 	public static final String LAN = "lan";
 
 	/** The type of a project. */

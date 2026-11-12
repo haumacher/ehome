@@ -23,6 +23,7 @@ import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
+import test.de.haumacher.ehome.runtime.ControllerFixture;
 
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -43,6 +44,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.connection.ProjectControllers;
 import de.haumacher.ehome.discover.DiscoverGatewaysAction;
 import de.haumacher.ehome.monitor.CalimeroBusLink;
 import de.haumacher.ehome.monitor.ConnectMonitorAction;
@@ -125,7 +127,7 @@ public class TestOperatorSettings extends BasicTestCase {
 	public void testLocalNetworkOff() throws Exception {
 		withProject(device -> {
 			TLObject project = root(device);
-			TLObject controller = controller();
+			TLObject controller = controller(project);
 			try {
 				localNetwork(false, () -> writing(true, () -> {
 					assertEquals(I18NConstants.ERROR_NO_LOCAL_NETWORK, eval("localNetworkVeto()"));
@@ -166,6 +168,9 @@ public class TestOperatorSettings extends BasicTestCase {
 					assertRefused(() -> ControllerTarget.of(project, controller, null, null, "token"));
 					assertCallRefused(new ControllerClient("192.0.2.1", 80, "token", Duration.ofSeconds(1)));
 					assertCallRefused(Deployer.client(controller));
+
+					// Creating a controller on the LAN in the project (haumacher/ehome #151).
+					assertRefused(() -> ProjectControllers.create(project, "LAN", "192.0.2.2", null, "token"));
 				}));
 
 				// On: as before.
@@ -211,8 +216,9 @@ public class TestOperatorSettings extends BasicTestCase {
 
 	private static final Set<String> TRIGGER_TAGS = Set.of("discover-knx-gateways", "discover-controllers");
 
-	private static final Set<String> TRIGGER_DIALOGS =
-		Set.of("projects/choose-gateway.view.xml", "controllers/discover-controllers.view.xml");
+	private static final Set<String> TRIGGER_DIALOGS = Set.of("projects/choose-gateway.view.xml",
+		"controllers/discover-controllers.view.xml", "controllers/create-controller.view.xml",
+		"controllers/controller-token.view.xml");
 
 	private static final Set<String> CONTROLLER_FIELDS = Set.of("host", "port", "token");
 
@@ -299,7 +305,7 @@ public class TestOperatorSettings extends BasicTestCase {
 		}
 	}
 
-	private static TLObject controller() {
+	private static TLObject controller(TLObject project) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject controller = ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
@@ -307,6 +313,7 @@ public class TestOperatorSettings extends BasicTestCase {
 			controller.tUpdateByName("host", "192.0.2.1");
 			controller.tUpdateByName("port", Integer.valueOf(80));
 			controller.tUpdateByName("token", "token");
+			ControllerFixture.own(project, controller);
 			tx.commit();
 			return controller;
 		}

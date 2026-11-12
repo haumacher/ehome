@@ -251,7 +251,7 @@ public class TestScheduleAdjustable extends BasicTestCase {
 			TLObject controller = TestImageComparison.controller(fake.getPort());
 			controllers.add(controller);
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				project.tUpdateByName("controller", controller);
+				ControllerFixture.own(project, controller);
 				tx.commit();
 			}
 			String older = text(I18NConstants.CONFIRM_SCHEMA_OLDER__READS_IMAGE.fill("1.1", "1.5"));

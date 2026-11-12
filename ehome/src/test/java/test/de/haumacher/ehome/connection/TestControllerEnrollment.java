@@ -5,6 +5,7 @@ package test.de.haumacher.ehome.connection;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
@@ -152,9 +153,9 @@ public class TestControllerEnrollment extends BasicTestCase {
 	}
 
 	/**
-	 * The deployment target of a project offers its own controllers and the controllers on the LAN,
-	 * never an enrollment of another project; an enrollment takes over a target that is not one of
-	 * the project's own controllers (haumacher/ehome #69).
+	 * The deployment target of a project offers its own controllers, the enrolled ones and the ones on
+	 * the LAN, never a controller of another project (haumacher/ehome #151); an enrollment takes over a
+	 * target that is not one of the project's own enrolled controllers (haumacher/ehome #69).
 	 */
 	public void testTargetOptions() throws Exception {
 		TLObject project = ControllerEndpoint.project("Target test");
@@ -166,6 +167,7 @@ public class TestControllerEnrollment extends BasicTestCase {
 			lan.tUpdateByName("name", "homecontrol-lan");
 			lan.tUpdateByName("host", "192.0.2.1");
 			lan.tUpdateByName("port", Integer.valueOf(80));
+			project.tUpdateByName("controllers", List.of(lan));
 			project.tUpdateByName("controller", lan);
 			tx.commit();
 		}
@@ -189,12 +191,12 @@ public class TestControllerEnrollment extends BasicTestCase {
 			assertTrue(options.contains(second));
 			assertTrue(options.contains(lan));
 			assertFalse("Another project's controller is no option.", options.contains(foreign));
+			Collection<?> otherOptions =
+				SearchExpression.asList(QueryExecutor.compile(config.getFunction()).execute(other));
+			assertEquals("A controller on the LAN is offered to its own project only.", List.of(foreign),
+				new ArrayList<>(otherOptions));
 		} finally {
 			SharedData.deleteProjects(List.of(project, other));
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				lan.tDelete();
-				tx.commit();
-			}
 		}
 	}
 

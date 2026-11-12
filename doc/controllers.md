@@ -7,8 +7,21 @@ E-Home reaches a controller in one of two ways:
   one-time code and from then on connects to E-Home by itself, over a WebSocket it opens. E-Home
   needs no address of the controller, so a controller behind NAT, in another network or at another
   site works. This document is about this way.
-- **On the LAN**: a controller entered with its host and bearer token (`controllers.view.xml`, "Set
-  token") is called over HTTP, as before (haumacher/ehome #39).
+- **On the LAN**: a controller entered with its host and bearer token (project → tab "Controller" →
+  "Controller im LAN" or "Controller suchen", then "Token setzen") is called over HTTP, as before
+  (haumacher/ehome #39).
+
+Either way the controller is a part of exactly one project (`Project#controllers`, haumacher/ehome
+#151): it is created and found in the project's tab "Controller", read and changed where the project
+is (it takes its access from the project), and a project deploys to, monitors and reads the Zigbee
+network of its own controllers only (`ProjectControllers`; `Deployer.veto` and `ControllerTarget`
+refuse another project's). An administrator sees all controllers with their project in Administration →
+"E-Home-Controller" (`controllers.view.xml`). The data migration `Issue_151_Controllers_in_projects`
+(startup action `ControllerOwnershipMigration`) moved the controllers on the LAN of before into the
+projects: one that exactly one project deployed to into that project; one that several deployed to
+into the first by name, and a copy with its token into each of the others; one that no project deployed
+to stays without a project, which only an administrator sees and assigns to a project or deletes in that
+list.
 
 The protocol is the controller's contract, `spec/api.md` of homecontrol, sections "E-Home connection
 (issue #41)", "WebSocket /ws" and "Tokens". The code is in `de.haumacher.ehome.connection`.
@@ -109,10 +122,11 @@ refuses every action visibly, naming its last contact ("not connected to E-Home 
 ...)"), or that it never connected; entering host and token keeps the LAN path open. No firmware goes
 over the connection. An installation that does not reach local networks (`tl_ehome_local_network=false`,
 haumacher/ehome #150, `doc/debian.md`) has no LAN path: a controller that is not connected refuses every
-action with the reason (an enrolled one names its last contact), "Search controllers" and host, port and
-token of "Connect to a controller" are not offered, and the server refuses them as well.
+action with the reason (an enrolled one names its last contact), "Controller im LAN", "Controller suchen",
+"Token setzen" and host, port and token of "Connect to a controller" are not offered, and the server
+refuses them as well.
 
-The state of a controller (tab "Controller" of the project, and the global controller list): "Online
+The state of a controller (tab "Controller" of the project, and the administrators' list): "Online
 since ...", "Offline, last contact ...", "Not connected yet", or "In the LAN" for a controller that
 was not enrolled. The online state is held in memory; the last contact (at the connection and at its
 end), the firmware version and build are stored with the controller. A table shows the state as of
@@ -206,7 +220,7 @@ encodings) and `connection.InstallationKeys` (the keys of a project and the rota
 
 ## Forgetting a controller
 
-"Vergessen" (project tab) or "Löschen" (global list) asks, then deletes the controller with its
+"Vergessen" (project tab, or "Löschen" in the administrators' list for a controller without a project) asks, then deletes the controller with its
 secret, removes it as the deployment target of its project and from the deployments that name it
 (they keep its name and address in their target), and closes its connection with
 `ehome.forgotten`. When the project has exactly one other controller, that one becomes the target

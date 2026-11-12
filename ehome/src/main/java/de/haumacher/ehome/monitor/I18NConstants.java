@@ -241,7 +241,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey ERROR_NO_CONTROLLER;
 
 	/**
-	 * @en The controller {0} has no token: set the token created on its console in the controllers view.
+	 * @en The controller {0} has no token: set the token created on its console in the tab Controllers of the project.
 	 */
 	public static ResKey1 ERROR_NO_CONTROLLER_TOKEN__CONTROLLER;
 

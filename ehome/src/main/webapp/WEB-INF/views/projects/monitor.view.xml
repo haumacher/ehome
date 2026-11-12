@@ -3,7 +3,7 @@
 <!--
 	The group monitor of a project (haumacher/ehome #10, de.haumacher.ehome.monitor.GroupMonitor): attached
 	to the bus through the gateway of the project, or to the monitor stream of the project's HomeControl
-	controller (haumacher/ehome #41, ControllerBusLink) - the project's, another registered one or one entered
+	controller (haumacher/ehome #41, ControllerBusLink) - the project's, another one of the project or one entered
 	by address and token (#56, "Connect to a controller", projects/connect-controller.view.xml) - it shows the
 	group telegrams decoded by the datapoint types of their addresses and attributed to the devices that sent
 	them. The status line names the gateway or controller the monitor is attached to.
@@ -198,8 +198,8 @@
 								<de>Mit einem Controller verbinden</de>
 							</label>
 							<tooltip>
-								<en>Attaches the monitor to the monitor stream of a HomeControl controller instead of a gateway: the project's, another registered one or one entered with its token. It then also shows the other events of the controller.</en>
-								<de>Verbindet den Monitor statt mit einem Gateway mit dem Monitor-Datenstrom eines HomeControl-Controllers: dem des Projekts, einem anderen registrierten oder einem mit seinem Token eingegebenen. Er zeigt dann auch die übrigen Ereignisse des Controllers.</de>
+								<en>Attaches the monitor to the monitor stream of a HomeControl controller instead of a gateway: the project's, another one of the project or one entered with its token. It then also shows the other events of the controller.</en>
+								<de>Verbindet den Monitor statt mit einem Gateway mit dem Monitor-Datenstrom eines HomeControl-Controllers: dem des Projekts, einem anderen des Projekts oder einem mit seinem Token eingegebenen. Er zeigt dann auch die übrigen Ereignisse des Controllers.</de>
 							</tooltip>
 							<access>
 								<operation name="Read"

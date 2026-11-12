@@ -5,16 +5,19 @@
 	announcing the DNS-SD service _homecontrol._tcp over multicast DNS (<discover-controllers>,
 	de.haumacher.ehome.runtime.DiscoverControllersAction), with the version of their announcement.
 	"Create" makes a controller (ehome.runtime:Controller) of the selected row - its name, address and
-	port - and writes it to "selection"; the token is set afterwards with "Set token". A controller with
-	the same address and port that exists already is not created again. Without a network interface the
-	search runs on all interfaces that are up and support multicast, except the loopback interface.
+	port - in the project in "project" (haumacher/ehome #151, controllerCreate) and writes it to
+	"selection"; the token is set afterwards with "Set token". A controller of the project with the same
+	address and port is not created again; "Known as" names it. Without a network interface the search
+	runs on all interfaces that are up and support multicast, except the loopback interface.
 
 	Unless the installation reaches local networks (configuration variable tl_ehome_local_network,
 	haumacher/ehome #150, TL-Script localNetworkVeto()), the dialog offers no search and says why; the
-	command opening it (controllers.view.xml) is not offered then either.
+	command opening it (projects/controllers.view.xml) is not offered then either, and controllerCreate
+	refuses.
 -->
 <view>
 	<channels>
+		<channel name="project"/>
 		<channel name="selection"/>
 		<channel name="found"/>
 		<channel name="selected"/>
@@ -139,13 +142,14 @@
 										<value>$row["build"]</value>
 									</computed-column>
 									<computed-column name="known"
+										inputs="project"
 										type="tl.core:String"
 									>
 										<label>
 											<en>Known as</en>
 											<de>Bekannt als</de>
 										</label>
-										<value>all(`ehome.runtime:Controller`).filter(c -> $c.get(`ehome.runtime:Controller#host`) == $row["host"] and $c.get(`ehome.runtime:Controller#port`) == $row["port"]).map(c -> $c.get(`ehome.runtime:Controller#name`)).firstElement()</value>
+										<value>$project.get(`ehome.project:Project#controllers`).filter(c -> $c.get(`ehome.runtime:Controller#host`) == $row["host"] and $c.get(`ehome.runtime:Controller#port`) == $row["port"]).map(c -> $c.get(`ehome.runtime:Controller#name`)).firstElement()</value>
 									</computed-column>
 								</columns>
 								<rows>if($found == null, [], $found)</rows>
@@ -165,14 +169,17 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-plus-lg"
-					inputs="selected"
+					inputs="project, selected"
 				>
 					<label>
 						<en>Create</en>
 						<de>Anlegen</de>
 					</label>
 					<access>
-						<create type="ehome.runtime:Controller"/>
+						<create
+							in="$project"
+							reference="ehome.project:Project#controllers"
+						/>
 					</access>
 					<executability>
 						<visible-if expr="localNetworkVeto() == null"/>
@@ -181,20 +188,7 @@
 						<execute-script>
 							<function><![CDATA[if($selected == null,
     throw(#("Choose a controller the search found."@en, "Bitte einen gefundenen Controller wählen."@de)),
-    {
-        known = all(`ehome.runtime:Controller`)
-            .filter(c -> $c.get(`ehome.runtime:Controller#host`) == $selected["host"] and $c.get(`ehome.runtime:Controller#port`) == $selected["port"])
-            .firstElement();
-        if($known != null,
-            throw(#("The controller {0} has this address already."@en, "Der Controller {0} hat diese Adresse bereits."@de).fill($known.get(`ehome.runtime:Controller#name`))),
-            {
-                created = new(`ehome.runtime:Controller`);
-                $created.set(`ehome.runtime:Controller#name`, $selected["name"]);
-                $created.set(`ehome.runtime:Controller#host`, $selected["host"]);
-                $created.set(`ehome.runtime:Controller#port`, $selected["port"]);
-                $created
-            })
-    })]]></function>
+    controllerCreate($project, $selected["name"], $selected["host"], $selected["port"], null))]]></function>
 						</execute-script>
 						<with-result>
 							<write-channel name="selection"/>

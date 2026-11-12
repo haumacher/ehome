@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Every controller becomes a part of exactly one project (haumacher/ehome #151). Before, a controller on
+	the LAN was held by no project and every project could deploy to it; the options of the project's
+	deployment target named the project's own controllers and every controller without a container. The
+	options now name the project's own controllers only: the processor changes them in the stored model,
+	so the automatic model upgrade at startup has nothing left to do (no class, attribute or table
+	changes). The access of a controller now follows its project (ehome.security.config.xml), which is
+	configuration, not data.
+
+	After the start, the startup action ControllerOwnershipMigration moves the existing controllers: one
+	without a project that exactly one project deploys to moves into that project; one that several
+	projects deploy to moves into the first of them and is copied, with its token, into each of the others,
+	which deploy to their copy and whose deployments name it; one no project deploys to stays without a
+	project, which only an administrator sees (Administration, E-Home controllers: assign to a project or
+	delete). A project deploying to an enrolled controller of another project loses that target. Each step
+	is logged.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_151_Controllers_in_projects"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_90_Rule_references"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30079_Remove_comments"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_29092_multi_factor_authentication"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<update-annotations name="ehome.project:Project#controller">
+			<annotations>
+				<options>
+					<options-by-expression>
+						<function><![CDATA[p -> $p.get(`ehome.project:Project#controllers`)]]></function>
+					</options-by-expression>
+				</options>
+			</annotations>
+		</update-annotations>
+	</processors>
+	<post-processors/>
+	<startup-actions>
+		<startup-action class="de.haumacher.ehome.connection.ControllerOwnershipMigration"/>
+	</startup-actions>
+</migration>
