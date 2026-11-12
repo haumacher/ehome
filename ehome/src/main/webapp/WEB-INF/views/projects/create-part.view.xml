@@ -137,6 +137,18 @@
 				<field attribute="days"/>
 			</visible-if>
 			<visible-if
+				expr="ruleDraftField($model, 'state')"
+				input="model"
+			>
+				<field attribute="state"/>
+			</visible-if>
+			<visible-if
+				expr="ruleDraftField($model, 'plan')"
+				input="model"
+			>
+				<field attribute="plan"/>
+			</visible-if>
+			<visible-if
 				expr="ruleDraftField($model, 'datapoint')"
 				input="model"
 			>

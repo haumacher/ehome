@@ -1709,13 +1709,19 @@
 														size="35"
 														unit="%"
 													>
-														<form
-															input="plan"
-															with-inset="true"
-														>
-															<field attribute="identifier"/>
-															<field attribute="label"/>
-														</form>
+														<panel>
+															<title>
+																<en>Day plan</en>
+																<de>Tagesplan</de>
+															</title>
+															<form
+																input="plan"
+																with-inset="true"
+															>
+																<field attribute="identifier"/>
+																<field attribute="label"/>
+															</form>
+														</panel>
 													</pane>
 												</panes>
 											</split-panel>

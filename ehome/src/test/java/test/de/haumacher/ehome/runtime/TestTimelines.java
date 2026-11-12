@@ -393,6 +393,51 @@ public class TestTimelines extends BasicTestCase {
 			+ report + " " + json, !report.isValid());
 	}
 
+	/** haumacher/ehome #153: a write of 0 to a boolean datapoint warns at the value field. */
+	public void testWriteIntegerToBooleanWarns() throws Exception {
+		TLObject main;
+		TLObject write;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			main = create("ehome.datapoint:DatapointMainType");
+			main.tUpdateByName("number", Integer.valueOf(1));
+			main.tUpdateByName("extId", "TEST-TIMELINES-1");
+			TLObject sw = create("ehome.datapoint:DatapointSubtype");
+			sw.tUpdateByName("number", Integer.valueOf(1));
+			sw.tUpdateByName("extId", "TEST-TIMELINES-1-001");
+			main.tUpdateByName("subtypes", List.of(sw));
+			TLObject light = address("Light", 3, sw);
+			List<TLObject> addresses = new ArrayList<>(RuleFunctions.objects(_project, "groupAddresses"));
+			addresses.add(light);
+			_project.tUpdateByName("groupAddresses", addresses);
+			write = RuleFunctions.create(_comfort, "entry", runtime("WriteAction"));
+			write.tUpdateByName("datapoint", light);
+			write.tUpdateByName("value", "true");
+			tx.commit();
+		}
+		try {
+			RuleForm form = new RuleForm(write);
+			assertEquals(List.of(), form.warnings("value"));
+			form.set("value", "0");
+			assertEquals(1, form.warnings("value").size());
+
+			// The same in the create dialog: a draft of a new entry action.
+			TLObject draft = de.haumacher.ehome.runtime.RuleDrafts.draft(_standby, "entry", runtime("WriteAction"));
+			RuleForm dialog = new RuleForm(draft);
+			dialog.set("datapoint", write.tValueByName("datapoint"));
+			dialog.set("value", "1");
+			assertEquals(1, dialog.warnings("value").size());
+		} finally {
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				write.tDelete();
+				tx.commit();
+			}
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				main.tDelete();
+				tx.commit();
+			}
+		}
+	}
+
 	/** The deploy needs a controller reading schema 1.7: refused with the reason for an older one. */
 	public void testSchemaGate() throws Exception {
 		Map<String, Object> json = RuntimeImage.build(_project, 1, NOW).getJson();
