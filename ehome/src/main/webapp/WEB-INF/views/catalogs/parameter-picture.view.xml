@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	A picture of the parameter dialog (ETS: TypePicture, haumacher/ehome #155) at the place of its
+	parameter, with the parameter's text as its caption: in the parameter editor of a device
+	(projects/device-item.view.xml) and at a placed parameter of a program in the catalog
+	(catalogs/program.view.xml).
+
+	The type is the parameter's picture type (de.haumacher.ehome.knx.ParameterPictures decides how it is
+	shown): a format every browser shows (.png, .jpg, .jpeg, .gif, .svg, .webp) as the picture, any
+	other as the name of its file with a download, and a picture whose file is not there (a program
+	imported before the files of the manufacturer were kept, a file the product file did not hold) as
+	the note saying so; importing the product file again completes it, which the channels follow.
+-->
+<view>
+	<channels>
+		<!-- The picture type of the parameter. -->
+		<channel name="type"/>
+		<!-- The parameter's text. -->
+		<channel name="caption"/>
+		<derived-channel name="image"
+			expr="parameterPictureImage($type)"
+			inputs="type"
+			observed-types="ehome.catalog:Baggage,ehome.operational:PictureType"
+		/>
+		<derived-channel name="file"
+			expr="parameterPictureFile($type)"
+			inputs="type"
+			observed-types="ehome.catalog:Baggage,ehome.operational:PictureType"
+		/>
+		<derived-channel name="note"
+			expr="{ n = parameterPictureNote($type); if($n == null, null, $n.localize()) }"
+			inputs="type"
+			observed-types="ehome.catalog:Baggage,ehome.operational:PictureType"
+		/>
+	</channels>
+	<stack
+		align="start"
+		gap="compact"
+	>
+		<visible-if
+			expr="$image != null"
+			input="image"
+		>
+			<image
+				fit="contain"
+				input="image"
+			>
+				<alt>
+					<en>Picture of the parameter dialog</en>
+					<de>Bild des Parameterdialogs</de>
+				</alt>
+			</image>
+		</visible-if>
+		<visible-if
+			expr="$file != null"
+			input="file"
+		>
+			<download input="file"/>
+		</visible-if>
+		<text
+			input="caption"
+			variant="caption"
+		/>
+		<visible-if
+			expr="$note != null"
+			input="note"
+		>
+			<text
+				input="note"
+				tone="secondary"
+			/>
+		</visible-if>
+	</stack>
+</view>

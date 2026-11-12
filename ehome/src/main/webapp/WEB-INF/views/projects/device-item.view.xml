@@ -13,7 +13,8 @@
 	input shows the effective value again. A parameter that can only be read, or that the user may not
 	change (no Write on the device, e.g. a viewer; the submit checks it as well), shows its value as
 	text with the reason beside it (the refusal of a change, else the missing right), a parameter
-	without value (a heading) only its text. A change of a parameter runs the
+	without value (a heading) only its text, a picture of the parameter dialog the picture with its
+	text as caption (catalogs/parameter-picture.view.xml, haumacher/ehome #155). A change of a parameter runs the
 	calculations of the manufacturer it feeds (haumacher/ehome #123); a parameter of a calculation
 	E-Home cannot evaluate can only be read, with the reason beside it, and one a calculation computes
 	says so.
@@ -62,7 +63,7 @@
 			expr="if($item.instanceOf(`ehome.operational:ParameterView`), $item.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`), null)"
 			inputs="item"
 		/>
-		<!-- How the entry is shown: a communication object, a heading, a value to read, or the kind of input. -->
+		<!-- How the entry is shown: a communication object, a picture, a heading, a value to read, or the kind of input. -->
 		<derived-channel name="kind"
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting"
@@ -70,6 +71,7 @@
 			<expr><![CDATA[if(!$item.instanceOf(`ehome.operational:ParameterView`), "object", {
     t = $item.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
     switch {
+        $t.instanceOf(`ehome.operational:PictureType`): "picture";
         $t.instanceOf(`ehome.operational:VoidType`): "heading";
         !canWrite($device): "readonly";
         deviceEditVeto($device, $item) != null: "readonly";
@@ -181,29 +183,47 @@
 		gap="compact"
 		wrap="true"
 	>
-		<stack
-			align="center"
-			css-class="ehomeDeviceItem__label"
-			direction="row"
-			gap="compact"
+		<!-- The text of the entry; a picture has it as its caption below it. -->
+		<visible-if
+			expr="$kind != 'picture'"
+			input="kind"
 		>
-			<text input="itemLabel"/>
-			<visible-if
-				expr="$changed"
-				input="changed"
+			<stack
+				align="center"
+				css-class="ehomeDeviceItem__label"
+				direction="row"
+				gap="compact"
 			>
-				<text
-					css-class="ehomeChangeMark"
-					tone="warning"
+				<text input="itemLabel"/>
+				<visible-if
+					expr="$changed"
+					input="changed"
 				>
-					<label>
-						<en>●</en>
-						<de>●</de>
-					</label>
-				</text>
-			</visible-if>
-		</stack>
+					<text
+						css-class="ehomeChangeMark"
+						tone="warning"
+					>
+						<label>
+							<en>●</en>
+							<de>●</de>
+						</label>
+					</text>
+				</visible-if>
+			</stack>
+		</visible-if>
 		<switch input="kind">
+			<case test="$kind == 'picture'">
+				<view-ref view="catalogs/parameter-picture.view.xml">
+					<bind
+						channel="type"
+						to="type"
+					/>
+					<bind
+						channel="caption"
+						to="itemLabel"
+					/>
+				</view-ref>
+			</case>
 			<case test="$kind == 'choice'">
 				<value-input
 					inputs="type"

@@ -35,6 +35,12 @@
 			expr="$placedParameter.get(`ehome.operational:Parameter#type`)"
 			inputs="placedParameter"
 		/>
+		<!-- The text of the selected parameter reference, the caption of its picture. -->
+		<derived-channel name="placedTitle"
+			expr="if($selected.instanceOf(`ehome.operational:ParameterView`), $selected.get(`ehome.operational:ParameterView#title`), null)"
+			inputs="selected"
+			observed-types="ehome.operational:ParameterView,ehome.operational:Parameter"
+		/>
 		<!--
 			The row selected in the parameters tab (a dictionary of programParameterRows: the page, the
 			parameter, its placement there and its number of placements), and its parameter. A parameter
@@ -637,8 +643,22 @@
 												<field attribute="space"/>
 											</group>
 										</form>
-										<!-- The entries of an enumeration type. -->
+										<!-- The entries of an enumeration type; the picture of a picture type with the text as caption (haumacher/ehome #155). -->
 										<switch input="placedType">
+											<case test="$placedType.instanceOf(`ehome.operational:PictureType`)">
+												<inset>
+													<view-ref view="catalogs/parameter-picture.view.xml">
+														<bind
+															channel="type"
+															to="placedType"
+														/>
+														<bind
+															channel="caption"
+															to="placedTitle"
+														/>
+													</view-ref>
+												</inset>
+											</case>
 											<case test="$placedType.instanceOf(`ehome.operational:EnumerationType`)">
 												<table
 													observed-types="ehome.operational:EnumerationValue"
@@ -1715,8 +1735,23 @@
 									<field attribute="addressKind"/>
 									<field attribute="version"/>
 									<field attribute="space"/>
+									<field attribute="picture"/>
 									<field attribute="extId"/>
 								</form>
+								<!-- The picture of a picture type (haumacher/ehome #155). -->
+								<visible-if
+									expr="$selectedType.instanceOf(`ehome.operational:PictureType`)"
+									input="selectedType"
+								>
+									<inset>
+										<view-ref view="catalogs/parameter-picture.view.xml">
+											<bind
+												channel="type"
+												to="selectedType"
+											/>
+										</view-ref>
+									</inset>
+								</visible-if>
 								<!-- The entries of an enumeration type, and the selected one. -->
 								<visible-if
 									expr="$selectedEnumeration != null"
