@@ -295,6 +295,19 @@ opens its parents.
 
 **When fixed:** write the selection once in the switch and the drop of `projects/devices.view.xml`.
 
+## A sidebar entry cannot be withheld by a condition (TL #30310)
+
+A `<nav-item>` of a `<sidebar>` is withheld only by its `<access-control>` (model access rights) or
+by the static `hidden="true"`; there is no condition over a TL-Script or the configuration
+(`SidebarElement.NavItemConfig`). A hosted installation that does not reach local networks
+(haumacher/ehome #150, `tl_ehome_local_network`) therefore keeps the entry "Discover" of
+`app.view.xml`: its page (`discover.view.xml`) offers no search and shows the reason instead
+(`<switch input="localNetworkVeto">`), and the gateway search behind it refuses as well
+(`DiscoverGatewaysAction`).
+
+**When fixed:** withhold the entry `discover` of `app.view.xml` by `localNetworkVeto()` and drop the
+`<default>` case of `discover.view.xml`.
+
 ## Commit messages of agent changes (TL #30276)
 
 Every change an MCP tool call or an assistant turn makes is committed by the engine (`TransactionScope`,

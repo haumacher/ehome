@@ -25,6 +25,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.runtime.MdnsBrowser.Service;
 import de.haumacher.ehome.runtime.MdnsBrowser.Target;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * {@link ViewAction} searching the local networks for HomeControl controllers (haumacher/ehome #42):
@@ -82,6 +83,7 @@ public class DiscoverControllersAction implements ViewAction {
 
 	@Override
 	public Object execute(ReactContext context, Object input) {
+		OperatorSettings.checkLocalNetwork();
 		Object interfaceName = input instanceof Map<?, ?> settings ? settings.get("interface") : null;
 		try {
 			List<Target> targets;

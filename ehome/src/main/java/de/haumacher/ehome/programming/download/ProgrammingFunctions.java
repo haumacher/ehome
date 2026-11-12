@@ -25,6 +25,7 @@ import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.modules.ModuleInstances;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * The TL-Script functions of the programming tab of a device: the plan of its download for the
@@ -221,7 +222,16 @@ public class ProgrammingFunctions extends GenericMethod {
 		return null;
 	}
 
+	/**
+	 * Why the gateway of the project of the device cannot be used: this installation does not reach
+	 * local networks (haumacher/ehome #150; the address stays with the project), the project has no
+	 * gateway, or its address is invalid.
+	 */
 	private static ResKey gatewayVeto(TLObject device) {
+		ResKey localNetwork = OperatorSettings.localNetworkVeto();
+		if (localNetwork != null) {
+			return localNetwork;
+		}
 		String gateway = Gateways.of(device);
 		if (gateway == null) {
 			return I18NConstants.ERROR_NO_GATEWAY;

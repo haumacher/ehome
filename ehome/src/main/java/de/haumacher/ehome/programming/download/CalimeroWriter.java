@@ -12,46 +12,44 @@ import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.mgmt.ManagementProceduresImpl;
 
 import com.top_logic.basic.Logger;
+import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.transport.Tpdu;
 import de.haumacher.ehome.knx.transport.TransportClient;
 import de.haumacher.ehome.knx.transport.TransportClient.TransportException;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * The one class that changes a device on the bus: {@link DeviceAccess} through a KNXnet/IP gateway,
  * on the transport connection of {@link CalimeroReader}.
  *
  * <p>
- * Writing is switched off unless the application runs with the system property
- * {@value #WRITE_ENABLED}<code>=true</code>: {@link #open(InetSocketAddress, int)} refuses
- * otherwise. Every write to the bus of the application goes through this class (checked by
- * <code>TestBusWritePath</code>), so that switch is the one place deciding whether E-Home may
- * program a device.
+ * Writing is switched off unless the operator switches it on (the configuration variable
+ * <code>tl_ehome_programming_write_enabled</code>, {@link OperatorSettings.Config#getProgrammingWriteEnabled()},
+ * haumacher/ehome #149): {@link #open(InetSocketAddress, int)} refuses otherwise. Every write to the
+ * bus of the application goes through this class (checked by <code>TestBusWritePath</code>), so that
+ * {@link #writeEnabled()} is the one place deciding whether E-Home may program a device.
  * </p>
  */
 public final class CalimeroWriter extends CalimeroReader implements DeviceAccess {
 
 	/**
-	 * The system property switching on writes to the bus.
-	 */
-	public static final String WRITE_ENABLED = "ehome.programming.writeEnabled";
-
-	/**
 	 * Whether writing to the bus is switched on for this installation.
 	 */
 	public static boolean writeEnabled() {
-		return Boolean.getBoolean(WRITE_ENABLED);
+		return OperatorSettings.programmingWriteEnabled();
 	}
 
 	/**
 	 * Opens a connection to the gateway for writing into the given device.
 	 *
-	 * @throws IllegalStateException
-	 *         If writing is switched off ({@link #writeEnabled()}).
+	 * @throws TopLogicException
+	 *         If writing is switched off ({@link #writeEnabled()}), or this installation does not
+	 *         reach local networks ({@link OperatorSettings#checkLocalNetwork()}).
 	 */
 	public static CalimeroWriter open(InetSocketAddress gateway, int device) throws BusException {
 		if (!writeEnabled()) {
-			throw new IllegalStateException("Writing to the bus is switched off (system property " + WRITE_ENABLED + ").");
+			throw new TopLogicException(I18NConstants.ERROR_WRITE_DISABLED);
 		}
 		return new CalimeroWriter(gateway, device);
 	}

@@ -107,7 +107,10 @@ Zigbee export, permit and read), takes the socket when the controller is connect
 host and token otherwise. An enrolled controller that is not connected and has no host and token
 refuses every action visibly, naming its last contact ("not connected to E-Home (last contact
 ...)"), or that it never connected; entering host and token keeps the LAN path open. No firmware goes
-over the connection.
+over the connection. An installation that does not reach local networks (`tl_ehome_local_network=false`,
+haumacher/ehome #150, `doc/debian.md`) has no LAN path: a controller that is not connected refuses every
+action with the reason (an enrolled one names its last contact), "Search controllers" and host, port and
+token of "Connect to a controller" are not offered, and the server refuses them as well.
 
 The state of a controller (tab "Controller" of the project, and the global controller list): "Online
 since ...", "Offline, last contact ...", "Not connected yet", or "In the LAN" for a controller that

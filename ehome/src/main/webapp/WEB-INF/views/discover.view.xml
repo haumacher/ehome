@@ -6,6 +6,10 @@
 	The search settings are optional: without a network interface, all interfaces are searched;
 	without a local address, the system chooses one. The options are computed by the TL-Script
 	function knxNetworkInterfaces() (de.haumacher.ehome.discover.KnxNetworkInterfaces).
+
+	Unless the installation reaches local networks (configuration variable tl_ehome_local_network,
+	haumacher/ehome #150, TL-Script localNetworkVeto()), the page offers no search and says why. The entry
+	stays in the sidebar: a <nav-item> cannot be withheld by a condition (see doc/tl-todo.md).
 -->
 <view>
 	<channels>
@@ -14,169 +18,200 @@
 		<channel name="localHost"/>
 		<channel name="useNat"/>
 		<channel name="noMulticast"/>
+		<!-- Why this installation does not reach local networks, null if it does (haumacher/ehome #150). -->
+		<derived-channel name="localNetworkVeto"
+			expr="localNetworkVeto()"
+		/>
+		<derived-channel name="localNetworkReason"
+			expr="if($localNetworkVeto == null, null, $localNetworkVeto.localize())"
+			inputs="localNetworkVeto"
+		/>
 		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
 		<derived-channel name="assistantPage"
 			expr="'Discover (KNX gateways on the network)'"
 		/>
 	</channels>
 
-	<panel>
-		<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
-		<page-selection to="pageView">
-			<inputs>
-				<input channel="assistantPage"/>
-			</inputs>
-		</page-selection>
-		<title>
-			<en>KNX gateways</en>
-			<de>KNX-Gateways</de>
-		</title>
-		<commands>
-			<generic-command
-				image="css:bi bi-broadcast"
-				placement="TOOLBAR"
-			>
-				<label>
-					<en>Search</en>
-					<de>Suchen</de>
-				</label>
-				<tooltip>
-					<en>Searches the local networks for KNXnet/IP gateways with the settings below and lists those that answer; the search takes 10 seconds.</en>
-					<de>Sucht mit den Einstellungen unten in den lokalen Netzen nach KNXnet/IP-Gateways und listet die, die antworten; die Suche dauert 10 Sekunden.</de>
-				</tooltip>
-				<access>
-					<!--
-						The search only lists the gateways that answer; it reads no object of the model.
-						Read on the security root, granted to both E-Home roles (ehome.security.config.xml):
-						an E-Home user may search, an account without an E-Home role may not.
-					-->
-					<operation name="Read"/>
-				</access>
-				<execute-script function='{
+	<switch input="localNetworkVeto">
+		<case test="$localNetworkVeto == null">
+			<panel>
+				<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+				<page-selection to="pageView">
+					<inputs>
+						<input channel="assistantPage"/>
+					</inputs>
+				</page-selection>
+				<title>
+					<en>KNX gateways</en>
+					<de>KNX-Gateways</de>
+				</title>
+				<commands>
+					<generic-command
+						image="css:bi bi-broadcast"
+						placement="TOOLBAR"
+					>
+						<label>
+							<en>Search</en>
+							<de>Suchen</de>
+						</label>
+						<tooltip>
+							<en>Searches the local networks for KNXnet/IP gateways with the settings below and lists those that answer; the search takes 10 seconds.</en>
+							<de>Sucht mit den Einstellungen unten in den lokalen Netzen nach KNXnet/IP-Gateways und listet die, die antworten; die Suche dauert 10 Sekunden.</de>
+						</tooltip>
+						<access>
+							<!--
+								The search only lists the gateways that answer; it reads no object of the model.
+								Read on the security root, granted to both E-Home roles (ehome.security.config.xml):
+								an E-Home user may search, an account without an E-Home role may not.
+							-->
+							<operation name="Read"/>
+						</access>
+						<execute-script function='{
 	"interface": $networkInterface,
 	"local-host": $localHost,
 	"use-nat": $useNat == true,
 	"use-multicast": $noMulticast != true
 }'>
-					<inputs>
-						<input channel="networkInterface"/>
-						<input channel="localHost"/>
-						<input channel="useNat"/>
-						<input channel="noMulticast"/>
-					</inputs>
-					<with-result>
-						<discover-knx-gateways>
-							<with-result as="rows">
-								<write-channel name="gateways"/>
-								<notify expr="if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
-									kind="warning"
-								/>
+							<inputs>
+								<input channel="networkInterface"/>
+								<input channel="localHost"/>
+								<input channel="useNat"/>
+								<input channel="noMulticast"/>
+							</inputs>
+							<with-result>
+								<discover-knx-gateways>
+									<with-result as="rows">
+										<write-channel name="gateways"/>
+										<notify expr="if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
+											kind="warning"
+										/>
+									</with-result>
+								</discover-knx-gateways>
 							</with-result>
-						</discover-knx-gateways>
-					</with-result>
-				</execute-script>
-			</generic-command>
-		</commands>
-		<fields with-inset="true">
-			<value-input
-				options="knxNetworkInterfaces()"
-				value="networkInterface"
-			>
-				<label>
-					<en>Network interface</en>
-					<de>Netzwerkschnittstelle</de>
-				</label>
-			</value-input>
-			<value-input
-				inputs="networkInterface"
-				options="knxNetworkInterfaces(if($networkInterface == null, '', $networkInterface))"
-				value="localHost"
-			>
-				<label>
-					<en>Local address</en>
-					<de>Lokale Adresse</de>
-				</label>
-			</value-input>
-			<value-input
-				type="tl.core:Boolean"
-				value="useNat"
-			>
-				<label>
-					<en>Search through NAT</en>
-					<de>Über NAT suchen</de>
-				</label>
-			</value-input>
-			<value-input
-				type="tl.core:Boolean"
-				value="noMulticast"
-			>
-				<label>
-					<en>Disable multicast</en>
-					<de>Multicast deaktivieren</de>
-				</label>
-			</value-input>
-		</fields>
-		<table>
-			<inputs>
-				<input channel="gateways"/>
-			</inputs>
-			<columns>
-				<computed-column name="name"
-					type="tl.core:String"
-				>
-					<label>
-						<en>Name</en>
-						<de>Name</de>
-					</label>
-					<value>$row["name"]</value>
-				</computed-column>
-				<computed-column name="address"
-					type="tl.core:String"
-				>
-					<label>
-						<en>Individual address</en>
-						<de>Physikalische Adresse</de>
-					</label>
-					<value>$row["address"]</value>
-				</computed-column>
-				<computed-column name="endpoint"
-					type="tl.core:String"
-				>
-					<label>
-						<en>Control endpoint</en>
-						<de>Steuerungs-Endpunkt</de>
-					</label>
-					<value>$row["endpoint"]</value>
-				</computed-column>
-				<computed-column name="mac"
-					type="tl.core:String"
-				>
-					<label>
-						<en>MAC address</en>
-						<de>MAC-Adresse</de>
-					</label>
-					<value>$row["mac"]</value>
-				</computed-column>
-				<computed-column name="serial"
-					type="tl.core:String"
-				>
-					<label>
-						<en>Serial number</en>
-						<de>Seriennummer</de>
-					</label>
-					<value>$row["serial"]</value>
-				</computed-column>
-				<computed-column name="medium"
-					type="tl.core:String"
-				>
-					<label>
-						<en>Medium</en>
-						<de>Medium</de>
-					</label>
-					<value>$row["medium"]</value>
-				</computed-column>
-			</columns>
-			<rows>if($gateways == null, [], $gateways)</rows>
-		</table>
-	</panel>
+						</execute-script>
+					</generic-command>
+				</commands>
+				<fields with-inset="true">
+					<value-input
+						options="knxNetworkInterfaces()"
+						value="networkInterface"
+					>
+						<label>
+							<en>Network interface</en>
+							<de>Netzwerkschnittstelle</de>
+						</label>
+					</value-input>
+					<value-input
+						inputs="networkInterface"
+						options="knxNetworkInterfaces(if($networkInterface == null, '', $networkInterface))"
+						value="localHost"
+					>
+						<label>
+							<en>Local address</en>
+							<de>Lokale Adresse</de>
+						</label>
+					</value-input>
+					<value-input
+						type="tl.core:Boolean"
+						value="useNat"
+					>
+						<label>
+							<en>Search through NAT</en>
+							<de>Über NAT suchen</de>
+						</label>
+					</value-input>
+					<value-input
+						type="tl.core:Boolean"
+						value="noMulticast"
+					>
+						<label>
+							<en>Disable multicast</en>
+							<de>Multicast deaktivieren</de>
+						</label>
+					</value-input>
+				</fields>
+				<table>
+					<inputs>
+						<input channel="gateways"/>
+					</inputs>
+					<columns>
+						<computed-column name="name"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Name</en>
+								<de>Name</de>
+							</label>
+							<value>$row["name"]</value>
+						</computed-column>
+						<computed-column name="address"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Individual address</en>
+								<de>Physikalische Adresse</de>
+							</label>
+							<value>$row["address"]</value>
+						</computed-column>
+						<computed-column name="endpoint"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Control endpoint</en>
+								<de>Steuerungs-Endpunkt</de>
+							</label>
+							<value>$row["endpoint"]</value>
+						</computed-column>
+						<computed-column name="mac"
+							type="tl.core:String"
+						>
+							<label>
+								<en>MAC address</en>
+								<de>MAC-Adresse</de>
+							</label>
+							<value>$row["mac"]</value>
+						</computed-column>
+						<computed-column name="serial"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Serial number</en>
+								<de>Seriennummer</de>
+							</label>
+							<value>$row["serial"]</value>
+						</computed-column>
+						<computed-column name="medium"
+							type="tl.core:String"
+						>
+							<label>
+								<en>Medium</en>
+								<de>Medium</de>
+							</label>
+							<value>$row["medium"]</value>
+						</computed-column>
+					</columns>
+					<rows>if($gateways == null, [], $gateways)</rows>
+				</table>
+			</panel>
+		</case>
+		<default>
+			<panel>
+				<page-selection to="pageView">
+					<inputs>
+						<input channel="assistantPage"/>
+					</inputs>
+				</page-selection>
+				<title>
+					<en>KNX gateways</en>
+					<de>KNX-Gateways</de>
+				</title>
+				<inset>
+					<text
+						input="localNetworkReason"
+						tone="secondary"
+					/>
+				</inset>
+			</panel>
+		</default>
+	</switch>
 </view>

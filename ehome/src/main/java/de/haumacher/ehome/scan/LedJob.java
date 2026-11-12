@@ -30,7 +30,7 @@ import de.haumacher.ehome.programming.download.ProgrammingReport;
  *
  * <p>
  * This writes into the device, so it goes through {@link CalimeroWriter}, which refuses unless
- * writing is switched on for the application (<code>-Dehome.programming.writeEnabled=true</code>).
+ * writing is switched on for the installation (the configuration variable <code>tl_ehome_programming_write_enabled</code>).
  * The programming mode is property 54 of the device object; a device of BCU 1 (mask 001x) keeps it
  * in bit 0 of the memory byte 0060 with an even parity in bit 7, as Calimero's
  * <code>ManagementProcedures#setProgrammingMode</code> writes it. The state is read back afterwards.

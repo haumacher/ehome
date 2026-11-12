@@ -50,7 +50,7 @@ public class LoopbackEndpoints {
 
 	/**
 	 * The gateway address of an endpoint on the loopback address, for a client connection
-	 * ({@link CalimeroBusLink#open(InetSocketAddress)}).
+	 * ({@link CalimeroBusLink#openVirtual(InetSocketAddress)}, or the connection of a programming tool).
 	 */
 	public static InetSocketAddress gateway(Endpoint endpoint) {
 		if (!endpoint.address().isLoopbackAddress()) {

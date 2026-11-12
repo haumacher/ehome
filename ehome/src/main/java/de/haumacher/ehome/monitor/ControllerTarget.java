@@ -10,13 +10,15 @@ import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.Deployer;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * The HomeControl controller the group monitor attaches to (haumacher/ehome #56): the project's
  * controller, any registered controller (<code>ehome.runtime:Controller</code>), or one entered ad
  * hoc by host, port and token. A registered controller connected to E-Home is attached over its
  * connection ({@link SocketBusLink}, haumacher/ehome #54) unless a token is entered for it, which
- * means its LAN address.
+ * means its LAN address. Unless this installation reaches local networks (haumacher/ehome #150), only
+ * the connection of a registered controller is used.
  *
  * <p>
  * Neither an entered controller nor an entered token is stored: the token lives in the
@@ -70,6 +72,8 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 	public static ControllerTarget of(TLObject project, Object controller, Object host, Object port, Object token) {
 		String enteredToken = blank(token) ? null : token.toString().trim();
 		if (!blank(host)) {
+			// A controller by host and token is reached over the local network (haumacher/ehome #150).
+			OperatorSettings.checkLocalNetwork();
 			String hostText = host.toString().trim();
 			ControllerClient client = new ControllerClient(hostText, port(port), enteredToken, Deployer.TIMEOUT);
 			if (enteredToken == null) {
@@ -86,6 +90,13 @@ public record ControllerTarget(String name, ControllerClient client, boolean ent
 		ControllerClient client = Deployer.client(registered);
 		if (client.connection() != null && enteredToken == null) {
 			return new ControllerTarget(name, client, false);
+		}
+		if (!OperatorSettings.localNetwork()) {
+			// Only the connection the controller opens itself is left (haumacher/ehome #150).
+			if (ControllerConnections.controllerId(registered) != null && enteredToken == null) {
+				throw new TopLogicException(Deployer.offline(registered));
+			}
+			OperatorSettings.checkLocalNetwork();
 		}
 		if (enteredToken != null) {
 			Object registeredHost = registered.tValueByName("host");

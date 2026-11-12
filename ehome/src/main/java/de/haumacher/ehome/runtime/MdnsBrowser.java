@@ -24,6 +24,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import de.haumacher.ehome.runtime.DnsMessage.DnsException;
 import de.haumacher.ehome.runtime.DnsMessage.Question;
 import de.haumacher.ehome.runtime.DnsMessage.Record;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * A one-shot browser for DNS-SD services over multicast DNS (RFC 6762, RFC 6763): asks for the
@@ -84,6 +85,7 @@ public final class MdnsBrowser {
 	 * is up, supports multicast, is no loopback interface and has an IPv4 address.
 	 */
 	public static List<Target> localNetworks() throws SocketException {
+		OperatorSettings.checkLocalNetwork();
 		List<Target> result = new ArrayList<>();
 		for (NetworkInterface networkInterface : Collections.list(NetworkInterface.getNetworkInterfaces())) {
 			if (!networkInterface.isUp() || networkInterface.isLoopback() || !networkInterface.supportsMulticast()) {
@@ -109,8 +111,12 @@ public final class MdnsBrowser {
 	 *        Where to send the query.
 	 * @return The instances found that announced their host and port, in the order of their first
 	 *         answer.
+	 * @throws com.top_logic.util.error.TopLogicException
+	 *         If this installation does not reach local networks
+	 *         ({@link OperatorSettings#checkLocalNetwork()}, haumacher/ehome #150).
 	 */
 	public static List<Service> browse(String serviceType, long windowMillis, List<Target> targets) throws IOException {
+		OperatorSettings.checkLocalNetwork();
 		Collector collector = new Collector(serviceType);
 		try (MulticastSocket socket = new MulticastSocket(new InetSocketAddress(0))) {
 			socket.setTimeToLive(255);

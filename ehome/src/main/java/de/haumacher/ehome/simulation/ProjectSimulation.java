@@ -213,7 +213,7 @@ public final class ProjectSimulation implements AutoCloseable {
 					simulation.zigbeeReport(entry.getKey(), entry.getValue());
 				}
 			}
-			simulation.connect(CalimeroBusLink.open(new InetSocketAddress(installation.endpoint().address(),
+			simulation.connect(CalimeroBusLink.openVirtual(new InetSocketAddress(installation.endpoint().address(),
 				installation.endpoint().port())));
 			String refusal = simulation.start();
 			if (refusal != null) {

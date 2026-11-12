@@ -99,9 +99,9 @@ public class TestSimulation extends TestCase {
 			ParameterStore store = new ParameterStore();
 			Simulation simulation = new Simulation(image, START, store);
 			try {
-				simulation.connect(CalimeroBusLink.open(gateway(endpoint)));
+				simulation.connect(CalimeroBusLink.openVirtual(gateway(endpoint)));
 				BlockingQueue<String> bus = new LinkedBlockingQueue<>();
-				try (BusLink observer = CalimeroBusLink.open(gateway(endpoint))) {
+				try (BusLink observer = CalimeroBusLink.openVirtual(gateway(endpoint))) {
 					observer.setListener(new BusLink.Listener() {
 						@Override
 						public void received(BusTelegram telegram) {

@@ -13,8 +13,10 @@
 	an import of product data.
 
 	"LED on/off" switches the programming mode of the selected device: it writes into the device, so
-	it is disabled with the reason unless the application runs with
-	-Dehome.programming.writeEnabled=true, and asks for a confirmation naming device and gateway.
+	it is disabled with the reason unless the configuration variable tl_ehome_programming_write_enabled is
+	true, and asks for a confirmation naming device and gateway. Unless the installation reaches local
+	networks (tl_ehome_local_network), "Choose the gateway" is not offered and the scan is refused with that
+	reason.
 -->
 <view>
 	<channels>
@@ -71,6 +73,7 @@
 								/>
 							</access>
 							<executability>
+								<visible-if expr="localNetworkVeto() == null"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
