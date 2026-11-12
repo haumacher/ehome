@@ -14,6 +14,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
@@ -95,13 +96,16 @@ public class ReadBackJob implements JobBody {
 		}
 
 		ReadBack.Report result;
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		String deviceLabel = MetaLabelProvider.INSTANCE.getLabel(device);
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_READ_BACK__DEVICE.fill(deviceLabel))) {
 			result = ReadBack.apply(device, memory);
 			tx.commit();
 		}
 		if (result.identical()) {
 			// The device holds what the project now says.
-			DownloadRecord.record(device, DownloadPlan.Kind.FULL, HistoryUtils.getLastRevision().getCommitNumber());
+			DownloadRecord.record(device, DownloadPlan.Kind.FULL, HistoryUtils.getLastRevision().getCommitNumber(),
+				I18NConstants.COMMIT_READ_BACK_IDENTICAL__DEVICE.fill(deviceLabel));
 		}
 
 		String where = found.addressText();

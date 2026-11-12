@@ -144,7 +144,12 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 ERROR_INVALID_SPEED__SPEED;
 
-		static {
+	/**
+	 * @en Simulation values of {0} saved
+	 */
+	public static ResKey1 COMMIT_SIMULATION_SAVED__PROJECT;
+
+	static {
 		initConstants(I18NConstants.class);
 	}
 }

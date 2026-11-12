@@ -495,7 +495,8 @@ public final class ControllerConnections {
 		if (controller == null) {
 			return;
 		}
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_CONTROLLER_CONTACT__CONTROLLER.fill(String.valueOf(controller.tValueByName("name"))))) {
 			if (contact != null) {
 				controller.tUpdateByName("lastContact", Date.from(contact));
 			}

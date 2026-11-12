@@ -10,6 +10,7 @@ import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
 import com.top_logic.layout.view.command.WithResultActions;
@@ -52,7 +53,8 @@ public class DeleteFunctionAction implements ViewAction {
 		if (function == null || !function.tValid()) {
 			return null;
 		}
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_FUNCTION_DELETED__FUNCTION.fill(MetaLabelProvider.INSTANCE.getLabel(function)))) {
 			FunctionProposal.dismiss(function);
 			tx.commit();
 		}

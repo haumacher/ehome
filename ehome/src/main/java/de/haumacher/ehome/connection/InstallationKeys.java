@@ -13,6 +13,7 @@ import com.top_logic.basic.Logger;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
@@ -192,7 +193,8 @@ public final class InstallationKeys {
 			throw new TopLogicException(veto);
 		}
 		Keys keys = Signatures.generate();
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_KEY_CREATED__PROJECT_FINGERPRINT.fill(MetaLabelProvider.INSTANCE.getLabel(project), keys.fingerprint()))) {
 			project.tUpdateByName(KEY, keys.seed());
 			project.tUpdateByName(PUBLIC_KEY, keys.publicKey());
 			tx.commit();
@@ -218,7 +220,8 @@ public final class InstallationKeys {
 			throw new TopLogicException(veto);
 		}
 		Keys keys = Signatures.generate();
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_KEY_RENEWED__PROJECT_FINGERPRINT.fill(MetaLabelProvider.INSTANCE.getLabel(project), keys.fingerprint()))) {
 			project.tUpdateByName(NEW_KEY, keys.seed());
 			project.tUpdateByName(NEW_PUBLIC_KEY, keys.publicKey());
 			tx.commit();
@@ -264,7 +267,8 @@ public final class InstallationKeys {
 			return;
 		}
 		TLObject project = controller.tContainer();
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_DEVICE_KEY__CONTROLLER.fill(String.valueOf(controller.tValueByName("name"))))) {
 			if (!Objects.equals(fingerprint, controller.tValueByName(DEVICE_KEY))) {
 				controller.tUpdateByName(DEVICE_KEY, fingerprint);
 			}
@@ -276,6 +280,8 @@ public final class InstallationKeys {
 				project.tUpdateByName(PUBLIC_KEY, newKey.publicKey());
 				project.tUpdateByName(NEW_KEY, null);
 				project.tUpdateByName(NEW_PUBLIC_KEY, null);
+				tx.setCommitMessage(I18NConstants.COMMIT_KEY_ROTATED__PROJECT_FINGERPRINT.fill(MetaLabelProvider.INSTANCE.getLabel(project),
+					newKey.fingerprint()));
 				Logger.info("The controllers of project " + project.tValueByName("name")
 					+ " accepted the new installation key " + newKey.fingerprint() + "; the old key "
 					+ (key == null ? "-" : key.fingerprint()) + " is forgotten.", InstallationKeys.class);

@@ -15,6 +15,7 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.io.binary.BinaryData;
 import com.top_logic.basic.io.binary.BinaryDataFactory;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
@@ -95,6 +96,7 @@ public class ImportProjectFileJob implements JobBody {
 				throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ProjectFile.KNXPROJ_ENTRY));
 			}
 			projectFile.apply(created[0], contents, existing);
+			return I18NConstants.COMMIT_PROJECT_FILE_IMPORT__PROJECT.fill(MetaLabelProvider.INSTANCE.getLabel(created[0]));
 		});
 		List<BufferingI18NLog.Entry> messages = new ArrayList<>(importer.getMessages());
 		messages.addAll(projectFile.getMessages());

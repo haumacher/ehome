@@ -295,6 +295,21 @@ opens its parents.
 
 **When fixed:** write the selection once in the switch and the drop of `projects/devices.view.xml`.
 
+## Commit messages of agent changes (TL #30276)
+
+Every change an MCP tool call or an assistant turn makes is committed by the engine (`TransactionScope`,
+`McpToolAdapter`, `AgentLoop`) with the fixed, untranslated message "Agent edit": "Meine letzten
+Änderungen" does not say which tool changed what. A tool cannot set the message itself: its own
+transaction is nested, and the message of a nested transaction is dropped at the commit
+(haumacher/ehome #143). E-Home's own transactions outside the agent framework carry messages
+(`TestCommitMessageScan`).
+
+No workaround.
+
+**When available** (`Tool#commitMessage`, `@ToolMethod(commitMessage = ...)`): give every writing tool
+of `de.haumacher.ehome.ai` a message naming the change and its target, as the `COMMIT_*` keys of the
+other transactions do.
+
 ## AI modules: models, catalog, MCP tool list (TL #30251, #30252, #30253, #30254, #30255)
 
 The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on the modules of

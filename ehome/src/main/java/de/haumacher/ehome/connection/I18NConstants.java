@@ -134,6 +134,46 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 DEVICE_KEY_REFUSED__ERROR;
 
+	/**
+	 * @en Contact with controller {0} recorded
+	 */
+	public static ResKey1 COMMIT_CONTROLLER_CONTACT__CONTROLLER;
+
+	/**
+	 * @en Enrollment code created for {0}
+	 */
+	public static ResKey1 COMMIT_ENROLLMENT_CODE__PROJECT;
+
+	/**
+	 * @en Controller {0} enrolled in {1}
+	 */
+	public static ResKey2 COMMIT_ENROLLED__CONTROLLER_PROJECT;
+
+	/**
+	 * @en Installation key {1} created for {0}
+	 */
+	public static ResKey2 COMMIT_KEY_CREATED__PROJECT_FINGERPRINT;
+
+	/**
+	 * @en Installation key of {0} renewed: new key {1}
+	 */
+	public static ResKey2 COMMIT_KEY_RENEWED__PROJECT_FINGERPRINT;
+
+	/**
+	 * @en Key held by controller {0} recorded
+	 */
+	public static ResKey1 COMMIT_DEVICE_KEY__CONTROLLER;
+
+	/**
+	 * @en New installation key {1} of {0} in effect
+	 */
+	public static ResKey2 COMMIT_KEY_ROTATED__PROJECT_FINGERPRINT;
+
+	/**
+	 * @en Controller forgotten: {0}
+	 */
+	public static ResKey1 COMMIT_CONTROLLER_FORGOTTEN__CONTROLLER;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

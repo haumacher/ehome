@@ -108,6 +108,26 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey ERROR_UPDATE_NO_PROJECT_IN_FILE;
 
+	/**
+	 * @en ETS import: {0}
+	 */
+	public static ResKey1 COMMIT_ETS_IMPORT__PROJECT;
+
+	/**
+	 * @en Product data imported: {0}
+	 */
+	public static ResKey1 COMMIT_PRODUCT_DATA_IMPORT__FILE;
+
+	/**
+	 * @en E-Home project file imported: {0}
+	 */
+	public static ResKey1 COMMIT_PROJECT_FILE_IMPORT__PROJECT;
+
+	/**
+	 * @en Project {0} updated from ETS ({1})
+	 */
+	public static ResKey2 COMMIT_ETS_UPDATE__PROJECT_FILE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

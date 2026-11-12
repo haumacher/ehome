@@ -95,6 +95,8 @@ public class UpdateFromEtsJob implements JobBody {
 				job.message(I18NConstants.PROGRESS_UPDATING__PROJECT.fill(MetaLabelProvider.INSTANCE.getLabel(project)));
 				update[0] = new ProjectUpdate(project, source);
 				update[0].apply();
+				return I18NConstants.COMMIT_ETS_UPDATE__PROJECT_FILE.fill(MetaLabelProvider.INSTANCE.getLabel(project),
+					ImportJobs.fileName(file));
 			});
 		} catch (PasswordRequiredException ex) {
 			if (upload) {

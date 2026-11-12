@@ -12,6 +12,7 @@ import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
 import com.top_logic.layout.view.command.WithResultActions;
@@ -48,7 +49,8 @@ public class CreateFunctionAction implements ViewAction {
 	@Override
 	public Object execute(ReactContext context, Object input) {
 		TLObject project = (TLObject) input;
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_FUNCTION_CREATED__PROJECT.fill(MetaLabelProvider.INSTANCE.getLabel(project)))) {
 			TLObject function = ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Function"));
 			function.tUpdateByName("name", FunctionProposal.text(I18NConstants.NEW_FUNCTION_NAME));

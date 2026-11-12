@@ -145,6 +145,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey3 LED_FAILED__ADDRESS_GATEWAY_REASON;
 
+	/**
+	 * @en Bus of {0} scanned via {1}: {2} devices
+	 */
+	public static ResKey3 COMMIT_SCAN__PROJECT_GATEWAY_FOUND;
+
+	/**
+	 * @en Configuration of {0} read back
+	 */
+	public static ResKey1 COMMIT_READ_BACK__DEVICE;
+
+	/**
+	 * @en Configuration of {0} read back: equal to the project
+	 */
+	public static ResKey1 COMMIT_READ_BACK_IDENTICAL__DEVICE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

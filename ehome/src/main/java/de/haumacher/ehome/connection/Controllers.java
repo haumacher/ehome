@@ -88,7 +88,8 @@ public final class Controllers {
 		if (!controller.tValid()) {
 			return;
 		}
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_CONTROLLER_FORGOTTEN__CONTROLLER.fill(String.valueOf(controller.tValueByName("name"))))) {
 			TLClass projectType = (TLClass) TLModelUtil.findType("ehome.project:Project");
 			for (TLObject project : MetaElementUtil.getAllDirectInstancesOf(projectType, TLObject.class)) {
 				if (project.tValueByName("controller") == controller) {

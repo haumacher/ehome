@@ -10,6 +10,7 @@ import java.util.Objects;
 
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
@@ -137,7 +138,8 @@ public final class Overrides {
 		if (changes.isEmpty()) {
 			return false;
 		}
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_SIMULATION_SAVED__PROJECT.fill(MetaLabelProvider.INSTANCE.getLabel(project)))) {
 			for (Map.Entry<TLObject, Map<String, Object>> change : changes.entrySet()) {
 				for (Map.Entry<String, Object> attribute : change.getValue().entrySet()) {
 					change.getKey().tUpdateByName(attribute.getKey(), attribute.getValue());

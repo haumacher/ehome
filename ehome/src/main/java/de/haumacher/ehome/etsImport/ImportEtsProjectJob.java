@@ -60,7 +60,8 @@ public class ImportEtsProjectJob implements JobBody {
 	 */
 	public static final String PROJECT = "project";
 
-	private static final String PROJECT_TYPE = "ehome.project:Project";
+	/** The type of the project an import creates. */
+	static final String PROJECT_TYPE = "ehome.project:Project";
 
 	/**
 	 * Key of the report holding the sentence summarizing the import.

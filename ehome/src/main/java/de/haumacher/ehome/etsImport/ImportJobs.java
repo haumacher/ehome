@@ -9,17 +9,20 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
+import java.util.function.Function;
 
 import javax.xml.stream.XMLStreamException;
 
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.io.binary.BinaryData;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.KnowledgeBaseException;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobMonitor;
+import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
@@ -105,8 +108,14 @@ final class ImportJobs {
 	 *         If the file cannot be imported, with the reason.
 	 */
 	static Importer importFile(JobMonitor job, BinaryData data, String password, boolean productData) {
+		String file = fileName(data);
 		return importFile(job, data, password, productData, importer -> {
-			// Nothing more to import.
+			if (productData) {
+				return I18NConstants.COMMIT_PRODUCT_DATA_IMPORT__FILE.fill(file);
+			}
+			TLObject project = importer.getCreated(ImportEtsProjectJob.PROJECT_TYPE).stream().findFirst().orElse(null);
+			return I18NConstants.COMMIT_ETS_IMPORT__PROJECT
+				.fill(project == null ? file : MetaLabelProvider.INSTANCE.getLabel(project));
 		});
 	}
 
@@ -116,11 +125,13 @@ final class ImportJobs {
 	 *
 	 * @param then
 	 *        What to import besides, given the importer of the file (the import of a project file
-	 *        adds the E-Home part to the project of its <code>.knxproj</code>).
+	 *        adds the E-Home part to the project of its <code>.knxproj</code>); its result is the
+	 *        commit message of the import, saying what was imported in the user's terms
+	 *        (haumacher/ehome #143).
 	 */
 	static Importer importFile(JobMonitor job, BinaryData data, String password, boolean productData,
-			Consumer<Importer> then) {
-		String file = data.getName() == null ? "" : data.getName();
+			Function<Importer, ResKey> then) {
+		String file = fileName(data);
 		job.beginPhase(PHASE_READ);
 		job.indeterminate();
 		job.message(I18NConstants.PROGRESS_READING__FILE.fill(file));
@@ -141,13 +152,13 @@ final class ImportJobs {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		Importer importer = new Importer(new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false));
 		try (InputStream in = data.getStream()) {
-			try (Transaction tx = kb.beginTransaction()) {
+			try (Transaction tx = kb.beginTransaction(I18NConstants.COMMIT_ETS_IMPORT__PROJECT.fill(file))) {
 				if (productData) {
 					importer.importProductData(in, contents, progress);
 				} else {
 					importer.importStream(in, password, contents, progress);
 				}
-				then.accept(importer);
+				tx.setCommitMessage(then.apply(importer));
 				// The last point a cancel is answered at. The commit has none; a cancel during it ends
 				// the job as cancelled although the file is saved (TL #30194, doc/tl-todo.md).
 				job.beginPhase(PHASE_SAVE);
@@ -159,6 +170,13 @@ final class ImportJobs {
 			throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ex.getMessage()), ex);
 		}
 		return importer;
+	}
+
+	/**
+	 * The name of the given uploaded file, empty if it has none.
+	 */
+	static String fileName(BinaryData data) {
+		return data.getName() == null ? "" : data.getName();
 	}
 
 }

@@ -14,6 +14,7 @@ import com.top_logic.basic.config.annotation.TagName;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
 import com.top_logic.layout.view.command.WithResultActions;
@@ -76,7 +77,8 @@ public class ProposeIdentifiersAction implements ViewAction {
 		if (proposal.isEmpty()) {
 			return 0;
 		}
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(I18NConstants.COMMIT_IDENTIFIERS_PROPOSED__PROJECT_COUNT
+			.fill(MetaLabelProvider.INSTANCE.getLabel(project), Integer.valueOf(proposal.size())))) {
 			for (Map.Entry<TLObject, String> entry : proposal.entrySet()) {
 				entry.getKey().tUpdateByName("identifier", entry.getValue());
 			}

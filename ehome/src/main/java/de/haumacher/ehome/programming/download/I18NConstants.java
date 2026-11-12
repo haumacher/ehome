@@ -270,6 +270,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 PROCEDURE_MERGED__SCOPE_MASK;
 
+	/**
+	 * @en Programming of {0}
+	 */
+	public static ResKey1 COMMIT_PROGRAMMED__DEVICE;
+
+	/**
+	 * @en Individual address of {0} programmed
+	 */
+	public static ResKey1 COMMIT_ADDRESS_PROGRAMMED__DEVICE;
+
+	/**
+	 * @en Programming of {0} with E-Home''s module layout
+	 */
+	public static ResKey1 COMMIT_LAYOUT_PROGRAMMED__DEVICE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

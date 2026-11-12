@@ -20,6 +20,7 @@ import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -106,7 +107,8 @@ public final class Enrollment {
 	 */
 	public static String createCode(TLObject project, Person creator, Instant now) {
 		String code = newCode();
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_ENROLLMENT_CODE__PROJECT.fill(MetaLabelProvider.INSTANCE.getLabel(project)))) {
 			project.tUpdateByName("enrollmentCode", code);
 			project.tUpdateByName("enrollmentExpires", Date.from(now.plus(VALIDITY)));
 			project.tUpdateByName("enrollmentCreatedBy", creator);
@@ -187,10 +189,12 @@ public final class Enrollment {
 			String secret = hex(32);
 			String installation = Objects.toString(project.tValueByName("name"), "");
 			Signatures.Keys key;
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			String controllerName = name(request.get("name"));
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+				.beginTransaction(I18NConstants.COMMIT_ENROLLED__CONTROLLER_PROJECT.fill(controllerName, MetaLabelProvider.INSTANCE.getLabel(project)))) {
 				TLObject controller = ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.runtime:Controller"));
-				controller.tUpdateByName("name", name(request.get("name")));
+				controller.tUpdateByName("name", controllerName);
 				controller.tUpdateByName("controllerId", id);
 				controller.tUpdateByName("secret", secret);
 				controller.tUpdateByName("installation", installation);

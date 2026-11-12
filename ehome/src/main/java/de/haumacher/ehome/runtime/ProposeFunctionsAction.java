@@ -14,6 +14,7 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.view.command.ViewAction;
 import com.top_logic.layout.view.command.WithResultActions;
@@ -89,13 +90,27 @@ public class ProposeFunctionsAction implements ViewAction {
 
 	@Override
 	public Object execute(ReactContext context, Object input) {
-		TLObject project = (TLObject) input;
-		FunctionProposal.Run run;
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			run = FunctionProposal.run(project);
-			tx.commit();
-		}
+		FunctionProposal.Run run = apply((TLObject) input);
 		return summary(run);
+	}
+
+	/**
+	 * Adds the functions {@link FunctionProposal} proposes for the given project, in a transaction of
+	 * its own whose commit message names the project and counts what was added and updated
+	 * (haumacher/ehome #143).
+	 */
+	public static FunctionProposal.Run apply(TLObject project) {
+		String label = MetaLabelProvider.INSTANCE.getLabel(project);
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_FUNCTIONS_PROPOSED__PROJECT_ADDED_UNUSED_UPDATED.fill(label,
+				Integer.valueOf(0), Integer.valueOf(0), Integer.valueOf(0)))) {
+			FunctionProposal.Run run = FunctionProposal.run(project);
+			tx.setCommitMessage(I18NConstants.COMMIT_FUNCTIONS_PROPOSED__PROJECT_ADDED_UNUSED_UPDATED.fill(label,
+				Integer.valueOf(run.addedInUse().size()), Integer.valueOf(run.addedUnused().size()),
+				Integer.valueOf(run.updated().size())));
+			tx.commit();
+			return run;
+		}
 	}
 
 }

@@ -17,6 +17,7 @@ import java.util.Map;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -611,7 +612,8 @@ public final class Deployer {
 
 	private static TLObject record(TLObject project, TLObject controller, ControllerClient client, RuntimeImage image,
 			Long revision, Instant now, Outcome outcome) {
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(commitMessage(project, controller, revision, outcome))) {
 			TLObject deployment = create("ehome.runtime:Deployment");
 			deployment.tUpdateByName("unload", Boolean.valueOf(outcome._unload));
 			deployment.tUpdateByName("revision", revision);
@@ -649,6 +651,22 @@ public final class Deployer {
 			tx.commit();
 			return deployment;
 		}
+	}
+
+	/**
+	 * The commit message of the record of a deployment or an unload: what happened to which project on
+	 * which controller (haumacher/ehome #143).
+	 */
+	private static ResKey commitMessage(TLObject project, TLObject controller, Long revision, Outcome outcome) {
+		String projectLabel = MetaLabelProvider.INSTANCE.getLabel(project);
+		String controllerName = String.valueOf(controller.tValueByName("name"));
+		if (outcome._unload) {
+			return outcome._accepted ? I18NConstants.COMMIT_UNLOADED__PROJECT_CONTROLLER.fill(projectLabel, controllerName)
+				: I18NConstants.COMMIT_UNLOAD_FAILED__PROJECT_CONTROLLER.fill(projectLabel, controllerName);
+		}
+		return outcome._accepted
+			? I18NConstants.COMMIT_DEPLOYED__PROJECT_CONTROLLER_REVISION.fill(projectLabel, controllerName, revision)
+			: I18NConstants.COMMIT_DEPLOY_FAILED__PROJECT_CONTROLLER.fill(projectLabel, controllerName);
 	}
 
 	private static TLObject create(String type) {

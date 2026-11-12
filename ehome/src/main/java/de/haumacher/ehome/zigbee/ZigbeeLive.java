@@ -464,7 +464,8 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 				if (controller == null) {
 					return;
 				}
-				try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+				try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+					.beginTransaction(I18NConstants.COMMIT_ZIGBEE_LIVE__CONTROLLER.fill(target.name()))) {
 					for (TLObject project : ZigbeeController.projects(controller)) {
 						summaries.add(ZigbeeImport.importExport(project, export).summary());
 					}

@@ -8,9 +8,11 @@ import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -37,8 +39,26 @@ public class DownloadRecord {
 	 *        ({@link DownloadPlan#getRevision()}).
 	 */
 	public static void record(TLObject device, DownloadPlan.Kind kind, long revision) {
+		String label = MetaLabelProvider.INSTANCE.getLabel(device);
+		record(device, kind, revision, switch (kind) {
+			case ADDRESS -> I18NConstants.COMMIT_ADDRESS_PROGRAMMED__DEVICE.fill(label);
+			case LAYOUT -> I18NConstants.COMMIT_LAYOUT_PROGRAMMED__DEVICE.fill(label);
+			case FULL -> I18NConstants.COMMIT_PROGRAMMED__DEVICE.fill(label);
+		});
+	}
+
+	/**
+	 * Records that the device holds what a download of the given kind loads, in a transaction of its
+	 * own with the given commit message (haumacher/ehome #143).
+	 *
+	 * @param revision
+	 *        The commit number of the revision the state of the device corresponds to.
+	 * @param commitMessage
+	 *        What happened to the device, in the user's terms.
+	 */
+	public static void record(TLObject device, DownloadPlan.Kind kind, long revision, ResKey commitMessage) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
-		try (Transaction tx = kb.beginTransaction()) {
+		try (Transaction tx = kb.beginTransaction(commitMessage)) {
 			Set<Object> loaded = new LinkedHashSet<>();
 			Object current = device.tValueByName("loaded");
 			if (current instanceof Collection<?> set) {

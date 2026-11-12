@@ -26,6 +26,7 @@ import com.top_logic.basic.thread.ThreadContextManager;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLReference;
@@ -776,7 +777,9 @@ public class GroupMonitor {
 					I18NConstants.DEFAULT_RECORDING_NAME__TIME.fill(format(now.getTime(), "yyyy-MM-dd HH:mm:ss")))
 				: name.trim();
 			TLObject recording;
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(
+				I18NConstants.COMMIT_RECORDING_STARTED__RECORDING_PROJECT.fill(recordingName,
+					MetaLabelProvider.INSTANCE.getLabel(getProject())))) {
 				recording = ModelService.getInstance().getFactory()
 					.createObject((TLClass) TLModelUtil.findType("ehome.monitor:Recording"));
 				recording.tUpdateByName("name", recordingName);
@@ -809,7 +812,8 @@ public class GroupMonitor {
 				_flush.cancel(false);
 				_flush = null;
 			}
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+				.beginTransaction(I18NConstants.COMMIT_RECORDING_STOPPED__RECORDING.fill(recordingLabel()))) {
 				storePending();
 				if (_recording.tValid()) {
 					_recording.tUpdateByName("end", new Date());
@@ -822,6 +826,13 @@ public class GroupMonitor {
 			_pending.clear();
 		}
 		changed();
+	}
+
+	/**
+	 * The name of the running recording, for the commit messages of its changes.
+	 */
+	private String recordingLabel() {
+		return _recording.tValid() ? String.valueOf(_recording.tValueByName("name")) : "";
 	}
 
 	/**
@@ -842,7 +853,8 @@ public class GroupMonitor {
 			if (_recording == null || _pending.isEmpty()) {
 				return;
 			}
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(I18NConstants.COMMIT_RECORDING_STORED__RECORDING_COUNT
+				.fill(recordingLabel(), Integer.valueOf(_pending.size())))) {
 				storePending();
 				tx.commit();
 			} catch (RuntimeException ex) {

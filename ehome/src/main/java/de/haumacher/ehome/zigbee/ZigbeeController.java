@@ -15,6 +15,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -90,7 +91,8 @@ public final class ZigbeeController {
 		TLObject controller = controller(project);
 		ZigbeeExport.Export export = ZigbeeExport.read(fetch(controller));
 		String result;
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(I18NConstants.COMMIT_ZIGBEE_READ__PROJECT_CONTROLLER
+			.fill(MetaLabelProvider.INSTANCE.getLabel(project), String.valueOf(controller.tValueByName("name"))))) {
 			result = ZigbeeImport.importExport(project, export).summary();
 			storeNetwork(controller, export, false);
 			tx.commit();

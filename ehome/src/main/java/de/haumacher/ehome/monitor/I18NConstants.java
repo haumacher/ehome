@@ -385,6 +385,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 ERROR_INVALID_CONTROLLER_PORT__PORT;
 
+	/**
+	 * @en Recording {0} started in {1}
+	 */
+	public static ResKey2 COMMIT_RECORDING_STARTED__RECORDING_PROJECT;
+
+	/**
+	 * @en Recording {0} ended
+	 */
+	public static ResKey1 COMMIT_RECORDING_STOPPED__RECORDING;
+
+	/**
+	 * @en Recording {0}: {1} entries stored
+	 */
+	public static ResKey2 COMMIT_RECORDING_STORED__RECORDING_COUNT;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

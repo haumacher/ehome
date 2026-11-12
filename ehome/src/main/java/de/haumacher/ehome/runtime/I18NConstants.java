@@ -2194,6 +2194,51 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 DATAPOINTS_VALUES_LOST__COUNT_LIST;
 
+	/**
+	 * @en Runtime image of {0} (revision {2}) loaded into {1}
+	 */
+	public static ResKey3 COMMIT_DEPLOYED__PROJECT_CONTROLLER_REVISION;
+
+	/**
+	 * @en Deployment of {0} to {1} failed
+	 */
+	public static ResKey2 COMMIT_DEPLOY_FAILED__PROJECT_CONTROLLER;
+
+	/**
+	 * @en Runtime image of {0} unloaded from {1}
+	 */
+	public static ResKey2 COMMIT_UNLOADED__PROJECT_CONTROLLER;
+
+	/**
+	 * @en Unloading the runtime image of {0} from {1} failed
+	 */
+	public static ResKey2 COMMIT_UNLOAD_FAILED__PROJECT_CONTROLLER;
+
+	/**
+	 * @en Function deleted: {0}
+	 */
+	public static ResKey1 COMMIT_FUNCTION_DELETED__FUNCTION;
+
+	/**
+	 * @en New function in {0}
+	 */
+	public static ResKey1 COMMIT_FUNCTION_CREATED__PROJECT;
+
+	/**
+	 * @en Functions proposed for {0}: {1} new, {2} unused, {3} updated
+	 */
+	public static ResKey4 COMMIT_FUNCTIONS_PROPOSED__PROJECT_ADDED_UNUSED_UPDATED;
+
+	/**
+	 * @en Identifiers proposed for {0}: {1} group addresses
+	 */
+	public static ResKey2 COMMIT_IDENTIFIERS_PROPOSED__PROJECT_COUNT;
+
+	/**
+	 * @en {0}: {1}
+	 */
+	public static ResKey2 FUNCTION_IN_ROOM__ROOM_CHANNEL;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

@@ -16,6 +16,7 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
@@ -107,7 +108,8 @@ public class ScanJob implements JobBody {
 		List<Map<String, Object>> rows = new ArrayList<>();
 		int identified = 0;
 		int unidentified = 0;
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(I18NConstants.COMMIT_SCAN__PROJECT_GATEWAY_FOUND
+			.fill(MetaLabelProvider.INSTANCE.getLabel(project), gatewayText, Integer.valueOf(result.devices().size())))) {
 			for (FoundDevice found : result.devices()) {
 				CatalogMatch.Match match = CatalogMatch.match(found);
 				if (match.kind() == CatalogMatch.Kind.UNIDENTIFIED) {

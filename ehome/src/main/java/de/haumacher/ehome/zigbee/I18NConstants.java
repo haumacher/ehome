@@ -500,6 +500,16 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey VETO_NOTHING_TO_CREATE;
 
+	/**
+	 * @en Zigbee devices of {1} read into {0}
+	 */
+	public static ResKey2 COMMIT_ZIGBEE_READ__PROJECT_CONTROLLER;
+
+	/**
+	 * @en Zigbee devices updated after a change on controller {0}
+	 */
+	public static ResKey1 COMMIT_ZIGBEE_LIVE__CONTROLLER;
+
 	static {
 		initConstants(I18NConstants.class);
 	}
