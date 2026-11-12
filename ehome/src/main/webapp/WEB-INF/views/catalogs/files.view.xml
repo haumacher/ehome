@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The files a manufacturer ships with its product data (ETS: baggage, haumacher/ehome #154), as the
+	catalog shows them: those of a manufacturer, those an application program names, and those a
+	product variant names (owner). Each with its name, folder, size and time, and a download of the
+	file; the selected file is shown below the list, its content as a download link.
+
+	The files are kept as the import read them (de.haumacher.ehome.importer.BaggageImport) and are not
+	edited here; a file without content (missing in the product file, or above the size limit of the
+	import) has no download.
+-->
+<view>
+	<channels>
+		<channel name="owner"/>
+		<channel name="selectedFile"/>
+	</channels>
+	<panel>
+		<title>
+			<en>Files of the manufacturer</en>
+			<de>Dateien des Herstellers</de>
+		</title>
+		<commands>
+			<generic-command
+				image="css:bi bi-download"
+				inputs="selectedFile"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Download</en>
+					<de>Herunterladen</de>
+				</label>
+				<tooltip>
+					<en>Saves the selected file as the manufacturer ships it.</en>
+					<de>Speichert die ausgewählte Datei so, wie der Hersteller sie liefert.</de>
+				</tooltip>
+				<access>
+					<operation name="Read"
+						object="$selectedFile"
+						type="ehome.catalog:Baggage"
+					/>
+				</access>
+				<executability>
+					<null-input-disabled/>
+					<disabled-if expr="if($selectedFile.get(`ehome.catalog:Baggage#content`) == null, #('The product file did not hold the file, or it was above the size limit of the import.'@en, 'Die Produktdatei enthielt die Datei nicht, oder sie lag über der Größengrenze des Imports.'@de), null)"/>
+				</executability>
+				<execute-script function="$selectedFile.get(`ehome.catalog:Baggage#content`)">
+					<with-result>
+						<download/>
+					</with-result>
+				</execute-script>
+			</generic-command>
+		</commands>
+		<stack>
+			<table
+				observed-types="ehome.catalog:Baggage,ehome.catalog:Manufacturer,ehome.catalog:Variant,ehome.operational:Program"
+				selection="selectedFile"
+				types="ehome.catalog:Baggage"
+			>
+				<inputs>
+					<input channel="owner"/>
+				</inputs>
+				<columns>
+					<column attribute="name"
+						width="260"
+					/>
+					<column attribute="path"
+						width="120"
+					/>
+					<column attribute="size"
+						width="100"
+					/>
+					<column attribute="time"
+						width="160"
+					/>
+					<column attribute="extId"
+						width="260"
+					/>
+				</columns>
+				<rows><![CDATA[switch {
+    $owner.instanceOf(`ehome.catalog:Manufacturer`): $owner.get(`ehome.catalog:Manufacturer#baggage`);
+    $owner.instanceOf(`ehome.operational:Program`): $owner.get(`ehome.operational:Program#baggage`);
+    $owner.instanceOf(`ehome.catalog:Variant`): $owner.get(`ehome.catalog:Variant#baggage`);
+    default: [];
+}]]></rows>
+			</table>
+			<form
+				input="selectedFile"
+				with-inset="true"
+				withEditMode="false"
+			>
+				<field attribute="name"/>
+				<field attribute="path"/>
+				<field attribute="size"/>
+				<field attribute="time"/>
+				<field attribute="content"/>
+				<field attribute="extId"/>
+			</form>
+		</stack>
+	</panel>
+</view>

@@ -49,8 +49,10 @@ public final class ArchiveContents {
 	}
 
 	/**
-	 * The number of XML entries the import reads, those of the project archives included (not the
-	 * baggage of a manufacturer, which is skipped).
+	 * The number of XML entries the import reads, those of the project archives included. Not counted
+	 * is the baggage of a manufacturer (its index <code>Baggages.xml</code> and its files), which the
+	 * import keeps as files of the manufacturer without reading it with the mapping (see
+	 * {@link BaggageImport}).
 	 */
 	public int getEntries() {
 		return _entries;

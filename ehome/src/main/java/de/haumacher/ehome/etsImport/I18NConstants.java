@@ -64,6 +64,21 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 PROGRAMS_KNOWN__NAMES;
 
 	/**
+	 * @en No application program
+	 */
+	public static ResKey NO_PROGRAMS;
+
+	/**
+	 * @en Files of the manufacturer imported: {0}
+	 */
+	public static ResKey1 BAGGAGE_IMPORTED__COUNT;
+
+	/**
+	 * @en Files of the manufacturer replaced by a newer version: {0}
+	 */
+	public static ResKey1 BAGGAGE_REPLACED__NAMES;
+
+	/**
 	 * @en Error
 	 */
 	public static ResKey LEVEL_ERROR;

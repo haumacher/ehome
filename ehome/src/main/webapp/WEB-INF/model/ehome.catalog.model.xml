@@ -7,6 +7,48 @@
 				<singleton type="ManufacturerRoot"/>
 			</singletons>
 		</annotations>
+		<!--
+			A file a manufacturer ships with its product data (ETS: Baggage, haumacher/ehome #154): a picture
+			of the parameter dialog, an archive of icons or help texts, a document, a plug-in installer. It is
+			kept as it is, whatever its kind; E-Home never runs it. The import reuses it by its ID and replaces
+			its content by that of a newer time only.
+		-->
+		<class name="Baggage">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-file-earmark"/>
+			</annotations>
+			<attributes>
+				<!-- The file name (ETS: Name). -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The folder of the file below the manufacturer's baggage, with "/" between its parts; empty for none (ETS: TargetPath). -->
+				<property name="path"
+					type="tl.core:String"
+				/>
+				<!-- The time of the file's version (ETS: FileInfo@TimeInfo); a newer one replaces the content. -->
+				<property name="time"
+					type="tl.core:DateTime"
+				/>
+				<!-- The number of bytes of the content; empty without content. -->
+				<property name="size"
+					type="tl.core:Long"
+				/>
+				<!-- The file itself; empty if the product file did not hold it or it was above the size limit. -->
+				<property name="content"
+					type="tl.core:Binary"
+				/>
+				<reference name="manufacturer"
+					aggregate="true"
+					inverse-reference="baggage"
+					kind="backwards"
+					type="Manufacturer"
+				/>
+			</attributes>
+		</class>
 		<class name="Catalog">
 			<generalizations>
 				<generalization type="ehome.core:Externalized"/>
@@ -80,6 +122,14 @@
 					multiple="true"
 					navigate="true"
 					type="Product"
+				/>
+				<!-- The files the manufacturer ships with its product data (ETS: Baggages, haumacher/ehome #154). -->
+				<reference name="baggage"
+					composite="true"
+					inverse-reference="manufacturer"
+					kind="forwards"
+					multiple="true"
+					type="Baggage"
 				/>
 			</attributes>
 		</class>
@@ -188,6 +238,13 @@
 				/>
 				<property name="orderNumber"
 					type="tl.core:String"
+				/>
+				<!-- The files of the manufacturer's baggage the product names (ETS: Product/Baggages, a driver installer for instance). -->
+				<reference name="baggage"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Baggage"
 				/>
 				<reference name="product"
 					aggregate="true"

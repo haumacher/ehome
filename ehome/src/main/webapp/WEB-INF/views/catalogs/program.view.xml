@@ -4,7 +4,7 @@
 	An application program in the catalog: its configuration structure (channels, the channel
 	independent part, parameter blocks, switches with their cases, and the parameters and
 	communication objects placed in them), its parameters with their types and defaults, its
-	communication objects, and its parameter types.
+	communication objects, its parameter types, and the files of the manufacturer it names.
 
 	Every tab creates, edits and deletes its elements. A new structure element goes into the selected
 	element, or after it where the selected element cannot hold it (catalogs/create-structure.view.xml);
@@ -1857,6 +1857,21 @@
 						</pane>
 					</panes>
 				</split-panel>
+			</tab>
+			<tab id="files"
+				icon="css:bi bi-paperclip"
+			>
+				<label>
+					<en>Files</en>
+					<de>Dateien</de>
+				</label>
+				<!-- The files of the manufacturer the program names: pictures, archives of icons and help texts (haumacher/ehome #154). -->
+				<view-ref view="catalogs/files.view.xml">
+					<bind
+						channel="owner"
+						to="program"
+					/>
+				</view-ref>
 			</tab>
 		</tabs>
 	</tab-bar>

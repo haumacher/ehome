@@ -317,9 +317,28 @@ naming of group addresses (haumacher/ehome #127). TestDetails, named "TestNaming
 address's name removed (Name="") and moved into its description, where the address had none ("GA-1"
 keeps its description "Raumtemperatur Küche").
 
+TestBaggage.knxprod, TestBaggageNewer.knxprod, TestBaggageDriver.knxprod and TestBaggage.knxproj: the
+files a manufacturer ships with its product data (ETS: baggage, haumacher/ehome #154), none of them a
+manufacturer's: pictures, archives and texts made for the test. TestBaggage.knxprod holds the master
+data (trimmed), an artificial program of the BCU 1 kind "TEST: Beigaben (künstliche Testdaten)"
+(M-0008_A-FFB0-01-0000) whose extension names three files, a hardware with its product, the index
+M-0008/Baggages.xml and the files, which come before the index and the program in the archive: the
+picture "TEST_Bild.png" (a 4x4 PNG, red, of 2026-11-01T10:00:00Z, no folder), the archive
+"hilfe/TEST_Hilfe.zip" (one text, of 2026-11-02T09:03:26.8724918Z, seven decimal places as ETS
+writes them), "TEST_Fehlt.png", listed and named by the program but missing in the archive, and
+"TEST_Ungelistet.txt", in the archive but not listed; the program has a parameter "Schaltbild" of a picture
+type (TypePicture) showing "TEST_Bild.png", placed in its block. TestBaggageNewer.knxprod is the same with a
+newer picture (green, of 2026-11-05T08:00:00Z) and an older archive with another text (of
+2026-10-01T00:00:00Z), without the unlisted file. TestBaggageDriver.knxprod holds no application
+program, only a hardware whose product names the file "inf/TEST Treiber.msi" (3000 bytes of text,
+no installer), as MDT's USB interface does. TestBaggage.knxproj is the Test project with the picture
+"TEST_Projekt.png" (blue) in its manufacturer's baggage and an artificial program "TEST: Beigaben im
+Projekt (künstliche Testdaten)" (M-0008_A-FFB1-01-0000, used by no device) naming it.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
+import io
 import re
 import struct
 import zipfile
@@ -2870,3 +2889,140 @@ write('src/test/fixtures/TestFunctionNames.knxproj',
     [('M-0008/' + NAME_PROGRAMS[0][0] + '.xml', function_program(*[NAME_PROGRAMS[0][i] for i in (0, 2, 3, 4)],
         described={5})),
      ('M-0008/' + NAME_PROGRAMS[1][0] + '.xml', function_program(*[NAME_PROGRAMS[1][i] for i in (0, 2, 3, 4)]))])
+
+
+# TestBaggage*.knxprod and TestBaggage.knxproj: the files of a manufacturer (baggage, haumacher/ehome #154), see the
+# module comment.
+BAGGAGE_PROGRAM = 'M-0008_A-FFB0-01-0000'
+BAGGAGE_PROJECT_PROGRAM = 'M-0008_A-FFB1-01-0000'
+BAGGAGE_HARDWARE = 'M-0008_H-TEST.20BEIGABEN-1'
+DRIVER_HARDWARE = 'M-0008_H-TEST.20TREIBER-1'
+BG_PICTURE = 'M-0008_BG--TEST.5FBild.2Epng'
+BG_HELP = 'M-0008_BG-hilfe-TEST.5FHilfe.2Ezip'
+BG_MISSING = 'M-0008_BG--TEST.5FFehlt.2Epng'
+BG_DRIVER = 'M-0008_BG-inf-TEST.20Treiber.2Emsi'
+BG_PROJECT = 'M-0008_BG--TEST.5FProjekt.2Epng'
+SCHEMA_11_HEADER = ('<?xml version="1.0" encoding="utf-8"?>\n'
+    '<KNX xmlns="http://knx.org/xml/project/11" CreatedBy="make-fixtures.py" ToolVersion="test">\n')
+
+
+def png(width, height, rgb):
+    """A PNG picture of one color, made for the test."""
+    raw = b''.join(b'\x00' + bytes(rgb) * width for _ in range(height))
+
+    def chunk(tag, data):
+        return struct.pack('>I', len(data)) + tag + data + struct.pack('>I', zlib.crc32(tag + data) & 0xffffffff)
+    return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+        + chunk(b'IDAT', zlib.compress(raw, 9)) + chunk(b'IEND', b''))
+
+
+def text_archive(name, text):
+    """A ZIP archive holding one text, made for the test."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        info = zipfile.ZipInfo(name, date_time=(2026, 11, 2, 9, 3, 26))
+        info.compress_type = zipfile.ZIP_DEFLATED
+        archive.writestr(info, text.encode('utf-8'))
+    return buffer.getvalue()
+
+
+BAGGAGE_PICTURE = png(4, 4, (255, 0, 0))
+BAGGAGE_PICTURE_NEWER = png(4, 4, (0, 255, 0))
+BAGGAGE_HELP = text_archive('Hilfe.txt', '**Schalten:** künstlicher Hilfetext für den Test.\n')
+BAGGAGE_HELP_OLDER = text_archive('Hilfe.txt', 'Älterer künstlicher Hilfetext.\n')
+BAGGAGE_DRIVER = (b'TEST: kein Treiber, kuenstliche Testdaten.\n' * 70)[:3000]
+BAGGAGE_PROJECT_PICTURE = png(2, 2, (0, 0, 255))
+
+
+def baggages_xml(files):
+    """The index of the baggage of M-0008: (ID, target path, name, time) per file."""
+    return (SCHEMA_11_HEADER + '<ManufacturerData><Manufacturer RefId="M-0008"><Baggages>\n'
+        + ''.join('<Baggage TargetPath="%s" Name="%s" Id="%s"><FileInfo TimeInfo="%s" /></Baggage>\n'
+            % (path, name, ident, time) for ident, path, name, time in files)
+        + '</Baggages></Manufacturer></ManufacturerData>\n</KNX>\n')
+
+
+def baggage_program(program, number, name, references, picture=None):
+    """A BCU 1 program whose extension names the given files of the baggage, with a parameter "Schaltbild"
+    of a picture type (TypePicture) showing the given file, placed in the block "Allgemein", if any."""
+    extension = '<Extension>' + ''.join('<Baggage RefId="%s" />' % r for r in references) + '</Extension>\n'
+    xml = replace_once(bcu1_program(program, number, name, False), '<Options ', extension + '<Options ')
+    if picture:
+        xml = replace_once(xml, '</ParameterTypes>', '<ParameterType Id="{p}_PT-Bild" Name="Bild"><TypePicture RefId="'
+            + picture + '" /></ParameterType>\n</ParameterTypes>')
+        xml = replace_once(xml, '</Parameters>', '<Parameter Id="{p}_P-9" Name="Schaltbild" Text="Schaltbild" '
+            'ParameterType="{p}_PT-Bild" Access="ReadWrite" Value="" />\n</Parameters>')
+        xml = replace_once(xml, '</ParameterRefs>', '<ParameterRef Id="{p}_P-9_R-9" RefId="{p}_P-9" Tag="9" />\n'
+            '</ParameterRefs>')
+        xml = replace_once(xml, '</ParameterBlock>', '<ParameterRefRef RefId="{p}_P-9_R-9" />\n</ParameterBlock>')
+        xml = xml.replace('{p}', program)
+    return xml
+
+
+def baggage_hardware(hardware, name, program, baggage):
+    """A hardware with one product (naming the given files of the baggage), assigned the program if any."""
+    product = hardware + '_P-' + name.replace(' ', '.20')
+    names = ('<Baggages>' + ''.join('<Baggage RefId="%s" />' % b for b in baggage) + '</Baggages>') if baggage else ''
+    assignment = ('<Hardware2Programs><Hardware2Program Id="%s_HP-%s" MediumTypes="MT-0"><ApplicationProgramRef RefId="%s" />'
+        '</Hardware2Program></Hardware2Programs>' % (hardware, program[9:], program)) if program else ''
+    return (SCHEMA_11_HEADER + '<ManufacturerData><Manufacturer RefId="M-0008"><Hardware>'
+        '<Hardware Id="' + hardware + '" Name="' + name + '" SerialNumber="' + name + '" VersionNumber="1" '
+        'HasIndividualAddress="1" HasApplicationProgram="' + ('1' if program else '0') + '"><Products>'
+        '<Product Id="' + product + '" Text="' + name + ' (künstliche Testdaten)" OrderNumber="' + name
+        + '" IsRailMounted="1" DefaultLanguage="de-DE">' + names + '</Product></Products>' + assignment
+        + '</Hardware></Hardware></Manufacturer></ManufacturerData>\n</KNX>\n')
+
+
+def baggage_archive(target, entries, project=False):
+    """A product file (or with project=True the Test project) with the given entries (name, text or bytes), in
+    their order after the master data (trimmed to what the entries use)."""
+    with zipfile.ZipFile(SOURCE) as source:
+        master = source.read('knx_master.xml').decode('utf-8-sig')
+        kept = [(info, source.read(info.filename)) for info in source.infolist()
+            if project and info.filename != 'knx_master.xml']
+    texts = [e.decode('utf-8-sig') for _, e in kept if isinstance(e, bytes) and _.filename.endswith('.xml')]
+    texts += [content for _, content in entries if isinstance(content, str)]
+    with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as out:
+        info = zipfile.ZipInfo('knx_master.xml', date_time=(2026, 11, 12, 12, 0, 0))
+        info.compress_type = zipfile.ZIP_DEFLATED
+        out.writestr(info, trim_master(master, texts).encode('utf-8'))
+        for info, data in kept:
+            if info.filename == PROJECT_INFO:
+                data = rename_project(data.decode('utf-8-sig'), 'TestBaggage').encode('utf-8')
+            out.writestr(info, data)
+        for name, content in entries:
+            info = zipfile.ZipInfo(name, date_time=(2026, 11, 12, 12, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            out.writestr(info, content.encode('utf-8') if isinstance(content, str) else content)
+
+
+BAGGAGE_INDEX = [(BG_PICTURE, '', 'TEST_Bild.png', '2026-11-01T10:00:00Z'),
+    (BG_HELP, 'hilfe', 'TEST_Hilfe.zip', '2026-11-02T09:03:26.8724918Z'),
+    (BG_MISSING, '', 'TEST_Fehlt.png', '2026-11-01T10:00:00Z')]
+BAGGAGE_PROGRAM_FILE = ('M-0008/' + BAGGAGE_PROGRAM + '.xml',
+    baggage_program(BAGGAGE_PROGRAM, 65456, 'TEST: Beigaben (künstliche Testdaten)', [BG_PICTURE, BG_HELP, BG_MISSING],
+        BG_PICTURE))
+BAGGAGE_HARDWARE_FILE = ('M-0008/Hardware.xml', baggage_hardware(BAGGAGE_HARDWARE, 'TEST Beigaben', BAGGAGE_PROGRAM, []))
+baggage_archive('src/test/fixtures/TestBaggage.knxprod', [
+    ('M-0008/Baggages/TEST_Bild.png', BAGGAGE_PICTURE),
+    ('M-0008/Baggages/hilfe/TEST_Hilfe.zip', BAGGAGE_HELP),
+    ('M-0008/Baggages/TEST_Ungelistet.txt', 'Nicht im Verzeichnis der Beigaben (künstliche Testdaten).\n'),
+    BAGGAGE_PROGRAM_FILE, BAGGAGE_HARDWARE_FILE,
+    ('M-0008/Baggages.xml', baggages_xml(BAGGAGE_INDEX))])
+baggage_archive('src/test/fixtures/TestBaggageNewer.knxprod', [
+    BAGGAGE_HARDWARE_FILE,
+    ('M-0008/Baggages.xml', baggages_xml([(BG_PICTURE, '', 'TEST_Bild.png', '2026-11-05T08:00:00Z'),
+        (BG_HELP, 'hilfe', 'TEST_Hilfe.zip', '2026-10-01T00:00:00Z'), BAGGAGE_INDEX[2]])),
+    ('M-0008/Baggages/TEST_Bild.png', BAGGAGE_PICTURE_NEWER),
+    ('M-0008/Baggages/hilfe/TEST_Hilfe.zip', BAGGAGE_HELP_OLDER),
+    BAGGAGE_PROGRAM_FILE])
+baggage_archive('src/test/fixtures/TestBaggageDriver.knxprod', [
+    ('M-0008/Hardware.xml', baggage_hardware(DRIVER_HARDWARE, 'TEST Treiber', None, [BG_DRIVER])),
+    ('M-0008/Baggages.xml', baggages_xml([(BG_DRIVER, 'inf', 'TEST Treiber.msi', '2009-05-07T12:12:06Z')])),
+    ('M-0008/Baggages/inf/TEST Treiber.msi', BAGGAGE_DRIVER)])
+baggage_archive('src/test/fixtures/TestBaggage.knxproj', [
+    ('M-0008/Baggages.xml', baggages_xml([(BG_PROJECT, '', 'TEST_Projekt.png', '2026-11-03T12:00:00Z')])),
+    ('M-0008/Baggages/TEST_Projekt.png', BAGGAGE_PROJECT_PICTURE),
+    ('M-0008/' + BAGGAGE_PROJECT_PROGRAM + '.xml',
+        baggage_program(BAGGAGE_PROJECT_PROGRAM, 65457, 'TEST: Beigaben im Projekt (künstliche Testdaten)', [BG_PROJECT]))],
+    project=True)

@@ -202,10 +202,12 @@ public class TestImportMessages extends BasicTestCase {
 
 	/**
 	 * The baggage of a manufacturer (<code>M-xxxx/Baggages.xml</code> and the files below
-	 * <code>M-xxxx/Baggages/</code>, haumacher/ehome#82) is skipped without a message, and the rest of
-	 * the project is imported as before.
+	 * <code>M-xxxx/Baggages/</code>, haumacher/ehome#82) is not read by the mapping (an XML file in it
+	 * is no project data), and the rest of the project is imported as before. Since haumacher/ehome
+	 * #154 the files are kept with the manufacturer: a listed file the archive lacks and the files the
+	 * index does not list are reported (see <code>TestBaggageImport</code>).
 	 */
-	public void testBaggagesSkipped() throws Exception {
+	public void testBaggagesNotMapped() throws Exception {
 		Path file = Files.createTempFile("Baggages", ".knxproj");
 		List<TLObject> before = instances("ehome.project:Project");
 		try {
@@ -234,7 +236,14 @@ public class TestImportMessages extends BasicTestCase {
 			}
 
 			List<BufferingI18NLog.Entry> messages = TestEtsImport.withoutMasterData(importSample(file.toString()));
-			assertEquals(texts(messages), 0, messages.size());
+			assertEquals(List.of(
+				"The entry \"M-0008/Baggages/Help/Test.xml\" lies among the files of the manufacturer, but the "
+					+ "product data do not list it: it is not imported.",
+				"The entry \"M-0008/Baggages/Pictures/Test.png\" lies among the files of the manufacturer, but the "
+					+ "product data do not list it: it is not imported.",
+				"The file \"M-0008/Test.html\" of the manufacturer is listed in the product data, but the imported "
+					+ "file does not hold it: the catalog lists the file without its content."),
+				messages.stream().map(TestImportMessages::text).sorted().toList());
 			List<TLObject> projects = SharedData.newProjects(before);
 			assertEquals(1, projects.size());
 			assertEquals("P-01A0", projects.get(0).tValueByName("extId"));

@@ -43,7 +43,8 @@
 
 # Signatures: proprietary, created only by an installed ETS; the export is unsigned.
 file *.signature
-# Files of ETS plug-ins and help (Baggages).
+# The files of a manufacturer (Baggages): imported (haumacher/ehome #154), not written back by the
+# export (baggage in the export is not decided).
 file */Baggages.xml
 file */Baggages/*
 
@@ -174,6 +175,8 @@ skip Parameter@SuffixText
 skip Parameter@LegacyPatchAlways
 skip Union/Parameter@DefaultUnionParameter
 skip Static/ParameterCalculations
+# Its Baggage references are imported (haumacher/ehome #154), its plug-in attributes are not
+# (haumacher/ehome #159); the export writes neither.
 skip Static/Extension
 skip Static/BinaryData
 skip Static/FixupList

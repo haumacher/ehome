@@ -48,16 +48,17 @@ ekinex.
 
 ## What E-Home's import does with such files today
 
-- A project file (`.knxproj`) skips the baggage of a manufacturer
-  (`ehome/src/main/java/de/haumacher/ehome/importer/ArchiveContents.java:109`).
-- A product file (`.knxprod`) is **refused** when it holds baggage or an encrypted entry
-  (`ehome/src/main/java/de/haumacher/ehome/importer/Importer.java:476`, `doc/knx/schema-coverage.md`,
-  "Files").
-- `TypePicture` has no handler; `Static/Extension` with `Baggage`, `Static/BinaryData` and
-  `Baggages` are not read; a program that needs an ETS plug-in is not marked
+- Since haumacher/ehome #154 the baggage of a manufacturer (`Baggages`) is imported from a project
+  file and from a product file and kept with the manufacturer, and a program names its files
+  (`Static/Extension/Baggage`, `doc/knx/schema-coverage.md`, "Files"); before, a product file with
+  baggage was refused and a project file skipped it. A product file is still **refused** when it
+  holds an encrypted entry.
+- `TypePicture` has no handler (#155); `IconFile`, `ContextHelpFile` (#156, #157), the plug-in
+  attributes of `Static/Extension` (#159) and `Static/BinaryData` are not read
   (`doc/knx/schema-coverage.md`, "Not covered").
 - The product files of the test fixtures (`MDT_AKK_V23.knxprod`, `Zennio_DALI_BOX_64_v3.knxprod`)
-  hold no baggage.
+  hold no baggage; `TestBaggage*.knxprod` and `TestBaggage.knxproj` (`make-fixtures.py`) hold
+  artificial baggage.
 
 ## What the files contain
 
@@ -66,7 +67,7 @@ programs).
 
 | | MDT (103 files) | Theben complete database (1 file, 119 programs) |
 |---|---|---|
-| Baggage (`M-xxxx/Baggages/`), so refused today | 31 files | yes |
+| Baggage (`M-xxxx/Baggages/`), refused before #154 | 31 files | yes |
 | Baggage contents | 502 `.png`, 4 `.jpg`, 10 `.zip`, 2 `.pdf`, 1 `.msi` | 54 `.png`, 34 `.zip`, 1 `.msi` |
 | Encrypted entries | none | none |
 | `TypePicture` (a picture in the parameter dialog) | 28 files | 14 programs |
@@ -82,8 +83,9 @@ programs).
 | Schema versions | 11, 13, 14, 20, 21, 23 | 20 |
 | Mask versions | 0012, 0025, 0701, 0705, 07B0, 0912, 091A, 2705, 27B0, 2920 | also 0001, 0011, 0021, 0911 |
 
-So about a third of MDT's product files, and Theben's complete database, cannot be imported as a
-product file today, in nearly every case because of pictures.
+So about a third of MDT's product files, and Theben's complete database, could not be imported as a
+product file before haumacher/ehome #154, in nearly every case because of pictures; since then they are
+imported with their baggage (the pictures are not shown yet, #155).
 
 ## Examples of complex product files
 

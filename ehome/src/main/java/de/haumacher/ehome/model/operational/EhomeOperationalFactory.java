@@ -2096,6 +2096,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link PictureType} type.
+	 */
+	public static com.top_logic.model.TLClass getPictureTypeType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(PictureType.PICTURE_TYPE_TYPE);
+	}
+
+	/**
+	 * Lookup {@link PictureType#PICTURE_ATTR} of {@link PictureType}.
+	 */
+	public static com.top_logic.model.TLReference getPicturePictureTypeAttr() {
+		return (com.top_logic.model.TLReference) getPictureTypeType().getPart(PictureType.PICTURE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Location} type.
 	 */
 	public static com.top_logic.model.TLClass getLocationType() {
@@ -2359,6 +2373,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLReference getAssociationTableProgramAttr() {
 		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.ASSOCIATION_TABLE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#BAGGAGE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getBaggageProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.BAGGAGE_ATTR);
 	}
 
 	/**
@@ -5609,6 +5630,22 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String KO_NAME_VOID_TYPE = de.haumacher.ehome.model.operational.internal.VoidTypeBase.TABLE_NAME;
 
 	/**
+	 * Name of type <code>PictureType</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link PictureType#PICTURE_TYPE_TYPE}.
+	 */
+	@Deprecated
+	public static final String PICTURE_TYPE_NODE = PictureType.PICTURE_TYPE_TYPE;
+
+	/**
+	 * Storage table name of {@link #PICTURE_TYPE_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.PictureTypeBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_PICTURE_TYPE = de.haumacher.ehome.model.operational.internal.PictureTypeBase.TABLE_NAME;
+
+	/**
 	 * Name of type <code>Location</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link Location#LOCATION_TYPE}.
@@ -6346,6 +6383,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public final VoidType createVoidType() {
 		return createVoidType(null);
+	}
+
+	/**
+	 * Create an instance of {@link PictureType} type.
+	 */
+	public final PictureType createPictureType(com.top_logic.model.TLObject context) {
+		return (PictureType) createObject(getPictureTypeType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link PictureType} type.
+	 */
+	public final PictureType createPictureType() {
+		return createPictureType(null);
 	}
 
 	/**

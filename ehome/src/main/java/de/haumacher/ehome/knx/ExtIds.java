@@ -254,6 +254,7 @@ public final class ExtIds {
 			case "ehome.operational:Program":
 				return Kind.PROGRAM;
 			case "ehome.operational:VoidType":
+			case "ehome.operational:PictureType":
 			case "ehome.operational:TextType":
 			case "ehome.operational:NumericType":
 			case "ehome.operational:FloatingPointType":

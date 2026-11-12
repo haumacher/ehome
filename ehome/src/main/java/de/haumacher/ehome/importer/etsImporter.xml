@@ -18,6 +18,7 @@
 				all(`ehome.catalog:Variant`),
 				all(`ehome.catalog:ProgramAssignment`),
 				all(`ehome.catalog:Catalog`),
+				all(`ehome.catalog:Baggage`),
 				all(`ehome.operational:Program`)
 			)"
 			key="obj -> $obj.get(`ehome.core:Externalized#extId`)"
@@ -692,6 +693,19 @@
 																			<property name="orderNumber" xml-attribute="OrderNumber"/>
 
 																			<dispatch>
+																				<!-- The files of the manufacturer the product names (a driver installer, haumacher/ehome #154); the files themselves are read by BaggageImport. -->
+																				<tag name="Baggages">
+																					<dispatch>
+																						<tag name="Baggage">
+																							<object-ref id-attribute="RefId">
+																								<linking>
+																									<list-linking name="ehome.catalog:Variant#baggage"/>
+																								</linking>
+																								<dispatch/>
+																							</object-ref>
+																						</tag>
+																					</dispatch>
+																				</tag>
 																				<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
 																				<tag name="Attributes"><skip-deep/></tag>
 																				<tag name="RegistrationInfo"><skip-deep/></tag>
@@ -1124,6 +1138,14 @@
 																									<!-- ETS shows the year unless DisplayTheYear says otherwise. -->
 																									<assign argument-var="this" property="showsYear" value="t -> true"/>
 																									<property name="showsYear" xml-attribute="DisplayTheYear" format="de.haumacher.ehome.etsImport.importer.format.XmlBooleanFormat"/>
+
+																									<dispatch/>
+																								</object>
+																							</tag>
+																							<!-- A picture in the parameter dialog: a type without value naming a file of the baggage (haumacher/ehome #154, shown by #155). -->
+																							<tag name="TypePicture">
+																								<object model-type="ehome.operational:PictureType">
+																									<reference name="picture" id-attribute="RefId"/>
 
 																									<dispatch/>
 																								</object>
@@ -1621,8 +1643,23 @@
 																		<tag name="Script">
 																			<text-content name="script"/>
 																		</tag>
-																		<!-- Not modeled (doc/knx/schema-coverage.md): skipped without a warning. -->
-																		<tag name="Extension"><skip-deep/></tag>
+																		<!--
+																			The files of the manufacturer the program names (haumacher/ehome #154); the files themselves are read by
+																			BaggageImport, which also gives them to a known program an earlier import left without them. The plug-ins
+																			the attributes of the extension name are not read (haumacher/ehome #159).
+																		-->
+																		<tag name="Extension">
+																			<dispatch>
+																				<tag name="Baggage">
+																					<object-ref id-attribute="RefId">
+																						<linking>
+																							<list-linking name="ehome.operational:Program#baggage"/>
+																						</linking>
+																						<dispatch/>
+																					</object-ref>
+																				</tag>
+																			</dispatch>
+																		</tag>
 																		<!-- The allocators of the program, handing out argument values of module instances (haumacher/ehome #119). -->
 																		<tag name="Allocators">
 																			<dispatch id="allocators">

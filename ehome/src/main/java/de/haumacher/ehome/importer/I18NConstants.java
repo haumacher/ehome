@@ -77,9 +77,54 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_PROJECT_IN_PRODUCT_DATA__ENTRY;
 
 	/**
-	 * @en The product file holds baggage (entry "{0}"): pictures, help or plug-in files of ETS 5 or 6, which E-Home cannot import. Only product files without baggage can be imported.
+	 * @en A newer version of the file "{0}" of the manufacturer, of {1}, replaces the content of the version of {2}.
 	 */
-	public static ResKey1 ERROR_BAGGAGES_IN_PRODUCT_DATA__ENTRY;
+	public static ResKey3 INFO_BAGGAGE_REPLACED__FILE_TIME_OLD;
+
+	/**
+	 * @en The file "{0}" of the manufacturer, kept earlier without its content, gains it now.
+	 */
+	public static ResKey1 INFO_BAGGAGE_COMPLETED__FILE;
+
+	/**
+	 * @en The file "{0}" of the manufacturer is larger than {1}, the limit for one file, and its content is not imported: the catalog lists the file without it.
+	 */
+	public static ResKey2 WARN_BAGGAGE_TOO_LARGE__FILE_LIMIT;
+
+	/**
+	 * @en The file "{0}" of the manufacturer is listed in the product data, but the imported file does not hold it: the catalog lists the file without its content.
+	 */
+	public static ResKey1 WARN_BAGGAGE_MISSING__FILE;
+
+	/**
+	 * @en The entry "{0}" lies among the files of the manufacturer, but the product data do not list it: it is not imported.
+	 */
+	public static ResKey1 WARN_BAGGAGE_NOT_LISTED__ENTRY;
+
+	/**
+	 * @en The files of the manufacturer "{0}" are not imported: the database has no such manufacturer and the file does not define it.
+	 */
+	public static ResKey1 WARN_BAGGAGE_NO_MANUFACTURER__MANUFACTURER;
+
+	/**
+	 * @en The file "{0}" of the manufacturer has no valid time ("{1}"); a later version of it cannot be recognized as newer.
+	 */
+	public static ResKey2 WARN_BAGGAGE_INVALID_TIME__FILE_TIME;
+
+	/**
+	 * @en The application program "{0}", imported earlier without the files of its manufacturer it names, is completed: it names {1} files now.
+	 */
+	public static ResKey2 INFO_PROGRAM_BAGGAGE_COMPLETED__PROGRAM_COUNT;
+
+	/**
+	 * @en The application program "{0}" names the file "{1}" of its manufacturer, which neither the database nor the file holds.
+	 */
+	public static ResKey2 WARN_PROGRAM_BAGGAGE_UNKNOWN__PROGRAM_FILE;
+
+	/**
+	 * @en The product file holds no application program: only its products and the files of the manufacturer are imported.
+	 */
+	public static ResKey INFO_NO_PROGRAM_IN_PRODUCT_DATA;
 
 	/**
 	 * @en The file holds no product data of a manufacturer (no folder "M-xxxx").

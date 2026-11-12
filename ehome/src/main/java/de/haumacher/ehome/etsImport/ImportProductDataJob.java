@@ -35,9 +35,11 @@ import de.haumacher.ehome.job.Uninterruptible;
  * already known is skipped. The result is the report of the import, a dictionary like the one of
  * {@link ImportEtsProjectJob}: <code>manufacturer</code> is the manufacturer of the file imported
  * last, <code>summary</code> a sentence naming for each file the manufacturers, products and
- * application programs imported and those already known, and the number of messages,
+ * application programs imported and those already known (or that it holds none), the number of
+ * files of the manufacturer imported and those replaced by a newer version (haumacher/ehome #154),
+ * and the number of messages,
  * <code>messages</code> the warnings and errors the import reported. A file that cannot be imported
- * (a project file, a file with baggage or encrypted entries) fails the job with the reason. A
+ * (a project file, a file with encrypted entries) fails the job with the reason. A
  * cancelled job imports nothing of the file it is at.
  * </p>
  */
@@ -53,6 +55,8 @@ public class ImportProductDataJob implements JobBody {
 	private static final String PRODUCT_TYPE = "ehome.catalog:Product";
 
 	private static final String PROGRAM_TYPE = "ehome.operational:Program";
+
+	private static final String BAGGAGE_TYPE = "ehome.catalog:Baggage";
 
 	private static final String EXT_ID = "extId";
 
@@ -102,6 +106,14 @@ public class ImportProductDataJob implements JobBody {
 		describe(contents, I18NConstants.PRODUCTS_KNOWN__NAMES, importer.getKnown(PRODUCT_TYPE));
 		describe(contents, I18NConstants.PROGRAMS_IMPORTED__NAMES, importer.getCreated(PROGRAM_TYPE));
 		describe(contents, I18NConstants.PROGRAMS_KNOWN__NAMES, importer.getKnown(PROGRAM_TYPE));
+		if (importer.getProgramFiles() == 0) {
+			contents.add(Resources.getInstance().getString(I18NConstants.NO_PROGRAMS));
+		}
+		int baggage = importer.getCreated(BAGGAGE_TYPE).size();
+		if (baggage > 0) {
+			contents.add(Resources.getInstance().getString(I18NConstants.BAGGAGE_IMPORTED__COUNT.fill(baggage)));
+		}
+		describe(contents, I18NConstants.BAGGAGE_REPLACED__NAMES, importer.getReplacedBaggage());
 
 		String file = data.getName() == null ? "" : data.getName();
 		String description = Resources.getInstance().getString(

@@ -1565,6 +1565,26 @@
 			</annotations>
 		</class>
 		<!--
+			A picture in the parameter dialog (ETS: TypePicture, a wiring diagram or a dimming curve): a
+			parameter type without value, like VoidType, that names the file of the manufacturer's baggage
+			holding the picture (haumacher/ehome #154). A parameter of it is stored nowhere and downloaded
+			never; until the editor shows the picture (haumacher/ehome #155), it shows the parameter's text.
+		-->
+		<class name="PictureType">
+			<generalizations>
+				<generalization type="VoidType"/>
+			</generalizations>
+			<annotations>
+				<table name="EHParameterType"/>
+			</annotations>
+			<attributes>
+				<reference name="picture"
+					kind="forwards"
+					type="ehome.catalog:Baggage"
+				/>
+			</attributes>
+		</class>
+		<!--
 			Where the value of a parameter is stored in the device: in memory (Pointer) or in a property of
 			an interface object (PropertyLocation). The parameters of a union share one location.
 			Owned by the program (Program#locations).
@@ -2063,6 +2083,17 @@
 				-->
 				<property name="assignsRead"
 					type="tl.core:Boolean"
+				/>
+				<!--
+					The files of the manufacturer's baggage the program names (ETS: Static/Extension/Baggage,
+					haumacher/ehome #154): its pictures, archives of icons and help texts, plug-in installers. A
+					program an earlier import left without them gains them from the next import of its file.
+				-->
+				<reference name="baggage"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.catalog:Baggage"
 				/>
 			</attributes>
 		</class>

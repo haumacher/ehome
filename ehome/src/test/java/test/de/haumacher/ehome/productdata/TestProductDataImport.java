@@ -250,17 +250,6 @@ public class TestProductDataImport extends BasicTestCase {
 		assertEquals(before, counts());
 	}
 
-	/** A product file with baggage is refused. */
-	public void testBaggages() throws Exception {
-		Map<String, Integer> before = counts();
-		File file = zip("Baggage.knxprod", "M-0008/Catalog.xml",
-			"<KNX xmlns=\"http://knx.org/xml/project/11\"/>", "M-0008/Baggages/Pictures/device.png", "");
-		assertRefused(file.getPath(), "The product file holds baggage (entry \"M-0008/Baggages/Pictures/device.png\"): "
-			+ "pictures, help or plug-in files of ETS 5 or 6, which E-Home cannot import. "
-			+ "Only product files without baggage can be imported.");
-		assertEquals(before, counts());
-	}
-
 	/** A project file is no product file. */
 	public void testProjectRefused() throws Exception {
 		Map<String, Integer> before = counts();

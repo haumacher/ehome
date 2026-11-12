@@ -24,7 +24,9 @@
 	assignment of an application program to the product of a variant. Every object gets an external
 	ID in the manner of ETS when it is created (de.haumacher.ehome.knx.ExtIds).
 
-	The detail pane shows the selected node in a form matching its type.
+	The detail pane shows the selected node in a form matching its type; a manufacturer, an application
+	program and a product variant with the files of the manufacturer they have or name, with a download
+	(catalogs/files.view.xml, haumacher/ehome #154).
 -->
 <view>
 	<channels>
@@ -570,6 +572,13 @@
 								<field attribute="id"/>
 								<field attribute="extId"/>
 							</form>
+							<!-- The files the manufacturer ships with its product data (haumacher/ehome #154). -->
+							<view-ref view="catalogs/files.view.xml">
+								<bind
+									channel="owner"
+									to="selected"
+								/>
+							</view-ref>
 						</case>
 						<case test="$selected.instanceOf(`ehome.catalog:Catalog`)">
 							<form
@@ -590,6 +599,13 @@
 								<field attribute="product"/>
 								<field attribute="extId"/>
 							</form>
+							<!-- The files of the manufacturer the product names, a driver installer for instance. -->
+							<view-ref view="catalogs/files.view.xml">
+								<bind
+									channel="owner"
+									to="selected"
+								/>
+							</view-ref>
 						</case>
 						<!-- An application program, also when reached as the program of a product. -->
 						<case test="$selected.instanceOf(`ehome.operational:Program`) or $selected.instanceOf(`ehome.catalog:ProgramAssignment`)">

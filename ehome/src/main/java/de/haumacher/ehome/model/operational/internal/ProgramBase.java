@@ -70,6 +70,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String ASSOCIATION_TABLE_ATTR = "associationTable";
 
 	/**
+	 * Part <code>baggage</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.catalog:Baggage</code> in configuration.
+	 * </p>
+	 */
+	String BAGGAGE_ATTR = "baggage";
+
+	/**
 	 * Part <code>calculations</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -500,6 +509,49 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setAssociationTable(de.haumacher.ehome.model.operational.TableLocation newValue) {
 		tUpdateByName(ASSOCIATION_TABLE_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #BAGGAGE_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends com.top_logic.model.TLObject> getBaggage() {
+		return (java.util.List<? extends com.top_logic.model.TLObject>) tValueByName(BAGGAGE_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #BAGGAGE_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<com.top_logic.model.TLObject> getBaggageModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(BAGGAGE_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<com.top_logic.model.TLObject> result = (java.util.List<com.top_logic.model.TLObject>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #BAGGAGE_ATTR}.
+	 */
+	default void setBaggage(java.util.List<com.top_logic.model.TLObject> newValue) {
+		tUpdateByName(BAGGAGE_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #BAGGAGE_ATTR} reference.
+	 */
+	default void addBaggage(com.top_logic.model.TLObject newValue) {
+		tAddByName(BAGGAGE_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #BAGGAGE_ATTR} reference.
+	 */
+	default void removeBaggage(com.top_logic.model.TLObject oldValue) {
+		tRemoveByName(BAGGAGE_ATTR, oldValue);
 	}
 
 	/**

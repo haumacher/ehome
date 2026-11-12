@@ -118,12 +118,12 @@ public class Importer {
 	 * Name of the folder holding the baggage of a manufacturer (pictures, help and plug-in files of
 	 * ETS), and of its index <code>Baggages.xml</code> beside it.
 	 */
-	private static final String BAGGAGES = "Baggages";
+	static final String BAGGAGES = "Baggages";
 
 	/**
 	 * Name of the index of a manufacturer's baggage, see {@link #BAGGAGES}.
 	 */
-	private static final String BAGGAGES_INDEX = BAGGAGES + ".xml";
+	static final String BAGGAGES_INDEX = BAGGAGES + ".xml";
 
 	/**
 	 * Suffix of the archive holding the project part of an ETS 5/6 project file
@@ -141,6 +141,21 @@ public class Importer {
 	private Set<String> _manufacturers = new LinkedHashSet<>();
 
 	private BufferingI18NLog _messages = new BufferingI18NLog();
+
+	/**
+	 * The size limit of a file of a manufacturer's baggage, see {@link #setBaggageSizeLimit(long)}.
+	 */
+	private long _baggageSizeLimit = BaggageImport.DEFAULT_SIZE_LIMIT;
+
+	/**
+	 * The number of application programs the last import read (created or skipped as known).
+	 */
+	private int _programFiles;
+
+	/**
+	 * The files of manufacturers the last import replaced by a newer version.
+	 */
+	private List<TLObject> _replacedBaggage = List.of();
 
 	/** The beginning of an <code>Assign</code> element in a program file. */
 	private static final byte[] ASSIGN_MARKER = "<Assign ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
@@ -179,8 +194,8 @@ public class Importer {
 	 * Imports the XML entries of the given archive with the given handler.
 	 *
 	 * @param productData
-	 *        Whether the archive is a product file (<code>.knxprod</code>), which may hold no project,
-	 *        no baggage, and must hold the data of a manufacturer.
+	 *        Whether the archive is a product file (<code>.knxprod</code>), which may hold no project
+	 *        and must hold the data of a manufacturer.
 	 * @param contents
 	 *        The contents of the archive read beforehand, whose opened project archives are used;
 	 *        <code>null</code> to open them here.
@@ -195,6 +210,11 @@ public class Importer {
 		};
 		_manufacturers = new LinkedHashSet<>();
 		_schema = 0;
+		_programFiles = 0;
+		_replacedBaggage = List.of();
+		// The files the manufacturers ship with their data (haumacher/ehome #154), in a project file as
+		// in a product file.
+		BaggageImport baggage = new BaggageImport(_baggageSizeLimit);
 		Map<String, Map<String, byte[]>> projectArchives = new LinkedHashMap<>();
 		String last = null;
 		ZipEntry entry;
@@ -208,12 +228,21 @@ public class Importer {
 			if (productData) {
 				checkProductEntry(name, path);
 			}
-			if (!entry.isDirectory() && !isBaggage(path)) {
+			if (entry.isDirectory()) {
+				continue;
+			}
+			if (BaggageImport.isIndex(path)) {
+				baggage.readIndex(entryIn);
+			} else if (BaggageImport.isFile(path)) {
+				baggage.readFile(path[0] + name.substring(path[0].length() + BAGGAGES.length() + 1), entryIn);
+			} else {
 				if (isProgram(path)) {
 					byte[] program = entryIn.readAllBytes();
+					_programFiles++;
 					scanModules(context, program);
 					importXml(context, handler, name, new ByteArrayInputStream(program));
 					completeAssigns(program);
+					baggage.readProgramReferences(program);
 				} else if (name.endsWith(".xml")) {
 					importXml(context, handler, name, entryIn);
 				} else if (isProjectArchive(name, path)) {
@@ -241,6 +270,13 @@ public class Importer {
 		}
 		if (productData && _manufacturers.isEmpty()) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_MANUFACTURER_DATA);
+		}
+		// After the master and manufacturer data, before the references are resolved (when the import
+		// context is closed): the programs and products of the file refer to the files by their IDs.
+		baggage.apply(context, _binding, _messages);
+		_replacedBaggage = baggage.getReplaced();
+		if (productData && _programFiles == 0) {
+			_messages.log(Level.INFO, I18NConstants.INFO_NO_PROGRAM_IN_PRODUCT_DATA);
 		}
 	}
 
@@ -337,7 +373,7 @@ public class Importer {
 	/**
 	 * Whether the given content holds the given bytes.
 	 */
-	private static boolean mentions(byte[] content, byte[] marker) {
+	static boolean mentions(byte[] content, byte[] marker) {
 		outer:
 		for (int n = 0, last = content.length - marker.length; n <= last; n++) {
 			for (int k = 0; k < marker.length; k++) {
@@ -464,8 +500,9 @@ public class Importer {
 
 	/**
 	 * Whether the entry with the given path is the baggage of a manufacturer
-	 * (<code>M-xxxx/Baggages.xml</code> or below <code>M-xxxx/Baggages/</code>), which E-Home does
-	 * not use and skips without reading it (see <code>doc/knx/schema-coverage.md</code>).
+	 * (<code>M-xxxx/Baggages.xml</code> or below <code>M-xxxx/Baggages/</code>), which the import
+	 * keeps as files of the manufacturer (see {@link BaggageImport}), and which is no XML entry of the
+	 * mapping.
 	 */
 	static boolean isBaggage(String[] path) {
 		return path.length > 1 && path[0].startsWith(MANUFACTURER_PREFIX)
@@ -473,18 +510,24 @@ public class Importer {
 	}
 
 	/**
-	 * Refuses an entry a product file must not hold: the part of a project, or baggage (pictures,
-	 * help and plug-in files ETS installs with a product).
+	 * Refuses an entry a product file must not hold: the part of a project.
 	 */
 	private static void checkProductEntry(String name, String[] path) {
 		if (path[0].startsWith(PROJECT_PREFIX)) {
 			throw new TopLogicException(I18NConstants.ERROR_PROJECT_IN_PRODUCT_DATA__ENTRY.fill(name));
 		}
-		for (String segment : path) {
-			if (BAGGAGES.equals(segment)) {
-				throw new TopLogicException(I18NConstants.ERROR_BAGGAGES_IN_PRODUCT_DATA__ENTRY.fill(name));
-			}
-		}
+	}
+
+	/**
+	 * Sets the size limit of a file of a manufacturer's baggage: a larger file is not imported, the
+	 * catalog lists it without its content, and the import reports it. By default
+	 * {@link BaggageImport#DEFAULT_SIZE_LIMIT}.
+	 *
+	 * @param bytes
+	 *        The largest number of bytes of a file whose content is imported.
+	 */
+	public void setBaggageSizeLimit(long bytes) {
+		_baggageSizeLimit = bytes;
 	}
 
 	/**
@@ -559,8 +602,9 @@ public class Importer {
 	 * project file, without a project.
 	 *
 	 * <p>
-	 * A product file holding a project, baggage, an encrypted entry, or no data of a manufacturer is
-	 * refused with a {@link TopLogicException} naming the reason.
+	 * A product file holding a project, an encrypted entry, or no data of a manufacturer is refused
+	 * with a {@link TopLogicException} naming the reason. The files the manufacturer ships with its
+	 * data (baggage) are kept with the manufacturer (haumacher/ehome #154).
 	 * </p>
 	 *
 	 * @see #getMessages()
@@ -773,6 +817,22 @@ public class Importer {
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * The number of application programs the file the last import read holds (each created or
+	 * skipped as known); 0 for a product file without a program, such as one bringing only a driver.
+	 */
+	public int getProgramFiles() {
+		return _programFiles;
+	}
+
+	/**
+	 * The files of manufacturers (baggage) known before the last import whose content it replaced by
+	 * a newer version (haumacher/ehome #154).
+	 */
+	public List<TLObject> getReplacedBaggage() {
+		return _replacedBaggage;
 	}
 
 	/**

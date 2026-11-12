@@ -149,6 +149,9 @@ final class ProgramExport {
 				.attr("Name", string(type, "name"));
 			switch (TLModelUtil.qualifiedName(type.tType())) {
 				case "ehome.operational:VoidType" -> out.open("TypeNone").close();
+				case "ehome.operational:PictureType" -> out.open("TypePicture")
+					.attr("RefId", extId(ref(type, "picture")))
+					.close();
 				case "ehome.operational:TextType" -> out.open("TypeText")
 					.attr("SizeInBit", number(type, "bits"))
 					.attr("Pattern", string(type, "pattern"))
