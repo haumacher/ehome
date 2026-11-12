@@ -335,6 +335,14 @@ no installer), as MDT's USB interface does. TestBaggage.knxproj is the Test proj
 "TEST_Projekt.png" (blue) in its manufacturer's baggage and an artificial program "TEST: Beigaben im
 Projekt (künstliche Testdaten)" (M-0008_A-FFB1-01-0000, used by no device) naming it.
 
+TestPictures.knxprod: the pictures of the parameter dialog (ETS: TypePicture, haumacher/ehome #155), with
+pictures made for the test. An artificial program of the BCU 1 kind (with the memory of "TEST BCU1 mit Daten") "TEST: Bilder im
+Parameterdialog (künstliche Testdaten)" (M-0008_A-FFB2-01-0000) on its own hardware "TEST Bilder", whose block places,
+inside a choose on "Betriebsart" (default Schalten) in its case Treppenlicht (2), three parameters of
+picture types: "Schaltbild Treppenlicht" (P-9) showing "TEST_Schaltbild.png" (a 3x2 PNG, yellow), "Kurve
+Treppenlicht" (P-10) showing "TEST_Kurve.bmp" (a 2x2 BMP, a format a browser is not asked to show) and
+"Fehlendes Bild" (P-11) showing "TEST_Ohne.png", listed in the index but missing in the archive.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -3026,3 +3034,51 @@ baggage_archive('src/test/fixtures/TestBaggage.knxproj', [
     ('M-0008/' + BAGGAGE_PROJECT_PROGRAM + '.xml',
         baggage_program(BAGGAGE_PROJECT_PROGRAM, 65457, 'TEST: Beigaben im Projekt (künstliche Testdaten)', [BG_PROJECT]))],
     project=True)
+
+
+# TestPictures.knxprod: the pictures of the parameter dialog (TypePicture, haumacher/ehome #155), see the module comment.
+PICTURES_PROGRAM = 'M-0008_A-FFB2-01-0000'
+PICTURES_HARDWARE = 'M-0008_H-TEST.20BILDER-1'
+BG_DIAGRAM = 'M-0008_BG--TEST.5FSchaltbild.2Epng'
+BG_CURVE = 'M-0008_BG--TEST.5FKurve.2Ebmp'
+BG_ABSENT = 'M-0008_BG--TEST.5FOhne.2Epng'
+
+
+def bmp(width, height, rgb):
+    """A BMP picture of one color (24 bits, rows padded to four bytes), made for the test."""
+    row = bytes(reversed(rgb)) * width
+    row += b'\x00' * ((4 - len(row) % 4) % 4)
+    pixels = row * height
+    header = struct.pack('<2sIHHI', b'BM', 54 + len(pixels), 0, 0, 54)
+    info = struct.pack('<IiiHHIIiiII', 40, width, height, 1, 24, 0, len(pixels), 2835, 2835, 0, 0)
+    return header + info + pixels
+
+
+def pictures_program(program, number, name):
+    """A BCU 1 program placing three parameters of picture types in the case Treppenlicht of a choose on
+    "Betriebsart"."""
+    pictures = [(9, 'Schaltbild Treppenlicht', 'Schaltbild', BG_DIAGRAM), (10, 'Kurve Treppenlicht', 'Kurve', BG_CURVE),
+        (11, 'Fehlendes Bild', 'Ohne', BG_ABSENT)]
+    extension = '<Extension>' + ''.join('<Baggage RefId="%s" />' % p[3] for p in pictures) + '</Extension>\n'
+    xml = replace_once(bcu1_program(program, number, name, True), '<Options ', extension + '<Options ')
+    xml = replace_once(xml, '</ParameterTypes>', ''.join('<ParameterType Id="%s_PT-%s" Name="%s"><TypePicture RefId="%s" />'
+        '</ParameterType>\n' % (program, t, t, ref) for _, _, t, ref in pictures) + '</ParameterTypes>')
+    xml = replace_once(xml, '</Parameters>', ''.join('<Parameter Id="%s_P-%d" Name="%s" Text="%s" ParameterType="%s_PT-%s" '
+        'Access="ReadWrite" Value="" />\n' % (program, n, t, text, program, t) for n, text, t, _ in pictures) + '</Parameters>')
+    xml = replace_once(xml, '</ParameterRefs>', ''.join('<ParameterRef Id="%s_P-%d_R-%d" RefId="%s_P-%d" Tag="%d" />\n'
+        % (program, n, n, program, n, n) for n, _, _, _ in pictures) + '</ParameterRefs>')
+    xml = replace_once(xml, '</ParameterBlock>', '<choose ParamRefId="%s_P-1_R-1"><when test="2">' % program
+        + ''.join('<ParameterRefRef RefId="%s_P-%d_R-%d" />' % (program, n, n) for n, _, _, _ in pictures)
+        + '</when></choose>\n</ParameterBlock>')
+    return xml
+
+
+baggage_archive('src/test/fixtures/TestPictures.knxprod', [
+    ('M-0008/Baggages/TEST_Schaltbild.png', png(3, 2, (255, 255, 0))),
+    ('M-0008/Baggages/TEST_Kurve.bmp', bmp(2, 2, (0, 128, 255))),
+    ('M-0008/' + PICTURES_PROGRAM + '.xml', pictures_program(PICTURES_PROGRAM, 65458,
+        'TEST: Bilder im Parameterdialog (künstliche Testdaten)')),
+    ('M-0008/Hardware.xml', baggage_hardware(PICTURES_HARDWARE, 'TEST Bilder', PICTURES_PROGRAM, [])),
+    ('M-0008/Baggages.xml', baggages_xml([(BG_DIAGRAM, '', 'TEST_Schaltbild.png', '2026-11-12T10:00:00Z'),
+        (BG_CURVE, '', 'TEST_Kurve.bmp', '2026-11-12T10:00:00Z'),
+        (BG_ABSENT, '', 'TEST_Ohne.png', '2026-11-12T10:00:00Z')]))])

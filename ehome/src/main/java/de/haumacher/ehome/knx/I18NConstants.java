@@ -109,6 +109,16 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey NOT_PLACED;
 
+	/**
+	 * @en The picture "{0}" is not there: the product data did not hold its file. Importing the product file again completes it.
+	 */
+	public static ResKey1 PICTURE_MISSING__NAME;
+
+	/**
+	 * @en The picture is not there: the product data did not name its file. Importing the product file again completes it.
+	 */
+	public static ResKey PICTURE_UNKNOWN;
+
 	static {
 		initConstants(I18NConstants.class);
 	}
