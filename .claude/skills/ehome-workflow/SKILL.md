@@ -471,7 +471,10 @@ Parallel packages work when, and only when, they are physically separated:
   path with its UI page, and an upload sent then is lost together with its one-time token (the
   updater then waits its 10 minutes and boots the old application). A whole cycle takes about a
   minute; E-Home sees the controller reconnect with the new build in its log ("connected, firmware
-  <version> <build>"). esptool over USB needs BOOT held
+  <version> <build>"). **The desk board runs the development-TLS build** (`build-esp32c6-devtls`,
+  `-DHC_EXTRA_CA=$HOME/.config/ehome/dev-tls/ca.pem`, `doc/controllers.md` "TLS during development"):
+  the plain `build-esp32c6` does not trust the local CA, and the board then logs
+  `ESP_ERR_MBEDTLS_SSL_HANDSHAKE_FAILED` against `wss://…:8443` and never reconnects. esptool over USB needs BOOT held
   during RESET by a person; it is the fallback for a board whose updater is broken.
 - **The end-to-end dev setup.** E-Home runs from the repository root on port 8080 and is reachable
   in the LAN (`http://<this machine's WLAN address>:8080/ehome`); the controller is enrolled with a
