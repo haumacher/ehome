@@ -11,8 +11,11 @@ import java.util.List;
 import java.util.Map;
 
 import junit.framework.Test;
-import junit.framework.TestSuite;
 import junit.framework.TestCase;
+import test.com.top_logic.basic.BasicTestSetup;
+import test.com.top_logic.basic.module.ServiceTestSetup;
+
+import com.top_logic.basic.config.ApplicationConfig;
 
 import de.haumacher.ehome.runtime.DiscoverControllersAction;
 import de.haumacher.ehome.runtime.DnsMessage;
@@ -232,7 +235,10 @@ public class TestControllerDiscovery extends TestCase {
 	}
 
 	public static Test suite() {
-		return new TestSuite(TestControllerDiscovery.class);
+		// The operator settings (de.haumacher.ehome.settings.OperatorSettings) are read from the
+		// configuration of the application.
+		return BasicTestSetup.createBasicTestSetup(
+			ServiceTestSetup.createSetup(TestControllerDiscovery.class, ApplicationConfig.Module.INSTANCE));
 	}
 
 }

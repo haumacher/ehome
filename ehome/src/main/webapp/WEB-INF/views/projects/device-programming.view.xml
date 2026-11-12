@@ -12,8 +12,11 @@
 	- Compare reads the device and compares it with the download image; it never writes.
 	- Download runs the plan after a confirmation naming the device, its address and the gateway.
 	- Write address writes the individual address into the one device in programming mode.
-	Both writing commands are disabled, with the reason, unless the application runs with
-	-Dehome.programming.writeEnabled=true (de.haumacher.ehome.programming.download.CalimeroWriter).
+	Both writing commands are disabled, with the reason, unless the configuration variable
+	tl_ehome_programming_write_enabled is true (de.haumacher.ehome.programming.download.CalimeroWriter,
+	de.haumacher.ehome.settings.OperatorSettings). Unless the installation reaches local networks
+	(tl_ehome_local_network), "Choose the gateway" is not offered and every command reaching the gateway is
+	disabled with that reason.
 	The commands run as jobs (DownloadJob, CompareJob) with their progress shown here, and end with
 	the report (projects/programming-report.view.xml), which replaces the progress display; a job
 	that fails keeps its display with the error.
@@ -61,6 +64,7 @@
 						/>
 					</access>
 					<executability>
+						<visible-if expr="localNetworkVeto() == null"/>
 						<null-input-disabled/>
 					</executability>
 					<open-dialog

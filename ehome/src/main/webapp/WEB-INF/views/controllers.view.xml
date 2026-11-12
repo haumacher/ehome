@@ -81,6 +81,10 @@
 								<en>Lists the HomeControl controllers that announce themselves in the local networks (mDNS) and creates the one chosen; its token is set afterwards.</en>
 								<de>Listet die HomeControl-Controller, die sich in den lokalen Netzen ankündigen (mDNS), und legt den gewählten an; sein Token wird danach gesetzt.</de>
 							</tooltip>
+							<executability>
+								<!-- Not offered unless the installation reaches local networks (haumacher/ehome #150). -->
+								<visible-if expr="localNetworkVeto() == null"/>
+							</executability>
 							<open-dialog dialog-view="controllers/discover-controllers.view.xml">
 								<bind
 									channel="selection"

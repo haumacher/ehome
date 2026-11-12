@@ -7,6 +7,10 @@
 	"project" is the project. The search is the one of discover.view.xml with its default settings
 	(<discover-knx-gateways>, de.haumacher.ehome.discover.DiscoverGatewaysAction). An entered address
 	takes precedence over the selected gateway.
+
+	Unless the installation reaches local networks (configuration variable tl_ehome_local_network,
+	haumacher/ehome #150, TL-Script localNetworkVeto()), the dialog offers neither the search nor the entry
+	of an address and says why; the commands opening it are not offered then either.
 -->
 <view>
 	<channels>
@@ -17,6 +21,14 @@
 		<derived-channel name="current"
 			expr='#("Current gateway: {0}"@en, "Aktuelles Gateway: {0}"@de).fill(if($project.get(`ehome.project:Project#gateway`) == null, "-", $project.get(`ehome.project:Project#gateway`))).localize()'
 			inputs="project"
+		/>
+		<!-- Why this installation does not reach local networks, null if it does (haumacher/ehome #150). -->
+		<derived-channel name="localNetworkVeto"
+			expr="localNetworkVeto()"
+		/>
+		<derived-channel name="localNetworkReason"
+			expr="if($localNetworkVeto == null, null, $localNetworkVeto.localize())"
+			inputs="localNetworkVeto"
 		/>
 	</channels>
 	<window width="800px">
@@ -29,87 +41,99 @@
 				<text input="current"
 					tone="secondary"
 				/>
-				<button>
-					<action class="com.top_logic.layout.view.command.GenericViewCommand"
-						image="css:bi bi-broadcast"
-						inputs="project"
-					>
-						<label>
-							<en>Search gateways</en>
-							<de>Gateways suchen</de>
-						</label>
-						<access>
-							<!-- The search only lists the gateways that answer, for the project. -->
-							<operation name="Read"
-								object="$project"
-								type="ehome.project:Project"
-							/>
-						</access>
-						<discover-knx-gateways>
-							<with-result as="rows">
-								<write-channel name="gateways"/>
-								<notify expr="if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
-									kind="warning"
-								/>
-							</with-result>
-						</discover-knx-gateways>
-					</action>
-				</button>
-				<fields>
-					<value-input
-						type="tl.core:String"
-						value="address"
-					>
-						<label>
-							<en>Address (address or address:port)</en>
-							<de>Adresse (Adresse oder Adresse:Port)</de>
-						</label>
-					</value-input>
-				</fields>
-				<table selection="selectedGateway">
-					<inputs>
-						<input channel="gateways"/>
-					</inputs>
-					<columns>
-						<computed-column name="name"
-							type="tl.core:String"
-						>
-							<label>
-								<en>Name</en>
-								<de>Name</de>
-							</label>
-							<value>$row["name"]</value>
-						</computed-column>
-						<computed-column name="endpoint"
-							type="tl.core:String"
-						>
-							<label>
-								<en>Control endpoint</en>
-								<de>Steuerungs-Endpunkt</de>
-							</label>
-							<value>$row["endpoint"]</value>
-						</computed-column>
-						<computed-column name="address"
-							type="tl.core:String"
-						>
-							<label>
-								<en>Individual address</en>
-								<de>Physikalische Adresse</de>
-							</label>
-							<value>$row["address"]</value>
-						</computed-column>
-						<computed-column name="mac"
-							type="tl.core:String"
-						>
-							<label>
-								<en>MAC address</en>
-								<de>MAC-Adresse</de>
-							</label>
-							<value>$row["mac"]</value>
-						</computed-column>
-					</columns>
-					<rows>if($gateways == null, [], $gateways)</rows>
-				</table>
+				<switch input="localNetworkVeto">
+					<case test="$localNetworkVeto == null">
+						<stack gap="default">
+							<button>
+								<action class="com.top_logic.layout.view.command.GenericViewCommand"
+									image="css:bi bi-broadcast"
+									inputs="project"
+								>
+									<label>
+										<en>Search gateways</en>
+										<de>Gateways suchen</de>
+									</label>
+									<access>
+										<!-- The search only lists the gateways that answer, for the project. -->
+										<operation name="Read"
+											object="$project"
+											type="ehome.project:Project"
+										/>
+									</access>
+									<discover-knx-gateways>
+										<with-result as="rows">
+											<write-channel name="gateways"/>
+											<notify expr="if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
+												kind="warning"
+											/>
+										</with-result>
+									</discover-knx-gateways>
+								</action>
+							</button>
+							<fields>
+								<value-input
+									type="tl.core:String"
+									value="address"
+								>
+									<label>
+										<en>Address (address or address:port)</en>
+										<de>Adresse (Adresse oder Adresse:Port)</de>
+									</label>
+								</value-input>
+							</fields>
+							<table selection="selectedGateway">
+								<inputs>
+									<input channel="gateways"/>
+								</inputs>
+								<columns>
+									<computed-column name="name"
+										type="tl.core:String"
+									>
+										<label>
+											<en>Name</en>
+											<de>Name</de>
+										</label>
+										<value>$row["name"]</value>
+									</computed-column>
+									<computed-column name="endpoint"
+										type="tl.core:String"
+									>
+										<label>
+											<en>Control endpoint</en>
+											<de>Steuerungs-Endpunkt</de>
+										</label>
+										<value>$row["endpoint"]</value>
+									</computed-column>
+									<computed-column name="address"
+										type="tl.core:String"
+									>
+										<label>
+											<en>Individual address</en>
+											<de>Physikalische Adresse</de>
+										</label>
+										<value>$row["address"]</value>
+									</computed-column>
+									<computed-column name="mac"
+										type="tl.core:String"
+									>
+										<label>
+											<en>MAC address</en>
+											<de>MAC-Adresse</de>
+										</label>
+										<value>$row["mac"]</value>
+									</computed-column>
+								</columns>
+								<rows>if($gateways == null, [], $gateways)</rows>
+							</table>
+						</stack>
+					</case>
+					<default>
+						<text
+							input="localNetworkReason"
+							tone="secondary"
+						/>
+					</default>
+				</switch>
 			</stack>
 		</inset>
 		<actions>
@@ -129,6 +153,7 @@
 						/>
 					</access>
 					<executability>
+						<visible-if expr="localNetworkVeto() == null"/>
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>

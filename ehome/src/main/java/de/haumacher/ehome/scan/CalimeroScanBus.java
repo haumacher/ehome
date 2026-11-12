@@ -22,6 +22,7 @@ import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.Gateways;
+import de.haumacher.ehome.settings.OperatorSettings;
 import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.link.KNXNetworkLink;
@@ -63,12 +64,16 @@ public class CalimeroScanBus implements ScanBus {
 	 *
 	 * @param gateway
 	 *        The gateway, see {@link Gateways#parse(String)}.
+	 * @throws com.top_logic.util.error.TopLogicException
+	 *         If this installation does not reach local networks
+	 *         ({@link OperatorSettings#checkLocalNetwork()}, haumacher/ehome #150).
 	 */
 	public static CalimeroScanBus open(InetSocketAddress gateway) throws BusException {
 		return new CalimeroScanBus(gateway);
 	}
 
 	private CalimeroScanBus(InetSocketAddress gateway) throws BusException {
+		OperatorSettings.checkLocalNetwork();
 		_gateway = gateway;
 		InetSocketAddress remote = resolve(gateway);
 		try {

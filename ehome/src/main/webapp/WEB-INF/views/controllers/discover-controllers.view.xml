@@ -8,6 +8,10 @@
 	port - and writes it to "selection"; the token is set afterwards with "Set token". A controller with
 	the same address and port that exists already is not created again. Without a network interface the
 	search runs on all interfaces that are up and support multicast, except the loopback interface.
+
+	Unless the installation reaches local networks (configuration variable tl_ehome_local_network,
+	haumacher/ehome #150, TL-Script localNetworkVeto()), the dialog offers no search and says why; the
+	command opening it (controllers.view.xml) is not offered then either.
 -->
 <view>
 	<channels>
@@ -15,6 +19,14 @@
 		<channel name="found"/>
 		<channel name="selected"/>
 		<channel name="networkInterface"/>
+		<!-- Why this installation does not reach local networks, null if it does (haumacher/ehome #150). -->
+		<derived-channel name="localNetworkVeto"
+			expr="localNetworkVeto()"
+		/>
+		<derived-channel name="localNetworkReason"
+			expr="if($localNetworkVeto == null, null, $localNetworkVeto.localize())"
+			inputs="localNetworkVeto"
+		/>
 	</channels>
 	<window width="900px">
 		<title>
@@ -23,118 +35,130 @@
 		</title>
 		<inset>
 			<stack gap="default">
-				<text tone="secondary">
-					<label>
-						<en>Controllers in the local networks announce themselves over mDNS (_homecontrol._tcp). Choose one and create it; then set its token.</en>
-						<de>Controller in den lokalen Netzen kündigen sich über mDNS an (_homecontrol._tcp). Einen wählen und anlegen; danach sein Token setzen.</de>
-					</label>
-				</text>
-				<fields>
-					<value-input
-						options="knxNetworkInterfaces()"
-						value="networkInterface"
-					>
-						<label>
-							<en>Network interface (empty: all)</en>
-							<de>Netzwerkschnittstelle (leer: alle)</de>
-						</label>
-					</value-input>
-				</fields>
-				<button>
-					<action class="com.top_logic.layout.view.command.GenericViewCommand"
-						image="css:bi bi-broadcast"
-					>
-						<label>
-							<en>Search</en>
-							<de>Suchen</de>
-						</label>
-						<access>
-							<!--
-								The search only lists what answers on the network; it reads no object of the model.
-								Read on the security root, granted to both E-Home roles (ehome.security.config.xml):
-								an E-Home user may search, an account without an E-Home role may not.
-							-->
-							<operation name="Read"/>
-						</access>
-						<execute-script function="{'interface': $networkInterface}">
-							<inputs>
-								<input channel="networkInterface"/>
-							</inputs>
-							<with-result>
-								<discover-controllers>
-									<with-result as="rows">
-										<write-channel name="found"/>
-										<notify expr="if($rows.isEmpty(), #('No controller answered.'@en, 'Kein Controller hat geantwortet.'@de))"
-											kind="warning"
-										/>
-									</with-result>
-								</discover-controllers>
-							</with-result>
-						</execute-script>
-					</action>
-				</button>
-				<table selection="selected">
-					<inputs>
-						<input channel="found"/>
-					</inputs>
-					<columns>
-						<computed-column name="name"
-							type="tl.core:String"
-						>
-							<label>
-								<en>Name</en>
-								<de>Name</de>
-							</label>
-							<value>$row["name"]</value>
-						</computed-column>
-						<computed-column name="host"
-							type="tl.core:String"
-						>
-							<label>
-								<en>Address</en>
-								<de>Adresse</de>
-							</label>
-							<value>$row["host"]</value>
-						</computed-column>
-						<computed-column name="port"
-							type="tl.core:String"
-						>
-							<label>
-								<en>Port</en>
-								<de>Port</de>
-							</label>
-							<value>$row["portText"]</value>
-						</computed-column>
-						<computed-column name="version"
-							type="tl.core:String"
-						>
-							<label>
-								<en>Version</en>
-								<de>Version</de>
-							</label>
-							<value>$row["version"]</value>
-						</computed-column>
-						<computed-column name="build"
-							type="tl.core:String"
-						>
-							<label>
-								<en>Build</en>
-								<de>Build</de>
-							</label>
-							<value>$row["build"]</value>
-						</computed-column>
-						<computed-column name="known"
-							type="tl.core:String"
-						>
-							<label>
-								<en>Known as</en>
-								<de>Bekannt als</de>
-							</label>
-							<value>all(`ehome.runtime:Controller`).filter(c -> $c.get(`ehome.runtime:Controller#host`) == $row["host"] and $c.get(`ehome.runtime:Controller#port`) == $row["port"]).map(c -> $c.get(`ehome.runtime:Controller#name`)).firstElement()</value>
-						</computed-column>
-					</columns>
-					<rows>if($found == null, [], $found)</rows>
-				</table>
+				<switch input="localNetworkVeto">
+					<case test="$localNetworkVeto == null">
+						<stack gap="default">
+							<text tone="secondary">
+								<label>
+									<en>Controllers in the local networks announce themselves over mDNS (_homecontrol._tcp). Choose one and create it; then set its token.</en>
+									<de>Controller in den lokalen Netzen kündigen sich über mDNS an (_homecontrol._tcp). Einen wählen und anlegen; danach sein Token setzen.</de>
+								</label>
+							</text>
+							<fields>
+								<value-input
+									options="knxNetworkInterfaces()"
+									value="networkInterface"
+								>
+									<label>
+										<en>Network interface (empty: all)</en>
+										<de>Netzwerkschnittstelle (leer: alle)</de>
+									</label>
+								</value-input>
+							</fields>
+							<button>
+								<action class="com.top_logic.layout.view.command.GenericViewCommand"
+									image="css:bi bi-broadcast"
+								>
+									<label>
+										<en>Search</en>
+										<de>Suchen</de>
+									</label>
+									<access>
+										<!--
+											The search only lists what answers on the network; it reads no object of the model.
+											Read on the security root, granted to both E-Home roles (ehome.security.config.xml):
+											an E-Home user may search, an account without an E-Home role may not.
+										-->
+										<operation name="Read"/>
+									</access>
+									<execute-script function="{'interface': $networkInterface}">
+										<inputs>
+											<input channel="networkInterface"/>
+										</inputs>
+										<with-result>
+											<discover-controllers>
+												<with-result as="rows">
+													<write-channel name="found"/>
+													<notify expr="if($rows.isEmpty(), #('No controller answered.'@en, 'Kein Controller hat geantwortet.'@de))"
+														kind="warning"
+													/>
+												</with-result>
+											</discover-controllers>
+										</with-result>
+									</execute-script>
+								</action>
+							</button>
+							<table selection="selected">
+								<inputs>
+									<input channel="found"/>
+								</inputs>
+								<columns>
+									<computed-column name="name"
+										type="tl.core:String"
+									>
+										<label>
+											<en>Name</en>
+											<de>Name</de>
+										</label>
+										<value>$row["name"]</value>
+									</computed-column>
+									<computed-column name="host"
+										type="tl.core:String"
+									>
+										<label>
+											<en>Address</en>
+											<de>Adresse</de>
+										</label>
+										<value>$row["host"]</value>
+									</computed-column>
+									<computed-column name="port"
+										type="tl.core:String"
+									>
+										<label>
+											<en>Port</en>
+											<de>Port</de>
+										</label>
+										<value>$row["portText"]</value>
+									</computed-column>
+									<computed-column name="version"
+										type="tl.core:String"
+									>
+										<label>
+											<en>Version</en>
+											<de>Version</de>
+										</label>
+										<value>$row["version"]</value>
+									</computed-column>
+									<computed-column name="build"
+										type="tl.core:String"
+									>
+										<label>
+											<en>Build</en>
+											<de>Build</de>
+										</label>
+										<value>$row["build"]</value>
+									</computed-column>
+									<computed-column name="known"
+										type="tl.core:String"
+									>
+										<label>
+											<en>Known as</en>
+											<de>Bekannt als</de>
+										</label>
+										<value>all(`ehome.runtime:Controller`).filter(c -> $c.get(`ehome.runtime:Controller#host`) == $row["host"] and $c.get(`ehome.runtime:Controller#port`) == $row["port"]).map(c -> $c.get(`ehome.runtime:Controller#name`)).firstElement()</value>
+									</computed-column>
+								</columns>
+								<rows>if($found == null, [], $found)</rows>
+							</table>
+						</stack>
+					</case>
+					<default>
+						<text
+							input="localNetworkReason"
+							tone="secondary"
+						/>
+					</default>
+				</switch>
 			</stack>
 		</inset>
 		<actions>
@@ -150,6 +174,9 @@
 					<access>
 						<create type="ehome.runtime:Controller"/>
 					</access>
+					<executability>
+						<visible-if expr="localNetworkVeto() == null"/>
+					</executability>
 					<with-transaction>
 						<execute-script>
 							<function><![CDATA[if($selected == null,

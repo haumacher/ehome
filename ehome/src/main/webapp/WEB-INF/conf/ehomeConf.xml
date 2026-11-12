@@ -11,5 +11,14 @@
 		-->
 		<entry name="%ANTHROPIC_MODELS%" value="${env:tl_anthropic_models:claude-sonnet-5-5,claude-opus-5-5,claude-haiku-5-5}" comment="Comma separated models of the provider anthropic, the default one first."/>
 		<entry name="%AI_DEFAULT_MODEL%" value="${env:tl_ai_default_model:claude-sonnet-5-5}" comment="Model the assistant runs on."/>
+
+		<!--
+			The settings of the operator (de.haumacher.ehome.settings.OperatorSettings, configured in the
+			<configs> of ehomeConf.config.xml; doc/debian.md, "Settings"). Set like every setting: a line of
+			/etc/ehome/ehome.env in the Debian package (a JNDI entry of E-Home's context), a system property
+			or an environment variable in a development start.
+		-->
+		<entry name="%EHOME_PROGRAMMING_WRITE_ENABLED%" value="${env:tl_ehome_programming_write_enabled:false}" comment="Whether E-Home writes to the KNX bus (download, individual address, programming LED; haumacher/ehome #149)."/>
+		<entry name="%EHOME_LOCAL_NETWORK%" value="${env:tl_ehome_local_network:true}" comment="Whether this installation reaches the local networks of its server (gateway search and address, controller search, controller by host and token; haumacher/ehome #150). Off on a hosted installation."/>
 	</alias>
 </root>

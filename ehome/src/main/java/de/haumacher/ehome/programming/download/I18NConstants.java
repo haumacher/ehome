@@ -146,7 +146,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 ERROR_MERGE__STEP_ID;
 
 	/**
-	 * @en Writing to the KNX bus is switched off in this installation. Start the application with -Dehome.programming.writeEnabled=true to allow downloads.
+	 * @en Writing to the KNX bus is switched off in this installation. The configuration variable tl_ehome_programming_write_enabled=true allows downloads.
 	 */
 	public static ResKey ERROR_WRITE_DISABLED;
 

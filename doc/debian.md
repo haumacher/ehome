@@ -154,6 +154,37 @@ connecting from the loopback interface only, so that the enrollment's rate limit
 a proxy on another host needs its address in the valve's `internalProxies` (the context is rewritten
 by every upgrade of the package).
 
+## Programming and local networks
+
+Two settings of `/etc/ehome/ehome.env` decide what E-Home may reach (`de.haumacher.ehome.settings.OperatorSettings`;
+TopLogic configuration variables with the aliases `%EHOME_PROGRAMMING_WRITE_ENABLED%` and
+`%EHOME_LOCAL_NETWORK%` of `WEB-INF/conf/ehomeConf.xml`). A new installation has a commented line for
+each; an existing file gets the line added by hand. Like every setting they become JNDI entries of
+E-Home's own context with `dpkg-reconfigure ehome` (the app is deployed again, Tomcat keeps running),
+never variables of Tomcat's JVM.
+
+- `tl_ehome_programming_write_enabled` (default `false`, haumacher/ehome #149): whether E-Home writes
+  to the KNX bus - "Herunterladen", "Physikalische Adresse programmieren" and the programming LED of
+  a scanned device. Off, these commands are disabled with the reason; every write goes through the one
+  class `CalimeroWriter` (`doc/programming.md`), which refuses without the setting.
+- `tl_ehome_local_network` (default `true`, haumacher/ehome #150): whether this installation reaches
+  the local networks of its server. A local installation finds its gateway without configuration; a
+  hosted instance sets `tl_ehome_local_network=false`. Off:
+  - the views do not offer the gateway search (the page "Discover" says why instead, see
+    `doc/tl-todo.md`; the network interfaces of the server are not listed either), the entry of a
+    gateway address ("Gateway wählen"), the search for controllers, and host, port and token of a
+    controller in "Connect to a controller";
+  - the server refuses the same paths with the reason "This installation does not reach local networks;
+    connect through the controller." ("Diese Installation erreicht keine lokalen Netze; bitte über den
+    Controller verbinden."), also for a command sent without the view, a TL-Script call or a tool of
+    the assistant or the MCP endpoint: the gateway search, every connection to a gateway address
+    (group monitor, programming, comparison, scan, read-back, LED), the controller search (mDNS) and a
+    controller reached by host and token (status, deployment and the monitor stream over HTTP);
+  - a gateway address a project brings (an import, an earlier setting) stays as data; using it is
+    refused with the reason;
+  - what goes over the connection an enrolled controller opens itself stays: its status, the
+    deployment, its Zigbee devices and the group monitor through the controller (`doc/controllers.md`).
+
 ## Passkeys
 
 Users sign in without a password with a passkey (the engine module `tl-security-passkey`,

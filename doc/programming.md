@@ -7,11 +7,19 @@ does, how to run the first real download on the test system, and how to recover 
 
 ## The rules
 
-- **Writing to the bus is switched off by default.** Only the application started with
-  `-Dehome.programming.writeEnabled=true` enables the commands "Herunterladen" and "Physikalische
-  Adresse programmieren"; otherwise they are disabled with that reason. Every write to the bus goes
-  through the one class `CalimeroWriter`, which refuses to open without the switch
-  (`TestBusWritePath` checks that no other source calls a Calimero write service).
+- **Writing to the bus is switched off by default.** Only the configuration variable
+  `tl_ehome_programming_write_enabled=true` (alias `%EHOME_PROGRAMMING_WRITE_ENABLED%` of
+  `WEB-INF/conf/ehomeConf.xml`, read by `de.haumacher.ehome.settings.OperatorSettings`, haumacher/ehome
+  #149) enables the commands "Herunterladen" and "Physikalische Adresse programmieren"; otherwise they
+  are disabled with that reason. It is set like every setting: in a development start as a system
+  property (`-Dtl_ehome_programming_write_enabled=true`) or an environment variable, in the Debian
+  package as a line of `/etc/ehome/ehome.env` (a JNDI entry of E-Home's context, `doc/debian.md`).
+  Every write to the bus goes through the one class `CalimeroWriter`, which refuses to open without
+  the switch (`TestBusWritePath` checks that no other source calls a Calimero write service, and that
+  no source names the former system property).
+- **Only an installation that reaches local networks talks to a gateway.** With
+  `tl_ehome_local_network=false` (a hosted instance, `doc/debian.md`) the project's gateway address is
+  kept but every connection to it is refused, and "Gateway wählen" is not offered.
 - **The test system only.** The test system is reached through the IP router 192.168.178.81:3671
   (MAC 00-24-6D-01-58-64). The other router the search finds, "KNX IP Router 750", is the home
   installation: never choose it as the gateway of a project you program or compare.
@@ -160,7 +168,7 @@ Start with the actuator 1.3.5: no stamps, no skipped step, the hardware type che
    last downloaded from that project.
 2. Stop nothing of the home installation; connect only to 192.168.178.81.
 3. Start an app with writing switched on, e.g.
-   `./mvnw exec:java -Dtl.port=8081 -Dehome.programming.writeEnabled=true` (with its own data dir:
+   `./mvnw exec:java -Dtl.port=8081 -Dtl_ehome_programming_write_enabled=true` (with its own data dir:
    environment `h2_name` and `tl_storage_path`).
 4. Import `ehome/samples/KNX-Testsystem.knxproj`; set the project's gateway to `192.168.178.81:3671`.
 5. Actuator → "Programmierung" → "Mit dem Gerät vergleichen": every block identical.
@@ -221,8 +229,8 @@ Projects → a project → "Installation einlesen" (`projects/scan.view.xml`, pa
   configuration byte differs. The proof: the image of the device as read back equals the memory read
   (report "Identisch"), and the device is recorded as downloaded in that state.
 - **LED** ("Programmier-LED an/aus", `LedJob`): writes the programming mode (object 0 property 54;
-  BCU 1: memory 0060 with parity) through `CalimeroWriter`, so it is disabled unless the application
-  runs with `-Dehome.programming.writeEnabled=true`, and asks for a confirmation naming device and
+  BCU 1: memory 0060 with parity) through `CalimeroWriter`, so it is disabled unless the variable
+  `tl_ehome_programming_write_enabled` is true, and asks for a confirmation naming device and
   gateway. **Not yet executed against a real device**: tested only against the mock; the first real
   toggle is the user's decision.
 

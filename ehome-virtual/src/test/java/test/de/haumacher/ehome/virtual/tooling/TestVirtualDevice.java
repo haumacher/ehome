@@ -19,9 +19,11 @@ import java.util.Map;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
-import junit.framework.TestSuite;
+import test.com.top_logic.basic.BasicTestSetup;
+import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.de.haumacher.ehome.programming.MockDevice;
 
+import com.top_logic.basic.config.ApplicationConfig;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.programming.download.BusException;
@@ -302,7 +304,10 @@ public class TestVirtualDevice extends TestCase {
 	}
 
 	public static Test suite() {
-		return new TestSuite(TestVirtualDevice.class);
+		// The operator settings (de.haumacher.ehome.settings.OperatorSettings) are read from the
+		// configuration of the application.
+		return BasicTestSetup.createBasicTestSetup(
+			ServiceTestSetup.createSetup(TestVirtualDevice.class, ApplicationConfig.Module.INSTANCE));
 	}
 
 }

@@ -36,6 +36,7 @@ import de.haumacher.ehome.rules.DatapointId;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * Deploys the runtime image of a project to its controller (haumacher/ehome #39) and records the
@@ -161,6 +162,12 @@ public final class Deployer {
 		ControllerConnection connection = ControllerConnections.get(controller);
 		if (connection != null) {
 			return ControllerClient.over(connection, text(I18NConstants.ADDRESS_CONNECTION), TIMEOUT);
+		}
+		ResKey localNetwork = OperatorSettings.localNetworkVeto();
+		if (localNetwork != null) {
+			// Only the connection the controller opens itself is left (haumacher/ehome #150).
+			ResKey reason = ControllerConnections.controllerId(controller) != null ? offline(controller) : localNetwork;
+			return ControllerClient.offline(text(I18NConstants.ADDRESS_OFFLINE), text(reason), TIMEOUT);
 		}
 		Object host = controller.tValueByName("host");
 		Object port = controller.tValueByName("port");

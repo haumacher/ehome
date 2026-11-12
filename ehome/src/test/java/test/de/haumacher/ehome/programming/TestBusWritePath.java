@@ -14,14 +14,21 @@ import java.util.stream.Stream;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
-import junit.framework.TestSuite;
+import test.com.top_logic.basic.BasicTestSetup;
+import test.com.top_logic.basic.module.ServiceTestSetup;
+
+import com.top_logic.basic.config.ApplicationConfig;
+import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.programming.download.CalimeroWriter;
+import de.haumacher.ehome.programming.download.I18NConstants;
 
 /**
  * The one write path to the bus (haumacher/ehome #7): of the sources using Calimero, only
  * {@link CalimeroWriter} calls a service that changes a device, so that its switch
- * ({@link CalimeroWriter#WRITE_ENABLED}) decides whether the application writes to the bus at all.
+ * ({@link CalimeroWriter#writeEnabled()}, the configuration variable
+ * <code>tl_ehome_programming_write_enabled</code>, haumacher/ehome #149) decides whether the
+ * application writes to the bus at all.
  */
 @SuppressWarnings("javadoc")
 public class TestBusWritePath extends TestCase {
@@ -95,15 +102,39 @@ public class TestBusWritePath extends TestCase {
 		try {
 			CalimeroWriter.open(java.net.InetSocketAddress.createUnresolved("192.0.2.1", 3671), 0x1305);
 			fail("Writing must be refused.");
-		} catch (IllegalStateException ex) {
-			// Expected.
+		} catch (TopLogicException ex) {
+			assertEquals(I18NConstants.ERROR_WRITE_DISABLED, ex.getErrorKey());
 		} catch (Exception ex) {
 			fail("Refused without connecting expected: " + ex);
 		}
 	}
 
+	/**
+	 * The switch is the configuration (haumacher/ehome #149): no source reads the system property
+	 * that switched writing on before.
+	 */
+	public void testNoSystemProperty() throws IOException {
+		List<String> offenders = new ArrayList<>();
+		for (String root : List.of("src/main/java", "src/main/webapp", "src/test/java")) {
+			try (Stream<Path> files = Files.walk(Path.of(root))) {
+				for (Path file : (Iterable<Path>) files.filter(Files::isRegularFile)::iterator) {
+					if (file.getFileName().toString().equals(TestBusWritePath.class.getSimpleName() + ".java")) {
+						continue;
+					}
+					if (Files.readString(file, StandardCharsets.ISO_8859_1).contains("ehome.programming." + "writeEnabled")) {
+						offenders.add(file.toString());
+					}
+				}
+			}
+		}
+		assertEquals("Sources naming the old system property", List.of(), offenders);
+	}
+
 	public static Test suite() {
-		return new TestSuite(TestBusWritePath.class);
+		// The operator settings (de.haumacher.ehome.settings.OperatorSettings) are read from the
+		// configuration of the application.
+		return BasicTestSetup.createBasicTestSetup(
+			ServiceTestSetup.createSetup(TestBusWritePath.class, ApplicationConfig.Module.INSTANCE));
 	}
 
 }

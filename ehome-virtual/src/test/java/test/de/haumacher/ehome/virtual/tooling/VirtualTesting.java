@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import test.de.haumacher.ehome.simulation.LoopbackEndpoints;
 
 import de.haumacher.ehome.programming.download.CalimeroWriter;
+import de.haumacher.ehome.settings.OperatorSettings;
 import de.haumacher.ehome.virtual.server.Endpoint;
 import de.haumacher.ehome.virtual.tooling.server.VirtualInterface;
 import de.haumacher.ehome.virtual.tooling.trace.TraceFormat;
@@ -64,19 +65,18 @@ public class VirtualTesting {
 	}
 
 	/**
-	 * Runs the body with {@link CalimeroWriter#WRITE_ENABLED} set, and resets it afterwards.
+	 * Runs the body with writing to the bus switched on in the configuration
+	 * ({@link OperatorSettings.Config#getProgrammingWriteEnabled()}, see
+	 * {@link CalimeroWriter#writeEnabled()}), and resets it afterwards.
 	 */
 	public static void writing(Body body) throws Exception {
-		String before = System.getProperty(CalimeroWriter.WRITE_ENABLED);
-		System.setProperty(CalimeroWriter.WRITE_ENABLED, "true");
+		OperatorSettings.Config settings = OperatorSettings.config();
+		boolean before = settings.getProgrammingWriteEnabled();
+		settings.setProgrammingWriteEnabled(true);
 		try {
 			body.run();
 		} finally {
-			if (before == null) {
-				System.clearProperty(CalimeroWriter.WRITE_ENABLED);
-			} else {
-				System.setProperty(CalimeroWriter.WRITE_ENABLED, before);
-			}
+			settings.setProgrammingWriteEnabled(before);
 		}
 	}
 

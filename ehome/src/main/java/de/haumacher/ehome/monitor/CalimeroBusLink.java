@@ -22,6 +22,7 @@ import tuwien.auto.calimero.link.medium.TPSettings;
 
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.Gateways;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * {@link BusLink} through a KNXnet/IP gateway with Calimero: a tunnelling connection in link layer
@@ -49,9 +50,25 @@ public class CalimeroBusLink implements BusLink {
 	 *
 	 * @param gateway
 	 *        The gateway, see {@link Gateways#parse(String)}.
+	 * @throws com.top_logic.util.error.TopLogicException
+	 *         If this installation does not reach local networks
+	 *         ({@link OperatorSettings#checkLocalNetwork()}, haumacher/ehome #150).
 	 */
 	public static CalimeroBusLink open(InetSocketAddress gateway) throws BusException {
+		OperatorSettings.checkLocalNetwork();
 		return new CalimeroBusLink(gateway);
+	}
+
+	/**
+	 * Opens a tunnelling connection to the KNXnet/IP server of a virtual installation of this
+	 * application (the simulation of the rules): a server E-Home runs itself, so it is reached
+	 * whether or not this installation reaches local networks.
+	 *
+	 * @param server
+	 *        The endpoint of the server.
+	 */
+	public static CalimeroBusLink openVirtual(InetSocketAddress server) throws BusException {
+		return new CalimeroBusLink(server);
 	}
 
 	private CalimeroBusLink(InetSocketAddress gateway) throws BusException {

@@ -24,6 +24,7 @@ import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.programming.download.Gateways;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * The TL-Script functions of the scan of an installation (<code>projects/scan.view.xml</code>).
@@ -166,7 +167,16 @@ public class ScanFunctions extends GenericMethod {
 		return null;
 	}
 
+	/**
+	 * Why the gateway of the project cannot be used: this installation does not reach local networks
+	 * (haumacher/ehome #150; the address stays with the project), the project has no gateway, or its
+	 * address is invalid.
+	 */
 	private static ResKey gatewayVeto(TLObject project) {
+		ResKey localNetwork = OperatorSettings.localNetworkVeto();
+		if (localNetwork != null) {
+			return localNetwork;
+		}
 		String gateway = Gateways.of(project);
 		if (gateway == null) {
 			return de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_GATEWAY;

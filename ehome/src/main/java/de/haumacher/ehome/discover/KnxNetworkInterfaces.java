@@ -19,6 +19,8 @@ import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 
+import de.haumacher.ehome.settings.OperatorSettings;
+
 /**
  * TL-Script function listing the local network interfaces a KNX gateway search can use.
  *
@@ -26,6 +28,11 @@ import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBui
  * Without argument, the result is the list of the names of the interfaces that are up. With an
  * interface name as argument, the result is the list of the IP addresses of that interface (all
  * local addresses for an empty argument).
+ * </p>
+ *
+ * <p>
+ * Refused unless this installation reaches local networks ({@link OperatorSettings#checkLocalNetwork()},
+ * haumacher/ehome #150): the interfaces of the server are what a hosted installation does not show.
  * </p>
  */
 public class KnxNetworkInterfaces extends GenericMethod {
@@ -55,6 +62,7 @@ public class KnxNetworkInterfaces extends GenericMethod {
 
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
+		OperatorSettings.checkLocalNetwork();
 		try {
 			if (arguments.length == 0) {
 				return interfaceNames();

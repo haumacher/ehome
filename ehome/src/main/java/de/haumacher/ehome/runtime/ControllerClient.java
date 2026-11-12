@@ -14,8 +14,12 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
 
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.util.Resources;
+
 import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.runtime.Json.JsonException;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * The client side of the deployment protocol of a HomeControl controller (homecontrol
@@ -94,6 +98,12 @@ public final class ControllerClient {
 	 * @param timeout
 	 *        How long to wait for the connection and for an answer (a load takes up to a few hundred
 	 *        milliseconds on the device).
+	 *
+	 *        <p>
+	 *        Unless this installation reaches local networks (haumacher/ehome #150,
+	 *        {@link OperatorSettings#localNetworkVeto()}), the client reaches nothing: every call fails
+	 *        with that reason, as for an {@link #offline(String, String, Duration) offline} controller.
+	 *        </p>
 	 */
 	public ControllerClient(String host, int port, String token, Duration timeout) {
 		this(host, port, token, timeout, null, null, null);
@@ -107,8 +117,10 @@ public final class ControllerClient {
 		_timeout = timeout;
 		_connection = connection;
 		_label = label;
-		_offline = offline;
-		_http = connection == null && offline == null ? HttpClient.newBuilder().connectTimeout(timeout).build() : null;
+		boolean lan = connection == null && offline == null;
+		ResKey refusal = lan ? OperatorSettings.localNetworkVeto() : null;
+		_offline = refusal != null ? Resources.getInstance().getString(refusal) : offline;
+		_http = lan && refusal == null ? HttpClient.newBuilder().connectTimeout(timeout).build() : null;
 	}
 
 	/**

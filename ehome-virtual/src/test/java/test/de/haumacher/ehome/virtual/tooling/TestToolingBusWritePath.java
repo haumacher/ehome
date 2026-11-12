@@ -4,8 +4,11 @@
 package test.de.haumacher.ehome.virtual.tooling;
 
 import junit.framework.Test;
-import junit.framework.TestSuite;
+import test.com.top_logic.basic.BasicTestSetup;
+import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.de.haumacher.ehome.programming.TestBusWritePath;
+
+import com.top_logic.basic.config.ApplicationConfig;
 
 /**
  * The one write path to the bus (haumacher/ehome #7), checked on the sources of the development
@@ -15,7 +18,10 @@ import test.de.haumacher.ehome.programming.TestBusWritePath;
 public class TestToolingBusWritePath extends TestBusWritePath {
 
 	public static Test suite() {
-		return new TestSuite(TestToolingBusWritePath.class);
+		// The operator settings (de.haumacher.ehome.settings.OperatorSettings) are read from the
+		// configuration of the application.
+		return BasicTestSetup.createBasicTestSetup(
+			ServiceTestSetup.createSetup(TestToolingBusWritePath.class, ApplicationConfig.Module.INSTANCE));
 	}
 
 }

@@ -118,6 +118,13 @@ tl_initial_password=$PASSWORD
 # Optional: other models (comma separated, the default first) and the model the assistant runs on.
 #tl_anthropic_models=claude-sonnet-5-5,claude-opus-5-5,claude-haiku-5-5
 #tl_ai_default_model=claude-sonnet-5-5
+
+# Writing to the KNX bus (download, individual address, programming LED); off unless set to true.
+#tl_ehome_programming_write_enabled=true
+# Whether E-Home reaches the local networks of this server (gateway search and address, controller
+# search, controller by host and token). Set to false on a hosted instance: devices are then reached
+# only over the connection their controller opens itself.
+#tl_ehome_local_network=false
 END
 		chgrp tomcat "$ENV_FILE"
 		umask 022

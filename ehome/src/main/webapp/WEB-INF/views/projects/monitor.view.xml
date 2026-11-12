@@ -153,6 +153,7 @@
 								/>
 							</access>
 							<executability>
+								<visible-if expr="localNetworkVeto() == null"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -181,6 +182,8 @@
 								/>
 							</access>
 							<executability>
+								<!-- A stored gateway address stays with the project; using it is refused (haumacher/ehome #150). -->
+								<disabled-if expr="localNetworkVeto()"/>
 								<null-input-disabled/>
 							</executability>
 							<group-monitor-connect state="state"/>

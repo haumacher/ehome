@@ -33,6 +33,8 @@ import tuwien.auto.calimero.knxnetip.Discoverer.Result;
 import tuwien.auto.calimero.knxnetip.servicetype.SearchResponse;
 import tuwien.auto.calimero.knxnetip.util.DeviceDIB;
 
+import de.haumacher.ehome.settings.OperatorSettings;
+
 /**
  * {@link ViewAction} searching the local networks for KNXnet/IP gateways.
  *
@@ -44,6 +46,11 @@ import tuwien.auto.calimero.knxnetip.util.DeviceDIB;
  * map per gateway (a gateway that answered several times is listed once)
  * with the keys <code>name</code>, <code>address</code>, <code>endpoint</code>, <code>mac</code>,
  * <code>serial</code> and <code>medium</code>, to be displayed as rows of a table.
+ * </p>
+ *
+ * <p>
+ * Refused unless this installation reaches local networks ({@link OperatorSettings#checkLocalNetwork()},
+ * haumacher/ehome #150).
  * </p>
  */
 public class DiscoverGatewaysAction implements ViewAction {
@@ -91,6 +98,7 @@ public class DiscoverGatewaysAction implements ViewAction {
 
 	@Override
 	public Object execute(ReactContext context, Object input) {
+		OperatorSettings.checkLocalNetwork();
 		Map<?, ?> settings = input instanceof Map<?, ?> map ? map : Map.of();
 		String interfaceName = text(settings.get("interface"));
 		String localHost = text(settings.get("local-host"));

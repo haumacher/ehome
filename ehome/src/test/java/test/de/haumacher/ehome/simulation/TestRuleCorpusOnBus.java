@@ -507,7 +507,7 @@ public class TestRuleCorpusOnBus extends TestCase {
 			protected void setUp() throws Exception {
 				_installation = VirtualInstallation.start(loopback(), "E-Home corpus test", 1,
 					new File("target/virtual/corpus"));
-				_link = CalimeroBusLink.open(gateway(_installation.endpoint()));
+				_link = CalimeroBusLink.openVirtual(gateway(_installation.endpoint()));
 				_link.setListener(new BusLink.Listener() {
 					@Override
 					public void received(BusTelegram telegram) {

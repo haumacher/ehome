@@ -22,6 +22,7 @@ import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.knx.transport.Tpdu;
 import de.haumacher.ehome.knx.transport.TransportClient;
 import de.haumacher.ehome.knx.transport.TransportClient.TransportException;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * {@link DeviceReader} reaching a device through a KNXnet/IP gateway: Calimero's tunnelling link to
@@ -64,8 +65,13 @@ public class CalimeroReader implements DeviceReader {
 
 	/**
 	 * Creates a {@link CalimeroReader} and opens the link to the gateway.
+	 *
+	 * @throws com.top_logic.util.error.TopLogicException
+	 *         If this installation does not reach local networks
+	 *         ({@link OperatorSettings#checkLocalNetwork()}, haumacher/ehome #150).
 	 */
 	protected CalimeroReader(InetSocketAddress gateway, int device) throws BusException {
+		OperatorSettings.checkLocalNetwork();
 		_gateway = gateway;
 		_device = new IndividualAddress(device);
 		KNXNetworkLink link = null;

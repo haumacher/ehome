@@ -27,6 +27,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.Gateways;
+import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * {@link ViewAction} attaching the group monitor of a project to the bus through the project's
@@ -125,6 +126,8 @@ public class ConnectMonitorAction implements ViewAction {
 		if (!(input instanceof TLObject project) || !project.tValid()) {
 			return null;
 		}
+		// A stored gateway address stays with the project; using it is refused (haumacher/ehome #150).
+		OperatorSettings.checkLocalNetwork();
 		Object gatewayText = project.tValueByName("gateway");
 		if (gatewayText == null || gatewayText.toString().isBlank()) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_GATEWAY);

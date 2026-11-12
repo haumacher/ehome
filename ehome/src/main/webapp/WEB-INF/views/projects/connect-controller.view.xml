@@ -11,6 +11,10 @@
 	in the connection only (de.haumacher.ehome.monitor.ControllerTarget). "Connect" runs
 	<group-monitor-connect source="controller"> (ConnectMonitorAction) with a dictionary of these values; a
 	refused token or an unreachable controller keeps the dialog open with the reason.
+
+	Unless the installation reaches local networks (configuration variable tl_ehome_local_network,
+	haumacher/ehome #150, TL-Script localNetworkVeto()), the dialog offers no host, port and token: only a
+	registered controller connected to E-Home is reached, over the connection it opens itself.
 -->
 <view>
 	<channels>
@@ -20,6 +24,14 @@
 		<channel name="host"/>
 		<channel name="port"/>
 		<channel name="token"/>
+		<!-- Why this installation does not reach local networks, null if it does (haumacher/ehome #150). -->
+		<derived-channel name="localNetworkVeto"
+			expr="localNetworkVeto()"
+		/>
+		<derived-channel name="localNetworkReason"
+			expr="if($localNetworkVeto == null, null, $localNetworkVeto.localize())"
+			inputs="localNetworkVeto"
+		/>
 		<derived-channel name="current"
 			expr="if($project == null or $project.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), #('Controller of the project: {0}'@en, 'Controller des Projekts: {0}'@de).fill($project.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`)))"
 			inputs="project"
@@ -36,12 +48,22 @@
 					input="current"
 					tone="secondary"
 				/>
-				<text>
-					<label>
-						<en>Choose a registered controller, or enter the address and token of another one. An entered address and token are used for this connection only and are not stored.</en>
-						<de>Einen registrierten Controller wählen oder Adresse und Token eines anderen eingeben. Eine eingegebene Adresse und ein eingegebenes Token gelten nur für diese Verbindung und werden nicht gespeichert.</de>
-					</label>
-				</text>
+				<switch input="localNetworkVeto">
+					<case test="$localNetworkVeto == null">
+						<text>
+							<label>
+								<en>Choose a registered controller, or enter the address and token of another one. An entered address and token are used for this connection only and are not stored.</en>
+								<de>Einen registrierten Controller wählen oder Adresse und Token eines anderen eingeben. Eine eingegebene Adresse und ein eingegebenes Token gelten nur für diese Verbindung und werden nicht gespeichert.</de>
+							</label>
+						</text>
+					</case>
+					<default>
+						<text
+							input="localNetworkReason"
+							tone="secondary"
+						/>
+					</default>
+				</switch>
 				<table
 					observed-types="ehome.runtime:Controller"
 					selection="controller"
@@ -63,44 +85,50 @@
 					</columns>
 					<rows>all(`ehome.runtime:Controller`)</rows>
 				</table>
-				<fields>
-					<value-input
-						type="tl.core:String"
-						value="host"
-					>
-						<label>
-							<en>Host (instead of the chosen controller)</en>
-							<de>Host (statt des gewählten Controllers)</de>
-						</label>
-						<placeholder>
-							<en>Host name or IP address</en>
-							<de>Hostname oder IP-Adresse</de>
-						</placeholder>
-					</value-input>
-					<value-input
-						type="tl.core:String"
-						value="port"
-					>
-						<label>
-							<en>Port</en>
-							<de>Port</de>
-						</label>
-						<placeholder>
-							<en>80</en>
-							<de>80</de>
-						</placeholder>
-					</value-input>
-					<value-input
-						type="tl.core:String"
-						value="token"
-					>
-						<label>
-							<en>Token (for this connection only)</en>
-							<de>Token (nur für diese Verbindung)</de>
-						</label>
-						<input-control class="com.top_logic.layout.view.form.PasswordInputControlProvider"/>
-					</value-input>
-				</fields>
+				<!-- A controller by host and token is reached over the local network (haumacher/ehome #150). -->
+				<visible-if
+					expr="$localNetworkVeto == null"
+					input="localNetworkVeto"
+				>
+					<fields>
+						<value-input
+							type="tl.core:String"
+							value="host"
+						>
+							<label>
+								<en>Host (instead of the chosen controller)</en>
+								<de>Host (statt des gewählten Controllers)</de>
+							</label>
+							<placeholder>
+								<en>Host name or IP address</en>
+								<de>Hostname oder IP-Adresse</de>
+							</placeholder>
+						</value-input>
+						<value-input
+							type="tl.core:String"
+							value="port"
+						>
+							<label>
+								<en>Port</en>
+								<de>Port</de>
+							</label>
+							<placeholder>
+								<en>80</en>
+								<de>80</de>
+							</placeholder>
+						</value-input>
+						<value-input
+							type="tl.core:String"
+							value="token"
+						>
+							<label>
+								<en>Token (for this connection only)</en>
+								<de>Token (nur für diese Verbindung)</de>
+							</label>
+							<input-control class="com.top_logic.layout.view.form.PasswordInputControlProvider"/>
+						</value-input>
+					</fields>
+				</visible-if>
 			</stack>
 		</inset>
 		<actions>

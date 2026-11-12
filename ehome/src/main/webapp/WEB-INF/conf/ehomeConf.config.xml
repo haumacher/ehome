@@ -21,6 +21,8 @@
 			<instance>
 				<methods>
 					<method name="knxNetworkInterfaces" class="de.haumacher.ehome.discover.KnxNetworkInterfaces$Builder"/>
+					<!-- Why this installation does not reach local networks (de.haumacher.ehome.settings.LocalNetworkVeto, haumacher/ehome #150). -->
+					<method name="localNetworkVeto" class="de.haumacher.ehome.settings.LocalNetworkVeto$Builder"/>
 					<method name="groupRangePrefix" class="de.haumacher.ehome.knx.GroupRangePrefix$Builder"/>
 					<method name="encodedParameterValue" class="de.haumacher.ehome.knx.EncodedParameterValue$Builder"/>
 					<method name="parameterValueType" class="de.haumacher.ehome.knx.ParameterValueType$Builder"/>
@@ -257,6 +259,11 @@
 	</services>
 
 	<configs>
+		<!-- The settings of the operator (haumacher/ehome #149, #150), from the variables of ehomeConf.xml. -->
+		<config config:interface="de.haumacher.ehome.settings.OperatorSettings$Config"
+			local-network="%EHOME_LOCAL_NETWORK%"
+			programming-write-enabled="%EHOME_PROGRAMMING_WRITE_ENABLED%"
+		/>
 		<config config:interface="com.top_logic.basic.db.schema.setup.config.ApplicationTypes">
 			<type-systems>
 				<type-system name="Default">
