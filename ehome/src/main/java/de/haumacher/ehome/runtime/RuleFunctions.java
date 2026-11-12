@@ -699,6 +699,8 @@ public class RuleFunctions extends GenericMethod {
 	 * a field outside a rule (a schedule entry) nothing.</li>
 	 * <li>After the start of a function name (two letters): the functions of the rule language with
 	 * that start, in a match condition and a silence period only the pure ones.</li>
+	 * <li>In the value of a write action to a boolean datapoint, while it is at most the start of a
+	 * word: <code>true</code> and <code>false</code>.</li>
 	 * <li>After <code>@</code> or <code>@"</code>: the datapoints of the project whose id or label
 	 * contains what is typed, each replacing the reference by the complete <code>@"id"</code>; not in
 	 * a silence period.</li>
@@ -761,6 +763,7 @@ public class RuleFunctions extends GenericMethod {
 			}
 			return result.entries();
 		}
+		booleanSuggestions(result, part, before);
 		functionSuggestions(result, before, kind.pureOnly());
 		if (!result.isEmpty()) {
 			return result.entries();
@@ -909,6 +912,32 @@ public class RuleFunctions extends GenericMethod {
 			result.add(inserted, resources.getString(ResKey.forEnum(fn)), identifier.start(1));
 		}
 	}
+
+	/**
+	 * The literals <code>true</code> and <code>false</code> starting with what is typed, for the value
+	 * of a write action to a boolean datapoint while the value is no more than the start of a word
+	 * (haumacher/ehome #153: a <code>0</code> or <code>1</code> there is refused).
+	 */
+	private static void booleanSuggestions(Suggestions result, TLObject part, String before) {
+		if (part == null || !"WriteAction".equals(part.tType().getName())
+			|| part.tType().getPart("datapoint") == null) {
+			return;
+		}
+		Matcher word = LITERAL_START.matcher(before);
+		if (!word.matches() || !(part.tValueByName("datapoint") instanceof TLObject datapoint)
+			|| !"boolean".equals(Pages.valueType(datapoint))) {
+			return;
+		}
+		String typed = word.group(1);
+		for (String literal : new String[] { "true", "false" }) {
+			if (literal.startsWith(typed)) {
+				result.add(literal, null, word.start(1));
+			}
+		}
+	}
+
+	/** The value typed so far is at most the start of a word. */
+	private static final Pattern LITERAL_START = Pattern.compile("\\s*([a-z]*)");
 
 	/**
 	 * Whether the function may be used in a match condition and a silence period: no time, history,

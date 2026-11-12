@@ -92,7 +92,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 INVALID_TIME_MASTER_TYPE__TYPE_EXPECTED;
 
 	/**
-	 * @en The runtime image is not valid ({0} refusals); the controller would refuse it.
+	 * @en The runtime image is not valid: the controller would refuse it (refusals: {0}).
 	 */
 	public static ResKey1 EXPORT_INVALID__COUNT;
 
@@ -122,7 +122,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 EXPORT_SIGNED__FINGERPRINT;
 
 	/**
-	 * @en E-Home did not send the image: it has {0} refusals.
+	 * @en E-Home did not send the image: the controller would refuse it (refusals: {0}).
 	 */
 	public static ResKey1 DEPLOY_REFUSED_LOCALLY__COUNT;
 

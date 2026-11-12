@@ -393,7 +393,10 @@ public class TestTimelines extends BasicTestCase {
 			+ report + " " + json, !report.isValid());
 	}
 
-	/** haumacher/ehome #153: a write of 0 to a boolean datapoint warns at the value field. */
+	/**
+	 * haumacher/ehome #153: a write of 0 to a boolean datapoint warns at the value field, stored and in
+	 * the create dialog; the field suggests <code>true</code> and <code>false</code>.
+	 */
 	public void testWriteIntegerToBooleanWarns() throws Exception {
 		TLObject main;
 		TLObject write;
@@ -415,6 +418,9 @@ public class TestTimelines extends BasicTestCase {
 			tx.commit();
 		}
 		try {
+			assertEquals(List.of("true", "false"), suggested(write, ""));
+			assertEquals(List.of("false"), suggested(write, "f"));
+			assertEquals(List.of(), suggested(write, "0"));
 			RuleForm form = new RuleForm(write);
 			assertEquals(List.of(), form.warnings("value"));
 			form.set("value", "0");
@@ -480,6 +486,15 @@ public class TestTimelines extends BasicTestCase {
 		assertEquals(warnings.toString(), 1, warnings.size());
 		assertTrue(warnings.get(0), warnings.get(0).contains("standby"));
 		assertEquals(List.of(), ImageComparison.droppedTimelines(next.get("rules"), next.get("rules")));
+	}
+
+	/** The texts the value field of the part suggests for the given input. */
+	private static List<Object> suggested(TLObject part, String text) {
+		List<Object> result = new ArrayList<>();
+		for (Object entry : RuleFunctions.suggestions(part, text, text.length())) {
+			result.add(((Map<?, ?>) entry).get("text"));
+		}
+		return result;
 	}
 
 	/** The stored object's field shows the controller's refusal. */
