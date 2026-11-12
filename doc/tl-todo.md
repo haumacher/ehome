@@ -362,6 +362,28 @@ The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on 
   **When fixed:** remove the factory and its configuration; `TestAssistantTools` and
   `TestMcpEndpoint` must stay green.
 
+## OAuth login and discovery of the MCP endpoint (TL #30274)
+
+`/ehome/mcp` admits personal access tokens only (`doc/ai.md`, "External agents over MCP"): a client
+is set up with a token copied by hand and a hand-written `Authorization` header. A client that only
+knows the browser login of the MCP specification cannot connect, and nothing tells an agent given
+the application's address that the endpoint exists. `tl-ai-mcp-server` 8.0.0-alpha12.820 has the
+token filter (`McpAuthenticationFilter`) and no authorization server.
+
+The engine ticket covers what E-Home needs (specification round of 2026-11-12: E-Home is its own
+authorization server, the user logs in with the E-Home account; a local client is the acceptance
+case): the application as the authorization server with the normal login and a consent page,
+discovery by the protected resource metadata, authorization code with PKCE, refresh tokens, the
+client by a client id metadata document or dynamic registration, consents listed and revocable
+beside the access tokens, which stay for scripts; the server card, `llms.txt` and the repaired token
+dialogs.
+
+No workaround.
+
+**When available:** describe the login in `doc/ai.md` (a client is set up with the address alone),
+keep the token path for `bin/ehome-mcp.py`, check the login from a local client against the app on
+8080 and extend the endpoint's test by a request without a token (the metadata in the refusal).
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -375,3 +397,4 @@ The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on 
 - TL #30249: see above (the `<with-result>` of a job runs before the window saw the job's commits).
 - TL #30251 to #30255: see above (AI modules: the Claude 5.5 models in the catalog, the thinking budget of Haiku 5.5, the MCP tool list per caller, the Playwright browsers, the message of a missing key, the MCP path with a slash, the pre-commit guard and parts of new objects; in testing, not in 8.0.0-alpha12.820).
 - TL #30250 (with #30193, #30194, #30195, #30249 as duplicates), #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the follow-up seeing the job's commits, the interrupt of a cancelled job closing H2; fixed after 8.0.0-alpha12.820).
+- TL #30274: see above (OAuth login and discovery of the MCP endpoint; accepted, not in 8.0.0-alpha12.820).
