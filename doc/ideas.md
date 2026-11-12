@@ -122,3 +122,36 @@ Open questions, with the proposals made:
    controller established at enrollment (`connection/Enrollment.java`).
 
 Why it waits: the scope (question 1) is not chosen.
+
+## Time programs: further loops, calendars, commanding the state
+
+The first cut is filed (haumacher/ehome #140, haumacher/homecontrol#84): a rule with states plus a
+timeline of day plans with clock and sun moments, assigned by default and by weekday. Put off in
+the round of 2026-11-12, to be described by the spec's assignment model but not implemented yet.
+
+The user: "there might be other kinds of schedule loops - day, month, year? Are there other
+possible time series? A calendar with holidays would be such a non-cyclic schedule. We can now
+think through the 'whole thing' - even if we only implement a part of it."
+
+Today:
+- Exceptions and vacation ranges are "not yet specified" for the schedule entries (homecontrol
+  `spec/schedules.md:258`); the kind `dates` lists up to 128 dates (`spec/schedules.md:144`).
+- The house mode block has a `vacation` input, a switch (homecontrol `spec/blocks.md:1610`).
+- A rule's state changes only by a transition of the rule; there is no "set state" from outside
+  (homecontrol `spec/rules.md:254`).
+
+Open (proposals, not decided):
+1. Further assignments of a day plan, the most specific winning: day of the month; a date or a
+   range of the year (24 December; the season 1 October to 30 April); a single date.
+2. Calendars: a named set of dates and ranges of its own that several programs use ("Holidays",
+   "Vacation", "Bin collection"). Who maintains it: proposed the inhabitant on the device, with
+   initial content from the image, and public holidays computed by E-Home per region and shipped
+   for some years ahead; or the device computes them.
+3. A plan chosen by a condition datapoint (a vacation switch): a selector like a calendar, but no
+   time series.
+4. Commanding the state datapoint `rule/<ruleId>/state` ("state X until the next switching point"
+   from a control page). Until then a page writes a virtual datapoint and the rule has a reaction
+   per state. Proposed: see first whether that is too clumsy in practice.
+5. The form of a timeline in the rule text language (`RuleText`).
+
+Why it waits: the first cut comes first.
