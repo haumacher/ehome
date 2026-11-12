@@ -1206,9 +1206,15 @@
 			<classifier name="warning"/>
 			<classifier name="error"/>
 		</enum>
-		<!-- What a schedule entry does with a missed firing (spec/schedules.md 4.3). -->
+		<!--
+			What a schedule entry does with a missed firing: one more than 60 s late, because the
+			controller was off or its clock was stepped forward; the controller logs every missed firing
+			(homecontrol spec/schedules.md 4.3, haumacher/ehome #145).
+		-->
 		<enum name="MissedFiring">
+			<!-- The missed firings are logged, nothing fires. -->
 			<classifier name="skip" default="true"/>
+			<!-- The missed firings are logged, the entry fires once, now, however many were missed. -->
 			<classifier name="catchUp"/>
 		</enum>
 		<!-- The sun event of an astronomical schedule entry. -->
@@ -2305,7 +2311,7 @@
 						</default-value>
 					</annotations>
 				</property>
-				<!-- What happens to a firing missed while the controller was off. -->
+				<!-- What happens to a missed firing (more than 60 s late), see MissedFiring. -->
 				<reference name="missed"
 					kind="forwards"
 					type="MissedFiring"
