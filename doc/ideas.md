@@ -155,3 +155,30 @@ Open (proposals, not decided):
 5. The form of a timeline in the rule text language (`RuleText`).
 
 Why it waits: the first cut comes first.
+
+## Controls derived from the connections: an operator's manual
+
+The reverse direction of "configure by intent" (haumacher/ehome #131, #146, #147), put off in the
+round of 2026-11-12: #131 builds an installation from the ground up; this describes one that
+exists.
+
+The user: "the reverse - deriving controls from connections would create a useful description of
+an installation - an operator's manual."
+
+Today:
+- The function proposal links a key to the function of the actuator channel whose first address
+  the key sends on (`ehome/src/main/java/de/haumacher/ehome/runtime/FunctionProposal.java`, class
+  comment "Candidates, linked by group addresses"; `:644`: "the key operates the actuator's
+  channel"). The link decides which functions are proposed and is not kept.
+- A control (source, function, operation) becomes an object with #147.
+
+Open (proposals, not decided):
+1. The proposal keeps the links it finds as controls, so an imported installation shows up in the
+   same view as one built by intent.
+2. The operation of such a control: which preset (#146) a configured channel matches, by comparing
+   its parameter settings with the presets of its template; without a matching preset the control
+   has a source and a function but no operation.
+3. The manual itself: a document per room ("Taste 1 by the door toggles the ceiling light") from
+   the controls, for the inhabitant.
+
+Why it waits: it needs the controls and presets of #146 and #147 first.
