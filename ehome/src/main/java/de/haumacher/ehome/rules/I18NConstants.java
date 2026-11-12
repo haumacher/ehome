@@ -1058,6 +1058,151 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey OWNER_BLOCK_DATAPOINT;
 
+	/**
+	 * @en A timeline is given in a rule without states.
+	 */
+	public static ResKey RULE_TIMELINE_WITHOUT_STATES;
+
+	/**
+	 * @en A timeline needs at least one day plan.
+	 */
+	public static ResKey RULE_TIMELINE_NO_PLAN;
+
+	/**
+	 * @en The timeline has more than {0} day plans.
+	 */
+	public static ResKey1 RULE_TOO_MANY_PLANS__MAX;
+
+	/**
+	 * @en The plan id "{0}" is not 1 to 24 characters of A-Z a-z 0-9 _ -.
+	 */
+	public static ResKey1 RULE_PLAN_ID_PATTERN__ID;
+
+	/**
+	 * @en The plan id "{0}" is used twice.
+	 */
+	public static ResKey1 RULE_PLAN_ID_TWICE__ID;
+
+	/**
+	 * @en The label of a day plan has more than {0} languages.
+	 */
+	public static ResKey1 RULE_PLAN_LABEL_LANGUAGES__MAX;
+
+	/**
+	 * @en A day plan has more than {0} switching points.
+	 */
+	public static ResKey1 RULE_TOO_MANY_PLAN_POINTS__MAX;
+
+	/**
+	 * @en A switching point needs a clock time or a sun event.
+	 */
+	public static ResKey RULE_POINT_NO_MOMENT;
+
+	/**
+	 * @en A switching point has a clock time or a sun event, not both.
+	 */
+	public static ResKey RULE_POINT_TWO_MOMENTS;
+
+	/**
+	 * @en "{0}" must be a time of day (hour 0 to 23, minute 0 to 59, second 0 to 59).
+	 */
+	public static ResKey1 RULE_POINT_TIME__NAME;
+
+	/**
+	 * @en Unknown sun event "{0}" (dawn, sunrise, sunset, dusk).
+	 */
+	public static ResKey1 RULE_POINT_SUN__EVENT;
+
+	/**
+	 * @en "{0}" is only for a switching point at a sun event.
+	 */
+	public static ResKey1 RULE_POINT_SUN_ONLY__NAME;
+
+	/**
+	 * @en The offset must be whole seconds from -12 h to 12 h.
+	 */
+	public static ResKey RULE_POINT_OFFSET;
+
+	/**
+	 * @en The earliest time {0} is after the latest time {1}.
+	 */
+	public static ResKey2 RULE_POINT_CLAMPS__BEFORE_AFTER;
+
+	/**
+	 * @en The timeline has more than {0} switching points.
+	 */
+	public static ResKey1 RULE_TOO_MANY_TIMELINE_POINTS__MAX;
+
+	/**
+	 * @en The timeline has more than {0} assignments of day plans.
+	 */
+	public static ResKey1 RULE_TOO_MANY_ASSIGNMENTS__MAX;
+
+	/**
+	 * @en The timeline has no day plan "{0}".
+	 */
+	public static ResKey1 RULE_NO_PLAN__ID;
+
+	/**
+	 * @en The weekdays of an assignment must be a non-empty list of the days 1 to 7.
+	 */
+	public static ResKey RULE_DAYS_MALFORMED;
+
+	/**
+	 * @en Weekday {0} is not one of 1 (Monday) to 7 (Sunday).
+	 */
+	public static ResKey1 RULE_WEEKDAY_RANGE__DAY;
+
+	/**
+	 * @en Weekday {0} is listed twice.
+	 */
+	public static ResKey1 RULE_WEEKDAY_TWICE__DAY;
+
+	/**
+	 * @en Weekday {0} is already assigned by assignment {1}.
+	 */
+	public static ResKey2 RULE_WEEKDAY_ASSIGNED__DAY_OTHER;
+
+	/**
+	 * @en This is a second default assignment; assignment {0} is the default already.
+	 */
+	public static ResKey1 RULE_SECOND_DEFAULT__FIRST;
+
+	/**
+	 * @en The timeline has no default assignment (one without weekdays).
+	 */
+	public static ResKey RULE_NO_DEFAULT_ASSIGNMENT;
+
+	/**
+	 * @en The timelines of all rules have more than {0} switching points.
+	 */
+	public static ResKey1 RULE_IMAGE_TIMELINE_POINTS__MAX;
+
+	/**
+	 * @en The timelines of all rules have more than {0} day plans.
+	 */
+	public static ResKey1 RULE_IMAGE_TIMELINE_PLANS__MAX;
+
+	/**
+	 * @en The parameter id "state" is reserved for the state datapoint of a rule with states.
+	 */
+	public static ResKey RULE_STATE_PARAMETER;
+
+	/**
+	 * @en The datapoint {0} is the state of a rule: no rule writes it.
+	 */
+	public static ResKey1 RULE_WRITE_STATE__NAME;
+
+	/**
+	 * @en The datapoint {0} mirrors the state of a rule: no technology reads it.
+	 */
+	public static ResKey1 RULE_READ_STATE__NAME;
+
+	/**
+	 * @en {0} is the state of this rule: use state() instead.
+	 */
+	public static ResKey1 RULE_OWN_STATE__NAME;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

@@ -132,6 +132,15 @@ public final class RuleExport {
 	 */
 	public Source sourceAt(String path, String text) {
 		Source source = sourceAt(path);
+		if (source != null && text != null && "TimelinePoint".equals(source.object().tType().getName())) {
+			// A refusal of a point as a whole is shown at the field it is about.
+			if (text.startsWith("a point has 'time' or 'sun'")) {
+				return new Source(source.object(), "sun");
+			}
+			if (text.startsWith("notBefore ")) {
+				return new Source(source.object(), "notBefore");
+			}
+		}
 		Matcher missing = MISSING.matcher(text == null ? "" : text);
 		if (source != null && _sources.get(path) != null && _sources.get(path).attribute() == null && missing.matches()) {
 			String member = missing.group(1);
@@ -174,6 +183,12 @@ public final class RuleExport {
 				return "parameter";
 			case "LogAction":
 				return "message";
+			case "TimelinePoint":
+				return "time";
+			case "TimelineAssignment":
+				return "days";
+			case "RuleTimeline":
+				return "adjustable";
 			default:
 				return "identifier";
 		}
@@ -405,6 +420,10 @@ public final class RuleExport {
 			result.put("initialState", orEmpty(text(initial, "identifier")));
 		}
 
+		if (get(rule, "timeline") instanceof TLObject timeline && timeline.tValid()) {
+			result.put("timeline", timeline(timeline, path + ".timeline"));
+		}
+
 		List<Object> reactions = new ArrayList<>();
 		source(path + ".reactions", rule, "identifier");
 		List<TLObject> all = list(rule, "reactions");
@@ -580,11 +599,99 @@ public final class RuleExport {
 		Map<String, Object> result = new LinkedHashMap<>();
 		source(path + ".id", state, "identifier");
 		result.put("id", orEmpty(text(state, "identifier")));
+		source(path + ".label", state, "label");
+		Object label = label(state, "label", null);
+		if (!"".equals(label)) {
+			// Schema 1.7 (homecontrol spec/rules.md 2.6): the label of the state on the controller.
+			result.put("label", label);
+		}
 		for (String member : new String[] { "entry", "exit" }) {
 			List<Object> actions = actions(state, member, path + "." + member);
 			if (!actions.isEmpty()) {
 				result.put(member, actions);
 			}
+		}
+		return result;
+	}
+
+	/**
+	 * The member <code>timeline</code> of a rule (homecontrol <code>spec/rules.md</code> 2.8, schema
+	 * 1.7): <code>adjustable</code> (always written), the plans with their points, the assignments.
+	 * A refusal of the timeline as a whole is shown at its field <code>adjustable</code>, one of the
+	 * points of a plan as a whole at the plan's id.
+	 */
+	private Map<String, Object> timeline(TLObject timeline, String path) {
+		source(path, timeline, "adjustable");
+		source(path + ".plans", timeline, "adjustable");
+		source(path + ".assignments", timeline, "adjustable");
+		source(path + ".adjustable", timeline, "adjustable");
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("adjustable", Boolean.valueOf(flag(timeline, "adjustable", true)));
+		List<Object> plans = new ArrayList<>();
+		for (TLObject plan : list(timeline, "plans")) {
+			String planPath = path + ".plans[" + plans.size() + "]";
+			source(planPath, plan, null);
+			Map<String, Object> json = new LinkedHashMap<>();
+			source(planPath + ".id", plan, "identifier");
+			json.put("id", orEmpty(text(plan, "identifier")));
+			source(planPath + ".label", plan, "label");
+			json.put("label", label(plan, "label", null));
+			source(planPath + ".points", plan, "identifier");
+			List<Object> points = new ArrayList<>();
+			for (TLObject point : list(plan, "points")) {
+				points.add(point(point, planPath + ".points[" + points.size() + "]"));
+			}
+			json.put("points", points);
+			plans.add(json);
+		}
+		result.put("plans", plans);
+		List<Object> assignments = new ArrayList<>();
+		for (TLObject assignment : list(timeline, "assignments")) {
+			String assignmentPath = path + ".assignments[" + assignments.size() + "]";
+			source(assignmentPath, assignment, null);
+			Map<String, Object> json = new LinkedHashMap<>();
+			source(assignmentPath + ".days", assignment, "days");
+			Set<Integer> days = new java.util.TreeSet<>();
+			for (Object day : objects(get(assignment, "days"))) {
+				if (day instanceof TLClassifier classifier) {
+					for (int i = 0; i < WEEKDAYS.length; i++) {
+						if (WEEKDAYS[i].equals(classifier.getName())) {
+							days.add(Integer.valueOf(i + 1));
+						}
+					}
+				}
+			}
+			if (!days.isEmpty()) {
+				List<Object> list = new ArrayList<>();
+				for (Integer day : days) {
+					list.add(Long.valueOf(day.longValue()));
+				}
+				json.put("days", list);
+			}
+			source(assignmentPath + ".plan", assignment, "plan");
+			json.put("plan", get(assignment, "plan") instanceof TLObject plan && plan.tValid()
+				? orEmpty(text(plan, "identifier")) : "");
+			assignments.add(json);
+		}
+		result.put("assignments", assignments);
+		return result;
+	}
+
+	/** A switching point of a day plan: a clock point or a sun point, and its state. */
+	private Map<String, Object> point(TLObject point, String path) {
+		source(path, point, null);
+		Map<String, Object> result = new LinkedHashMap<>();
+		put(result, "time", value(point, "time", path + ".time", Type.TIME_OF_DAY));
+		source(path + ".sun", point, "sun");
+		if (get(point, "sun") instanceof TLClassifier sun) {
+			result.put("sun", sun.getName());
+		}
+		put(result, "offset", value(point, "offset", path + ".offset", Type.DURATION));
+		put(result, "notBefore", value(point, "notBefore", path + ".notBefore", Type.TIME_OF_DAY));
+		put(result, "notAfter", value(point, "notAfter", path + ".notAfter", Type.TIME_OF_DAY));
+		source(path + ".state", point, "state");
+		if (get(point, "state") instanceof TLObject state && state.tValid()) {
+			result.put("state", orEmpty(text(state, "identifier")));
 		}
 		return result;
 	}
@@ -1223,6 +1330,9 @@ public final class RuleExport {
 				// The loader stops at its first refusal; one of another field must not hide the
 				// field's own (haumacher/ehome #60): that field is neutralized and the rule loaded
 				// again.
+				if (source != null && neutralizeTimeline(isolated, refusal.path(), field)) {
+					continue;
+				}
 				String member = memberPath(refusal.path());
 				if (source == null || member == null || !neutralize(isolated, member)) {
 					// The field's check depends on the refused field.
@@ -1377,6 +1487,70 @@ public final class RuleExport {
 			default:
 				return false;
 		}
+	}
+
+	/** The types of the parts of a timeline. */
+	private static final Set<String> TIMELINE_TYPES = Set.of("RuleTimeline", "TimelinePlan", "TimelinePoint",
+		"TimelineAssignment");
+
+	private static final Pattern TIMELINE_PATH = Pattern.compile("(rules\\[\\d+\\])\\.timeline(?:\\..*)?");
+
+	private static final Pattern POINT_PATH =
+		Pattern.compile("(rules\\[\\d+\\]\\.timeline\\.plans\\[\\d+\\]\\.points\\[\\d+\\])(?:\\.([A-Za-z]+).*)?");
+
+	private static final Pattern ASSIGNMENT_PLAN_PATH =
+		Pattern.compile("rules\\[\\d+\\]\\.timeline\\.assignments\\[\\d+\\]\\.plan");
+
+	/**
+	 * Neutralizes a refused part of a timeline (homecontrol <code>spec/rules.md</code> 2.8) so that
+	 * the refusal of the checked field shows: for a field outside the timeline the timeline is left
+	 * out (with a stub reaction where the rule has none); inside it, a refused point of another
+	 * point is replaced by a valid clock point, a refused offset or clamp of the field's point left
+	 * out, an assignment naming no plan made to name the first plan.
+	 *
+	 * @return Whether something was neutralized.
+	 */
+	@SuppressWarnings("unchecked")
+	private boolean neutralizeTimeline(List<Object> rules, String path, Source field) {
+		Matcher timelinePath = TIMELINE_PATH.matcher(path);
+		if (!timelinePath.matches() || !(navigate(rules, timelinePath.group(1)) instanceof Map<?, ?> found)) {
+			return false;
+		}
+		Map<String, Object> rule = (Map<String, Object>) found;
+		if (!TIMELINE_TYPES.contains(field.object().tType().getName())) {
+			rule.remove("timeline");
+			if (!(rule.get("reactions") instanceof List<?> reactions) || reactions.isEmpty()) {
+				rule.put("reactions", new ArrayList<>(List.of(mutable(STUB_REACTION))));
+			}
+			return true;
+		}
+		Matcher point = POINT_PATH.matcher(path);
+		if (point.matches()) {
+			Source at = _sources.get(point.group(1));
+			if (at == null || !(navigate(rules, point.group(1)) instanceof Map<?, ?> json)) {
+				return false;
+			}
+			Map<String, Object> pointJson = (Map<String, Object>) json;
+			if (at.object() != field.object()) {
+				Object state = rule.get("states") instanceof List<?> states && !states.isEmpty()
+					&& states.get(0) instanceof Map<?, ?> first ? first.get("id") : null;
+				pointJson.clear();
+				pointJson.put("time", Map.of("hour", Long.valueOf(0), "minute", Long.valueOf(0), "second", Long.valueOf(0)));
+				pointJson.put("state", state);
+				return true;
+			}
+			String member = point.group(2);
+			if ("offset".equals(member) || "notBefore".equals(member) || "notAfter".equals(member)) {
+				return pointJson.remove(member) != null;
+			}
+			return false;
+		}
+		if (ASSIGNMENT_PLAN_PATH.matcher(path).matches() && navigate(rules, path.substring(0, path.lastIndexOf('.'))) instanceof Map<?, ?> json
+			&& navigate(rules, timelinePath.group(1) + ".timeline.plans[0].id") instanceof String first) {
+			((Map<String, Object>) json).put("plan", first);
+			return true;
+		}
+		return false;
 	}
 
 	/** Makes the trigger a start trigger. */

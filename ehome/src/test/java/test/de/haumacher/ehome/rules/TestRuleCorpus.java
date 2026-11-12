@@ -111,7 +111,7 @@ public class TestRuleCorpus extends TestCase {
 	private static void checkIndex() throws IOException {
 		String readme = Files.readString(new File(CORPUS, "README.md").toPath(), StandardCharsets.UTF_8);
 		Set<String> indexed = new TreeSet<>();
-		Matcher matcher = Pattern.compile("^\\| `(\\d\\d-[a-z0-9-]+)` \\|", Pattern.MULTILINE).matcher(readme);
+		Matcher matcher = Pattern.compile("^\\| `(\\d{2,3}-[a-z0-9-]+)` \\|", Pattern.MULTILINE).matcher(readme);
 		while (matcher.find()) {
 			indexed.add(matcher.group(1) + ".json");
 		}
@@ -147,6 +147,9 @@ public class TestRuleCorpus extends TestCase {
 
 		/** The UTC instant of the corpus' time 0. */
 		private long _startUtc;
+
+		/** The steps of the wall clock against the monotonic clock so far, in seconds (README "clockStep"). */
+		private long _stepSeconds;
 
 		/** The case's <code>location</code>, <code>null</code> for none. */
 		private GeoLocation _location;
@@ -310,6 +313,11 @@ public class TestRuleCorpus extends TestCase {
 						persistRecord(key.substring("block/".length()), stored);
 						continue;
 					}
+					if ("timeline".equals(stored.get("type"))) {
+						// The inhabitant's timeline (spec/rules.md 8.7): "<ruleId>/.timeline".
+						_store.writeTimeline(key.substring(0, key.indexOf('/')), stored.get("value"));
+						continue;
+					}
 					// A persisted rule state (spec/rules.md 8.5) is "<ruleId>/.state" with the state id.
 					Val value = "state".equals(stored.get("type")) ? Val.ofString((String) stored.get("value"))
 						: Values.fromJson(Type.fromName((String) stored.get("type")), stored.get("value")).value();
@@ -347,6 +355,13 @@ public class TestRuleCorpus extends TestCase {
 					_failures.add("the load must be refused with " + expected.get("loadRefused"));
 				} else if (!refusal.error().externalName().equals(expected.get("loadRefused"))) {
 					_failures.add("load refused with " + refusal + ", expected " + expected.get("loadRefused"));
+				} else {
+					if (expected.get("path") instanceof String path && !path.equals(refusal.path())) {
+						_failures.add("load refused at " + refusal.path() + ", expected " + path);
+					}
+					if (expected.get("text") instanceof String text && !text.equals(refusal.text())) {
+						_failures.add("load refused with the text \"" + refusal.text() + "\", expected \"" + text + "\"");
+					}
 				}
 				return;
 			}
@@ -378,7 +393,7 @@ public class TestRuleCorpus extends TestCase {
 
 		/** The UTC time of now, <code>null</code> while the wall clock is not synchronized. */
 		private Long nowUtc() {
-			return _synchronized ? Long.valueOf(_startUtc + Math.floorDiv(_now[0] - BASE, 1000L)) : null;
+			return _synchronized ? Long.valueOf(_startUtc + Math.floorDiv(_now[0] - BASE, 1000L) + _stepSeconds) : null;
 		}
 
 		/**
@@ -454,7 +469,8 @@ public class TestRuleCorpus extends TestCase {
 			Engine engine = new Engine(_model, () -> _now[0], _store, new Engine.TimeSource() {
 				@Override
 				public DateTime localNow() {
-					return _synchronized ? _zone.local(_startUtc + Math.floorDiv(_now[0] - BASE, 1000L)) : null;
+					Long utc = nowUtc();
+					return utc == null ? null : _zone.local(utc.longValue());
 				}
 
 				@Override
@@ -475,6 +491,16 @@ public class TestRuleCorpus extends TestCase {
 				@Override
 				public SunPosition sunPosition(long utc) {
 					return _location == null ? null : Astro.sunPosition(utc, _location);
+				}
+
+				@Override
+				public GeoLocation location() {
+					return _location;
+				}
+
+				@Override
+				public Long utcNow() {
+					return nowUtc();
 				}
 			});
 			engine.setLanguage(_language);
@@ -824,7 +850,7 @@ public class TestRuleCorpus extends TestCase {
 				if (deliverLocal()) {
 					continue;
 				}
-				long deadline = _engine.nextDeadline();
+				long deadline = Math.min(_engine.nextDeadline(), pointDeadline());
 				long firing = schedulerDeadline();
 				if (Math.min(deadline, firing) > target) {
 					break;
@@ -839,13 +865,41 @@ public class TestRuleCorpus extends TestCase {
 			_now[0] = target;
 		}
 
+		/**
+		 * The monotonic time of the next switching point of a timeline (spec/rules.md 7.13), at its
+		 * moment exactly; {@link Long#MAX_VALUE} for none.
+		 */
+		private long pointDeadline() {
+			Long moment = _engine.nextTimelineMoment();
+			if (moment == null) {
+				return Long.MAX_VALUE;
+			}
+			return BASE + (moment.longValue() - _startUtc - _stepSeconds) * 1000;
+		}
+
+		/** The change of a timeline as <code>PUT</code> or <code>DELETE /api/rules/&lt;id&gt;/timeline</code> makes it. */
+		private void setTimeline(Map<?, ?> change, long at) {
+			String rule = (String) change.get("rule");
+			Engine.TimelineChange result = Boolean.TRUE.equals(change.get("reset")) ? _engine.resetTimeline(rule)
+				: _engine.setTimeline(rule, change.get("timeline"));
+			String have = result.ok() ? "ok" : result.code();
+			String want = change.get("refused") instanceof String refused ? refused : "ok";
+			if (!want.equals(have)) {
+				_failures.add("the change of the timeline of " + rule + " at " + at + " is " + have + " (" + result.text()
+					+ "), expected " + want);
+			} else if (change.get("path") instanceof String path && !path.equals(result.path())) {
+				_failures.add("the change of the timeline of " + rule + " at " + at + " is refused at " + result.path()
+					+ ", expected " + path);
+			}
+		}
+
 		/** The monotonic time the scheduler wants to fire at, {@link Long#MAX_VALUE} for none. */
 		private long schedulerDeadline() {
 			Long wakeup = _scheduler == null ? null : _scheduler.wakeup();
 			if (wakeup == null) {
 				return Long.MAX_VALUE;
 			}
-			return BASE + (wakeup.longValue() - _startUtc) * 1000;
+			return BASE + (wakeup.longValue() - _startUtc - _stepSeconds) * 1000;
 		}
 
 		/** The change of a schedule entry as <code>PUT /api/schedules/&lt;id&gt;</code> makes it. */
@@ -905,6 +959,15 @@ public class TestRuleCorpus extends TestCase {
 				_engine.setParameterJson((String) p.get("rule"), (String) p.get("parameter"), p.get("value"));
 			} else if (step.get("clockSync") instanceof Boolean sync) {
 				_synchronized = sync.booleanValue();
+				if (_synchronized) {
+					_engine.clockSynchronized();
+				}
+			} else if (step.get("clockStep") instanceof Number ms) {
+				long seconds = ms.longValue() / 1000;
+				_stepSeconds += seconds;
+				_engine.clockStepped(seconds);
+			} else if (step.get("setTimeline") instanceof Map<?, ?> change) {
+				setTimeline(change, at);
 			} else if (step.get("image") instanceof Map<?, ?> image) {
 				// The model is loaded again with the values kept: the parameter datapoints follow the
 				// new rules (spec/rules.md 7.6).
@@ -1097,6 +1160,9 @@ public class TestRuleCorpus extends TestCase {
 			if (expected.get("schedules") instanceof Map<?, ?> schedules) {
 				compareSchedules(schedules, where);
 			}
+			if (expected.get("timelines") instanceof Map<?, ?> timelines) {
+				compareTimelines(timelines, where);
+			}
 			if (expected.get("blocks") instanceof Map<?, ?> blocks) {
 				compareBlocks(blocks, where);
 			}
@@ -1105,7 +1171,18 @@ public class TestRuleCorpus extends TestCase {
 			}
 			if (expected.get("persisted") instanceof Map<?, ?> persisted) {
 				Map<String, Val> stored = _store.overrides();
+				Map<String, Object> timelines = _store.timelines();
 				for (Map.Entry<?, ?> entry : persisted.entrySet()) {
+					if (((String) entry.getKey()).endsWith("/" + RuleSet.TIMELINE_KEY)) {
+						Object timeline = timelines.get(entry.getKey());
+						if (timeline == null) {
+							_failures.add(where + ": timeline " + entry.getKey() + " not stored");
+						} else if (!jsonValue(timeline).equals(jsonValue(entry.getValue()))) {
+							_failures.add(where + ": stored timeline " + entry.getKey() + " is " + Json.compact(timeline)
+								+ ", expected " + Json.compact(entry.getValue()));
+						}
+						continue;
+					}
 					Val have = stored.get(entry.getKey());
 					if (have == null) {
 						_failures.add(where + ": override " + entry.getKey() + " not stored");
@@ -1121,7 +1198,63 @@ public class TestRuleCorpus extends TestCase {
 						_failures.add(where + ": unexpected stored override " + entry.getKey() + " = " + entry.getValue());
 					}
 				}
+				for (String key : timelines.keySet()) {
+					if (!persisted.containsKey(key)) {
+						_failures.add(where + ": unexpected stored timeline " + key);
+					}
+				}
 			}
+		}
+
+		/** README "final.timelines": whether the inhabitant's timeline applies and the next switching point. */
+		private void compareTimelines(Map<?, ?> timelines, String where) {
+			for (Map.Entry<?, ?> entry : timelines.entrySet()) {
+				String id = (String) entry.getKey();
+				int r = rule(id);
+				Map<?, ?> want = (Map<?, ?>) entry.getValue();
+				if (want.get("overridden") instanceof Boolean overridden
+					&& overridden.booleanValue() != _engine.timelineOverridden(r)) {
+					_failures.add(where + ": the timeline of " + id + " is " + (overridden.booleanValue() ? "not " : "")
+						+ "overridden");
+				}
+				if (want.containsKey("next")) {
+					Engine.NextPoint next = _engine.nextPoint(r);
+					String have = next == null ? null : localText(next.utc()) + " " + next.state();
+					String expectedNext = want.get("next") instanceof Map<?, ?> point ? point.get("at") + " " + point.get("state")
+						: null;
+					if (!Objects.equals(have, expectedNext)) {
+						_failures.add(where + ": the next point of " + id + " is " + have + ", expected " + expectedNext);
+					}
+				}
+			}
+		}
+
+		/** The local wall time of the instant as <code>YYYY-MM-DDTHH:MM:SS</code>. */
+		private String localText(long utc) {
+			DateTime local = _zone.local(utc);
+			return String.format("%04d-%02d-%02dT%02d:%02d:%02d", Integer.valueOf(local.year()),
+				Integer.valueOf(local.month()), Integer.valueOf(local.day()), Integer.valueOf(local.hour()),
+				Integer.valueOf(local.minute()), Integer.valueOf(local.second()));
+		}
+
+		/** A JSON value with its numbers as doubles, for comparing a value written with one read. */
+		private static Object jsonValue(Object value) {
+			if (value instanceof Number number) {
+				return Double.valueOf(number.doubleValue());
+			}
+			if (value instanceof Map<?, ?> map) {
+				Map<Object, Object> result = new LinkedHashMap<>();
+				map.forEach((k, v) -> result.put(k, jsonValue(v)));
+				return result;
+			}
+			if (value instanceof List<?> list) {
+				List<Object> result = new ArrayList<>();
+				for (Object element : list) {
+					result.add(jsonValue(element));
+				}
+				return result;
+			}
+			return value;
 		}
 
 		private void compareSchedules(Map<?, ?> schedules, String where) {

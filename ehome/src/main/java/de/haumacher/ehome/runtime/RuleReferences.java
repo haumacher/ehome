@@ -114,6 +114,11 @@ public final class RuleReferences {
 		for (TLObject rule : RuleExport.orderedRules(project)) {
 			candidates.add(rule);
 			candidates.addAll(RuleExport.objects(rule.tValueByName("parameters")));
+			TLObject state = Pages.stateDatapoint(rule);
+			if (state != null) {
+				// rule/<rule>/state (haumacher/ehome #140).
+				candidates.add(state);
+			}
 		}
 		for (TLObject entry : RuleExport.objects(project.tValueByName("schedules"))) {
 			if (Pages.isTimeSchedule(entry)) {

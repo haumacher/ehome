@@ -431,7 +431,7 @@ public class TestDeployment extends BasicTestCase {
 			assertEquals("max-helligkeit", parameter.tValueByName("identifier"));
 			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 			assertTrue(image.validate().toString(), image.validate().isValid());
-			assertEquals("1.6", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+			assertEquals(RuntimeImage.SCHEMA_VERSION, ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
 
 			TLObject controller = controller("Fake 1.4", _fake.getPort(), TOKEN);
 			controllers.add(controller);

@@ -43,6 +43,12 @@ public class TestImageFixtures extends TestCase {
 		assertEquals(List.of(), report.getNotes());
 	}
 
+	/** The heating program of haumacher/ehome #140 (schema 1.7): a rule with states and a timeline, its state on a page. */
+	public void testHeatingTimeline() throws IOException {
+		ImageReport report = ImageValidator.validate(read("heating-timeline.json"));
+		assertTrue(report.toString(), report.isValid());
+	}
+
 	/** Zigbee bindings without a reporting override, an image written before the member existed. */
 	public void testZigbeeBindings() throws IOException {
 		ImageReport report = ImageValidator.validate(read("zigbee-bindings.json"));

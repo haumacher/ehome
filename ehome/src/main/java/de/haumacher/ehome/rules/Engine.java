@@ -30,7 +30,9 @@ import de.haumacher.ehome.rules.RuleSet.Parameter;
 import de.haumacher.ehome.rules.RuleSet.Reaction;
 import de.haumacher.ehome.rules.RuleSet.Rule;
 import de.haumacher.ehome.rules.RuleSet.StartReason;
+import de.haumacher.ehome.rules.RuleSet.Timeline;
 import de.haumacher.ehome.rules.RuleSet.Trigger;
+import de.haumacher.ehome.rules.TimelineMoments.Moment;
 import de.haumacher.ehome.rules.Val.Color;
 import de.haumacher.ehome.rules.Val.Date;
 import de.haumacher.ehome.rules.Val.DateTime;
@@ -103,6 +105,23 @@ public final class Engine implements DatapointModel.Listener {
 		default Astro.SunPosition sunPosition(long utc) {
 			return null;
 		}
+
+		/**
+		 * The location of the controller for the sun points of the timelines (homecontrol
+		 * <code>spec/rules.md</code> 7.13), <code>null</code> without one. The default has none.
+		 */
+		default Astro.GeoLocation location() {
+			return null;
+		}
+
+		/**
+		 * The current instant in seconds since the epoch (UTC), <code>null</code> while the wall clock
+		 * is not synchronized. The default derives it from {@link #localNow()}.
+		 */
+		default Long utcNow() {
+			DateTime local = localNow();
+			return local == null ? null : Long.valueOf(localToUtc(local));
+		}
 	}
 
 	/**
@@ -132,7 +151,11 @@ public final class Engine implements DatapointModel.Listener {
 		/** An event queue was full. */
 		QUEUE_OVERFLOW("queueOverflow"),
 		/** The technology refused a read. */
-		READ_REFUSED("readRefused");
+		READ_REFUSED("readRefused"),
+		/** A new image dropped the inhabitant's timeline (spec 8.7). */
+		TIMELINE_RESET("timelineReset"),
+		/** A timeline has sun points but there is no location (spec 7.13). */
+		SUN_UNAVAILABLE("sunUnavailable");
 
 		private final String _name;
 
@@ -181,6 +204,18 @@ public final class Engine implements DatapointModel.Listener {
 		 * (<code>spec/rules.md</code> 9.2).
 		 */
 		default void loopGuard(String rule, String culprit, int firings) {
+			// Nothing by default.
+		}
+
+		/**
+		 * The timeline of a rule switched it to a state (homecontrol <code>spec/rules.md</code> 7.13):
+		 * at a switching point, or at an evaluation (a start, the clock becoming synchronized or
+		 * stepping, a change of the timeline), before the exit and entry actions run.
+		 *
+		 * @param evaluation
+		 *        Whether an evaluation entered the state due now rather than a switching point.
+		 */
+		default void timelineSwitched(String rule, String state, boolean evaluation) {
 			// Nothing by default.
 		}
 	}
@@ -270,7 +305,7 @@ public final class Engine implements DatapointModel.Listener {
 	}
 
 	private enum EventKind {
-		DATAPOINT, SCHEDULE, TIMER, START, PARAMETER, START_ALL, SILENCE, BLOCK, BLOCK_DUE;
+		DATAPOINT, SCHEDULE, TIMER, START, PARAMETER, START_ALL, SILENCE, BLOCK, BLOCK_DUE, EVALUATE, POINT;
 	}
 
 	private record Event(EventKind kind, String name, int rule, int index, boolean changed, Origin origin,
@@ -312,6 +347,16 @@ public final class Engine implements DatapointModel.Listener {
 		static Event blockDue() {
 			return new Event(EventKind.BLOCK_DUE, null, -1, -1, false, null, null, false);
 		}
+
+		/** An evaluation of the timeline of the rule, of every rule with a timeline for -1 (spec 7.13). */
+		static Event evaluate(int rule) {
+			return new Event(EventKind.EVALUATE, null, rule, -1, false, null, null, false);
+		}
+
+		/** A switching point of the rule's timeline into the state. */
+		static Event point(int rule, int state) {
+			return new Event(EventKind.POINT, null, rule, state, false, null, null, false);
+		}
 	}
 
 	/** Per-root flags. */
@@ -351,6 +396,23 @@ public final class Engine implements DatapointModel.Listener {
 		int _state = -1;
 
 		boolean _hasState;
+
+		/** The inhabitant's timeline (spec 8.7), <code>null</code> for none. */
+		Timeline _override;
+
+		/** The latest handled moment of the timeline (spec 7.13, UTC seconds), with {@link #_handledSet}. */
+		long _handled;
+
+		/**
+		 * The plan order of the point applied at {@link #_handled}; {@link Integer#MAX_VALUE} after an
+		 * evaluation, which handles every point up to its instant.
+		 */
+		int _handledOrder;
+
+		boolean _handledSet;
+
+		/** Whether <code>sunUnavailable</code> was logged and the sun points had no moment since. */
+		boolean _sunLogged;
 
 		RuleRuntime copy() {
 			RuleRuntime copy = new RuleRuntime();
@@ -487,6 +549,12 @@ public final class Engine implements DatapointModel.Listener {
 	/** The block runtime, <code>null</code> for none. */
 	private BlockHost _host;
 
+	/** Per rule: the name of its state datapoint bound to the engine (spec 8.8), <code>null</code> if none. */
+	private String[] _stateDatapoints = new String[0];
+
+	/** The moments of the timelines' switching points. */
+	private final TimelineMoments _moments;
+
 	/**
 	 * Creates an engine on the model; it listens to the model until {@link #close()}.
 	 *
@@ -501,6 +569,7 @@ public final class Engine implements DatapointModel.Listener {
 		_clock = clock;
 		_store = store;
 		_time = time;
+		_moments = new TimelineMoments(time);
 		_model.addListener(this);
 	}
 
@@ -671,6 +740,8 @@ public final class Engine implements DatapointModel.Listener {
 		TimerRuntime[][] oldTimers = _timers;
 		boolean boot = !_booted;
 		int count = next._rules.size();
+		// The points and plans of the effective timelines of the rules before (spec 10.2).
+		int[] budget = new int[2];
 		RuleRuntime[] rules = new RuleRuntime[count];
 		ParamRuntime[][] params = new ParamRuntime[count][];
 		TimerRuntime[][] timers = new TimerRuntime[count][];
@@ -754,6 +825,17 @@ public final class Engine implements DatapointModel.Listener {
 							+ "); reset to the default");
 				}
 			}
+			// The inhabitant's timeline, checked against the new rule (spec 8.7, 5) after its parameters and state.
+			Object inhabitant = o >= 0 && oldRules[o]._override != null ? oldRules[o]._override.toJson()
+				: o < 0 && boot ? _store.readTimeline(rule._id) : null;
+			if (inhabitant != null) {
+				keepTimeline(rule, nr, inhabitant, budget);
+			}
+			Timeline effective = nr._override != null ? nr._override : rule._timeline;
+			if (effective != null) {
+				budget[0] += effective.pointCount();
+				budget[1] += effective._plans.size();
+			}
 		}
 
 		// Change tracking continues for datapoints still tracked; new ones start from the model.
@@ -811,6 +893,14 @@ public final class Engine implements DatapointModel.Listener {
 			int p = rule.findParameter(key);
 			return p >= 0 && _params[r][p]._overridden;
 		});
+		for (String logical : new ArrayList<>(_store.timelines().keySet())) {
+			String ruleId = logical.substring(0, logical.length() - RuleSet.TIMELINE_KEY.length() - 1);
+			int r = _set.findRule(ruleId);
+			if (r < 0 || _rules[r]._override == null) {
+				_store.eraseTimeline(ruleId);
+			}
+		}
+		_stateDatapoints = new String[count];
 		bindParameters();
 		for (int r = 0; r < count; r++) {
 			Rule rule = _set._rules.get(r);
@@ -818,6 +908,60 @@ public final class Engine implements DatapointModel.Listener {
 				_observer.parameterChanged(rule._id, rule._parameters.get(p)._id, _params[r][p]._value);
 			}
 		}
+	}
+
+	/**
+	 * Keeps the inhabitant's timeline (its canonical form) for the rule of a new image or a boot when
+	 * the image still lets it be (spec 8.7, 5): the rule has an adjustable timeline, every state it
+	 * names, and it fits the limits and the budget of the effective timelines of the rules before;
+	 * one equal to the image's is no override. Otherwise it is deleted, with
+	 * <code>timelineReset</code> unless the rule has no timeline any more.
+	 */
+	private void keepTimeline(Rule rule, RuleRuntime runtime, Object override, int[] budget) {
+		runtime._override = null;
+		if (rule._timeline == null) {
+			// E-Home removed the timeline: deleted silently.
+			_store.eraseTimeline(rule._id);
+			return;
+		}
+		String reason;
+		if (!rule._timeline._adjustable) {
+			reason = "the timeline is no longer adjustable";
+		} else {
+			Timeline timeline;
+			try {
+				timeline = RuleLoader.parseTimeline(override, rule, _language);
+			} catch (LoadException ex) {
+				timeline = null;
+				Refusal refusal = ex.getRefusal();
+				reason = refusal.error().externalName() + ": " + refusal.text();
+				if (refusal.text().startsWith("no state ")) {
+					reason = "a state it names is gone (" + refusal.text() + ")";
+				}
+				resetTimeline(rule, runtime, reason);
+				return;
+			}
+			if (budget[0] + timeline.pointCount() > RuleSet.MAX_IMAGE_TIMELINE_POINTS
+				|| budget[1] + timeline._plans.size() > RuleSet.MAX_IMAGE_TIMELINE_PLANS) {
+				reason = "it no longer fits the budget of the timelines of all rules";
+			} else {
+				if (timeline.sameAs(rule._timeline)) {
+					// Equal to the image's: no override.
+					_store.eraseTimeline(rule._id);
+				} else {
+					runtime._override = timeline;
+					_store.writeTimeline(rule._id, timeline.toJson());
+				}
+				return;
+			}
+		}
+		resetTimeline(rule, runtime, reason);
+	}
+
+	private void resetTimeline(Rule rule, RuleRuntime runtime, String reason) {
+		_store.eraseTimeline(rule._id);
+		logCode(rule._id, runtime, LogCode.TIMELINE_RESET, Level.WARNING, reason,
+			"the inhabitant's timeline is dropped: " + reason + "; the image's timeline applies");
 	}
 
 	// ---- Queues ----------------------------------------------------------------------------
@@ -900,6 +1044,17 @@ public final class Engine implements DatapointModel.Listener {
 					_host.startBlock(b, event.reason());
 					processQueue();
 					endCascade();
+				}
+			} else if (event.kind() == EventKind.EVALUATE && event.rule() < 0) {
+				// The clock became synchronized or stepped: each rule with a timeline in a cascade of its
+				// own, in rule order (7.13, 4).
+				for (int r = 0; r < _set._rules.size(); r++) {
+					if (effectiveTimeline(r) != null) {
+						beginCascade();
+						evaluateTimeline(r);
+						processQueue();
+						endCascade();
+					}
 				}
 			} else {
 				runCascade(event);
@@ -1002,6 +1157,10 @@ public final class Engine implements DatapointModel.Listener {
 				continue;
 			}
 			if (bestRule < 0) {
+				// Then the switching points of the timelines, at an equal time after the timers (7.13).
+				if (runDuePoint()) {
+					continue;
+				}
 				return;
 			}
 			// Stopped before its event is processed (7.8).
@@ -1245,6 +1404,8 @@ public final class Engine implements DatapointModel.Listener {
 	}
 
 	private void enableChanged(int rule, boolean enabled) {
+		// A disabled rule's timeline switches no more, and its enabling evaluates (spec 7.9, 7.13).
+		_rules[rule]._handledSet = false;
 		if (!enabled) {
 			stopTimers(rule);
 			return;
@@ -1353,10 +1514,44 @@ public final class Engine implements DatapointModel.Listener {
 					pr._datapoint = name;
 					publishParameter(r, p);
 				}
+				// The datapoint of the rule's state (spec 8.8), behind the parameters'.
+				if (r < _stateDatapoints.length) {
+					_stateDatapoints[r] = null;
+					String name = RuleLoader.stateDatapointName(rule._id);
+					Datapoint datapoint = rule._states.isEmpty() ? null : _model.get(name);
+					if (datapoint != null && datapoint.type() == ValueType.ENUMERATION
+						&& rule.findParameter(RuleSet.STATE_DATAPOINT) < 0) {
+						_model.bind(name, _technology);
+						_stateDatapoints[r] = name;
+						publishState(r, false);
+					}
+				}
 			}
 		} finally {
 			_quiet = false;
 		}
+	}
+
+	/**
+	 * Publishes the current state of the rule on its state datapoint (spec 8.8): the position of the
+	 * state in the rule's states.
+	 *
+	 * @param always
+	 *        Whether to publish also an unchanged value (an update at a self-transition) rather than
+	 *        only a changed one.
+	 */
+	private void publishState(int rule, boolean always) {
+		String name = rule < _stateDatapoints.length ? _stateDatapoints[rule] : null;
+		RuleRuntime rr = _rules[rule];
+		if (name == null || !rr._hasState) {
+			return;
+		}
+		Datapoint datapoint = _model.get(name);
+		Val value = Val.ofEnum(rr._state);
+		if (!always && datapoint != null && datapoint.quality() == Quality.GOOD && Val.identical(datapoint.value(), value)) {
+			return;
+		}
+		_model.publish(name, value);
 	}
 
 	/**
@@ -1433,7 +1628,26 @@ public final class Engine implements DatapointModel.Listener {
 		return true;
 	}
 
-	private void stateChanged(int rule) {
+	/**
+	 * The rule changed its state (also into the same state): the state is persisted and published on
+	 * the state datapoint (spec 8.8), quietly while the rule takes its state at a load.
+	 */
+	private void stateChanged(int rule, boolean quiet) {
+		if (quiet) {
+			boolean before = _quiet;
+			_quiet = true;
+			try {
+				publishState(rule, false);
+			} finally {
+				_quiet = before;
+			}
+		} else {
+			publishState(rule, true);
+		}
+		persistState(rule);
+	}
+
+	private void persistState(int rule) {
 		// The writes of the controller are delayed and coalesced (spec 8.5); written through here, the
 		// store holds what an orderly shutdown leaves.
 		RuleRuntime rr = _rules[rule];
@@ -1478,6 +1692,12 @@ public final class Engine implements DatapointModel.Listener {
 			if (event.rule() < _set._rules.size() && enabled(event.rule())) {
 				runStart(event.rule(), StartReason.ENABLE);
 			}
+		} else if (event.kind() == EventKind.EVALUATE) {
+			evaluateTimeline(event.rule());
+		} else if (event.kind() == EventKind.POINT) {
+			if (event.rule() < _set._rules.size()) {
+				switchTimeline(event.rule(), event.index(), false);
+			}
 		} else {
 			processEvent(event, false);
 		}
@@ -1488,10 +1708,34 @@ public final class Engine implements DatapointModel.Listener {
 	private void runStart(int rule, StartReason reason) {
 		Rule r = _set._rules.get(rule);
 		RuleRuntime rr = _rules[rule];
-		if (!r._states.isEmpty() && !rr._hasState) {
+		// The values the image sets at a load are no events (7.6); at enabling the state is one (8.8).
+		boolean quiet = reason != StartReason.ENABLE;
+		Moment due = null;
+		if (effectiveTimeline(rule) != null) {
+			Long now = _time.utcNow();
+			if (now != null) {
+				rr._handled = now.longValue();
+				rr._handledOrder = Integer.MAX_VALUE;
+				rr._handledSet = true;
+				if (enabled(rule)) {
+					due = dueMoment(rule, now.longValue());
+				}
+			}
+		}
+		if (due != null) {
+			// Step 1 of 7.5: the state due now with its entry actions, whatever the preserved state; no
+			// exit actions, the rule is starting.
+			int state = due.point()._state;
+			rr._state = state;
+			rr._hasState = true;
+			_currentRule = rule;
+			_observer.timelineSwitched(r._id, r._states.get(state)._id, true);
+			stateChanged(rule, quiet);
+			runActions(rule, r._states.get(state)._entry);
+		} else if (!r._states.isEmpty() && !rr._hasState) {
 			rr._state = r._initialState;
 			rr._hasState = true;
-			stateChanged(rule);
+			stateChanged(rule, quiet);
 			if (enabled(rule)) {
 				_currentRule = rule;
 				runActions(rule, r._states.get(r._initialState)._entry);
@@ -1500,6 +1744,304 @@ public final class Engine implements DatapointModel.Listener {
 		if (enabled(rule)) {
 			processEvent(Event.start(rule, reason), false);
 		}
+	}
+
+	/**
+	 * A transition of the rule into the state (spec 2.6): the exit actions of the current state, the
+	 * given actions (a reaction's), the change of state with its event on the state datapoint (8.8),
+	 * the entry actions of the new state.
+	 */
+	private void transition(int rule, int state, List<Action> actions) {
+		Rule r = _set._rules.get(rule);
+		RuleRuntime rr = _rules[rule];
+		if (rr._hasState) {
+			runActions(rule, r._states.get(rr._state)._exit);
+		}
+		runActions(rule, actions);
+		rr._state = state;
+		rr._hasState = true;
+		stateChanged(rule, false);
+		runActions(rule, r._states.get(state)._entry);
+	}
+
+	// ---- Timelines (spec 7.13) --------------------------------------------------------------
+
+	/** The rule's effective timeline: the inhabitant's where overridden, else the image's; <code>null</code> for none. */
+	private Timeline effectiveTimeline(int rule) {
+		RuleRuntime rr = _rules[rule];
+		return rr._override != null ? rr._override : _set._rules.get(rule)._timeline;
+	}
+
+	/** The point whose state is due at the instant, logging <code>sunUnavailable</code> once. */
+	private Moment dueMoment(int rule, long utc) {
+		Timeline timeline = effectiveTimeline(rule);
+		if (timeline == null) {
+			return null;
+		}
+		_moments.reset();
+		Moment result = _moments.due(timeline, utc);
+		sunChecked(rule);
+		return result;
+	}
+
+	/**
+	 * The rule's next switching point after its handled moment; <code>null</code> when there is none
+	 * within eight dates, the wall clock is not synchronized, the rule is disabled or has no
+	 * timeline.
+	 */
+	private Moment nextMoment(int rule) {
+		RuleRuntime rr = _rules[rule];
+		Timeline timeline = effectiveTimeline(rule);
+		if (timeline == null || !rr._handledSet || !enabled(rule) || _time.utcNow() == null) {
+			return null;
+		}
+		_moments.reset();
+		Moment result = _moments.next(timeline, rr._handled, rr._handledOrder);
+		sunChecked(rule);
+		return result;
+	}
+
+	private void sunChecked(int rule) {
+		RuleRuntime rr = _rules[rule];
+		if (_moments.sunAvailable()) {
+			rr._sunLogged = false;
+		} else if (_moments.sunUnavailable() && !rr._sunLogged) {
+			rr._sunLogged = true;
+			logRule(rule, LogCode.SUN_UNAVAILABLE, Level.WARNING, "no location",
+				"the sun points of the timeline have no moment: the controller has no location");
+		}
+	}
+
+	/**
+	 * An evaluation of the rule's timeline while it runs (7.13, 4): the handled moment becomes now;
+	 * an enabled rule with a due state takes a transition into it.
+	 */
+	private void evaluateTimeline(int rule) {
+		if (rule >= _set._rules.size() || effectiveTimeline(rule) == null) {
+			return;
+		}
+		Long now = _time.utcNow();
+		if (now == null) {
+			return;
+		}
+		RuleRuntime rr = _rules[rule];
+		rr._handled = now.longValue();
+		rr._handledOrder = Integer.MAX_VALUE;
+		rr._handledSet = true;
+		if (!enabled(rule)) {
+			return;
+		}
+		Moment due = dueMoment(rule, now.longValue());
+		if (due != null) {
+			switchTimeline(rule, due.point()._state, true);
+		}
+	}
+
+	/**
+	 * The timeline switches the rule to the state (a firing of the rule, 9.1): a transition without
+	 * reaction actions, also into the current state.
+	 */
+	private void switchTimeline(int rule, int state, boolean evaluation) {
+		Rule r = _set._rules.get(rule);
+		RuleRuntime rr = _rules[rule];
+		String id = r._states.get(state)._id;
+		rr._firings++;
+		rr._lastTriggerMs = _cascadeMs;
+		rr._lastTrigger = "timeline " + id;
+		_currentRule = rule;
+		_observer.timelineSwitched(r._id, id, evaluation);
+		transition(rule, state, List.of());
+	}
+
+	/**
+	 * Applies the earliest switching point due at the wall clock's current time, in a cascade of its
+	 * own (points at the same moment in rule order and, within a rule, in plan order).
+	 *
+	 * @return Whether a point was due.
+	 */
+	private boolean runDuePoint() {
+		Long now = _time.utcNow();
+		if (now == null) {
+			return false;
+		}
+		int best = -1;
+		Moment bestMoment = null;
+		for (int r = 0; r < _rules.length; r++) {
+			Moment moment = nextMoment(r);
+			if (moment != null && moment.moment() <= now.longValue()
+				&& (bestMoment == null || moment.moment() < bestMoment.moment())) {
+				best = r;
+				bestMoment = moment;
+			}
+		}
+		if (best < 0) {
+			return false;
+		}
+		_rules[best]._handled = bestMoment.moment();
+		_rules[best]._handledOrder = bestMoment.order();
+		runCascade(Event.point(best, bestMoment.point()._state));
+		return true;
+	}
+
+	/**
+	 * The earliest moment (UTC seconds) of a switching point of an enabled rule's timeline,
+	 * <code>null</code> for none (the driver calls {@link #processDueTimers()} when it has come).
+	 */
+	public Long nextTimelineMoment() {
+		if (_set == null) {
+			return null;
+		}
+		Long result = null;
+		for (int r = 0; r < _rules.length; r++) {
+			Moment moment = nextMoment(r);
+			if (moment != null && (result == null || moment.moment() < result.longValue())) {
+				result = Long.valueOf(moment.moment());
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The wall clock became synchronized (the time service's first fix, or again after it was lost):
+	 * every rule with a timeline is evaluated, each in a cascade of its own (7.13, 4). Queued.
+	 */
+	public void clockSynchronized() {
+		if (_set == null) {
+			return;
+		}
+		// No point stepped over or passed while not synchronized applies: the evaluation decides.
+		for (RuleRuntime rr : _rules) {
+			rr._handledSet = false;
+		}
+		pushInbound(Event.evaluate(-1));
+	}
+
+	/**
+	 * The synchronized wall clock stepped by the given seconds against the monotonic clock: a jump
+	 * of more than 60 s either way evaluates the timelines as at the synchronization; a smaller step
+	 * does not (7.13, 4).
+	 */
+	public void clockStepped(long seconds) {
+		if (Math.abs(seconds) > 60) {
+			clockSynchronized();
+		}
+	}
+
+	/**
+	 * The outcome of a change of an inhabitant's timeline ({@link #setTimeline(String, Object)}).
+	 *
+	 * @param code
+	 *        <code>null</code> when the change is taken, else the API's refusal code without
+	 *        <code>rule.</code> (homecontrol <code>spec/api.md</code>): <code>unknown</code>,
+	 *        <code>no_timeline</code>, <code>not_adjustable</code>, <code>unknown_state</code>,
+	 *        <code>malformed_timeline</code>, <code>timeline_limit</code>.
+	 * @param path
+	 *        The path of the offending value relative to the timeline, <code>""</code> for none.
+	 * @param text
+	 *        The loader's text with its reason code.
+	 */
+	public record TimelineChange(String code, String path, String text) {
+
+		/** Whether the change was taken. */
+		public boolean ok() {
+			return code == null;
+		}
+	}
+
+	/**
+	 * The inhabitant replaces the timeline of the rule as a whole (spec 8.7, <code>PUT
+	 * /api/rules/&lt;ruleId&gt;/timeline</code>): checked as the loader checks the image's and against
+	 * the budget of the effective timelines, applied whole (a timeline equal to the image's removes
+	 * the override) and evaluated at once (queued), or refused whole changing nothing.
+	 *
+	 * @param timeline
+	 *        The timeline's <code>plans</code> and <code>assignments</code> as a JSON value.
+	 */
+	public TimelineChange setTimeline(String rule, Object timeline) {
+		TimelineChange refused = adjustable(rule);
+		if (refused != null) {
+			return refused;
+		}
+		int r = _set.findRule(rule);
+		Rule decl = _set._rules.get(r);
+		Timeline parsed;
+		try {
+			parsed = RuleLoader.parseTimeline(timeline, decl, _language);
+		} catch (LoadException ex) {
+			Refusal refusal = ex.getRefusal();
+			String code = switch (refusal.error()) {
+				case LIMIT_EXCEEDED -> "timeline_limit";
+				case UNKNOWN_REFERENCE -> refusal.text().startsWith("no state ") ? "unknown_state" : "malformed_timeline";
+				default -> "malformed_timeline";
+			};
+			String path = refusal.path().startsWith(".") ? refusal.path().substring(1) : refusal.path();
+			return new TimelineChange(code, path, refusal.error().externalName() + ": " + refusal.text());
+		}
+		int points = parsed.pointCount();
+		int plans = parsed._plans.size();
+		for (int i = 0; i < _rules.length; i++) {
+			Timeline other = i == r ? null : effectiveTimeline(i);
+			if (other != null) {
+				points += other.pointCount();
+				plans += other._plans.size();
+			}
+		}
+		if (points > RuleSet.MAX_IMAGE_TIMELINE_POINTS) {
+			return new TimelineChange("timeline_limit", "", "limitExceeded: the timelines of all rules would have more than "
+				+ RuleSet.MAX_IMAGE_TIMELINE_POINTS + " points");
+		}
+		if (plans > RuleSet.MAX_IMAGE_TIMELINE_PLANS) {
+			return new TimelineChange("timeline_limit", "", "limitExceeded: the timelines of all rules would have more than "
+				+ RuleSet.MAX_IMAGE_TIMELINE_PLANS + " plans");
+		}
+		RuleRuntime rr = _rules[r];
+		if (parsed.sameAs(decl._timeline)) {
+			rr._override = null;
+			_store.eraseTimeline(decl._id);
+		} else {
+			rr._override = parsed;
+			_store.writeTimeline(decl._id, parsed.toJson());
+		}
+		reevaluate(r);
+		return new TimelineChange(null, "", "");
+	}
+
+	/**
+	 * The inhabitant's timeline of the rule is reset to the image's (spec 8.7, <code>DELETE
+	 * /api/rules/&lt;ruleId&gt;/timeline</code>) and evaluated at once (queued).
+	 */
+	public TimelineChange resetTimeline(String rule) {
+		TimelineChange refused = adjustable(rule);
+		if (refused != null) {
+			return refused;
+		}
+		int r = _set.findRule(rule);
+		_rules[r]._override = null;
+		_store.eraseTimeline(rule);
+		reevaluate(r);
+		return new TimelineChange(null, "", "");
+	}
+
+	/** The refusal of a change of the rule's timeline before its body is read, <code>null</code> if none. */
+	private TimelineChange adjustable(String rule) {
+		int r = _set == null ? -1 : _set.findRule(rule);
+		if (r < 0) {
+			return new TimelineChange("unknown", "", "no rule '" + rule + "'");
+		}
+		Timeline timeline = _set._rules.get(r)._timeline;
+		if (timeline == null) {
+			return new TimelineChange("no_timeline", "", "the rule has no timeline");
+		}
+		if (!timeline._adjustable) {
+			return new TimelineChange("not_adjustable", "", "the rule's timeline is not adjustable");
+		}
+		return null;
+	}
+
+	private void reevaluate(int rule) {
+		// The evaluation decides: no point of the new timeline before it applies.
+		_rules[rule]._handledSet = false;
+		pushInbound(Event.evaluate(rule));
 	}
 
 	private void processQueue() {
@@ -1647,14 +2189,7 @@ public final class Engine implements DatapointModel.Listener {
 				}
 				if (satisfied) {
 					if (reaction._to >= 0) {
-						if (rr._hasState) {
-							runActions(r, rule._states.get(rr._state)._exit);
-						}
-						runActions(r, reaction._actions);
-						rr._state = reaction._to;
-						rr._hasState = true;
-						stateChanged(r);
-						runActions(r, rule._states.get(reaction._to)._entry);
+						transition(r, reaction._to, reaction._actions);
 						break;
 					}
 					runActions(r, reaction._actions);
@@ -2572,6 +3107,37 @@ public final class Engine implements DatapointModel.Listener {
 	public String currentState(int rule) {
 		RuleRuntime rr = _rules[rule];
 		return rr._hasState ? _set._rules.get(rule)._states.get(rr._state)._id : null;
+	}
+
+	/** Whether the inhabitant's timeline applies to the rule (spec 8.7). */
+	public boolean timelineOverridden(int rule) {
+		return _rules[rule]._override != null;
+	}
+
+	/** The rule's effective timeline (the inhabitant's where overridden), <code>null</code> for none. */
+	public Timeline timeline(int rule) {
+		return effectiveTimeline(rule);
+	}
+
+	/**
+	 * The next switching point of a rule's timeline (spec 9.1).
+	 *
+	 * @param utc
+	 *        Its moment in seconds since the epoch.
+	 * @param state
+	 *        The id of the state it switches to.
+	 */
+	public record NextPoint(long utc, String state) {
+		// A value.
+	}
+
+	/**
+	 * The rule's next switching point, <code>null</code> when there is none within eight dates, the
+	 * wall clock is not synchronized or the rule is disabled.
+	 */
+	public NextPoint nextPoint(int rule) {
+		Moment moment = nextMoment(rule);
+		return moment == null ? null : new NextPoint(moment.moment(), moment.point()._stateId);
 	}
 
 	/** The firings of the rule since the rules started at boot. */

@@ -484,6 +484,16 @@ public final class Simulation implements AutoCloseable {
 			public SunPosition sunPosition(long utc) {
 				return _location == null || !_location.valid() ? null : Astro.sunPosition(utc, _location);
 			}
+
+			@Override
+			public GeoLocation location() {
+				return _location == null || !_location.valid() ? null : _location;
+			}
+
+			@Override
+			public Long utcNow() {
+				return Long.valueOf(utc());
+			}
 		});
 		_engine.setObserver(new Engine.Observer() {
 			@Override
@@ -504,6 +514,13 @@ public final class Simulation implements AutoCloseable {
 			@Override
 			public void ruleRead(String rule, Datapoint datapoint) {
 				add(Kind.COMMAND, rule, "read " + _names.datapoint(datapoint.name()));
+			}
+
+			@Override
+			public void timelineSwitched(String rule, String state, boolean evaluation) {
+				// The transitions by the timeline (homecontrol spec/rules.md 7.13).
+				add(Kind.RULE, rule, (evaluation ? "timeline: enters the state due now, " : "timeline: switching point to ")
+					+ state);
 			}
 		});
 		_scheduler.addListener(_engine::scheduleFired);
@@ -845,11 +862,16 @@ public final class Simulation implements AutoCloseable {
 	}
 
 	/**
-	 * The next instant (simulated ms) at which a timer of a rule expires, a schedule fires or local
-	 * midnight comes, {@link Long#MAX_VALUE} if none.
+	 * The next instant (simulated ms) at which a timer of a rule expires, a switching point of a
+	 * rule's timeline comes, a schedule fires or local midnight comes, {@link Long#MAX_VALUE} if none.
 	 */
 	public synchronized long nextEvent() {
 		long next = Math.min(_engine.nextDeadline(), _nextMidnight);
+		Long point = _engine.nextTimelineMoment();
+		if (point != null) {
+			// The next switching point of a timeline (homecontrol spec/rules.md 7.13).
+			next = Math.min(next, Math.max(_now, (point.longValue() - _startUtc) * 1000));
+		}
 		Long wakeup = _scheduler.wakeup();
 		if (wakeup != null) {
 			next = Math.min(next, Math.max(_now, (wakeup.longValue() - _startUtc) * 1000));

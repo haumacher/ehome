@@ -5,6 +5,7 @@ package de.haumacher.ehome.rules;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -21,12 +22,16 @@ import de.haumacher.ehome.rules.Node.Kind;
 import de.haumacher.ehome.rules.Node.Op;
 import de.haumacher.ehome.rules.RuleSet.Action;
 import de.haumacher.ehome.rules.RuleSet.ActionKind;
+import de.haumacher.ehome.rules.RuleSet.Assignment;
 import de.haumacher.ehome.rules.RuleSet.Level;
 import de.haumacher.ehome.rules.RuleSet.Parameter;
+import de.haumacher.ehome.rules.RuleSet.Plan;
+import de.haumacher.ehome.rules.RuleSet.Point;
 import de.haumacher.ehome.rules.RuleSet.Reaction;
 import de.haumacher.ehome.rules.RuleSet.Rule;
 import de.haumacher.ehome.rules.RuleSet.StartReason;
 import de.haumacher.ehome.rules.RuleSet.State;
+import de.haumacher.ehome.rules.RuleSet.Timeline;
 import de.haumacher.ehome.rules.RuleSet.Timer;
 import de.haumacher.ehome.rules.RuleSet.Trigger;
 import de.haumacher.ehome.rules.RuleSet.TriggerKind;
@@ -165,7 +170,8 @@ public final class RuleLoader {
 	/**
 	 * A datapoint mirroring a rule parameter (<code>spec/rules.md</code> 8.6), as an image loader
 	 * derives it from the <code>rules</code> member: its name, value type and whether it is writable
-	 * (exactly when the parameter is adjustable).
+	 * (exactly when the parameter is adjustable); or the datapoint of the state of a rule with states
+	 * (8.8, the parameter {@link RuleSet#STATE_DATAPOINT}), an enumeration that is not writable.
 	 */
 	public record ParameterDatapoint(String name, ValueType type, boolean writable, String rule, String parameter) {
 		// A value.
@@ -191,6 +197,12 @@ public final class RuleLoader {
 	private Rule _current;
 
 	private int _totalNodes;
+
+	/** The points of the timelines of the image loaded so far (spec 10.2). */
+	private int _imagePoints;
+
+	/** The plans of the timelines of the image loaded so far. */
+	private int _imagePlans;
 
 	private int _expressionNodes;
 
@@ -673,7 +685,11 @@ public final class RuleLoader {
 			boolean adjustable = !(rule.get("enabledAdjustable") instanceof Boolean b) || b.booleanValue();
 			result.add(new ParameterDatapoint(parameterDatapointName(id, "enabled"), ValueType.BOOLEAN, adjustable, id,
 				"enabled"));
+			boolean states = rule.get("states") instanceof List<?> stateList && !stateList.isEmpty();
 			if (!(rule.get("parameters") instanceof List<?> parameters)) {
+				if (states) {
+					result.add(stateParameterDatapoint(id));
+				}
 				continue;
 			}
 			Set<String> seen = new HashSet<>();
@@ -693,8 +709,21 @@ public final class RuleLoader {
 				boolean writable = !(parameter.get("adjustable") instanceof Boolean b) || b.booleanValue();
 				result.add(new ParameterDatapoint(parameterDatapointName(id, pid), valueType, writable, id, pid));
 			}
+			if (states && !seen.contains(RuleSet.STATE_DATAPOINT)) {
+				// Behind the parameters (schema 1.7); an older image's parameter "state" keeps its datapoint.
+				result.add(stateParameterDatapoint(id));
+			}
 		}
 		return result;
+	}
+
+	/**
+	 * The datapoint of the state of the rule with states (<code>spec/rules.md</code> 8.8): an
+	 * enumeration of the position of the current state, not writable.
+	 */
+	private static ParameterDatapoint stateParameterDatapoint(String rule) {
+		return new ParameterDatapoint(stateDatapointName(rule), ValueType.ENUMERATION, false, rule,
+			RuleSet.STATE_DATAPOINT);
 	}
 
 	// ---- Rules ------------------------------------------------------------------------------
@@ -743,7 +772,7 @@ public final class RuleLoader {
 
 	private void rule(Object json) throws LoadException {
 		Map<?, ?> map = only(json, "id", "name", "enabled", "enabledAdjustable", "parameters", "timers", "states",
-			"initialState", "reactions");
+			"initialState", "timeline", "reactions");
 		Label name = labelMember(map, "name");
 		boolean enabled = boolMember(map, "enabled", true);
 		boolean enabledAdjustable = boolMember(map, "enabledAdjustable", true);
@@ -801,7 +830,7 @@ public final class RuleLoader {
 			int scope = enter(".states");
 			for (int i = 0; i < states.size(); i++) {
 				int mark = enter("[" + i + "]");
-				Map<?, ?> item = only(states.get(i), "id", "entry", "exit");
+				Map<?, ?> item = only(states.get(i), "id", "label", "entry", "exit");
 				if (rule._states.size() >= RuleSet.MAX_STATES) {
 					throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_STATES + " states",
 						I18NConstants.RULE_TOO_MANY_STATES__MAX.fill(String.valueOf(RuleSet.MAX_STATES)));
@@ -817,7 +846,14 @@ public final class RuleLoader {
 					throw fail(LoadError.DUPLICATE_ID, "state id '" + id + "' is used twice",
 						I18NConstants.RULE_STATE_ID_TWICE__ID.fill(id));
 				}
-				rule._states.add(new State(id));
+				State state = new State(id);
+				if (item.containsKey("label")) {
+					// Schema 1.7: shown for the state on the controller and as the choice of the state datapoint.
+					Label label = labelMember(item, "label");
+					state._label = label.text();
+					state._labelMap = label.map();
+				}
+				rule._states.add(state);
 				leave(mark);
 			}
 			leave(scope);
@@ -887,10 +923,34 @@ public final class RuleLoader {
 			leave(scope);
 		}
 
-		// Reactions.
-		List<?> reactions = arrayMember(map, "reactions", true);
+		// The timeline after the states (spec 10.1, schema 1.7).
+		if (map.containsKey("timeline")) {
+			int mark = enter(".timeline");
+			if (rule._states.isEmpty()) {
+				throw fail(LoadError.FORBIDDEN, "'timeline' in a rule without states",
+					I18NConstants.RULE_TIMELINE_WITHOUT_STATES);
+			}
+			rule._timeline = timeline(map.get("timeline"), true);
+			_imagePoints += rule._timeline.pointCount();
+			_imagePlans += rule._timeline._plans.size();
+			if (_imagePoints > RuleSet.MAX_IMAGE_TIMELINE_POINTS) {
+				throw fail(LoadError.LIMIT_EXCEEDED,
+					"more than " + RuleSet.MAX_IMAGE_TIMELINE_POINTS + " points in the timelines of the image",
+						I18NConstants.RULE_IMAGE_TIMELINE_POINTS__MAX.fill(String.valueOf(RuleSet.MAX_IMAGE_TIMELINE_POINTS)));
+			}
+			if (_imagePlans > RuleSet.MAX_IMAGE_TIMELINE_PLANS) {
+				throw fail(LoadError.LIMIT_EXCEEDED,
+					"more than " + RuleSet.MAX_IMAGE_TIMELINE_PLANS + " plans in the timelines of the image",
+						I18NConstants.RULE_IMAGE_TIMELINE_PLANS__MAX.fill(String.valueOf(RuleSet.MAX_IMAGE_TIMELINE_PLANS)));
+			}
+			leave(mark);
+		}
+
+		// Reactions: a rule with a timeline needs none (spec 2.2, schema 1.7).
+		List<?> reactions = rule._timeline != null && !map.containsKey("reactions") ? List.of()
+			: arrayMember(map, "reactions", true);
 		int scope = enter(".reactions");
-		if (reactions.size() < 1) {
+		if (reactions.size() < 1 && rule._timeline == null) {
 			throw fail(LoadError.MALFORMED, "a rule needs at least one reaction", I18NConstants.RULE_NO_REACTION);
 		}
 		if (reactions.size() > RuleSet.MAX_REACTIONS) {
@@ -924,6 +984,14 @@ public final class RuleLoader {
 			enter(".id");
 			throw fail(LoadError.DUPLICATE_ID, "the parameter id 'enabled' is reserved for the enable switch",
 				I18NConstants.RULE_PARAMETER_ID_ENABLED);
+		}
+		if (id.equals(RuleSet.STATE_DATAPOINT) && _rule >= 0 && _rule < _ruleHasStates.size()
+			&& _ruleHasStates.get(_rule).booleanValue()) {
+			// The datapoint rule/<ruleId>/state is the rule's state (spec 8.8, schema 1.7).
+			enter(".id");
+			throw fail(LoadError.DUPLICATE_ID,
+				"the parameter id 'state' is reserved for the state datapoint of a rule with states",
+					I18NConstants.RULE_STATE_PARAMETER);
 		}
 		if (_current.findParameter(id) >= 0) {
 			enter(".id");
@@ -1077,6 +1145,11 @@ public final class RuleLoader {
 				only(map, "kind", "datapoint", "value", "onlyOnChange");
 				String name = datapointMember(map);
 				ValueType target = _datapoints.type(name);
+				if (stateDatapoint(name)) {
+					enter(".datapoint");
+					throw fail(LoadError.NOT_WRITABLE, "datapoint '" + name + "' is a rule's state: no rule writes it",
+						I18NConstants.RULE_WRITE_STATE__NAME.fill(DatapointId.of(name)));
+				}
 				if (!_datapoints.ruleWritable(name)) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_WRITABLE, "datapoint '" + name + "' is not writable",
@@ -1112,6 +1185,11 @@ public final class RuleLoader {
 			case "read": {
 				only(map, "kind", "datapoint");
 				String name = datapointMember(map);
+				if (stateDatapoint(name)) {
+					enter(".datapoint");
+					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a rule's state: no technology reads it",
+						I18NConstants.RULE_READ_STATE__NAME.fill(DatapointId.of(name)));
+				}
 				if (name.startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX)) {
 					enter(".datapoint");
 					throw fail(LoadError.NOT_READABLE, "datapoint '" + name + "' mirrors a rule parameter: no technology reads it",
@@ -1487,6 +1565,325 @@ public final class RuleLoader {
 		return reaction;
 	}
 
+	// ---- Timelines --------------------------------------------------------------------------
+
+	/**
+	 * Checks and compiles an inhabitant's timeline of the given rule (<code>spec/rules.md</code> 8.7,
+	 * the body of <code>PUT /api/rules/&lt;ruleId&gt;/timeline</code>) as the loader checks the
+	 * image's: the same reasons and texts, the paths relative to the timeline
+	 * (<code>plans[0].points[1].state</code>), without the member <code>adjustable</code>, which is
+	 * the image's. The budget of the effective timelines of all rules is the caller's.
+	 *
+	 * @param json
+	 *        The timeline (its <code>plans</code> and <code>assignments</code>).
+	 * @param rule
+	 *        The rule of the loaded rule set whose timeline it replaces.
+	 * @param language
+	 *        The language the labels are resolved in.
+	 * @throws LoadException
+	 *         With the first refusal.
+	 */
+	public static Timeline parseTimeline(Object json, Rule rule, String language) throws LoadException {
+		RuleLoader loader = new RuleLoader(new DatapointDirectory() {
+			@Override
+			public ValueType type(String name) {
+				return null;
+			}
+
+			@Override
+			public boolean writable(String name) {
+				return false;
+			}
+		}, null, language);
+		loader._current = rule;
+		return loader.timeline(json, false);
+	}
+
+	/**
+	 * The member <code>timeline</code> (<code>spec/rules.md</code> 2.8), checked in the order of the
+	 * table of 10.1, at the current path.
+	 *
+	 * @param image
+	 *        Whether it is the image's timeline (with <code>adjustable</code>) rather than the
+	 *        inhabitant's.
+	 */
+	private Timeline timeline(Object json, boolean image) throws LoadException {
+		Map<?, ?> map = image ? only(json, "adjustable", "plans", "assignments") : only(json, "plans", "assignments");
+		Timeline timeline = new Timeline(boolMember(map, "adjustable", true));
+		List<?> plans = arrayMember(map, "plans", true);
+		int scope = enter(".plans");
+		if (plans.isEmpty()) {
+			throw fail(LoadError.MALFORMED, "a timeline needs at least one plan", I18NConstants.RULE_TIMELINE_NO_PLAN);
+		}
+		if (plans.size() > RuleSet.MAX_PLANS) {
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_PLANS + " plans",
+				I18NConstants.RULE_TOO_MANY_PLANS__MAX.fill(String.valueOf(RuleSet.MAX_PLANS)));
+		}
+		int points = 0;
+		for (int p = 0; p < plans.size(); p++) {
+			int mark = enter("[" + p + "]");
+			Plan plan = plan(plans.get(p), timeline);
+			timeline._plans.add(plan);
+			points += plan._points.size();
+			leave(mark);
+		}
+		leave(scope);
+		if (points > RuleSet.MAX_TIMELINE_POINTS) {
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_TIMELINE_POINTS + " points in a timeline",
+				I18NConstants.RULE_TOO_MANY_TIMELINE_POINTS__MAX.fill(String.valueOf(RuleSet.MAX_TIMELINE_POINTS)));
+		}
+		List<?> assignments = arrayMember(map, "assignments", true);
+		scope = enter(".assignments");
+		if (assignments.size() > RuleSet.MAX_ASSIGNMENTS) {
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_ASSIGNMENTS + " assignments",
+				I18NConstants.RULE_TOO_MANY_ASSIGNMENTS__MAX.fill(String.valueOf(RuleSet.MAX_ASSIGNMENTS)));
+		}
+		int defaultAt = -1;
+		int[] assignedBy = new int[8];
+		Arrays.fill(assignedBy, -1);
+		for (int a = 0; a < assignments.size(); a++) {
+			int mark = enter("[" + a + "]");
+			Map<?, ?> item = only(assignments.get(a), "days", "plan");
+			String planId = stringMember(item, "plan", true, 0, Integer.MAX_VALUE);
+			int plan = -1;
+			for (int p = 0; p < timeline._plans.size() && plan < 0; p++) {
+				if (timeline._plans.get(p)._id.equals(planId)) {
+					plan = p;
+				}
+			}
+			if (plan < 0) {
+				enter(".plan");
+				throw fail(LoadError.UNKNOWN_REFERENCE, "no plan '" + planId + "' in the timeline",
+					I18NConstants.RULE_NO_PLAN__ID.fill(planId));
+			}
+			int days = 0;
+			List<Long> dayList = new ArrayList<>();
+			if (item.containsKey("days")) {
+				int daysMark = enter(".days");
+				if (!(item.get("days") instanceof List<?> list) || list.isEmpty()) {
+					throw fail(LoadError.MALFORMED, "'days' must be a non-empty array of weekdays 1..7",
+						I18NConstants.RULE_DAYS_MALFORMED);
+				}
+				for (int d = 0; d < list.size(); d++) {
+					int dayMark = enter("[" + d + "]");
+					Long day = integral(list.get(d));
+					if (day == null || day.longValue() < 1 || day.longValue() > 7) {
+						String text = jsonText(list.get(d));
+						throw fail(LoadError.MALFORMED, "weekday " + text + " is not 1..7",
+							I18NConstants.RULE_WEEKDAY_RANGE__DAY.fill(text));
+					}
+					int bit = 1 << (day.intValue() - 1);
+					if ((days & bit) != 0) {
+						throw fail(LoadError.MALFORMED, "weekday " + day + " is listed twice",
+							I18NConstants.RULE_WEEKDAY_TWICE__DAY.fill(day));
+					}
+					int other = assignedBy[day.intValue()];
+					if (other >= 0) {
+						throw fail(LoadError.MALFORMED, "weekday " + day + " is assigned by assignments[" + other + "] already",
+							I18NConstants.RULE_WEEKDAY_ASSIGNED__DAY_OTHER.fill(day, Integer.valueOf(other + 1)));
+					}
+					days |= bit;
+					dayList.add(day);
+					leave(dayMark);
+				}
+				for (Long day : dayList) {
+					assignedBy[day.intValue()] = a;
+				}
+				leave(daysMark);
+			} else {
+				if (defaultAt >= 0) {
+					throw fail(LoadError.MALFORMED,
+						"a second default assignment (the first is assignments[" + defaultAt + "])",
+							I18NConstants.RULE_SECOND_DEFAULT__FIRST.fill(Integer.valueOf(defaultAt + 1)));
+				}
+				defaultAt = a;
+			}
+			timeline._assignments.add(new Assignment(days, dayList, plan));
+			leave(mark);
+		}
+		if (defaultAt < 0) {
+			throw fail(LoadError.MALFORMED, "no default assignment (one without 'days')",
+				I18NConstants.RULE_NO_DEFAULT_ASSIGNMENT);
+		}
+		leave(scope);
+		return timeline;
+	}
+
+	private Plan plan(Object json, Timeline timeline) throws LoadException {
+		Map<?, ?> map = only(json, "id", "label", "points");
+		String id = stringMember(map, "id", true, 0, Integer.MAX_VALUE);
+		if (id.isEmpty() || id.length() > 24 || !parameterIdCharacters(id)) {
+			enter(".id");
+			throw fail(LoadError.MALFORMED, "plan id '" + id + "' is not 1..24 characters of A-Z a-z 0-9 _ -",
+				I18NConstants.RULE_PLAN_ID_PATTERN__ID.fill(id));
+		}
+		for (Plan other : timeline._plans) {
+			if (other._id.equals(id)) {
+				enter(".id");
+				throw fail(LoadError.DUPLICATE_ID, "plan id '" + id + "' is used twice",
+					I18NConstants.RULE_PLAN_ID_TWICE__ID.fill(id));
+			}
+		}
+		if (map.get("label") instanceof Map<?, ?> languages && languages.size() > RuleSet.MAX_PLAN_LABEL_LANGUAGES) {
+			enter(".label");
+			throw fail(LoadError.LIMIT_EXCEEDED,
+				"more than " + RuleSet.MAX_PLAN_LABEL_LANGUAGES + " languages in a plan's label",
+					I18NConstants.RULE_PLAN_LABEL_LANGUAGES__MAX.fill(String.valueOf(RuleSet.MAX_PLAN_LABEL_LANGUAGES)));
+		}
+		Label label = labelMember(map, "label");
+		Plan plan = new Plan(id, label.map() != null ? label.map() : label.text(), label.text());
+		List<?> points = arrayMember(map, "points", true);
+		int scope = enter(".points");
+		if (points.size() > RuleSet.MAX_PLAN_POINTS) {
+			throw fail(LoadError.LIMIT_EXCEEDED, "more than " + RuleSet.MAX_PLAN_POINTS + " points in a plan",
+				I18NConstants.RULE_TOO_MANY_PLAN_POINTS__MAX.fill(String.valueOf(RuleSet.MAX_PLAN_POINTS)));
+		}
+		for (int k = 0; k < points.size(); k++) {
+			int mark = enter("[" + k + "]");
+			plan._points.add(point(points.get(k)));
+			leave(mark);
+		}
+		leave(scope);
+		return plan;
+	}
+
+	private Point point(Object json) throws LoadException {
+		Map<?, ?> map = only(json, "time", "sun", "offset", "notBefore", "notAfter", "state");
+		boolean clock = map.containsKey("time");
+		boolean sunPoint = map.containsKey("sun");
+		if (!clock && !sunPoint) {
+			throw fail(LoadError.MALFORMED, "a point needs 'time' or 'sun'", I18NConstants.RULE_POINT_NO_MOMENT);
+		}
+		if (clock && sunPoint) {
+			throw fail(LoadError.MALFORMED, "a point has 'time' or 'sun', not both", I18NConstants.RULE_POINT_TWO_MOMENTS);
+		}
+		int time = -1;
+		Astro.SunEvent sun = null;
+		if (clock) {
+			time = timeMember(map, "time");
+			for (String member : new String[] { "offset", "notBefore", "notAfter" }) {
+				if (map.containsKey(member)) {
+					enter("." + member);
+					throw fail(LoadError.MALFORMED, "'" + member + "' is only for a sun point",
+						I18NConstants.RULE_POINT_SUN_ONLY__NAME.fill(member));
+				}
+			}
+		} else {
+			Object event = map.get("sun");
+			sun = event instanceof String name ? Astro.SunEvent.fromName(name) : null;
+			if (sun == null) {
+				enter(".sun");
+				String text = event instanceof String name ? name : jsonText(event);
+				throw fail(LoadError.MALFORMED, "unknown sun event '" + text + "' (dawn, sunrise, sunset, dusk)",
+					I18NConstants.RULE_POINT_SUN__EVENT.fill(text));
+			}
+		}
+		int offset = 0;
+		if (map.containsKey("offset")) {
+			Long ms = integral(map.get("offset"));
+			if (ms == null || ms.longValue() % 1000 != 0 || Math.abs(ms.longValue()) > RuleSet.MAX_POINT_OFFSET * 1000L) {
+				enter(".offset");
+				throw fail(LoadError.MALFORMED, "an offset must be whole seconds within -12 h..12 h",
+					I18NConstants.RULE_POINT_OFFSET);
+			}
+			offset = (int) (ms.longValue() / 1000);
+		}
+		int notBefore = map.containsKey("notBefore") ? timeMember(map, "notBefore") : -1;
+		int notAfter = map.containsKey("notAfter") ? timeMember(map, "notAfter") : -1;
+		if (notBefore >= 0 && notAfter >= 0 && notBefore > notAfter) {
+			String before = timeText(notBefore);
+			String after = timeText(notAfter);
+			throw fail(LoadError.MALFORMED, "notBefore " + before + " is after notAfter " + after,
+				I18NConstants.RULE_POINT_CLAMPS__BEFORE_AFTER.fill(before, after));
+		}
+		String stateId = stringMember(map, "state", true, 0, Integer.MAX_VALUE);
+		int state = _current.findState(stateId);
+		if (state < 0) {
+			enter(".state");
+			throw fail(LoadError.UNKNOWN_REFERENCE, "no state '" + stateId + "' in the rule",
+				I18NConstants.RULE_NO_STATE__ID.fill(stateId));
+		}
+		return new Point(time, sun, offset, notBefore, notAfter, state, stateId);
+	}
+
+	/**
+	 * A time member of a point: <code>{"hour": 0..23, "minute": 0..59, "second": 0..59}</code>, all
+	 * three and nothing else; its seconds of the day.
+	 */
+	private int timeMember(Map<?, ?> map, String name) throws LoadException {
+		Object value = map.get(name);
+		if (value instanceof Map<?, ?> time && time.size() == 3) {
+			Long hour = integral(time.get("hour"));
+			Long minute = integral(time.get("minute"));
+			Long second = integral(time.get("second"));
+			if (hour != null && minute != null && second != null && hour.longValue() >= 0 && hour.longValue() <= 23
+				&& minute.longValue() >= 0 && minute.longValue() <= 59 && second.longValue() >= 0
+				&& second.longValue() <= 59) {
+				return (int) (hour.longValue() * 3600 + minute.longValue() * 60 + second.longValue());
+			}
+		}
+		enter("." + name);
+		throw fail(LoadError.MALFORMED, "'" + name + "' must be a time {hour 0..23, minute 0..59, second 0..59}",
+			I18NConstants.RULE_POINT_TIME__NAME.fill(name));
+	}
+
+	/** A time of day in seconds as <code>HH:MM:SS</code>. */
+	public static String timeText(int seconds) {
+		return String.format("%02d:%02d:%02d", Integer.valueOf(seconds / 3600), Integer.valueOf(seconds / 60 % 60),
+			Integer.valueOf(seconds % 60));
+	}
+
+	/** The integer a JSON number stands for, <code>null</code> for anything else. */
+	private static Long integral(Object value) {
+		if (value instanceof Long || value instanceof Integer || value instanceof Short || value instanceof Byte) {
+			return Long.valueOf(((Number) value).longValue());
+		}
+		if (value instanceof Number number) {
+			double d = number.doubleValue();
+			if (Double.isFinite(d) && d == Math.rint(d) && Math.abs(d) < 1e15) {
+				return Long.valueOf((long) d);
+			}
+		}
+		return null;
+	}
+
+	/** A JSON value as a refusal names it. */
+	private static String jsonText(Object value) {
+		Long integral = integral(value);
+		if (integral != null) {
+			return integral.toString();
+		}
+		return value instanceof String text ? '"' + text + '"' : String.valueOf(value);
+	}
+
+	/**
+	 * Whether the datapoint is the state datapoint of a rule with states of the rule set being
+	 * loaded (<code>rule/&lt;ruleId&gt;/state</code>, <code>spec/rules.md</code> 8.8).
+	 */
+	private boolean stateDatapoint(String name) {
+		if (!name.startsWith(RuleSet.PARAMETER_DATAPOINT_PREFIX) || !name.endsWith("/" + RuleSet.STATE_DATAPOINT)) {
+			return false;
+		}
+		String rule = name.substring(RuleSet.PARAMETER_DATAPOINT_PREFIX.length(),
+			name.length() - RuleSet.STATE_DATAPOINT.length() - 1);
+		int r = _ruleIds.indexOf(rule);
+		return r >= 0 && _ruleHasStates.get(r).booleanValue();
+	}
+
+	/** Whether the datapoint is the state datapoint of the rule being compiled. */
+	private boolean ownStateDatapoint(String name) {
+		return stateDatapoint(name) && _rule >= 0 && _rule < _ruleIds.size()
+			&& name.equals(stateDatapointName(_ruleIds.get(_rule)));
+	}
+
+	/**
+	 * The name of the datapoint of a rule's state (<code>spec/rules.md</code> 8.8):
+	 * <code>rule/&lt;ruleId&gt;/state</code>.
+	 */
+	public static String stateDatapointName(String rule) {
+		return parameterDatapointName(rule, RuleSet.STATE_DATAPOINT);
+	}
+
 	// ---- Expressions ------------------------------------------------------------------------
 
 	private static String typeName(Type type) {
@@ -1569,6 +1966,10 @@ public final class RuleLoader {
 		if (_datapoints.type(name) == null) {
 			throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'",
 				I18NConstants.RULE_NO_DATAPOINT__NAME.fill(DatapointId.of(name)));
+		}
+		if (ownStateDatapoint(name)) {
+			throw fail(LoadError.FORBIDDEN, "'" + name + "' is the state of this rule: use state()",
+				I18NConstants.RULE_OWN_STATE__NAME.fill(DatapointId.of(name)));
 		}
 		if (ownParameterDatapoint(name)) {
 			throw fail(LoadError.FORBIDDEN,
@@ -1682,6 +2083,11 @@ public final class RuleLoader {
 					enter(".name");
 					throw fail(LoadError.UNKNOWN_REFERENCE, "no datapoint '" + name + "'",
 						I18NConstants.RULE_NO_DATAPOINT__NAME.fill(DatapointId.of(name)));
+				}
+				if (ownStateDatapoint(name)) {
+					enter(".name");
+					throw fail(LoadError.FORBIDDEN, "'" + name + "' is the state of this rule: use state()",
+						I18NConstants.RULE_OWN_STATE__NAME.fill(DatapointId.of(name)));
 				}
 				if (ownParameterDatapoint(name)) {
 					enter(".name");

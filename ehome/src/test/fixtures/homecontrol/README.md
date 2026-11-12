@@ -51,6 +51,15 @@ top of `a3f51b988c3dd581278c54fadae0b1813711b3cb`; fb80455), which added the ima
 datapoint is the rules' to write), added the rule cases `72-application-write-not-writable` (with the
 datapoint member `application`) and `73-load-refused-not-writable-status` and changed the rule corpus
 `README.md`; the block fixtures did not change.
+Synced again with the schema 1.7 round of haumacher/homecontrol (#84, haumacher/ehome #140: time
+programs, the timelines of rules with states and the state datapoints; from the working tree on top of
+`ef0b105609ac8efccc42ed82157ff2b165704c75`), which added the rule cases `74-timeline-heating-week` to
+`101-timeline-enable-override-watch` (with the steps `clockStep` and `setTimeline`, `final.timelines`,
+the persisted `<rule>/.timeline` and the refusal's `path` and `text`), the image
+`images/heating-timeline.json` (E-Home's export of the heating program equals it,
+`test.de.haumacher.ehome.runtime.TestTimelines`) and the image case
+`images/cases/refuse-rule-timeline.json`, and changed the rule corpus `README.md`; the block fixtures
+did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

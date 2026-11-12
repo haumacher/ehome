@@ -62,9 +62,10 @@ public final class ImageValidator {
 	 * <code>presses</code>, the Zigbee remotes, haumacher/ehome #70; 1.5: the parameter ids of the rule
 	 * id characters, haumacher/ehome #110; 1.6: the roles atTop, atBottom and heatingLevel, a heating of a
 	 * number, a dimmer with its switching command alone, rules writing an application datapoint that is
-	 * not writable, haumacher/ehome #134, #136, #138).
+	 * not writable, haumacher/ehome #134, #136, #138; 1.7: the timelines of rules with states, the
+	 * labels of states, the datapoints of the rules' states, haumacher/ehome #140).
 	 */
-	public static final int SCHEMA_MINOR = 6;
+	public static final int SCHEMA_MINOR = 7;
 
 	/** The largest image in bytes. */
 	public static final int MAX_IMAGE_BYTES = 262144;

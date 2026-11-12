@@ -455,6 +455,8 @@ public final class RuleImport {
 	private TLObject rule(Map<?, ?> json) {
 		TLObject rule = create("Rule");
 		_rule = rule;
+		// Its state datapoint at once: the references of the image may name it (rule/<id>/state).
+		StateDatapoints.ensure(rule);
 		rule.tUpdateByName("identifier", json.get("id"));
 		rule.tUpdateByName("name", label(json.get("name"), "rule " + json.get("id")));
 		rule.tUpdateByName("description", json.get("description"));
@@ -484,6 +486,9 @@ public final class RuleImport {
 			Map<?, ?> state = (Map<?, ?>) item;
 			TLObject result = create("RuleState");
 			result.tUpdateByName("identifier", state.get("id"));
+			if (state.get("label") != null) {
+				result.tUpdateByName("label", label(state.get("label"), "state " + state.get("id")));
+			}
 			result.tUpdateByName("entry", actions(state.get("entry")));
 			result.tUpdateByName("exit", actions(state.get("exit")));
 			notes(state, "state " + state.get("id"));
@@ -491,6 +496,9 @@ public final class RuleImport {
 		}
 		rule.tUpdateByName("states", states);
 		rule.tUpdateByName("initialState", state(states, json.get("initialState")));
+		if (json.get("timeline") instanceof Map<?, ?> timeline) {
+			rule.tUpdateByName("timeline", timeline(timeline, states));
+		}
 
 		List<TLObject> reactions = new ArrayList<>();
 		for (Object item : list(json.get("reactions"))) {
@@ -498,6 +506,78 @@ public final class RuleImport {
 		}
 		rule.tUpdateByName("reactions", reactions);
 		return rule;
+	}
+
+	/**
+	 * The timeline of a rule with states (homecontrol <code>spec/rules.md</code> 2.8, haumacher/ehome
+	 * #140): its plans with their points and its assignments, the states and plans by their ids.
+	 */
+	private TLObject timeline(Map<?, ?> json, List<TLObject> states) {
+		TLObject result = create("RuleTimeline");
+		result.tUpdateByName("adjustable", Boolean.valueOf(!Boolean.FALSE.equals(json.get("adjustable"))));
+		List<TLObject> plans = new ArrayList<>();
+		for (Object item : list(json.get("plans"))) {
+			Map<?, ?> plan = (Map<?, ?>) item;
+			TLObject created = create("TimelinePlan");
+			created.tUpdateByName("identifier", plan.get("id"));
+			created.tUpdateByName("label", label(plan.get("label"), "plan " + plan.get("id")));
+			List<TLObject> points = new ArrayList<>();
+			for (Object element : list(plan.get("points"))) {
+				Map<?, ?> point = (Map<?, ?>) element;
+				TLObject p = create("TimelinePoint");
+				if (point.get("time") != null) {
+					p.tUpdateByName("time", RuleText.printValue(point.get("time"), Type.TIME_OF_DAY));
+				}
+				if (point.get("sun") != null) {
+					p.tUpdateByName("sun", classifier("SunEvent", point.get("sun")));
+				}
+				if (point.get("offset") != null) {
+					p.tUpdateByName("offset", RuleText.printValue(point.get("offset"), Type.DURATION));
+				}
+				for (String clamp : new String[] { "notBefore", "notAfter" }) {
+					if (point.get(clamp) != null) {
+						p.tUpdateByName(clamp, RuleText.printValue(point.get(clamp), Type.TIME_OF_DAY));
+					}
+				}
+				TLObject state = state(states, point.get("state"));
+				if (state == null) {
+					_notes.add("unknown state " + point.get("state") + " in a point of plan " + plan.get("id"));
+				}
+				p.tUpdateByName("state", state);
+				points.add(p);
+			}
+			created.tUpdateByName("points", points);
+			plans.add(created);
+		}
+		result.tUpdateByName("plans", plans);
+		List<TLObject> assignments = new ArrayList<>();
+		for (Object item : list(json.get("assignments"))) {
+			Map<?, ?> assignment = (Map<?, ?>) item;
+			TLObject created = create("TimelineAssignment");
+			TLObject plan = null;
+			for (TLObject candidate : plans) {
+				if (java.util.Objects.equals(candidate.tValueByName("identifier"), assignment.get("plan"))) {
+					plan = candidate;
+				}
+			}
+			if (plan == null) {
+				_notes.add("unknown plan " + assignment.get("plan") + " in an assignment");
+			}
+			created.tUpdateByName("plan", plan);
+			List<TLClassifier> days = new ArrayList<>();
+			for (Object day : list(assignment.get("days"))) {
+				if (!(day instanceof Number n) || n.doubleValue() != n.intValue() || n.intValue() < 1 || n.intValue() > 7) {
+					// No weekday the model holds: refused, not dropped.
+					throw new TopLogicException(I18NConstants.ERROR_RULE_IMPORT_UNREADABLE__REASON
+						.fill("weekday " + day + " of an assignment is not 1..7"));
+				}
+				days.add(classifier("Weekday", RuleExport.weekday(n.intValue())));
+			}
+			created.tUpdateByName("days", days);
+			assignments.add(created);
+		}
+		result.tUpdateByName("assignments", assignments);
+		return result;
 	}
 
 	private TLObject parameter(Map<?, ?> json) {

@@ -98,9 +98,10 @@ public final class RuntimeImage {
 	 * id characters (homecontrol <code>spec/rules.md</code> 2.1, haumacher/ehome #110); 1.6 the roles
 	 * <code>atTop</code>, <code>atBottom</code> and <code>heatingLevel</code>, a heating of a number, a
 	 * dimmer with its switching command alone, and rules writing an application datapoint that is not
-	 * writable (haumacher/ehome #134, #136, #138).
+	 * writable (haumacher/ehome #134, #136, #138); 1.7 the timelines of rules with states, the labels
+	 * of states and the datapoints of the rules' states (haumacher/ehome #140).
 	 */
-	public static final String SCHEMA_VERSION = "1.6";
+	public static final String SCHEMA_VERSION = "1.7";
 
 	/**
 	 * The <code>presses</code> E-Home writes for a button whose press is the action of a Zigbee remote
@@ -1009,7 +1010,7 @@ public final class RuntimeImage {
 				if (BlockInstances.isBlockDatapoint(datapoint)) {
 					return BlockInstances.hasMirror(datapoint) ? BlockInstances.imageId(datapoint) : null;
 				}
-				if (Pages.isRuleParameter(datapoint) || Pages.isTimeSchedule(datapoint)) {
+				if (Pages.isRuleParameter(datapoint) || Pages.isRuleState(datapoint) || Pages.isTimeSchedule(datapoint)) {
 					String id = Pages.imageId(datapoint);
 					return parameters.contains(id) ? id : null;
 				}

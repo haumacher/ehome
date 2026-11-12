@@ -463,6 +463,26 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey NEW_RULE_NAME;
 
 	/**
+	 * @en Day plan
+	 */
+	public static ResKey NEW_PLAN_LABEL;
+
+	/**
+	 * @en State datapoints created for {0} rules
+	 */
+	public static ResKey1 COMMIT_STATE_DATAPOINTS__COUNT;
+
+	/**
+	 * @en {0}: state
+	 */
+	public static ResKey1 STATE_DATAPOINT_LABEL__RULE;
+
+	/**
+	 * @en The rule {0} no longer has the state {1}, which its timeline deployed last names: a timeline the inhabitant set on the controller naming it would be dropped, and the timeline of this image would apply.
+	 */
+	public static ResKey2 COMPARE_TIMELINE_STATE_GONE__RULE_STATE;
+
+	/**
 	 * @en New schedule entry
 	 */
 	public static ResKey NEW_SCHEDULE_LABEL;
@@ -1001,6 +1021,26 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Not deployed: a rule writes the application datapoint {1}, which the user may not change (not writable); that needs image schema 1.6; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
 	 */
 	public static ResKey2 DEPLOY_REFUSED_RULE_WRITE_NO_SCHEMA__CONTROLLER_DATAPOINT;
+
+	/**
+	 * @en Not deployed: the rule {2} has a timeline or labels of its states; that needs image schema 1.7; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey3 DEPLOY_REFUSED_TIMELINE_SCHEMA__CONTROLLER_SCHEMA_RULE;
+
+	/**
+	 * @en Not deployed: the rule {1} has a timeline or labels of its states; that needs image schema 1.7; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey2 DEPLOY_REFUSED_TIMELINE_NO_SCHEMA__CONTROLLER_RULE;
+
+	/**
+	 * @en Not deployed: the image names the state of a rule as the datapoint {2}; that needs image schema 1.7; the controller {0} reads schema {1} and has no such datapoint, so it would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey3 DEPLOY_REFUSED_STATE_DATAPOINT_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT;
+
+	/**
+	 * @en Not deployed: the image names the state of a rule as the datapoint {1}; that needs image schema 1.7; the controller {0} reports no schema (a firmware reading at most 1.1) and has no such datapoint, so it would refuse the whole image. Update its firmware first.
+	 */
+	public static ResKey2 DEPLOY_REFUSED_STATE_DATAPOINT_NO_SCHEMA__CONTROLLER_DATAPOINT;
 
 	/**
 	 * @en {0} (deleted)

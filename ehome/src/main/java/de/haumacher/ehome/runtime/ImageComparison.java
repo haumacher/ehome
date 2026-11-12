@@ -149,6 +149,7 @@ public final class ImageComparison {
 				Integer.valueOf(schedules))));
 		}
 		lines.addAll(droppedOverrides(stored.get("schedules"), image.getJson().get("schedules")));
+		lines.addAll(droppedTimelines(stored.get("rules"), image.getJson().get("rules")));
 		return new Result(State.DIFFERENT, revision, String.join("\n", lines));
 	}
 
@@ -191,6 +192,62 @@ public final class ImageComparison {
 				} else if (narrowed(member, bound(before, member), bound(after, member))) {
 					result.add(text(I18NConstants.COMPARE_OVERRIDE_NARROWED__ENTRY_MEMBER.fill(before.get("id"), name)));
 				}
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * What the inhabitant may have set on the controller that the image to deploy would drop
+	 * (homecontrol <code>spec/rules.md</code> 8.7, haumacher/ehome #140): E-Home cannot know the
+	 * inhabitant's timeline, but an inhabitant's timeline is dropped when it names a state the new
+	 * rule no longer has. For each rule of the stored image with an adjustable timeline that the new
+	 * image keeps with a timeline, the states its last deployed timeline names that the new rule no
+	 * longer has: a timeline of the inhabitant naming one of them would be dropped.
+	 */
+	public static List<String> droppedTimelines(Object stored, Object next) {
+		List<String> result = new ArrayList<>();
+		if (!(stored instanceof Collection<?> rules) || !(next instanceof Collection<?> nextRules)) {
+			return result;
+		}
+		Map<Object, Map<?, ?>> byId = new HashMap<>();
+		for (Object rule : nextRules) {
+			if (rule instanceof Map<?, ?> map) {
+				byId.putIfAbsent(map.get("id"), map);
+			}
+		}
+		for (Object item : rules) {
+			if (!(item instanceof Map<?, ?> before) || !(before.get("timeline") instanceof Map<?, ?> timeline)
+				|| Boolean.FALSE.equals(timeline.get("adjustable"))) {
+				continue;
+			}
+			Map<?, ?> after = byId.get(before.get("id"));
+			if (after == null || !(after.get("timeline") instanceof Map<?, ?>)) {
+				// The rule or its timeline is gone: the controller drops the inhabitant's timeline silently.
+				continue;
+			}
+			Set<Object> states = new HashSet<>();
+			if (after.get("states") instanceof Collection<?> list) {
+				for (Object state : list) {
+					if (state instanceof Map<?, ?> map) {
+						states.add(map.get("id"));
+					}
+				}
+			}
+			Set<Object> gone = new LinkedHashSet<>();
+			if (timeline.get("plans") instanceof Collection<?> plans) {
+				for (Object plan : plans) {
+					if (plan instanceof Map<?, ?> p && p.get("points") instanceof Collection<?> points) {
+						for (Object point : points) {
+							if (point instanceof Map<?, ?> q && q.get("state") != null && !states.contains(q.get("state"))) {
+								gone.add(q.get("state"));
+							}
+						}
+					}
+				}
+			}
+			for (Object state : gone) {
+				result.add(text(I18NConstants.COMPARE_TIMELINE_STATE_GONE__RULE_STATE.fill(before.get("id"), state)));
 			}
 		}
 		return result;

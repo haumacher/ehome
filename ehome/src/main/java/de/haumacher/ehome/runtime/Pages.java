@@ -115,6 +115,22 @@ public final class Pages {
 	}
 
 	/**
+	 * Whether the object is the datapoint of a rule's state (<code>rule/&lt;rule&gt;/state</code>,
+	 * homecontrol <code>spec/rules.md</code> 8.8, haumacher/ehome #140).
+	 */
+	public static boolean isRuleState(Object obj) {
+		return is(obj, "RuleStateDatapoint");
+	}
+
+	/**
+	 * The state datapoint of the rule when the rule has states (only then the image has the
+	 * datapoint), <code>null</code> otherwise.
+	 */
+	public static TLObject stateDatapoint(TLObject rule) {
+		return list(rule, "states").isEmpty() ? null : StateDatapoints.of(rule);
+	}
+
+	/**
 	 * Whether the object is a schedule entry that can have an adjustable time (weekly, yearly, dates):
 	 * then it is the datapoint <code>schedule/&lt;id&gt;/time</code> of the image (homecontrol #58).
 	 */
@@ -181,6 +197,10 @@ public final class Pages {
 		List<TLObject> result = RuntimeFunctions.datapoints(project);
 		for (TLObject rule : list(project, "rules")) {
 			result.addAll(list(rule, "parameters"));
+			TLObject state = stateDatapoint(rule);
+			if (state != null) {
+				result.add(state);
+			}
 		}
 		for (TLObject entry : list(project, "schedules")) {
 			if (isTimeSchedule(entry) && Boolean.TRUE.equals(entry.tValueByName("timeAdjustable"))) {
@@ -253,6 +273,10 @@ public final class Pages {
 			String rule = text(target.tValueByName("identifier"));
 			return rule == null ? null : RuleLoader.parameterDatapointName(rule, "enabled");
 		}
+		if (isRuleState(target)) {
+			String rule = target.tContainer() == null ? null : text(target.tContainer().tValueByName("identifier"));
+			return rule == null ? null : RuleLoader.stateDatapointName(rule);
+		}
 		if (isTimeSchedule(target)) {
 			String entry = text(target.tValueByName("identifier"));
 			return entry == null ? null : Schedule.timeDatapointName(entry);
@@ -272,7 +296,7 @@ public final class Pages {
 			return "";
 		}
 		if (isGroupAddress(target) || ApplicationDatapoints.isApplicationDatapoint(target) || isRuleParameter(target)
-			|| isTimeSchedule(target) || BlockInstances.isBlockDatapoint(target)) {
+			|| isRuleState(target) || isTimeSchedule(target) || BlockInstances.isBlockDatapoint(target)) {
 			return String.valueOf(DatapointNames.name(target));
 		}
 		if (is(target, "Function") || is(target, "Rule")) {
@@ -322,6 +346,9 @@ public final class Pages {
 		}
 		if (isTimeSchedule(datapoint)) {
 			return ValueTypes.TIME_OF_DAY;
+		}
+		if (isRuleState(datapoint)) {
+			return ValueTypes.ENUMERATION;
 		}
 		if (isGroupAddress(datapoint)) {
 			Dpt dpt = GroupAddressTypes.effective(datapoint);

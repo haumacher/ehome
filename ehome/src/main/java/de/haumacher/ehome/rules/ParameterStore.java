@@ -19,6 +19,13 @@ public final class ParameterStore {
 
 	private final Map<String, Val> _overrides = new LinkedHashMap<>();
 
+	/**
+	 * The inhabitant's timelines (<code>spec/rules.md</code> 8.7) under their logical keys
+	 * <code>&lt;ruleId&gt;/.timeline</code>: the canonical form as a JSON value, which the controller
+	 * keeps in its blob store.
+	 */
+	private final Map<String, Object> _timelines = new LinkedHashMap<>();
+
 	/** Stores an override. */
 	public void write(String rule, String parameter, Val value) {
 		_overrides.put(key(rule, parameter), value);
@@ -42,6 +49,26 @@ public final class ParameterStore {
 	/** The stored overrides by logical key. */
 	public Map<String, Val> overrides() {
 		return Collections.unmodifiableMap(_overrides);
+	}
+
+	/** Stores the inhabitant's timeline of the rule: its canonical form as a JSON value. */
+	public void writeTimeline(String rule, Object timeline) {
+		_timelines.put(key(rule, RuleSet.TIMELINE_KEY), timeline);
+	}
+
+	/** The inhabitant's timeline of the rule (a JSON value), <code>null</code> if there is none. */
+	public Object readTimeline(String rule) {
+		return _timelines.get(key(rule, RuleSet.TIMELINE_KEY));
+	}
+
+	/** Removes the inhabitant's timeline of the rule. */
+	public void eraseTimeline(String rule) {
+		_timelines.remove(key(rule, RuleSet.TIMELINE_KEY));
+	}
+
+	/** The stored timelines by logical key (<code>&lt;ruleId&gt;/.timeline</code>). */
+	public Map<String, Object> timelines() {
+		return Collections.unmodifiableMap(_timelines);
 	}
 
 	/** The logical key. */

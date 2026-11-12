@@ -5,9 +5,11 @@ package de.haumacher.ehome.rules;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -90,6 +92,42 @@ public final class RuleSet {
 	public static final String STATE_KEY = ".state";
 
 	/**
+	 * The pseudo parameter id under which the inhabitant's timeline of a rule is persisted
+	 * (<code>spec/rules.md</code> 8.7): <code>&lt;ruleId&gt;/.timeline</code>.
+	 */
+	public static final String TIMELINE_KEY = ".timeline";
+
+	/**
+	 * The last part of the name of the datapoint of a rule's state (<code>spec/rules.md</code> 8.8):
+	 * <code>rule/&lt;ruleId&gt;/state</code>; a parameter of a rule with states may not have this id.
+	 */
+	public static final String STATE_DATAPOINT = "state";
+
+	/** Plans per timeline (<code>spec/rules.md</code> 10.2). */
+	public static final int MAX_PLANS = 8;
+
+	/** Points per plan. */
+	public static final int MAX_PLAN_POINTS = 16;
+
+	/** Points per timeline. */
+	public static final int MAX_TIMELINE_POINTS = 64;
+
+	/** Languages of a plan's label. */
+	public static final int MAX_PLAN_LABEL_LANGUAGES = 4;
+
+	/** Assignments per timeline: a default and seven weekdays. */
+	public static final int MAX_ASSIGNMENTS = 8;
+
+	/** Points in all timelines of an image, and in all effective timelines. */
+	public static final int MAX_IMAGE_TIMELINE_POINTS = 256;
+
+	/** Plans in all timelines of an image, and in all effective timelines. */
+	public static final int MAX_IMAGE_TIMELINE_PLANS = 64;
+
+	/** The greatest offset of a sun point in seconds (12 h, either way). */
+	public static final int MAX_POINT_OFFSET = 12 * 3600;
+
+	/**
 	 * A rule (<code>spec/rules.md</code> 2.2).
 	 */
 	public static final class Rule {
@@ -110,6 +148,9 @@ public final class RuleSet {
 		int _initialState = -1;
 
 		final List<Reaction> _reactions = new ArrayList<>();
+
+		/** The image's timeline (<code>spec/rules.md</code> 2.8), <code>null</code> for none. */
+		Timeline _timeline;
 
 		Rule(String id, String name, Map<String, String> nameMap) {
 			_id = id;
@@ -158,6 +199,11 @@ public final class RuleSet {
 		/** The reactions. */
 		public List<Reaction> reactions() {
 			return Collections.unmodifiableList(_reactions);
+		}
+
+		/** The image's timeline, <code>null</code> for none. */
+		public Timeline timeline() {
+			return _timeline;
 		}
 
 		/** The index of the parameter, -1 if none. */
@@ -337,17 +383,335 @@ public final class RuleSet {
 	public static final class State {
 		final String _id;
 
+		/** The label resolved in the language of the load, the id without a label. */
+		String _label;
+
+		/** The label's language map, <code>null</code> without a map. */
+		Map<String, String> _labelMap;
+
 		final List<Action> _entry = new ArrayList<>();
 
 		final List<Action> _exit = new ArrayList<>();
 
 		State(String id) {
 			_id = id;
+			_label = id;
 		}
 
 		/** The id. */
 		public String id() {
 			return _id;
+		}
+
+		/** The label (schema 1.7) resolved in the language of the load, the id where it has none. */
+		public String label() {
+			return _label;
+		}
+
+		/** The label's language map, <code>null</code> when the image gave a plain string or none. */
+		public Map<String, String> labelMap() {
+			return _labelMap;
+		}
+	}
+
+	/**
+	 * The timeline of a rule with states (<code>spec/rules.md</code> 2.8, schema 1.7): day plans of
+	 * switching points and the assignments of the plans to days. Immutable once loaded.
+	 */
+	public static final class Timeline {
+		final boolean _adjustable;
+
+		final List<Plan> _plans = new ArrayList<>();
+
+		final List<Assignment> _assignments = new ArrayList<>();
+
+		Timeline(boolean adjustable) {
+			_adjustable = adjustable;
+		}
+
+		/** Whether the inhabitant may replace the timeline (8.7). */
+		public boolean adjustable() {
+			return _adjustable;
+		}
+
+		/** The day plans. */
+		public List<Plan> plans() {
+			return Collections.unmodifiableList(_plans);
+		}
+
+		/** The assignments of the plans to days. */
+		public List<Assignment> assignments() {
+			return Collections.unmodifiableList(_assignments);
+		}
+
+		/** The number of points of all plans. */
+		public int pointCount() {
+			int result = 0;
+			for (Plan plan : _plans) {
+				result += plan._points.size();
+			}
+			return result;
+		}
+
+		/**
+		 * The index of the plan of the given weekday (1 Monday .. 7 Sunday): that of the matching
+		 * assignment of the highest rank (a <code>days</code> assignment, else the default).
+		 */
+		public int planOf(int weekday) {
+			int fallback = -1;
+			for (Assignment assignment : _assignments) {
+				if (assignment._days == 0) {
+					fallback = assignment._plan;
+				} else if ((assignment._days & (1 << (weekday - 1))) != 0) {
+					return assignment._plan;
+				}
+			}
+			return fallback;
+		}
+
+		/**
+		 * The canonical form of the timeline (<code>spec/rules.md</code> 8.7): its <code>plans</code>
+		 * and <code>assignments</code> as a JSON value, members in the order of the tables of 2.8,
+		 * an offset of 0 left out, without <code>adjustable</code>.
+		 */
+		public Map<String, Object> toJson() {
+			List<Object> plans = new ArrayList<>();
+			for (Plan plan : _plans) {
+				Map<String, Object> json = new LinkedHashMap<>();
+				json.put("id", plan._id);
+				json.put("label", plan._label);
+				List<Object> points = new ArrayList<>();
+				for (Point point : plan._points) {
+					points.add(point.toJson());
+				}
+				json.put("points", points);
+				plans.add(json);
+			}
+			List<Object> assignments = new ArrayList<>();
+			for (Assignment assignment : _assignments) {
+				Map<String, Object> json = new LinkedHashMap<>();
+				if (assignment._days != 0) {
+					json.put("days", new ArrayList<>(assignment._dayList));
+				}
+				json.put("plan", _plans.get(assignment._plan)._id);
+				assignments.add(json);
+			}
+			Map<String, Object> result = new LinkedHashMap<>();
+			result.put("plans", plans);
+			result.put("assignments", assignments);
+			return result;
+		}
+
+		/**
+		 * Whether the other timeline equals this one as <code>spec/rules.md</code> 8.7 compares an
+		 * inhabitant's timeline with the image's: member by member in order (plans, their points, the
+		 * assignments), an absent offset equal to 0, the days compared as sets, the labels as given;
+		 * <code>adjustable</code> is not compared.
+		 */
+		public boolean sameAs(Timeline other) {
+			if (other == null || other._plans.size() != _plans.size() || other._assignments.size() != _assignments.size()) {
+				return false;
+			}
+			for (int i = 0; i < _plans.size(); i++) {
+				Plan a = _plans.get(i);
+				Plan b = other._plans.get(i);
+				if (!a._id.equals(b._id) || !Objects.equals(a._label, b._label) || a._points.size() != b._points.size()) {
+					return false;
+				}
+				for (int k = 0; k < a._points.size(); k++) {
+					if (!a._points.get(k).sameAs(b._points.get(k))) {
+						return false;
+					}
+				}
+			}
+			for (int i = 0; i < _assignments.size(); i++) {
+				Assignment a = _assignments.get(i);
+				Assignment b = other._assignments.get(i);
+				if (a._days != b._days || !_plans.get(a._plan)._id.equals(other._plans.get(b._plan)._id)) {
+					return false;
+				}
+			}
+			return true;
+		}
+
+		/** The ids of the states the points of the timeline name, in the order of their first use. */
+		public Set<String> stateIds() {
+			Set<String> result = new LinkedHashSet<>();
+			for (Plan plan : _plans) {
+				for (Point point : plan._points) {
+					result.add(point._stateId);
+				}
+			}
+			return result;
+		}
+	}
+
+	/**
+	 * A day plan of a timeline: its switching points in plan order.
+	 */
+	public static final class Plan {
+		final String _id;
+
+		/** The label as the image gives it: a string or a map of language tags to strings. */
+		final Object _label;
+
+		final String _labelText;
+
+		final List<Point> _points = new ArrayList<>();
+
+		Plan(String id, Object label, String labelText) {
+			_id = id;
+			_label = label;
+			_labelText = labelText;
+		}
+
+		/** The id. */
+		public String id() {
+			return _id;
+		}
+
+		/** The label resolved in the language of the load. */
+		public String label() {
+			return _labelText;
+		}
+
+		/** The switching points in plan order. */
+		public List<Point> points() {
+			return Collections.unmodifiableList(_points);
+		}
+	}
+
+	/**
+	 * A switching point (<code>spec/rules.md</code> 2.8): a clock time or a sun event with an offset
+	 * and clamps, and the state the rule goes to.
+	 */
+	public static final class Point {
+		/** The clock time in seconds of the day, -1 for a sun point. */
+		final int _time;
+
+		/** The sun event of a sun point, <code>null</code> for a clock point. */
+		final Astro.SunEvent _sun;
+
+		/** The offset of a sun point in seconds. */
+		final int _offset;
+
+		/** The earliest time of day of a sun point in seconds, -1 for none. */
+		final int _notBefore;
+
+		/** The latest time of day of a sun point in seconds, -1 for none. */
+		final int _notAfter;
+
+		/** The index of the state in the rule. */
+		final int _state;
+
+		final String _stateId;
+
+		Point(int time, Astro.SunEvent sun, int offset, int notBefore, int notAfter, int state, String stateId) {
+			_time = time;
+			_sun = sun;
+			_offset = offset;
+			_notBefore = notBefore;
+			_notAfter = notAfter;
+			_state = state;
+			_stateId = stateId;
+		}
+
+		/** The clock time in seconds of the day, -1 for a sun point. */
+		public int time() {
+			return _time;
+		}
+
+		/** The sun event, <code>null</code> for a clock point. */
+		public Astro.SunEvent sun() {
+			return _sun;
+		}
+
+		/** The offset of a sun point in seconds. */
+		public int offset() {
+			return _offset;
+		}
+
+		/** The earliest time of day of a sun point in seconds, -1 for none. */
+		public int notBefore() {
+			return _notBefore;
+		}
+
+		/** The latest time of day of a sun point in seconds, -1 for none. */
+		public int notAfter() {
+			return _notAfter;
+		}
+
+		/** The index of the state in the rule's states. */
+		public int state() {
+			return _state;
+		}
+
+		/** The id of the state. */
+		public String stateId() {
+			return _stateId;
+		}
+
+		boolean sameAs(Point other) {
+			return _time == other._time && _sun == other._sun && _offset == other._offset
+				&& _notBefore == other._notBefore && _notAfter == other._notAfter && _stateId.equals(other._stateId);
+		}
+
+		Map<String, Object> toJson() {
+			Map<String, Object> result = new LinkedHashMap<>();
+			if (_sun == null) {
+				result.put("time", time(_time));
+			} else {
+				result.put("sun", _sun.externalName());
+				if (_offset != 0) {
+					result.put("offset", Long.valueOf(_offset * 1000L));
+				}
+				if (_notBefore >= 0) {
+					result.put("notBefore", time(_notBefore));
+				}
+				if (_notAfter >= 0) {
+					result.put("notAfter", time(_notAfter));
+				}
+			}
+			result.put("state", _stateId);
+			return result;
+		}
+
+		private static Map<String, Object> time(int seconds) {
+			Map<String, Object> result = new LinkedHashMap<>();
+			result.put("hour", Long.valueOf(seconds / 3600));
+			result.put("minute", Long.valueOf(seconds / 60 % 60));
+			result.put("second", Long.valueOf(seconds % 60));
+			return result;
+		}
+	}
+
+	/**
+	 * An assignment of a plan to days: the default (every date) or weekdays.
+	 */
+	public static final class Assignment {
+		/** The weekdays as bits (bit 0 Monday), 0 for the default. */
+		final int _days;
+
+		/** The weekdays as given (1 Monday .. 7 Sunday). */
+		final List<Long> _dayList;
+
+		/** The index of the plan. */
+		final int _plan;
+
+		Assignment(int days, List<Long> dayList, int plan) {
+			_days = days;
+			_dayList = dayList;
+			_plan = plan;
+		}
+
+		/** The weekdays as bits (bit 0 Monday), 0 for the default. */
+		public int days() {
+			return _days;
+		}
+
+		/** The index of the plan. */
+		public int plan() {
+			return _plan;
 		}
 	}
 

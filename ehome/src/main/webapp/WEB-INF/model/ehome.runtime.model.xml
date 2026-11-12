@@ -1369,6 +1369,279 @@
 					ordered="true"
 					type="Reaction"
 				/>
+				<!-- The timeline of a rule with states: which state holds when (homecontrol spec/rules.md 2.8, schema 1.7, haumacher/ehome #140); empty for none. -->
+				<reference name="timeline"
+					composite="true"
+					kind="forwards"
+					type="RuleTimeline"
+				/>
+				<!--
+					The datapoint of the rule's state (rule/<id>/state, homecontrol spec/rules.md 8.8,
+					haumacher/ehome #140): what a trigger, a block or a control page names to follow the state
+					of a rule with states. Every rule holds one (de.haumacher.ehome.runtime.StateDatapoints
+					creates it); the image has the datapoint while the rule has states.
+				-->
+				<reference name="stateDatapoint"
+					composite="true"
+					kind="forwards"
+					type="RuleStateDatapoint"
+				/>
+			</attributes>
+		</class>
+		<!--
+			The datapoint of the state of a rule with states (rule/<id>/state, homecontrol spec/rules.md 8.8):
+			an enumeration of the position of the current state among the rule's states, its choices the
+			states' labels; read-only. Part of its rule (Rule#stateDatapoint).
+		-->
+		<class name="RuleStateDatapoint">
+			<generalizations>
+				<generalization type="ehome.logical:ProjectDatapoint"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-record-circle"/>
+			</annotations>
+		</class>
+		<!--
+			The timeline of a rule with states (homecontrol spec/rules.md 2.8, 7.13, haumacher/ehome #140):
+			day plans of switching points and the assignment of the plans to days. A switching point is a
+			transition of the rule into the point's state; every start of the rule enters the state due
+			now. The image's timeline is the inhabitant's starting timeline; where it is adjustable, the
+			inhabitant replaces it on the controller as a whole.
+		-->
+		<class name="RuleTimeline">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-calendar-week"/>
+			</annotations>
+			<attributes>
+				<!-- Whether the inhabitant may replace the timeline on the controller. A refusal of the timeline as a whole (no plan, no default assignment, too many points) is shown here. -->
+				<property name="adjustable"
+					type="tl.core:Boolean"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+						<default-value>
+							<boolean value="true"/>
+						</default-value>
+					</annotations>
+				</property>
+				<!-- The day plans (at least 1, at most 8), in the order the controller's editor shows them. -->
+				<reference name="plans"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="TimelinePlan"
+				/>
+				<!-- Which plan applies on which days: exactly one default (without weekdays), each weekday at most once. -->
+				<reference name="assignments"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="TimelineAssignment"
+				/>
+			</attributes>
+		</class>
+		<!-- A day plan of a timeline: the switching points of one day (at most 16). -->
+		<class name="TimelinePlan">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-calendar-day"/>
+				<id-column value="identifier"/>
+			</annotations>
+			<attributes>
+				<!-- The id of the plan (1..24 of A-Z a-z 0-9 _ -), unique in the timeline. -->
+				<property name="identifier"
+					mandatory="true"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The label the controller's editor shows (1..63 bytes per language, at most 4 languages). -->
+				<property name="label"
+					mandatory="true"
+					type="tl.model.i18n:I18NString"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The switching points of the day, in any order; at an equal moment they apply in this order. Empty: a day without switching. -->
+				<reference name="points"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="TimelinePoint"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A switching point of a day plan: a moment and the state the rule goes to. The moment is a
+			clock time, or a sun event with an offset and an earliest and a latest time, as an astronomical
+			schedule entry has (AstroSchedule).
+		-->
+		<class name="TimelinePoint">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-clock"/>
+				<id-column value="summary"/>
+			</annotations>
+			<attributes>
+				<!-- The moment and the state, derived from the point's content: its label. -->
+				<property name="summary"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[x -> ruleSummary($x)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The clock time of a point without a sun event (06:00); empty at a sun event. -->
+				<property name="time"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The sun event of the point; empty for a point at a clock time. -->
+				<reference name="sun"
+					kind="forwards"
+					type="SunEvent"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
+				<!-- At a sun event: the time added to it, a duration in whole seconds within 12 h either way (-30min); empty for none. -->
+				<property name="offset"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- At a sun event: the earliest time of the point; empty for none. -->
+				<property name="notBefore"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- At a sun event: the latest time of the point; empty for none. -->
+				<property name="notAfter"
+					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint syntax="true"/>
+							<rule-constraint/>
+						</constraints>
+						<value-normalizer>
+							<rule-text/>
+						</value-normalizer>
+					</annotations>
+				</property>
+				<!-- The state of the rule the point switches to. -->
+				<reference name="state"
+					kind="forwards"
+					mandatory="true"
+					type="RuleState"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[p -> $p.container().container().container().get(`ehome.runtime:Rule#states`)]]></function>
+							</options-by-expression>
+						</options>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+		<!--
+			An assignment of a day plan to days: on the given weekdays, or without weekdays the default,
+			every other day. Later kinds of assignment (dates, calendars) add to this.
+		-->
+		<class name="TimelineAssignment">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-calendar-check"/>
+			</annotations>
+			<attributes>
+				<!-- The plan of the days the assignment selects. -->
+				<reference name="plan"
+					kind="forwards"
+					mandatory="true"
+					type="TimelinePlan"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[a -> $a.container().get(`ehome.runtime:RuleTimeline#plans`)]]></function>
+							</options-by-expression>
+						</options>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
+				<!-- The weekdays the plan applies on; empty for the default (every day no other assignment names). -->
+				<reference name="days"
+					kind="forwards"
+					multiple="true"
+					type="Weekday"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
 		<!--
@@ -1621,6 +1894,16 @@
 				<property name="identifier"
 					mandatory="true"
 					type="tl.core:String"
+				>
+					<annotations>
+						<constraints>
+							<rule-constraint/>
+						</constraints>
+					</annotations>
+				</property>
+				<!-- The label the controller shows for the state (its timeline editor, its pages, the choices of the state datapoint), 1..63 bytes per language; empty: the id (schema 1.7). -->
+				<property name="label"
+					type="tl.model.i18n:I18NString"
 				>
 					<annotations>
 						<constraints>

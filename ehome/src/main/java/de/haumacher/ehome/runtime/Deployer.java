@@ -11,8 +11,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -218,6 +220,12 @@ public final class Deployer {
 			// (homecontrol spec/rules.md 2.1, 1.5): nothing is sent.
 			outcome._code = CODE_SCHEMA;
 			outcome._message = text(parameterIdsRefusal(image, controller));
+		} else if (schema17Refusal(image, controller) != null) {
+			// An older firmware refuses a rule with a timeline or a state with a label, and has no state
+			// datapoints, so it refuses the whole image (homecontrol spec/runtime-image.md 1.7): nothing
+			// is sent.
+			outcome._code = CODE_SCHEMA;
+			outcome._message = text(schema17Refusal(image, controller));
 		} else if (schema16Refusal(image, controller) != null) {
 			// An older firmware refuses a dimmer without its level command, a heating of a number and a
 			// rule writing an application datapoint that is not writable, so the whole image (homecontrol
@@ -437,6 +445,82 @@ public final class Deployer {
 				DatapointId.of(written))
 				: I18NConstants.DEPLOY_REFUSED_RULE_WRITE_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT.fill(controller, schema,
 					DatapointId.of(written));
+		}
+		return null;
+	}
+
+	/** The schema that brings the timelines, the labels of states and the state datapoints (haumacher/ehome #140). */
+	static final int[] SCHEMA_17 = { 1, 7 };
+
+	/**
+	 * Why the image cannot go to the controller (homecontrol <code>spec/runtime-image.md</code> section
+	 * 8, 1.7, haumacher/ehome #140): an image with a rule with a timeline or a state with a label, or
+	 * naming the datapoint of a rule's state (<code>rule/&lt;id&gt;/state</code>, which an older firmware
+	 * does not have), needs a controller that reports schema 1.7 or newer, since an older one refuses
+	 * the whole image. <code>null</code> for an image without any of them or a controller that reads
+	 * them.
+	 */
+	static ResKey schema17Refusal(RuntimeImage image, TLObject controller) {
+		String reported = ImageComparison.reportedSchema(controller);
+		if (Boolean.TRUE.equals(reads(reported, SCHEMA_17))) {
+			return null;
+		}
+		return schema17Refusal(image.getJson(), reported, controller.tValueByName("name"));
+	}
+
+	/**
+	 * Why the given image (its JSON document) cannot go to a controller reporting the schema
+	 * (<code>null</code> or empty: none), naming the first rule with a timeline or a labeled state, or
+	 * the first state datapoint the image names; <code>null</code> when the image needs no 1.7 or the
+	 * controller reads it.
+	 */
+	public static ResKey schema17Refusal(Map<String, Object> json, String reported, Object controller) {
+		Boolean reads = reads(reported, SCHEMA_17);
+		if (Boolean.TRUE.equals(reads)) {
+			return null;
+		}
+		String schema = reads == null ? null : reported.trim();
+		Set<String> stateDatapoints = new HashSet<>();
+		if (json.get("rules") instanceof List<?> rules) {
+			for (Object item : rules) {
+				if (!(item instanceof Map<?, ?> rule) || !(rule.get("id") instanceof String id)) {
+					continue;
+				}
+				boolean labeled = rule.get("states") instanceof List<?> states
+					&& states.stream().anyMatch(s -> s instanceof Map<?, ?> state && state.containsKey("label"));
+				if (rule.containsKey("timeline") || labeled) {
+					return schema == null ? I18NConstants.DEPLOY_REFUSED_TIMELINE_NO_SCHEMA__CONTROLLER_RULE.fill(controller, id)
+						: I18NConstants.DEPLOY_REFUSED_TIMELINE_SCHEMA__CONTROLLER_SCHEMA_RULE.fill(controller, schema, id);
+				}
+				if (rule.get("states") instanceof List<?> states && !states.isEmpty()) {
+					stateDatapoints.add(RuleLoader.stateDatapointName(id));
+				}
+			}
+		}
+		String named = named(json, stateDatapoints);
+		if (named != null) {
+			return schema == null
+				? I18NConstants.DEPLOY_REFUSED_STATE_DATAPOINT_NO_SCHEMA__CONTROLLER_DATAPOINT.fill(controller, DatapointId.of(named))
+				: I18NConstants.DEPLOY_REFUSED_STATE_DATAPOINT_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT.fill(controller, schema,
+					DatapointId.of(named));
+		}
+		return null;
+	}
+
+	/** The first text of the JSON value that is one of the given names, <code>null</code> for none. */
+	private static String named(Object node, Set<String> names) {
+		if (names.isEmpty()) {
+			return null;
+		}
+		if (node instanceof String text) {
+			return names.contains(text) ? text : null;
+		}
+		Iterable<?> children = node instanceof Map<?, ?> map ? map.values() : node instanceof List<?> list ? list : List.of();
+		for (Object child : children) {
+			String found = named(child, names);
+			if (found != null) {
+				return found;
+			}
 		}
 		return null;
 	}

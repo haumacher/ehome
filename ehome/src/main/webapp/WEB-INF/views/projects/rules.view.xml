@@ -27,7 +27,15 @@
 	project, used by the rules, the schedule and the Zigbee functions. The
 	choices of a parameter are listed beside its form, each with its value and label.
 
-	Each "New" (a rule, a reaction, a trigger, a parameter, a choice, a timer, a state) opens the create
+	A rule with states may have a timeline (tab "Timeline", haumacher/ehome #140, homecontrol
+	spec/rules.md 2.8): day plans of switching points (a clock time or a sun event with an offset and
+	an earliest and a latest time, and the state the rule goes to) and the assignment of the plans to
+	weekdays, one without weekdays the default. The timeline is the image's; where it is adjustable
+	the inhabitant replaces it on the controller as a whole. The states have labels, which the
+	controller shows and which are the choices of the datapoint of the rule's state (rule/<id>/state).
+
+	Each "New" (a rule, a reaction, a trigger, a parameter, a choice, a timer, a state, a day plan, a
+	switching point, an assignment) opens the create
 	dialog projects/create-part.view.xml (haumacher/ehome #91) over a draft that goes to the end of its
 	list, asking for the fields that define it; nothing is stored before "Create".
 -->
@@ -39,6 +47,14 @@
 		<channel name="choice"/>
 		<channel name="timer"/>
 		<channel name="state"/>
+		<!-- The timeline of the rule (haumacher/ehome #140): its day plans, their points, its assignments. -->
+		<derived-channel name="timeline"
+			expr="if($rule == null, null, $rule.get(`ehome.runtime:Rule#timeline`))"
+			inputs="rule"
+		/>
+		<channel name="plan"/>
+		<channel name="point"/>
+		<channel name="assignment"/>
 		<channel name="reaction"/>
 		<channel name="trigger"/>
 		<derived-channel name="thenList"
@@ -1423,6 +1439,7 @@
 															</inputs>
 															<columns>
 																<column attribute="identifier"/>
+																<column attribute="label"/>
 															</columns>
 															<rows>if($rule == null, [], $rule.get(`ehome.runtime:Rule#states`))</rows>
 														</table>
@@ -1436,6 +1453,7 @@
 															with-inset="true"
 														>
 															<field attribute="identifier"/>
+															<field attribute="label"/>
 														</form>
 													</pane>
 												</panes>
@@ -1483,6 +1501,491 @@
 															to="exitList"
 														/>
 													</view-ref>
+												</tab>
+											</tabs>
+										</tab-bar>
+									</pane>
+								</panes>
+							</split-panel>
+						</tab>
+						<tab id="timeline"
+							icon="css:bi bi-calendar-week"
+						>
+							<label>
+								<en>Timeline</en>
+								<de>Zeitprogramm</de>
+							</label>
+							<split-panel
+								orientation="horizontal"
+								resizable="true"
+							>
+								<panes>
+									<pane
+										size="40"
+										unit="%"
+									>
+										<panel>
+											<title>
+												<en>Timeline</en>
+												<de>Zeitprogramm</de>
+											</title>
+											<commands>
+												<generic-command
+													image="css:bi bi-calendar-plus"
+													inputs="rule"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>New timeline</en>
+														<de>Neues Zeitprogramm</de>
+													</label>
+													<tooltip>
+														<en>Gives the rule a timeline with one day plan without switching points, assigned to every day.</en>
+														<de>Gibt der Regel ein Zeitprogramm mit einem Tagesplan ohne Schaltpunkte, der jedem Tag zugeordnet ist.</de>
+													</tooltip>
+													<access>
+														<operation name="Write"
+															object="$rule"
+															type="ehome.runtime:Rule"
+														/>
+													</access>
+													<executability>
+														<null-input-disabled/>
+														<disabled-if expr="$rule.get(`ehome.runtime:Rule#timeline`) != null"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="ruleCreate($rule, 'timeline', `ehome.runtime:RuleTimeline`)"/>
+													</with-transaction>
+												</generic-command>
+												<generic-command
+													image="css:bi bi-calendar-x"
+													inputs="timeline"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Delete timeline</en>
+														<de>Zeitprogramm löschen</de>
+													</label>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<confirm expr="#('Delete the timeline with its day plans?'@en, 'Das Zeitprogramm mit seinen Tagesplänen löschen?'@de)"/>
+													<delete-object/>
+													<write-channel name="plan" clear="true"/>
+												</generic-command>
+												<generic-command
+													image="css:bi bi-plus-lg"
+													inputs="timeline"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>New day plan</en>
+														<de>Neuer Tagesplan</de>
+													</label>
+													<access>
+														<operation name="Write"
+															object="$timeline"
+															type="ehome.runtime:RuleTimeline"
+														/>
+													</access>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<execute-script function="ruleDraft($timeline, 'plans', `ehome.runtime:TimelinePlan`)">
+														<with-result>
+															<open-dialog
+																bind-input-to="model"
+																dialog-view="projects/create-part.view.xml"
+															>
+																<bind
+																	channel="selection"
+																	to="plan"
+																/>
+															</open-dialog>
+														</with-result>
+													</execute-script>
+												</generic-command>
+												<generic-command
+													image="css:bi bi-trash"
+													inputs="plan"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Delete</en>
+														<de>Löschen</de>
+													</label>
+													<executability>
+														<null-input-disabled/>
+													</executability>
+													<confirm expr="#('Delete the day plan with its switching points?'@en, 'Den Tagesplan mit seinen Schaltpunkten löschen?'@de)"/>
+													<delete-object/>
+													<write-channel name="plan" clear="true"/>
+												</generic-command>
+												<generic-command
+													clique="edit"
+													image="css:bi bi-arrow-up"
+													inputs="plan"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Move up</en>
+														<de>Nach oben</de>
+													</label>
+													<access>
+														<operation name="Write"
+															object="$plan"
+															type="ehome.runtime:TimelinePlan"
+														/>
+													</access>
+													<executability>
+														<null-input-disabled/>
+														<disabled-if expr="ruleMoveVeto($plan, -1)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="ruleMove($plan, -1)"/>
+													</with-transaction>
+												</generic-command>
+												<generic-command
+													clique="edit"
+													image="css:bi bi-arrow-down"
+													inputs="plan"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Move down</en>
+														<de>Nach unten</de>
+													</label>
+													<access>
+														<operation name="Write"
+															object="$plan"
+															type="ehome.runtime:TimelinePlan"
+														/>
+													</access>
+													<executability>
+														<null-input-disabled/>
+														<disabled-if expr="ruleMoveVeto($plan, 1)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="ruleMove($plan, 1)"/>
+													</with-transaction>
+												</generic-command>
+											</commands>
+											<split-panel
+												orientation="vertical"
+												resizable="true"
+											>
+												<panes>
+													<pane
+														size="20"
+														unit="%"
+													>
+														<form
+															input="timeline"
+															with-inset="true"
+														>
+															<field attribute="adjustable"/>
+														</form>
+													</pane>
+													<pane
+														size="45"
+														unit="%"
+													>
+														<table
+															observed-types="ehome.runtime:TimelinePlan,ehome.runtime:RuleTimeline"
+															selection="plan"
+															types="ehome.runtime:TimelinePlan"
+														>
+															<inputs>
+																<input channel="timeline"/>
+															</inputs>
+															<columns>
+																<column attribute="identifier"/>
+																<column attribute="label"/>
+															</columns>
+															<rows>if($timeline == null, [], $timeline.get(`ehome.runtime:RuleTimeline#plans`))</rows>
+														</table>
+													</pane>
+													<pane
+														size="35"
+														unit="%"
+													>
+														<form
+															input="plan"
+															with-inset="true"
+														>
+															<field attribute="identifier"/>
+															<field attribute="label"/>
+														</form>
+													</pane>
+												</panes>
+											</split-panel>
+										</panel>
+									</pane>
+									<pane
+										size="60"
+										unit="%"
+									>
+										<tab-bar active-tab="points">
+											<tabs>
+												<tab id="points"
+													icon="css:bi bi-clock"
+												>
+													<label>
+														<en>Switching points</en>
+														<de>Schaltpunkte</de>
+													</label>
+													<panel>
+														<title>
+															<en>Switching points of the day plan</en>
+															<de>Schaltpunkte des Tagesplans</de>
+														</title>
+														<commands>
+															<generic-command
+																image="css:bi bi-plus-lg"
+																inputs="plan"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>New switching point</en>
+																	<de>Neuer Schaltpunkt</de>
+																</label>
+																<access>
+																	<operation name="Write"
+																		object="$plan"
+																		type="ehome.runtime:TimelinePlan"
+																	/>
+																</access>
+																<executability>
+																	<null-input-disabled/>
+																</executability>
+																<execute-script function="ruleDraft($plan, 'points', `ehome.runtime:TimelinePoint`)">
+																	<with-result>
+																		<open-dialog
+																			bind-input-to="model"
+																			dialog-view="projects/create-part.view.xml"
+																		>
+																			<bind
+																				channel="selection"
+																				to="point"
+																			/>
+																		</open-dialog>
+																	</with-result>
+																</execute-script>
+															</generic-command>
+															<generic-command
+																image="css:bi bi-trash"
+																inputs="point"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Delete</en>
+																	<de>Löschen</de>
+																</label>
+																<executability>
+																	<null-input-disabled/>
+																</executability>
+																<confirm expr="#('Delete the switching point?'@en, 'Den Schaltpunkt löschen?'@de)"/>
+																<delete-object/>
+																<write-channel name="point" clear="true"/>
+															</generic-command>
+															<generic-command
+																clique="edit"
+																image="css:bi bi-arrow-up"
+																inputs="point"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Move up</en>
+																	<de>Nach oben</de>
+																</label>
+																<access>
+																	<operation name="Write"
+																		object="$point"
+																		type="ehome.runtime:TimelinePoint"
+																	/>
+																</access>
+																<executability>
+																	<null-input-disabled/>
+																	<disabled-if expr="ruleMoveVeto($point, -1)"/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="ruleMove($point, -1)"/>
+																</with-transaction>
+															</generic-command>
+															<generic-command
+																clique="edit"
+																image="css:bi bi-arrow-down"
+																inputs="point"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Move down</en>
+																	<de>Nach unten</de>
+																</label>
+																<access>
+																	<operation name="Write"
+																		object="$point"
+																		type="ehome.runtime:TimelinePoint"
+																	/>
+																</access>
+																<executability>
+																	<null-input-disabled/>
+																	<disabled-if expr="ruleMoveVeto($point, 1)"/>
+																</executability>
+																<with-transaction>
+																	<execute-script function="ruleMove($point, 1)"/>
+																</with-transaction>
+															</generic-command>
+														</commands>
+														<split-panel
+															orientation="vertical"
+															resizable="true"
+														>
+															<panes>
+																<pane
+																	size="50"
+																	unit="%"
+																>
+																	<table
+																		observed-types="ehome.runtime:TimelinePoint,ehome.runtime:TimelinePlan"
+																		selection="point"
+																		types="ehome.runtime:TimelinePoint"
+																	>
+																		<inputs>
+																			<input channel="plan"/>
+																		</inputs>
+																		<columns>
+																			<column attribute="time"/>
+																			<column attribute="sun"/>
+																			<column attribute="offset"/>
+																			<column attribute="notBefore"/>
+																			<column attribute="notAfter"/>
+																			<column attribute="state"/>
+																		</columns>
+																		<rows>if($plan == null, [], $plan.get(`ehome.runtime:TimelinePlan#points`))</rows>
+																	</table>
+																</pane>
+																<pane
+																	size="50"
+																	unit="%"
+																>
+																	<form
+																		input="point"
+																		with-inset="true"
+																	>
+																		<field attribute="time"/>
+																		<field attribute="sun"/>
+																		<field attribute="offset"/>
+																		<field attribute="notBefore"/>
+																		<field attribute="notAfter"/>
+																		<field attribute="state"/>
+																	</form>
+																</pane>
+															</panes>
+														</split-panel>
+													</panel>
+												</tab>
+												<tab id="assignments"
+													icon="css:bi bi-calendar-check"
+												>
+													<label>
+														<en>Assignments</en>
+														<de>Zuordnungen</de>
+													</label>
+													<panel>
+														<title>
+															<en>Day plans by weekday</en>
+															<de>Tagespläne nach Wochentag</de>
+														</title>
+														<commands>
+															<generic-command
+																image="css:bi bi-plus-lg"
+																inputs="timeline"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>New assignment</en>
+																	<de>Neue Zuordnung</de>
+																</label>
+																<access>
+																	<operation name="Write"
+																		object="$timeline"
+																		type="ehome.runtime:RuleTimeline"
+																	/>
+																</access>
+																<executability>
+																	<null-input-disabled/>
+																</executability>
+																<execute-script function="ruleDraft($timeline, 'assignments', `ehome.runtime:TimelineAssignment`)">
+																	<with-result>
+																		<open-dialog
+																			bind-input-to="model"
+																			dialog-view="projects/create-part.view.xml"
+																		>
+																			<bind
+																				channel="selection"
+																				to="assignment"
+																			/>
+																		</open-dialog>
+																	</with-result>
+																</execute-script>
+															</generic-command>
+															<generic-command
+																image="css:bi bi-trash"
+																inputs="assignment"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Delete</en>
+																	<de>Löschen</de>
+																</label>
+																<executability>
+																	<null-input-disabled/>
+																</executability>
+																<confirm expr="#('Delete the assignment?'@en, 'Die Zuordnung löschen?'@de)"/>
+																<delete-object/>
+																<write-channel name="assignment" clear="true"/>
+															</generic-command>
+														</commands>
+														<split-panel
+															orientation="vertical"
+															resizable="true"
+														>
+															<panes>
+																<pane
+																	size="50"
+																	unit="%"
+																>
+																	<table
+																		observed-types="ehome.runtime:TimelineAssignment,ehome.runtime:RuleTimeline,ehome.runtime:TimelinePlan"
+																		selection="assignment"
+																		types="ehome.runtime:TimelineAssignment"
+																	>
+																		<inputs>
+																			<input channel="timeline"/>
+																		</inputs>
+																		<columns>
+																			<column attribute="plan"/>
+																			<column attribute="days"/>
+																		</columns>
+																		<rows>if($timeline == null, [], $timeline.get(`ehome.runtime:RuleTimeline#assignments`))</rows>
+																	</table>
+																</pane>
+																<pane
+																	size="50"
+																	unit="%"
+																>
+																	<form
+																		input="assignment"
+																		with-inset="true"
+																	>
+																		<field attribute="plan"/>
+																		<field attribute="days"/>
+																	</form>
+																</pane>
+															</panes>
+														</split-panel>
+													</panel>
 												</tab>
 											</tabs>
 										</tab-bar>

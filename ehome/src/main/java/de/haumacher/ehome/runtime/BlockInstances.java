@@ -419,7 +419,7 @@ public final class BlockInstances {
 		if (ApplicationDatapoints.isApplicationDatapoint(datapoint)) {
 			return ApplicationDatapoints.writable(datapoint);
 		}
-		if (Pages.isRuleParameter(datapoint) || Pages.isTimeSchedule(datapoint)) {
+		if (Pages.isRuleParameter(datapoint) || Pages.isRuleState(datapoint) || Pages.isTimeSchedule(datapoint)) {
 			return false;
 		}
 		return DatapointSettings.writable(datapoint);

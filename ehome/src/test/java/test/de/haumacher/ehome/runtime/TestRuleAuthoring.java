@@ -110,11 +110,15 @@ public class TestRuleAuthoring extends BasicTestCase {
 		}
 		assertEquals(String.join("\n", failures), List.of(), failures);
 		// An unknown timer, an output that is no application datapoint: what a form cannot choose. A
-		// parameter id the input refuses as an error (haumacher/ehome #110) is not stored either.
+		// parameter id the input refuses as an error (haumacher/ehome #110) is not stored either, nor a
+		// point naming no state of the rule, an assignment naming no plan, a weekday outside 1..7
+		// (haumacher/ehome #140).
 		assertEquals(List.of("33-load-refused-unknown-timer.json image 0", "39-load-refused-schedule-output.json image 0",
 			"66-load-refused-parameter-id-slash.json image 0", "67-load-refused-parameter-id-space.json image 0",
 			"68-load-refused-parameter-id-umlaut.json image 0", "69-load-refused-parameter-id-length.json image 0",
-			"70-load-refused-parameter-id-enabled.json image 0", "71-load-refused-parameter-id-keyword.json image 0"),
+			"70-load-refused-parameter-id-enabled.json image 0", "71-load-refused-parameter-id-keyword.json image 0",
+			"86-load-refused-timeline-without-states.json image 0", "87-load-refused-timeline-unknown-state.json image 0",
+			"91-load-refused-timeline-unknown-plan.json image 0", "95-load-refused-timeline-weekday-range.json image 0"),
 			refused);
 		assertTrue(String.valueOf(rules), rules >= 40);
 	}
@@ -374,7 +378,7 @@ public class TestRuleAuthoring extends BasicTestCase {
 				case "onlyOnChange" -> Boolean.FALSE.equals(value);
 				case "on" -> "change".equals(value);
 				case "origin" -> "any".equals(value);
-				case "parameters", "timers", "states", "elseActions", "from", "entry", "exit" ->
+				case "parameters", "timers", "states", "elseActions", "from", "entry", "exit", "reactions" ->
 					value instanceof List<?> l && l.isEmpty();
 				case "reasons" -> value instanceof List<?> l
 					&& new TreeSet<>((List<String>) l).equals(new TreeSet<>(List.of("boot", "image", "enable")));

@@ -82,6 +82,12 @@ public final class DatapointNames {
 		if (target == null || !target.tValid()) {
 			return null;
 		}
+		if (Pages.isRuleState(target)) {
+			// The datapoint of a rule's state (haumacher/ehome #140): the rule's name and "state".
+			String rule = label(target.tContainer());
+			return rule == null ? null
+				: Resources.getInstance().getString(I18NConstants.STATE_DATAPOINT_LABEL__RULE.fill(rule));
+		}
 		for (String attribute : new String[] { "title", "label", "name" }) {
 			if (target.tType().getPart(attribute) != null) {
 				String text = text(target.tValueByName(attribute));

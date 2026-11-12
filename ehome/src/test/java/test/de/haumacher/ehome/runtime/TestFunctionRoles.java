@@ -113,7 +113,7 @@ public class TestFunctionRoles extends BasicTestCase {
 		RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 		ImageReport report = image.validate();
 		assertTrue(report.toString(), report.isValid());
-		assertEquals("1.6", ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+		assertEquals(RuntimeImage.SCHEMA_VERSION, ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
 		Map<?, ?> awning = roles(image, "Markise Terrasse");
 		assertEquals(List.of("move", "stop", "atTop", "atBottom"), List.copyOf(awning.keySet()));
 		Map<?, ?> child = roles(image, "Temperatur Kind");
