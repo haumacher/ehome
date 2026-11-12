@@ -10,6 +10,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -47,6 +48,8 @@ import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.DeviceConfiguration;
+import de.haumacher.ehome.programming.DeviceSettings;
+import de.haumacher.ehome.programming.DeviceTexts;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
@@ -415,7 +418,7 @@ public final class FunctionProposal {
 	/**
 	 * The objects of one channel of a device.
 	 */
-	private record Channel(String key, Map<String, String> label, List<Obj> objects) {
+	private record Channel(String key, Map<String, String> label, String own, List<Obj> objects) {
 		boolean named(Pattern pattern) {
 			return pattern.matcher(String.join(" ", label.values()).toLowerCase(Locale.ROOT)).find();
 		}
@@ -506,9 +509,13 @@ public final class FunctionProposal {
 	 *        group address.
 	 * @param kind
 	 *        The kind of the candidate.
+	 * @param own
+	 *        The channel's own name in the device, as the installer gave it (haumacher/ehome #144): the
+	 *        description of the channel in the project (ETS 6), else the value of the channel's text
+	 *        parameter ("Jal Küche Garten" of "Kanal B: {{0}}"); <code>null</code> for none.
 	 */
 	public record Member(TLObject device, String channel, List<String> aliases, List<Map<String, String>> generated,
-			String kind) {
+			String kind, String own) {
 		// A record.
 	}
 
@@ -712,7 +719,8 @@ public final class FunctionProposal {
 		}
 		ResKey name = proposal.name();
 		Object current = function.tValueByName("name");
-		if (name != null && !sameText(current, name) && generatedName(function, proposal, names)) {
+		if (name != null && !sameText(current, name)
+			&& (generatedName(function, proposal, names) || generatedName(current, names.generated(proposal)))) {
 			function.tUpdateByName("name", name);
 			if (wasUnused) {
 				Object identifier = function.tValueByName("identifier");
@@ -1228,7 +1236,7 @@ public final class FunctionProposal {
 				}
 			}
 		}
-		List<Proposal> result = link(candidates);
+		List<Proposal> result = distinct(link(candidates), project, names);
 		result.addAll(unique(unused, result, names));
 		Set<TLObject> datapoints = new HashSet<>(ApplicationDatapoints.of(project));
 		for (TLObject device : ZigbeeImport.devices(project)) {
@@ -1487,7 +1495,7 @@ public final class FunctionProposal {
 			Map<String, String> label;
 			if (programChannel != null) {
 				key = "channel:" + ModuleParts.partId(programChannel);
-				label = texts(languages, r -> channelLabel(programChannel, r));
+				label = texts(languages, r -> channelLabel(device, programChannel, r));
 			} else {
 				// Keyed by a text that does not depend on the user's language.
 				key = "object:" + GroupAddressConnections.objectName(placed,
@@ -1500,7 +1508,7 @@ public final class FunctionProposal {
 				+ String.join(" ", texts(languages, r -> GroupAddressConnections.function(connection, r)).values()))
 				.toLowerCase(Locale.ROOT);
 			String text = (own + " " + address.tValueByName("name")).toLowerCase(Locale.ROOT);
-			channels.computeIfAbsent(key, k -> new Channel(k, label, new ArrayList<>()))
+			channels.computeIfAbsent(key, k -> new Channel(k, label, ownName(device, programChannel, placed), new ArrayList<>()))
 				.objects().add(new Obj(placed, connection, address, dpt, addressDpt, type, input, output, text, own,
 					languages, device));
 		}
@@ -1590,13 +1598,13 @@ public final class FunctionProposal {
 			Map<String, Resources> languages = languages(placed);
 			Map<String, String> objectName = texts(languages, r -> GroupAddressConnections.objectName(device, placed, r));
 			String key = channelKey(placed);
-			Map<String, String> label = channelLabel(placed, languages, objectName);
+			Map<String, String> label = channelLabel(device, placed, languages, objectName);
 			String own = (String.join(" ", objectName.values()) + " "
 				+ String.join(" ", texts(languages, r -> connection != null
 					? GroupAddressConnections.function(connection, r) : objectFunction(connector, placed, r)).values()))
 				.toLowerCase(Locale.ROOT);
 			String text = (own + (address == null ? "" : " " + address.tValueByName("name"))).toLowerCase(Locale.ROOT);
-			channels.computeIfAbsent(key, k -> new Channel(k, label, new ArrayList<>()))
+			channels.computeIfAbsent(key, k -> new Channel(k, label, ownName(device, programChannel(placed), placed), new ArrayList<>()))
 				.objects().add(new Obj(placed, address == null ? null : connection, address, dpt, addressDpt, type, input,
 					output, text, own, languages, device));
 		}
@@ -1644,10 +1652,10 @@ public final class FunctionProposal {
 	 * The name of the channel of a placed object in its program's languages: its program channel's,
 	 * else the name of the object.
 	 */
-	private static Map<String, String> channelLabel(Interface placed, Map<String, Resources> languages,
+	private static Map<String, String> channelLabel(TLObject device, Interface placed, Map<String, Resources> languages,
 			Map<String, String> objectName) {
 		TLObject programChannel = programChannel(placed);
-		return programChannel != null ? texts(languages, r -> channelLabel(programChannel, r)) : objectName;
+		return programChannel != null ? texts(languages, r -> channelLabel(device, programChannel, r)) : objectName;
 	}
 
 	private static TLObject sendingConnection(TLObject connector) {
@@ -1726,13 +1734,16 @@ public final class FunctionProposal {
 		return result;
 	}
 
-	private static String channelLabel(TLObject channel, Resources resources) {
+	private static String channelLabel(TLObject device, TLObject channel, Resources resources) {
 		String text = channel.tValueByName("description") instanceof ResKey description
 			? resources.getString(description, null) : null;
 		if (text == null || text.isBlank()) {
 			text = String.valueOf(channel.tValueByName("name"));
 		}
-		return text;
+		// The placeholder of the channel's text parameter filled with the device's value, or left out
+		// ("Kanal B: {{0}}" is "Kanal B: Jal Küche Garten", or "Kanal B"), as the device's editor shows it.
+		return channel instanceof de.haumacher.ehome.model.operational.Channel programChannel
+			? DeviceTexts.fill(device, text, programChannel.getTextParameter()) : text;
 	}
 
 	/**
@@ -1841,8 +1852,8 @@ public final class FunctionProposal {
 					sends.add(obj.address());
 				}
 			}
-			result.add(candidate("button", channel.label(), roles, device, channel.key(), List.of(), sends, List.of(),
-				names));
+			result.add(candidate("button", channel.label(), channel.own(), roles, device, channel.key(), List.of(), sends,
+				List.of(), names));
 			return;
 		}
 
@@ -1857,7 +1868,7 @@ public final class FunctionProposal {
 			put(sensor, "value", value);
 			// Each value of a channel with several is a function of its own, also before it is linked.
 			String key = measured > 1 ? channel.key() + " value " + value.number() : channel.key();
-			result.add(candidate("sensor", label, sensor, device, key,
+			result.add(candidate("sensor", label, values.size() == 1 ? channel.own() : null, sensor, device, key,
 				measured > 1 ? List.of(channel.key()) : List.of(), List.of(), List.of(), names));
 		}
 	}
@@ -1920,7 +1931,8 @@ public final class FunctionProposal {
 			warnings.add(I18NConstants.TYPE_CONTRADICTS_OBJECT__ADDRESS_ADDRESS_TYPE_OBJECT_OBJECT_TYPE.fill(
 				DatapointNames.name(main.address()), main.addressDpt().code(), main.label(), main.dpt().code()));
 		}
-		return candidate(kind, channel.label(), roles, device, channel.key(), List.of(), List.of(), warnings, names);
+		return candidate(kind, channel.label(), channel.own(), roles, device, channel.key(), List.of(), List.of(), warnings,
+			names);
 	}
 
 	/**
@@ -1930,14 +1942,16 @@ public final class FunctionProposal {
 	 * @param label
 	 *        The name of the channel (or of the channel and the object, for a value of several),
 	 *        which proposals before haumacher/ehome #98 gave the function.
+	 * @param own
+	 *        The channel's own name ({@link Member#own()}), <code>null</code> for none.
 	 * @param warnings
 	 *        What the candidate's objects say about the wiring (haumacher/ehome #134).
 	 */
-	private static Proposal candidate(String kind, Map<String, String> label, Map<String, TLObject> roles,
+	private static Proposal candidate(String kind, Map<String, String> label, String own, Map<String, TLObject> roles,
 			TLObject device, String key, List<String> aliases, List<TLObject> sends, List<ResKey> warnings,
 			Names names) {
 		Member member = new Member(device, key, aliases,
-			List.of(unusedLabel(device, label, names), legacyUnusedLabel(device, label), label), kind);
+			List.of(unusedLabel(device, label, names), legacyUnusedLabel(device, label), label), kind, own);
 		return new Proposal(kind, label, roles, device, key, null, sends, List.of(member), warnings);
 	}
 
@@ -1992,6 +2006,9 @@ public final class FunctionProposal {
 
 		/** The device parts fitted to the device's channels, by device and language. */
 		private final Map<TLObject, Map<String, String>> _fitted = new HashMap<>();
+
+		/** The generated names of the linked functions of the run ({@link FunctionProposal#distinct}). */
+		private final Map<Proposal, List<Map<String, String>>> _generated = new IdentityHashMap<>();
 
 		Names(List<TLObject> devices) {
 			Map<String, Integer> titles = new HashMap<>();
@@ -2111,6 +2128,20 @@ public final class FunctionProposal {
 		private static String title(TLObject device) {
 			Object title = device.tValueByName("title");
 			return title == null || title.toString().isBlank() ? null : title.toString().trim();
+		}
+
+		/**
+		 * Records the names the given linked function was generated from (haumacher/ehome #144).
+		 */
+		void generated(Proposal proposal, List<Map<String, String>> names) {
+			_generated.put(proposal, names);
+		}
+
+		/**
+		 * The names the given linked function was generated from, empty for another proposal.
+		 */
+		List<Map<String, String>> generated(Proposal proposal) {
+			return _generated.getOrDefault(proposal, List.of());
 		}
 	}
 
@@ -2332,6 +2363,232 @@ public final class FunctionProposal {
 	}
 
 	/**
+	 * The linked functions with names that tell them apart within the project (haumacher/ehome #144).
+	 * Each function has its names in an order of preference ({@link #alternatives}); every function
+	 * starts with its first, and as long as functions share a name in a language, each of them that has
+	 * a further name takes it. Functions still sharing a name at their last get a number, the later
+	 * ones in the order of the functions ("1.1.4: Kanal A (2)"). The names a function had to choose
+	 * from, and the name its main role's group address gave it before (haumacher/ehome #98), are the
+	 * function's generated names ({@link Names#generated(Proposal)}): an existing function with one of
+	 * them follows the proposal's name.
+	 */
+	private static List<Proposal> distinct(List<Proposal> linked, TLObject project, Names names) {
+		Map<String, Set<TLObject>> addressesByName = new HashMap<>();
+		for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
+			Object name = address.tValueByName("name");
+			// An address no object is connected to names nothing (a leftover of the installer's).
+			if (name != null && !name.toString().isBlank() && !GroupAddressConnections.connections(address).isEmpty()) {
+				addressesByName.computeIfAbsent(name.toString().trim(), n -> new HashSet<>()).add(address);
+			}
+		}
+		List<List<Map<String, String>>> alternatives = new ArrayList<>();
+		for (Proposal proposal : linked) {
+			alternatives.add(alternatives(proposal, addressesByName, names));
+		}
+		int[] level = new int[linked.size()];
+		for (boolean moved = true; moved;) {
+			moved = false;
+			Map<String, List<Integer>> owners = new HashMap<>();
+			for (int n = 0; n < linked.size(); n++) {
+				for (Map.Entry<String, String> entry : alternatives.get(n).get(level[n]).entrySet()) {
+					owners.computeIfAbsent(entry.getKey() + "\n" + entry.getValue(), k -> new ArrayList<>())
+						.add(Integer.valueOf(n));
+				}
+			}
+			Set<Integer> next = new TreeSet<>();
+			for (List<Integer> sharing : owners.values()) {
+				if (sharing.size() > 1) {
+					for (Integer n : sharing) {
+						if (level[n.intValue()] < alternatives.get(n.intValue()).size() - 1) {
+							next.add(n);
+						}
+					}
+				}
+			}
+			for (Integer n : next) {
+				level[n.intValue()]++;
+				moved = true;
+			}
+		}
+		Map<String, Set<String>> taken = new HashMap<>();
+		List<Proposal> result = new ArrayList<>();
+		for (int n = 0; n < linked.size(); n++) {
+			Proposal proposal = linked.get(n);
+			Map<String, String> chosen = alternatives.get(n).get(level[n]);
+			Map<String, String> label = chosen;
+			for (int number = 2; clash(label, taken); number++) {
+				label = numberedName(chosen, Integer.valueOf(number));
+			}
+			label.forEach((language, text) -> taken.computeIfAbsent(language, l -> new HashSet<>()).add(text));
+			Proposal named = label == proposal.label() ? proposal
+				: new Proposal(proposal.kind(), label, proposal.roles(), proposal.device(), proposal.channel(),
+					proposal.scene(), proposal.sends(), proposal.members(), proposal.warnings());
+			List<Map<String, String>> generated = new ArrayList<>(alternatives.get(n));
+			if (!proposal.members().isEmpty()) {
+				// The name proposals since haumacher/ehome #98 gave the function, also where it is no
+				// alternative now.
+				generated.add(addressLabel(proposal.roles().get(nameRole(proposal.kind(), proposal.roles()))));
+			}
+			names.generated(named, generated);
+			result.add(named);
+		}
+		return result;
+	}
+
+	/**
+	 * The names of a linked function in the order of preference (haumacher/ehome #144):
+	 * <ol>
+	 * <li>the name of the group address of its main role ({@link #nameRole(String, Map)}), the same
+	 * text in every application language, where no other group address of the project an object is
+	 * connected to has that name (one the installer gave: "Licht Esstisch"), the function's own
+	 * addresses aside (a blind's move and stop address both named "Rolläden Balkon");</li>
+	 * <li>the own name of the channel of its first candidate ({@link Member#own()}, "Jal Küche
+	 * Garten");</li>
+	 * <li>that name, else the channel's text ("Kanal J"), after the function's room where it has one
+	 * ("SZ: Kanal J");</li>
+	 * <li>the same after the device, as an unused function of the channel is named ("Schaltaktor
+	 * 1.1.4: Kanal J", {@link #unusedLabel}), which tells the functions of different devices
+	 * apart.</li>
+	 * </ol>
+	 * A scene keeps its name (the channel and its number).
+	 */
+	private static List<Map<String, String>> alternatives(Proposal proposal, Map<String, Set<TLObject>> addressesByName,
+			Names names) {
+		if (proposal.scene() != null || proposal.members().isEmpty()) {
+			return List.of(proposal.label());
+		}
+		List<Map<String, String>> result = new ArrayList<>();
+		TLObject nameAddress = proposal.roles().get(nameRole(proposal.kind(), proposal.roles()));
+		Map<String, String> addressName = addressLabel(nameAddress);
+		if (!addressName.isEmpty()) {
+			Set<TLObject> own = new HashSet<>(proposal.roles().values());
+			own.addAll(proposal.sends());
+			Set<TLObject> named = addressesByName.getOrDefault(nameAddress.tValueByName("name").toString().trim(), Set.of());
+			if (own.containsAll(named)) {
+				result.add(addressName);
+			}
+		}
+		Member primary = proposal.members().get(0);
+		Map<String, String> channel = primary.generated().isEmpty() ? proposal.label()
+			: primary.generated().get(primary.generated().size() - 1);
+		Map<String, String> base = channel;
+		if (primary.own() != null) {
+			base = allLanguages(primary.own());
+			result.add(truncated(base));
+		}
+		if (room(proposal) instanceof TLObject room) {
+			String roomName = roomName(room);
+			Map<String, String> inRoom = new TreeMap<>();
+			for (Map.Entry<String, String> entry : base.entrySet()) {
+				Resources resources = Resources.getInstance(new Locale(entry.getKey()));
+				inRoom.put(entry.getKey(), RuntimeImage.truncate(
+					resources.getString(I18NConstants.FUNCTION_IN_ROOM__ROOM_CHANNEL.fill(roomName, entry.getValue())),
+					ImageValidator.MAX_NAME).strip());
+			}
+			result.add(inRoom);
+		}
+		result.add(unusedLabel(primary.device(), base, names));
+		return result;
+	}
+
+	/**
+	 * The name of a room in a function's name: its own name, else its label.
+	 */
+	private static String roomName(TLObject room) {
+		Object name = room.tValueByName("name");
+		return name == null || name.toString().isBlank() ? MetaLabelProvider.INSTANCE.getLabel(room) : name.toString().trim();
+	}
+
+	/**
+	 * The given text, a name the installer gave (which has no language of its own), in every
+	 * application language.
+	 */
+	private static Map<String, String> allLanguages(String text) {
+		Map<String, Resources> languages = new TreeMap<>();
+		for (Locale locale : ResourcesModule.getInstance().getSupportedLocales()) {
+			languages.put(locale.getLanguage(), Resources.getInstance(locale));
+		}
+		return texts(languages, r -> text);
+	}
+
+	/**
+	 * The given names cut to the length the runtime image allows.
+	 */
+	private static Map<String, String> truncated(Map<String, String> label) {
+		Map<String, String> result = new TreeMap<>();
+		label.forEach((language, text) -> result.put(language, RuntimeImage.truncate(text, ImageValidator.MAX_NAME).strip()));
+		return result;
+	}
+
+	/**
+	 * The given name with a number in each of its languages ("Kanal A (2)"), its text cut where the
+	 * number would not fit the runtime image's label otherwise.
+	 */
+	private static Map<String, String> numberedName(Map<String, String> label, Integer number) {
+		Map<String, String> result = new TreeMap<>();
+		for (Map.Entry<String, String> entry : label.entrySet()) {
+			Resources resources = Resources.getInstance(new Locale(entry.getKey()));
+			int suffix = utf8(resources.getString(I18NConstants.UNUSED_FUNCTION_NUMBERED__NAME_NUMBER.fill("", number)));
+			result.put(entry.getKey(), resources.getString(I18NConstants.UNUSED_FUNCTION_NUMBERED__NAME_NUMBER.fill(
+				RuntimeImage.truncate(entry.getValue(), ImageValidator.MAX_NAME - suffix).strip(), number)));
+		}
+		return result;
+	}
+
+	/**
+	 * Whether the given name of a function reads as one of the given generated names, or as one of
+	 * them with a number ({@link #numberedName(Map, Integer)}), in every application language.
+	 */
+	private static boolean generatedName(Object name, List<Map<String, String>> generated) {
+		if (!(name instanceof ResKey key)) {
+			return false;
+		}
+		for (Map<String, String> label : generated) {
+			if (label.isEmpty()) {
+				continue;
+			}
+			if (sameText(name, text(label))) {
+				return true;
+			}
+			String text = Resources.getInstance(new Locale(label.keySet().iterator().next())).getString(key, null);
+			Matcher matcher = text == null ? null : LAST_NUMBER.matcher(text);
+			if (matcher != null && matcher.find()) {
+				Integer number = Integer.valueOf(matcher.group(1));
+				if (number.intValue() >= 2 && sameText(name, text(numberedName(label, number)))) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The own name of a channel of a device (haumacher/ehome #144): for a channel of the program the
+	 * description the project gives it (ETS 6: ChannelInstance), else the device's value of the
+	 * channel's text parameter; for the objects sharing a name, which are the channel of a program
+	 * without channels, the device's value of the text parameter of the object's text ("Kanal B: {{0}}"
+	 * of the MDT blind actuator); <code>null</code> for none.
+	 *
+	 * @param placed
+	 *        An object of the channel.
+	 */
+	private static String ownName(TLObject device, TLObject programChannel, Interface placed) {
+		ParameterView parameter;
+		if (programChannel instanceof de.haumacher.ehome.model.operational.Channel channel) {
+			TLObject instance = DeviceTexts.channelInstance(device, channel);
+			Object description = instance == null ? null : instance.tValueByName("description");
+			if (description != null && !description.toString().isBlank()) {
+				return description.toString().trim();
+			}
+			parameter = channel.getTextParameter();
+		} else {
+			parameter = placed.getTextParameter();
+		}
+		Object value = parameter == null ? null : DeviceSettings.effectiveValue(device, parameter);
+		return value == null || value.toString().isBlank() ? null : value.toString().trim();
+	}
+
+	/**
 	 * Adds a scene function for each scene number the project gives the channel's scene input.
 	 */
 	private static void scenes(TLObject device, Channel channel, List<Obj> objects, List<Proposal> result) {
@@ -2350,7 +2607,7 @@ public final class FunctionProposal {
 			}
 			String key = channel.key() + " scene " + number;
 			result.add(new Proposal("scene", label, Map.of("command", scene.address()), device, key, number,
-				List.of(), List.of(new Member(device, key, List.of(), List.of(), "scene")), List.of()));
+				List.of(), List.of(new Member(device, key, List.of(), List.of(), "scene", null)), List.of()));
 		}
 	}
 

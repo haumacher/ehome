@@ -891,7 +891,10 @@ def function_objects(channels):
     return result
 
 
-def function_program(program, number, name, channels):
+def function_program(program, number, name, channels, described=()):
+    """An artificial program of channels of objects; each channel whose number is in described has the text
+    "<name>: {{0}}" filled from a text parameter "Beschreibung <name>" of its own (TextParameterRefId), empty by
+    default."""
     segment = program + '_AS-0100'
     objects = function_objects(channels)
     comobjects = ''.join(
@@ -902,10 +905,20 @@ def function_program(program, number, name, channels):
             'Enabled' if flags[1] else 'Disabled', '' if dpt is None else ' DatapointType="' + dpt + '"')
         for n, c, text, size, flags, dpt, _ in objects)
     corefs = ''.join('<ComObjectRef Id="{p}_O-%d_R-%d" RefId="{p}_O-%d" />\n' % (o[0], o[0] + 1, o[0]) for o in objects)
-    dynamic = ''.join('<Channel Name="%s" Text="%s" Number="%d" Id="{p}_CH-%d"><ParameterBlock Id="{p}_PB-%d" '
-        'Name="Objekte" Text="Objekte">' % (label, label, c, c, c)
+    dynamic = ''.join(('<Channel Name="%s" Text="%s: {{0}}" TextParameterRefId="{p}_P-%d_R-1" Number="%d" Id="{p}_CH-%d">'
+        % (label, label, c, c, c) if c in described else
+        '<Channel Name="%s" Text="%s" Number="%d" Id="{p}_CH-%d">' % (label, label, c, c))
+        + '<ParameterBlock Id="{p}_PB-%d" Name="Objekte" Text="Objekte">' % c
+        + ''.join('<ParameterRefRef RefId="{p}_P-%d_R-1" />' % c for _ in [0] if c in described)
         + ''.join('<ComObjectRefRef RefId="{p}_O-%d_R-%d" />' % (o[0], o[0] + 1) for o in objects if o[1] == c)
         + '</ParameterBlock></Channel>\n' for c, (label, _) in enumerate(channels, 1))
+    parameters = '' if not described else ('<ParameterTypes>\n<ParameterType Id="{p}_PT-Text" Name="Text">'
+        '<TypeText SizeInBit="160" /></ParameterType>\n</ParameterTypes>\n<Parameters>\n'
+        + ''.join('<Parameter Id="{p}_P-%d" Name="Beschreibung%d" Text="Beschreibung %s" ParameterType="{p}_PT-Text" '
+            'Access="ReadWrite" Value="" />\n' % (c, c, channels[c - 1][0]) for c in sorted(described))
+        + '</Parameters>\n<ParameterRefs>\n'
+        + ''.join('<ParameterRef Id="{p}_P-%d_R-1" RefId="{p}_P-%d" />\n' % (c, c) for c in sorted(described))
+        + '</ParameterRefs>\n')
     xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
         '<KNX xmlns="http://knx.org/xml/project/11" CreatedBy="make-fixtures.py" ToolVersion="test">\n'
         '<ManufacturerData><Manufacturer RefId="M-0008"><ApplicationPrograms>\n'
@@ -914,7 +927,7 @@ def function_program(program, number, name, channels):
         'LoadProcedureStyle="DefaultProcedure" PeiType="0" DefaultLanguage="de-DE" DynamicTableManagement="1" '
         'Linkable="0" MinEtsVersion="4.0" NonRegRelevantDataVersion="0">\n'
         '<Static>\n<Code><AbsoluteSegment Id="' + segment + '" Address="256" Size="256" UserMemory="0" /></Code>\n'
-        '<ComObjectTable CodeSegment="' + segment + '" Offset="54">\n' + comobjects + '</ComObjectTable>\n'
+        + parameters + '<ComObjectTable CodeSegment="' + segment + '" Offset="54">\n' + comobjects + '</ComObjectTable>\n'
         '<ComObjectRefs>\n' + corefs + '</ComObjectRefs>\n'
         '<AddressTable CodeSegment="' + segment + '" Offset="22" MaxEntries="20" />\n'
         '<AssociationTable CodeSegment="' + segment + '" Offset="80" MaxEntries="20" />\n'
@@ -2758,16 +2771,20 @@ def artificial_fixture(project, programs, hardware_id, addresses, devices):
         end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
         ordered = sorted(addresses, key=ga_value)
         result = ''
-        for n, (index, device_name, _, connected) in enumerate(devices, 1):
+        for n, (index, device_name, _, connected, *values) in enumerate(devices, 1):
             program, number, _, _, channels = programs[index]
             objects = [(o[0], o[6] if connected is None else connected.get(o[0])) for o in function_objects(channels)]
             refs = ''.join('<ComObjectInstanceRef RefId="' + program + '_O-%d_R-%d" IsActive="1"><Connectors>'
                 % (o, o + 1) + function_connectors(ordered, address) + '</Connectors></ComObjectInstanceRef>\n'
                 for o, address in objects if address is not None)
+            # The values of the device's text parameters by the number of their channel.
+            parameters = '' if not values or not values[0] else ('<ParameterInstanceRefs>\n' + ''.join(
+                '<ParameterInstanceRef RefId="' + program + '_P-%d_R-1" Value="%s" />\n' % (c, v)
+                for c, v in sorted(values[0].items())) + '</ParameterInstanceRefs>\n')
             result += ('<DeviceInstance Id="P-01A0-0_DI-' + str(n) + '" Name="' + device_name
                 + '" ProductRefId="' + hardware_id + number + '_P-TEST.20' + number + '" Hardware2ProgramRefId="'
                 + hardware_id + number + '_HP-' + number + '-01-0000" Address="' + str(n)
-                + '" LastModified="2026-11-12T12:00:00">\n<ComObjectInstanceRefs>\n' + refs
+                + '" LastModified="2026-11-12T12:00:00">\n' + parameters + '<ComObjectInstanceRefs>\n' + refs
                 + '</ComObjectInstanceRefs>\n</DeviceInstance>\n')
         xml = xml[:start] + result + xml[end:]
         start = xml.index('<GroupRanges>')
@@ -2784,7 +2801,7 @@ def artificial_fixture(project, programs, hardware_id, addresses, devices):
 
         def refs(part):
             return ''.join('<DeviceInstanceRef RefId="P-01A0-0_DI-%d" />' % n
-                for n, (_, _, at, _) in enumerate(devices, 1) if at == part)
+                for n, (_, _, at, *_) in enumerate(devices, 1) if at == part)
         return replace_once(xml, '<Buildings />', '<Buildings>\n'
             '<BuildingPart Id="P-01A0-0_BP-1" Name="Haus" Type="Building">'
             '<BuildingPart Id="P-01A0-0_BP-2" Name="Erdgeschoss" Type="Floor">'
@@ -2809,3 +2826,47 @@ def artificial_fixture(project, programs, hardware_id, addresses, devices):
 write('src/test/fixtures/TestFunctionHeating.knxproj',
     artificial_fixture('TestFunctionHeating', HEATING_PROGRAMS, HEATING_HARDWARE, HEATING_ADDRESSES, HEATING_DEVICES),
     [('M-0008/' + p + '.xml', function_program(p, n, name, c)) for p, _, n, name, c in HEATING_PROGRAMS])
+
+
+# TestFunctionNames.knxproj: distinct names of the functions in use (haumacher/ehome #144), where the project's
+# group addresses carry the generic names ETS gives ("Schalten EIN/AUS"), with two artificial programs of their own
+# (M-0008_A-FFCA/FFCB, marked as test data) in the building of TestFunctionWiring. Two switching actuators "TEST
+# Schaltaktor Namen" (1.0.1 and 1.0.2, in the distribution board) with the channels "Kanal A" to "Kanal E", each
+# with "Schalten" (1.001) and "Status" (1.011); "Kanal E" has the text "Kanal E: {{0}}" filled from its text
+# parameter, which 1.0.1 sets to "Licht Speisekammer". 1.0.1 switches its channels A to E on 9/0/1 to 9/0/5, all
+# named "Schalten EIN/AUS" (A reports on 9/1/1 "Status"); 1.0.2 switches "Kanal A" on 9/0/6, "Schalten EIN/AUS" as
+# well, and "Kanal B" on 9/2/1 "Licht Esstisch", the only connected address of that name (9/2/2 has the same name
+# and no object). Seven keys "TEST Taster Namen"
+# send on them: 1.0.3 in "Wohnzimmer" on 9/0/1, 1.0.4 in "Küche" on 9/0/2, 1.0.5 and 1.0.6 in "Flur" on 9/0/3 and
+# 9/0/4, 1.0.7 in "Wohnzimmer" on 9/0/6, 1.0.8 in "Küche" on 9/0/5, 1.0.9 in "Wohnzimmer" on 9/2/1.
+NAME_PROGRAMS = [
+    ('M-0008_A-FFCA-01-0000', 'FFCA', 65482, 'TEST: Schaltaktor Namen (künstliche Testdaten)', [
+        (channel, [('Schalten', '1 Bit', W, 'DPST-1-1', None), ('Status', '1 Bit', T, 'DPST-1-11', None)])
+        for channel in ('Kanal A', 'Kanal B', 'Kanal C', 'Kanal D', 'Kanal E')]),
+    ('M-0008_A-FFCB-01-0000', 'FFCB', 65483, 'TEST: Taster Namen (künstliche Testdaten)', [
+        ('Taste 1', [('Schalten', '1 Bit', WT, None, None)])]),
+]
+NAME_HARDWARE = 'M-0008_H-TEST.20NAMES-1'
+# The group addresses of TestFunctionNames: name and datapoint type by address.
+NAME_ADDRESSES = dict([('9/0/%d' % n, ('Schalten EIN/AUS', 'DPST-1-1')) for n in range(1, 7)]
+    + [('9/1/1', ('Status', 'DPST-1-11')), ('9/2/1', ('Licht Esstisch', 'DPST-1-1')),
+    ('9/2/2', ('Licht Esstisch', 'DPST-1-1'))])
+# The devices of TestFunctionNames: (program, name, building part, the group address of each connected object by
+# its number, the values of the text parameters by channel).
+NAME_DEVICES = [
+    (0, 'TEST Schaltaktor Namen', 'P-01A0-0_BP-4', {0: '9/0/1', 1: '9/1/1', 2: '9/0/2', 4: '9/0/3', 6: '9/0/4',
+        8: '9/0/5'}, {5: 'Licht Speisekammer'}),
+    (0, 'TEST Schaltaktor Namen', 'P-01A0-0_BP-4', {0: '9/0/6', 2: '9/2/1'}),
+    (1, 'TEST Taster Namen', 'P-01A0-0_BP-5', {0: '9/0/1'}),
+    (1, 'TEST Taster Namen', 'P-01A0-0_BP-7', {0: '9/0/2'}),
+    (1, 'TEST Taster Namen', 'P-01A0-0_BP-3', {0: '9/0/3'}),
+    (1, 'TEST Taster Namen', 'P-01A0-0_BP-3', {0: '9/0/4'}),
+    (1, 'TEST Taster Namen', 'P-01A0-0_BP-5', {0: '9/0/6'}),
+    (1, 'TEST Taster Namen', 'P-01A0-0_BP-7', {0: '9/0/5'}),
+    (1, 'TEST Taster Namen', 'P-01A0-0_BP-5', {0: '9/2/1'}),
+]
+write('src/test/fixtures/TestFunctionNames.knxproj',
+    artificial_fixture('TestFunctionNames', NAME_PROGRAMS, NAME_HARDWARE, NAME_ADDRESSES, NAME_DEVICES),
+    [('M-0008/' + NAME_PROGRAMS[0][0] + '.xml', function_program(*[NAME_PROGRAMS[0][i] for i in (0, 2, 3, 4)],
+        described={5})),
+     ('M-0008/' + NAME_PROGRAMS[1][0] + '.xml', function_program(*[NAME_PROGRAMS[1][i] for i in (0, 2, 3, 4)]))])
