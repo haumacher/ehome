@@ -88,7 +88,7 @@
 							<view-ref view="discover.view.xml"/>
 							<label>
 								<en>Discover</en>
-								<de>Discover</de>
+								<de>Suchen</de>
 							</label>
 						</nav-item>
 					</section>

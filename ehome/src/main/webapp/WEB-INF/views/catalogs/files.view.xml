@@ -17,8 +17,8 @@
 	</channels>
 	<panel>
 		<title>
-			<en>Files of the manufacturer</en>
-			<de>Dateien des Herstellers</de>
+			<en>Files</en>
+			<de>Dateien</de>
 		</title>
 		<commands>
 			<generic-command
