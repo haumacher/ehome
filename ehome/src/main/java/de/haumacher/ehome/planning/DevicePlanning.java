@@ -153,9 +153,27 @@ public final class DevicePlanning {
 
 	/**
 	 * The label a program assignment is offered with: the name of its program and its version
-	 * (ETS writes the application version as major.minor, a nibble each).
+	 * (ETS writes the application version as major.minor, a nibble each). Where another program of
+	 * the same product has the same name and version (programs differing only in the hash ETS adds
+	 * to the ID, such as <code>M-0008_A-10D7-11-2783-O000A</code> and
+	 * <code>M-0008_A-10D7-11-A0E5-O000A</code>), the ID of the program follows, so the choice can
+	 * tell them apart.
 	 */
 	public static String programLabel(TLObject assignment) {
+		String label = baseProgramLabel(assignment);
+		if (label.isEmpty() || assignment.tContainer() == null) {
+			return label;
+		}
+		Program program = (Program) assignment.tValueByName("program");
+		for (TLObject other : programs(assignment.tContainer())) {
+			if (other.tValueByName("program") != program && label.equals(baseProgramLabel(other))) {
+				return label + " (" + program.getExtId() + ")";
+			}
+		}
+		return label;
+	}
+
+	private static String baseProgramLabel(TLObject assignment) {
 		if (assignment == null || !(assignment.tValueByName("program") instanceof Program program)) {
 			return "";
 		}

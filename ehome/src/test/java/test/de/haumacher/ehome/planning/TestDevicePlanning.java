@@ -74,6 +74,34 @@ public class TestDevicePlanning extends BasicTestCase {
 			assertTrue(programs.contains(tastsensor.tValueByName("program")));
 			assertSame(programs.get(0), DevicePlanning.defaultProgram(variant));
 
+			// A second program of the product with the same name and version (as ETS exports of the same
+			// device do, differing only in the hash in the ID): both labels carry the ID. Rolled back.
+			try (Transaction tx = kb.beginTransaction()) {
+				TLObject known = (TLObject) programs.get(0).tValueByName("program");
+				TLObject product = programs.get(0).tContainer();
+				TLObject twin = de.haumacher.ehome.model.operational.EhomeOperationalFactory.getInstance()
+					.createProgram(known.tContainer());
+				twin.tUpdateByName("name", known.tValueByName("name"));
+				twin.tUpdateByName("applicationVersion", known.tValueByName("applicationVersion"));
+				twin.tUpdateByName("extId", "M-0008_A-TEST-TWIN");
+				List<Object> manufacturerPrograms = new ArrayList<>((Collection<?>) known.tContainer().tValueByName("programs"));
+				manufacturerPrograms.add(twin);
+				known.tContainer().tUpdateByName("programs", manufacturerPrograms);
+				TLObject assignment = com.top_logic.util.model.ModelService.getInstance().getFactory().createObject(
+					(com.top_logic.model.TLClass) com.top_logic.model.util.TLModelUtil.findType("ehome.catalog:ProgramAssignment"));
+				assignment.tUpdateByName("program", twin);
+				List<Object> productPrograms = new ArrayList<>((Collection<?>) product.tValueByName("programs"));
+				productPrograms.add(assignment);
+				product.tUpdateByName("programs", productPrograms);
+				String plain = DevicePlanning.programLabel(programs.get(0));
+				String other = DevicePlanning.programLabel(assignment);
+				assertTrue(plain + " / " + other, plain.endsWith(" (" + ExtIds.extId(known) + ")"));
+				assertTrue(other, other.endsWith(" (M-0008_A-TEST-TWIN)"));
+				assertFalse(plain.equals(other));
+				tx.rollback();
+			}
+			assertFalse(DevicePlanning.programLabel(programs.get(0)).endsWith(")"));
+
 			// The next free address above the highest of the line; an address in use is refused.
 			assertEquals(Integer.valueOf(51), DevicePlanning.nextFree(line));
 			assertEquals(I18NConstants.ERROR_ADDRESS_TAKEN__ADDRESS_DEVICE.getKey(),
