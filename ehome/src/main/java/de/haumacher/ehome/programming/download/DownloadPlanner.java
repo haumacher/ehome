@@ -296,7 +296,7 @@ public class DownloadPlanner {
 			_problems.add(I18NConstants.ERROR_NO_LAYOUT_DIFFERENCE);
 		}
 		_image = DownloadImage.compute(_device);
-		for (String problem : _image.getProblems()) {
+		for (ResKey problem : _image.getProblems()) {
 			_problems.add(I18NConstants.ERROR_IMAGE__PROBLEM.fill(problem));
 		}
 		_mask = _program.getMask();
@@ -645,7 +645,7 @@ public class DownloadPlanner {
 				controlVariable(step);
 				break;
 			case "ProgressText":
-				_operations.add(new Operation.Skip(label, "a progress text of ETS, nothing is sent to the device"));
+				_operations.add(new Operation.Skip(label, I18NConstants.SKIP_PROGRESS_TEXT));
 				break;
 			case "Merge":
 				_problems.add(I18NConstants.ERROR_MERGE__STEP_ID.fill(label, load.getMergeId()));
@@ -713,10 +713,8 @@ public class DownloadPlanner {
 		Integer object = lsmObject(step, true);
 		if (object == null) {
 			if (lsm != null && feature(PROPERTY_MAPPED_LSMS) == 1) {
-				_operations.add(new Operation.Skip(step.label(), "task segment "
-					+ String.format("%04X", value(load.getAddress())) + " of load state machine " + lsm + ": mask "
-					+ maskName() + " controls its load state machines through interface objects (PropertyMappedLsms)"
-					+ " and has no interface object " + lsm));
+				_operations.add(new Operation.Skip(step.label(), I18NConstants.SKIP_TASK_SEGMENT__ADDRESS_LSM_MASK.fill(
+					String.format("%04X", value(load.getAddress())), lsm, maskName())));
 			}
 			return;
 		}
@@ -770,7 +768,7 @@ public class DownloadPlanner {
 					n++;
 				}
 				int address = allocation._address + start;
-				String what = source >= 0 ? blocks.get(source).name() : "zero fill of a stamped segment";
+				ResKey what = source >= 0 ? blocks.get(source).label() : I18NConstants.WHAT_ZERO_FILL;
 				_operations.add(new Operation.WriteMemory(allocation._step, what, address,
 					Arrays.copyOfRange(allocation._content, start, n), _verify));
 				_written.set(address, address + n - start);
@@ -801,7 +799,8 @@ public class DownloadPlanner {
 		for (int n = 0; n < count; n++) {
 			Allocation allocation = stamped.get(n);
 			_operations.add(new Operation.WriteProperty(step.label(),
-				String.format("download stamp of segment %04X", allocation._address), object, property, start + n, 1,
+				I18NConstants.WHAT_STAMP__SEGMENT.fill(String.format("%04X", allocation._address)), object, property,
+				start + n, 1,
 				LoadControls.stamp(allocation._access, allocation._content)));
 		}
 	}
@@ -814,13 +813,13 @@ public class DownloadPlanner {
 		}
 		int property = value(load.getPropertyId());
 		byte[] data = ParameterEncoding.toBytes(load.getInlineData());
-		String what = "inline data";
+		ResKey what = I18NConstants.WHAT_INLINE_DATA;
 		if (data == null || data.length == 0) {
 			data = null;
 			for (PropertyWrite write : _image.getPropertyWrites()) {
 				if (Objects.equals(write.objectIndex(), object) && write.propertyId() == property) {
 					data = write.value();
-					what = "parameters";
+					what = I18NConstants.WHAT_PARAMETERS;
 					_writtenProperties.add(List.of(object, property));
 				}
 			}
@@ -845,7 +844,9 @@ public class DownloadPlanner {
 				_problems.add(I18NConstants.ERROR_DATA_SIZE__STEP_DATA_SIZE.fill(step.label(), inline.length, load.getSize()));
 				return;
 			}
-			String what = "inline data" + resourceNames(address, inline.length);
+			String resources = resourceNames(address, inline.length);
+			ResKey what = resources.isEmpty() ? I18NConstants.WHAT_INLINE_DATA
+				: I18NConstants.WHAT_INLINE_DATA_RESOURCES__RESOURCES.fill(resources);
 			for (int n = 0; n < inline.length; n += MAX_CHUNK) {
 				_operations.add(new Operation.WriteMemory(step.label(), what, address + n,
 					Arrays.copyOfRange(inline, n, Math.min(inline.length, n + MAX_CHUNK)), verify));
@@ -867,7 +868,7 @@ public class DownloadPlanner {
 			while (n < end && n < block.end() && n - start < MAX_CHUNK && writable(block, n - block.address())) {
 				n++;
 			}
-			_operations.add(new Operation.WriteMemory(step.label(), block.name(), start,
+			_operations.add(new Operation.WriteMemory(step.label(), block.label(), start,
 				Arrays.copyOfRange(block.data(), start - block.address(), n - block.address()), verify));
 			_written.set(start, n);
 			_writtenFromImage.set(start, n);
@@ -888,9 +889,10 @@ public class DownloadPlanner {
 		String range = range(address, size);
 		_imageRanges.put(step.label(), new int[] { address, size });
 		_writtenFromImage.clear(address, address + size);
-		_operations.add(new Operation.Skip(step.label(), "takes the image of the memory " + range
-			+ resourceNames(address, size) + " for ETS; nothing is sent to the device, a later step writes the bytes of"
-			+ " the image there"));
+		String resources = resourceNames(address, size);
+		_operations.add(new Operation.Skip(step.label(), resources.isEmpty()
+			? I18NConstants.SKIP_IMAGE_MEMORY__RANGE.fill(range)
+			: I18NConstants.SKIP_IMAGE_MEMORY_RESOURCES__RANGE_RESOURCES.fill(range, resources)));
 	}
 
 	private static String range(int address, int size) {
@@ -898,8 +900,8 @@ public class DownloadPlanner {
 	}
 
 	/**
-	 * The names of the mask's resources in standard memory overlapping the given range, as an
-	 * addition to a description (empty if there are none).
+	 * The names of the mask's resources in standard memory overlapping the given range, separated by
+	 * commas (empty if there are none).
 	 */
 	private String resourceNames(int address, int size) {
 		Set<String> names = new LinkedHashSet<>();
@@ -915,7 +917,7 @@ public class DownloadPlanner {
 				names.add(resource.getName());
 			}
 		}
-		return names.isEmpty() ? "" : " (" + String.join(", ", names) + ")";
+		return String.join(", ", names);
 	}
 	private Block blockAt(int address) {
 		for (Block block : _image.getBlocks()) {
@@ -976,7 +978,7 @@ public class DownloadPlanner {
 					continue;
 				}
 				if (unwritten >= 0) {
-					Block part = new Block(block.name() + ", static data the procedure does not write",
+					Block part = new Block(I18NConstants.BLOCK_STATIC_PART__BLOCK.fill(block.label()),
 						block.address() + unwritten, null, Arrays.copyOfRange(block.data(), unwritten, n),
 						Arrays.copyOfRange(block.mask(), unwritten, n));
 					_unloaded.add(part);
@@ -984,7 +986,7 @@ public class DownloadPlanner {
 					unwritten = -1;
 				}
 				if (n < block.data().length && (block.stateMachine() != null || missing)) {
-					_problems.add(I18NConstants.ERROR_NOT_WRITTEN__ADDRESS_BLOCK.fill(String.format("%04X", address), block.name()));
+					_problems.add(I18NConstants.ERROR_NOT_WRITTEN__ADDRESS_BLOCK.fill(String.format("%04X", address), block.label()));
 					break;
 				}
 			}
@@ -1004,10 +1006,19 @@ public class DownloadPlanner {
 			if (write.objectIndex() != null && _writtenProperties.contains(List.of(write.objectIndex(), write.propertyId()))) {
 				continue;
 			}
-			String target = write.objectIndex() != null ? "object " + write.objectIndex() : "object type " + write.objectType();
-			_operations.add(new Operation.Skip("", "the parameter value " + Operation.hex(write.value()) + " of " + target
-				+ " property " + write.propertyId() + ": the load procedure writes no such property"
-				+ (Objects.equals(write.objectIndex(), DEVICE_OBJECT) ? " (a property of the device itself, e.g. its hardware type)" : "")));
+			String value = Operation.hex(write.value());
+			ResKey reason;
+			if (write.objectIndex() == null) {
+				reason = I18NConstants.SKIP_PARAMETER_OF_TYPE__VALUE_TYPE_PROPERTY.fill(value, write.objectType(),
+					write.propertyId());
+			} else if (Objects.equals(write.objectIndex(), DEVICE_OBJECT)) {
+				reason = I18NConstants.SKIP_DEVICE_PARAMETER__VALUE_OBJECT_PROPERTY.fill(value, write.objectIndex(),
+					write.propertyId());
+			} else {
+				reason = I18NConstants.SKIP_PARAMETER__VALUE_OBJECT_PROPERTY.fill(value, write.objectIndex(),
+					write.propertyId());
+			}
+			_operations.add(new Operation.Skip("", reason));
 		}
 	}
 

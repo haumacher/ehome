@@ -8,8 +8,13 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
+import com.top_logic.util.Resources;
+
+import de.haumacher.ehome.programming.download.DownloadPlan;
 
 /**
  * The bytes ETS writes into a device: the memory of its program's segments with the parameter
@@ -28,7 +33,7 @@ public class DownloadImage {
 	/**
 	 * A range of memory to be written.
 	 *
-	 * @param name
+	 * @param label
 	 *        What the block holds, for a person.
 	 * @param address
 	 *        The address of the first byte; for a block of a relative segment (System B), the offset
@@ -41,7 +46,14 @@ public class DownloadImage {
 	 *        Per byte, the bits that are written (ETS: <code>Mask</code> of the segment); a bit not
 	 *        set keeps the device's content.
 	 */
-	public record Block(String name, int address, Integer stateMachine, byte[] data, byte[] mask) {
+	public record Block(ResKey label, int address, Integer stateMachine, byte[] data, byte[] mask) {
+
+		/**
+		 * The {@link #label()} in English, for the log and the dump of the image.
+		 */
+		public String name() {
+			return DownloadPlan.english(label);
+		}
 
 		/**
 		 * The address after the last byte.
@@ -88,7 +100,7 @@ public class DownloadImage {
 
 	private final List<PropertyWrite> _properties = new ArrayList<>();
 
-	private final List<String> _problems = new ArrayList<>();
+	private final List<ResKey> _problems = new ArrayList<>();
 
 	DownloadImage(String device) {
 		_device = device;
@@ -193,7 +205,7 @@ public class DownloadImage {
 	/**
 	 * What could not be computed; empty if the image is complete.
 	 */
-	public List<String> getProblems() {
+	public List<ResKey> getProblems() {
 		return Collections.unmodifiableList(_problems);
 	}
 
@@ -230,38 +242,54 @@ public class DownloadImage {
 		_properties.add(write);
 	}
 
-	void addProblem(String problem) {
+	void addProblem(ResKey problem) {
 		_problems.add(problem);
 	}
 
 	/**
-	 * The image as text: per block a header and the bytes, 16 per line with their address; a byte
-	 * that is not written at all (mask 0) shows as <code>--</code>.
+	 * The image as text in English, for the log and the tests, see {@link #dump(Resources)}.
 	 */
 	public String dump() {
+		return dump(Resources.getInstance(Locale.ENGLISH));
+	}
+
+	/**
+	 * The image as text in the language of the given resources: per block a header and the bytes, 16
+	 * per line with their address; a byte that is not written at all (mask 0) shows as
+	 * <code>--</code>.
+	 */
+	public String dump(Resources resources) {
 		StringBuilder out = new StringBuilder();
-		out.append("Download image of ").append(_device).append('\n');
+		out.append(resources.getString(I18NConstants.DUMP_TITLE__DEVICE.fill(_device))).append('\n');
 		for (Block block : getBlocks()) {
-			out.append('\n').append(block.name());
-			if (block.stateMachine() != null) {
-				out.append(" (load state machine ").append(block.stateMachine()).append(')');
-			}
-			out.append(String.format(", %04X-%04X, %d bytes", block.address(), block.end() - 1, block.data().length));
+			String from = String.format("%04X", block.address());
+			String to = String.format("%04X", block.end() - 1);
+			out.append('\n').append(resources.getString(block.stateMachine() == null
+				? I18NConstants.DUMP_BLOCK__BLOCK_FROM_TO_LENGTH.fill(block.label(), from, to, block.data().length)
+				: I18NConstants.DUMP_RELATIVE_BLOCK__BLOCK_LSM_FROM_TO_LENGTH.fill(block.label(), block.stateMachine(), from,
+					to, block.data().length)));
 			for (Block table : Arrays.asList(_addressTable, _associationTable, _objectTable)) {
 				if (table != null && block != table && block.contains(table.address()) && block.stateMachine() == null) {
-					out.append(String.format(", %s at %04X (%d bytes)", table.name().toLowerCase(), table.address(),
-						table.data().length));
+					out.append(resources.getString(I18NConstants.DUMP_CONTAINED_TABLE__TABLE_ADDRESS_LENGTH.fill(
+						table.label(), String.format("%04X", table.address()), table.data().length)));
 				}
 			}
 			out.append('\n');
 			dumpBytes(out, block);
 		}
 		if (!_properties.isEmpty()) {
-			out.append("\nProperties\n");
+			out.append('\n').append(resources.getString(I18NConstants.DUMP_PROPERTIES)).append('\n');
 			for (PropertyWrite write : _properties) {
-				out.append(write.objectIndex() != null ? "object " + write.objectIndex() : "object type " + write.objectType()
-					+ (write.occurrence() != null ? " #" + write.occurrence() : ""));
-				out.append(", property ").append(write.propertyId()).append(':');
+				ResKey header;
+				if (write.objectIndex() != null) {
+					header = I18NConstants.DUMP_PROPERTY__OBJECT_PROPERTY.fill(write.objectIndex(), write.propertyId());
+				} else if (write.occurrence() != null) {
+					header = I18NConstants.DUMP_PROPERTY_OF_TYPE_OCCURRENCE__TYPE_OCCURRENCE_PROPERTY.fill(write.objectType(),
+						write.occurrence(), write.propertyId());
+				} else {
+					header = I18NConstants.DUMP_PROPERTY_OF_TYPE__TYPE_PROPERTY.fill(write.objectType(), write.propertyId());
+				}
+				out.append(resources.getString(header));
 				for (byte b : write.value()) {
 					out.append(String.format(" %02X", b & 0xFF));
 				}
@@ -269,9 +297,9 @@ public class DownloadImage {
 			}
 		}
 		if (!_problems.isEmpty()) {
-			out.append("\nProblems\n");
-			for (String problem : _problems) {
-				out.append("- ").append(problem).append('\n');
+			out.append('\n').append(resources.getString(I18NConstants.DUMP_PROBLEMS)).append('\n');
+			for (ResKey problem : _problems) {
+				out.append("- ").append(resources.getString(problem)).append('\n');
 			}
 		}
 		return out.toString();

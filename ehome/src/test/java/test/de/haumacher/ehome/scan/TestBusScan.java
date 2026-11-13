@@ -25,6 +25,7 @@ import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.programming.MockDevice;
 
 import com.top_logic.basic.Logger;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
@@ -102,7 +103,8 @@ public class TestBusScan extends BasicTestCase {
 			assertEquals("00 08 10 D7 11", tastsensor.programVersionText());
 			assertEquals(Integer.valueOf(0x83), actuator.manufacturerId());
 			assertEquals("0083:00001234", actuator.serialText());
-			assertEquals(List.of("1: loaded", "2: loaded", "3: loaded"), actuator.loadStates());
+			assertEquals(List.of("1: Loaded", "2: Loaded", "3: Loaded"),
+				actuator.loadStates().stream().map(DownloadPlan::english).toList());
 			// Scanning is reading.
 			assertEquals(0, bus.writes());
 
@@ -294,7 +296,7 @@ public class TestBusScan extends BasicTestCase {
 	private static BusScanner.Listener listener() {
 		return new BusScanner.Listener() {
 			@Override
-			public void message(String text) {
+			public void message(ResKey text) {
 				// Ignore.
 			}
 

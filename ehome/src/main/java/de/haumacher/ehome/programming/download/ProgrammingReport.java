@@ -61,16 +61,18 @@ public class ProgrammingReport {
 	 * @param level
 	 *        The label of the message's kind.
 	 * @param where
-	 *        The step or block the message belongs to.
+	 *        The step or block the message belongs to: a technical name (the label of a step of the
+	 *        load procedure, an individual address), or a {@link ResKey} shown in the reader's
+	 *        language.
 	 * @param message
-	 *        The text.
+	 *        The text, shown in the reader's language.
 	 */
-	public void add(String severity, ResKey level, String where, String message) {
+	public void add(String severity, ResKey level, Object where, ResKey message) {
 		Map<String, Object> entry = new HashMap<>();
 		entry.put("severity", severity);
 		entry.put("level", _resources.getString(level));
-		entry.put("file", where);
-		entry.put("message", message);
+		entry.put("file", where instanceof ResKey key ? _resources.getString(key) : where);
+		entry.put("message", _resources.getString(message));
 		_messages.add(entry);
 	}
 

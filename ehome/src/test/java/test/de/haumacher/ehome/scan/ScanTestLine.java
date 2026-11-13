@@ -5,6 +5,8 @@ package test.de.haumacher.ehome.scan;
 
 import test.de.haumacher.ehome.programming.ReadDeviceMemory;
 
+import com.top_logic.basic.util.ResKey;
+
 import de.haumacher.ehome.scan.BusScanner;
 import de.haumacher.ehome.scan.CalimeroScanBus;
 import de.haumacher.ehome.scan.FoundDevice;
@@ -32,7 +34,7 @@ public class ScanTestLine {
 			BusScanner.Result result = BusScanner.scan(bus, new BusScanner.Request(area, line, false, true, false),
 				new BusScanner.Listener() {
 					@Override
-					public void message(String text) {
+					public void message(ResKey text) {
 						System.out.println("# " + text);
 					}
 
@@ -48,7 +50,7 @@ public class ScanTestLine {
 					+ device.hardwareTypeText() + ", order " + device.orderInfo() + ", states " + device.loadStates()
 					+ ", not readable " + device.notes());
 			}
-			for (String note : result.notes()) {
+			for (ResKey note : result.notes()) {
 				System.out.println("note: " + note);
 			}
 		}

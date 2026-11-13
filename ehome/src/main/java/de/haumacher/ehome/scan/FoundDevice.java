@@ -7,6 +7,8 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 
+import com.top_logic.basic.util.ResKey;
+
 /**
  * What a device on the bus told about itself when it was scanned ({@link BusScanner}).
  *
@@ -40,7 +42,7 @@ import java.util.List;
  *        What could not be read, for a person.
  */
 public record FoundDevice(int address, Source source, Integer descriptor, Integer manufacturerId, byte[] serialNumber,
-		byte[] programVersion, byte[] hardwareType, String orderInfo, List<String> loadStates, List<String> notes) {
+		byte[] programVersion, byte[] hardwareType, String orderInfo, List<ResKey> loadStates, List<ResKey> notes) {
 
 	/**
 	 * How a device was reached.

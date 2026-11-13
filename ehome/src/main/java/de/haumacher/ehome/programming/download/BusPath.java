@@ -212,10 +212,11 @@ public sealed interface BusPath permits BusPath.Gateway, BusPath.Controller {
 				}
 				return link;
 			} catch (KNXException | IOException ex) {
-				throw new BusException("No connection to the gateway " + Gateways.format(address) + ": " + ex.getMessage(), ex);
+				throw new BusException(I18NConstants.ACCESS_NO_GATEWAY__ADDRESS_REASON.fill(Gateways.format(address),
+					ex.getMessage()), ex);
 			} catch (InterruptedException ex) {
 				Thread.currentThread().interrupt();
-				throw new BusException("Interrupted while connecting to " + Gateways.format(address) + ".", ex);
+				throw new BusException(I18NConstants.ACCESS_CONNECT_INTERRUPTED__ADDRESS.fill(Gateways.format(address)), ex);
 			}
 		}
 

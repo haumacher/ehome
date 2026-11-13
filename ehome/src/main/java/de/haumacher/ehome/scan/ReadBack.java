@@ -20,11 +20,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
-import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
@@ -59,6 +59,7 @@ import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.GroupTables;
 import de.haumacher.ehome.programming.ParameterEncoding;
+import de.haumacher.ehome.programming.ValueException;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.DownloadPlan;
@@ -111,9 +112,9 @@ public class ReadBack {
 	public interface Listener {
 
 		/**
-		 * The given number of the reads is done; <code>what</code> is read next.
+		 * The given number of the reads is done; <code>what</code> is read next, for a person.
 		 */
-		void progress(int done, int total, String what);
+		void progress(int done, int total, ResKey what);
 	}
 
 	/**
@@ -138,7 +139,7 @@ public class ReadBack {
 	 *        does not hold the image there, and the parameters there keep their defaults).
 	 */
 	public record Memory(String device, byte[] memory, BitSet known, Map<String, byte[]> properties, Integer addressTable,
-			Integer associationTable, List<String> notes, BitSet unloaded) {
+			Integer associationTable, List<ResKey> notes, BitSet unloaded) {
 
 		/**
 		 * The byte at the given address, <code>null</code> if it was not read.
@@ -170,7 +171,7 @@ public class ReadBack {
 	 *        read.
 	 */
 	public record Report(int settings, int connections, List<String> createdAddresses, int flags, List<String> inferred,
-			List<String> problems,
+			List<ResKey> problems,
 			int compared, List<Integer> differences) {
 
 		/**
@@ -193,12 +194,12 @@ public class ReadBack {
 		DownloadImage image = DownloadImage.compute(device);
 		Program program = DeviceConfiguration.program(device);
 		if (program == null) {
-			throw new BusException("The device has no program.");
+			throw new BusException(de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_PROGRAM);
 		}
 		byte[] memory = new byte[0x10000];
 		BitSet known = new BitSet();
 		Map<String, byte[]> properties = new LinkedHashMap<>();
-		List<String> notes = new ArrayList<>();
+		List<ResKey> notes = new ArrayList<>();
 
 		Block addressBlock = image.getAddressTable();
 		Block associationBlock = image.getAssociationTable();
@@ -208,7 +209,8 @@ public class ReadBack {
 				continue;
 			}
 			if (block.stateMachine() != null) {
-				notes.add(block.name() + ": a relative segment, its place in the device is not known.");
+				notes.add(I18NConstants.NOTE__LABEL_VALUE.fill(block.label(),
+					de.haumacher.ehome.programming.download.I18NConstants.COMPARE_RELATIVE_SEGMENT));
 				continue;
 			}
 			blocks.add(block);
@@ -216,7 +218,7 @@ public class ReadBack {
 		int total = blocks.size() + 2 + image.getPropertyWrites().size();
 		int done = 0;
 		for (Block block : blocks) {
-			listener.progress(done++, total, block.name());
+			listener.progress(done++, total, block.label());
 			byte[] mask = block.mask();
 			int n = 0;
 			while (n < mask.length) {
@@ -232,7 +234,7 @@ public class ReadBack {
 			}
 		}
 
-		listener.progress(done++, total, "Group address table");
+		listener.progress(done++, total, de.haumacher.ehome.programming.I18NConstants.BLOCK_ADDRESS_TABLE);
 		boolean propertyMapped = propertyMapped(program);
 		Integer addressTable = null;
 		Integer associationTable = null;
@@ -243,7 +245,7 @@ public class ReadBack {
 			}
 			readTable(reader, addressTable.intValue(), memory, known);
 		}
-		listener.progress(done++, total, "Association table");
+		listener.progress(done++, total, de.haumacher.ehome.programming.I18NConstants.BLOCK_ASSOCIATION_TABLE);
 		if (associationBlock != null) {
 			associationTable = propertyMapped ? tablePointer(reader, 2, notes) : null;
 			if (associationTable == null) {
@@ -258,16 +260,16 @@ public class ReadBack {
 		}
 
 		for (DownloadImage.PropertyWrite write : image.getPropertyWrites()) {
-			listener.progress(done++, total, "Property " + write.propertyId());
+			listener.progress(done++, total, I18NConstants.READ_PROPERTY__PROPERTY.fill(write.propertyId()));
 			if (write.objectIndex() == null) {
-				notes.add("Parameters in property " + write.propertyId() + " of an object given by type ("
-					+ write.objectType() + "): not supported.");
+				notes.add(I18NConstants.READBACK_PROPERTY_BY_TYPE__PROPERTY_TYPE.fill(write.propertyId(),
+					write.objectType()));
 				continue;
 			}
 			properties.put(write.objectIndex() + "/" + write.propertyId(),
 				reader.readProperty(write.objectIndex(), write.propertyId(), 1, 1));
 		}
-		listener.progress(total, total, "");
+		listener.progress(total, total, null);
 		reader.disconnect();
 		BitSet unloaded = new BitSet();
 		Set<Integer> unloadedStarts = unloaded(device);
@@ -310,8 +312,8 @@ public class ReadBack {
 			int chunk = Math.min(DownloadPlanner.MAX_CHUNK, length - position);
 			byte[] data = reader.readMemory(address + position, chunk);
 			if (data.length != chunk) {
-				throw new BusException(String.format("Reading %04X answered %d of %d bytes.", address + position,
-					data.length, chunk));
+				throw new BusException(I18NConstants.READBACK_SHORT_ANSWER__ADDRESS_COUNT_EXPECTED.fill(
+					String.format("%04X", address + position), data.length, chunk));
 			}
 			System.arraycopy(data, 0, memory, address + position, chunk);
 			known.set(address + position, address + position + chunk);
@@ -330,15 +332,15 @@ public class ReadBack {
 		}
 	}
 
-	private static Integer tablePointer(DeviceReader reader, int object, List<String> notes) {
+	private static Integer tablePointer(DeviceReader reader, int object, List<ResKey> notes) {
 		try {
 			byte[] value = reader.readProperty(object, LoadControls.PID_TABLE_REFERENCE, 1, 1);
 			if (value.length == 2 || value.length == 4) {
 				return Integer.valueOf(new BigInteger(1, value).intValue());
 			}
-			notes.add("Table pointer of object " + object + ": " + value.length + " bytes.");
+			notes.add(I18NConstants.READBACK_TABLE_POINTER_LENGTH__OBJECT_LENGTH.fill(object, value.length));
 		} catch (BusException ex) {
-			notes.add("Table pointer of object " + object + ": " + ex.getMessage());
+			notes.add(I18NConstants.READBACK_TABLE_POINTER_FAILED__OBJECT_REASON.fill(object, ex.getErrorKey()));
 		}
 		return null;
 	}
@@ -361,13 +363,13 @@ public class ReadBack {
 	 */
 	public static Report apply(TLObject device, Memory memory) {
 		Program program = DeviceConfiguration.program(device);
-		List<String> problems = new ArrayList<>(memory.notes());
+		List<ResKey> problems = new ArrayList<>(memory.notes());
 		Decoder decoder = new Decoder(device, program, memory);
 		List<String> inferred = parametersWithoutMemory(decoder, links(memory, new ArrayList<>()).keySet(),
 			unloaded(device), problems);
-		for (Map.Entry<Parameter, String> failure : parameters(decoder, problems).entrySet()) {
-			problems.add("Parameter " + failure.getKey().getName() + " (" + failure.getKey().getExtId() + "): "
-				+ failure.getValue() + ".");
+		for (Map.Entry<Parameter, ResKey> failure : parameters(decoder, problems).entrySet()) {
+			problems.add(I18NConstants.READBACK_PARAMETER__NAME_ID_REASON.fill(failure.getKey().getName(),
+				failure.getKey().getExtId(), failure.getValue()));
 		}
 		List<String> created = new ArrayList<>();
 		Set<Integer> associated = connections(device, program, memory, created, problems);
@@ -404,8 +406,8 @@ public class ReadBack {
 		for (DownloadImage.PropertyWrite write : image.getPropertyWrites()) {
 			byte[] actual = memory.properties().get(write.objectIndex() + "/" + write.propertyId());
 			if (actual != null && !Arrays.equals(actual, write.value())) {
-				problems.add("Property " + write.objectIndex() + "/" + write.propertyId() + " differs: device "
-					+ FoundDevice.hex(actual) + ", project " + FoundDevice.hex(write.value()) + ".");
+				problems.add(I18NConstants.READBACK_PROPERTY_DIFFERS__OBJECT_PROPERTY_DEVICE_PROJECT.fill(write.objectIndex(),
+					write.propertyId(), FoundDevice.hex(actual), FoundDevice.hex(write.value())));
 			}
 		}
 		return new Report(settings, connections, created, flags, inferred, problems, compared, differences);
@@ -430,12 +432,12 @@ public class ReadBack {
 	 * @param valueFailure
 	 *        Why the bits decode to no value, <code>null</code> if they do.
 	 */
-	private record Reading(boolean skip, String failure, int size, BigInteger actual, Object value,
-			String valueFailure) {
+	private record Reading(boolean skip, ResKey failure, int size, BigInteger actual, Object value,
+			ResKey valueFailure) {
 
 		static final Reading SKIP = new Reading(true, null, 0, null, null, null);
 
-		static Reading failure(String failure) {
+		static Reading failure(ResKey failure) {
 			return new Reading(false, failure, 0, null, null, null);
 		}
 	}
@@ -492,24 +494,24 @@ public class ReadBack {
 			}
 			int size = size(type);
 			if (size <= 0) {
-				return Reading.failure("the size of its type is not known");
+				return Reading.failure(I18NConstants.DECODE_SIZE_UNKNOWN);
 			}
 			BigInteger actual;
 			try {
 				actual = bits(location, parameter, size, _memory, _littleEndian);
 			} catch (IllegalArgumentException ex) {
-				return Reading.failure(ex.getMessage());
+				return Reading.failure(ValueException.reason(ex));
 			}
 			if (actual == null) {
 				return unloadedMemory(location, parameter, _memory) ? Reading.SKIP
-					: Reading.failure("its memory was not read");
+					: Reading.failure(I18NConstants.DECODE_NOT_READ);
 			}
 			try {
 				Object value = decode(type, new ParameterEncoding.Bits(size, actual),
 					ParameterEncoding.textEncoding(_program));
 				return new Reading(false, null, size, actual, value, null);
 			} catch (IllegalArgumentException ex) {
-				return new Reading(false, null, size, actual, null, ex.getMessage());
+				return new Reading(false, null, size, actual, null, ValueException.reason(ex));
 			}
 		}
 
@@ -543,7 +545,7 @@ public class ReadBack {
 	 *
 	 * @return Why parameters could not be decoded, by parameter.
 	 */
-	private static Map<Parameter, String> parameters(Decoder decoder, List<String> problems) {
+	private static Map<Parameter, ResKey> parameters(Decoder decoder, List<ResKey> problems) {
 		return decodeParameters(decoder, problems).failures();
 	}
 
@@ -556,7 +558,7 @@ public class ReadBack {
 	 *        The configuration of the device after the decoding; <code>null</code> if it is to be
 	 *        computed again.
 	 */
-	private record Decoding(Map<Parameter, String> failures, DeviceConfiguration configuration) {
+	private record Decoding(Map<Parameter, ResKey> failures, DeviceConfiguration configuration) {
 		// Value.
 	}
 
@@ -564,9 +566,9 @@ public class ReadBack {
 	 * Decodes the values of the parameters in effect that lie in memory or properties, until the
 	 * parameters in effect no longer change, see {@link #parameters(Decoder, List)}.
 	 */
-	private static Decoding decodeParameters(Decoder decoder, List<String> problems) {
+	private static Decoding decodeParameters(Decoder decoder, List<ResKey> problems) {
 		TLObject device = decoder._device;
-		Map<Parameter, String> failures = new LinkedHashMap<>();
+		Map<Parameter, ResKey> failures = new LinkedHashMap<>();
 		DeviceConfiguration unchanged = null;
 		for (int pass = 0; pass < MAX_PASSES; pass++) {
 			DeviceConfiguration configuration = decoder.configuration();
@@ -594,7 +596,7 @@ public class ReadBack {
 					DeviceSettings.restoreValue(device, view, reading.value());
 					changed = true;
 				} catch (TopLogicException ex) {
-					failures.put(parameter, Resources.getInstance().getString(ex.getErrorKey()));
+					failures.put(parameter, ex.getErrorKey());
 				}
 			}
 			// A switch may read the parameter through another placement than the one in effect first.
@@ -616,7 +618,7 @@ public class ReadBack {
 				break;
 			}
 			if (pass == MAX_PASSES - 1) {
-				problems.add("The parameter values did not settle after " + MAX_PASSES + " passes.");
+				problems.add(I18NConstants.READBACK_NOT_SETTLED__PASSES.fill(MAX_PASSES));
 			}
 		}
 
@@ -644,7 +646,7 @@ public class ReadBack {
 	 * @return The values chosen, for a person.
 	 */
 	private static List<String> parametersWithoutMemory(Decoder decoder, Set<Integer> associated, Set<Integer> unloaded,
-			List<String> problems) {
+			List<ResKey> problems) {
 		TLObject device = decoder._device;
 		Search search = new Search(decoder, associated, unloaded, problems);
 		List<String> chosen = new ArrayList<>();
@@ -849,7 +851,7 @@ public class ReadBack {
 
 		private final Set<Integer> _unloaded;
 
-		private final List<String> _problems;
+		private final List<ResKey> _problems;
 
 		private DeviceConfiguration _configuration;
 
@@ -863,7 +865,7 @@ public class ReadBack {
 		/** The number of parameters in effect whose memory holds no value of their type, when decoded. */
 		private int _failures;
 
-		Search(Decoder decoder, Set<Integer> associated, Set<Integer> unloaded, List<String> problems) {
+		Search(Decoder decoder, Set<Integer> associated, Set<Integer> unloaded, List<ResKey> problems) {
 			_decoder = decoder;
 			_device = decoder._device;
 			_program = decoder._program;
@@ -1474,7 +1476,7 @@ public class ReadBack {
 		if (location instanceof Pointer pointer) {
 			if (!(pointer.getSegment() instanceof de.haumacher.ehome.model.operational.CodeSegment segment)
 				|| segment.getAddress() == null) {
-				throw new IllegalArgumentException("its segment has no absolute address");
+				throw new ValueException(I18NConstants.DECODE_NO_ABSOLUTE_SEGMENT);
 			}
 			int start = segment.getAddress() + byteOffset;
 			int end = segment.getAddress() + (byteOffset * 8 + bitOffset + size + 7) / 8;
@@ -1492,7 +1494,7 @@ public class ReadBack {
 			}
 			return read(value, byteOffset * 8 + bitOffset, size, littleEndian);
 		}
-		throw new IllegalArgumentException("its location is not supported");
+		throw new ValueException(I18NConstants.DECODE_LOCATION);
 	}
 
 	/**
@@ -1550,7 +1552,7 @@ public class ReadBack {
 					return entry;
 				}
 			}
-			throw new IllegalArgumentException("the value " + value + " is no entry of " + type.getName());
+			throw new ValueException(I18NConstants.DECODE_NO_ENTRY__VALUE_TYPE.fill(String.valueOf(value), type.getName()));
 		}
 		if (type instanceof NumericType numeric) {
 			boolean signed = numeric.getKind() != null && "signedInt".equals(numeric.getKind().getName());
@@ -1581,17 +1583,17 @@ public class ReadBack {
 			try {
 				return LocalDate.of(year >= 90 ? 1900 + year : 2000 + year, bytes[1] & 0xFF, bytes[0] & 0xFF).toString();
 			} catch (DateTimeException ex) {
-				throw new IllegalArgumentException("no date: " + FoundDevice.hex(bytes), ex);
+				throw new ValueException(I18NConstants.DECODE_NO_DATE__BYTES.fill(FoundDevice.hex(bytes)));
 			}
 		}
 		if (type instanceof IPAddressType) {
 			try {
 				return InetAddress.getByAddress(bytes).getHostAddress();
 			} catch (UnknownHostException ex) {
-				throw new IllegalArgumentException("no IP address: " + FoundDevice.hex(bytes), ex);
+				throw new ValueException(I18NConstants.DECODE_NO_IP__BYTES.fill(FoundDevice.hex(bytes)));
 			}
 		}
-		throw new IllegalArgumentException("its type " + type.getName() + " is not supported");
+		throw new ValueException(I18NConstants.DECODE_TYPE__TYPE.fill(type.getName()));
 	}
 
 	private static double dpt9(long raw) {
@@ -1609,7 +1611,7 @@ public class ReadBack {
 	 * @return The numbers of the objects with an association.
 	 */
 	private static Set<Integer> connections(TLObject device, Program program, Memory memory, List<String> created,
-			List<String> problems) {
+			List<ResKey> problems) {
 		Set<Integer> associated = new HashSet<>();
 		if (memory.addressTable() == null || memory.associationTable() == null) {
 			return associated;
@@ -1659,7 +1661,7 @@ public class ReadBack {
 			Port port = ports.get(entry.getKey());
 			Interface placed = port == null ? null : configuration.getActiveInterfaces().get(port);
 			if (placed == null) {
-				problems.add("Object " + entry.getKey() + " is associated, but not in effect with the parameters read.");
+				problems.add(I18NConstants.READBACK_OBJECT_NOT_IN_EFFECT__OBJECT.fill(entry.getKey()));
 				continue;
 			}
 			List<Integer> addresses = entry.getValue();
@@ -1677,7 +1679,7 @@ public class ReadBack {
 				try {
 					DeviceSettings.connect(configuration, placed, groupAddress, k == 0 ? send : receive);
 				} catch (TopLogicException ex) {
-					problems.add("Object " + entry.getKey() + ": " + Resources.getInstance().getString(ex.getErrorKey()));
+					problems.add(I18NConstants.READBACK_OBJECT__OBJECT_REASON.fill(entry.getKey(), ex.getErrorKey()));
 				}
 			}
 		}
@@ -1688,7 +1690,7 @@ public class ReadBack {
 	 * The associations of the tables read: per object number the group addresses, in the order of
 	 * the association table (the first one the object sends to).
 	 */
-	private static Map<Integer, List<Integer>> links(Memory memory, List<String> problems) {
+	private static Map<Integer, List<Integer>> links(Memory memory, List<ResKey> problems) {
 		Map<Integer, List<Integer>> links = new LinkedHashMap<>();
 		if (memory.addressTable() == null || memory.associationTable() == null) {
 			return links;
@@ -1702,8 +1704,8 @@ public class ReadBack {
 			int index = bytes[associationStart + 1 + 2 * n] & 0xFF;
 			int object = bytes[associationStart + 2 + 2 * n] & 0xFF;
 			if (index == 0 || index >= addressCount) {
-				problems.add("Association " + (n + 1) + " names the address " + index + " of " + (addressCount - 1)
-					+ ", which the address table does not hold.");
+				problems.add(I18NConstants.READBACK_ASSOCIATION_INDEX__NUMBER_INDEX_COUNT.fill(n + 1, index,
+					addressCount - 1));
 				continue;
 			}
 			int value = (bytes[addressStart + 1 + 2 * index] & 0xFF) << 8 | (bytes[addressStart + 2 + 2 * index] & 0xFF);
@@ -1719,7 +1721,7 @@ public class ReadBack {
 	 * @return The number of objects whose flags were set.
 	 */
 	private static int flags(TLObject device, Program program, Memory memory, Set<Integer> associated,
-			List<String> problems) {
+			List<ResKey> problems) {
 		DownloadImage image = DownloadImage.compute(device);
 		Block table = image.getObjectTable();
 		if (table == null || table.stateMachine() != null) {
@@ -1750,7 +1752,7 @@ public class ReadBack {
 			Port port = ports.get(number);
 			Interface placed = port == null ? null : configuration.getActiveInterfaces().get(port);
 			if (placed == null) {
-				problems.add("Object " + number + " has other flags in the device, but is not in effect.");
+				problems.add(I18NConstants.READBACK_FLAGS_NOT_IN_EFFECT__OBJECT.fill(number));
 				continue;
 			}
 			TLObject connector = connector(device, configuration, placed);
@@ -1769,7 +1771,7 @@ public class ReadBack {
 				default -> null;
 			};
 			if (priority == null) {
-				problems.add("Object " + number + " has the priority code 0 (system), which a project cannot express.");
+				problems.add(I18NConstants.READBACK_SYSTEM_PRIORITY__OBJECT.fill(number));
 			} else {
 				connector.tUpdateByName("priority", TLModelUtil.findPart("ehome.physical:Priority#" + priority));
 			}

@@ -18,6 +18,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
+import com.top_logic.layout.view.job.JobPhase;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
@@ -79,15 +80,22 @@ public class ScanJob implements JobBody {
 		}
 		BusPath address = BusPath.of(project);
 		String gatewayText = address.text();
+		BusScanner.Request request = new BusScanner.Request(line == null ? null : area, line == null ? 0 : line,
+			routers, gateway, programming);
+		job.setPhases(phases(request));
 
 		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
 		BusScanner.Result result;
 		try (ScanBus bus = openBus(address)) {
-			result = BusScanner.scan(bus, new BusScanner.Request(line == null ? null : area, line == null ? 0 : line,
-				routers, gateway, programming), new BusScanner.Listener() {
+			result = BusScanner.scan(bus, request, new BusScanner.Listener() {
 					@Override
-					public void message(String text) {
-						job.message(ResKey.text(text));
+					public void phase(String name) {
+						job.beginPhase(name);
+					}
+
+					@Override
+					public void message(ResKey text) {
+						job.message(text);
 					}
 
 					@Override
@@ -96,41 +104,75 @@ public class ScanJob implements JobBody {
 					}
 
 					@Override
+					public void indeterminate() {
+						job.indeterminate();
+					}
+
+					@Override
 					public void checkCancelled() {
 						job.checkCancelled();
 					}
 				});
 		} catch (BusException ex) {
-			throw new TopLogicException(I18NConstants.SCAN_FAILED__GATEWAY_REASON.fill(gatewayText, ex.getMessage()), ex);
+			throw new TopLogicException(I18NConstants.SCAN_FAILED__GATEWAY_REASON.fill(gatewayText, ex.getErrorKey()), ex);
 		}
 
 		List<Map<String, Object>> rows = new ArrayList<>();
 		int identified = 0;
+		int choices = 0;
 		int unidentified = 0;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(I18NConstants.COMMIT_SCAN__PROJECT_GATEWAY_FOUND
 			.fill(MetaLabelProvider.INSTANCE.getLabel(project), gatewayText, Integer.valueOf(result.devices().size())))) {
 			for (FoundDevice found : result.devices()) {
-				CatalogMatch.Match match = CatalogMatch.match(found);
-				if (match.kind() == CatalogMatch.Kind.UNIDENTIFIED) {
-					unidentified++;
-					if (InstallationBuilder.device(project, found.address()) == null) {
-						InstallationBuilder.recordUnidentified(project, found, match.reason());
-					}
-				} else {
-					identified++;
+				CatalogMatch.Match match = CatalogMatch.match(project, found);
+				switch (match.kind()) {
+					case UNIDENTIFIED:
+						unidentified++;
+						if (InstallationBuilder.device(project, found.address()) == null) {
+							InstallationBuilder.recordUnidentified(project, found,
+								Resources.getInstance().getString(match.reasonKey()));
+						}
+						break;
+					case CHOICE:
+						choices++;
+						break;
+					case UNIQUE:
+						identified++;
+						break;
 				}
 				rows.add(ScanRows.row(project, found, match));
 			}
 			tx.commit();
 		}
-		List<String> notes = new ArrayList<>(result.notes());
-		if (!result.inProgrammingMode().isEmpty()) {
-			notes.add("In programming mode: "
-				+ String.join(", ", result.inProgrammingMode().stream().map(FoundDevice::formatAddress).toList()) + ".");
+		Resources resources = Resources.getInstance();
+		List<String> notes = new ArrayList<>();
+		for (ResKey note : result.notes()) {
+			notes.add(resources.getString(note));
 		}
-		String summary = Resources.getInstance().getString(I18NConstants.SCAN_DONE__GATEWAY_FOUND_IDENTIFIED_UNIDENTIFIED
-			.fill(gatewayText, result.devices().size(), identified, unidentified));
+		if (!result.inProgrammingMode().isEmpty()) {
+			notes.add(resources.getString(I18NConstants.NOTE_PROGRAMMING_MODE__ADDRESSES.fill(
+				String.join(", ", result.inProgrammingMode().stream().map(FoundDevice::formatAddress).toList()))));
+		}
+		String summary = resources.getString(I18NConstants.SCAN_DONE__GATEWAY_FOUND_IDENTIFIED_CHOICES_UNIDENTIFIED
+			.fill(gatewayText, result.devices().size(), identified, choices, unidentified));
 		return result(summary, rows, notes);
+	}
+
+	/**
+	 * The steps of a scan of the given request, as the job status shows them.
+	 */
+	static List<JobPhase> phases(BusScanner.Request request) {
+		List<JobPhase> result = new ArrayList<>();
+		for (String name : BusScanner.phases(request)) {
+			result.add(new JobPhase(name, switch (name) {
+				case BusScanner.PHASE_GATEWAY -> I18NConstants.PHASE_GATEWAY;
+				case BusScanner.PHASE_LINE -> I18NConstants.PHASE_LINE;
+				case BusScanner.PHASE_ROUTERS -> I18NConstants.PHASE_ROUTERS;
+				case BusScanner.PHASE_PROGRAMMING -> I18NConstants.PHASE_PROGRAMMING;
+				default -> I18NConstants.PHASE_DEVICES;
+			}));
+		}
+		return result;
 	}
 
 	/**

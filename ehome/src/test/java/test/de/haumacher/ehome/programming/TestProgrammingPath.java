@@ -84,7 +84,7 @@ public class TestProgrammingPath extends BasicTestCase {
 		FakeBusController foreign = null;
 		try {
 			TLObject device = SharedData.within("ehome.physical:Device", List.of(project)).get(0);
-			QueryExecutor use = useScript();
+			Use use = useScript();
 
 			// Nothing chosen.
 			assertNull(BusPath.describe(project));
@@ -226,19 +226,39 @@ public class TestProgrammingPath extends BasicTestCase {
 		}
 	}
 
-	private static QueryExecutor useScript() throws Exception {
-		NodeList functions = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new File(DIALOG))
-			.getElementsByTagName("function");
-		List<String> scripts = new ArrayList<>();
-		for (int n = 0; n < functions.getLength(); n++) {
-			String text = ((Element) functions.item(n)).getTextContent();
-			if (text.contains("programmingController")) {
-				scripts.add(text);
+	/**
+	 * "Use" of the dialog: the decision of the channel <code>choice</code> over the dialog's channels,
+	 * refused with its reason (the command's disabled-if) or carried out by the command's script.
+	 */
+	interface Use {
+		Object execute(TLObject project, String address, Object selectedGateway, TLObject selectedController);
+	}
+
+	private static Use useScript() throws Exception {
+		Element choiceChannel = element(DIALOG, "derived-channel", "name", "choice");
+		List<String> inputs = List.of(choiceChannel.getAttribute("inputs").split("\\s*,\\s*"));
+		assertEquals(List.of("project", "address", "selectedGateway", "selectedController"), inputs);
+		String choiceText = choiceChannel.getElementsByTagName("expr").item(0).getTextContent();
+		QueryExecutor choice = ViewScripts.compile(ExprFormat.INSTANCE.getValue("expr", choiceText), inputs);
+
+		Element veto = element(DIALOG, "disabled-if", "expr", "$choice");
+		Element command = (Element) veto.getParentNode().getParentNode();
+		assertEquals(List.of("project", "choice"), List.of(command.getAttribute("inputs").split("\\s*,\\s*")));
+		QueryExecutor refusal = ViewScripts.compile(ExprFormat.INSTANCE.getValue("expr", veto.getAttribute("expr")),
+			List.of("project", "choice"));
+
+		NodeList functions = command.getElementsByTagName("function");
+		assertEquals(1, functions.getLength());
+		QueryExecutor apply = ViewScripts.compile(
+			ExprFormat.INSTANCE.getValue("function", functions.item(0).getTextContent()), List.of("project", "choice"));
+		return (project, address, gateway, controller) -> {
+			Object decided = choice.execute(project, address, gateway, controller);
+			Object reason = refusal.execute(project, decided);
+			if (reason != null && !Boolean.FALSE.equals(reason)) {
+				throw new TopLogicException(reason instanceof ResKey key ? key : ResKey.text(String.valueOf(reason)));
 			}
-		}
-		assertEquals(1, scripts.size());
-		return ViewScripts.compile(ExprFormat.INSTANCE.getValue("function", scripts.get(0)),
-			List.of("project", "address", "selectedGateway", "selectedController"));
+			return apply.execute(project, decided);
+		};
 	}
 
 	/** The initialization of a channel of the dialog, for the given project. */
@@ -255,7 +275,9 @@ public class TestProgrammingPath extends BasicTestCase {
 		Element rule = element(SCAN, "disabled-if", "expr", "scanVeto(");
 		Element command = (Element) rule.getParentNode().getParentNode();
 		List<String> inputs = List.of(command.getAttribute("inputs").split("\\s*,\\s*"));
-		assertEquals(List.of("project", "area", "line", "routers", "gatewayDevice", "programming"), inputs);
+		// The last input only re-decides the rule when a bus session or a controller changes (haumacher/ehome #161).
+		assertEquals(List.of("project", "area", "line", "routers", "gatewayDevice", "programming", "busState"), inputs);
+		inputs = inputs.subList(0, 6);
 		return ViewScripts.compile(ExprFormat.INSTANCE.getValue("expr", rule.getAttribute("expr")), inputs);
 	}
 
@@ -273,7 +295,7 @@ public class TestProgrammingPath extends BasicTestCase {
 		return result.get(0);
 	}
 
-	private static void use(QueryExecutor use, TLObject project, String address, TLObject controller) {
+	private static void use(Use use, TLObject project, String address, TLObject controller) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TestDeviceChanges.asRoot(Locale.ENGLISH, () -> use.execute(project, address, null, controller));
 			tx.commit();

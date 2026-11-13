@@ -30,6 +30,13 @@ public interface ScanBus extends AutoCloseable {
 		void progress(int done, int total);
 
 		/**
+		 * It is not known how many of the addresses are done: the scan takes longer than expected.
+		 */
+		default void indeterminate() {
+			// Ignored by default.
+		}
+
+		/**
 		 * A device answered at the given address.
 		 */
 		void found(int address);

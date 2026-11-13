@@ -6,11 +6,15 @@ package de.haumacher.ehome.programming.download;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import tuwien.auto.calimero.DataUnitBuilder;
 import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.link.KNXNetworkLink;
+
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResKey4;
 
 import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.knx.transport.Tpdu;
@@ -107,7 +111,8 @@ public class CalimeroReader implements DeviceReader {
 
 	@Override
 	public byte[] readDescriptor() throws BusException {
-		byte[] answer = request("Reading the device descriptor", DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.DESCRIPTOR_READ, (byte) 0),
+		byte[] answer = request(reason -> I18NConstants.ACCESS_DESCRIPTOR_FAILED__DEVICE_PATH_REASON.fill(device(), _path, reason),
+			DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.DESCRIPTOR_READ, (byte) 0),
 			r -> (Tpdu.service(r) & 0x3C0) == Tpdu.DESCRIPTOR_RESPONSE && (Tpdu.asdu(r)[0] & 0x3F) == 0);
 		byte[] asdu = Tpdu.asdu(answer);
 		return Arrays.copyOfRange(asdu, 1, asdu.length);
@@ -115,24 +120,29 @@ public class CalimeroReader implements DeviceReader {
 
 	@Override
 	public byte[] readProperty(int objectIndex, int propertyId, int start, int count) throws BusException {
-		String what = "Reading object " + objectIndex + " property " + propertyId;
-		byte[] answer = request(what, propertyService(Tpdu.PROPERTY_READ, objectIndex, propertyId, start, count, new byte[0]),
+		byte[] answer = request(
+			reason -> I18NConstants.ACCESS_READ_PROPERTY_FAILED__OBJECT_PROPERTY_DEVICE_PATH_REASON.fill(objectIndex, propertyId,
+				device(), _path, reason),
+			propertyService(Tpdu.PROPERTY_READ, objectIndex, propertyId, start, count, new byte[0]),
 			propertyAnswer(objectIndex, propertyId, start));
-		return propertyValue(what, answer);
+		return propertyValue(I18NConstants.ACCESS_READ_PROPERTY_REFUSED__OBJECT_PROPERTY_DEVICE_PATH, answer);
 	}
 
 	@Override
 	public byte[] readMemory(int address, int length) throws BusException {
-		String what = String.format("Reading memory %04X (%d bytes)", address, length);
+		String hexAddress = String.format("%04X", address);
 		byte[] request = DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.MEMORY_READ, (byte) length, (byte) (address >>> 8),
 			(byte) address);
-		byte[] answer = request(what, request, memoryAnswer(address));
+		byte[] answer = request(
+			reason -> I18NConstants.ACCESS_READ_MEMORY_FAILED__ADDRESS_LENGTH_DEVICE_PATH_REASON.fill(hexAddress, length,
+				device(), _path, reason),
+			request, memoryAnswer(address));
 		byte[] asdu = Tpdu.asdu(answer);
 		int count = asdu[0] & 0x3F;
 		byte[] data = Arrays.copyOfRange(asdu, 3, asdu.length);
 		if (count == 0 || data.length != length) {
-			throw new BusException(what + " of " + _device + " through " + _path
-				+ " failed: the device answered with " + data.length + " bytes.");
+			throw new BusException(I18NConstants.ACCESS_READ_MEMORY_SHORT__ADDRESS_LENGTH_DEVICE_PATH_COUNT.fill(hexAddress,
+				length, device(), _path, data.length));
 		}
 		return data;
 	}
@@ -151,16 +161,18 @@ public class CalimeroReader implements DeviceReader {
 	/**
 	 * Sends a service and waits for its answer.
 	 *
-	 * @param what
-	 *        The service for a person (the message of a failure).
+	 * @param failure
+	 *        The message of a failure of the service, for a person, given the reason the transport
+	 *        reports.
 	 * @param answer
 	 *        Tells the answer, <code>null</code> for a service without answer.
 	 */
-	protected byte[] request(String what, byte[] apdu, Predicate<byte[]> answer) throws BusException {
+	protected byte[] request(Function<Object, ResKey> failure, byte[] apdu, Predicate<byte[]> answer)
+			throws BusException {
 		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 			return _connection.request(apdu, answer);
 		} catch (TransportException ex) {
-			throw failure(what, ex);
+			throw failure(failure, ex);
 		} catch (InterruptedException ex) {
 			throw interrupted(ex);
 		}
@@ -201,12 +213,10 @@ public class CalimeroReader implements DeviceReader {
 	 * @throws BusException
 	 *         If the answer has no elements (the device refused or does not have the property).
 	 */
-	protected byte[] propertyValue(String what, byte[] answer) throws BusException {
+	protected byte[] propertyValue(ResKey4 refused, byte[] answer) throws BusException {
 		byte[] asdu = Tpdu.asdu(answer);
 		if ((asdu[2] & 0xF0) == 0) {
-			throw new BusException(what + " of " + _device + " through " + _path
-				+ " failed: property access OI " + (asdu[0] & 0xFF) + " PID " + (asdu[1] & 0xFF)
-				+ " failed/forbidden (KNXRemoteException)");
+			throw new BusException(refused.fill(asdu[0] & 0xFF, asdu[1] & 0xFF, device(), _path));
 		}
 		return Arrays.copyOfRange(asdu, 4, asdu.length);
 	}
@@ -225,11 +235,23 @@ public class CalimeroReader implements DeviceReader {
 	}
 
 	/**
-	 * A failure of the device access, naming the device and the path to the bus.
+	 * A failure of the device access.
+	 *
+	 * @param failure
+	 *        The message, naming the device and the path to the bus, given the reason.
+	 * @param ex
+	 *        The failure: its reason is the message of a {@link BusException}, otherwise the text of
+	 *        the KNX library.
 	 */
-	protected BusException failure(String what, Exception ex) {
-		return new BusException(what + " of " + _device + " through " + _path + " failed: "
-			+ ex.getMessage(), ex);
+	protected static BusException failure(Function<Object, ResKey> failure, Exception ex) {
+		return new BusException(failure.apply(BusException.reason(ex)), ex);
+	}
+
+	/**
+	 * The individual address of the device, as text (<code>1.3.5</code>).
+	 */
+	protected String device() {
+		return _device.toString();
 	}
 
 	/**
@@ -237,7 +259,7 @@ public class CalimeroReader implements DeviceReader {
 	 */
 	protected static BusException interrupted(InterruptedException ex) {
 		Thread.currentThread().interrupt();
-		return new BusException("Interrupted.", ex);
+		return new BusException(I18NConstants.ACCESS_INTERRUPTED, ex);
 	}
 
 }

@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -16,7 +17,9 @@ import com.top_logic.model.util.TLModelUtil;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.Program;
+import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.ParameterEncoding;
+import de.haumacher.ehome.programming.download.DownloadPlan;
 
 /**
  * Matches a device found on the bus ({@link FoundDevice}) against the catalog: which application
@@ -88,24 +91,50 @@ public class CatalogMatch {
 	 *        Unique, a choice, or unidentified.
 	 * @param candidates
 	 *        The candidates.
-	 * @param reason
+	 * @param reasonKey
 	 *        For an unidentified device why, for a person; otherwise <code>null</code>.
 	 */
-	public record Match(Kind kind, List<Candidate> candidates, String reason) {
+	public record Match(Kind kind, List<Candidate> candidates, ResKey reasonKey) {
 
 		/**
-		 * The match for a person.
+		 * The {@link #reasonKey()} in English, for the log; <code>null</code> for an identified
+		 * device.
 		 */
-		public String describe() {
-			switch (kind) {
-				case UNIQUE:
-					return candidates.get(0).label();
-				case CHOICE:
-					return candidates.size() + " candidates";
-				default:
-					return reason;
-			}
+		public String reason() {
+			return reasonKey == null ? null : DownloadPlan.english(reasonKey);
 		}
+	}
+
+	/**
+	 * Matches a device found on the bus of a project against the catalog, preferring what the project
+	 * says: where the catalog offers several candidates (e.g. several editions of the same program,
+	 * imported from different exports of a project) and the project has a device at the address that
+	 * runs one of them, that one (of the device's product variant, if it is among them) is the match.
+	 */
+	public static Match match(TLObject project, FoundDevice found) {
+		Match match = match(found);
+		if (match.kind() != Kind.CHOICE || project == null) {
+			return match;
+		}
+		TLObject device = InstallationBuilder.device(project, found.address());
+		if (device == null) {
+			return match;
+		}
+		Object assignment = device.tValueByName("program");
+		List<Candidate> same = match.candidates().stream().filter(c -> c.assignment() == assignment).toList();
+		if (same.isEmpty()) {
+			Program program = DeviceConfiguration.program(device);
+			same = match.candidates().stream().filter(c -> c.program() == program).toList();
+		}
+		if (same.isEmpty()) {
+			return match;
+		}
+		Object variant = device.tValueByName("type");
+		List<Candidate> sameVariant = same.stream().filter(c -> c.variant() == variant).toList();
+		if (!sameVariant.isEmpty()) {
+			same = sameVariant;
+		}
+		return new Match(same.size() == 1 ? Kind.UNIQUE : Kind.CHOICE, same, null);
 	}
 
 	/**
@@ -119,10 +148,10 @@ public class CatalogMatch {
 		TLObject manufacturer = manufacturer(manufacturerId.intValue());
 		if (manufacturer == null) {
 			return new Match(Kind.UNIDENTIFIED, List.of(),
-				String.format("The manufacturer M-%04X is not in the catalog.", manufacturerId));
+				I18NConstants.UNIDENTIFIED_MANUFACTURER__MANUFACTURER.fill(String.format("M-%04X", manufacturerId)));
 		}
 		List<Program> programs = new ArrayList<>();
-		List<String> excluded = new ArrayList<>();
+		List<ResKey> excluded = new ArrayList<>();
 		for (Object element : (Collection<?>) manufacturer.tValueByName("programs")) {
 			if (!(element instanceof Program program)) {
 				continue;
@@ -133,22 +162,25 @@ public class CatalogMatch {
 			}
 			if (device.descriptor() != null && program.getMask() != null
 				&& program.getMask().getNumber() != device.descriptor().intValue()) {
-				excluded.add(program.getExtId() + " is for mask " + String.format("%04X", program.getMask().getNumber()));
+				excluded.add(I18NConstants.EXCLUDED_MASK__PROGRAM_MASK.fill(program.getExtId(),
+					String.format("%04X", program.getMask().getNumber())));
 				continue;
 			}
 			byte[] hardware = comparedHardwareType(program);
 			if (hardware != null && device.hardwareType() != null && !samePadded(hardware, device.hardwareType())) {
-				excluded.add(program.getExtId() + " expects the hardware type " + FoundDevice.hex(hardware));
+				excluded.add(I18NConstants.EXCLUDED_HARDWARE__PROGRAM_TYPE.fill(program.getExtId(), FoundDevice.hex(hardware)));
 				continue;
 			}
 			programs.add(program);
 		}
 		if (programs.isEmpty()) {
-			String reason = String.format("No program %04X version %02X of M-%04X in the catalog.",
-				device.applicationNumber(), device.applicationVersion(), manufacturerId);
-			if (!excluded.isEmpty()) {
-				reason += " " + String.join("; ", excluded) + ".";
-			}
+			String number = String.format("%04X", device.applicationNumber());
+			String version = String.format("%02X", device.applicationVersion());
+			String manufacturerText = String.format("M-%04X", manufacturerId);
+			ResKey reason = excluded.isEmpty()
+				? I18NConstants.UNIDENTIFIED_PROGRAM__NUMBER_VERSION_MANUFACTURER.fill(number, version, manufacturerText)
+				: I18NConstants.UNIDENTIFIED_PROGRAM_EXCLUDED__NUMBER_VERSION_MANUFACTURER_EXCLUDED.fill(number, version,
+					manufacturerText, join(excluded));
 			return new Match(Kind.UNIDENTIFIED, List.of(), reason);
 		}
 
@@ -167,8 +199,8 @@ public class CatalogMatch {
 			}
 		}
 		if (candidates.isEmpty()) {
-			return new Match(Kind.UNIDENTIFIED, List.of(), "No product of the catalog carries the program "
-				+ programs.get(0).getExtId() + ".");
+			return new Match(Kind.UNIDENTIFIED, List.of(),
+				I18NConstants.UNIDENTIFIED_NO_PRODUCT__PROGRAM.fill(programs.get(0).getExtId()));
 		}
 		if (device.orderInfo() != null) {
 			String order = normalize(device.orderInfo());
@@ -191,12 +223,12 @@ public class CatalogMatch {
 	 */
 	private static Match byOrderInfo(FoundDevice device) {
 		if (device.manufacturerId() == null || device.orderInfo() == null) {
-			return new Match(Kind.UNIDENTIFIED, List.of(), "The device reported no program version and no order info.");
+			return new Match(Kind.UNIDENTIFIED, List.of(), I18NConstants.UNIDENTIFIED_NO_IDENTITY);
 		}
 		TLObject manufacturer = manufacturer(device.manufacturerId().intValue());
 		if (manufacturer == null) {
 			return new Match(Kind.UNIDENTIFIED, List.of(),
-				String.format("The manufacturer M-%04X is not in the catalog.", device.manufacturerId()));
+				I18NConstants.UNIDENTIFIED_MANUFACTURER__MANUFACTURER.fill(String.format("M-%04X", device.manufacturerId())));
 		}
 		String order = normalize(device.orderInfo());
 		List<Candidate> candidates = new ArrayList<>();
@@ -215,8 +247,8 @@ public class CatalogMatch {
 			}
 		}
 		if (candidates.isEmpty()) {
-			return new Match(Kind.UNIDENTIFIED, List.of(), "The device reported no program version, and no product of "
-				+ manufacturer.tValueByName("name") + " has the order number " + device.orderInfo() + ".");
+			return new Match(Kind.UNIDENTIFIED, List.of(),
+				I18NConstants.UNIDENTIFIED_ORDER__MANUFACTURER_ORDER.fill(manufacturer.tValueByName("name"), device.orderInfo()));
 		}
 		candidates.sort((a, b) -> a.label().compareTo(b.label()));
 		return new Match(candidates.size() == 1 ? Kind.UNIQUE : Kind.CHOICE, candidates, null);
@@ -284,6 +316,17 @@ public class CatalogMatch {
 			}
 		}
 		return true;
+	}
+
+	/**
+	 * The given texts as one, separated by semicolons.
+	 */
+	private static ResKey join(List<ResKey> parts) {
+		ResKey result = parts.get(0);
+		for (int n = 1; n < parts.size(); n++) {
+			result = I18NConstants.JOIN__FIRST_NEXT.fill(result, parts.get(n));
+		}
+		return result;
 	}
 
 	private static String normalize(String orderNumber) {

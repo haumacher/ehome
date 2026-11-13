@@ -178,7 +178,7 @@ public class DeviceConfiguration {
 				_defaultBits.put(view, result);
 			}
 			if (result instanceof IllegalArgumentException ex) {
-				throw new IllegalArgumentException(ex.getMessage(), ex);
+				throw new ValueException(ValueException.reason(ex), ex);
 			}
 			return result == NO_BITS ? null : (ParameterEncoding.Bits) result;
 		}

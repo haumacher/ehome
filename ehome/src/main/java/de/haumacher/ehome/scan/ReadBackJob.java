@@ -86,12 +86,12 @@ public class ReadBackJob implements JobBody {
 		try (DeviceReader reader = openReader(gateway, found.address())) {
 			memory = ReadBack.read(device, reader, (done, total, what) -> {
 				job.progress(done, total);
-				job.message(ResKey.text(what));
+				job.message(what == null ? null : de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_READING__WHAT.fill(what));
 			});
 		} catch (BusException ex) {
-			report.add("error", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_FAILURE, "", ex.getMessage());
+			report.add("error", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_FAILURE, "", ex.getErrorKey());
 			return report.toMap(I18NConstants.READBACK_FAILED__DEVICE_GATEWAY_REASON.fill(found.addressText(), gatewayText,
-				ex.getMessage()), false);
+				ex.getErrorKey()), false);
 		}
 
 		ReadBack.Report result;
@@ -108,24 +108,24 @@ public class ReadBackJob implements JobBody {
 		}
 
 		String where = found.addressText();
-		for (String problem : result.problems()) {
+		for (ResKey problem : result.problems()) {
 			report.add("warning", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_DIFFERENT, where, problem);
 		}
 		if (!result.createdAddresses().isEmpty()) {
 			report.add("info", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_NOTE, where,
-				"Group addresses created: " + String.join(", ", result.createdAddresses()) + ".");
+				I18NConstants.READBACK_CREATED_ADDRESSES__ADDRESSES.fill(String.join(", ", result.createdAddresses())));
 		}
 		if (result.flags() > 0) {
 			report.add("info", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_NOTE, where,
-				result.flags() + " communication objects with flags of their own.");
+				I18NConstants.READBACK_FLAGS__COUNT.fill(result.flags()));
 		}
 		if (result.differences().isEmpty()) {
 			report.add("info", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_IDENTICAL, where,
-				result.compared() + " bytes of the download image compared with the memory read, all equal.");
+				I18NConstants.READBACK_EQUAL__COUNT.fill(result.compared()));
 		} else {
 			report.add("error", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_DIFFERENT, where,
-				result.differences().size() + " of " + result.compared() + " bytes of the download image differ from the memory read: "
-					+ result.differences().stream().map(a -> String.format("%04X", a)).toList() + ".");
+				I18NConstants.READBACK_DIFFERENT__DIFFERENT_COUNT_ADDRESSES.fill(result.differences().size(), result.compared(),
+					String.join(", ", result.differences().stream().map(a -> String.format("%04X", a)).toList())));
 		}
 		return report.toMap(I18NConstants.READBACK_DONE__DEVICE_GATEWAY_SETTINGS_CONNECTIONS.fill(where, gatewayText,
 			result.settings(), result.connections()), result.identical());

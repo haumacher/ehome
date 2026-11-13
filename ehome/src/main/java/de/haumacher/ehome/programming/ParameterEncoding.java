@@ -78,10 +78,10 @@ public class ParameterEncoding {
 		 */
 		public Bits {
 			if (size <= 0) {
-				throw new IllegalArgumentException("A value must have at least one bit: " + size);
+				throw new ValueException(I18NConstants.ENCODE_NO_BITS__SIZE.fill(size));
 			}
 			if (value.signum() < 0 || value.bitLength() > size) {
-				throw new IllegalArgumentException("Value " + value + " does not fit into " + size + " bits.");
+				throw new ValueException(I18NConstants.ENCODE_TOO_LARGE__VALUE_SIZE.fill(String.valueOf(value), size));
 			}
 		}
 
@@ -103,7 +103,7 @@ public class ParameterEncoding {
 	 */
 	public static Bits unsigned(long value, int size) {
 		if (value < 0) {
-			throw new IllegalArgumentException("Negative value " + value + " for an unsigned integer.");
+			throw new ValueException(I18NConstants.ENCODE_NEGATIVE__VALUE.fill(String.valueOf(value)));
 		}
 		return new Bits(size, BigInteger.valueOf(value));
 	}
@@ -115,7 +115,7 @@ public class ParameterEncoding {
 		BigInteger big = BigInteger.valueOf(value);
 		BigInteger limit = BigInteger.ONE.shiftLeft(size - 1);
 		if (big.compareTo(limit.negate()) < 0 || big.compareTo(limit) >= 0) {
-			throw new IllegalArgumentException("Value " + value + " does not fit into a signed integer of " + size + " bits.");
+			throw new ValueException(I18NConstants.ENCODE_SIGNED_RANGE__VALUE_SIZE.fill(String.valueOf(value), size));
 		}
 		return new Bits(size, big.signum() < 0 ? big.add(BigInteger.ONE.shiftLeft(size)) : big);
 	}
@@ -127,7 +127,7 @@ public class ParameterEncoding {
 	 */
 	public static Bits dpt9(double value) {
 		if (Double.isNaN(value) || value < -671088.64 || value > 670760.96) {
-			throw new IllegalArgumentException("Value " + value + " is outside the range of DPT 9.");
+			throw new ValueException(I18NConstants.ENCODE_DPT9_RANGE__VALUE.fill(String.valueOf(value)));
 		}
 		double scaled = value * 100;
 		int exponent = 0;
@@ -163,7 +163,7 @@ public class ParameterEncoding {
 		byte[] chars = text.getBytes(encoding);
 		int max = zeroTerminated ? length - 1 : length;
 		if (chars.length > max) {
-			throw new IllegalArgumentException("Text '" + text + "' has more than " + max + " bytes.");
+			throw new ValueException(I18NConstants.ENCODE_TEXT_LENGTH__TEXT_MAX.fill(text, max));
 		}
 		byte[] bytes = new byte[length];
 		System.arraycopy(chars, 0, bytes, 0, chars.length);
@@ -179,10 +179,10 @@ public class ParameterEncoding {
 		try {
 			date = LocalDate.parse(text.trim());
 		} catch (DateTimeParseException ex) {
-			throw new IllegalArgumentException("Not a date: " + text, ex);
+			throw new ValueException(I18NConstants.ENCODE_NO_DATE__TEXT.fill(text), ex);
 		}
 		if (date.getYear() < 1990 || date.getYear() > 2089) {
-			throw new IllegalArgumentException("Year " + date.getYear() + " is outside the range of DPT 11 (1990 to 2089).");
+			throw new ValueException(I18NConstants.ENCODE_YEAR_RANGE__YEAR.fill(String.valueOf(date.getYear())));
 		}
 		return bytes(new byte[] { (byte) date.getDayOfMonth(), (byte) date.getMonthValue(), (byte) (date.getYear() % 100) }, 24);
 	}
@@ -194,13 +194,13 @@ public class ParameterEncoding {
 		String address = text.trim();
 		if (!address.matches("[0-9.]+|[0-9a-fA-F:.]*:[0-9a-fA-F:.]*")) {
 			// Only literal addresses, never a host name to resolve.
-			throw new IllegalArgumentException("Not an IP address: " + text);
+			throw new ValueException(I18NConstants.ENCODE_NO_IP__TEXT.fill(text));
 		}
 		try {
 			byte[] bytes = InetAddress.getByName(address).getAddress();
 			return bytes(bytes, bytes.length * 8);
 		} catch (UnknownHostException ex) {
-			throw new IllegalArgumentException("Not an IP address: " + text, ex);
+			throw new ValueException(I18NConstants.ENCODE_NO_IP__TEXT.fill(text), ex);
 		}
 	}
 
@@ -232,8 +232,7 @@ public class ParameterEncoding {
 		BigInteger bits = value.value();
 		if (littleEndian && size > 8) {
 			if (size % 8 != 0 || start % 8 != 0) {
-				throw new IllegalArgumentException("A little endian value must start at a byte and have whole bytes: " + size
-					+ " bits at bit " + start + ".");
+				throw new ValueException(I18NConstants.ENCODE_LITTLE_ENDIAN__SIZE_START.fill(size, start));
 			}
 			byte[] bytes = value.toBytes();
 			for (int n = 0; n < bytes.length / 2; n++) {
@@ -244,8 +243,7 @@ public class ParameterEncoding {
 			bits = new BigInteger(1, bytes);
 		}
 		if (start + size > memory.length * 8) {
-			throw new IllegalArgumentException("A value of " + size + " bits at bit " + start + " exceeds the memory of "
-				+ memory.length + " bytes.");
+			throw new ValueException(I18NConstants.ENCODE_OUTSIDE_MEMORY__SIZE_START_LENGTH.fill(size, start, memory.length));
 		}
 		for (int n = 0; n < size; n++) {
 			int bit = start + n;
@@ -299,7 +297,7 @@ public class ParameterEncoding {
 			text = "";
 		}
 		if (text == null) {
-			throw new IllegalArgumentException("No value.");
+			throw new ValueException(I18NConstants.ENCODE_NO_VALUE);
 		}
 		if (type instanceof EnumerationType enumeration) {
 			return encodeEnumeration(enumeration, choice, text);
@@ -312,7 +310,7 @@ public class ParameterEncoding {
 		if (type instanceof TimeType time) {
 			String unit = time.getUnit().getName();
 			if (unit.startsWith("Packed")) {
-				throw new IllegalArgumentException("The time unit " + unit + " is not supported.");
+				throw new ValueException(I18NConstants.ENCODE_TIME_UNIT__UNIT.fill(unit));
 			}
 			return unsigned(parseLong(text), time.getBits());
 		}
@@ -321,7 +319,7 @@ public class ParameterEncoding {
 			try {
 				value = Double.parseDouble(text.trim());
 			} catch (NumberFormatException ex) {
-				throw new IllegalArgumentException("Not a number: " + text, ex);
+				throw new ValueException(I18NConstants.ENCODE_NO_NUMBER__TEXT.fill(text), ex);
 			}
 			TLClassifier encoding = floating.getEncoding();
 			String name = encoding == null ? "DPT9" : encoding.getName();
@@ -343,7 +341,7 @@ public class ParameterEncoding {
 		if (type instanceof IPAddressType) {
 			return ipAddress(text);
 		}
-		throw new IllegalArgumentException("Unsupported parameter type " + type.tType().getName() + ".");
+		throw new ValueException(I18NConstants.ENCODE_TYPE__TYPE.fill(type.tType().getName()));
 	}
 
 	private static Bits encodeEnumeration(EnumerationType type, EnumerationValue choice, String text) {
@@ -366,8 +364,8 @@ public class ParameterEncoding {
 		}
 		BigInteger bits = entry.valueInBits(type.getBits());
 		if (bits == null) {
-			throw new IllegalArgumentException("Value " + entry.getUnsignedValue() + " of the entry " + entry.getExtId()
-				+ " does not fit into " + type.getBits() + " bits.");
+			throw new ValueException(I18NConstants.ENCODE_ENTRY_TOO_LARGE__VALUE_ENTRY_SIZE.fill(
+				String.valueOf(entry.getUnsignedValue()), entry.getExtId(), type.getBits()));
 		}
 		return new Bits(type.getBits(), bits);
 	}
@@ -383,7 +381,7 @@ public class ParameterEncoding {
 		try {
 			return Charset.forName(name.trim());
 		} catch (IllegalArgumentException ex) {
-			throw new IllegalArgumentException("Unknown text encoding " + name + ".", ex);
+			throw new ValueException(I18NConstants.ENCODE_TEXT_ENCODING__NAME.fill(name), ex);
 		}
 	}
 
@@ -407,7 +405,7 @@ public class ParameterEncoding {
 		try {
 			return Long.parseLong(text.trim());
 		} catch (NumberFormatException ex) {
-			throw new IllegalArgumentException("Not an integer: " + text, ex);
+			throw new ValueException(I18NConstants.ENCODE_NO_INTEGER__TEXT.fill(text), ex);
 		}
 	}
 

@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import com.top_logic.basic.util.ResKey;
+
 import de.haumacher.ehome.model.operational.MaskFeature;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
@@ -33,8 +35,8 @@ public class DeviceComparison {
 	/**
 	 * The comparison of one block of the image with the device's memory.
 	 *
-	 * @param name
-	 *        The block.
+	 * @param label
+	 *        The block, for a person.
 	 * @param address
 	 *        Its first address.
 	 * @param length
@@ -43,16 +45,32 @@ public class DeviceComparison {
 	 *        The number of bytes compared (those of the block's mask).
 	 * @param different
 	 *        The addresses at which the device differs from the image, in ascending order.
-	 * @param failure
+	 * @param failureKey
 	 *        Why the block could not be read completely, <code>null</code> if it could.
 	 */
-	public record BlockResult(String name, int address, int length, int compared, List<Integer> different, String failure) {
+	public record BlockResult(ResKey label, int address, int length, int compared, List<Integer> different,
+			ResKey failureKey) {
+
+		/**
+		 * The {@link #label()} in English, for the log.
+		 */
+		public String name() {
+			return DownloadPlan.english(label);
+		}
+
+		/**
+		 * The {@link #failureKey()} in English, for the log; <code>null</code> if the block was read
+		 * completely.
+		 */
+		public String failure() {
+			return failureKey == null ? null : DownloadPlan.english(failureKey);
+		}
 
 		/**
 		 * Whether the device holds the image in this block.
 		 */
 		public boolean identical() {
-			return failure == null && different.isEmpty();
+			return failureKey == null && different.isEmpty();
 		}
 
 		/**
@@ -68,12 +86,19 @@ public class DeviceComparison {
 	 *
 	 * @param descriptor
 	 *        The device descriptor (mask version) read, or why it could not be read.
-	 * @param facts
+	 * @param factKeys
 	 *        Further things read from the device, for a person (program version, load states).
 	 * @param blocks
 	 *        The comparison of each block of the image.
 	 */
-	public record Result(String descriptor, List<String> facts, List<BlockResult> blocks) {
+	public record Result(String descriptor, List<ResKey> factKeys, List<BlockResult> blocks) {
+
+		/**
+		 * The {@link #factKeys()} in English, for the log.
+		 */
+		public List<String> facts() {
+			return factKeys.stream().map(DownloadPlan::english).toList();
+		}
 
 		/**
 		 * The number of blocks the device holds identically.
@@ -143,16 +168,16 @@ public class DeviceComparison {
 			Map<Integer, Byte> written, DeviceReader reader, Listener listener)
 			throws BusException {
 		String descriptor = Operation.hex(reader.readDescriptor());
-		List<String> facts = new ArrayList<>();
+		List<ResKey> facts = new ArrayList<>();
 		MaskVersion mask = program == null ? null : program.getMask();
 		if (mask != null) {
-			facts.add(String.format("Mask version of the program: %04X (%s)", mask.getNumber(), mask.getName()));
+			facts.add(I18NConstants.FACT_MASK__NUMBER_NAME.fill(String.format("%04X", mask.getNumber()), mask.getName()));
 			for (MaskResource resource : mask.getResources()) {
 				if ("ApplicationId".equals(resource.getName()) && resource.getLocation() != null
 					&& resource.getLocation().getInterfaceObject() != null && resource.getLocation().getPropertyId() != null) {
-					facts.add("Program version: " + property(reader, resource.getLocation().getInterfaceObject(),
-						resource.getLocation().getPropertyId()) + ", the program's: "
-						+ Operation.hex(DownloadPlanner.applicationId(program)));
+					facts.add(I18NConstants.FACT_PROGRAM_VERSION__DEVICE_PROGRAM.fill(property(reader,
+						resource.getLocation().getInterfaceObject(), resource.getLocation().getPropertyId()),
+						Operation.hex(DownloadPlanner.applicationId(program))));
 				} else if ("ApplicationId".equals(resource.getName()) && resource.getLocation() != null
 					&& resource.getLocation().getAddressSpace() != null
 					&& "StandardMemory".equals(resource.getLocation().getAddressSpace().getName())
@@ -160,20 +185,20 @@ public class DeviceComparison {
 					// BCU 1: the identity of the program lies in memory, as the image has it.
 					int address = resource.getLocation().getStartAddress().intValue();
 					int length = resource.getLength().intValue();
-					facts.add(String.format("Program identity (memory %04X): ", address) + memory(reader, address, length)
-						+ ", the image's: " + imageBytes(image, address, length));
+					facts.add(I18NConstants.FACT_PROGRAM_IDENTITY__ADDRESS_DEVICE_IMAGE.fill(String.format("%04X", address),
+						memory(reader, address, length), imageBytes(image, address, length)));
 				}
 			}
 			if (propertyMapped(mask)) {
 				for (int lsm = 1; lsm <= 3; lsm++) {
-					String state;
+					ResKey state;
 					try {
 						byte[] value = reader.readProperty(lsm, LoadControls.PID_LOAD_STATE_CONTROL, 1, 1);
-						state = value.length == 0 ? "no answer" : LoadControls.stateName(value[0] & 0xFF);
+						state = value.length == 0 ? I18NConstants.FACT_NO_ANSWER : LoadControls.stateName(value[0] & 0xFF);
 					} catch (BusException ex) {
-						state = ex.getMessage();
+						state = ex.getErrorKey();
 					}
-					facts.add("Load state machine " + lsm + ": " + state);
+					facts.add(I18NConstants.FACT_LOAD_STATE__LSM_STATE.fill(lsm, state));
 				}
 			}
 		}
@@ -189,19 +214,19 @@ public class DeviceComparison {
 		return new Result(descriptor, facts, results);
 	}
 
-	private static String property(DeviceReader reader, int object, int property) {
+	private static ResKey property(DeviceReader reader, int object, int property) {
 		try {
-			return Operation.hex(reader.readProperty(object, property, 1, 1));
+			return ResKey.text(Operation.hex(reader.readProperty(object, property, 1, 1)));
 		} catch (BusException ex) {
-			return "not readable (" + ex.getMessage() + ")";
+			return I18NConstants.FACT_NOT_READABLE__REASON.fill(ex.getErrorKey());
 		}
 	}
 
-	private static String memory(DeviceReader reader, int address, int length) {
+	private static ResKey memory(DeviceReader reader, int address, int length) {
 		try {
-			return Operation.hex(reader.readMemory(address, length));
+			return ResKey.text(Operation.hex(reader.readMemory(address, length)));
 		} catch (BusException ex) {
-			return "not readable (" + ex.getMessage() + ")";
+			return I18NConstants.FACT_NOT_READABLE__REASON.fill(ex.getErrorKey());
 		}
 	}
 
@@ -232,8 +257,8 @@ public class DeviceComparison {
 		List<Integer> different = new ArrayList<>();
 		int compared = 0;
 		if (block.stateMachine() != null) {
-			return new BlockResult(block.name(), block.address(), data.length, 0, different,
-				"a relative segment, its place in the device is not known");
+			return new BlockResult(block.label(), block.address(), data.length, 0, different,
+				I18NConstants.COMPARE_RELATIVE_SEGMENT);
 		}
 		int n = 0;
 		while (n < data.length) {
@@ -249,8 +274,9 @@ public class DeviceComparison {
 			try {
 				read = reader.readMemory(block.address() + start, n - start);
 			} catch (BusException ex) {
-				return new BlockResult(block.name(), block.address(), data.length, compared, different,
-					String.format("reading %04X failed: %s", block.address() + start, ex.getMessage()));
+				return new BlockResult(block.label(), block.address(), data.length, compared, different,
+					I18NConstants.COMPARE_READ_FAILED__ADDRESS_REASON.fill(String.format("%04X", block.address() + start),
+						ex.getErrorKey()));
 			}
 			for (int k = start; k < n; k++) {
 				compared++;
@@ -261,7 +287,7 @@ public class DeviceComparison {
 				}
 			}
 		}
-		return new BlockResult(block.name(), block.address(), data.length, compared, different, null);
+		return new BlockResult(block.label(), block.address(), data.length, compared, different, null);
 	}
 
 	/**
