@@ -11,6 +11,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.knx.FillTextParameter;
+import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ConfigFragment;
 import de.haumacher.ehome.model.operational.Interface;
@@ -56,6 +57,11 @@ public final class DeviceTexts {
 		}
 		if (part instanceof ParameterView view) {
 			return fill(device, view.getTitle(), null);
+		}
+		if (part instanceof Button button) {
+			// The text on a button of the parameter dialog (haumacher/ehome #158).
+			ResKey text = button.getText();
+			return text == null ? button.getExtId() : Resources.getInstance().getString(text);
 		}
 		return MetaLabelProvider.INSTANCE.getLabel(part);
 	}

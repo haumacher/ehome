@@ -19,6 +19,7 @@ import com.top_logic.model.TLObject;
 
 import de.haumacher.ehome.knx.PageOrder;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ChannelIndependent;
@@ -658,6 +659,9 @@ public class DeviceConfiguration {
 		} else if (option instanceof Interface placed) {
 			_activeInterfaces.putIfAbsent((Port) _structure.ref(placed), placed);
 			items(page).addObject(placed, _inputs);
+		} else if (option instanceof Button button) {
+			// A button of the parameter dialog at its place (haumacher/ehome #158).
+			items(page).addButton(button);
 		} else if (option instanceof ModulePlacement placement) {
 			place(placement, page);
 		} else if (option instanceof Repeat repeat) {
@@ -994,8 +998,8 @@ public class DeviceConfiguration {
 	 *
 	 * @param page
 	 *        The device for the top of the structure, otherwise a page of this configuration.
-	 * @return The {@link ParameterView}s and {@link Interface}s; empty for anything that is no page
-	 *         in effect.
+	 * @return The {@link ParameterView}s, {@link Interface}s and {@link Button}s; empty for anything that
+	 *         is no page in effect.
 	 */
 	public List<Option> getItems(Object page) {
 		PageOrder items = _items.get(page);

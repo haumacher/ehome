@@ -16,6 +16,7 @@ import com.top_logic.basic.util.ResKey.LiteralKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredTypePart;
 
+import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ChannelIndependent;
@@ -136,6 +137,9 @@ public final class ModuleParts {
 		if (obj instanceof Repeat) {
 			return new InstancePart.RepeatPart(obj, instance);
 		}
+		if (obj instanceof Button) {
+			return new InstancePart.ButtonPart(obj, instance);
+		}
 		return new InstancePart.ModuleDefinitionPart(obj, instance);
 	}
 
@@ -144,7 +148,8 @@ public final class ModuleParts {
 			|| obj instanceof Port || obj instanceof Pointer || obj instanceof PropertyLocation
 			|| obj instanceof ParameterGroup || obj instanceof Channel || obj instanceof ChannelIndependent
 			|| obj instanceof Switch || obj instanceof Case || obj instanceof SharedPlacement
-			|| obj instanceof ModulePlacement || obj instanceof Repeat || obj instanceof ModuleDefinition;
+			|| obj instanceof ModulePlacement || obj instanceof Repeat || obj instanceof Button
+			|| obj instanceof ModuleDefinition;
 	}
 
 	/**

@@ -513,6 +513,16 @@ display (`ScriptLabelControlProvider`, `image`), which creates the image control
 **When fixed:** give the `<value-input>` of the kind "choice" in `projects/device-item.view.xml` the
 picture of each option (`parameterIcon`), and drop the `valueIcon` beside it if the chip shows it.
 
+## The label of a button from data (TL #30321)
+
+A `<button>` of a view takes its label from its configuration only (`ButtonElement`,
+`GenericViewCommand.getLabel()`); it cannot show a text computed from the object it acts on.
+E-Home's buttons of a program's parameter dialog (haumacher/ehome #158) carry the manufacturer's
+translated text ("Text übernehmen"): `projects/device-item.view.xml` shows it as the row's label
+beside a generic button "Ausführen".
+
+**When fixed:** label the button with the manufacturer's text and drop the separate row label.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -528,3 +538,4 @@ picture of each option (`parameterIcon`), and drop the `valueIcon` beside it if 
 - TL #30250 (with #30193, #30194, #30195, #30249 as duplicates), #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the follow-up seeing the job's commits, the interrupt of a cancelled job closing H2; fixed after 8.0.0-alpha12.820).
 - TL #30274: see above (OAuth login and discovery of the MCP endpoint; accepted, not in 8.0.0-alpha12.820).
 - TL #30316: see above (a picture from data in the options of a selection).
+- TL #30321: see above (the label of a button from data).

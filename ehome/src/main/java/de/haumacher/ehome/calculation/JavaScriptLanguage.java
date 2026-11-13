@@ -7,17 +7,27 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.mozilla.javascript.BaseFunction;
+import org.mozilla.javascript.CompilerEnvirons;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.ContextFactory;
 import org.mozilla.javascript.EvaluatorException;
 import org.mozilla.javascript.Function;
 import org.mozilla.javascript.NativeArray;
+import org.mozilla.javascript.Parser;
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Script;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.Undefined;
+import org.mozilla.javascript.ast.AstNode;
+import org.mozilla.javascript.ast.AstRoot;
+import org.mozilla.javascript.ast.FunctionCall;
+import org.mozilla.javascript.ast.FunctionNode;
+import org.mozilla.javascript.ast.Name;
+import org.mozilla.javascript.ast.PropertyGet;
 import org.mozilla.javascript.json.JsonParser;
 
 /**
@@ -44,6 +54,13 @@ import org.mozilla.javascript.json.JsonParser;
  * changed one with its new value), the name of the changed one, its value before and the parameters of
  * the validation (a JSON value, else the text). <code>true</code>, or anything else that is true and no
  * text, accepts; a text refuses with it; anything false refuses without a text.</li>
+ * <li>The handler of a button of the parameter dialog (haumacher/ehome #158): called as
+ * <code>function(device, online, progress, context)</code>, see
+ * {@link #handle(String, String, ButtonDevice, String)}. <code>device</code> provides
+ * {@link #DEVICE_MEMBERS} and a parameter {@link #PARAMETER_MEMBERS}, both in the spellings the
+ * programs in the field use; <code>progress</code> provides nothing, <code>online</code> is
+ * <code>false</code> (E-Home does not talk to the device while a person edits it). A member E-Home
+ * does not provide stops the run with the reason naming it, which the script cannot catch.</li>
  * </ul>
  */
 public final class JavaScriptLanguage implements ScriptLanguage {
@@ -62,6 +79,18 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 
 	/** The single instance. */
 	public static final JavaScriptLanguage INSTANCE = new JavaScriptLanguage();
+
+	/**
+	 * The members of <code>device</code> a button's handler may use: a parameter by its ID (MDT
+	 * <code>BE-GTSx6Tx-01S</code>: <code>device.GetParameterById("MD-1_P-80_R-2")</code>) or by its name
+	 * (MDT <code>GTL-xxxx-02S</code>, <code>BWM-xxxxx-03S</code>:
+	 * <code>device.getParameterByName(…)</code>).
+	 */
+	public static final Set<String> DEVICE_MEMBERS =
+		Set.of("GetParameterById", "getParameterById", "GetParameterByName", "getParameterByName");
+
+	/** The members of a parameter a button's handler may use: its value, read and set. */
+	public static final Set<String> PARAMETER_MEMBERS = Set.of("Value", "value");
 
 	private static final ContextFactory FACTORY = new SandboxFactory();
 
@@ -193,6 +222,136 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 	}
 
 	/**
+	 * Why the function of the given name cannot be called as the handler of a button (haumacher/ehome
+	 * #158): the script is not JavaScript (its syntax error), it defines no such function, or the
+	 * function uses a member of <code>device</code>, of a parameter or of <code>progress</code> E-Home
+	 * does not provide, or talks to the device through <code>online</code>; <code>null</code> if it can.
+	 *
+	 * <p>
+	 * The members are found in the text of the function (<code>device.X</code>,
+	 * <code>device.GetParameterById(…).X</code>, <code>progress.X</code>, <code>online.X</code>); a
+	 * member reached otherwise (a parameter in a variable, a function the handler calls) is refused
+	 * when the handler runs.
+	 * </p>
+	 */
+	public String checkHandler(String library, String function) {
+		if (library == null || library.isBlank()) {
+			return "the program has no script";
+		}
+		String name = function.trim();
+		try (Context cx = FACTORY.enterContext()) {
+			start(cx);
+			try {
+				cx.compileString(library, "script", 1, null);
+			} catch (EvaluatorException ex) {
+				return "the script is not JavaScript: " + message(ex);
+			}
+			ScriptableObject scope = scope(cx, library);
+			if (!(ScriptableObject.getProperty(scope, name) instanceof Function)) {
+				return "the script defines no function " + name;
+			}
+		} catch (RhinoException ex) {
+			return message(ex);
+		} catch (LimitExceeded ex) {
+			return ex.getMessage();
+		}
+		return unsupportedMember(library, name);
+	}
+
+	/**
+	 * The first member of the arguments the handler of the given name uses that E-Home does not
+	 * provide, as the reason a person reads; <code>null</code> if there is none (or the function is no
+	 * declaration of the script, whose text is then not checked).
+	 */
+	private static String unsupportedMember(String library, String function) {
+		CompilerEnvirons environment = new CompilerEnvirons();
+		environment.setLanguageVersion(Context.VERSION_ES6);
+		AstRoot root;
+		try {
+			root = new Parser(environment).parse(library, "script", 1);
+		} catch (RhinoException ex) {
+			return message(ex);
+		}
+		FunctionNode[] handler = new FunctionNode[1];
+		root.visit(node -> {
+			if (node instanceof FunctionNode candidate && candidate.getFunctionName() != null
+				&& function.equals(candidate.getFunctionName().getIdentifier())) {
+				// The last declaration counts, as in the script.
+				handler[0] = candidate;
+			}
+			return true;
+		});
+		if (handler[0] == null) {
+			return null;
+		}
+		List<AstNode> params = handler[0].getParams();
+		String device = param(params, 0);
+		String online = param(params, 1);
+		String progress = param(params, 2);
+		String[] result = new String[1];
+		handler[0].getBody().visit(node -> {
+			if (result[0] != null || !(node instanceof PropertyGet access)) {
+				return result[0] == null;
+			}
+			String member = access.getProperty().getIdentifier();
+			AstNode target = access.getTarget();
+			if (target instanceof Name owner) {
+				String ownerName = owner.getIdentifier();
+				if (ownerName.equals(device) && !DEVICE_MEMBERS.contains(member)) {
+					result[0] = "the handler uses " + ownerName + "." + member + ", which E-Home does not provide";
+				} else if (ownerName.equals(online)) {
+					result[0] = "the handler talks to the device (" + ownerName + "." + member
+						+ "), which E-Home does not do";
+				} else if (ownerName.equals(progress)) {
+					result[0] = "the handler uses " + ownerName + "." + member + ", which E-Home does not provide";
+				}
+			} else if (target instanceof FunctionCall call && call.getTarget() instanceof PropertyGet lookup
+				&& lookup.getTarget() instanceof Name owner && owner.getIdentifier().equals(device)
+				&& DEVICE_MEMBERS.contains(lookup.getProperty().getIdentifier())
+				&& !PARAMETER_MEMBERS.contains(member)) {
+				result[0] = "the handler uses " + owner.getIdentifier() + "." + lookup.getProperty().getIdentifier()
+					+ "(…)." + member + ", which E-Home does not provide";
+			}
+			return result[0] == null;
+		});
+		return result[0];
+	}
+
+	private static String param(List<AstNode> params, int index) {
+		return index < params.size() && params.get(index) instanceof Name name ? name.getIdentifier() : null;
+	}
+
+	/**
+	 * Calls a function of the library as the handler of a button (haumacher/ehome #158):
+	 * <code>function(device, online, progress, context)</code>.
+	 *
+	 * @param device
+	 *        What the handler reads and sets of the device, the object <code>device</code>.
+	 * @param parameters
+	 *        The parameters of the handler (ETS: <code>EventHandlerParameters</code>), as
+	 *        <code>context</code>: the value of a JSON text, else the text; <code>null</code> for none.
+	 * @throws CalculationException
+	 *         If the function cannot be called, fails, runs beyond the limits or uses a member E-Home
+	 *         does not provide.
+	 */
+	public void handle(String library, String function, ButtonDevice device, String parameters)
+			throws CalculationException {
+		try (Context cx = FACTORY.enterContext()) {
+			start(cx);
+			ScriptableObject scope = scope(cx, library);
+			if (!(ScriptableObject.getProperty(scope, function.trim()) instanceof Function callee)) {
+				throw new CalculationException("the script defines no function " + function.trim());
+			}
+			callee.call(cx, scope, scope, new Object[] { new DeviceObject(scope, device), Boolean.FALSE,
+				new Members(scope, "progress"), context(cx, scope, parameters) });
+		} catch (RhinoException ex) {
+			throw new CalculationException(message(ex));
+		} catch (LimitExceeded | Refused ex) {
+			throw new CalculationException(ex.getMessage());
+		}
+	}
+
+	/**
 	 * The value of the given JSON text as Java values (a {@link Map} for an object, a {@link List} for an
 	 * array, a {@link Double}, a {@link String}, a {@link Boolean}, <code>null</code>); the text itself if
 	 * it is no JSON, <code>null</code> for none.
@@ -298,6 +457,143 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 		String details = ex.details();
 		int line = ex.lineNumber();
 		return line > 0 ? details + " (line " + line + ")" : details;
+	}
+
+	/**
+	 * An object given to a button's handler that provides no member: every member the handler reads or
+	 * sets stops the run, naming it.
+	 */
+	private static class Members extends ScriptableObject {
+
+		private final String _name;
+
+		Members(Scriptable scope, String name) {
+			_name = name;
+			setParentScope(scope);
+		}
+
+		@Override
+		public String getClassName() {
+			return "Object";
+		}
+
+		/**
+		 * The member of the given name, {@link Scriptable#NOT_FOUND} for one this object does not
+		 * provide.
+		 */
+		protected Object member(String name) {
+			return NOT_FOUND;
+		}
+
+		@Override
+		public Object get(String name, Scriptable start) {
+			Object result = member(name);
+			if (result == NOT_FOUND) {
+				throw new Refused("the handler uses " + _name + "." + name + ", which E-Home does not provide");
+			}
+			return result;
+		}
+
+		@Override
+		public Object get(int index, Scriptable start) {
+			throw new Refused("the handler uses " + _name + "[" + index + "], which E-Home does not provide");
+		}
+
+		@Override
+		public void put(String name, Scriptable start, Object value) {
+			throw new Refused("the handler sets " + _name + "." + name + ", which E-Home does not provide");
+		}
+
+		@Override
+		public void put(int index, Scriptable start, Object value) {
+			throw new Refused("the handler sets " + _name + "[" + index + "], which E-Home does not provide");
+		}
+	}
+
+	/**
+	 * The object <code>device</code> of a button's handler: its parameters by ID and by name.
+	 */
+	private static final class DeviceObject extends Members {
+
+		private final ButtonDevice _device;
+
+		DeviceObject(Scriptable scope, ButtonDevice device) {
+			super(scope, "device");
+			_device = device;
+		}
+
+		@Override
+		protected Object member(String name) {
+			if (!DEVICE_MEMBERS.contains(name)) {
+				return NOT_FOUND;
+			}
+			boolean byId = name.endsWith("Id");
+			Scriptable scope = getParentScope();
+			BaseFunction lookup = new BaseFunction() {
+				@Override
+				public Object call(Context cx, Scriptable callScope, Scriptable thisObj, Object[] args) {
+					String key = args.length == 0 ? "" : Context.toString(args[0]);
+					Object parameter;
+					try {
+						parameter = byId ? _device.parameterById(key) : _device.parameterByName(key);
+					} catch (CalculationException ex) {
+						throw new Refused(ex.getMessage());
+					}
+					if (parameter == null) {
+						throw new Refused("the device has no parameter " + key + " (device." + name + ")");
+					}
+					return new ParameterObject(scope, _device, parameter, key);
+				}
+			};
+			lookup.setParentScope(scope);
+			lookup.setPrototype(ScriptableObject.getFunctionPrototype(scope));
+			return lookup;
+		}
+	}
+
+	/**
+	 * A parameter of the device given to a button's handler: its value, read and set.
+	 */
+	private static final class ParameterObject extends Members {
+
+		private final ButtonDevice _device;
+
+		private final Object _parameter;
+
+		ParameterObject(Scriptable scope, ButtonDevice device, Object parameter, String key) {
+			super(scope, "the parameter " + key);
+			_device = device;
+			_parameter = parameter;
+		}
+
+		@Override
+		protected Object member(String name) {
+			if (!PARAMETER_MEMBERS.contains(name)) {
+				return NOT_FOUND;
+			}
+			Object value = _device.value(_parameter);
+			return value == null ? Undefined.instance : value;
+		}
+
+		@Override
+		public void put(String name, Scriptable start, Object value) {
+			if (!PARAMETER_MEMBERS.contains(name)) {
+				super.put(name, start, value);
+				return;
+			}
+			_device.setValue(_parameter, value(value));
+		}
+	}
+
+	/**
+	 * Stops a button's handler that uses what E-Home does not provide; an {@link Error}, so that the
+	 * script cannot catch it.
+	 */
+	private static final class Refused extends Error {
+
+		Refused(String message) {
+			super(message, null, false, false);
+		}
 	}
 
 	/**

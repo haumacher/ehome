@@ -24,6 +24,13 @@
 	E-Home cannot evaluate can only be read, with the reason beside it, and one a calculation computes
 	says so.
 
+	A button of the parameter dialog (haumacher/ehome #158) shows its text and the command running its
+	handler (deviceButtonPress, in a transaction of its own: what the handler sets takes the way of a
+	person's change, and a refusal anywhere undoes the whole press and is reported with its reason). A
+	button E-Home cannot run, or one of a device the user may not change, is disabled with the reason
+	beside it. The command shows a label of its own beside the text of the button, not the text on it:
+	the label of a view command is fixed in its configuration (an engine gap).
+
 	A communication object shows its connections, each with its group address as a link to the
 	address in the group addresses of the project (the display target of ehomeConf.config.xml,
 	haumacher/ehome #102) and with the command removing it (an icon with
@@ -73,7 +80,7 @@
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting"
 		>
-			<expr><![CDATA[if(!$item.instanceOf(`ehome.operational:ParameterView`), "object", {
+			<expr><![CDATA[if($item.instanceOf(`ehome.operational:Button`), "button", if(!$item.instanceOf(`ehome.operational:ParameterView`), "object", {
     t = $item.get(`ehome.operational:ParameterView#parameter`).get(`ehome.operational:Parameter#type`);
     switch {
         $t.instanceOf(`ehome.operational:PictureType`): "picture";
@@ -85,7 +92,7 @@
         $t.instanceOf(`ehome.operational:FloatingPointType`): "decimal";
         default: "text";
     }
-})]]></expr>
+}))]]></expr>
 		</derived-channel>
 		<derived-channel name="display"
 			expr="deviceValueHolder($device, $item).get(`ehome.operational:ParameterValue#displayValue`)"
@@ -164,6 +171,15 @@
     veto = deviceEditVeto($device, $item);
     if($veto != null, $veto.localize(),
         if(!canWrite($device), #("You may not change the device."@en, "Sie dürfen das Gerät nicht ändern."@de).localize(), null))
+})]]></expr>
+		</derived-channel>
+		<!-- Why a button of the parameter dialog cannot be pressed (haumacher/ehome #158): E-Home cannot run its handler, or the user may not change the device. -->
+		<derived-channel name="buttonVeto"
+			inputs="kind, device, item"
+		>
+			<expr><![CDATA[if($kind != 'button', null, {
+    veto = deviceButtonVeto($device, $item);
+    if($veto == null, null, $veto.localize())
 })]]></expr>
 		</derived-channel>
 		<!-- The connection a connect command made. -->
@@ -397,6 +413,49 @@
 						</with-transaction>
 					</on-submit>
 				</value-input>
+			</case>
+			<case test="$kind == 'button'">
+				<!-- A button of the parameter dialog: the command running its handler, and why it cannot (haumacher/ehome #158). -->
+				<stack
+					align="center"
+					direction="row"
+					gap="compact"
+					wrap="true"
+				>
+					<button size="small">
+						<action class="com.top_logic.layout.view.command.GenericViewCommand"
+							image="css:bi bi-play-fill"
+							inputs="item, device"
+						>
+							<label>
+								<en>Run</en>
+								<de>Ausführen</de>
+							</label>
+							<access>
+								<operation name="Write"
+									object="$device"
+									type="ehome.physical:Device"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="deviceButtonVeto($device, $item)"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="deviceButtonPress($device, $item)"/>
+							</with-transaction>
+						</action>
+					</button>
+					<visible-if
+						expr="$buttonVeto != null"
+						input="buttonVeto"
+					>
+						<text
+							input="buttonVeto"
+							tone="secondary"
+						/>
+					</visible-if>
+				</stack>
 			</case>
 			<case test="$kind == 'readonly'">
 				<stack

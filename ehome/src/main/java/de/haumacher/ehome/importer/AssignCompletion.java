@@ -190,7 +190,8 @@ final class AssignCompletion {
 	}
 
 	/**
-	 * The first position from the given one whose element the walk counts (no rename, no assignment).
+	 * The first position from the given one whose element the walk counts (no rename, no assignment, no
+	 * button).
 	 */
 	private static int skipUncounted(List<TLObject> contents, int index) {
 		int result = index;
@@ -202,7 +203,8 @@ final class AssignCompletion {
 
 	private static boolean isUncounted(TLObject option) {
 		String type = TLModelUtil.qualifiedName(option.tType());
-		return (TYPE_PREFIX + "Rename").equals(type) || (TYPE_PREFIX + ASSIGN).equals(type);
+		return (TYPE_PREFIX + "Rename").equals(type) || (TYPE_PREFIX + ASSIGN).equals(type)
+			|| (TYPE_PREFIX + "Button").equals(type);
 	}
 
 	private int apply() throws ModuleCompletion.Mismatch {

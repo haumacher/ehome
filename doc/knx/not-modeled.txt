@@ -32,6 +32,7 @@
 #   skip Options@DownloadInvisibleParameters
 #   skip DeviceInstance/ChannelInstances   (haumacher/ehome #122; carried by the .ehome document)
 #   skip Rename                            (haumacher/ehome #122)
+#   skip Button                            (haumacher/ehome #158)
 #   skip ParameterCalculations             (haumacher/ehome #123)
 #   skip Static/Script                     (haumacher/ehome #123)
 #   skip ParameterValidations              (haumacher/ehome #124)

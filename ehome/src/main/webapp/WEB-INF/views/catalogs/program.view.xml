@@ -82,6 +82,12 @@
 			inputs="selected"
 			observed-types="ehome.catalog:ArchiveEntry,ehome.operational:HelpFile,ehome.operational:Option"
 		/>
+		<!-- Why E-Home cannot run the handler of the selected button (haumacher/ehome #158). -->
+		<derived-channel name="selectedButtonProblem"
+			expr="if($selected.instanceOf(`ehome.operational:Button`) and buttonProblem($selected) != null, #('E-Home cannot run the handler of this button: {0}.'@en, 'E-Home kann die Funktion dieser Schaltfläche nicht ausführen: {0}.'@de).fill(buttonProblem($selected)).localize(), null)"
+			inputs="selected"
+			observed-types="ehome.operational:Option,ehome.operational:Program"
+		/>
 		<derived-channel name="entryIcon"
 			expr="parameterIcon($selectedEntry)"
 			inputs="selectedEntry"
@@ -560,6 +566,28 @@
 											/>
 											<field attribute="extId"/>
 										</form>
+									</case>
+									<!-- A button of the parameter dialog (ETS 6, haumacher/ehome #158): its text, its handler, and why E-Home cannot run it. -->
+									<case test="$selected.instanceOf(`ehome.operational:Button`)">
+										<form
+											input="selected"
+											with-inset="true"
+										>
+											<field attribute="text"/>
+											<field attribute="handler"/>
+											<field attribute="handlerParameters"/>
+											<field attribute="name"/>
+											<field attribute="extId"/>
+										</form>
+										<visible-if
+											expr="$selectedButtonProblem != null"
+											input="selectedButtonProblem"
+										>
+											<text
+												input="selectedButtonProblem"
+												tone="warning"
+											/>
+										</visible-if>
 									</case>
 									<!--
 										A value the program gives a parameter reference while the case containing it is taken

@@ -100,6 +100,31 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 IMPORT_FAILED__VALIDATION_PROBLEM;
 
+	/**
+	 * @en E-Home cannot run the button {0}: {1}.
+	 */
+	public static ResKey2 ERROR_CANNOT_RUN__BUTTON_PROBLEM;
+
+	/**
+	 * @en The button {0} is not in the configuration of the device.
+	 */
+	public static ResKey1 ERROR_NOT_IN_EFFECT__BUTTON;
+
+	/**
+	 * @en The button {0} failed: {1}. Nothing was changed.
+	 */
+	public static ResKey2 ERROR_FAILED__BUTTON_PROBLEM;
+
+	/**
+	 * @en The button {0} changed nothing: the parameter "{1}" refuses the value it gives. {2}
+	 */
+	public static ResKey3 ERROR_REFUSED__BUTTON_PARAMETER_REASON;
+
+	/**
+	 * @en The button gives no value.
+	 */
+	public static ResKey ERROR_NO_VALUE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

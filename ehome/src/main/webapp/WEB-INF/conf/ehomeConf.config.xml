@@ -73,6 +73,10 @@
 					<method name="deviceGroupAddresses" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceConnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceDisconnect" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<!-- The buttons of the parameter dialog (de.haumacher.ehome.calculation.DeviceButtons, haumacher/ehome #158): one builder, the function by its name; deviceButtonPress changes the device. -->
+					<method name="buttonProblem" class="de.haumacher.ehome.calculation.ButtonFunctions$Builder"/>
+					<method name="deviceButtonVeto" class="de.haumacher.ehome.calculation.ButtonFunctions$Builder"/>
+					<method name="deviceButtonPress" class="de.haumacher.ehome.calculation.ButtonFunctions$Builder"/>
 					<!-- Planning a device from the catalog and duplicating one (de.haumacher.ehome.planning.DevicePlanning, haumacher/ehome #104): one builder, the function by its name. -->
 					<method name="devicePlanVariants" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>
 					<method name="devicePlanVariantLabel" class="de.haumacher.ehome.planning.DevicePlanningFunctions$Builder"/>

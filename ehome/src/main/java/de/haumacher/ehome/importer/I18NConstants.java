@@ -182,9 +182,24 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 WARN_ASSIGNS_NOT_COMPLETED__PROGRAM;
 
 	/**
+	 * @en The application program "{0}", imported earlier without the buttons of its parameter dialog, is completed: {1} buttons are added.
+	 */
+	public static ResKey2 INFO_BUTTONS_COMPLETED__PROGRAM_COUNT;
+
+	/**
+	 * @en The application program "{0}" was imported earlier without the buttons of its parameter dialog, and its structure in the database does not fit the file: the buttons are not added.
+	 */
+	public static ResKey1 WARN_BUTTONS_NOT_COMPLETED__PROGRAM;
+
+	/**
 	 * @en Program {0}: E-Home cannot evaluate the parameter validation {1} ({2}). Its parameters cannot be changed in E-Home; the devices keep the values of the project file.
 	 */
 	public static ResKey3 WARN_VALIDATION_NOT_EVALUATED__PROGRAM_VALIDATION_PROBLEM;
+
+	/**
+	 * @en Program {0}: E-Home cannot run the button {1} of the parameter dialog: {2}. It is shown disabled with the reason.
+	 */
+	public static ResKey3 WARN_BUTTON_NOT_RUN__PROGRAM_BUTTON_PROBLEM;
 
 	/**
 	 * @en Device "{0}": the values of the project file do not pass a check of the manufacturer, the device keeps them: {1}

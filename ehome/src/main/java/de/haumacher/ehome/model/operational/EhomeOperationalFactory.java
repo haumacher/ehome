@@ -2465,6 +2465,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#BUTTONS_READ_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getButtonsReadProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.BUTTONS_READ_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#CALCULATIONS_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLReference getCalculationsProgramAttr() {
@@ -3064,6 +3071,48 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLProperty getTextRenameAttr() {
 		return (com.top_logic.model.TLProperty) getRenameType().getPart(Rename.TEXT_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Button} type.
+	 */
+	public static com.top_logic.model.TLClass getButtonType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(Button.BUTTON_TYPE);
+	}
+
+	/**
+	 * Lookup {@link Button#DISPLAY_NAME_ATTR} of {@link Button}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameButtonAttr() {
+		return (com.top_logic.model.TLProperty) getButtonType().getPart(Button.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Button#HANDLER_ATTR} of {@link Button}.
+	 */
+	public static com.top_logic.model.TLProperty getHandlerButtonAttr() {
+		return (com.top_logic.model.TLProperty) getButtonType().getPart(Button.HANDLER_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Button#HANDLER_PARAMETERS_ATTR} of {@link Button}.
+	 */
+	public static com.top_logic.model.TLProperty getHandlerParametersButtonAttr() {
+		return (com.top_logic.model.TLProperty) getButtonType().getPart(Button.HANDLER_PARAMETERS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Button#NAME_ATTR} of {@link Button}.
+	 */
+	public static com.top_logic.model.TLProperty getNameButtonAttr() {
+		return (com.top_logic.model.TLProperty) getButtonType().getPart(Button.NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Button#TEXT_ATTR} of {@link Button}.
+	 */
+	public static com.top_logic.model.TLProperty getTextButtonAttr() {
+		return (com.top_logic.model.TLProperty) getButtonType().getPart(Button.TEXT_ATTR);
 	}
 
 	/**
@@ -6048,6 +6097,22 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String KO_NAME_RENAME = de.haumacher.ehome.model.operational.internal.RenameBase.TABLE_NAME;
 
 	/**
+	 * Name of type <code>Button</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link Button#BUTTON_TYPE}.
+	 */
+	@Deprecated
+	public static final String BUTTON_NODE = Button.BUTTON_TYPE;
+
+	/**
+	 * Storage table name of {@link #BUTTON_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.ButtonBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_BUTTON = de.haumacher.ehome.model.operational.internal.ButtonBase.TABLE_NAME;
+
+	/**
 	 * Name of type <code>Assign</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link Assign#ASSIGN_TYPE}.
@@ -6783,6 +6848,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public final Rename createRename() {
 		return createRename(null);
+	}
+
+	/**
+	 * Create an instance of {@link Button} type.
+	 */
+	public final Button createButton(com.top_logic.model.TLObject context) {
+		return (Button) createObject(getButtonType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link Button} type.
+	 */
+	public final Button createButton() {
+		return createButton(null);
 	}
 
 	/**

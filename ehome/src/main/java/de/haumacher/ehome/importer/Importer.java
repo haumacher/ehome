@@ -64,9 +64,11 @@ import com.top_logic.xio.importer.binding.ModelBinding;
 import com.top_logic.xio.importer.handlers.DispatchingImporter;
 import com.top_logic.xio.importer.handlers.Handler;
 
+import de.haumacher.ehome.calculation.DeviceButtons;
 import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.calculation.DeviceValidations;
 import de.haumacher.ehome.knx.ExtIds;
+import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.CalculationParameter;
 import de.haumacher.ehome.model.operational.ParameterCalculation;
 import de.haumacher.ehome.model.operational.ParameterValidation;
@@ -121,6 +123,8 @@ public class Importer {
 
 	private static final String VALIDATION_TYPE = "ehome.operational:ParameterValidation";
 
+	private static final String BUTTON_TYPE = "ehome.operational:Button";
+
 	/**
 	 * Name of the folder holding the baggage of a manufacturer (pictures, help and plug-in files of
 	 * ETS), and of its index <code>Baggages.xml</code> beside it.
@@ -168,6 +172,10 @@ public class Importer {
 	private static final byte[] ASSIGN_MARKER = "<Assign ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 
 	private static final String ASSIGNS_READ = "assignsRead";
+
+	private static final byte[] BUTTON_MARKER = "<Button ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+
+	private static final String BUTTONS_READ = "buttonsRead";
 
 	private static final byte[] CHANNEL_MARKER = "<Channel ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
 
@@ -269,6 +277,7 @@ public class Importer {
 				scanModules(context, program);
 				importXml(context, handler, name, new ByteArrayInputStream(program));
 				completeAssigns(program);
+				completeButtons(program);
 				completeRequirements(program);
 				completeChannelNumbers(program);
 				baggage.readProgramReferences(program);
@@ -385,6 +394,7 @@ public class Importer {
 				scanModules(context, content);
 				importXml(context, handler(), name, new ByteArrayInputStream(content));
 				completeAssigns(content);
+				completeButtons(content);
 				completeRequirements(content);
 				completeChannelNumbers(content);
 				baggage.readProgramReferences(content);
@@ -401,6 +411,7 @@ public class Importer {
 			ExtIds.raiseImported(created);
 			checkCalculations(created);
 			checkValidations(created);
+			checkButtons(created);
 			steps.commitProgram(id);
 		} catch (AbortExecutionException ex) {
 			throw ex;
@@ -521,6 +532,43 @@ public class Importer {
 			} catch (ModuleCompletion.Mismatch ex) {
 				Logger.warn("Program '" + id + "' cannot be completed: " + ex.getMessage(), Importer.class);
 				_messages.log(Level.WARN, I18NConstants.WARN_ASSIGNS_NOT_COMPLETED__PROGRAM.fill(id));
+			}
+		}
+	}
+
+	/**
+	 * Adds the buttons of the parameter dialog (<code>Button</code>, haumacher/ehome #158) of the given
+	 * program file to the known programs an earlier import left without them (<code>buttonsRead</code>
+	 * not set), see {@link ButtonCompletion}; the programs this import created read them themselves.
+	 */
+	private void completeButtons(byte[] content) throws IOException {
+		if (!mentions(content, BUTTON_MARKER)) {
+			return;
+		}
+		Document document = null;
+		for (String id : programIds(content)) {
+			TLObject existing = existingProgram(id);
+			if (!(existing instanceof Program program) || Boolean.TRUE.equals(existing.tValueByName(BUTTONS_READ))) {
+				continue;
+			}
+			if (document == null) {
+				document = ModuleScan.parse(content);
+			}
+			Element xml = ModuleScan.program(document, id);
+			if (xml == null) {
+				continue;
+			}
+			try {
+				List<Button> added = ButtonCompletion.complete(xml, program);
+				existing.tUpdateByName(BUTTONS_READ, Boolean.TRUE);
+				if (!added.isEmpty()) {
+					_messages.log(Level.INFO,
+						I18NConstants.INFO_BUTTONS_COMPLETED__PROGRAM_COUNT.fill(id, added.size()));
+					reportButtons(added);
+				}
+			} catch (ModuleCompletion.Mismatch ex) {
+				Logger.warn("Program '" + id + "' cannot be completed: " + ex.getMessage(), Importer.class);
+				_messages.log(Level.WARN, I18NConstants.WARN_BUTTONS_NOT_COMPLETED__PROGRAM.fill(id));
 			}
 		}
 	}
@@ -1041,6 +1089,8 @@ public class Importer {
 			// The parameter validations of the programs and devices read (haumacher/ehome #124), after
 			// the calculations, which may have derived L values.
 			checkValidations(created);
+			// The buttons of the programs read (haumacher/ehome #158).
+			checkButtons(created);
 		}
 		// All done only when the references are resolved, which the import context does when closed.
 		_progress.finish();
@@ -1183,6 +1233,32 @@ public class Importer {
 			for (ResKey problem : DeviceValidations.imported(device)) {
 				_messages.log(Level.WARN, I18NConstants.WARN_VALIDATION_FAILED__DEVICE_PROBLEM.fill(
 					MetaLabelProvider.INSTANCE.getLabel(device), problem));
+			}
+		}
+	}
+
+	/**
+	 * Reports the buttons of the parameter dialog the import read whose handler E-Home cannot run (see
+	 * {@link DeviceButtons#problem(Button)}): they are disabled in the editor.
+	 */
+	private void checkButtons(List<Object> created) {
+		List<Button> buttons = new ArrayList<>();
+		for (TLObject element : ofType(created, BUTTON_TYPE)) {
+			buttons.add((Button) element);
+		}
+		reportButtons(buttons);
+	}
+
+	/**
+	 * Reports the given buttons whose handler E-Home cannot run.
+	 */
+	private void reportButtons(List<Button> buttons) {
+		for (Button button : buttons) {
+			String problem = DeviceButtons.problem(button);
+			if (problem != null) {
+				Program program = ModuleParts.programOf(button);
+				_messages.log(Level.WARN, I18NConstants.WARN_BUTTON_NOT_RUN__PROGRAM_BUTTON_PROBLEM.fill(
+					program == null ? null : program.getExtId(), DeviceButtons.label(button), problem));
 			}
 		}
 	}

@@ -621,6 +621,7 @@
 										<mapping type="ehome.operational:ParameterGroup" xml-attribute="Text" attribute="description"/>
 										<mapping type="ehome.operational:Channel" xml-attribute="Text" attribute="description"/>
 										<mapping type="ehome.operational:Rename" xml-attribute="Text" attribute="text"/>
+										<mapping type="ehome.operational:Button" xml-attribute="Text" attribute="text"/>
 									</mappings>
 								</translations>
 							</tag>
@@ -1762,6 +1763,10 @@
 																		<tag name="Assign">
 																			<ref handler-id="assign"/>
 																		</tag>
+																		<!-- A button of the parameter dialog calling a function of the script (haumacher/ehome #158). -->
+																		<tag name="Button">
+																			<ref handler-id="button"/>
+																		</tag>
 																		<tag name="ChannelIndependentBlock">
 																			<object model-type="ehome.operational:ChannelIndependent">
 																				<linking>
@@ -1864,6 +1869,27 @@
 																					</tag>
 																					<!-- Not modeled (gap 7, doc/knx/schema-coverage.md): skipped without a warning. -->
 																					<tag name="ParameterSeparator"><skip-deep/></tag>
+																					<!--
+																						A button of the parameter dialog (ETS 6, haumacher/ehome #158): its text, and the function of the
+																						program's script it calls with its parameters (de.haumacher.ehome.calculation.DeviceButtons).
+																					-->
+																					<tag name="Button">
+																						<object model-type="ehome.operational:Button" id-attribute="Id" id="button">
+																							<linking>
+																								<list-linking name="ehome.operational:ConfigFragment#contents"/>
+																							</linking>
+
+																							<property name="extId" xml-attribute="Id"/>
+																							<property name="name" xml-attribute="Name"/>
+																							<group id="button-texts">
+																								<set-translation name="text" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
+																							</group>
+																							<property name="handler" xml-attribute="EventHandler"/>
+																							<property name="handlerParameters" xml-attribute="EventHandlerParameters"/>
+
+																							<dispatch/>
+																						</object>
+																					</tag>
 																					<!-- A value the program gives a parameter reference while this case is taken (haumacher/ehome #142). -->
 																					<tag name="Assign">
 																						<object model-type="ehome.operational:Assign" id="assign">
@@ -1920,6 +1946,8 @@
 															<assign argument-var="this" property="validationsRead" value="p -> true"/>
 															<!-- Its assignments are read (also where it has none): an import of its file does not complete it (haumacher/ehome #142). -->
 															<assign argument-var="this" property="assignsRead" value="p -> true"/>
+															<!-- Its buttons are read (also where it has none): an import of its file does not complete it (haumacher/ehome #158). -->
+															<assign argument-var="this" property="buttonsRead" value="p -> true"/>
 															<!-- Its requirements of ETS are read (also where it has none): an import of its file does not complete it (haumacher/ehome #159). -->
 															<assign argument-var="this" property="requirementsRead" value="p -> true"/>
 															<!-- The program is read: the languages of its texts are recorded, the held-back warnings about the values of its parameters decided. -->
@@ -1960,6 +1988,9 @@
 																		</tag>
 																		<tag name="Rename" id-attribute="Id">
 																			<ref handler-id="rename-texts"/>
+																		</tag>
+																		<tag name="Button" id-attribute="Id">
+																			<ref handler-id="button-texts"/>
 																		</tag>
 																	</update-known>
 																</known-program-texts>

@@ -102,6 +102,11 @@ programs).
 | Schema versions | 11, 13, 14, 20, 21, 23 | 20 |
 | Mask versions | 0012, 0025, 0701, 0705, 07B0, 0912, 091A, 2705, 27B0, 2920 | also 0001, 0011, 0021, 0911 |
 
+The buttons are imported and shown in the parameters since haumacher/ehome #158: the 8 of the two Glass Touch
+Smart files (`BE-GTSx6Tx-01S`, `GTS-x4Tx-01S`, "Copy text") copy a parameter and run in E-Home; those of the
+other 5 files (binary inputs, presence detector, `GTL`, `TAL`) talk to the device (`online.connect()`) and are
+shown disabled with that reason.
+
 So about a third of MDT's product files, and Theben's complete database, could not be imported as a
 product file before haumacher/ehome #154, in nearly every case because of pictures; since then they are
 imported with their baggage, and since #155 their pictures are shown in the parameters.

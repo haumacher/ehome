@@ -2144,6 +2144,14 @@
 					type="tl.core:Boolean"
 				/>
 				<!--
+					Whether the import read the buttons of the parameter dialog of the program and its module definitions
+					(ETS: Button, haumacher/ehome #158). A program an earlier import left without them is completed by the
+					next import of its file (de.haumacher.ehome.importer.ButtonCompletion).
+				-->
+				<property name="buttonsRead"
+					type="tl.core:Boolean"
+				/>
+				<!--
 					The files of the manufacturer's baggage the program names (ETS: Static/Extension/Baggage,
 					haumacher/ehome #154): its pictures, archives of icons and help texts, plug-in installers. A
 					program an earlier import left without them gains them from the next import of its file.
@@ -2527,6 +2535,52 @@
 						<storage-algorithm>
 							<query>
 								<expr><![CDATA[r -> #("Title: {0}"@en, "Titel: {0}"@de).fill($r.get(`ehome.operational:Rename#text`).localize()).localize()]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!--
+			A button of the parameter dialog (ETS 6: Button in the dynamic part, haumacher/ehome #158), shown at its place
+			in the structure while the case containing it is taken. Pressing it calls its handler, a function of the
+			program's script, as function(device, online, progress, context), which reads and sets parameters of the
+			device (de.haumacher.ehome.calculation.DeviceButtons).
+		-->
+		<class name="Button">
+			<generalizations>
+				<generalization type="Option"/>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-hand-index"/>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<!-- The name of the button (ETS: Name). -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The text on the button (ETS: Text, translated like the other texts of the program). -->
+				<property name="text"
+					type="tl.model.i18n:I18NString"
+				/>
+				<!-- The function of the program's script the button calls (ETS: EventHandler). -->
+				<property name="handler"
+					type="tl.core:String"
+				/>
+				<!-- The parameters of the handler, given to it as context (ETS: EventHandlerParameters). -->
+				<property name="handlerParameters"
+					type="tl.core:String"
+				/>
+				<!-- The label in the structure tree. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[b -> #("Button: {0}"@en, "Schaltfläche: {0}"@de).fill($b.get(`ehome.operational:Button#text`).localize()).localize()]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

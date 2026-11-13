@@ -385,6 +385,25 @@ TEST_Fehlt (2x2, yellow) and gives TEST_Ein another color (2x2, white). TestReso
 named "TestResources" with the same archives in its manufacturer's baggage and the same
 program as "TEST: Symbole und Hilfe im Projekt (künstliche Testdaten)" (M-0008_A-FFB6-01-0000, used by no device).
 
+TestButtons.knxproj: the samples contain no button of the parameter dialog (ETS 6: Button in the dynamic
+part, haumacher/ehome #158). This file (schema 23, the master data and the project of the Test project) holds
+an artificial program of the BCU 1 kind on its own hardware "TEST Schaltflächen", marked as test data by its
+name, M-0008_A-FFE2-01-0000, with buttons in the shape of the KNX schema (Button with Id, Text, EventHandler,
+EventHandlerParameters) calling functions of the program's JavaScript Script in the convention of the programs
+in the field (MDT BE-GTSx6Tx-01S: function(device, online, progress, context) with
+device.GetParameterById(id).Value; MDT GTL-xxxx-02S: device.getParameterByName(name).value; the functions are
+artificial). The block "Allgemein" holds the text parameters "Quelle" (P-1, default "leer") and "Ziel" (P-2,
+default empty) and the numbers "Anzahl" (P-3, 0..100, default 5) and "Kopie" (P-4, 0..100, default 0), with
+the validation PV-1 "Hoechstens" (Kopie at most 50), and the buttons B-1 "Text kopieren" (English "Copy text";
+Ziel takes Quelle), B-2 "Anzahl kopieren" (EventHandlerParameters {"Plus": 1}; Ziel takes "Anzahl " and the
+number, then Kopie the number plus context.Plus), B-3 "Unbekannt" (a member of a parameter E-Home does not
+provide, .Text, visible in the text of the function), B-4 "Versteckt" (Ziel takes "geändert", then the member
+.Text of a parameter held in a variable, found only when it runs) and B-6 "Gerät" (online.connect()), and in a
+case of a switch on Anzahl (when 7) the button B-5 "Bei sieben" (as B-1). Its module "Kanal" (MD-1, placed twice
+as "Kanal 1" and "Kanal 2") has the numbers "Wert" (default 1) and "Kopie" (default 0) and the button MD-1_B-1
+"Wert kopieren" (Kopie takes Wert, by the IDs of the module definition, MD-1_P-1_R-1). Device: "TEST
+Schaltgerät" (1.0.1, Quelle "Hallo", Wert 3 in the second module instance).
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -2419,6 +2438,116 @@ def validations_fixture(name, xml):
     return xml
 
 
+# TestButtons.knxproj: buttons of the parameter dialog (haumacher/ehome #158), see the module comment.
+BUTTON_PROGRAM = 'M-0008_A-FFE2-01-0000'
+BUTTON_HARDWARE = 'M-0008_H-TEST.20SCHALTFLAECHEN-1'
+BUTTON_PRODUCT = BUTTON_HARDWARE + '_P-TEST.20SCHALTFLAECHEN'
+BUTTON_ASSIGNMENT = BUTTON_HARDWARE + '_HP-FFE2-01-0000'
+
+# The calling convention of the handlers (function(device, online, progress, context), a parameter by its ID or
+# by its name with its value) is that of the programs in the field (MDT BE-GTSx6Tx-01S, GTL-xxxx-02S); the code
+# below is artificial.
+BUTTON_SCRIPT = (
+    'function TEST_text(device, online, progress, context) {\n'
+    '    device.GetParameterById("P-2_R-1").Value = device.GetParameterById("P-1_R-1").Value;\n'
+    '}\n\n'
+    'function TEST_anzahl(device, online, progress, context) {\n'
+    '    var anzahl = device.getParameterByName("Anzahl").value;\n'
+    '    device.GetParameterById("P-2_R-1").Value = "Anzahl " + anzahl;\n'
+    '    device.getParameterByName("Kopie").value = anzahl + context.Plus;\n'
+    '}\n\n'
+    'function TEST_unbekannt(device, online, progress, context) {\n'
+    '    device.GetParameterById("P-1_R-1").Text = "x";\n'
+    '}\n\n'
+    'function TEST_versteckt(device, online, progress, context) {\n'
+    '    device.GetParameterById("P-2_R-1").Value = "geändert";\n'
+    '    var quelle = device.GetParameterById("P-1_R-1");\n'
+    '    return quelle.Text;\n'
+    '}\n\n'
+    'function TEST_geraet(device, online, progress, context) {\n'
+    '    online.connect();\n'
+    '}\n\n'
+    'function TEST_hoechstens(input, changed, prevValue, context) {\n'
+    '    return input.Kopie <= 50 || "Die Kopie darf höchstens 50 sein.";\n'
+    '}\n\n'
+    'function TEST_modul(device, online, progress, context) {\n'
+    '    device.GetParameterById("MD-1_P-2_R-1").Value = device.GetParameterById("MD-1_P-1_R-1").Value;\n'
+    '}\n')
+
+
+def button(ident, text, handler, parameters=None):
+    return ('<Button Id="{p}_%s" Text="%s" EventHandler="%s"%s />' % (ident, text, handler,
+        '' if parameters is None else ' EventHandlerParameters="%s"' % xml_text(parameters)))
+
+
+def button_program():
+    types = (number_type('Weite', 8, 0, 100)
+        + '<ParameterType Id="{p}_PT-Text" Name="Text"><TypeText SizeInBit="112" /></ParameterType>\n')
+    static = ('<ParameterTypes>\n' + types + '</ParameterTypes>\n<Parameters>\n'
+        '<Parameter Id="{p}_P-1" Name="Quelle" Text="Quelle" ParameterType="{p}_PT-Text" Access="ReadWrite" '
+        'Value="leer" />\n'
+        '<Parameter Id="{p}_P-2" Name="Ziel" Text="Ziel" ParameterType="{p}_PT-Text" Access="ReadWrite" Value="" />\n'
+        + parameter('P-3', 'Anzahl', 'Weite', 5) + '\n' + parameter('P-4', 'Kopie', 'Weite', 0)
+        + '\n</Parameters>\n<ParameterRefs>\n'
+        + ''.join('<ParameterRef Id="{p}_P-%d_R-1" RefId="{p}_P-%d" />\n' % (n, n) for n in range(1, 5))
+        + '</ParameterRefs>\n<ParameterValidations>\n'
+        + validation('PV-1', 'Hoechstens', 'TEST_hoechstens', [('P-4_R-1', 'Kopie')])
+        + '</ParameterValidations>\n' + bcu1_objects())
+    module_params = [('MD-1_P-1', 'Wert', 'Weite', 1, None), ('MD-1_P-2', 'Kopie', 'Weite', 0, None)]
+    module = ('<ModuleDefs><ModuleDef Id="{p}_MD-1" Name="Kanal"><Arguments>'
+        '<Argument Id="{p}_MD-1_A-1" Name="ParamOffsBase" /></Arguments>\n<Static><Parameters>'
+        + ''.join(parameter(i, n, t, v, o) for i, n, t, v, o in module_params)
+        + '</Parameters>\n<ParameterRefs>'
+        + ''.join('<ParameterRef Id="{p}_%s_R-1" RefId="{p}_%s" />' % (i, i) for i, _, _, _, _ in module_params)
+        + '</ParameterRefs>\n</Static>\n'
+        '<Dynamic><Channel Id="{p}_MD-1_CH-1" Name="Kanal" Text="Kanal"><ParameterBlock Id="{p}_MD-1_PB-1" '
+        'Name="Kanal" Text="Kanal"><ParameterRefRef RefId="{p}_MD-1_P-1_R-1" />'
+        + button('MD-1_B-1', 'Wert kopieren', 'TEST_modul')
+        + '<ParameterRefRef RefId="{p}_MD-1_P-2_R-1" /></ParameterBlock></Channel></Dynamic></ModuleDef></ModuleDefs>\n')
+    dynamic = ('<Dynamic><Channel Id="{p}_CH-1" Name="Allgemein" Text="Allgemein" Number="1">'
+        '<ParameterBlock Id="{p}_PB-1" Name="Allgemein" Text="Allgemein">'
+        '<ParameterRefRef RefId="{p}_P-1_R-1" />' + button('B-1', 'Text kopieren', 'TEST_text', '')
+        + '<ParameterRefRef RefId="{p}_P-2_R-1" /><ParameterRefRef RefId="{p}_P-3_R-1" />'
+        + button('B-2', 'Anzahl kopieren', 'TEST_anzahl', '{"Plus": 1}')
+        + '<ParameterRefRef RefId="{p}_P-4_R-1" />'
+        + button('B-3', 'Unbekannt', 'TEST_unbekannt') + button('B-4', 'Versteckt', 'TEST_versteckt')
+        + button('B-6', 'Gerät', 'TEST_geraet')
+        + '<choose ParamRefId="{p}_P-3_R-1"><when test="7">' + button('B-5', 'Bei sieben', 'TEST_text')
+        + '</when></choose>'
+        '</ParameterBlock></Channel>\n'
+        + ''.join('<Module Id="{p}_MD-1_M-%d" RefId="{p}_MD-1" Name="Kanal %d"><NumericArg RefId="{p}_MD-1_A-1" '
+            'Value="%d" /></Module>\n' % (n, n, base) for n, base in ((1, 0x60), (2, 0x68)))
+        + '</Dynamic>\n')
+    languages = ('<Languages><Language Identifier="en-US"><TranslationUnit RefId="{p}" Version="0">'
+        '<TranslationElement RefId="{p}_B-1"><Translation AttributeName="Text" Text="Copy text" /></TranslationElement>'
+        '</TranslationUnit></Language></Languages>')
+    return bcu1_program_file(BUTTON_PROGRAM, 65506, 'TEST: Schaltflächen (künstliche Testdaten)', static, module,
+        dynamic, languages, script='<Script>' + xml_text(BUTTON_SCRIPT) + '</Script>\n')
+
+
+def button_devices(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+    device = ('<DeviceInstance Id="P-01A0-0_DI-1" Name="TEST Schaltgerät" ProductRefId="' + BUTTON_PRODUCT
+        + '" Hardware2ProgramRefId="' + BUTTON_ASSIGNMENT + '" Address="1" LastModified="2026-11-13T12:00:00">\n'
+        '<ParameterInstanceRefs>\n<ParameterInstanceRef RefId="P-1_R-1" Value="Hallo" />\n'
+        '<ParameterInstanceRef RefId="' + BUTTON_PROGRAM + '_MD-1_M-2_MI-1_P-1_R-1" Value="3" />\n'
+        '</ParameterInstanceRefs>\n<ModuleInstances>'
+        + ''.join('<ModuleInstance Id="MD-1_M-%d_MI-1" RefId="MD-1_M-%d"><Arguments><Argument RefId="MD-1_A-1" '
+            'Value="%d" /></Arguments></ModuleInstance>' % (n, n, base) for n, base in ((1, 0x60), (2, 0x68)))
+        + '</ModuleInstances>\n</DeviceInstance>')
+    return xml[:start] + device + xml[end:]
+
+
+def buttons_fixture(name, xml):
+    xml = replace_once(xml, SCHEMA_11, SCHEMA_23)
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestButtons')
+    if name == PROJECT:
+        return button_devices(xml)
+    return xml
+
+
 # TestUpdateBase/New/Adopt.knxproj (haumacher/ehome #125, see the module comment).
 UPDATE_PROJECT = 'P-0125'
 UPDATE_PRODUCT = ('ProductRefId="M-0008_H-8.20.2F.2F.20zxy3.20xx-1_P-5133.2000" '
@@ -2533,6 +2662,10 @@ write('src/test/fixtures/TestValidations.knxproj', validations_fixture,
         [(CHECK_ASSIGNMENT, CHECK_PROGRAM), (VB_CHECK_ASSIGNMENT, VB_CHECK_PROGRAM)])),
      ('M-0008/' + CHECK_PROGRAM + '.xml', check_program()),
      ('M-0008/' + VB_CHECK_PROGRAM + '.xml', vb_check_program())],
+    keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))
+write('src/test/fixtures/TestButtons.knxproj', buttons_fixture,
+    [('M-0008/Hardware.xml', test_hardware(BUTTON_HARDWARE, BUTTON_PRODUCT, 'TEST Schaltflächen',
+        [(BUTTON_ASSIGNMENT, BUTTON_PROGRAM)])), ('M-0008/' + BUTTON_PROGRAM + '.xml', button_program())],
     keep=lambda name: name == 'knx_master.xml' or name.startswith('P-01A0/'))
 write('src/test/fixtures/TestUpdateBase.knxproj', update_fixture(False), rename=update_name)
 write('src/test/fixtures/TestUpdateNew.knxproj', update_fixture(True), rename=update_name)

@@ -11,6 +11,7 @@ import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.TLStructuredTypePart;
 import com.top_logic.model.TransientObject;
 
+import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.Case;
 import de.haumacher.ehome.model.operational.Channel;
 import de.haumacher.ehome.model.operational.ChannelIndependent;
@@ -238,6 +239,15 @@ public abstract class InstancePart extends TransientObject {
 	 */
 	public static final class RepeatPart extends InstancePart implements Repeat {
 		RepeatPart(TLObject template, InstanceInfo instance) {
+			super(template, instance);
+		}
+	}
+
+	/**
+	 * A button of the parameter dialog in an instance (haumacher/ehome #158).
+	 */
+	public static final class ButtonPart extends InstancePart implements Button {
+		ButtonPart(TLObject template, InstanceInfo instance) {
 			super(template, instance);
 		}
 	}

@@ -79,6 +79,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String BAGGAGE_ATTR = "baggage";
 
 	/**
+	 * Part <code>buttonsRead</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String BUTTONS_READ_ATTR = "buttonsRead";
+
+	/**
 	 * Part <code>calculations</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -597,6 +606,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void removeBaggage(com.top_logic.model.TLObject oldValue) {
 		tRemoveByName(BAGGAGE_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #BUTTONS_READ_ATTR}.
+	 */
+	default boolean getButtonsRead() {
+		return (Boolean) tValueByName(BUTTONS_READ_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #BUTTONS_READ_ATTR}.
+	 */
+	default void setButtonsRead(boolean newValue) {
+		tUpdateByName(BUTTONS_READ_ATTR, newValue);
 	}
 
 	/**

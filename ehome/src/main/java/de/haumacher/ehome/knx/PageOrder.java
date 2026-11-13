@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import de.haumacher.ehome.model.operational.Button;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Option;
 import de.haumacher.ehome.model.operational.ParameterView;
@@ -34,8 +35,8 @@ import de.haumacher.ehome.model.operational.ParameterView;
  * (unless that input itself stands after the object, an input without display order following the
  * object in document order).</li>
  * <li>Any other item (a parameter without a display order, a communication object outside such a
- * switch) stands after the item that precedes it in document order (at the top if there is
- * none).</li>
+ * switch, a button of the parameter dialog) stands after the item that precedes it in document
+ * order (at the top if there is none).</li>
  * </ol>
  *
  * <p>
@@ -103,6 +104,14 @@ public final class PageOrder {
 	 */
 	public void addParameter(ParameterView view, Integer order) {
 		add(new Entry(view, order, false, _last, null));
+	}
+
+	/**
+	 * Adds a button of the parameter dialog placed on the page (haumacher/ehome #158): it has no display
+	 * order and stands after the item preceding it.
+	 */
+	public void addButton(Button button) {
+		add(new Entry(button, null, false, _last, null));
 	}
 
 	/**
