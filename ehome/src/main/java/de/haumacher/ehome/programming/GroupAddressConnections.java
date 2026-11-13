@@ -456,6 +456,30 @@ public class GroupAddressConnections {
 		return placed.getPort().getIndex() + " " + objectName(placed);
 	}
 
+	/**
+	 * The communication object as the app lists the objects of a device (as
+	 * <code>ehome.physical:Connector#displayName</code> labels them): its number, its text in the device
+	 * (the project's own, else the program's with its placeholder filled) and its function text (the
+	 * project's own, else the placement's, else the object's), e.g. "7 Kanal A: Status".
+	 *
+	 * @param device
+	 *        The device, <code>null</code> for the program's texts.
+	 */
+	public static String objectLabel(TLObject device, Interface placed, Resources resources) {
+		TLObject connector = device == null ? null : ObjectTypes.connector(device, placed);
+		Object ownText = connector == null ? null : connector.tValueByName("text");
+		String text = ownText != null && !ownText.toString().isEmpty() ? ownText.toString()
+			: objectName(device, placed, resources);
+		Object ownFunction = connector == null ? null : connector.tValueByName("function");
+		String function = ownFunction != null && !ownFunction.toString().isEmpty() ? ownFunction.toString()
+			: localize(resources, placed.getFunction());
+		if (function == null) {
+			function = localize(resources, placed.getPort().getFunction());
+		}
+		String number = Integer.toString(placed.getPort().getIndex());
+		return function == null ? number + " " + text : number + " " + text + ": " + function;
+	}
+
 	private static Integer individualAddress(TLObject device) {
 		return device == null ? null : DownloadImage.individualAddress(device);
 	}

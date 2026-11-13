@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!--
+	Configuring an installation by intent (haumacher/ehome #147, package de.haumacher.ehome.intent): the
+	TL-Script functions of the functions with their actuator presets and controls
+	(projects/functions.view.xml, projects/control-create.view.xml) and of the derivation of the group
+	addresses, connections and parameter values (projects/derivation-preview.view.xml); the model
+	(ehome.runtime:Control, ehome.runtime:DerivedPart) is declared with ehome.runtime.
+	intentControlCreate and intentApply change data.
+-->
+<application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<services>
+		<config service-class="com.top_logic.model.search.expr.config.SearchBuilder">
+			<instance>
+				<methods>
+					<method name="intentFunctionPresets" class="de.haumacher.ehome.intent.IntentFunctions$Builder"/>
+					<method name="intentSourcePresets" class="de.haumacher.ehome.intent.IntentFunctions$Builder"/>
+					<method name="intentSourceDevices" class="de.haumacher.ehome.intent.IntentFunctions$Builder"/>
+					<method name="intentSourceChannels" class="de.haumacher.ehome.intent.IntentFunctions$Builder"/>
+					<method name="intentControlCreate" class="de.haumacher.ehome.intent.IntentFunctions$Builder"/>
+					<method name="intentControlProblem" class="de.haumacher.ehome.intent.IntentFunctions$Builder"/>
+					<method name="intentFunctionProblem" class="de.haumacher.ehome.intent.IntentFunctions$Builder"/>
+					<method name="intentPreview" class="de.haumacher.ehome.intent.IntentFunctions$Builder"/>
+					<method name="intentApply" class="de.haumacher.ehome.intent.IntentFunctions$Builder"/>
+				</methods>
+			</instance>
+		</config>
+	</services>
+</application>

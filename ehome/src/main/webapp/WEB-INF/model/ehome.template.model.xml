@@ -103,6 +103,8 @@
 			<classifier name="off"/>
 			<classifier name="onOff"/>
 			<classifier name="showStatus"/>
+			<!-- Dims: needs a function of the kind dimmer (a later step of haumacher/ehome #131); the derivation refuses it on a switching function. -->
+			<classifier name="dim"/>
 		</enum>
 		<!--
 			The role a communication object of the channel takes in a preset: for an actuator preset a role
@@ -283,6 +285,21 @@
 						<storage-algorithm>
 							<query>
 								<expr><![CDATA[o -> $o.get(`ehome.template:PresetObject#placement`).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!--
+					The communication object as the app labels it: its number, its text and its function text
+					("7 Kanal A: Status"), in the device of a draft (de.haumacher.ehome.template.PresetDrafts).
+				-->
+				<property name="label"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[o -> presetObjectLabel($o)]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>

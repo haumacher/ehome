@@ -101,8 +101,9 @@ import de.haumacher.ehome.modules.ModuleParts;
  *
  * <p>
  * <b>Left out</b> ({@link #leftOut(TLStructuredTypePart)}): the members (accounts of this
- * installation), the presets applied to the devices (presets of this installation's device templates;
- * the values they set travel as the devices' settings), the secrets (the installation keys, the
+ * installation), the presets applied to the devices and those of the functions and controls (presets of
+ * this installation's device templates; the values they set travel as the devices' settings), the marks
+ * of the derivation (haumacher/ehome #147), the secrets (the installation keys, the
  * enrollment code, of a controller everything but its name, host and port: its connection id and
  * secret, its HTTP token, and what it reported), and the operating history (the recordings of the
  * monitor, the deployments, the revision of the last image, the devices a scan did not identify, the
@@ -222,6 +223,13 @@ public final class ProjectFile {
 		// The presets applied to a device name presets of this installation's device templates (master
 		// data, haumacher/ehome #146); the values they set are the device's settings and travel.
 		"ehome.physical:Device#presets",
+		// Likewise the presets of the functions and controls (haumacher/ehome #147); the controls travel with
+		// their device, channel and operation. The marks of the derivation name presets and parts of the
+		// programs: a derivation after the import takes the addresses the functions' roles are bound to and
+		// marks the connections and values it finds as derived.
+		"ehome.runtime:Function#preset",
+		"ehome.runtime:Control#preset",
+		"ehome.project:Project#derivedParts",
 		// Secrets.
 		"ehome.project:Project#enrollmentCode",
 		"ehome.project:Project#enrollmentExpires",

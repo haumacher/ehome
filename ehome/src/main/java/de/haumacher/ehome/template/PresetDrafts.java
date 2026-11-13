@@ -140,6 +140,30 @@ public final class PresetDrafts {
 	}
 
 	/**
+	 * The communication object of an object of a preset as the app labels it
+	 * ({@link ChannelShape#objectLabel(TLObject, Interface)}): for a draft in the device it was made
+	 * from, else with the program's texts; <code>null</code> for an object naming none.
+	 */
+	public static String objectLabel(TLObject object) {
+		if (object == null) {
+			return null;
+		}
+		TLObject preset = preset(object);
+		Draft draft;
+		synchronized (DRAFTS) {
+			draft = preset == null ? null : DRAFTS.get(preset);
+		}
+		if (draft != null) {
+			Interface placed = draft.objects().get(object);
+			if (placed != null) {
+				return ChannelShape.objectLabel(draft.device(), placed);
+			}
+		}
+		return object.tValueByName("placement") instanceof Interface placed ? ChannelShape.objectLabel(null, placed)
+			: null;
+	}
+
+	/**
 	 * Whether the value of a draft lies in the channel's part of the structure.
 	 */
 	public static boolean inChannel(TLObject value) {

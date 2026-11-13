@@ -798,14 +798,31 @@ public final class Presets {
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
-		Map<ParameterView, Object> pending = new LinkedHashMap<>(values(device, key, preset));
+		setValues(device, values(device, key, preset), label(preset));
+		return recordUse(device, key, preset);
+	}
+
+	/**
+	 * Sets the given values on the device, each once its switches show it, so that the order of the
+	 * program's structure does not matter (as {@link #apply(TLObject, String, TLObject)} does, for a
+	 * derivation that sets the values of several presets at once, haumacher/ehome #147). A value
+	 * <code>null</code> takes the default again.
+	 *
+	 * @param origin
+	 *        What wants the values (the name of a preset), for the refusal.
+	 * @throws TopLogicException
+	 *         If a value cannot be set, with the reason (nothing is changed then if the caller rolls the
+	 *         transaction back).
+	 */
+	public static void setValues(TLObject device, Map<ParameterView, Object> values, String origin) {
+		Map<ParameterView, Object> pending = new LinkedHashMap<>(values);
 		while (!pending.isEmpty()) {
 			boolean progress = false;
 			ResKey first = null;
 			ParameterView blocked = null;
 			for (Map.Entry<ParameterView, Object> entry : new ArrayList<>(pending.entrySet())) {
 				ParameterView view = entry.getKey();
-				ResKey edit = DeviceSettings.editVeto(device, view);
+				ResKey edit = entry.getValue() == null ? null : DeviceSettings.editVeto(device, view);
 				if (edit != null) {
 					if (first == null) {
 						first = edit;
@@ -813,15 +830,24 @@ public final class Presets {
 					}
 					continue;
 				}
-				DeviceSettings.setValue(device, view, applicable(entry.getValue()));
+				DeviceSettings.setValue(device, view, entry.getValue() == null ? null : applicable(entry.getValue()));
 				pending.remove(view);
 				progress = true;
 			}
 			if (!progress) {
 				throw new TopLogicException(I18NConstants.ERROR_PRESET_VALUE__PRESET_PARAMETER_REASON
-					.fill(label(preset), ChannelShape.parameterLabel(blocked), first));
+					.fill(origin, ChannelShape.parameterLabel(blocked), first));
 			}
 		}
+	}
+
+	/**
+	 * Records the use of the given preset on the given channel of the device, replacing the use of
+	 * another preset on the channel; the values are not touched.
+	 *
+	 * @return The use (<code>ehome.physical:PresetUse</code>).
+	 */
+	public static TLObject recordUse(TLObject device, String key, TLObject preset) {
 		TLObject existing = use(device, key);
 		if (existing != null) {
 			existing.tDelete();
@@ -833,6 +859,32 @@ public final class Presets {
 		uses.add(use);
 		device.tUpdateByName("presets", uses);
 		return use;
+	}
+
+	/**
+	 * The given value as the device's configuration encodes it for the given placement (as ETS writes
+	 * it), to compare the values of presets with each other and with the device's.
+	 */
+	public static String encoded(ParameterView view, Object value) {
+		return value == null ? null : encode(view, value);
+	}
+
+	/**
+	 * Whether the given preset is a source preset (a key, an LED, a sensor), else an actuator preset.
+	 */
+	public static boolean isSourcePreset(TLObject preset) {
+		return preset != null && isSource((TLObject) preset.tValueByName("purpose"));
+	}
+
+	/**
+	 * The names of the operations (<code>ehome.template:SourceOperation</code>) of a source preset.
+	 */
+	public static List<String> operations(TLObject preset) {
+		List<String> result = new ArrayList<>();
+		for (TLObject operation : list(preset, "operations")) {
+			result.add(name(operation));
+		}
+		return result;
 	}
 
 	/**

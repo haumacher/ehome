@@ -126,6 +126,11 @@ public class TemplateFunctions extends GenericMethod {
 		 * preset ({@link PresetDrafts#objectOptions(TLObject)}).
 		 */
 		presetObjectOptions(1, true),
+		/**
+		 * <code>presetObjectLabel(object)</code>: the communication object of an object of a preset as the
+		 * app labels it ({@link PresetDrafts#objectLabel(TLObject)}).
+		 */
+		presetObjectLabel(1, true),
 		/** <code>presetOffered(device, channel)</code>: {@link Presets#offered(TLObject, String)}. */
 		presetOffered(2, true),
 		/**
@@ -254,6 +259,8 @@ public class TemplateFunctions extends GenericMethod {
 				return Presets.roleOptions(PresetDrafts.preset(object(arguments[0])));
 			case presetObjectOptions:
 				return PresetDrafts.objectOptions(object(arguments[0]));
+			case presetObjectLabel:
+				return PresetDrafts.objectLabel(object(arguments[0]));
 			case presetOffered:
 				return object(arguments[0]) == null ? List.of() : Presets.offered(object(arguments[0]), text(arguments[1]));
 			case presetApplyVeto:

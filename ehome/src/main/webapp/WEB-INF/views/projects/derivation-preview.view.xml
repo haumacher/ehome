@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The preview of the derivation of a project's installation from its functions and controls
+	(haumacher/ehome #147, "Derive installation" in projects/functions.view.xml,
+	de.haumacher.ehome.intent.Derivation): "request" carries the project and the plan (intentPreview).
+
+	The first table lists what the derivation would do: create, change or remove a group range, a group
+	address, a connection, a parameter value, the use of a preset or the kind and roles of a function;
+	an object derived before and changed by hand (or by ETS) since is listed as not overwritten. The
+	second lists the functions and controls it refuses, with the reasons; they derive nothing. "Apply"
+	makes the changes in one transaction; the plan is computed again and refused when it differs from
+	this preview (the installation changed meanwhile). Applying writes the project (an editor).
+-->
+<view>
+	<channels>
+		<channel name="request"/>
+		<derived-channel name="project"
+			expr='if($request == null, null, $request["project"])'
+			inputs="request"
+		/>
+		<derived-channel name="items"
+			expr='if($request == null, [], $request["items"])'
+			inputs="request"
+		/>
+		<derived-channel name="refusals"
+			expr='if($request == null, [], $request["refusals"])'
+			inputs="request"
+		/>
+		<derived-channel name="hint"
+			inputs="request"
+		>
+			<expr><![CDATA[if($request == null, null,
+    if($request["items"].size() == 0 and $request["empty"],
+        #("The installation is as the functions and controls say: the derivation has nothing to change."@en,
+          "Die Installation entspricht den Funktionen und Bedienstellen: Die Ableitung hat nichts zu ändern."@de),
+        #("What the derivation would create, change and remove. Objects derived before and changed by hand since are not overwritten."@en,
+          "Was die Ableitung anlegen, ändern und entfernen würde. Früher abgeleitete und seither von Hand geänderte Objekte werden nicht überschrieben."@de))
+        .localize())]]></expr>
+		</derived-channel>
+	</channels>
+	<window width="1180px">
+		<title>
+			<en>Derive the installation: preview</en>
+			<de>Installation ableiten: Vorschau</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text
+					input="hint"
+					tone="secondary"
+				/>
+				<table>
+					<inputs>
+						<input channel="items"/>
+					</inputs>
+					<columns>
+						<computed-column name="action"
+							type="tl.core:String"
+							width="130"
+						>
+							<label>
+								<en>Action</en>
+								<de>Aktion</de>
+							</label>
+							<value>$row["action"]</value>
+						</computed-column>
+						<computed-column name="what"
+							type="tl.core:String"
+							width="130"
+						>
+							<label>
+								<en>Object type</en>
+								<de>Objektart</de>
+							</label>
+							<value>$row["what"]</value>
+						</computed-column>
+						<computed-column name="object"
+							type="tl.core:String"
+							width="340"
+						>
+							<label>
+								<en>Object</en>
+								<de>Objekt</de>
+							</label>
+							<value>$row["object"]</value>
+						</computed-column>
+						<computed-column name="detail"
+							type="tl.core:String"
+							width="320"
+						>
+							<label>
+								<en>Details</en>
+								<de>Details</de>
+							</label>
+							<value>$row["detail"]</value>
+						</computed-column>
+						<computed-column name="origin"
+							type="tl.core:String"
+							width="220"
+						>
+							<label>
+								<en>Derived from</en>
+								<de>Abgeleitet aus</de>
+							</label>
+							<value>$row["origin"]</value>
+						</computed-column>
+					</columns>
+					<rows>$items</rows>
+				</table>
+				<visible-if
+					expr="$refusals.size() > 0"
+					input="refusals"
+				>
+					<stack gap="default">
+						<text tone="warning">
+							<label>
+								<en>Refused: these functions and controls derive nothing.</en>
+								<de>Abgelehnt: Diese Funktionen und Bedienstellen leiten nichts ab.</de>
+							</label>
+						</text>
+						<table>
+							<inputs>
+								<input channel="refusals"/>
+							</inputs>
+							<columns>
+								<computed-column name="origin"
+									type="tl.core:String"
+									width="360"
+								>
+									<label>
+										<en>Function or control</en>
+										<de>Funktion oder Bedienstelle</de>
+									</label>
+									<value>$row["origin"]</value>
+								</computed-column>
+								<computed-column name="reason"
+									type="tl.core:String"
+									width="700"
+								>
+									<label>
+										<en>Reason</en>
+										<de>Grund</de>
+									</label>
+									<value>$row["reason"]</value>
+								</computed-column>
+							</columns>
+							<rows>$refusals</rows>
+						</table>
+					</stack>
+				</visible-if>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-diagram-3"
+					inputs="request, project"
+				>
+					<label>
+						<en>Apply</en>
+						<de>Anwenden</de>
+					</label>
+					<access>
+						<!-- The derivation writes the project's addresses, devices and functions in Java (Derivation#apply). -->
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<disabled-if expr="if($request == null or $request['empty'], #('The derivation has nothing to change.'@en, 'Die Ableitung hat nichts zu ändern.'@de), null)"/>
+					</executability>
+					<with-transaction>
+						<execute-script function="intentApply($request)"/>
+						<with-result>
+							<notify
+								expr="$result"
+								kind="info"
+							/>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

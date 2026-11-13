@@ -506,7 +506,9 @@
 																	<field attribute="operations"/>
 																	<composition-table attribute="objects">
 																		<columns>
-																			<column attribute="number"/>
+																			<column attribute="label"
+																				width="300"
+																			/>
 																			<column attribute="placement"/>
 																			<column attribute="role"/>
 																		</columns>

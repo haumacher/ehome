@@ -827,6 +827,233 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
+				<!--
+					The actuator preset of the template of the device's program that configures the function's
+					channel (haumacher/ehome #147): it gives the function its kind and the objects of its roles; the
+					derivation (de.haumacher.ehome.intent.Derivation) makes a group address for each of these roles,
+					connects the channel's objects and applies the preset's values. A function with a preset is
+					configured by intent: the function proposal leaves it as it is. Offered: the actuator presets
+					offered on the channel.
+				-->
+				<reference name="preset"
+					kind="forwards"
+					type="ehome.template:Preset"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[f -> intentFunctionPresets($f)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- What the function is operated with (haumacher/ehome #147): a key, a rocker, a status LED. -->
+				<reference name="controls"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Control"
+				/>
+				<!-- Why the derivation leaves the function out (no preset offered, no address free, ...); empty if it derives it. -->
+				<property name="derivationProblem"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[f -> intentFunctionProblem($f)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!--
+			A control of a function (haumacher/ehome #147): what operates it from where. The source is a
+			channel of a device (a key, a rocker, a status LED) with the source preset of the template of its
+			program that configures it, and the operation the source does with the function. The derivation
+			(de.haumacher.ehome.intent.Derivation) connects the source's objects to the function's group
+			addresses and applies the preset's values; a control it cannot derive is refused with the reason
+			(problem) and derives nothing.
+		-->
+		<class name="Control">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-toggles"/>
+			</annotations>
+			<attributes>
+				<!-- The device the source is a channel of; deleting the device deletes the control. -->
+				<reference name="device"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.physical:Device"
+				/>
+				<!-- The key of the channel of the device (as Function#channel, ehome.template:Preset#channel). -->
+				<property name="channel"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The name of the channel in the device. -->
+				<property name="channelName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[c -> presetChannelLabel($c.get(`ehome.runtime:Control#device`), $c.get(`ehome.runtime:Control#channel`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The source preset that configures the channel; offered: the source presets offered on it. -->
+				<reference name="preset"
+					kind="forwards"
+					type="ehome.template:Preset"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[c -> intentSourcePresets($c.get(`ehome.runtime:Control#device`), $c.get(`ehome.runtime:Control#channel`))]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<!-- What the source does with the function (the operations of a source preset, ehome.template:SourceOperation). -->
+				<reference name="operation"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.template:SourceOperation"
+				/>
+				<!-- Why the derivation refuses the control; empty if it derives it. -->
+				<property name="problem"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[c -> intentControlProblem($c)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- What a mark of the derivation is for (ehome.runtime:DerivedPart). -->
+		<enum name="DerivedKind">
+			<classifier name="address"/>
+			<classifier name="connection"/>
+			<classifier name="value"/>
+			<classifier name="preset"/>
+		</enum>
+		<!--
+			A mark of the derivation (haumacher/ehome #147, de.haumacher.ehome.intent.Derivation, held by
+			ehome.project:Project#derivedParts): the function or control a derived object comes from and what
+			was derived, compared with the object by the next derivation. An object differing from its mark
+			was changed by hand (or by ETS): it is reported, not overwritten.
+
+			- address: the group address of the role of the function, with its name, identifier, datapoint
+			  type and address as derived;
+			- connection: the connection of the object (port, instance) of the device to the address, with its
+			  kind;
+			- value: the value (encoded as ETS writes it) of the parameter (parameter, instance) of the device;
+			- preset: the preset applied to the channel of the device.
+		-->
+		<class name="DerivedPart">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-diagram-2"/>
+			</annotations>
+			<attributes>
+				<reference name="kind"
+					kind="forwards"
+					mandatory="true"
+					type="DerivedKind"
+				/>
+				<!-- Whether a control derived it (else a function). -->
+				<property name="fromControl"
+					type="tl.core:Boolean"
+				/>
+				<!-- The function it comes from; empty once the function is deleted. -->
+				<reference name="function"
+					kind="forwards"
+					type="Function"
+				/>
+				<!-- The control it comes from; empty once the control is deleted. -->
+				<reference name="control"
+					kind="forwards"
+					type="Control"
+				/>
+				<!-- Of an address: the role of the function; of a connection: the role of the object. -->
+				<property name="role"
+					type="tl.core:String"
+				/>
+				<!-- Of an address: the address; of a connection: the address connected to. -->
+				<reference name="address"
+					kind="forwards"
+					type="ehome.logical:GroupAddress"
+				/>
+				<reference name="device"
+					kind="forwards"
+					type="ehome.physical:Device"
+				/>
+				<!-- Of a connection: the communication object (of a module: the placement of the definition). -->
+				<reference name="port"
+					kind="forwards"
+					type="ehome.operational:Interface"
+				/>
+				<!-- Of a value: the parameter (of a module: the reference of the definition). -->
+				<reference name="parameter"
+					kind="forwards"
+					type="ehome.operational:ParameterView"
+				/>
+				<!-- Of a connection or a value of a module: the module instance of the device. -->
+				<reference name="instance"
+					kind="forwards"
+					type="ehome.physical:ModuleInstance"
+				/>
+				<reference name="connectionKind"
+					kind="forwards"
+					type="ehome.physical:ConnectionType"
+				/>
+				<!-- Of a preset: the key of the channel. -->
+				<property name="channel"
+					type="tl.core:String"
+				/>
+				<reference name="preset"
+					kind="forwards"
+					type="ehome.template:Preset"
+				/>
+				<!-- Of an address: its name as derived. -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- Of an address: the name of the function it was named after; a renamed function renames it. -->
+				<property name="functionName"
+					type="tl.core:String"
+				/>
+				<!-- Of an address: its identifier as derived. -->
+				<property name="identifier"
+					type="tl.core:String"
+				/>
+				<!-- Of an address: its datapoint type as derived. -->
+				<reference name="datapointType"
+					kind="forwards"
+					type="ehome.datapoint:DatapointType"
+				/>
+				<!-- Of an address: its 16-bit number as allocated. -->
+				<property name="number"
+					type="tl.core:Integer"
+				/>
+				<!-- Of a value: the value as derived, encoded as ETS writes it. -->
+				<property name="value"
+					type="tl.core:String"
+				/>
 			</attributes>
 		</class>
 		<!--

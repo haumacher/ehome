@@ -229,20 +229,8 @@ public final class GroupAddressIds {
 	 * description gets none.
 	 */
 	public static Map<TLObject, String> propose(TLObject project) {
-		Set<String> taken = new HashSet<>(TIME_MASTER_IDS);
+		Set<String> taken = taken(project);
 		List<TLObject> addresses = RuntimeFunctions.groupAddresses(project);
-		for (TLObject address : addresses) {
-			String identifier = identifier(address);
-			if (identifier != null) {
-				taken.add(identifier);
-			}
-		}
-		for (TLObject datapoint : ApplicationDatapoints.of(project)) {
-			String id = ApplicationDatapoints.id(datapoint);
-			if (id != null) {
-				taken.add(id);
-			}
-		}
 		Map<TLObject, List<String>> uses = uses(project);
 		Map<TLObject, String> result = new LinkedHashMap<>();
 		for (TLObject address : addresses) {
@@ -259,6 +247,45 @@ public final class GroupAddressIds {
 			result.put(address, unique(parts, taken));
 		}
 		return result;
+	}
+
+	/**
+	 * The ids no new identifier of the project may take: the identifiers of its group addresses, the
+	 * ids of its application datapoints and the ids the controller adds itself.
+	 */
+	public static Set<String> taken(TLObject project) {
+		Set<String> taken = new HashSet<>(TIME_MASTER_IDS);
+		for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
+			String identifier = identifier(address);
+			if (identifier != null) {
+				taken.add(identifier);
+			}
+		}
+		for (TLObject datapoint : ApplicationDatapoints.of(project)) {
+			String id = ApplicationDatapoints.id(datapoint);
+			if (id != null) {
+				taken.add(id);
+			}
+		}
+		return taken;
+	}
+
+	/**
+	 * The identifier proposed for the group address of the given role of the function, as
+	 * {@link #propose(TLObject)} proposes it for an address a function uses: the function's room, its
+	 * name without the words of the room, and the role unless it is the given main role
+	 * (<code>kueche.licht</code>, <code>kueche.licht.state</code>); unique among the taken ones, which it
+	 * is added to. <code>null</code> for a function without a name.
+	 */
+	public static String proposeFor(TLObject function, String role, String mainRole, Set<String> taken) {
+		List<String> parts = functionParts(function);
+		if (parts == null) {
+			return null;
+		}
+		if (!role.equals(mainRole)) {
+			parts.add(role);
+		}
+		return unique(parts, taken);
 	}
 
 	/**

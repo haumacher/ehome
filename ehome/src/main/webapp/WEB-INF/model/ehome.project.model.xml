@@ -278,6 +278,25 @@
 					type="ehome.runtime:DismissedProposal"
 				/>
 				<!--
+					What the derivation of the installation from its functions and controls made (haumacher/ehome
+					#147, de.haumacher.ehome.intent.Derivation): one mark per derived group address, connection,
+					parameter value and applied preset, naming the function or control it comes from and what it
+					derived, so that the next derivation changes only its own objects and finds the ones changed
+					by hand. Held by the project, not by the function or control: what a deleted one derived is
+					removed by the next derivation.
+				-->
+				<reference name="derivedParts"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ehome.runtime:DerivedPart"
+				>
+					<annotations>
+						<visibility value="hidden"/>
+					</annotations>
+				</reference>
+				<!--
 					The time zone of the controller as POSIX TZ string, e.g. CET-1CEST,M3.5.0,M10.5.0/3 for
 					Central Europe; empty: the controller keeps its own.
 				-->

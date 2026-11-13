@@ -60,6 +60,7 @@
 					<method name="presetTemplatePresets" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
 					<method name="presetRoleOptions" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
 					<method name="presetObjectOptions" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetObjectLabel" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
 					<method name="presetOffered" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
 					<method name="presetApplyVeto" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
 					<method name="presetApply" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>

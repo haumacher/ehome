@@ -719,11 +719,15 @@ public final class ChannelShape {
 	}
 
 	/**
-	 * The text naming a communication object in a refusal: its number and name.
+	 * The text naming a communication object in a refusal and in the lists of the presets: its number,
+	 * its text and its function text as the app lists the objects of a device ("7 Kanal A: Status",
+	 * {@link GroupAddressConnections#objectLabel(TLObject, Interface, Resources)}).
+	 *
+	 * @param device
+	 *        The device, <code>null</code> for the program's texts.
 	 */
 	public static String objectLabel(TLObject device, Interface placed) {
-		return placed.getPort().getIndex() + " "
-			+ GroupAddressConnections.objectName(device, placed, Resources.getInstance());
+		return GroupAddressConnections.objectLabel(device, placed, Resources.getInstance());
 	}
 
 	private static String partLabel(TLObject device, Option part) {

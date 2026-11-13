@@ -239,6 +239,14 @@ import de.haumacher.ehome.modules.ModuleParts;
  * </p>
  *
  * <p>
+ * <b>Configured by intent</b> (haumacher/ehome #147). A function with a preset
+ * (<code>Function#preset</code>) gets its roles from the derivation
+ * (<code>de.haumacher.ehome.intent.Derivation</code>): the proposal changes nothing of it. A device the
+ * controls of the project operate functions from gets no unused function for its channels: its keys
+ * and LEDs wait for controls.
+ * </p>
+ *
+ * <p>
  * <b>Zigbee datapoints</b> (haumacher/ehome #68). An application datapoint of the project bound to a
  * function of one of its Zigbee devices (<code>ApplicationDatapoint#zigbeeFunction</code>) is proposed
  * as well, by the key of the function: <code>temperature</code>, <code>humidity</code>,
@@ -627,6 +635,7 @@ public final class FunctionProposal {
 		List<TLObject> devices = devices(project);
 		Names names = new Names(devices);
 		List<Proposal> proposals = propose(project, devices, names);
+		Set<TLObject> sources = controlSources(existing);
 		boolean[] accepted = new boolean[proposals.size()];
 		Set<TLObject> updated = new LinkedHashSet<>();
 		for (int n = 0; n < proposals.size(); n++) {
@@ -638,7 +647,7 @@ public final class FunctionProposal {
 						updated.add(known);
 					}
 					decision.bound(proposal);
-				} else {
+				} else if (!sourceChannel(proposal, sources)) {
 					accepted[n] = decision.accept(proposal);
 				}
 				// Added or not (dismissed, bound already): the key operates the actuator's channel.
@@ -661,7 +670,8 @@ public final class FunctionProposal {
 					updated.add(known);
 				}
 				decision.bound(proposal);
-			} else if (!decision.commandedElsewhere(proposal) && decision.accept(proposal)) {
+			} else if (!sourceChannel(proposal, sources) && !decision.commandedElsewhere(proposal)
+				&& decision.accept(proposal)) {
 				accepted[n] = true;
 			}
 		}
@@ -690,6 +700,31 @@ public final class FunctionProposal {
 	}
 
 	/**
+	 * The devices the controls of the given functions operate them from (haumacher/ehome #147): their
+	 * keys and LEDs are configured by the derivation.
+	 */
+	private static Set<TLObject> controlSources(List<TLObject> functions) {
+		Set<TLObject> result = new HashSet<>();
+		for (TLObject function : functions) {
+			for (TLObject control : list(function, "controls")) {
+				if (control.tValueByName("device") instanceof TLObject device) {
+					result.add(device);
+				}
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Whether the proposal is an unused function of a device the controls of the project operate
+	 * functions from (haumacher/ehome #147): a key of a push-button configured by intent waits for a
+	 * control, not for a function.
+	 */
+	private static boolean sourceChannel(Proposal proposal, Set<TLObject> sources) {
+		return proposal.unused() && proposal.device() != null && sources.contains(proposal.device());
+	}
+
+	/**
 	 * Updates an existing function of a proposal (haumacher/ehome #98): an unused function gets the
 	 * roles of the proposal it has not bound, once its channel has its group address; a function
 	 * whose name is still a generated one ({@link Member#generated()}, compared in every application
@@ -701,6 +736,11 @@ public final class FunctionProposal {
 	 */
 	private static boolean update(TLObject function, Proposal proposal, Set<String> identifiers, Names names) {
 		if (proposal.unused() || proposal.members().isEmpty()) {
+			return false;
+		}
+		if (function.tValueByName("preset") != null) {
+			// Configured by intent (haumacher/ehome #147): the derivation binds its roles, its name is the
+			// installer's.
 			return false;
 		}
 		String kind = kind(function);

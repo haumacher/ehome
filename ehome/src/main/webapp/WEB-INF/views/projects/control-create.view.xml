@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Adds a control to a function (haumacher/ehome #147, tab "Functions", projects/functions.view.xml):
+	what operates the function from where. "function" carries the function; the new control is written
+	to "selection".
+
+	The installer chooses the device of the source among the devices of the project, the channel of the
+	device (a key, a rocker, a status LED: the channels with objects in effect or a preset offered, as the
+	tab "Presets" of a device lists them), the source preset offered on the channel and the operation
+	(toggle, on, off, on / off, show status, dim). The derivation (de.haumacher.ehome.intent.Derivation)
+	connects the source to the function's group addresses and applies the preset; a control it cannot
+	derive (the function has no role for the operation, the preset cannot do it, a conflict with another
+	preset on the device) is refused there with the reason, which the control shows. "Add" writes the
+	function (an editor of the project).
+-->
+<view>
+	<channels>
+		<channel name="function"/>
+		<channel name="selection"/>
+		<channel name="device"/>
+		<channel name="selectedChannel"/>
+		<derived-channel name="channel"
+			expr="if($device != null and $selectedChannel != null and presetDeviceChannels($device, true).containsElement($selectedChannel), $selectedChannel, null)"
+			inputs="device, selectedChannel"
+		/>
+		<channel name="chosenPreset"/>
+		<derived-channel name="preset"
+			expr="if($channel != null and $chosenPreset != null and intentSourcePresets($device, $channel).containsElement($chosenPreset), $chosenPreset, null)"
+			inputs="chosenPreset, device, channel"
+			reverse="$value"
+		/>
+		<channel name="operation"/>
+		<derived-channel name="hint"
+			inputs="function"
+		>
+			<expr><![CDATA[if($function == null, null,
+    #("Choose the device, its channel, the source preset that configures the channel and what the channel does with {0}."@en,
+      "Wählen Sie das Gerät, seinen Kanal, die Quell-Voreinstellung, die den Kanal konfiguriert, und was der Kanal mit {0} tut."@de)
+        .fill($function.get(`ehome.runtime:Function#name`)).localize())]]></expr>
+		</derived-channel>
+	</channels>
+	<window width="760px">
+		<title>
+			<en>Add a control</en>
+			<de>Bedienstelle hinzufügen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text
+					input="hint"
+					tone="secondary"
+				/>
+				<fields>
+					<value-input
+						inputs="function"
+						options="intentSourceDevices($function)"
+						type="ehome.physical:Device"
+						value="device"
+					>
+						<label>
+							<en>Device</en>
+							<de>Gerät</de>
+						</label>
+					</value-input>
+				</fields>
+				<table
+					observed-types="ehome.physical:ParameterSetting,ehome.physical:PresetUse,ehome.template:Preset,ehome.template:AlikeChannel"
+					selection="selectedChannel"
+				>
+					<inputs>
+						<input channel="device"/>
+					</inputs>
+					<columns>
+						<computed-column name="channel"
+							type="tl.core:String"
+							width="300"
+						>
+							<inputs>
+								<input channel="device"/>
+							</inputs>
+							<label>
+								<en>Channel</en>
+								<de>Kanal</de>
+							</label>
+							<value>presetChannelLabel($device, $row)</value>
+						</computed-column>
+						<computed-column name="offered"
+							type="tl.core:Integer"
+							width="160"
+						>
+							<inputs>
+								<input channel="device"/>
+							</inputs>
+							<label>
+								<en>Source presets</en>
+								<de>Quell-Voreinstellungen</de>
+							</label>
+							<value>intentSourcePresets($device, $row).size()</value>
+						</computed-column>
+					</columns>
+					<rows>if($device == null, [], intentSourceChannels($device))</rows>
+				</table>
+				<fields>
+					<value-input
+						inputs="device, channel"
+						options="intentSourcePresets($device, $channel)"
+						type="ehome.template:Preset"
+						value="preset"
+					>
+						<label>
+							<en>Source preset</en>
+							<de>Quell-Voreinstellung</de>
+						</label>
+					</value-input>
+					<value-input
+						type="ehome.template:SourceOperation"
+						value="operation"
+					>
+						<label>
+							<en>Operation</en>
+							<de>Bedienung</de>
+						</label>
+					</value-input>
+				</fields>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-plus-lg"
+					inputs="function, device, channel, preset, operation"
+				>
+					<label>
+						<en>Add</en>
+						<de>Hinzufügen</de>
+					</label>
+					<access>
+						<!-- The control is created in Java (Controls#create). -->
+						<operation name="Write"
+							object="$function"
+							type="ehome.runtime:Function"
+						/>
+					</access>
+					<executability>
+						<disabled-if expr="if($function == null or $device == null or $channel == null or $operation == null, #('Select a device, a channel and an operation.'@en, 'Wählen Sie ein Gerät, einen Kanal und eine Bedienung aus.'@de), null)"/>
+					</executability>
+					<with-transaction>
+						<execute-script function="intentControlCreate($function, $device, $channel, $preset, $operation)"/>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

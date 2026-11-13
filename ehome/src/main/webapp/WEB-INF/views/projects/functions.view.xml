@@ -36,12 +36,28 @@
 	in effect does what the role needs: no object taking the command of a command role, none sending
 	the value of any other role, e.g. because the object is switched off by its device's parameters
 	(functionWarning, de.haumacher.ehome.runtime.FunctionRoleCheck, haumacher/ehome #137).
+
+	Configuring by intent (haumacher/ehome #147): a function names the actuator preset of the template
+	of its device's program that configures its channel ("Actuator preset", the presets offered on the
+	channel); the table "Controls" below its form lists what operates it from where (a key, a rocker, a
+	status LED of a device with its source preset and the operation), added in
+	projects/control-create.view.xml and edited in the form below the table; a control the derivation
+	refuses shows the reason. "Derive installation" computes the group addresses, connections and
+	parameter values the functions and controls need (de.haumacher.ehome.intent.Derivation) and shows
+	them in projects/derivation-preview.view.xml, which applies them; nothing changes before.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="function"/>
 		<channel name="dismissal"/>
+		<!-- The selected control of the function (haumacher/ehome #147). -->
+		<channel name="selectedControl"/>
+		<derived-channel name="control"
+			expr="if($function != null and $selectedControl != null and $function.get(`ehome.runtime:Function#controls`).containsElement($selectedControl), $selectedControl, null)"
+			inputs="function, selectedControl"
+			observed-types="ehome.runtime:Control"
+		/>
 		<!--
 			Why the selected function is redundant on the controller, and its roles no object in effect
 			serves; nothing if all is well.
@@ -124,6 +140,44 @@
 												/>
 											</with-result>
 										</propose-functions>
+									</generic-command>
+									<!--
+										The derivation of the group addresses, connections and parameter values from the
+										functions with an actuator preset and their controls (haumacher/ehome #147): computed
+										without changing anything and shown in projects/derivation-preview.view.xml, applied
+										from there.
+									-->
+									<generic-command
+										image="css:bi bi-diagram-3"
+										inputs="project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Derive installation</en>
+											<de>Installation ableiten</de>
+										</label>
+										<tooltip>
+											<en>Shows what the functions with an actuator preset and their controls make of the installation: the group addresses, the connections and the parameter values to create, change and remove, and the controls refused with their reasons. Nothing changes before "Apply" in the preview.</en>
+											<de>Zeigt, was die Funktionen mit einer Aktor-Voreinstellung und ihre Bedienstellen aus der Installation machen: die Gruppenadressen, Verbindungen und Parameterwerte, die angelegt, geändert und entfernt werden, und die abgelehnten Bedienstellen mit ihren Gründen. Vor „Anwenden“ in der Vorschau ändert sich nichts.</de>
+										</tooltip>
+										<access>
+											<!-- The preview reads only (intentPreview); applying checks Write on the project. -->
+											<operation name="Read"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<execute-script function="intentPreview($project)">
+											<with-result>
+												<open-dialog
+													bind-input-to="request"
+													dialog-view="projects/derivation-preview.view.xml"
+												/>
+											</with-result>
+										</execute-script>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-plus-lg"
@@ -218,6 +272,7 @@
 										<column attribute="room"/>
 										<column attribute="identifier"/>
 										<column attribute="device"/>
+										<column attribute="preset"/>
 										<computed-column name="warning"
 											type="tl.core:String"
 											width="300"
@@ -314,6 +369,8 @@
 						>
 							<field attribute="name"/>
 							<field attribute="kind"/>
+							<field attribute="preset"/>
+							<field attribute="derivationProblem"/>
 							<field attribute="unused"/>
 							<field attribute="room"/>
 							<field attribute="identifier"/>
@@ -357,6 +414,114 @@
 								/>
 							</group>
 						</form>
+						<panel>
+							<title>
+								<en>Controls</en>
+								<de>Bedienstellen</de>
+							</title>
+							<commands>
+								<generic-command
+									image="css:bi bi-plus-lg"
+									inputs="function"
+									placement="TOOLBAR"
+								>
+									<label>
+										<en>Add control</en>
+										<de>Bedienstelle hinzufügen</de>
+									</label>
+									<tooltip>
+										<en>Adds what operates the function from where: a key, a rocker or a status LED of a device with its source preset and the operation. "Derive installation" connects it.</en>
+										<de>Fügt hinzu, was die Funktion von wo aus bedient: eine Taste, eine Wippe oder eine Status-LED eines Geräts mit ihrer Quell-Voreinstellung und der Bedienung. „Installation ableiten“ verbindet sie.</de>
+									</tooltip>
+									<access>
+										<operation name="Write"
+											object="$function"
+											type="ehome.runtime:Function"
+										/>
+									</access>
+									<executability>
+										<null-input-disabled/>
+									</executability>
+									<open-dialog
+										bind-input-to="function"
+										dialog-view="projects/control-create.view.xml"
+									>
+										<bind
+											channel="selection"
+											to="selectedControl"
+										/>
+									</open-dialog>
+								</generic-command>
+								<generic-command
+									image="css:bi bi-trash"
+									inputs="control"
+									placement="TOOLBAR"
+								>
+									<label>
+										<en>Delete control</en>
+										<de>Bedienstelle löschen</de>
+									</label>
+									<tooltip>
+										<en>Deletes the control; the next derivation removes what it derived.</en>
+										<de>Löscht die Bedienstelle; die nächste Ableitung entfernt, was sie abgeleitet hat.</de>
+									</tooltip>
+									<access>
+										<operation name="Delete"
+											object="$control"
+											type="ehome.runtime:Control"
+										/>
+									</access>
+									<executability>
+										<null-input-disabled/>
+									</executability>
+									<delete-object/>
+									<write-channel name="selectedControl"
+										clear="true"
+									/>
+								</generic-command>
+							</commands>
+							<stack>
+								<table
+									observed-types="ehome.runtime:Control,ehome.runtime:Function,ehome.runtime:DerivedPart,ehome.template:Preset"
+									selection="selectedControl"
+									types="ehome.runtime:Control"
+								>
+									<inputs>
+										<input channel="function"/>
+									</inputs>
+									<columns>
+										<column attribute="channelName"
+											width="160"
+										/>
+										<column attribute="device"
+											width="180"
+										/>
+										<column attribute="preset"
+											width="160"
+										/>
+										<column attribute="operation"
+											width="120"
+										/>
+										<column attribute="problem"
+											width="300"
+										/>
+									</columns>
+									<rows>if($function == null, [], $function.get(`ehome.runtime:Function#controls`))</rows>
+								</table>
+								<form
+									input="control"
+									with-inset="true"
+								>
+									<field attribute="device"
+										readonly="true"
+									/>
+									<field attribute="channelName"/>
+									<field attribute="preset"/>
+									<field attribute="operation"/>
+									<field attribute="problem"/>
+								</form>
+							</stack>
+						</panel>
 					</stack>
 				</panel>
 			</pane>
