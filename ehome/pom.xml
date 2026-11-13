@@ -126,6 +126,16 @@
       <artifactId>tl-layout-view-agent</artifactId>
     </dependency>
     <!--
+      The contacts of the accounts in the views (haumacher/ehome #163): the administration's page
+      "Personen" (Administration, Zugriffskontrolle) creates and edits a person with its mail address and
+      optional login, and the settings get the tab "Profil", in which a user edits the own contact. The
+      members of a project are added by that address (de.haumacher.ehome.project.ProjectMembers).
+    -->
+    <dependency>
+      <groupId>com.top-logic</groupId>
+      <artifactId>tl-layout-view-contact</artifactId>
+    </dependency>
+    <!--
       Passkeys (haumacher/ehome #86): passwordless sign-in with a discoverable passkey (usage "login",
       the module's default), managed in the settings (Security) and the account administration. The
       relying party is the public address of the installation, tl_host (doc/debian.md, "Passkeys").

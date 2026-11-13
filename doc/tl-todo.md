@@ -219,6 +219,41 @@ No workaround. The test asserts the stored roles after the removal and leaves th
 comment there names this entry). **When fixed:** assert `isDiscoverAllowed` after the removal in
 `testMembersSeeEachOther` again.
 
+## The columns of a table stay as the roles were when it was built (TL #30314)
+
+Found in the desk check of the roles per project (haumacher/ehome #163, point 2): an installer in no
+project saw the project list with only the column "Ihre Rolle", also right after creating the first
+project, and the column selection offered nothing else; after the next login the columns were there.
+`AttributeColumn.resolve` drops a column whose attribute the user may read on no row
+(`ModelAccessPolicy.onAttributeOfType`: no granted role held on any object,
+`AccessManager.hasRoleOnAnyObject`), and `TableElement.createControl` resolves the columns once, when
+the table is built; a later change of the user's roles (a project created, the user added to one)
+refreshes the rows but not the columns. Reproduction in any app with per-object roles: a `<table>` with
+`<column attribute="name"/>` over a type whose read grant names a role held only through a role rule on
+the object; log in as an account holding that role nowhere, open the table, create an object giving the
+account the role (or let another session add it): the row appears, the column does not.
+
+Workaround in `projects/overview.view.xml`: the table is built only while the user sees a project (a
+`<switch>` on the derived channel `anyProject`), so it is built after the first project arrives;
+without a project the page says that there is none yet. **When fixed** (the column set follows a
+change of the roles, or the table is re-resolved): put the table back in place of the switch; the text
+for no project may stay as the empty state of the table, if the engine offers one.
+
+## A breadcrumb label stays as the object was named when the frame was opened (TL #30315)
+
+Found in the desk check of haumacher/ehome #163 (point 3): an editor renamed a project and saved, the
+breadcrumb kept the old name. `TileLabelProvider` documents it: the label is computed once when the
+frame is pushed and captured in `TileFrame#getLabel()`; `ScriptedTileLabel` re-evaluates only for the
+browser tab title, and then only when one of its input channels takes a new value, not when the object
+in the channel changes. Reproduction: `projects.view.xml` (`<frame id="project">` with
+`` <label class="…ScriptedTileLabel" expr="$project.get(`ehome.project:Project#name`)" inputs="project"/> ``),
+open a project, rename it in its properties and save: the breadcrumb shows the old name until the
+project is opened again.
+
+No workaround: a frame cannot be relabeled, and a re-push of the same frame keeps the displayed frame
+with its label (`ObjectNavigation.drillDown`, `TileFrame#showsSame`). **When fixed** (the label observes
+the objects it was computed from, or a frame can be relabeled): nothing to remove; check the rename.
+
 ## A refused command on a composition part (TL #29885)
 
 Under alpha11 a refused check on an object whose type delegates to its access parent (a device, a
