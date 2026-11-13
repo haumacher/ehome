@@ -1636,9 +1636,10 @@ public final class FunctionProposal {
 
 	/**
 	 * The key of the channel of a placed object: its program channel, where the program has several,
-	 * else the name of the object in the fallback language.
+	 * else the name of the object in the fallback language (<code>Function#channel</code>; the
+	 * channels of the presets of a device template, haumacher/ehome #146, are the same).
 	 */
-	private static String channelKey(Interface placed) {
+	public static String channelKey(Interface placed) {
 		TLObject programChannel = programChannel(placed);
 		if (programChannel != null) {
 			return "channel:" + ModuleParts.partId(programChannel);
@@ -1688,10 +1689,10 @@ public final class FunctionProposal {
 	}
 
 	/**
-	 * The numbered channel of the program the placement is in, where the program has several;
-	 * <code>null</code> otherwise.
+	 * The numbered channel of the program the placement is in, where the program has several (or the
+	 * channel of a module instance); <code>null</code> otherwise.
 	 */
-	private static TLObject programChannel(Interface placed) {
+	public static TLObject programChannel(Interface placed) {
 		for (TLObject node = placed.tContainer(); node != null; node = node.tContainer()) {
 			if (isA(node, "ehome.operational:Channel")) {
 				if (ModuleParts.instance(node) != null) {
@@ -1748,6 +1749,17 @@ public final class FunctionProposal {
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * The name of the channel of a placed object in the given device in the language of the given
+	 * resources: its program channel's, else the name of the object (see
+	 * {@link #channelKey(Interface)}).
+	 */
+	public static String channelLabel(TLObject device, Interface placed, Resources resources) {
+		TLObject programChannel = programChannel(placed);
+		return programChannel != null ? channelLabel(device, programChannel, resources)
+			: GroupAddressConnections.objectName(device, placed, resources);
 	}
 
 	private static String channelLabel(TLObject device, TLObject channel, Resources resources) {

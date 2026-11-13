@@ -82,7 +82,73 @@ public class TemplateFunctions extends GenericMethod {
 		 * <code>templateUntypedObjects(program)</code>:
 		 * {@link DeviceTemplates#untypedConnected(TLObject)}.
 		 */
-		templateUntypedObjects(1, true);
+		templateUntypedObjects(1, true),
+		/** <code>presetChannelName(preset)</code>: {@link Presets#presetChannelLabel(TLObject)}. */
+		presetChannelName(1, true),
+		/** <code>presetChannelLabel(device, channel)</code>: {@link Presets#channelLabel(TLObject, String)}. */
+		presetChannelLabel(2, true),
+		/**
+		 * <code>presetDeviceChannels(device, all)</code>: {@link Presets#channels(TLObject)}, without
+		 * <code>all</code> those of {@link Presets#activeChannels(TLObject)}.
+		 */
+		presetDeviceChannels(2, true),
+		/** <code>presetTemplateChannels(template)</code>: {@link Presets#templateChannels(TLObject)}. */
+		presetTemplateChannels(1, true),
+		/**
+		 * <code>presetTemplateChannelLabel(template, channel)</code>:
+		 * {@link Presets#templateChannelLabel(TLObject, String)}.
+		 */
+		presetTemplateChannelLabel(2, true),
+		/**
+		 * <code>presetAlikeTo(template, channel)</code>: the name of the channel the given one is declared
+		 * alike to, nothing if it is declared alike to none ({@link Presets#model(TLObject, String)}).
+		 */
+		presetAlikeTo(2, true),
+		/**
+		 * <code>presetDeclareAlike(template, channels)</code>: {@link Presets#declareAlike(TLObject, List)}.
+		 */
+		presetDeclareAlike(2, false),
+		/**
+		 * <code>presetDeclareAlikeVeto(template, channels)</code>:
+		 * {@link Presets#declareAlikeVeto(TLObject, List)}.
+		 */
+		presetDeclareAlikeVeto(2, true),
+		/**
+		 * <code>presetRemoveAlike(template, channels)</code>: {@link Presets#removeAlike(TLObject, java.util.Collection)}.
+		 */
+		presetRemoveAlike(2, false),
+		/** <code>presetTemplatePresets(template, channel)</code>: the presets saved from the channel. */
+		presetTemplatePresets(2, true),
+		/** <code>presetRoleOptions(object)</code>: {@link Presets#roleOptions(TLObject)} of its preset. */
+		presetRoleOptions(1, true),
+		/**
+		 * <code>presetObjectOptions(object)</code>: the communication objects of the channel of its
+		 * preset ({@link PresetDrafts#objectOptions(TLObject)}).
+		 */
+		presetObjectOptions(1, true),
+		/** <code>presetOffered(device, channel)</code>: {@link Presets#offered(TLObject, String)}. */
+		presetOffered(2, true),
+		/**
+		 * <code>presetApplyVeto(device, channel, preset)</code>:
+		 * {@link Presets#applyVeto(TLObject, String, TLObject)}.
+		 */
+		presetApplyVeto(3, true),
+		/** <code>presetApply(device, channel, preset)</code>: {@link Presets#apply(TLObject, String, TLObject)}. */
+		presetApply(3, false),
+		/** <code>presetUse(device, channel)</code>: {@link Presets#use(TLObject, String)}. */
+		presetUse(2, true),
+		/** <code>presetRemoveUse(use)</code>: {@link Presets#removeUse(TLObject)}. */
+		presetRemoveUse(1, false),
+		/** <code>presetSaveRequest(device, channel)</code>: {@link PresetDrafts#request(TLObject, String)}. */
+		presetSaveRequest(2, false),
+		/** <code>presetSaveDraft(draft, chosen)</code>: {@link PresetDrafts#save(TLObject, Object)}. */
+		presetSaveDraft(2, false),
+		/** <code>presetDraftInChannel(value)</code>: {@link PresetDrafts#inChannel(TLObject)}. */
+		presetDraftInChannel(1, true),
+		/** <code>presetDraftDiffers(value)</code>: {@link PresetDrafts#differs(TLObject)}. */
+		presetDraftDiffers(1, true),
+		/** <code>presetTemplateWriteVeto(root)</code>: {@link Presets#templateWriteVeto()}. */
+		presetTemplateWriteVeto(1, true);
 
 		private final int _arguments;
 
@@ -158,6 +224,58 @@ public class TemplateFunctions extends GenericMethod {
 				return DeviceTemplates.products(object(arguments[0]));
 			case templateUntypedObjects:
 				return object(arguments[0]) == null ? List.of() : DeviceTemplates.untypedConnected(object(arguments[0]));
+			case presetChannelName:
+				return Presets.presetChannelLabel(object(arguments[0]));
+			case presetChannelLabel:
+				return object(arguments[0]) == null ? null : Presets.channelLabel(object(arguments[0]), text(arguments[1]));
+			case presetDeviceChannels:
+				return object(arguments[0]) == null ? List.of()
+					: Boolean.TRUE.equals(arguments[1]) ? Presets.channels(object(arguments[0]))
+						: Presets.activeChannels(object(arguments[0]));
+			case presetTemplateChannels:
+				return object(arguments[0]) == null ? List.of() : Presets.templateChannels(object(arguments[0]));
+			case presetTemplateChannelLabel:
+				return object(arguments[0]) == null ? null
+					: Presets.templateChannelLabel(object(arguments[0]), text(arguments[1]));
+			case presetAlikeTo:
+				return alikeTo(object(arguments[0]), text(arguments[1]));
+			case presetDeclareAlike:
+				Presets.declareAlike(object(arguments[0]), texts(arguments[1]));
+				return null;
+			case presetDeclareAlikeVeto:
+				return object(arguments[0]) == null ? I18NConstants.ERROR_ALIKE_TWO_CHANNELS
+					: Presets.declareAlikeVeto(object(arguments[0]), texts(arguments[1]));
+			case presetRemoveAlike:
+				Presets.removeAlike(object(arguments[0]), texts(arguments[1]));
+				return null;
+			case presetTemplatePresets:
+				return presets(object(arguments[0]), text(arguments[1]));
+			case presetRoleOptions:
+				return Presets.roleOptions(PresetDrafts.preset(object(arguments[0])));
+			case presetObjectOptions:
+				return PresetDrafts.objectOptions(object(arguments[0]));
+			case presetOffered:
+				return object(arguments[0]) == null ? List.of() : Presets.offered(object(arguments[0]), text(arguments[1]));
+			case presetApplyVeto:
+				return object(arguments[0]) == null ? I18NConstants.ERROR_NO_PRESET
+					: Presets.applyVeto(object(arguments[0]), text(arguments[1]), object(arguments[2]));
+			case presetApply:
+				return Presets.apply(object(arguments[0]), text(arguments[1]), object(arguments[2]));
+			case presetUse:
+				return object(arguments[0]) == null ? null : Presets.use(object(arguments[0]), text(arguments[1]));
+			case presetRemoveUse:
+				Presets.removeUse(object(arguments[0]));
+				return null;
+			case presetSaveRequest:
+				return PresetDrafts.request(object(arguments[0]), text(arguments[1]));
+			case presetSaveDraft:
+				return PresetDrafts.save(object(arguments[0]), arguments[1]);
+			case presetDraftInChannel:
+				return Boolean.valueOf(PresetDrafts.inChannel(object(arguments[0])));
+			case presetDraftDiffers:
+				return Boolean.valueOf(PresetDrafts.differs(object(arguments[0])));
+			case presetTemplateWriteVeto:
+				return Presets.templateWriteVeto();
 		}
 		return null;
 	}
@@ -177,6 +295,45 @@ public class TemplateFunctions extends GenericMethod {
 		connectors.add(connector);
 		device.tUpdateByName("connectors", connectors);
 		return connector;
+	}
+
+	private static String alikeTo(TLObject template, String channel) {
+		if (template == null || channel == null) {
+			return null;
+		}
+		String model = Presets.model(template, channel);
+		return model.equals(channel) ? null : Presets.templateChannelLabel(template, model);
+	}
+
+	private static List<TLObject> presets(TLObject template, String channel) {
+		List<TLObject> result = new ArrayList<>();
+		if (template == null) {
+			return result;
+		}
+		for (Object preset : (Collection<?>) template.tValueByName("presets")) {
+			if (channel == null || channel.equals(((TLObject) preset).tValueByName("channel"))) {
+				result.add((TLObject) preset);
+			}
+		}
+		return result;
+	}
+
+	private static String text(Object value) {
+		return value == null ? null : value.toString();
+	}
+
+	private static List<String> texts(Object value) {
+		List<String> result = new ArrayList<>();
+		if (value instanceof Collection<?> values) {
+			for (Object element : values) {
+				if (element != null) {
+					result.add(element.toString());
+				}
+			}
+		} else if (value != null) {
+			result.add(value.toString());
+		}
+		return result;
 	}
 
 	private static Interface placement(Object value) {

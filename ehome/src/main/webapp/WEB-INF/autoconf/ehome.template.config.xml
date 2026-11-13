@@ -2,7 +2,8 @@
 
 <!--
 	The device templates (haumacher/ehome #103, package de.haumacher.ehome.template): the model of
-	the templates and their object overlays, shared master data, and the TL-Script functions of the
+	the templates, their object overlays and their presets (haumacher/ehome #146), shared master data,
+	and the TL-Script functions of the presets and of the
 	datapoint type in effect at a communication object (ObjectTypes), which the derived attributes of
 	ehome.physical:Connector and ehome.template:ObjectOverlay call, and of the view
 	device-templates.view.xml.
@@ -42,6 +43,33 @@
 					<method name="templateCreate" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
 					<method name="templateProducts" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
 					<method name="templateUntypedObjects" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<!--
+						The presets of the templates and their channels (de.haumacher.ehome.template.Presets,
+						ChannelShape, PresetDrafts, haumacher/ehome #146); presetDeclareAlike, presetRemoveAlike,
+						presetApply, presetRemoveUse, presetSaveRequest and presetSaveDraft change data.
+					-->
+					<method name="presetChannelName" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetChannelLabel" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetDeviceChannels" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetTemplateChannels" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetTemplateChannelLabel" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetAlikeTo" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetDeclareAlike" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetDeclareAlikeVeto" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetRemoveAlike" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetTemplatePresets" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetRoleOptions" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetObjectOptions" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetOffered" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetApplyVeto" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetApply" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetUse" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetRemoveUse" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetSaveRequest" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetSaveDraft" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetDraftInChannel" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetDraftDiffers" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
+					<method name="presetTemplateWriteVeto" class="de.haumacher.ehome.template.TemplateFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>

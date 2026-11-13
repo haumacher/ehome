@@ -411,6 +411,17 @@
 					type="Connector"
 				/>
 				<!--
+					The presets of the device templates applied to the device's channels (haumacher/ehome #146),
+					at most one per channel: what a later preset on the device must not contradict.
+				-->
+				<reference name="presets"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="PresetUse"
+				/>
+				<!--
 					The instances of the dynamic modules of the device's program (haumacher/ehome #119), as
 					E-Home computes them from the program and the device's values (in effect: active), and
 					those a change of a value removed (inactive), which keep their settings and connectors
@@ -573,6 +584,45 @@
 				<property name="deviceValue"
 					type="tl.core:String"
 				/>
+			</attributes>
+		</class>
+		<!--
+			A preset of the device template applied to a channel of the device (haumacher/ehome #146,
+			de.haumacher.ehome.template.Presets#apply): the values it set may be changed afterwards, the
+			use stays until another preset is applied to the channel or the use is removed.
+		-->
+		<class name="PresetUse">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-magic"/>
+			</annotations>
+			<attributes>
+				<!-- The preset; a deleted preset takes its uses with it. -->
+				<reference name="preset"
+					deletion-policy="delete-referer"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.template:Preset"
+				/>
+				<!-- The key of the channel of the device (as ehome.runtime:Function#channel). -->
+				<property name="channel"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The name of the channel in the device. -->
+				<property name="channelName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[u -> presetChannelLabel($u.container(), $u.get(`ehome.physical:PresetUse#channel`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!--

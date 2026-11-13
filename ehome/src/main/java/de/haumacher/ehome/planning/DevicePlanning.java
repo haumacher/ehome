@@ -331,7 +331,8 @@ public final class DevicePlanning {
 	/**
 	 * Creates a copy of the given device in its line, at the next free device number (see
 	 * {@link #nextFree(TLObject)}): of the same product variant, running the same program, with a
-	 * copy of each of its parameter settings, without connections, with nothing loaded.
+	 * copy of each of its parameter settings and of the records of the presets applied to it, without
+	 * connections, with nothing loaded.
 	 *
 	 * @return The copy.
 	 * @throws TopLogicException
@@ -362,6 +363,13 @@ public final class DevicePlanning {
 			computed.tDelete();
 		}
 		copy.tUpdateByName(SETTINGS, settings);
+		// The records of the presets applied to the original's channels (haumacher/ehome #146), whose
+		// values the copy has.
+		List<TLObject> presets = new ArrayList<>();
+		for (TLObject use : ExtIds.list(device, "presets")) {
+			presets.add(copySetting(use));
+		}
+		copy.tUpdateByName("presets", presets);
 		ModuleInstances.update(copy);
 		// The R values of its calculations from the copied L values (haumacher/ehome #123).
 		DeviceCalculations.recompute(copy);
@@ -410,7 +418,8 @@ public final class DevicePlanning {
 
 	/**
 	 * A new parameter setting (<code>ehome.physical:ParameterSetting</code>) with the stored values
-	 * of the given one: the parameter it sets and its typed value.
+	 * of the given one: the parameter it sets and its typed value; likewise the record of an applied
+	 * preset (<code>ehome.physical:PresetUse</code>).
 	 */
 	private static TLObject copySetting(TLObject setting) {
 		TLObject result = ModelService.getInstance().getFactory().createObject((TLClass) setting.tType());

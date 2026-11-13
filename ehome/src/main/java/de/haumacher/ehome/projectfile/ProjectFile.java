@@ -100,7 +100,9 @@ import de.haumacher.ehome.modules.ModuleParts;
  * </p>
  *
  * <p>
- * <b>Left out</b> ({@link #leftOut(TLStructuredTypePart)}): the secrets (the installation keys, the
+ * <b>Left out</b> ({@link #leftOut(TLStructuredTypePart)}): the members (accounts of this
+ * installation), the presets applied to the devices (presets of this installation's device templates;
+ * the values they set travel as the devices' settings), the secrets (the installation keys, the
  * enrollment code, of a controller everything but its name, host and port: its connection id and
  * secret, its HTTP token, and what it reported), and the operating history (the recordings of the
  * monitor, the deployments, the revision of the last image, the devices a scan did not identify, the
@@ -217,6 +219,9 @@ public final class ProjectFile {
 		"ehome.project:Project#members",
 		"ehome.project:Project#editors",
 		"ehome.project:Project#owners",
+		// The presets applied to a device name presets of this installation's device templates (master
+		// data, haumacher/ehome #146); the values they set are the device's settings and travel.
+		"ehome.physical:Device#presets",
 		// Secrets.
 		"ehome.project:Project#enrollmentCode",
 		"ehome.project:Project#enrollmentExpires",

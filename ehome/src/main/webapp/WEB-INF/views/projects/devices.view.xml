@@ -7,7 +7,8 @@
 	its configuration by the structure of its program (projects/device-item.view.xml for each entry of a
 	page; a page holding a change since the last download is marked), its communication objects with the
 	group addresses they are connected to, its changes against the state of the last download or the
-	defaults (projects/device-change-group.view.xml per page), and its programming
+	defaults (projects/device-change-group.view.xml per page), the presets of its channels
+	(projects/device-presets.view.xml, haumacher/ehome #146), and its programming
 	(projects/device-programming.view.xml).
 
 	Besides the import and the bus scan, a device is planned here (haumacher/ehome #104): "New",
@@ -1197,6 +1198,24 @@
 												</stack>
 											</inset>
 										</panel>
+									</tab>
+									<tab id="presets"
+										icon="css:bi bi-magic"
+									>
+										<label>
+											<en>Presets</en>
+											<de>Voreinstellungen</de>
+										</label>
+										<!--
+											The presets of the device template for the device's channels: applying one,
+											saving a configured channel as one (projects/device-presets.view.xml).
+										-->
+										<view-ref view="projects/device-presets.view.xml">
+											<bind
+												channel="device"
+												to="device"
+											/>
+										</view-ref>
 									</tab>
 									<tab id="programming"
 										icon="css:bi bi-cpu"

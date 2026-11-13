@@ -1,0 +1,326 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The presets of a device's channels (tab "Presets" of projects/devices.view.xml, haumacher/ehome #146,
+	de.haumacher.ehome.template.Presets): "device" is the device.
+
+	The table lists the channels of the device as the function proposal knows them (a numbered channel of
+	the program, the channel of a module instance, else the communication objects sharing a name): those
+	with objects in effect, with a preset offered or applied; the switch shows every channel of the
+	program. A selected channel lists the presets of the template offered there: saved from the channel,
+	from a channel the template declares alike to it, or from the same channel of another instance of a
+	module definition. "Apply" sets the preset's values on the device and records it for the channel,
+	replacing the preset applied there before; a preset wanting another value for a parameter than a
+	preset applied to another channel is refused, naming both. "Remove" takes the record back, the values
+	stay. Applying writes the device (an editor of the project).
+
+	"Save as preset" (administrators, who write the device templates) opens projects/preset-save.view.xml
+	for the selected channel: the values of the device it may hold, the objects whose roles it names.
+-->
+<view>
+	<channels>
+		<channel name="device"/>
+		<channel name="allChannels"
+			init="false"
+		/>
+		<channel name="selectedChannel"/>
+		<derived-channel name="channel"
+			expr="if($device != null and $selectedChannel != null and presetDeviceChannels($device, true).containsElement($selectedChannel), $selectedChannel, null)"
+			inputs="device, selectedChannel"
+		/>
+		<derived-channel name="channelName"
+			expr="if($channel == null, null, presetChannelLabel($device, $channel))"
+			inputs="device, channel"
+		/>
+		<!-- The device templates (master data): saving a preset writes them. -->
+		<derived-channel name="root"
+			expr="`ehome.template#ROOT`"
+			inputs="device"
+		/>
+		<channel name="selectedPreset"/>
+		<derived-channel name="preset"
+			expr="if($channel != null and $selectedPreset != null and presetOffered($device, $channel).containsElement($selectedPreset), $selectedPreset, null)"
+			inputs="device, channel, selectedPreset"
+			observed-types="ehome.template:Preset,ehome.template:AlikeChannel,ehome.physical:PresetUse"
+		/>
+		<channel name="use"/>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Project, tab Devices, tab Presets'"
+		/>
+	</channels>
+	<split-panel
+		orientation="vertical"
+		resizable="true"
+	>
+		<panes>
+			<pane
+				size="55"
+				unit="%"
+			>
+				<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+				<page-selection to="pageView">
+					<inputs>
+						<input channel="assistantPage"/>
+					</inputs>
+				</page-selection>
+				<page-selection to="pageSelection">
+					<inputs>
+						<input channel="channelName"/>
+						<input channel="preset"/>
+						<input channel="device"/>
+					</inputs>
+				</page-selection>
+				<panel>
+					<title>
+						<en>Channels</en>
+						<de>Kanäle</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-bookmark-plus"
+							inputs="device, channel, root"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Save as preset</en>
+								<de>Als Voreinstellung speichern</de>
+							</label>
+							<tooltip>
+								<en>Saves the configuration of the selected channel as a preset of the device template of the program: the values that belong to it, its name and the roles of its communication objects. Every device of the program can then take it.</en>
+								<de>Speichert die Konfiguration des gewählten Kanals als Voreinstellung der Gerätevorlage des Programms: die Werte, die dazugehören, ihren Namen und die Rollen ihrer Kommunikationsobjekte. Jedes Gerät mit dem Programm kann sie dann übernehmen.</de>
+							</tooltip>
+							<access>
+								<!-- The preset is a part of the device templates (master data), saved in Java. -->
+								<operation name="Write"
+									object="$root"
+									type="ehome.template:DeviceTemplates"
+								/>
+							</access>
+							<executability>
+								<disabled-if expr="if($channel == null, #('Select a channel.'@en, 'Wählen Sie einen Kanal aus.'@de), null)"/>
+							</executability>
+							<execute-script function="presetSaveRequest($device, $channel)">
+								<with-result>
+									<open-dialog
+										bind-input-to="request"
+										dialog-view="projects/preset-save.view.xml"
+									/>
+								</with-result>
+							</execute-script>
+						</generic-command>
+					</commands>
+					<stack>
+						<inset>
+							<fields>
+								<value-input
+									type="tl.core:Boolean"
+									value="allChannels"
+								>
+									<label>
+										<en>All channels of the program</en>
+										<de>Alle Kanäle des Programms</de>
+									</label>
+									<input-control class="com.top_logic.layout.view.form.BooleanControlProvider"
+										display="switch"
+									/>
+								</value-input>
+							</fields>
+						</inset>
+						<table
+							observed-types="ehome.physical:ParameterSetting,ehome.physical:PresetUse,ehome.template:Preset,ehome.template:AlikeChannel"
+							selection="selectedChannel"
+						>
+							<inputs>
+								<input channel="device"/>
+								<input channel="allChannels"/>
+							</inputs>
+							<columns>
+								<computed-column name="channel"
+									type="tl.core:String"
+									width="260"
+								>
+									<inputs>
+										<input channel="device"/>
+									</inputs>
+									<label>
+										<en>Channel</en>
+										<de>Kanal</de>
+									</label>
+									<value>presetChannelLabel($device, $row)</value>
+								</computed-column>
+								<computed-column name="applied"
+									type="ehome.template:Preset"
+									width="220"
+								>
+									<inputs>
+										<input channel="device"/>
+									</inputs>
+									<label>
+										<en>Applied preset</en>
+										<de>Angewendete Voreinstellung</de>
+									</label>
+									<value>presetUse($device, $row).get(`ehome.physical:PresetUse#preset`)</value>
+								</computed-column>
+								<computed-column name="offered"
+									type="tl.core:Integer"
+									width="120"
+								>
+									<inputs>
+										<input channel="device"/>
+									</inputs>
+									<label>
+										<en>Presets offered</en>
+										<de>Angebotene Voreinstellungen</de>
+									</label>
+									<value>presetOffered($device, $row).size()</value>
+								</computed-column>
+							</columns>
+							<rows>if($device == null, [], presetDeviceChannels($device, $allChannels))</rows>
+						</table>
+					</stack>
+				</panel>
+			</pane>
+			<pane
+				size="45"
+				unit="%"
+			>
+				<split-panel
+					orientation="horizontal"
+					resizable="true"
+				>
+					<panes>
+						<pane
+							size="55"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Presets offered on the channel</en>
+									<de>Für den Kanal angebotene Voreinstellungen</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:bi bi-magic"
+										inputs="device, channel, preset"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Apply</en>
+											<de>Anwenden</de>
+										</label>
+										<tooltip>
+											<en>Sets the values of the selected preset on the selected channel of the device and records the preset for the channel. The device gets the values with its next download.</en>
+											<de>Setzt die Werte der gewählten Voreinstellung auf dem gewählten Kanal des Geräts und vermerkt die Voreinstellung für den Kanal. Das Gerät erhält die Werte mit seinem nächsten Download.</de>
+										</tooltip>
+										<access>
+											<!-- The values are set in Java (Presets#apply). -->
+											<operation name="Write"
+												object="$device"
+												type="ehome.physical:Device"
+											/>
+										</access>
+										<executability>
+											<disabled-if expr="if($channel == null, #('Select a channel.'@en, 'Wählen Sie einen Kanal aus.'@de), presetApplyVeto($device, $channel, $preset))"/>
+										</executability>
+										<with-transaction>
+											<execute-script function="presetApply($device, $channel, $preset)"/>
+										</with-transaction>
+									</generic-command>
+								</commands>
+								<table
+									observed-types="ehome.template:Preset,ehome.template:AlikeChannel,ehome.physical:PresetUse"
+									selection="selectedPreset"
+									types="ehome.template:Preset"
+								>
+									<inputs>
+										<input channel="device"/>
+										<input channel="channel"/>
+									</inputs>
+									<columns>
+										<column attribute="name"
+											width="200"
+										/>
+										<column attribute="channelName"
+											width="140"
+										/>
+										<column attribute="purpose"
+											width="160"
+										/>
+										<column attribute="kind"
+											width="110"
+										/>
+										<column attribute="operations"
+											width="160"
+										/>
+									</columns>
+									<rows>if($channel == null, [], presetOffered($device, $channel))</rows>
+								</table>
+							</panel>
+						</pane>
+						<pane
+							size="45"
+							unit="%"
+						>
+							<panel>
+								<title>
+									<en>Applied presets</en>
+									<de>Angewendete Voreinstellungen</de>
+								</title>
+								<commands>
+									<generic-command
+										image="css:bi bi-x-circle"
+										inputs="use"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Remove</en>
+											<de>Entfernen</de>
+										</label>
+										<tooltip>
+											<en>Takes back the record of the preset applied to the channel; the values it set stay.</en>
+											<de>Nimmt den Vermerk der auf den Kanal angewendeten Voreinstellung zurück; die gesetzten Werte bleiben.</de>
+										</tooltip>
+										<access>
+											<operation name="Write"
+												object="$use.container()"
+												type="ehome.physical:Device"
+											/>
+										</access>
+										<executability>
+											<disabled-if expr="if($use == null, #('Select an applied preset.'@en, 'Wählen Sie eine angewendete Voreinstellung aus.'@de), null)"/>
+										</executability>
+										<with-transaction>
+											<execute-script function="presetRemoveUse($use)"/>
+										</with-transaction>
+										<write-channel name="use"
+											clear="true"
+										/>
+									</generic-command>
+								</commands>
+								<table
+									observed-types="ehome.physical:PresetUse,ehome.template:Preset"
+									selection="use"
+									types="ehome.physical:PresetUse"
+								>
+									<inputs>
+										<input channel="device"/>
+									</inputs>
+									<columns>
+										<column attribute="channelName"
+											width="180"
+										/>
+										<column attribute="preset"
+											width="200"
+										/>
+									</columns>
+									<rows>if($device == null, [], $device.get(`ehome.physical:Device#presets`))</rows>
+								</table>
+							</panel>
+						</pane>
+					</panes>
+				</split-panel>
+			</pane>
+		</panes>
+	</split-panel>
+</view>

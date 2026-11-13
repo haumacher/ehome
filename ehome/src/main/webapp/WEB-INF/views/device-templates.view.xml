@@ -21,6 +21,10 @@
 	(ObjectTypes): its group addresses, the bind dialog and the runtime image follow; a type entered
 	at a device in the project wins over the template's. The export of a project file writes only
 	the types entered in the project.
+
+	The template's tabs (haumacher/ehome #146): "Communication objects" with the overlays above,
+	"Channels" with the channels of the program and their declarations as alike, "Presets" with the
+	presets saved from devices' channels (see the comments of the tabs).
 -->
 <view>
 	<channels>
@@ -42,6 +46,18 @@
 		<derived-channel name="noTemplate"
 			expr="if($program == null, #('Select an application program.'@en, 'Wählen Sie ein Applikationsprogramm aus.'@de), if(canWrite($root), #('The selected application program has no template: &quot;Create template&quot; creates it.'@en, 'Das gewählte Applikationsprogramm hat keine Vorlage: „Vorlage anlegen“ legt sie an.'@de), #('The selected application program has no template.'@en, 'Das gewählte Applikationsprogramm hat keine Vorlage.'@de)))"
 			inputs="program, root"
+		/>
+		<!-- The channels selected in the tab "Channels" (their keys), the preset and its value selected in the tab "Presets". -->
+		<channel name="templateChannels"/>
+		<channel name="selectedPreset"/>
+		<derived-channel name="preset"
+			expr="if($template != null and $selectedPreset != null and $template.get(`ehome.template:DeviceTemplate#presets`).containsElement($selectedPreset), $selectedPreset, null)"
+			inputs="template, selectedPreset"
+			observed-types="ehome.template:Preset"
+		/>
+		<channel name="presetValue"/>
+		<derived-channel name="noPreset"
+			expr="#('Select a preset. A preset is saved from a configured channel of a device (tab Presets of the device).'@en, 'Wählen Sie eine Voreinstellung aus. Eine Voreinstellung wird aus einem konfigurierten Kanal eines Geräts gespeichert (Reiter Voreinstellungen des Geräts).'@de)"
 		/>
 		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
 		<derived-channel name="assistantPage"
@@ -213,45 +229,353 @@
 					</commands>
 					<switch input="template">
 						<case test="$template != null">
-							<form
-								input="template"
-								with-inset="true"
-							>
-								<field
-									attribute="program"
-									readonly="true"
-								/>
-								<table
-									row-edit="ALL"
-									types="ehome.template:ObjectOverlay"
-								>
-									<inputs>
-										<input channel="template"/>
-									</inputs>
-									<columns>
-										<column attribute="number"
-											width="70"
-										/>
-										<column attribute="placement"
-											readonly="true"
-											width="240"
-										/>
-										<column attribute="function"
-											width="160"
-										/>
-										<column attribute="size"
-											width="90"
-										/>
-										<column attribute="untypedConnected"
-											width="130"
-										/>
-										<column attribute="effectiveDatapointTypes"
-											width="260"
-										/>
-									</columns>
-									<rows>if($template == null, [], $template.get(`ehome.template:DeviceTemplate#overlays`))</rows>
-								</table>
-							</form>
+							<tab-bar>
+								<tabs>
+									<tab id="objects"
+										icon="css:bi bi-plug"
+									>
+										<label>
+											<en>Communication objects</en>
+											<de>Kommunikationsobjekte</de>
+										</label>
+										<form
+											input="template"
+											with-inset="true"
+										>
+											<field
+												attribute="program"
+												readonly="true"
+											/>
+											<table
+												row-edit="ALL"
+												types="ehome.template:ObjectOverlay"
+											>
+												<inputs>
+													<input channel="template"/>
+												</inputs>
+												<columns>
+													<column attribute="number"
+														width="70"
+													/>
+													<column attribute="placement"
+														readonly="true"
+														width="240"
+													/>
+													<column attribute="function"
+														width="160"
+													/>
+													<column attribute="size"
+														width="90"
+													/>
+													<column attribute="untypedConnected"
+														width="130"
+													/>
+													<column attribute="effectiveDatapointTypes"
+														width="260"
+													/>
+												</columns>
+												<rows>if($template == null, [], $template.get(`ehome.template:DeviceTemplate#overlays`))</rows>
+											</table>
+										</form>
+									</tab>
+									<tab id="channels"
+										icon="css:bi bi-intersect"
+									>
+										<label>
+											<en>Channels</en>
+											<de>Kanäle</de>
+										</label>
+										<!--
+											The channels of the program (haumacher/ehome #146, de.haumacher.ehome.template.ChannelShape):
+											as the function proposal knows them, outside module instances, whose channels map onto
+											each other by the module. "Declare alike" declares the selected channels alike to the
+											first of them (or to the channel it is alike to): a preset of one then applies to the
+											others by position. It is refused, with the reason, where a channel does not map onto
+											the first exactly (parameters, types, conditions, objects with their sizes and flags).
+										-->
+										<panel>
+											<title>
+												<en>Channels</en>
+												<de>Kanäle</de>
+											</title>
+											<commands>
+												<generic-command
+													image="css:bi bi-intersect"
+													inputs="template, templateChannels"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Declare alike</en>
+														<de>Als gleichartig erklären</de>
+													</label>
+													<tooltip>
+														<en>Declares the selected channels alike to the first of them: a preset of one applies to the others by position. Only channels whose parameters and objects map onto each other exactly are accepted.</en>
+														<de>Erklärt die gewählten Kanäle als gleichartig zum ersten von ihnen: eine Voreinstellung des einen gilt für die anderen nach Position. Nur Kanäle, deren Parameter und Objekte sich genau aufeinander abbilden lassen, werden angenommen.</de>
+													</tooltip>
+													<access>
+														<!-- The declaration is written in Java (Presets#declareAlike). -->
+														<operation name="Write"
+															object="$template"
+															type="ehome.template:DeviceTemplate"
+														/>
+													</access>
+													<executability>
+														<disabled-if expr="presetDeclareAlikeVeto($template, $templateChannels)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="presetDeclareAlike($template, $templateChannels)"/>
+													</with-transaction>
+												</generic-command>
+												<generic-command
+													image="css:bi bi-x-circle"
+													inputs="template, templateChannels"
+													placement="TOOLBAR"
+												>
+													<label>
+														<en>Remove the declaration</en>
+														<de>Erklärung entfernen</de>
+													</label>
+													<tooltip>
+														<en>The selected channels are alike to no other channel any more; for a channel others are alike to, the declarations of the whole group are removed.</en>
+														<de>Die gewählten Kanäle sind zu keinem anderen Kanal mehr gleichartig; bei einem Kanal, zu dem andere gleichartig sind, werden die Erklärungen der ganzen Gruppe entfernt.</de>
+													</tooltip>
+													<access>
+														<operation name="Write"
+															object="$template"
+															type="ehome.template:DeviceTemplate"
+														/>
+													</access>
+													<executability>
+														<disabled-if expr="if($templateChannels == null, #('Select the channels.'@en, 'Wählen Sie die Kanäle aus.'@de), null)"/>
+													</executability>
+													<with-transaction>
+														<execute-script function="presetRemoveAlike($template, $templateChannels)"/>
+													</with-transaction>
+												</generic-command>
+											</commands>
+											<table
+												observed-types="ehome.template:AlikeChannel,ehome.template:Preset"
+												selection="templateChannels"
+												selection-mode="multi"
+											>
+												<inputs>
+													<input channel="template"/>
+												</inputs>
+												<columns>
+													<computed-column name="channel"
+														type="tl.core:String"
+														width="260"
+													>
+														<inputs>
+															<input channel="template"/>
+														</inputs>
+														<label>
+															<en>Channel</en>
+															<de>Kanal</de>
+														</label>
+														<value>presetTemplateChannelLabel($template, $row)</value>
+													</computed-column>
+													<computed-column name="alikeTo"
+														type="tl.core:String"
+														width="200"
+													>
+														<inputs>
+															<input channel="template"/>
+														</inputs>
+														<label>
+															<en>Alike to</en>
+															<de>Gleichartig zu</de>
+														</label>
+														<value>presetAlikeTo($template, $row)</value>
+													</computed-column>
+													<computed-column name="presets"
+														type="tl.core:Integer"
+														width="110"
+													>
+														<inputs>
+															<input channel="template"/>
+														</inputs>
+														<label>
+															<en>Presets</en>
+															<de>Voreinstellungen</de>
+														</label>
+														<value>presetTemplatePresets($template, $row).size()</value>
+													</computed-column>
+												</columns>
+												<rows>if($template == null, [], presetTemplateChannels($template))</rows>
+											</table>
+										</panel>
+									</tab>
+									<tab id="presets"
+										icon="css:bi bi-magic"
+									>
+										<label>
+											<en>Presets</en>
+											<de>Voreinstellungen</de>
+										</label>
+										<!--
+											The presets of the template (haumacher/ehome #146), saved from the channels of devices
+											(the tab "Presets" of a device). The form changes the name, the purpose with the kind or
+											the operations and the roles of the objects; a value is removed from a preset here, a
+											value is changed by saving the channel anew. Read by every account, changed by
+											administrators.
+										-->
+										<split-panel
+											orientation="vertical"
+											resizable="true"
+										>
+											<panes>
+												<pane
+													size="40"
+													unit="%"
+												>
+													<panel>
+														<title>
+															<en>Presets</en>
+															<de>Voreinstellungen</de>
+														</title>
+														<commands>
+															<generic-command
+																image="css:bi bi-trash"
+																inputs="preset"
+																placement="TOOLBAR"
+															>
+																<label>
+																	<en>Delete preset</en>
+																	<de>Voreinstellung löschen</de>
+																</label>
+																<access>
+																	<operation name="Delete"
+																		object="$preset"
+																		type="ehome.template:Preset"
+																	/>
+																</access>
+																<executability>
+																	<disabled-if expr="if($preset == null, #('Select a preset.'@en, 'Wählen Sie eine Voreinstellung aus.'@de), null)"/>
+																</executability>
+																<confirm expr="#('Delete the preset {0}? The devices it is applied to keep its values.'@en, 'Die Voreinstellung {0} löschen? Die Geräte, auf die sie angewendet ist, behalten ihre Werte.'@de).fill($preset.get(`ehome.template:Preset#name`))"/>
+																<delete-object/>
+															</generic-command>
+														</commands>
+														<table
+															observed-types="ehome.template:Preset"
+															selection="selectedPreset"
+															types="ehome.template:Preset"
+														>
+															<inputs>
+																<input channel="template"/>
+															</inputs>
+															<columns>
+																<column attribute="name"
+																	width="200"
+																/>
+																<column attribute="channelName"
+																	width="160"
+																/>
+																<column attribute="purpose"
+																	width="170"
+																/>
+																<column attribute="kind"
+																	width="110"
+																/>
+																<column attribute="operations"
+																	width="160"
+																/>
+															</columns>
+															<rows>if($template == null, [], $template.get(`ehome.template:DeviceTemplate#presets`))</rows>
+														</table>
+													</panel>
+												</pane>
+												<pane
+													size="60"
+													unit="%"
+												>
+													<switch input="preset">
+														<case test="$preset != null">
+															<stack gap="default">
+																<form
+																	input="preset"
+																	with-inset="true"
+																>
+																	<field attribute="name"/>
+																	<field attribute="channelName"
+																		readonly="true"
+																	/>
+																	<field attribute="purpose"/>
+																	<field attribute="kind"/>
+																	<field attribute="operations"/>
+																	<composition-table attribute="objects">
+																		<columns>
+																			<column attribute="number"/>
+																			<column attribute="placement"/>
+																			<column attribute="role"/>
+																		</columns>
+																	</composition-table>
+																</form>
+																<panel>
+																	<title>
+																		<en>Parameter values</en>
+																		<de>Parameterwerte</de>
+																	</title>
+																	<commands>
+																		<generic-command
+																			image="css:bi bi-dash-circle"
+																			inputs="presetValue"
+																			placement="TOOLBAR"
+																		>
+																			<label>
+																				<en>Remove the value</en>
+																				<de>Wert entfernen</de>
+																			</label>
+																			<tooltip>
+																				<en>Removes the selected value from the preset: the preset no longer sets the parameter.</en>
+																				<de>Entfernt den gewählten Wert aus der Voreinstellung: die Voreinstellung setzt den Parameter nicht mehr.</de>
+																			</tooltip>
+																			<access>
+																				<operation name="Delete"
+																					object="$presetValue"
+																					type="ehome.template:PresetValue"
+																				/>
+																			</access>
+																			<executability>
+																				<disabled-if expr="if($presetValue == null, #('Select a value.'@en, 'Wählen Sie einen Wert aus.'@de), null)"/>
+																			</executability>
+																			<delete-object/>
+																		</generic-command>
+																	</commands>
+																	<table
+																		observed-types="ehome.template:PresetValue"
+																		selection="presetValue"
+																		types="ehome.template:PresetValue"
+																	>
+																		<inputs>
+																			<input channel="preset"/>
+																		</inputs>
+																		<columns>
+																			<column attribute="name"
+																				width="320"
+																			/>
+																			<column attribute="displayValue"
+																				width="240"
+																			/>
+																		</columns>
+																		<rows>if($preset == null, [], $preset.get(`ehome.template:Preset#values`))</rows>
+																	</table>
+																</panel>
+															</stack>
+														</case>
+														<default>
+															<inset>
+																<text input="noPreset"/>
+															</inset>
+														</default>
+													</switch>
+												</pane>
+											</panes>
+										</split-panel>
+									</tab>
+								</tabs>
+							</tab-bar>
 						</case>
 						<default>
 							<inset>

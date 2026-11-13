@@ -13,6 +13,11 @@
 		computed in one place (de.haumacher.ehome.template.ObjectTypes), which the derived attributes
 		below and the Java readers (group addresses, the bind dialog, the runtime image, the
 		simulation) call.
+
+		A template also holds the presets of the program's channels (haumacher/ehome #146,
+		de.haumacher.ehome.template.Presets): named configurations saved from a configured channel of a
+		device, with the channels of the program declared alike to which they apply by position. Like the
+		overlays they are master data, written by administrators and read by every account.
 	-->
 	<module name="ehome.template">
 		<annotations>
@@ -35,7 +40,7 @@
 				/>
 			</attributes>
 		</class>
-		<!-- The template of an application program: its object overlays. -->
+		<!-- The template of an application program: its object overlays, its presets and the channels declared alike. -->
 		<class name="DeviceTemplate">
 			<generalizations>
 				<generalization type="tl.model:TLObject"/>
@@ -60,6 +65,264 @@
 					multiple="true"
 					ordered="true"
 					type="ObjectOverlay"
+				/>
+				<!--
+					The presets of the program's channels (haumacher/ehome #146), saved from a configured channel
+					of a device; several may do the same thing.
+				-->
+				<reference name="presets"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="Preset"
+				/>
+				<!--
+					The channels declared alike: each names the channel it is alike to (de.haumacher.ehome.template.Presets#declareAlike).
+				-->
+				<reference name="alikeChannels"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="AlikeChannel"
+				/>
+			</attributes>
+		</class>
+		<!-- What a preset is for (haumacher/ehome #146). -->
+		<enum name="PresetPurpose">
+			<!-- The channel does a function: a light, a switch, a blind (the kinds of ehome.runtime:Function). -->
+			<classifier name="actuator" default="true"/>
+			<!-- The channel operates a function: a key, an LED, a sensor. -->
+			<classifier name="source"/>
+		</enum>
+		<!-- What a source preset can do with a function (the operations of the controls of haumacher/ehome #131, first step). -->
+		<enum name="SourceOperation">
+			<classifier name="toggle"/>
+			<classifier name="on"/>
+			<classifier name="off"/>
+			<classifier name="onOff"/>
+			<classifier name="showStatus"/>
+		</enum>
+		<!--
+			The role a communication object of the channel takes in a preset: for an actuator preset a role
+			of ehome.runtime:Function (de.haumacher.ehome.runtime.FunctionKinds#ROLES, the roles of its kind),
+			for a source preset sendCommand, listenStatus or receiveStatus.
+		-->
+		<enum name="PresetRole">
+			<classifier name="command"/>
+			<classifier name="state"/>
+			<classifier name="levelCommand"/>
+			<classifier name="level"/>
+			<classifier name="step"/>
+			<classifier name="move"/>
+			<classifier name="stop"/>
+			<classifier name="position"/>
+			<classifier name="positionCommand"/>
+			<classifier name="slat"/>
+			<classifier name="slatCommand"/>
+			<classifier name="atTop"/>
+			<classifier name="atBottom"/>
+			<classifier name="value"/>
+			<classifier name="temperature"/>
+			<classifier name="setpoint"/>
+			<classifier name="setpointCommand"/>
+			<classifier name="mode"/>
+			<classifier name="modeCommand"/>
+			<classifier name="heating"/>
+			<classifier name="heatingLevel"/>
+			<classifier name="press"/>
+			<classifier name="sendCommand"/>
+			<classifier name="listenStatus"/>
+			<classifier name="receiveStatus"/>
+		</enum>
+		<!--
+			A named configuration of one channel of the program (haumacher/ehome #146,
+			de.haumacher.ehome.template.Presets): the parameter values that make it, the roles of the
+			channel's communication objects, and what it is for. It applies to the channel it was saved
+			from in every device of the program, to the channels declared alike by position, and to the
+			other instances of a module definition by the module.
+		-->
+		<class name="Preset">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-magic"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The key of the channel it was saved from (as ehome.runtime:Function#channel). -->
+				<property name="channel"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The name of the channel it was saved from. -->
+				<property name="channelName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[p -> presetChannelName($p)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<reference name="purpose"
+					kind="forwards"
+					mandatory="true"
+					type="PresetPurpose"
+				/>
+				<!-- The kind of the function an actuator preset makes the channel do. -->
+				<reference name="kind"
+					kind="forwards"
+					type="ehome.runtime:FunctionKind"
+				>
+					<annotations>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[p -> editMode -> if($p.get(`ehome.template:Preset#purpose`) == `ehome.template:PresetPurpose#source`, "hidden", null)]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- What a source preset can do with a function. -->
+				<reference name="operations"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="SourceOperation"
+				>
+					<annotations>
+						<dynamic-visibility>
+							<mode-selector class="com.top_logic.model.search.providers.ModeSelectorByExpression">
+								<function><![CDATA[p -> editMode -> if($p.get(`ehome.template:Preset#purpose`) == `ehome.template:PresetPurpose#source`, null, "hidden")]]></function>
+							</mode-selector>
+						</dynamic-visibility>
+					</annotations>
+				</reference>
+				<!-- The parameter values that make the preset, in the order of the program's structure. -->
+				<reference name="values"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="PresetValue"
+				/>
+				<!-- The communication objects of the channel taking a role. -->
+				<reference name="objects"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="PresetObject"
+				/>
+			</attributes>
+		</class>
+		<!-- A parameter value of a preset, typed like a device's parameter setting. -->
+		<class name="PresetValue">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+				<generalization type="ehome.operational:ParameterValue"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-sliders"/>
+			</annotations>
+			<attributes>
+				<!-- The placement of the parameter (of a module: the reference of the module definition). -->
+				<reference name="parameter"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.operational:ParameterView"
+				/>
+				<property name="name"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[v -> $v.get(`ehome.template:PresetValue#parameter`).get(`ehome.operational:ParameterView#title`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+			</attributes>
+		</class>
+		<!-- A communication object of a preset's channel with its role. -->
+		<class name="PresetObject">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-plug"/>
+			</annotations>
+			<attributes>
+				<!-- The communication object (its placement; of a module: the placement of the module definition). -->
+				<reference name="placement"
+					kind="forwards"
+					mandatory="true"
+					type="ehome.operational:Interface"
+				>
+					<annotations>
+						<!-- The communication objects of the preset's channel. -->
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> presetObjectOptions($self)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+				<property name="number"
+					type="tl.core:Integer"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[o -> $o.get(`ehome.template:PresetObject#placement`).get(`ehome.operational:Interface#port`).get(`ehome.operational:Port#index`)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<reference name="role"
+					kind="forwards"
+					type="PresetRole"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[self -> presetRoleOptions($self)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
+			</attributes>
+		</class>
+		<!--
+			A channel of the program declared alike to another one (haumacher/ehome #146): E-Home maps
+			their parameters and objects onto each other by position, so that a preset of one applies to
+			the other. Accepted only where the mapping is exact (de.haumacher.ehome.template.ChannelShape).
+		-->
+		<class name="AlikeChannel">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-intersect"/>
+			</annotations>
+			<attributes>
+				<!-- The key of the channel declared alike. -->
+				<property name="channel"
+					mandatory="true"
+					type="tl.core:String"
+				/>
+				<!-- The key of the channel it is alike to, which names no other one. -->
+				<property name="model"
+					mandatory="true"
+					type="tl.core:String"
 				/>
 			</attributes>
 		</class>

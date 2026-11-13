@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Saves a channel of a device as a preset of the device template of its program (haumacher/ehome #146,
+	tab "Presets" of a device, projects/device-presets.view.xml): "request" carries the device, the key and
+	name of the channel, the draft of the preset (de.haumacher.ehome.template.PresetDrafts, transient) and
+	the values offered.
+
+	The table offers the parameter values of the device the preset may hold: those of the channel's part
+	of the program's structure, the inputs of the switches that bring its objects and parameters in effect
+	(also outside the channel, also at their default: the mode of an actuator's channel, the operation
+	concept of two keys), and every other value that differs from its default. The proposed ones are
+	selected: the values of the channel that differ from their default and the inputs bringing its parts in
+	effect; the installer confirms which belong to the preset. The form names the preset and says what it
+	is for: an actuator preset the kind of the function, a source preset its operations; the table of the
+	communication objects of the channel in effect gives the roles (an object without a role is not part
+	of the preset). "Save" stores the preset in the template, which is created where the program has none;
+	a refusal (no name, a name taken on the channel, no value, a role not fitting the purpose) keeps the
+	dialog open with its reason. Saving writes the device templates (administrators).
+-->
+<view>
+	<channels>
+		<channel name="request"/>
+		<channel name="selection"/>
+		<derived-channel name="draft"
+			expr='if($request == null, null, $request["draft"])'
+			inputs="request"
+		/>
+		<derived-channel name="values"
+			expr='if($request == null, [], $request["values"])'
+			inputs="request"
+		/>
+		<channel name="chosen"
+			init='if($request == null, null, $request["proposed"])'
+			inputs="request"
+		/>
+		<derived-channel name="root"
+			expr="`ehome.template#ROOT`"
+			inputs="request"
+		/>
+		<derived-channel name="hint"
+			inputs="request"
+		>
+			<expr><![CDATA[if($request == null, null,
+    #("{0}: select the parameter values that belong to the preset (the proposed ones are selected), name it and give the communication objects their roles."@en,
+      "{0}: Wählen Sie die Parameterwerte aus, die zur Voreinstellung gehören (die vorgeschlagenen sind ausgewählt), benennen Sie sie und geben Sie den Kommunikationsobjekten ihre Rollen."@de)
+        .fill($request["channelName"]).localize())]]></expr>
+		</derived-channel>
+	</channels>
+	<window width="960px">
+		<title>
+			<en>Save as preset</en>
+			<de>Als Voreinstellung speichern</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text
+					input="hint"
+					tone="secondary"
+				/>
+				<table
+					selection="chosen"
+					selection-mode="multi"
+					types="ehome.template:PresetValue"
+				>
+					<inputs>
+						<input channel="values"/>
+					</inputs>
+					<columns>
+						<column attribute="name"
+							width="320"
+						/>
+						<column attribute="displayValue"
+							width="220"
+						/>
+						<computed-column name="inChannel"
+							type="tl.core:Boolean"
+							width="110"
+						>
+							<label>
+								<en>In the channel</en>
+								<de>Im Kanal</de>
+							</label>
+							<value>presetDraftInChannel($row)</value>
+						</computed-column>
+						<computed-column name="differs"
+							type="tl.core:Boolean"
+							width="130"
+						>
+							<label>
+								<en>Not the default</en>
+								<de>Nicht die Vorgabe</de>
+							</label>
+							<value>presetDraftDiffers($row)</value>
+						</computed-column>
+					</columns>
+					<rows>$values</rows>
+				</table>
+				<form
+					initial-edit-mode="true"
+					input="draft"
+					mode-switch="false"
+				>
+					<field attribute="name"/>
+					<field attribute="purpose"/>
+					<field attribute="kind"/>
+					<field attribute="operations"/>
+					<composition-table attribute="objects">
+						<columns>
+							<column attribute="number"/>
+							<column attribute="placement"/>
+							<column attribute="role"/>
+						</columns>
+					</composition-table>
+					<commands>
+						<generic-command
+							image="css:bi bi-bookmark-check"
+							inputs="draft, chosen, root"
+							placement="BUTTON_BAR"
+						>
+							<label>
+								<en>Save</en>
+								<de>Speichern</de>
+							</label>
+							<access>
+								<!-- The preset is stored in Java (PresetDrafts#save). -->
+								<operation name="Write"
+									object="$root"
+									type="ehome.template:DeviceTemplates"
+								/>
+							</access>
+							<store-form-state/>
+							<with-transaction>
+								<execute-script function="presetSaveDraft($draft, $chosen)"/>
+								<with-result>
+									<write-channel name="selection"/>
+								</with-result>
+							</with-transaction>
+							<close-dialog/>
+						</generic-command>
+					</commands>
+				</form>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>
