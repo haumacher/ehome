@@ -1645,10 +1645,12 @@
 																		</tag>
 																		<!--
 																			The files of the manufacturer the program names (haumacher/ehome #154); the files themselves are read by
-																			BaggageImport, which also gives them to a known program an earlier import left without them. The plug-ins
-																			the attributes of the extension name are not read (haumacher/ehome #159).
+																			BaggageImport, which also gives them to a known program an earlier import left without them. What the
+																			attributes of the extension say the program needs of ETS (plug-ins of the manufacturer, external
+																			software) is read by ExtensionRequirements (haumacher/ehome #159); a plug-in itself is never run.
 																		-->
 																		<tag name="Extension">
+																			<program-requirements/>
 																			<dispatch>
 																				<tag name="Baggage">
 																					<object-ref id-attribute="RefId">
@@ -1780,7 +1782,8 @@
 																				<group id="channel-texts">
 																					<set-translation name="description" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																				</group>
-																				<property name="number" xml-attribute="Number" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																				<!-- The number in the channel's own notation, "18d" too (String50_t, haumacher/ehome #162). -->
+																				<property name="number" xml-attribute="Number"/>
 																				<!-- The text parameter whose value fills {{0}} of the text (DeviceTexts). -->
 																				<reference name="textParameter" id-attribute="TextParameterRefId"/>
 
@@ -1917,6 +1920,8 @@
 															<assign argument-var="this" property="validationsRead" value="p -> true"/>
 															<!-- Its assignments are read (also where it has none): an import of its file does not complete it (haumacher/ehome #142). -->
 															<assign argument-var="this" property="assignsRead" value="p -> true"/>
+															<!-- Its requirements of ETS are read (also where it has none): an import of its file does not complete it (haumacher/ehome #159). -->
+															<assign argument-var="this" property="requirementsRead" value="p -> true"/>
 															<!-- The program is read: the languages of its texts are recorded, the held-back warnings about the values of its parameters decided. -->
 															<program-imported/>
 														</object>

@@ -567,6 +567,26 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 JOIN_SENTENCES__FIRST_NEXT;
 
+	/**
+	 * @en {0}, {1}
+	 */
+	public static ResKey2 LIST__FIRST_NEXT;
+
+	/**
+	 * @en In ETS, the application program uses a plug-in of the manufacturer ({0}). E-Home edits and downloads the parameters and communication objects its product data declare; the functions the plug-in adds, such as the commissioning of a DALI bus, are not available in E-Home.
+	 */
+	public static ResKey1 NOTICE_REQUIRES_USER_INTERFACE_PLUGIN__REQUIREMENTS;
+
+	/**
+	 * @en In ETS, the application program needs what E-Home does not run: {0}. A device of it is planned, parameterized and connected in E-Home, but E-Home cannot download it.
+	 */
+	public static ResKey1 NOTICE_REQUIRES_NO_DOWNLOAD__REQUIREMENTS;
+
+	/**
+	 * @en In ETS, the application program needs what E-Home does not run: {0}. E-Home cannot download it.
+	 */
+	public static ResKey1 ERROR_DOWNLOAD_REQUIRES__REQUIREMENTS;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

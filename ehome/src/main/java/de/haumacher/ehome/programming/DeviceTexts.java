@@ -72,9 +72,13 @@ public final class DeviceTexts {
 		return title == null ? null : Resources.getInstance().getString(title);
 	}
 
+	/**
+	 * The title of the channel after its number, in the channel's own notation ("18d: Logikkanäle",
+	 * haumacher/ehome #162).
+	 */
 	private static String numbered(Channel channel, String title) {
-		Integer number = channel.getNumber();
-		return number == null ? title : number + ": " + title;
+		String number = channel.getNumber();
+		return number == null || number.isBlank() ? title : number.trim() + ": " + title;
 	}
 
 	/**

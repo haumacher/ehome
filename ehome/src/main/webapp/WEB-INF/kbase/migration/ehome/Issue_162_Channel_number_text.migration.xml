@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The number of a channel becomes a text in the channel's own notation (haumacher/ehome #162): the KNX
+	schema types it as String50_t, and Theben's program M-0048_A-F140-13-8536 numbers a channel "18d".
+	The SQL converts the stored integers of every revision into their decimal text, and the property
+	ehome.operational:Channel#number changes its type in the stored model, so the automatic model upgrade
+	at startup has nothing left to do for it (it would change the type and leave the integers, which no
+	longer read as texts).
+
+	The requirements of an application program in ETS (haumacher/ehome #159: the enumeration
+	ehome.operational:ProgramRequirement, Program#requirements and Program#requirementsRead) are new and
+	added by the automatic model upgrade; a program imported before has no requirements until the next
+	import of its file completes it (ExtensionRequirements).
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_162_Channel_number_text"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_152_Project_members"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30079_Remove_comments"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_29092_multi_factor_authentication"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<sql file-name-prefix="webinf://kbase/migration/ehome/Issue_162_Channel_number_text_scripts/numberText"/>
+		<update-property name="ehome.operational:Channel#number"
+			new-type="tl.core:String"
+		/>
+	</processors>
+	<post-processors/>
+</migration>

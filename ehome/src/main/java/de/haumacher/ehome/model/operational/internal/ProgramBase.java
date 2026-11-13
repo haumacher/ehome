@@ -313,6 +313,24 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String PREFER_PARTIAL_DOWNLOAD_ATTR = "preferPartialDownload";
 
 	/**
+	 * Part <code>requirements</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:ProgramRequirement</code> in configuration.
+	 * </p>
+	 */
+	String REQUIREMENTS_ATTR = "requirements";
+
+	/**
+	 * Part <code>requirementsRead</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String REQUIREMENTS_READ_ATTR = "requirementsRead";
+
+	/**
 	 * Part <code>script</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -1098,6 +1116,63 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setPreferPartialDownload(boolean newValue) {
 		tUpdateByName(PREFER_PARTIAL_DOWNLOAD_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #REQUIREMENTS_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.Set<com.top_logic.model.TLClassifier> getRequirements() {
+		return (java.util.Set<com.top_logic.model.TLClassifier>) tValueByName(REQUIREMENTS_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #REQUIREMENTS_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.Set<com.top_logic.model.TLClassifier> getRequirementsModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(REQUIREMENTS_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.Set<com.top_logic.model.TLClassifier> result = (java.util.Set<com.top_logic.model.TLClassifier>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #REQUIREMENTS_ATTR}.
+	 */
+	default void setRequirements(java.util.Set<com.top_logic.model.TLClassifier> newValue) {
+		tUpdateByName(REQUIREMENTS_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #REQUIREMENTS_ATTR} reference.
+	 */
+	default void addRequirement(com.top_logic.model.TLClassifier newValue) {
+		tAddByName(REQUIREMENTS_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #REQUIREMENTS_ATTR} reference.
+	 */
+	default void removeRequirement(com.top_logic.model.TLClassifier oldValue) {
+		tRemoveByName(REQUIREMENTS_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #REQUIREMENTS_READ_ATTR}.
+	 */
+	default boolean getRequirementsRead() {
+		return (Boolean) tValueByName(REQUIREMENTS_READ_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #REQUIREMENTS_READ_ATTR}.
+	 */
+	default void setRequirementsRead(boolean newValue) {
+		tUpdateByName(REQUIREMENTS_READ_ATTR, newValue);
 	}
 
 	/**

@@ -10,6 +10,8 @@
 	user chooses another. The device number is proposed as the next free one of the line; a number in
 	use is refused with its reason, shown while the number is entered. Name and location are optional.
 	A product missing from the catalog is imported first: the dialog says so, and where.
+	A program that needs a plug-in of the manufacturer or external software in ETS says so below the
+	choice, and whether E-Home can download it (programRequirementNotice, haumacher/ehome #159).
 
 	The device is created by devicePlanCreate (de.haumacher.ehome.planning.DevicePlanning): without
 	settings of its own, without connections, with nothing loaded, with an external ID. The new device
@@ -33,6 +35,11 @@
 			expr="if($chosenNumber != null, $chosenNumber, devicePlanNextFree($line))"
 			inputs="chosenNumber, line"
 			reverse="$value"
+		/>
+		<!-- What the chosen program needs of ETS besides its product data (haumacher/ehome #159), nothing if nothing. -->
+		<derived-channel name="requirementNotice"
+			expr="{ n = programRequirementNotice($program); if($n == null, null, $n.localize()) }"
+			inputs="program"
 		/>
 		<channel name="title"/>
 		<channel name="location"/>
@@ -124,6 +131,16 @@
 						</label>
 					</value-input>
 				</fields>
+				<!-- A plug-in of the manufacturer or external software the chosen program needs in ETS (haumacher/ehome #159). -->
+				<visible-if
+					expr="$requirementNotice != null"
+					input="requirementNotice"
+				>
+					<text
+						input="requirementNotice"
+						tone="warning"
+					/>
+				</visible-if>
 				<visible-if
 					expr="$problem != null"
 					input="problem"

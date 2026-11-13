@@ -46,7 +46,7 @@ public interface ChannelBase extends de.haumacher.ehome.model.operational.Config
 	 * Part <code>number</code> of <code>Channel</code>
 	 * 
 	 * <p>
-	 * Declared as <code>tl.core:Integer</code> in configuration.
+	 * Declared as <code>tl.core:String</code> in configuration.
 	 * </p>
 	 */
 	String NUMBER_ATTR = "number";
@@ -89,14 +89,14 @@ public interface ChannelBase extends de.haumacher.ehome.model.operational.Config
 	/**
 	 * Getter for part {@link #NUMBER_ATTR}.
 	 */
-	default Integer getNumber() {
-		return (Integer) tValueByName(NUMBER_ATTR);
+	default String getNumber() {
+		return (String) tValueByName(NUMBER_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #NUMBER_ATTR}.
 	 */
-	default void setNumber(Integer newValue) {
+	default void setNumber(String newValue) {
 		tUpdateByName(NUMBER_ATTR, newValue);
 	}
 

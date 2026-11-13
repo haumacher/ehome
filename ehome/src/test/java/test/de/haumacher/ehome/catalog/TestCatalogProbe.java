@@ -165,7 +165,7 @@ public class TestCatalogProbe extends BasicTestCase {
 
 			channel = factory.createChannel();
 			channel.setName("Taste 1");
-			channel.setNumber(1);
+			channel.setNumber("1");
 			program.addContent(channel);
 			block = factory.createParameterGroup();
 			block.setName("Allgemein");

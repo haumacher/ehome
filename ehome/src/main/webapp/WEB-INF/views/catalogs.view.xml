@@ -26,7 +26,9 @@
 
 	The detail pane shows the selected node in a form matching its type; a manufacturer, an application
 	program and a product variant with the files of the manufacturer they have or name, with a download
-	(catalogs/files.view.xml, haumacher/ehome #154).
+	(catalogs/files.view.xml, haumacher/ehome #154). An application program that needs a plug-in of
+	the manufacturer or external software in ETS says so above its structure, and whether E-Home can
+	download it (programRequirementNotice, haumacher/ehome #159).
 -->
 <view>
 	<channels>
@@ -47,6 +49,12 @@
     default: null;
 }"
 			inputs="selected"
+		/>
+		<!-- What the selected program needs of ETS besides its product data (haumacher/ehome #159), nothing if nothing. -->
+		<derived-channel name="requirementNotice"
+			expr="{ n = programRequirementNotice($selectedProgram); if($n == null, null, $n.localize()) }"
+			inputs="selectedProgram"
+			observed-types="ehome.operational:Program"
 		/>
 		<derived-channel name="selectedCatalog"
 			expr="if($selected.instanceOf(`ehome.catalog:Catalog`), $selected, null)"
@@ -646,6 +654,18 @@
 									<field attribute="name"/>
 									<field attribute="extId"/>
 								</form>
+							</visible-if>
+							<!-- A plug-in of the manufacturer or external software the program needs in ETS (haumacher/ehome #159). -->
+							<visible-if
+								expr="$requirementNotice != null"
+								input="requirementNotice"
+							>
+								<inset>
+									<text
+										input="requirementNotice"
+										tone="warning"
+									/>
+								</inset>
 							</visible-if>
 							<view-ref view="catalogs/program.view.xml">
 								<bind

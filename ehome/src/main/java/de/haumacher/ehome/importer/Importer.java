@@ -7,9 +7,11 @@ import java.io.ByteArrayInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
@@ -71,6 +73,7 @@ import de.haumacher.ehome.model.operational.ParameterValidation;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
+import de.haumacher.ehome.programming.PluginRequirements;
 
 /**
  * Imports an ETS project file (<code>.knxproj</code>) or a product file of a manufacturer
@@ -166,6 +169,14 @@ public class Importer {
 
 	private static final String ASSIGNS_READ = "assignsRead";
 
+	private static final byte[] CHANNEL_MARKER = "<Channel ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+
+	private static final String CHANNEL_TYPE = "ehome.operational:Channel";
+
+	private static final String NUMBER = "number";
+
+	private static final byte[] EXTENSION_MARKER = "<Extension ".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+
 	/**
 	 * The languages of the application programs the last import read.
 	 */
@@ -253,6 +264,8 @@ public class Importer {
 				scanModules(context, program);
 				importXml(context, handler, name, new ByteArrayInputStream(program));
 				completeAssigns(program);
+				completeRequirements(program);
+				completeChannelNumbers(program);
 				baggage.readProgramReferences(program);
 			} else if (name.endsWith(".xml")) {
 				importXml(context, handler, name, entryIn);
@@ -366,6 +379,8 @@ public class Importer {
 				scanModules(context, content);
 				importXml(context, handler(), name, new ByteArrayInputStream(content));
 				completeAssigns(content);
+				completeRequirements(content);
+				completeChannelNumbers(content);
 				baggage.readProgramReferences(content);
 				HiddenProgramValues.reportPending(context);
 			}
@@ -499,6 +514,114 @@ public class Importer {
 				_messages.log(Level.WARN, I18NConstants.WARN_ASSIGNS_NOT_COMPLETED__PROGRAM.fill(id));
 			}
 		}
+	}
+
+	/**
+	 * Completes the known application programs of the given program file that an earlier import read
+	 * without their requirements (haumacher/ehome #159, see {@link ExtensionRequirements}); the programs
+	 * this import created read them themselves.
+	 */
+	private void completeRequirements(byte[] content) throws IOException {
+		if (!mentions(content, EXTENSION_MARKER)) {
+			return;
+		}
+		for (Map.Entry<String, Set<String>> entry : requirements(content).entrySet()) {
+			TLObject existing = existingProgram(entry.getKey());
+			if (existing == null || _binding.isCreated(existing)) {
+				continue;
+			}
+			ExtensionRequirements.complete(existing, entry.getValue(), _messages);
+		}
+	}
+
+	/**
+	 * Gives the channels of known programs the numbers an import before haumacher/ehome #162 could not
+	 * read: a number that is not an integer ("18d") was reported and left out while the number was an
+	 * integer in the model. Only such numbers are looked for, so a file without them costs one scan.
+	 */
+	private void completeChannelNumbers(byte[] content) throws IOException {
+		if (!mentions(content, CHANNEL_MARKER)) {
+			return;
+		}
+		Map<String, String> numbers = textChannelNumbers(content);
+		if (numbers.isEmpty()) {
+			return;
+		}
+		TLClass type = (TLClass) TLModelUtil.findType(CHANNEL_TYPE);
+		for (TLObject channel : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
+			Object id = channel.tValueByName("extId");
+			String number = id == null ? null : numbers.get(id.toString());
+			if (number != null && channel.tValueByName(NUMBER) == null && !_binding.isCreated(channel)) {
+				channel.tUpdateByName(NUMBER, number);
+				_messages.log(Level.INFO, I18NConstants.INFO_CHANNEL_NUMBER_COMPLETED__CHANNEL_NUMBER.fill(id, number));
+			}
+		}
+	}
+
+	/**
+	 * The numbers of the channels of the given program file that are not integers, by the channel's ID.
+	 */
+	private static Map<String, String> textChannelNumbers(byte[] content) throws IOException {
+		Map<String, String> result = new LinkedHashMap<>();
+		try {
+			XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
+				.createXMLStreamReader(new ByteArrayInputStream(content));
+			try {
+				while (in.hasNext()) {
+					if (in.next() == XMLStreamConstants.START_ELEMENT && "Channel".equals(in.getLocalName())) {
+						String number = in.getAttributeValue(null, "Number");
+						String id = in.getAttributeValue(null, "Id");
+						if (id != null && number != null && !number.isBlank() && !number.trim().matches("-?[0-9]+")) {
+							result.put(id, number);
+						}
+					}
+				}
+			} finally {
+				in.close();
+			}
+		} catch (XMLStreamException ex) {
+			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+		}
+		return result;
+	}
+
+	/**
+	 * The requirements of each application program of the given program file, by the program's ID
+	 * (the attributes of <code>ApplicationProgram/Static/Extension</code>, see
+	 * {@link PluginRequirements#fromExtension(java.util.function.UnaryOperator)}).
+	 */
+	private static Map<String, Set<String>> requirements(byte[] content) throws IOException {
+		Map<String, Set<String>> result = new LinkedHashMap<>();
+		try {
+			XMLStreamReader in = XMLStreamUtil.getDefaultInputFactory()
+				.createXMLStreamReader(new ByteArrayInputStream(content));
+			try {
+				Deque<String> elements = new ArrayDeque<>();
+				String program = null;
+				while (in.hasNext()) {
+					int event = in.next();
+					if (event == XMLStreamConstants.START_ELEMENT) {
+						String name = in.getLocalName();
+						if ("ApplicationProgram".equals(name)) {
+							program = in.getAttributeValue(null, "Id");
+							result.put(program, new LinkedHashSet<>());
+						} else if ("Extension".equals(name) && program != null && "Static".equals(elements.peek())
+							&& elements.size() >= 2 && "ApplicationProgram".equals(List.copyOf(elements).get(1))) {
+							result.get(program).addAll(
+								PluginRequirements.fromExtension(attribute -> in.getAttributeValue(null, attribute)));
+						}
+						elements.push(name);
+					} else if (event == XMLStreamConstants.END_ELEMENT) {
+						elements.pop();
+					}
+				}
+			} finally {
+				in.close();
+			}
+		} catch (XMLStreamException ex) {
+			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+		}
+		return result;
 	}
 
 	/**

@@ -175,8 +175,8 @@ skip Parameter@SuffixText
 skip Parameter@LegacyPatchAlways
 skip Union/Parameter@DefaultUnionParameter
 skip Static/ParameterCalculations
-# Its Baggage references are imported (haumacher/ehome #154), its plug-in attributes are not
-# (haumacher/ehome #159); the export writes neither.
+# Its Baggage references are imported (haumacher/ehome #154), its plug-in attributes as the
+# requirements of the program (haumacher/ehome #159); the export writes neither.
 skip Static/Extension
 skip Static/BinaryData
 skip Static/FixupList

@@ -34,6 +34,7 @@ import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.DownloadImage.PropertyWrite;
 import de.haumacher.ehome.programming.ParameterEncoding;
+import de.haumacher.ehome.programming.PluginRequirements;
 import de.haumacher.ehome.modules.ModuleInstances;
 
 /**
@@ -283,6 +284,12 @@ public class DownloadPlanner {
 		if (_program.getUsesModules()) {
 			_problems.add(I18NConstants.ERROR_PROGRAM_USES_MODULES);
 			return result(device, address, kind);
+		}
+		// A plug-in of the manufacturer doing the download, a data handler or external software
+		// (haumacher/ehome #159): the image is still computed, so the comparison stays allowed.
+		ResKey requirement = PluginRequirements.downloadProblem(_program);
+		if (requirement != null) {
+			_problems.add(requirement);
 		}
 		if (!_program.getModules().isEmpty()) {
 			// The layout of the device's dynamic modules (haumacher/ehome #119).

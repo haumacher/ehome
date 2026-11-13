@@ -354,7 +354,7 @@ public class TestCatalogFromScratch extends BasicTestCase {
 			String[] perChannel = { "text", "float", "time" };
 			for (int n = 1; n <= 3; n++) {
 				Channel channel = factory.createChannel();
-				channel.setNumber(n);
+				channel.setNumber(Integer.toString(n));
 				channel.setName("Taste " + n);
 				channel.setDescription(text("Button " + n, "Taste " + n));
 				// A channel cannot be inside the channel independent part or a channel: it goes after.
@@ -555,7 +555,7 @@ public class TestCatalogFromScratch extends BasicTestCase {
 		Channel inserted;
 		try (Transaction tx = _kb.beginTransaction()) {
 			inserted = EhomeOperationalFactory.getInstance().createChannel();
-			inserted.setNumber(4);
+			inserted.setNumber("4");
 			inserted.setName("Taste 4");
 			place(inserted, first, Position.AFTER);
 			tx.commit();

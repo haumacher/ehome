@@ -116,6 +116,12 @@
 			expr="if($page == null, $device, $page)"
 			inputs="device, page"
 		/>
+		<!-- What the program of the selected device needs of ETS besides its product data (haumacher/ehome #159), nothing if nothing. -->
+		<derived-channel name="requirementNotice"
+			expr="{ n = programRequirementNotice($device); if($n == null, null, $n.localize()) }"
+			inputs="device"
+			observed-types="ehome.physical:Device,ehome.operational:Program"
+		/>
 		<!--
 			The objects of the selected device switched off by its parameters but still connected to group
 			addresses (haumacher/ehome #137): they neither send nor receive there; nothing if there are none.
@@ -690,6 +696,18 @@
 											would offer the parts of every project without their path.
 										-->
 										<stack>
+											<!-- A plug-in of the manufacturer or external software the device's program needs in ETS (haumacher/ehome #159). -->
+											<visible-if
+												expr="$requirementNotice != null"
+												input="requirementNotice"
+											>
+												<inset>
+													<text
+														input="requirementNotice"
+														tone="warning"
+													/>
+												</inset>
+											</visible-if>
 											<visible-if
 												expr="$connectionProblems != null"
 												input="connectionProblems"

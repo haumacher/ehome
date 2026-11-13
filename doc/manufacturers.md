@@ -59,11 +59,13 @@ ekinex.
   XML) imports in about 2 minutes with a heap of 2 GB (`doc/tl-todo.md`, "Memory of a product import
   committed step by step"), a second import in about 10 seconds. Its enumeration values written as
   unsigned 32-bit numbers (`4294967236`) and its renames of separators are read since #160; its
-  channel number `18d` (`M-0048_A-F140-13-8536`, schema type `String50_t`) does not fit the model's
-  integer `Channel#number` and is reported, the program imported without it.
-- `TypePicture` is read since #154 and its pictures are shown in the parameters since #155; `IconFile`, `ContextHelpFile` (#156, #157), the plug-in
-  attributes of `Static/Extension` (#159) and `Static/BinaryData` are not read
-  (`doc/knx/schema-coverage.md`, "Not covered").
+  channel number `18d` (`M-0048_A-F140-13-8536`, schema type `String50_t`) is kept as written since
+  #162 (`Channel#number` is a text; the OpenKNX modules number channels `BASE`, `LOG` likewise).
+- `TypePicture` is read since #154 and its pictures are shown in the parameters since #155; the plug-in
+  attributes of `Static/Extension` are read since #159 as the requirements of the program (Theben's
+  "DALI-Gateway KNX plus" shows the notice of its user interface plug-in and is downloaded as its
+  product data declare); `IconFile`, `ContextHelpFile` (#156, #157) and `Static/BinaryData` are not
+  read (`doc/knx/schema-coverage.md`, "Not covered").
 - The product files of the test fixtures (`MDT_AKK_V23.knxprod`, `Zennio_DALI_BOX_64_v3.knxprod`)
   hold no baggage; `TestBaggage*.knxprod` and `TestBaggage.knxproj` (`make-fixtures.py`) hold
   artificial baggage.

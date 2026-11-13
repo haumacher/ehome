@@ -91,6 +91,20 @@
 			<classifier name="ProductProcedure"/>
 			<classifier name="MergedProcedure"/>
 		</enum>
+		<!--
+			What an application program needs of ETS besides its product data (ETS: the attributes of
+			Static/Extension, haumacher/ehome #159): a plug-in of the manufacturer for the user interface
+			(EtsUiPlugin), one doing the download (EtsDownloadPlugin), a handler of the program's data
+			(EtsDataHandler), or software outside ETS (RequiresExternalSoftware). E-Home runs none of them:
+			with a user interface plug-in only, E-Home does what the product data declare; with any other,
+			the download is refused.
+		-->
+		<enum name="ProgramRequirement">
+			<classifier name="UserInterfacePlugin"/>
+			<classifier name="DownloadPlugin"/>
+			<classifier name="DataHandler"/>
+			<classifier name="ExternalSoftware"/>
+		</enum>
 		<!-- How a device is managed (ETS: MaskVersion@ManagementModel). -->
 		<enum name="ManagementModel">
 			<classifier name="None"/>
@@ -385,8 +399,12 @@
 				<property name="description"
 					type="tl.model.i18n:I18NString"
 				/>
+				<!--
+					The number of the channel in its own notation (ETS: Channel@Number, String50_t): a decimal
+					number in most programs, but also "18d" (Theben) or "BASE" (OpenKNX), haumacher/ehome #162.
+				-->
 				<property name="number"
-					type="tl.core:Integer"
+					type="tl.core:String"
 				/>
 				<!--
 					The text parameter whose value in a device fills the placeholder {{0}} of the text (ETS:
@@ -2013,6 +2031,23 @@
 					removes the mark.
 				-->
 				<property name="usesModules"
+					type="tl.core:Boolean"
+				/>
+				<!--
+					What the program needs of ETS besides its product data: plug-ins of the manufacturer or
+					external software (ETS: Static/Extension, haumacher/ehome #159). Every kind except the user
+					interface plug-in makes the download of the program refuse.
+				-->
+				<reference name="requirements"
+					kind="forwards"
+					multiple="true"
+					type="ProgramRequirement"
+				/>
+				<!--
+					Whether the import read the requirements of the program (haumacher/ehome #159). A program an
+					earlier import left without them is completed by the next import of its file.
+				-->
+				<property name="requirementsRead"
 					type="tl.core:Boolean"
 				/>
 				<!--

@@ -341,6 +341,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 WARN_RENAME_TARGET_NOT_IMPORTED__RENAME_TARGET;
 
+	/**
+	 * @en The application program "{0}" uses a plug-in of the manufacturer in ETS ({1}). E-Home edits and downloads what its product data declare, without the functions of the plug-in.
+	 */
+	public static ResKey2 INFO_PROGRAM_USES_PLUGIN__PROGRAM_REQUIREMENTS;
+
+	/**
+	 * @en The application program "{0}" needs in ETS what E-Home does not run ({1}): its devices can be planned, parameterized and connected, but E-Home cannot download them.
+	 */
+	public static ResKey2 WARN_PROGRAM_NOT_DOWNLOADABLE__PROGRAM_REQUIREMENTS;
+
+	/**
+	 * @en The channel {0}, imported earlier without its number, gets its number "{1}".
+	 */
+	public static ResKey2 INFO_CHANNEL_NUMBER_COMPLETED__CHANNEL_NUMBER;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

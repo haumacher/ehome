@@ -353,6 +353,19 @@ import) that a case of "Betriebsart" (Treppenlicht) renames together with the bl
 Zweites Programm der Produktdaten (künstliche Testdaten)" (M-0008_A-FFB4-01-0000, hardware "TEST
 Schritte") is a plain BCU 1 program, imported in a step of its own.
 
+TestChannelNumber.knxprod: a channel numbered in its own notation (haumacher/ehome #162): the KNX schema types
+Channel@Number as a text (String50_t), and Theben's program M-0048_A-F140-13-8536 numbers its logic channels "18d".
+An artificial program of the BCU 1 kind "TEST: Kanalnummer als Text (künstliche Testdaten)"
+(M-0008_A-FFA1-01-0000, hardware "TEST Kanalnummer") whose channel "Kanal A" is numbered "18d" (CH-18d).
+
+TestPlugins.knxprod: programs needing what ETS has besides the product data (Static/Extension, haumacher/ehome
+#159), three artificial programs of the BCU 1 kind, each on its own hardware: "TEST: Plug-in der Bedienoberfläche
+(künstliche Testdaten)" (M-0008_A-FFA2-01-0000, hardware "TEST Plugin UI") with a user interface plug-in
+(EtsUiPlugin) only; "TEST: Download-Plug-in (künstliche Testdaten)" (M-0008_A-FFA3-01-0000, "TEST Plugin
+Download") with a user interface and a download plug-in (EtsDownloadPlugin); "TEST: Daten-Handler und externe
+Software (künstliche Testdaten)" (M-0008_A-FFA4-01-0000, "TEST Plugin Daten") with a data handler
+(EtsDataHandler) and RequiresExternalSoftware="true". The plug-in IDs are made up.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -3142,3 +3155,54 @@ baggage_archive('src/test/fixtures/TestValueForms.knxprod', [
     ('M-0008/' + STEPS_PROGRAM + '.xml', bcu1_program(STEPS_PROGRAM, 65460,
         'TEST: Zweites Programm der Produktdaten (künstliche Testdaten)', False)),
     ('M-0008/Hardware.xml', value_forms_hardware())])
+
+
+def hardware_list(entries):
+    """One hardware file with a hardware (and its product) per (hardware ID, name, program) entry."""
+    begin = '<Manufacturer RefId="M-0008"><Hardware>'
+    end = '</Hardware></Manufacturer>'
+    files = [baggage_hardware(hardware, name, program, []) for hardware, name, program in entries]
+    inner = ''.join(f[f.index(begin) + len(begin):f.index(end)] for f in files[1:])
+    return replace_once(files[0], end, inner + end)
+
+
+# TestChannelNumber.knxprod: a channel numbered in its own notation (haumacher/ehome #162), see the module comment.
+CHANNEL_NUMBER_PROGRAM = 'M-0008_A-FFA1-01-0000'
+CHANNEL_NUMBER_HARDWARE = 'M-0008_H-TEST.20KANALNUMMER-1'
+
+
+def channel_number_program(program, number, name):
+    """A BCU 1 program whose channel is numbered "18d", as Theben's M-0048_A-F140-13-8536 numbers its logic channels."""
+    xml = bcu1_program(program, number, name, True)
+    return replace_once(xml, 'Number="1" Id="' + program + '_CH-1"', 'Number="18d" Id="' + program + '_CH-18d"')
+
+
+baggage_archive('src/test/fixtures/TestChannelNumber.knxprod', [
+    ('M-0008/' + CHANNEL_NUMBER_PROGRAM + '.xml', channel_number_program(CHANNEL_NUMBER_PROGRAM, 65441,
+        'TEST: Kanalnummer als Text (künstliche Testdaten)')),
+    ('M-0008/Hardware.xml', hardware_list([(CHANNEL_NUMBER_HARDWARE, 'TEST Kanalnummer', CHANNEL_NUMBER_PROGRAM)]))])
+
+
+# TestPlugins.knxprod: programs needing ETS plug-ins or external software (haumacher/ehome #159), see the module comment.
+PLUGIN_PROGRAMS = [
+    # (program, application number, name, hardware, hardware name, attributes of the extension)
+    ('M-0008_A-FFA2-01-0000', 65442, 'TEST: Plug-in der Bedienoberfläche (künstliche Testdaten)',
+        'M-0008_H-TEST.20PLUGIN.20UI-1', 'TEST Plugin UI', 'EtsUiPlugin="{00000000-0000-0000-0000-0000000000A1}"'),
+    ('M-0008_A-FFA3-01-0000', 65443, 'TEST: Download-Plug-in (künstliche Testdaten)',
+        'M-0008_H-TEST.20PLUGIN.20DOWNLOAD-1', 'TEST Plugin Download',
+        'EtsUiPlugin="{00000000-0000-0000-0000-0000000000A2}" EtsDownloadPlugin="{00000000-0000-0000-0000-0000000000B2}"'),
+    ('M-0008_A-FFA4-01-0000', 65444, 'TEST: Daten-Handler und externe Software (künstliche Testdaten)',
+        'M-0008_H-TEST.20PLUGIN.20DATEN-1', 'TEST Plugin Daten',
+        'EtsDataHandler="Test.DataHandler" RequiresExternalSoftware="true"'),
+]
+
+
+def plugin_program(program, number, name, attributes):
+    """A BCU 1 program whose extension declares the given attributes (plug-ins, a data handler, external software)."""
+    xml = bcu1_program(program, number, name, True)
+    return replace_once(xml, '<Options ', '<Extension ' + attributes + ' />\n<Options ')
+
+
+baggage_archive('src/test/fixtures/TestPlugins.knxprod', [
+    ('M-0008/' + p + '.xml', plugin_program(p, n, name, attributes)) for p, n, name, _, _, attributes in PLUGIN_PROGRAMS]
+    + [('M-0008/Hardware.xml', hardware_list([(h, hn, p) for p, _, _, h, hn, _ in PLUGIN_PROGRAMS]))])

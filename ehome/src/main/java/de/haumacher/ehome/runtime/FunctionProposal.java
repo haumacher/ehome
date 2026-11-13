@@ -1672,6 +1672,22 @@ public final class FunctionProposal {
 	}
 
 	/**
+	 * Whether a channel number names a channel of its own: a text in the channel's notation ("3",
+	 * "18d", haumacher/ehome #162), not empty and not a number below 1 (the generic channel of a
+	 * program).
+	 */
+	private static boolean numbered(Object number) {
+		if (!(number instanceof String text) || text.isBlank()) {
+			return false;
+		}
+		try {
+			return Long.parseLong(text.trim()) > 0;
+		} catch (NumberFormatException ex) {
+			return true;
+		}
+	}
+
+	/**
 	 * The numbered channel of the program the placement is in, where the program has several;
 	 * <code>null</code> otherwise.
 	 */
@@ -1682,7 +1698,7 @@ public final class FunctionProposal {
 					// A channel of a module instance (haumacher/ehome #119): one per instance.
 					return node;
 				}
-				if (!(node.tValueByName("number") instanceof Number number) || number.intValue() <= 0) {
+				if (!numbered(node.tValueByName("number"))) {
 					return null;
 				}
 				TLObject program = node.tContainer();

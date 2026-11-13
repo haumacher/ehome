@@ -457,6 +457,46 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String PRODUCT_PROCEDURE_LOAD_PROCEDURE_STYLE_CLASSIFIER = LoadProcedureStyle.PRODUCT_PROCEDURE_CLASSIFIER;
 
 	/**
+	 * Name of the enumeration <code>ProgramRequirement</code> in module {@value #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#TYPE_NAME}.
+	 */
+	@Deprecated
+	public static final String PROGRAM_REQUIREMENT_ENUM = ProgramRequirement.TYPE_NAME;
+
+	/**
+	 * Name of the classifier <code>DataHandler</code> in enumeration <code>ProgramRequirement</code>.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#DATA_HANDLER_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String DATA_HANDLER_PROGRAM_REQUIREMENT_CLASSIFIER = ProgramRequirement.DATA_HANDLER_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>DownloadPlugin</code> in enumeration <code>ProgramRequirement</code>.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#DOWNLOAD_PLUGIN_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String DOWNLOAD_PLUGIN_PROGRAM_REQUIREMENT_CLASSIFIER = ProgramRequirement.DOWNLOAD_PLUGIN_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>ExternalSoftware</code> in enumeration <code>ProgramRequirement</code>.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#EXTERNAL_SOFTWARE_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String EXTERNAL_SOFTWARE_PROGRAM_REQUIREMENT_CLASSIFIER = ProgramRequirement.EXTERNAL_SOFTWARE_CLASSIFIER;
+
+	/**
+	 * Name of the classifier <code>UserInterfacePlugin</code> in enumeration <code>ProgramRequirement</code>.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#USER_INTERFACE_PLUGIN_CLASSIFIER}.
+	 */
+	@Deprecated
+	public static final String USER_INTERFACE_PLUGIN_PROGRAM_REQUIREMENT_CLASSIFIER = ProgramRequirement.USER_INTERFACE_PLUGIN_CLASSIFIER;
+
+	/**
 	 * Name of the enumeration <code>ManagementModel</code> in module {@value #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link ManagementModel#TYPE_NAME}.
@@ -2565,6 +2605,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#REQUIREMENTS_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getRequirementsProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.REQUIREMENTS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#REQUIREMENTS_READ_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getRequirementsReadProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.REQUIREMENTS_READ_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#SCRIPT_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLProperty getScriptProgramAttr() {
@@ -4331,6 +4385,56 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	@Deprecated
 	public static com.top_logic.model.TLClassifier getProductProcedureLoadProcedureStyleClassifier() {
 		return LoadProcedureStyle.productProcedureClassifier();
+	}
+
+	/**
+	 * Lookup the enumeration <code>ProgramRequirement</code>.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#type()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLEnumeration getProgramRequirementEnum() {
+		return ProgramRequirement.type();
+	}
+
+	/**
+	 * Lookup classifier <code>DataHandler</code> of enumeration <code>ProgramRequirement</code>.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#dataHandlerClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getDataHandlerProgramRequirementClassifier() {
+		return ProgramRequirement.dataHandlerClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>DownloadPlugin</code> of enumeration <code>ProgramRequirement</code>.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#downloadPluginClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getDownloadPluginProgramRequirementClassifier() {
+		return ProgramRequirement.downloadPluginClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>ExternalSoftware</code> of enumeration <code>ProgramRequirement</code>.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#externalSoftwareClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getExternalSoftwareProgramRequirementClassifier() {
+		return ProgramRequirement.externalSoftwareClassifier();
+	}
+
+	/**
+	 * Lookup classifier <code>UserInterfacePlugin</code> of enumeration <code>ProgramRequirement</code>.
+	 * 
+	 * @deprecated Use {@link ProgramRequirement#userInterfacePluginClassifier()}.
+	 */
+	@Deprecated
+	public static com.top_logic.model.TLClassifier getUserInterfacePluginProgramRequirementClassifier() {
+		return ProgramRequirement.userInterfacePluginClassifier();
 	}
 
 	/**
