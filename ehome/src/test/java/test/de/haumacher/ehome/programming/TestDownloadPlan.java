@@ -172,7 +172,7 @@ public class TestDownloadPlan extends BasicTestCase {
 					write.address() - block.address() + write.data().length);
 				assertEquals(write.describe(), hex(imageBytes), hex(write.data()));
 			} else {
-				assertEquals(write.describe(), "zero fill of a stamped segment", write.what());
+				assertEquals(write.describe(), "Zero fill of a stamped segment", DownloadPlan.english(write.what()));
 			}
 		}
 		// The individual address (4001-4002) is not written by the download.
@@ -192,7 +192,7 @@ public class TestDownloadPlan extends BasicTestCase {
 		// Load state machine 5 has no interface object on mask 7.5.
 		assertTrue(plan.dump(), plan.dump().contains("[#29 TaskSegment LSM 5] Not executed"));
 		// The hardware type parameter (object 0, property 78) is not written.
-		assertTrue(plan.dump(), plan.dump().contains("Not executed: the parameter value 00 0A 00 00 00 3D of object 0 property 78"));
+		assertTrue(plan.dump(), plan.dump().contains("Not executed: The parameter value 00 0A 00 00 00 3D of object 0 property 78"));
 	}
 
 	/**
@@ -342,7 +342,8 @@ public class TestDownloadPlan extends BasicTestCase {
 		Operation.LoadControl failed = (Operation.LoadControl) result.failed();
 		assertEquals("#9 Load LSM 2", failed.step());
 		assertEquals(plan.getOperations().indexOf(failed), result.done());
-		assertEquals("Load state machine 2 is error after start loading, expected loading.", result.failure());
+		assertEquals("Load state machine 2 reports the state \"Error\" after the load control \"Start loading\", expected \"Loading\".",
+			result.failure());
 		assertEquals("writeLoadControl 2 01000000000000000000", mock.calls().get(mock.calls().size() - 1));
 		assertEquals(loadedBefore, device.tValueByName("loaded"));
 		assertEquals(downloadBefore, device.tValueByName("lastDownload"));
@@ -388,7 +389,7 @@ public class TestDownloadPlan extends BasicTestCase {
 			assertEquals("07 05", result.descriptor());
 			assertTrue(result.facts().toString(), result.facts().contains(
 				"Program version: 00 83 00 0C 21, the program's: 00 83 00 0C 21"));
-			assertTrue(result.facts().toString(), result.facts().contains("Load state machine 3: loaded"));
+			assertTrue(result.facts().toString(), result.facts().contains("Load state machine 3: Loaded"));
 
 			BitSet parameters = TestDownloadImage.parameterBytes(DeviceConfiguration.program(device));
 			int different = 0;

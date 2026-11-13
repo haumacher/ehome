@@ -135,7 +135,8 @@ public class TestBcuImage extends BasicTestCase {
 	private void checkImageWithoutData() {
 		DownloadImage image = DownloadImage.compute(device(WITHOUT_DATA));
 		Logger.info("Download image of the BCU 1 device without static data:\n" + image.dump(), TestBcuImage.class);
-		assertEquals(List.of("The object table has no static data in its segment."), image.getProblems());
+		assertEquals(List.of("The object table has no static data in its segment."),
+			image.getProblems().stream().map(DownloadPlan::english).toList());
 		assertEquals(1, image.getBlocks().size());
 		Block block = image.getBlocks().get(0);
 		assertEquals(0x0100, block.address());
@@ -164,9 +165,9 @@ public class TestBcuImage extends BasicTestCase {
 		List<String> expected = new ArrayList<>();
 		expected.add("#1 Connect: Connect");
 		expected.add(": CheckMask 0012");
-		expected.add("#3 WriteMem: 010D 00 (inline data (RunError))");
+		expected.add("#3 WriteMem: 010D 00 (Inline data (RunError))");
 		expected.add("#4 LoadImageMem: Skip");
-		expected.add("#5 WriteMem: 0116 01 (inline data (GroupAddressTable))");
+		expected.add("#5 WriteMem: 0116 01 (Inline data (GroupAddressTable))");
 		expected.add("#6 WriteMem: 0100 ff (" + SEGMENT + ")");
 		expected.add("#7 WriteMem: 0104 08fff101ff00000000 (" + SEGMENT + ")");
 		expected.add("#8 WriteMem: 010E 61632f2536000000 (" + SEGMENT + ")");
@@ -176,10 +177,10 @@ public class TestBcuImage extends BasicTestCase {
 			expected.add(String.format("#9 WriteMem: %04X %s (" + SEGMENT + ")", address,
 				length == 12 ? "12 bytes" : "0000"));
 		}
-		expected.add("#10 WriteMem: 00CE 000000000000000000 (inline data)");
-		expected.add("#11 WriteMem: 00D7 000000000000000000 (inline data)");
+		expected.add("#10 WriteMem: 00CE 000000000000000000 (Inline data)");
+		expected.add("#11 WriteMem: 00D7 000000000000000000 (Inline data)");
 		expected.add("#12 WriteMem: 0116 04 (" + SEGMENT + ")");
-		expected.add("#13 WriteMem: 010D ff (inline data (RunError))");
+		expected.add("#13 WriteMem: 010D ff (Inline data (RunError))");
 		expected.add("#14 Restart: Restart");
 		assertEquals(String.join("\n", expected), operations.stream().map(TestBcuImage::describe)
 			.collect(Collectors.joining("\n")));
@@ -210,7 +211,7 @@ public class TestBcuImage extends BasicTestCase {
 		assertFalse(plan.isExecutable());
 		List<ResKey> problems = plan.getProblems();
 		assertTrue(problems.toString(), problems.contains(
-			I18NConstants.ERROR_IMAGE__PROBLEM.fill("The object table has no static data in its segment.")));
+			I18NConstants.ERROR_IMAGE__PROBLEM.fill(de.haumacher.ehome.programming.I18NConstants.IMAGE_OBJECT_TABLE_NO_DATA)));
 		assertTrue(problems.toString(), problems.contains(I18NConstants.ERROR_PARTIAL_MASK__ADDRESS_MASK.fill("0151", "FC")));
 	}
 
@@ -273,7 +274,7 @@ public class TestBcuImage extends BasicTestCase {
 		String prefix = operation.step() + ": ";
 		if (operation instanceof Operation.WriteMemory write) {
 			String data = write.data().length > 9 ? write.data().length + " bytes" : hex(write.data());
-			return prefix + String.format("%04X %s (%s)", write.address(), data, write.what());
+			return prefix + String.format("%04X %s (%s)", write.address(), data, DownloadPlan.english(write.what()));
 		}
 		if (operation instanceof Operation.CheckMask check) {
 			return prefix + String.format("CheckMask %04X", check.masks()[0]);

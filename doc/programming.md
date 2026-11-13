@@ -55,6 +55,20 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   E-Home.
 - "Physikalische Adresse programmieren": writes the device's individual address into the one device
   whose programming button is pressed.
+- One job of the tab at a time (haumacher/ehome #161): its progress is shown with the device it was
+  started for only (the channel `jobDevice`), and the commands of every device say "Der Auftrag für …
+  läuft noch" while it runs. The vetoes of the commands read runtime state no model event reflects
+  (an open bus session, a controller connected, its status); the source channel `busState`
+  (`programming.download.BusStateSource`) changes whenever a bus session opens or ends or a controller
+  connects, disconnects or changes what it offers, and the commands name it among their inputs, so
+  that they are decided anew when a job of another device, view or session gives the controller free.
+  The same channel drives the commands of the scan dialog.
+- The texts of the plan, the reports and the scan are resource keys in both languages (whole
+  sentences; hex values, object and property numbers and addresses are values in them), numbers in
+  the reader's format ("49,7 s"), the problems of the download image (`DownloadImage#getProblems`)
+  and the reasons a parameter value cannot be encoded (`ParameterEncoding`, `ValueException`)
+  included. What the KNX library reports (the message of its exception) stays as it reports it, a
+  value inside the translated sentence.
 
 ## Through a controller (haumacher/ehome #148)
 
@@ -250,11 +264,20 @@ Projects → a project → "Installation einlesen" (`projects/scan.view.xml`, pa
   hardware type (78), program version (object 3 property 13; BCU 1: memory 0104-0107), load
   states, run state. A device that does not answer its descriptor is read once more (right after the
   scan the actuator of the test system refused the first connection).
+  The job status lists the steps of the scan (gateway, line, couplers, programming mode, reading the
+  devices found) with the bar of the current one; the line and coupler scans of Calimero tell no
+  progress, so their bar follows the time they take (256 connects of 115 ms and 7.1 s for the last
+  answers) and turns indeterminate once that time is over (through a controller they take longer),
+  instead of standing at the end (haumacher/ehome #161).
 - **Matching** (`CatalogMatch`): manufacturer by KNX ID, program by application number and version
   (all hash variants are candidates; a program for another mask or whose load procedure compares
   another hardware type is excluded), product by the order info (a variant whose order number the
   order info starts with), else every variant of a product carrying the program. A gateway without
-  application object is matched by manufacturer and order info alone. One candidate: "Anlegen";
+  application object is matched by manufacturer and order info alone. Of several candidates, the
+  one the project's device at the address runs (and of its variant) is the match: the catalog may
+  hold several editions of a program, imported from several exports of an installation (the ETS 4 and
+  ETS 6 exports of the test system, both P-0563, haumacher/ehome #161). The summary counts the devices
+  identified uniquely, those to choose for, and the unidentified. One candidate: "Anlegen";
   several: a choice dialog; none: the device is kept as `ehome.project:UnidentifiedDevice` of the
   project and matched again by "Vorgemerkte Geräte zuordnen" (e.g. after a product data import).
 - **Creation** (`InstallationBuilder`): the device under the line of its address (areas and lines

@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey2;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 
@@ -119,7 +120,7 @@ class DownloadImageBuilder {
 
 	DownloadImage build() {
 		if (_program == null) {
-			_image.addProblem("The device has no program.");
+			_image.addProblem(de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_PROGRAM);
 			return _image;
 		}
 		segments();
@@ -172,10 +173,10 @@ class DownloadImageBuilder {
 			}
 			Block block;
 			if (segment instanceof RelativeSegment relative) {
-				block = new Block("Relative segment " + name(segment), relative.getOffset() == null ? 0 : relative.getOffset(),
+				block = new Block(I18NConstants.BLOCK_RELATIVE_SEGMENT__SEGMENT.fill(name(segment)), relative.getOffset() == null ? 0 : relative.getOffset(),
 					relative.getStateMachine(), data, mask);
 			} else {
-				block = new Block("Segment " + name(segment), ((CodeSegment) segment).getAddress(), null, data, mask);
+				block = new Block(I18NConstants.BLOCK_SEGMENT__SEGMENT.fill(name(segment)), ((CodeSegment) segment).getAddress(), null, data, mask);
 			}
 			_blocks.put(segment, block);
 			if (combined) {
@@ -213,7 +214,7 @@ class DownloadImageBuilder {
 			try {
 				bits = _configuration.encode(entry.getValue());
 			} catch (IllegalArgumentException ex) {
-				_image.addProblem("Parameter " + label(parameter) + ": " + ex.getMessage());
+				_image.addProblem(I18NConstants.IMAGE_PARAMETER__PARAMETER_REASON.fill(label(parameter), ValueException.reason(ex)));
 				continue;
 			}
 			if (bits == null) {
@@ -225,8 +226,8 @@ class DownloadImageBuilder {
 				if (location instanceof Pointer pointer) {
 					Block block = _blocks.get(pointer.getSegment());
 					if (block == null) {
-						_image.addProblem("Parameter " + label(parameter) + ": its segment " + name(pointer.getSegment())
-							+ " is not written.");
+						_image.addProblem(I18NConstants.IMAGE_PARAMETER_SEGMENT__PARAMETER_SEGMENT.fill(label(parameter),
+							name(pointer.getSegment())));
 						continue;
 					}
 					ParameterEncoding.write(block.data(), byteOffset, bitOffset, bits, littleEndian);
@@ -245,7 +246,7 @@ class DownloadImageBuilder {
 					_properties.put(key, value);
 				}
 			} catch (IllegalArgumentException ex) {
-				_image.addProblem("Parameter " + label(parameter) + ": " + ex.getMessage());
+				_image.addProblem(I18NConstants.IMAGE_PARAMETER__PARAMETER_REASON.fill(label(parameter), ValueException.reason(ex)));
 			}
 		}
 	}
@@ -287,7 +288,7 @@ class DownloadImageBuilder {
 		}
 		if (addressLocation == null && associationLocation == null) {
 			if (!links.isEmpty()) {
-				_image.addProblem("The device has group addresses, but its program no group address table.");
+				_image.addProblem(I18NConstants.IMAGE_NO_ADDRESS_TABLE);
 			}
 			return;
 		}
@@ -305,18 +306,18 @@ class DownloadImageBuilder {
 		for (Association association : associations) {
 			_associatedObjects.add(association.objectNumber());
 		}
-		checkSize("group addresses", addresses.size(), addressLocation);
-		checkSize("associations", associations.size(), associationLocation);
+		checkSize(I18NConstants.IMAGE_TOO_MANY_ADDRESSES__COUNT_MAX, addresses.size(), addressLocation);
+		checkSize(I18NConstants.IMAGE_TOO_MANY_ASSOCIATIONS__COUNT_MAX, associations.size(), associationLocation);
 
 		Integer individualAddress = individualAddress(_device);
 		if (individualAddress == null) {
-			_image.addProblem("The device has no complete individual address (area, line, device).");
+			_image.addProblem(de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_ADDRESS);
 			return;
 		}
 		byte[] addressTable = GroupTables.addressTable(individualAddress.intValue(), addresses);
 		Integer addressStart = start(addressLocation, "GroupAddressTable");
 		if (addressStart == null) {
-			_image.addProblem("The place of the group address table is not known.");
+			_image.addProblem(I18NConstants.IMAGE_ADDRESS_TABLE_PLACE);
 			return;
 		}
 		byte[] addressMask = mask(addressLocation, addressTable.length);
@@ -325,7 +326,7 @@ class DownloadImageBuilder {
 			fixedPlace("GroupAddressTable", addressStart);
 			excludeIndividualAddress(addressStart, addressMask);
 		}
-		Block addressBlock = new Block("Group address table", addressStart, null, addressTable, addressMask);
+		Block addressBlock = new Block(I18NConstants.BLOCK_ADDRESS_TABLE, addressStart, null, addressTable, addressMask);
 		_image.setAddressTable(addressBlock);
 		if (addressCombined) {
 			patch(addressLocation.getSegment(), addressBlock);
@@ -342,13 +343,13 @@ class DownloadImageBuilder {
 		} else {
 			Integer start = start(associationLocation, null);
 			if (start == null) {
-				_image.addProblem("The place of the association table is not known.");
+				_image.addProblem(I18NConstants.IMAGE_ASSOCIATION_TABLE_PLACE);
 				return;
 			}
 			associationStart = start;
 			associationMask = mask(associationLocation, associationTable.length);
 		}
-		Block associationBlock = new Block("Association table", associationStart, null, associationTable, associationMask);
+		Block associationBlock = new Block(I18NConstants.BLOCK_ASSOCIATION_TABLE, associationStart, null, associationTable, associationMask);
 		_image.setAssociationTable(associationBlock);
 		if (associationCombined) {
 			pointer("GroupAssociationTablePtr", associationStart);
@@ -370,8 +371,8 @@ class DownloadImageBuilder {
 		Block block = _blocks.get(segment);
 		int offset = table.address() - block.address();
 		if (block.stateMachine() != null || offset < 0 || offset + table.data().length > block.data().length) {
-			_image.addProblem(String.format("The %s (%04X-%04X) exceeds its segment %s.", table.name().toLowerCase(),
-				table.address(), table.end() - 1, name(segment)));
+			_image.addProblem(I18NConstants.IMAGE_TABLE_EXCEEDS_SEGMENT__TABLE_FROM_TO_SEGMENT.fill(table.label(),
+				hex4(table.address()), hex4(table.end() - 1), name(segment)));
 			return;
 		}
 		for (int n = 0; n < table.data().length; n++) {
@@ -389,8 +390,8 @@ class DownloadImageBuilder {
 	private void fixedPlace(String resourceName, int address) {
 		ResourceLocation location = memoryResource(resourceName);
 		if (location != null && location.getStartAddress().intValue() != address) {
-			_image.addProblem(String.format("The program places the %s at %04X, mask %s at %04X.", resourceName, address,
-				_program.getMask().getName(), location.getStartAddress()));
+			_image.addProblem(I18NConstants.IMAGE_FIXED_PLACE__RESOURCE_ADDRESS_MASK_EXPECTED.fill(resourceName, hex4(address),
+				_program.getMask().getName(), hex4(location.getStartAddress().intValue())));
 		}
 	}
 
@@ -420,15 +421,15 @@ class DownloadImageBuilder {
 	private void pointer(String resourceName, int tableAddress) {
 		MaskResource resource = memoryResourceOf(resourceName);
 		if (resource == null || !POINTER_100.equals(resource.getFlavour())) {
-			_image.addProblem("Mask " + _program.getMask().getName() + " has no pointer " + resourceName + " of format "
-				+ POINTER_100 + " in memory; the place of the table is not known to the device.");
+			_image.addProblem(I18NConstants.IMAGE_NO_POINTER__MASK_RESOURCE_FORMAT.fill(_program.getMask().getName(), resourceName,
+				POINTER_100));
 			return;
 		}
 		int address = resource.getLocation().getStartAddress().intValue();
 		int value = tableAddress - 0x100;
 		if (value < 0 || value > 0xFF) {
-			_image.addProblem(String.format("The table at %04X cannot be addressed by the pointer %s (%04X).", tableAddress,
-				resourceName, address));
+			_image.addProblem(I18NConstants.IMAGE_POINTER_RANGE__TABLE_RESOURCE_ADDRESS.fill(hex4(tableAddress), resourceName,
+				hex4(address)));
 			return;
 		}
 		Block block = null;
@@ -438,7 +439,7 @@ class DownloadImageBuilder {
 			}
 		}
 		if (block == null) {
-			_image.addProblem(String.format("The pointer %s (%04X) lies in no segment of the program.", resourceName, address));
+			_image.addProblem(I18NConstants.IMAGE_POINTER_OUTSIDE__RESOURCE_ADDRESS.fill(resourceName, hex4(address)));
 			return;
 		}
 		int index = address - block.address();
@@ -447,8 +448,9 @@ class DownloadImageBuilder {
 			block.data()[index] = (byte) value;
 			block.mask()[index] = (byte) 0xFF;
 		} else if (mask != 0xFF || (block.data()[index] & 0xFF) != value) {
-			_image.addProblem(String.format("The static data hold %02X (mask %02X) in the pointer %s (%04X), the table lies at %04X.",
-				block.data()[index] & 0xFF, mask, resourceName, address, tableAddress));
+			_image.addProblem(I18NConstants.IMAGE_POINTER_STATIC__VALUE_MASK_RESOURCE_ADDRESS_TABLE.fill(
+				String.format("%02X", block.data()[index] & 0xFF), String.format("%02X", mask), resourceName, hex4(address),
+				hex4(tableAddress)));
 		}
 	}
 
@@ -475,10 +477,14 @@ class DownloadImageBuilder {
 		return null;
 	}
 
-	private void checkSize(String what, int size, TableLocation location) {
+	private void checkSize(ResKey2 tooMany, int size, TableLocation location) {
 		if (location != null && location.getMaxEntries() != null && size > location.getMaxEntries()) {
-			_image.addProblem("The device has " + size + " " + what + ", the program allows " + location.getMaxEntries() + ".");
+			_image.addProblem(tooMany.fill(size, location.getMaxEntries()));
 		}
+	}
+
+	private static String hex4(int value) {
+		return String.format("%04X", value);
 	}
 
 	private boolean supported(String resource, List<String> supported) {
@@ -492,7 +498,7 @@ class DownloadImageBuilder {
 	private String format(String resource, List<String> supported) {
 		MaskVersion mask = _program.getMask();
 		if (mask == null) {
-			_image.addProblem("The program has no mask version, the format of its tables is not known.");
+			_image.addProblem(I18NConstants.IMAGE_NO_MASK);
 			return null;
 		}
 		List<String> formats = new ArrayList<>();
@@ -504,8 +510,8 @@ class DownloadImageBuilder {
 				formats.add(candidate.getFlavour());
 			}
 		}
-		_image.addProblem("The " + resource + " of mask " + mask.getName() + " has the format " + formats
-			+ "; supported is " + String.join(", ", supported) + " (verified with mask 7.5).");
+		_image.addProblem(I18NConstants.IMAGE_FORMAT__RESOURCE_MASK_FORMATS_SUPPORTED.fill(resource, mask.getName(),
+			String.join(", ", formats), String.join(", ", supported)));
 		return null;
 	}
 
@@ -514,7 +520,7 @@ class DownloadImageBuilder {
 			return segment.getAddress() + value(location.getOffset());
 		}
 		if (location != null && location.getSegment() instanceof RelativeSegment) {
-			_image.addProblem("A table in a relative segment is not supported.");
+			_image.addProblem(I18NConstants.IMAGE_RELATIVE_TABLE);
 			return null;
 		}
 		if (maskResource != null && _program.getMask() != null) {
@@ -556,7 +562,7 @@ class DownloadImageBuilder {
 		}
 		Block segment = location.getSegment() == null ? null : _blocks.get(location.getSegment());
 		if (segment == null) {
-			_image.addProblem("The object table has no static data in its segment.");
+			_image.addProblem(I18NConstants.IMAGE_OBJECT_TABLE_NO_DATA);
 			return;
 		}
 		String flavour = format("GroupObjectTable",
@@ -571,22 +577,22 @@ class DownloadImageBuilder {
 		}
 		if (_withoutData.contains(location.getSegment())) {
 			// The addresses of the objects' values are part of the program, not of the configuration.
-			_image.addProblem("The object table has no static data in its segment.");
+			_image.addProblem(I18NConstants.IMAGE_OBJECT_TABLE_NO_DATA);
 			return;
 		}
 		if (_program.getObjectTableLengthAlwaysOne()) {
-			_image.addProblem("The option SetObjectTableLengthAlwaysToOne is not supported.");
+			_image.addProblem(I18NConstants.IMAGE_LENGTH_ALWAYS_ONE);
 			return;
 		}
 		byte[] data = segment.data();
 		if (start >= data.length) {
-			_image.addProblem("The object table lies outside its segment.");
+			_image.addProblem(I18NConstants.IMAGE_OBJECT_TABLE_OUTSIDE);
 			return;
 		}
 		int count = data[start] & 0xFF;
 		int length = format.header() + format.descriptor() * count;
 		if (start + length > data.length) {
-			_image.addProblem("The object table of " + count + " objects exceeds its segment.");
+			_image.addProblem(I18NConstants.IMAGE_OBJECT_TABLE_EXCEEDS__COUNT.fill(count));
 			return;
 		}
 
@@ -607,7 +613,7 @@ class DownloadImageBuilder {
 		for (int number = 0; number < count; number++) {
 			Port port = ports.get(number);
 			if (port == null) {
-				_image.addProblem("The object table has an object " + number + " the program does not define.");
+				_image.addProblem(I18NConstants.IMAGE_UNDEFINED_OBJECT__NUMBER.fill(number));
 				continue;
 			}
 			TLObject connector = connectors.get(port);
@@ -637,14 +643,13 @@ class DownloadImageBuilder {
 				int bits = placed != null && placed.getSize() != null ? placed.getSize() : port.getSize();
 				int type = GroupTables.objectType(bits);
 				if (type < 0 || type > format.maxType()) {
-					_image.addProblem("Object " + number + " has a size of " + bits + " bits, which has no type code in "
-						+ format.flavour() + ".");
+					_image.addProblem(I18NConstants.IMAGE_OBJECT_SIZE__NUMBER_BITS_FORMAT.fill(number, bits, format.flavour()));
 					continue;
 				}
 				data[position - format.config() + format.type()] = (byte) type;
 			}
 		}
-		_image.setObjectTable(new Block("Object table", segment.address() + start, segment.stateMachine(),
+		_image.setObjectTable(new Block(I18NConstants.BLOCK_OBJECT_TABLE, segment.address() + start, segment.stateMachine(),
 			Arrays.copyOfRange(data, start, start + length), Arrays.copyOfRange(segment.mask(), start, start + length)));
 	}
 
@@ -663,8 +668,8 @@ class DownloadImageBuilder {
 				Block a = tables.get(n);
 				Block b = tables.get(k);
 				if (a.address() < b.end() && b.address() < a.end()) {
-					_image.addProblem(String.format("The %s (%04X-%04X) overlaps the %s (%04X-%04X).", a.name().toLowerCase(),
-						a.address(), a.end() - 1, b.name().toLowerCase(), b.address(), b.end() - 1));
+					_image.addProblem(I18NConstants.IMAGE_OVERLAP__TABLE_FROM_TO_OTHER_FROM_TO.fill(a.label(), hex4(a.address()),
+						hex4(a.end() - 1), b.label(), hex4(b.address()), hex4(b.end() - 1)));
 				}
 			}
 		}

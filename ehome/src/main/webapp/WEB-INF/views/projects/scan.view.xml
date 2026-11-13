@@ -30,6 +30,12 @@
 		<channel name="programming"/>
 		<channel name="result"/>
 		<channel name="selected"/>
+		<!-- Re-decides the commands using the bus when a bus session or a controller changes (BusStateSource, haumacher/ehome #161). -->
+		<source-channel name="busState"
+			update-interval="500"
+		>
+			<source class="de.haumacher.ehome.programming.download.BusStateSource"/>
+		</source-channel>
 		<derived-channel name="gateway"
 			expr='#("Path to the bus: {0}"@en, "Weg zum Bus: {0}"@de).fill(if(busPath($project) == null, "-", busPath($project))).localize()'
 			inputs="project"
@@ -82,7 +88,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-search"
-							inputs="project, area, line, routers, gatewayDevice, programming"
+							inputs="project, area, line, routers, gatewayDevice, programming, busState"
 							observed-types="ehome.project:Project"
 							placement="TOOLBAR"
 						>
@@ -210,7 +216,8 @@
 						</stack>
 					</inset>
 				</panel>
-				<panel>
+				<!-- Of its own height, so that the dialog scrolls in a small window instead of squeezing the table (haumacher/ehome #161). -->
+				<panel fill="false">
 					<title>
 						<en>Devices found</en>
 						<de>Gefundene Geräte</de>
@@ -273,7 +280,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-cloud-download"
-							inputs="selected"
+							inputs="selected, busState"
 							observed-types="ehome.physical:Device,ehome.project:Project"
 							placement="TOOLBAR"
 						>
@@ -316,7 +323,7 @@
 						<generic-command
 							clique="more"
 							image="css:bi bi-lightbulb"
-							inputs="selected"
+							inputs="selected, busState"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -361,7 +368,7 @@
 						<generic-command
 							clique="more"
 							image="css:bi bi-lightbulb-off"
-							inputs="selected"
+							inputs="selected, busState"
 							placement="TOOLBAR"
 						>
 							<label>

@@ -74,29 +74,29 @@ public class DownloadJob implements JobBody {
 		try (CalimeroWriter access = CalimeroWriter.open(path, plan.getIndividualAddress())) {
 			result = DownloadService.download(device, plan, access, new DownloadExecutor(), (number, count, operation) -> {
 				job.progress(number - 1, count);
-				job.message(I18NConstants.PROGRESS_OPERATION__NUMBER_COUNT_TEXT.fill(number, count, operation.describe()));
+				job.message(I18NConstants.PROGRESS_OPERATION__NUMBER_COUNT_TEXT.fill(number, count, operation.description()));
 			});
 		} catch (BusException ex) {
-			throw new TopLogicException(I18NConstants.ERROR_CONNECTION__PATH_DETAIL.fill(gatewayText, ex.getMessage()), ex);
+			throw new TopLogicException(I18NConstants.ERROR_CONNECTION__PATH_DETAIL.fill(gatewayText, ex.getErrorKey()), ex);
 		}
 		job.progress(result.done(), result.count());
 
 		ProgrammingReport report = new ProgrammingReport();
 		if (!result.success()) {
 			report.add("error", I18NConstants.LEVEL_FAILURE, result.failed().step(),
-				result.failed().describe() + ": " + result.failure());
+				I18NConstants.REPORT_OPERATION_FAILED__OPERATION_REASON.fill(result.failed().description(), result.reason()));
 		}
 		for (Operation operation : plan.getOperations()) {
 			if (operation instanceof Operation.Skip) {
-				report.add("info", I18NConstants.LEVEL_NOTE, operation.step(), operation.describe());
+				report.add("info", I18NConstants.LEVEL_NOTE, operation.step(), operation.description());
 			}
 		}
 		String target = plan.getDevice();
 		ResKey summary = result.success()
 			? I18NConstants.DOWNLOAD_DONE__DEVICE_GATEWAY_COUNT_SECONDS.fill(target, gatewayText, result.done(),
-				String.format("%.1f", result.duration().toMillis() / 1000.0))
+				Double.valueOf(result.duration().toMillis() / 1000.0))
 			: I18NConstants.DOWNLOAD_FAILED__DEVICE_GATEWAY_NUMBER_REASON.fill(target, gatewayText, result.done() + 1,
-				result.failure());
+				result.reason());
 		return report.toMap(summary, result.success());
 	}
 

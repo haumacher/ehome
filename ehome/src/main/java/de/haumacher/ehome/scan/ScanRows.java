@@ -54,8 +54,8 @@ public class ScanRows {
 		row.put("programVersion", found.programVersionText());
 		row.put("hardwareType", found.hardwareTypeText());
 		row.put("orderInfo", found.orderInfo());
-		row.put("states", String.join(", ", found.loadStates()));
-		row.put("notes", String.join("; ", found.notes()));
+		row.put("states", texts(found.loadStates(), ", "));
+		row.put("notes", texts(found.notes(), "; "));
 		row.put("candidates", candidates(match));
 		row.put("matchText", text(match));
 		row.put("state", state(project, found, match));
@@ -112,8 +112,16 @@ public class ScanRows {
 			case CHOICE:
 				return Resources.getInstance().getString(I18NConstants.MATCH_CHOICE__COUNT.fill(match.candidates().size()));
 			default:
-				return match.reason();
+				return Resources.getInstance().getString(match.reasonKey());
 		}
+	}
+
+	/**
+	 * The given texts in the reader's language, separated by the given separator.
+	 */
+	private static String texts(List<ResKey> keys, String separator) {
+		Resources resources = Resources.getInstance();
+		return String.join(separator, keys.stream().map(resources::getString).toList());
 	}
 
 	/**
@@ -167,7 +175,7 @@ public class ScanRows {
 		List<Map<String, Object>> result = new ArrayList<>();
 		for (Object record : (Collection<?>) project.tValueByName("unidentifiedDevices")) {
 			FoundDevice found = InstallationBuilder.found((TLObject) record);
-			result.add(row(project, found, CatalogMatch.match(found)));
+			result.add(row(project, found, CatalogMatch.match(project, found)));
 		}
 		return result;
 	}

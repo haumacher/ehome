@@ -14,6 +14,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
+
+import com.top_logic.basic.util.ResKey;
 
 import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
@@ -100,7 +103,7 @@ public class CalimeroScanBus implements ScanBus {
 				// The descriptor is read again with the device.
 			});
 			return found;
-		}, progress, "Scanning line " + area + "." + line);
+		}, progress, reason -> I18NConstants.SCAN_LINE_FAILED__LINE_PATH_REASON.fill(area + "." + line, gateway(), reason));
 	}
 
 	@Override
@@ -112,7 +115,7 @@ public class CalimeroScanBus implements ScanBus {
 				progress.found(address.getRawAddress());
 			}
 			return found;
-		}, progress, "Scanning for routers");
+		}, progress, reason -> I18NConstants.SCAN_ROUTERS_FAILED__PATH_REASON.fill(gateway(), reason));
 	}
 
 	@Override
@@ -126,11 +129,10 @@ public class CalimeroScanBus implements ScanBus {
 			Collections.sort(result);
 			return result;
 		} catch (KNXException ex) {
-			throw new BusException("Reading the address of devices in programming mode through " + gateway() + " failed: "
-				+ ex.getMessage(), ex);
+			throw new BusException(I18NConstants.SCAN_PROGRAMMING_MODE_FAILED__PATH_REASON.fill(gateway(), ex.getMessage()),
+				ex);
 		} catch (InterruptedException ex) {
-			Thread.currentThread().interrupt();
-			throw new BusException("Interrupted.", ex);
+			throw interrupted(ex);
 		}
 	}
 
@@ -140,9 +142,10 @@ public class CalimeroScanBus implements ScanBus {
 
 	/**
 	 * Runs a scan of Calimero in a thread of its own and reports its progress by the time it takes
-	 * (Calimero tells no progress); a cancelled job interrupts it.
+	 * (Calimero tells no progress), as unknown once it takes longer than {@link #SCAN_MILLIS}; a
+	 * cancelled job interrupts it.
 	 */
-	private List<Integer> scan(Scan scan, Progress progress, String what) throws BusException {
+	private List<Integer> scan(Scan scan, Progress progress, Function<Object, ResKey> failure) throws BusException {
 		ExecutorService executor = Executors.newSingleThreadExecutor(r -> new Thread(r, "ehome-scan"));
 		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 			ManagementProceduresImpl procedures = new ManagementProceduresImpl(_link);
@@ -158,7 +161,12 @@ public class CalimeroScanBus implements ScanBus {
 					} catch (TimeoutException ex) {
 						long elapsed = System.currentTimeMillis() - start;
 						try {
-							progress.progress((int) Math.min(255, elapsed * 256 / SCAN_MILLIS), 256);
+							if (elapsed < SCAN_MILLIS) {
+								progress.progress((int) (elapsed * 256 / SCAN_MILLIS), 256);
+							} else {
+								// Slower than estimated (e.g. through a controller): how much is left is not known.
+								progress.indeterminate();
+							}
 						} catch (RuntimeException cancelled) {
 							result.cancel(true);
 							throw cancelled;
@@ -170,12 +178,11 @@ public class CalimeroScanBus implements ScanBus {
 			}
 		} catch (ExecutionException ex) {
 			Throwable cause = ex.getCause();
-			throw new BusException(what + " through " + gateway() + " failed: " + cause.getMessage(), cause);
+			throw new BusException(failure.apply(cause.getMessage()), cause);
 		} catch (InterruptedException ex) {
-			Thread.currentThread().interrupt();
-			throw new BusException("Interrupted.", ex);
+			throw interrupted(ex);
 		} catch (KNXException ex) {
-			throw new BusException(what + " through " + gateway() + " failed: " + ex.getMessage(), ex);
+			throw new BusException(failure.apply(ex.getMessage()), ex);
 		} finally {
 			executor.shutdownNow();
 		}
@@ -186,15 +193,14 @@ public class CalimeroScanBus implements ScanBus {
 		try {
 			return new LinkReader(new ManagementClientImpl(_link), address);
 		} catch (KNXException ex) {
-			throw new BusException("No management connection through " + gateway() + ": " + ex.getMessage(), ex);
+			throw new BusException(I18NConstants.SCAN_NO_MANAGEMENT__PATH_REASON.fill(gateway(), ex.getMessage()), ex);
 		}
 	}
 
 	@Override
 	public LocalProperties gatewayProperties() throws BusException {
 		if (!(_path instanceof BusPath.Gateway gateway)) {
-			throw new BusException("The gateway itself cannot be read through " + gateway()
-				+ ": its local device management is a KNXnet/IP service of its own.");
+			throw new BusException(I18NConstants.SCAN_GATEWAY_NOT_LOCAL__PATH.fill(gateway()));
 		}
 		LocalDeviceManagementIp adapter;
 		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
@@ -204,26 +210,24 @@ public class CalimeroScanBus implements ScanBus {
 				// Closed with the bus.
 			});
 		} catch (KNXException | IOException ex) {
-			throw new BusException("No local device management of " + gateway() + ": " + ex.getMessage(), ex);
+			throw new BusException(I18NConstants.SCAN_NO_LOCAL_MANAGEMENT__PATH_REASON.fill(gateway(), ex.getMessage()), ex);
 		} catch (InterruptedException ex) {
-			Thread.currentThread().interrupt();
-			throw new BusException("Interrupted.", ex);
+			throw interrupted(ex);
 		}
 		return new LocalProperties() {
 			@Override
 			public byte[] readProperty(int objectType, int propertyId, int start, int count) throws BusException {
 				int index = adapter.interfaceObjects().indexOf(objectType);
 				if (index < 0) {
-					throw new BusException("The gateway has no interface object of type " + objectType + ".");
+					throw new BusException(I18NConstants.SCAN_GATEWAY_NO_OBJECT__TYPE.fill(objectType));
 				}
 				try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 					return adapter.getProperty(index, propertyId, start, count);
 				} catch (KNXException ex) {
-					throw new BusException("Reading object type " + objectType + " property " + propertyId + " of "
-						+ gateway() + " failed: " + ex.getMessage(), ex);
+					throw new BusException(I18NConstants.SCAN_LOCAL_PROPERTY_FAILED__TYPE_PROPERTY_PATH_REASON.fill(objectType,
+						propertyId, gateway(), ex.getMessage()), ex);
 				} catch (InterruptedException ex) {
-					Thread.currentThread().interrupt();
-					throw new BusException("Interrupted.", ex);
+					throw interrupted(ex);
 				}
 			}
 
@@ -268,7 +272,8 @@ public class CalimeroScanBus implements ScanBus {
 			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 				return _management.readDeviceDesc(destination(), 0);
 			} catch (KNXException ex) {
-				throw failure("Reading the device descriptor", ex);
+				throw failure(reason -> de.haumacher.ehome.programming.download.I18NConstants.ACCESS_DESCRIPTOR_FAILED__DEVICE_PATH_REASON.fill(device(), gateway(),
+					reason), ex);
 			} catch (InterruptedException ex) {
 				throw interrupted(ex);
 			}
@@ -279,7 +284,8 @@ public class CalimeroScanBus implements ScanBus {
 			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 				return _management.readProperty(destination(), objectIndex, propertyId, start, count);
 			} catch (KNXException ex) {
-				throw failure("Reading object " + objectIndex + " property " + propertyId, ex);
+				throw failure(reason -> de.haumacher.ehome.programming.download.I18NConstants.ACCESS_READ_PROPERTY_FAILED__OBJECT_PROPERTY_DEVICE_PATH_REASON
+					.fill(objectIndex, propertyId, device(), gateway(), reason), ex);
 			} catch (InterruptedException ex) {
 				throw interrupted(ex);
 			}
@@ -290,7 +296,8 @@ public class CalimeroScanBus implements ScanBus {
 			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
 				return _management.readMemory(destination(), address, length);
 			} catch (KNXException ex) {
-				throw failure(String.format("Reading memory %04X (%d bytes)", address, length), ex);
+				throw failure(reason -> de.haumacher.ehome.programming.download.I18NConstants.ACCESS_READ_MEMORY_FAILED__ADDRESS_LENGTH_DEVICE_PATH_REASON
+					.fill(String.format("%04X", address), length, device(), gateway(), reason), ex);
 			} catch (InterruptedException ex) {
 				throw interrupted(ex);
 			}
@@ -310,15 +317,18 @@ public class CalimeroScanBus implements ScanBus {
 			_management.detach();
 		}
 
-		private BusException failure(String what, KNXException ex) {
-			return new BusException(what + " of " + _device + " through " + gateway() + " failed: " + ex.getMessage()
-				+ " (" + ex.getClass().getSimpleName() + ")", ex);
+		private String device() {
+			return _device.toString();
+		}
+
+		private BusException failure(Function<Object, ResKey> failure, KNXException ex) {
+			return new BusException(failure.apply(ex.getMessage() + " (" + ex.getClass().getSimpleName() + ")"), ex);
 		}
 	}
 
 	private static BusException interrupted(InterruptedException ex) {
 		Thread.currentThread().interrupt();
-		return new BusException("Interrupted.", ex);
+		return new BusException(de.haumacher.ehome.programming.download.I18NConstants.ACCESS_INTERRUPTED, ex);
 	}
 
 	private static InetSocketAddress resolve(InetSocketAddress gateway) {

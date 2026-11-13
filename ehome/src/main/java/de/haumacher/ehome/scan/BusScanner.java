@@ -9,6 +9,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.TreeSet;
 
+import com.top_logic.basic.util.ResKey;
+
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.LoadControls;
@@ -69,20 +71,50 @@ public class BusScanner {
 	/** BCU 1: the program identity in memory (manufacturer, application number, version). */
 	public static final int BCU1_APPLICATION_ID = 0x0104;
 
+	/** The phase reading the gateway itself through local device management. */
+	public static final String PHASE_GATEWAY = "gateway";
+
+	/** The phase scanning a line. */
+	public static final String PHASE_LINE = "line";
+
+	/** The phase scanning for couplers and routers. */
+	public static final String PHASE_ROUTERS = "routers";
+
+	/** The phase looking for the devices in programming mode. */
+	public static final String PHASE_PROGRAMMING = "programming";
+
+	/** The phase reading the devices found. */
+	public static final String PHASE_DEVICES = "devices";
+
 	/**
 	 * Is told what the scan does.
 	 */
 	public interface Listener {
 
 		/**
-		 * What is done now, for a person.
+		 * The scan enters the phase of the given name (one of the <code>PHASE_*</code> constants); the
+		 * phases of a request are {@link BusScanner#phases(Request)}, in this order.
 		 */
-		void message(String text);
+		default void phase(String name) {
+			// Ignored by default.
+		}
 
 		/**
-		 * How far the scan got.
+		 * What is done now, for a person.
+		 */
+		void message(ResKey text);
+
+		/**
+		 * How far the current phase got.
 		 */
 		void progress(int done, int total);
+
+		/**
+		 * It is not known how far the current phase got: it takes longer than expected.
+		 */
+		default void indeterminate() {
+			// Ignored by default.
+		}
 
 		/**
 		 * Throws if the scan is to stop (the job was cancelled).
@@ -120,31 +152,53 @@ public class BusScanner {
 	 * @param notes
 	 *        What went wrong, for a person.
 	 */
-	public record Result(List<FoundDevice> devices, List<Integer> inProgrammingMode, List<String> notes) {
+	public record Result(List<FoundDevice> devices, List<Integer> inProgrammingMode, List<ResKey> notes) {
 		// Value.
+	}
+
+	/**
+	 * The phases a scan of the given request goes through, in order: the names of the
+	 * <code>PHASE_*</code> constants.
+	 */
+	public static List<String> phases(Request request) {
+		List<String> result = new ArrayList<>();
+		if (request.gateway()) {
+			result.add(PHASE_GATEWAY);
+		}
+		if (request.area() != null) {
+			result.add(PHASE_LINE);
+		}
+		if (request.routers()) {
+			result.add(PHASE_ROUTERS);
+		}
+		if (request.programmingMode()) {
+			result.add(PHASE_PROGRAMMING);
+		}
+		result.add(PHASE_DEVICES);
+		return result;
 	}
 
 	/**
 	 * Scans the bus.
 	 */
 	public static Result scan(ScanBus bus, Request request, Listener listener) throws BusException {
-		List<String> notes = new ArrayList<>();
+		List<ResKey> notes = new ArrayList<>();
 		List<FoundDevice> devices = new ArrayList<>();
 		TreeSet<Integer> addresses = new TreeSet<>();
 		Integer gatewayAddress = null;
 
 		if (request.gateway()) {
-			listener.message("Reading the gateway " + bus.gateway() + " (local device management).");
+			listener.phase(PHASE_GATEWAY);
+			listener.message(I18NConstants.MESSAGE_READING_GATEWAY__PATH.fill(bus.gateway()));
 			FoundDevice gateway = null;
 			try (ScanBus.LocalProperties local = bus.gatewayProperties()) {
 				if (local == null) {
-					notes.add("The gateway " + bus.gateway() + " offers no local device management.");
+					notes.add(I18NConstants.NOTE_NO_LOCAL_MANAGEMENT__PATH.fill(bus.gateway()));
 				} else {
 					gateway = identifyLocal(local);
 				}
 			} catch (BusException ex) {
-				notes.add("The gateway " + bus.gateway() + " could not be read through local device management: "
-					+ ex.getMessage());
+				notes.add(I18NConstants.NOTE_LOCAL_MANAGEMENT_FAILED__PATH_REASON.fill(bus.gateway(), ex.getErrorKey()));
 			}
 			if (gateway != null) {
 				devices.add(gateway);
@@ -160,22 +214,32 @@ public class BusScanner {
 			}
 
 			@Override
+			public void indeterminate() {
+				listener.checkCancelled();
+				listener.indeterminate();
+			}
+
+			@Override
 			public void found(int address) {
-				listener.message("Found " + FoundDevice.formatAddress(address) + ".");
+				listener.message(I18NConstants.MESSAGE_FOUND__ADDRESS.fill(FoundDevice.formatAddress(address)));
 			}
 		};
 		if (request.area() != null) {
 			String line = request.area() + "." + request.line();
-			listener.message("Scanning line " + line + ".");
+			listener.phase(PHASE_LINE);
+			listener.message(I18NConstants.MESSAGE_SCANNING_LINE__LINE.fill(line));
 			addresses.addAll(bus.scanLine(request.area().intValue(), request.line(), progress));
 		}
 		if (request.routers()) {
-			listener.message("Scanning for couplers and routers.");
+			listener.phase(PHASE_ROUTERS);
+			listener.message(I18NConstants.MESSAGE_SCANNING_ROUTERS);
 			addresses.addAll(bus.scanRouters(progress));
 		}
 		List<Integer> programming = List.of();
 		if (request.programmingMode()) {
-			listener.message("Looking for devices in programming mode.");
+			listener.phase(PHASE_PROGRAMMING);
+			listener.message(I18NConstants.MESSAGE_PROGRAMMING_MODE);
+			listener.indeterminate();
 			programming = bus.programmingMode();
 			addresses.addAll(programming);
 		}
@@ -184,11 +248,12 @@ public class BusScanner {
 			addresses.remove(gatewayAddress);
 		}
 
+		listener.phase(PHASE_DEVICES);
 		int number = 0;
 		for (Integer address : addresses) {
 			listener.checkCancelled();
 			listener.progress(number++, addresses.size());
-			listener.message("Reading " + FoundDevice.formatAddress(address) + ".");
+			listener.message(I18NConstants.MESSAGE_READING__ADDRESS.fill(FoundDevice.formatAddress(address)));
 			try {
 				FoundDevice found;
 				try (DeviceReader reader = bus.device(address)) {
@@ -196,14 +261,14 @@ public class BusScanner {
 				}
 				if (found.descriptor() == null) {
 					// A device may still be busy with the connection of the scan: once more.
-					listener.message("Reading " + FoundDevice.formatAddress(address) + " again.");
+					listener.message(I18NConstants.MESSAGE_READING_AGAIN__ADDRESS.fill(FoundDevice.formatAddress(address)));
 					try (DeviceReader reader = bus.device(address)) {
 						found = identify(reader, address);
 					}
 				}
 				devices.add(found);
 			} catch (BusException ex) {
-				notes.add(FoundDevice.formatAddress(address) + ": " + ex.getMessage());
+				notes.add(I18NConstants.NOTE__LABEL_VALUE.fill(FoundDevice.formatAddress(address), ex.getErrorKey()));
 			}
 		}
 		listener.progress(addresses.size(), addresses.size());
@@ -214,8 +279,8 @@ public class BusScanner {
 	 * Reads what a device tells about itself, point to point.
 	 */
 	public static FoundDevice identify(DeviceReader reader, int address) {
-		List<String> notes = new ArrayList<>();
-		List<String> loadStates = new ArrayList<>();
+		List<ResKey> notes = new ArrayList<>();
+		List<ResKey> loadStates = new ArrayList<>();
 		Integer descriptor = null;
 		try {
 			byte[] value = reader.readDescriptor();
@@ -223,7 +288,7 @@ public class BusScanner {
 				descriptor = Integer.valueOf((value[0] & 0xFF) << 8 | (value[1] & 0xFF));
 			}
 		} catch (BusException ex) {
-			notes.add("Device descriptor: " + ex.getMessage());
+			notes.add(I18NConstants.NOTE__LABEL_VALUE.fill(I18NConstants.READ_DESCRIPTOR, ex.getErrorKey()));
 			disconnect(reader);
 			return new FoundDevice(address, FoundDevice.Source.BUS, null, null, null, null, null, null, loadStates, notes);
 		}
@@ -241,26 +306,30 @@ public class BusScanner {
 					manufacturer = Integer.valueOf(id[0] & 0xFF);
 				}
 			} catch (BusException ex) {
-				notes.add(String.format("Program identity (memory %04X): ", BCU1_APPLICATION_ID) + ex.getMessage());
+				notes.add(I18NConstants.NOTE__LABEL_VALUE.fill(
+					I18NConstants.READ_PROGRAM_IDENTITY__ADDRESS.fill(String.format("%04X", BCU1_APPLICATION_ID)),
+					ex.getErrorKey()));
 			}
 		} else {
-			byte[] id = property(reader, DEVICE_OBJECT, PID_MANUFACTURER_ID, "Manufacturer", notes);
+			byte[] id = property(reader, DEVICE_OBJECT, PID_MANUFACTURER_ID, I18NConstants.READ_MANUFACTURER, notes);
 			if (id != null && id.length >= 2) {
 				manufacturer = Integer.valueOf((id[0] & 0xFF) << 8 | (id[1] & 0xFF));
 			}
-			serial = property(reader, DEVICE_OBJECT, PID_SERIAL_NUMBER, "Serial number", notes);
-			programVersion = property(reader, APPLICATION_OBJECT, LoadControls.PID_PROGRAM_VERSION, "Program version", notes);
-			hardwareType = property(reader, DEVICE_OBJECT, PID_HARDWARE_TYPE, "Hardware type", notes);
-			orderInfo = text(property(reader, DEVICE_OBJECT, PID_ORDER_INFO, "Order info", notes));
+			serial = property(reader, DEVICE_OBJECT, PID_SERIAL_NUMBER, I18NConstants.READ_SERIAL_NUMBER, notes);
+			programVersion = property(reader, APPLICATION_OBJECT, LoadControls.PID_PROGRAM_VERSION,
+				I18NConstants.READ_PROGRAM_VERSION, notes);
+			hardwareType = property(reader, DEVICE_OBJECT, PID_HARDWARE_TYPE, I18NConstants.READ_HARDWARE_TYPE, notes);
+			orderInfo = text(property(reader, DEVICE_OBJECT, PID_ORDER_INFO, I18NConstants.READ_ORDER_INFO, notes));
 			for (int lsm = 1; lsm <= 3; lsm++) {
-				byte[] state = property(reader, lsm, LoadControls.PID_LOAD_STATE_CONTROL, "Load state " + lsm, notes);
+				byte[] state = property(reader, lsm, LoadControls.PID_LOAD_STATE_CONTROL,
+					I18NConstants.READ_LOAD_STATE__LSM.fill(lsm), notes);
 				if (state != null && state.length > 0) {
-					loadStates.add(lsm + ": " + LoadControls.stateName(state[0] & 0xFF));
+					loadStates.add(I18NConstants.NOTE__LABEL_VALUE.fill(lsm, LoadControls.stateName(state[0] & 0xFF)));
 				}
 			}
-			byte[] run = property(reader, APPLICATION_OBJECT, PID_RUN_STATE, "Run state", notes);
+			byte[] run = property(reader, APPLICATION_OBJECT, PID_RUN_STATE, I18NConstants.READ_RUN_STATE, notes);
 			if (run != null && run.length > 0) {
-				loadStates.add("run: " + runStateName(run[0] & 0xFF));
+				loadStates.add(I18NConstants.NOTE__LABEL_VALUE.fill(I18NConstants.READ_RUN_STATE, runStateName(run[0] & 0xFF)));
 			}
 		}
 		if (manufacturer == null && programVersion != null && programVersion.length >= 5) {
@@ -275,19 +344,19 @@ public class BusScanner {
 	 * Reads what the gateway tells about itself through local device management.
 	 */
 	public static FoundDevice identifyLocal(ScanBus.LocalProperties local) throws BusException {
-		List<String> notes = new ArrayList<>();
+		List<ResKey> notes = new ArrayList<>();
 		byte[] address = local.readProperty(KNXNETIP_OBJECT_TYPE, PID_KNX_INDIVIDUAL_ADDRESS, 1, 1);
 		if (address.length < 2) {
-			throw new BusException("The gateway reports no individual address.");
+			throw new BusException(I18NConstants.SCAN_GATEWAY_NO_ADDRESS);
 		}
 		int individual = (address[0] & 0xFF) << 8 | (address[1] & 0xFF);
-		byte[] id = localProperty(local, 0, PID_MANUFACTURER_ID, "Manufacturer", notes);
+		byte[] id = localProperty(local, 0, PID_MANUFACTURER_ID, I18NConstants.READ_MANUFACTURER, notes);
 		Integer manufacturer = id != null && id.length >= 2 ? Integer.valueOf((id[0] & 0xFF) << 8 | (id[1] & 0xFF)) : null;
-		byte[] serial = localProperty(local, 0, PID_SERIAL_NUMBER, "Serial number", notes);
-		byte[] hardwareType = localProperty(local, 0, PID_HARDWARE_TYPE, "Hardware type", notes);
-		String orderInfo = text(localProperty(local, 0, PID_ORDER_INFO, "Order info", notes));
+		byte[] serial = localProperty(local, 0, PID_SERIAL_NUMBER, I18NConstants.READ_SERIAL_NUMBER, notes);
+		byte[] hardwareType = localProperty(local, 0, PID_HARDWARE_TYPE, I18NConstants.READ_HARDWARE_TYPE, notes);
+		String orderInfo = text(localProperty(local, 0, PID_ORDER_INFO, I18NConstants.READ_ORDER_INFO, notes));
 		byte[] programVersion = localProperty(local, APPLICATION_OBJECT, LoadControls.PID_PROGRAM_VERSION,
-			"Program version", notes);
+			I18NConstants.READ_PROGRAM_VERSION, notes);
 		return new FoundDevice(individual, FoundDevice.Source.LOCAL, null, manufacturer, serial, programVersion,
 			hardwareType, orderInfo, List.of(), notes);
 	}
@@ -299,23 +368,23 @@ public class BusScanner {
 		return (descriptor & 0xFFF0) == 0x0010;
 	}
 
-	private static byte[] property(DeviceReader reader, int object, int property, String what, List<String> notes) {
+	private static byte[] property(DeviceReader reader, int object, int property, ResKey what, List<ResKey> notes) {
 		try {
 			byte[] value = reader.readProperty(object, property, 1, 1);
 			return value.length == 0 ? null : value;
 		} catch (BusException ex) {
-			notes.add(what + ": " + ex.getMessage());
+			notes.add(I18NConstants.NOTE__LABEL_VALUE.fill(what, ex.getErrorKey()));
 			return null;
 		}
 	}
 
-	private static byte[] localProperty(ScanBus.LocalProperties local, int objectType, int property, String what,
-			List<String> notes) {
+	private static byte[] localProperty(ScanBus.LocalProperties local, int objectType, int property, ResKey what,
+			List<ResKey> notes) {
 		try {
 			byte[] value = local.readProperty(objectType, property, 1, 1);
 			return value.length == 0 ? null : value;
 		} catch (BusException ex) {
-			notes.add(what + ": " + ex.getMessage());
+			notes.add(I18NConstants.NOTE__LABEL_VALUE.fill(what, ex.getErrorKey()));
 			return null;
 		}
 	}
@@ -348,15 +417,15 @@ public class BusScanner {
 		return new String(trimmed, StandardCharsets.ISO_8859_1);
 	}
 
-	private static String runStateName(int state) {
+	private static ResKey runStateName(int state) {
 		return switch (state) {
-			case 0 -> "halted";
-			case 1 -> "running";
-			case 2 -> "ready";
-			case 3 -> "terminated";
-			case 4 -> "starting";
-			case 5 -> "shutting down";
-			default -> "state " + state;
+			case 0 -> I18NConstants.RUN_STATE_HALTED;
+			case 1 -> I18NConstants.RUN_STATE_RUNNING;
+			case 2 -> I18NConstants.RUN_STATE_READY;
+			case 3 -> I18NConstants.RUN_STATE_TERMINATED;
+			case 4 -> I18NConstants.RUN_STATE_STARTING;
+			case 5 -> I18NConstants.RUN_STATE_SHUTTING_DOWN;
+			default -> de.haumacher.ehome.programming.download.I18NConstants.LOAD_STATE_OTHER__NUMBER.fill(state);
 		};
 	}
 

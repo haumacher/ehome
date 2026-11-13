@@ -12,7 +12,9 @@
 	with its default settings (<discover-knx-gateways>, de.haumacher.ehome.discover.DiscoverGatewaysAction).
 	What differs from the current path wins: an address entered (or a gateway selected from the search,
 	while the field still holds the current address), or another controller selected; a new gateway and
-	a new controller chosen together are refused.
+	a new controller chosen together are refused. The decision is the channel "choice", which "Use" carries
+	out; the line above the buttons ("outcome") states it before, so that it is visible which of the
+	address and the controller "Use" takes (haumacher/ehome #161).
 	The table of controllers shows each one's connection state (controllerConnection) and whether
 	programming through it is possible now (controllerBusState: connected, firmware with the bus
 	session, no session open); a controller that cannot be used now can still be chosen, the commands
@@ -36,6 +38,41 @@
 			init="$project.get(`ehome.project:Project#programmingController`)"
 			inputs="project"
 		/>
+		<!--
+			What "Use" sets: {"gateway": address} or {"controller": controller}, or {"error": reason} when nothing
+			or both a new gateway and a new controller are chosen.
+		-->
+		<derived-channel name="choice"
+			inputs="project, address, selectedGateway, selectedController"
+		>
+			<expr><![CDATA[{
+    current = $project.get(`ehome.project:Project#gateway`);
+    entered = if($address == null or $address.trim() == "", null, $address.trim());
+    found = if($selectedGateway == null, null, $selectedGateway["endpoint"]);
+    gateway = if($found != null and ($entered == null or $entered == $current), $found, $entered);
+    newGateway = $gateway != null and $gateway != $current;
+    newController = $selectedController != null and $selectedController != $project.get(`ehome.project:Project#programmingController`);
+    if($newGateway and $newController,
+        {"error": #("A new gateway and a new controller are chosen: clear the address or choose the current controller again."@en, "Ein neues Gateway und ein neuer Controller sind gewählt: Bitte die Adresse leeren oder wieder den aktuellen Controller wählen."@de)},
+        if($newController or ($gateway == null and $selectedController != null),
+            {"controller": $selectedController},
+            if($gateway != null,
+                {"gateway": $gateway},
+                {"error": #("Enter an address, choose a gateway the search found or choose a controller."@en, "Bitte eine Adresse eingeben, ein gefundenes Gateway oder einen Controller wählen."@de)})));
+}]]></expr>
+		</derived-channel>
+		<!-- The decision for a person, shown above the buttons. -->
+		<derived-channel name="outcome"
+			inputs="choice"
+		>
+			<expr><![CDATA[
+if($choice["error"] != null,
+    $choice["error"].localize(),
+    if($choice["controller"] != null,
+        #("\"Use\" sets the path through the controller {0}; the gateway address of the project is removed."@en, "„Übernehmen“ legt den Weg über den Controller {0} fest; die Gateway-Adresse des Projekts wird entfernt."@de).fill($choice["controller"].get(`ehome.runtime:Controller#name`)).localize(),
+        #("\"Use\" sets the path through the gateway {0}; the controller of the project is no longer used for programming."@en, "„Übernehmen“ legt den Weg über das Gateway {0} fest; der Controller des Projekts wird zum Programmieren nicht mehr verwendet."@de).fill($choice["gateway"]).localize()))
+]]></expr>
+		</derived-channel>
 		<derived-channel name="current"
 			expr='#("Current path to the bus: {0}"@en, "Aktueller Weg zum Bus: {0}"@de).fill(if(busPath($project) == null, "-", busPath($project))).localize()'
 			inputs="project"
@@ -213,13 +250,14 @@
 						</stack>
 					</inset>
 				</panel>
+				<text input="outcome"/>
 			</stack>
 		</inset>
 		<actions>
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-check-lg"
-					inputs="project"
+					inputs="project, choice"
 				>
 					<label>
 						<en>Use</en>
@@ -233,36 +271,22 @@
 					</access>
 					<executability>
 						<null-input-disabled/>
+						<disabled-if expr='$choice["error"]'/>
 					</executability>
 					<with-transaction>
 						<execute-script>
 							<!-- One path: the one chosen is set, the other cleared (haumacher/ehome #148). -->
-							<function><![CDATA[{
-    current = $project.get(`ehome.project:Project#gateway`);
-    entered = if($address == null or $address.trim() == "", null, $address.trim());
-    found = if($selectedGateway == null, null, $selectedGateway["endpoint"]);
-    gateway = if($found != null and ($entered == null or $entered == $current), $found, $entered);
-    newGateway = $gateway != null and $gateway != $current;
-    newController = $selectedController != null and $selectedController != $project.get(`ehome.project:Project#programmingController`);
-    if($newGateway and $newController,
-        throw(#("Choose either a gateway or a controller."@en, "Bitte entweder ein Gateway oder einen Controller wählen."@de)));
-    if($newController or ($gateway == null and $selectedController != null),
-        {
-            $project.set(`ehome.project:Project#programmingController`, $selectedController);
-            $project.set(`ehome.project:Project#gateway`, null);
-        },
-        if($gateway != null,
-            {
-                $project.set(`ehome.project:Project#gateway`, $gateway);
-                $project.set(`ehome.project:Project#programmingController`, null);
-            },
-            throw(#("Enter an address, choose a gateway the search found or choose a controller."@en, "Bitte eine Adresse eingeben, ein gefundenes Gateway oder einen Controller wählen."@de))));
-}]]></function>
-							<inputs>
-								<input channel="address"/>
-								<input channel="selectedGateway"/>
-								<input channel="selectedController"/>
-							</inputs>
+							<function><![CDATA[
+if($choice["controller"] != null,
+    {
+        $project.set(`ehome.project:Project#programmingController`, $choice["controller"]);
+        $project.set(`ehome.project:Project#gateway`, null);
+    },
+    {
+        $project.set(`ehome.project:Project#gateway`, $choice["gateway"]);
+        $project.set(`ehome.project:Project#programmingController`, null);
+    })
+]]></function>
 						</execute-script>
 					</with-transaction>
 					<close-dialog/>

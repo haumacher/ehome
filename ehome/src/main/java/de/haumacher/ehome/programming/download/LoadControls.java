@@ -3,6 +3,8 @@
  */
 package de.haumacher.ehome.programming.download;
 
+import com.top_logic.basic.util.ResKey;
+
 /**
  * The load controls of a KNX load state machine and the download stamp of a segment.
  *
@@ -207,56 +209,58 @@ public class LoadControls {
 	/**
 	 * A load control for a person.
 	 */
-	public static String describe(byte[] control) {
+	public static ResKey describe(byte[] control) {
 		switch (control[0]) {
 			case EVENT_LOAD:
-				return "start loading";
+				return I18NConstants.CONTROL_LOAD;
 			case EVENT_LOAD_COMPLETED:
-				return "load completed";
+				return I18NConstants.CONTROL_LOAD_COMPLETED;
 			case EVENT_UNLOAD:
-				return "unload";
+				return I18NConstants.CONTROL_UNLOAD;
 			case EVENT_ADDITIONAL:
 				int address = (control[2] & 0xFF) << 8 | control[3] & 0xFF;
 				switch (control[1]) {
 					case 0:
 					case 1:
 						int length = (control[4] & 0xFF) << 8 | control[5] & 0xFF;
-						return String.format("allocate %s segment %04X-%04X (%d bytes, access %02X, memory type %d, flags %02X)",
-							control[1] == 0 ? "absolute" : "stack", address, address + length - 1, length, control[6] & 0xFF,
-							control[7] & 0xFF, control[8] & 0xFF);
+						return (control[1] == 0 ? I18NConstants.CONTROL_ALLOCATE_ABSOLUTE__FROM_TO_LENGTH_ACCESS_TYPE_FLAGS
+							: I18NConstants.CONTROL_ALLOCATE_STACK__FROM_TO_LENGTH_ACCESS_TYPE_FLAGS).fill(
+								String.format("%04X", address), String.format("%04X", address + length - 1), length,
+								String.format("%02X", control[6] & 0xFF), control[7] & 0xFF, String.format("%02X", control[8] & 0xFF));
 					case SEGMENT_TASK:
-						return String.format("task segment %04X, PEI type %d, application %02X%02X %02X%02X %02X", address,
-							control[4] & 0xFF, control[5] & 0xFF, control[6] & 0xFF, control[7] & 0xFF, control[8] & 0xFF,
-							control[9] & 0xFF);
+						return I18NConstants.CONTROL_TASK_SEGMENT__ADDRESS_PEI_APPLICATION.fill(String.format("%04X", address),
+							control[4] & 0xFF, String.format("%02X%02X %02X%02X %02X", control[5] & 0xFF, control[6] & 0xFF,
+								control[7] & 0xFF, control[8] & 0xFF, control[9] & 0xFF));
 					case SEGMENT_TASK_CONTROL_1:
-						return String.format("task control 1, event handler %04X, %d objects", address, control[4] & 0xFF);
+						return I18NConstants.CONTROL_TASK_CONTROL__HANDLER_OBJECTS.fill(String.format("%04X", address),
+							control[4] & 0xFF);
 					default:
-						return "additional load control " + control[1];
+						return I18NConstants.CONTROL_ADDITIONAL__TYPE.fill(control[1]);
 				}
 			default:
-				return "load event " + control[0];
+				return I18NConstants.CONTROL_EVENT__EVENT.fill(control[0]);
 		}
 	}
 
 	/**
 	 * A load state for a person.
 	 */
-	public static String stateName(int state) {
+	public static ResKey stateName(int state) {
 		switch (state) {
 			case STATE_UNLOADED:
-				return "unloaded";
+				return I18NConstants.LOAD_STATE_UNLOADED;
 			case STATE_LOADED:
-				return "loaded";
+				return I18NConstants.LOAD_STATE_LOADED;
 			case STATE_LOADING:
-				return "loading";
+				return I18NConstants.LOAD_STATE_LOADING;
 			case STATE_ERROR:
-				return "error";
+				return I18NConstants.LOAD_STATE_ERROR;
 			case STATE_UNLOADING:
-				return "unloading";
+				return I18NConstants.LOAD_STATE_UNLOADING;
 			case STATE_LOAD_COMPLETING:
-				return "load completing";
+				return I18NConstants.LOAD_STATE_LOAD_COMPLETING;
 			default:
-				return "state " + state;
+				return I18NConstants.LOAD_STATE_OTHER__NUMBER.fill(state);
 		}
 	}
 

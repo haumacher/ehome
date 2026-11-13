@@ -21,13 +21,34 @@
 	available, and "Choose the gateway" offers only it then.
 	The commands run as jobs (DownloadJob, CompareJob) with their progress shown here, and end with
 	the report (projects/programming-report.view.xml), which replaces the progress display; a job
-	that fails keeps its display with the error.
+	that fails keeps its display with the error. One job of the tab at a time: its progress is shown
+	with the device it was started for (jobDevice), and the commands of all devices are disabled with
+	that reason while it runs. The vetoes read the state of the bus sessions and the controllers, which
+	no model event reflects: the commands name the channel busState among their inputs, which changes
+	with that state, so that they are decided anew when a session ends (haumacher/ehome #161).
 -->
 <view>
 	<channels>
 		<channel name="device"/>
 		<channel name="project"/>
 		<channel name="programmingJob"/>
+		<!-- The device the job in programmingJob was started for: its progress is shown only with that device (haumacher/ehome #161). -->
+		<channel name="jobDevice"/>
+		<derived-channel name="deviceJob"
+			expr="if($device != null and $device == $jobDevice, $programmingJob, null)"
+			inputs="device, jobDevice, programmingJob"
+		/>
+		<!--
+			Changes whenever a bus session through a controller opens or ends, or a controller connects,
+			disconnects or changes what it offers (BusStateSource): the commands using the bus name it among
+			their inputs, so that their vetoes, which read this runtime state, are decided anew - e.g. when a job
+			of another device or another view gives the controller's bus session free (haumacher/ehome #161).
+		-->
+		<source-channel name="busState"
+			update-interval="500"
+		>
+			<source class="de.haumacher.ehome.programming.download.BusStateSource"/>
+		</source-channel>
 		<!-- The path to the bus: "Gateway <address>" or "Controller <name>" (ProgrammingFunctions busPath). -->
 		<derived-channel name="gateway"
 			expr="if($project == null, null, busPath($project))"
@@ -118,7 +139,7 @@
 				</generic-command>
 				<generic-command
 					image="css:bi bi-arrow-left-right"
-					inputs="device"
+					inputs="device, busState, programmingJob, jobDevice"
 					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 					placement="TOOLBAR"
 				>
@@ -138,8 +159,12 @@
 					</access>
 					<executability>
 						<null-input-disabled/>
+						<!-- One job of this tab at a time: its progress and its report belong to its device. -->
+						<disabled-if expr='if(jobIsRunning($programmingJob), #("The job for {0} is still running."@en, "Der Auftrag für {0} läuft noch."@de).fill($jobDevice), null)'/>
 						<disabled-if expr="compareVeto($device)"/>
 					</executability>
+					<!-- The job's progress is shown with this device only. -->
+					<write-channel name="jobDevice"/>
 					<start-job
 						cancelable="true"
 						job="programmingJob"
@@ -161,7 +186,7 @@
 				</generic-command>
 				<generic-command
 					image="css:bi bi-download"
-					inputs="device"
+					inputs="device, busState, programmingJob, jobDevice"
 					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 					placement="TOOLBAR"
 				>
@@ -181,9 +206,13 @@
 					</access>
 					<executability>
 						<null-input-disabled/>
+						<!-- One job of this tab at a time: its progress and its report belong to its device. -->
+						<disabled-if expr='if(jobIsRunning($programmingJob), #("The job for {0} is still running."@en, "Der Auftrag für {0} läuft noch."@de).fill($jobDevice), null)'/>
 						<disabled-if expr="downloadVeto($device)"/>
 					</executability>
 					<confirm expr="downloadConfirmation($device)"/>
+					<!-- The job's progress is shown with this device only. -->
+					<write-channel name="jobDevice"/>
 					<start-job
 						cancelable="false"
 						job="programmingJob"
@@ -210,7 +239,7 @@
 				-->
 				<generic-command
 					image="css:bi bi-arrow-repeat"
-					inputs="device"
+					inputs="device, busState, programmingJob, jobDevice"
 					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:InstanceArgument"
 					placement="TOOLBAR"
 				>
@@ -230,9 +259,13 @@
 					</access>
 					<executability>
 						<null-input-disabled/>
+						<!-- One job of this tab at a time: its progress and its report belong to its device. -->
+						<disabled-if expr='if(jobIsRunning($programmingJob), #("The job for {0} is still running."@en, "Der Auftrag für {0} läuft noch."@de).fill($jobDevice), null)'/>
 						<disabled-if expr="layoutVeto($device)"/>
 					</executability>
 					<confirm expr="layoutConfirmation($device)"/>
+					<!-- The job's progress is shown with this device only. -->
+					<write-channel name="jobDevice"/>
 					<start-job
 						cancelable="false"
 						job="programmingJob"
@@ -256,7 +289,7 @@
 				</generic-command>
 				<generic-command
 					image="css:bi bi-hand-index"
-					inputs="device"
+					inputs="device, busState, programmingJob, jobDevice"
 					observed-types="ehome.project:Project"
 					placement="TOOLBAR"
 				>
@@ -276,9 +309,13 @@
 					</access>
 					<executability>
 						<null-input-disabled/>
+						<!-- One job of this tab at a time: its progress and its report belong to its device. -->
+						<disabled-if expr='if(jobIsRunning($programmingJob), #("The job for {0} is still running."@en, "Der Auftrag für {0} läuft noch."@de).fill($jobDevice), null)'/>
 						<disabled-if expr="addressVeto($device)"/>
 					</executability>
 					<confirm expr="addressConfirmation($device)"/>
+					<!-- The job's progress is shown with this device only. -->
+					<write-channel name="jobDevice"/>
 					<start-job
 						cancelable="false"
 						job="programmingJob"
@@ -303,7 +340,7 @@
 			</commands>
 			<inset>
 				<stack gap="default">
-					<job-status input="programmingJob"/>
+					<job-status input="deviceJob"/>
 					<text input="summary"/>
 					<!-- Why the download is refused. -->
 					<object-list

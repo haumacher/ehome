@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -117,6 +118,9 @@ public final class BusSessionLink extends AbstractLink<AutoCloseable> implements
 	/** The references of the messages, unique among all sessions. */
 	private static final AtomicLong REFS = new AtomicLong();
 
+	/** Told whenever a session opens or ends, see {@link #addSessionListener(Runnable)}. */
+	private static final List<Runnable> SESSION_LISTENERS = new CopyOnWriteArrayList<>();
+
 	private final ControllerConnection _connection;
 
 	private final String _controller;
@@ -147,6 +151,32 @@ public final class BusSessionLink extends AbstractLink<AutoCloseable> implements
 	 */
 	public static boolean capable(ControllerConnection connection) {
 		return connection.status().get("ehome") instanceof Map<?, ?> ehome && ehome.containsKey(TYPE);
+	}
+
+	/**
+	 * Tells the given listener whenever a bus session opens or ends (on any thread; it must not
+	 * block): what decides whether programming through a controller is possible
+	 * ({@link #veto(TLObject)}) has changed.
+	 */
+	public static void addSessionListener(Runnable listener) {
+		SESSION_LISTENERS.add(listener);
+	}
+
+	/**
+	 * Stops telling the given listener, see {@link #addSessionListener(Runnable)}.
+	 */
+	public static void removeSessionListener(Runnable listener) {
+		SESSION_LISTENERS.remove(listener);
+	}
+
+	private static void sessionsChanged() {
+		for (Runnable listener : SESSION_LISTENERS) {
+			try {
+				listener.run();
+			} catch (RuntimeException ex) {
+				Logger.error("A listener of the bus sessions failed.", ex, BusSessionLink.class);
+			}
+		}
 	}
 
 	/**
@@ -238,6 +268,7 @@ public final class BusSessionLink extends AbstractLink<AutoCloseable> implements
 			link.close();
 			throw new TopLogicException(I18NConstants.ERROR_BUS_SESSION_OPEN__CONTROLLER.fill(name));
 		}
+		sessionsChanged();
 		boolean done = false;
 		try {
 			link.start(timeout);
@@ -431,7 +462,9 @@ public final class BusSessionLink extends AbstractLink<AutoCloseable> implements
 			}
 		}
 		_connection.removeListener(this);
-		SESSIONS.remove(_connection.controllerId(), this);
+		if (SESSIONS.remove(_connection.controllerId(), this)) {
+			sessionsChanged();
+		}
 		failWaiting(_end);
 		// Also after an open that failed by its time: a late "opened" leaves a session on the controller
 		// that would refuse the next one until it idles.
@@ -531,7 +564,9 @@ public final class BusSessionLink extends AbstractLink<AutoCloseable> implements
 		}
 		Logger.info("Bus session ended: " + reason, BusSessionLink.class);
 		_connection.removeListener(this);
-		SESSIONS.remove(_connection.controllerId(), this);
+		if (SESSIONS.remove(_connection.controllerId(), this)) {
+			sessionsChanged();
+		}
 		failWaiting(reason);
 		Thread thread = new Thread(() -> notifier.connectionClosed(new CloseEvent(this, CloseEvent.SERVER_REQUEST, reason)),
 			"bus-session-end");

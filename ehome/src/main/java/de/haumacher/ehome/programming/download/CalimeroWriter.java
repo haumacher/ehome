@@ -12,6 +12,7 @@ import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.mgmt.ManagementProceduresImpl;
 
 import com.top_logic.basic.Logger;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.transport.Tpdu;
@@ -79,12 +80,16 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 	 */
 	@Override
 	public Integer writeLoadControl(int objectIndex, byte[] control) throws BusException {
-		String what = "The load control " + LoadControls.describe(control) + " of object " + objectIndex;
-		byte[] answer = request(what, propertyService(Tpdu.PROPERTY_WRITE, objectIndex, LoadControls.PID_LOAD_STATE_CONTROL,
-			1, 1, control), propertyAnswer(objectIndex, LoadControls.PID_LOAD_STATE_CONTROL, 1));
+		ResKey what = LoadControls.describe(control);
+		byte[] answer = request(
+			reason -> I18NConstants.ACCESS_LOAD_CONTROL_FAILED__CONTROL_OBJECT_DEVICE_PATH_REASON.fill(what, objectIndex,
+				device(), path(), reason),
+			propertyService(Tpdu.PROPERTY_WRITE, objectIndex, LoadControls.PID_LOAD_STATE_CONTROL, 1, 1, control),
+			propertyAnswer(objectIndex, LoadControls.PID_LOAD_STATE_CONTROL, 1));
 		byte[] asdu = Tpdu.asdu(answer);
 		if ((asdu[2] & 0xF0) == 0) {
-			throw failure(what, new BusException("the device refused the load control"));
+			throw new BusException(I18NConstants.ACCESS_LOAD_CONTROL_REFUSED__CONTROL_OBJECT_DEVICE_PATH.fill(what,
+				objectIndex, device(), path()));
 		}
 		// A load state of one byte, or something else (e.g. the control repeated): then the state is
 		// to be read.
@@ -93,13 +98,15 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 
 	@Override
 	public void writeProperty(int objectIndex, int propertyId, int start, int count, byte[] data) throws BusException {
-		String what = "Writing object " + objectIndex + " property " + propertyId;
-		byte[] answer = request(what, propertyService(Tpdu.PROPERTY_WRITE, objectIndex, propertyId, start, count, data),
+		byte[] answer = request(
+			reason -> I18NConstants.ACCESS_WRITE_PROPERTY_FAILED__OBJECT_PROPERTY_DEVICE_PATH_REASON.fill(objectIndex,
+				propertyId, device(), path(), reason),
+			propertyService(Tpdu.PROPERTY_WRITE, objectIndex, propertyId, start, count, data),
 			propertyAnswer(objectIndex, propertyId, start));
-		byte[] value = propertyValue(what, answer);
+		byte[] value = propertyValue(I18NConstants.ACCESS_WRITE_PROPERTY_REFUSED__OBJECT_PROPERTY_DEVICE_PATH, answer);
 		if (!Arrays.equals(value, data)) {
-			throw failure(what, new BusException("the device answered with " + Operation.hex(value) + ", written was "
-				+ Operation.hex(data)));
+			throw new BusException(I18NConstants.ACCESS_WRITE_PROPERTY_ANSWER__OBJECT_PROPERTY_DEVICE_PATH_VALUE_WRITTEN
+				.fill(objectIndex, propertyId, device(), path(), Operation.hex(value), Operation.hex(data)));
 		}
 	}
 
@@ -112,7 +119,10 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 		System.arraycopy(data, 0, asdu, 3, data.length);
 		// No answer awaited: a device in verify mode answers with the memory written, which the
 		// transport acknowledges and ignores (the plan reads it back itself).
-		request(String.format("Writing memory %04X (%d bytes)", address, data.length),
+		String hexAddress = String.format("%04X", address);
+		request(
+			reason -> I18NConstants.ACCESS_WRITE_MEMORY_FAILED__ADDRESS_LENGTH_DEVICE_PATH_REASON.fill(hexAddress,
+				data.length, device(), path(), reason),
 			DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.MEMORY_WRITE, asdu), null);
 	}
 
@@ -133,7 +143,8 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 		try {
 			end = connection().requestAndEnd(DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.RESTART));
 		} catch (TransportException ex) {
-			throw failure("The restart", ex);
+			throw failure(reason -> I18NConstants.ACCESS_RESTART_FAILED__DEVICE_PATH_REASON.fill(device(), path(), reason),
+				ex);
 		} catch (InterruptedException ex) {
 			throw interrupted(ex);
 		}
@@ -150,11 +161,13 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 		try {
 			procedures = new ManagementProceduresImpl(link());
 			if (!procedures.writeAddress(new IndividualAddress(address))) {
-				throw new BusException("A device with the address " + new IndividualAddress(address)
-					+ " exists, but is not in programming mode.");
+				throw new BusException(
+					I18NConstants.ACCESS_ADDRESS_NOT_IN_PROGRAMMING_MODE__ADDRESS.fill(new IndividualAddress(address).toString()));
 			}
 		} catch (KNXException ex) {
-			throw failure("Writing the individual address " + new IndividualAddress(address), ex);
+			String target = new IndividualAddress(address).toString();
+			throw failure(reason -> I18NConstants.ACCESS_WRITE_ADDRESS_FAILED__ADDRESS_PATH_REASON.fill(target, path(), reason),
+				ex);
 		} catch (InterruptedException ex) {
 			throw interrupted(ex);
 		} finally {

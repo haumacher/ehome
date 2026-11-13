@@ -195,7 +195,7 @@ public class TestVirtualDownload extends BasicTestCase {
 					String[] parts = fact.substring(fact.indexOf(':') + 2).split(", the (program|image)'s: ");
 					assertEquals(name + ": " + fact, parts[1], parts[0]);
 				} else if (fact.startsWith("Load state machine ")) {
-					assertTrue(name + ": " + fact, fact.endsWith(": loaded"));
+					assertTrue(name + ": " + fact, fact.endsWith(": Loaded"));
 				}
 			}
 

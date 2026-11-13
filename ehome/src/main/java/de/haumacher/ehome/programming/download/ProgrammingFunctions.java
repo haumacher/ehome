@@ -139,7 +139,8 @@ public class ProgrammingFunctions extends GenericMethod {
 			}
 			case downloadImageDump: {
 				DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
-				return plan.getImage() == null ? null : "<pre>" + TagUtil.encodeXML(plan.getImage().dump()) + "</pre>";
+				return plan.getImage() == null ? null
+					: "<pre>" + TagUtil.encodeXML(plan.getImage().dump(Resources.getInstance())) + "</pre>";
 			}
 			case downloadVeto:
 				return downloadVeto(device, DownloadPlan.Kind.FULL);
@@ -236,7 +237,12 @@ public class ProgrammingFunctions extends GenericMethod {
 			return plan.getProblems().isEmpty() ? I18NConstants.ERROR_NO_PROGRAM : plan.getProblems().get(0);
 		}
 		if (!plan.getImage().getProblems().isEmpty()) {
-			return I18NConstants.ERROR_IMAGE__PROBLEM.fill(String.join(" ", plan.getImage().getProblems()));
+			List<ResKey> problems = plan.getImage().getProblems();
+			ResKey all = problems.get(0);
+			for (int n = 1; n < problems.size(); n++) {
+				all = de.haumacher.ehome.programming.I18NConstants.JOIN_SENTENCES__FIRST_NEXT.fill(all, problems.get(n));
+			}
+			return I18NConstants.ERROR_IMAGE__PROBLEM.fill(all);
 		}
 		return null;
 	}
@@ -255,7 +261,7 @@ public class ProgrammingFunctions extends GenericMethod {
 			Map<String, Object> row = new LinkedHashMap<>();
 			row.put("number", SearchExpression.toNumber(number++));
 			row.put("step", operation.step());
-			row.put("operation", operation.describe());
+			row.put("operation", Resources.getInstance().getString(operation.description()));
 			row.put("bytes", SearchExpression.toNumber(operation.bytesWritten()));
 			result.add(row);
 		}
@@ -264,7 +270,7 @@ public class ProgrammingFunctions extends GenericMethod {
 			row.put("number", null);
 			row.put("step", "");
 			row.put("operation", Resources.getInstance().getString(I18NConstants.NOTE_NOT_LOADED__BLOCK.fill(
-				String.format("%s %04X-%04X", block.name(), block.address(), block.end() - 1))));
+				CompareJob.blockRange(block.label(), block.address(), block.end()))));
 			row.put("bytes", SearchExpression.toNumber(0));
 			result.add(row);
 		}

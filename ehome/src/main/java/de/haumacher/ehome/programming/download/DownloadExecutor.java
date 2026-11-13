@@ -7,6 +7,8 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
+import com.top_logic.basic.util.ResKey;
+
 /**
  * Performs a {@link DownloadPlan} on a device through a {@link DeviceAccess}, operation by operation,
  * and stops at the first failure.
@@ -57,12 +59,19 @@ public class DownloadExecutor {
 	 *        The number of operations of the plan.
 	 * @param failed
 	 *        The operation that failed, <code>null</code> on success.
-	 * @param failure
-	 *        Why it failed (with the device's answer), <code>null</code> on success.
+	 * @param reason
+	 *        Why it failed (with the device's answer), for a person; <code>null</code> on success.
 	 * @param duration
 	 *        The time the download took.
 	 */
-	public record Result(int done, int count, Operation failed, String failure, Duration duration) {
+	public record Result(int done, int count, Operation failed, ResKey reason, Duration duration) {
+
+		/**
+		 * The {@link #reason()} in English, for the log; <code>null</code> on success.
+		 */
+		public String failure() {
+			return reason == null ? null : DownloadPlan.english(reason);
+		}
 
 		/**
 		 * Whether every operation succeeded.
@@ -77,8 +86,16 @@ public class DownloadExecutor {
 	 * expected).
 	 */
 	private static final class Mismatch extends Exception {
-		Mismatch(String message) {
-			super(message);
+
+		private final ResKey _reason;
+
+		Mismatch(ResKey reason) {
+			super(DownloadPlan.english(reason));
+			_reason = reason;
+		}
+
+		ResKey reason() {
+			return _reason;
 		}
 	}
 
@@ -118,8 +135,10 @@ public class DownloadExecutor {
 			listener.operation(done + 1, operations.size(), operation);
 			try {
 				perform(operation, access);
-			} catch (BusException | Mismatch ex) {
-				return new Result(done, operations.size(), operation, ex.getMessage(), elapsed(start));
+			} catch (BusException ex) {
+				return new Result(done, operations.size(), operation, ex.getErrorKey(), elapsed(start));
+			} catch (Mismatch ex) {
+				return new Result(done, operations.size(), operation, ex.reason(), elapsed(start));
 			}
 			done++;
 		}
@@ -139,14 +158,14 @@ public class DownloadExecutor {
 			byte[] descriptor = access.readDescriptor();
 			int mask = descriptor.length < 2 ? -1 : (descriptor[0] & 0xFF) << 8 | descriptor[1] & 0xFF;
 			if (Arrays.stream(check.masks()).noneMatch(m -> m == mask)) {
-				throw new Mismatch(String.format("The device has the mask version %s, the program needs %04X.",
-					Operation.hex(descriptor), check.masks()[0]));
+				throw new Mismatch(I18NConstants.EXEC_MASK__DESCRIPTOR_NEEDED.fill(Operation.hex(descriptor),
+					String.format("%04X", check.masks()[0])));
 			}
 		} else if (operation instanceof Operation.CompareProperty compare) {
 			byte[] value = access.readProperty(compare.objectIndex(), compare.propertyId(), compare.start(), compare.count());
 			if (!startsWith(value, compare.expected())) {
-				throw new Mismatch("Object " + compare.objectIndex() + " property " + compare.propertyId() + " is "
-					+ Operation.hex(value) + ", expected " + Operation.hex(compare.expected()) + ".");
+				throw new Mismatch(I18NConstants.EXEC_PROPERTY__OBJECT_PROPERTY_VALUE_EXPECTED.fill(compare.objectIndex(),
+					compare.propertyId(), Operation.hex(value), Operation.hex(compare.expected())));
 			}
 		} else if (operation instanceof Operation.LoadControl control) {
 			loadControl(control, access);
@@ -155,14 +174,14 @@ public class DownloadExecutor {
 			if (write.verify()) {
 				byte[] read = access.readMemory(write.address(), write.data().length);
 				if (!Arrays.equals(read, write.data())) {
-					throw new Mismatch(String.format("Verification of %04X failed: the device holds %s, written was %s.",
-						write.address(), Operation.hex(read), Operation.hex(write.data())));
+					throw new Mismatch(I18NConstants.EXEC_VERIFY__ADDRESS_READ_WRITTEN.fill(String.format("%04X", write.address()),
+						Operation.hex(read), Operation.hex(write.data())));
 				}
 			}
 		} else if (operation instanceof Operation.CompareMemory compare) {
 			byte[] read = access.readMemory(compare.address(), compare.expected().length);
 			if (!Arrays.equals(read, compare.expected())) {
-				throw new Mismatch(String.format("Memory %04X holds %s, expected %s.", compare.address(),
+				throw new Mismatch(I18NConstants.EXEC_MEMORY__ADDRESS_READ_EXPECTED.fill(String.format("%04X", compare.address()),
 					Operation.hex(read), Operation.hex(compare.expected())));
 			}
 		} else if (operation instanceof Operation.WriteProperty write) {
@@ -223,10 +242,12 @@ public class DownloadExecutor {
 			state = value.length == 0 ? null : Integer.valueOf(value[0] & 0xFF);
 		}
 		if (state == null || state != control.expectedState()) {
-			throw new Mismatch("Load state machine " + control.stateMachine() + " is "
-				+ (state == null ? "in no known state" : LoadControls.stateName(state)) + " after "
-				+ LoadControls.describe(control.control()) + ", expected " + LoadControls.stateName(control.expectedState())
-				+ ".");
+			throw new Mismatch(state == null
+				? I18NConstants.EXEC_NO_LOAD_STATE__LSM_CONTROL_EXPECTED.fill(control.stateMachine(),
+					LoadControls.describe(control.control()), LoadControls.stateName(control.expectedState()))
+				: I18NConstants.EXEC_LOAD_STATE__LSM_STATE_CONTROL_EXPECTED.fill(control.stateMachine(),
+					LoadControls.stateName(state), LoadControls.describe(control.control()),
+					LoadControls.stateName(control.expectedState())));
 		}
 	}
 

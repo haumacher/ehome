@@ -13,7 +13,6 @@ import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
-import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.programming.download.BusException;
@@ -76,28 +75,28 @@ public class LedJob implements JobBody {
 		FoundDevice found = ScanRows.found(row);
 		BusPath gateway = BusPath.of(ScanRows.project(row));
 		String gatewayText = gateway.text();
-		String state = Resources.getInstance().getString(_on ? I18NConstants.LED_ON : I18NConstants.LED_OFF);
 		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
 		ProgrammingReport report = new ProgrammingReport();
-		String reported;
+		boolean reported;
 		try (CalimeroWriter access = CalimeroWriter.open(gateway, found.address())) {
 			reported = setProgrammingMode(access, found, _on);
 		} catch (BusException ex) {
 			report.add("error", de.haumacher.ehome.programming.download.I18NConstants.LEVEL_FAILURE, found.addressText(),
-				ex.getMessage());
+				ex.getErrorKey());
 			return report.toMap(I18NConstants.LED_FAILED__ADDRESS_GATEWAY_REASON.fill(found.addressText(), gatewayText,
-				ex.getMessage()), false);
+				ex.getErrorKey()), false);
 		}
-		return report.toMap(I18NConstants.LED_DONE__ADDRESS_STATE_GATEWAY_REPORTED.fill(found.addressText(), state,
-			gatewayText, reported), true);
+		return report.toMap((_on ? I18NConstants.LED_DONE_ON__ADDRESS_GATEWAY_REPORTED
+			: I18NConstants.LED_DONE_OFF__ADDRESS_GATEWAY_REPORTED).fill(found.addressText(), gatewayText,
+				reported ? I18NConstants.LED_ON : I18NConstants.LED_OFF), true);
 	}
 
 	/**
 	 * Switches the programming mode of the device.
 	 *
-	 * @return The state the device reports afterwards, for a person.
+	 * @return Whether the device reports its programming mode on afterwards.
 	 */
-	public static String setProgrammingMode(DeviceAccess access, FoundDevice found, boolean on) throws BusException {
+	public static boolean setProgrammingMode(DeviceAccess access, FoundDevice found, boolean on) throws BusException {
 		if (found.descriptor() != null && BusScanner.isBcu1(found.descriptor().intValue())) {
 			byte[] current = access.readMemory(BCU1_PROGRAMMING_MODE, 1);
 			int value = (current[0] & 0x7E) | (on ? 0x01 : 0x00);
@@ -106,12 +105,12 @@ public class LedJob implements JobBody {
 			}
 			access.writeMemory(BCU1_PROGRAMMING_MODE, new byte[] { (byte) value });
 			byte[] after = access.readMemory(BCU1_PROGRAMMING_MODE, 1);
-			return (after[0] & 0x01) != 0 ? "on" : "off";
+			return (after[0] & 0x01) != 0;
 		}
 		access.writeProperty(BusScanner.DEVICE_OBJECT, BusScanner.PID_PROGRAMMING_MODE, 1, 1,
 			new byte[] { (byte) (on ? 0x01 : 0x00) });
 		byte[] after = access.readProperty(BusScanner.DEVICE_OBJECT, BusScanner.PID_PROGRAMMING_MODE, 1, 1);
-		return after.length > 0 && (after[0] & 0x01) != 0 ? "on" : "off";
+		return after.length > 0 && (after[0] & 0x01) != 0;
 	}
 
 }

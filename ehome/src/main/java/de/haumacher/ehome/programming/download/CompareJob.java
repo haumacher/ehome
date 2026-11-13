@@ -74,34 +74,47 @@ public class CompareJob implements JobBody {
 				(number, count, block) -> {
 					job.checkCancelled();
 					job.progress(number - 1, count);
-					job.message(I18NConstants.PROGRESS_READING__WHAT.fill(block.name()));
+					job.message(I18NConstants.PROGRESS_READING__WHAT.fill(block.label()));
 				});
 		} catch (BusException ex) {
-			report.add("error", I18NConstants.LEVEL_FAILURE, "", ex.getMessage());
+			report.add("error", I18NConstants.LEVEL_FAILURE, "", ex.getErrorKey());
 			return report.toMap(I18NConstants.COMPARE_FAILED__DEVICE_GATEWAY_REASON.fill(plan.getDevice(), gatewayText,
-				ex.getMessage()), false);
+				ex.getErrorKey()), false);
 		}
-		report.add("info", I18NConstants.LEVEL_NOTE, "", "Device descriptor (mask version): " + result.descriptor());
-		for (String fact : result.facts()) {
+		report.add("info", I18NConstants.LEVEL_NOTE, "", I18NConstants.REPORT_DESCRIPTOR__VALUE.fill(result.descriptor()));
+		for (ResKey fact : result.factKeys()) {
 			report.add("info", I18NConstants.LEVEL_NOTE, "", fact);
 		}
 		for (DeviceComparison.BlockResult block : result.blocks()) {
-			String where = String.format("%s, %04X-%04X", block.name(), block.address(), block.address() + block.length() - 1);
-			if (block.failure() != null) {
-				report.add("error", I18NConstants.LEVEL_FAILURE, where, block.failure());
+			ResKey where = blockRange(block.label(), block.address(), block.address() + block.length());
+			if (block.failureKey() != null) {
+				report.add("error", I18NConstants.LEVEL_FAILURE, where, block.failureKey());
 			} else if (block.identical()) {
-				report.add("info", I18NConstants.LEVEL_IDENTICAL, where, block.compared() + " bytes compared, all equal.");
+				report.add("info", I18NConstants.LEVEL_IDENTICAL, where,
+					I18NConstants.REPORT_BLOCK_EQUAL__COUNT.fill(block.compared()));
 			} else {
-				report.add("warning", I18NConstants.LEVEL_DIFFERENT, where, block.different().size() + " of "
-					+ block.compared() + " bytes differ: " + block.ranges());
+				report.add("warning", I18NConstants.LEVEL_DIFFERENT, where,
+					I18NConstants.REPORT_BLOCK_DIFFERENT__DIFFERENT_COUNT_RANGES.fill(block.different().size(),
+						block.compared(), block.ranges()));
 			}
 		}
 		for (Block skipped : plan.getUnloadedBlocks()) {
-			report.add("info", I18NConstants.LEVEL_NOTE, String.format("%s, %04X-%04X", skipped.name(), skipped.address(),
-				skipped.end() - 1), "Not compared: a download does not write it (its segment lacks the flag 0x80).");
+			report.add("info", I18NConstants.LEVEL_NOTE, blockRange(skipped.label(), skipped.address(), skipped.end()),
+				I18NConstants.REPORT_NOT_COMPARED);
 		}
 		return report.toMap(I18NConstants.COMPARE_DONE__DEVICE_GATEWAY_EQUAL_BLOCKS.fill(plan.getDevice(), gatewayText,
 			result.identicalBlocks(), result.blocks().size()), true);
+	}
+
+	/**
+	 * A block with its range of addresses, for a person: <code>Association table, 4100-4123</code>.
+	 *
+	 * @param end
+	 *        The address after the last byte.
+	 */
+	public static ResKey blockRange(ResKey block, int address, int end) {
+		return I18NConstants.BLOCK_RANGE__BLOCK_FROM_TO.fill(block, String.format("%04X", address),
+			String.format("%04X", end - 1));
 	}
 
 }

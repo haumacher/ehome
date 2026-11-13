@@ -8,6 +8,8 @@ import com.top_logic.basic.util.ResKey1;
 import com.top_logic.basic.util.ResKey2;
 import com.top_logic.basic.util.ResKey3;
 import com.top_logic.basic.util.ResKey4;
+import com.top_logic.basic.util.ResKey5;
+import com.top_logic.basic.util.ResKeyN;
 import com.top_logic.layout.I18NConstantsBase;
 
 /**
@@ -284,6 +286,286 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en {0} (inactive)
 	 */
 	public static ResKey1 CHANNEL_INACTIVE__CHANNEL;
+
+	/**
+	 * @en Segment {0}
+	 */
+	public static ResKey1 BLOCK_SEGMENT__SEGMENT;
+
+	/**
+	 * @en Relative segment {0}
+	 */
+	public static ResKey1 BLOCK_RELATIVE_SEGMENT__SEGMENT;
+
+	/**
+	 * @en Group address table
+	 */
+	public static ResKey BLOCK_ADDRESS_TABLE;
+
+	/**
+	 * @en Association table
+	 */
+	public static ResKey BLOCK_ASSOCIATION_TABLE;
+
+	/**
+	 * @en Object table
+	 */
+	public static ResKey BLOCK_OBJECT_TABLE;
+
+	/**
+	 * @en Download image of {0}
+	 */
+	public static ResKey1 DUMP_TITLE__DEVICE;
+
+	/**
+	 * @en {0}, {1}-{2}, {3} bytes
+	 */
+	public static ResKey4 DUMP_BLOCK__BLOCK_FROM_TO_LENGTH;
+
+	/**
+	 * @en {0} (load state machine {1}), {2}-{3}, {4} bytes
+	 */
+	public static ResKey5 DUMP_RELATIVE_BLOCK__BLOCK_LSM_FROM_TO_LENGTH;
+
+	/**
+	 * @en ; {0} at {1} ({2} bytes)
+	 */
+	public static ResKey3 DUMP_CONTAINED_TABLE__TABLE_ADDRESS_LENGTH;
+
+	/**
+	 * @en Properties
+	 */
+	public static ResKey DUMP_PROPERTIES;
+
+	/**
+	 * @en Object {0}, property {1}:
+	 */
+	public static ResKey2 DUMP_PROPERTY__OBJECT_PROPERTY;
+
+	/**
+	 * @en Object type {0}, property {1}:
+	 */
+	public static ResKey2 DUMP_PROPERTY_OF_TYPE__TYPE_PROPERTY;
+
+	/**
+	 * @en Object type {0} #{1}, property {2}:
+	 */
+	public static ResKey3 DUMP_PROPERTY_OF_TYPE_OCCURRENCE__TYPE_OCCURRENCE_PROPERTY;
+
+	/**
+	 * @en Problems
+	 */
+	public static ResKey DUMP_PROBLEMS;
+
+	/**
+	 * @en A value must have at least one bit, not {0}.
+	 */
+	public static ResKey1 ENCODE_NO_BITS__SIZE;
+
+	/**
+	 * @en The value {0} does not fit into {1} bits.
+	 */
+	public static ResKey2 ENCODE_TOO_LARGE__VALUE_SIZE;
+
+	/**
+	 * @en The negative value {0} is no unsigned integer.
+	 */
+	public static ResKey1 ENCODE_NEGATIVE__VALUE;
+
+	/**
+	 * @en The value {0} does not fit into a signed integer of {1} bits.
+	 */
+	public static ResKey2 ENCODE_SIGNED_RANGE__VALUE_SIZE;
+
+	/**
+	 * @en The value {0} is outside the range of DPT 9.
+	 */
+	public static ResKey1 ENCODE_DPT9_RANGE__VALUE;
+
+	/**
+	 * @en The text "{0}" has more than {1} bytes.
+	 */
+	public static ResKey2 ENCODE_TEXT_LENGTH__TEXT_MAX;
+
+	/**
+	 * @en "{0}" is no date.
+	 */
+	public static ResKey1 ENCODE_NO_DATE__TEXT;
+
+	/**
+	 * @en The year {0} is outside the range of DPT 11 (1990 to 2089).
+	 */
+	public static ResKey1 ENCODE_YEAR_RANGE__YEAR;
+
+	/**
+	 * @en "{0}" is no IP address.
+	 */
+	public static ResKey1 ENCODE_NO_IP__TEXT;
+
+	/**
+	 * @en A little endian value must start at a byte and have whole bytes, not {0} bits at bit {1}.
+	 */
+	public static ResKey2 ENCODE_LITTLE_ENDIAN__SIZE_START;
+
+	/**
+	 * @en A value of {0} bits at bit {1} exceeds the memory of {2} bytes.
+	 */
+	public static ResKey3 ENCODE_OUTSIDE_MEMORY__SIZE_START_LENGTH;
+
+	/**
+	 * @en There is no value.
+	 */
+	public static ResKey ENCODE_NO_VALUE;
+
+	/**
+	 * @en The time unit {0} is not supported.
+	 */
+	public static ResKey1 ENCODE_TIME_UNIT__UNIT;
+
+	/**
+	 * @en "{0}" is no number.
+	 */
+	public static ResKey1 ENCODE_NO_NUMBER__TEXT;
+
+	/**
+	 * @en The parameter type {0} is not supported.
+	 */
+	public static ResKey1 ENCODE_TYPE__TYPE;
+
+	/**
+	 * @en The value {0} of the entry {1} does not fit into {2} bits.
+	 */
+	public static ResKey3 ENCODE_ENTRY_TOO_LARGE__VALUE_ENTRY_SIZE;
+
+	/**
+	 * @en The text encoding {0} is not known.
+	 */
+	public static ResKey1 ENCODE_TEXT_ENCODING__NAME;
+
+	/**
+	 * @en "{0}" is no integer.
+	 */
+	public static ResKey1 ENCODE_NO_INTEGER__TEXT;
+
+	/**
+	 * @en Parameter {0}: {1}
+	 */
+	public static ResKey2 IMAGE_PARAMETER__PARAMETER_REASON;
+
+	/**
+	 * @en Parameter {0}: its segment {1} is not written.
+	 */
+	public static ResKey2 IMAGE_PARAMETER_SEGMENT__PARAMETER_SEGMENT;
+
+	/**
+	 * @en The device has group addresses, but its program no group address table.
+	 */
+	public static ResKey IMAGE_NO_ADDRESS_TABLE;
+
+	/**
+	 * @en The device has {0} group addresses, the program allows {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_ADDRESSES__COUNT_MAX;
+
+	/**
+	 * @en The device has {0} associations, the program allows {1}.
+	 */
+	public static ResKey2 IMAGE_TOO_MANY_ASSOCIATIONS__COUNT_MAX;
+
+	/**
+	 * @en The place of the group address table is not known.
+	 */
+	public static ResKey IMAGE_ADDRESS_TABLE_PLACE;
+
+	/**
+	 * @en The place of the association table is not known.
+	 */
+	public static ResKey IMAGE_ASSOCIATION_TABLE_PLACE;
+
+	/**
+	 * @en The table "{0}" ({1}-{2}) exceeds its segment {3}.
+	 */
+	public static ResKey4 IMAGE_TABLE_EXCEEDS_SEGMENT__TABLE_FROM_TO_SEGMENT;
+
+	/**
+	 * @en The program places the {0} at {1}, mask {2} at {3}.
+	 */
+	public static ResKey4 IMAGE_FIXED_PLACE__RESOURCE_ADDRESS_MASK_EXPECTED;
+
+	/**
+	 * @en Mask {0} has no pointer {1} of format {2} in memory; the place of the table is not known to the device.
+	 */
+	public static ResKey3 IMAGE_NO_POINTER__MASK_RESOURCE_FORMAT;
+
+	/**
+	 * @en The table at {0} cannot be addressed by the pointer {1} ({2}).
+	 */
+	public static ResKey3 IMAGE_POINTER_RANGE__TABLE_RESOURCE_ADDRESS;
+
+	/**
+	 * @en The pointer {0} ({1}) lies in no segment of the program.
+	 */
+	public static ResKey2 IMAGE_POINTER_OUTSIDE__RESOURCE_ADDRESS;
+
+	/**
+	 * @en The static data hold {0} (mask {1}) in the pointer {2} ({3}), the table lies at {4}.
+	 */
+	public static ResKey5 IMAGE_POINTER_STATIC__VALUE_MASK_RESOURCE_ADDRESS_TABLE;
+
+	/**
+	 * @en The program has no mask version, the format of its tables is not known.
+	 */
+	public static ResKey IMAGE_NO_MASK;
+
+	/**
+	 * @en The {0} of mask {1} has the format {2}; supported is {3} (verified with mask 7.5).
+	 */
+	public static ResKey4 IMAGE_FORMAT__RESOURCE_MASK_FORMATS_SUPPORTED;
+
+	/**
+	 * @en A table in a relative segment is not supported.
+	 */
+	public static ResKey IMAGE_RELATIVE_TABLE;
+
+	/**
+	 * @en The object table has no static data in its segment.
+	 */
+	public static ResKey IMAGE_OBJECT_TABLE_NO_DATA;
+
+	/**
+	 * @en The option SetObjectTableLengthAlwaysToOne is not supported.
+	 */
+	public static ResKey IMAGE_LENGTH_ALWAYS_ONE;
+
+	/**
+	 * @en The object table lies outside its segment.
+	 */
+	public static ResKey IMAGE_OBJECT_TABLE_OUTSIDE;
+
+	/**
+	 * @en The object table of {0} objects exceeds its segment.
+	 */
+	public static ResKey1 IMAGE_OBJECT_TABLE_EXCEEDS__COUNT;
+
+	/**
+	 * @en The object table has an object {0} the program does not define.
+	 */
+	public static ResKey1 IMAGE_UNDEFINED_OBJECT__NUMBER;
+
+	/**
+	 * @en Object {0} has a size of {1} bits, which has no type code in {2}.
+	 */
+	public static ResKey3 IMAGE_OBJECT_SIZE__NUMBER_BITS_FORMAT;
+
+	/**
+	 * @en The table "{0}" ({1}-{2}) overlaps the table "{3}" ({4}-{5}).
+	 */
+	public static ResKeyN IMAGE_OVERLAP__TABLE_FROM_TO_OTHER_FROM_TO;
+
+	/**
+	 * @en {0} {1}
+	 */
+	public static ResKey2 JOIN_SENTENCES__FIRST_NEXT;
 
 	static {
 		initConstants(I18NConstants.class);

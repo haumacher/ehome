@@ -9,6 +9,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.top_logic.basic.util.ResKey;
+
+import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.LoadControls;
 import de.haumacher.ehome.programming.download.Operation;
 
@@ -100,7 +103,7 @@ public class TraceOperations {
 						}
 						result.add(new Operation.LoadControl("", object, object, data, state));
 					} else {
-						result.add(new Operation.WriteProperty("", "", object, property, request.number(TraceEntry.START),
+						result.add(new Operation.WriteProperty("", ResKey.text(""), object, property, request.number(TraceEntry.START),
 							request.number(TraceEntry.COUNT), data));
 					}
 					break;
@@ -117,7 +120,7 @@ public class TraceOperations {
 					if (verify) {
 						n++;
 					}
-					result.add(new Operation.WriteMemory("", "", address, data, verify));
+					result.add(new Operation.WriteMemory("", ResKey.text(""), address, data, verify));
 					break;
 				}
 				case TraceEntry.MEMORY_READ:
@@ -136,7 +139,7 @@ public class TraceOperations {
 						TraceFormat.parseIndividual(request.field(TraceEntry.INDIVIDUAL))));
 					break;
 				default:
-					result.add(new Operation.Skip("", "the service " + request.service() + " " + request.fields()));
+					result.add(new Operation.Skip("", ResKey.text("the service " + request.service() + " " + request.fields())));
 			}
 			n++;
 		}
@@ -251,7 +254,7 @@ public class TraceOperations {
 			return "Delay " + delay.milliseconds();
 		}
 		if (operation instanceof Operation.Skip skip) {
-			return "Skip " + skip.reason();
+			return "Skip " + DownloadPlan.english(skip.reason());
 		}
 		if (operation instanceof Operation.WriteIndividualAddress write) {
 			return "WriteIndividualAddress " + TraceFormat.individual(write.address());

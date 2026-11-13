@@ -137,8 +137,8 @@ public class ScanFunctions extends GenericMethod {
 				if (found == null) {
 					return null;
 				}
-				return I18NConstants.CONFIRM_LED__ADDRESS_STATE_GATEWAY.fill(found.addressText(),
-					Boolean.TRUE.equals(arguments[1]) ? I18NConstants.LED_ON : I18NConstants.LED_OFF,
+				return (Boolean.TRUE.equals(arguments[1]) ? I18NConstants.CONFIRM_LED_ON__ADDRESS_GATEWAY
+					: I18NConstants.CONFIRM_LED_OFF__ADDRESS_GATEWAY).fill(found.addressText(),
 					BusPath.describe(ScanRows.project(arguments[0])));
 			}
 		}
@@ -187,7 +187,7 @@ public class ScanFunctions extends GenericMethod {
 			return I18NConstants.ERROR_NO_ROW;
 		}
 		if (match.kind() == CatalogMatch.Kind.UNIDENTIFIED) {
-			return I18NConstants.ERROR_UNIDENTIFIED__REASON.fill(match.reason());
+			return I18NConstants.ERROR_UNIDENTIFIED__REASON.fill(match.reasonKey());
 		}
 		return null;
 	}
