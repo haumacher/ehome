@@ -71,6 +71,22 @@
 			inputs="selectedType"
 		/>
 		<channel name="selectedEntry"/>
+		<!-- The icon and the help of the selected structure element (haumacher/ehome #156, #157), and the icon of the selected entry of an enumeration type. -->
+		<derived-channel name="selectedIcon"
+			expr="parameterIcon($selected)"
+			inputs="selected"
+			observed-types="ehome.catalog:ArchiveEntry,ehome.operational:Option"
+		/>
+		<derived-channel name="selectedHelp"
+			expr="parameterHelp($selected)"
+			inputs="selected"
+			observed-types="ehome.catalog:ArchiveEntry,ehome.operational:HelpFile,ehome.operational:Option"
+		/>
+		<derived-channel name="entryIcon"
+			expr="parameterIcon($selectedEntry)"
+			inputs="selectedEntry"
+			observed-types="ehome.catalog:ArchiveEntry,ehome.operational:EnumerationValue"
+		/>
 	</channels>
 
 	<tab-bar active-tab="structure">
@@ -419,6 +435,10 @@
     default: [];
 }]]></children>
 									<parents>$node.container()</parents>
+									<!-- A channel, block or parameter with an icon in the icons of the program shows it (haumacher/ehome #156). -->
+									<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
+										image="parameterIcon($value)"
+									/>
 									<!-- Every element of the structure but the program itself can be dragged. -->
 									<drag kind="programStructure">
 										<node-executability>
@@ -467,8 +487,19 @@
 											<field attribute="number"/>
 											<field attribute="name"/>
 											<field attribute="description"/>
+											<field attribute="icon"/>
 											<field attribute="extId"/>
 										</form>
+										<view-ref view="catalogs/program-resources.view.xml">
+											<bind
+												channel="icon"
+												to="selectedIcon"
+											/>
+											<bind
+												channel="help"
+												to="selectedHelp"
+											/>
+										</view-ref>
 									</case>
 									<case test="$selected.instanceOf(`ehome.operational:ParameterGroup`)">
 										<form
@@ -481,8 +512,20 @@
 											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
 											<field attribute="name"/>
+											<field attribute="icon"/>
+											<field attribute="helpTopic"/>
 											<field attribute="extId"/>
 										</form>
+										<view-ref view="catalogs/program-resources.view.xml">
+											<bind
+												channel="icon"
+												to="selectedIcon"
+											/>
+											<bind
+												channel="help"
+												to="selectedHelp"
+											/>
+										</view-ref>
 									</case>
 									<case test="$selected.instanceOf(`ehome.operational:Switch`)">
 										<form
@@ -596,8 +639,20 @@
 											<field attribute="defaultSource"/>
 											<field attribute="access"/>
 											<field attribute="effectiveAccess"/>
+											<field attribute="icon"/>
+											<field attribute="helpTopic"/>
 											<field attribute="extId"/>
 										</form>
+										<view-ref view="catalogs/program-resources.view.xml">
+											<bind
+												channel="icon"
+												to="selectedIcon"
+											/>
+											<bind
+												channel="help"
+												to="selectedHelp"
+											/>
+										</view-ref>
 										<form
 											input="placedParameter"
 											with-inset="true"
@@ -676,6 +731,9 @@
 														/>
 														<column attribute="index"
 															width="100"
+														/>
+														<column attribute="icon"
+															width="160"
 														/>
 													</columns>
 													<rows>$placedType.get(`ehome.operational:EnumerationType#values`)</rows>
@@ -1871,6 +1929,9 @@
 												<column attribute="index"
 													width="100"
 												/>
+												<column attribute="icon"
+													width="160"
+												/>
 												<column attribute="extId"
 													width="240"
 												/>
@@ -1884,8 +1945,16 @@
 											<field attribute="name"/>
 											<field attribute="value"/>
 											<field attribute="index"/>
+											<field attribute="icon"/>
 											<field attribute="extId"/>
 										</form>
+										<!-- The icon of the entry in the icons of the program (haumacher/ehome #156). -->
+										<view-ref view="catalogs/program-resources.view.xml">
+											<bind
+												channel="icon"
+												to="entryIcon"
+											/>
+										</view-ref>
 									</panel>
 								</visible-if>
 							</panel>

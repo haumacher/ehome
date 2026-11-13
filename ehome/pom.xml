@@ -80,6 +80,16 @@
 			<version>1.9.1</version>
 		</dependency>
 
+		<!--
+			Formatting the help texts of application programs (ETS: ContextHelpFile, Markdown,
+			haumacher/ehome #157) as HTML, raw HTML escaped. The version the engine uses (tl-basic depends
+			on it, the TopLogic BOM manages it). License: BSD 2-Clause.
+		-->
+		<dependency>
+			<groupId>org.commonmark</groupId>
+			<artifactId>commonmark</artifactId>
+		</dependency>
+
     <dependency>
       <groupId>com.top-logic</groupId>
       <artifactId>tl-contact</artifactId>

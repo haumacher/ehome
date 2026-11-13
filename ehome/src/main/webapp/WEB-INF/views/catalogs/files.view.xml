@@ -94,6 +94,7 @@
 				<field attribute="size"/>
 				<field attribute="time"/>
 				<field attribute="content"/>
+				<field attribute="unpacked"/>
 				<field attribute="extId"/>
 			</form>
 		</stack>

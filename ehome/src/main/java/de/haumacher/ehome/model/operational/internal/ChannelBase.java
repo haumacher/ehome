@@ -34,6 +34,15 @@ public interface ChannelBase extends de.haumacher.ehome.model.operational.Config
 	String DISPLAY_NAME_ATTR = "displayName";
 
 	/**
+	 * Part <code>icon</code> of <code>Channel</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String ICON_ATTR = "icon";
+
+	/**
 	 * Part <code>name</code> of <code>Channel</code>
 	 * 
 	 * <p>
@@ -84,6 +93,20 @@ public interface ChannelBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default String getDisplayName() {
 		return (String) tValueByName(DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Getter for part {@link #ICON_ATTR}.
+	 */
+	default String getIcon() {
+		return (String) tValueByName(ICON_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ICON_ATTR}.
+	 */
+	default void setIcon(String newValue) {
+		tUpdateByName(ICON_ATTR, newValue);
 	}
 
 	/**

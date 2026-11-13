@@ -70,6 +70,24 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	String EFFECTIVE_ACCESS_ATTR = "effectiveAccess";
 
 	/**
+	 * Part <code>helpTopic</code> of <code>ParameterView</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String HELP_TOPIC_ATTR = "helpTopic";
+
+	/**
+	 * Part <code>icon</code> of <code>ParameterView</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String ICON_ATTR = "icon";
+
+	/**
 	 * Part <code>name</code> of <code>ParameterView</code>
 	 * 
 	 * <p>
@@ -174,6 +192,34 @@ public interface ParameterViewBase extends de.haumacher.ehome.model.operational.
 	 */
 	default com.top_logic.model.TLClassifier getEffectiveAccess() {
 		return (com.top_logic.model.TLClassifier) tValueByName(EFFECTIVE_ACCESS_ATTR);
+	}
+
+	/**
+	 * Getter for part {@link #HELP_TOPIC_ATTR}.
+	 */
+	default String getHelpTopic() {
+		return (String) tValueByName(HELP_TOPIC_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #HELP_TOPIC_ATTR}.
+	 */
+	default void setHelpTopic(String newValue) {
+		tUpdateByName(HELP_TOPIC_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #ICON_ATTR}.
+	 */
+	default String getIcon() {
+		return (String) tValueByName(ICON_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ICON_ATTR}.
+	 */
+	default void setIcon(String newValue) {
+		tUpdateByName(ICON_ATTR, newValue);
 	}
 
 	/**

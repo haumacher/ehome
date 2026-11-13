@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The icon and the help of an element of an application program in the catalog (catalogs/program.view.xml):
+	the picture of its icon in the icons of the program (ETS: Icon, haumacher/ehome #156) and the button opening
+	its help (ETS: HelpContext, haumacher/ehome #157, catalogs/program-help.view.xml). Nothing where the element
+	has neither, or the program's archives do not hold them.
+-->
+<view>
+	<channels>
+		<!-- The picture of the icon, if any. -->
+		<channel name="icon"/>
+		<!-- The help as HTML, if any. -->
+		<channel name="help"/>
+	</channels>
+	<stack
+		align="center"
+		direction="row"
+		gap="compact"
+	>
+		<visible-if
+			expr="$icon != null"
+			input="icon"
+		>
+			<inset>
+				<stack
+					align="center"
+					direction="row"
+					gap="compact"
+				>
+					<text tone="secondary">
+						<label>
+							<en>Icon:</en>
+							<de>Symbol:</de>
+						</label>
+					</text>
+					<image
+						fit="contain"
+						height="2em"
+						input="icon"
+						width="2em"
+					>
+						<alt>
+							<en>Icon</en>
+							<de>Symbol</de>
+						</alt>
+					</image>
+				</stack>
+			</inset>
+		</visible-if>
+		<visible-if
+			expr="$help != null"
+			input="help"
+		>
+			<inset>
+				<stack
+					align="center"
+					direction="row"
+					gap="compact"
+				>
+					<text tone="secondary">
+						<label>
+							<en>Help:</en>
+							<de>Hilfe:</de>
+						</label>
+					</text>
+					<view-ref view="catalogs/program-help.view.xml">
+						<bind
+							channel="help"
+							to="help"
+						/>
+					</view-ref>
+				</stack>
+			</inset>
+		</visible-if>
+	</stack>
+</view>

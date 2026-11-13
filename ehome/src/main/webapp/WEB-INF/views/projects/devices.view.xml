@@ -116,6 +116,12 @@
 			expr="if($page == null, $device, $page)"
 			inputs="device, page"
 		/>
+		<!-- The help of the page (a parameter block) in the reader's language (haumacher/ehome #157), nothing if it has none. -->
+		<derived-channel name="pageHelp"
+			expr="parameterHelp($shownPage)"
+			inputs="shownPage"
+			observed-types="ehome.catalog:ArchiveEntry,ehome.operational:HelpFile"
+		/>
 		<!-- What the program of the selected device needs of ETS besides its product data (haumacher/ehome #159), nothing if nothing. -->
 		<derived-channel name="requirementNotice"
 			expr="{ n = programRequirementNotice($device); if($n == null, null, $n.localize()) }"
@@ -820,8 +826,10 @@
 														<parents>deviceParentPage($device, $node)</parents>
 														<!-- A page holding a change since the last download (on it or below it) is marked. -->
 														<!-- The label with {{0}} filled from the device's values (DeviceTexts). -->
+														<!-- A channel or block with an icon in the icons of its program shows it (haumacher/ehome #156). -->
 														<nodeContent class="de.haumacher.ehome.view.ScriptLabelControlProvider"
 															css-class="if(deviceChanged($device, $value), 'ehomeChanged', null)"
+															image="parameterIcon($value)"
 															label="deviceText($device, $value)"
 															inputs="device"
 														/>
@@ -833,6 +841,30 @@
 													unit="%"
 												>
 													<inset>
+														<!-- The help of the page, where the program has one (haumacher/ehome #157). -->
+														<visible-if
+															expr="$pageHelp != null"
+															input="pageHelp"
+														>
+															<stack
+																align="center"
+																direction="row"
+																gap="compact"
+															>
+																<text tone="secondary">
+																	<label>
+																		<en>Help on this page</en>
+																		<de>Hilfe zu dieser Seite</de>
+																	</label>
+																</text>
+																<view-ref view="catalogs/program-help.view.xml">
+																	<bind
+																		channel="help"
+																		to="pageHelp"
+																	/>
+																</view-ref>
+															</stack>
+														</visible-if>
 														<object-list
 															element-channel="item"
 															gap="compact"

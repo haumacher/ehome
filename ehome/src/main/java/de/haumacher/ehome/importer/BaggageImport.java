@@ -59,7 +59,9 @@ import com.top_logic.xio.importer.binding.ImportContext;
  * the known one as it is, a newer time replaces its content and the import reports it. A file is
  * kept as it is, whatever its kind; nothing is interpreted or run. A file above the size limit (see
  * {@link #DEFAULT_SIZE_LIMIT}) is refused alone with a report line: the catalog lists it without its
- * content, and a later import of a file holding it completes it.
+ * content, and a later import of a file holding it completes it. An archive a program takes its
+ * icons or help texts from is unpacked into its files (see {@link ProgramResourcesImport}); a newer
+ * content (or the content completed) unpacks it again.
  * </p>
  */
 final class BaggageImport {
@@ -326,17 +328,29 @@ final class BaggageImport {
 			}
 			describe(baggage, listed);
 			setContent(baggage, listed, content);
+			unpackAgain(baggage, messages);
 			_replaced.add(baggage);
 			messages.log(Level.INFO, I18NConstants.INFO_BAGGAGE_REPLACED__FILE_TIME_OLD.fill(file,
 				format(listed.time()), before == null ? "-" : format(before.toInstant())));
 		} else if (baggage.tValueByName("content") == null) {
 			if (content != null) {
 				setContent(baggage, listed, content);
+				unpackAgain(baggage, messages);
 				messages.log(Level.INFO, I18NConstants.INFO_BAGGAGE_COMPLETED__FILE.fill(file));
 			} else {
 				// Still without content: said again, since each import is reported on its own.
 				reportMissing(messages, file, null, tooLarge);
 			}
+		}
+	}
+
+	/**
+	 * Unpacks the given file again with its new content, if it is an archive a program takes its
+	 * icons or help texts from (haumacher/ehome #156, #157): its entries follow its content.
+	 */
+	private static void unpackAgain(TLObject baggage, BufferingI18NLog messages) {
+		if (Boolean.TRUE.equals(baggage.tValueByName("unpacked"))) {
+			ProgramResourcesImport.unpack(baggage, messages);
 		}
 	}
 

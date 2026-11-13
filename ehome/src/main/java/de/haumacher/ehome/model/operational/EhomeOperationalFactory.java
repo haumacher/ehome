@@ -1394,6 +1394,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Channel#ICON_ATTR} of {@link Channel}.
+	 */
+	public static com.top_logic.model.TLProperty getIconChannelAttr() {
+		return (com.top_logic.model.TLProperty) getChannelType().getPart(Channel.ICON_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Channel#NAME_ATTR} of {@link Channel}.
 	 */
 	public static com.top_logic.model.TLProperty getNameChannelAttr() {
@@ -1471,6 +1478,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link ParameterGroup#HELP_TOPIC_ATTR} of {@link ParameterGroup}.
+	 */
+	public static com.top_logic.model.TLProperty getHelpTopicParameterGroupAttr() {
+		return (com.top_logic.model.TLProperty) getParameterGroupType().getPart(ParameterGroup.HELP_TOPIC_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterGroup#ICON_ATTR} of {@link ParameterGroup}.
+	 */
+	public static com.top_logic.model.TLProperty getIconParameterGroupAttr() {
+		return (com.top_logic.model.TLProperty) getParameterGroupType().getPart(ParameterGroup.ICON_ATTR);
+	}
+
+	/**
 	 * Lookup {@link ParameterGroup#INPUT_ATTR} of {@link ParameterGroup}.
 	 */
 	public static com.top_logic.model.TLReference getInputParameterGroupAttr() {
@@ -1503,6 +1524,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLProperty getBinaryEnumerationValueAttr() {
 		return (com.top_logic.model.TLProperty) getEnumerationValueType().getPart(EnumerationValue.BINARY_ATTR);
+	}
+
+	/**
+	 * Lookup {@link EnumerationValue#ICON_ATTR} of {@link EnumerationValue}.
+	 */
+	public static com.top_logic.model.TLProperty getIconEnumerationValueAttr() {
+		return (com.top_logic.model.TLProperty) getEnumerationValueType().getPart(EnumerationValue.ICON_ATTR);
 	}
 
 	/**
@@ -1755,6 +1783,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLReference getEffectiveAccessParameterViewAttr() {
 		return (com.top_logic.model.TLReference) getParameterViewType().getPart(ParameterView.EFFECTIVE_ACCESS_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterView#HELP_TOPIC_ATTR} of {@link ParameterView}.
+	 */
+	public static com.top_logic.model.TLProperty getHelpTopicParameterViewAttr() {
+		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.HELP_TOPIC_ATTR);
+	}
+
+	/**
+	 * Lookup {@link ParameterView#ICON_ATTR} of {@link ParameterView}.
+	 */
+	public static com.top_logic.model.TLProperty getIconParameterViewAttr() {
+		return (com.top_logic.model.TLProperty) getParameterViewType().getPart(ParameterView.ICON_ATTR);
 	}
 
 	/**
@@ -2451,6 +2493,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#HELP_FILES_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getHelpFilesProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.HELP_FILES_ATTR);
+	}
+
+	/**
+	 * Lookup {@link Program#ICON_FILE_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLReference getIconFileProgramAttr() {
+		return (com.top_logic.model.TLReference) getProgramType().getPart(Program.ICON_FILE_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#IGNORE_LOADED_STATE_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLProperty getIgnoreLoadedStateProgramAttr() {
@@ -2619,6 +2675,13 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	}
 
 	/**
+	 * Lookup {@link Program#RESOURCES_READ_ATTR} of {@link Program}.
+	 */
+	public static com.top_logic.model.TLProperty getResourcesReadProgramAttr() {
+		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.RESOURCES_READ_ATTR);
+	}
+
+	/**
 	 * Lookup {@link Program#SCRIPT_ATTR} of {@link Program}.
 	 */
 	public static com.top_logic.model.TLProperty getScriptProgramAttr() {
@@ -2679,6 +2742,41 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public static com.top_logic.model.TLProperty getValidationsReadProgramAttr() {
 		return (com.top_logic.model.TLProperty) getProgramType().getPart(Program.VALIDATIONS_READ_ATTR);
+	}
+
+	/**
+	 * Lookup {@link HelpFile} type.
+	 */
+	public static com.top_logic.model.TLClass getHelpFileType() {
+		return (com.top_logic.model.TLClass) com.top_logic.util.model.ModelService.getApplicationModel().getModule(EHOME_OPERATIONAL_MODULE).getType(HelpFile.HELP_FILE_TYPE);
+	}
+
+	/**
+	 * Lookup {@link HelpFile#DISPLAY_NAME_ATTR} of {@link HelpFile}.
+	 */
+	public static com.top_logic.model.TLProperty getDisplayNameHelpFileAttr() {
+		return (com.top_logic.model.TLProperty) getHelpFileType().getPart(HelpFile.DISPLAY_NAME_ATTR);
+	}
+
+	/**
+	 * Lookup {@link HelpFile#FALLBACK_ATTR} of {@link HelpFile}.
+	 */
+	public static com.top_logic.model.TLProperty getFallbackHelpFileAttr() {
+		return (com.top_logic.model.TLProperty) getHelpFileType().getPart(HelpFile.FALLBACK_ATTR);
+	}
+
+	/**
+	 * Lookup {@link HelpFile#FILE_ATTR} of {@link HelpFile}.
+	 */
+	public static com.top_logic.model.TLReference getFileHelpFileAttr() {
+		return (com.top_logic.model.TLReference) getHelpFileType().getPart(HelpFile.FILE_ATTR);
+	}
+
+	/**
+	 * Lookup {@link HelpFile#LANGUAGE_ATTR} of {@link HelpFile}.
+	 */
+	public static com.top_logic.model.TLProperty getLanguageHelpFileAttr() {
+		return (com.top_logic.model.TLProperty) getHelpFileType().getPart(HelpFile.LANGUAGE_ATTR);
 	}
 
 	/**
@@ -5822,6 +5920,22 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	public static final String KO_NAME_PROGRAM = de.haumacher.ehome.model.operational.internal.ProgramBase.TABLE_NAME;
 
 	/**
+	 * Name of type <code>HelpFile</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
+	 * 
+	 * @deprecated Use {@link HelpFile#HELP_FILE_TYPE}.
+	 */
+	@Deprecated
+	public static final String HELP_FILE_NODE = HelpFile.HELP_FILE_TYPE;
+
+	/**
+	 * Storage table name of {@link #HELP_FILE_NODE} objects.
+	 * 
+	 * @deprecated Use {@link de.haumacher.ehome.model.operational.internal.HelpFileBase#TABLE_NAME}.
+	 */
+	@Deprecated
+	public static final String KO_NAME_HELP_FILE = de.haumacher.ehome.model.operational.internal.HelpFileBase.TABLE_NAME;
+
+	/**
 	 * Name of type <code>ModuleDefinition</code> in module {@link #EHOME_OPERATIONAL_MODULE}.
 	 * 
 	 * @deprecated Use {@link ModuleDefinition#MODULE_DEFINITION_TYPE}.
@@ -6557,6 +6671,20 @@ public class EhomeOperationalFactory extends com.top_logic.element.structured.wr
 	 */
 	public final Program createProgram() {
 		return createProgram(null);
+	}
+
+	/**
+	 * Create an instance of {@link HelpFile} type.
+	 */
+	public final HelpFile createHelpFile(com.top_logic.model.TLObject context) {
+		return (HelpFile) createObject(getHelpFileType(), context);
+	}
+
+	/**
+	 * Create an instance of {@link HelpFile} type.
+	 */
+	public final HelpFile createHelpFile() {
+		return createHelpFile(null);
 	}
 
 	/**

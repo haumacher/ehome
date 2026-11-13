@@ -13,10 +13,17 @@ import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.annotation.Name;
 import com.top_logic.basic.config.annotation.Nullable;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
+import com.top_logic.basic.io.binary.BinaryData;
 import com.top_logic.layout.ResourceProvider;
 import com.top_logic.layout.provider.ProxyResourceProvider;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.react.control.ReactControl;
+import com.top_logic.layout.react.control.image.ImageFit;
+import com.top_logic.layout.react.control.image.ReactImageControl;
+import com.top_logic.layout.react.control.layout.ReactStackControl;
+import com.top_logic.layout.react.control.layout.ReactStackControl.StackAlign;
+import com.top_logic.layout.react.control.layout.ReactStackControl.StackDirection;
+import com.top_logic.layout.react.control.layout.ReactStackControl.StackGap;
 import com.top_logic.layout.react.control.table.ReactResourceCellControl;
 import com.top_logic.layout.react.controlprovider.ReactControlProvider;
 import com.top_logic.layout.view.ViewContext;
@@ -48,6 +55,12 @@ import com.top_logic.model.search.expr.query.QueryExecutor;
  * </pre>
  *
  * <p>
+ * Where an <code>image</code> expression computes a picture (a binary value, e.g. the icon of a
+ * channel from the icons of its program, haumacher/ehome #156), the node shows it in front of its
+ * label, as large as the text.
+ * </p>
+ *
+ * <p>
  * The label and the class are computed when the node is displayed and whenever its object
  * changes; a mark depending on other objects needs a tree that is built anew when it changes (an
  * input of the tree that changes with the mark).
@@ -65,6 +78,9 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 
 		/** Configuration name for {@link #getCssClass()}. */
 		String CSS_CLASS = "css-class";
+
+		/** Configuration name for {@link #getImage()}. */
+		String IMAGE = "image";
 
 		@Override
 		@ClassDefault(ScriptLabelControlProvider.class)
@@ -86,16 +102,30 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 		@Name(CSS_CLASS)
 		@Nullable
 		Expr getCssClass();
+
+		/**
+		 * Expression computing a picture of a node from its object (the variable
+		 * <code>$value</code>), shown in front of its label: a binary value of a picture format;
+		 * <code>null</code> for none. Computed when the node is displayed.
+		 */
+		@Name(IMAGE)
+		@Nullable
+		Expr getImage();
 	}
 
 	/** The variable holding the object of the node, behind the inputs. */
 	private static final String VALUE = "value";
+
+	/** The size of a picture in front of the label: the height of a line of text. */
+	private static final String ICON_SIZE = "1.25em";
 
 	private final Config _config;
 
 	private final QueryExecutor _label;
 
 	private final QueryExecutor _cssClass;
+
+	private final QueryExecutor _image;
 
 	/**
 	 * Creates a {@link ScriptLabelControlProvider} from configuration.
@@ -107,6 +137,7 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 		variables.add(VALUE);
 		_label = ViewScripts.compileOptional(config.getLabel(), variables);
 		_cssClass = ViewScripts.compileOptional(config.getCssClass(), variables);
+		_image = ViewScripts.compileOptional(config.getImage(), variables);
 	}
 
 	@Override
@@ -117,7 +148,18 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 		ResourceProvider resources = resources(
 			_label == null ? null : object -> evaluate(_label, inputs, object),
 			_cssClass == null ? null : object -> evaluate(_cssClass, inputs, object));
-		return new ReactResourceCellControl(context, model, resources, true, true, false);
+		ReactControl cell = new ReactResourceCellControl(context, model, resources, true, true, false);
+		Object image = _image == null || model == null ? null : evaluate(_image, inputs, model);
+		if (!(image instanceof BinaryData picture)) {
+			return cell;
+		}
+		ReactImageControl icon = new ReactImageControl(context);
+		icon.setFit(ImageFit.CONTAIN);
+		icon.setWidth(ICON_SIZE);
+		icon.setHeight(ICON_SIZE);
+		icon.setValue(picture);
+		return new ReactStackControl(context, StackDirection.ROW, StackGap.COMPACT, StackAlign.CENTER, false,
+			List.of(icon, cell));
 	}
 
 	/**

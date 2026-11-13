@@ -64,11 +64,20 @@ ekinex.
 - `TypePicture` is read since #154 and its pictures are shown in the parameters since #155; the plug-in
   attributes of `Static/Extension` are read since #159 as the requirements of the program (Theben's
   "DALI-Gateway KNX plus" shows the notice of its user interface plug-in and is downloaded as its
-  product data declare); `IconFile`, `ContextHelpFile` (#156, #157) and `Static/BinaryData` are not
-  read (`doc/knx/schema-coverage.md`, "Not covered").
+  product data declare); `IconFile` and `Icon` are read and the icons shown since #156, `ContextHelpFile`
+  and `HelpContext` with the help texts since #157 (`doc/knx/schema-coverage.md`, "Icons and help texts of
+  a program"); `Static/BinaryData` is not read (`doc/knx/schema-coverage.md`, "Not covered").
+- The icon archives are ZIP archives of PNG pictures named as the elements name their icon (MDT
+  `Symbole_new.zip`: 191 pictures, 188 of 32x32 pixels, all 163 icons of `BE-GTSx6Tx-01S` present;
+  Theben `Enumicons.zip` 40, `SM4_icons.zip` 2, `2023029_4969278_icons.zip` 2). Besides enumeration
+  entries and channels, Theben's "TA x.1 KNX" name an icon at a parameter block and MDT's room
+  temperature controllers (`SCN-xxxxxx-01`, `SCN_01_..._Smart`) at a `ParameterRefRef`. The help archives
+  are ZIP archives of one `.txt` per topic in Markdown (UTF-8, Theben's `Context_Help_*` with a byte order
+  mark, CRLF line ends; bold, italics, rules); Theben ships one per language (DE, EN, ES, FR, IT, NL, SV).
+  MDT writes `HelpContext=""` (empty) at parameters of 7 files and ships no help.
 - The product files of the test fixtures (`MDT_AKK_V23.knxprod`, `Zennio_DALI_BOX_64_v3.knxprod`)
   hold no baggage; `TestBaggage*.knxprod` and `TestBaggage.knxproj` (`make-fixtures.py`) hold
-  artificial baggage.
+  artificial baggage, `TestResources*.knxprod` and `TestResources.knxproj` artificial icons and help texts.
 
 ## What the files contain
 
@@ -82,7 +91,7 @@ programs).
 | Encrypted entries | none | none |
 | `TypePicture` (a picture in the parameter dialog) | 28 files | 14 programs |
 | `IconFile` (a parameter chooses an icon from a `.zip` of the baggage) | 10 files | yes |
-| `ContextHelpFile` (help texts per language as `.zip`) | none | yes |
+| `ContextHelpFile` (help texts per language as `.zip`) | none (an empty `HelpContext` in 7 files) | 5 programs |
 | `Button` with an event handler of the script | 7 files | |
 | `BinaryData` | 2 files | |
 | An ETS plug-in (`Extension@EtsUiPlugin`) | none | 1 program |

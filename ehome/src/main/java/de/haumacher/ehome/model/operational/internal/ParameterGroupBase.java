@@ -61,6 +61,24 @@ public interface ParameterGroupBase extends de.haumacher.ehome.model.operational
 	String EFFECTIVE_TITLE_ATTR = "effectiveTitle";
 
 	/**
+	 * Part <code>helpTopic</code> of <code>ParameterGroup</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String HELP_TOPIC_ATTR = "helpTopic";
+
+	/**
+	 * Part <code>icon</code> of <code>ParameterGroup</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String ICON_ATTR = "icon";
+
+	/**
 	 * Part <code>input</code> of <code>ParameterGroup</code>
 	 * 
 	 * <p>
@@ -139,6 +157,34 @@ public interface ParameterGroupBase extends de.haumacher.ehome.model.operational
 	 */
 	default String getEffectiveTitle() {
 		return (String) tValueByName(EFFECTIVE_TITLE_ATTR);
+	}
+
+	/**
+	 * Getter for part {@link #HELP_TOPIC_ATTR}.
+	 */
+	default String getHelpTopic() {
+		return (String) tValueByName(HELP_TOPIC_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #HELP_TOPIC_ATTR}.
+	 */
+	default void setHelpTopic(String newValue) {
+		tUpdateByName(HELP_TOPIC_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #ICON_ATTR}.
+	 */
+	default String getIcon() {
+		return (String) tValueByName(ICON_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ICON_ATTR}.
+	 */
+	default void setIcon(String newValue) {
+		tUpdateByName(ICON_ATTR, newValue);
 	}
 
 	/**

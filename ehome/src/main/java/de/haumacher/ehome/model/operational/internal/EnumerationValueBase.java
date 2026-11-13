@@ -25,6 +25,15 @@ public interface EnumerationValueBase extends de.haumacher.ehome.model.core.Exte
 	String BINARY_ATTR = "binary";
 
 	/**
+	 * Part <code>icon</code> of <code>EnumerationValue</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:String</code> in configuration.
+	 * </p>
+	 */
+	String ICON_ATTR = "icon";
+
+	/**
 	 * Part <code>index</code> of <code>EnumerationValue</code>
 	 * 
 	 * <p>
@@ -68,6 +77,20 @@ public interface EnumerationValueBase extends de.haumacher.ehome.model.core.Exte
 	 */
 	default void setBinary(com.top_logic.basic.io.binary.BinaryDataSource newValue) {
 		tUpdateByName(BINARY_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #ICON_ATTR}.
+	 */
+	default String getIcon() {
+		return (String) tValueByName(ICON_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ICON_ATTR}.
+	 */
+	default void setIcon(String newValue) {
+		tUpdateByName(ICON_ATTR, newValue);
 	}
 
 	/**

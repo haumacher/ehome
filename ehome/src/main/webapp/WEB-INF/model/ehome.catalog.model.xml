@@ -8,6 +8,31 @@
 			</singletons>
 		</annotations>
 		<!--
+			A file inside an archive of a manufacturer's baggage (haumacher/ehome #156, #157): a picture of an
+			icon archive (ETS: ApplicationProgram@IconFile) or a text of a help archive (ETS:
+			ApplicationProgram@ContextHelpFile), unpacked by the import from the archive an application program
+			names, so that the parameter editor shows it. Owned by its archive; a newer version of the archive
+			replaces its entries.
+		-->
+		<class name="ArchiveEntry">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-file-earmark-zip"/>
+			</annotations>
+			<attributes>
+				<!-- The name of the file in the archive, with its folders separated by "/". -->
+				<property name="name"
+					type="tl.core:String"
+				/>
+				<!-- The file itself. -->
+				<property name="content"
+					type="tl.core:Binary"
+				/>
+			</attributes>
+		</class>
+		<!--
 			A file a manufacturer ships with its product data (ETS: Baggage, haumacher/ehome #154): a picture
 			of the parameter dialog, an archive of icons or help texts, a document, a plug-in installer. It is
 			kept as it is, whatever its kind; E-Home never runs it. The import reuses it by its ID and replaces
@@ -40,6 +65,24 @@
 				<!-- The file itself; empty if the product file did not hold it or it was above the size limit. -->
 				<property name="content"
 					type="tl.core:Binary"
+				/>
+				<!--
+					The files of the archive, if the file is an archive an application program takes its icons or
+					help texts from (haumacher/ehome #156, #157), see unpacked.
+				-->
+				<reference name="entries"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="ArchiveEntry"
+				/>
+				<!--
+					Whether the import unpacked the archive into its entries (an archive that is no ZIP archive has
+					none). A newer version of the file unpacks it again.
+				-->
+				<property name="unpacked"
+					type="tl.core:Boolean"
 				/>
 				<reference name="manufacturer"
 					aggregate="true"

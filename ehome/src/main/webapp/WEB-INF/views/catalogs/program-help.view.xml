@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The help of a parameter block or of a parameter at its place (ETS: HelpContext, haumacher/ehome #157):
+	a button opening the text beside it, in the parameter editor of a device (projects/device-item.view.xml,
+	projects/devices.view.xml) and at an element of a program in the catalog (catalogs/program.view.xml).
+
+	The text is the manufacturer's (de.haumacher.ehome.knx.ProgramResources, parameterHelp), in the reader's
+	language, else in the program's default language, written in Markdown and shown as HTML: raw HTML in it is
+	escaped, pictures are left out, and the page's safety check (SafeHTML) applies.
+-->
+<view>
+	<channels>
+		<!-- The help as HTML. -->
+		<channel name="help"/>
+	</channels>
+	<popover
+		image="css:bi bi-question-circle"
+		placement="bottom-start"
+	>
+		<label>
+			<en>Help</en>
+			<de>Hilfe</de>
+		</label>
+		<content>
+			<inset>
+				<stack max-width="32rem">
+					<html input="help"/>
+				</stack>
+			</inset>
+		</content>
+	</popover>
+</view>

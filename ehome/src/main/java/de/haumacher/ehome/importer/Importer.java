@@ -183,6 +183,11 @@ public class Importer {
 	private ProgramLanguages _programLanguages = new ProgramLanguages();
 
 	/**
+	 * The icons and help texts the program files read name (haumacher/ehome #156, #157).
+	 */
+	private ProgramResourcesImport _resources = new ProgramResourcesImport();
+
+	/**
 	 * The project password for the current import, <code>null</code> if none was given.
 	 */
 	private String _password;
@@ -267,6 +272,7 @@ public class Importer {
 				completeRequirements(program);
 				completeChannelNumbers(program);
 				baggage.readProgramReferences(program);
+				_resources.read(program);
 			} else if (name.endsWith(".xml")) {
 				importXml(context, handler, name, entryIn);
 			} else if (isProjectArchive(name, path)) {
@@ -382,8 +388,11 @@ public class Importer {
 				completeRequirements(content);
 				completeChannelNumbers(content);
 				baggage.readProgramReferences(content);
+				_resources.read(content);
 				HiddenProgramValues.reportPending(context);
 			}
+			// The references of the program are resolved: its icons and help texts.
+			_resources.apply(_binding, _messages);
 			List<Object> created = _binding.getCreatedSince(mark);
 			// The references of the shared data to the program (the hardware running it).
 			for (Map.Entry<String, Object> known : _binding.getIdsSince(mark, id).entrySet()) {
@@ -998,6 +1007,7 @@ public class Importer {
 		_failedPrograms = new LinkedHashMap<>();
 		_updates = new MasterDataUpdates(_binding);
 		_programLanguages = new ProgramLanguages();
+		_resources = new ProgramResourcesImport();
 		ModuleImport modules;
 		try (ImportContext importContext = newContext()) {
 			modules = ModuleImport.get(importContext);
@@ -1015,6 +1025,9 @@ public class Importer {
 		} catch (KnowledgeBaseException ex) {
 			throw new TopLogicException(I18NConstants.ERROR_COMMIT_FAILED__DETAIL.fill(ex.getMessage()), ex);
 		}
+		// The references are resolved: the icons and help texts of the programs of a project file (those of
+		// a product file are applied per program).
+		_resources.apply(_binding, _messages);
 		List<Object> created = _binding.getCreated();
 		// Numbers the app allocates for new objects lie above those of the imported ones.
 		ExtIds.raiseImported(created);

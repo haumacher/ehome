@@ -414,6 +414,10 @@
 					kind="forwards"
 					type="ParameterView"
 				/>
+				<!-- The name of its icon in the icons of its program (ETS: Icon, haumacher/ehome #156), see Program#iconFile. -->
+				<property name="icon"
+					type="tl.core:String"
+				/>
 				<!-- The label in the structure tree: number and text of the channel. -->
 				<property name="displayName"
 					type="tl.core:String"
@@ -505,6 +509,14 @@
 					kind="forwards"
 					type="ParameterView"
 				/>
+				<!-- The name of its icon in the icons of its program (ETS: Icon, haumacher/ehome #156), see Program#iconFile. -->
+				<property name="icon"
+					type="tl.core:String"
+				/>
+				<!-- The topic of its help in the help texts of its program (ETS: HelpContext, haumacher/ehome #157), see Program#helpFiles. -->
+				<property name="helpTopic"
+					type="tl.core:String"
+				/>
 				<!-- The label in the structure tree: the text of the parameter block. -->
 				<property name="displayName"
 					type="tl.core:String"
@@ -578,6 +590,10 @@
 				</property>
 				<property name="binary"
 					type="tl.core:Binary"
+				/>
+				<!-- The name of its icon in the icons of its program (ETS: Icon, haumacher/ehome #156), see Program#iconFile. -->
+				<property name="icon"
+					type="tl.core:String"
 				/>
 			</attributes>
 		</class>
@@ -1074,6 +1090,14 @@
 				/>
 				<property name="tag"
 					type="tl.core:Integer"
+				/>
+				<!-- The name of its icon in the icons of its program (ETS: ParameterRefRef@Icon of its first place, haumacher/ehome #156), see Program#iconFile. -->
+				<property name="icon"
+					type="tl.core:String"
+				/>
+				<!-- The topic of its help in the help texts of its program (ETS: ParameterRefRef@HelpContext of its first place, haumacher/ehome #157), see Program#helpFiles. -->
+				<property name="helpTopic"
+					type="tl.core:String"
 				/>
 			</attributes>
 		</class>
@@ -2130,6 +2154,74 @@
 					ordered="true"
 					type="ehome.catalog:Baggage"
 				/>
+				<!--
+					The archive of the manufacturer's baggage holding the icons of the program (ETS: IconFile,
+					haumacher/ehome #156): a picture per icon, named as its entries name them without the extension
+					(EnumerationValue#icon, Channel#icon, ParameterGroup#icon, ParameterView#icon).
+				-->
+				<reference name="iconFile"
+					kind="forwards"
+					type="ehome.catalog:Baggage"
+				/>
+				<!--
+					The archives of the manufacturer's baggage holding the help texts of the program, one per language
+					(ETS: ContextHelpFile and its translations, haumacher/ehome #157): a text per topic
+					(ParameterGroup#helpTopic, ParameterView#helpTopic).
+				-->
+				<reference name="helpFiles"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					ordered="true"
+					type="HelpFile"
+				/>
+				<!--
+					Whether the import read the icons and help topics of the program (haumacher/ehome #156, #157). A
+					program an earlier import left without them is completed by the next import of its file.
+				-->
+				<property name="resourcesRead"
+					type="tl.core:Boolean"
+				/>
+			</attributes>
+		</class>
+		<!--
+			The archive of the help texts of an application program in one language (ETS: ContextHelpFile, in the
+			program's default language, and its translations, haumacher/ehome #157). Owned by the program.
+		-->
+		<class name="HelpFile">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-question-circle"/>
+				<id-column value="displayName"/>
+			</annotations>
+			<attributes>
+				<!-- The language of the texts, as a language code (e.g. "de"). -->
+				<property name="language"
+					type="tl.core:String"
+				/>
+				<!-- Whether these are the texts of the program's default language, shown where the reader's language has none. -->
+				<property name="fallback"
+					type="tl.core:Boolean"
+				/>
+				<!-- The archive of the manufacturer's baggage holding a text per topic. -->
+				<reference name="file"
+					kind="forwards"
+					type="ehome.catalog:Baggage"
+				/>
+				<!-- The label: the language and the name of the archive. -->
+				<property name="displayName"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[f -> "{0}: {1}".fill($f.get(`ehome.operational:HelpFile#language`), $f.get(`ehome.operational:HelpFile#file`).get(`ehome.catalog:Baggage#name`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
 			</attributes>
 		</class>
 		<!--

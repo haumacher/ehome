@@ -14,7 +14,12 @@
 	change (no Write on the device, e.g. a viewer; the submit checks it as well), shows its value as
 	text with the reason beside it (the refusal of a change, else the missing right), a parameter
 	without value (a heading) only its text, a picture of the parameter dialog the picture with its
-	text as caption (catalogs/parameter-picture.view.xml, haumacher/ehome #155). A change of a parameter runs the
+	text as caption (catalogs/parameter-picture.view.xml, haumacher/ehome #155). A parameter with an icon at
+	its place shows it before its text, an entry of an enumeration chosen with an icon shows it beside the
+	input or the value (the icons of the program, haumacher/ehome #156; the choices themselves show their
+	text alone, see doc/tl-todo.md), and a parameter with a help text has a button opening it, in the
+	reader's language, else in the program's default language (haumacher/ehome #157,
+	catalogs/program-help.view.xml). A change of a parameter runs the
 	calculations of the manufacturer it feeds (haumacher/ehome #123); a parameter of a calculation
 	E-Home cannot evaluate can only be read, with the reason beside it, and one a calculation computes
 	says so.
@@ -114,6 +119,23 @@
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
 		/>
+		<!-- The icon of the parameter at its place, and the one of the entry of an enumeration chosen (haumacher/ehome #156). -->
+		<derived-channel name="itemIcon"
+			expr="parameterIcon($item)"
+			inputs="item"
+			observed-types="ehome.catalog:ArchiveEntry"
+		/>
+		<derived-channel name="valueIcon"
+			expr="if($kind == 'choice' or $kind == 'readonly', parameterIcon($value), null)"
+			inputs="kind, value"
+			observed-types="ehome.catalog:ArchiveEntry"
+		/>
+		<!-- The help of the parameter at its place, in the reader's language (haumacher/ehome #157). -->
+		<derived-channel name="itemHelp"
+			expr="parameterHelp($item)"
+			inputs="item"
+			observed-types="ehome.catalog:ArchiveEntry,ehome.operational:HelpFile"
+		/>
 		<!-- The label of the entry, with {{0}} filled from the device's values (DeviceTexts). -->
 		<derived-channel name="itemLabel"
 			expr="deviceText($device, $item)"
@@ -194,7 +216,34 @@
 				direction="row"
 				gap="compact"
 			>
+				<visible-if
+					expr="$itemIcon != null"
+					input="itemIcon"
+				>
+					<image
+						fit="contain"
+						height="1.5em"
+						input="itemIcon"
+						width="1.5em"
+					>
+						<alt>
+							<en>Icon</en>
+							<de>Symbol</de>
+						</alt>
+					</image>
+				</visible-if>
 				<text input="itemLabel"/>
+				<visible-if
+					expr="$itemHelp != null"
+					input="itemHelp"
+				>
+					<view-ref view="catalogs/program-help.view.xml">
+						<bind
+							channel="help"
+							to="itemHelp"
+						/>
+					</view-ref>
+				</visible-if>
 				<visible-if
 					expr="$changed"
 					input="changed"
@@ -483,6 +532,23 @@
 				</stack>
 			</case>
 		</switch>
+		<!-- The icon of the entry chosen. -->
+		<visible-if
+			expr="$valueIcon != null"
+			input="valueIcon"
+		>
+			<image
+				fit="contain"
+				height="1.5em"
+				input="valueIcon"
+				width="1.5em"
+			>
+				<alt>
+					<en>Icon of the value</en>
+					<de>Symbol des Werts</de>
+				</alt>
+			</image>
+		</visible-if>
 		<!-- What the calculations of the manufacturer say about the parameter. -->
 		<visible-if
 			expr="$calculationHint != null"

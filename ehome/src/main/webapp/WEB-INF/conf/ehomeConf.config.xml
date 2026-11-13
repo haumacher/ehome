@@ -36,6 +36,9 @@
 					<method name="parameterPictureImage" class="de.haumacher.ehome.knx.ParameterPictures$Builder"/>
 					<method name="parameterPictureFile" class="de.haumacher.ehome.knx.ParameterPictures$Builder"/>
 					<method name="parameterPictureNote" class="de.haumacher.ehome.knx.ParameterPictures$Builder"/>
+					<!-- The icons and help texts of application programs (de.haumacher.ehome.knx.ProgramResources, haumacher/ehome #156, #157): one builder, the function by its name. -->
+					<method name="parameterIcon" class="de.haumacher.ehome.knx.ProgramResources$Builder"/>
+					<method name="parameterHelp" class="de.haumacher.ehome.knx.ProgramResources$Builder"/>
 					<!-- What an application program needs of ETS: the notice of a program, program assignment or device (de.haumacher.ehome.programming.PluginRequirements, haumacher/ehome #159). -->
 					<method name="programRequirementNotice" class="de.haumacher.ehome.programming.PluginRequirements$Builder"/>
 					<!-- Editing an application program (de.haumacher.ehome.knx.ProgramStructure): one builder per function. -->

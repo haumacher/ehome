@@ -366,6 +366,25 @@ Download") with a user interface and a download plug-in (EtsDownloadPlugin); "TE
 Software (künstliche Testdaten)" (M-0008_A-FFA4-01-0000, "TEST Plugin Daten") with a data handler
 (EtsDataHandler) and RequiresExternalSoftware="true". The plug-in IDs are made up.
 
+TestResources.knxprod and TestResourcesNewer.knxprod: the icons and help texts of a program from archives of the
+baggage (ETS: IconFile, Icon, ContextHelpFile, HelpContext, haumacher/ehome #156, #157), with icons and texts made
+for the test. An artificial program of the BCU 1 kind "TEST: Symbole und Hilfe (künstliche Testdaten)"
+(M-0008_A-FFB5-01-0000, hardware "TEST Symbole") names the icon archive "TEST_Symbole.zip" (the PNG pictures
+TEST_Aus (2x2, red), TEST_Ein (2x2, green), TEST_Kanal (2x2, blue), TEST_Block (2x2, gray) and the SVG
+TEST_Vektor, a document with a script, which is not shown) and the help archive "TEST_Hilfe_DE.zip" of its
+default language (de-DE), translated to "TEST_Hilfe_EN.zip" (en-US) and to "TEST_Hilfe_FR.zip" (fr-FR, a language
+E-Home does not offer, not in the baggage). The entries of "Betriebsart" name the icons TEST_Aus, TEST_Ein and
+TEST_Fehlt (which the archive does not hold); the channel "Kanal A" names TEST_Kanal; the block "Allgemein" names
+TEST_Block and the help topic "Allgemein"; the parameter "Betriebsart" at its place the topic "Betriebsart", the
+parameter "Verzögerung" the topic "Leer" (a text of white space only), "Verhalten" the topic "NurDeutsch" (a text
+in German only) and "Zeit" the icon TEST_Vektor and the topic "Größe", whose file is named in the original encoding
+of the ZIP format (IBM 437, without the UTF-8 flag), as in Theben's help archives. The German texts are written as ETS writes them on Windows:
+UTF-8 with a byte order mark and CRLF line ends, in Markdown (bold, italics, a rule), one with raw HTML (a
+script). TestResourcesNewer.knxprod holds the same program with a newer icon archive (of 2026-11-14) that adds
+TEST_Fehlt (2x2, yellow) and gives TEST_Ein another color (2x2, white). TestResources.knxproj is the Test project
+named "TestResources" with the same archives in its manufacturer's baggage and the same
+program as "TEST: Symbole und Hilfe im Projekt (künstliche Testdaten)" (M-0008_A-FFB6-01-0000, used by no device).
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -3004,7 +3023,7 @@ def baggage_hardware(hardware, name, program, baggage):
         + '</Hardware></Hardware></Manufacturer></ManufacturerData>\n</KNX>\n')
 
 
-def baggage_archive(target, entries, project=False):
+def baggage_archive(target, entries, project=False, project_name='TestBaggage'):
     """A product file (or with project=True the Test project) with the given entries (name, text or bytes), in
     their order after the master data (trimmed to what the entries use)."""
     with zipfile.ZipFile(SOURCE) as source:
@@ -3019,7 +3038,7 @@ def baggage_archive(target, entries, project=False):
         out.writestr(info, trim_master(master, texts).encode('utf-8'))
         for info, data in kept:
             if info.filename == PROJECT_INFO:
-                data = rename_project(data.decode('utf-8-sig'), 'TestBaggage').encode('utf-8')
+                data = rename_project(data.decode('utf-8-sig'), project_name).encode('utf-8')
             out.writestr(info, data)
         for name, content in entries:
             info = zipfile.ZipInfo(name, date_time=(2026, 11, 12, 12, 0, 0))
@@ -3206,3 +3225,106 @@ def plugin_program(program, number, name, attributes):
 baggage_archive('src/test/fixtures/TestPlugins.knxprod', [
     ('M-0008/' + p + '.xml', plugin_program(p, n, name, attributes)) for p, n, name, _, _, attributes in PLUGIN_PROGRAMS]
     + [('M-0008/Hardware.xml', hardware_list([(h, hn, p) for p, _, _, h, hn, _ in PLUGIN_PROGRAMS]))])
+
+
+# TestResources.knxprod and TestResourcesNewer.knxprod: the icons and help texts of a program (haumacher/ehome #156,
+# #157), see the module comment.
+RESOURCES_PROGRAM = 'M-0008_A-FFB5-01-0000'
+RESOURCES_HARDWARE = 'M-0008_H-TEST.20SYMBOLE-1'
+BG_ICONS = 'M-0008_BG--TEST.5FSymbole.2Ezip'
+BG_HELP_DE = 'M-0008_BG--TEST.5FHilfe.5FDE.2Ezip'
+BG_HELP_EN = 'M-0008_BG--TEST.5FHilfe.5FEN.2Ezip'
+BG_HELP_FR = 'M-0008_BG--TEST.5FHilfe.5FFR.2Ezip'
+TEST_SVG = ('<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><script>alert("TEST")</script>'
+    '<rect width="2" height="2" fill="black"/></svg>')
+
+
+def files_archive(files):
+    """A ZIP archive of the given files (name, text or bytes), made for the test."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        for name, content in files:
+            info = zipfile.ZipInfo(name, date_time=(2026, 11, 13, 10, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            archive.writestr(info, content.encode('utf-8') if isinstance(content, str) else content)
+    return buffer.getvalue()
+
+
+def windows_text(text):
+    """A text as ETS writes it on Windows: UTF-8 with a byte order mark, CRLF line ends."""
+    return b'\xef\xbb\xbf' + text.replace('\n', '\r\n').encode('utf-8')
+
+
+RESOURCE_ICONS = files_archive([('TEST_Aus.png', png(2, 2, (255, 0, 0))), ('TEST_Ein.png', png(2, 2, (0, 255, 0))),
+    ('TEST_Kanal.png', png(2, 2, (0, 0, 255))), ('TEST_Block.png', png(2, 2, (128, 128, 128))),
+    ('TEST_Vektor.svg', TEST_SVG)])
+RESOURCE_ICONS_NEWER = files_archive([('TEST_Aus.png', png(2, 2, (255, 0, 0))),
+    ('TEST_Ein.png', png(2, 2, (255, 255, 255))), ('TEST_Kanal.png', png(2, 2, (0, 0, 255))),
+    ('TEST_Block.png', png(2, 2, (128, 128, 128))), ('TEST_Vektor.svg', TEST_SVG),
+    ('TEST_Fehlt.png', png(2, 2, (255, 255, 0)))])
+RESOURCE_HELP_DE = files_archive([
+    ('Allgemein.txt', windows_text('**Allgemein:** künstlicher Hilfetext für den Test.\n\n<script>alert("TEST")</script>')),
+    ('Betriebsart.txt', windows_text('**Schalten:** Der Ausgang folgt dem Objekt.\n\n'
+        '***Treppenlicht***: Der Ausgang schaltet nach der *Zeit* aus.\nZweite Zeile.\n***\n**Hinweis:** künstlich')),
+    ('Leer.txt', windows_text('  \n')),
+    ('NurDeutsch.txt', windows_text('Nur auf Deutsch.')),
+    ('GrXYe.txt', windows_text('Die *Größe* in Zentimetern.'))]).replace(b'GrXYe', b'Gr\x94\xe1e')
+RESOURCE_HELP_EN = files_archive([
+    ('Allgemein.txt', '**General:** artificial help text for the test.'),
+    ('Betriebsart.txt', '**Switching:** the output follows the object.')])
+
+
+def resources_program(program, number, name):
+    """A BCU 1 program naming icons and help topics in the archives of its baggage."""
+    xml = bcu1_program(program, number, name, True)
+    xml = replace_once(xml, 'DefaultLanguage="de-DE"', 'IconFile="%s" ContextHelpFile="%s" DefaultLanguage="de-DE"'
+        % (BG_ICONS, BG_HELP_DE))
+    for value, icon in ((0, 'TEST_Aus'), (1, 'TEST_Ein'), (2, 'TEST_Fehlt')):
+        xml = replace_once(xml, 'Id="%s_PT-Betriebsart_EN-%d"' % (program, value),
+            'Id="%s_PT-Betriebsart_EN-%d" Icon="%s"' % (program, value, icon))
+    xml = replace_once(xml, 'Id="%s_CH-1">' % program, 'Id="%s_CH-1" Icon="TEST_Kanal">' % program)
+    xml = replace_once(xml, 'Id="%s_PB-1" Name="Allgemein" Text="Allgemein"' % program,
+        'Id="%s_PB-1" Name="Allgemein" Text="Allgemein" Icon="TEST_Block" HelpContext="Allgemein"' % program)
+    for n, attributes in ((1, 'HelpContext="Betriebsart"'), (2, 'HelpContext="Leer"'), (3, 'HelpContext="NurDeutsch"'),
+            (4, 'Icon="TEST_Vektor" HelpContext="Größe"')):
+        xml = replace_once(xml, '<ParameterRefRef RefId="%s_P-%d_R-%d" />' % (program, n, n),
+            '<ParameterRefRef RefId="%s_P-%d_R-%d" %s />' % (program, n, n, attributes))
+    extension = ('<Extension>' + ''.join('<Baggage RefId="%s" />' % b for b in (BG_ICONS, BG_HELP_DE, BG_HELP_EN))
+        + '</Extension>\n')
+    xml = replace_once(xml, '<Options ', extension + '<Options ')
+
+    def language(identifier, help_file):
+        return ('<Language Identifier="%s"><TranslationUnit RefId="%s" Version="0"><TranslationElement RefId="%s">'
+            '<Translation AttributeName="ContextHelpFile" Text="%s" /></TranslationElement></TranslationUnit></Language>'
+            % (identifier, program, program, help_file))
+    languages = ('<Languages>' + language('de-DE', BG_HELP_DE) + language('en-US', BG_HELP_EN)
+        + language('fr-FR', BG_HELP_FR) + '</Languages>')
+    return replace_once(xml, '</ApplicationPrograms>', '</ApplicationPrograms>' + languages)
+
+
+def resources_archive(target, icons, icons_time):
+    baggage_archive(target, [
+        ('M-0008/Baggages/TEST_Symbole.zip', icons),
+        ('M-0008/Baggages/TEST_Hilfe_DE.zip', RESOURCE_HELP_DE),
+        ('M-0008/Baggages/TEST_Hilfe_EN.zip', RESOURCE_HELP_EN),
+        ('M-0008/' + RESOURCES_PROGRAM + '.xml', resources_program(RESOURCES_PROGRAM, 65461,
+            'TEST: Symbole und Hilfe (künstliche Testdaten)')),
+        ('M-0008/Hardware.xml', baggage_hardware(RESOURCES_HARDWARE, 'TEST Symbole', RESOURCES_PROGRAM, [])),
+        ('M-0008/Baggages.xml', baggages_xml([(BG_ICONS, '', 'TEST_Symbole.zip', icons_time),
+            (BG_HELP_DE, '', 'TEST_Hilfe_DE.zip', '2026-11-13T10:00:00Z'),
+            (BG_HELP_EN, '', 'TEST_Hilfe_EN.zip', '2026-11-13T10:00:00Z')]))])
+
+
+resources_archive('src/test/fixtures/TestResources.knxprod', RESOURCE_ICONS, '2026-11-13T10:00:00Z')
+resources_archive('src/test/fixtures/TestResourcesNewer.knxprod', RESOURCE_ICONS_NEWER, '2026-11-14T10:00:00Z')
+RESOURCES_PROJECT_PROGRAM = 'M-0008_A-FFB6-01-0000'
+baggage_archive('src/test/fixtures/TestResources.knxproj', [
+    ('M-0008/Baggages.xml', baggages_xml([(BG_ICONS, '', 'TEST_Symbole.zip', '2026-11-13T10:00:00Z'),
+        (BG_HELP_DE, '', 'TEST_Hilfe_DE.zip', '2026-11-13T10:00:00Z'),
+        (BG_HELP_EN, '', 'TEST_Hilfe_EN.zip', '2026-11-13T10:00:00Z')])),
+    ('M-0008/Baggages/TEST_Symbole.zip', RESOURCE_ICONS),
+    ('M-0008/Baggages/TEST_Hilfe_DE.zip', RESOURCE_HELP_DE),
+    ('M-0008/Baggages/TEST_Hilfe_EN.zip', RESOURCE_HELP_EN),
+    ('M-0008/' + RESOURCES_PROJECT_PROGRAM + '.xml', resources_program(RESOURCES_PROJECT_PROGRAM, 65462,
+        'TEST: Symbole und Hilfe im Projekt (künstliche Testdaten)'))],
+    project=True, project_name='TestResources')

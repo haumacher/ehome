@@ -115,6 +115,24 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	String DYNAMIC_TABLE_MANAGEMENT_ATTR = "dynamicTableManagement";
 
 	/**
+	 * Part <code>helpFiles</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.operational:HelpFile</code> in configuration.
+	 * </p>
+	 */
+	String HELP_FILES_ATTR = "helpFiles";
+
+	/**
+	 * Part <code>iconFile</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>ehome.catalog:Baggage</code> in configuration.
+	 * </p>
+	 */
+	String ICON_FILE_ATTR = "iconFile";
+
+	/**
 	 * Part <code>ignoreLoadedState</code> of <code>Program</code>
 	 * 
 	 * <p>
@@ -329,6 +347,15 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 * </p>
 	 */
 	String REQUIREMENTS_READ_ATTR = "requirementsRead";
+
+	/**
+	 * Part <code>resourcesRead</code> of <code>Program</code>
+	 * 
+	 * <p>
+	 * Declared as <code>tl.core:Boolean</code> in configuration.
+	 * </p>
+	 */
+	String RESOURCES_READ_ATTR = "resourcesRead";
 
 	/**
 	 * Part <code>script</code> of <code>Program</code>
@@ -655,6 +682,63 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setDynamicTableManagement(boolean newValue) {
 		tUpdateByName(DYNAMIC_TABLE_MANAGEMENT_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #HELP_FILES_ATTR}.
+	 */
+	@SuppressWarnings("unchecked")
+	default java.util.List<? extends de.haumacher.ehome.model.operational.HelpFile> getHelpFiles() {
+		return (java.util.List<? extends de.haumacher.ehome.model.operational.HelpFile>) tValueByName(HELP_FILES_ATTR);
+	}
+
+	/**
+	 * Live view of the {@link #HELP_FILES_ATTR} part.
+	 * <p>
+	 * Changes to this {@link java.util.Collection} change directly the attribute value.
+	 * The caller has to take care of the transaction handling.
+	 * </p>
+	 */
+	default java.util.List<de.haumacher.ehome.model.operational.HelpFile> getHelpFilesModifiable() {
+		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(HELP_FILES_ATTR);
+		@SuppressWarnings("unchecked")
+		java.util.List<de.haumacher.ehome.model.operational.HelpFile> result = (java.util.List<de.haumacher.ehome.model.operational.HelpFile>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		return result;
+	}
+
+	/**
+	 * Setter for part {@link #HELP_FILES_ATTR}.
+	 */
+	default void setHelpFiles(java.util.List<de.haumacher.ehome.model.operational.HelpFile> newValue) {
+		tUpdateByName(HELP_FILES_ATTR, newValue);
+	}
+
+	/**
+	 * Adds a value to the {@link #HELP_FILES_ATTR} reference.
+	 */
+	default void addHelpFile(de.haumacher.ehome.model.operational.HelpFile newValue) {
+		tAddByName(HELP_FILES_ATTR, newValue);
+	}
+
+	/**
+	 * Removes the given value from the {@link #HELP_FILES_ATTR} reference.
+	 */
+	default void removeHelpFile(de.haumacher.ehome.model.operational.HelpFile oldValue) {
+		tRemoveByName(HELP_FILES_ATTR, oldValue);
+	}
+
+	/**
+	 * Getter for part {@link #ICON_FILE_ATTR}.
+	 */
+	default com.top_logic.model.TLObject getIconFile() {
+		return (com.top_logic.model.TLObject) tValueByName(ICON_FILE_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #ICON_FILE_ATTR}.
+	 */
+	default void setIconFile(com.top_logic.model.TLObject newValue) {
+		tUpdateByName(ICON_FILE_ATTR, newValue);
 	}
 
 	/**
@@ -1173,6 +1257,20 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 */
 	default void setRequirementsRead(boolean newValue) {
 		tUpdateByName(REQUIREMENTS_READ_ATTR, newValue);
+	}
+
+	/**
+	 * Getter for part {@link #RESOURCES_READ_ATTR}.
+	 */
+	default boolean getResourcesRead() {
+		return (Boolean) tValueByName(RESOURCES_READ_ATTR);
+	}
+
+	/**
+	 * Setter for part {@link #RESOURCES_READ_ATTR}.
+	 */
+	default void setResourcesRead(boolean newValue) {
+		tUpdateByName(RESOURCES_READ_ATTR, newValue);
 	}
 
 	/**

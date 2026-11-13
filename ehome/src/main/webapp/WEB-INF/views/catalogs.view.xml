@@ -653,6 +653,13 @@
 								>
 									<field attribute="name"/>
 									<field attribute="extId"/>
+									<!-- The archives of its icons and help texts (haumacher/ehome #156, #157), as the import read them. -->
+									<field attribute="iconFile"
+										readonly="true"
+									/>
+									<field attribute="helpFiles"
+										readonly="true"
+									/>
 								</form>
 							</visible-if>
 							<!-- A plug-in of the manufacturer or external software the program needs in ETS (haumacher/ehome #159). -->

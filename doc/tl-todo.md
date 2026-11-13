@@ -495,6 +495,24 @@ No workaround.
 keep the token path for `bin/ehome-mcp.py`, check the login from a local client against the app on
 8080 and extend the endpoint's test by a request without a token (the metadata in the refusal).
 
+## A picture from data in the options of a selection (TL #30316)
+
+The options of a `<value-input>` over objects (`ReactDropdownSelectControl`) show the image of the
+label provider (`ResourceProvider#getImage(option)`), a `ThemeImage`: an icon font class or a file of
+the theme, sent by `ReactImages` as an icon class or the URL of the theme file. A picture held by the
+model (a `tl.core:Binary` value) cannot be an option's image, neither in the list nor in the chip of
+the chosen value; only `<image>` (`ReactImageControl`, which serves its data itself) shows one.
+Minimal reproduction: a class `Symbol` with `name` and `picture: tl.core:Binary`, and a
+`<value-input type="Symbol">` offering its instances; the options show the icon of the class, and
+nothing can make them show their pictures.
+E-Home's icons of enumeration entries (haumacher/ehome #156) are such pictures, from the icon archive
+of the program: the choices show their text alone, the chosen entry's icon is shown beside the input
+(`projects/device-item.view.xml`, `valueIcon`). A tree node draws its picture through E-Home's node
+display (`ScriptLabelControlProvider`, `image`), which creates the image control itself.
+
+**When fixed:** give the `<value-input>` of the kind "choice" in `projects/device-item.view.xml` the
+picture of each option (`parameterIcon`), and drop the `valueIcon` beside it if the chip shows it.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -509,3 +527,4 @@ keep the token path for `bin/ehome-mcp.py`, check the login from a local client 
 - TL #30251 to #30255: see above (AI modules: the Claude 5.5 models in the catalog, the thinking budget of Haiku 5.5, the MCP tool list per caller, the Playwright browsers, the message of a missing key, the MCP path with a slash, the pre-commit guard and parts of new objects; in testing, not in 8.0.0-alpha12.820).
 - TL #30250 (with #30193, #30194, #30195, #30249 as duplicates), #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the follow-up seeing the job's commits, the interrupt of a cancelled job closing H2; fixed after 8.0.0-alpha12.820).
 - TL #30274: see above (OAuth login and discovery of the MCP endpoint; accepted, not in 8.0.0-alpha12.820).
+- TL #30316: see above (a picture from data in the options of a selection).

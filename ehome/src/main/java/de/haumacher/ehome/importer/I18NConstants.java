@@ -356,6 +356,36 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 INFO_CHANNEL_NUMBER_COMPLETED__CHANNEL_NUMBER;
 
+	/**
+	 * @en The application program "{0}" names {1} icons its icon archive does not hold, the first "{2}"; their elements show their text alone.
+	 */
+	public static ResKey3 WARN_PROGRAM_ICONS_MISSING__PROGRAM_COUNT_FIRST;
+
+	/**
+	 * @en The application program "{0}" names {1} help topics without a text in its default language; nothing is shown for them.
+	 */
+	public static ResKey2 WARN_PROGRAM_HELP_MISSING__PROGRAM_COUNT;
+
+	/**
+	 * @en The application program "{0}", imported earlier without its icons and help texts, gets them.
+	 */
+	public static ResKey1 INFO_PROGRAM_RESOURCES_COMPLETED__PROGRAM;
+
+	/**
+	 * @en The file "{0}" of the manufacturer cannot be unpacked ({1}); the icons or help texts it should hold are not shown.
+	 */
+	public static ResKey2 WARN_ARCHIVE_UNREADABLE__FILE_REASON;
+
+	/**
+	 * @en The file "{1}" in the archive "{0}" of the manufacturer is larger than {2} and is not unpacked.
+	 */
+	public static ResKey3 WARN_ARCHIVE_FILE_TOO_LARGE__FILE_ENTRY_LIMIT;
+
+	/**
+	 * @en The archive "{0}" of the manufacturer holds more than {1} files; only the first {1} are unpacked.
+	 */
+	public static ResKey2 WARN_ARCHIVE_TOO_MANY_FILES__FILE_LIMIT;
+
 	static {
 		initConstants(I18NConstants.class);
 	}
