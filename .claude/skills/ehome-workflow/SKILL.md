@@ -323,6 +323,9 @@ green result from a tree with uncommitted foreign edits; check `git status` firs
 # directory, i.e. the root tmp/; "up and running" in tmp/tl-app.log after ~10 s on a warm tmp/ (the
 # first start of a fresh tmp/ is slow)
 curl -sf http://localhost:8080/admin/stop               # stop; the port is free ~2 s later
+# /admin/stop ends Jetty, NOT the Maven JVM of exec:java: it stays with ~1 GB and a localhost port.
+# Note the pid before (ss -ltnp | grep ':8080 ') and kill it after the port is free, in its own call;
+# 20 forgotten JVMs took 21 GB on 2026-11-13 and the test JVMs of the agents died of it (exit 137).
 ```
 
 The `tl-app` skill (`tl-app.sh start|stop|restart ehome`) starts in the module directory with its own
