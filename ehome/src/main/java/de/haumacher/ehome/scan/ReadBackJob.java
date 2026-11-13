@@ -3,7 +3,6 @@
  */
 package de.haumacher.ehome.scan;
 
-import java.net.InetSocketAddress;
 import java.util.List;
 
 import com.top_logic.basic.CalledByReflection;
@@ -22,11 +21,11 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
+import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadRecord;
-import de.haumacher.ehome.programming.download.Gateways;
 import de.haumacher.ehome.programming.download.ProgrammingReport;
 
 /**
@@ -78,8 +77,8 @@ public class ReadBackJob implements JobBody {
 		FoundDevice found = ScanRows.found(row);
 		TLObject project = ScanRows.project(row);
 		TLObject device = InstallationBuilder.device(project, found.address());
-		InetSocketAddress gateway = Gateways.parse(Gateways.of(project));
-		String gatewayText = Gateways.format(gateway);
+		BusPath gateway = BusPath.of(project);
+		String gatewayText = gateway.text();
 
 		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
 		ProgrammingReport report = new ProgrammingReport();
@@ -133,11 +132,11 @@ public class ReadBackJob implements JobBody {
 	}
 
 	/**
-	 * Opens the connection to the device with the given address behind the given gateway; a test
-	 * replaces it.
+	 * Opens the connection to the device with the given address on the given path (the project's
+	 * gateway or controller); a test replaces it.
 	 */
-	protected DeviceReader openReader(InetSocketAddress gateway, int address) throws BusException {
-		return CalimeroReader.open(gateway, address);
+	protected DeviceReader openReader(BusPath path, int address) throws BusException {
+		return CalimeroReader.open(path, address);
 	}
 
 }

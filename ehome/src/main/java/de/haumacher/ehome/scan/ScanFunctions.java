@@ -22,9 +22,8 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.DeviceConfiguration;
+import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
-import de.haumacher.ehome.programming.download.Gateways;
-import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * The TL-Script functions of the scan of an installation (<code>projects/scan.view.xml</code>).
@@ -140,7 +139,7 @@ public class ScanFunctions extends GenericMethod {
 				}
 				return I18NConstants.CONFIRM_LED__ADDRESS_STATE_GATEWAY.fill(found.addressText(),
 					Boolean.TRUE.equals(arguments[1]) ? I18NConstants.LED_ON : I18NConstants.LED_OFF,
-					Gateways.of(ScanRows.project(arguments[0])));
+					BusPath.describe(ScanRows.project(arguments[0])));
 			}
 		}
 		return null;
@@ -152,11 +151,14 @@ public class ScanFunctions extends GenericMethod {
 	public static ResKey scanVeto(TLObject project, Integer area, Integer line, boolean routers, boolean gateway,
 			boolean programming) {
 		if (project == null) {
-			return de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_GATEWAY;
+			return de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_BUS_PATH;
 		}
 		ResKey veto = gatewayVeto(project);
 		if (veto != null) {
 			return veto;
+		}
+		if (gateway && BusPath.controller(project) != null) {
+			return I18NConstants.ERROR_GATEWAY_THROUGH_CONTROLLER;
 		}
 		if ((area == null) != (line == null) || area != null && (area < 0 || area > 15 || line < 0 || line > 15)) {
 			return I18NConstants.ERROR_NO_LINE;
@@ -168,23 +170,11 @@ public class ScanFunctions extends GenericMethod {
 	}
 
 	/**
-	 * Why the gateway of the project cannot be used: this installation does not reach local networks
-	 * (haumacher/ehome #150; the address stays with the project), the project has no gateway, or its
-	 * address is invalid.
+	 * Why the path to the bus of the project cannot be used now ({@link BusPath#veto(TLObject)}): its
+	 * gateway or its controller (haumacher/ehome #148).
 	 */
 	private static ResKey gatewayVeto(TLObject project) {
-		ResKey localNetwork = OperatorSettings.localNetworkVeto();
-		if (localNetwork != null) {
-			return localNetwork;
-		}
-		String gateway = Gateways.of(project);
-		if (gateway == null) {
-			return de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_GATEWAY;
-		}
-		if (Gateways.parse(gateway) == null) {
-			return de.haumacher.ehome.programming.download.I18NConstants.ERROR_BAD_GATEWAY__VALUE.fill(gateway);
-		}
-		return null;
+		return BusPath.veto(project);
 	}
 
 	/**

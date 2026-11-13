@@ -362,8 +362,8 @@
 					<de>Installation einlesen</de>
 				</label>
 				<tooltip>
-					<en>Scans the bus behind the project's gateway, matches the devices found against the catalog and creates or updates them in the project. The scan and the reading of configurations write nothing into the devices.</en>
-					<de>Durchsucht den Bus hinter dem Gateway des Projekts, ordnet die gefundenen Geräte dem Katalog zu und legt sie im Projekt an oder aktualisiert sie. Suche und Einlesen der Konfiguration schreiben nichts in die Geräte.</de>
+					<en>Scans the bus behind the project's gateway or controller, matches the devices found against the catalog and creates or updates them in the project. The scan and the reading of configurations write nothing into the devices.</en>
+					<de>Durchsucht den Bus hinter dem Gateway oder dem Controller des Projekts, ordnet die gefundenen Geräte dem Katalog zu und legt sie im Projekt an oder aktualisiert sie. Suche und Einlesen der Konfiguration schreiben nichts in die Geräte.</de>
 				</tooltip>
 				<access>
 					<operation name="Write"

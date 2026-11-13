@@ -160,6 +160,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 COMMIT_READ_BACK_IDENTICAL__DEVICE;
 
+	/**
+	 * @en The gateway itself cannot be read through a controller: its local device management is a KNXnet/IP service of its own, not a frame on the bus. Uncheck "The gateway itself".
+	 */
+	public static ResKey ERROR_GATEWAY_THROUGH_CONTROLLER;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

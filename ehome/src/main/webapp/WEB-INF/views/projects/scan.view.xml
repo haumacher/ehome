@@ -2,7 +2,7 @@
 
 <!--
 	Dialog "Read the installation" of a project (haumacher/ehome #9): scans the bus behind the
-	project's gateway, matches the devices found against the catalog, creates or updates them in the
+	project's gateway or its connected controller (haumacher/ehome #148), matches the devices found against the catalog, creates or updates them in the
 	project, and reads their configuration back.
 
 	"project" is the project. The scan and the read-back run as jobs (de.haumacher.ehome.scan.ScanJob,
@@ -14,9 +14,9 @@
 
 	"LED on/off" switches the programming mode of the selected device: it writes into the device, so
 	it is disabled with the reason unless the configuration variable tl_ehome_programming_write_enabled is
-	true, and asks for a confirmation naming device and gateway. Unless the installation reaches local
-	networks (tl_ehome_local_network), "Choose the gateway" is not offered and the scan is refused with that
-	reason.
+	true, and asks for a confirmation naming device and path (gateway or controller). Unless the
+	installation reaches local networks (tl_ehome_local_network), a gateway is refused with that reason;
+	the controller stays available, and "Choose the gateway" offers only it then.
 -->
 <view>
 	<channels>
@@ -31,7 +31,7 @@
 		<channel name="result"/>
 		<channel name="selected"/>
 		<derived-channel name="gateway"
-			expr='#("Gateway: {0}"@en, "Gateway: {0}"@de).fill(if($project.get(`ehome.project:Project#gateway`) == null, "-", $project.get(`ehome.project:Project#gateway`))).localize()'
+			expr='#("Path to the bus: {0}"@en, "Weg zum Bus: {0}"@de).fill(if(busPath($project) == null, "-", busPath($project))).localize()'
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
@@ -63,8 +63,8 @@
 								<de>Gateway wählen</de>
 							</label>
 							<tooltip>
-								<en>Sets the KNXnet/IP gateway of the project, entered by address or chosen from a search; the scan reads the installation behind it. It is the gateway of the whole project, for programming as well.</en>
-								<de>Legt das KNXnet/IP-Gateway des Projekts fest, als Adresse eingegeben oder aus einer Suche gewählt; die Suche liest die Installation dahinter. Es ist das Gateway des ganzen Projekts, auch für das Programmieren.</de>
+								<en>Sets the path of the project to the bus: a KNXnet/IP gateway, entered by address or chosen from a search, or the project's connected controller; the scan reads the installation behind it. It is the path of the whole project, for programming as well.</en>
+								<de>Legt den Weg des Projekts zum Bus fest: ein KNXnet/IP-Gateway, als Adresse eingegeben oder aus einer Suche gewählt, oder den verbundenen Controller des Projekts; die Suche liest die Installation dahinter. Es ist der Weg des ganzen Projekts, auch für das Programmieren.</de>
 							</tooltip>
 							<access>
 								<operation name="Write"
@@ -73,7 +73,6 @@
 								/>
 							</access>
 							<executability>
-								<visible-if expr="localNetworkVeto() == null"/>
 								<null-input-disabled/>
 							</executability>
 							<open-dialog
@@ -83,7 +82,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-search"
-							inputs="project"
+							inputs="project, area, line, routers, gatewayDevice, programming"
 							observed-types="ehome.project:Project"
 							placement="TOOLBAR"
 						>
@@ -104,7 +103,8 @@
 							</access>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="scanVeto($project, null, null, false, true, false)"/>
+								<!-- The job's own check, with the line and the targets as chosen (a controller cannot read the gateway itself, haumacher/ehome #148). -->
+								<disabled-if expr="scanVeto($project, $area, $line, $routers, $gatewayDevice, $programming)"/>
 							</executability>
 							<start-job
 								cancelable="true"
@@ -155,8 +155,8 @@
 								variant="caption"
 							>
 								<label>
-									<en>The scan only reads: it connects to the devices and reads their descriptor, properties and memory. Choose the gateway of the installation to read; never a gateway of another installation.</en>
-									<de>Die Suche liest nur: Sie verbindet sich mit den Geräten und liest Gerätebeschreibung, Eigenschaften und Speicher. Wählen Sie das Gateway der Installation, die eingelesen werden soll, nie das einer anderen Installation.</de>
+									<en>The scan only reads: it connects to the devices and reads their descriptor, properties and memory. Choose the gateway or the controller of the installation to read; never a gateway of another installation.</en>
+									<de>Die Suche liest nur: Sie verbindet sich mit den Geräten und liest Gerätebeschreibung, Eigenschaften und Speicher. Wählen Sie das Gateway oder den Controller der Installation, die eingelesen werden soll, nie das Gateway einer anderen Installation.</de>
 								</label>
 							</text>
 							<fields>
@@ -192,8 +192,8 @@
 									value="gatewayDevice"
 								>
 									<label>
-										<en>The gateway itself (local device management)</en>
-										<de>Das Gateway selbst (lokales Gerätemanagement)</de>
+										<en>The gateway itself (local device management; not through a controller)</en>
+										<de>Das Gateway selbst (lokales Gerätemanagement; nicht über einen Controller)</de>
 									</label>
 								</value-input>
 								<value-input

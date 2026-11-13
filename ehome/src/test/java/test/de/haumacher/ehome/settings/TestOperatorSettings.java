@@ -188,7 +188,7 @@ public class TestOperatorSettings extends BasicTestCase {
 	/**
 	 * haumacher/ehome #150: the views offer nothing that reaches into the local networks unless the
 	 * installation does - every element triggering such a path (the gateway search, the dialogs
-	 * choosing a gateway and searching controllers, the interfaces of the server, host, port and
+	 * searching controllers, the interfaces of the server, host, port and
 	 * token of a controller) is shown only under <code>localNetworkVeto()</code>. That the views
 	 * load is <code>TestViewsLoad</code>.
 	 */
@@ -216,9 +216,14 @@ public class TestOperatorSettings extends BasicTestCase {
 
 	private static final Set<String> TRIGGER_TAGS = Set.of("discover-knx-gateways", "discover-controllers");
 
-	private static final Set<String> TRIGGER_DIALOGS = Set.of("projects/choose-gateway.view.xml",
-		"controllers/discover-controllers.view.xml", "controllers/create-controller.view.xml",
-		"controllers/controller-token.view.xml");
+	/**
+	 * The dialogs reaching only into the local networks. "Choose the gateway"
+	 * (<code>projects/choose-gateway.view.xml</code>) is not among them since haumacher/ehome #148: it also
+	 * offers the project's controller, which stays available; its search and its address are guarded
+	 * inside the dialog (the <code>&lt;discover-knx-gateways&gt;</code> found there).
+	 */
+	private static final Set<String> TRIGGER_DIALOGS = Set.of("controllers/discover-controllers.view.xml",
+		"controllers/create-controller.view.xml", "controllers/controller-token.view.xml");
 
 	private static final Set<String> CONTROLLER_FIELDS = Set.of("host", "port", "token");
 

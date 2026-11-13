@@ -273,7 +273,7 @@ public final class TransportClient implements NetworkLinkListener, AutoCloseable
 		execute(() -> {
 			_open = false;
 			cancelIdle();
-			fail("The connection to the gateway was closed: " + e.getReason());
+			fail("The link to the bus was closed: " + e.getReason());
 		});
 	}
 

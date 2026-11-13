@@ -20,14 +20,15 @@ import de.haumacher.ehome.knx.transport.TransportClient.TransportException;
 import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
- * The one class that changes a device on the bus: {@link DeviceAccess} through a KNXnet/IP gateway,
+ * The one class that changes a device on the bus: {@link DeviceAccess} on the {@link BusPath} of its
+ * project (a KNXnet/IP gateway, or the bus session of the project's controller, haumacher/ehome #148),
  * on the transport connection of {@link CalimeroReader}.
  *
  * <p>
  * Writing is switched off unless the operator switches it on (the configuration variable
  * <code>tl_ehome_programming_write_enabled</code>, {@link OperatorSettings.Config#getProgrammingWriteEnabled()},
- * haumacher/ehome #149): {@link #open(InetSocketAddress, int)} refuses otherwise. Every write to the
- * bus of the application goes through this class (checked by <code>TestBusWritePath</code>), so that
+ * haumacher/ehome #149): {@link #open(BusPath, int)} refuses otherwise, whatever the path. Every write to
+ * the bus of the application goes through this class (checked by <code>TestBusWritePath</code>), so that
  * {@link #writeEnabled()} is the one place deciding whether E-Home may program a device.
  * </p>
  */
@@ -43,19 +44,30 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 	/**
 	 * Opens a connection to the gateway for writing into the given device.
 	 *
-	 * @throws TopLogicException
-	 *         If writing is switched off ({@link #writeEnabled()}), or this installation does not
-	 *         reach local networks ({@link OperatorSettings#checkLocalNetwork()}).
+	 * @see #open(BusPath, int)
 	 */
 	public static CalimeroWriter open(InetSocketAddress gateway, int device) throws BusException {
+		return open(BusPath.gateway(gateway), device);
+	}
+
+	/**
+	 * Opens a link on the given path for writing into the given device.
+	 *
+	 * @throws TopLogicException
+	 *         If writing is switched off ({@link #writeEnabled()}; checked before anything is opened),
+	 *         or the path is refused: this installation does not reach local networks
+	 *         ({@link OperatorSettings#checkLocalNetwork()}) for a gateway, the controller refuses the
+	 *         bus session.
+	 */
+	public static CalimeroWriter open(BusPath path, int device) throws BusException {
 		if (!writeEnabled()) {
 			throw new TopLogicException(I18NConstants.ERROR_WRITE_DISABLED);
 		}
-		return new CalimeroWriter(gateway, device);
+		return new CalimeroWriter(path, device);
 	}
 
-	private CalimeroWriter(InetSocketAddress gateway, int device) throws BusException {
-		super(gateway, device);
+	private CalimeroWriter(BusPath path, int device) throws BusException {
+		super(path, device);
 	}
 
 	/**

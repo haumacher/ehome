@@ -1,25 +1,43 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	Dialog choosing the KNX gateway of a project (ehome.project:Project#gateway): an address entered
-	(address or address:port), or a gateway the search found (its control endpoint).
+	Dialog choosing the path of a project to the bus: its KNX gateway (ehome.project:Project#gateway), an
+	address entered (address or address:port) or a gateway the search found (its control endpoint); or
+	one of the project's enrolled controllers (ehome.project:Project#programmingController, haumacher/ehome
+	#148), through whose bus session E-Home programs and reads the devices. The two are exclusive: "Use"
+	sets the one chosen and clears the other; there is no fallback from one to the other.
 
-	"project" is the project. The search is the one of discover.view.xml with its default settings
-	(<discover-knx-gateways>, de.haumacher.ehome.discover.DiscoverGatewaysAction). An entered address
-	takes precedence over the selected gateway.
+	"project" is the project. The dialog opens with the current path filled in: the gateway's address
+	in the field, or the controller selected in its table. The search is the one of discover.view.xml
+	with its default settings (<discover-knx-gateways>, de.haumacher.ehome.discover.DiscoverGatewaysAction).
+	What differs from the current path wins: an address entered (or a gateway selected from the search,
+	while the field still holds the current address), or another controller selected; a new gateway and
+	a new controller chosen together are refused.
+	The table of controllers shows each one's connection state (controllerConnection) and whether
+	programming through it is possible now (controllerBusState: connected, firmware with the bus
+	session, no session open); a controller that cannot be used now can still be chosen, the commands
+	using the path then say why.
 
 	Unless the installation reaches local networks (configuration variable tl_ehome_local_network,
 	haumacher/ehome #150, TL-Script localNetworkVeto()), the dialog offers neither the search nor the entry
-	of an address and says why; the commands opening it are not offered then either.
+	of an address and says why; the controllers stay available.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
 		<channel name="gateways"/>
 		<channel name="selectedGateway"/>
-		<channel name="address"/>
+		<!-- The current path, pre-filled: the gateway's address, or the controller selected in its table. -->
+		<channel name="address"
+			init="$project.get(`ehome.project:Project#gateway`)"
+			inputs="project"
+		/>
+		<channel name="selectedController"
+			init="$project.get(`ehome.project:Project#programmingController`)"
+			inputs="project"
+		/>
 		<derived-channel name="current"
-			expr='#("Current gateway: {0}"@en, "Aktuelles Gateway: {0}"@de).fill(if($project.get(`ehome.project:Project#gateway`) == null, "-", $project.get(`ehome.project:Project#gateway`))).localize()'
+			expr='#("Current path to the bus: {0}"@en, "Aktueller Weg zum Bus: {0}"@de).fill(if(busPath($project) == null, "-", busPath($project))).localize()'
 			inputs="project"
 		/>
 		<!-- Why this installation does not reach local networks, null if it does (haumacher/ehome #150). -->
@@ -33,57 +51,133 @@
 	</channels>
 	<window width="800px">
 		<title>
-			<en>Choose the KNX gateway</en>
-			<de>KNX-Gateway wählen</de>
+			<en>Choose the gateway or controller</en>
+			<de>Gateway oder Controller wählen</de>
 		</title>
 		<inset>
 			<stack gap="default">
 				<text input="current"
 					tone="secondary"
 				/>
-				<switch input="localNetworkVeto">
-					<case test="$localNetworkVeto == null">
-						<stack gap="default">
-							<button>
-								<action class="com.top_logic.layout.view.command.GenericViewCommand"
-									image="css:bi bi-broadcast"
-									inputs="project"
-								>
-									<label>
-										<en>Search gateways</en>
-										<de>Gateways suchen</de>
-									</label>
-									<access>
-										<!-- The search only lists the gateways that answer, for the project. -->
-										<operation name="Read"
-											object="$project"
-											type="ehome.project:Project"
-										/>
-									</access>
-									<discover-knx-gateways>
-										<with-result as="rows">
-											<write-channel name="gateways"/>
-											<notify expr="if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
-												kind="warning"
-											/>
-										</with-result>
-									</discover-knx-gateways>
-								</action>
-							</button>
-							<fields>
-								<value-input
-									type="tl.core:String"
-									value="address"
-								>
-									<label>
-										<en>Address (address or address:port)</en>
-										<de>Adresse (Adresse oder Adresse:Port)</de>
-									</label>
-								</value-input>
-							</fields>
-							<table selection="selectedGateway">
+				<panel>
+					<title>
+						<en>Through a KNXnet/IP gateway</en>
+						<de>Über ein KNXnet/IP-Gateway</de>
+					</title>
+					<inset>
+						<switch input="localNetworkVeto">
+							<case test="$localNetworkVeto == null">
+								<stack gap="default">
+									<button>
+										<action class="com.top_logic.layout.view.command.GenericViewCommand"
+											image="css:bi bi-broadcast"
+											inputs="project"
+										>
+											<label>
+												<en>Search gateways</en>
+												<de>Gateways suchen</de>
+											</label>
+											<access>
+												<!-- The search only lists the gateways that answer, for the project. -->
+												<operation name="Read"
+													object="$project"
+													type="ehome.project:Project"
+												/>
+											</access>
+											<discover-knx-gateways>
+												<with-result as="rows">
+													<write-channel name="gateways"/>
+													<notify expr="if($rows.isEmpty(), #('No gateway answered.'@en, 'Kein Gateway hat geantwortet.'@de))"
+														kind="warning"
+													/>
+												</with-result>
+											</discover-knx-gateways>
+										</action>
+									</button>
+									<fields>
+										<value-input
+											type="tl.core:String"
+											value="address"
+										>
+											<label>
+												<en>Address (address or address:port)</en>
+												<de>Adresse (Adresse oder Adresse:Port)</de>
+											</label>
+										</value-input>
+									</fields>
+									<table selection="selectedGateway">
+										<inputs>
+											<input channel="gateways"/>
+										</inputs>
+										<columns>
+											<computed-column name="name"
+												type="tl.core:String"
+											>
+												<label>
+													<en>Name</en>
+													<de>Name</de>
+												</label>
+												<value>$row["name"]</value>
+											</computed-column>
+											<computed-column name="endpoint"
+												type="tl.core:String"
+											>
+												<label>
+													<en>Control endpoint</en>
+													<de>Steuerungs-Endpunkt</de>
+												</label>
+												<value>$row["endpoint"]</value>
+											</computed-column>
+											<computed-column name="address"
+												type="tl.core:String"
+											>
+												<label>
+													<en>Individual address</en>
+													<de>Physikalische Adresse</de>
+												</label>
+												<value>$row["address"]</value>
+											</computed-column>
+											<computed-column name="mac"
+												type="tl.core:String"
+											>
+												<label>
+													<en>MAC address</en>
+													<de>MAC-Adresse</de>
+												</label>
+												<value>$row["mac"]</value>
+											</computed-column>
+										</columns>
+										<rows>if($gateways == null, [], $gateways)</rows>
+									</table>
+								</stack>
+							</case>
+							<default>
+								<text
+									input="localNetworkReason"
+									tone="secondary"
+								/>
+							</default>
+						</switch>
+					</inset>
+				</panel>
+				<panel>
+					<title>
+						<en>Through a controller of the project</en>
+						<de>Über einen Controller des Projekts</de>
+					</title>
+					<inset>
+						<stack gap="compact">
+							<text tone="helper"
+								variant="caption"
+							>
+								<label>
+									<en>The controller connected to E-Home passes the frames through its KNX tunnel (bus session); its firmware must have the bus session. Only enrolled controllers are listed.</en>
+									<de>Der mit E-Home verbundene Controller leitet die Telegramme durch seinen KNX-Tunnel (Bus-Sitzung); seine Firmware muss die Bus-Sitzung kennen. Aufgeführt sind nur angemeldete Controller.</de>
+								</label>
+							</text>
+							<table selection="selectedController">
 								<inputs>
-									<input channel="gateways"/>
+									<input channel="project"/>
 								</inputs>
 								<columns>
 									<computed-column name="name"
@@ -93,47 +187,32 @@
 											<en>Name</en>
 											<de>Name</de>
 										</label>
-										<value>$row["name"]</value>
+										<value>$row.get(`ehome.runtime:Controller#name`)</value>
 									</computed-column>
-									<computed-column name="endpoint"
+									<computed-column name="connection"
 										type="tl.core:String"
 									>
 										<label>
-											<en>Control endpoint</en>
-											<de>Steuerungs-Endpunkt</de>
+											<en>Connection</en>
+											<de>Verbindung</de>
 										</label>
-										<value>$row["endpoint"]</value>
+										<value>controllerConnection($row)</value>
 									</computed-column>
-									<computed-column name="address"
+									<computed-column name="bus"
 										type="tl.core:String"
 									>
 										<label>
-											<en>Individual address</en>
-											<de>Physikalische Adresse</de>
+											<en>Programming through it</en>
+											<de>Programmieren darüber</de>
 										</label>
-										<value>$row["address"]</value>
-									</computed-column>
-									<computed-column name="mac"
-										type="tl.core:String"
-									>
-										<label>
-											<en>MAC address</en>
-											<de>MAC-Adresse</de>
-										</label>
-										<value>$row["mac"]</value>
+										<value>controllerBusState($row)</value>
 									</computed-column>
 								</columns>
-								<rows>if($gateways == null, [], $gateways)</rows>
+								<rows>if($project == null, [], $project.get(`ehome.project:Project#controllers`).filter(c -> $c.get(`ehome.runtime:Controller#controllerId`) != null))</rows>
 							</table>
 						</stack>
-					</case>
-					<default>
-						<text
-							input="localNetworkReason"
-							tone="secondary"
-						/>
-					</default>
-				</switch>
+					</inset>
+				</panel>
 			</stack>
 		</inset>
 		<actions>
@@ -153,20 +232,36 @@
 						/>
 					</access>
 					<executability>
-						<visible-if expr="localNetworkVeto() == null"/>
 						<null-input-disabled/>
 					</executability>
 					<with-transaction>
 						<execute-script>
+							<!-- One path: the one chosen is set, the other cleared (haumacher/ehome #148). -->
 							<function><![CDATA[{
-    gateway = if($address != null and $address.trim() != "", $address.trim(), if($selectedGateway == null, null, $selectedGateway["endpoint"]));
-    if($gateway == null,
-        throw(#("Enter an address or choose a gateway the search found."@en, "Bitte eine Adresse eingeben oder ein gefundenes Gateway wählen."@de)),
-        $project.set(`ehome.project:Project#gateway`, $gateway));
+    current = $project.get(`ehome.project:Project#gateway`);
+    entered = if($address == null or $address.trim() == "", null, $address.trim());
+    found = if($selectedGateway == null, null, $selectedGateway["endpoint"]);
+    gateway = if($found != null and ($entered == null or $entered == $current), $found, $entered);
+    newGateway = $gateway != null and $gateway != $current;
+    newController = $selectedController != null and $selectedController != $project.get(`ehome.project:Project#programmingController`);
+    if($newGateway and $newController,
+        throw(#("Choose either a gateway or a controller."@en, "Bitte entweder ein Gateway oder einen Controller wählen."@de)));
+    if($newController or ($gateway == null and $selectedController != null),
+        {
+            $project.set(`ehome.project:Project#programmingController`, $selectedController);
+            $project.set(`ehome.project:Project#gateway`, null);
+        },
+        if($gateway != null,
+            {
+                $project.set(`ehome.project:Project#gateway`, $gateway);
+                $project.set(`ehome.project:Project#programmingController`, null);
+            },
+            throw(#("Enter an address, choose a gateway the search found or choose a controller."@en, "Bitte eine Adresse eingeben, ein gefundenes Gateway oder einen Controller wählen."@de))));
 }]]></function>
 							<inputs>
 								<input channel="address"/>
 								<input channel="selectedGateway"/>
+								<input channel="selectedController"/>
 							</inputs>
 						</execute-script>
 					</with-transaction>

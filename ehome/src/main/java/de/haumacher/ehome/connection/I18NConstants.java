@@ -214,6 +214,66 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 ERROR_CONTROLLER_WITHOUT_PROJECT__CONTROLLER;
 
+	/**
+	 * @en The controller {0} is reached on the LAN only: programming through a controller needs its E-Home connection (enroll it with a code of the tab "Controllers").
+	 */
+	public static ResKey1 ERROR_BUS_NOT_ENROLLED__CONTROLLER;
+
+	/**
+	 * @en The controller {0} is not connected to E-Home (last contact {1}): programming through it needs its E-Home connection.
+	 */
+	public static ResKey2 ERROR_BUS_OFFLINE__CONTROLLER_LAST_CONTACT;
+
+	/**
+	 * @en The controller {0} has not connected to E-Home yet: programming through it needs its E-Home connection.
+	 */
+	public static ResKey1 ERROR_BUS_NEVER_CONNECTED__CONTROLLER;
+
+	/**
+	 * @en The controller {0} has not reported its status yet: try again in a moment.
+	 */
+	public static ResKey1 ERROR_BUS_NO_STATUS__CONTROLLER;
+
+	/**
+	 * @en The firmware of the controller {0} has no bus session: update it to program devices through the controller.
+	 */
+	public static ResKey1 ERROR_BUS_FIRMWARE__CONTROLLER;
+
+	/**
+	 * @en A bus session through the controller {0} is open already (another download, comparison or scan through it): one at a time, wait until it ends.
+	 */
+	public static ResKey1 ERROR_BUS_SESSION_OPEN__CONTROLLER;
+
+	/**
+	 * @en The KNX tunnel of the controller {0} is not up: {1}
+	 */
+	public static ResKey2 ERROR_BUS_TUNNEL_DOWN__CONTROLLER_REASON;
+
+	/**
+	 * @en The controller {0} has no KNX tunnel: {1}
+	 */
+	public static ResKey2 ERROR_BUS_NO_KNX__CONTROLLER_REASON;
+
+	/**
+	 * @en The controller {0} refused the bus session: {1} ({2})
+	 */
+	public static ResKey3 ERROR_BUS_REFUSED__CONTROLLER_REASON_CODE;
+
+	/**
+	 * @en The controller {0} did not answer the opening of the bus session.
+	 */
+	public static ResKey1 ERROR_BUS_NO_ANSWER__CONTROLLER;
+
+	/**
+	 * @en The connection to the controller {0} ended: {1}
+	 */
+	public static ResKey2 ERROR_BUS_CONNECTION_ENDED__CONTROLLER_REASON;
+
+	/**
+	 * @en Programming through it possible
+	 */
+	public static ResKey BUS_AVAILABLE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

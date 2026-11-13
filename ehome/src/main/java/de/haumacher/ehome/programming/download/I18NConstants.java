@@ -151,19 +151,19 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey ERROR_WRITE_DISABLED;
 
 	/**
-	 * @en The project of the device has no KNX gateway. Enter one (address or address:port) or choose one from the search.
-	 */
-	public static ResKey ERROR_NO_GATEWAY;
-
-	/**
 	 * @en The KNX gateway "{0}" is no address (address or address:port).
 	 */
 	public static ResKey1 ERROR_BAD_GATEWAY__VALUE;
 
 	/**
-	 * @en The connection to the gateway {0} failed: {1}
+	 * @en The project has neither a KNX gateway nor a controller to reach the bus through: choose one with "Choose the gateway".
 	 */
-	public static ResKey2 ERROR_CONNECTION__GATEWAY_DETAIL;
+	public static ResKey ERROR_NO_BUS_PATH;
+
+	/**
+	 * @en The connection through {0} failed: {1}
+	 */
+	public static ResKey2 ERROR_CONNECTION__PATH_DETAIL;
 
 	/**
 	 * @en Download into {0} through {1}: {2} operations done in {3} s.
@@ -206,9 +206,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey LEVEL_DIFFERENT;
 
 	/**
-	 * @en Download into {0} ({1}) through the gateway {2}? {3} The device''s application is unloaded and loaded anew; the device does not work until the download is complete.
+	 * @en Download into {0} ({1}) through {2}? {3} The device''s application is unloaded and loaded anew; the device does not work until the download is complete.
 	 */
-	public static ResKey4 CONFIRM_DOWNLOAD__DEVICE_ADDRESS_GATEWAY_CHANGES;
+	public static ResKey4 CONFIRM_DOWNLOAD__DEVICE_ADDRESS_PATH_CHANGES;
 
 	/**
 	 * @en Changes since the last download: {0}.
@@ -221,9 +221,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey CHANGES_NO_DOWNLOAD;
 
 	/**
-	 * @en Write the individual address {0} into the device in programming mode, through the gateway {1}? Press the programming button of exactly one device first.
+	 * @en Write the individual address {0} into the device in programming mode, through {1}? Press the programming button of exactly one device first.
 	 */
-	public static ResKey2 CONFIRM_ADDRESS__ADDRESS_GATEWAY;
+	public static ResKey2 CONFIRM_ADDRESS__ADDRESS_PATH;
 
 	/**
 	 * @en Connecting to {0}

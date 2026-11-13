@@ -21,11 +21,11 @@ import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.connection.BusSessionLink;
+import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
-import de.haumacher.ehome.modules.ModuleInstances;
-import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
  * The TL-Script functions of the programming tab of a device: the plan of its download for the
@@ -71,7 +71,20 @@ public class ProgrammingFunctions extends GenericMethod {
 		 * <code>layoutConfirmation(device)</code>: the question before the full download replacing the
 		 * layout of the device's modules, naming the recorded difference.
 		 */
-		layoutConfirmation;
+		layoutConfirmation,
+		/**
+		 * <code>busPath(device or project)</code>: the path to the bus of the project, for a person
+		 * ({@link BusPath#describe(TLObject)}): <code>Gateway 192.168.178.81:3671</code> or
+		 * <code>Controller homecontrol-f883ec</code>; <code>null</code> if the project has none
+		 * (haumacher/ehome #148).
+		 */
+		busPath,
+		/**
+		 * <code>controllerBusState(controller)</code>: whether devices can be programmed through the
+		 * controller now, as text: "possible", or the reason it is not
+		 * ({@link BusSessionLink#veto(TLObject)}).
+		 */
+		controllerBusState;
 	}
 
 	private final Function _function;
@@ -135,15 +148,21 @@ public class ProgrammingFunctions extends GenericMethod {
 			case compareVeto:
 				return compareVeto(device);
 			case downloadConfirmation:
-				return I18NConstants.CONFIRM_DOWNLOAD__DEVICE_ADDRESS_GATEWAY_CHANGES.fill(device.tValueByName("name"),
-					address(device), Gateways.of(device), changes(device));
+				return I18NConstants.CONFIRM_DOWNLOAD__DEVICE_ADDRESS_PATH_CHANGES.fill(device.tValueByName("name"),
+					address(device), BusPath.describe(device), changes(device));
 			case addressConfirmation:
-				return I18NConstants.CONFIRM_ADDRESS__ADDRESS_GATEWAY.fill(address(device), Gateways.of(device));
+				return I18NConstants.CONFIRM_ADDRESS__ADDRESS_PATH.fill(address(device), BusPath.describe(device));
 			case layoutVeto:
 				return downloadVeto(device, DownloadPlan.Kind.LAYOUT);
 			case layoutConfirmation:
 				return I18NConstants.CONFIRM_LAYOUT__DEVICE_ADDRESS_GATEWAY_DIFFERENCES.fill(device.tValueByName("name"),
-					address(device), Gateways.of(device), ModuleInstances.differenceText(device));
+					address(device), BusPath.describe(device), ModuleInstances.differenceText(device));
+			case busPath:
+				return BusPath.describe(device);
+			case controllerBusState: {
+				ResKey veto = BusSessionLink.veto(device);
+				return Resources.getInstance().getString(veto == null ? de.haumacher.ehome.connection.I18NConstants.BUS_AVAILABLE : veto);
+			}
 		}
 		return null;
 	}
@@ -223,23 +242,10 @@ public class ProgrammingFunctions extends GenericMethod {
 	}
 
 	/**
-	 * Why the gateway of the project of the device cannot be used: this installation does not reach
-	 * local networks (haumacher/ehome #150; the address stays with the project), the project has no
-	 * gateway, or its address is invalid.
+	 * Why the path to the bus of the project of the device cannot be used now ({@link BusPath#veto(TLObject)}).
 	 */
 	private static ResKey gatewayVeto(TLObject device) {
-		ResKey localNetwork = OperatorSettings.localNetworkVeto();
-		if (localNetwork != null) {
-			return localNetwork;
-		}
-		String gateway = Gateways.of(device);
-		if (gateway == null) {
-			return I18NConstants.ERROR_NO_GATEWAY;
-		}
-		if (Gateways.parse(gateway) == null) {
-			return I18NConstants.ERROR_BAD_GATEWAY__VALUE.fill(gateway);
-		}
-		return null;
+		return BusPath.veto(device);
 	}
 
 	private static List<Map<String, Object>> rows(DownloadPlan plan) {

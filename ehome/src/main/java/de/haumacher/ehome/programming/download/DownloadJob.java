@@ -3,7 +3,6 @@
  */
 package de.haumacher.ehome.programming.download;
 
-import java.net.InetSocketAddress;
 import java.util.List;
 
 import com.top_logic.basic.CalledByReflection;
@@ -20,12 +19,13 @@ import com.top_logic.util.error.TopLogicException;
 
 /**
  * The work of the download command of a device (<code>&lt;start-job&gt;</code> body): plans the
- * download, connects to the project's gateway through {@link CalimeroWriter}, performs the plan with
+ * download, connects to the bus on the project's {@link BusPath} (its gateway or its controller) through
+ * {@link CalimeroWriter}, performs the plan with
  * progress per operation, and records it at the device on success.
  *
  * <p>
  * The device is the first object the job is started with (the <code>device</code> input). The result is a
- * {@link ProgrammingReport}. A refusal (writing switched off, no gateway, a plan with problems, no
+ * {@link ProgrammingReport}. A refusal (writing switched off, no gateway or controller, a plan with problems, no
  * connection) fails the job with its reason; a failure of the device is the report's outcome.
  * </p>
  */
@@ -66,18 +66,18 @@ public class DownloadJob implements JobBody {
 			throw new TopLogicException(veto);
 		}
 		DownloadPlan plan = DownloadPlanner.plan(device, _kind);
-		InetSocketAddress gateway = Gateways.parse(Gateways.of(device));
-		String gatewayText = Gateways.format(gateway);
+		BusPath path = BusPath.of(device);
+		String gatewayText = path.text();
 
 		job.message(I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
 		DownloadExecutor.Result result;
-		try (CalimeroWriter access = CalimeroWriter.open(gateway, plan.getIndividualAddress())) {
+		try (CalimeroWriter access = CalimeroWriter.open(path, plan.getIndividualAddress())) {
 			result = DownloadService.download(device, plan, access, new DownloadExecutor(), (number, count, operation) -> {
 				job.progress(number - 1, count);
 				job.message(I18NConstants.PROGRESS_OPERATION__NUMBER_COUNT_TEXT.fill(number, count, operation.describe()));
 			});
 		} catch (BusException ex) {
-			throw new TopLogicException(I18NConstants.ERROR_CONNECTION__GATEWAY_DETAIL.fill(gatewayText, ex.getMessage()), ex);
+			throw new TopLogicException(I18NConstants.ERROR_CONNECTION__PATH_DETAIL.fill(gatewayText, ex.getMessage()), ex);
 		}
 		job.progress(result.done(), result.count());
 

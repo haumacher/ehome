@@ -6,7 +6,6 @@ package test.de.haumacher.ehome.scan;
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
-import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
 
@@ -27,6 +26,7 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.programming.download.BusException;
+import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.scan.ReadBackJob;
 import de.haumacher.ehome.scan.ScanBus;
@@ -61,7 +61,7 @@ public class TestScanJobsInterrupted extends BasicTestCase {
 			Thread worker = Thread.currentThread();
 			ScanJob scan = new ScanJob(null, null) {
 				@Override
-				protected ScanBus openBus(InetSocketAddress gateway) {
+				protected ScanBus openBus(BusPath gateway) {
 					return new TestBusScan.FakeBus() {
 						@Override
 						public void close() {
@@ -81,7 +81,7 @@ public class TestScanJobsInterrupted extends BasicTestCase {
 			// The read-back: interrupted when the device is released, before its settings are stored.
 			ReadBackJob readBack = new ReadBackJob(null, null) {
 				@Override
-				protected DeviceReader openReader(InetSocketAddress gateway, int address) throws BusException {
+				protected DeviceReader openReader(BusPath gateway, int address) throws BusException {
 					assertEquals(ACTUATOR, address);
 					MockDevice device;
 					try {

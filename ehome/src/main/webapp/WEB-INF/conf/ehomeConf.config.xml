@@ -152,6 +152,8 @@
 					<method name="addressConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="layoutVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="layoutConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="busPath" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="controllerBusState" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<!-- Reading an installation from the bus (de.haumacher.ehome.scan.ScanFunctions): one builder, the function by its name. -->
 					<method name="scanVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanApplyVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>

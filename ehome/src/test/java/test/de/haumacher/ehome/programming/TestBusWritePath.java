@@ -20,6 +20,7 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import com.top_logic.basic.config.ApplicationConfig;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.programming.download.I18NConstants;
 
@@ -106,6 +107,24 @@ public class TestBusWritePath extends TestCase {
 			assertEquals(I18NConstants.ERROR_WRITE_DISABLED, ex.getErrorKey());
 		} catch (Exception ex) {
 			fail("Refused without connecting expected: " + ex);
+		}
+	}
+
+	/**
+	 * The path through a connected controller (haumacher/ehome #148) is behind the same switch: the
+	 * writer refuses before the bus session is asked for (a controller without connection would refuse
+	 * otherwise). The link through the controller (<code>BusSessionLink</code>) builds no write service
+	 * itself ({@link #testWriteServicesOnlyInWriter()}, {@link #testOneWritePath()} scan it as every
+	 * source).
+	 */
+	public void testControllerPathSwitchedOff() {
+		try {
+			CalimeroWriter.open(new BusPath.Controller("homecontrol-test", null), 0x1305);
+			fail("Writing must be refused.");
+		} catch (TopLogicException ex) {
+			assertEquals(I18NConstants.ERROR_WRITE_DISABLED, ex.getErrorKey());
+		} catch (Exception ex) {
+			fail("Refused without opening a session expected: " + ex);
 		}
 	}
 

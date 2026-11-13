@@ -115,6 +115,14 @@ later callers wait for their turn (fair, up to their timeout). A body above 4 KB
 image of any size (it is stored and compared byte for byte), goes as `"length": n` followed by binary
 frames of 4 KB; a response may come the same way, as the controller streams `GET /api/image`.
 
+A **bus session** (homecontrol #85, `spec/api.md` "Bus session", haumacher/ehome #148) passes cEMI
+frames through the controller's KNX tunnel over the same socket: `{"type": "bus", "op": "open" |
+"send" | "close"}` from E-Home, the events `opened`, `sent`, `frames`, `closed` and `refused` from the
+controller. `connection.BusSessionLink` makes a Calimero network link of it, on which E-Home programs
+and reads the devices of the project chosen to be programmed through the controller
+(`Project#programmingController`, `doc/programming.md` "Through a controller"). The capability is the
+member `ehome.bus` of the controller's status; one session per controller at a time.
+
 `ControllerClient`, which every action uses (deploy, unload, status, the image comparison, the
 Zigbee export, permit and read), takes the socket when the controller is connected and HTTP with
 host and token otherwise. An enrolled controller that is not connected and has no host and token
@@ -221,7 +229,8 @@ encodings) and `connection.InstallationKeys` (the keys of a project and the rota
 ## Forgetting a controller
 
 "Vergessen" (project tab, or "Löschen" in the administrators' list for a controller without a project) asks, then deletes the controller with its
-secret, removes it as the deployment target of its project and from the deployments that name it
+secret, removes it as the deployment target of its project, as the controller the project is
+programmed through (nothing takes its place there), and from the deployments that name it
 (they keep its name and address in their target), and closes its connection with
 `ehome.forgotten`. When the project has exactly one other controller, that one becomes the target
 (the same device enrolled again with a new code, after which the old entry is forgotten); with

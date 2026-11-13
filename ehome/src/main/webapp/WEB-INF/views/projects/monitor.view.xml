@@ -57,9 +57,10 @@
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
+		<!-- A project programmed through its controller (haumacher/ehome #148) has no gateway: the monitor attaches to the controller. -->
 		<derived-channel name="gatewayText"
-			expr="if($gateway == null, #('The project has no gateway yet.'@en, 'Das Projekt hat noch kein Gateway.'@de), #('Gateway: {0}'@en, 'Gateway: {0}'@de).fill($gateway))"
-			inputs="gateway"
+			expr="if($gateway == null, if($project == null or $project.get(`ehome.project:Project#programmingController`) == null, #('The project has no gateway yet.'@en, 'Das Projekt hat noch kein Gateway.'@de), #('The project reaches the bus through the controller {0}: attach the monitor to it with “Connect to a controller”.'@en, 'Das Projekt erreicht den Bus über den Controller {0}: Den Monitor mit „Mit einem Controller verbinden“ dort anschließen.'@de).fill($project.get(`ehome.project:Project#programmingController`).get(`ehome.runtime:Controller#name`))), #('Gateway: {0}'@en, 'Gateway: {0}'@de).fill($gateway))"
+			inputs="gateway, project"
 		/>
 		<derived-channel name="controllerText"
 			expr="if($project == null or $project.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), #('Controller of the project: {0}'@en, 'Controller des Projekts: {0}'@de).fill($project.get(`ehome.project:Project#controller`).get(`ehome.runtime:Controller#name`)))"

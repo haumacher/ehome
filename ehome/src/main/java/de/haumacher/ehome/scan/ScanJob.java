@@ -3,7 +3,6 @@
  */
 package de.haumacher.ehome.scan;
 
-import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,7 +24,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
-import de.haumacher.ehome.programming.download.Gateways;
+import de.haumacher.ehome.programming.download.BusPath;
 
 /**
  * The work of the command "Read the installation" (<code>&lt;start-job&gt;</code> body of
@@ -78,8 +77,8 @@ public class ScanJob implements JobBody {
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
-		InetSocketAddress address = Gateways.parse(Gateways.of(project));
-		String gatewayText = Gateways.format(address);
+		BusPath address = BusPath.of(project);
+		String gatewayText = address.text();
 
 		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
 		BusScanner.Result result;
@@ -135,10 +134,10 @@ public class ScanJob implements JobBody {
 	}
 
 	/**
-	 * Opens the bus behind the given gateway; a test replaces it.
+	 * Opens the bus on the given path (the project's gateway or controller); a test replaces it.
 	 */
-	protected ScanBus openBus(InetSocketAddress gateway) throws BusException {
-		return CalimeroScanBus.open(gateway);
+	protected ScanBus openBus(BusPath path) throws BusException {
+		return CalimeroScanBus.open(path);
 	}
 
 	/**

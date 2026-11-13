@@ -3,7 +3,6 @@
  */
 package de.haumacher.ehome.scan;
 
-import java.net.InetSocketAddress;
 import java.util.List;
 
 import com.top_logic.basic.CalledByReflection;
@@ -18,9 +17,9 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.programming.download.BusException;
+import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.programming.download.DeviceAccess;
-import de.haumacher.ehome.programming.download.Gateways;
 import de.haumacher.ehome.programming.download.ProgrammingReport;
 
 /**
@@ -75,8 +74,8 @@ public class LedJob implements JobBody {
 			throw new TopLogicException(veto);
 		}
 		FoundDevice found = ScanRows.found(row);
-		InetSocketAddress gateway = Gateways.parse(Gateways.of(ScanRows.project(row)));
-		String gatewayText = Gateways.format(gateway);
+		BusPath gateway = BusPath.of(ScanRows.project(row));
+		String gatewayText = gateway.text();
 		String state = Resources.getInstance().getString(_on ? I18NConstants.LED_ON : I18NConstants.LED_OFF);
 		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
 		ProgrammingReport report = new ProgrammingReport();

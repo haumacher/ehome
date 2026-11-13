@@ -3,7 +3,6 @@
  */
 package de.haumacher.ehome.programming.download;
 
-import java.net.InetSocketAddress;
 import java.util.List;
 
 import com.top_logic.basic.CalledByReflection;
@@ -22,7 +21,7 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
 
 /**
  * The work of the compare command of a device (<code>&lt;start-job&gt;</code> body): reads the
- * device through the project's gateway with {@link CalimeroReader} (nothing is written) and compares
+ * device on the project's {@link BusPath} (its gateway or its controller) with {@link CalimeroReader} (nothing is written) and compares
  * it with the download image ({@link DeviceComparison}).
  *
  * <p>
@@ -64,13 +63,13 @@ public class CompareJob implements JobBody {
 			throw new TopLogicException(veto);
 		}
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
-		InetSocketAddress gateway = Gateways.parse(Gateways.of(device));
-		String gatewayText = Gateways.format(gateway);
+		BusPath path = BusPath.of(device);
+		String gatewayText = path.text();
 
 		job.message(I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
 		ProgrammingReport report = new ProgrammingReport();
 		DeviceComparison.Result result;
-		try (CalimeroReader reader = CalimeroReader.open(gateway, plan.getIndividualAddress())) {
+		try (CalimeroReader reader = CalimeroReader.open(path, plan.getIndividualAddress())) {
 			result = DeviceComparison.compare(DeviceConfiguration.program(device), plan, reader,
 				(number, count, block) -> {
 					job.checkCancelled();

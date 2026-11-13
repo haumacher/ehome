@@ -56,11 +56,31 @@
 				/>
 				<!--
 					The KNXnet/IP gateway the devices of the project are programmed and read through: an
-					address, optionally with the port (192.168.178.81 or 192.168.178.81:3671).
+					address, optionally with the port (192.168.178.81 or 192.168.178.81:3671). Exclusive with
+					programmingController: "Choose the gateway" sets one and clears the other.
 				-->
 				<property name="gateway"
 					type="tl.core:String"
 				/>
+				<!--
+					The connected controller of the project the devices are programmed and read through instead of
+					a gateway (haumacher/ehome #148): a bus session over the controller's E-Home connection carries
+					the frames through the controller's KNX tunnel (de.haumacher.ehome.connection.BusSessionLink).
+					One of the project's own enrolled controllers; exclusive with gateway (set by "Choose the
+					gateway", which clears the other). Forgetting the controller clears it.
+				-->
+				<reference name="programmingController"
+					kind="forwards"
+					type="ehome.runtime:Controller"
+				>
+					<annotations>
+						<options>
+							<options-by-expression>
+								<function><![CDATA[p -> $p.get(`ehome.project:Project#controllers`).filter(c -> $c.get(`ehome.runtime:Controller#controllerId`) != null)]]></function>
+							</options-by-expression>
+						</options>
+					</annotations>
+				</reference>
 				<!-- The recordings of the group monitor (haumacher/ehome #10). -->
 				<reference name="recordings"
 					composite="true"

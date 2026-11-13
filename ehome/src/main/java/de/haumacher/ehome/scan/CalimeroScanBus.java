@@ -4,8 +4,6 @@
 package de.haumacher.ehome.scan;
 
 import java.io.IOException;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -19,6 +17,7 @@ import java.util.concurrent.TimeoutException;
 
 import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
+import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.Gateways;
@@ -26,8 +25,6 @@ import de.haumacher.ehome.settings.OperatorSettings;
 import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.link.KNXNetworkLink;
-import tuwien.auto.calimero.link.KNXNetworkLinkIP;
-import tuwien.auto.calimero.link.medium.TPSettings;
 import tuwien.auto.calimero.mgmt.Destination;
 import tuwien.auto.calimero.mgmt.LocalDeviceManagementIp;
 import tuwien.auto.calimero.mgmt.ManagementClientImpl;
@@ -35,9 +32,11 @@ import tuwien.auto.calimero.mgmt.ManagementProcedures;
 import tuwien.auto.calimero.mgmt.ManagementProceduresImpl;
 
 /**
- * {@link ScanBus} reaching the bus through a KNXnet/IP gateway with Calimero: one tunnelling link,
- * on which the scans of addresses run with Calimero's {@link ManagementProcedures} and the reads of
- * a device with a management client, one after the other.
+ * {@link ScanBus} reaching the bus with Calimero on the {@link BusPath} of the project: one link (a
+ * tunnelling connection to the gateway, or the bus session of the project's controller,
+ * haumacher/ehome #148), on which the scans of addresses run with Calimero's
+ * {@link ManagementProcedures} and the reads of a device with a management client, one after the
+ * other.
  *
  * <p>
  * Reads only: connections, device descriptor, property and memory reads, and the broadcast read of
@@ -53,9 +52,7 @@ public class CalimeroScanBus implements ScanBus {
 	 */
 	private static final long SCAN_MILLIS = 256 * 115 + 7100;
 
-	private final InetSocketAddress _gateway;
-
-	private final InetSocketAddress _local;
+	private final BusPath _path;
 
 	private final KNXNetworkLink _link;
 
@@ -69,29 +66,27 @@ public class CalimeroScanBus implements ScanBus {
 	 *         ({@link OperatorSettings#checkLocalNetwork()}, haumacher/ehome #150).
 	 */
 	public static CalimeroScanBus open(InetSocketAddress gateway) throws BusException {
-		return new CalimeroScanBus(gateway);
+		return open(BusPath.gateway(gateway));
 	}
 
-	private CalimeroScanBus(InetSocketAddress gateway) throws BusException {
-		OperatorSettings.checkLocalNetwork();
-		_gateway = gateway;
-		InetSocketAddress remote = resolve(gateway);
-		try {
-			_local = new InetSocketAddress(localAddressTowards(remote), 0);
-			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
-				_link = KNXNetworkLinkIP.newTunnelingLink(_local, remote, false, new TPSettings());
-			}
-		} catch (KNXException | IOException ex) {
-			throw new BusException("No connection to the gateway " + Gateways.format(gateway) + ": " + ex.getMessage(), ex);
-		} catch (InterruptedException ex) {
-			Thread.currentThread().interrupt();
-			throw new BusException("Interrupted while connecting to " + Gateways.format(gateway) + ".", ex);
-		}
+	/**
+	 * Opens a link on the given path.
+	 *
+	 * @throws com.top_logic.util.error.TopLogicException
+	 *         If the path is refused ({@link BusPath#open()}).
+	 */
+	public static CalimeroScanBus open(BusPath path) throws BusException {
+		return new CalimeroScanBus(path);
+	}
+
+	private CalimeroScanBus(BusPath path) throws BusException {
+		_path = path;
+		_link = path.open();
 	}
 
 	@Override
 	public String gateway() {
-		return Gateways.format(_gateway);
+		return _path.text();
 	}
 
 	@Override
@@ -197,12 +192,18 @@ public class CalimeroScanBus implements ScanBus {
 
 	@Override
 	public LocalProperties gatewayProperties() throws BusException {
+		if (!(_path instanceof BusPath.Gateway gateway)) {
+			throw new BusException("The gateway itself cannot be read through " + gateway()
+				+ ": its local device management is a KNXnet/IP service of its own.");
+		}
 		LocalDeviceManagementIp adapter;
 		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
-			adapter = LocalDeviceManagementIp.newAdapter(_local, resolve(_gateway), false, false, event -> {
+			InetSocketAddress remote = resolve(gateway.address());
+			InetSocketAddress local = new InetSocketAddress(BusPath.Gateway.localAddressTowards(remote), 0);
+			adapter = LocalDeviceManagementIp.newAdapter(local, remote, false, false, event -> {
 				// Closed with the bus.
 			});
-		} catch (KNXException ex) {
+		} catch (KNXException | IOException ex) {
 			throw new BusException("No local device management of " + gateway() + ": " + ex.getMessage(), ex);
 		} catch (InterruptedException ex) {
 			Thread.currentThread().interrupt();
@@ -322,16 +323,6 @@ public class CalimeroScanBus implements ScanBus {
 
 	private static InetSocketAddress resolve(InetSocketAddress gateway) {
 		return gateway.isUnresolved() ? new InetSocketAddress(gateway.getHostString(), gateway.getPort()) : gateway;
-	}
-
-	private static InetAddress localAddressTowards(InetSocketAddress remote) throws IOException {
-		if (remote.isUnresolved()) {
-			throw new IOException("unknown host " + remote.getHostString());
-		}
-		try (DatagramSocket socket = new DatagramSocket()) {
-			socket.connect(remote.getAddress(), remote.getPort());
-			return socket.getLocalAddress();
-		}
 	}
 
 }

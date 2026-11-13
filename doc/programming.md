@@ -1,7 +1,8 @@
 # Programming devices (download over KNXnet/IP)
 
 E-Home programs a device of a project over a KNXnet/IP gateway with Calimero
-(`de.haumacher.ehome.programming.download`, haumacher/ehome #7). This document is the procedure for
+(`de.haumacher.ehome.programming.download`, haumacher/ehome #7), or through the project's controller
+connected to E-Home (haumacher/ehome #148, section "Through a controller"). This document is the procedure for
 the hardware: how to compare a device with its download image (read-only, safe), what a download
 does, how to run the first real download on the test system, and how to recover a device with ETS.
 
@@ -19,7 +20,8 @@ does, how to run the first real download on the test system, and how to recover 
   no source names the former system property).
 - **Only an installation that reaches local networks talks to a gateway.** With
   `tl_ehome_local_network=false` (a hosted instance, `doc/debian.md`) the project's gateway address is
-  kept but every connection to it is refused, and "Gateway wählen" is not offered.
+  kept but every connection to it is refused, and "Gateway wählen" offers only the project's
+  controllers: the path through a controller is what stays available.
 - **The test system only.** The test system is reached through the IP router 192.168.178.81:3671
   (MAC 00-24-6D-01-58-64). The other router the search finds, "KNX IP Router 750", is the home
   installation: never choose it as the gateway of a project you program or compare.
@@ -30,14 +32,18 @@ does, how to run the first real download on the test system, and how to recover 
 
 Project → tab "Geräte" → a device → tab "Programmierung":
 
-- "Gateway wählen": the project's gateway (`Project#gateway`), entered (`192.168.178.81` or
-  `192.168.178.81:3671`) or taken from a search.
+- "Gateway wählen": the project's path to the bus, shown above as "Gateway 192.168.178.81:3671" or
+  "Controller homecontrol-f883ec": a gateway (`Project#gateway`), entered (`192.168.178.81` or
+  `192.168.178.81:3671`) or taken from a search, or one of the project's enrolled controllers
+  (`Project#programmingController`). The two are exclusive: "Übernehmen" sets the one chosen and
+  clears the other.
 - The plan of the full download: every operation with its step of the load procedure, its
   addresses and bytes; the blocks of the image the procedure does not load; the reasons a download
   is refused. "Download-Abbild" shows the image.
 - "Mit dem Gerät vergleichen": compares the device with the image; the report lists per block
   "Identisch" or the differing addresses.
-- "Herunterladen": asks for confirmation naming the device, its address and the gateway, then runs
+- "Herunterladen": asks for confirmation naming the device, its address and the path ("über Gateway
+  192.168.178.81:3671" or "über Controller homecontrol-f883ec"), then runs
   the plan with progress, and reports success (operations, duration) or the failing operation with
   the device's answer. On success the device records the download (`loaded`, `lastDownload`) and,
   for a full download, the revision of the project data the plan was computed from
@@ -49,6 +55,45 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   E-Home.
 - "Physikalische Adresse programmieren": writes the device's individual address into the one device
   whose programming button is pressed.
+
+## Through a controller (haumacher/ehome #148)
+
+An E-Home that is not in the installation's network (the hosted one) cannot reach a gateway there;
+the installation's controller is connected to it and holds a tunnel to the gateway. A **bus session**
+on the controller's E-Home connection (homecontrol #85, `spec/api.md` "Bus session") passes cEMI
+frames in both directions; the controller only forwards. Everything that uses the gateway uses it
+alike: the comparison, the download, the individual address, the scan, the read-back and the LED.
+
+- **The link.** `connection.BusSessionLink` is a Calimero `KNXNetworkLink` (an `AbstractLink`) over
+  the session: opened on the first use of a job (`open`; the tunnel's individual address the controller
+  reports becomes the link's own address, `max_apdu` its longest APDU), every frame a `send` with a
+  reference, closed when the job ends (`close`). One frame waits for its outcome at a time, in order:
+  `confirmed` is the positive confirmation, `negative` and `no_confirmation` fail a send that waits for
+  the confirmation (the transport connection repeats, as with a lost acknowledgement), `lost` closes the
+  link; `bus.queue_full` is waited out (20 times 50 ms). The indications of `frames` go to the link's
+  listeners: E-Home's transport connection (`TransportClient`) and Calimero's management procedures
+  run on it unchanged. The path is chosen by `programming.download.BusPath` (the gateway's tunnel or
+  the controller's session); `CalimeroReader`, `CalimeroWriter` and `scan.CalimeroScanBus` open their
+  link there.
+- **The choice.** "Gateway wählen" lists the project's enrolled controllers with their connection
+  and whether programming through them is possible now. No fallback: a project programmed through its
+  controller never tries a gateway, and the other way round.
+- **One switch.** `CalimeroWriter` stays the one writing class and refuses without
+  `tl_ehome_programming_write_enabled` on this path too, before the session is asked for
+  (`TestBusWritePath`).
+- **Refusals**, as the reason of the disabled command or the failure of the job: the controller is on
+  the LAN only (no E-Home connection), not connected (with its last contact), has not reported its
+  status yet, its firmware has no bus session (the status lacks `ehome.bus`: update it), a session
+  through it is open already (another download, comparison or scan: one at a time, E-Home refuses
+  before asking, the controller answers `bus.busy`), its KNX tunnel is down (`bus.tunnel_down`), it
+  has no KNX (`bus.knx_unavailable`), any other refusal with the controller's reason and code. The
+  session's end by the controller (`bus.idle` after 60 s without frames, `bus.tunnel_down`,
+  `bus.overflow`) or the end of the connection closes the link: a download aborts at the failing
+  operation with the reason.
+- **The scan's "The gateway itself"** (KNXnet/IP local device management) is no frame on the bus and
+  is refused through a controller.
+- The monitor is not part of it: it attaches to the controller's monitor stream with "Mit einem
+  Controller verbinden" (`doc/controllers.md`).
 
 ## Comparing (safe)
 

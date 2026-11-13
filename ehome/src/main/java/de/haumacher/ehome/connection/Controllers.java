@@ -71,8 +71,9 @@ public final class Controllers {
 	 * Forgets the controller: closes its connection with {@link ControllerConnection#REFUSED_FORGOTTEN}
 	 * and deletes it, in a transaction of its own on the thread of
 	 * {@link ControllerConnections#executeAndWait(Runnable)}, after removing it as the deployment target
-	 * of projects (a project's only other controller becomes its target instead) and from the
-	 * deployments that name it (they keep its name and address in their target).
+	 * of projects (a project's only other controller becomes its target instead), as the controller
+	 * a project is programmed through (none takes its place), and from the deployments that name it
+	 * (they keep its name and address in their target).
 	 */
 	public static void forget(TLObject controller) {
 		String id = ControllerConnections.controllerId(controller);
@@ -94,6 +95,11 @@ public final class Controllers {
 			for (TLObject project : MetaElementUtil.getAllDirectInstancesOf(projectType, TLObject.class)) {
 				if (project.tValueByName("controller") == controller) {
 					project.tUpdateByName("controller", soleOther(project, controller));
+				}
+				// The path to the bus is the installer's explicit choice (haumacher/ehome #148): nothing
+				// takes the forgotten controller's place.
+				if (project.tValueByName("programmingController") == controller) {
+					project.tUpdateByName("programmingController", null);
 				}
 				if (project.tValueByName("deployments") instanceof Collection<?> deployments) {
 					for (Object entry : deployments) {

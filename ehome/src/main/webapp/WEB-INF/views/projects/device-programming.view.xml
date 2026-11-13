@@ -1,22 +1,24 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The programming of a device (tab "Programming" of projects/devices.view.xml): the KNX gateway of
-	the project, the plan of the full download (the operations with their addresses and bytes), and
-	the commands reaching the device through the gateway.
+	The programming of a device (tab "Programming" of projects/devices.view.xml): the path of the
+	project to the bus (its KNX gateway, or its connected controller, haumacher/ehome #148), the plan of
+	the full download (the operations with their addresses and bytes), and the commands reaching the
+	device on that path.
 
 	"device" is the device, "project" its project. The plan and the reasons a command is refused are
 	computed by the TL-Script functions of de.haumacher.ehome.programming.download.ProgrammingFunctions
 	(implemented in Java; the views name the types they depend on in observed-types).
 
 	- Compare reads the device and compares it with the download image; it never writes.
-	- Download runs the plan after a confirmation naming the device, its address and the gateway.
+	- Download runs the plan after a confirmation naming the device, its address and the path (gateway
+	  or controller).
 	- Write address writes the individual address into the one device in programming mode.
 	Both writing commands are disabled, with the reason, unless the configuration variable
 	tl_ehome_programming_write_enabled is true (de.haumacher.ehome.programming.download.CalimeroWriter,
-	de.haumacher.ehome.settings.OperatorSettings). Unless the installation reaches local networks
-	(tl_ehome_local_network), "Choose the gateway" is not offered and every command reaching the gateway is
-	disabled with that reason.
+	de.haumacher.ehome.settings.OperatorSettings), whatever the path. Unless the installation reaches local
+	networks (tl_ehome_local_network), a gateway is refused with that reason; the controller stays
+	available, and "Choose the gateway" offers only it then.
 	The commands run as jobs (DownloadJob, CompareJob) with their progress shown here, and end with
 	the report (projects/programming-report.view.xml), which replaces the progress display; a job
 	that fails keeps its display with the error.
@@ -26,8 +28,9 @@
 		<channel name="device"/>
 		<channel name="project"/>
 		<channel name="programmingJob"/>
+		<!-- The path to the bus: "Gateway <address>" or "Controller <name>" (ProgrammingFunctions busPath). -->
 		<derived-channel name="gateway"
-			expr="if($project == null, null, $project.get(`ehome.project:Project#gateway`))"
+			expr="if($project == null, null, busPath($project))"
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
@@ -40,8 +43,8 @@
 	<stack gap="default">
 		<panel>
 			<title>
-				<en>Gateway</en>
-				<de>Gateway</de>
+				<en>Path to the bus</en>
+				<de>Weg zum Bus</de>
 			</title>
 			<commands>
 				<generic-command
@@ -54,8 +57,8 @@
 						<de>Gateway wählen</de>
 					</label>
 					<tooltip>
-						<en>Sets the KNXnet/IP gateway of the project, entered by address or chosen from a search. All devices of the project are read and programmed through it.</en>
-						<de>Legt das KNXnet/IP-Gateway des Projekts fest, als Adresse eingegeben oder aus einer Suche gewählt. Über dieses Gateway werden alle Geräte des Projekts gelesen und programmiert.</de>
+						<en>Sets the path of the project to the bus: a KNXnet/IP gateway, entered by address or chosen from a search, or the project's connected controller. All devices of the project are read and programmed through it.</en>
+						<de>Legt den Weg des Projekts zum Bus fest: ein KNXnet/IP-Gateway, als Adresse eingegeben oder aus einer Suche gewählt, oder den verbundenen Controller des Projekts. Darüber werden alle Geräte des Projekts gelesen und programmiert.</de>
 					</tooltip>
 					<access>
 						<operation name="Write"
@@ -64,7 +67,6 @@
 						/>
 					</access>
 					<executability>
-						<visible-if expr="localNetworkVeto() == null"/>
 						<null-input-disabled/>
 					</executability>
 					<open-dialog
@@ -80,8 +82,8 @@
 						variant="caption"
 					>
 						<label>
-							<en>The KNXnet/IP gateway of the project the devices are read and programmed through.</en>
-							<de>Das KNXnet/IP-Gateway des Projekts, über das die Geräte gelesen und programmiert werden.</de>
+							<en>The KNXnet/IP gateway of the project, or its controller connected to E-Home, through which the devices are read and programmed. Through the controller, E-Home passes the frames through the controller's KNX tunnel.</en>
+							<de>Das KNXnet/IP-Gateway des Projekts oder sein mit E-Home verbundener Controller, über den die Geräte gelesen und programmiert werden. Über den Controller leitet E-Home die Telegramme durch den KNX-Tunnel des Controllers.</de>
 						</label>
 					</text>
 				</stack>
@@ -125,8 +127,8 @@
 						<de>Mit dem Gerät vergleichen</de>
 					</label>
 					<tooltip>
-						<en>Reads the memory of the device through the gateway and compares it with the download image; nothing is written. Takes seconds to minutes, depending on the device.</en>
-						<de>Liest den Speicher des Geräts über das Gateway und vergleicht ihn mit dem Download-Abbild; es wird nichts geschrieben. Dauert je nach Gerät Sekunden bis Minuten.</de>
+						<en>Reads the memory of the device through the project's gateway or controller and compares it with the download image; nothing is written. Takes seconds to minutes, depending on the device.</en>
+						<de>Liest den Speicher des Geräts über das Gateway oder den Controller des Projekts und vergleicht ihn mit dem Download-Abbild; es wird nichts geschrieben. Dauert je nach Gerät Sekunden bis Minuten.</de>
 					</tooltip>
 					<access>
 						<operation name="Write"

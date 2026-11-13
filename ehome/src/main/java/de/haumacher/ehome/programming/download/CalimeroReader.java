@@ -3,9 +3,6 @@
  */
 package de.haumacher.ehome.programming.download;
 
-import java.io.IOException;
-import java.net.DatagramSocket;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.time.Duration;
 import java.util.Arrays;
@@ -13,10 +10,7 @@ import java.util.function.Predicate;
 
 import tuwien.auto.calimero.DataUnitBuilder;
 import tuwien.auto.calimero.IndividualAddress;
-import tuwien.auto.calimero.KNXException;
 import tuwien.auto.calimero.link.KNXNetworkLink;
-import tuwien.auto.calimero.link.KNXNetworkLinkIP;
-import tuwien.auto.calimero.link.medium.TPSettings;
 
 import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.knx.transport.Tpdu;
@@ -25,9 +19,10 @@ import de.haumacher.ehome.knx.transport.TransportClient.TransportException;
 import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
- * {@link DeviceReader} reaching a device through a KNXnet/IP gateway: Calimero's tunnelling link to
- * the gateway and a connection-oriented transport connection to the device of E-Home's own
- * ({@link TransportClient}, haumacher/ehome #31).
+ * {@link DeviceReader} reaching a device on the {@link BusPath} of its project: Calimero's
+ * tunnelling link to the gateway, or the bus session of the project's controller
+ * (<code>BusSessionLink</code>, haumacher/ehome #148), and a connection-oriented transport connection
+ * to the device of E-Home's own ({@link TransportClient}, haumacher/ehome #31).
  *
  * <p>
  * Reads only; writing is the business of {@link CalimeroWriter}, the one class sending anything
@@ -43,7 +38,7 @@ public class CalimeroReader implements DeviceReader {
 	public static final TransportClient.Timing TIMING = new TransportClient.Timing(Duration.ofSeconds(3), 3, TIMEOUT,
 		Duration.ofSeconds(6));
 
-	private final InetSocketAddress _gateway;
+	private final String _path;
 
 	private final IndividualAddress _device;
 
@@ -60,48 +55,44 @@ public class CalimeroReader implements DeviceReader {
 	 *        The individual address of the device.
 	 */
 	public static CalimeroReader open(InetSocketAddress gateway, int device) throws BusException {
-		return new CalimeroReader(gateway, device);
+		return open(BusPath.gateway(gateway), device);
 	}
 
 	/**
-	 * Creates a {@link CalimeroReader} and opens the link to the gateway.
+	 * Opens a link on the given path for reading the given device.
+	 *
+	 * @param device
+	 *        The individual address of the device.
+	 */
+	public static CalimeroReader open(BusPath path, int device) throws BusException {
+		return new CalimeroReader(path, device);
+	}
+
+	/**
+	 * Creates a {@link CalimeroReader} and opens the link on the given path.
 	 *
 	 * @throws com.top_logic.util.error.TopLogicException
-	 *         If this installation does not reach local networks
-	 *         ({@link OperatorSettings#checkLocalNetwork()}, haumacher/ehome #150).
+	 *         If the path is refused ({@link BusPath#open()}): this installation does not reach local
+	 *         networks ({@link OperatorSettings#checkLocalNetwork()}, haumacher/ehome #150) for a
+	 *         gateway, the controller refuses the bus session.
 	 */
-	protected CalimeroReader(InetSocketAddress gateway, int device) throws BusException {
-		OperatorSettings.checkLocalNetwork();
-		_gateway = gateway;
+	protected CalimeroReader(BusPath path, int device) throws BusException {
+		_path = path.text();
 		_device = new IndividualAddress(device);
-		KNXNetworkLink link = null;
-		try {
-			InetSocketAddress remote = Gateways.resolve(gateway);
-			if (remote.isUnresolved()) {
-				throw new IOException("unknown host " + remote.getHostString());
-			}
-			InetSocketAddress local = new InetSocketAddress(localAddressTowards(remote), 0);
-			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
-				link = KNXNetworkLinkIP.newTunnelingLink(local, remote, false, new TPSettings());
-			}
-		} catch (KNXException | IOException ex) {
-			if (link != null) {
-				link.close();
-			}
-			throw new BusException("No connection to the gateway " + Gateways.format(gateway) + ": " + ex.getMessage(), ex);
-		} catch (InterruptedException ex) {
-			Thread.currentThread().interrupt();
-			if (link != null) {
-				link.close();
-			}
-			throw new BusException("Interrupted while connecting to " + Gateways.format(gateway) + ".", ex);
-		}
+		KNXNetworkLink link = path.open();
 		_link = link;
 		_connection = new TransportClient(link, device, TIMING);
 	}
 
 	/**
-	 * The link to the gateway.
+	 * The path to the bus, for a person ({@link BusPath#text()}).
+	 */
+	protected String path() {
+		return _path;
+	}
+
+	/**
+	 * The link to the bus.
 	 */
 	protected KNXNetworkLink link() {
 		return _link;
@@ -140,7 +131,7 @@ public class CalimeroReader implements DeviceReader {
 		int count = asdu[0] & 0x3F;
 		byte[] data = Arrays.copyOfRange(asdu, 3, asdu.length);
 		if (count == 0 || data.length != length) {
-			throw new BusException(what + " of " + _device + " through " + Gateways.format(_gateway)
+			throw new BusException(what + " of " + _device + " through " + _path
 				+ " failed: the device answered with " + data.length + " bytes.");
 		}
 		return data;
@@ -213,7 +204,7 @@ public class CalimeroReader implements DeviceReader {
 	protected byte[] propertyValue(String what, byte[] answer) throws BusException {
 		byte[] asdu = Tpdu.asdu(answer);
 		if ((asdu[2] & 0xF0) == 0) {
-			throw new BusException(what + " of " + _device + " through " + Gateways.format(_gateway)
+			throw new BusException(what + " of " + _device + " through " + _path
 				+ " failed: property access OI " + (asdu[0] & 0xFF) + " PID " + (asdu[1] & 0xFF)
 				+ " failed/forbidden (KNXRemoteException)");
 		}
@@ -234,10 +225,10 @@ public class CalimeroReader implements DeviceReader {
 	}
 
 	/**
-	 * A failure of the device access, naming the device and the gateway.
+	 * A failure of the device access, naming the device and the path to the bus.
 	 */
 	protected BusException failure(String what, Exception ex) {
-		return new BusException(what + " of " + _device + " through " + Gateways.format(_gateway) + " failed: "
+		return new BusException(what + " of " + _device + " through " + _path + " failed: "
 			+ ex.getMessage(), ex);
 	}
 
@@ -247,13 +238,6 @@ public class CalimeroReader implements DeviceReader {
 	protected static BusException interrupted(InterruptedException ex) {
 		Thread.currentThread().interrupt();
 		return new BusException("Interrupted.", ex);
-	}
-
-	private static InetAddress localAddressTowards(InetSocketAddress remote) throws IOException {
-		try (DatagramSocket socket = new DatagramSocket()) {
-			socket.connect(remote.getAddress(), remote.getPort());
-			return socket.getLocalAddress();
-		}
 	}
 
 }
