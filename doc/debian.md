@@ -8,8 +8,8 @@ no Java 21 of its own) and keeps its data in an H2 database under `/var/lib/ehom
 ## Building
 
 The CI workflow `.github/workflows/debian-package.yml` builds the package on every push to `master`
-(an artifact `ehome-deb` of the run, and the suite `snapshot` of the apt repository) and publishes it
-as a GitHub release and in the suite `stable` for a tag `vX.Y.Z` (see "The apt repository" below). By
+(an artifact `ehome-deb` of the run, kept 30 days) and publishes it as a GitHub release and in the apt
+repository for a tag `vX.Y.Z` (see "The apt repository" below). By
 hand, in the repository root:
 
 ```bash
@@ -28,9 +28,9 @@ below). The tooling (`ehome-virtual`) is never part of it.
 
 ## The apt repository
 
-GitHub Pages serves a signed apt repository at <https://haumacher.github.io/ehome/>, with two suites:
-`stable` (the releases, tags `vX.Y.Z`) and `snapshot` (every push to `master`). Each holds the newest
-two packages (a package is about 130 MB, a Pages site at most 1 GB).
+GitHub Pages serves a signed apt repository at <https://haumacher.github.io/ehome/> with one suite,
+`stable`: the newest two releases (tags `vX.Y.Z`; a package is about 160 MB, a Pages site at most
+1 GB).
 
 ```bash
 sudo curl -fsSLo /usr/share/keyrings/ehome-archive-keyring.gpg https://haumacher.github.io/ehome/ehome-archive-keyring.gpg
@@ -39,23 +39,26 @@ echo "deb [signed-by=/usr/share/keyrings/ehome-archive-keyring.gpg] https://haum
 sudo apt update && sudo apt install ehome
 ```
 
-(`snapshot` in place of `stable` follows `master`.) The job `apt` of the workflow builds the whole
-site with `bin/apt-repo.sh`: it takes the packages of `stable` from the newest GitHub releases (the
-suite's source of truth) and those of `snapshot` from the live site (checked against their SHA-256 in
-the published index), adds the new one to its suite, drops the older ones,
-writes the indexes with `apt-ftparchive` (`binary-all` and, identical, `binary-amd64` and
-`binary-arm64`) and signs `Release` (`InRelease`, `Release.gpg`) with the key of the repository
-secrets `APT_SIGNING_KEY` (the secret key, armored or base64) and `APT_SIGNING_PASSPHRASE`; the public
-key is published beside it (`ehome-archive-keyring.gpg`, `.asc`), with an `index.html` naming its
-fingerprint. The site is deployed with `actions/deploy-pages` (Pages source "GitHub Actions"; the
-environment `github-pages` admits `master` and the tags `v*`), never as a branch: a package is above
-the 100 MB of a file in git. Runs deploy one after the other (concurrency group `apt-repository`).
-Pages takes only the first deployment of a commit: a second one reports success and changes nothing.
-So the run of a push to `master` does not deploy a commit that carries a release tag, and the tag's
-run does (push the release commit and its tag together, `git push origin master vX.Y.Z`). A tag set
-later on a commit `master` already deployed is published by the next push to `master`, whose site
-takes `stable` from the releases. With 1.0.0 the master run of the release commit deployed first and
-left `stable` empty; its tag run's deployment did not take effect.
+Only a release updates the repository. Pages replaces the whole site with every deployment, so a
+suite of the builds of `master` (`snapshot`, until 2026-11-13) cost every push a download and an upload
+of all packages (about 630 MB) and ran into the deployment timeouts of Pages. A build of `master` is
+the artifact `ehome-deb` of its run (`gh run download <run> -n ehome-deb`), installed with
+`sudo apt install ./ehome_<version>_all.deb`. The suite `snapshot` stays on the live site until the
+next release is deployed; a system that follows it gets an error from `apt update` after that and
+switches to `stable`.
+
+The job `apt` runs for a tag only. It downloads the packages of the newest two GitHub releases (the
+source of truth; the release the run has just made is among them) and builds the whole site with
+`bin/apt-repo.sh`: it drops older packages, writes the indexes with `apt-ftparchive` (`binary-all`
+and, identical, `binary-amd64` and `binary-arm64`) and signs `Release` (`InRelease`, `Release.gpg`)
+with the key of the repository secrets `APT_SIGNING_KEY` (the secret key, armored or base64) and
+`APT_SIGNING_PASSPHRASE`. The public key is published beside it (`ehome-archive-keyring.gpg`,
+`.asc`), with an `index.html` naming its fingerprint. The site is deployed with
+`actions/deploy-pages` (Pages source "GitHub Actions"; the environment `github-pages` admits `master`
+and the tags `v*`), never as a branch: a package is above the 100 MB of a file in git. Runs deploy one
+after the other (concurrency group `apt-repository`). Pages takes only the first deployment of a
+commit: a second one reports success and changes nothing; with only the tag's run deploying, the
+release commit is deployed once.
 
 ## Installing
 

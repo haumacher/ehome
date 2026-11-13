@@ -315,8 +315,9 @@ green result from a tree with uncommitted foreign edits; check `git status` firs
   it first. A local gate can pass where CI fails, because CI builds and tests the app alone
   (`-Pproduction`) on a fresh database. On 2026-11-11/12, nine pushes in a row went red on
   `testSchemaWarning` (the image schema raised to 1.6, the test still expecting 1.5), and nobody
-  looked until the owner asked. A failure of the apt job's "Deploy the repository" step with
-  "Timeout reached" is GitHub Pages; the next push publishes the whole repository again.
+  looked until the owner asked. The apt job runs for a release tag only (no suite of
+  master's builds since 2026-11-13). Its "Deploy the repository" failing with "Timeout reached" is
+  GitHub Pages: re-run the job.
 - The agents don't commit; you do, after review. Regenerated Java bindings ride the same commit as
   the model XML change that produced them; a new `doc/tl-todo.md` entry rides with the workaround
   it documents.

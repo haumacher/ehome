@@ -1,9 +1,9 @@
 # The Debian package of E-Home (doc/debian.md): builds and tests the app without the development
 # tooling, builds the war of the profile "debian" and packages it with bin/build-deb.sh. Every push to
-# master leaves the package as an artifact of the run and publishes it in the suite "snapshot" of the
-# apt repository on GitHub Pages (https://haumacher.github.io/ehome/); a tag vX.Y.Z publishes it as a
-# release and in the suite "stable". The repository is signed with the key of the secrets
-# APT_SIGNING_KEY (the armored secret key) and APT_SIGNING_PASSPHRASE.
+# master leaves the package as an artifact of the run; a tag vX.Y.Z publishes it as a release and in
+# the suite "stable" of the apt repository on GitHub Pages (https://haumacher.github.io/ehome/), the
+# only suite. The repository is signed with the key of the secrets APT_SIGNING_KEY (the armored
+# secret key) and APT_SIGNING_PASSPHRASE.
 name: Debian package
 
 on:
@@ -19,9 +19,6 @@ jobs:
   deb:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    outputs:
-      # The release tags on the built commit (empty for an untagged one).
-      tagged: ${{ steps.deb.outputs.tagged }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -42,7 +39,6 @@ jobs:
         id: deb
         run: |
           echo "file=$(bin/build-deb.sh | tail -1)" >> "$GITHUB_OUTPUT"
-          echo "tagged=$(git tag --points-at HEAD 'v[0-9]*' | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -58,12 +54,12 @@ jobs:
 
   apt:
     needs: deb
-    # A push to master of a commit that carries a release tag leaves the deployment to the tag's run:
-    # Pages takes only the first deployment of a commit, so the second one would not take effect.
-    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || needs.deb.outputs.tagged == '')
+    # Only a release updates the repository (a run of a tag, also started by hand on the tag): every
+    # deployment replaces the whole Pages site with its packages.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    # One deployment at a time: each run builds the site from the one published before it.
+    # One deployment at a time: two release runs close together publish in their order.
     concurrency:
       group: apt-repository
       cancel-in-progress: false
@@ -76,11 +72,6 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: ehome-deb
-          path: deb
 
       - name: Import the signing key
         env:
@@ -97,7 +88,7 @@ jobs:
           rm -f "$RUNNER_TEMP/key" "$RUNNER_TEMP/passphrase"
           gpg --batch --list-secret-keys --keyid-format long | grep -E '^(sec|uid)'
 
-      # The releases are the source of truth of stable: their packages, not the live site's copies.
+      # The releases are the source of truth of stable; the release this run made is among them.
       - name: Download the released packages
         env:
           GH_TOKEN: ${{ github.token }}
@@ -111,11 +102,8 @@ jobs:
       - name: Build the repository
         env:
           APT_REPO_URL: https://haumacher.github.io/ehome
-          APT_STABLE_DIR: ${{ runner.temp }}/stable
           APT_SIGNING_PASSPHRASE: ${{ secrets.APT_SIGNING_PASSPHRASE }}
-        run: |
-          if [ "${GITHUB_REF#refs/tags/v}" != "$GITHUB_REF" ]; then SUITE=stable; else SUITE=snapshot; fi
-          bin/apt-repo.sh "$RUNNER_TEMP/site" "$SUITE" deb/*.deb
+        run: bin/apt-repo.sh "$RUNNER_TEMP/site" "$RUNNER_TEMP/stable"
 
       - uses: actions/upload-pages-artifact@v3
         with:
