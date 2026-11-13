@@ -172,7 +172,7 @@ public class DeviceTools {
 		+ " free device number, and the devices of each line with individual address, name, product,"
 		+ " application program and building part. Read it to find a line to plan a device in, or a device"
 		+ " by its name or address.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = ToolSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult listDevices(
 			@P("The project, or any object of it") TLObject project) {
 		TLObject owner = project(project);
@@ -231,7 +231,7 @@ public class DeviceTools {
 		+ " program's default parameters and no group address; it is programmed later by the installer. With"
 		+ " dryRun=true nothing is created and the answer gives the individual address the device would get,"
 		+ " or why it cannot. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult planDevice(ToolContext context,
 			@P("The line to plan it in (listDevices), or a device of that line") TLObject line,
 			@P("The product variant from searchCatalog") TLObject product,
@@ -274,7 +274,7 @@ public class DeviceTools {
 		+ " group addresses and without a building part (placeDevice places it, updateObject renames it). With"
 		+ " dryRun=true nothing is created and the answer gives the address the copy would get. "
 		+ ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult duplicateDevice(ToolContext context,
 			@P("The device to copy") TLObject device,
 			@P(value = "true to only check", required = false) Boolean dryRun) {
@@ -303,7 +303,7 @@ public class DeviceTools {
 		+ " project changed it, whether it can be changed (or why not) and its allowed values (the entries"
 		+ " of a choice, the range of a number, the length of a text). A changed value can switch pages and"
 		+ " parameters on or off: read the pages again after setting one.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = ToolSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult deviceParameters(
 			@P("The device") TLObject device,
 			@P(value = "The id of a page from the page tree; omit for the tree", required = false) String page) {
@@ -440,7 +440,7 @@ public class DeviceTools {
 		+ " parameter editor does - its type and range, whether the parameter can be changed, and the"
 		+ " manufacturer's validations and calculations - and keeps the device unchanged when it refuses."
 		+ " The device needs a download afterwards, which the installer starts. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
 	public ToolResult setDeviceParameter(ToolContext context,
 			@P("The device") TLObject device,
 			@P("The id of the parameter from deviceParameters") String parameter,

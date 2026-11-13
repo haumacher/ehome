@@ -111,8 +111,9 @@
 E-Home plans, configures and runs KNX home installations - the tool of an installer, and a full replacement of ETS. It computes everything itself: parameter calculations, the next free addresses, the images it downloads into devices. An ETS project (.knxproj) is imported and can be exported again; imported values are a cross-check, never the source of a decision.
 
 ## Users
-- Installers (group ehome.installers) build and maintain installations: they read and change everything.
-- Viewers (group ehome.viewers) read only.
+- Every project names its members: owners, editors and viewers. A user sees exactly the projects holding a role in; editors and owners change a project, viewers read it, owners also manage its members (tab "Members") and delete it.
+- Installers (group ehome.installers) may create and import projects; they become the owner of a project they create. Every user reads the shared catalogs; administrators edit the device templates.
+- A change the user may not make is refused by the data itself; say so and name who may make it (an editor or owner of the project).
 
 ## Terms
 - Project: one installation. Holds its topology, buildings, group addresses, functions, rules, schedules, pages, virtual devices, application datapoints, controllers and deployments.
@@ -139,8 +140,9 @@ E-Home plans, configures and runs KNX home installations - the tool of an instal
 E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - das Werkzeug eines Installateurs und ein vollständiger Ersatz für ETS. Es berechnet alles selbst: Parameterberechnungen, die nächsten freien Adressen, die Abbilder, die es in Geräte lädt. Ein ETS-Projekt (.knxproj) wird importiert und kann wieder exportiert werden; importierte Werte sind eine Gegenprobe, nie die Grundlage einer Entscheidung.
 
 ## Benutzer
-- Installateure (Gruppe ehome.installers) bauen und pflegen Installationen: Sie lesen und ändern alles.
-- Betrachter (Gruppe ehome.viewers) lesen nur.
+- Jedes Projekt nennt seine Mitglieder: Eigentümer, Bearbeiter und Betrachter. Ein Benutzer sieht genau die Projekte, in denen er eine Rolle hat; Bearbeiter und Eigentümer ändern ein Projekt, Betrachter lesen es, Eigentümer verwalten außerdem seine Mitglieder (Reiter "Mitglieder") und löschen es.
+- Installateure (Gruppe ehome.installers) dürfen Projekte anlegen und importieren; ein Projekt, das sie anlegen, gehört ihnen. Jeder Benutzer liest die gemeinsamen Kataloge; Administratoren bearbeiten die Gerätevorlagen.
+- Eine Änderung, die der Benutzer nicht vornehmen darf, lehnen die Daten selbst ab; sag das und nenne, wer sie vornehmen darf (ein Bearbeiter oder Eigentümer des Projekts).
 
 ## Begriffe
 - Projekt: eine Installation. Enthält Topologie, Gebäude, Gruppenadressen, Funktionen, Regeln, Zeitplan, Seiten, virtuelle Geräte, Anwendungsdatenpunkte, Controller und Bereitstellungen.
@@ -170,8 +172,9 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 
 		<!--
 			E-Home's tools (haumacher/ehome #127): classes of de.haumacher.ehome.ai with @ToolMethod methods,
-			reading tools in data.read, changing ones in data.write (ehome.security.config.xml grants them per
-			role; ehome.mcp.config.xml publishes both groups over MCP).
+			reading tools in data.read, changing ones in data.write (ehome.security.config.xml grants both to
+			every account, the roles in a project decide per object; ehome.mcp.config.xml publishes both
+			groups over MCP).
 		-->
 		<config service-class="com.top_logic.tl.ai.tool.api.registry.ToolRegistryService">
 			<instance>

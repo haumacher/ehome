@@ -173,13 +173,15 @@ public class TestMcpEndpoint extends BasicTestCase {
 		String id = tid(_fixture.actuator());
 		String write = Json.write(call(token, session, "tools/call",
 			Map.of("name", UPDATE, "arguments", Map.of("id", id, "values", Map.of("title", "Renamed")))));
-		assertTrue("The refusal names the capability: " + write, write.contains("data.write"));
+		// Refused by the role in the project, not by the tool access (haumacher/ehome #152).
+		assertTrue("The refusal names the object: " + write, write.contains("may not change"));
 		assertEquals(ACTUATOR, _fixture.actuator().tValueByName("title"));
 	}
 
 	/**
 	 * E-Home's own tools (haumacher/ehome #127) over MCP: an installer's client lays out a building
-	 * with a floor in one call; a viewer's client is refused the writing tool, and nothing is created.
+	 * with a floor in one call; a viewer's client is refused the change by its role in the project, and
+	 * nothing is created.
 	 */
 	public void testEhomeToolWritesForInstallerOnly() throws Exception {
 		String viewer = token(_fixture.viewer());
@@ -187,7 +189,7 @@ public class TestMcpEndpoint extends BasicTestCase {
 		String refused = Json.write(call(viewer, viewerSession, "tools/call", Map.of("name", CREATE_PARTS,
 			"arguments", Map.of("parent", tid(_fixture.project()), "parts", List.of(Map.of("kind", "Building",
 				"name", "Viewerhaus"))))));
-		assertTrue("The refusal names the capability: " + refused, refused.contains("data.write"));
+		assertTrue("Refused by the role in the project (haumacher/ehome #152): " + refused, refused.contains("may not change"));
 		assertTrue(buildings().isEmpty());
 
 		String installer = token(_fixture.installer());

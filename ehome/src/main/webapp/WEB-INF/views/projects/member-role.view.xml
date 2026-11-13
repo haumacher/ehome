@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Gives a member of a project another role (haumacher/ehome #152, the project's tab "Members",
+	projects/members.view.xml): "request" carries the project, the member and its current role.
+	projectSetRole (de.haumacher.ehome.project.ProjectMembers#setRole) refuses to take the ownership from
+	the last owner; the refusal keeps the dialog open with its reason.
+-->
+<view>
+	<channels>
+		<channel name="request"/>
+		<derived-channel name="project"
+			expr='if($request == null, null, $request["project"])'
+			inputs="request"
+		/>
+		<derived-channel name="member"
+			expr='if($request == null, null, $request["member"])'
+			inputs="request"
+		/>
+		<channel name="role"
+			init='if($request == null, null, $request["role"])'
+			inputs="request"
+		/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>Change role</en>
+			<de>Rolle ändern</de>
+		</title>
+		<inset>
+			<fields>
+				<value-input
+					mandatory="true"
+					type="ehome.project:ProjectRole"
+					value="role"
+				>
+					<label>
+						<en>Role</en>
+						<de>Rolle</de>
+					</label>
+				</value-input>
+			</fields>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-check-lg"
+					inputs="project, member"
+				>
+					<label>
+						<en>Change</en>
+						<de>Ändern</de>
+					</label>
+					<access>
+						<operation name="ManageMembers"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="projectSetRole($project, $member, $role)">
+							<inputs>
+								<input channel="role"/>
+							</inputs>
+						</execute-script>
+						<with-result>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

@@ -2,6 +2,22 @@
   xmlns:config="http://www.top-logic.com/ns/config/6.0"
 >
   <services>
+    <!--
+      Whoever creates or imports a project becomes its owner (haumacher/ehome #152,
+      de.haumacher.ehome.project.ProjectOwners).
+    -->
+    <config service-class="com.top_logic.basic.module.ModuleSystem">
+      <instance class="com.top_logic.basic.module.ModuleSystem">
+        <modules>
+          <module key="de.haumacher.ehome.project.ProjectOwners$Module"
+            value="true"
+          />
+        </modules>
+      </instance>
+    </config>
+    <config service-class="de.haumacher.ehome.project.ProjectOwners">
+      <instance class="de.haumacher.ehome.project.ProjectOwners"/>
+    </config>
     <config service-class="com.top_logic.basic.util.ResourcesModule">
       <instance class="com.top_logic.util.resource.analyzer.IDEResources">
         <bundles>
@@ -14,6 +30,18 @@
         <declarations>
           <declaration file="/WEB-INF/model/ehome.project.model.xml"/>
         </declarations>
+      </instance>
+    </config>
+    <config service-class="com.top_logic.model.search.expr.config.SearchBuilder">
+      <instance>
+        <methods>
+          <!-- The members of a project (haumacher/ehome #152, de.haumacher.ehome.project.ProjectMembers): projectRole reads, the others write. -->
+          <method name="projectRole" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
+          <method name="projectAddMember" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
+          <method name="projectSetRole" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
+          <method name="projectRemoveMember" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
+          <method name="projectLeave" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
+        </methods>
       </instance>
     </config>
   </services>

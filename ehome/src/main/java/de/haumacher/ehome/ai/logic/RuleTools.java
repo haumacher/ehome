@@ -93,7 +93,7 @@ public class RuleTools {
 		+ " adjustable schedule times) with label, value type and whether they are writable (by the user; rules"
 		+ " also write the application datapoints that are not). Read it before you"
 		+ " write or change a rule: rules name datapoints by these ids.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult automation(
 			@P("The project, or any object of it") TLObject project) {
 		TLObject owner = project(project);
@@ -146,7 +146,7 @@ public class RuleTools {
 		+ " datapoints and parameters named as Name (id); the datapoints the rule reads and writes; and its"
 		+ " definition in the form saveAutomation takes, to change it. Describe the rule to the user from"
 		+ " this in words.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult explainRule(
 			@P("The rule (ehome.runtime:Rule)") TLObject rule) {
 		if (!LogicSupport.isA(rule, "ehome.runtime:Rule")) {
@@ -237,7 +237,7 @@ public class RuleTools {
 		+ " rules that trigger on it, write it or read it in an expression, the schedule entries with it as"
 		+ " output, the functions whose roles name it, the control pages that show it, the virtual devices"
 		+ " bound to it. Use it before you change or delete a datapoint, and to find the rule behind a value.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult datapointUsage(
 			@P("The datapoint: a group address (ehome.logical:GroupAddress), an application datapoint"
 				+ " (ehome.runtime:ApplicationDatapoint), ...") TLObject datapoint) {
@@ -289,7 +289,7 @@ public class RuleTools {
 		+ " one is checked as its replacement. Always check before saveAutomation. The check sees the data as"
 		+ " committed: put datapoints, schedule entries and rules that belong together into one call. "
 		+ DEFINITIONS,
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult checkAutomation(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P("The definitions to check") Map<String, Object> definitions) {
@@ -316,7 +316,7 @@ public class RuleTools {
 		+ " change a rule, read its definition with explainRule, change it and save it whole. Saving never"
 		+ " deploys: the controller gets the change with the next deployment, the installer's command. "
 		+ DEFINITIONS + " " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult saveAutomation(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P("The definitions to save") Map<String, Object> definitions,
@@ -572,7 +572,7 @@ public class RuleTools {
 		+ " each of them (rules naming a datapoint in an expression, functions, pages, virtual devices): after"
 		+ " the deletion those refer to nothing, and the next deployment refuses them until they are changed."
 		+ " Ask the user before you delete something that is still referred to.",
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult deleteAutomation(ToolContext context,
 			@P("The rules (ehome.runtime:Rule), schedule entries or application datapoints to delete")
 			List<TLObject> objects,

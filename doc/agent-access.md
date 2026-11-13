@@ -19,9 +19,9 @@ the endpoint `<host>/ehome/agent-api` and access tokens a user issues from their
 4. When the agent is done: the same dialog → select the token → *Zurückziehen* / *Withdraw*. A token
    also ends with its validity, and with the session (logout, timeout, restart of the server).
 
-What the agent can do is exactly what the account can do in the browser: an `ehome.Viewer` account's
-agent reads, an `ehome.Installer` account's agent also edits, imports, programs and deploys
-(`ehome.security.config.xml`). A token that may only observe is refused every command. Each account
+What the agent can do is exactly what the account can do in the browser: it sees the projects in
+which the account holds a role (haumacher/ehome #152); in a project it views, the agent reads, in one it
+edits or owns, it also edits, imports, programs and deploys (`ehome.security.config.xml`). A token that may only observe is refused every command. Each account
 sees and withdraws its own tokens (role `ehome.TokenOwner`); an administrator lists all tokens in
 Administration → *Agent access*.
 

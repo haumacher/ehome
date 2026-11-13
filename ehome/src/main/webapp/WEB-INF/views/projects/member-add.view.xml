@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Adds a member to a project (haumacher/ehome #152, the project's tab "Members",
+	projects/members.view.xml): "project" carries the project, the added account is written to
+	"selection". The account is one the owner already works with - the accounts the owner discovers,
+	which are the members of the owner's other projects (the role ehome.Collaborator) - or is named by
+	its mail address or user name; the owner sees no list of the accounts of the installation.
+	projectAddMember (de.haumacher.ehome.project.ProjectMembers#add) refuses an address without an
+	account ("an administrator creates accounts"), an address several accounts share and an account that
+	is a member already; the refusal keeps the dialog open with its reason.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="selection"/>
+		<channel name="account"/>
+		<channel name="address"/>
+		<channel name="role"
+			init="`ehome.project:ProjectRole#viewer`"
+		/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>Add member</en>
+			<de>Mitglied hinzufügen</de>
+		</title>
+		<inset>
+			<fields>
+				<value-input
+					inputs="project"
+					options="all(`tl.accounts:Person`).filter(p -> !$project.get(`ehome.project:Project#members`).containsElement($p))"
+					type="tl.accounts:Person"
+					value="account"
+				>
+					<label>
+						<en>Account you work with</en>
+						<de>Konto, mit dem Sie arbeiten</de>
+					</label>
+				</value-input>
+				<value-input
+					type="tl.core:String"
+					value="address"
+				>
+					<label>
+						<en>Or mail address or user name</en>
+						<de>Oder Mail-Adresse oder Benutzername</de>
+					</label>
+					<placeholder>
+						<en>name@example.org</en>
+						<de>name@example.org</de>
+					</placeholder>
+				</value-input>
+				<value-input
+					mandatory="true"
+					type="ehome.project:ProjectRole"
+					value="role"
+				>
+					<label>
+						<en>Role</en>
+						<de>Rolle</de>
+					</label>
+				</value-input>
+			</fields>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-person-plus"
+					inputs="project"
+				>
+					<label>
+						<en>Add</en>
+						<de>Hinzufügen</de>
+					</label>
+					<access>
+						<operation name="ManageMembers"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="projectAddMember($project, if($account != null, $account, $address), $role)">
+							<inputs>
+								<input channel="account"/>
+								<input channel="address"/>
+								<input channel="role"/>
+							</inputs>
+						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

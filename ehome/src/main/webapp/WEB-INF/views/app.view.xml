@@ -7,9 +7,11 @@
 
 	The assistant (haumacher/ehome #126, doc/ai.md) is a chat docked over the page, in the footer of the
 	shell: a launcher in the corner that opens the conversation over the work, which stays usable behind
-	it. It is offered to the accounts that may run it - installers, viewers and administrators, the
-	accounts that read the security root (ehome.security.config.xml); every other account sees no
-	launcher, as the run access policy lets it run no agent. Each turn tells the agent which page is
+	it. It is offered to the accounts that may run it - every account of the group "user" every new
+	account joins, the installers and the administrators, the accounts that read the security root
+	(ehome.security.config.xml); what it reads and changes is decided by the user's roles in the
+	projects (haumacher/ehome #152). An account outside these groups sees no launcher, as the run access
+	policy lets it run no agent. Each turn tells the agent which page is
 	open and what is selected on it: the pages write their name into the shell channel pageView and
 	their selection into pageSelection (<page-selection> in each page, published to the pages by
 	<chat-channels>); what the agent shows with its present tool opens in the rail beside the

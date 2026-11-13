@@ -365,12 +365,13 @@ app is the shared reference for bug reports.
   with an `@en` tag; the German is the hand-maintained bundle (`i18n` article). ETS texts are
   `I18NString`s imported per language, with the project's default language as fallback. Umlauts
   are written as characters, never as `\uXXXX`.
-- **Access is deny-by-default.** `WEB-INF/autoconf/ehome.security.config.xml` (haumacher/ehome #48)
-  gives the groups `ehome.installers` and `ehome.viewers` their roles; a new type that no
-  composition holds needs a role parent rule and grants there, or `TestSecurityCoverage` fails
-  (`access-configuration` article). Java code is not access checked: a view command changing data
-  through Java or an E-Home TL-Script function carries `<model-access operation="Write"/>`. Check a
-  UI change as `root` and, where it edits, as a viewer.
+- **Access is deny-by-default.** `WEB-INF/autoconf/ehome.security.config.xml` (haumacher/ehome #48,
+  #152): the roles are per project (owner, editor, viewer named by the project), the group
+  `ehome.installers` only creates projects and edits the catalogs; a new type that no composition
+  holds needs a role source and grants, or `TestSecurityCoverage` fails (`access-configuration`
+  article). Java code is not access checked: a view command changing data through Java or an E-Home
+  TL-Script function carries an `<access>` check. Check a UI change as `root` and, where it edits, as
+  a viewer of the project.
 - **Engine gaps are bookkept, never buried.** When the TopLogic engine in use cannot do something
   out of the box (the view layer, the XML import, the generator) or has a proven defect, the
   sequence is fixed: (1) **search Trac before filing** — several `search_tickets` queries with

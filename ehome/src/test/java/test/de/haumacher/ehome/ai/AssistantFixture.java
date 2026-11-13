@@ -11,8 +11,8 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 import test.de.haumacher.ehome.runtime.ControllerFixture;
+import test.de.haumacher.ehome.security.AccountFixture;
 
-import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -37,10 +37,12 @@ import com.top_logic.tl.ai.core.security.RunEntryPoint;
 import com.top_logic.tl.ai.core.security.RunPrincipal;
 import com.top_logic.tl.ai.core.security.RunSecurity;
 import com.top_logic.tl.ai.tool.api.CancellationToken;
-import com.top_logic.tool.boundsec.wrap.Group;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.TLContextManager;
 import com.top_logic.util.model.ModelService;
+
+import de.haumacher.ehome.project.ProjectMembers;
+import de.haumacher.ehome.project.ProjectMembers.Role;
 
 /**
  * The data the assistant's tests work on, built without an import and deleted again: an installer
@@ -91,7 +93,7 @@ public class AssistantFixture {
 	public void setUp() {
 		inTransaction(() -> {
 			_installer = person(_prefix + "Installer", "ehome.installers");
-			_viewer = person(_prefix + "Viewer", "ehome.viewers");
+			_viewer = person(_prefix + "Viewer", null);
 
 			// A device needs a product variant and an application program.
 			TLObject manufacturer = create("ehome.catalog:Manufacturer");
@@ -113,6 +115,9 @@ public class AssistantFixture {
 			_project = create("ehome.project:Project");
 			_project.tUpdateByName("name", PROJECT_NAME);
 			ControllerFixture.own(_project, _controller);
+			// Access per project (haumacher/ehome #152): the installer edits the project, the viewer reads it.
+			ProjectMembers.add(_project, _installer, Role.editor);
+			ProjectMembers.add(_project, _viewer, Role.viewer);
 			_actuator = device(ACTUATOR, variant, assignment);
 			TLObject sensor = device(SENSOR, variant, assignment);
 			TLObject line = create("ehome.physical:Line");
@@ -145,12 +150,12 @@ public class AssistantFixture {
 		_created.clear();
 	}
 
-	/** The account of the group <code>ehome.installers</code>. */
+	/** The account of the group <code>ehome.installers</code>, editor of the project. */
 	public Person installer() {
 		return _installer;
 	}
 
-	/** The account of the group <code>ehome.viewers</code>. */
+	/** The account in no group of E-Home, viewer of the project. */
 	public Person viewer() {
 		return _viewer;
 	}
@@ -287,18 +292,11 @@ public class AssistantFixture {
 	}
 
 	/**
-	 * A new account of the given name in the given group (an existing one of that name is replaced).
-	 * Must be called in a transaction.
+	 * A new account of the given name in the given group, <code>null</code> for none of E-Home (an
+	 * existing one of that name is replaced). Must be called in a transaction.
 	 */
 	static Person person(String name, String group) {
-		Person existing = Person.byName(name);
-		if (existing != null) {
-			existing.tDelete();
-		}
-		Person result =
-			Person.create(kb(), name, TLSecurityDeviceManager.getInstance().getAuthenticationDevice("dbSecurity"));
-		Group.getGroupByName(kb(), group).addMember(result);
-		return result;
+		return AccountFixture.person(name, group);
 	}
 
 	private static KnowledgeBase kb() {

@@ -90,7 +90,7 @@ public class SimulationTools {
 		+ " rules, schedule entries and datapoints not saved yet are tried in place of / besides the saved ones;"
 		+ " nothing is saved. Devices are not simulated: an actuator does not answer a command, so set a"
 		+ " status datapoint yourself if a rule depends on it. Nothing persistent changes.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult simulate(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P(value = "The local date and time the simulation starts at, e.g. \"2026-11-10T21:55\"; omitted: now",

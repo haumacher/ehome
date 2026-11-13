@@ -12,8 +12,8 @@ import java.util.function.Supplier;
 
 import test.de.haumacher.ehome.ai.AssistantFixture;
 import test.de.haumacher.ehome.importer.SharedData;
+import test.de.haumacher.ehome.security.AccountFixture;
 
-import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
@@ -29,12 +29,13 @@ import com.top_logic.tl.ai.core.security.RunEntryPoint;
 import com.top_logic.tl.ai.core.security.RunPrincipal;
 import com.top_logic.tl.ai.core.security.RunSecurity;
 import com.top_logic.tl.ai.tool.api.CancellationToken;
-import com.top_logic.tool.boundsec.wrap.Group;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
+import de.haumacher.ehome.project.ProjectMembers;
+import de.haumacher.ehome.project.ProjectMembers.Role;
 
 /**
  * The project the tests of the assistant's logic tools work on, built by hand (no import, so a test
@@ -95,7 +96,7 @@ public class LogicFixture {
 	public void setUp() {
 		AssistantFixture.inTransaction(() -> {
 			_persons.add(person(_prefix + "Installer", "ehome.installers"));
-			_persons.add(person(_prefix + "Viewer", "ehome.viewers"));
+			_persons.add(person(_prefix + "Viewer", null));
 			TLObject bool = mainType(1);
 			TLObject real = mainType(9);
 			TLObject percent = mainType(5);
@@ -121,6 +122,9 @@ public class LogicFixture {
 				_datapoints.put(datapoint.getKey(), created);
 			}
 			_project.tUpdateByName("applicationDatapoints", new ArrayList<>(_datapoints.values()));
+			// Access per project (haumacher/ehome #152): the installer edits the project, the viewer reads it.
+			ProjectMembers.add(_project, installer(), Role.editor);
+			ProjectMembers.add(_project, viewer(), Role.viewer);
 		});
 	}
 
@@ -169,12 +173,12 @@ public class LogicFixture {
 		return _datapoints.get(id);
 	}
 
-	/** The account of the group <code>ehome.installers</code>. */
+	/** The account of the group <code>ehome.installers</code>, editor of the project. */
 	public Person installer() {
 		return _persons.get(0);
 	}
 
-	/** The account of the group <code>ehome.viewers</code>. */
+	/** The account in no group of E-Home, viewer of the project. */
 	public Person viewer() {
 		return _persons.get(1);
 	}
@@ -242,14 +246,7 @@ public class LogicFixture {
 	}
 
 	private static Person person(String name, String group) {
-		Person existing = Person.byName(name);
-		if (existing != null) {
-			existing.tDelete();
-		}
-		Person result =
-			Person.create(kb(), name, TLSecurityDeviceManager.getInstance().getAuthenticationDevice("dbSecurity"));
-		Group.getGroupByName(kb(), group).addMember(result);
-		return result;
+		return AccountFixture.person(name, group);
 	}
 
 	private static KnowledgeBase kb() {

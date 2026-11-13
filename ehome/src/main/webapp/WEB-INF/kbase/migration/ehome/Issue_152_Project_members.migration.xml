@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Access per project (haumacher/ehome #152): a project names the accounts holding a role in it (owner,
+	editor, viewer) in its new references members, editors and owners, and a user sees exactly the
+	projects naming the user. Before, the groups ehome.installers and ehome.viewers held their roles on
+	every project. The new references and the enumeration ehome.project:ProjectRole are added by the
+	automatic model upgrade at startup (nothing is removed or moved); the roles, rules and grants are
+	configuration (ehome.security.config.xml).
+
+	After the start, the startup action ProjectMembersMigration gives the existing projects their members,
+	so that nobody loses access: the account that created a project becomes its owner where it still
+	exists (otherwise the project has no owner, and administrators act for it), every member of
+	ehome.installers becomes an editor and every member of ehome.viewers a viewer of every project, a
+	stronger role staying. Each step is logged.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_152_Project_members"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_151_Controllers_in_projects"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30079_Remove_comments"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_29092_multi_factor_authentication"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors/>
+	<post-processors/>
+	<startup-actions>
+		<startup-action class="de.haumacher.ehome.project.ProjectMembersMigration"/>
+	</startup-actions>
+</migration>

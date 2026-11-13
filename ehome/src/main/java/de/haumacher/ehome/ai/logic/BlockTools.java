@@ -126,7 +126,7 @@ public class BlockTools {
 		+ " parameter's unit, a time of day as \"06:30\"). Only datapoints the port can bind are taken: of a"
 		+ " type it reads (input) or commands (output, writable), of its unit. The answer names what the"
 		+ " runtime image would still refuse (a required port without a datapoint). " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult createBlock(ToolContext context,
 			@P("The room (a building part) the device belongs to") TLObject room,
 			@P("The key of the block type, e.g. \"org.homecontrol.room-controller 1.0\" (blockTypes lists them)") String type,
@@ -168,7 +168,7 @@ public class BlockTools {
 		+ " dialog of the blocks view does (a binding is added; an input that aggregates takes several). The"
 		+ " datapoints by their ids in the image; only those the port can bind are taken. "
 		+ LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult bindBlock(ToolContext context,
 			@P("The virtual device (ehome.runtime:BlockInstance)") TLObject block,
 			@P("The bindings by port: {\"window\": [\"wz.window\"]}") Map<String, Object> bindings,
@@ -196,7 +196,7 @@ public class BlockTools {
 		+ " without a datapoint, a parameter out of range). With live=true also the diagnostics of the deployed"
 		+ " instance as the project's controller reports them (read only; the controller is asked over the"
 		+ " network, nothing is changed there).",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult blockStatus(
 			@P("The virtual device (ehome.runtime:BlockInstance)") TLObject block,
 			@P(value = "true to read the diagnostics from the controller as well", required = false) Boolean live) {

@@ -60,11 +60,12 @@
 						</tooltip>
 						<access>
 							<!--
-								The search only lists the gateways that answer; it reads no object of the model.
-								Read on the security root, granted to both E-Home roles (ehome.security.config.xml):
-								an E-Home user may search, an account without an E-Home role may not.
+								The search only lists the gateways that answer; it reads no object of the model and acts
+								for no project. It serves setting up a project: whoever may create projects may search
+								(an installer, haumacher/ehome #65, #152); a project's own search is in its dialog
+								"Choose the gateway" (projects/choose-gateway.view.xml).
 							-->
-							<operation name="Read"/>
+							<create type="ehome.project:Project"/>
 						</access>
 						<execute-script function='{
 	"interface": $networkInterface,

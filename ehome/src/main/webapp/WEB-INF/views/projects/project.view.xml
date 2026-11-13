@@ -208,6 +208,21 @@
 					/>
 				</view-ref>
 			</tab>
+			<!-- Who holds which role in the project; the owners manage them (haumacher/ehome #152). -->
+			<tab id="members"
+				icon="css:bi bi-people"
+			>
+				<label>
+					<en>Members</en>
+					<de>Mitglieder</de>
+				</label>
+				<view-ref view="projects/members.view.xml">
+					<bind
+						channel="project"
+						to="project"
+					/>
+				</view-ref>
+			</tab>
 			<tab id="properties"
 				icon="css:fa-solid fa-gear"
 			>

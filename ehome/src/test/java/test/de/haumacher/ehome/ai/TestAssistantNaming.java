@@ -56,6 +56,8 @@ import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.programming.DeviceSettings;
+import de.haumacher.ehome.project.ProjectMembers;
+import de.haumacher.ehome.project.ProjectMembers.Role;
 import de.haumacher.ehome.runtime.GroupAddressIds;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Pages;
@@ -89,7 +91,11 @@ public class TestAssistantNaming extends BasicTestCase {
 		List<TLObject> projects = SharedData.newProjects(before);
 		assertEquals(1, projects.size());
 		_project = projects.get(0);
-		inTransaction(() -> _installer = AssistantFixture.person("ehomeNamingInstaller", "ehome.installers"));
+		inTransaction(() -> {
+			_installer = AssistantFixture.person("ehomeNamingInstaller", "ehome.installers");
+			// Access per project (haumacher/ehome #152): the installer edits the imported project.
+			ProjectMembers.add(_project, _installer, Role.editor);
+		});
 	}
 
 	@Override

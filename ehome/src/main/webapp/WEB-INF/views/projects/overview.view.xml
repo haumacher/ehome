@@ -20,7 +20,9 @@
 	de.haumacher.ehome.importer.ProjectUpdate, haumacher/ehome #125): the same kind of job, the password
 	dialog update-password.view.xml for a protected project, and a report that always shows (what was
 	added, changed, removed, kept or adopted, or that nothing changed); a refusal fails the job with its
-	reasons and changes nothing. "Read the installation" builds the
+	reasons and changes nothing. A user sees the projects holding a role in (haumacher/ehome #152): the
+	ones created or imported, which the user owns, and the ones an owner added the user to; only an
+	installer creates and imports projects, only an owner deletes one. "Read the installation" builds the
 	selected project from the devices on the bus (scan.view.xml, haumacher/ehome #9). The table observes
 	projects, so a created, imported or deleted project is reflected without a reload.
 -->
@@ -435,7 +437,18 @@
 				<columns>
 					<column attribute="name"/>
 					<column attribute="extId"/>
+					<!-- The role of the user in the project (haumacher/ehome #152); empty for an administrator who is no member. -->
+					<computed-column name="role"
+						type="ehome.project:ProjectRole"
+					>
+						<label>
+							<en>Your role</en>
+							<de>Ihre Rolle</de>
+						</label>
+						<value>projectRole($row, currentUser())</value>
+					</computed-column>
 				</columns>
+				<!-- The projects the user holds a role in (haumacher/ehome #152): all() delivers only these. -->
 				<rows>all(`ehome.project:Project`)</rows>
 				<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
 					bind-input-to="project"

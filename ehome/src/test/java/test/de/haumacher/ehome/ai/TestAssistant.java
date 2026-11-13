@@ -106,6 +106,11 @@ public class TestAssistant extends BasicTestCase {
 			sent.get(0).systemPrompt().contains("ehome.installers"));
 	}
 
+	/**
+	 * A viewer of the project is refused a change of it: not by the tool access (every account holds
+	 * the writing tools), but by the model access rights of the role in the project (haumacher/ehome
+	 * #152), with a refusal naming the object.
+	 */
 	public void testViewerIsRefusedAWritingTool() {
 		ScriptedProvider.install(Script.of(
 			Reply.of(new ToolCall("c1", "updateObject",
@@ -116,10 +121,11 @@ public class TestAssistant extends BasicTestCase {
 
 		List<ProviderRequest> sent = ScriptedProvider.requests();
 		List<String> offered = toolNames(sent.get(0));
-		assertFalse("A viewer is not offered a writing tool: " + offered, offered.contains("updateObject"));
+		// Every account holds the writing tools; the role in the project decides per object
+		// (haumacher/ehome #152).
 		assertTrue("A viewer reads: " + offered, offered.contains("query"));
 		String toolAnswer = sent.get(sent.size() - 1).messages().toString();
-		assertTrue("The refusal names the capability: " + toolAnswer, toolAnswer.contains("data.write"));
+		assertTrue("The refusal names the object: " + toolAnswer, toolAnswer.contains("may not change"));
 		assertEquals(ACTUATOR, _fixture.actuator().tValueByName("title"));
 	}
 

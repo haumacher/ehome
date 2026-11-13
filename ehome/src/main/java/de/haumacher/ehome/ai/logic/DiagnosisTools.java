@@ -49,7 +49,7 @@ public class DiagnosisTools {
 		+ " device) and the application's message, the notes of the export (group addresses without a datapoint"
 		+ " type, unused functions), and the size of the image. A project with refusals cannot be deployed and"
 		+ " not simulated.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult imageProblems(
 			@P("The project, or any object of it") TLObject project) {
 		TLObject owner = project(project);
@@ -92,7 +92,7 @@ public class DiagnosisTools {
 		+ " it to answer why something did or did not happen at a time (\"why did the light not switch at 7?\"),"
 		+ " together with explainRule and simulate. Only what a recording captured is there; the times are local"
 		+ " times of the user.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = LogicSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult datapointRecordings(
 			@P("The datapoint: a group address, an application datapoint, ...") TLObject datapoint,
 			@P(value = "The start of the range, local, e.g. \"2026-11-10T06:00\"", required = false) String from,

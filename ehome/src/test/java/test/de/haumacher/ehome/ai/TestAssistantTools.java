@@ -76,6 +76,8 @@ import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.GroupAddressConnections;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.programming.GroupAddresses;
+import de.haumacher.ehome.project.ProjectMembers;
+import de.haumacher.ehome.project.ProjectMembers.Role;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.template.ObjectTypes;
 
@@ -216,21 +218,23 @@ public class TestAssistantTools extends BasicTestCase {
 		assertTrue("An object of another size: " + objectSize, objectSize.contains("\"refused\""));
 		assertTrue(objectSize, objectSize.contains(
 			as(_installer, () -> text(de.haumacher.ehome.programming.I18NConstants.WARNING_OBJECT_SIZES_DIFFER))));
-		assertTrue("A building part of another project: " + foreign, foreign.contains("\"refused\""));
+		// The installer holds no role in the other project and does not even find its building
+		// (haumacher/ehome #152).
+		assertTrue("A building part of another project: " + foreign, foreign.contains("not found"));
 
 		assertEquals(addresses, DeviceSettings.groupAddresses(_project).size());
 		assertTrue(list(address[0], "datapointTypes").isEmpty());
 		assertEquals(connections, GroupAddressConnections.connections(address[0]).size());
 		assertEquals(devices, ExtIds.list(line, "devices").size());
 
-		// A viewer is not offered a writing tool, and refused one called anyway.
+		// A viewer holds the writing tools (every account does) and is refused by the role in the project
+		// (haumacher/ehome #152).
 		sent = runs(_viewer, "Plan a device.", script(call("planDevice", "line", tid(line), "product",
 			tid((TLObject) actuator.tValueByName("type")))));
 		List<String> offered = toolNames(sent.get(0));
 		assertTrue("A viewer reads: " + offered, offered.contains("listDevices"));
-		assertFalse("A viewer is not offered a writing tool: " + offered, offered.contains("planDevice"));
 		String refusal = toolAnswer(sent, "planDevice");
-		assertTrue("The refusal names the capability: " + refusal, refusal.contains("data.write"));
+		assertTrue("Refused by the role in the project (haumacher/ehome #152): " + refusal, refusal.contains("may not change"));
 		assertEquals(devices, ExtIds.list(line, "devices").size());
 
 		// The tool checks the right itself, also for a caller that does not ask the permission filter.
@@ -239,6 +243,23 @@ public class TestAssistantTools extends BasicTestCase {
 		assertTrue(direct.failed());
 		assertTrue(direct.text(), direct.text().contains("Permission denied"));
 		assertEquals(devices, ExtIds.list(line, "devices").size());
+	}
+
+	/**
+	 * Review probe (haumacher/ehome #152): the reading tools resolve their arguments with the caller's
+	 * rights; an installer without a role in a project neither lists its devices nor reads its
+	 * building structure, by the project's id or an object's.
+	 */
+	public void testProbeReadingToolsOfForeignProject() {
+		TLObject foreignBuilding = single(ExtIds.list(_foreign, "buildings"));
+		List<ProviderRequest> sent = installerRuns("Read the other project.",
+			call("listDevices", "project", tid(_foreign)),
+			call("buildingStructure", "project", tid(foreignBuilding)));
+		for (String tool : List.of("listDevices", "buildingStructure")) {
+			String answer = toolAnswer(sent, tool);
+			assertTrue(tool + " of a project without a role: " + answer, answer.contains("not found"));
+			assertFalse(tool + ": " + answer, answer.contains("Fremdes Projekt"));
+		}
 	}
 
 	/**
@@ -507,7 +528,11 @@ public class TestAssistantTools extends BasicTestCase {
 					_project = single(SharedData.newProjects(before));
 					inTransaction(() -> {
 						_installer = AssistantFixture.person("ehomeToolsInstaller", "ehome.installers");
-						_viewer = AssistantFixture.person("ehomeToolsViewer", "ehome.viewers");
+						_viewer = AssistantFixture.person("ehomeToolsViewer", null);
+						// Access per project (haumacher/ehome #152): the installer edits the imported
+						// project, the viewer reads it; neither holds a role in the foreign one.
+						ProjectMembers.add(_project, _installer, Role.editor);
+						ProjectMembers.add(_project, _viewer, Role.viewer);
 						_foreign = create("ehome.project:Project");
 						_foreign.tUpdateByName("name", "Fremdes Projekt");
 						TLObject building = create("ehome.building:Building");

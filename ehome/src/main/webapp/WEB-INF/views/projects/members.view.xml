@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The members of a project (haumacher/ehome #152): the accounts holding a role in it, owner, editor or
+	viewer, with their names and mail addresses; every member sees this list, as the members of a
+	project see each other (the role ehome.Collaborator, ehome.security.config.xml).
+
+	The owners manage the members (the operation ManageMembers): "Add member" adds an existing account by
+	its mail address or user name, or one of the accounts the owner already works with in other projects
+	(projects/member-add.view.xml); an address without an account is refused, as administrators create
+	the accounts. "Change role" gives the selected member another role (projects/member-role.view.xml),
+	"Remove" takes the selected member out of the project. "Leave project" lets the user take the own
+	membership back and returns to the list of projects. A project keeps at least one owner: the last
+	owner is neither removed nor given another role, nor leaves (de.haumacher.ehome.project.ProjectMembers);
+	each refusal says why.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="member"/>
+		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
+		<derived-channel name="assistantPage"
+			expr="'Project, tab Members'"
+		/>
+	</channels>
+	<panel>
+		<!-- What the assistant is told about this page: its name and its selection (app.view.xml). -->
+		<page-selection to="pageView">
+			<inputs>
+				<input channel="assistantPage"/>
+			</inputs>
+		</page-selection>
+		<page-selection to="pageSelection">
+			<inputs>
+				<input channel="member"/>
+				<input channel="project"/>
+			</inputs>
+		</page-selection>
+		<title>
+			<en>Members</en>
+			<de>Mitglieder</de>
+		</title>
+		<commands>
+			<generic-command
+				image="css:bi bi-person-plus"
+				inputs="project"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Add member</en>
+					<de>Mitglied hinzufügen</de>
+				</label>
+				<tooltip>
+					<en>Adds an existing account to the project with a role: by its mail address or user name, or one of the accounts you already work with in other projects.</en>
+					<de>Fügt ein bestehendes Konto mit einer Rolle zum Projekt hinzu: über seine Mail-Adresse oder seinen Benutzernamen, oder eines der Konten, mit denen Sie schon in anderen Projekten arbeiten.</de>
+				</tooltip>
+				<access>
+					<operation name="ManageMembers"
+						object="$project"
+						type="ehome.project:Project"
+					/>
+				</access>
+				<executability>
+					<null-input-disabled/>
+				</executability>
+				<open-dialog
+					bind-input-to="project"
+					dialog-view="projects/member-add.view.xml"
+				>
+					<bind
+						channel="selection"
+						to="member"
+					/>
+				</open-dialog>
+			</generic-command>
+			<generic-command
+				image="css:bi bi-person-gear"
+				inputs="project, member"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Change role</en>
+					<de>Rolle ändern</de>
+				</label>
+				<tooltip>
+					<en>Gives the selected member another role in the project.</en>
+					<de>Gibt dem ausgewählten Mitglied eine andere Rolle im Projekt.</de>
+				</tooltip>
+				<access>
+					<operation name="ManageMembers"
+						object="$project"
+						type="ehome.project:Project"
+					/>
+				</access>
+				<executability>
+					<disabled-if expr="if($member == null, #('Select the member.'@en, 'Wählen Sie das Mitglied aus.'@de), null)"/>
+				</executability>
+				<execute-script function="{'project': $project, 'member': $member, 'role': projectRole($project, $member)}">
+					<with-result>
+						<open-dialog
+							bind-input-to="request"
+							dialog-view="projects/member-role.view.xml"
+						/>
+					</with-result>
+				</execute-script>
+			</generic-command>
+			<generic-command
+				image="css:bi bi-person-dash"
+				inputs="project, member"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Remove</en>
+					<de>Entfernen</de>
+				</label>
+				<tooltip>
+					<en>Takes the selected member out of the project; the project keeps at least one owner.</en>
+					<de>Nimmt das ausgewählte Mitglied aus dem Projekt; das Projekt behält mindestens einen Eigentümer.</de>
+				</tooltip>
+				<access>
+					<operation name="ManageMembers"
+						object="$project"
+						type="ehome.project:Project"
+					/>
+				</access>
+				<executability>
+					<disabled-if expr="if($member == null, #('Select the member.'@en, 'Wählen Sie das Mitglied aus.'@de), null)"/>
+				</executability>
+				<confirm expr="#('Remove {0} from the project?'@en, '{0} aus dem Projekt entfernen?'@de).fill($member)"/>
+				<with-transaction>
+					<execute-script function="projectRemoveMember($project, $member)"/>
+				</with-transaction>
+				<write-channel name="member" clear="true"/>
+			</generic-command>
+			<generic-command
+				image="css:bi bi-box-arrow-right"
+				inputs="project"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Leave project</en>
+					<de>Projekt verlassen</de>
+				</label>
+				<tooltip>
+					<en>Takes your own membership back: you no longer see the project. The last owner does not leave.</en>
+					<de>Nimmt Ihre eigene Mitgliedschaft zurück: Sie sehen das Projekt nicht mehr. Der letzte Eigentümer verlässt es nicht.</de>
+				</tooltip>
+				<access>
+					<operation name="Read"
+						object="$project"
+						type="ehome.project:Project"
+					/>
+				</access>
+				<executability>
+					<null-input-disabled/>
+				</executability>
+				<confirm expr="#('Leave the project {0}? You no longer see it unless an owner adds you again.'@en, 'Das Projekt {0} verlassen? Sie sehen es nicht mehr, bis ein Eigentümer Sie wieder hinzufügt.'@de).fill($project.get(`ehome.project:Project#name`))"/>
+				<with-transaction>
+					<execute-script function="projectLeave($project)"/>
+				</with-transaction>
+				<navigate-pop/>
+			</generic-command>
+		</commands>
+		<table
+			observed-types="ehome.project:Project,tl.accounts:Person"
+			selection="member"
+		>
+			<inputs>
+				<input channel="project"/>
+			</inputs>
+			<columns>
+				<computed-column name="account"
+					type="tl.accounts:Person"
+				>
+					<label>
+						<en>Name</en>
+						<de>Name</de>
+					</label>
+					<value>$row</value>
+				</computed-column>
+				<computed-column name="userName"
+					type="tl.core:String"
+				>
+					<label>
+						<en>User name</en>
+						<de>Benutzername</de>
+					</label>
+					<value>$row.get(`tl.accounts:Person#name`)</value>
+				</computed-column>
+				<computed-column name="mail"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Mail address</en>
+						<de>Mail-Adresse</de>
+					</label>
+					<value>$row.get(`tl.accounts:Person#contact`).get(`Contacts:PersonContact#email`)</value>
+				</computed-column>
+				<computed-column name="role"
+					type="ehome.project:ProjectRole"
+				>
+					<inputs>
+						<input channel="project"/>
+					</inputs>
+					<label>
+						<en>Role</en>
+						<de>Rolle</de>
+					</label>
+					<value>projectRole($project, $row)</value>
+				</computed-column>
+			</columns>
+			<rows>if($project == null, [], $project.get(`ehome.project:Project#members`))</rows>
+		</table>
+	</panel>
+</view>

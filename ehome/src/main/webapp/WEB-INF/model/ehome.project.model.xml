@@ -455,8 +455,57 @@
 					ordered="true"
 					type="ehome.runtime:Deployment"
 				/>
+				<!--
+					The members of the project (haumacher/ehome #152): every account holding a role in it, owner,
+					editor or viewer; a user sees a project exactly when being one of its members
+					(ehome.security.config.xml). The editors and the owners are subsets of the members, disjoint:
+					a member in neither is a viewer (de.haumacher.ehome.project.ProjectMembers). Changed only by the
+					member commands of the owner (tab "Members"), which keep at least one owner; nobody writes the
+					three references through the model.
+				-->
+				<reference name="members"
+					kind="forwards"
+					multiple="true"
+					type="tl.accounts:Person"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</reference>
+				<!-- The members editing the project: what an installer did before (haumacher/ehome #152). -->
+				<reference name="editors"
+					kind="forwards"
+					multiple="true"
+					type="tl.accounts:Person"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</reference>
+				<!--
+					The members owning the project (haumacher/ehome #152): everything an editor does, the members and
+					deleting the project. Whoever creates or imports a project becomes its owner
+					(de.haumacher.ehome.project.ProjectOwners).
+				-->
+				<reference name="owners"
+					kind="forwards"
+					multiple="true"
+					type="tl.accounts:Person"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</reference>
 			</attributes>
 		</class>
+		<!-- The role of a member in a project (haumacher/ehome #152, de.haumacher.ehome.project.ProjectMembers). -->
+		<enum name="ProjectRole">
+			<classifier name="owner"/>
+			<classifier name="editor"/>
+			<classifier name="viewer"
+				default="true"
+			/>
+		</enum>
 		<!--
 			A device found on the bus by a scan of the installation (de.haumacher.ehome.scan) that no
 			application program of the catalog matches: what it told about itself.

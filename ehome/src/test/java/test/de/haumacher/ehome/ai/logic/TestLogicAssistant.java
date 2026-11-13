@@ -167,7 +167,7 @@ public class TestLogicAssistant extends BasicTestCase {
 		String trial = sent.get(2).messages().toString();
 		assertTrue("A viewer tries the rule: " + trial, trial.contains("write Frostschutz Heizung (1/0/1) = true"));
 		String refusal = sent.get(sent.size() - 1).messages().toString();
-		assertTrue("The refusal names the capability: " + refusal, refusal.contains("data.write"));
+		assertTrue("Refused by the role in the project (haumacher/ehome #152): " + refusal, refusal.contains("may not change"));
 		assertTrue("Nothing saved.", RuleExport.orderedRules(_fixture.project()).isEmpty());
 	}
 
@@ -179,7 +179,7 @@ public class TestLogicAssistant extends BasicTestCase {
 		String viewer = token(_fixture.viewer());
 		String refused = Json.write(call(viewer, open(viewer), "tools/call",
 			Map.of("name", "ehome-rules__saveAutomation", "arguments", arguments)));
-		assertTrue("The refusal names the capability: " + refused, refused.contains("data.write"));
+		assertTrue("Refused by the role in the project (haumacher/ehome #152): " + refused, refused.contains("may not change"));
 		assertTrue("Nothing saved.", RuleExport.orderedRules(_fixture.project()).isEmpty());
 
 		String installer = token(_fixture.installer());

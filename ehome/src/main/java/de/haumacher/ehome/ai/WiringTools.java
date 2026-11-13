@@ -116,7 +116,7 @@ public class WiringTools {
 		+ " object listens to, and 'inEffect': false for an object switched off by its device's parameters."
 		+ " Read it before you create, connect or name"
 		+ " addresses; page with 'offset' while the answer gives 'nextOffset'.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = ToolSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult listGroupAddresses(
 			@P("The project: the open project the turn context names (every tab of a project selects it), or any"
 				+ " object of the project") TLObject project,
@@ -342,7 +342,7 @@ public class WiringTools {
 		+ " of the datapoint under its old id. If one entry is refused, nothing is changed and the answer names"
 		+ " each refused entry. The answer lists every address with its values before and after. With"
 		+ " dryRun=true nothing is changed and the answer shows the changes it would make.",
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult nameGroupAddresses(ToolContext context,
 			@P("The changes: [{\"groupAddress\": \"id\", \"name\": \"Küche Licht Schalten\", \"description\":"
 				+ " optional, \"identifier\": \"kueche.licht\" optional}]") List<GroupAddressName> names,
@@ -453,7 +453,7 @@ public class WiringTools {
 		+ " the object that will send to it, e.g. \"1.001\" switch, \"5.001\" percentage, \"9.001\" temperature"
 		+ " (also written DPST-1-1). With dryRun=true nothing is created and the answer gives the address it"
 		+ " would get, or why it cannot. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult createGroupAddress(ToolContext context,
 			@P("The group range to create it in") TLObject range,
 			@P("The name, e.g. \"Licht Küche schalten\"") String name,
@@ -535,7 +535,7 @@ public class WiringTools {
 		+ " omit 'datapointType' to remove the address's own type, so that the type of its objects applies."
 		+ " The application refuses a type whose size differs from the size of the connected objects. "
 		+ ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
 	public ToolResult setGroupAddressType(ToolContext context,
 			@P("The group address") TLObject groupAddress,
 			@P(value = "The datapoint type, e.g. \"1.001\"; omit to remove the own type", required = false)
@@ -580,7 +580,7 @@ public class WiringTools {
 		+ " switched off by a parameter is not listed unless it is still connected; then it is marked"
 		+ " 'inEffect': false, and 'problems' names it: such a connection neither sends nor receives, remove it"
 		+ " or set the parameter that switches the object on.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = ToolSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult deviceObjects(
 			@P("The device") TLObject device) {
 		if (!ExtIds.isA(device, DEVICE)) {
@@ -653,7 +653,7 @@ public class WiringTools {
 		+ " size or datapoint type does not fit the address or its other objects, naming the problem; pass"
 		+ " despiteProblems=true only when the user wants it connected anyway. With dryRun=true nothing is"
 		+ " connected and the answer gives the direction and the problems. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult connectObject(ToolContext context,
 			@P("The device") TLObject device,
 			@P("The number of the communication object") Integer object,
@@ -719,7 +719,7 @@ public class WiringTools {
 	 */
 	@ToolMethod(description = "Removes a connection of a communication object to a group address in an E-Home"
 		+ " project (its id from deviceObjects). The object and the address stay. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
 	public ToolResult disconnectObject(ToolContext context,
 			@P("The connection") TLObject connection) {
 		if (!ExtIds.isA(connection, "ehome.physical:Connection")) {

@@ -167,11 +167,57 @@ weekdays as `[]` ("every day" by the model), its handling of missed firings as `
 (haumacher/ehome #141). Root does not see it (administrator bypass).
 
 Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: `tl.model:TLClassifier` takes its roles
-from the security root (security parent rule `ehomeRootForClassifier`) and both E-Home roles get READ
-on it; `TestAccessRights.testClassifiersReadable`.
+from the security root (security parent rule `ehomeRootForClassifier`) and every account (the engine's
+role `SecurityStructure.user` of the group "user", since the roles per project of haumacher/ehome
+#152) and the installers get READ on it; `TestAccessRights.testClassifiersReadable`.
 
 **When fixed** (the engine treats the read of a classifier as model data): remove the rule
 `ehomeRootForClassifier` and the `<class name="tl.model:TLClassifier">` grant; the test stays.
+
+## Create of a top-level type: a false "dead grant" (TL #30312)
+
+The engine decides the creation of an object without container on the security root
+(`ModelAccessRights.isAllowedCreate(person, type, null)`: a role held on the root that is granted
+`Create` on the type). E-Home's projects are such objects, and only the installers (`ehome.Installer`,
+held on the root through the group `ehome.installers`) may create them (haumacher/ehome #152). The
+coverage analysis (`SecurityCoverageAnalysis.addDeadGrantFindings`, `canDeliver`) does not count the
+root for a `Create` grant: unless a rule delivers `ehome.Installer` on `ehome.project:Project` or a role
+parent of it, it reports "The operation "Create" is granted on the type "ehome.project:Project" to the
+roles "ehome.Installer". No rule can deliver these roles ...", and `TestSecurityCoverage` fails. The
+obvious fix, the security root as role parent of the projects, is wrong: every installer would hold
+`Create` on every project, which implies `Discover` (access-discover-spec R2), and would find every
+project in the lists.
+
+Minimal reproduction: a type without container (no role parent) whose role rules give its readers
+their roles per object, `<grant operation="Create" roles="R"/>` on it, a singleton rule giving `R` on
+`SecurityStructure#ROOT`; `isAllowedCreate(person, type, null)` is true for a holder of `R`, the
+coverage analysis reports the grant as dead.
+
+Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: the role rule `ehomeInstallerOnOwnedProject`
+gives `ehome.Installer` to the owners of a project on it (it grants nothing there an owner does not
+hold already).
+
+**When fixed** (the analysis counts the security root for a `Create` of a type that no composition
+holds): remove the rule `ehomeInstallerOnOwnedProject`.
+
+## A role query answers from before a change of the stored roles (TL #30313)
+
+Found with the roles per project (haumacher/ehome #152) in `TestAccessRights.testMembersSeeEachOther`
+on H2 (the test database and the one of the Debian package): after a member was removed from the
+last project it shared with another account, the incremental security update removed the role
+`ehome.Collaborator` from the security storage (`AccessManager.getRoles` and `hasRole` for each role
+alone answer without it), but `hasRole(viewer, account, [PersonalProfile, ehome.Collaborator])` - the
+role query of `isDiscoverAllowed`, the same SQL text the thread had sent before the removal - still
+answered `true`; the same roles in the other order answered `false`. A few other statements on the
+connection in between make it answer right again. The SQL of
+`SecurityStorage.hasRoleFromCollection` is built with literals, so a repeated question has the same
+text; H2's reuse of the last result of a cached statement (`OPTIMIZE_REUSE_RESULTS`) is suspected.
+Consequence: right after a removal, the removed member may still discover the other accounts (or a
+removed reader the project) in the same request or the next one on the same connection.
+
+No workaround. The test asserts the stored roles after the removal and leaves the decision out (a
+comment there names this entry). **When fixed:** assert `isDiscoverAllowed` after the removal in
+`testMembersSeeEachOther` again.
 
 ## A refused command on a composition part (TL #29885)
 
@@ -182,9 +228,10 @@ dieses Objekt nicht ändern"); four import commands (rules, Zigbee devices, prod
 catalog) are disabled with only their own label as the reason. The ticket is still open.
 
 Since TL #30025 (8.0.0-alpha12.817) a command is hidden for a user who holds no role granting it on
-any object; the roles of E-Home are global, so a viewer no longer sees the commands that write
-(nor the import commands), and the case of the ticket does not show in E-Home any more. Still open,
-checked on 8.0.0-alpha12.820.
+any object. Since the roles per project (haumacher/ehome #152) a user may be the viewer of one project
+and the editor of another: in the first, the commands that write are shown disabled with the reason
+again, and the case of the ticket can show (an account that edits no project at all does not see
+them). Still open, checked on 8.0.0-alpha12.820.
 
 **On the next upgrade:** check the ticket; nothing to remove.
 
@@ -358,10 +405,10 @@ The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on 
   no effort for it and the model thinks adaptively as it does unasked. **When fixed** (only the Haiku
   models before 5 take a budget): set `reasoning="true"` on the override.
 - **`tools/list` of the MCP endpoint is the same for every caller** (TL #30252) (the MCP Java SDK answers it from
-  the global tool set; `ai/security/mcp-endpoint`, "What it does not do"): a viewer's client lists
-  the writing tools of `data.write` and is refused when it calls one. No workaround. **When fixed**
-  (the list follows the caller's tool access): `TestMcpEndpoint` asserts that a viewer does not list
-  them.
+  the global tool set; `ai/security/mcp-endpoint`, "What it does not do"). Since the roles per project
+  (haumacher/ehome #152) every account holds `data.write` and the role in each project decides per
+  object, so E-Home lists the same tools to every caller anyway. No workaround. **When fixed:**
+  nothing to change in E-Home.
 - **`tl-ai-core` brings the browsers of Playwright** (TL #30253) (`com.microsoft.playwright:driver-bundle`,
   200 MB) for its browser tools, also to an application that grants no browser tool: the war grew
   from 136 MB to 367 MB. Workaround: `ehome/pom.xml` excludes `driver-bundle` from `tl-ai-core`

@@ -97,10 +97,14 @@ metadata of the three Claude models (context window, output limit, prices) is in
 
 | Account | Chat | Tools |
 |---|---|---|
-| `ehome.Installer` (group `ehome.installers`) | the chat agent | read the model and the data (`model.read`, `data.read`); change data with the object tools (`data.write`: `updateObject`, `createObject`, `deleteObject`, `editText`) |
-| `ehome.Viewer` (group `ehome.viewers`) | the chat agent | read only |
+| every account (the engine's group `user` every new account joins) and the installers | the chat agent | read the model and the data (`model.read`, `data.read`); change data with the object tools (`data.write`: `updateObject`, `createObject`, `deleteObject`, `editText`) |
 | administrator (`root`) | every agent | every tool (the checks are bypassed) |
-| any other account | no launcher, no agent | none |
+| an account outside these groups | no launcher, no agent | none |
+
+What a tool then reads and changes is decided per object by the account's role in each project
+(haumacher/ehome #152, `ehome.security.config.xml`): it sees only the projects in which the account is
+owner, editor or viewer; an editor's or owner's tools change the project, a viewer's are refused
+("Permission denied: your account may not change ..."); every account reads the shared catalogs.
 
 - A tool reads and changes only what the account may read and change (`<security-config>`): the
   controllers' tokens and secrets and the projects' installation keys are never read by anybody but
@@ -119,12 +123,14 @@ metadata of the three Claude models (context window, output limit, prices) is in
 ## Trying it
 
 1. Set the key (above) and start the app (`./mvnw -pl ehome exec:java` from the repository root).
-2. Log in as an installer or as `root`. The star in the lower right corner opens the assistant.
+2. Log in as an editor of a project or as `root`. The star in the lower right corner opens the
+   assistant.
 3. Open a project, select a device, and ask "Welche Kommunikationsobjekte hat dieses Gerät?" or
    "Which devices of this project are not placed in a room?". Ask it to rename the selected device:
    it shows an approval card first.
-4. Log in as a viewer: the same questions are answered, a change is refused, naming the missing
-   capability `data.write`.
+4. Log in as a viewer of the project: the same questions are answered, a change is refused by the
+   role in the project ("Permission denied: your account may not change ..."). A project the account
+   holds no role in does not exist for its assistant.
 
 ## Rules, simulation, functions, pages and blocks (#128)
 

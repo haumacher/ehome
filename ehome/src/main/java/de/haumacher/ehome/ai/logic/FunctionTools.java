@@ -59,7 +59,7 @@ public class FunctionTools {
 		+ " command address, an address whose datapoint type contradicts the object). With dryRun=true it answers"
 		+ " what it would add and update without changing anything; show that to the user before accepting. "
 		+ LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult proposeFunctions(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P(value = "true to only answer what the proposal would add", required = false) Boolean dryRun) {
@@ -103,7 +103,7 @@ public class FunctionTools {
 		+ " does: a function the proposal made is remembered as dismissed, so the next proposal does not add it"
 		+ " again. With dryRun=true it only answers what still refers to each function (control pages): those"
 		+ " refer to nothing afterwards. " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult dismissFunctions(ToolContext context,
 			@P("The functions (ehome.runtime:Function)") List<TLObject> functions,
 			@P(value = "true to only answer what refers to them", required = false) Boolean dryRun) {
@@ -155,7 +155,7 @@ public class FunctionTools {
 		+ " percent); scene command (with 'scene' 1..64); button press, state. The first role is the main one."
 		+ " Prefer proposeFunctions where the devices suggest the function. The answer names"
 		+ " what the runtime image would refuse of the function. " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult createFunction(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P("The kind: light, dimmer, blind, switch, sensor, climate, scene or button") String kind,
@@ -240,7 +240,7 @@ public class FunctionTools {
 		+ " shown as value or switch) and rule switches (a rule's enable switch). E.g. a page \"Ground floor\""
 		+ " with one section per room, each holding that room. The answer names what the pages view marks as a"
 		+ " problem (a room without functions). " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = LogicSupport.PROJECT, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
 	public ToolResult createPage(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P("The name of the page") String name,

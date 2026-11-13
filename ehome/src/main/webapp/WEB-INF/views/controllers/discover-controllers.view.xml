@@ -61,6 +61,7 @@
 							<button>
 								<action class="com.top_logic.layout.view.command.GenericViewCommand"
 									image="css:bi bi-broadcast"
+									inputs="project"
 								>
 									<label>
 										<en>Search</en>
@@ -68,11 +69,13 @@
 									</label>
 									<access>
 										<!--
-											The search only lists what answers on the network; it reads no object of the model.
-											Read on the security root, granted to both E-Home roles (ehome.security.config.xml):
-											an E-Home user may search, an account without an E-Home role may not.
+											The search only lists what answers on the network, for the project the dialog creates
+											a controller in: whoever may change the project (haumacher/ehome #65, #152).
 										-->
-										<operation name="Read"/>
+										<operation name="Write"
+											object="$project"
+											type="ehome.project:Project"
+										/>
 									</access>
 									<execute-script function="{'interface': $networkInterface}">
 										<inputs>

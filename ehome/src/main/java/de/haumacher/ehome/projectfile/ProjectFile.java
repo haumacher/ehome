@@ -208,9 +208,15 @@ public final class ProjectFile {
 	private static final Set<String> CONTROLLER_KEPT = Set.of("name", "host", "port");
 
 	/**
-	 * Attributes left out: secrets and operating history, by the type defining them.
+	 * Attributes left out: secrets, operating history and the accounts of this installation, by the
+	 * type defining them.
 	 */
 	private static final Set<String> LEFT_OUT = Set.of(
+		// The members name accounts of this installation (haumacher/ehome #152): whoever imports the
+		// file becomes the owner of the new project.
+		"ehome.project:Project#members",
+		"ehome.project:Project#editors",
+		"ehome.project:Project#owners",
 		// Secrets.
 		"ehome.project:Project#enrollmentCode",
 		"ehome.project:Project#enrollmentExpires",

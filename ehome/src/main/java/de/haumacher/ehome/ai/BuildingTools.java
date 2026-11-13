@@ -70,7 +70,7 @@ public class BuildingTools {
 		+ " order, each with its identifier, kind, name and the number of devices placed directly in it."
 		+ " Read it before you create, move or name parts, and to find the identifier of a room to place a"
 		+ " device in.",
-		mode = ToolMode.READ, group = ToolGroups.DATA_READ, types = ToolSupport.PROJECT)
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
 	public ToolResult buildingStructure(
 			@P("The project, or any object of it (a building part, a device)") TLObject project) {
 		TLObject owner = project(project);
@@ -115,7 +115,7 @@ public class BuildingTools {
 		+ " are added after the existing parts of the parent unless 'before' names one of them. The answer"
 		+ " lists the created parts with their identifiers. With dryRun=true nothing is created and the"
 		+ " answer says whether the parts can be created. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT,
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE,
 		dryRun = "dryRun")
 	public ToolResult createBuildingParts(ToolContext context,
 			@P("Where to create them: the project (for buildings) or a building part") TLObject parent,
@@ -267,7 +267,7 @@ public class BuildingTools {
 	@ToolMethod(description = "Moves building parts of an E-Home project to another place: into another"
 		+ " part (or the project, for buildings), before one of its parts or at its end. Use it to reorder"
 		+ " parts within their parent as well. The parts keep their own parts and devices. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
 	public ToolResult moveBuildingParts(ToolContext context,
 			@P("The building parts to move") List<TLObject> parts,
 			@P("Where to move them: a building part, or the project for buildings") TLObject container,
@@ -295,7 +295,7 @@ public class BuildingTools {
 	@ToolMethod(description = "Places a device of an E-Home project in a building part (a room, a"
 		+ " distribution board, ...) of the same project, or removes it from its part with location=null."
 		+ " A device is in one part at a time; placing it moves it there. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, types = ToolSupport.PROJECT)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
 	public ToolResult placeDevice(ToolContext context,
 			@P("The device") TLObject device,
 			@P(value = "The building part to place it in; omit to remove it from its part", required = false)

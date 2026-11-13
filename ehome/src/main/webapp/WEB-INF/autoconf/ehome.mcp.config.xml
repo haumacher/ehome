@@ -12,15 +12,15 @@
 	  the token acts as its owner, with exactly the owner's roles and model access rights. No anonymous
 	  access, no HTTP basic (it would put a password into a client configuration), no API key of a
 	  technical account.
-	- Tools: the groups the chat's tool access policy grants (ehome.security.config.xml): model.read and
-	  data.read for every E-Home role, data.write for installers. A call is decided per caller by that
-	  policy; publishing a group authorizes nobody. E-Home's own tools (haumacher/ehome #127, #128) are
-	  in data.read and data.write and are therefore published as soon as they are registered. The MCP
-	  SDK answers tools/list for every caller alike (TL ticket, doc/tl-todo.md): a viewer's client lists
-	  the writing tools and is refused when it calls one.
+	- Tools: the groups the chat's tool access policy grants (ehome.security.config.xml): model.read,
+	  data.read and data.write for every account; what a call reads and changes is decided per object
+	  by the caller's role in the project (haumacher/ehome #152): a viewer's client is refused every
+	  change of the project it reads, and sees no project it holds no role in. Publishing a group
+	  authorizes nobody. E-Home's own tools (haumacher/ehome #127, #128) are in data.read and data.write
+	  and are therefore published as soon as they are registered.
 	- An MCP call is a background run: nobody is there to answer an approval prompt, so the
-	  <background-allowlist> of the policy is its ceiling. It admits data.write: an installer's client
-	  changes data as the installer could in the chat, and the client asks its own user before it calls
+	  <background-allowlist> of the policy is its ceiling. It admits data.write: an editor's client
+	  changes data as the editor could in the chat, and the client asks its own user before it calls
 	  a tool that is not read-only (the tool annotations mark them destructive).
 	- Resources: the model and the objects as toplogic:// resources, filtered by the caller's model
 	  access rights. What nobody but an administrator may read - a controller's token and secret, a
