@@ -49,6 +49,23 @@ public class TestViewsLoad extends BasicTestCase {
 		assertTrue(loaded > 0);
 	}
 
+	/**
+	 * The views of the engine that the app composes from several modules load as merged: the people
+	 * page with the passkeys of an account, the settings with the profile of the contact
+	 * (tl-layout-view-contact beside tl-security-passkey, haumacher/ehome #163).
+	 */
+	public void testComposedEngineViews() throws Exception {
+		for (String view : List.of("admin/access-control/accounts.view.xml",
+			"admin/access-control/create-person.view.xml", "admin/admin.view.xml", "settings-tabs.view.xml")) {
+			ViewLoader.loadView(ViewLoader.fullPath(view));
+		}
+		String people = ViewLoader.loadConfig(ViewLoader.fullPath("admin/access-control/accounts.view.xml")).toString();
+		assertTrue("The people page edits the contact.", people.contains("selectedContact"));
+		assertTrue("The passkeys stay below the form.", people.contains("selectedPasskey"));
+		String settings = ViewLoader.loadConfig(ViewLoader.fullPath("settings-tabs.view.xml")).toString();
+		assertTrue("The settings have the profile.", settings.contains("profile"));
+	}
+
 	private static String causes(Throwable ex) {
 		StringBuilder result = new StringBuilder();
 		for (Throwable cause = ex; cause != null; cause = cause.getCause()) {

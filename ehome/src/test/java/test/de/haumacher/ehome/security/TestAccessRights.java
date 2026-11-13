@@ -716,6 +716,47 @@ public class TestAccessRights extends BasicTestCase {
 	}
 
 	/**
+	 * The mail address of an account (haumacher/ehome #163): a user writes the own one (the tab
+	 * "Profil" of the settings edits the contact of the account), nobody else's, not even of a member
+	 * of a shared project, who reads it; an administrator writes every one (the page "Personen" of the
+	 * administration). An address set this way adds the account to a project.
+	 */
+	public void testMailAddressOfAccount() {
+		TLObject own = (TLObject) _stranger.getUser();
+		TLObject owners = (TLObject) _owner.getUser();
+		TLStructuredTypePart email = part("Contacts:PersonContact#email");
+		assertTrue(rights().isAllowed(_stranger, own, email, WRITE));
+		assertTrue("The other attributes of the own contact stay writable.",
+			rights().isAllowed(_stranger, own, part("Contacts:PersonContact#firstname"), WRITE));
+		assertTrue(rights().isAllowed(_viewer, owners, email, READ));
+		assertFalse("A member does not write another member's address.", rights().isAllowed(_viewer, owners, email, WRITE));
+		assertFalse(rights().isAllowed(_installer, own, email, WRITE));
+		assertTrue(rights().isAllowed(PersonManager.getManager().getRoot(), own, email, WRITE));
+
+		// Written as the form of the profile writes it: secured, as the user.
+		String set = "c -> $c.set(`Contacts:PersonContact#email`, 'Stranger.Profile@Example.org')";
+		try (Transaction tx = kb().beginTransaction()) {
+			as(_stranger, () -> eval(set, own));
+			tx.commit();
+		}
+		assertEquals("Stranger.Profile@Example.org", own.tValueByName("email"));
+		String before = (String) owners.tValueByName("email");
+		try (Transaction tx = kb().beginTransaction()) {
+			as(_viewer, () -> eval(set, owners));
+			tx.commit();
+			fail("A member wrote the address of another account.");
+		} catch (TopLogicException ex) {
+			// Refused.
+		}
+		assertEquals(before, owners.tValueByName("email"));
+
+		inTransaction(() -> assertSame(_stranger,
+			ProjectMembers.add(_project, "stranger.profile@example.org", Role.viewer)));
+		assertEquals(Role.viewer, ProjectMembers.role(_project, _stranger));
+		inTransaction(() -> ProjectMembers.remove(_project, _stranger));
+	}
+
+	/**
 	 * A refused command of an account that holds no role granting it on any object is hidden, not
 	 * disabled (TL #30025).
 	 */

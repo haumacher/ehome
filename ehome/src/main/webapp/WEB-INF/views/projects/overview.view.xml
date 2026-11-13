@@ -30,6 +30,17 @@
 	<channels>
 		<channel name="project"/>
 		<channel name="importJob"/>
+		<!--
+			Whether the user sees a project at all (haumacher/ehome #163): the table is built only then.
+			The engine decides once, when a table is built, which attribute columns the user may read,
+			from the roles held on any object; an account in no project holds no role of a project,
+			and the table built for it would keep only the column "Your role" even after the first
+			project is created or the user is added to one (doc/tl-todo.md, TL ticket pending).
+		-->
+		<derived-channel name="anyProject"
+			expr="!all(`ehome.project:Project`).isEmpty()"
+			observed-types="ehome.project:Project"
+		/>
 	</channels>
 
 	<panel>
@@ -429,32 +440,46 @@
 				</stack>
 				</inset>
 			</visible-if>
-			<table
-				observed-types="ehome.project:Project"
-				selection="project"
-				types="ehome.project:Project"
-			>
-				<columns>
-					<column attribute="name"/>
-					<column attribute="extId"/>
-					<!-- The role of the user in the project (haumacher/ehome #152); empty for an administrator who is no member. -->
-					<computed-column name="role"
-						type="ehome.project:ProjectRole"
+			<switch input="anyProject">
+				<case test="$anyProject">
+					<table
+						observed-types="ehome.project:Project"
+						selection="project"
+						types="ehome.project:Project"
 					>
-						<label>
-							<en>Your role</en>
-							<de>Ihre Rolle</de>
-						</label>
-						<value>projectRole($row, currentUser())</value>
-					</computed-column>
-				</columns>
-				<!-- The projects the user holds a role in (haumacher/ehome #152): all() delivers only these. -->
-				<rows>all(`ehome.project:Project`)</rows>
-				<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
-					bind-input-to="project"
-					frame="project"
-				/>
-			</table>
+						<columns>
+							<column attribute="name"/>
+							<column attribute="extId"/>
+							<!-- The role of the user in the project (haumacher/ehome #152); empty for an administrator who is no member. -->
+							<computed-column name="role"
+								type="ehome.project:ProjectRole"
+							>
+								<label>
+									<en>Your role</en>
+									<de>Ihre Rolle</de>
+								</label>
+								<value>projectRole($row, currentUser())</value>
+							</computed-column>
+						</columns>
+						<!-- The projects the user holds a role in (haumacher/ehome #152): all() delivers only these. -->
+						<rows>all(`ehome.project:Project`)</rows>
+						<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
+							bind-input-to="project"
+							frame="project"
+						/>
+					</table>
+				</case>
+				<default>
+					<inset>
+						<text>
+							<label>
+								<en>No projects yet. The projects you created or imported and the ones you were added to are listed here.</en>
+								<de>Noch keine Projekte. Hier stehen die Projekte, die Sie angelegt oder importiert haben, und die, zu denen Sie hinzugefügt wurden.</de>
+							</label>
+						</text>
+					</inset>
+				</default>
+			</switch>
 		</stack>
 	</panel>
 </view>

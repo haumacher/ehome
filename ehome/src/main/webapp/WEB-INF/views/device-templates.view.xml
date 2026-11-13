@@ -35,6 +35,14 @@
 			inputs="program"
 			observed-types="ehome.template:DeviceTemplate,ehome.template:DeviceTemplates"
 		/>
+		<!--
+			What the detail says while the selected program has no template; it names the command creating
+			one only to a reader who may write the templates (an administrator, haumacher/ehome #163).
+		-->
+		<derived-channel name="noTemplate"
+			expr="if($program == null, #('Select an application program.'@en, 'Wählen Sie ein Applikationsprogramm aus.'@de), if(canWrite($root), #('The selected application program has no template: &quot;Create template&quot; creates it.'@en, 'Das gewählte Applikationsprogramm hat keine Vorlage: „Vorlage anlegen“ legt sie an.'@de), #('The selected application program has no template.'@en, 'Das gewählte Applikationsprogramm hat keine Vorlage.'@de)))"
+			inputs="program, root"
+		/>
 		<!-- The name of this page for the assistant (app.view.xml, <page-selection> below). -->
 		<derived-channel name="assistantPage"
 			expr="'Device templates'"
@@ -203,49 +211,54 @@
 							<delete-object/>
 						</generic-command>
 					</commands>
-					<form
-						input="template"
-						with-inset="true"
-					>
-						<noModelMessage>
-							<en>The selected application program has no template: "Create template" creates it.</en>
-							<de>Das gewählte Applikationsprogramm hat keine Vorlage: „Vorlage anlegen“ legt sie an.</de>
-						</noModelMessage>
-						<field
-							attribute="program"
-							readonly="true"
-						/>
-						<table
-							row-edit="ALL"
-							types="ehome.template:ObjectOverlay"
-						>
-							<inputs>
-								<input channel="template"/>
-							</inputs>
-							<columns>
-								<column attribute="number"
-									width="70"
-								/>
-								<column attribute="placement"
+					<switch input="template">
+						<case test="$template != null">
+							<form
+								input="template"
+								with-inset="true"
+							>
+								<field
+									attribute="program"
 									readonly="true"
-									width="240"
 								/>
-								<column attribute="function"
-									width="160"
-								/>
-								<column attribute="size"
-									width="90"
-								/>
-								<column attribute="untypedConnected"
-									width="130"
-								/>
-								<column attribute="effectiveDatapointTypes"
-									width="260"
-								/>
-							</columns>
-							<rows>if($template == null, [], $template.get(`ehome.template:DeviceTemplate#overlays`))</rows>
-						</table>
-					</form>
+								<table
+									row-edit="ALL"
+									types="ehome.template:ObjectOverlay"
+								>
+									<inputs>
+										<input channel="template"/>
+									</inputs>
+									<columns>
+										<column attribute="number"
+											width="70"
+										/>
+										<column attribute="placement"
+											readonly="true"
+											width="240"
+										/>
+										<column attribute="function"
+											width="160"
+										/>
+										<column attribute="size"
+											width="90"
+										/>
+										<column attribute="untypedConnected"
+											width="130"
+										/>
+										<column attribute="effectiveDatapointTypes"
+											width="260"
+										/>
+									</columns>
+									<rows>if($template == null, [], $template.get(`ehome.template:DeviceTemplate#overlays`))</rows>
+								</table>
+							</form>
+						</case>
+						<default>
+							<inset>
+								<text input="noTemplate"/>
+							</inset>
+						</default>
+					</switch>
 				</panel>
 			</pane>
 		</panes>
