@@ -31,6 +31,7 @@ import com.top_logic.model.util.TLModelUtil;
 
 import de.haumacher.ehome.importer.ProgramLanguages;
 import de.haumacher.ehome.knx.ParameterValues;
+import de.haumacher.ehome.model.operational.EnumerationValue;
 
 /**
  * Writes the file of an application program (<code>M-xxxx/M-xxxx_A-….xml</code>): the static part
@@ -175,7 +176,7 @@ final class ProgramExport {
 					for (TLObject value : list(type, "values")) {
 						out.open("Enumeration")
 							.attr("Text", _texts.text(value, "name", "Text"))
-							.attr("Value", number(value, "value"))
+							.attr("Value", Long.toString(((EnumerationValue) value).getUnsignedValue()))
 							.attr("Id", extId(value))
 							.attr("DisplayOrder", number(value, "index"))
 							.attr("BinaryValue", base64(value, "binary"))

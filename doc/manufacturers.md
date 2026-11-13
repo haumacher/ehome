@@ -53,6 +53,14 @@ ekinex.
   (`Static/Extension/Baggage`, `doc/knx/schema-coverage.md`, "Files"); before, a product file with
   baggage was refused and a project file skipped it. A product file is still **refused** when it
   holds an encrypted entry.
+- A product file is imported step by step since haumacher/ehome #160: the data its programs share
+  first, then each application program in a transaction of its own; a program that cannot be imported
+  is rolled back alone and named in the report. Theben's complete database (119 programs, 350 MB of
+  XML) imports in about 2 minutes with a heap of 2 GB (`doc/tl-todo.md`, "Memory of a product import
+  committed step by step"), a second import in about 10 seconds. Its enumeration values written as
+  unsigned 32-bit numbers (`4294967236`) and its renames of separators are read since #160; its
+  channel number `18d` (`M-0048_A-F140-13-8536`, schema type `String50_t`) does not fit the model's
+  integer `Channel#number` and is reported, the program imported without it.
 - `TypePicture` is read since #154 and its pictures are shown in the parameters since #155; `IconFile`, `ContextHelpFile` (#156, #157), the plug-in
   attributes of `Static/Extension` (#159) and `Static/BinaryData` are not read
   (`doc/knx/schema-coverage.md`, "Not covered").

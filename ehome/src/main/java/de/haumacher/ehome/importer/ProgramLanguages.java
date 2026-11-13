@@ -15,6 +15,9 @@ import java.util.TreeSet;
 import com.top_logic.basic.col.TypedAnnotatable;
 import com.top_logic.basic.col.TypedAnnotatable.Property;
 import com.top_logic.basic.util.ResourcesModule;
+import com.top_logic.dob.identifier.ObjectKey;
+import com.top_logic.knowledge.objects.KnowledgeItem;
+import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.model.TLObject;
 import com.top_logic.xio.importer.binding.ImportContext;
 
@@ -118,8 +121,11 @@ public class ProgramLanguages {
 	/** The programs of the import, by their ID (which names the translation unit of their texts). */
 	private final Map<String, Entry> _programs = new HashMap<>();
 
-	/** The languages added per known program. */
-	private final Map<TLObject, Set<Locale>> _added = new LinkedHashMap<>();
+	/**
+	 * The languages added per known program, by the program's key: an import committed step by step
+	 * does not hold the programs of earlier steps (see {@link #release()}).
+	 */
+	private final Map<ObjectKey, Set<Locale>> _added = new LinkedHashMap<>();
 
 	/**
 	 * The {@link ProgramLanguages} of the given import, <code>null</code> if it records none.
@@ -143,7 +149,7 @@ public class ProgramLanguages {
 	 */
 	public Entry known(String id, TLObject program) {
 		Entry result =
-			new Entry(program, languages(program), _added.computeIfAbsent(program, x -> new LinkedHashSet<>()));
+			new Entry(program, languages(program), _added.computeIfAbsent(program.tId(), x -> new LinkedHashSet<>()));
 		_programs.put(id, result);
 		return result;
 	}
@@ -161,12 +167,25 @@ public class ProgramLanguages {
 	 */
 	public Map<TLObject, Set<Locale>> getAdded() {
 		Map<TLObject, Set<Locale>> result = new LinkedHashMap<>();
-		for (Map.Entry<TLObject, Set<Locale>> entry : _added.entrySet()) {
+		for (Map.Entry<ObjectKey, Set<Locale>> entry : _added.entrySet()) {
 			if (!entry.getValue().isEmpty()) {
-				result.put(entry.getKey(), Collections.unmodifiableSet(entry.getValue()));
+				KnowledgeItem item = PersistencyLayer.getKnowledgeBase().resolveObjectKey(entry.getKey());
+				if (item != null) {
+					result.put(item.getWrapper(), Collections.unmodifiableSet(entry.getValue()));
+				}
 			}
 		}
 		return result;
+	}
+
+	/**
+	 * Forgets the programs read so far, after a step of an import committed step by step: their
+	 * texts are read (a program file holds the translations of its program), only the languages
+	 * added to known programs are kept (see {@link #getAdded()}).
+	 */
+	public void release() {
+		_programs.clear();
+		_added.values().removeIf(Set::isEmpty);
 	}
 
 	/**

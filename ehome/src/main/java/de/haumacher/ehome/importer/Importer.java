@@ -30,6 +30,7 @@ import javax.xml.stream.util.StreamReaderDelegate;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import com.top_logic.basic.AbortExecutionException;
 import com.top_logic.basic.Log;
 import com.top_logic.basic.Logger;
 import com.top_logic.basic.SyserrProtocol;
@@ -39,14 +40,17 @@ import com.top_logic.basic.config.ConfigurationReader;
 import com.top_logic.basic.config.DefaultInstantiationContext;
 import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.TypedConfiguration;
+import com.top_logic.basic.exception.I18NFailure;
 import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.io.Content;
+import com.top_logic.basic.io.binary.BinaryData;
 import com.top_logic.basic.io.binary.ClassRelativeBinaryContent;
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.basic.xml.XMLStreamUtil;
 import com.top_logic.element.meta.MetaElementUtil;
+import com.top_logic.knowledge.service.KnowledgeBaseException;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
@@ -183,6 +187,27 @@ public class Importer {
 	private EntryProgress _progress = new EntryProgress(ImportProgress.NONE, 0, 0, Set.of());
 
 	/**
+	 * The application programs the last import of a product file could not import, with the reason,
+	 * see {@link #getFailedPrograms()}.
+	 */
+	private Map<String, ResKey> _failedPrograms = new LinkedHashMap<>();
+
+	/**
+	 * The log of the current import.
+	 */
+	private Log _log;
+
+	/**
+	 * The mapping of <code>etsImporter.xml</code> for the current import.
+	 */
+	private Handler _configured;
+
+	/**
+	 * The known master data of the current import, see {@link MasterDataUpdates}.
+	 */
+	private MasterDataUpdates _updates;
+
+	/**
 	 * Creates a {@link Importer}.
 	 *
 	 */
@@ -191,29 +216,22 @@ public class Importer {
 	}
 
 	/**
-	 * Imports the XML entries of the given archive with the given handler.
+	 * Imports the XML entries of the given project file (<code>.knxproj</code>) in one pass.
 	 *
-	 * @param productData
-	 *        Whether the archive is a product file (<code>.knxprod</code>), which may hold no project
-	 *        and must hold the data of a manufacturer.
 	 * @param contents
 	 *        The contents of the archive read beforehand, whose opened project archives are used;
 	 *        <code>null</code> to open them here.
 	 */
-	private void importETS(ZipInputStream zip, ImportContext context, Handler handler, boolean productData,
-			ArchiveContents contents) throws XMLStreamException, IOException {
+	private void importProject(ZipInputStream zip, ImportContext context, ArchiveContents contents)
+			throws XMLStreamException, IOException {
 		FilterInputStream entryIn = new FilterInputStream(zip) {
 			@Override
 			public void close() throws IOException {
 				zip.closeEntry();
 			}
 		};
-		_manufacturers = new LinkedHashSet<>();
-		_schema = 0;
-		_programFiles = 0;
-		_replacedBaggage = List.of();
-		// The files the manufacturers ship with their data (haumacher/ehome #154), in a project file as
-		// in a product file.
+		Handler handler = handler();
+		// The files the manufacturers ship with their data (haumacher/ehome #154).
 		BaggageImport baggage = new BaggageImport(_baggageSizeLimit);
 		Map<String, Map<String, byte[]>> projectArchives = new LinkedHashMap<>();
 		String last = null;
@@ -222,39 +240,31 @@ public class Importer {
 			String name = entry.getName();
 			last = name;
 			String[] path = name.split("/");
-			if (path.length > 1 && path[0].startsWith(MANUFACTURER_PREFIX)) {
-				_manufacturers.add(path[0]);
-			}
-			if (productData) {
-				checkProductEntry(name, path);
-			}
+			addManufacturer(path);
 			if (entry.isDirectory()) {
 				continue;
 			}
-			if (BaggageImport.isIndex(path)) {
-				baggage.readIndex(entryIn);
-			} else if (BaggageImport.isFile(path)) {
-				baggage.readFile(path[0] + name.substring(path[0].length() + BAGGAGES.length() + 1), entryIn);
-			} else {
-				if (isProgram(path)) {
-					byte[] program = entryIn.readAllBytes();
-					_programFiles++;
-					scanModules(context, program);
-					importXml(context, handler, name, new ByteArrayInputStream(program));
-					completeAssigns(program);
-					baggage.readProgramReferences(program);
-				} else if (name.endsWith(".xml")) {
-					importXml(context, handler, name, entryIn);
-				} else if (isProjectArchive(name, path)) {
-					// ETS 5/6: the project part is an archive of its own (protected by the project
-					// password or not). It is opened at once (or was opened when the contents were
-					// read), so that a missing or wrong password is refused before anything else is
-					// read, and imported after the master and manufacturer data it refers to, which
-					// may follow it in the file.
-					Map<String, byte[]> opened = contents == null ? null : contents.getProjectArchives().get(name);
-					projectArchives.put(name,
-						opened != null ? opened : ProtectedProject.read(name, zip.readAllBytes(), _schema, _password));
-				}
+			if (readBaggage(baggage, name, path, entryIn)) {
+				continue;
+			}
+			if (isProgram(path)) {
+				byte[] program = entryIn.readAllBytes();
+				_programFiles++;
+				scanModules(context, program);
+				importXml(context, handler, name, new ByteArrayInputStream(program));
+				completeAssigns(program);
+				baggage.readProgramReferences(program);
+			} else if (name.endsWith(".xml")) {
+				importXml(context, handler, name, entryIn);
+			} else if (isProjectArchive(name, path)) {
+				// ETS 5/6: the project part is an archive of its own (protected by the project
+				// password or not). It is opened at once (or was opened when the contents were
+				// read), so that a missing or wrong password is refused before anything else is
+				// read, and imported after the master and manufacturer data it refers to, which
+				// may follow it in the file.
+				Map<String, byte[]> opened = contents == null ? null : contents.getProjectArchives().get(name);
+				projectArchives.put(name,
+					opened != null ? opened : ProtectedProject.read(name, zip.readAllBytes(), _schema, _password));
 			}
 		}
 		for (Entry<String, Map<String, byte[]>> archive : projectArchives.entrySet()) {
@@ -268,16 +278,161 @@ public class Importer {
 				}
 			}
 		}
-		if (productData && _manufacturers.isEmpty()) {
-			throw new TopLogicException(I18NConstants.ERROR_NO_MANUFACTURER_DATA);
-		}
 		// After the master and manufacturer data, before the references are resolved (when the import
 		// context is closed): the programs and products of the file refer to the files by their IDs.
 		baggage.apply(context, _binding, _messages);
+		baggage.completePrograms(_binding, _messages);
 		_replacedBaggage = baggage.getReplaced();
-		if (productData && _programFiles == 0) {
+	}
+
+	/**
+	 * Imports the product file (<code>.knxprod</code>) in the given source in two passes
+	 * (haumacher/ehome #160): first everything the application programs share (master data,
+	 * catalogs, hardware, files), then the application programs, each with an import context of its
+	 * own and, if the import is committed step by step, in a transaction of its own.
+	 *
+	 * @param shared
+	 *        The context of the import, which reads the shared data, and resolves the references
+	 *        from the shared data to the programs when the programs are read.
+	 */
+	private void importProducts(ArchiveSource source, ImportContext shared, ImportSteps steps)
+			throws XMLStreamException, IOException, KnowledgeBaseException {
+		BaggageImport baggage = new BaggageImport(_baggageSizeLimit);
+		try (InputStream in = source.open()) {
+			ZipInputStream zip = new ZipInputStream(in);
+			FilterInputStream entryIn = entryStream(zip);
+			Handler handler = handler();
+			String last = null;
+			ZipEntry entry;
+			while ((entry = nextEntry(zip, last)) != null) {
+				String name = entry.getName();
+				last = name;
+				String[] path = name.split("/");
+				addManufacturer(path);
+				checkProductEntry(name, path);
+				if (entry.isDirectory() || readBaggage(baggage, name, path, entryIn) || isProgram(path)) {
+					continue;
+				}
+				if (name.endsWith(".xml")) {
+					importXml(shared, handler, name, entryIn);
+				}
+			}
+		}
+		if (_manufacturers.isEmpty()) {
+			throw new TopLogicException(I18NConstants.ERROR_NO_MANUFACTURER_DATA);
+		}
+		// Before the programs, which refer to the files by their IDs.
+		baggage.apply(shared, _binding, _messages);
+		_replacedBaggage = baggage.getReplaced();
+		// The master data are complete: decided before the programs refer to them.
+		_updates.apply(shared);
+		steps.commitShared();
+		if (steps.isStepwise()) {
+			_binding.release(null);
+		}
+
+		try (InputStream in = source.open()) {
+			ZipInputStream zip = new ZipInputStream(in);
+			FilterInputStream entryIn = entryStream(zip);
+			String last = null;
+			ZipEntry entry;
+			while ((entry = nextEntry(zip, last)) != null) {
+				String name = entry.getName();
+				last = name;
+				if (!entry.isDirectory() && isProgram(name.split("/"))) {
+					importProgram(shared, name, entryIn.readAllBytes(), baggage, steps);
+				}
+			}
+		}
+		if (_programFiles == 0) {
 			_messages.log(Level.INFO, I18NConstants.INFO_NO_PROGRAM_IN_PRODUCT_DATA);
 		}
+		baggage.completePrograms(_binding, _messages);
+	}
+
+	/**
+	 * Imports the program file with the given name and content of a product file, in an import
+	 * context of its own; if the import is committed step by step, in a transaction of its own,
+	 * rolled back alone and reported if it fails.
+	 */
+	private void importProgram(ImportContext shared, String name, byte[] content, BaggageImport baggage,
+			ImportSteps steps) throws XMLStreamException, IOException, KnowledgeBaseException {
+		_programFiles++;
+		String file = name.substring(name.lastIndexOf('/') + 1);
+		String id = file.substring(0, file.length() - ".xml".length());
+		int mark = _binding.mark();
+		try {
+			try (ImportContext context = newContext()) {
+				scanModules(context, content);
+				importXml(context, handler(), name, new ByteArrayInputStream(content));
+				completeAssigns(content);
+				baggage.readProgramReferences(content);
+				HiddenProgramValues.reportPending(context);
+			}
+			List<Object> created = _binding.getCreatedSince(mark);
+			// The references of the shared data to the program (the hardware running it).
+			for (Map.Entry<String, Object> known : _binding.getIdsSince(mark, id).entrySet()) {
+				shared.assignId(known.getValue(), known.getKey());
+			}
+			ExtIds.raiseImported(created);
+			checkCalculations(created);
+			checkValidations(created);
+			steps.commitProgram(id);
+		} catch (AbortExecutionException ex) {
+			throw ex;
+		} catch (RuntimeException | XMLStreamException | IOException ex) {
+			if (!steps.isStepwise()) {
+				throw ex;
+			}
+			steps.rollback(ex);
+			Logger.error("Program '" + id + "' not imported: " + ex.getMessage(), ex, Importer.class);
+			ResKey reason = ex instanceof I18NFailure failure ? failure.getErrorKey()
+				: ResKey.text(ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+			_failedPrograms.put(id, reason);
+			_messages.log(Level.ERROR, I18NConstants.ERROR_PROGRAM_NOT_IMPORTED__PROGRAM_REASON.fill(id, reason));
+		} finally {
+			if (steps.isStepwise()) {
+				_binding.release(id);
+				_programLanguages.release();
+			}
+		}
+	}
+
+	private static FilterInputStream entryStream(ZipInputStream zip) {
+		return new FilterInputStream(zip) {
+			@Override
+			public void close() throws IOException {
+				zip.closeEntry();
+			}
+		};
+	}
+
+	/**
+	 * Records the manufacturer whose folder holds the entry with the given path.
+	 */
+	private void addManufacturer(String[] path) {
+		if (path.length > 1 && path[0].startsWith(MANUFACTURER_PREFIX)) {
+			_manufacturers.add(path[0]);
+		}
+	}
+
+	/**
+	 * Reads the entry with the given name if it is the baggage of a manufacturer (its index or one
+	 * of its files), see {@link BaggageImport}.
+	 *
+	 * @return Whether the entry was read.
+	 */
+	private static boolean readBaggage(BaggageImport baggage, String name, String[] path, InputStream entryIn)
+			throws IOException, XMLStreamException {
+		if (BaggageImport.isIndex(path)) {
+			baggage.readIndex(entryIn);
+			return true;
+		}
+		if (BaggageImport.isFile(path)) {
+			baggage.readFile(path[0] + name.substring(path[0].length() + BAGGAGES.length() + 1), entryIn);
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -571,7 +726,7 @@ public class Importer {
 	public void importStream(InputStream in, String password)
 			throws IOException, XMLStreamException, ConfigurationException {
 		_password = password;
-		importStream(in, false, null, ImportProgress.NONE);
+		importStream(source(in), false, null, ImportProgress.NONE, ImportSteps.NONE);
 	}
 
 	/**
@@ -593,13 +748,13 @@ public class Importer {
 	public void importStream(InputStream in, String password, ArchiveContents contents, ImportProgress progress)
 			throws IOException, XMLStreamException, ConfigurationException {
 		_password = password;
-		importStream(in, false, contents, progress);
+		importStream(source(in), false, contents, progress, ImportSteps.NONE);
 	}
 
 	/**
 	 * Imports the product file (<code>.knxprod</code>) of a manufacturer read from the given stream:
 	 * the master data, catalogs, hardware and application programs, with the same mapping as a
-	 * project file, without a project.
+	 * project file, without a project, in the caller's transaction.
 	 *
 	 * <p>
 	 * A product file holding a project, an encrypted entry, or no data of a manufacturer is refused
@@ -615,13 +770,13 @@ public class Importer {
 	public void importProductData(InputStream in)
 			throws IOException, XMLStreamException, ConfigurationException {
 		_password = null;
-		importStream(in, true, null, ImportProgress.NONE);
+		importStream(bytes(in), true, null, ImportProgress.NONE, ImportSteps.NONE);
 	}
 
 	/**
 	 * Imports the product file (<code>.knxprod</code>) of a manufacturer read from the given stream,
 	 * whose contents were read beforehand, reporting the progress to the given callback
-	 * (haumacher/ehome #84).
+	 * (haumacher/ehome #84), in the caller's transaction.
 	 *
 	 * @param contents
 	 *        The contents of the file, read from it by {@link ArchiveContents#read}.
@@ -634,58 +789,148 @@ public class Importer {
 	public void importProductData(InputStream in, ArchiveContents contents, ImportProgress progress)
 			throws IOException, XMLStreamException, ConfigurationException {
 		_password = null;
-		importStream(in, true, contents, progress);
+		importStream(bytes(in), true, contents, progress, ImportSteps.NONE);
 	}
 
-	private void importStream(InputStream in, boolean productData, ArchiveContents contents,
-			ImportProgress progress) throws IOException, XMLStreamException, ConfigurationException {
+	/**
+	 * Imports the given product file (<code>.knxprod</code>) of a manufacturer, whose contents were
+	 * read beforehand, reporting the progress to the given callback, in the given steps
+	 * (haumacher/ehome #160).
+	 *
+	 * <p>
+	 * The file is read twice: first everything the application programs share (master data,
+	 * catalogs, hardware, files), then the application programs, one by one. Committed step by step,
+	 * the shared data are committed first, then each program in a transaction of its own; a program
+	 * that cannot be imported is rolled back alone and reported (see {@link #getFailedPrograms()}),
+	 * and the import goes on with the next one.
+	 * </p>
+	 *
+	 * @param data
+	 *        The file.
+	 * @param contents
+	 *        The contents of the file, read from it by {@link ArchiveContents#read}.
+	 * @param progress
+	 *        The callback reporting the progress, which may stop the import with an
+	 *        {@link com.top_logic.basic.AbortExecutionException}: the step it is at is not imported.
+	 * @param steps
+	 *        The transactions of the import.
+	 *
+	 * @see #importProductData(InputStream)
+	 */
+	public void importProductData(BinaryData data, ArchiveContents contents, ImportProgress progress,
+			ImportSteps steps) throws IOException, XMLStreamException, ConfigurationException {
+		_password = null;
+		importStream(data::getStream, true, contents, progress, steps);
+	}
+
+	/**
+	 * A source of an archive that can be read once (a project file is read in one pass).
+	 */
+	private static ArchiveSource source(InputStream in) {
+		return () -> in;
+	}
+
+	/**
+	 * A source of the archive in the given stream that can be read more than once.
+	 */
+	private static ArchiveSource bytes(InputStream in) throws IOException {
+		byte[] content = in.readAllBytes();
+		return () -> new ByteArrayInputStream(content);
+	}
+
+	/**
+	 * Opens an archive to import.
+	 */
+	private interface ArchiveSource {
+
+		/**
+		 * Opens the archive.
+		 */
+		InputStream open() throws IOException;
+
+	}
+
+	private void importStream(ArchiveSource source, boolean productData, ArchiveContents contents,
+			ImportProgress progress, ImportSteps steps)
+			throws IOException, XMLStreamException, ConfigurationException {
 		_messages = new BufferingI18NLog();
 		_progress = progress == ImportProgress.NONE
 			? new EntryProgress(progress, 0, 0, Set.of())
 			: new EntryProgress(progress, contents == null ? 0 : contents.getEntries(),
 				contents == null ? 0 : contents.getPrograms(), knownPrograms());
-		Log log = new SyserrProtocol();
-		DefaultInstantiationContext context = new DefaultInstantiationContext(log);
+		_log = new SyserrProtocol();
+		DefaultInstantiationContext context = new DefaultInstantiationContext(_log);
 		ConfigurationReader reader = new ConfigurationReader(context, Collections.singletonMap("handler",
 			TypedConfiguration.getConfigurationDescriptor(DispatchingImporter.Config.class)));
 		Content content = new ClassRelativeBinaryContent(Importer.class, "etsImporter.xml");
 		reader.setSource(content);
 		ConfigurationItem config = reader.read();
-		Handler configured = (Handler) context.getInstance((PolymorphicConfiguration<?>) config);
+		_configured = (Handler) context.getInstance((PolymorphicConfiguration<?>) config);
 		context.checkErrors();
 		_binding.clearCreated();
-		// The parts of the existing application programs, asked after the shared objects of
-		// <resolve-existing> in etsImporter.xml.
-		SharedObjects shared = new SharedObjects(_binding);
-		Handler handler = (importContext, xml) -> importContext.withIdLookup(shared, xml, configured);
-		ZipInputStream zip = new ZipInputStream(in);
+		_manufacturers = new LinkedHashSet<>();
+		_schema = 0;
+		_programFiles = 0;
+		_replacedBaggage = List.of();
+		_failedPrograms = new LinkedHashMap<>();
+		_updates = new MasterDataUpdates(_binding);
+		_programLanguages = new ProgramLanguages();
 		ModuleImport modules;
-		try (ImportContext importContext = new DefaultImportContext(
-			log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)).tee(_messages), _binding)) {
-			importContext.set(JoiningModelBinding.PROPERTY, _binding);
-			MasterDataUpdates updates = new MasterDataUpdates(_binding);
-			importContext.set(MasterDataUpdates.PROPERTY, updates);
-			_programLanguages = new ProgramLanguages();
-			importContext.set(ProgramLanguages.PROPERTY, _programLanguages);
+		try (ImportContext importContext = newContext()) {
 			modules = ModuleImport.get(importContext);
-			importETS(zip, importContext, handler, productData, contents);
+			if (productData) {
+				importProducts(source, importContext, steps);
+			} else {
+				try (InputStream in = source.open()) {
+					importProject(new ZipInputStream(in), importContext, contents);
+				}
+			}
 			// Reported at the end of each program already; none is left unless a parameter lies
 			// outside a program.
 			HiddenProgramValues.reportPending(importContext);
-			updates.apply(importContext);
+			_updates.apply(importContext);
+		} catch (KnowledgeBaseException ex) {
+			throw new TopLogicException(I18NConstants.ERROR_COMMIT_FAILED__DETAIL.fill(ex.getMessage()), ex);
 		}
+		List<Object> created = _binding.getCreated();
 		// Numbers the app allocates for new objects lie above those of the imported ones.
-		ExtIds.raiseImported(_binding.getCreated());
+		ExtIds.raiseImported(created);
 		// The module instances of the devices, with their settings and objects (haumacher/ehome #119).
 		modules.attach(getCreated(DEVICE_TYPE), _messages);
 		dropUnresolvedProgramParts();
-		// The parameter calculations of the programs and devices read (haumacher/ehome #123).
-		checkCalculations();
-		// The parameter validations of the programs and devices read (haumacher/ehome #124), after the
-		// calculations, which may have derived L values.
-		checkValidations();
+		if (!productData) {
+			// The parameter calculations of the programs and devices read (haumacher/ehome #123); those
+			// of a product file are checked per program.
+			checkCalculations(created);
+			// The parameter validations of the programs and devices read (haumacher/ehome #124), after
+			// the calculations, which may have derived L values.
+			checkValidations(created);
+		}
 		// All done only when the references are resolved, which the import context does when closed.
 		_progress.finish();
+	}
+
+	/**
+	 * A new context of the import, which reports to {@link #getMessages()}.
+	 */
+	private ImportContext newContext() {
+		DefaultImportContext result = new DefaultImportContext(
+			_log.asI18NLog(ResourcesModule.getInstance().getBundle(Locale.ENGLISH)).tee(_messages), _binding);
+		result.set(JoiningModelBinding.PROPERTY, _binding);
+		result.set(MasterDataUpdates.PROPERTY, _updates);
+		result.set(ProgramLanguages.PROPERTY, _programLanguages);
+		return result;
+	}
+
+	/**
+	 * The handler of the entries of an archive for one import context: the mapping of
+	 * <code>etsImporter.xml</code>, which asks the parts of the existing application programs after
+	 * the shared objects of its <code>&lt;resolve-existing&gt;</code> (see {@link SharedObjects}).
+	 */
+	private Handler handler() {
+		SharedObjects shared = new SharedObjects(_binding);
+		Handler configured = _configured;
+		return (importContext, xml) -> importContext.withIdLookup(shared, xml, configured);
 	}
 
 	/**
@@ -727,13 +972,14 @@ public class Importer {
 	 * values of the devices it created in line with the calculations of their programs (see
 	 * {@link DeviceCalculations#imported(TLObject)}).
 	 */
-	private void checkCalculations() {
+	private void checkCalculations(List<Object> created) {
 		// Reported per import for the programs it read and those of the devices it read.
 		Set<Program> programs = new LinkedHashSet<>();
-		for (TLObject calculation : getCreated(CALCULATION_TYPE)) {
+		for (TLObject calculation : ofType(created, CALCULATION_TYPE)) {
 			programs.add(ModuleParts.programOf(calculation));
 		}
-		for (TLObject device : getCreated(DEVICE_TYPE)) {
+		List<TLObject> devices = ofType(created, DEVICE_TYPE);
+		for (TLObject device : devices) {
 			programs.add(DeviceConfiguration.program(device));
 		}
 		programs.remove(null);
@@ -757,7 +1003,7 @@ public class Importer {
 				}
 			}
 		}
-		for (TLObject device : getCreated(DEVICE_TYPE)) {
+		for (TLObject device : devices) {
 			for (ResKey problem : DeviceCalculations.imported(device)) {
 				_messages.log(Level.WARN, I18NConstants.WARN_CALCULATION_KEPT__DEVICE_PROBLEM.fill(
 					MetaLabelProvider.INSTANCE.getLabel(device), problem));
@@ -770,12 +1016,13 @@ public class Importer {
 	 * created whose values a validation of their program refuses (see
 	 * {@link DeviceValidations#imported(TLObject)}); the devices keep their values.
 	 */
-	private void checkValidations() {
+	private void checkValidations(List<Object> created) {
 		Set<Program> programs = new LinkedHashSet<>();
-		for (TLObject validation : getCreated(VALIDATION_TYPE)) {
+		for (TLObject validation : ofType(created, VALIDATION_TYPE)) {
 			programs.add(ModuleParts.programOf(validation));
 		}
-		for (TLObject device : getCreated(DEVICE_TYPE)) {
+		List<TLObject> devices = ofType(created, DEVICE_TYPE);
+		for (TLObject device : devices) {
 			programs.add(DeviceConfiguration.program(device));
 		}
 		programs.remove(null);
@@ -796,7 +1043,7 @@ public class Importer {
 				}
 			}
 		}
-		for (TLObject device : getCreated(DEVICE_TYPE)) {
+		for (TLObject device : devices) {
 			for (ResKey problem : DeviceValidations.imported(device)) {
 				_messages.log(Level.WARN, I18NConstants.WARN_VALIDATION_FAILED__DEVICE_PROBLEM.fill(
 					MetaLabelProvider.INSTANCE.getLabel(device), problem));
@@ -825,6 +1072,15 @@ public class Importer {
 	 */
 	public int getProgramFiles() {
 		return _programFiles;
+	}
+
+	/**
+	 * The application programs of the product file the last import read that it could not import,
+	 * by their IDs, with the reason; the import rolled each of them back alone and imported the
+	 * others (haumacher/ehome #160). Empty for an import in one transaction, which fails instead.
+	 */
+	public Map<String, ResKey> getFailedPrograms() {
+		return Collections.unmodifiableMap(_failedPrograms);
 	}
 
 	/**

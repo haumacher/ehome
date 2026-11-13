@@ -392,7 +392,7 @@ public class DeviceTools {
 	 */
 	private static Object display(ParameterType type, Object value) {
 		if (value instanceof EnumerationValue entry) {
-			return Integer.valueOf(entry.getValue()) + " " + label(entry);
+			return entry.getUnsignedValue() + " " + label(entry);
 		}
 		if (value instanceof Number number && type instanceof TimeType time && time.getUnit() != null) {
 			return number + " " + label(time.getUnit());
@@ -406,7 +406,7 @@ public class DeviceTools {
 			result.put("kind", "choice");
 			List<Object> entries = new ArrayList<>();
 			for (EnumerationValue entry : enumeration.getValues()) {
-				entries.add(Integer.valueOf(entry.getValue()) + " " + label(entry));
+				entries.add(entry.getUnsignedValue() + " " + label(entry));
 			}
 			result.put("entries", entries);
 		} else if (type instanceof NumericType numeric) {
@@ -495,9 +495,10 @@ public class DeviceTools {
 		String text = value.trim();
 		if (type instanceof EnumerationType enumeration) {
 			for (EnumerationValue entry : enumeration.getValues()) {
-				if (text.equals(Integer.toString(entry.getValue()))
+				if (text.equals(Long.toString(entry.getUnsignedValue()))
+					|| text.equals(Integer.toString(entry.getValue()))
 					|| text.equalsIgnoreCase(Objects.toString(label(entry), ""))
-					|| text.equalsIgnoreCase(Integer.valueOf(entry.getValue()) + " " + label(entry))) {
+					|| text.equalsIgnoreCase(entry.getUnsignedValue() + " " + label(entry))) {
 					return entry;
 				}
 			}

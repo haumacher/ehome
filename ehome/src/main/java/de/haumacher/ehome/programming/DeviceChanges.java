@@ -604,7 +604,7 @@ public class DeviceChanges {
 		if (value instanceof EnumerationValue entryValue) {
 			value = WrapperHistoryUtils.getCurrent(entryValue);
 			if (value == null || !((TLObject) value).tValid()) {
-				value = Double.valueOf(entryValue.getValue());
+				value = Double.valueOf(entryValue.getUnsignedValue());
 			}
 		}
 		if (value == null) {

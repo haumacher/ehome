@@ -260,13 +260,13 @@ final class BaggageImport {
 	}
 
 	/**
-	 * Creates the files read that are not known, updates the known ones of a newer time, and gives
-	 * the known application programs without files those they name; reports what it did to the given
-	 * log.
+	 * Creates the files read that are not known, and updates the known ones of a newer time; reports
+	 * what it did to the given log.
 	 *
 	 * <p>
-	 * Called by the import at its end, before the references of the import are resolved: a file it
-	 * creates is known to the import under its ID.
+	 * Called by the import of a project file at its end, before the references of the import are
+	 * resolved, and by the import of a product file before it reads the application programs: a file
+	 * it creates is known to the import under its ID.
 	 * </p>
 	 */
 	void apply(ImportContext context, JoiningModelBinding binding, BufferingI18NLog messages) {
@@ -291,7 +291,6 @@ final class BaggageImport {
 		for (String file : _tooLarge) {
 			messages.log(Level.WARN, I18NConstants.WARN_BAGGAGE_NOT_LISTED__ENTRY.fill(entryName(file)));
 		}
-		completePrograms(binding, messages);
 	}
 
 	private void apply(ImportContext context, JoiningModelBinding binding, BufferingI18NLog messages,
@@ -421,9 +420,10 @@ final class BaggageImport {
 
 	/**
 	 * Gives the known application programs without files of the baggage those they name, see
-	 * {@link #readProgramReferences(byte[])}.
+	 * {@link #readProgramReferences(byte[])}; called by the import after it read the programs and
+	 * applied the files (see {@link #apply(ImportContext, JoiningModelBinding, BufferingI18NLog)}).
 	 */
-	private void completePrograms(JoiningModelBinding binding, BufferingI18NLog messages) {
+	void completePrograms(JoiningModelBinding binding, BufferingI18NLog messages) {
 		if (_programReferences.isEmpty()) {
 			return;
 		}

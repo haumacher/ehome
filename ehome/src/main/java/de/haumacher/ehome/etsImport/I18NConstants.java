@@ -134,6 +134,26 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 COMMIT_PRODUCT_DATA_IMPORT__FILE;
 
 	/**
+	 * @en Product data imported, the data shared by the application programs: {0}
+	 */
+	public static ResKey1 COMMIT_PRODUCT_DATA_SHARED__FILE;
+
+	/**
+	 * @en Product data imported, application program {1}: {0}
+	 */
+	public static ResKey2 COMMIT_PRODUCT_DATA_PROGRAM__FILE_PROGRAM;
+
+	/**
+	 * @en Application programs not imported: {0}
+	 */
+	public static ResKey1 PROGRAMS_FAILED__NAMES;
+
+	/**
+	 * @en {0} ({1})
+	 */
+	public static ResKey2 PROGRAM_FAILED__PROGRAM_REASON;
+
+	/**
 	 * @en E-Home project file imported: {0}
 	 */
 	public static ResKey1 COMMIT_PROJECT_FILE_IMPORT__PROJECT;

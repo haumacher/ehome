@@ -351,7 +351,7 @@ public class ParameterEncoding {
 		if (entry == null) {
 			long value = parseLong(text);
 			for (EnumerationValue candidate : type.getValues()) {
-				if (candidate.getValue() == value) {
+				if (candidate.hasValue(value)) {
 					entry = candidate;
 					break;
 				}
@@ -364,7 +364,12 @@ public class ParameterEncoding {
 		if ("BinaryValue".equals(type.getKind().getName()) && entry.getBinary() != null) {
 			return bytes(toBytes(entry.getBinary()), type.getBits());
 		}
-		return unsigned(entry.getValue(), type.getBits());
+		BigInteger bits = entry.valueInBits(type.getBits());
+		if (bits == null) {
+			throw new IllegalArgumentException("Value " + entry.getUnsignedValue() + " of the entry " + entry.getExtId()
+				+ " does not fit into " + type.getBits() + " bits.");
+		}
+		return new Bits(type.getBits(), bits);
 	}
 
 	/**

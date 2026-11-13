@@ -5,6 +5,7 @@ package de.haumacher.ehome.etsImport;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import com.top_logic.basic.CalledByReflection;
@@ -12,6 +13,7 @@ import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.io.binary.BinaryData;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey1;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobBody;
@@ -28,19 +30,24 @@ import de.haumacher.ehome.job.Uninterruptible;
  * manufacturers (<code>.knxprod</code>) into the catalog.
  *
  * <p>
- * The job is started with the uploaded file, or a collection of them. Each file is imported in a
- * transaction of its own, in the phases of {@link ImportJobs#importFile}, with the mapping of the
+ * The job is started with the uploaded file, or a collection of them. Each file is imported step by
+ * step (haumacher/ehome #160): the data its application programs share (master data, catalogs,
+ * hardware, files) in a transaction of its own, then each application program in one of its own, in
+ * the phases of {@link ImportJobs#importFile}, with the mapping of the
  * project import (see {@link Importer#importProductData}): the manufacturers, catalogs, products and
  * application programs the catalog already holds are reused by their IDs, an application program
  * already known is skipped. The result is the report of the import, a dictionary like the one of
  * {@link ImportEtsProjectJob}: <code>manufacturer</code> is the manufacturer of the file imported
  * last, <code>summary</code> a sentence naming for each file the manufacturers, products and
- * application programs imported and those already known (or that it holds none), the number of
+ * application programs imported, those already known (or that it holds none) and those that could
+ * not be imported, with the reason, the number of
  * files of the manufacturer imported and those replaced by a newer version (haumacher/ehome #154),
  * and the number of messages,
  * <code>messages</code> the warnings and errors the import reported. A file that cannot be imported
- * (a project file, a file with encrypted entries) fails the job with the reason. A
- * cancelled job imports nothing of the file it is at.
+ * (a project file, a file with encrypted entries) fails the job with the reason; an application
+ * program that cannot be imported is rolled back alone and named in the report, the others are
+ * imported. A cancelled job keeps the steps of the file it is at that were committed before (the
+ * shared data, the programs imported completely), and nothing of the step it is at.
  * </p>
  */
 public class ImportProductDataJob implements JobBody {
@@ -106,6 +113,15 @@ public class ImportProductDataJob implements JobBody {
 		describe(contents, I18NConstants.PRODUCTS_KNOWN__NAMES, importer.getKnown(PRODUCT_TYPE));
 		describe(contents, I18NConstants.PROGRAMS_IMPORTED__NAMES, importer.getCreated(PROGRAM_TYPE));
 		describe(contents, I18NConstants.PROGRAMS_KNOWN__NAMES, importer.getKnown(PROGRAM_TYPE));
+		if (!importer.getFailedPrograms().isEmpty()) {
+			Resources resources = Resources.getInstance();
+			List<String> failed = new ArrayList<>();
+			for (Map.Entry<String, ResKey> entry : importer.getFailedPrograms().entrySet()) {
+				failed.add(resources.getString(
+					I18NConstants.PROGRAM_FAILED__PROGRAM_REASON.fill(entry.getKey(), entry.getValue())));
+			}
+			contents.add(resources.getString(I18NConstants.PROGRAMS_FAILED__NAMES.fill(String.join(", ", failed))));
+		}
 		if (importer.getProgramFiles() == 0) {
 			contents.add(Resources.getInstance().getString(I18NConstants.NO_PROGRAMS));
 		}

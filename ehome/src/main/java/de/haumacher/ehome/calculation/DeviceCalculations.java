@@ -514,7 +514,7 @@ public final class DeviceCalculations {
 	 */
 	static Object scriptValue(Object value) {
 		if (value instanceof EnumerationValue entry) {
-			return Double.valueOf(entry.getValue());
+			return Double.valueOf(entry.getUnsignedValue());
 		}
 		if (value instanceof Number number) {
 			return Double.valueOf(number.doubleValue());

@@ -14,7 +14,10 @@ import java.util.Set;
 
 import javax.xml.stream.Location;
 
+import com.top_logic.dob.identifier.ObjectKey;
 import com.top_logic.element.meta.MetaElementUtil;
+import com.top_logic.knowledge.objects.KnowledgeItem;
+import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLReference;
@@ -50,8 +53,12 @@ final class SharedObjects implements IdLookup {
 
 	private final JoiningModelBinding _binding;
 
-	/** The application programs existing before the import, by their IDs. */
-	private final Map<String, TLObject> _programs = new HashMap<>();
+	/**
+	 * The application programs existing before the import, by their IDs; held by their keys, so that
+	 * an import committed step by step does not hold the programs of earlier steps (see
+	 * {@link JoiningModelBinding#release(String)}).
+	 */
+	private final Map<String, ObjectKey> _programs = new HashMap<>();
 
 	/** The IDs of the programs whose parts are known already. */
 	private final Set<String> _loaded = new HashSet<>();
@@ -69,7 +76,7 @@ final class SharedObjects implements IdLookup {
 		for (TLObject obj : MetaElementUtil.getAllDirectInstancesOf(program, TLObject.class)) {
 			String id = (String) obj.tValueByName(EXT_ID);
 			if (id != null) {
-				_programs.put(id, obj);
+				_programs.put(id, obj.tId());
 			}
 		}
 	}
@@ -86,9 +93,14 @@ final class SharedObjects implements IdLookup {
 		}
 		for (int index = id.indexOf('_'); index > 0; index = id.indexOf('_', index + 1)) {
 			String prefix = id.substring(0, index);
-			TLObject program = _programs.get(prefix);
-			if (program != null) {
-				if (!_loaded.add(prefix) || !program.tValid()) {
+			ObjectKey key = _programs.get(prefix);
+			if (key != null) {
+				if (!_loaded.add(prefix)) {
+					return null;
+				}
+				KnowledgeItem item = PersistencyLayer.getKnowledgeBase().resolveObjectKey(key);
+				TLObject program = item == null ? null : item.getWrapper();
+				if (program == null || !program.tValid()) {
 					return null;
 				}
 				registerParts(program);

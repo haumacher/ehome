@@ -32,6 +32,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 ERROR_UNKNOWN_MEDIUM__VALUE;
 
+	/**
+	 * @en Invalid number "{0}", expected an unsigned 32-bit integer (0 to 4294967295).
+	 */
+	public static ResKey1 ERROR_INVALID_UNSIGNED_INT__VALUE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

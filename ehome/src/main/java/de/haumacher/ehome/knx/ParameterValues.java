@@ -172,7 +172,7 @@ public class ParameterValues {
 	 */
 	public static String encodeValue(ParameterType type, Object value) {
 		if (value instanceof EnumerationValue entry) {
-			return Integer.toString(entry.getValue());
+			return Long.toString(entry.getUnsignedValue());
 		}
 		if (value instanceof Number number && DECIMAL.equals(valueAttribute(type))) {
 			return encodeDecimal(number.doubleValue());
@@ -235,7 +235,7 @@ public class ParameterValues {
 
 	private static EnumerationValue entry(EnumerationType type, long value) {
 		for (EnumerationValue entry : type.getValues()) {
-			if (entry.getValue() == value) {
+			if (entry.hasValue(value)) {
 				return entry;
 			}
 		}

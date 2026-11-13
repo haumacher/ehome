@@ -928,14 +928,14 @@ public class ReadBack {
 					if (entry == current) {
 						continue;
 					}
-					List<Case> target = cases(choice, Integer.toString(entry.getValue()));
+					List<Case> target = cases(choice, Long.toString(entry.getUnsignedValue()));
 					if (target.equals(selected)
 						|| !(hasEvidence(target, best, evidence) || hasEvidence(selected, best, evidence))) {
 						continue;
 					}
 					List<String> nested = new ArrayList<>();
 					nested.add(input.getParameter().getName() + " (" + input.getParameter().getExtId() + ") = "
-						+ entry.getValue());
+						+ entry.getUnsignedValue());
 					Fit fit = tryValue(input, entry, depth, nested);
 					if (fit.score() < best.score()) {
 						best = fit;
@@ -1198,7 +1198,7 @@ public class ReadBack {
 		private static EnumerationValue entry(Step step) {
 			EnumerationType type = (EnumerationType) step.choice().getInput().getParameter().getType();
 			for (EnumerationValue entry : type.getValues()) {
-				if (cases(step.choice(), Integer.toString(entry.getValue())).contains(step.alternative())) {
+				if (cases(step.choice(), Long.toString(entry.getUnsignedValue())).contains(step.alternative())) {
 					return entry;
 				}
 			}
@@ -1223,7 +1223,7 @@ public class ReadBack {
 						continue;
 					}
 					for (EnumerationValue entry : type.getValues()) {
-						if (!cases(step.choice(), Integer.toString(entry.getValue())).contains(step.alternative())) {
+						if (!cases(step.choice(), Long.toString(entry.getUnsignedValue())).contains(step.alternative())) {
 							set(input, entry, moves);
 							return true;
 						}
@@ -1237,7 +1237,7 @@ public class ReadBack {
 			DeviceSettings.restoreValue(_device, input, entry);
 			_configuration = null;
 			_decoded = false;
-			moves.add(input.getParameter().getName() + " (" + input.getParameter().getExtId() + ") = " + entry.getValue());
+			moves.add(input.getParameter().getName() + " (" + input.getParameter().getExtId() + ") = " + entry.getUnsignedValue());
 		}
 
 		/**
@@ -1546,7 +1546,7 @@ public class ReadBack {
 					if (Arrays.equals(bits.toBytes(), ParameterEncoding.bytes(ParameterEncoding.toBytes(entry.getBinary()), size).toBytes())) {
 						return entry;
 					}
-				} else if (BigInteger.valueOf(entry.getValue()).equals(value)) {
+				} else if (value.equals(entry.valueInBits(size))) {
 					return entry;
 				}
 			}

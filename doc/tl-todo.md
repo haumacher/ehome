@@ -98,6 +98,22 @@ adds to set references directly. What stays:
   still avoid deleting shared data (`TestRoundTrip` runs first, `SharedData.resetMaskVersions` updates
   in place).
 
+## Memory of a product import committed step by step (TL #30311)
+
+The import of a product file commits the shared data and then each application program in a
+transaction of its own and holds the objects of earlier steps only by their keys (haumacher/ehome
+#160, `ImportSteps`, `JoiningModelBinding#release`). The database still keeps every imported object
+in memory until the import ends: the association caches an import fills while it creates objects
+(TL #11817 keeps them after the commit) hold their targets strongly, and the cache of the
+manufacturer's programs (`Manufacturer#programs`, an `IndexedLinkCache`, held by the cleanup action of
+the newest `UpdateChainLink` and by the manufacturer while the next program is imported) reaches
+every program, whose own caches reach all its parts. Measured with Theben's complete database
+(119 programs, 350 MB of XML): about 1.7 GB live at the end of the import with `-Xmx2g` (it fits; in
+one transaction it did not fit 4 GB). There is no API to drop the caches of an object, so there is no
+minimal workaround; a larger database may not fit 2 GB.
+**When fixed/available:** (caches of committed objects releasable, or held through keys) nothing to
+remove; measure the Theben import again (its peak should stay at the size of one program).
+
 ## Single branch (TL #29876, #29877)
 
 E-Home runs without branches: `top-logic.singleBranch.config.xml` (from tl-core) in

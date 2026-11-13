@@ -415,7 +415,8 @@ public class DeviceSettings {
 				EnumerationType enumeration = (EnumerationType) type;
 				for (EnumerationValue entry : enumeration.getValues()) {
 					if (entry == value
-						|| (value instanceof Number number && number.doubleValue() == entry.getValue())) {
+						|| (value instanceof Number number && (number.doubleValue() == entry.getValue()
+							|| number.doubleValue() == entry.getUnsignedValue()))) {
 						return entry;
 					}
 				}
