@@ -28,6 +28,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.connection.ControllerConnections;
+import de.haumacher.ehome.connection.DaemonThreads;
 import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.Deployer;
 
@@ -180,6 +181,9 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 
 	private static ScheduledFuture<?> _ticker;
 
+	/** The thread of {@link #_executor}, <code>null</code> when stopped. */
+	private static DaemonThreads _threads;
+
 	private ZigbeeLive() {
 		// Singleton.
 	}
@@ -190,11 +194,8 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 	public static synchronized void start() {
 		if (!_started) {
 			_started = true;
-			_executor = Executors.newSingleThreadScheduledExecutor(runnable -> {
-				Thread thread = new Thread(runnable, "zigbee-live");
-				thread.setDaemon(true);
-				return thread;
-			});
+			_threads = new DaemonThreads("zigbee-live");
+			_executor = Executors.newSingleThreadScheduledExecutor(_threads);
 			ControllerConnections.addListener(INSTANCE);
 			_ticker = _executor.scheduleWithFixedDelay(ZigbeeLive::tick, 1, 1, TimeUnit.SECONDS);
 		}
@@ -222,11 +223,15 @@ public final class ZigbeeLive implements ControllerConnections.Listener {
 		}
 		STATES.clear();
 		ScheduledExecutorService executor = _executor;
+		DaemonThreads threads = _threads;
 		_executor = null;
+		_threads = null;
 		if (executor != null) {
 			executor.shutdownNow();
 			try {
 				executor.awaitTermination(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+				// A terminated executor's thread may still be running its last instructions.
+				threads.join(STOP_TIMEOUT);
 			} catch (InterruptedException ex) {
 				Thread.currentThread().interrupt();
 			}

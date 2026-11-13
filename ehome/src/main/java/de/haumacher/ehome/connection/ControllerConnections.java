@@ -122,20 +122,16 @@ public final class ControllerConnections {
 	 * @param watchdog
 	 *        The thread refusing a socket that did not authenticate in time.
 	 */
-	private record Workers(ExecutorService kb, ScheduledExecutorService watchdog) {
+	private record Workers(ExecutorService kb, ScheduledExecutorService watchdog, DaemonThreads kbThreads,
+			DaemonThreads watchdogThreads) {
 
 		static Workers create() {
-			ExecutorService kb = Executors.newSingleThreadExecutor(runnable -> daemon(runnable, "controller-connections"));
-			ScheduledExecutorService watchdog =
-				Executors.newSingleThreadScheduledExecutor(runnable -> daemon(runnable, "controller-watchdog"));
+			DaemonThreads kbThreads = new DaemonThreads("controller-connections");
+			DaemonThreads watchdogThreads = new DaemonThreads("controller-watchdog");
+			ExecutorService kb = Executors.newSingleThreadExecutor(kbThreads);
+			ScheduledExecutorService watchdog = Executors.newSingleThreadScheduledExecutor(watchdogThreads);
 			watchdog.scheduleWithFixedDelay(ControllerConnections::watch, 1, 1, TimeUnit.SECONDS);
-			return new Workers(kb, watchdog);
-		}
-
-		private static Thread daemon(Runnable runnable, String name) {
-			Thread thread = new Thread(runnable, name);
-			thread.setDaemon(true);
-			return thread;
+			return new Workers(kb, watchdog, kbThreads, watchdogThreads);
 		}
 	}
 
@@ -185,6 +181,9 @@ public final class ControllerConnections {
 				workers.kb().shutdownNow();
 			}
 			workers.watchdog().awaitTermination(STOP_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+			// A terminated executor's thread may still be running its last instructions.
+			workers.kbThreads().join(STOP_TIMEOUT);
+			workers.watchdogThreads().join(STOP_TIMEOUT);
 		} catch (InterruptedException ex) {
 			workers.kb().shutdownNow();
 			Thread.currentThread().interrupt();

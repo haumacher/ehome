@@ -309,6 +309,14 @@ green result from a tree with uncommitted foreign edits; check `git status` firs
   editor."), then a paragraph of the why in prose — what was wrong, what the mechanism is now,
   which labels or IDs changed (never a bullet changelog) — ending with the Co-Authored-By line from
   the harness rules.
+- **Read the CI result of every push** (`gh run list -R haumacher/ehome --limit 5`, and the same for
+  `haumacher/homecontrol`) at the next loop step, and treat a red run like a failed gate: find the
+  failing test (`gh api repos/haumacher/ehome/actions/jobs/<id>/logs | grep '<<< FAILURE!'`) and fix
+  it first. A local gate can pass where CI fails, because CI builds and tests the app alone
+  (`-Pproduction`) on a fresh database. On 2026-11-11/12, nine pushes in a row went red on
+  `testSchemaWarning` (the image schema raised to 1.6, the test still expecting 1.5), and nobody
+  looked until the owner asked. A failure of the apt job's "Deploy the repository" step with
+  "Timeout reached" is GitHub Pages; the next push publishes the whole repository again.
 - The agents don't commit; you do, after review. Regenerated Java bindings ride the same commit as
   the model XML change that produced them; a new `doc/tl-todo.md` entry rides with the workaround
   it documents.
