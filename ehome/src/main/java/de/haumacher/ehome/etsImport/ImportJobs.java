@@ -29,6 +29,7 @@ import com.top_logic.xio.importer.binding.ApplicationModelBinding;
 
 import de.haumacher.ehome.importer.ArchiveContents;
 import de.haumacher.ehome.importer.ImportProgress;
+import de.haumacher.ehome.importer.ImportSteps;
 import de.haumacher.ehome.importer.Importer;
 
 /**
@@ -40,9 +41,11 @@ import de.haumacher.ehome.importer.Importer;
  * {@value #PHASE_READ} (the contents of the file are counted and a protected project is opened, so a
  * missing or wrong password is refused here), {@value #PHASE_IMPORT} (the entries, with the progress
  * by entry and a message naming what is imported) and {@value #PHASE_SAVE} (the commit, which has no
- * measure). The file is imported in a transaction of its own: a job cancelled before the commit
- * (an {@link com.top_logic.basic.AbortExecutionException} from a report of the job) rolls it back, so
- * nothing of the file is imported.
+ * measure). A project file is imported in a transaction of its own: a job cancelled before the
+ * commit (an {@link com.top_logic.basic.AbortExecutionException} from a report of the job) rolls it
+ * back, so nothing of the file is imported. A product file is imported step by step
+ * (haumacher/ehome #160): the data its application programs share, then each program in a
+ * transaction of its own; a cancel rolls back the step the import is at, the steps before stay.
  * </p>
  */
 final class ImportJobs {
@@ -91,7 +94,8 @@ final class ImportJobs {
 	}
 
 	/**
-	 * Imports the given file in a transaction of its own, reporting to the given job.
+	 * Imports the given file in a transaction of its own (a product file step by step, see
+	 * {@link #importProducts}), reporting to the given job.
 	 *
 	 * @param job
 	 *        The monitor of the job.
@@ -151,13 +155,13 @@ final class ImportJobs {
 
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		Importer importer = new Importer(new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false));
+		if (productData) {
+			importProducts(job, data, contents, progress, importer, then);
+			return importer;
+		}
 		try (InputStream in = data.getStream()) {
 			try (Transaction tx = kb.beginTransaction(I18NConstants.COMMIT_ETS_IMPORT__PROJECT.fill(file))) {
-				if (productData) {
-					importer.importProductData(in, contents, progress);
-				} else {
-					importer.importStream(in, password, contents, progress);
-				}
+				importer.importStream(in, password, contents, progress);
 				tx.setCommitMessage(then.apply(importer));
 				// The last point a cancel is answered at. The commit has none; a cancel during it ends
 				// the job as cancelled although the file is saved (TL #30194, doc/tl-todo.md).
@@ -170,6 +174,113 @@ final class ImportJobs {
 			throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ex.getMessage()), ex);
 		}
 		return importer;
+	}
+
+	/**
+	 * Imports the given product file step by step (haumacher/ehome #160): the data its application
+	 * programs share in a transaction of its own, each program in one of its own, and what is left
+	 * at the end (the references of the shared data to programs the file does not hold, the files
+	 * of known programs) in a last one, see {@link StepTransactions}.
+	 */
+	private static void importProducts(JobMonitor job, BinaryData data, ArchiveContents contents,
+			ImportProgress progress, Importer importer, Function<Importer, ResKey> then) {
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		try (StepTransactions steps = new StepTransactions(kb, fileName(data))) {
+			importer.importProductData(data, contents, progress, steps);
+			job.beginPhase(PHASE_SAVE);
+			job.indeterminate();
+			job.message(I18NConstants.PROGRESS_SAVING);
+			steps.commitLast(then.apply(importer));
+		} catch (ConfigurationException | IOException | XMLStreamException | KnowledgeBaseException ex) {
+			throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ex.getMessage()), ex);
+		}
+	}
+
+	/**
+	 * The transactions of the import of a product file, one per step (see {@link ImportSteps}).
+	 *
+	 * <p>
+	 * A cancel of the job (an {@link com.top_logic.basic.AbortExecutionException} from a report of
+	 * the import) rolls back the step the import is at; the steps committed before stay: the shared
+	 * data and the programs imported completely.
+	 * </p>
+	 */
+	private static final class StepTransactions implements ImportSteps, AutoCloseable {
+
+		private final KnowledgeBase _kb;
+
+		private final String _file;
+
+		private Transaction _tx;
+
+		StepTransactions(KnowledgeBase kb, String file) {
+			_kb = kb;
+			_file = file;
+			begin();
+		}
+
+		private void begin() {
+			_tx = _kb.beginTransaction(I18NConstants.COMMIT_PRODUCT_DATA_IMPORT__FILE.fill(_file));
+		}
+
+		@Override
+		public boolean isStepwise() {
+			return true;
+		}
+
+		@Override
+		public void commitShared() throws KnowledgeBaseException {
+			try {
+				commit(I18NConstants.COMMIT_PRODUCT_DATA_SHARED__FILE.fill(_file));
+			} finally {
+				begin();
+			}
+		}
+
+		@Override
+		public void commitProgram(String program) throws KnowledgeBaseException {
+			try {
+				commit(I18NConstants.COMMIT_PRODUCT_DATA_PROGRAM__FILE_PROGRAM.fill(_file, program));
+			} finally {
+				begin();
+			}
+		}
+
+		@Override
+		public void rollback(Throwable cause) {
+			Transaction tx = _tx;
+			_tx = null;
+			tx.close();
+			begin();
+		}
+
+		/**
+		 * Commits the last step, after which no transaction is open.
+		 */
+		void commitLast(ResKey message) throws KnowledgeBaseException {
+			commit(message);
+		}
+
+		private void commit(ResKey message) throws KnowledgeBaseException {
+			Transaction tx = _tx;
+			_tx = null;
+			try {
+				tx.setCommitMessage(message);
+				tx.commit();
+			} finally {
+				// Rolls back a transaction whose commit failed.
+				tx.close();
+			}
+		}
+
+		@Override
+		public void close() {
+			if (_tx != null) {
+				_tx.close();
+				_tx = null;
+			}
+		}
+
 	}
 
 	/**

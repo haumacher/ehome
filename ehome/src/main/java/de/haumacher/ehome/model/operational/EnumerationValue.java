@@ -12,4 +12,43 @@ public interface EnumerationValue extends de.haumacher.ehome.model.operational.i
 
 	// Wrapper functionality.
 
+	/**
+	 * The value as ETS writes it: an unsigned 32-bit number (<code>xs:unsignedInt</code>).
+	 *
+	 * <p>
+	 * The model keeps the 32 bits of the value in an {@link Integer}: a value above
+	 * 2<sup>31</sup>-1, which a manufacturer writes for a negative number (4294967236 for -60), is
+	 * negative in {@link #getValue()} (haumacher/ehome #160).
+	 * </p>
+	 */
+	default long getUnsignedValue() {
+		return Integer.toUnsignedLong(getValue());
+	}
+
+	/**
+	 * Whether the entry has the given value, written by ETS as an unsigned 32-bit number or as the
+	 * negative number of the same bits.
+	 */
+	default boolean hasValue(long value) {
+		return value == getValue() || value == getUnsignedValue();
+	}
+
+	/**
+	 * The value of the entry in a field of the given number of bits: the value itself if it fits;
+	 * the value's lowest bits if it is a negative number (see {@link #getUnsignedValue()}) that fits
+	 * the field as a signed number in two's complement (-60, written 4294967236, is 0xC4 in 8 bits);
+	 * <code>null</code> if it does not fit.
+	 */
+	default java.math.BigInteger valueInBits(int bits) {
+		long value = getUnsignedValue();
+		if (bits >= 64 || value >>> bits == 0) {
+			return java.math.BigInteger.valueOf(value);
+		}
+		int signed = getValue();
+		if (signed < 0 && bits < 32 && signed >= -(1L << (bits - 1))) {
+			return java.math.BigInteger.valueOf(signed & ((1L << bits) - 1));
+		}
+		return null;
+	}
+
 }

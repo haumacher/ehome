@@ -343,6 +343,16 @@ picture types: "Schaltbild Treppenlicht" (P-9) showing "TEST_Schaltbild.png" (a 
 Treppenlicht" (P-10) showing "TEST_Kurve.bmp" (a 2x2 BMP, a format a browser is not asked to show) and
 "Fehlendes Bild" (P-11) showing "TEST_Ohne.png", listed in the index but missing in the archive.
 
+TestValueForms.knxprod: the value forms of Theben's complete database (haumacher/ehome #160), with two
+artificial programs of the BCU 1 kind, read before their hardware in the file. "TEST: Wertformen der
+Produktdaten (künstliche Testdaten)" (M-0008_A-FFB3-01-0000, hardware "TEST Wertformen") has an
+enumeration "Versatz" of 8 bits whose entry "-60%" has the value 4294967236 (the 32-bit form of -60, as
+Theben writes it), "0%" 0 and "5%" 5, a parameter "Versatz" (P-9, at offset 0x54 of its segment) of it with
+the default 4294967236, and, in its block, a separator (ParameterSeparator PS-1, which E-Home does not
+import) that a case of "Betriebsart" (Treppenlicht) renames together with the block (PR-1, PR-2). "TEST:
+Zweites Programm der Produktdaten (künstliche Testdaten)" (M-0008_A-FFB4-01-0000, hardware "TEST
+Schritte") is a plain BCU 1 program, imported in a step of its own.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -3082,3 +3092,53 @@ baggage_archive('src/test/fixtures/TestPictures.knxprod', [
     ('M-0008/Baggages.xml', baggages_xml([(BG_DIAGRAM, '', 'TEST_Schaltbild.png', '2026-11-12T10:00:00Z'),
         (BG_CURVE, '', 'TEST_Kurve.bmp', '2026-11-12T10:00:00Z'),
         (BG_ABSENT, '', 'TEST_Ohne.png', '2026-11-12T10:00:00Z')]))])
+
+
+# TestValueForms.knxprod: the value forms of Theben's complete database (haumacher/ehome #160), see the module comment.
+VALUES_PROGRAM = 'M-0008_A-FFB3-01-0000'
+VALUES_HARDWARE = 'M-0008_H-TEST.20WERTFORMEN-1'
+STEPS_PROGRAM = 'M-0008_A-FFB4-01-0000'
+STEPS_HARDWARE = 'M-0008_H-TEST.20SCHRITTE-1'
+
+
+def value_forms_program(program, number, name):
+    """A BCU 1 program with an enumeration of 8 bits whose entry -60% has the value 4294967236 (its 32-bit form, as
+    Theben writes it), a parameter "Versatz" of it with that default, and a separator renamed (with the block) while
+    "Betriebsart" is Treppenlicht."""
+    xml = bcu1_program(program, number, name, True)
+    xml = replace_once(xml, '</ParameterTypes>', '<ParameterType Id="{p}_PT-Versatz" Name="Versatz">'
+        '<TypeRestriction Base="Value" SizeInBit="8">'
+        '<Enumeration Id="{p}_PT-Versatz_EN-4294967236" Text="-60%" Value="4294967236" DisplayOrder="0" />'
+        '<Enumeration Id="{p}_PT-Versatz_EN-0" Text="0%" Value="0" DisplayOrder="1" />'
+        '<Enumeration Id="{p}_PT-Versatz_EN-5" Text="5%" Value="5" DisplayOrder="2" />'
+        '</TypeRestriction></ParameterType>\n</ParameterTypes>')
+    xml = replace_once(xml, '</Parameters>', '<Parameter Id="{p}_P-9" Name="Versatz" Text="Versatz" '
+        'ParameterType="{p}_PT-Versatz" Access="ReadWrite" Value="4294967236">'
+        '<Memory CodeSegment="{p}_AS-0100" Offset="84" BitOffset="0" /></Parameter>\n</Parameters>')
+    xml = replace_once(xml, '</ParameterRefs>', '<ParameterRef Id="{p}_P-9_R-9" RefId="{p}_P-9" Tag="9" />\n'
+        '</ParameterRefs>')
+    xml = replace_once(xml, '</ParameterBlock>', '<ParameterRefRef RefId="{p}_P-9_R-9" />\n'
+        '<ParameterSeparator Id="{p}_PS-1" Text="Überschrift" UIHint="Headline" />\n'
+        '<choose ParamRefId="{p}_P-1_R-1"><when test="2">'
+        '<Rename Id="{p}_PR-1" RefId="{p}_PS-1" Text="Überschrift Treppenlicht" />'
+        '<Rename Id="{p}_PR-2" RefId="{p}_PB-1" Text="Treppenlicht" />'
+        '</when></choose>\n</ParameterBlock>')
+    return xml.replace('{p}', program)
+
+
+def value_forms_hardware():
+    """The hardware of both programs of TestValueForms."""
+    first = baggage_hardware(VALUES_HARDWARE, 'TEST Wertformen', VALUES_PROGRAM, [])
+    second = baggage_hardware(STEPS_HARDWARE, 'TEST Schritte', STEPS_PROGRAM, [])
+    begin = '<Manufacturer RefId="M-0008"><Hardware>'
+    end = '</Hardware></Manufacturer>'
+    inner = second[second.index(begin) + len(begin):second.index(end)]
+    return replace_once(first, end, inner + end)
+
+
+baggage_archive('src/test/fixtures/TestValueForms.knxprod', [
+    ('M-0008/' + VALUES_PROGRAM + '.xml', value_forms_program(VALUES_PROGRAM, 65459,
+        'TEST: Wertformen der Produktdaten (künstliche Testdaten)')),
+    ('M-0008/' + STEPS_PROGRAM + '.xml', bcu1_program(STEPS_PROGRAM, 65460,
+        'TEST: Zweites Programm der Produktdaten (künstliche Testdaten)', False)),
+    ('M-0008/Hardware.xml', value_forms_hardware())])

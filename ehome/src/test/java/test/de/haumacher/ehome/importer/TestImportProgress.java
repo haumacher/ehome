@@ -234,8 +234,10 @@ public class TestImportProgress extends BasicTestCase {
 
 		// The first program was imported in the transaction, which the cancel rolled back.
 		assertEquals(List.of(first), createdBeforeCancel);
-		// The master data follows the programs in this file: the manufacturer is named by its folder.
-		assertEquals("Manufacturer M-0008: application program " + first + " (1 of 2)", messages.get(0));
+		// The master data follows the programs in this file; it is read first (haumacher/ehome #160), so
+		// the manufacturer is named by its name.
+		assertEquals("Master data", messages.get(0));
+		assertEquals("Manufacturer GIRA Giersiepen: application program " + first + " (1 of 2)", messages.get(1));
 		assertTrue(withExtId(PROGRAM_TYPE, first).isEmpty());
 		assertTrue(withExtId(PROGRAM_TYPE, second).isEmpty());
 	}

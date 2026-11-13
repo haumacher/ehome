@@ -326,6 +326,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 UPDATE_OBJECT__KIND_NAME;
 
+	/**
+	 * @en The application program {0} was not imported: {1}
+	 */
+	public static ResKey2 ERROR_PROGRAM_NOT_IMPORTED__PROGRAM_REASON;
+
+	/**
+	 * @en The import could not be saved: {0}
+	 */
+	public static ResKey1 ERROR_COMMIT_FAILED__DETAIL;
+
+	/**
+	 * @en The rename {0} is left out: it names {1}, which E-Home does not import (a separator of the parameter dialog, or an element the program does not hold).
+	 */
+	public static ResKey2 WARN_RENAME_TARGET_NOT_IMPORTED__RENAME_TARGET;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

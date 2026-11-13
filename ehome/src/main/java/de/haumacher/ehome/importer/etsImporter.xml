@@ -1110,7 +1110,7 @@
 																													<set-translation name="name" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																												</group>
 																												<property name="index" xml-attribute="DisplayOrder" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
-																												<property name="value" xml-attribute="Value" format="com.top_logic.basic.config.format.IntegerWrapperFormat"/>
+																												<property name="value" xml-attribute="Value" format="de.haumacher.ehome.etsImport.importer.format.UnsignedIntFormat"/>
 																												<property name="binary" xml-attribute="BinaryValue" format="de.haumacher.ehome.etsImport.importer.format.Base64Format"/>
 
 																												<dispatch/>
@@ -1851,7 +1851,7 @@
 																							</linking>
 
 																							<property name="extId" xml-attribute="Id"/>
-																							<reference name="target" id-attribute="RefId"/>
+																							<rename-target name="target" id-attribute="RefId"/>
 																							<group id="rename-texts">
 																								<set-translation name="text" xml-attribute="Text" language-var="language" default-language="en" fill-fallback="true"/>
 																							</group>
