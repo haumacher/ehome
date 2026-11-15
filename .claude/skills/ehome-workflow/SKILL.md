@@ -399,6 +399,13 @@ app is the shared reference for bug reports.
   workaround without a ticket, or a ticket without an entry, is not done.
 - **Views are the UI.** No classic layouts (`WEB-INF/layouts/`) come back; a gap of the view layer
   is an entry in `doc/tl-todo.md` (tree tables, Excel export), not a classic component.
+- **Nothing scans all projects.** E-Home is hosted for many tenants (assume 10 000 projects): a
+  page, a derived attribute, a TL-Script function or a filter never computes over the data of all
+  projects. A list of projects starts at the user (`Project#members` read backwards), not at
+  `all(`ehome.project:Project`)` filtered by rights (#167); a page of shared data (catalogs,
+  programs, templates, mask versions) reads no project data — no `tReferers` from a shared object
+  into the projects (#166); a work list about the projects' use of shared data lives in the
+  project and covers that project only. A brief that adds a query names its cost bound.
 - **Refusals speak**: no command may decline silently; the UI shows the reason.
 - **Everything generic**: issues are exercises of general mechanisms — if a fix is shaped like the
   bug report, it isn't done.

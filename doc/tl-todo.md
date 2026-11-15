@@ -1,12 +1,38 @@
 # Waiting for TopLogic
 
 Gaps of the React UI (`ehome/src/main/webapp/WEB-INF/views/`; paths below are relative to the app module `ehome/` unless they name `ehome-virtual/`) and
-workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha12.820) cannot close yet.
+workarounds in the ETS import, that the TopLogic version in use (8.0.0-alpha13.823) cannot close yet.
 Check each item when upgrading TopLogic (an upgrade happens only when the user asks for one). Every
 entry names its TL ticket and what to remove once the engine covers it; a gap whose workaround would
 not be minimal is left visible instead.
 
-State of the upgrade to 8.0.0-alpha12.820 (2026-11-11; its tickets are on the Gitea release page
+State of the upgrade to 8.0.0-alpha13.823 (2026-11-15; the build's tickets from the commits between
+the tags `PREVIEW/TL_8.0.0-alpha12.820` and `PREVIEW/TL_8.0.0-alpha13.823` of the engine, confirmed in
+Trac). Breaking changes adapted: a `ModificationListener` receives the pending changes as one
+`PendingChanges` (TL #30225); a `JobMonitor` declares a point of no return (`uncancelable()`, TL #30250).
+Shipped, and their workarounds removed:
+- the jobs (TL #30196, #30250 with #30193, #30194, #30195, #30249 as duplicates): `Uninterruptible` and
+  its catch-up of the window are gone, the bus accesses are interruptible sections of the job's
+  `CancelScope`, the imports, the update from ETS, the scan and the read-back declare their point of no
+  return before their commit, a cancelled multi-file import reports the files saved in `<on-cancel>`,
+  the password dialogs run their job themselves, an ended job is dismissed by its display;
+- the AI modules: the Claude 5.5 models and Haiku's thinking in the catalog (TL #30251, the model
+  overrides are gone), `tl-ai-core` without Playwright (TL #30253, the exclusion is gone), no pre-commit
+  guard of agent turns (TL #30255, `NewPartsSecurityContextFactory` is gone; each writing tool checks the
+  project), the commit message of every writing tool (TL #30276), the MCP tool list per caller and the
+  path with a slash (TL #30252), the message of a missing key (TL #30254);
+- the coverage analysis counts the security root for the Create of a project (TL #30312, the rule
+  `ehomeInstallerOnOwnedProject` is gone);
+- views: the sidebar entry "Discover" withheld by a visibility condition (TL #30258, which closed
+  TL #30310), the icons of a program in the options of a choice and as the icon of a tree node
+  (TL #30316), the button of a parameter dialog labelled with the manufacturer's text (TL #30321), the
+  breadcrumb following a rename (TL #30315);
+- the observation of the agent access with stable ids (TL #30200, `doc/agent-access.md`), the module
+  shutdown robust against a failing class load (TL #30191).
+Still open: TL #29797 (closed, shipped in part), #29884, #29885, #30048, #30105, #30192, #30217,
+#30274, #30275 (in testing), #30311, #30313, #30314.
+
+Before (8.0.0-alpha12.820, 2026-11-11; its tickets are on the Gitea release page
 `PREVIEW/TL_8.0.0-alpha12.820` of `TopLogic/tl-engine-7`): the fixes of TL #30201 and #30205 shipped.
 Removed: `de.haumacher.ehome.etsImport.ConstraintVeto`, its test, the catch in `ImportJobs#importFile`
 and the message `ERROR_IMPORT_CONSTRAINTS__FILE_PROBLEMS` (#30201: a failed job shows the problems of
@@ -152,7 +178,7 @@ grant them to its users.
 Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: `SecurityCoverageCheck` excludes these
 15 modules.
 
-Still open, checked on 8.0.0-alpha12.820.
+Still open, checked on 8.0.0-alpha13.823.
 
 **When fixed** (the engine covers or marks its own modules, or the check can be limited to the
 application's modules): remove `excluded-modules`.
@@ -171,34 +197,10 @@ from the security root (security parent rule `ehomeRootForClassifier`) and every
 role `SecurityStructure.user` of the group "user", since the roles per project of haumacher/ehome
 #152) and the installers get READ on it; `TestAccessRights.testClassifiersReadable`.
 
+In testing, not in 8.0.0-alpha13.823.
+
 **When fixed** (the engine treats the read of a classifier as model data): remove the rule
 `ehomeRootForClassifier` and the `<class name="tl.model:TLClassifier">` grant; the test stays.
-
-## Create of a top-level type: a false "dead grant" (TL #30312)
-
-The engine decides the creation of an object without container on the security root
-(`ModelAccessRights.isAllowedCreate(person, type, null)`: a role held on the root that is granted
-`Create` on the type). E-Home's projects are such objects, and only the installers (`ehome.Installer`,
-held on the root through the group `ehome.installers`) may create them (haumacher/ehome #152). The
-coverage analysis (`SecurityCoverageAnalysis.addDeadGrantFindings`, `canDeliver`) does not count the
-root for a `Create` grant: unless a rule delivers `ehome.Installer` on `ehome.project:Project` or a role
-parent of it, it reports "The operation "Create" is granted on the type "ehome.project:Project" to the
-roles "ehome.Installer". No rule can deliver these roles ...", and `TestSecurityCoverage` fails. The
-obvious fix, the security root as role parent of the projects, is wrong: every installer would hold
-`Create` on every project, which implies `Discover` (access-discover-spec R2), and would find every
-project in the lists.
-
-Minimal reproduction: a type without container (no role parent) whose role rules give its readers
-their roles per object, `<grant operation="Create" roles="R"/>` on it, a singleton rule giving `R` on
-`SecurityStructure#ROOT`; `isAllowedCreate(person, type, null)` is true for a holder of `R`, the
-coverage analysis reports the grant as dead.
-
-Workaround in `WEB-INF/autoconf/ehome.security.config.xml`: the role rule `ehomeInstallerOnOwnedProject`
-gives `ehome.Installer` to the owners of a project on it (it grants nothing there an owner does not
-hold already).
-
-**When fixed** (the analysis counts the security root for a `Create` of a type that no composition
-holds): remove the rule `ehomeInstallerOnOwnedProject`.
 
 ## A role query answers from before a change of the stored roles (TL #30313)
 
@@ -239,21 +241,6 @@ without a project the page says that there is none yet. **When fixed** (the colu
 change of the roles, or the table is re-resolved): put the table back in place of the switch; the text
 for no project may stay as the empty state of the table, if the engine offers one.
 
-## A breadcrumb label stays as the object was named when the frame was opened (TL #30315)
-
-Found in the desk check of haumacher/ehome #163 (point 3): an editor renamed a project and saved, the
-breadcrumb kept the old name. `TileLabelProvider` documents it: the label is computed once when the
-frame is pushed and captured in `TileFrame#getLabel()`; `ScriptedTileLabel` re-evaluates only for the
-browser tab title, and then only when one of its input channels takes a new value, not when the object
-in the channel changes. Reproduction: `projects.view.xml` (`<frame id="project">` with
-`` <label class="…ScriptedTileLabel" expr="$project.get(`ehome.project:Project#name`)" inputs="project"/> ``),
-open a project, rename it in its properties and save: the breadcrumb shows the old name until the
-project is opened again.
-
-No workaround: a frame cannot be relabeled, and a re-push of the same frame keeps the displayed frame
-with its label (`ObjectNavigation.drillDown`, `TileFrame#showsSame`). **When fixed** (the label observes
-the objects it was computed from, or a frame can be relabeled): nothing to remove; check the rename.
-
 ## A refused command on a composition part (TL #29885)
 
 Under alpha11 a refused check on an object whose type delegates to its access parent (a device, a
@@ -266,7 +253,7 @@ Since TL #30025 (8.0.0-alpha12.817) a command is hidden for a user who holds no 
 any object. Since the roles per project (haumacher/ehome #152) a user may be the viewer of one project
 and the editor of another: in the first, the commands that write are shown disabled with the reason
 again, and the case of the ticket can show (an account that edits no project at all does not see
-them). Still open, checked on 8.0.0-alpha12.820.
+them). Still open, checked on 8.0.0-alpha13.823.
 
 **On the next upgrade:** check the ticket; nothing to remove.
 
@@ -278,20 +265,10 @@ the refusal only after the submit. Workaround in `projects/device-item.view.xml`
 inputs switch to their read-only form with `!canWrite($device)`, repeating the `<access>` check of
 their `<on-submit>` (haumacher/ehome #65).
 
-Still open, checked on 8.0.0-alpha12.820.
+Still open, checked on 8.0.0-alpha13.823.
 
 **When fixed** (the input follows the state of its submit command): remove the `!canWrite($device)`
 case of the input kind in `device-item.view.xml`.
-
-## A failing class load aborts the whole module shutdown (TL #30191)
-
-When the app's jars were deleted before Tomcat undeployed it (the old `prerm`, haumacher/ehome
-#81), `ModuleUtil.stopInThreadContext` could not load its job class and stopped no module at all:
-the H2 database stayed open in Tomcat's JVM and the next deployment found it locked. The package
-now waits for the undeploy before anything is deleted (`packaging/debian/prerm`), so the trigger is
-gone; no workaround in the app.
-
-**When fixed:** nothing to undo; the shutdown is robust against such a failure.
 
 ## No at-rest encryption out of the box (TL #29899, wontfix)
 
@@ -310,77 +287,10 @@ for an installation in the cloud, without a workaround in the app: every logged-
 a token (an agent then acts with that account's rights, no more); a token of an ended session
 (logout, restart) stays listed until it expires, though it admits nobody; every admitted request
 writes `lastUsed` in a commit of its own, so a polling agent creates a revision per request; there is
-no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha12.820.
+no MCP wrapper (hence `bin/ehome-agent.py`). Still open, checked on 8.0.0-alpha13.823.
 
 **When fixed:** decide whether E-Home restricts issuing tokens (e.g. to `ehome.Installer`) with the
 rule the module offers, and replace `bin/ehome-agent.py` by the MCP wrapper.
-
-The observation of a window is unusable for a real page (TL #30200, found on 8.0.0-alpha12.817 behind the
-Apache proxy of an installation): `observe --actions` inlined the same ~2.9 MB JSON schema of a model
-name into every `selectByKey`, `activateByKey` and `dropObjects` command, 84 MB for a device page with
-13 dropdowns, a table and a tree; `observe` without actions answered 502 within 3 s. No workaround:
-`bin/ehome-agent.py` passes the answer through as it comes.
-
-**When fixed:** check `observe` with and without `--actions` on a device page of a large project.
-
-## Jobs of the app: cancel, import jobs (TL #30193, #30194, #30195, #30196, #30250)
-
-The cancelable `<start-job>`s of the app: the ETS import, the password dialog and the product data
-import (`ImportEtsProjectJob`, `ImportProductDataJob`, haumacher/ehome #84), the bus scan and the
-read-back of a device (`ScanJob`, `ReadBackJob`, `projects/scan.view.xml`) and the comparison with a
-device (`CompareJob`, `projects/device-programming.view.xml`). `DownloadJob` and `LedJob` are not
-cancelable. Four gaps of the job support:
-
-- Cancelling a job interrupts its worker thread (TL #30196). An interrupt during a database access,
-  a write or a read, closes the file channel of the embedded H2 database: the MVStore panics and every
-  later database access of the app fails until a restart (seen in the browser check with a cancel
-  during the commit of an import; a read on an interrupted thread fails the same way). Workaround:
-  the shared utility `de.haumacher.ehome.job.Uninterruptible`. `Uninterruptible.run` runs the body of
-  every cancelable job on a thread of its own in the job's sub-session, the worker only waits and
-  keeps its interrupt as a cancel request; the body answers it at its next report to the job. A
-  blocking bus access opens `Uninterruptible.interruptible()`: only inside it the body's thread is
-  interrupted, and its interrupt status is cleared on leaving it. Callers of `run`:
-  `ImportEtsProjectJob`, `ImportProductDataJob`, `ScanJob`, `ReadBackJob`, `CompareJob`; of
-  `interruptible`: the blocking accesses of `CalimeroScanBus` and `CalimeroReader`.
-  `TestImportProgress#testInterruptedWorker` and `TestScanJobsInterrupted` cover it.
-- A dialog cannot close itself in the `<with-result>` of a job it started (TL #30193): it is not
-  closable while its own command is suspended, so `<close-dialog>` is ignored, and the report opened
-  next is closed again by the reveal of the opener. Workaround in `projects/import-password.view.xml`:
-  the dialog closes first and starts the job on `importJob`, bound to the job channel of the projects
-  overview; the job and a wrong password are shown there, and the file is uploaded again.
-- A cancel during the commit (phase "Saving", no report point) ends the job as cancelled although the
-  file was saved (TL #30194): no report, no selection of the project, which the table shows anyway.
-  No workaround.
-- A cancelled job carries no result (TL #30195): of a cancelled multi-file upload, the files committed
-  before stay, but no report names them (the projects table shows them). No workaround.
-- A failed or cancelled job cannot be dismissed (TL #30250): its `<job-status>` stays above the table
-  until the next job starts, since the follow-up that clears it runs on success only. Workaround: a
-  button "Close" beside the display, shown while no job runs, that clears the job channel
-  (`projects/overview.view.xml`, `catalogs.view.xml`; the displays of the scan and the device
-  programming are part of their panel and stay).
-
-**When fixed:** TL #30196: remove `de.haumacher.ehome.job.Uninterruptible` (and its test `TestUninterruptible`) - its `run` from
-`ImportEtsProjectJob`, `ImportProductDataJob`, `ScanJob`, `ReadBackJob` and `CompareJob`, its
-`interruptible()` sections from `CalimeroScanBus` and `CalimeroReader` - and the refetch of
-`RecordingJobMonitor#run` in the tests. TL #30193: run the job in the dialog with its own `<job-status>` and the
-`<close-dialog>` first in the `<with-result>`, and drop the `importJob` binding of the dialog in
-`projects/overview.view.xml`. TL #30194: declare the commit in `ImportJobs#importFile` as past the
-point of no return. TL #30250: replace the "Close" buttons beside `<job-status>` in
-`projects/overview.view.xml` and `catalogs.view.xml` by the display's own dismissal. TL #30195: continue the chain of a cancelled multi-file import with the report
-of the files imported.
-
-## The `<with-result>` of a job before the window saw its commits (TL #30249)
-
-Since TL #30216 `JobRunner` runs a job's body in a sub-session derived from the window, with a session
-revision of its own; the window learns about the job's commits through its model events, which the
-engine synthesizes when the window is entered next, after the `<with-result>` of the job has run.
-When the window committed during the job (a project created while an import ran), the import's
-`<with-result>` selected the imported project in a table that did not show it yet, and no row was
-selected (seen in the browser on 8.0.0-alpha12.819). Workaround: `Uninterruptible#catchUp` enters the
-window (`ReactWindowReplay.inWindow` with the origin of the job's sub-session), which synthesizes the
-events, before the job ends.
-
-**When fixed:** remove `Uninterruptible#catchUp` and its call in `Uninterruptible#run`.
 
 ## A tree table rebuilt by an input keeps the selection but not its parents open (TL #30217)
 
@@ -393,92 +303,12 @@ opens its parents.
 
 **When fixed:** write the selection once in the switch and the drop of `projects/devices.view.xml`.
 
-## A sidebar entry cannot be withheld by a condition (TL #30310)
-
-A `<nav-item>` of a `<sidebar>` is withheld only by its `<access-control>` (model access rights) or
-by the static `hidden="true"`; there is no condition over a TL-Script or the configuration
-(`SidebarElement.NavItemConfig`). A hosted installation that does not reach local networks
-(haumacher/ehome #150, `tl_ehome_local_network`) therefore keeps the entry "Discover" of
-`app.view.xml`: its page (`discover.view.xml`) offers no search and shows the reason instead
-(`<switch input="localNetworkVeto">`), and the gateway search behind it refuses as well
-(`DiscoverGatewaysAction`).
-
-**When fixed:** withhold the entry `discover` of `app.view.xml` by `localNetworkVeto()` and drop the
-`<default>` case of `discover.view.xml`.
-
-## Commit messages of agent changes (TL #30276)
-
-Every change an MCP tool call or an assistant turn makes is committed by the engine (`TransactionScope`,
-`McpToolAdapter`, `AgentLoop`) with the fixed, untranslated message "Agent edit": "Meine letzten
-Änderungen" does not say which tool changed what. A tool cannot set the message itself: its own
-transaction is nested, and the message of a nested transaction is dropped at the commit
-(haumacher/ehome #143). E-Home's own transactions outside the agent framework carry messages
-(`TestCommitMessageScan`).
-
-No workaround.
-
-**When available** (`Tool#commitMessage`, `@ToolMethod(commitMessage = ...)`): give every writing tool
-of `de.haumacher.ehome.ai` a message naming the change and its target, as the `COMMIT_*` keys of the
-other transactions do.
-
-## AI modules: models, catalog, MCP tool list (TL #30251, #30252, #30253, #30254, #30255)
-
-The assistant and the MCP endpoint (`doc/ai.md`, haumacher/ehome #126, #129) on the modules of
-8.0.0-alpha12.819:
-
-- **The bundled model catalog lacks the current Claude models** (TL #30251). `models-dev-snapshot.json` of
-  `tl-ai-core` knows `claude-sonnet-4-6` and `claude-opus-4-7`, not `claude-sonnet-5-5`,
-  `claude-opus-5-5` and `claude-haiku-5-5`. Workaround: their metadata as `<model-overrides>` in
-  `WEB-INF/autoconf/ehome.ai.config.xml`. **When fixed** (the snapshot knows them): remove the three
-  overrides.
-- **A thinking effort for `claude-haiku-5-5` is sent as a budget** (TL #30251).
-  `AnthropicRequestBuilder.requiresBudgetTokens` answers true for every model whose name contains
-  `haiku`, so a run on `claude-haiku-5-5` with an effort (the chat's thinking picker) sends
-  `thinking: {type: "enabled", budget_tokens: N}`, which that model refuses with HTTP 400 (it takes
-  `{type: "adaptive"}` and `output_config.effort`). Reproduction: pick Haiku 5.5 and an effort in the
-  chat. Workaround: the override of `claude-haiku-5-5` declares `reasoning="false"`, so the chat offers
-  no effort for it and the model thinks adaptively as it does unasked. **When fixed** (only the Haiku
-  models before 5 take a budget): set `reasoning="true"` on the override.
-- **`tools/list` of the MCP endpoint is the same for every caller** (TL #30252) (the MCP Java SDK answers it from
-  the global tool set; `ai/security/mcp-endpoint`, "What it does not do"). Since the roles per project
-  (haumacher/ehome #152) every account holds `data.write` and the role in each project decides per
-  object, so E-Home lists the same tools to every caller anyway. No workaround. **When fixed:**
-  nothing to change in E-Home.
-- **`tl-ai-core` brings the browsers of Playwright** (TL #30253) (`com.microsoft.playwright:driver-bundle`,
-  200 MB) for its browser tools, also to an application that grants no browser tool: the war grew
-  from 136 MB to 367 MB. Workaround: `ehome/pom.xml` excludes `driver-bundle` from `tl-ai-core`
-  (the browser tools, group `egress`, granted to nobody, would fail when called). **When fixed**
-  (the browser is an optional module): remove the exclusion.
-- **A missing key is announced as a rejected key** (TL #30254). Without `tl_anthropic_api_key` the chat's headline
-  reads "Das Modell hat den Zugangsschlüssel abgelehnt. Bitte wende dich an deine Administration."
-  (the provider error kind `AUTHENTICATION`); only the detail below says that the secret
-  `tl_anthropic_api_key` is missing. No workaround. **When fixed:** check the chat without a key.
-- **`/ehome/mcp/` (with a slash) is answered with 404** (TL #30252): the transport of the MCP SDK
-  (`HttpServletStreamableServerTransportProvider`) matches the end of the path against `/mcp`.
-  No workaround; `doc/ai.md` names the address without the slash. **When fixed:** nothing to undo.
-
-- **The pre-commit guard refuses a part created in an object of the same turn** (TL #30255).
-  `ModelSecurityPreCommitGuard.checkCreation` asks `canCreate(type, container)` in the committed view
-  (`withoutModifications`); a container created in the same turn is invalid there, and
-  `SecurityConfigurationService.isAllowedCreate` decides an invalid context as deleted ("nobody may
-  create an object in a deleted context") before it reaches its own rule for a context built in the
-  current transaction. The turn is rolled back with "Create on objects of type 'ehome.building:Floor'
-  ... without permission" - contrary to the guard's documented intent (a new parent is covered by its
-  own creation). Reproduction: `createBuildingParts` of a building with a floor, the first
-  `connectObject` of a communication object (new connector with its connection), `duplicateDevice`
-  (new device with its settings), each as an installer. Workaround: the security context factory
-  `de.haumacher.ehome.ai.NewPartsSecurityContextFactory` (`<security-context>` of
-  `AgentRuntimeService` in `ehome.ai.config.xml`) answers the two creation questions for a container
-  in state `NEW` with yes, as the engine's rule intends; everything else is the shipped answer.
-  **When fixed:** remove the factory and its configuration; `TestAssistantTools` and
-  `TestMcpEndpoint` must stay green.
-
 ## OAuth login and discovery of the MCP endpoint (TL #30274)
 
 `/ehome/mcp` admits personal access tokens only (`doc/ai.md`, "External agents over MCP"): a client
 is set up with a token copied by hand and a hand-written `Authorization` header. A client that only
 knows the browser login of the MCP specification cannot connect, and nothing tells an agent given
-the application's address that the endpoint exists. `tl-ai-mcp-server` 8.0.0-alpha12.820 has the
+the application's address that the endpoint exists. `tl-ai-mcp-server` 8.0.0-alpha13.823 has the
 token filter (`McpAuthenticationFilter`) and no authorization server.
 
 The engine ticket covers what E-Home needs (specification round of 2026-11-12: E-Home is its own
@@ -495,34 +325,6 @@ No workaround.
 keep the token path for `bin/ehome-mcp.py`, check the login from a local client against the app on
 8080 and extend the endpoint's test by a request without a token (the metadata in the refusal).
 
-## A picture from data in the options of a selection (TL #30316)
-
-The options of a `<value-input>` over objects (`ReactDropdownSelectControl`) show the image of the
-label provider (`ResourceProvider#getImage(option)`), a `ThemeImage`: an icon font class or a file of
-the theme, sent by `ReactImages` as an icon class or the URL of the theme file. A picture held by the
-model (a `tl.core:Binary` value) cannot be an option's image, neither in the list nor in the chip of
-the chosen value; only `<image>` (`ReactImageControl`, which serves its data itself) shows one.
-Minimal reproduction: a class `Symbol` with `name` and `picture: tl.core:Binary`, and a
-`<value-input type="Symbol">` offering its instances; the options show the icon of the class, and
-nothing can make them show their pictures.
-E-Home's icons of enumeration entries (haumacher/ehome #156) are such pictures, from the icon archive
-of the program: the choices show their text alone, the chosen entry's icon is shown beside the input
-(`projects/device-item.view.xml`, `valueIcon`). A tree node draws its picture through E-Home's node
-display (`ScriptLabelControlProvider`, `image`), which creates the image control itself.
-
-**When fixed:** give the `<value-input>` of the kind "choice" in `projects/device-item.view.xml` the
-picture of each option (`parameterIcon`), and drop the `valueIcon` beside it if the chip shows it.
-
-## The label of a button from data (TL #30321)
-
-A `<button>` of a view takes its label from its configuration only (`ButtonElement`,
-`GenericViewCommand.getLabel()`); it cannot show a text computed from the object it acts on.
-E-Home's buttons of a program's parameter dialog (haumacher/ehome #158) carry the manufacturer's
-translated text ("Text übernehmen"): `projects/device-item.view.xml` shows it as the row's label
-beside a generic button "Ausführen".
-
-**When fixed:** label the button with the manufacturer's text and drop the separate row label.
-
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -531,11 +333,8 @@ beside a generic button "Ausführen".
 - TL #29884, #29885: see above (access coverage of engine modules, the reason of refused commands).
 - TL #30105: see above (a refused submit leaves its `<value-input>` editable).
 - TL #30048: see above (agent access: the follow-ups of the module).
-- TL #30200: see above (agent access: the size of an observation, `observe` without actions failing).
-- TL #30191: see above (a failing class load aborts the module shutdown).
-- TL #30249: see above (the `<with-result>` of a job runs before the window saw the job's commits).
-- TL #30251 to #30255: see above (AI modules: the Claude 5.5 models in the catalog, the thinking budget of Haiku 5.5, the MCP tool list per caller, the Playwright browsers, the message of a missing key, the MCP path with a slash, the pre-commit guard and parts of new objects; in testing, not in 8.0.0-alpha12.820).
-- TL #30250 (with #30193, #30194, #30195, #30249 as duplicates), #30196: see above (jobs of the app: closing the dialog after its job, a cancel during the commit, the result of a cancelled job, the follow-up seeing the job's commits, the interrupt of a cancelled job closing H2; fixed after 8.0.0-alpha12.820).
-- TL #30274: see above (OAuth login and discovery of the MCP endpoint; accepted, not in 8.0.0-alpha12.820).
-- TL #30316: see above (a picture from data in the options of a selection).
-- TL #30321: see above (the label of a button from data).
+- TL #30217: see above (a rebuilt tree table keeps its selection without opening its parents).
+- TL #30274: see above (OAuth login and discovery of the MCP endpoint; accepted, not in 8.0.0-alpha13.823).
+- TL #30275: see above (enumeration values unreadable without a grant on `tl.model`; in testing).
+- TL #30311: see above (memory of a product import committed step by step).
+- TL #30313, #30314: see above (a role query after a change of the roles on H2, the columns of a table after a change of the roles).
