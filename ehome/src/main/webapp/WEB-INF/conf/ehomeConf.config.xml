@@ -202,6 +202,9 @@
 					<provider kind="MODEL" type="ehome.runtime:RuleStateDatapoint" implementation="de.haumacher.ehome.runtime.RuleLabelProvider"/>
 					<provider kind="MODEL" type="ehome.runtime:RuleState" implementation="de.haumacher.ehome.runtime.RuleLabelProvider"/>
 					<provider kind="MODEL" type="ehome.runtime:TimelinePlan" implementation="de.haumacher.ehome.runtime.RuleLabelProvider"/>
+					<!-- An area or a line without a name (ETS 6 writes none) by its address (haumacher/ehome #168). -->
+					<provider kind="MODEL" type="ehome.physical:Area" implementation="de.haumacher.ehome.knx.TopologyLabelProvider"/>
+					<provider kind="MODEL" type="ehome.physical:Line" implementation="de.haumacher.ehome.knx.TopologyLabelProvider"/>
 				</label-providers>
 				<resource-providers>
 					<provider kind="MODEL" type="ehome.physical:Device" implementation="de.haumacher.ehome.programming.DeviceResourceProvider"/>

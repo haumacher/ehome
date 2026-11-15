@@ -285,6 +285,9 @@ public class TestImportProgress extends BasicTestCase {
 			assertSame(created.get(0), report.get(ImportEtsProjectJob.PROJECT));
 			assertTrue(String.valueOf(report.get(ImportEtsProjectJob.SUMMARY)),
 				String.valueOf(report.get(ImportEtsProjectJob.SUMMARY)).contains("KNX-Testsystem"));
+			String messages = String.valueOf(report.get(ImportEtsProjectJob.MESSAGES));
+			assertTrue("The report says that the second file was left out: " + messages,
+				messages.contains("Second.knxproj") && messages.contains("cancelled"));
 		} finally {
 			SharedData.deleteProjects(SharedData.newProjects(before));
 		}
@@ -324,6 +327,38 @@ public class TestImportProgress extends BasicTestCase {
 			assertDatabaseUsable();
 		} finally {
 			SharedData.deleteProjects(SharedData.newProjects(before));
+		}
+	}
+
+	/**
+	 * A file that holds no ETS project - no archive at all, or an archive without a project - fails
+	 * the import with the reason, before anything is imported (haumacher/ehome #169; it used to end as
+	 * completed with an empty report, a silent refusal).
+	 */
+	public void testFileWithoutProject() throws Exception {
+		BinaryData text = BinaryDataFactory.createBinaryData(
+			"No ETS project.".getBytes(StandardCharsets.UTF_8), "text/plain", "README.md");
+		ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+		try (ZipOutputStream zip = new ZipOutputStream(bytes)) {
+			zip.putNextEntry(new ZipEntry("knx_master.xml"));
+			zip.write("<KNX xmlns=\"http://knx.org/xml/project/21\"/>".getBytes(StandardCharsets.UTF_8));
+			zip.closeEntry();
+		}
+		BinaryData noProject = BinaryDataFactory.createBinaryData(bytes.toByteArray(), "application/zip", "broken.knxproj");
+		for (BinaryData file : List.of(text, noProject)) {
+			List<TLObject> before = instances("ehome.project:Project");
+			JobHarness job = new JobHarness(JobHarness.importPhases());
+			try {
+				job.start(new ImportEtsProjectJob(null, null), List.of(List.of(file)));
+				JobState state = job.await();
+				assertEquals(file.getName(), JobStatus.FAILED, state.status());
+				String error = Resources.getInstance(Locale.ENGLISH).getString(state.error())
+					+ " " + state.errorDetails().stream().map(d -> Resources.getInstance(Locale.ENGLISH).getString(d)).toList();
+				assertTrue(error, error.contains("\"" + file.getName() + "\" holds no ETS project"));
+				assertTrue("Nothing imported.", SharedData.newProjects(before).isEmpty());
+			} finally {
+				SharedData.deleteProjects(SharedData.newProjects(before));
+			}
 		}
 	}
 

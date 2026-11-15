@@ -147,7 +147,12 @@ final class ImportJobs {
 				if (!JobRunner.isAbort(ex) || report.isEmpty()) {
 					throw ex;
 				}
-				// Cancelled: the files saved before stand, and the report names them.
+				// Cancelled: the files saved before stand, and the report names them and those left out.
+				List<String> left = new ArrayList<>();
+				for (BinaryData file : files.subList(n, cnt)) {
+					left.add(fileName(file));
+				}
+				report.cancelled(left);
 				return report.toMap();
 			}
 		}
@@ -209,6 +214,10 @@ final class ImportJobs {
 			contents = ArchiveContents.read(in, productData ? null : password, productData);
 		} catch (IOException | XMLStreamException ex) {
 			throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ex.getMessage()), ex);
+		}
+		if (!productData && !contents.hasProject()) {
+			// Refused before anything is imported: a file that is no archive reads as one without entries.
+			throw new TopLogicException(I18NConstants.ERROR_NO_PROJECT_IN_FILE__FILE.fill(file));
 		}
 
 		job.beginPhase(PHASE_IMPORT);

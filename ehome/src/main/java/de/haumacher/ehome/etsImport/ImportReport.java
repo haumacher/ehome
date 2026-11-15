@@ -94,6 +94,18 @@ final class ImportReport {
 		return _imported.isEmpty();
 	}
 
+	/**
+	 * Notes that the job was cancelled before the given files were imported (TL #30195): a warning of
+	 * the report naming them, so that the report says why they are missing.
+	 */
+	void cancelled(List<String> fileNames) {
+		_messages.add(Map.of(
+			FILE, String.join(", ", fileNames),
+			SEVERITY, SEVERITY_WARNING,
+			LEVEL, _resources.getString(levelLabel(Level.WARN)),
+			MESSAGE, _resources.getString(I18NConstants.WARN_CANCELLED_NOT_IMPORTED__FILES.fill(String.join(", ", fileNames)))));
+	}
+
 	private static String fileName(String fileName) {
 		return fileName == null ? "" : fileName;
 	}

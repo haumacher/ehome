@@ -124,6 +124,17 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey ERROR_UPDATE_NO_PROJECT_IN_FILE;
 
 	/**
+	 * @en The file "{0}" holds no ETS project: it is no project file (.knxproj) of ETS, or its
+	 *     project is missing.
+	 */
+	public static ResKey1 ERROR_NO_PROJECT_IN_FILE__FILE;
+
+	/**
+	 * @en The import was cancelled: {0} was not imported.
+	 */
+	public static ResKey1 WARN_CANCELLED_NOT_IMPORTED__FILES;
+
+	/**
 	 * @en ETS import: {0}
 	 */
 	public static ResKey1 COMMIT_ETS_IMPORT__PROJECT;

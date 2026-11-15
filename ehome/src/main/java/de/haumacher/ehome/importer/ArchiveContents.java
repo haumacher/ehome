@@ -42,10 +42,23 @@ public final class ArchiveContents {
 
 	private final Map<String, Map<String, byte[]>> _projectArchives;
 
-	private ArchiveContents(int entries, int programs, Map<String, Map<String, byte[]>> projectArchives) {
+	private final boolean _hasProject;
+
+	private ArchiveContents(int entries, int programs, Map<String, Map<String, byte[]>> projectArchives,
+			boolean hasProject) {
 		_entries = entries;
 		_programs = programs;
 		_projectArchives = Collections.unmodifiableMap(projectArchives);
+		_hasProject = hasProject;
+	}
+
+	/**
+	 * Whether the file holds a project: a project archive (<code>P-xxxx.zip</code>, ETS 5 and 6) or
+	 * the XML of a project folder (<code>P-xxxx/0.xml</code>, ETS 4). A file that is no archive at
+	 * all holds none (it is read as an archive without entries).
+	 */
+	public boolean hasProject() {
+		return _hasProject;
 	}
 
 	/**
@@ -101,6 +114,7 @@ public final class ArchiveContents {
 		int entries = 0;
 		int programs = 0;
 		int schema = 0;
+		boolean hasProject = false;
 		Map<String, Map<String, byte[]>> projectArchives = new LinkedHashMap<>();
 		String last = null;
 		ZipEntry entry;
@@ -113,6 +127,9 @@ public final class ArchiveContents {
 			}
 			if (name.endsWith(".xml")) {
 				entries++;
+				if (path.length > 1 && path[0].startsWith(Importer.PROJECT_PREFIX)) {
+					hasProject = true;
+				}
 				if (Importer.isProgram(path)) {
 					programs++;
 				}
@@ -122,6 +139,7 @@ public final class ArchiveContents {
 			} else if (!productData && Importer.isProjectArchive(name, path)) {
 				Map<String, byte[]> archive = ProtectedProject.read(name, zip.readAllBytes(), schema, password);
 				projectArchives.put(name, archive);
+				hasProject = true;
 				for (String archiveEntry : archive.keySet()) {
 					if (archiveEntry.endsWith(".xml")) {
 						entries++;
@@ -129,7 +147,7 @@ public final class ArchiveContents {
 				}
 			}
 		}
-		return new ArchiveContents(entries, programs, projectArchives);
+		return new ArchiveContents(entries, programs, projectArchives, hasProject);
 	}
 
 	/**

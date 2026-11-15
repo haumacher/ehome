@@ -422,12 +422,15 @@
 				</value-input>
 			</case>
 			<case test="$kind == 'button'">
-				<!-- A button of the parameter dialog: the command running its handler, and why it cannot (haumacher/ehome #158). -->
+				<!--
+					A button of the parameter dialog: the command running its handler, and why it cannot
+					(haumacher/ehome #158). It stays in the column of the values, the reason wrapping below it.
+				-->
 				<stack
-					align="center"
-					direction="row"
+					align="start"
+					css-class="ehomeDeviceItem__value"
+					direction="column"
 					gap="compact"
-					wrap="true"
 				>
 					<button size="small">
 						<action class="com.top_logic.layout.view.command.GenericViewCommand"

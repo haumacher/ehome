@@ -21,8 +21,8 @@
 	</channels>
 	<window width="800px">
 		<title>
-			<en>ETS import: report</en>
-			<de>ETS-Import: Bericht</de>
+			<en>Import report</en>
+			<de>Bericht des Imports</de>
 		</title>
 		<inset>
 			<stack gap="loose">
