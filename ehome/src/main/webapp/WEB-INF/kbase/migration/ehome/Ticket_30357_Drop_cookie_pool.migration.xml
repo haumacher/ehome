@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Workaround of TL #30357 (doc/tl-todo.md): TopLogic 8.0.0-alpha13.823 moved the cookie pools of the
+	browser tools from tl-ai-core into the opt-in module tl-ai-browser (TL #30253), which E-Home does
+	not use, without a migration for such an application. A database of before keeps the table type
+	CookiePool: at the start the engine recovers it as an in-app schema (inapp-schema-1.meta.xml,
+	written into the first writable WEB-INF/autoconf, in a development start the source folder of
+	ehome-virtual), and the model upgrade deletes the module tl.ai.cookiepool, so the table is an
+	orphan. This migration removes the type from the stored schema and drops its table before the
+	automatic schema step, so nothing is recovered. A database without the table is left as it is.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Ticket_30357_Drop_cookie_pool"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_162_Channel_number_text"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<delete-table>
+			<table object_name="CookiePool"/>
+		</delete-table>
+	</processors>
+	<post-processors/>
+</migration>

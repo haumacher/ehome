@@ -325,6 +325,24 @@ No workaround.
 keep the token path for `bin/ehome-mcp.py`, check the login from a local client against the app on
 8080 and extend the endpoint's test by a request without a token (the metadata in the refusal).
 
+## The table of the cookie pools after their move to tl-ai-browser (TL #30357)
+
+TL #30253 (8.0.0-alpha13.823) moved the browser tools and their cookie pools from `tl-ai-core` into
+the opt-in module `tl-ai-browser`, which E-Home does not use, without a migration for an application
+that stays without it. A database of before keeps the table type `CookiePool`: at the start the engine
+recovers it as an in-app schema (`inapp-schema-1.meta.xml` and `.config.xml`, written into the first
+writable `WEB-INF/autoconf` - in a development start the source folder of `ehome-virtual`, in the
+Debian package the deployed webapp), and the model upgrade deletes the module `tl.ai.cookiepool`, so
+the table is an orphan.
+
+Workaround: the migration `Ticket_30357_Drop_cookie_pool` (`WEB-INF/kbase/migration/ehome/`) deletes
+the table type from the stored schema and drops its table (`<delete-table>`) before the automatic
+schema step, so nothing is recovered (checked on a copy of `tmp/`; a database without the table is
+left as it is).
+
+**When fixed** (the engine removes the type for an application without `tl-ai-browser`): the migration
+stays, as migrations do; nothing to remove.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -337,4 +355,5 @@ keep the token path for `bin/ehome-mcp.py`, check the login from a local client 
 - TL #30274: see above (OAuth login and discovery of the MCP endpoint; accepted, not in 8.0.0-alpha13.823).
 - TL #30275: see above (enumeration values unreadable without a grant on `tl.model`; in testing).
 - TL #30311: see above (memory of a product import committed step by step).
+- TL #30357: see above (the table of the cookie pools after their move to `tl-ai-browser`).
 - TL #30313, #30314: see above (a role query after a change of the roles on H2, the columns of a table after a change of the roles).
