@@ -28,8 +28,8 @@ import com.top_logic.util.model.ModelService;
  * Makes the account creating a project its owner (haumacher/ehome #152): whichever way the project is
  * created (the dialog "New project", an ETS import, a project file, an agent through the model), the
  * commit creating it names the current user as its owner, unless the creating code named owners
- * itself. A project created without a user (in the system context) gets no owner; administrators act
- * for it.
+ * itself. A project created without a user (in the system context) gets no owner; the E-Home
+ * administrators act for it: they manage the members of every project (haumacher/ehome #165).
  *
  * <p>
  * A {@link ModificationListener} of the knowledge base, registered in

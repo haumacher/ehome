@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Who is an installer and who is an E-Home administrator (haumacher/ehome #165): the members of the
+	groups ehome.installers and ehome.administrators, one tab each (administration/group-members.view.xml),
+	for the E-Home administrators: an item of the group "E-Home administration" of the sidebar
+	(app.view.xml), withheld from everybody else.
+
+	The page touches these two groups and no other (de.haumacher.ehome.security.Administration refuses
+	any other group): an E-Home administrator gives no account a role of the engine and never the
+	technical administrator's flag. Accounts themselves are created in the engine's account
+	management by a technical administrator.
+-->
+<view>
+	<channels>
+		<derived-channel name="installers"
+			expr="ehomeGroup('ehome.installers')"
+		/>
+		<derived-channel name="administrators"
+			expr="ehomeGroup('ehome.administrators')"
+		/>
+	</channels>
+	<tab-bar active-tab="installers">
+		<tabs>
+			<tab id="installers"
+				icon="css:bi bi-tools"
+			>
+				<label>
+					<en>Installers</en>
+					<de>Installateure</de>
+				</label>
+				<view-ref view="administration/group-members.view.xml">
+					<bind
+						channel="group"
+						to="installers"
+					/>
+				</view-ref>
+			</tab>
+			<tab id="administrators"
+				icon="css:bi bi-person-gear"
+			>
+				<label>
+					<en>E-Home administrators</en>
+					<de>E-Home-Administratoren</de>
+				</label>
+				<view-ref view="administration/group-members.view.xml">
+					<bind
+						channel="group"
+						to="administrators"
+					/>
+				</view-ref>
+			</tab>
+		</tabs>
+	</tab-bar>
+</view>

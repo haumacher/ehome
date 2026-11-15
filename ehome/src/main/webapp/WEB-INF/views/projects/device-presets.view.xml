@@ -14,7 +14,7 @@
 	preset applied to another channel is refused, naming both. "Remove" takes the record back, the values
 	stay. Applying writes the device (an editor of the project).
 
-	"Save as preset" (administrators, who write the device templates) opens projects/preset-save.view.xml
+	"Save as preset" (the E-Home administrators, who write the device templates) opens projects/preset-save.view.xml
 	for the selected channel: the values of the device it may hold, the objects whose roles it names.
 -->
 <view>

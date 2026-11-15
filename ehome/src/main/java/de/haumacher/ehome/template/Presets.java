@@ -83,7 +83,7 @@ import de.haumacher.ehome.runtime.FunctionKinds;
  * </p>
  *
  * <p>
- * Presets are master data like the templates: who writes the templates (administrators) saves,
+ * Presets are master data like the templates: who writes the templates (the E-Home administrators) saves,
  * changes and deletes them; whoever writes a device applies one to it. The operations check the
  * rights themselves (Java is not access checked) and must run in a transaction.
  * </p>
@@ -923,7 +923,7 @@ public final class Presets {
 	}
 
 	/**
-	 * Why the current user may not write the device templates (administrators only,
+	 * Why the current user may not write the device templates (the E-Home administrators only,
 	 * <code>ehome.security.config.xml</code>), <code>null</code> if the user may; code running without
 	 * a user (a test, a job) is not checked.
 	 */

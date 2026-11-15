@@ -15,13 +15,13 @@ Either way the controller is a part of exactly one project (`Project#controllers
 #151): it is created and found in the project's tab "Controller", read and changed where the project
 is (it takes its access from the project), and a project deploys to, monitors and reads the Zigbee
 network of its own controllers only (`ProjectControllers`; `Deployer.veto` and `ControllerTarget`
-refuse another project's). An administrator sees all controllers with their project in Administration →
-"E-Home-Controller" (`controllers.view.xml`). The data migration `Issue_151_Controllers_in_projects`
+refuse another project's). The data migration `Issue_151_Controllers_in_projects`
 (startup action `ControllerOwnershipMigration`) moved the controllers on the LAN of before into the
 projects: one that exactly one project deployed to into that project; one that several deployed to
 into the first by name, and a copy with its token into each of the others; one that no project deployed
-to stays without a project, which only an administrator sees and assigns to a project or deletes in that
-list.
+to stays without a project, which only the E-Home administrators see (its access parent is their group,
+haumacher/ehome #165) and assign to a project or delete in E-Home-Verwaltung → "Controller ohne Projekt"
+(`administration/controllers.view.xml`; the project is found by its exact name).
 
 The protocol is the controller's contract, `spec/api.md` of homecontrol, sections "E-Home connection
 (issue #41)", "WebSocket /ws" and "Tokens". The code is in `de.haumacher.ehome.connection`.
@@ -134,7 +134,7 @@ action with the reason (an enrolled one names its last contact), "Controller im 
 "Token setzen" and host, port and token of "Connect to a controller" are not offered, and the server
 refuses them as well.
 
-The state of a controller (tab "Controller" of the project, and the administrators' list): "Online
+The state of a controller (tab "Controller" of the project, and the E-Home administrators' list of the controllers without a project): "Online
 since ...", "Offline, last contact ...", "Not connected yet", or "In the LAN" for a controller that
 was not enrolled. The online state is held in memory; the last contact (at the connection and at its
 end), the firmware version and build are stored with the controller. A table shows the state as of
@@ -228,7 +228,7 @@ encodings) and `connection.InstallationKeys` (the keys of a project and the rota
 
 ## Forgetting a controller
 
-"Vergessen" (project tab, or "Löschen" in the administrators' list for a controller without a project) asks, then deletes the controller with its
+"Vergessen" (project tab, or "Löschen" in the E-Home administrators' list for a controller without a project) asks, then deletes the controller with its
 secret, removes it as the deployment target of its project, as the controller the project is
 programmed through (nothing takes its place there), and from the deployments that name it
 (they keep its name and address in their target), and closes its connection with

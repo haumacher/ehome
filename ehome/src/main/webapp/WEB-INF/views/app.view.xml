@@ -8,7 +8,7 @@
 	The assistant (haumacher/ehome #126, doc/ai.md) is a chat docked over the page, in the footer of the
 	shell: a launcher in the corner that opens the conversation over the work, which stays usable behind
 	it. It is offered to the accounts that may run it - every account of the group "user" every new
-	account joins, the installers and the administrators, the accounts that read the security root
+	account joins, the installers and the E-Home administrators, the accounts that read the security root
 	(ehome.security.config.xml); what it reads and changes is decided by the user's roles in the
 	projects (haumacher/ehome #152). An account outside these groups sees no launcher, as the run access
 	policy lets it run no agent. Each turn tells the agent which page is
@@ -92,6 +92,36 @@
 								<de>Suchen</de>
 							</label>
 						</nav-item>
+						<!--
+							The pages of the E-Home administrators (haumacher/ehome #165), withheld from everybody
+							else: who holds the operation EHomeAdministration on the security root, the members of
+							the group ehome.administrators (ehome.security.config.xml). The technical
+							administration of the engine stays in the section "system".
+						-->
+						<group id="ehomeAdministration"
+							expanded="false"
+							icon="css:bi bi-person-gear"
+						>
+							<access-control operation="EHomeAdministration"/>
+							<label>
+								<en>E-Home administration</en>
+								<de>E-Home-Verwaltung</de>
+							</label>
+							<nav-item id="ehomeGroups" icon="css:bi bi-people">
+								<view-ref view="administration/groups.view.xml"/>
+								<label>
+									<en>Installers and administrators</en>
+									<de>Installateure und Administratoren</de>
+								</label>
+							</nav-item>
+							<nav-item id="orphanControllers" icon="css:bi bi-cpu">
+								<view-ref view="administration/controllers.view.xml"/>
+								<label>
+									<en>Controllers without a project</en>
+									<de>Controller ohne Projekt</de>
+								</label>
+							</nav-item>
+						</group>
 					</section>
 				</items>
 			</sidebar>

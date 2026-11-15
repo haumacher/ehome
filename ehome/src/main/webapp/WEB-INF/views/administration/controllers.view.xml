@@ -1,16 +1,21 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The HomeControl controllers of all projects, for administrators (haumacher/ehome #151): a section of
-	the administration (admin/admin.view.xml), read only. Every controller is a part of exactly one
-	project and is created, changed and forgotten in the project's tab "Controllers"
-	(projects/controllers.view.xml); this list shows each with its project.
+	The HomeControl controllers without a project, for the E-Home administrators (haumacher/ehome #151,
+	#165): an item of the group "E-Home administration" of the sidebar (app.view.xml), withheld from
+	everybody else. Every controller is a part of exactly one project and is created, changed and
+	forgotten in the project's tab "Controllers" (projects/controllers.view.xml); only a controller
+	without a project needs an E-Home administrator.
 
-	A controller without a project is left only by the migration of existing data
-	(de.haumacher.ehome.connection.ControllerOwnershipMigration: one no project deployed to); nobody but
-	an administrator sees it. "Assign to project" makes it one of a project's controllers
+	Such a controller is left only by the migration of existing data
+	(de.haumacher.ehome.connection.ControllerOwnershipMigration: one no project deployed to). Its access
+	parent is the group of the E-Home administrators (ehome.security.config.xml): they read it, nobody
+	else does. "Assign to project" makes it one of a project's controllers
 	(controllers/assign-controller.view.xml, controllerAssign), "Delete" forgets it (ForgetControllerAction).
-	Both are offered for a controller without a project only; the others are the projects' business.
+
+	The list reads the controllers, not the projects, and only while an E-Home administrator shows it;
+	a list of the controllers of all projects is not offered: the controllers of a project are the
+	project's business, shown in its tab.
 -->
 <view>
 	<channels>
@@ -18,8 +23,8 @@
 	</channels>
 	<panel>
 		<title>
-			<en>HomeControl controllers of all projects</en>
-			<de>HomeControl-Controller aller Projekte</de>
+			<en>HomeControl controllers without a project</en>
+			<de>HomeControl-Controller ohne Projekt</de>
 		</title>
 		<commands>
 			<generic-command
@@ -36,7 +41,8 @@
 					<de>Macht den Controller, der zu keinem Projekt gehört, zu einem Controller des gewählten Projekts.</de>
 				</tooltip>
 				<access>
-					<operation name="Write"
+					<operation name="EHomeAdministration"/>
+					<operation name="Read"
 						object="$controller"
 						type="ehome.runtime:Controller"
 					/>
@@ -61,7 +67,8 @@
 					<de>Löschen</de>
 				</label>
 				<access>
-					<operation name="Write"
+					<operation name="EHomeAdministration"/>
+					<operation name="Read"
 						object="$controller"
 						type="ehome.runtime:Controller"
 					/>
@@ -83,21 +90,12 @@
 			</generic-command>
 		</commands>
 		<table
-			observed-types="ehome.runtime:Controller,ehome.project:Project"
+			observed-types="ehome.runtime:Controller"
 			selection="controller"
 			types="ehome.runtime:Controller"
 		>
 			<columns>
 				<column attribute="name"/>
-				<computed-column name="project"
-					type="tl.core:String"
-				>
-					<label>
-						<en>Project</en>
-						<de>Projekt</de>
-					</label>
-					<value>if($row.container() == null, #('(none)'@en, '(keines)'@de).localize(), $row.container().get(`ehome.project:Project#name`))</value>
-				</computed-column>
 				<column attribute="host"/>
 				<column attribute="port"/>
 				<computed-column name="connection"
@@ -121,7 +119,7 @@
 					<value>controllerTokenHint($row)</value>
 				</computed-column>
 			</columns>
-			<rows>all(`ehome.runtime:Controller`)</rows>
+			<rows>all(`ehome.runtime:Controller`).filter(c -> $c.container() == null)</rows>
 		</table>
 	</panel>
 </view>

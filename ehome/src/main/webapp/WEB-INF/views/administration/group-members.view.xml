@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The members of one of the two groups of E-Home (haumacher/ehome #165, administration/groups.view.xml):
+	"group" carries ehome.installers or ehome.administrators. The E-Home administrators read these two
+	groups and the name and mail address of their members (ehome.security.config.xml), no other group
+	and no other account.
+
+	"Add" adds an existing account by its mail address or user name (administration/group-add.view.xml);
+	there is no list of the accounts of the installation to choose from. "Remove" takes the selected
+	member out of the group. Both run de.haumacher.ehome.security.Administration, which touches these
+	two groups only, and check the operation EHomeAdministration on the security root.
+-->
+<view>
+	<channels>
+		<channel name="group"/>
+		<channel name="member"/>
+	</channels>
+	<panel>
+		<title>
+			<en>Members</en>
+			<de>Mitglieder</de>
+		</title>
+		<commands>
+			<generic-command
+				image="css:bi bi-person-plus"
+				inputs="group"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Add</en>
+					<de>Hinzufügen</de>
+				</label>
+				<tooltip>
+					<en>Adds an existing account to the group by its mail address or user name.</en>
+					<de>Fügt ein bestehendes Konto über seine Mail-Adresse oder seinen Benutzernamen zur Gruppe hinzu.</de>
+				</tooltip>
+				<access>
+					<operation name="EHomeAdministration"/>
+					<operation name="Read"
+						object="$group"
+						type="tl.accounts:Group"
+					/>
+				</access>
+				<executability>
+					<null-input-disabled/>
+				</executability>
+				<open-dialog
+					bind-input-to="group"
+					dialog-view="administration/group-add.view.xml"
+				>
+					<bind
+						channel="selection"
+						to="member"
+					/>
+				</open-dialog>
+			</generic-command>
+			<generic-command
+				image="css:bi bi-person-dash"
+				inputs="group, member"
+				placement="TOOLBAR"
+			>
+				<label>
+					<en>Remove</en>
+					<de>Entfernen</de>
+				</label>
+				<tooltip>
+					<en>Takes the selected account out of the group.</en>
+					<de>Nimmt das ausgewählte Konto aus der Gruppe.</de>
+				</tooltip>
+				<access>
+					<operation name="EHomeAdministration"/>
+					<operation name="Read"
+						object="$group"
+						type="tl.accounts:Group"
+					/>
+				</access>
+				<executability>
+					<disabled-if expr="if($member == null, #('Select the member.'@en, 'Wählen Sie das Mitglied aus.'@de), null)"/>
+				</executability>
+				<confirm expr="#('Remove {0} from the group {1}?'@en, '{0} aus der Gruppe {1} entfernen?'@de).fill($member, $group.get(`tl.accounts:Group#name`))"/>
+				<with-transaction>
+					<execute-script function="ehomeGroupRemove($group, $member)"/>
+				</with-transaction>
+				<write-channel name="member" clear="true"/>
+			</generic-command>
+		</commands>
+		<table
+			observed-types="tl.accounts:Group,tl.accounts:Person"
+			selection="member"
+		>
+			<inputs>
+				<input channel="group"/>
+			</inputs>
+			<columns>
+				<computed-column name="account"
+					type="tl.accounts:Person"
+				>
+					<label>
+						<en>Name</en>
+						<de>Name</de>
+					</label>
+					<value>$row</value>
+				</computed-column>
+				<computed-column name="userName"
+					type="tl.core:String"
+				>
+					<label>
+						<en>User name</en>
+						<de>Benutzername</de>
+					</label>
+					<value>$row.get(`tl.accounts:Person#name`)</value>
+				</computed-column>
+				<computed-column name="mail"
+					type="tl.core:String"
+				>
+					<label>
+						<en>Mail address</en>
+						<de>Mail-Adresse</de>
+					</label>
+					<value>$row.get(`tl.accounts:Person#contact`).get(`Contacts:PersonContact#email`)</value>
+				</computed-column>
+			</columns>
+			<rows>if($group == null, [], $group.get(`tl.accounts:Group#members`).filter(m -> $m.instanceOf(`tl.accounts:Person`)))</rows>
+		</table>
+	</panel>
+</view>

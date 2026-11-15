@@ -152,7 +152,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_PRESET_VALUE__PRESET_PARAMETER_REASON;
 
 	/**
-	 * @en Only administrators change the device templates and their presets.
+	 * @en Only the E-Home administrators change the device templates and their presets.
 	 */
 	public static ResKey ERROR_TEMPLATES_NOT_ALLOWED;
 

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Adds an account to one of the two groups of E-Home (haumacher/ehome #165,
+	administration/group-members.view.xml): "group" carries the group, the added account is written to
+	"selection". The account is named by its mail address or user name; the E-Home administrator sees no
+	list of the accounts of the installation. ehomeGroupAdd (de.haumacher.ehome.security.Administration
+	#addMember) refuses an address without an account ("an administrator creates accounts"), an address
+	several accounts share, an account in the group already and any group other than the two of E-Home;
+	the refusal keeps the dialog open with its reason.
+-->
+<view>
+	<channels>
+		<channel name="group"/>
+		<channel name="selection"/>
+		<channel name="address"/>
+	</channels>
+	<window width="500px">
+		<title>
+			<en>Add to the group</en>
+			<de>Zur Gruppe hinzufügen</de>
+		</title>
+		<inset>
+			<fields>
+				<value-input
+					mandatory="true"
+					type="tl.core:String"
+					value="address"
+				>
+					<label>
+						<en>Mail address or user name</en>
+						<de>Mail-Adresse oder Benutzername</de>
+					</label>
+					<placeholder>
+						<en>name@example.org</en>
+						<de>name@example.org</de>
+					</placeholder>
+				</value-input>
+			</fields>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-person-plus"
+					inputs="group"
+				>
+					<label>
+						<en>Add</en>
+						<de>Hinzufügen</de>
+					</label>
+					<access>
+						<operation name="EHomeAdministration"/>
+						<operation name="Read"
+							object="$group"
+							type="tl.accounts:Group"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<with-transaction>
+						<execute-script function="ehomeGroupAdd($group, $address)">
+							<inputs>
+								<input channel="address"/>
+							</inputs>
+						</execute-script>
+						<with-result>
+							<write-channel name="selection"/>
+							<close-dialog/>
+						</with-result>
+					</with-transaction>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

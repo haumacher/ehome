@@ -17,7 +17,7 @@
 		A template also holds the presets of the program's channels (haumacher/ehome #146,
 		de.haumacher.ehome.template.Presets): named configurations saved from a configured channel of a
 		device, with the channels of the program declared alike to which they apply by position. Like the
-		overlays they are master data, written by administrators and read by every account.
+		overlays they are master data, written by the E-Home administrators and read by every account.
 	-->
 	<module name="ehome.template">
 		<annotations>

@@ -35,6 +35,7 @@ import org.eclipse.jetty.server.ServerConnector;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.security.AccountFixture;
 
 import com.top_logic.ai.mcp.server.MCPServerService;
 import com.top_logic.ai.mcp.server.MCPTransportServlet;
@@ -45,7 +46,9 @@ import com.top_logic.base.services.InitialRolesManager;
 import com.top_logic.basic.module.ModuleUtil;
 import com.top_logic.basic.module.services.ServletContextService;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.WrapperHistoryUtils;
 import com.top_logic.util.Resources;
 import com.top_logic.knowledge.wrap.person.Person;
@@ -231,6 +234,45 @@ public class TestMcpEndpoint extends BasicTestCase {
 		String message = Resources.getInstance(Locale.ENGLISH).getString(log);
 		assertTrue("The revision of the call names the part created: " + message, message.contains("Protokollhaus"));
 		assertFalse("The revision of the call has not the generic message: " + message, message.contains("Agent edit"));
+	}
+
+	/**
+	 * An E-Home administrator (haumacher/ehome #165) who is no member of a project reads it but changes
+	 * nothing of it through the endpoint - neither with E-Home's own tools nor with the object tools of
+	 * the engine: the administrator manages a project's members, the content belongs to its members.
+	 */
+	public void testAdministratorChangesNoForeignProject() throws Exception {
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		Person administrator;
+		try (Transaction tx = kb.beginTransaction()) {
+			administrator = AccountFixture.person("ehomeMcpAdministrator", "ehome.administrators");
+			tx.commit();
+		}
+		try {
+			String token = token(administrator);
+			String session = open(token);
+			String read = Json.write(call(token, session, "tools/call",
+				Map.of("name", QUERY, "arguments", Map.of("expression", deviceTitles()))));
+			assertTrue("The administrator reads every project: " + read, read.contains(ACTUATOR));
+
+			String created = Json.write(call(token, session, "tools/call", Map.of("name", CREATE_PARTS,
+				"arguments", Map.of("parent", tid(_fixture.project()), "parts", List.of(Map.of("kind", "Building",
+					"name", "Adminhaus"))))));
+			assertTrue("E-Home's tool refuses: " + created, created.contains("may not change"));
+			kb.refetch();
+			assertTrue(buildings().isEmpty());
+
+			String updated = Json.write(call(token, session, "tools/call", Map.of("name", UPDATE,
+				"arguments", Map.of("id", tid(_fixture.actuator()), "values", Map.of("title", "Renamed")))));
+			assertTrue("The object tool refuses: " + updated, updated.contains("may not change"));
+			assertEquals(ACTUATOR, _fixture.actuator().tValueByName("title"));
+		} finally {
+			kb.refetch();
+			try (Transaction tx = kb.beginTransaction()) {
+				administrator.tDelete();
+				tx.commit();
+			}
+		}
 	}
 
 	private List<TLObject> buildings() {
