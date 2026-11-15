@@ -103,4 +103,9 @@ public class RecordingJobMonitor implements JobMonitor {
 		// Never cancelled.
 	}
 
+	@Override
+	public void uncancelable() {
+		// Never cancelled.
+	}
+
 }

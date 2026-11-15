@@ -5,19 +5,18 @@ package de.haumacher.ehome.project;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.module.ConfiguredManagedClass;
 import com.top_logic.basic.module.ServiceDependencies;
 import com.top_logic.basic.module.TypedRuntimeModule;
-import com.top_logic.dob.identifier.ObjectKey;
 import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.CommitActions;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.event.Modification;
 import com.top_logic.knowledge.service.event.ModificationListener;
+import com.top_logic.knowledge.service.event.PendingChanges;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLStructuredType;
@@ -71,16 +70,13 @@ public class ProjectOwners extends ConfiguredManagedClass<ProjectOwners.Config<?
 	}
 
 	@Override
-	public Modification createModification(KnowledgeBase kb, CommitActions actions,
-			Map<ObjectKey, ? extends KnowledgeItem> createdObjects,
-			Map<ObjectKey, ? extends KnowledgeItem> updatedObjects,
-			Map<ObjectKey, ? extends KnowledgeItem> removedObjects) {
+	public Modification createModification(KnowledgeBase kb, CommitActions actions, PendingChanges changes) {
 		Person creator = TLContext.currentUser();
 		if (creator == null) {
 			return Modification.NONE;
 		}
 		List<TLObject> projects = null;
-		for (KnowledgeItem item : createdObjects.values()) {
+		for (KnowledgeItem item : changes.getCreated().values()) {
 			if (item.getWrapper() instanceof TLObject obj && obj.tValid() && !obj.tTransient() && isProject(obj)
 				&& ProjectMembers.accounts(obj, ProjectMembers.OWNERS).isEmpty()) {
 				if (projects == null) {

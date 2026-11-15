@@ -22,6 +22,7 @@ import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.event.Modification;
 import com.top_logic.knowledge.service.event.ModificationListener;
+import com.top_logic.knowledge.service.event.PendingChanges;
 import com.top_logic.knowledge.wrap.WrapperHistoryUtils;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.model.ModelService;
@@ -86,16 +87,13 @@ public class ProgramChanges extends ConfiguredManagedClass<ProgramChanges.Config
 	}
 
 	@Override
-	public Modification createModification(KnowledgeBase kb, CommitActions actions,
-			Map<ObjectKey, ? extends KnowledgeItem> createdObjects,
-			Map<ObjectKey, ? extends KnowledgeItem> updatedObjects,
-			Map<ObjectKey, ? extends KnowledgeItem> removedObjects) {
+	public Modification createModification(KnowledgeBase kb, CommitActions actions, PendingChanges changes) {
 		// The program reference may be stored in a link (a new one is created) or in the device (updated).
 		Set<TLObject> candidates = new LinkedHashSet<>();
-		for (Map<ObjectKey, ? extends KnowledgeItem> items : List.of(updatedObjects, createdObjects)) {
+		for (Map<ObjectKey, ? extends KnowledgeItem> items : List.of(changes.getUpdated(), changes.getCreated())) {
 			for (KnowledgeItem item : items.values()) {
 				KnowledgeItem owner = item instanceof KnowledgeAssociation link ? link.getSourceObject() : item;
-				if (owner != null && !createdObjects.containsKey(owner.tId())
+				if (owner != null && !changes.getCreated().containsKey(owner.tId())
 					&& owner.getWrapper() instanceof TLObject device && ExtIds.isA(device, DEVICE)) {
 					candidates.add(device);
 				}

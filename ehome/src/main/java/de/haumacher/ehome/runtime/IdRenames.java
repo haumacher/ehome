@@ -13,7 +13,6 @@ import com.top_logic.basic.module.ConfiguredManagedClass;
 import com.top_logic.basic.module.ServiceDependencies;
 import com.top_logic.basic.module.TypedRuntimeModule;
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.dob.identifier.ObjectKey;
 import com.top_logic.event.infoservice.InfoService;
 import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.CommitActions;
@@ -21,6 +20,7 @@ import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.event.Modification;
 import com.top_logic.knowledge.service.event.ModificationListener;
+import com.top_logic.knowledge.service.event.PendingChanges;
 import com.top_logic.layout.basic.DefaultDisplayContext;
 import com.top_logic.layout.basic.fragments.Fragments;
 import com.top_logic.model.TLObject;
@@ -167,13 +167,10 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 	}
 
 	@Override
-	public Modification createModification(KnowledgeBase kb, CommitActions actions,
-			Map<ObjectKey, ? extends KnowledgeItem> createdObjects,
-			Map<ObjectKey, ? extends KnowledgeItem> updatedObjects,
-			Map<ObjectKey, ? extends KnowledgeItem> removedObjects) {
+	public Modification createModification(KnowledgeBase kb, CommitActions actions, PendingChanges changes) {
 		Map<TLObject, ExpressionRenames> renames = null;
 		Map<TLObject, List<TLObject>> entered = null;
-		for (KnowledgeItem item : updatedObjects.values()) {
+		for (KnowledgeItem item : changes.getUpdated().values()) {
 			if (!(item.getWrapper() instanceof TLObject obj)) {
 				continue;
 			}
@@ -198,7 +195,7 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 			}
 			kind.note(renames.computeIfAbsent(project, x -> new ExpressionRenames()), obj, before, after);
 		}
-		for (KnowledgeItem item : createdObjects.values()) {
+		for (KnowledgeItem item : changes.getCreated().values()) {
 			if (item.getWrapper() instanceof TLObject obj && ExpressionRenames.holdsExpression(obj)) {
 				entered = noteEntered(entered, obj);
 			}
@@ -212,7 +209,7 @@ public class IdRenames extends ConfiguredManagedClass<IdRenames.Config<?>> imple
 			Report report = apply(all);
 			normalize(parts);
 			if (DefaultDisplayContext.hasDisplayContext()) {
-				actions.afterCommit(changes -> show(report));
+				actions.afterCommit(committed -> show(report));
 			}
 		};
 	}

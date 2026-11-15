@@ -37,6 +37,7 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.service.event.Modification;
 import com.top_logic.knowledge.service.event.ModificationListener;
+import com.top_logic.knowledge.service.event.PendingChanges;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
@@ -352,10 +353,8 @@ public class TestProjectUpdate extends BasicTestCase {
 			Set<String> touched = new LinkedHashSet<>();
 			ModificationListener listener = new ModificationListener() {
 				@Override
-				public Modification createModification(KnowledgeBase kb, CommitActions actions,
-						Map<ObjectKey, ? extends KnowledgeItem> created, Map<ObjectKey, ? extends KnowledgeItem> updated,
-						Map<ObjectKey, ? extends KnowledgeItem> removed) {
-					for (Map<ObjectKey, ? extends KnowledgeItem> changes : List.of(updated, removed)) {
+				public Modification createModification(KnowledgeBase kb, CommitActions actions, PendingChanges pending) {
+					for (Map<ObjectKey, ? extends KnowledgeItem> changes : List.of(pending.getUpdated(), pending.getRemoved())) {
 						for (ObjectKey key : changes.keySet()) {
 							if (keys.contains(key)) {
 								touched.add(key.toString());

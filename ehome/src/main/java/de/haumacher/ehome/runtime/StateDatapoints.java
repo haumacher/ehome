@@ -22,6 +22,7 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.service.event.Modification;
 import com.top_logic.knowledge.service.event.ModificationListener;
+import com.top_logic.knowledge.service.event.PendingChanges;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -100,12 +101,9 @@ public class StateDatapoints extends ConfiguredManagedClass<StateDatapoints.Conf
 	}
 
 	@Override
-	public Modification createModification(KnowledgeBase kb, CommitActions actions,
-			Map<ObjectKey, ? extends KnowledgeItem> createdObjects,
-			Map<ObjectKey, ? extends KnowledgeItem> updatedObjects,
-			Map<ObjectKey, ? extends KnowledgeItem> removedObjects) {
+	public Modification createModification(KnowledgeBase kb, CommitActions actions, PendingChanges changes) {
 		Set<TLObject> rules = null;
-		for (Map<ObjectKey, ? extends KnowledgeItem> objects : List.of(createdObjects, updatedObjects)) {
+		for (Map<ObjectKey, ? extends KnowledgeItem> objects : List.of(changes.getCreated(), changes.getUpdated())) {
 			for (KnowledgeItem item : objects.values()) {
 				if (!(item.getWrapper() instanceof TLObject obj) || !obj.tValid()) {
 					continue;
