@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.runtime.Json;
@@ -149,7 +150,7 @@ public final class ZigbeeExport {
 			root = Json.parse(text, MAX_NESTING);
 		} catch (JsonException ex) {
 			throw new TopLogicException(I18NConstants.ERROR_EXPORT_NO_JSON__REASON.fill(
-				ex.getMessage() + " at character " + ex.getOffset()));
+				I18NConstants.JSON_ERROR__OFFSET_DETAIL.fill(Integer.toString(ex.getOffset()), ex.getMessage())));
 		}
 		return read(root);
 	}
@@ -175,7 +176,7 @@ public final class ZigbeeExport {
 		}
 		Object version = map.get("version");
 		if (!(version instanceof Long number) || number.longValue() < 1) {
-			throw invalid("version", "the version must be a positive integer");
+			throw invalid("version", I18NConstants.EXPORT_INVALID_VERSION);
 		}
 		if (number.longValue() > VERSION) {
 			throw new TopLogicException(I18NConstants.ERROR_EXPORT_VERSION__VERSION_SUPPORTED.fill(number,
@@ -183,7 +184,7 @@ public final class ZigbeeExport {
 		}
 		String controller = map.get("controller") instanceof String name && !name.isBlank() ? name.trim() : null;
 		if (!(map.get("devices") instanceof List<?> list)) {
-			throw invalid("devices", "devices must be an array");
+			throw invalid("devices", I18NConstants.EXPORT_INVALID_DEVICES);
 		}
 		List<Device> devices = new ArrayList<>();
 		for (int i = 0; i < list.size(); i++) {
@@ -210,17 +211,16 @@ public final class ZigbeeExport {
 
 	private Device device(Object item) {
 		if (!(item instanceof Map<?, ?> device)) {
-			throw invalid("", "a device must be an object");
+			throw invalid("", I18NConstants.EXPORT_INVALID_DEVICE);
 		}
 		String ieee = device.get("ieee") instanceof String text ? ZigbeeFunctionTable.normalizeIeee(text) : null;
 		if (ieee == null) {
-			throw invalid(".ieee", "\"" + device.get("ieee")
-				+ "\" is not an IEEE address (16 hex digits, colons allowed; not 0 and not all ones)");
+			throw invalid(".ieee", I18NConstants.EXPORT_INVALID_IEEE__VALUE.fill(String.valueOf(device.get("ieee"))));
 		}
 		List<Endpoint> endpoints = new ArrayList<>();
 		if (device.containsKey("endpoints")) {
 			if (!(device.get("endpoints") instanceof List<?> list)) {
-				throw invalid(".endpoints", "endpoints must be an array");
+				throw invalid(".endpoints", I18NConstants.EXPORT_INVALID_ENDPOINTS);
 			}
 			for (int i = 0; i < list.size(); i++) {
 				enter(".endpoints[" + i + "]");
@@ -231,7 +231,7 @@ public final class ZigbeeExport {
 		List<Function> functions = new ArrayList<>();
 		if (device.containsKey("functions")) {
 			if (!(device.get("functions") instanceof List<?> list)) {
-				throw invalid(".functions", "functions must be an array");
+				throw invalid(".functions", I18NConstants.EXPORT_INVALID_FUNCTIONS);
 			}
 			for (int i = 0; i < list.size(); i++) {
 				enter(".functions[" + i + "]");
@@ -245,7 +245,7 @@ public final class ZigbeeExport {
 
 	private Endpoint endpoint(Object item) {
 		if (!(item instanceof Map<?, ?> endpoint)) {
-			throw invalid("", "an endpoint must be an object");
+			throw invalid("", I18NConstants.EXPORT_INVALID_ENDPOINT);
 		}
 		int id = integer(endpoint, "id", 1, 240);
 		return new Endpoint(id, optionalInteger(endpoint, "profile"), optionalInteger(endpoint, "device"),
@@ -254,11 +254,11 @@ public final class ZigbeeExport {
 
 	private Function function(Object item) {
 		if (!(item instanceof Map<?, ?> function)) {
-			throw invalid("", "a function must be an object");
+			throw invalid("", I18NConstants.EXPORT_INVALID_FUNCTION);
 		}
 		String key = text(function, "function");
 		if (key == null) {
-			throw invalid(".function", "function is missing");
+			throw invalid(".function", I18NConstants.EXPORT_MISSING_FUNCTION);
 		}
 		int endpoint = integer(function, "endpoint", 1, 240);
 		int cluster = integer(function, "cluster", 0, 65535);
@@ -266,8 +266,8 @@ public final class ZigbeeExport {
 			: null;
 		String type = text(function, "type");
 		if (type == null || !ValueTypes.ALL.contains(type)) {
-			throw invalid(".type", "\"" + function.get("type") + "\" is not a value type ("
-				+ String.join(", ", ValueTypes.ALL) + ")");
+			throw invalid(".type", I18NConstants.EXPORT_INVALID_VALUE_TYPE__VALUE_TYPES.fill(
+				String.valueOf(function.get("type")), String.join(", ", ValueTypes.ALL)));
 		}
 		return new Function(text(function, "name"), key, endpoint, cluster, attribute, type, text(function, "unit"),
 			Boolean.TRUE.equals(function.get("writable")), reporting(function.get("reporting")));
@@ -289,7 +289,8 @@ public final class ZigbeeExport {
 
 	private int integer(Map<?, ?> object, String member, int min, int max) {
 		if (!(object.get(member) instanceof Long value) || value.longValue() < min || value.longValue() > max) {
-			throw invalid("." + member, member + " must be an integer " + min + ".." + max);
+			throw invalid("." + member,
+				I18NConstants.EXPORT_INVALID_INTEGER__MEMBER_MIN_MAX.fill(member, Integer.toString(min), Integer.toString(max)));
 		}
 		return value.intValue();
 	}
@@ -304,11 +305,11 @@ public final class ZigbeeExport {
 			return result;
 		}
 		if (!(object.get(member) instanceof List<?> list)) {
-			throw invalid("." + member, member + " must be an array of cluster numbers");
+			throw invalid("." + member, I18NConstants.EXPORT_INVALID_CLUSTERS__MEMBER.fill(member));
 		}
 		for (Object value : list) {
 			if (!(value instanceof Long cluster)) {
-				throw invalid("." + member, member + " must be an array of cluster numbers");
+				throw invalid("." + member, I18NConstants.EXPORT_INVALID_CLUSTERS__MEMBER.fill(member));
 			}
 			result.add(cluster);
 		}
@@ -319,7 +320,7 @@ public final class ZigbeeExport {
 		return object.get(member) instanceof String text && !text.isBlank() ? text.trim() : null;
 	}
 
-	private TopLogicException invalid(String segment, String reason) {
+	private TopLogicException invalid(String segment, ResKey reason) {
 		return new TopLogicException(I18NConstants.ERROR_EXPORT_INVALID__PATH_REASON.fill(_path + segment, reason));
 	}
 

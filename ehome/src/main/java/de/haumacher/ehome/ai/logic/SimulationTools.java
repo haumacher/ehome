@@ -235,7 +235,7 @@ public class SimulationTools {
 
 	private static String set(Simulation simulation, ScenarioBus bus, String datapoint, Val value) {
 		if (simulation.zigbee().point(datapoint) != null) {
-			return simulation.zigbeeReport(datapoint, value);
+			return LogicSupport.text(simulation.zigbeeReport(datapoint, value));
 		}
 		KnxBinding.Mapping mapping = simulation.binding().mapping(datapoint);
 		if (mapping != null && !mapping.addresses().isEmpty()) {

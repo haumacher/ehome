@@ -187,6 +187,17 @@ public class TestProjectSimulation extends BasicTestCase {
 			assertEquals("\"100\" is no value of the datapoint " + scene + ": The value lies outside the"
 				+ " range of the datapoint type 17.001.", Resources.getInstance(Locale.ENGLISH).getString(ex.getErrorKey()));
 		}
+		// A text that is no literal of the datapoint's type names the type in a sentence (haumacher/ehome #173).
+		String light = simulation.names().datapoint("0/0/34");
+		try {
+			running.send("0/0/34", "maybe");
+			fail("A text that is no boolean was sent.");
+		} catch (TopLogicException ex) {
+			assertEquals("„maybe“ ist kein Wert des Datenpunkts " + light + ": Ein Wert des Typs boolean wird erwartet.",
+				Resources.getInstance(Locale.GERMAN).getString(ex.getErrorKey()));
+			assertEquals("\"maybe\" is no value of the datapoint " + light + ": A value of the type boolean is expected.",
+				Resources.getInstance(Locale.ENGLISH).getString(ex.getErrorKey()));
+		}
 
 		running.setParameter("key-light/delay", "30s");
 		assertEquals("30s", parameter.tValueByName(Overrides.SIMULATION_VALUE));
@@ -194,7 +205,7 @@ public class TestProjectSimulation extends BasicTestCase {
 		assertNull(parameter.tValueByName(Overrides.SIMULATION_VALUE));
 
 		// The timeline names the addresses, datapoints and parameters as "Name (id)" (haumacher/ehome #113).
-		String light = simulation.names().datapoint("0/0/34");
+		assertEquals(light, simulation.names().datapoint("0/0/34"));
 		assertTrue(light, light.endsWith(" (0/0/34)") && light.length() > " (0/0/34)".length());
 		assertEquals(light, simulation.names().address(34));
 		String keyAddress = simulation.names().address(1);

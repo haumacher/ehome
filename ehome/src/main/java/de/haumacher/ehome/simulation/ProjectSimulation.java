@@ -325,7 +325,7 @@ public final class ProjectSimulation implements AutoCloseable {
 	 */
 	public void send(String datapoint, String value) {
 		if (_simulation.zigbee().point(datapoint) != null) {
-			String refusal = _simulation.zigbeeReport(datapoint, datapointValue(datapoint, value));
+			ResKey refusal = _simulation.zigbeeReport(datapoint, datapointValue(datapoint, value));
 			if (refusal != null) {
 				throw new TopLogicException(I18NConstants.ERROR_ZIGBEE_REPORT_REFUSED__TEXT_DATAPOINT_REASON.fill(value,
 					names().datapoint(datapoint), refusal));
@@ -376,7 +376,40 @@ public final class ProjectSimulation implements AutoCloseable {
 		CommandStatus status = _simulation.command(datapoint, datapointValue(datapoint, value));
 		if (status != CommandStatus.OK) {
 			throw new TopLogicException(
-				I18NConstants.ERROR_COMMAND_REFUSED__DATAPOINT_REASON.fill(names().datapoint(datapoint), status.text()));
+				I18NConstants.ERROR_COMMAND_REFUSED__DATAPOINT_REASON.fill(names().datapoint(datapoint), reason(status)));
+		}
+	}
+
+	/**
+	 * Why a command was refused, a sentence in the language of the reader (haumacher/ehome #173).
+	 */
+	public static ResKey reason(CommandStatus status) {
+		switch (status) {
+			case UNKNOWN_DATAPOINT:
+				return I18NConstants.REASON_COMMAND_UNKNOWN_DATAPOINT;
+			case NOT_WRITABLE:
+				return I18NConstants.REASON_COMMAND_NOT_WRITABLE;
+			case WRONG_TYPE:
+				return I18NConstants.REASON_COMMAND_WRONG_TYPE;
+			default:
+				return I18NConstants.REASON_COMMAND_REFUSED;
+		}
+	}
+
+	/**
+	 * Why the change of a parameter was refused, a sentence in the language of the reader
+	 * (haumacher/ehome #173).
+	 */
+	public static ResKey reason(ParameterStatus status) {
+		switch (status) {
+			case UNKNOWN_RULE:
+				return I18NConstants.REASON_PARAMETER_UNKNOWN_RULE;
+			case UNKNOWN_PARAMETER:
+				return I18NConstants.REASON_PARAMETER_UNKNOWN_PARAMETER;
+			case NOT_ADJUSTABLE:
+				return I18NConstants.REASON_PARAMETER_NOT_ADJUSTABLE;
+			default:
+				return I18NConstants.REASON_PARAMETER_INVALID_VALUE;
 		}
 	}
 
@@ -395,7 +428,7 @@ public final class ProjectSimulation implements AutoCloseable {
 		ParameterStatus status = _simulation.setParameter(parts[0], parts[1], parsed);
 		saveOverrides();
 		if (status != ParameterStatus.OK) {
-			throw new TopLogicException(I18NConstants.ERROR_PARAMETER_REFUSED__PARAMETER_REASON.fill(parameterName(parts), status));
+			throw new TopLogicException(I18NConstants.ERROR_PARAMETER_REFUSED__PARAMETER_REASON.fill(parameterName(parts), reason(status)));
 		}
 	}
 
@@ -407,7 +440,7 @@ public final class ProjectSimulation implements AutoCloseable {
 		ParameterStatus status = _simulation.resetParameter(parts[0], parts[1]);
 		saveOverrides();
 		if (status != ParameterStatus.OK) {
-			throw new TopLogicException(I18NConstants.ERROR_PARAMETER_REFUSED__PARAMETER_REASON.fill(parameterName(parts), status));
+			throw new TopLogicException(I18NConstants.ERROR_PARAMETER_REFUSED__PARAMETER_REASON.fill(parameterName(parts), reason(status)));
 		}
 	}
 
@@ -504,8 +537,9 @@ public final class ProjectSimulation implements AutoCloseable {
 		}
 		Val converted = parsed == null ? null : Values.convertForDatapoint(parsed, dp.type());
 		if (converted == null) {
-			throw new TopLogicException(I18NConstants.ERROR_INVALID_VALUE__TEXT_DATAPOINT_DETAIL.fill(text, datapoint,
-				dp.type().externalName()));
+			throw new TopLogicException(I18NConstants.ERROR_INVALID_VALUE__TEXT_DATAPOINT_DETAIL.fill(text,
+				simulation.names().datapoint(datapoint), I18NConstants.REASON_VALUE_OF_TYPE_EXPECTED__TYPE.fill(
+					dp.type().externalName())));
 		}
 		return converted;
 	}

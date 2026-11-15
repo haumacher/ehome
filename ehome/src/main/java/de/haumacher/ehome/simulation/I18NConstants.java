@@ -60,7 +60,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_INVALID_VALUE__TEXT_DATAPOINT_DETAIL;
 
 	/**
-	 * @en The Zigbee device of the datapoint {1} cannot report "{0}": {2}.
+	 * @en The Zigbee device of the datapoint {1} cannot report "{0}": {2}
 	 */
 	public static ResKey3 ERROR_ZIGBEE_REPORT_REFUSED__TEXT_DATAPOINT_REASON;
 
@@ -120,6 +120,121 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 REASON_NO_VALUE_OF__TYPE;
 
 	/**
+	 * @en A value of the type {0} is expected.
+	 */
+	public static ResKey1 REASON_VALUE_OF_TYPE_EXPECTED__TYPE;
+
+	/**
+	 * @en The datapoint {0} is not bound to a Zigbee device.
+	 */
+	public static ResKey1 REASON_ZIGBEE_NOT_BOUND__DATAPOINT;
+
+	/**
+	 * @en A press of a button is no state the device keeps. Press the button while the simulation runs.
+	 */
+	public static ResKey REASON_ZIGBEE_PRESS_NO_STATE;
+
+	/**
+	 * @en The function {0} takes the values true and false.
+	 */
+	public static ResKey1 REASON_ZIGBEE_TAKES_BOOLEAN__FUNCTION;
+
+	/**
+	 * @en The function {0} takes a number.
+	 */
+	public static ResKey1 REASON_ZIGBEE_TAKES_NUMBER__FUNCTION;
+
+	/**
+	 * @en A level takes values from 0 to 100 %.
+	 */
+	public static ResKey REASON_ZIGBEE_LEVEL_RANGE;
+
+	/**
+	 * @en A colour temperature takes values from 16 to 1000000 K.
+	 */
+	public static ResKey REASON_ZIGBEE_COLOR_TEMPERATURE_RANGE;
+
+	/**
+	 * @en A temperature takes values from -327.67 to 327.67 °C.
+	 */
+	public static ResKey REASON_ZIGBEE_TEMPERATURE_RANGE;
+
+	/**
+	 * @en A humidity takes values from 0 to 100 %.
+	 */
+	public static ResKey REASON_ZIGBEE_HUMIDITY_RANGE;
+
+	/**
+	 * @en An illuminance takes values from 0 lux upwards.
+	 */
+	public static ResKey REASON_ZIGBEE_ILLUMINANCE_NEGATIVE;
+
+	/**
+	 * @en An illuminance takes values from 0 to {0} lux.
+	 */
+	public static ResKey1 REASON_ZIGBEE_ILLUMINANCE_RANGE__MAX;
+
+	/**
+	 * @en A battery level takes values from 0 to 100 %.
+	 */
+	public static ResKey REASON_ZIGBEE_BATTERY_RANGE;
+
+	/**
+	 * @en A multistate value takes the integers from 0 to 65535.
+	 */
+	public static ResKey REASON_ZIGBEE_MULTISTATE_RANGE;
+
+	/**
+	 * @en An action takes the values 0 (off), 1 (on), 2 (toggle), 3 (dim up), 4 (dim down) and 5 (dim stop).
+	 */
+	public static ResKey REASON_ZIGBEE_ACTION_RANGE;
+
+	/**
+	 * @en The simulation does not simulate the function {0}.
+	 */
+	public static ResKey1 REASON_ZIGBEE_NOT_SIMULATED__FUNCTION;
+
+	/**
+	 * @en The simulation has no such datapoint.
+	 */
+	public static ResKey REASON_COMMAND_UNKNOWN_DATAPOINT;
+
+	/**
+	 * @en The datapoint cannot be written.
+	 */
+	public static ResKey REASON_COMMAND_NOT_WRITABLE;
+
+	/**
+	 * @en The value does not fit the type of the datapoint.
+	 */
+	public static ResKey REASON_COMMAND_WRONG_TYPE;
+
+	/**
+	 * @en The device of the datapoint refused the value. The timeline shows why.
+	 */
+	public static ResKey REASON_COMMAND_REFUSED;
+
+	/**
+	 * @en The simulation has no such rule.
+	 */
+	public static ResKey REASON_PARAMETER_UNKNOWN_RULE;
+
+	/**
+	 * @en The rule has no such parameter.
+	 */
+	public static ResKey REASON_PARAMETER_UNKNOWN_PARAMETER;
+
+	/**
+	 * @en The parameter is not adjustable.
+	 */
+	public static ResKey REASON_PARAMETER_NOT_ADJUSTABLE;
+
+	/**
+	 * @en The value is no valid value of the parameter.
+	 */
+	public static ResKey REASON_PARAMETER_INVALID_VALUE;
+
+	/**
 	 * @en "{0}" is no value of the parameter {1}. Enter a literal of its type, e.g. true, 21.5, 3min or 06:30.
 	 */
 	public static ResKey2 ERROR_INVALID_PARAMETER_VALUE__TEXT_PARAMETER;
@@ -140,12 +255,12 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_NOT_ON_BUS__DATAPOINT;
 
 	/**
-	 * @en The command for {0} was refused: {1}.
+	 * @en The command for {0} was refused: {1}
 	 */
 	public static ResKey2 ERROR_COMMAND_REFUSED__DATAPOINT_REASON;
 
 	/**
-	 * @en The value of the parameter {0} was refused: {1}.
+	 * @en The value of the parameter {0} was refused: {1}
 	 */
 	public static ResKey2 ERROR_PARAMETER_REFUSED__PARAMETER_REASON;
 

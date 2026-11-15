@@ -195,7 +195,7 @@ public final class ZigbeeCatalogJson {
 			root = Json.parse(text, MAX_NESTING);
 		} catch (JsonException ex) {
 			throw new TopLogicException(I18NConstants.ERROR_EXPORT_NO_JSON__REASON.fill(
-				ex.getMessage() + " at character " + ex.getOffset()));
+				I18NConstants.JSON_ERROR__OFFSET_DETAIL.fill(Integer.toString(ex.getOffset()), ex.getMessage())));
 		}
 		List<TypeData> types = parse(root);
 		List<TLObject> result = new ArrayList<>();

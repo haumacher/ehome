@@ -10,6 +10,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.top_logic.basic.util.ResKey;
+
 import de.haumacher.ehome.rules.DatapointModel;
 import de.haumacher.ehome.rules.DatapointModel.Datapoint;
 import de.haumacher.ehome.rules.DatapointModel.Quality;
@@ -122,9 +124,10 @@ public final class VirtualZigbee implements DatapointModel.Technology {
 	 * @param value
 	 *        The value as the controller decodes it from the device, <code>null</code> if refused.
 	 * @param refusal
-	 *        Why the function cannot carry the value, <code>null</code> if it can.
+	 *        Why the function cannot carry the value, a whole sentence (haumacher/ehome #173),
+	 *        <code>null</code> if it can.
 	 */
-	public record Normalized(Val value, String refusal) {
+	public record Normalized(Val value, ResKey refusal) {
 		// A value.
 	}
 
@@ -232,12 +235,13 @@ public final class VirtualZigbee implements DatapointModel.Technology {
 	 * @param started
 	 *        Whether the simulation runs; before it, the device only takes the value and reports it
 	 *        when the controller reads it at the start ({@link #startReports()}).
-	 * @return <code>null</code>, or why the value is refused.
+	 * @return <code>null</code>, or why the value is refused, a sentence in the language of the reader
+	 *         (haumacher/ehome #173).
 	 */
-	public String report(String datapoint, Val value, boolean started) {
+	public ResKey report(String datapoint, Val value, boolean started) {
 		Point point = _points.get(datapoint);
 		if (point == null) {
-			return "'" + datapoint + "' is not bound to a Zigbee device";
+			return I18NConstants.REASON_ZIGBEE_NOT_BOUND__DATAPOINT.fill(datapoint);
 		}
 		Normalized normalized = normalize(point.function(), value);
 		if (normalized.refusal() != null) {
@@ -245,7 +249,7 @@ public final class VirtualZigbee implements DatapointModel.Technology {
 		}
 		if (point.action()) {
 			if (!started) {
-				return "a press of a button is no state the device keeps; press it while the simulation runs";
+				return I18NConstants.REASON_ZIGBEE_PRESS_NO_STATE;
 			}
 		} else {
 			_values.put(datapoint, normalized.value());
@@ -283,7 +287,8 @@ public final class VirtualZigbee implements DatapointModel.Technology {
 		}
 		Normalized normalized = normalize(point.function(), value);
 		if (normalized.refusal() != null) {
-			_log.log(Kind.PROBLEM, point.source(), "command of '" + datapoint.name() + "' refused: " + normalized.refusal());
+			_log.log(Kind.PROBLEM, point.source(),
+				"command of '" + datapoint.name() + "' refused: " + Simulation.logText(normalized.refusal()));
 			return false;
 		}
 		_log.log(Kind.ZIGBEE_COMMAND, point.source(), point.function() + " = " + Values.format(value) + " to cluster "
@@ -367,32 +372,32 @@ public final class VirtualZigbee implements DatapointModel.Technology {
 	 */
 	public static Normalized normalize(String function, Val value) {
 		if (value == null || !value.has()) {
-			return refused("no value");
+			return refused(I18NConstants.REASON_NO_VALUE);
 		}
 		switch (function) {
 			case "on_off":
 			case "occupancy":
 			case "ias_zone":
 				return value.type() == Type.BOOLEAN ? new Normalized(value, null)
-					: refused("the " + function + " takes true or false");
+					: refused(I18NConstants.REASON_ZIGBEE_TAKES_BOOLEAN__FUNCTION.fill(function));
 			default:
 				break;
 		}
 		if (!isNumber(value)) {
-			return refused("the " + function + " takes a number");
+			return refused(I18NConstants.REASON_ZIGBEE_TAKES_NUMBER__FUNCTION.fill(function));
 		}
 		double d = value.type() == Type.REAL ? value.real() : value.integer();
 		switch (function) {
 			case "level": {
 				if (!(d >= 0 && d <= 100)) {
-					return refused("a level takes 0..100 %");
+					return refused(I18NConstants.REASON_ZIGBEE_LEVEL_RANGE);
 				}
 				long n = lround(d * 254.0 / 100.0);
 				return real(round1(n * 100.0 / 254.0));
 			}
 			case "color_temperature": {
 				if (!(d >= 16 && d <= 1_000_000)) {
-					return refused("a colour temperature takes 16..1000000 K");
+					return refused(I18NConstants.REASON_ZIGBEE_COLOR_TEMPERATURE_RANGE);
 				}
 				long mireds = lround(1e6 / lround(d));
 				return new Normalized(Val.ofInt(lround(1e6 / mireds)), null);
@@ -400,45 +405,45 @@ public final class VirtualZigbee implements DatapointModel.Technology {
 			case "temperature": {
 				long n = lround(d * 100);
 				if (n < -0x7FFF || n > 0x7FFF) {
-					return refused("a temperature takes -327.67..327.67 °C");
+					return refused(I18NConstants.REASON_ZIGBEE_TEMPERATURE_RANGE);
 				}
 				return real(n / 100.0);
 			}
 			case "humidity": {
 				if (!(d >= 0 && d <= 100)) {
-					return refused("a humidity takes 0..100 %");
+					return refused(I18NConstants.REASON_ZIGBEE_HUMIDITY_RANGE);
 				}
 				return real(lround(d * 100) / 100.0);
 			}
 			case "illuminance": {
 				if (!(d >= 0)) {
-					return refused("an illuminance takes 0 lux and more");
+					return refused(I18NConstants.REASON_ZIGBEE_ILLUMINANCE_NEGATIVE);
 				}
 				long n = d < 1 ? 0 : lround(10000 * Math.log10(d) + 1);
 				if (n > MAX_ILLUMINANCE) {
-					return refused("an illuminance takes 0.." + Values.format(Val.ofReal(illuminance(MAX_ILLUMINANCE)))
-						+ " lux");
+					return refused(I18NConstants.REASON_ZIGBEE_ILLUMINANCE_RANGE__MAX.fill(
+						Values.format(Val.ofReal(illuminance(MAX_ILLUMINANCE)))));
 				}
 				return real(illuminance(n));
 			}
 			case "battery": {
 				if (!(d >= 0 && d <= 100)) {
-					return refused("a battery level takes 0..100 %");
+					return refused(I18NConstants.REASON_ZIGBEE_BATTERY_RANGE);
 				}
 				return real(lround(d * 2) / 2.0);
 			}
 			case "multistate":
 				if (!(d >= 0 && d <= 0xFFFF) || d != Math.rint(d)) {
-					return refused("a multistate value takes 0..65535");
+					return refused(I18NConstants.REASON_ZIGBEE_MULTISTATE_RANGE);
 				}
 				return new Normalized(Val.ofInt((long) d), null);
 			case ZigbeeFunctionTable.ACTION:
 				if (!(d >= 0 && d < ACTIONS.size()) || d != Math.rint(d)) {
-					return refused("an action takes 0 off, 1 on, 2 toggle, 3 dim up, 4 dim down, 5 dim stop");
+					return refused(I18NConstants.REASON_ZIGBEE_ACTION_RANGE);
 				}
 				return new Normalized(Val.ofEnum((long) d), null);
 			default:
-				return refused("the function " + function + " is not simulated");
+				return refused(I18NConstants.REASON_ZIGBEE_NOT_SIMULATED__FUNCTION.fill(function));
 		}
 	}
 
@@ -454,7 +459,7 @@ public final class VirtualZigbee implements DatapointModel.Technology {
 		return new Normalized(Val.ofReal(value), null);
 	}
 
-	private static Normalized refused(String reason) {
+	private static Normalized refused(ResKey reason) {
 		return new Normalized(null, reason);
 	}
 

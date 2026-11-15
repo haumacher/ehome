@@ -27,6 +27,7 @@ import de.haumacher.ehome.rules.Val;
 import de.haumacher.ehome.rules.Values;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuntimeImage;
+import de.haumacher.ehome.simulation.I18NConstants;
 import de.haumacher.ehome.simulation.KnxBinding;
 import de.haumacher.ehome.simulation.Simulation;
 import de.haumacher.ehome.simulation.Simulation.Entry;
@@ -143,7 +144,7 @@ public class TestSimulationZigbeeProbe extends TestCase {
 					assertNull("Nothing more on the bus.", bus.poll(500, TimeUnit.MILLISECONDS));
 
 					// The colour temperature: refused outside the Kelvin range, commanded in mired steps.
-					assertEquals("a colour temperature takes 16..1000000 K",
+					assertEquals(I18NConstants.REASON_ZIGBEE_COLOR_TEMPERATURE_RANGE,
 						simulation.zigbeeReport("hall.ct", Val.ofInt(0)));
 					assertFalse(simulation.value("hall.ct").has());
 					assertEquals(CommandStatus.OK, simulation.command("hall.ct", Val.ofInt(2700)));

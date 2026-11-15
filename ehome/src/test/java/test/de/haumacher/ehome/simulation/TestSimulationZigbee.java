@@ -11,11 +11,14 @@ import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
 
+import com.top_logic.basic.util.ResKey;
+
 import de.haumacher.ehome.rules.DatapointModel.CommandStatus;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.rules.Val;
 import de.haumacher.ehome.rules.Values;
 import de.haumacher.ehome.runtime.Json;
+import de.haumacher.ehome.simulation.I18NConstants;
 import de.haumacher.ehome.simulation.Simulation;
 import de.haumacher.ehome.simulation.Simulation.Entry;
 import de.haumacher.ehome.simulation.Simulation.Kind;
@@ -137,16 +140,16 @@ public class TestSimulationZigbee extends TestCase {
 			"0 zigbee action " + BUTTON + " action 1 (on) (hall.button)"),
 			entries(Kind.ZIGBEE_ACTION));
 
-		String refusal = _simulation.zigbeeReport("hall.button", Val.ofEnum(6));
-		assertEquals("an action takes 0 off, 1 on, 2 toggle, 3 dim up, 4 dim down, 5 dim stop", refusal);
+		ResKey refusal = _simulation.zigbeeReport("hall.button", Val.ofEnum(6));
+		assertEquals(I18NConstants.REASON_ZIGBEE_ACTION_RANGE, refusal);
 		assertEquals(2, _simulation.status("every-press").firings());
-		assertEquals(List.of("0 problem " + BUTTON + " report 6 of 'hall.button' refused: " + refusal),
+		assertEquals(List.of("0 problem " + BUTTON + " report 6 of 'hall.button' refused: " + Simulation.logText(refusal)),
 			entries(Kind.PROBLEM));
 	}
 
 	public void testLevelRange() {
 		assertNull(_simulation.start());
-		assertEquals("a level takes 0..100 %", _simulation.zigbeeReport("hall.level", Val.ofReal(150)));
+		assertEquals(I18NConstants.REASON_ZIGBEE_LEVEL_RANGE, _simulation.zigbeeReport("hall.level", Val.ofReal(150)));
 		assertFalse(_simulation.value("hall.level").has());
 		assertNull(_simulation.zigbeeReport("hall.level", Val.ofReal(42.5)));
 		assertEquals(Val.ofReal(42.5), _simulation.value("hall.level"));
@@ -157,7 +160,8 @@ public class TestSimulationZigbee extends TestCase {
 		assertEquals(CommandStatus.REFUSED, _simulation.command("hall.level", Val.ofReal(101)));
 		assertEquals(Val.ofReal(33.1), _simulation.value("hall.level"));
 		assertTrue(entries(Kind.PROBLEM).toString(),
-			entries(Kind.PROBLEM).contains("0 problem " + LIGHT + " command of 'hall.level' refused: a level takes 0..100 %"));
+			entries(Kind.PROBLEM).contains("0 problem " + LIGHT + " command of 'hall.level' refused: "
+				+ Simulation.logText(I18NConstants.REASON_ZIGBEE_LEVEL_RANGE)));
 	}
 
 	public void testRead() {
@@ -185,7 +189,7 @@ public class TestSimulationZigbee extends TestCase {
 
 	public void testValuesBeforeStart() {
 		assertNull(_simulation.zigbeeReport("hall.temp", Val.ofReal(19.5)));
-		assertEquals("a press of a button is no state the device keeps; press it while the simulation runs",
+		assertEquals(I18NConstants.REASON_ZIGBEE_PRESS_NO_STATE,
 			_simulation.zigbeeReport("hall.button", Val.ofEnum(1)));
 		assertNull(_simulation.start());
 		assertEquals(Val.ofReal(19.5), _simulation.value("hall.temp"));

@@ -91,6 +91,86 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_REFUSED__CONTROLLER_STATUS_ERROR;
 
 	/**
+	 * @en At character {0}: {1}
+	 */
+	public static ResKey2 JSON_ERROR__OFFSET_DETAIL;
+
+	/**
+	 * @en The version must be a positive integer.
+	 */
+	public static ResKey EXPORT_INVALID_VERSION;
+
+	/**
+	 * @en The devices must be an array.
+	 */
+	public static ResKey EXPORT_INVALID_DEVICES;
+
+	/**
+	 * @en A device must be an object.
+	 */
+	public static ResKey EXPORT_INVALID_DEVICE;
+
+	/**
+	 * @en "{0}" is no IEEE address (16 hexadecimal digits, colons allowed; not 0 and not all ones).
+	 */
+	public static ResKey1 EXPORT_INVALID_IEEE__VALUE;
+
+	/**
+	 * @en The endpoints must be an array.
+	 */
+	public static ResKey EXPORT_INVALID_ENDPOINTS;
+
+	/**
+	 * @en The functions must be an array.
+	 */
+	public static ResKey EXPORT_INVALID_FUNCTIONS;
+
+	/**
+	 * @en An endpoint must be an object.
+	 */
+	public static ResKey EXPORT_INVALID_ENDPOINT;
+
+	/**
+	 * @en A function must be an object.
+	 */
+	public static ResKey EXPORT_INVALID_FUNCTION;
+
+	/**
+	 * @en The key of the function is missing.
+	 */
+	public static ResKey EXPORT_MISSING_FUNCTION;
+
+	/**
+	 * @en "{0}" is no value type ({1}).
+	 */
+	public static ResKey2 EXPORT_INVALID_VALUE_TYPE__VALUE_TYPES;
+
+	/**
+	 * @en The member {0} must be an integer from {1} to {2}.
+	 */
+	public static ResKey3 EXPORT_INVALID_INTEGER__MEMBER_MIN_MAX;
+
+	/**
+	 * @en The member {0} must be an array of cluster numbers.
+	 */
+	public static ResKey1 EXPORT_INVALID_CLUSTERS__MEMBER;
+
+	/**
+	 * @en The devices are no array.
+	 */
+	public static ResKey BAD_ANSWER_DEVICES_NO_ARRAY;
+
+	/**
+	 * @en The next page {0} does not follow the page {1}.
+	 */
+	public static ResKey2 BAD_ANSWER_PAGE_ORDER__NEXT_PAGE;
+
+	/**
+	 * @en The export has more than {0} pages.
+	 */
+	public static ResKey1 BAD_ANSWER_TOO_MANY_PAGES__MAX;
+
+	/**
 	 * @en The controller {0} sent an answer E-Home cannot read: {1}
 	 */
 	public static ResKey2 ERROR_BAD_ANSWER__CONTROLLER_DETAIL;

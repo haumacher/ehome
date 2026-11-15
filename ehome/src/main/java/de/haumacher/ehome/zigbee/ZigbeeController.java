@@ -192,7 +192,7 @@ public final class ZigbeeController {
 				devices.addAll(list);
 			} else if (body.containsKey("devices")) {
 				throw new TopLogicException(I18NConstants.ERROR_BAD_ANSWER__CONTROLLER_DETAIL.fill(name,
-					"devices is no array"));
+					I18NConstants.BAD_ANSWER_DEVICES_NO_ARRAY));
 			}
 			if (!(body.get("next") instanceof Number next)) {
 				result.put("devices", devices);
@@ -200,12 +200,12 @@ public final class ZigbeeController {
 			}
 			if (next.intValue() <= from) {
 				throw new TopLogicException(I18NConstants.ERROR_BAD_ANSWER__CONTROLLER_DETAIL.fill(name,
-					"the next page " + next + " does not follow the page " + from));
+					I18NConstants.BAD_ANSWER_PAGE_ORDER__NEXT_PAGE.fill(String.valueOf(next), Integer.toString(from))));
 			}
 			from = next.intValue();
 		}
 		throw new TopLogicException(I18NConstants.ERROR_BAD_ANSWER__CONTROLLER_DETAIL.fill(name,
-			"more than " + MAX_PAGES + " pages"));
+			I18NConstants.BAD_ANSWER_TOO_MANY_PAGES__MAX.fill(Integer.toString(MAX_PAGES))));
 	}
 
 	private static TLObject controller(TLObject obj) {

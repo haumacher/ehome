@@ -6,12 +6,9 @@ package de.haumacher.ehome.simulation;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.basic.util.ResourcesModule;
-import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.DatapointValues;
@@ -84,11 +81,7 @@ public final class KnxValues {
 
 		@Override
 		public String getMessage() {
-			if (!ResourcesModule.Module.INSTANCE.isActive()) {
-				// A unit test of the coding without the resources of the application.
-				return _reason.toString();
-			}
-			return Resources.getInstance(Locale.ENGLISH).getString(_reason);
+			return Simulation.logText(_reason);
 		}
 	}
 

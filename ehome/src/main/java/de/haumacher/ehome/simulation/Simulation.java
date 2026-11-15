@@ -22,6 +22,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.LongSupplier;
 
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResourcesModule;
+import com.top_logic.util.Resources;
+
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.monitor.BusLink;
 import de.haumacher.ehome.monitor.BusTelegram;
@@ -1133,17 +1137,18 @@ public final class Simulation implements AutoCloseable {
 	 * also for the value it has already. Before {@link #start()} the device only takes the value and
 	 * reports it when the controller reads it at the start.
 	 *
-	 * @return <code>null</code>, or why the value is refused (also written to the timeline).
+	 * @return <code>null</code>, or why the value is refused, a sentence in the language of the reader
+	 *         (haumacher/ehome #173); the timeline reads it in English ({@link #logText(ResKey)}).
 	 */
-	public synchronized String zigbeeReport(String datapoint, Val value) {
+	public synchronized ResKey zigbeeReport(String datapoint, Val value) {
 		if (_closed) {
 			throw new IllegalStateException("The simulation does not run.");
 		}
-		String refusal = _zigbee.report(datapoint, value, _started);
+		ResKey refusal = _zigbee.report(datapoint, value, _started);
 		if (refusal != null) {
 			VirtualZigbee.Point point = _zigbee.point(datapoint);
-			problem(point == null ? datapoint : point.source(),
-				"report " + Values.format(value) + " of '" + _names.datapoint(datapoint) + "' refused: " + refusal);
+			problem(point == null ? datapoint : point.source(), "report " + Values.format(value) + " of '"
+				+ _names.datapoint(datapoint) + "' refused: " + logText(refusal));
 			return refusal;
 		}
 		if (_started) {
@@ -1364,6 +1369,18 @@ public final class Simulation implements AutoCloseable {
 	 */
 	public TimeMaster timeMaster() {
 		return _timeMaster;
+	}
+
+	/**
+	 * A reason (a sentence of the application's resources) as the timeline writes it: in English, as
+	 * the timeline's own texts; the key itself where the resources of the application are not
+	 * active (a unit test of the simulation without them).
+	 */
+	public static String logText(ResKey reason) {
+		if (!ResourcesModule.Module.INSTANCE.isActive()) {
+			return reason.toString();
+		}
+		return Resources.getInstance(Locale.ENGLISH).getString(reason);
 	}
 
 	private void problem(String source, String text) {
