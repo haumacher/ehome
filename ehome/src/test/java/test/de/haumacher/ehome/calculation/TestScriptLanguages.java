@@ -4,11 +4,18 @@
 package test.de.haumacher.ehome.calculation;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
+
+import test.com.top_logic.basic.ModuleTestSetup;
+import test.com.top_logic.basic.module.ServiceTestSetup;
+
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResourcesModule;
 
 import de.haumacher.ehome.calculation.CalculationException;
 import de.haumacher.ehome.calculation.JavaScriptLanguage;
@@ -88,13 +95,13 @@ public class TestScriptLanguages extends TestCase {
 			VB.run(null, "b = a + 1", vars("b", 0.0));
 			fail("Unbound name.");
 		} catch (CalculationException ex) {
-			assertContains("'a'", ex.getMessage());
+			assertContains("'a'", text(ex.getReason()));
 		}
 		try {
 			VB.run(null, "b = 1 \\ 0", vars("b", 0.0));
 			fail("Division by zero.");
 		} catch (CalculationException ex) {
-			assertContains("division by zero", ex.getMessage());
+			assertContains("Division by zero", text(ex.getReason()));
 		}
 	}
 
@@ -174,7 +181,7 @@ public class TestScriptLanguages extends TestCase {
 			JS.validate(library, "kaputt", vars("x", 1.0), "x", 0.0, null);
 			fail("A script error was not refused.");
 		} catch (CalculationException ex) {
-			assertContains("kaputt", ex.getMessage());
+			assertContains("kaputt", text(ex.getReason()));
 		}
 		assertContains("nichtda", JS.checkValidation(library, "nichtda"));
 		assertNotNull("A syntax error of the script.", JS.checkValidation("function f( {", "f"));
@@ -210,7 +217,7 @@ public class TestScriptLanguages extends TestCase {
 			VB.validate(library, "Falsch", vars("Wert", 1.0), "Wert", 0.0, null);
 			fail("A member the object does not have.");
 		} catch (CalculationException ex) {
-			assertContains("Fehlt", ex.getMessage());
+			assertContains("Fehlt", text(ex.getReason()));
 		}
 		// A member is read, never assigned.
 		assertContains("'.'", VB.check(null, "output.x = 1"));
@@ -223,7 +230,7 @@ public class TestScriptLanguages extends TestCase {
 			fail("Not refused: " + code);
 			return null;
 		} catch (CalculationException ex) {
-			return ex.getMessage();
+			return text(ex.getReason());
 		}
 	}
 
@@ -256,7 +263,7 @@ public class TestScriptLanguages extends TestCase {
 			JS.run(null, "while (true) {}", vars("x", 0.0));
 			fail("Endless loop not stopped.");
 		} catch (CalculationException ex) {
-			assertContains("stopped", ex.getMessage());
+			assertContains("Stopped", text(ex.getReason()));
 		}
 		assertTrue(System.currentTimeMillis() - start < JavaScriptLanguage.TIME_LIMIT_MS + 1000);
 		try {
@@ -269,7 +276,7 @@ public class TestScriptLanguages extends TestCase {
 			JS.run(null, "try { while (true) {} } catch (e) {} x = 1;", vars("x", 0.0));
 			fail("The limit was caught by the script.");
 		} catch (CalculationException ex) {
-			assertContains("stopped", ex.getMessage());
+			assertContains("Stopped", text(ex.getReason()));
 		}
 	}
 
@@ -285,13 +292,26 @@ public class TestScriptLanguages extends TestCase {
 		return result;
 	}
 
+	private static void assertContains(String part, ResKey reason) {
+		assertNotNull("Expected a reason containing " + part, reason);
+		assertContains(part, text(reason));
+	}
+
+	/**
+	 * The given reason in English.
+	 */
+	private static String text(ResKey reason) {
+		return ResourcesModule.getInstance().getBundle(Locale.ENGLISH).getString(reason);
+	}
+
 	private static void assertContains(String part, String text) {
 		assertNotNull("Expected a text containing " + part, text);
 		assertTrue(text, text.contains(part));
 	}
 
 	public static Test suite() {
-		return new TestSuite(TestScriptLanguages.class);
+		return ModuleTestSetup.setupModule(
+			ServiceTestSetup.createSetup(new TestSuite(TestScriptLanguages.class), ResourcesModule.Module.INSTANCE));
 	}
 
 }

@@ -249,7 +249,7 @@ public class TestParameterCalculations extends BasicTestCase {
 		String error = refused(device, C + "P-7_R-1", 7);
 		assertTrue(error, error.contains("kaputt") && error.contains(C + "PC-3"));
 		String loop = refused(device, C + "P-7_R-1", 9);
-		assertTrue(loop, loop.contains("stopped") && loop.contains(C + "PC-3"));
+		assertTrue(loop, loop.contains("Stopped") && loop.contains(C + "PC-3"));
 		String range = refused(device, C + "P-7_R-1", 10);
 		assertTrue(range, range.contains("300") && range.contains("FehlerR"));
 		// Nothing changed.

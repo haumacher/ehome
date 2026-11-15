@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import com.top_logic.basic.util.ResKey;
+
 /**
  * The scripts of parameter calculations in VBScript (ETS: <code>Language="VBScript"</code>),
  * evaluated by an interpreter of a subset of the language, without an engine and without access to
@@ -91,20 +93,19 @@ public final class VbScriptLanguage implements ScriptLanguage {
 	}
 
 	@Override
-	public String check(String library, String code) {
+	public ResKey check(String library, String code) {
 		try {
 			Program lib = library(library);
 			new Parser(code, lib.procedures().keySet()).parse();
 			return null;
 		} catch (CalculationException ex) {
-			return ex.getMessage();
+			return ex.getReason();
 		}
 	}
 
 	@Override
-	public String checkFunction(String library, String function) {
-		return "a function of the script as the transformation (" + function
-			+ ") assigns the members of an object, which E-Home's VBScript does not support";
+	public ResKey checkFunction(String library, String function) {
+		return I18NConstants.REASON_VB_TRANSFORMATION_FUNCTION__FUNCTION.fill(function);
 	}
 
 	@Override
@@ -114,20 +115,20 @@ public final class VbScriptLanguage implements ScriptLanguage {
 	}
 
 	@Override
-	public String checkValidation(String library, String function) {
+	public ResKey checkValidation(String library, String function) {
 		Program lib;
 		try {
 			lib = new Parser(library, Set.of()).parse();
 		} catch (CalculationException ex) {
-			return ex.getMessage();
+			return ex.getReason();
 		}
 		Procedure procedure = lib.procedures().get(key(function.trim()));
 		if (procedure == null || !procedure.function()) {
-			return "the script defines no Function " + function.trim();
+			return I18NConstants.REASON_VB_NO_FUNCTION__FUNCTION.fill(function.trim());
 		}
 		if (procedure.parameters().size() != 4) {
-			return "the Function " + function.trim() + " takes " + procedure.parameters().size()
-				+ " arguments instead of the 4 of a validation (input, changed, prevValue, context)";
+			return I18NConstants.REASON_VB_VALIDATION_ARGUMENTS__FUNCTION_COUNT.fill(function.trim(),
+				Integer.valueOf(procedure.parameters().size()));
 		}
 		return null;
 	}
@@ -135,7 +136,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 	@Override
 	public String validate(String library, String function, Map<String, Object> input, String changed,
 			Object previous, String parameters) throws CalculationException {
-		String problem = checkValidation(library, function);
+		ResKey problem = checkValidation(library, function);
 		if (problem != null) {
 			throw new CalculationException(problem);
 		}
@@ -153,7 +154,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 			return text;
 		}
 		if (result instanceof Map<?, ?> || result instanceof List<?>) {
-			throw new CalculationException("the Function " + function.trim() + " answers an object");
+			throw new CalculationException(I18NConstants.REASON_VB_ANSWERS_OBJECT__FUNCTION.fill(function.trim()));
 		}
 		return truth(result) ? null : "";
 	}
@@ -192,6 +193,13 @@ public final class VbScriptLanguage implements ScriptLanguage {
 		} catch (CalculationException ex) {
 			return new Program(List.of(), Map.of());
 		}
+	}
+
+	/**
+	 * The number of a line as the reasons name it: its digits, without the grouping of a number.
+	 */
+	private static String nr(int line) {
+		return Integer.toString(line);
 	}
 
 	private static String key(String name) {
@@ -288,7 +296,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 				}
 				String digits = text.substring(start, text.charAt(pos - 1) == '&' ? pos - 1 : pos);
 				if (digits.isEmpty()) {
-					throw new CalculationException("hexadecimal number without digits (line " + line + ")");
+					throw new CalculationException(I18NConstants.REASON_VB_HEX_WITHOUT_DIGITS__LINE.fill(nr(line)));
 				}
 				result.add(new Token(Kind.NUMBER, text.substring(start - 2, pos),
 					Double.valueOf(Long.parseLong(digits, 16)), line));
@@ -297,7 +305,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 				pos++;
 				while (true) {
 					if (pos >= length || text.charAt(pos) == '\n') {
-						throw new CalculationException("unterminated text (line " + line + ")");
+						throw new CalculationException(I18NConstants.REASON_VB_UNTERMINATED_TEXT__LINE.fill(nr(line)));
 					}
 					char d = text.charAt(pos++);
 					if (d == '"') {
@@ -335,7 +343,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 					}
 				}
 				if (operator == null) {
-					throw new CalculationException("unsupported character '" + c + "' (line " + line + ")");
+					throw new CalculationException(I18NConstants.REASON_VB_UNSUPPORTED_CHARACTER__CHARACTER_LINE.fill(String.valueOf(c), nr(line)));
 				}
 				pos += operator.length();
 				result.add(new Token(Kind.OPERATOR, operator, null, line));
@@ -475,7 +483,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 		public Object eval(Env env) throws CalculationException {
 			Object result = env.get(key(name));
 			if (result == null) {
-				throw new CalculationException("the name '" + name + "' has no value (line " + line + ")");
+				throw new CalculationException(I18NConstants.REASON_VB_NO_VALUE__NAME_LINE.fill(name, nr(line)));
 			}
 			return result;
 		}
@@ -487,18 +495,18 @@ public final class VbScriptLanguage implements ScriptLanguage {
 		public Object eval(Env env) throws CalculationException {
 			Object value = object.eval(env);
 			if (!(value instanceof Map<?, ?> members)) {
-				throw new CalculationException("'" + text(value) + "' is no object, it has no member '" + name
-					+ "' (line " + line + ")");
+				throw new CalculationException(
+					I18NConstants.REASON_VB_NO_OBJECT__VALUE_MEMBER_LINE.fill(text(value), name, nr(line)));
 			}
 			for (Map.Entry<?, ?> entry : members.entrySet()) {
 				if (String.valueOf(entry.getKey()).equalsIgnoreCase(name)) {
 					if (entry.getValue() == null) {
-						throw new CalculationException("the member '" + name + "' has no value (line " + line + ")");
+						throw new CalculationException(I18NConstants.REASON_VB_MEMBER_NO_VALUE__MEMBER_LINE.fill(name, nr(line)));
 					}
 					return entry.getValue();
 				}
 			}
-			throw new CalculationException("the object has no member '" + name + "' (line " + line + ")");
+			throw new CalculationException(I18NConstants.REASON_VB_NO_MEMBER__MEMBER_LINE.fill(name, nr(line)));
 		}
 	}
 
@@ -508,13 +516,13 @@ public final class VbScriptLanguage implements ScriptLanguage {
 		public Object eval(Env env) throws CalculationException {
 			Procedure procedure = env.procedures().get(key(name));
 			if (procedure == null) {
-				throw new CalculationException("unknown procedure '" + name + "' (line " + line + ")");
+				throw new CalculationException(I18NConstants.REASON_VB_UNKNOWN_PROCEDURE__NAME_LINE.fill(name, nr(line)));
 			}
 			if (procedure.parameters().size() != arguments.size()) {
-				throw new CalculationException("wrong number of arguments of '" + name + "' (line " + line + ")");
+				throw new CalculationException(I18NConstants.REASON_VB_ARGUMENT_COUNT__NAME_LINE.fill(name, nr(line)));
 			}
 			if (env.depth() >= MAX_DEPTH) {
-				throw new CalculationException("calls nest deeper than " + MAX_DEPTH + " (line " + line + ")");
+				throw new CalculationException(I18NConstants.REASON_VB_TOO_DEEP__DEPTH_LINE.fill(Integer.valueOf(MAX_DEPTH), nr(line)));
 			}
 			Map<String, Object> locals = new HashMap<>();
 			for (int n = 0; n < arguments.size(); n++) {
@@ -566,21 +574,21 @@ public final class VbScriptLanguage implements ScriptLanguage {
 				case "/": {
 					double divisor = number(b, line);
 					if (divisor == 0) {
-						throw new CalculationException("division by zero (line " + line + ")");
+						throw new CalculationException(I18NConstants.REASON_VB_DIVISION_BY_ZERO__LINE.fill(nr(line)));
 					}
 					return Double.valueOf(number(a, line) / divisor);
 				}
 				case "\\": {
 					long divisor = whole(b, line);
 					if (divisor == 0) {
-						throw new CalculationException("division by zero (line " + line + ")");
+						throw new CalculationException(I18NConstants.REASON_VB_DIVISION_BY_ZERO__LINE.fill(nr(line)));
 					}
 					return Double.valueOf(whole(a, line) / divisor);
 				}
 				case "mod": {
 					long divisor = whole(b, line);
 					if (divisor == 0) {
-						throw new CalculationException("division by zero (line " + line + ")");
+						throw new CalculationException(I18NConstants.REASON_VB_DIVISION_BY_ZERO__LINE.fill(nr(line)));
 					}
 					return Double.valueOf(whole(a, line) % divisor);
 				}
@@ -634,7 +642,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 					return Double.valueOf(Math.signum(x));
 				case "sqr":
 					if (x < 0) {
-						throw new CalculationException("Sqr of a negative number (line " + line + ")");
+						throw new CalculationException(I18NConstants.REASON_VB_SQR_NEGATIVE__LINE.fill(nr(line)));
 					}
 					return Double.valueOf(Math.sqrt(x));
 				case "round": {
@@ -662,7 +670,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 		try {
 			return Double.parseDouble(text);
 		} catch (NumberFormatException ex) {
-			throw new CalculationException("'" + text + "' is no number (line " + line + ")");
+			throw new CalculationException(I18NConstants.REASON_VB_NO_NUMBER__TEXT_LINE.fill(text, nr(line)));
 		}
 	}
 
@@ -908,7 +916,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 					}
 					return new Conditional(branches, otherwise);
 				} else {
-					throw new CalculationException("If without End If (line " + start.line() + ")");
+					throw new CalculationException(I18NConstants.REASON_VB_IF_WITHOUT_END__LINE.fill(nr(start.line())));
 				}
 			}
 		}
@@ -1034,7 +1042,7 @@ public final class VbScriptLanguage implements ScriptLanguage {
 						String function = token.text().toLowerCase(Locale.ROOT);
 						if (!FUNCTIONS.contains(function)) {
 							throw new CalculationException(
-								"unsupported function '" + token.text() + "' (line " + token.line() + ")");
+								I18NConstants.REASON_VB_UNSUPPORTED_FUNCTION__NAME_LINE.fill(token.text(), nr(token.line())));
 						}
 						_pos++;
 						List<Expression> arguments = new ArrayList<>();
@@ -1049,8 +1057,8 @@ public final class VbScriptLanguage implements ScriptLanguage {
 						}
 						int max = function.equals("round") ? 2 : 1;
 						if (arguments.isEmpty() || arguments.size() > max) {
-							throw new CalculationException("wrong number of arguments of '" + token.text() + "' (line "
-								+ token.line() + ")");
+							throw new CalculationException(
+								I18NConstants.REASON_VB_ARGUMENT_COUNT__NAME_LINE.fill(token.text(), nr(token.line())));
 						}
 						return new Call(function, arguments, token.line());
 					}
@@ -1096,18 +1104,18 @@ public final class VbScriptLanguage implements ScriptLanguage {
 
 		private static CalculationException unsupported(Token token) {
 			if (token.kind() == Kind.END) {
-				return new CalculationException("unexpected end of the script (line " + token.line() + ")");
+				return new CalculationException(I18NConstants.REASON_VB_END_OF_SCRIPT__LINE.fill(nr(token.line())));
 			}
 			if (token.kind() == Kind.NEWLINE || token.kind() == Kind.COLON) {
-				return new CalculationException("unexpected end of the statement (line " + token.line() + ")");
+				return new CalculationException(I18NConstants.REASON_VB_END_OF_STATEMENT__LINE.fill(nr(token.line())));
 			}
 			return new CalculationException(
-				"unsupported construct '" + token.text() + "' (line " + token.line() + ")");
+				I18NConstants.REASON_VB_UNSUPPORTED_CONSTRUCT__TOKEN_LINE.fill(token.text(), nr(token.line())));
 		}
 
 		private static CalculationException expected(String what, Token token) {
 			return new CalculationException(
-				what + " expected instead of '" + token.text() + "' (line " + token.line() + ")");
+				I18NConstants.REASON_VB_EXPECTED__WHAT_TOKEN_LINE.fill(what, token.text(), nr(token.line())));
 		}
 	}
 

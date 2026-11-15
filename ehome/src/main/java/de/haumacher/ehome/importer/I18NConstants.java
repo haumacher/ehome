@@ -157,7 +157,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 WARN_UNRESOLVED_PROGRAM_PARTS__DEVICE_SETTINGS_OBJECTS;
 
 	/**
-	 * @en Program {0}: E-Home cannot evaluate the parameter calculation {1} ({2}). Its parameters cannot be changed in E-Home; the devices keep the values of the project file.
+	 * @en Program {0}: E-Home cannot evaluate the parameter calculation {1}: {2} Its parameters cannot be changed in E-Home; the devices keep the values of the project file.
 	 */
 	public static ResKey3 WARN_CALCULATION_NOT_EVALUATED__PROGRAM_CALCULATION_PROBLEM;
 
@@ -192,12 +192,12 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 WARN_BUTTONS_NOT_COMPLETED__PROGRAM;
 
 	/**
-	 * @en Program {0}: E-Home cannot evaluate the parameter validation {1} ({2}). Its parameters cannot be changed in E-Home; the devices keep the values of the project file.
+	 * @en Program {0}: E-Home cannot evaluate the parameter validation {1}: {2} Its parameters cannot be changed in E-Home; the devices keep the values of the project file.
 	 */
 	public static ResKey3 WARN_VALIDATION_NOT_EVALUATED__PROGRAM_VALIDATION_PROBLEM;
 
 	/**
-	 * @en Program {0}: E-Home cannot run the button {1} of the parameter dialog: {2}. It is shown disabled with the reason.
+	 * @en Program {0}: E-Home cannot run the button {1} of the parameter dialog: {2} It is shown disabled with the reason.
 	 */
 	public static ResKey3 WARN_BUTTON_NOT_RUN__PROGRAM_BUTTON_PROBLEM;
 

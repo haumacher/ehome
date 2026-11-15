@@ -9,12 +9,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
-import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ParameterValues;
@@ -61,7 +61,7 @@ import de.haumacher.ehome.programming.DeviceSettings;
  */
 public final class DeviceButtons {
 
-	private static final Map<String, String> PROBLEMS = new ConcurrentHashMap<>();
+	private static final Map<String, Optional<ResKey>> PROBLEMS = new ConcurrentHashMap<>();
 
 	private DeviceButtons() {
 		// Static only.
@@ -86,18 +86,17 @@ public final class DeviceButtons {
 	/**
 	 * Why E-Home cannot run the handler of the given button (it names no handler, the script defines no
 	 * such function or is not JavaScript, the handler uses a member E-Home does not provide or talks to
-	 * the device), as a person reads it; <code>null</code> if it can.
+	 * the device), as a sentence a person reads in the language of the user; <code>null</code> if it can.
 	 */
-	public static String problem(Button button) {
+	public static ResKey problem(Button button) {
 		Button template = ModuleParts.template(button);
 		String handler = template.getHandler();
 		if (handler == null || handler.isBlank()) {
-			return "the button names no handler";
+			return I18NConstants.REASON_NO_HANDLER;
 		}
 		String library = library(template);
-		String result = PROBLEMS.computeIfAbsent(library + "\u0000" + handler,
-			key -> Objects.toString(JavaScriptLanguage.INSTANCE.checkHandler(library, handler), ""));
-		return result.isEmpty() ? null : result;
+		return PROBLEMS.computeIfAbsent(library + "\u0000" + handler,
+			key -> Optional.ofNullable(JavaScriptLanguage.INSTANCE.checkHandler(library, handler))).orElse(null);
 	}
 
 	/**
@@ -134,16 +133,16 @@ public final class DeviceButtons {
 	}
 
 	/**
-	 * The text of the given button as messages name it: its text and ID.
+	 * The text of the given button as messages name it: its text (in the language of the reader) and
+	 * ID.
 	 */
-	public static String label(Button button) {
+	public static ResKey label(Button button) {
 		ResKey text = button.getText();
 		String id = ModuleParts.template(button).getExtId();
-		String shown = text == null ? null : Resources.getInstance().getString(text);
-		if (shown == null || shown.isBlank()) {
-			return Objects.toString(id, "?");
+		if (text == null) {
+			return ResKey.text(Objects.toString(id, "?"));
 		}
-		return id == null ? shown : shown + " (" + id + ")";
+		return id == null ? text : I18NConstants.LABEL__TEXT_ID.fill(text, id);
 	}
 
 	/**
@@ -155,7 +154,7 @@ public final class DeviceButtons {
 		if (denied != null) {
 			return denied;
 		}
-		String problem = problem(button);
+		ResKey problem = problem(button);
 		if (problem != null) {
 			return I18NConstants.ERROR_CANNOT_RUN__BUTTON_PROBLEM.fill(label(button), problem);
 		}
@@ -200,7 +199,7 @@ public final class DeviceButtons {
 			JavaScriptLanguage.INSTANCE.handle(library(template), template.getHandler(), access,
 				shown.getHandlerParameters());
 		} catch (CalculationException ex) {
-			throw new TopLogicException(I18NConstants.ERROR_FAILED__BUTTON_PROBLEM.fill(label(shown), ex.getMessage()));
+			throw new TopLogicException(I18NConstants.ERROR_FAILED__BUTTON_PROBLEM.fill(label(shown), ex.getReason()));
 		}
 		for (Map.Entry<ParameterView, Object> write : access._writes.entrySet()) {
 			ParameterView view = write.getKey();
@@ -310,7 +309,7 @@ public final class DeviceButtons {
 					return (ParameterView) ModuleParts.wrap(template, current);
 				}
 			}
-			throw new CalculationException("the parameter " + key + " belongs to another module than the button");
+			throw new CalculationException(I18NConstants.REASON_OTHER_MODULE__KEY.fill(key));
 		}
 
 		private Map<String, ParameterView> index() {

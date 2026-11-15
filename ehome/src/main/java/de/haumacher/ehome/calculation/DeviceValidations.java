@@ -60,14 +60,22 @@ import de.haumacher.ehome.programming.DeviceSettings;
  */
 public final class DeviceValidations {
 
-	private static final Map<String, String> PROBLEMS = new ConcurrentHashMap<>();
-
-	private static final String JAVASCRIPT = "JavaScript";
-
-	private static final String VBSCRIPT = "VBScript";
+	private static final Map<String, Verdict> VERDICTS = new ConcurrentHashMap<>();
 
 	private DeviceValidations() {
 		// Static only.
+	}
+
+	/**
+	 * The language a validation's function is called in, or why E-Home cannot evaluate it.
+	 *
+	 * @param language
+	 *        The language, <code>null</code> if E-Home cannot evaluate the validation.
+	 * @param problem
+	 *        Why E-Home cannot evaluate it, <code>null</code> if it can.
+	 */
+	private record Verdict(ScriptLanguage language, ResKey problem) {
+		// A pair.
 	}
 
 	/**
@@ -121,48 +129,40 @@ public final class DeviceValidations {
 	 * evaluate it ({@link #problem(ParameterValidation)}).
 	 */
 	public static ScriptLanguage language(ParameterValidation validation) {
-		String verdict = verdict(validation);
-		switch (verdict) {
-			case JAVASCRIPT:
-				return JavaScriptLanguage.INSTANCE;
-			case VBSCRIPT:
-				return VbScriptLanguage.INSTANCE;
-			default:
-				return null;
-		}
+		return verdict(validation).language();
 	}
 
 	/**
 	 * Why E-Home cannot evaluate the given validation (it names no function, the script defines no such
-	 * function, the script is neither JavaScript nor of the VBScript subset), as a person reads it;
-	 * <code>null</code> if it can.
+	 * function, the script is neither JavaScript nor of the VBScript subset), as a sentence a person
+	 * reads in the language of the user; <code>null</code> if it can.
 	 */
-	public static String problem(ParameterValidation validation) {
-		String verdict = verdict(validation);
-		return JAVASCRIPT.equals(verdict) || VBSCRIPT.equals(verdict) ? null : verdict;
+	public static ResKey problem(ParameterValidation validation) {
+		return verdict(validation).problem();
 	}
 
 	/**
 	 * The language of the given validation's function, or why it cannot be evaluated.
 	 */
-	private static String verdict(ParameterValidation validation) {
+	private static Verdict verdict(ParameterValidation validation) {
 		String function = validation.getFunction();
 		if (function == null || function.isBlank()) {
-			return "the validation names no function";
+			return new Verdict(null, I18NConstants.REASON_NO_VALIDATION_FUNCTION);
 		}
 		String library = library(validation);
-		return PROBLEMS.computeIfAbsent(library + "\u0000" + function, key -> {
-			String javaScript = JavaScriptLanguage.INSTANCE.checkValidation(library, function);
+		return VERDICTS.computeIfAbsent(library + "\u0000" + function, key -> {
+			ResKey javaScript = JavaScriptLanguage.INSTANCE.checkValidation(library, function);
 			if (javaScript == null) {
-				return JAVASCRIPT;
+				return new Verdict(JavaScriptLanguage.INSTANCE, null);
 			}
-			String vbScript = VbScriptLanguage.INSTANCE.checkValidation(library, function);
+			ResKey vbScript = VbScriptLanguage.INSTANCE.checkValidation(library, function);
 			if (vbScript == null) {
-				return VBSCRIPT;
+				return new Verdict(VbScriptLanguage.INSTANCE, null);
 			}
 			// The reason in the language the script is written in.
 			boolean basic = library != null && library.toLowerCase(Locale.ROOT).contains("end function");
-			return basic ? VBSCRIPT + ": " + vbScript : JAVASCRIPT + ": " + javaScript;
+			return new Verdict(null, basic ? I18NConstants.REASON_IN__PART_PROBLEM.fill("VBScript", vbScript)
+				: I18NConstants.REASON_IN__PART_PROBLEM.fill("JavaScript", javaScript));
 		});
 	}
 
@@ -230,7 +230,7 @@ public final class DeviceValidations {
 		}
 		for (Bound bound : inEffect(configuration)) {
 			if (bound.parameter(view) != null) {
-				String problem = problem(bound.validation());
+				ResKey problem = problem(bound.validation());
 				if (problem != null) {
 					return I18NConstants.ERROR_NOT_EVALUATED__PARAMETER_VALIDATION_PROBLEM.fill(view,
 						label(bound.validation()), problem);
@@ -266,7 +266,7 @@ public final class DeviceValidations {
 				answer = evaluate(device, bound, changed, DeviceCalculations.scriptValue(previous));
 			} catch (CalculationException ex) {
 				throw new TopLogicException(
-					I18NConstants.ERROR_FAILED__VALIDATION_PROBLEM.fill(label(validation), ex.getMessage()));
+					I18NConstants.ERROR_FAILED__VALIDATION_PROBLEM.fill(label(validation), ex.getReason()));
 			}
 			if (answer != null) {
 				throw new TopLogicException(answer.isBlank()
@@ -303,7 +303,7 @@ public final class DeviceValidations {
 						: I18NConstants.IMPORT_REFUSED__VALIDATION_MESSAGE.fill(label(validation), answer));
 				}
 			} catch (CalculationException ex) {
-				result.add(I18NConstants.IMPORT_FAILED__VALIDATION_PROBLEM.fill(label(validation), ex.getMessage()));
+				result.add(I18NConstants.IMPORT_FAILED__VALIDATION_PROBLEM.fill(label(validation), ex.getReason()));
 			} catch (TopLogicException ex) {
 				result.add(ex.getErrorKey());
 			}

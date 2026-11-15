@@ -84,7 +84,7 @@
 		/>
 		<!-- Why E-Home cannot run the handler of the selected button (haumacher/ehome #158). -->
 		<derived-channel name="selectedButtonProblem"
-			expr="if($selected.instanceOf(`ehome.operational:Button`) and buttonProblem($selected) != null, #('E-Home cannot run the handler of this button: {0}.'@en, 'E-Home kann die Funktion dieser Schaltfläche nicht ausführen: {0}.'@de).fill(buttonProblem($selected)).localize(), null)"
+			expr="if($selected.instanceOf(`ehome.operational:Button`) and buttonProblem($selected) != null, #('E-Home cannot run the handler of this button: {0}'@en, 'E-Home kann die Funktion dieser Schaltfläche nicht ausführen: {0}'@de).fill(buttonProblem($selected)).localize(), null)"
 			inputs="selected"
 			observed-types="ehome.operational:Option,ehome.operational:Program"
 		/>

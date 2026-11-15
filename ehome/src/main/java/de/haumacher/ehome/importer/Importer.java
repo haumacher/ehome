@@ -1171,13 +1171,13 @@ public class Importer {
 		programs.remove(null);
 		for (Program program : programs) {
 			for (ParameterCalculation calculation : DeviceCalculations.all(program)) {
-				String problem = DeviceCalculations.problem(calculation);
+				ResKey problem = DeviceCalculations.problem(calculation);
 				if (problem == null) {
 					for (List<? extends CalculationParameter> side : List.of(calculation.getInputs(),
 						calculation.getOutputs())) {
 						for (CalculationParameter parameter : side) {
 							if (parameter.getParameter() == null || DeviceCalculations.variable(parameter) == null) {
-								problem = "a parameter of the calculation was not found";
+								problem = de.haumacher.ehome.calculation.I18NConstants.REASON_CALCULATION_PARAMETER_NOT_FOUND;
 							}
 						}
 					}
@@ -1214,11 +1214,11 @@ public class Importer {
 		programs.remove(null);
 		for (Program program : programs) {
 			for (ParameterValidation validation : DeviceValidations.all(program)) {
-				String problem = DeviceValidations.problem(validation);
+				ResKey problem = DeviceValidations.problem(validation);
 				if (problem == null) {
 					for (CalculationParameter parameter : validation.getParameters()) {
 						if (parameter.getParameter() == null || DeviceCalculations.variable(parameter) == null) {
-							problem = "a parameter of the validation was not found";
+							problem = de.haumacher.ehome.calculation.I18NConstants.REASON_VALIDATION_PARAMETER_NOT_FOUND;
 						}
 					}
 				}
@@ -1254,7 +1254,7 @@ public class Importer {
 	 */
 	private void reportButtons(List<Button> buttons) {
 		for (Button button : buttons) {
-			String problem = DeviceButtons.problem(button);
+			ResKey problem = DeviceButtons.problem(button);
 			if (problem != null) {
 				Program program = ModuleParts.programOf(button);
 				_messages.log(Level.WARN, I18NConstants.WARN_BUTTON_NOT_RUN__PROGRAM_BUTTON_PROBLEM.fill(

@@ -76,7 +76,7 @@ public final class DeviceCalculations {
 	/** The most calculations one change may run (calculations feeding each other). */
 	private static final int MAX_RUNS = 100;
 
-	private static final Map<String, String> PROBLEMS = new java.util.concurrent.ConcurrentHashMap<>();
+	private static final Map<String, java.util.Optional<ResKey>> PROBLEMS = new java.util.concurrent.ConcurrentHashMap<>();
 
 	private DeviceCalculations() {
 		// Static only.
@@ -135,32 +135,33 @@ public final class DeviceCalculations {
 
 	/**
 	 * Why E-Home cannot evaluate the given calculation (a language it does not support, a construct of
-	 * a script the interpreter does not support, a syntax error), as a person reads it;
-	 * <code>null</code> if it can.
+	 * a script the interpreter does not support, a syntax error), as a sentence a person reads in the
+	 * language of the user; <code>null</code> if it can.
 	 */
-	public static String problem(ParameterCalculation calculation) {
+	public static ResKey problem(ParameterCalculation calculation) {
 		String languageName = calculation.getLanguage();
 		ScriptLanguage language = language(languageName);
 		if (language == null) {
-			return "the language " + (languageName == null ? "(none)" : languageName) + " is not supported";
+			return languageName == null || languageName.isBlank() ? I18NConstants.REASON_NO_LANGUAGE
+				: I18NConstants.REASON_LANGUAGE_NOT_SUPPORTED__LANGUAGE.fill(languageName);
 		}
 		String library = library(calculation);
 		for (boolean lr : new boolean[] { true, false }) {
 			String code = lr ? calculation.getLrCode() : calculation.getRlCode();
 			String function = lr ? calculation.getLrFunction() : calculation.getRlFunction();
-			String problem;
+			ResKey problem;
 			if (code != null && !code.isBlank()) {
 				problem = PROBLEMS.computeIfAbsent(languageName + "\u0000" + library + "\u0000" + code,
-					key -> Objects.toString(language.check(library, code), ""));
+					key -> java.util.Optional.ofNullable(language.check(library, code))).orElse(null);
 			} else if (function != null && !function.isBlank()) {
 				problem = PROBLEMS.computeIfAbsent(languageName + "\u0001" + library + "\u0000" + function,
-					key -> Objects.toString(language.checkFunction(library, function), ""));
+					key -> java.util.Optional.ofNullable(language.checkFunction(library, function))).orElse(null);
 			} else {
 				// No transformation in this direction: nothing to compute.
-				problem = "";
+				problem = null;
 			}
-			if (!problem.isEmpty()) {
-				return (lr ? "LR" : "RL") + ": " + problem;
+			if (problem != null) {
+				return I18NConstants.REASON_IN__PART_PROBLEM.fill(lr ? "LR" : "RL", problem);
 			}
 		}
 		return null;
@@ -239,7 +240,7 @@ public final class DeviceCalculations {
 		for (Bound bound : inEffect(configuration)) {
 			ParameterCalculation calculation = bound.calculation();
 			if (bound.has(calculation.getInputs(), view) || bound.has(calculation.getOutputs(), view)) {
-				String problem = problem(calculation);
+				ResKey problem = problem(calculation);
 				if (problem != null) {
 					return I18NConstants.ERROR_NOT_EVALUATED__PARAMETER_CALCULATION_PROBLEM.fill(view,
 						label(calculation), problem);
@@ -379,7 +380,7 @@ public final class DeviceCalculations {
 		}
 		List<ParameterView> inputs = new ArrayList<>();
 		for (Bound bound : inEffect(new DeviceConfiguration(device))) {
-			String problem = problem(bound.calculation());
+			ResKey problem = problem(bound.calculation());
 			if (problem != null) {
 				throw new TopLogicException(I18NConstants.ERROR_CANNOT_COMPUTE__CALCULATION_PROBLEM.fill(
 					label(bound.calculation()), problem));
@@ -445,7 +446,7 @@ public final class DeviceCalculations {
 	 */
 	public static Map<ParameterView, Object> evaluate(TLObject device, Bound bound, boolean lr) {
 		ParameterCalculation calculation = bound.calculation();
-		String problem = problem(calculation);
+		ResKey problem = problem(calculation);
 		if (problem != null) {
 			throw new TopLogicException(I18NConstants.ERROR_CANNOT_COMPUTE__CALCULATION_PROBLEM.fill(
 				label(calculation), problem));
@@ -492,7 +493,7 @@ public final class DeviceCalculations {
 			}
 		} catch (CalculationException ex) {
 			throw new TopLogicException(I18NConstants.ERROR_FAILED__CALCULATION_DIRECTION_PROBLEM.fill(
-				label(calculation), lr ? "LR" : "RL", ex.getMessage()));
+				label(calculation), lr ? "LR" : "RL", ex.getReason()));
 		}
 		Map<ParameterView, Object> result = new HashMap<>();
 		for (Map.Entry<String, ParameterView> target : targets.entrySet()) {

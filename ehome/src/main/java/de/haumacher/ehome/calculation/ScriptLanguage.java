@@ -5,6 +5,8 @@ package de.haumacher.ehome.calculation;
 
 import java.util.Map;
 
+import com.top_logic.basic.util.ResKey;
+
 /**
  * A language the scripts of a parameter calculation are written in (ETS:
  * <code>ParameterCalculation@Language</code>).
@@ -32,18 +34,18 @@ public interface ScriptLanguage {
 
 	/**
 	 * Why the given inline code cannot be evaluated (a syntax error, a construct not supported, a
-	 * function neither the language nor the library defines), as a person reads it; <code>null</code>
-	 * if it can.
+	 * function neither the language nor the library defines), as a sentence a person reads in the
+	 * language of the user; <code>null</code> if it can.
 	 *
 	 * @param library
 	 *        The functions of the program, <code>null</code> for none.
 	 */
-	String check(String library, String code);
+	ResKey check(String library, String code);
 
 	/**
 	 * Why the function of the given name cannot be called, <code>null</code> if it can.
 	 */
-	String checkFunction(String library, String function);
+	ResKey checkFunction(String library, String function);
 
 	/**
 	 * Runs the given inline code.
@@ -83,7 +85,7 @@ public interface ScriptLanguage {
 	 * <code>ParameterValidation@ValidationFunc</code>, haumacher/ehome #124): the library is not of this
 	 * language (its syntax error), or it defines no such function; <code>null</code> if it can.
 	 */
-	String checkValidation(String library, String function);
+	ResKey checkValidation(String library, String function);
 
 	/**
 	 * Calls a function of the library as a validation:

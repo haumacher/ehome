@@ -30,6 +30,8 @@ import org.mozilla.javascript.ast.Name;
 import org.mozilla.javascript.ast.PropertyGet;
 import org.mozilla.javascript.json.JsonParser;
 
+import com.top_logic.basic.util.ResKey;
+
 /**
  * The scripts of parameter calculations in JavaScript (ETS: <code>Language="JavaScript"</code>),
  * evaluated by Mozilla Rhino in a sandbox.
@@ -99,7 +101,7 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 	}
 
 	@Override
-	public String check(String library, String code) {
+	public ResKey check(String library, String code) {
 		try (Context cx = FACTORY.enterContext()) {
 			cx.compileString(code == null ? "" : code, "calculation", 1, null);
 			return null;
@@ -109,18 +111,18 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 	}
 
 	@Override
-	public String checkFunction(String library, String function) {
+	public ResKey checkFunction(String library, String function) {
 		try (Context cx = FACTORY.enterContext()) {
 			start(cx);
 			ScriptableObject scope = scope(cx, library);
 			if (ScriptableObject.getProperty(scope, function.trim()) instanceof Function) {
 				return null;
 			}
-			return "the script defines no function " + function.trim();
+			return I18NConstants.REASON_NO_FUNCTION__FUNCTION.fill(function.trim());
 		} catch (RhinoException ex) {
 			return message(ex);
 		} catch (LimitExceeded ex) {
-			return ex.getMessage();
+			return ex.reason();
 		}
 	}
 
@@ -131,7 +133,7 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 			start(cx);
 			ScriptableObject scope = scope(cx, library);
 			if (!(ScriptableObject.getProperty(scope, function.trim()) instanceof Function callee)) {
-				throw new CalculationException("the script defines no function " + function.trim());
+				throw new CalculationException(I18NConstants.REASON_NO_FUNCTION__FUNCTION.fill(function.trim()));
 			}
 			Scriptable input = cx.newObject(scope);
 			for (Map.Entry<String, Object> entry : inputs.entrySet()) {
@@ -150,12 +152,12 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 		} catch (RhinoException ex) {
 			throw new CalculationException(message(ex));
 		} catch (LimitExceeded ex) {
-			throw new CalculationException(ex.getMessage());
+			throw new CalculationException(ex.reason());
 		}
 	}
 
 	@Override
-	public String checkValidation(String library, String function) {
+	public ResKey checkValidation(String library, String function) {
 		try (Context cx = FACTORY.enterContext()) {
 			start(cx);
 			if (library != null && !library.isBlank()) {
@@ -169,11 +171,11 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 			if (ScriptableObject.getProperty(scope, function.trim()) instanceof Function) {
 				return null;
 			}
-			return "the script defines no function " + function.trim();
+			return I18NConstants.REASON_NO_FUNCTION__FUNCTION.fill(function.trim());
 		} catch (RhinoException ex) {
 			return message(ex);
 		} catch (LimitExceeded ex) {
-			return ex.getMessage();
+			return ex.reason();
 		}
 	}
 
@@ -184,7 +186,7 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 			start(cx);
 			ScriptableObject scope = scope(cx, library);
 			if (!(ScriptableObject.getProperty(scope, function.trim()) instanceof Function callee)) {
-				throw new CalculationException("the script defines no function " + function.trim());
+				throw new CalculationException(I18NConstants.REASON_NO_FUNCTION__FUNCTION.fill(function.trim()));
 			}
 			Scriptable values = cx.newObject(scope);
 			for (Map.Entry<String, Object> entry : input.entrySet()) {
@@ -199,7 +201,7 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 		} catch (RhinoException ex) {
 			throw new CalculationException(message(ex));
 		} catch (LimitExceeded ex) {
-			throw new CalculationException(ex.getMessage());
+			throw new CalculationException(ex.reason());
 		}
 	}
 
@@ -234,9 +236,9 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 	 * when the handler runs.
 	 * </p>
 	 */
-	public String checkHandler(String library, String function) {
+	public ResKey checkHandler(String library, String function) {
 		if (library == null || library.isBlank()) {
-			return "the program has no script";
+			return I18NConstants.REASON_NO_SCRIPT;
 		}
 		String name = function.trim();
 		try (Context cx = FACTORY.enterContext()) {
@@ -244,16 +246,16 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 			try {
 				cx.compileString(library, "script", 1, null);
 			} catch (EvaluatorException ex) {
-				return "the script is not JavaScript: " + message(ex);
+				return I18NConstants.REASON_NOT_JAVASCRIPT__PROBLEM.fill(message(ex));
 			}
 			ScriptableObject scope = scope(cx, library);
 			if (!(ScriptableObject.getProperty(scope, name) instanceof Function)) {
-				return "the script defines no function " + name;
+				return I18NConstants.REASON_NO_FUNCTION__FUNCTION.fill(name);
 			}
 		} catch (RhinoException ex) {
 			return message(ex);
 		} catch (LimitExceeded ex) {
-			return ex.getMessage();
+			return ex.reason();
 		}
 		return unsupportedMember(library, name);
 	}
@@ -263,7 +265,7 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 	 * provide, as the reason a person reads; <code>null</code> if there is none (or the function is no
 	 * declaration of the script, whose text is then not checked).
 	 */
-	private static String unsupportedMember(String library, String function) {
+	private static ResKey unsupportedMember(String library, String function) {
 		CompilerEnvirons environment = new CompilerEnvirons();
 		environment.setLanguageVersion(Context.VERSION_ES6);
 		AstRoot root;
@@ -288,7 +290,7 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 		String device = param(params, 0);
 		String online = param(params, 1);
 		String progress = param(params, 2);
-		String[] result = new String[1];
+		ResKey[] result = new ResKey[1];
 		handler[0].getBody().visit(node -> {
 			if (result[0] != null || !(node instanceof PropertyGet access)) {
 				return result[0] == null;
@@ -298,19 +300,18 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 			if (target instanceof Name owner) {
 				String ownerName = owner.getIdentifier();
 				if (ownerName.equals(device) && !DEVICE_MEMBERS.contains(member)) {
-					result[0] = "the handler uses " + ownerName + "." + member + ", which E-Home does not provide";
+					result[0] = I18NConstants.REASON_USES__MEMBER.fill(ownerName + "." + member);
 				} else if (ownerName.equals(online)) {
-					result[0] = "the handler talks to the device (" + ownerName + "." + member
-						+ "), which E-Home does not do";
+					result[0] = I18NConstants.REASON_TALKS_TO_DEVICE__MEMBER.fill(ownerName + "." + member);
 				} else if (ownerName.equals(progress)) {
-					result[0] = "the handler uses " + ownerName + "." + member + ", which E-Home does not provide";
+					result[0] = I18NConstants.REASON_USES__MEMBER.fill(ownerName + "." + member);
 				}
 			} else if (target instanceof FunctionCall call && call.getTarget() instanceof PropertyGet lookup
 				&& lookup.getTarget() instanceof Name owner && owner.getIdentifier().equals(device)
 				&& DEVICE_MEMBERS.contains(lookup.getProperty().getIdentifier())
 				&& !PARAMETER_MEMBERS.contains(member)) {
-				result[0] = "the handler uses " + owner.getIdentifier() + "." + lookup.getProperty().getIdentifier()
-					+ "(…)." + member + ", which E-Home does not provide";
+				result[0] = I18NConstants.REASON_USES__MEMBER.fill(owner.getIdentifier() + "."
+					+ lookup.getProperty().getIdentifier() + "(…)." + member);
 			}
 			return result[0] == null;
 		});
@@ -340,14 +341,16 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 			start(cx);
 			ScriptableObject scope = scope(cx, library);
 			if (!(ScriptableObject.getProperty(scope, function.trim()) instanceof Function callee)) {
-				throw new CalculationException("the script defines no function " + function.trim());
+				throw new CalculationException(I18NConstants.REASON_NO_FUNCTION__FUNCTION.fill(function.trim()));
 			}
 			callee.call(cx, scope, scope, new Object[] { new DeviceObject(scope, device), Boolean.FALSE,
 				new Members(scope, "progress"), context(cx, scope, parameters) });
 		} catch (RhinoException ex) {
 			throw new CalculationException(message(ex));
-		} catch (LimitExceeded | Refused ex) {
-			throw new CalculationException(ex.getMessage());
+		} catch (LimitExceeded ex) {
+			throw new CalculationException(ex.reason());
+		} catch (Refused ex) {
+			throw new CalculationException(ex.reason());
 		}
 	}
 
@@ -435,7 +438,7 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 		} catch (RhinoException ex) {
 			throw new CalculationException(message(ex));
 		} catch (LimitExceeded ex) {
-			throw new CalculationException(ex.getMessage());
+			throw new CalculationException(ex.reason());
 		}
 	}
 
@@ -453,10 +456,18 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 		return Context.toString(value);
 	}
 
-	private static String message(RhinoException ex) {
-		String details = ex.details();
+	/**
+	 * The error Rhino reports, with its line; the details are Rhino's own text (in English, the only
+	 * language of its messages besides French).
+	 */
+	private static ResKey message(RhinoException ex) {
+		String details = String.valueOf(ex.details()).strip();
+		if (details.endsWith(".")) {
+			details = details.substring(0, details.length() - 1);
+		}
 		int line = ex.lineNumber();
-		return line > 0 ? details + " (line " + line + ")" : details;
+		return line > 0 ? I18NConstants.REASON_SCRIPT_ERROR__DETAILS_LINE.fill(details, Integer.toString(line))
+			: I18NConstants.REASON_SCRIPT_ERROR__DETAILS.fill(details);
 	}
 
 	/**
@@ -489,24 +500,24 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 		public Object get(String name, Scriptable start) {
 			Object result = member(name);
 			if (result == NOT_FOUND) {
-				throw new Refused("the handler uses " + _name + "." + name + ", which E-Home does not provide");
+				throw new Refused(I18NConstants.REASON_USES__MEMBER.fill(_name + "." + name));
 			}
 			return result;
 		}
 
 		@Override
 		public Object get(int index, Scriptable start) {
-			throw new Refused("the handler uses " + _name + "[" + index + "], which E-Home does not provide");
+			throw new Refused(I18NConstants.REASON_USES__MEMBER.fill(_name + "[" + index + "]"));
 		}
 
 		@Override
 		public void put(String name, Scriptable start, Object value) {
-			throw new Refused("the handler sets " + _name + "." + name + ", which E-Home does not provide");
+			throw new Refused(I18NConstants.REASON_SETS__MEMBER.fill(_name + "." + name));
 		}
 
 		@Override
 		public void put(int index, Scriptable start, Object value) {
-			throw new Refused("the handler sets " + _name + "[" + index + "], which E-Home does not provide");
+			throw new Refused(I18NConstants.REASON_SETS__MEMBER.fill(_name + "[" + index + "]"));
 		}
 	}
 
@@ -537,12 +548,12 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 					try {
 						parameter = byId ? _device.parameterById(key) : _device.parameterByName(key);
 					} catch (CalculationException ex) {
-						throw new Refused(ex.getMessage());
+						throw new Refused(ex.getReason());
 					}
 					if (parameter == null) {
-						throw new Refused("the device has no parameter " + key + " (device." + name + ")");
+						throw new Refused(I18NConstants.REASON_NO_PARAMETER__KEY_LOOKUP.fill(key, "device." + name));
 					}
-					return new ParameterObject(scope, _device, parameter, key);
+					return new ParameterObject(scope, _device, parameter, "device." + name + "(\"" + key + "\")");
 				}
 			};
 			lookup.setParentScope(scope);
@@ -560,8 +571,13 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 
 		private final Object _parameter;
 
-		ParameterObject(Scriptable scope, ButtonDevice device, Object parameter, String key) {
-			super(scope, "the parameter " + key);
+		/**
+		 * @param lookup
+		 *        How the handler got the parameter, as the reasons name it (as code:
+		 *        <code>device.GetParameterById("…")</code>).
+		 */
+		ParameterObject(Scriptable scope, ButtonDevice device, Object parameter, String lookup) {
+			super(scope, lookup);
 			_device = device;
 			_parameter = parameter;
 		}
@@ -591,8 +607,15 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 	 */
 	private static final class Refused extends Error {
 
-		Refused(String message) {
-			super(message, null, false, false);
+		private final ResKey _reason;
+
+		Refused(ResKey reason) {
+			super(reason.toString(), null, false, false);
+			_reason = reason;
+		}
+
+		ResKey reason() {
+			return _reason;
 		}
 	}
 
@@ -615,8 +638,15 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 	 */
 	private static final class LimitExceeded extends Error {
 
-		LimitExceeded(String message) {
-			super(message, null, false, false);
+		private final ResKey _reason;
+
+		LimitExceeded(ResKey reason) {
+			super(reason.toString(), null, false, false);
+			_reason = reason;
+		}
+
+		ResKey reason() {
+			return _reason;
 		}
 	}
 
@@ -641,10 +671,10 @@ public final class JavaScriptLanguage implements ScriptLanguage {
 			SandboxContext sandbox = (SandboxContext) cx;
 			sandbox._instructions += instructionCount;
 			if (sandbox._instructions > INSTRUCTION_LIMIT) {
-				throw new LimitExceeded("stopped after " + INSTRUCTION_LIMIT + " instructions (an endless loop?)");
+				throw new LimitExceeded(I18NConstants.REASON_INSTRUCTION_LIMIT__COUNT.fill(Integer.valueOf(INSTRUCTION_LIMIT)));
 			}
 			if (System.currentTimeMillis() - sandbox._start > TIME_LIMIT_MS) {
-				throw new LimitExceeded("stopped after " + TIME_LIMIT_MS + " ms (an endless loop?)");
+				throw new LimitExceeded(I18NConstants.REASON_TIME_LIMIT__MILLIS.fill(Long.valueOf(TIME_LIMIT_MS)));
 			}
 		}
 	}

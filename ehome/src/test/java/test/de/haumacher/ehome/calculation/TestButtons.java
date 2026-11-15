@@ -134,6 +134,11 @@ public class TestButtons extends BasicTestCase {
 			&& w.contains("Unbekannt") && w.contains(P + "B-3") && w.contains("device.GetParameterById(…).Text")));
 		assertTrue(warnings.toString(), warnings.stream().anyMatch(w -> w.contains(PROGRAM)
 			&& w.contains("Gerät") && w.contains(P + "B-6") && w.contains("online.connect")));
+		// The report is read in the language of the user who imports (haumacher/ehome #170).
+		assertTrue(warnings(importer, Locale.GERMAN).toString(), warnings(importer, Locale.GERMAN).contains("Programm "
+			+ PROGRAM + ": E-Home kann die Schaltfläche Unbekannt (" + P + "B-3) des Parameterdialogs nicht ausführen:"
+			+ " Der Handler verwendet device.GetParameterById(…).Text, das E-Home nicht bereitstellt. Sie wird"
+			+ " deaktiviert und mit dem Grund angezeigt."));
 	}
 
 	private static void checkProgram() {
@@ -150,9 +155,9 @@ public class TestButtons extends BasicTestCase {
 		assertNull(DeviceButtons.problem(buttons.get(1)));
 		assertNull("Found only when it runs.", DeviceButtons.problem(buttons.get(3)));
 		assertNull(DeviceButtons.problem(buttons.get(6)));
-		String unknown = DeviceButtons.problem(buttons.get(2));
+		String unknown = Resources.getInstance(Locale.ENGLISH).getString(DeviceButtons.problem(buttons.get(2)));
 		assertTrue(unknown, unknown.contains("device.GetParameterById(…).Text"));
-		String online = DeviceButtons.problem(buttons.get(4));
+		String online = Resources.getInstance(Locale.ENGLISH).getString(DeviceButtons.problem(buttons.get(4)));
 		assertTrue(online, online.contains("online.connect"));
 	}
 
@@ -209,6 +214,22 @@ public class TestButtons extends BasicTestCase {
 		ResKey online = DeviceButtons.veto(device, button(device, P + "B-6"));
 		assertNotNull(online);
 		assertTrue(Resources.getInstance(Locale.ENGLISH).getString(online).contains("online.connect"));
+
+		// The reasons in the language of the reader (haumacher/ehome #170); the texts of the buttons are
+		// the manufacturer's (German only in the fixture), the members of the script code.
+		assertEquals("E-Home kann die Schaltfläche Unbekannt (" + P + "B-3) nicht ausführen: Der Handler verwendet"
+			+ " device.GetParameterById(…).Text, das E-Home nicht bereitstellt.",
+			Resources.getInstance(Locale.GERMAN).getString(veto));
+		assertEquals("E-Home cannot run the button Unbekannt (" + P + "B-3): The handler uses"
+			+ " device.GetParameterById(…).Text, which E-Home does not provide.",
+			Resources.getInstance(Locale.ENGLISH).getString(veto));
+		assertEquals("E-Home kann die Schaltfläche Gerät (" + P + "B-6) nicht ausführen: Der Handler spricht mit dem"
+			+ " Gerät (online.connect), was E-Home nicht tut.", Resources.getInstance(Locale.GERMAN).getString(online));
+		assertEquals("E-Home cannot run the button Gerät (" + P + "B-6): The handler talks to the device"
+			+ " (online.connect), which E-Home does not do.", Resources.getInstance(Locale.ENGLISH).getString(online));
+		assertEquals("Die Schaltfläche Versteckt (" + P + "B-4) ist fehlgeschlagen: Der Handler verwendet"
+			+ " device.GetParameterById(\"P-1_R-1\").Text, das E-Home nicht bereitstellt. Es wurde nichts geändert.",
+			refused(device, P + "B-4", Locale.GERMAN));
 	}
 
 	/** The button of a module instance changes the parameters of its instance only. */
@@ -244,11 +265,16 @@ public class TestButtons extends BasicTestCase {
 
 	/** The reason of a refused press; the transaction of the press is rolled back. */
 	private static String refused(TLObject device, String id) {
+		return refused(device, id, Locale.ENGLISH);
+	}
+
+	/** The reason of a refused press in the given language. */
+	private static String refused(TLObject device, String id, Locale language) {
 		try (Transaction tx = kb().beginTransaction()) {
 			DeviceButtons.press(device, button(device, id));
 			tx.commit();
 		} catch (TopLogicException ex) {
-			return Resources.getInstance(Locale.ENGLISH).getString(ex.getErrorKey());
+			return Resources.getInstance(language).getString(ex.getErrorKey());
 		}
 		throw new AssertionError("Not refused: " + id);
 	}
@@ -311,9 +337,13 @@ public class TestButtons extends BasicTestCase {
 	}
 
 	private static List<String> warnings(Importer importer) {
+		return warnings(importer, Locale.ENGLISH);
+	}
+
+	private static List<String> warnings(Importer importer, Locale language) {
 		return TestEtsImport.withoutMasterData(importer.getMessages()).stream()
 			.filter(m -> m.getLevel() == Level.WARN || m.getLevel() == Level.ERROR)
-			.map(m -> Resources.getInstance(Locale.ENGLISH).getString((ResKey) m.getMessage())).toList();
+			.map(m -> Resources.getInstance(language).getString((ResKey) m.getMessage())).toList();
 	}
 
 	private static KnowledgeBase kb() {
