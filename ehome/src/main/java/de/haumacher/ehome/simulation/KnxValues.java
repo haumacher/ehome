@@ -6,7 +6,12 @@ package de.haumacher.ehome.simulation;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.basic.util.ResourcesModule;
+import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.monitor.DatapointValues;
@@ -16,6 +21,7 @@ import de.haumacher.ehome.rules.Val.Date;
 import de.haumacher.ehome.rules.Val.DateTime;
 import de.haumacher.ehome.rules.Val.TimeOfDay;
 import de.haumacher.ehome.rules.ValueType;
+import de.haumacher.ehome.rules.Values;
 
 /**
  * The values of the rules ({@link Val}) as the data of group telegrams, by the datapoint type of
@@ -45,15 +51,44 @@ public final class KnxValues {
 	}
 
 	/**
-	 * Why a value or data cannot be coded.
+	 * Why a value or data cannot be coded, as a sentence for a person ({@link #getReason()},
+	 * haumacher/ehome #171).
+	 *
+	 * <p>
+	 * {@link #getMessage()} is the English text of the reason, for the logs of the controller's port;
+	 * it is computed when asked for, so that code without the resources of the application (a unit
+	 * test of the coding) may throw and catch it, and reads the key there.
+	 * </p>
 	 */
 	public static final class CodingException extends Exception {
 
+		private final ResKey _reason;
+
 		/**
 		 * Creates a {@link CodingException}.
+		 *
+		 * @param reason
+		 *        Why the value or data cannot be coded, a whole sentence.
 		 */
-		public CodingException(String message) {
-			super(message);
+		public CodingException(ResKey reason) {
+			super(null, null, false, false);
+			_reason = reason;
+		}
+
+		/**
+		 * Why the value or data cannot be coded, a sentence in the language of the reader.
+		 */
+		public ResKey getReason() {
+			return _reason;
+		}
+
+		@Override
+		public String getMessage() {
+			if (!ResourcesModule.Module.INSTANCE.isActive()) {
+				// A unit test of the coding without the resources of the application.
+				return _reason.toString();
+			}
+			return Resources.getInstance(Locale.ENGLISH).getString(_reason);
 		}
 	}
 
@@ -128,7 +163,7 @@ public final class KnxValues {
 	public static Val decode(Dpt dpt, byte[] data) throws CodingException {
 		ValueType type = valueType(dpt);
 		if (type == null) {
-			throw new CodingException("the datapoint type " + dpt.code() + " has no coding");
+			throw new CodingException(I18NConstants.REASON_NO_CODING__TYPE.fill(dpt.code()));
 		}
 		Object json;
 		try {
@@ -147,7 +182,7 @@ public final class KnxValues {
 			case STRING: {
 				Val result = Val.ofString((String) json);
 				if (!result.has()) {
-					throw new CodingException("the text is longer than a string value");
+					throw new CodingException(I18NConstants.REASON_TEXT_TOO_LONG);
 				}
 				return result;
 			}
@@ -162,7 +197,7 @@ public final class KnxValues {
 				Map<?, ?> map = (Map<?, ?>) json;
 				int hour = number(map, "hour");
 				if (hour > 23) {
-					throw new CodingException("the end of the day (24:00) is no time of day of the rules");
+					throw new CodingException(I18NConstants.REASON_END_OF_DAY_NO_TIME_OF_DAY);
 				}
 				return Val.ofTime(new TimeOfDay(hour, number(map, "minute"), number(map, "second"), number(map, "dayOfWeek")));
 			}
@@ -180,7 +215,7 @@ public final class KnxValues {
 				}
 				int hour = number(map, "hour");
 				if (hour > 23) {
-					throw new CodingException("the end of the day (24:00) is no time of the rules");
+					throw new CodingException(I18NConstants.REASON_END_OF_DAY_NO_DATE_TIME);
 				}
 				return Val.ofDateTime(new DateTime(number(map, "year"), number(map, "month"), number(map, "day"), hour,
 					number(map, "minute"), number(map, "second"), number(map, "dayOfWeek"), flags));
@@ -200,7 +235,7 @@ public final class KnxValues {
 					number(map, "white"), valid));
 			}
 			default:
-				throw new CodingException("no coding for " + type);
+				throw new CodingException(I18NConstants.REASON_NO_CODING_OF__VALUE_TYPE.fill(type.externalName()));
 		}
 	}
 
@@ -210,10 +245,10 @@ public final class KnxValues {
 	public static byte[] encode(Dpt dpt, Val value) throws CodingException {
 		ValueType type = valueType(dpt);
 		if (type == null) {
-			throw new CodingException("the datapoint type " + dpt.code() + " has no coding");
+			throw new CodingException(I18NConstants.REASON_NO_CODING__TYPE.fill(dpt.code()));
 		}
 		if (!value.has()) {
-			throw new CodingException("no value");
+			throw new CodingException(I18NConstants.REASON_NO_VALUE);
 		}
 		Object json;
 		switch (type) {
@@ -292,7 +327,7 @@ public final class KnxValues {
 				break;
 			}
 			default:
-				throw new CodingException("no coding for " + type);
+				throw new CodingException(I18NConstants.REASON_NO_CODING_OF__VALUE_TYPE.fill(type.externalName()));
 		}
 		try {
 			return DatapointValues.encode(dpt, json);
@@ -303,7 +338,8 @@ public final class KnxValues {
 
 	private static Val require(Val value, de.haumacher.ehome.rules.Type type) throws CodingException {
 		if (value.type() != type) {
-			throw new CodingException("a " + type.externalName() + " value is required, not " + value);
+			throw new CodingException(
+				I18NConstants.REASON_VALUE_OF_TYPE_REQUIRED__TYPE_VALUE.fill(type.externalName(), Values.format(value)));
 		}
 		return value;
 	}
@@ -316,7 +352,7 @@ public final class KnxValues {
 			case REAL:
 				return Double.valueOf(value.real());
 			default:
-				throw new CodingException("a number is required, not " + value);
+				throw new CodingException(I18NConstants.REASON_NUMBER_REQUIRED__VALUE.fill(Values.format(value)));
 		}
 	}
 
@@ -340,14 +376,14 @@ public final class KnxValues {
 		}
 	}
 
-	private static String text(Dpt dpt, DatapointValues.Refusal ex) {
+	private static ResKey text(Dpt dpt, DatapointValues.Refusal ex) {
 		switch (ex.status()) {
 			case WRONG_LENGTH:
-				return "the data does not have the length of " + dpt.code();
+				return I18NConstants.REASON_WRONG_LENGTH__TYPE.fill(dpt.code());
 			case OUT_OF_RANGE:
-				return "the value is outside the range of " + dpt.code();
+				return I18NConstants.REASON_OUT_OF_RANGE__TYPE.fill(dpt.code());
 			default:
-				return "the data is no value of " + dpt.code();
+				return I18NConstants.REASON_NO_VALUE_OF__TYPE.fill(dpt.code());
 		}
 	}
 

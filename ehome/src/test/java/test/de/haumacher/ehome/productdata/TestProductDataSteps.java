@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -111,6 +112,66 @@ public class TestProductDataSteps extends BasicTestCase {
 		assertEquals(List.of(completed), again.getCreated(PROGRAM_TYPE));
 		assertSame(completed, assignment("WERTFORMENFEHLER", "FFB5").tValueByName("program"));
 		assertSame(imported, byExtId(PROGRAM_TYPE, other));
+	}
+
+	/**
+	 * A program file whose XML is broken is reported in the reader's language, the parser's message
+	 * as the only detail of both languages (haumacher/ehome #171); the other program is imported.
+	 */
+	public void testUnreadableProgram() throws Exception {
+		String broken = "M-0008_A-FFB9-01-0000";
+		byte[] file = truncated(copy("FFB9", "FFBA", "KAPUTT"), "M-0008/" + broken + ".xml");
+
+		Importer importer = importer();
+		Steps steps = new Steps(null);
+		try {
+			importer.importProductData(BinaryDataFactory.createBinaryData(file), contents(file), ImportProgress.NONE,
+				steps);
+			steps.commitLast();
+		} finally {
+			steps.close();
+		}
+
+		assertEquals(List.of(broken), new ArrayList<>(importer.getFailedPrograms().keySet()));
+		assertNotNull(byExtId(PROGRAM_TYPE, "M-0008_A-FFBA-01-0000"));
+		ResKey failure = I18NConstants.ERROR_PROGRAM_NOT_IMPORTED__PROGRAM_REASON.fill(broken,
+			importer.getFailedPrograms().get(broken));
+		String german = Resources.getInstance(Locale.GERMAN).getString(failure);
+		String english = Resources.getInstance(Locale.ENGLISH).getString(failure);
+		String germanStart = "Das Anwendungsprogramm " + broken + " wurde nicht importiert: Die Programmdatei kann nicht"
+			+ " gelesen werden: ";
+		String englishStart = "The application program " + broken + " was not imported: The program file cannot be"
+			+ " read: ";
+		assertTrue(german, german.startsWith(germanStart));
+		assertTrue(english, english.startsWith(englishStart));
+		String detail = english.substring(englishStart.length());
+		assertFalse(english, detail.isBlank());
+		assertEquals(detail, german.substring(germanStart.length()));
+		assertTrue(english(importer.getMessages()).toString(), english(importer.getMessages()).contains(english));
+	}
+
+	/**
+	 * The given archive with the entry of the given name cut in half.
+	 */
+	private static byte[] truncated(byte[] archive, String name) throws IOException {
+		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+		boolean found = false;
+		try (ZipInputStream in = new ZipInputStream(new ByteArrayInputStream(archive));
+				ZipOutputStream out = new ZipOutputStream(buffer)) {
+			ZipEntry entry;
+			while ((entry = in.getNextEntry()) != null) {
+				byte[] content = in.readAllBytes();
+				if (entry.getName().equals(name)) {
+					content = Arrays.copyOf(content, content.length / 2);
+					found = true;
+				}
+				out.putNextEntry(new ZipEntry(entry.getName()));
+				out.write(content);
+				out.closeEntry();
+			}
+		}
+		assertTrue(name, found);
+		return buffer.toByteArray();
 	}
 
 	/**

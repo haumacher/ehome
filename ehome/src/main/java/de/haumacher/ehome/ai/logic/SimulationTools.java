@@ -243,7 +243,7 @@ public class SimulationTools {
 			try {
 				data = KnxValues.encode(mapping.dpt(), value);
 			} catch (KnxValues.CodingException ex) {
-				return "the value cannot be coded as " + mapping.dpt().code() + ": " + ex.getMessage();
+				return "the value cannot be coded as " + mapping.dpt().code() + ": " + LogicSupport.text(ex.getReason());
 			}
 			bus.deliver(new BusTelegram(System.currentTimeMillis(), SCENARIO_SOURCE, mapping.addresses().get(0).intValue(),
 				BusTelegram.Service.WRITE, BusTelegram.PRIORITY_LOW, false, BusTelegram.DEFAULT_HOP_COUNT, data, false));

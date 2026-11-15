@@ -418,6 +418,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey ENCODE_NO_VALUE;
 
 	/**
+	 * @en The value cannot be processed: {0}
+	 */
+	public static ResKey1 VALUE_FAILED__DETAIL;
+
+	/**
 	 * @en The time unit {0} is not supported.
 	 */
 	public static ResKey1 ENCODE_TIME_UNIT__UNIT;

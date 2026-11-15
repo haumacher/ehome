@@ -50,10 +50,16 @@ public class ValueException extends IllegalArgumentException {
 
 	/**
 	 * The reason of the given failure of an encoding or decoding, for a person: the reason of a
-	 * {@link ValueException}, otherwise the text of the exception.
+	 * {@link ValueException}, otherwise a sentence of the reader's language with the text of the
+	 * exception (of the JDK or a library) as its detail (haumacher/ehome #171).
 	 */
 	public static ResKey reason(IllegalArgumentException ex) {
-		return ex instanceof ValueException value ? value.getErrorKey() : ResKey.text(ex.getMessage());
+		if (ex instanceof ValueException value) {
+			return value.getErrorKey();
+		}
+		String detail = ex.getMessage();
+		return I18NConstants.VALUE_FAILED__DETAIL.fill(
+			detail == null || detail.isBlank() ? ex.getClass().getSimpleName() : detail);
 	}
 
 }

@@ -36,6 +36,16 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_INVALID_VALUE__VALUE_TYPE_DETAIL;
 
 	/**
+	 * @en "{0}" is no value of the datapoint type {1}; enter {2} or {3}.
+	 */
+	public static ResKey4 ERROR_NO_BIT_VALUE__VALUE_TYPE_LOWER_UPPER;
+
+	/**
+	 * @en "{0}" is no number, so it is no value of the datapoint type {1}.
+	 */
+	public static ResKey2 ERROR_NO_NUMBER__VALUE_TYPE;
+
+	/**
 	 * @en "{0}" lies outside the range of the datapoint type {1}.
 	 */
 	public static ResKey2 ERROR_OUT_OF_RANGE__VALUE_TYPE;

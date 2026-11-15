@@ -152,6 +152,31 @@ public class TestProgrammingTexts extends BasicTestCase {
 	}
 
 	/**
+	 * A failure of an encoding that is no {@link ValueException} (an error of the JDK or a library) is
+	 * a sentence of the reader's language with the text of the exception as its detail
+	 * (haumacher/ehome #171).
+	 */
+	public void testForeignFailure() {
+		NumberFormatException failure;
+		try {
+			Integer.parseInt("x");
+			fail("Expected a number refused.");
+			return;
+		} catch (NumberFormatException ex) {
+			failure = ex;
+		}
+		ResKey parameter = de.haumacher.ehome.programming.I18NConstants.IMAGE_PARAMETER__PARAMETER_REASON.fill(
+			"Helligkeit (M-0083_A-0001-01-0000_P-1)", ValueException.reason(failure));
+		assertEquals("Parameter Helligkeit (M-0083_A-0001-01-0000_P-1): Der Wert kann nicht verarbeitet werden: "
+			+ failure.getMessage(), de(parameter));
+		assertEquals("Parameter Helligkeit (M-0083_A-0001-01-0000_P-1): The value cannot be processed: "
+			+ failure.getMessage(), en(parameter));
+		// Without a message, the class of the exception.
+		assertEquals("Der Wert kann nicht verarbeitet werden: IllegalArgumentException",
+			de(ValueException.reason(new IllegalArgumentException())));
+	}
+
+	/**
 	 * Every load state and load control has a German text of its own.
 	 */
 	public void testStatesTranslated() {

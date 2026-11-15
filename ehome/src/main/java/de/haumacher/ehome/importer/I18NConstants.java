@@ -347,6 +347,21 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 ERROR_PROGRAM_NOT_IMPORTED__PROGRAM_REASON;
 
 	/**
+	 * @en The program file cannot be read: {0}
+	 */
+	public static ResKey1 REASON_PROGRAM_FILE_UNREADABLE__DETAIL;
+
+	/**
+	 * @en The import of the program failed: {0}
+	 */
+	public static ResKey1 REASON_PROGRAM_IMPORT_ERROR__DETAIL;
+
+	/**
+	 * @en The project "{0}" cannot be read: it is no ZIP archive.
+	 */
+	public static ResKey1 ERROR_NO_ZIP_ARCHIVE__ENTRY;
+
+	/**
 	 * @en The import could not be saved: {0}
 	 */
 	public static ResKey1 ERROR_COMMIT_FAILED__DETAIL;

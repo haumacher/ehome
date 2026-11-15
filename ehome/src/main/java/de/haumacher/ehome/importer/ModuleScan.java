@@ -120,7 +120,7 @@ final class ModuleScan {
 			DocumentBuilder builder = factory.newDocumentBuilder();
 			return builder.parse(new ByteArrayInputStream(content));
 		} catch (ParserConfigurationException | SAXException ex) {
-			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+			throw new ProgramFileException(ex);
 		}
 	}
 
@@ -143,7 +143,7 @@ final class ModuleScan {
 				in.close();
 			}
 		} catch (XMLStreamException ex) {
-			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+			throw new ProgramFileException(ex);
 		}
 	}
 

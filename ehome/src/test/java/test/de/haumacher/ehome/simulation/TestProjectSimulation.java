@@ -9,6 +9,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -24,6 +25,8 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.Resources;
+import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.model.operational.Interface;
@@ -83,6 +86,11 @@ public class TestProjectSimulation extends BasicTestCase {
 		+ "   \"actions\": [{\"kind\": \"write\", \"datapoint\": \"0/0/34\", \"value\": {\"kind\": \"literal\", \"type\": \"boolean\", \"value\": false}}]}"
 		+ " ]}";
 
+	/** A rule reading the scene of channel A (0/0/36, DPT 17.001), so that the simulation binds it. */
+	private static final String SCENE_RULE = "{\"id\": \"scene\", \"name\": \"Scene\","
+		+ " \"reactions\": [{\"triggers\": [{\"kind\": \"datapoint\", \"datapoint\": \"0/0/36\"}],"
+		+ "  \"actions\": [{\"kind\": \"log\", \"level\": \"info\", \"message\": [\"scene\"]}]}]}";
+
 	public void testKeySwitchesChannel() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
 		importSample("samples/KNX-Testsystem.knxproj");
@@ -93,7 +101,8 @@ public class TestProjectSimulation extends BasicTestCase {
 		try {
 			TLObject parameter;
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				TLObject rule = new RuleImport().importRules(project, List.of(Json.parse(RULE, 100))).get(0);
+				TLObject rule = new RuleImport()
+					.importRules(project, List.of(Json.parse(RULE, 100), Json.parse(SCENE_RULE, 100))).get(0);
 				parameter = (TLObject) ((List<?>) rule.tValueByName("parameters")).get(0);
 				parameter.tUpdateByName(Overrides.SIMULATION_VALUE, "1min");
 				TLObject actuator = projectDevice(project, 0x1305);
@@ -165,6 +174,19 @@ public class TestProjectSimulation extends BasicTestCase {
 		assertEquals(Val.ofBool(false), simulation.value("0/0/43"));
 		assertEquals(Long.valueOf(60_000), simulation.timerRemaining("key-light", "off"));
 		assertEquals("restartTimer off 1min", simulation.status("key-light").lastAction());
+
+		// A value the datapoint type of the address cannot code is refused in the reader's language
+		// (haumacher/ehome #171): the scene numbers of 0/0/36 (DPT 17.001) end at 63.
+		String scene = simulation.names().datapoint("0/0/36");
+		try {
+			running.send("0/0/36", "100");
+			fail("A value outside the range of DPT 17.001 was sent.");
+		} catch (TopLogicException ex) {
+			assertEquals("„100“ ist kein Wert des Datenpunkts " + scene + ": Der Wert liegt außerhalb des"
+				+ " Wertebereichs des Datenpunkttyps 17.001.", Resources.getInstance(Locale.GERMAN).getString(ex.getErrorKey()));
+			assertEquals("\"100\" is no value of the datapoint " + scene + ": The value lies outside the"
+				+ " range of the datapoint type 17.001.", Resources.getInstance(Locale.ENGLISH).getString(ex.getErrorKey()));
+		}
 
 		running.setParameter("key-light/delay", "30s");
 		assertEquals("30s", parameter.tValueByName(Overrides.SIMULATION_VALUE));

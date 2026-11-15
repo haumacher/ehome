@@ -342,7 +342,7 @@ public final class ProjectSimulation implements AutoCloseable {
 			data = KnxValues.encode(mapping.dpt(), parsed);
 		} catch (CodingException ex) {
 			throw new TopLogicException(
-				I18NConstants.ERROR_INVALID_VALUE__TEXT_DATAPOINT_DETAIL.fill(value, names().datapoint(datapoint), ex.getMessage()));
+				I18NConstants.ERROR_INVALID_VALUE__TEXT_DATAPOINT_DETAIL.fill(value, names().datapoint(datapoint), ex.getReason()));
 		}
 		int address = mapping.addresses().get(0).intValue();
 		for (GroupDevice device : _installation.devices()) {
