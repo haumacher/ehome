@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -29,16 +30,23 @@ import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.etsImport.RecordingJobMonitor;
+import test.de.haumacher.ehome.job.JobHarness;
 
 import com.top_logic.basic.AbortExecutionException;
+import com.top_logic.basic.io.binary.BinaryData;
 import com.top_logic.basic.io.binary.BinaryDataFactory;
+import com.top_logic.basic.sched.SchedulerService;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.view.job.JobState;
+import com.top_logic.layout.view.job.JobStatus;
+import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 import com.top_logic.xio.importer.binding.ApplicationModelBinding;
@@ -53,7 +61,8 @@ import de.haumacher.ehome.importer.ProtectedProject;
  * Test of the progress of an ETS import (haumacher/ehome #84): the counting pass
  * ({@link ArchiveContents}), the progress callback of the {@link Importer} ({@link ImportProgress})
  * and the import job ({@link ImportEtsProjectJob}), and that a cancelled import leaves nothing in
- * the database.
+ * the database; the cancel of the import job run by the engine's job runner ({@link JobHarness}):
+ * in the database, past the point of no return, and between the files of a multi-file import.
  *
  * <p>
  * The test imports the ETS 4 test system and the protected ETS 6 file. The application programs of
@@ -159,28 +168,22 @@ public class TestImportProgress extends BasicTestCase {
 
 	/**
 	 * The import job reports the phases reading, importing and saving with the progress of the
-	 * importer, and runs its work where the interrupt of a cancelled job does not reach it (an
-	 * interrupted database access closes the embedded H2 database, TL #30196): with the interrupt of
-	 * its worker pending, the job imports the file and the database stays usable.
+	 * importer, declares the commit of its file as its point of no return right before saving, and
+	 * returns the report naming the project it created.
 	 */
-	public void testInterruptedWorker() throws Exception {
-		byte[] file = Files.readAllBytes(new File(TESTSYSTEM).toPath());
+	public void testPhases() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
 		RecordingJobMonitor job = new RecordingJobMonitor();
 		try {
-			Thread.currentThread().interrupt();
-			Map<?, ?> report = (Map<?, ?>) job.run(new ImportEtsProjectJob(null, null),
-				List.of(BinaryDataFactory.createBinaryData(file, "application/zip", "Testsystem.knxproj")));
-			assertFalse("The interrupt of the worker is dropped.", Thread.interrupted());
+			Map<?, ?> report = (Map<?, ?>) job.run(new ImportEtsProjectJob(null, null), List.of(testsystem("Testsystem.knxproj")));
 			assertEquals(1, SharedData.newProjects(before).size());
 			// The project the import created (haumacher/ehome #107).
 			assertSame(SharedData.newProjects(before).get(0), report.get(ImportEtsProjectJob.PROJECT));
 		} finally {
-			Thread.interrupted();
 			SharedData.deleteProjects(SharedData.newProjects(before));
 		}
 
-		assertEquals(List.of("read", "import", "save"), job.getPhases());
+		assertEquals(List.of("read", "import", "uncancelable", "save"), job.getPhases());
 		List<int[]> progress = new ArrayList<>();
 		for (double[] report : job.getProgress()) {
 			progress.add(new int[] { (int) report[0], (int) report[1] });
@@ -191,6 +194,160 @@ public class TestImportProgress extends BasicTestCase {
 		assertEquals("Master data", messages.get(1));
 		assertEquals("Saving", messages.get(messages.size() - 1));
 		assertTrue(messages.toString(), messages.contains("Project KNX-Testsystem"));
+	}
+
+	/**
+	 * A cancel while the import job is in the database (in the middle of the import of its file, in
+	 * the transaction of the import) reaches the job through its <code>CancelScope</code>: the worker
+	 * thread is not interrupted (an interrupt in a database access closes the embedded H2 database,
+	 * TL #30196), the job ends at its next report as cancelled, without a result, the transaction is
+	 * rolled back, and the database stays usable.
+	 */
+	public void testCancelInDatabase() throws Exception {
+		List<TLObject> before = instances("ehome.project:Project");
+		JobHarness job = new JobHarness(JobHarness.importPhases());
+		List<Boolean> interrupted = new ArrayList<>();
+		job.onEvent(event -> {
+			if (event.equals("message:Master data")) {
+				job.cancel();
+				interrupted.add(Boolean.valueOf(Thread.currentThread().isInterrupted()));
+				// A read of the database right after the cancel, in the transaction of the import.
+				instances("ehome.project:Project");
+				interrupted.add(Boolean.valueOf(Thread.currentThread().isInterrupted()));
+			}
+		});
+		try {
+			job.start(new ImportEtsProjectJob(null, null), List.of(testsystem("Testsystem.knxproj")));
+			JobState state = job.await();
+
+			assertEquals(JobStatus.CANCELLED, state.status());
+			assertNull(state.result());
+			assertEquals("The worker is not interrupted.", List.of(Boolean.FALSE, Boolean.FALSE), interrupted);
+			assertFalse(job.events().toString(), job.events().contains("phase:save"));
+			assertEquals("Nothing is imported.", List.of(), SharedData.newProjects(before));
+			assertDatabaseUsable();
+		} finally {
+			SharedData.deleteProjects(SharedData.newProjects(before));
+		}
+	}
+
+	/**
+	 * A cancel after the import job has passed its point of no return (TL #30194) - right before
+	 * its commit, and once more while it saves - is refused: the job ends as completed with its
+	 * report, and the project is imported.
+	 */
+	public void testCancelAfterPointOfNoReturn() throws Exception {
+		List<TLObject> before = instances("ehome.project:Project");
+		JobHarness job = new JobHarness(JobHarness.importPhases());
+		job.onEvent(event -> {
+			if (event.equals("uncancelable") || event.equals("message:Saving")) {
+				job.cancel();
+			}
+		});
+		try {
+			job.start(new ImportEtsProjectJob(null, null), List.of(testsystem("Testsystem.knxproj")));
+			JobState state = job.await();
+
+			assertEquals(JobStatus.COMPLETED, state.status());
+			assertFalse(state.cancelable());
+			List<TLObject> created = SharedData.newProjects(before);
+			assertEquals(1, created.size());
+			assertSame(created.get(0), ((Map<?, ?>) state.result()).get(ImportEtsProjectJob.PROJECT));
+			List<String> events = job.events();
+			assertTrue(events.toString(), events.indexOf("uncancelable") < events.indexOf("phase:save"));
+		} finally {
+			SharedData.deleteProjects(SharedData.newProjects(before));
+		}
+	}
+
+	/**
+	 * A multi-file import cancelled at its second file ends as cancelled with the report of the
+	 * first file, which stays imported (TL #30195); nothing of the second file is imported.
+	 */
+	public void testCancelledMultiFileImport() throws Exception {
+		List<TLObject> before = instances("ehome.project:Project");
+		JobHarness job = new JobHarness(JobHarness.importPhases());
+		job.onEvent(event -> {
+			if (event.equals("message:Reading Second.knxproj")) {
+				job.cancel();
+			}
+		});
+		try {
+			job.start(new ImportEtsProjectJob(null, null),
+				List.of(List.of(testsystem("First.knxproj"), testsystem("Second.knxproj"))));
+			JobState state = job.await();
+
+			assertEquals(JobStatus.CANCELLED, state.status());
+			List<TLObject> created = SharedData.newProjects(before);
+			assertEquals("The first file stays imported, the second is not.", 1, created.size());
+			Map<?, ?> report = (Map<?, ?>) state.result();
+			assertNotNull("The cancelled job reports the file imported before.", report);
+			assertSame(created.get(0), report.get(ImportEtsProjectJob.PROJECT));
+			assertTrue(String.valueOf(report.get(ImportEtsProjectJob.SUMMARY)),
+				String.valueOf(report.get(ImportEtsProjectJob.SUMMARY)).contains("KNX-Testsystem"));
+		} finally {
+			SharedData.deleteProjects(SharedData.newProjects(before));
+		}
+	}
+
+	/**
+	 * A cancel when the first of two files enters its save: no point of no return is declared there,
+	 * so the job ends cancelled, the second file is not imported, and the report names exactly what
+	 * was saved - nothing and no report if the cancel came before the commit of the first file, that
+	 * file if its commit was already under way. The database stays usable.
+	 */
+	public void testCancelDuringSaveOfAnEarlierFile() throws Exception {
+		List<TLObject> before = instances("ehome.project:Project");
+		JobHarness job = new JobHarness(JobHarness.importPhases());
+		AtomicBoolean cancelled = new AtomicBoolean();
+		job.onEvent(event -> {
+			if (event.equals("phase:save") && cancelled.compareAndSet(false, true)) {
+				job.cancel();
+			}
+		});
+		try {
+			job.start(new ImportEtsProjectJob(null, null),
+				List.of(List.of(testsystem("First.knxproj"), testsystem("Second.knxproj"))));
+			JobState state = job.await();
+
+			assertTrue("The cancel was requested.", cancelled.get());
+			assertEquals(JobStatus.CANCELLED, state.status());
+			List<TLObject> created = SharedData.newProjects(before);
+			assertTrue("The second file is not imported: " + created, created.size() <= 1);
+			Map<?, ?> report = (Map<?, ?>) state.result();
+			if (created.isEmpty()) {
+				assertNull("Nothing saved, nothing reported: " + report, report);
+			} else {
+				assertNotNull("The cancelled job reports the file saved.", report);
+				assertSame(created.get(0), report.get(ImportEtsProjectJob.PROJECT));
+			}
+			assertDatabaseUsable();
+		} finally {
+			SharedData.deleteProjects(SharedData.newProjects(before));
+		}
+	}
+
+	private static BinaryData testsystem(String name) throws IOException {
+		return BinaryDataFactory.createBinaryData(Files.readAllBytes(new File(TESTSYSTEM).toPath()), "application/zip", name);
+	}
+
+	/**
+	 * A read and a commit of the database succeed.
+	 */
+	static void assertDatabaseUsable() {
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		TLObject project;
+		try (Transaction tx = kb.beginTransaction()) {
+			project = ModelService.getInstance().getFactory()
+				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
+			project.tUpdateByName("name", "Database usable");
+			tx.commit();
+		}
+		assertTrue(instances("ehome.project:Project").contains(project));
+		try (Transaction tx = kb.beginTransaction()) {
+			project.tDelete();
+			tx.commit();
+		}
 	}
 
 	/**
@@ -374,7 +531,8 @@ public class TestImportProgress extends BasicTestCase {
 
 	public static Test suite() {
 		return KBSetup.getSingleKBTest(ServiceTestSetup.createSetup(TestImportProgress.class,
-			ModelService.Module.INSTANCE, LabelProviderService.Module.INSTANCE, PersonManager.Module.INSTANCE));
+			ModelService.Module.INSTANCE, LabelProviderService.Module.INSTANCE, PersonManager.Module.INSTANCE,
+			SchedulerService.Module.INSTANCE));
 	}
 
 }

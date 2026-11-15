@@ -22,6 +22,7 @@ import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobMonitor;
+import com.top_logic.layout.view.job.JobRunner;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
@@ -46,6 +47,15 @@ import de.haumacher.ehome.importer.Importer;
  * back, so nothing of the file is imported. A product file is imported step by step
  * (haumacher/ehome #160): the data its application programs share, then each program in a
  * transaction of its own; a cancel rolls back the step the import is at, the steps before stay.
+ * </p>
+ *
+ * <p>
+ * The commit of the last file of a job is the job's point of no return
+ * ({@link JobMonitor#uncancelable()}, TL #30194): a cancel before it ends the job as cancelled with
+ * nothing of the file saved, a cancel during it is refused, so a job whose file was saved never ends
+ * as cancelled. The commit of an earlier file is no such point: a cancel during it lets it finish,
+ * and the job ends at the first report of the next file, as cancelled with the report of the files
+ * saved before ({@link #importEach}, TL #30195).
  * </p>
  */
 final class ImportJobs {
@@ -94,6 +104,57 @@ final class ImportJobs {
 	}
 
 	/**
+	 * A step of {@link #importEach}: imports one file and records it in the report.
+	 */
+	interface FileImport {
+
+		/**
+		 * Imports the given file.
+		 *
+		 * @param file
+		 *        The uploaded file.
+		 * @param last
+		 *        Whether it is the last file of the job, whose commit is the job's point of no
+		 *        return.
+		 */
+		void importFile(BinaryData file, boolean last);
+	}
+
+	/**
+	 * Imports the given files one after the other and returns the report of the import.
+	 *
+	 * <p>
+	 * A job cancelled after it saved some of the files ends as cancelled with the report of these
+	 * files (TL #30195): the cancel, raised by a report of the next file, is caught here and the
+	 * report of the files saved before is the result of the cancelled job, which the
+	 * <code>&lt;on-cancel&gt;</code> of the view shows as on success. A job cancelled before it saved
+	 * any file ends without a result.
+	 * </p>
+	 *
+	 * @param files
+	 *        The uploaded files.
+	 * @param report
+	 *        The report the step records each imported file in.
+	 * @param step
+	 *        The import of one file.
+	 * @return The report of the import, see {@link ImportReport#toMap()}.
+	 */
+	static Map<String, Object> importEach(List<BinaryData> files, ImportReport report, FileImport step) {
+		for (int n = 0, cnt = files.size(); n < cnt; n++) {
+			try {
+				step.importFile(files.get(n), n == cnt - 1);
+			} catch (RuntimeException ex) {
+				if (!JobRunner.isAbort(ex) || report.isEmpty()) {
+					throw ex;
+				}
+				// Cancelled: the files saved before stand, and the report names them.
+				return report.toMap();
+			}
+		}
+		return report.toMap();
+	}
+
+	/**
 	 * Imports the given file in a transaction of its own (a product file step by step, see
 	 * {@link #importProducts}), reporting to the given job.
 	 *
@@ -105,15 +166,19 @@ final class ImportJobs {
 	 *        The project password, <code>null</code> if none was given; ignored for a product file.
 	 * @param productData
 	 *        Whether the file is a product file (<code>.knxprod</code>) instead of a project file.
+	 * @param last
+	 *        Whether the commit of the file ends the job: it is then declared as the job's point of
+	 *        no return.
 	 * @return The importer, which tells what was imported.
 	 * @throws de.haumacher.ehome.importer.PasswordRequiredException
 	 *         If the project of the file is protected and no password was given.
 	 * @throws TopLogicException
 	 *         If the file cannot be imported, with the reason.
 	 */
-	static Importer importFile(JobMonitor job, BinaryData data, String password, boolean productData) {
+	static Importer importFile(JobMonitor job, BinaryData data, String password, boolean productData,
+			boolean last) {
 		String file = fileName(data);
-		return importFile(job, data, password, productData, importer -> {
+		return importFile(job, data, password, productData, last, importer -> {
 			if (productData) {
 				return I18NConstants.COMMIT_PRODUCT_DATA_IMPORT__FILE.fill(file);
 			}
@@ -124,7 +189,7 @@ final class ImportJobs {
 	}
 
 	/**
-	 * Imports the given file as {@link #importFile(JobMonitor, BinaryData, String, boolean)} does,
+	 * Imports the given file as {@link #importFile(JobMonitor, BinaryData, String, boolean, boolean)} does,
 	 * and runs the given step in the transaction of the import, before its commit.
 	 *
 	 * @param then
@@ -134,7 +199,7 @@ final class ImportJobs {
 	 *        (haumacher/ehome #143).
 	 */
 	static Importer importFile(JobMonitor job, BinaryData data, String password, boolean productData,
-			Function<Importer, ResKey> then) {
+			boolean last, Function<Importer, ResKey> then) {
 		String file = fileName(data);
 		job.beginPhase(PHASE_READ);
 		job.indeterminate();
@@ -156,18 +221,14 @@ final class ImportJobs {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		Importer importer = new Importer(new ApplicationModelBinding(kb, ModelService.getApplicationModel(), false));
 		if (productData) {
-			importProducts(job, data, contents, progress, importer, then);
+			importProducts(job, data, contents, progress, importer, last, then);
 			return importer;
 		}
 		try (InputStream in = data.getStream()) {
 			try (Transaction tx = kb.beginTransaction(I18NConstants.COMMIT_ETS_IMPORT__PROJECT.fill(file))) {
 				importer.importStream(in, password, contents, progress);
 				tx.setCommitMessage(then.apply(importer));
-				// The last point a cancel is answered at. The commit has none; a cancel during it ends
-				// the job as cancelled although the file is saved (TL #30194, doc/tl-todo.md).
-				job.beginPhase(PHASE_SAVE);
-				job.indeterminate();
-				job.message(I18NConstants.PROGRESS_SAVING);
+				saving(job, last);
 				tx.commit();
 			}
 		} catch (ConfigurationException | IOException | XMLStreamException | KnowledgeBaseException ex) {
@@ -183,17 +244,31 @@ final class ImportJobs {
 	 * of known programs) in a last one, see {@link StepTransactions}.
 	 */
 	private static void importProducts(JobMonitor job, BinaryData data, ArchiveContents contents,
-			ImportProgress progress, Importer importer, Function<Importer, ResKey> then) {
+			ImportProgress progress, Importer importer, boolean last, Function<Importer, ResKey> then) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		try (StepTransactions steps = new StepTransactions(kb, fileName(data))) {
 			importer.importProductData(data, contents, progress, steps);
-			job.beginPhase(PHASE_SAVE);
-			job.indeterminate();
-			job.message(I18NConstants.PROGRESS_SAVING);
-			steps.commitLast(then.apply(importer));
+			ResKey message = then.apply(importer);
+			saving(job, last);
+			steps.commitLast(message);
 		} catch (ConfigurationException | IOException | XMLStreamException | KnowledgeBaseException ex) {
 			throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ex.getMessage()), ex);
 		}
+	}
+
+	/**
+	 * Enters the phase {@value #PHASE_SAVE}, right before the commit; for the last file of the job
+	 * after its point of no return (TL #30194): a job cancelled before ends as cancelled here, with
+	 * nothing of the file saved, and a cancel from here on is refused, so the job ends with what it
+	 * saved.
+	 */
+	private static void saving(JobMonitor job, boolean last) {
+		if (last) {
+			job.uncancelable();
+		}
+		job.beginPhase(PHASE_SAVE);
+		job.indeterminate();
+		job.message(I18NConstants.PROGRESS_SAVING);
 	}
 
 	/**

@@ -17,7 +17,9 @@
 	The product import runs as a cancelable job shown above the tree while it runs (its phases, the
 	progress by the entries of the file and what is being imported, haumacher/ehome #84). It always
 	shows its report (projects/import-report.view.xml), naming the manufacturer, products and
-	application programs imported or already known, and selects the manufacturer of the file.
+	application programs imported or already known, and selects the manufacturer of the file. A
+	cancelled import shows the report of the files saved completely before the cancel (TL #30195); a
+	failed or cancelled job stays displayed until the reader closes it (TL #30250).
 
 	Everything the tree shows is created here: a manufacturer, a catalog, a section, an application
 	program, a product with its first variant (in a catalog), a further variant of a product, and the
@@ -163,6 +165,26 @@
 										</with-result>
 									</execute-script>
 								</with-result>
+								<!--
+									A cancelled import (TL #30195): the report of the files saved completely before the
+									cancel, as on success; the display of the job stays and says that the job was
+									cancelled. Without a result (no file saved), nothing is shown besides.
+								-->
+								<on-cancel as="report">
+									<if test="$report != null">
+										<then>
+											<open-dialog
+												bind-input-to="report"
+												dialog-view="projects/import-report.view.xml"
+											/>
+											<execute-script function='$report["manufacturer"]'>
+												<with-result>
+													<write-channel name="selected"/>
+												</with-result>
+											</execute-script>
+										</then>
+									</if>
+								</on-cancel>
 							</start-job>
 						</upload-command>
 						<generic-command
@@ -453,29 +475,8 @@
 							input="importJob"
 						>
 							<inset>
-								<stack gap="default">
-									<job-status input="importJob"/>
-									<!-- An ended job that failed or was cancelled stays displayed (its follow-up clears it only on success): the reader closes it (TL #30250). -->
-									<visible-if
-										expr="!jobIsRunning($importJob)"
-										input="importJob"
-									>
-										<button>
-											<action class="com.top_logic.layout.view.command.GenericViewCommand"
-												image="css:bi bi-x-lg"
-											>
-												<label>
-													<en>Close</en>
-													<de>Schließen</de>
-												</label>
-												<write-channel
-													clear="true"
-													name="importJob"
-												/>
-											</action>
-										</button>
-									</visible-if>
-								</stack>
+								<!-- An ended job that failed or was cancelled stays displayed (its follow-up clears it only on success): the reader closes it with the display's close button (TL #30250). -->
+								<job-status input="importJob"/>
 							</inset>
 						</visible-if>
 						<!-- The catalogs with the columns of the classic tree grid (exported to Excel as an outline). -->

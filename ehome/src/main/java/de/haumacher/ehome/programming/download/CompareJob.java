@@ -15,7 +15,6 @@ import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
-import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 
@@ -28,6 +27,12 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * The device is the first object the job is started with (the <code>device</code> input). The result is a
  * {@link ProgrammingReport}: the facts read, and per block of the image "identical" or the
  * differing addresses.
+ * </p>
+ *
+ * <p>
+ * A cancel ends the comparison at its next block, or at once while it waits for the device (the
+ * accesses of {@link CalimeroReader} are interruptible sections of the job's
+ * {@link com.top_logic.basic.thread.CancelScope}, TL #30196).
  * </p>
  */
 public class CompareJob implements JobBody {
@@ -52,11 +57,6 @@ public class CompareJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		// The cancel interrupt reaches only the blocking bus accesses, never the database (TL #30196).
-		return Uninterruptible.run(() -> work(job, arguments));
-	}
-
-	private static Object work(JobMonitor job, List<Object> arguments) throws Exception {
 		TLObject device = ProgrammingFunctions.device(arguments);
 		ResKey veto = ProgrammingFunctions.compareVeto(device);
 		if (veto != null) {

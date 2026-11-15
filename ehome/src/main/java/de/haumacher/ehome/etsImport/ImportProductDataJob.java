@@ -22,7 +22,6 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.importer.Importer;
-import de.haumacher.ehome.job.Uninterruptible;
 
 /**
  * The work of the product data import of the catalog (<code>&lt;start-job&gt;</code> body of
@@ -47,7 +46,10 @@ import de.haumacher.ehome.job.Uninterruptible;
  * (a project file, a file with encrypted entries) fails the job with the reason; an application
  * program that cannot be imported is rolled back alone and named in the report, the others are
  * imported. A cancelled job keeps the steps of the file it is at that were committed before (the
- * shared data, the programs imported completely), and nothing of the step it is at.
+ * shared data, the programs imported completely), and nothing of the step it is at; it ends with the
+ * report of the files imported completely before ({@link ImportJobs#importEach}), which does not name
+ * the steps of the file it was at. The last commit of the last file is the point of no return of the
+ * job ({@link JobMonitor#uncancelable()}).
  * </p>
  */
 public class ImportProductDataJob implements JobBody {
@@ -86,21 +88,13 @@ public class ImportProductDataJob implements JobBody {
 	}
 
 	@Override
-	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		// The cancel interrupt must not reach the database access (TL #30196).
-		return Uninterruptible.run(() -> importFiles(job, arguments));
-	}
-
-	private static Object importFiles(JobMonitor job, List<Object> arguments) {
+	public Object run(JobMonitor job, List<Object> arguments) {
 		ImportReport report = new ImportReport(I18NConstants.PRODUCT_SUMMARY__IMPORTED_COUNT);
-		for (BinaryData file : ImportJobs.files(arguments)) {
-			importFile(job, report, file);
-		}
-		return report.toMap();
+		return ImportJobs.importEach(ImportJobs.files(arguments), report, (file, last) -> importFile(job, report, file, last));
 	}
 
-	private static void importFile(JobMonitor job, ImportReport report, BinaryData data) {
-		Importer importer = ImportJobs.importFile(job, data, null, true);
+	private static void importFile(JobMonitor job, ImportReport report, BinaryData data, boolean last) {
+		Importer importer = ImportJobs.importFile(job, data, null, true, last);
 
 		Set<String> manufacturerIds = importer.getManufacturerIds();
 		List<TLObject> newManufacturers = manufacturers(importer.getCreated(MANUFACTURER_TYPE), manufacturerIds);

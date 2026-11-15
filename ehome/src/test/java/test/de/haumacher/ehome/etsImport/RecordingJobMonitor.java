@@ -8,16 +8,16 @@ import java.util.List;
 import java.util.Locale;
 
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.knowledge.service.PersistencyLayer;
-import com.top_logic.knowledge.service.RefetchTimeout;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.layout.view.job.JobPhase;
 import com.top_logic.util.Resources;
 
 /**
- * {@link JobMonitor} for tests of a job body run without a view: records the phases, the progress
- * and the messages (in English) the body reports, and never cancels.
+ * {@link JobMonitor} for tests of a job body run without a view, on the calling thread: records the
+ * phases, the progress and the messages (in English) the body reports, and never cancels. The
+ * declaration of the point of no return is recorded among the phases as <code>uncancelable</code>.
+ * A test cancelling a job runs it with {@link test.de.haumacher.ehome.job.JobHarness}.
  */
 public class RecordingJobMonitor implements JobMonitor {
 
@@ -28,23 +28,10 @@ public class RecordingJobMonitor implements JobMonitor {
 	private final List<String> _messages = new ArrayList<>();
 
 	/**
-	 * Runs the given job body with this monitor and the given arguments, and makes what it committed
-	 * visible to the calling thread (an import job commits on a thread of its own).
+	 * Runs the given job body with this monitor and the given arguments on the calling thread.
 	 */
 	public Object run(JobBody body, List<Object> arguments) throws Exception {
-		try {
-			return body.run(this, arguments);
-		} finally {
-			refetch();
-		}
-	}
-
-	private static void refetch() {
-		try {
-			PersistencyLayer.getKnowledgeBase().refetch();
-		} catch (RefetchTimeout ex) {
-			throw new RuntimeException("Refetch after the job timed out.", ex);
-		}
+		return body.run(this, arguments);
 	}
 
 	/**
@@ -106,6 +93,7 @@ public class RecordingJobMonitor implements JobMonitor {
 	@Override
 	public void uncancelable() {
 		// Never cancelled.
+		_phases.add("uncancelable");
 	}
 
 }

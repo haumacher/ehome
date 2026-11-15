@@ -8,6 +8,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
+import com.top_logic.basic.thread.CancelScope;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
@@ -21,7 +22,6 @@ import de.haumacher.ehome.connection.BusSessionLink;
 import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.ProjectControllers;
-import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
@@ -203,19 +203,18 @@ public sealed interface BusPath permits BusPath.Gateway, BusPath.Controller {
 		@Override
 		public KNXNetworkLink open() throws BusException {
 			OperatorSettings.checkLocalNetwork();
-			KNXNetworkLink link = null;
 			try {
 				InetSocketAddress remote = Gateways.resolve(address);
 				InetSocketAddress local = new InetSocketAddress(localAddressTowards(remote), 0);
-				try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
-					link = KNXNetworkLinkIP.newTunnelingLink(local, remote, false, new TPSettings());
-				}
-				return link;
+				// A cancel of the job ends the wait for the gateway (TL #30196).
+				return CancelScope.runInterruptibly(() -> KNXNetworkLinkIP.newTunnelingLink(local, remote, false,
+					new TPSettings()));
 			} catch (KNXException | IOException ex) {
 				throw new BusException(I18NConstants.ACCESS_NO_GATEWAY__ADDRESS_REASON.fill(Gateways.format(address),
 					ex.getMessage()), ex);
 			} catch (InterruptedException ex) {
-				Thread.currentThread().interrupt();
+				// Not the job's cancel, which the CancelScope takes back: the failure of the connect. The
+				// interrupt is not set again, the work after it may read the database (TL #30196).
 				throw new BusException(I18NConstants.ACCESS_CONNECT_INTERRUPTED__ADDRESS.fill(Gateways.format(address)), ex);
 			}
 		}

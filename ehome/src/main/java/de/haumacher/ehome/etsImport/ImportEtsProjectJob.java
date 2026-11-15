@@ -18,7 +18,6 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.importer.Importer;
-import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.importer.PasswordRequiredException;
 
 /**
@@ -50,7 +49,8 @@ import de.haumacher.ehome.importer.PasswordRequiredException;
  *
  * <p>
  * A cancelled job imports nothing of the file it is at; of a multi-file upload, the files imported
- * before stay.
+ * before stay, and the cancelled job ends with their report ({@link ImportJobs#importEach}). The
+ * commit of the last file is the point of no return of the job ({@link JobMonitor#uncancelable()}).
  * </p>
  */
 public class ImportEtsProjectJob implements JobBody {
@@ -139,27 +139,20 @@ public class ImportEtsProjectJob implements JobBody {
 	}
 
 	@Override
-	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		// The cancel interrupt must not reach the database access (TL #30196).
-		return Uninterruptible.run(() -> importFiles(job, arguments));
-	}
-
-	private static Object importFiles(JobMonitor job, List<Object> arguments) {
+	public Object run(JobMonitor job, List<Object> arguments) {
 		List<BinaryData> files = ImportJobs.files(arguments);
 		String password = password(arguments);
 		boolean upload = password == null && arguments.stream().noneMatch(Map.class::isInstance);
 		ImportReport report = new ImportReport(I18NConstants.IMPORT_SUMMARY__IMPORTED_COUNT);
-		for (BinaryData file : files) {
-			try {
-				importFile(job, report, file, password);
-			} catch (PasswordRequiredException ex) {
-				if (upload && files.size() == 1) {
-					return passwordRequired(file, ex);
-				}
-				throw ex;
+		try {
+			return ImportJobs.importEach(files, report, (file, last) -> importFile(job, report, file, password, last));
+		} catch (PasswordRequiredException ex) {
+			if (upload && files.size() == 1) {
+				// Refused before anything of the single file was imported.
+				return passwordRequired(files.get(0), ex);
 			}
+			throw ex;
 		}
-		return report.toMap();
 	}
 
 	/**
@@ -182,8 +175,9 @@ public class ImportEtsProjectJob implements JobBody {
 		return result;
 	}
 
-	private static void importFile(JobMonitor job, ImportReport report, BinaryData data, String password) {
-		Importer importer = ImportJobs.importFile(job, data, password, false);
+	private static void importFile(JobMonitor job, ImportReport report, BinaryData data, String password,
+			boolean last) {
+		Importer importer = ImportJobs.importFile(job, data, password, false, last);
 		// The project the import created, not one created meanwhile in another session.
 		TLObject project = importer.getCreated(PROJECT_TYPE).stream().findFirst().orElse(null);
 		report.addProject(data.getName(), project, importer.getMessages());

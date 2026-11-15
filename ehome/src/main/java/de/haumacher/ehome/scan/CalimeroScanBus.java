@@ -16,9 +16,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 
+import com.top_logic.basic.thread.CancelScope;
 import com.top_logic.basic.util.ResKey;
 
-import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroReader;
@@ -83,8 +83,20 @@ public class CalimeroScanBus implements ScanBus {
 	}
 
 	private CalimeroScanBus(BusPath path) throws BusException {
+		this(path, path.open());
+	}
+
+	/**
+	 * Creates a {@link CalimeroScanBus} on a link that is open already (a test's link in memory).
+	 *
+	 * @param path
+	 *        The path the link stands for, see {@link #gateway()}.
+	 * @param link
+	 *        The link to the bus, closed with this bus.
+	 */
+	protected CalimeroScanBus(BusPath path, KNXNetworkLink link) {
 		_path = path;
-		_link = path.open();
+		_link = link;
 	}
 
 	@Override
@@ -120,10 +132,10 @@ public class CalimeroScanBus implements ScanBus {
 
 	@Override
 	public List<Integer> programmingMode() throws BusException {
-		try (Uninterruptible.Section section = Uninterruptible.interruptible();
-				ManagementProceduresImpl procedures = new ManagementProceduresImpl(_link)) {
+		try (ManagementProceduresImpl procedures = new ManagementProceduresImpl(_link)) {
 			List<Integer> result = new ArrayList<>();
-			for (IndividualAddress address : procedures.readAddress()) {
+			// A cancel of the job ends the wait for the answers (TL #30196).
+			for (IndividualAddress address : CancelScope.runInterruptibly(procedures::readAddress)) {
 				result.add(address.getRawAddress());
 			}
 			Collections.sort(result);
@@ -143,35 +155,36 @@ public class CalimeroScanBus implements ScanBus {
 	/**
 	 * Runs a scan of Calimero in a thread of its own and reports its progress by the time it takes
 	 * (Calimero tells no progress), as unknown once it takes longer than {@link #SCAN_MILLIS}; a
-	 * cancelled job interrupts it.
+	 * cancelled job ends the wait for it at once and interrupts the thread of the scan, which touches
+	 * nothing but the bus.
 	 */
 	private List<Integer> scan(Scan scan, Progress progress, Function<Object, ResKey> failure) throws BusException {
 		ExecutorService executor = Executors.newSingleThreadExecutor(r -> new Thread(r, "ehome-scan"));
-		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
+		try {
 			ManagementProceduresImpl procedures = new ManagementProceduresImpl(_link);
 			try {
 				Future<List<Integer>> result = executor.submit(() -> scan.run(procedures));
 				long start = System.currentTimeMillis();
-				while (true) {
-					try {
-						List<Integer> found = new ArrayList<>(result.get(300, TimeUnit.MILLISECONDS));
-						Collections.sort(found);
-						progress.progress(256, 256);
-						return found;
-					} catch (TimeoutException ex) {
-						long elapsed = System.currentTimeMillis() - start;
+				try {
+					while (true) {
 						try {
+							List<Integer> found = new ArrayList<>(await(result, 300));
+							Collections.sort(found);
+							progress.progress(256, 256);
+							return found;
+						} catch (TimeoutException ex) {
+							long elapsed = System.currentTimeMillis() - start;
 							if (elapsed < SCAN_MILLIS) {
 								progress.progress((int) (elapsed * 256 / SCAN_MILLIS), 256);
 							} else {
 								// Slower than estimated (e.g. through a controller): how much is left is not known.
 								progress.indeterminate();
 							}
-						} catch (RuntimeException cancelled) {
-							result.cancel(true);
-							throw cancelled;
 						}
 					}
+				} catch (RuntimeException cancelled) {
+					result.cancel(true);
+					throw cancelled;
 				}
 			} finally {
 				procedures.detach();
@@ -186,6 +199,17 @@ public class CalimeroScanBus implements ScanBus {
 		} finally {
 			executor.shutdownNow();
 		}
+	}
+
+	/**
+	 * Waits for the given scan at most the given time, in the cancel scope of the job (TL #30196): a
+	 * cancel ends the wait at once.
+	 */
+	private static <T> T await(Future<T> future, long millis)
+			throws InterruptedException, ExecutionException, TimeoutException {
+		CancelScope scope = CancelScope.current();
+		return scope == null ? future.get(millis, TimeUnit.MILLISECONDS)
+			: scope.await(future, millis, TimeUnit.MILLISECONDS);
 	}
 
 	@Override
@@ -203,12 +227,14 @@ public class CalimeroScanBus implements ScanBus {
 			throw new BusException(I18NConstants.SCAN_GATEWAY_NOT_LOCAL__PATH.fill(gateway()));
 		}
 		LocalDeviceManagementIp adapter;
-		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
+		try {
 			InetSocketAddress remote = resolve(gateway.address());
 			InetSocketAddress local = new InetSocketAddress(BusPath.Gateway.localAddressTowards(remote), 0);
-			adapter = LocalDeviceManagementIp.newAdapter(local, remote, false, false, event -> {
-				// Closed with the bus.
-			});
+			// A cancel of the job ends the wait for the gateway (TL #30196).
+			adapter = CancelScope.runInterruptibly(() -> LocalDeviceManagementIp.newAdapter(local, remote, false, false,
+				event -> {
+					// Closed with the bus.
+				}));
 		} catch (KNXException | IOException ex) {
 			throw new BusException(I18NConstants.SCAN_NO_LOCAL_MANAGEMENT__PATH_REASON.fill(gateway(), ex.getMessage()), ex);
 		} catch (InterruptedException ex) {
@@ -221,8 +247,8 @@ public class CalimeroScanBus implements ScanBus {
 				if (index < 0) {
 					throw new BusException(I18NConstants.SCAN_GATEWAY_NO_OBJECT__TYPE.fill(objectType));
 				}
-				try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
-					return adapter.getProperty(index, propertyId, start, count);
+				try {
+					return CancelScope.runInterruptibly(() -> adapter.getProperty(index, propertyId, start, count));
 				} catch (KNXException ex) {
 					throw new BusException(I18NConstants.SCAN_LOCAL_PROPERTY_FAILED__TYPE_PROPERTY_PATH_REASON.fill(objectType,
 						propertyId, gateway(), ex.getMessage()), ex);
@@ -269,8 +295,8 @@ public class CalimeroScanBus implements ScanBus {
 
 		@Override
 		public byte[] readDescriptor() throws BusException {
-			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
-				return _management.readDeviceDesc(destination(), 0);
+			try {
+				return CancelScope.runInterruptibly(() -> _management.readDeviceDesc(destination(), 0));
 			} catch (KNXException ex) {
 				throw failure(reason -> de.haumacher.ehome.programming.download.I18NConstants.ACCESS_DESCRIPTOR_FAILED__DEVICE_PATH_REASON.fill(device(), gateway(),
 					reason), ex);
@@ -281,8 +307,9 @@ public class CalimeroScanBus implements ScanBus {
 
 		@Override
 		public byte[] readProperty(int objectIndex, int propertyId, int start, int count) throws BusException {
-			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
-				return _management.readProperty(destination(), objectIndex, propertyId, start, count);
+			try {
+				return CancelScope.runInterruptibly(
+					() -> _management.readProperty(destination(), objectIndex, propertyId, start, count));
 			} catch (KNXException ex) {
 				throw failure(reason -> de.haumacher.ehome.programming.download.I18NConstants.ACCESS_READ_PROPERTY_FAILED__OBJECT_PROPERTY_DEVICE_PATH_REASON
 					.fill(objectIndex, propertyId, device(), gateway(), reason), ex);
@@ -293,8 +320,8 @@ public class CalimeroScanBus implements ScanBus {
 
 		@Override
 		public byte[] readMemory(int address, int length) throws BusException {
-			try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
-				return _management.readMemory(destination(), address, length);
+			try {
+				return CancelScope.runInterruptibly(() -> _management.readMemory(destination(), address, length));
 			} catch (KNXException ex) {
 				throw failure(reason -> de.haumacher.ehome.programming.download.I18NConstants.ACCESS_READ_MEMORY_FAILED__ADDRESS_LENGTH_DEVICE_PATH_REASON
 					.fill(String.format("%04X", address), length, device(), gateway(), reason), ex);
@@ -326,8 +353,13 @@ public class CalimeroScanBus implements ScanBus {
 		}
 	}
 
+	/**
+	 * An interrupt of a bus access from elsewhere than the job's cancel (which the
+	 * <code>CancelScope</code> takes back on its own), as the failure of the access. The interrupt is
+	 * not set again: the work after the access may read the database, which an interrupt closes
+	 * (TL #30196).
+	 */
 	private static BusException interrupted(InterruptedException ex) {
-		Thread.currentThread().interrupt();
 		return new BusException(de.haumacher.ehome.programming.download.I18NConstants.ACCESS_INTERRUPTED, ex);
 	}
 

@@ -23,7 +23,6 @@ import com.top_logic.util.error.TopLogicException;
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.importer.PasswordRequiredException;
 import de.haumacher.ehome.importer.ProjectUpdate;
-import de.haumacher.ehome.job.Uninterruptible;
 
 /**
  * The work of the command "Update from ETS" (<code>&lt;start-job&gt;</code> body of
@@ -38,8 +37,10 @@ import de.haumacher.ehome.job.Uninterruptible;
  * the phases of {@link ImportJobs#importFile}, into a project of its own, which the update merges into
  * the project and deletes, in the same transaction: a refused update (another project, objects the
  * file removes that E-Home uses, …) fails the job with the reasons and changes nothing; so does a
- * cancelled one. The result is the report of {@link ImportEtsProjectJob}, with the project updated
- * in <code>project</code> and the changes per kind among the messages; a project protected by a
+ * cancelled one. The commit is the point of no return of the job ({@link JobMonitor#uncancelable()}):
+ * a job whose update was saved does not end as cancelled. The result is the report of
+ * {@link ImportEtsProjectJob}, with the project updated in <code>project</code> and the changes per
+ * kind among the messages; a project protected by a
  * password, uploaded without one, gives the result of {@link ImportEtsProjectJob} asking for the
  * password, with the project in <code>project</code>.
  * </p>
@@ -67,12 +68,7 @@ public class UpdateFromEtsJob implements JobBody {
 	}
 
 	@Override
-	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		// The cancel interrupt must not reach the database access (TL #30196).
-		return Uninterruptible.run(() -> update(job, arguments));
-	}
-
-	private static Object update(JobMonitor job, List<Object> arguments) {
+	public Object run(JobMonitor job, List<Object> arguments) {
 		TLObject project = project(arguments);
 		if (project == null || !project.tValid()) {
 			throw new TopLogicException(I18NConstants.ERROR_UPDATE_NO_PROJECT);
@@ -87,7 +83,7 @@ public class UpdateFromEtsJob implements JobBody {
 		ProjectUpdate[] update = new ProjectUpdate[1];
 		Importer importer;
 		try {
-			importer = ImportJobs.importFile(job, file, password, false, imported -> {
+			importer = ImportJobs.importFile(job, file, password, false, true, imported -> {
 				TLObject source = imported.getCreated(PROJECT_TYPE).stream().findFirst().orElse(null);
 				if (source == null) {
 					throw new TopLogicException(I18NConstants.ERROR_UPDATE_NO_PROJECT_IN_FILE);

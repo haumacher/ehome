@@ -13,10 +13,10 @@ import tuwien.auto.calimero.DataUnitBuilder;
 import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.link.KNXNetworkLink;
 
+import com.top_logic.basic.thread.CancelScope;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey4;
 
-import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.knx.transport.Tpdu;
 import de.haumacher.ehome.knx.transport.TransportClient;
 import de.haumacher.ehome.knx.transport.TransportClient.TransportException;
@@ -81,9 +81,22 @@ public class CalimeroReader implements DeviceReader {
 	 *         gateway, the controller refuses the bus session.
 	 */
 	protected CalimeroReader(BusPath path, int device) throws BusException {
-		_path = path.text();
+		this(path.text(), path.open(), device);
+	}
+
+	/**
+	 * Creates a {@link CalimeroReader} on a link that is open already (a test's link in memory).
+	 *
+	 * @param path
+	 *        The path the link stands for, for a person ({@link BusPath#text()}).
+	 * @param link
+	 *        The link to the bus, closed with this reader.
+	 * @param device
+	 *        The individual address of the device.
+	 */
+	protected CalimeroReader(String path, KNXNetworkLink link, int device) {
+		_path = path;
 		_device = new IndividualAddress(device);
-		KNXNetworkLink link = path.open();
 		_link = link;
 		_connection = new TransportClient(link, device, TIMING);
 	}
@@ -169,8 +182,9 @@ public class CalimeroReader implements DeviceReader {
 	 */
 	protected byte[] request(Function<Object, ResKey> failure, byte[] apdu, Predicate<byte[]> answer)
 			throws BusException {
-		try (Uninterruptible.Section section = Uninterruptible.interruptible()) {
-			return _connection.request(apdu, answer);
+		try {
+			// A cancel of the job ends the wait for the device (TL #30196).
+			return CancelScope.runInterruptibly(() -> _connection.request(apdu, answer));
 		} catch (TransportException ex) {
 			throw failure(failure, ex);
 		} catch (InterruptedException ex) {
@@ -255,10 +269,12 @@ public class CalimeroReader implements DeviceReader {
 	}
 
 	/**
-	 * An interrupt of the device access (the job was cancelled).
+	 * An interrupt of the device access from elsewhere than the job's cancel (which the
+	 * <code>CancelScope</code> takes back on its own), as the failure of the access. The interrupt is
+	 * not set again: the work after the access may read the database, which an interrupt closes
+	 * (TL #30196).
 	 */
 	protected static BusException interrupted(InterruptedException ex) {
-		Thread.currentThread().interrupt();
 		return new BusException(I18NConstants.ACCESS_INTERRUPTED, ex);
 	}
 

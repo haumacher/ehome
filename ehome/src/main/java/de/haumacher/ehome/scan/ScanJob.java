@@ -23,7 +23,6 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
-import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
 
@@ -39,6 +38,14 @@ import de.haumacher.ehome.programming.download.BusPath;
  * to scan for routers, to read the gateway through local device management and to look for the
  * devices in programming mode. Its result is a dictionary: <code>summary</code>, <code>rows</code>
  * (see {@link ScanRows}) and <code>notes</code> (what could not be read).
+ * </p>
+ *
+ * <p>
+ * A cancel ends the scan at its next report, or at once while it waits for the bus (the accesses of
+ * {@link CalimeroScanBus} are interruptible sections of the job's
+ * {@link com.top_logic.basic.thread.CancelScope}, TL #30196). Once the bus is read, the job is past
+ * its point of no return ({@link JobMonitor#uncancelable()}): it stores the devices found and ends
+ * with them.
  * </p>
  */
 public class ScanJob implements JobBody {
@@ -63,11 +70,6 @@ public class ScanJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		// The cancel interrupt reaches only the blocking bus accesses, never the database (TL #30196).
-		return Uninterruptible.run(() -> work(job, arguments));
-	}
-
-	private Object work(JobMonitor job, List<Object> arguments) throws Exception {
 		TLObject project = (TLObject) arguments.get(0);
 		Integer area = number(arguments.get(1));
 		Integer line = number(arguments.get(2));
@@ -117,6 +119,8 @@ public class ScanJob implements JobBody {
 			throw new TopLogicException(I18NConstants.SCAN_FAILED__GATEWAY_REASON.fill(gatewayText, ex.getErrorKey()), ex);
 		}
 
+		// The point of no return (TL #30194): the devices found are stored, the job ends with them.
+		job.uncancelable();
 		List<Map<String, Object>> rows = new ArrayList<>();
 		int identified = 0;
 		int choices = 0;

@@ -87,6 +87,13 @@ final class ImportReport {
 		addMessages(file, messages);
 	}
 
+	/**
+	 * Whether no file is recorded yet.
+	 */
+	boolean isEmpty() {
+		return _imported.isEmpty();
+	}
+
 	private static String fileName(String fileName) {
 		return fileName == null ? "" : fileName;
 	}

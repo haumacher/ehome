@@ -22,7 +22,6 @@ import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.importer.Importer;
-import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.projectfile.ProjectFile;
 import de.haumacher.ehome.projectfile.ProjectFileImport;
 
@@ -40,6 +39,11 @@ import de.haumacher.ehome.projectfile.ProjectFileImport;
  * {@link ImportEtsProjectJob}: the messages of both steps, among them that the controllers have to be
  * paired again and, where the installation has a project with the same ID, that both would deploy to
  * the same controllers.
+ * </p>
+ *
+ * <p>
+ * A cancel is answered as by {@link ImportEtsProjectJob}: nothing of the file the job is at is
+ * imported, the files imported before stay and are the report of the cancelled job.
  * </p>
  */
 public class ImportProjectFileJob implements JobBody {
@@ -63,20 +67,12 @@ public class ImportProjectFileJob implements JobBody {
 	}
 
 	@Override
-	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		// The cancel interrupt must not reach the database access (TL #30196).
-		return Uninterruptible.run(() -> importFiles(job, arguments));
-	}
-
-	private static Object importFiles(JobMonitor job, List<Object> arguments) {
+	public Object run(JobMonitor job, List<Object> arguments) {
 		ImportReport report = new ImportReport(I18NConstants.IMPORT_SUMMARY__IMPORTED_COUNT);
-		for (BinaryData file : ImportJobs.files(arguments)) {
-			importFile(job, report, file);
-		}
-		return report.toMap();
+		return ImportJobs.importEach(ImportJobs.files(arguments), report, (file, last) -> importFile(job, report, file, last));
 	}
 
-	private static void importFile(JobMonitor job, ImportReport report, BinaryData data) {
+	private static void importFile(JobMonitor job, ImportReport report, BinaryData data, boolean last) {
 		String name = data.getName() == null ? "" : data.getName();
 		ProjectFileImport.Contents contents;
 		try (InputStream in = data.getStream()) {
@@ -90,7 +86,7 @@ public class ImportProjectFileJob implements JobBody {
 
 		ProjectFileImport projectFile = new ProjectFileImport();
 		TLObject[] created = new TLObject[1];
-		Importer importer = ImportJobs.importFile(job, knxproj, null, false, imported -> {
+		Importer importer = ImportJobs.importFile(job, knxproj, null, false, last, imported -> {
 			created[0] = imported.getCreated(ProjectFile.PROJECT_TYPE).stream().findFirst().orElse(null);
 			if (created[0] == null) {
 				throw new TopLogicException(I18NConstants.ERROR_IMPORT_FAILED__DETAIL.fill(ProjectFile.KNXPROJ_ENTRY));

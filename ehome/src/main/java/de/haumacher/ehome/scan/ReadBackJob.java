@@ -19,7 +19,6 @@ import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
-import de.haumacher.ehome.job.Uninterruptible;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroReader;
@@ -40,6 +39,14 @@ import de.haumacher.ehome.programming.download.ProgrammingReport;
  * The job is started with the row of the device (see {@link ScanRows}). The result is a
  * {@link ProgrammingReport}: what was read and decoded, and whether the image of the device as read
  * back equals the memory read.
+ * </p>
+ *
+ * <p>
+ * A cancel ends the reading at its next report, or at once while it waits for the device (the
+ * accesses of {@link CalimeroReader} are interruptible sections of the job's
+ * {@link com.top_logic.basic.thread.CancelScope}, TL #30196). Once the device is read, the job is
+ * past its point of no return ({@link JobMonitor#uncancelable()}): it stores the settings read and
+ * ends with them.
  * </p>
  */
 public class ReadBackJob implements JobBody {
@@ -64,11 +71,6 @@ public class ReadBackJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		// The cancel interrupt reaches only the blocking bus accesses, never the database (TL #30196).
-		return Uninterruptible.run(() -> work(job, arguments));
-	}
-
-	private Object work(JobMonitor job, List<Object> arguments) throws Exception {
 		Object row = arguments.get(0);
 		ResKey veto = ScanFunctions.readVeto(row);
 		if (veto != null) {
@@ -94,6 +96,8 @@ public class ReadBackJob implements JobBody {
 				ex.getErrorKey()), false);
 		}
 
+		// The point of no return (TL #30194): the settings read are stored, the job ends with them.
+		job.uncancelable();
 		ReadBack.Report result;
 		String deviceLabel = MetaLabelProvider.INSTANCE.getLabel(device);
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()

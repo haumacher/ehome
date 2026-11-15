@@ -7,10 +7,14 @@
 	A project is created empty or imported from an ETS project file (.knxproj); an import that
 	reports messages (values kept as text, unresolved references) shows them in a dialog
 	(import-report.view.xml). A project protected by a password is imported from a dialog asking for
-	the password (import-password.view.xml). The import runs as a cancelable job
-	(de.haumacher.ehome.etsImport.ImportEtsProjectJob, haumacher/ehome #84) shown above the table while
-	it runs: its phases, the progress by the entries of the file and what is being imported; a failed
-	import stays shown there with its reason, a cancelled one has imported nothing. The selected project is exported as an (unsigned) ETS project file
+	the password (import-password.view.xml), which runs the import as a job of its own. The import runs
+	as a cancelable job (de.haumacher.ehome.etsImport.ImportEtsProjectJob, haumacher/ehome #84) shown
+	above the table while it runs: its phases, the progress by the entries of the file and what is
+	being imported; a failed import stays shown there with its reason until the reader closes the
+	display (its own close button, TL #30250). A cancel before the last file is saved imports nothing
+	of the file the job is at; the files of a multi-file upload saved before stay, and the cancelled
+	job continues in its <on-cancel> with their report as on success (TL #30195); the save of the last
+	file is the job's point of no return (TL #30194). The selected project is exported as an (unsigned) ETS project file
 	offered for download in a dialog (export-knxproj.view.xml). A whole project moves to another installation or
 	is backed up as project file (.ehome, de.haumacher.ehome.projectfile.ProjectFile, haumacher/ehome #117):
 	exported without secrets and operating history (export-ehome.view.xml), imported as a new project
@@ -131,10 +135,6 @@
 										channel="project"
 										to="project"
 									/>
-									<bind
-										channel="importJob"
-										to="importJob"
-									/>
 								</open-dialog>
 							</then>
 							<else>
@@ -154,6 +154,30 @@
 							</else>
 						</if>
 					</with-result>
+					<!--
+						A cancelled import (TL #30195): the report of the files saved before the cancel, as on
+						success; the display of the job stays and says that the job was cancelled. Without a
+						result (nothing saved), nothing is shown besides.
+					-->
+					<on-cancel as="report">
+						<if test="$report != null">
+							<then>
+								<if test='$report["messages"]'>
+									<then>
+										<open-dialog
+											bind-input-to="report"
+											dialog-view="projects/import-report.view.xml"
+										/>
+									</then>
+								</if>
+								<execute-script function='$report["project"]'>
+									<with-result>
+										<write-channel name="project"/>
+									</with-result>
+								</execute-script>
+							</then>
+						</if>
+					</on-cancel>
 				</start-job>
 			</upload-command>
 			<upload-command
@@ -218,6 +242,30 @@
 							</with-result>
 						</execute-script>
 					</with-result>
+					<!--
+						A cancelled import (TL #30195): the report of the files saved before the cancel, as on
+						success; the display of the job stays and says that the job was cancelled. Without a
+						result (nothing saved), nothing is shown besides.
+					-->
+					<on-cancel as="report">
+						<if test="$report != null">
+							<then>
+								<if test='$report["messages"]'>
+									<then>
+										<open-dialog
+											bind-input-to="report"
+											dialog-view="projects/import-report.view.xml"
+										/>
+									</then>
+								</if>
+								<execute-script function='$report["project"]'>
+									<with-result>
+										<write-channel name="project"/>
+									</with-result>
+								</execute-script>
+							</then>
+						</if>
+					</on-cancel>
 				</start-job>
 			</upload-command>
 			<upload-command
@@ -283,10 +331,6 @@
 									<bind
 										channel="project"
 										to="project"
-									/>
-									<bind
-										channel="importJob"
-										to="importJob"
 									/>
 								</open-dialog>
 							</then>
@@ -415,29 +459,8 @@
 				input="importJob"
 			>
 				<inset>
-					<stack gap="default">
+					<!-- An ended job that failed or was cancelled stays displayed (its follow-up clears it only on success): the reader closes it with the display's close button (TL #30250). -->
 					<job-status input="importJob"/>
-					<!-- An ended job that failed or was cancelled stays displayed (its follow-up clears it only on success): the reader closes it (TL #30250). -->
-					<visible-if
-						expr="!jobIsRunning($importJob)"
-						input="importJob"
-					>
-						<button>
-							<action class="com.top_logic.layout.view.command.GenericViewCommand"
-								image="css:bi bi-x-lg"
-							>
-								<label>
-									<en>Close</en>
-									<de>Schließen</de>
-								</label>
-								<write-channel
-									clear="true"
-									name="importJob"
-								/>
-							</action>
-						</button>
-					</visible-if>
-				</stack>
 				</inset>
 			</visible-if>
 			<switch input="anyProject">
