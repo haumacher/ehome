@@ -80,6 +80,12 @@
 							</label>
 						</nav-item>
 						<nav-item id="discover" icon="css:bi bi-broadcast">
+							<!--
+								Only for an installation that reaches local networks (configuration variable
+								tl_ehome_local_network, haumacher/ehome #150); DiscoverGatewaysAction refuses the search
+								of any other as well.
+							-->
+							<visibility expr="localNetworkVeto() == null"/>
 							<view-ref view="discover.view.xml"/>
 							<label>
 								<en>Discover</en>

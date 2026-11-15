@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
+import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
@@ -328,6 +329,30 @@ public class WiringTools {
 	}
 
 	/**
+	 * The commit message of {@link #nameGroupAddresses(ToolContext, List, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey nameGroupAddressesMessage(ToolContext context, List<GroupAddressName> names, Boolean dryRun) {
+		TLObject owner = null;
+		List<String> addresses = new ArrayList<>();
+		if (names != null) {
+			for (GroupAddressName entry : names) {
+				TLObject address = entry == null ? null : entry.groupAddress();
+				if (owner == null && address != null && address.tValid()) {
+					owner = project(address);
+				}
+				addresses.add(addressName(address));
+			}
+		}
+		return I18NConstants.COMMIT_GROUP_ADDRESSES_NAMED__PROJECT_ADDRESSES.fill(CommitMessages.label(owner),
+			String.join(", ", addresses));
+	}
+
+	private static String addressName(TLObject address) {
+		return ExtIds.isA(address, GROUP_ADDRESS) ? DatapointNames.name(address) : CommitMessages.label(address);
+	}
+
+	/**
 	 * Names group addresses.
 	 */
 	@ToolMethod(description = "Sets the names - and optionally the descriptions and identifiers - of several group"
@@ -342,7 +367,8 @@ public class WiringTools {
 		+ " of the datapoint under its old id. If one entry is refused, nothing is changed and the answer names"
 		+ " each refused entry. The answer lists every address with its values before and after. With"
 		+ " dryRun=true nothing is changed and the answer shows the changes it would make.",
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "nameGroupAddressesMessage")
 	public ToolResult nameGroupAddresses(ToolContext context,
 			@P("The changes: [{\"groupAddress\": \"id\", \"name\": \"Küche Licht Schalten\", \"description\":"
 				+ " optional, \"identifier\": \"kueche.licht\" optional}]") List<GroupAddressName> names,
@@ -445,6 +471,17 @@ public class WiringTools {
 	}
 
 	/**
+	 * The commit message of {@link #createGroupAddress(ToolContext, TLObject, String, String, String, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey createGroupAddressMessage(ToolContext context, TLObject range, String name, String datapointType,
+			String address, Boolean dryRun) {
+		String text = CommitMessages.text(name);
+		return I18NConstants.COMMIT_GROUP_ADDRESS_CREATED__RANGE_NAME.fill(CommitMessages.label(range),
+			address == null || address.isBlank() ? text : DatapointNames.format(text, address.trim()));
+	}
+
+	/**
 	 * Creates a group address.
 	 */
 	@ToolMethod(description = "Creates a group address in a group range of an E-Home project (a range that"
@@ -453,7 +490,8 @@ public class WiringTools {
 		+ " the object that will send to it, e.g. \"1.001\" switch, \"5.001\" percentage, \"9.001\" temperature"
 		+ " (also written DPST-1-1). With dryRun=true nothing is created and the answer gives the address it"
 		+ " would get, or why it cannot. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "createGroupAddressMessage")
 	public ToolResult createGroupAddress(ToolContext context,
 			@P("The group range to create it in") TLObject range,
 			@P("The name, e.g. \"Licht Küche schalten\"") String name,
@@ -529,13 +567,25 @@ public class WiringTools {
 	}
 
 	/**
+	 * The commit message of {@link #setGroupAddressType(ToolContext, TLObject, String)}.
+	 */
+	@CalledByReflection
+	ResKey setGroupAddressTypeMessage(ToolContext context, TLObject groupAddress, String datapointType) {
+		String address = addressName(groupAddress);
+		return datapointType == null || datapointType.isBlank()
+			? I18NConstants.COMMIT_GROUP_ADDRESS_TYPE_REMOVED__ADDRESS.fill(address)
+			: I18NConstants.COMMIT_GROUP_ADDRESS_TYPE_SET__ADDRESS_TYPE.fill(address, datapointType.trim());
+	}
+
+	/**
 	 * Sets the datapoint type of a group address.
 	 */
 	@ToolMethod(description = "Sets the datapoint type of a group address of an E-Home project, e.g. \"9.001\";"
 		+ " omit 'datapointType' to remove the address's own type, so that the type of its objects applies."
 		+ " The application refuses a type whose size differs from the size of the connected objects. "
 		+ ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE,
+		commitMessage = "setGroupAddressTypeMessage")
 	public ToolResult setGroupAddressType(ToolContext context,
 			@P("The group address") TLObject groupAddress,
 			@P(value = "The datapoint type, e.g. \"1.001\"; omit to remove the own type", required = false)
@@ -639,6 +689,21 @@ public class WiringTools {
 	}
 
 	/**
+	 * The commit message of {@link #connectObject(ToolContext, TLObject, Integer, TLObject, String, Boolean, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey connectObjectMessage(ToolContext context, TLObject device, Integer object, TLObject groupAddress,
+			String direction, Boolean despiteProblems, Boolean dryRun) {
+		boolean isDevice = ExtIds.isA(device, DEVICE);
+		Interface placed = isDevice && object != null ? object(device, object.intValue()) : null;
+		String objectName = placed == null ? String.valueOf(object)
+			: object + " " + GroupAddressConnections.objectName(device, placed, Resources.getInstance());
+		return I18NConstants.COMMIT_OBJECT_CONNECTED__DEVICE_OBJECT_ADDRESS.fill(
+			isDevice ? GroupAddressConnections.deviceLabel(device) : CommitMessages.label(device), objectName,
+			addressName(groupAddress));
+	}
+
+	/**
 	 * Connects a communication object to a group address.
 	 */
 	@ToolMethod(description = "Connects a communication object of a device (its number from deviceObjects) to a"
@@ -653,7 +718,8 @@ public class WiringTools {
 		+ " size or datapoint type does not fit the address or its other objects, naming the problem; pass"
 		+ " despiteProblems=true only when the user wants it connected anyway. With dryRun=true nothing is"
 		+ " connected and the answer gives the direction and the problems. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "connectObjectMessage")
 	public ToolResult connectObject(ToolContext context,
 			@P("The device") TLObject device,
 			@P("The number of the communication object") Integer object,
@@ -715,11 +781,22 @@ public class WiringTools {
 	}
 
 	/**
+	 * The commit message of {@link #disconnectObject(ToolContext, TLObject)}.
+	 */
+	@CalledByReflection
+	ResKey disconnectObjectMessage(ToolContext context, TLObject connection) {
+		return I18NConstants.COMMIT_OBJECT_DISCONNECTED__CONNECTION.fill(
+			ExtIds.isA(connection, "ehome.physical:Connection") ? GroupAddressConnections.label(connection)
+				: CommitMessages.label(connection));
+	}
+
+	/**
 	 * Removes a connection.
 	 */
 	@ToolMethod(description = "Removes a connection of a communication object to a group address in an E-Home"
 		+ " project (its id from deviceObjects). The object and the address stay. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE,
+		commitMessage = "disconnectObjectMessage")
 	public ToolResult disconnectObject(ToolContext context,
 			@P("The connection") TLObject connection) {
 		if (!ExtIds.isA(connection, "ehome.physical:Connection")) {

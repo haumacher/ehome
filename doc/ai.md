@@ -89,9 +89,11 @@ and `claude-haiku-5-5`, selectable in the chat. `tl_anthropic_models` (comma sep
 first) and `tl_ai_default_model` override them; a default model that no provider offers stops the
 start of the agent runtime. The other providers the engine ships (`openai`, `mistral`, `xai`) stay
 configured and are inactive without their keys: an installation that prefers another vendor sets
-that vendor's key (`tl_openai_api_key`, ...) and `tl_ai_default_model`, and changes no file. The
-metadata of the three Claude models (context window, output limit, prices) is in
-`ehome.ai.config.xml`, since the catalog bundled with the engine does not know them yet.
+that vendor's key (`tl_openai_api_key`, ...) and `tl_ai_default_model`, and changes no file; a
+default model outside that provider's default list also needs the list
+(`tl_openai_models=gpt-5.5`, ...). The metadata of the models (context window, output limit, prices,
+the thinking efforts) comes from the catalog bundled with the engine (since 8.0.0-alpha13.823 with
+the Claude 5.5 models); the chat offers a thinking effort for each of the three, Haiku included.
 
 ## Who may do what
 
@@ -110,6 +112,13 @@ owner, editor or viewer; an editor's or owner's tools change the project, a view
   controllers' tokens and secrets and the projects' installation keys are never read by anybody but
   an administrator.
 - **Every writing call asks the user** in the chat (approval card) before it runs.
+- **A writing tool decides the right itself:** E-Home's tools check the right to change the project
+  of their target before they write (`ToolSupport.writeDenied`, `LogicSupport.writeDenied`); since
+  8.0.0-alpha13.823 the engine checks a turn's changes no second time at its commit (TL #30255).
+- **The revision log names the change:** the commit of a turn carries the model's own account of it,
+  or the messages of its writing calls, each naming the change and its target ("Building parts
+  created in Haus: Erdgeschoss", "Object 0 Channel A of ... connected to Licht (1/1/0)"), in the
+  reader's language (`de.haumacher.ehome.ai.I18NConstants`, TL #30276).
 - **Not granted to anybody:** changing data with a TL-Script (`changeData`, group `script`): E-Home's
   TL-Script functions are not access checked and include writing to the bus; the privileged groups
   (`model.structure`, `agent.authoring`); the web (`egress`).
@@ -192,17 +201,17 @@ The endpoint is `<host>/ehome/mcp` (in development `http://localhost:8080/ehome/
    claude mcp add --transport http ehome http://localhost:8080/ehome/mcp \
        --header "Authorization: Bearer $(cat ~/.config/ehome/mcp-token)"
    ```
-   For the Debian installation behind its proxy: `https://<host>/ehome/mcp`. The address ends in
-   `/mcp`, without a slash: `/ehome/mcp/` is answered with 404 (the transport of the MCP SDK matches
-   the end of the path).
+   For the Debian installation behind its proxy: `https://<host>/ehome/mcp` (also with a trailing
+   slash, `/ehome/mcp/`, since 8.0.0-alpha13.823).
 4. Revoke a token in the same settings tab; an administrator lists and revokes every token under
    *Administration* → *Access tokens*.
 
 What the endpoint publishes (`<exposed-tools>`): the tool groups `model.read`, `data.read` and
 `data.write` - the groups of the chat, E-Home's own tools included. A call is decided for the token's
 account exactly as in the chat: a viewer's client reads and is refused every writing tool. The tool
-list itself is the same for everybody (the MCP SDK answers it without the caller), so a viewer's
-client lists the writing tools it cannot use.
+list (`tools/list`) names only the published tools the caller's groups grant; since every account
+holds `data.write` and the role in each project decides per object, a viewer's client still lists the
+writing tools, and is refused them in the projects it only views.
 
 An MCP call has nobody in E-Home to approve it: it is a background run, capped by the policy's
 `<background-allowlist>`, which admits `model.read`, `data.read` and `data.write`. An installer's
@@ -241,4 +250,6 @@ installer creates a building with a floor through `createBuildingParts` and a vi
 `TestAssistantTools` runs E-Home's tools on the test system (a floor with rooms, a planned actuator
 in the kitchen, a group address connected to channel A; the refusals of an address in use, a type or
 object of another size, a building part of another project, a viewer; parameters, duplicate, move,
-place), `TestAssistantNaming` the naming of unnamed addresses (`src/test/fixtures/TestNaming.knxproj`).
+place; an installer who only views the project is refused each kind of writing tool by the tool's
+own check; the commit messages of the writing calls), `TestToolCommitMessages` that every writing tool
+names a commit message, `TestAssistantNaming` the naming of unnamed addresses (`src/test/fixtures/TestNaming.knxproj`).

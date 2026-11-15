@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import jakarta.servlet.DispatcherType;
@@ -43,7 +44,10 @@ import com.top_logic.base.services.InitialGroupManager;
 import com.top_logic.base.services.InitialRolesManager;
 import com.top_logic.basic.module.ModuleUtil;
 import com.top_logic.basic.module.services.ServletContextService;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.wrap.WrapperHistoryUtils;
+import com.top_logic.util.Resources;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
@@ -207,6 +211,26 @@ public class TestMcpEndpoint extends BasicTestCase {
 		List<?> floors = (List<?>) buildings.get(0).tValueByName("parts");
 		assertEquals(1, floors.size());
 		assertEquals("Erdgeschoss", ((TLObject) floors.get(0)).tValueByName("name"));
+	}
+
+	/**
+	 * A writing tool called over the endpoint commits with the message the tool describes its call
+	 * with (TL #30276), not with the generic one of the engine.
+	 */
+	public void testCommitMessageOfAToolCall() throws Exception {
+		String installer = token(_fixture.installer());
+		String session = open(installer);
+		String created = Json.write(call(installer, session, "tools/call", Map.of("name", CREATE_PARTS,
+			"arguments", Map.of("parent", tid(_fixture.project()), "parts", List.of(Map.of("kind", "Building",
+				"name", "Protokollhaus"))))));
+		assertTrue(created, created.contains("Created."));
+		PersistencyLayer.getKnowledgeBase().refetch();
+		TLObject building = buildings().stream()
+			.filter(b -> "Protokollhaus".equals(b.tValueByName("name"))).findFirst().orElseThrow();
+		ResKey log = WrapperHistoryUtils.getCreateRevision(building).getLog();
+		String message = Resources.getInstance(Locale.ENGLISH).getString(log);
+		assertTrue("The revision of the call names the part created: " + message, message.contains("Protokollhaus"));
+		assertFalse("The revision of the call has not the generic message: " + message, message.contains("Agent edit"));
 	}
 
 	private List<TLObject> buildings() {

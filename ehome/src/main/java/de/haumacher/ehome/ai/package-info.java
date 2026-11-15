@@ -25,8 +25,6 @@
  * <li>{@link de.haumacher.ehome.ai.WiringTools} (<code>ehome-wiring</code>): the group addresses with
  * what tells their purpose (paged), creating one, setting its datapoint type, naming several at once,
  * a device's communication objects, connecting and disconnecting them.</li>
- * <li>{@link de.haumacher.ehome.ai.NewPartsSecurityContextFactory}: the workaround of an engine gap of
- * the pre-commit guard (doc/tl-todo.md, "AI modules").</li>
  * </ul>
  *
  * <h2>Where further domain tools join</h2>

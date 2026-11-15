@@ -16,7 +16,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 
+import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.thread.ThreadContext;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.tl.ai.core.agent.ToolContext;
 import com.top_logic.tl.ai.core.tools.refusal.ApplicationRefusals;
@@ -27,6 +29,8 @@ import com.top_logic.tl.ai.tool.api.ToolMethod;
 import com.top_logic.tl.ai.tool.api.ToolMode;
 import com.top_logic.tl.ai.tool.api.ToolResult;
 
+import de.haumacher.ehome.ai.CommitMessages;
+import de.haumacher.ehome.ai.I18NConstants;
 import de.haumacher.ehome.ai.logic.LogicSupport.Outcome;
 import de.haumacher.ehome.blocks.BlockType;
 import de.haumacher.ehome.blocks.Manifest.Param;
@@ -116,6 +120,16 @@ public class BlockTools {
 	}
 
 	/**
+	 * The commit message of {@link #createBlock(ToolContext, TLObject, String, String, Map, Map, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey createBlockMessage(ToolContext context, TLObject room, String type, String name,
+			Map<String, Object> bindings, Map<String, Object> parameters, Boolean dryRun) {
+		return I18NConstants.COMMIT_BLOCK_CREATED__ROOM_NAME.fill(CommitMessages.label(room),
+			name != null && !name.isBlank() ? name.trim() : CommitMessages.text(type));
+	}
+
+	/**
 	 * Creates a virtual device.
 	 */
 	@ToolMethod(description = "Creates a virtual device (an instance of a block type the controller runs) in a"
@@ -126,7 +140,8 @@ public class BlockTools {
 		+ " parameter's unit, a time of day as \"06:30\"). Only datapoints the port can bind are taken: of a"
 		+ " type it reads (input) or commands (output, writable), of its unit. The answer names what the"
 		+ " runtime image would still refuse (a required port without a datapoint). " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "createBlockMessage")
 	public ToolResult createBlock(ToolContext context,
 			@P("The room (a building part) the device belongs to") TLObject room,
 			@P("The key of the block type, e.g. \"org.homecontrol.room-controller 1.0\" (blockTypes lists them)") String type,
@@ -162,13 +177,22 @@ public class BlockTools {
 	}
 
 	/**
+	 * The commit message of {@link #bindBlock(ToolContext, TLObject, Map, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey bindBlockMessage(ToolContext context, TLObject block, Map<String, Object> bindings, Boolean dryRun) {
+		return I18NConstants.COMMIT_BLOCK_BOUND__BLOCK.fill(CommitMessages.label(block));
+	}
+
+	/**
 	 * Binds further datapoints to ports of a virtual device.
 	 */
 	@ToolMethod(description = "Binds datapoints to ports of an existing virtual device of E-Home, as the bind"
 		+ " dialog of the blocks view does (a binding is added; an input that aggregates takes several). The"
 		+ " datapoints by their ids in the image; only those the port can bind are taken. "
 		+ LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "bindBlockMessage")
 	public ToolResult bindBlock(ToolContext context,
 			@P("The virtual device (ehome.runtime:BlockInstance)") TLObject block,
 			@P("The bindings by port: {\"window\": [\"wz.window\"]}") Map<String, Object> bindings,

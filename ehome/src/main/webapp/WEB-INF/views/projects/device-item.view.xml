@@ -15,21 +15,20 @@
 	text with the reason beside it (the refusal of a change, else the missing right), a parameter
 	without value (a heading) only its text, a picture of the parameter dialog the picture with its
 	text as caption (catalogs/parameter-picture.view.xml, haumacher/ehome #155). A parameter with an icon at
-	its place shows it before its text, an entry of an enumeration chosen with an icon shows it beside the
-	input or the value (the icons of the program, haumacher/ehome #156; the choices themselves show their
-	text alone, see doc/tl-todo.md), and a parameter with a help text has a button opening it, in the
+	its place shows it before its text, the entries of an enumeration show their icons in the choice and
+	in the chosen value (the icons of the program, haumacher/ehome #156; EnumerationValueResourceProvider,
+	TL #30316), a value only to read beside its text, and a parameter with a help text has a button opening it, in the
 	reader's language, else in the program's default language (haumacher/ehome #157,
 	catalogs/program-help.view.xml). A change of a parameter runs the
 	calculations of the manufacturer it feeds (haumacher/ehome #123); a parameter of a calculation
 	E-Home cannot evaluate can only be read, with the reason beside it, and one a calculation computes
 	says so.
 
-	A button of the parameter dialog (haumacher/ehome #158) shows its text and the command running its
-	handler (deviceButtonPress, in a transaction of its own: what the handler sets takes the way of a
-	person's change, and a refusal anywhere undoes the whole press and is reported with its reason). A
-	button E-Home cannot run, or one of a device the user may not change, is disabled with the reason
-	beside it. The command shows a label of its own beside the text of the button, not the text on it:
-	the label of a view command is fixed in its configuration (an engine gap).
+	A button of the parameter dialog (haumacher/ehome #158) is the command running its handler, labeled
+	with the button's text (label-expr, TL #30321) (deviceButtonPress, in a transaction of its own: what
+	the handler sets takes the way of a person's change, and a refusal anywhere undoes the whole press
+	and is reported with its reason). A button E-Home cannot run, or one of a device the user may not
+	change, is disabled with the reason beside it.
 
 	A communication object shows its connections, each with its group address as a link to the
 	address in the group addresses of the project (the display target of ehomeConf.config.xml,
@@ -126,14 +125,17 @@
 			inputs="device, item"
 			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection,ehome.physical:Device"
 		/>
-		<!-- The icon of the parameter at its place, and the one of the entry of an enumeration chosen (haumacher/ehome #156). -->
+		<!--
+			The icon of the parameter at its place, and the one of the entry of an enumeration a value only to
+			read has (haumacher/ehome #156); a choice shows the icons of its entries itself (TL #30316).
+		-->
 		<derived-channel name="itemIcon"
 			expr="parameterIcon($item)"
 			inputs="item"
 			observed-types="ehome.catalog:ArchiveEntry"
 		/>
 		<derived-channel name="valueIcon"
-			expr="if($kind == 'choice' or $kind == 'readonly', parameterIcon($value), null)"
+			expr="if($kind == 'readonly', parameterIcon($value), null)"
 			inputs="kind, value"
 			observed-types="ehome.catalog:ArchiveEntry"
 		/>
@@ -221,7 +223,7 @@
 		gap="compact"
 		wrap="true"
 	>
-		<!-- The text of the entry; a picture has it as its caption below it. -->
+		<!-- The text of the entry; a picture has it as its caption below it, a button on it. -->
 		<visible-if
 			expr="$kind != 'picture'"
 			input="kind"
@@ -248,7 +250,12 @@
 						</alt>
 					</image>
 				</visible-if>
-				<text input="itemLabel"/>
+				<visible-if
+					expr="$kind != 'button'"
+					input="kind"
+				>
+					<text input="itemLabel"/>
+				</visible-if>
 				<visible-if
 					expr="$itemHelp != null"
 					input="itemHelp"
@@ -426,10 +433,12 @@
 						<action class="com.top_logic.layout.view.command.GenericViewCommand"
 							image="css:bi bi-play-fill"
 							inputs="item, device"
+							label-expr="deviceText($device, $item)"
 						>
+							<!-- Only while the button has no text. -->
 							<label>
-								<en>Run</en>
-								<de>Ausführen</de>
+								<en>Button</en>
+								<de>Schaltfläche</de>
 							</label>
 							<access>
 								<operation name="Write"
@@ -591,7 +600,7 @@
 				</stack>
 			</case>
 		</switch>
-		<!-- The icon of the entry chosen. -->
+		<!-- The icon of the entry of a value only to read. -->
 		<visible-if
 			expr="$valueIcon != null"
 			input="valueIcon"

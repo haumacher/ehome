@@ -10,6 +10,7 @@
 #   ehome-agent.py windows                       the windows of the session
 #   ehome-agent.py observe [--actions]           the observation of a window (JSON)
 #   ehome-agent.py act <address> <command> [<arguments as JSON>]
+#                                                a row, node or option by the id the observation shows
 #   ehome-agent.py navigate <route URL>          e.g. /ehome/view/projects
 #
 # --window <name> selects the window (default: the first one /windows lists).
@@ -101,6 +102,9 @@ def main():
 		result = call(base, token, "POST", "/navigate", {"windowName": window(base, token, args.window), "url": args.url})
 	json.dump(result, sys.stdout, ensure_ascii=False, indent=1)
 	print()
+	# A refused command or navigation (success false, with its error or message) ends with status 1.
+	if isinstance(result, dict) and result.get("success") is False:
+		sys.exit(1)
 
 
 if __name__ == "__main__":

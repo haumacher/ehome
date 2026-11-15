@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -55,12 +56,17 @@ import com.top_logic.tl.ai.core.provider.ScriptedModel.Reply;
 import com.top_logic.tl.ai.core.provider.ScriptedModel.Script;
 import com.top_logic.tl.ai.core.provider.ScriptedProvider;
 import com.top_logic.tl.ai.core.security.AiToolAccessService;
+import com.top_logic.tl.ai.tool.api.AnnotatedTools;
+import com.top_logic.tl.ai.tool.api.Tool;
 import com.top_logic.tl.ai.tool.api.ToolResult;
 import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.ai.BuildingTools;
 import de.haumacher.ehome.ai.DeviceTools;
+import de.haumacher.ehome.ai.WiringTools;
+import de.haumacher.ehome.ai.logic.FunctionTools;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.ParameterValues;
@@ -78,6 +84,7 @@ import de.haumacher.ehome.programming.GroupAddressTypes;
 import de.haumacher.ehome.programming.GroupAddresses;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
+import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.template.ObjectTypes;
 
@@ -88,7 +95,7 @@ import de.haumacher.ehome.template.ObjectTypes;
  * kitchen and wires channel A's switching object to a new group address, through the operations
  * the views run; and it is refused, with the application's reason and without a change, an address
  * in use, an object or datapoint type of another size, a building part of another project, and -
- * as a viewer - every writing tool.
+ * as a viewer - every writing tool, also to an installer who only views the project.
  */
 @SuppressWarnings("javadoc")
 public class TestAssistantTools extends BasicTestCase {
@@ -106,6 +113,8 @@ public class TestAssistantTools extends BasicTestCase {
 	private static Person _installer;
 
 	private static Person _viewer;
+
+	private static Person _viewingInstaller;
 
 	/**
 	 * The three sentences of the issue, one after the other, as an installer.
@@ -243,6 +252,94 @@ public class TestAssistantTools extends BasicTestCase {
 		assertTrue(direct.failed());
 		assertTrue(direct.text(), direct.text().contains("Permission denied"));
 		assertEquals(devices, ExtIds.list(line, "devices").size());
+	}
+
+	/**
+	 * An installer who only views the project is refused each kind of writing tool by the tool's own
+	 * check of the right on the project, before anything is written: since 8.0.0-alpha13.823 no
+	 * pre-commit guard of the agent framework checks a turn's changes again (TL #30255). Creating
+	 * building parts with parts inside them, connecting an object (a new connector with its connection),
+	 * duplicating a device (a new device with its settings), and a write of the logic tools.
+	 */
+	public void testViewingInstallerRefusedEveryKindOfWrite() {
+		TLObject line = line();
+		TLObject actuator = device(line, 5);
+		Interface channelA = switchingObject(actuator, "Channel A");
+		TLObject range = GroupAddresses.ranges(_project).get(0);
+		TLObject[] address = { null };
+		inTransaction(() -> address[0] = GroupAddresses.create(range, GroupAddresses.nextFree(range), "Nur lesen", null));
+		int buildings = ExtIds.list(_project, "buildings").size();
+		int devices = ExtIds.list(line, "devices").size();
+		int functions = ExtIds.list(_project, "functions").size();
+
+		Map<String, ToolResult> results = new LinkedHashMap<>();
+		results.put("createBuildingParts", as(_viewingInstaller, () -> new BuildingTools().createBuildingParts(
+			AssistantFixture.toolContext(), _project,
+			List.of(part("Building", "Betrachterhaus", part("Floor", "Erdgeschoss", part("Room", "Küche")))), null,
+			null)));
+		results.put("connectObject", as(_viewingInstaller, () -> new WiringTools().connectObject(
+			AssistantFixture.toolContext(), actuator, Integer.valueOf(channelA.getPort().getIndex()), address[0], null,
+			null, null)));
+		results.put("duplicateDevice", as(_viewingInstaller,
+			() -> new DeviceTools().duplicateDevice(AssistantFixture.toolContext(), actuator, null)));
+		results.put("proposeFunctions", as(_viewingInstaller,
+			() -> new FunctionTools().proposeFunctions(AssistantFixture.toolContext(), _project, null)));
+		for (Map.Entry<String, ToolResult> result : results.entrySet()) {
+			ToolResult refusal = result.getValue();
+			assertTrue(result.getKey() + ": " + refusal.text(), refusal.failed());
+			assertTrue(result.getKey() + ": " + refusal.text(), refusal.text().contains("Permission denied"));
+		}
+
+		assertEquals(buildings, ExtIds.list(_project, "buildings").size());
+		assertTrue(GroupAddressConnections.connections(address[0]).isEmpty());
+		assertEquals(devices, ExtIds.list(line, "devices").size());
+		assertEquals(functions, ExtIds.list(_project, "functions").size());
+	}
+
+	/**
+	 * A writing call names its change and its target in the revision log (TL #30276): the commit
+	 * message of the call, asked before it runs, from the arguments as the model sends them.
+	 */
+	public void testCommitMessages() {
+		TLObject line = line();
+		TLObject actuator = device(line, 5);
+		Interface channelA = switchingObject(actuator, "Channel A");
+		TLObject range = GroupAddresses.ranges(_project).get(0);
+		String projectName = (String) _project.tValueByName("name");
+
+		String created = commitMessage(new BuildingTools(), "createBuildingParts",
+			Map.of("parent", tid(_project), "parts", List.of(part("Building", "Gartenhaus"), part("Building", "Garage"))));
+		assertEquals("Building parts created in " + projectName + ": Gartenhaus, Garage", created);
+
+		String planned = commitMessage(new DeviceTools(), "planDevice",
+			Map.of("line", tid(line), "product", tid((TLObject) actuator.tValueByName("type")), "name", "Aktor Garage"));
+		assertTrue(planned, planned.startsWith("Device planned in line ") && planned.endsWith(": Aktor Garage"));
+
+		String address = commitMessage(new WiringTools(), "createGroupAddress",
+			Map.of("range", tid(range), "name", "Garage Licht"));
+		assertTrue(address, address.startsWith("Group address Garage Licht created in "));
+
+		TLObject target = DeviceSettings.groupAddresses(_project).get(0);
+		String connected = commitMessage(new WiringTools(), "connectObject",
+			Map.of("device", tid(actuator), "object", Integer.valueOf(channelA.getPort().getIndex()), "groupAddress",
+				tid(target)));
+		assertTrue(connected, connected.startsWith("Object " + channelA.getPort().getIndex() + " "));
+		assertTrue(connected, connected.contains(as(_installer, () -> GroupAddressConnections.deviceLabel(actuator))));
+		assertTrue(connected, connected.endsWith(" connected to " + as(_installer, () -> DatapointNames.name(target))));
+
+		// An argument that does not resolve fails no message: the engine logs the generic one naming the tool.
+		assertNull(commitMessage(new DeviceTools(), "duplicateDevice", Map.of("device", "ehome.physical:Device:0")));
+	}
+
+	/**
+	 * The commit message of a call of the given tool in English, as the installer runs it.
+	 */
+	private static String commitMessage(Object tools, String name, Map<String, Object> arguments) {
+		Tool tool = AnnotatedTools.from(tools).stream().filter(t -> t.name().equals(name)).findFirst().orElseThrow();
+		return as(_installer, () -> {
+			ResKey message = tool.commitMessage(arguments, AssistantFixture.toolContext());
+			return message == null ? null : Resources.getInstance(Locale.ENGLISH).getString(message);
+		});
 	}
 
 	/**
@@ -515,8 +612,9 @@ public class TestAssistantTools extends BasicTestCase {
 	}
 
 	/**
-	 * Imports the test system once for all tests of the class, with an installer, a viewer and a
-	 * project of its own with a building, and deletes them again.
+	 * Imports the test system once for all tests of the class, with an installer, a viewer, an installer
+	 * who only views the imported project, and a project of its own with a building, and deletes them
+	 * again.
 	 */
 	private static Test withData(Test test) {
 		return new TestSetup(test) {
@@ -529,10 +627,12 @@ public class TestAssistantTools extends BasicTestCase {
 					inTransaction(() -> {
 						_installer = AssistantFixture.person("ehomeToolsInstaller", "ehome.installers");
 						_viewer = AssistantFixture.person("ehomeToolsViewer", null);
+						_viewingInstaller = AssistantFixture.person("ehomeToolsViewingInstaller", "ehome.installers");
 						// Access per project (haumacher/ehome #152): the installer edits the imported
 						// project, the viewer reads it; neither holds a role in the foreign one.
 						ProjectMembers.add(_project, _installer, Role.editor);
 						ProjectMembers.add(_project, _viewer, Role.viewer);
+						ProjectMembers.add(_project, _viewingInstaller, Role.viewer);
 						_foreign = create("ehome.project:Project");
 						_foreign.tUpdateByName("name", "Fremdes Projekt");
 						TLObject building = create("ehome.building:Building");
@@ -548,7 +648,7 @@ public class TestAssistantTools extends BasicTestCase {
 				ThreadContext.inSystemContext(TestAssistantTools.class, () -> {
 					SharedData.deleteProjects(List.of(_project, _foreign));
 					inTransaction(() -> {
-						for (Person person : List.of(_installer, _viewer)) {
+						for (Person person : List.of(_installer, _viewer, _viewingInstaller)) {
 							if (person.tValid()) {
 								person.tDelete();
 							}

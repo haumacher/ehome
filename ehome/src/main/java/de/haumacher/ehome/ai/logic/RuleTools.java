@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.top_logic.basic.CalledByReflection;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.tl.ai.core.agent.ToolContext;
 import com.top_logic.tl.ai.core.tools.refusal.ApplicationRefusals;
@@ -30,6 +32,8 @@ import com.top_logic.tl.ai.tool.api.ToolMode;
 import com.top_logic.tl.ai.tool.api.ToolResult;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.ai.CommitMessages;
+import de.haumacher.ehome.ai.I18NConstants;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.ExpressionRenames;
@@ -306,6 +310,30 @@ public class RuleTools {
 	}
 
 	/**
+	 * The commit message of {@link #saveAutomation(ToolContext, TLObject, Map, Boolean)}: the project and the rules, schedule entries and datapoints by their names, or their ids.
+	 */
+	@CalledByReflection
+	ResKey saveAutomationMessage(ToolContext context, TLObject project, Map<String, Object> definitions,
+			Boolean dryRun) {
+		List<String> names = new ArrayList<>();
+		if (definitions != null) {
+			for (Object kind : definitions.values()) {
+				if (kind instanceof List<?> entries) {
+					for (Object entry : entries) {
+						if (entry instanceof Map<?, ?> definition) {
+							Object name = definition.get("name") instanceof String text && !text.isBlank()
+								? text : definition.get("id");
+							names.add(name instanceof String text ? CommitMessages.text(text) : "?");
+						}
+					}
+				}
+			}
+		}
+		return I18NConstants.COMMIT_AUTOMATION_SAVED__PROJECT_DEFINITIONS.fill(CommitMessages.label(project(project)),
+			names.isEmpty() ? "-" : String.join(", ", names));
+	}
+
+	/**
 	 * Saves definitions.
 	 */
 	@ToolMethod(description = "Creates or changes rules, schedule entries and application datapoints of an E-Home"
@@ -316,7 +344,8 @@ public class RuleTools {
 		+ " change a rule, read its definition with explainRule, change it and save it whole. Saving never"
 		+ " deploys: the controller gets the change with the next deployment, the installer's command. "
 		+ DEFINITIONS + " " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "saveAutomationMessage")
 	public ToolResult saveAutomation(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P("The definitions to save") Map<String, Object> definitions,
@@ -565,6 +594,17 @@ public class RuleTools {
 	// ---- deleting ----------------------------------------------------------------------------
 
 	/**
+	 * The commit message of {@link #deleteAutomation(ToolContext, List, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey deleteAutomationMessage(ToolContext context, List<TLObject> objects, Boolean dryRun) {
+		TLObject owner = objects == null || objects.isEmpty() || objects.get(0) == null || !objects.get(0).tValid()
+			? null : project(objects.get(0));
+		return I18NConstants.COMMIT_AUTOMATION_DELETED__PROJECT_OBJECTS.fill(CommitMessages.label(owner),
+			CommitMessages.labels(objects));
+	}
+
+	/**
 	 * Deletes rules, schedule entries and application datapoints.
 	 */
 	@ToolMethod(description = "Deletes rules, schedule entries or application datapoints of an E-Home project,"
@@ -572,7 +612,8 @@ public class RuleTools {
 		+ " each of them (rules naming a datapoint in an expression, functions, pages, virtual devices): after"
 		+ " the deletion those refer to nothing, and the next deployment refuses them until they are changed."
 		+ " Ask the user before you delete something that is still referred to.",
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "deleteAutomationMessage")
 	public ToolResult deleteAutomation(ToolContext context,
 			@P("The rules (ehome.runtime:Rule), schedule entries or application datapoints to delete")
 			List<TLObject> objects,

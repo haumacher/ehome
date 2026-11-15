@@ -159,22 +159,11 @@
       and security layers (tl-ai-core), the chat in the shell (tl-chat, <chat-dock> in app.view.xml), and
       the MCP endpoint /ehome/mcp for external agents with a personal access token (tl-ai-mcp-server,
       WEB-INF/autoconf/ehome.mcp.config.xml). Not the whole tl-starter-ai: no agents rewriting views
-      (tl-ai-views), no A2A.
+      (tl-ai-views), no A2A, no browser tools (tl-ai-browser with Playwright).
     -->
     <dependency>
       <groupId>com.top-logic</groupId>
       <artifactId>tl-ai-core</artifactId>
-      <exclusions>
-        <!--
-          The browsers of Playwright (200 MB), for the agent's browser tools (group egress), which
-          E-Home grants nobody; without them a browser tool fails when called, the app is unaffected.
-          doc/tl-todo.md, "AI modules".
-        -->
-        <exclusion>
-          <groupId>com.microsoft.playwright</groupId>
-          <artifactId>driver-bundle</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
       <groupId>com.top-logic</groupId>
