@@ -265,13 +265,21 @@ public class TestGroupAddressConnections extends BasicTestCase {
 		return ((Element) nodes.item(0)).getAttribute(attribute);
 	}
 
-	/** The <code>label</code> script of the only cell <code>display</code> of the view. */
+	/**
+	 * The <code>label</code> script of the only <code>display</code> of the view writing it as an
+	 * element: the one of the tree; the device column of an address writes its label as an attribute.
+	 */
 	private static String columnText(String file) throws Exception {
 		NodeList displays = elements(file, "display");
-		assertEquals(1, displays.getLength());
-		NodeList texts = ((Element) displays.item(0)).getElementsByTagName("label");
-		assertEquals(1, texts.getLength());
-		return texts.item(0).getTextContent();
+		List<String> result = new ArrayList<>();
+		for (int n = 0; n < displays.getLength(); n++) {
+			NodeList texts = ((Element) displays.item(n)).getElementsByTagName("label");
+			for (int k = 0; k < texts.getLength(); k++) {
+				result.add(texts.item(k).getTextContent());
+			}
+		}
+		assertEquals(result.toString(), 1, result.size());
+		return result.get(0);
 	}
 
 	/** The only <code>function</code> of an <code>execute-script</code> of the view naming the given text. */

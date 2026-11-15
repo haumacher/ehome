@@ -678,14 +678,19 @@
 													</inputs>
 													<columns>
 														<computed-column name="device"
-															type="tl.core:String"
+															type="ehome.physical:Device"
 															width="200"
 														>
 															<label>
 																<en>Device</en>
 																<de>Gerät</de>
 															</label>
-															<value>deviceLabel(connectionDevice($row))</value>
+															<value>connectionDevice($row)</value>
+															<!-- The device by its name and address, as a link to it in the devices of the project. -->
+															<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"
+																label="deviceLabel($value)"
+																link="true"
+															/>
 														</computed-column>
 														<computed-column name="number"
 															type="tl.core:Integer"

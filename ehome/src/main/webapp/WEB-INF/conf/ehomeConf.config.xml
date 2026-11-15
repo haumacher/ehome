@@ -228,7 +228,8 @@
 
 		<!--
 			Where an object is shown when it is followed as a link (haumacher/ehome #102): a group address
-			in the group addresses of its project, selected in the tree. The drill-down starts at the list
+			in the group addresses of its project, selected in the tree, a device in the devices or the
+			Zigbee devices of its project; a reference to one of them is shown as a link. The drill-down starts at the list
 			of projects, so that the target is reached from any place of the app; the frame of the
 			project is labelled as the list labels it (projects.view.xml).
 		-->
@@ -252,6 +253,46 @@
 						</show>
 						<show view="projects/addresses.view.xml">
 							<bind channel="selected"/>
+						</show>
+					</target>
+					<!-- A KNX device in the devices of its project, selected in the tree. -->
+					<target type="ehome.physical:Device">
+						<show view="projects/overview.view.xml">
+							<bind
+								channel="project"
+								expr="recursion($object, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+							/>
+						</show>
+						<show frame="project"
+							label-expr="recursion($object, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+						>
+							<bind
+								channel="project"
+								expr="recursion($object, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+							/>
+						</show>
+						<show view="projects/devices.view.xml">
+							<bind channel="selected"/>
+						</show>
+					</target>
+					<!-- A Zigbee device in the Zigbee devices of its project, selected in the list. -->
+					<target type="ehome.zigbee:ZigbeeDevice">
+						<show view="projects/overview.view.xml">
+							<bind
+								channel="project"
+								expr="recursion($object, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+							/>
+						</show>
+						<show frame="project"
+							label-expr="recursion($object, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement().get(`ehome.project:Project#name`)"
+						>
+							<bind
+								channel="project"
+								expr="recursion($object, x -> $x.container()).filter(x -> $x.instanceOf(`ehome.project:Project`)).firstElement()"
+							/>
+						</show>
+						<show view="projects/zigbee.view.xml">
+							<bind channel="device"/>
 						</show>
 					</target>
 				</targets>
