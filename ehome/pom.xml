@@ -122,9 +122,16 @@
       <groupId>com.top-logic</groupId>
       <artifactId>tl-xio</artifactId>
     </dependency>
+    <!--
+      The view layer with the engine's whole administration (tl-starter-react): besides tl-layout-view
+      (accounts, groups, roles, grants, monitoring, system) the model editor (tl-dev-tools), the script
+      console (tl-model-search-react), the memory and session monitors (tl-monitoring-view), and the
+      editors for code and rich text these pages use.
+    -->
     <dependency>
       <groupId>com.top-logic</groupId>
-      <artifactId>tl-layout-view</artifactId>
+      <artifactId>tl-starter-react</artifactId>
+      <type>pom</type>
     </dependency>
     <!--
       Agent access to a running session (doc/agent-access.md): the endpoint /agent-api and the access
