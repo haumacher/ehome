@@ -32,7 +32,7 @@ import de.haumacher.ehome.project.ProjectMembers.Role;
  *
  * <ul>
  * <li>The account that created a project (the author of its creating commit) becomes its owner, if it
- * still exists; otherwise the project has no owner, and administrators act for it.</li>
+ * still exists; otherwise the project has no owner, and the E-Home administrators act for it.</li>
  * <li>Every member of the group <code>ehome.installers</code> becomes an editor of every project (an
  * owner stays owner).</li>
  * <li>Every member of the group <code>ehome.viewers</code> becomes a viewer of every project (a stronger
@@ -81,7 +81,7 @@ public class ProjectMembersMigration implements StartupAction {
 					+ "' becomes its owner (haumacher/ehome #152).");
 			} else if (ProjectMembers.accounts(project, ProjectMembers.OWNERS).isEmpty()) {
 				report.add("Project '" + name
-					+ "': its creator no longer exists, the project has no owner; administrators act for it (haumacher/ehome #152).");
+					+ "': its creator no longer exists, the project has no owner; the E-Home administrators act for it (haumacher/ehome #152, #165).");
 			}
 			List<String> editors = new ArrayList<>();
 			for (Person installer : installers) {

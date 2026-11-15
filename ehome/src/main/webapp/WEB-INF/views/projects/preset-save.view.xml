@@ -16,7 +16,7 @@
 	communication objects of the channel in effect gives the roles (an object without a role is not part
 	of the preset). "Save" stores the preset in the template, which is created where the program has none;
 	a refusal (no name, a name taken on the channel, no value, a role not fitting the purpose) keeps the
-	dialog open with its reason. Saving writes the device templates (administrators).
+	dialog open with its reason. Saving writes the device templates (the E-Home administrators).
 -->
 <view>
 	<channels>

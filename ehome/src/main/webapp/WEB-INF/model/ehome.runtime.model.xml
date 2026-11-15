@@ -22,7 +22,7 @@
 			Either way the controller is a part of exactly one project (ehome.project:Project#controllers,
 			haumacher/ehome #151) and is read and changed where its project is. A controller without a project
 			is left only by the migration Issue_151_Controllers_in_projects (one no project deployed to); an
-			administrator assigns it to a project or deletes it.
+			E-Home administrator assigns it to a project or deletes it (haumacher/ehome #165).
 		-->
 		<class name="Controller">
 			<generalizations>

@@ -27,8 +27,8 @@ import de.haumacher.ehome.settings.OperatorSettings;
  *
  * <p>
  * A controller without a project is left only by the migration of existing data
- * ({@link ControllerOwnershipMigration}): one no project deployed to. Nobody but an administrator
- * sees it (it has no container to take its access from); the administrator assigns it to a project
+ * ({@link ControllerOwnershipMigration}): one no project deployed to. Nobody but the E-Home
+ * administrators see it (its access parent is their group); an E-Home administrator assigns it to a project
  * ({@link #assign(TLObject, TLObject)}) or forgets it.
  * </p>
  */
@@ -158,7 +158,7 @@ public final class ProjectControllers {
 
 	/**
 	 * Assigns a controller without a project to the given project, inside the caller's transaction (an
-	 * administrator's command, haumacher/ehome #151). It becomes the project's deployment target if
+	 * E-Home administrator's command, haumacher/ehome #151, #165). It becomes the project's deployment target if
 	 * the project has none.
 	 *
 	 * @throws TopLogicException

@@ -1,15 +1,22 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	An administrator assigns a controller without a project to a project (haumacher/ehome #151, the
-	administration's list controllers.view.xml): "controller" carries it, "project" the project chosen.
-	controllerAssign (de.haumacher.ehome.connection.ProjectControllers#assign) makes it one of the
-	project's controllers, its deployment target if the project has none, and refuses a controller that
-	belongs to a project already.
+	An E-Home administrator assigns a controller without a project to a project (haumacher/ehome #151,
+	#165, the list administration/controllers.view.xml): "controller" carries it, "project" the project
+	chosen. The project is found by its name (projectsNamed, a query of the database reading no other
+	project, haumacher/ehome #167): the administrator enters the name, the projects of exactly that
+	name are offered. controllerAssign (de.haumacher.ehome.connection.ProjectControllers#assign) makes
+	the controller one of the project's controllers, its deployment target if the project has none, and
+	refuses a controller that belongs to a project already.
+
+	The administrator need not edit the project: assigning repairs what the migration left, as the
+	E-Home administrator repairs the members of a project; the command checks the E-Home
+	administration, the read of the controller and of the project.
 -->
 <view>
 	<channels>
 		<channel name="controller"/>
+		<channel name="name"/>
 		<channel name="project"/>
 	</channels>
 	<window width="500px">
@@ -27,8 +34,22 @@
 				</text>
 				<fields>
 					<value-input
+						type="tl.core:String"
+						value="name"
+					>
+						<label>
+							<en>Name of the project</en>
+							<de>Name des Projekts</de>
+						</label>
+						<placeholder>
+							<en>The exact name, as the list of projects shows it</en>
+							<de>Der genaue Name, wie ihn die Liste der Projekte zeigt</de>
+						</placeholder>
+					</value-input>
+					<value-input
+						inputs="name"
 						mandatory="true"
-						options="all(`ehome.project:Project`)"
+						options="projectsNamed($name)"
 						type="ehome.project:Project"
 						value="project"
 					>
@@ -51,13 +72,14 @@
 						<de>Zuordnen</de>
 					</label>
 					<access>
-						<operation name="Write"
+						<operation name="EHomeAdministration"/>
+						<operation name="Read"
 							object="$controller"
 							type="ehome.runtime:Controller"
 						/>
-						<create
-							in="$project"
-							reference="ehome.project:Project#controllers"
+						<operation name="Read"
+							object="$project"
+							type="ehome.project:Project"
 						/>
 					</access>
 					<executability>

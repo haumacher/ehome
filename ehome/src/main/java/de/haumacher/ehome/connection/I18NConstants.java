@@ -210,7 +210,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 ERROR_FOREIGN_CONTROLLER__CONTROLLER_PROJECT;
 
 	/**
-	 * @en The controller {0} belongs to no project: an administrator assigns it to a project first.
+	 * @en The controller {0} belongs to no project: an E-Home administrator assigns it to a project first.
 	 */
 	public static ResKey1 ERROR_CONTROLLER_WITHOUT_PROJECT__CONTROLLER;
 

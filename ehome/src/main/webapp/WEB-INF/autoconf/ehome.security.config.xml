@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 
 <!--
-	Who may see and change what in E-Home (haumacher/ehome #48, #152): the roles, the groups and rules
-	that give them, and the grants on the ehome.* modules. Administrators (root) bypass all of it.
+	Who may see and change what in E-Home (haumacher/ehome #48, #152, #165): the roles, the groups and
+	rules that give them, and the grants on the ehome.* modules. The technical administrators of the
+	engine (root, an account with the admin flag) bypass all of it; no function of E-Home relies on
+	them: what E-Home needs administered is the role of the E-Home administrators (below).
 
 	Access per project (haumacher/ehome #152). A project names the accounts holding a role in it
 	(ehome.project:Project#members, #editors, #owners, de.haumacher.ehome.project.ProjectMembers), and a
-	user sees a project exactly when holding one of the three roles there; there is no global role that
-	reads or writes a project:
+	user sees a project exactly when holding one of the three roles there, or being an E-Home
+	administrator, who reads every project and writes none (below):
 	- ehome.Owner: everything, including the members (the operation ManageMembers) and deleting the
 	  project. Whoever creates or imports a project becomes its owner (de.haumacher.ehome.project
 	  .ProjectOwners); a project keeps at least one owner.
@@ -23,16 +25,41 @@
 	Global roles, held on the security root:
 	- ehome.Installer, through the group "ehome.installers": may create and import projects (Create on
 	  ehome.project:Project, checked on the security root) and edits the shared master data. Nothing
-	  more: no project is read or written through it. An administrator adds an account to the group.
-	  The group "ehome.viewers" of before has no meaning any more and is no longer created: the
+	  more: no project is read or written through it. An E-Home administrator adds an account to the
+	  group. The group "ehome.viewers" of before has no meaning any more and is no longer created: the
 	  migration Issue_152_Project_members made its members viewers of the projects that existed then;
-	  an administrator may delete it.
+	  a technical administrator may delete it.
+	- ehome.Administrator, through the group "ehome.administrators" (haumacher/ehome #165): everything
+	  an installer may (the role is named beside ehome.Installer in every grant and in the access of
+	  the assistant; an E-Home administrator need not be an installer as well), and in addition:
+	  1. writes the device templates with their overlays and presets (Write, Create, Delete on the
+	     module ehome.template);
+	  2. holds the role on every project as well, by the rule ehomeAdministratorOnProject without a
+	     path, restricted to the group: reads every project with everything in it, manages its members
+	     (ManageMembers) and deletes it, and writes nothing of it: to edit a project, the E-Home
+	     administrator adds the own account as a member, which the member list shows. This repairs a
+	     project without an owner. The administrator reads the name and mail address of the members of
+	     every project (ehome.Collaborator by the rules ehomeAdministratorSeesProjectMembers and
+	     ...Contacts);
+	  3. reads the controllers without a project (their access parent is the group
+	     "ehome.administrators", see ehome.runtime:Controller below), assigns them to a project and
+	     deletes them on the page "Controllers without a project" of the sidebar group "E-Home
+	     administration" (app.view.xml, administration/controllers.view.xml), which is withheld from
+	     everybody else (the operation EHomeAdministration on the security root, granted to this role
+	     only);
+	  4. manages the members of the groups "ehome.installers" and "ehome.administrators" on the page
+	     "Installers and administrators" of the same sidebar group (administration/groups.view.xml): the
+	     commands run de.haumacher.ehome.security.Administration, which touches these two groups only
+	     and never the technical administrator's flag, and check EHomeAdministration. The administrator
+	     reads these two groups (the role ehome.GroupReader, held on these two only: every group has
+	     the security root as its role parent, where ehome.Administrator would reach every group) and
+	     the name and mail address of their members (ehome.Collaborator, ehomeAdministratorSeesGroupMembers).
+	  Accounts are created by a technical administrator in the engine's account management.
 	- SecurityStructure.user, the engine's role of the group "user" every new account joins: every
 	  account reads the shared master data (manufacturers with their catalogs and application programs,
 	  datapoint types, mask versions, the Zigbee catalog, the device templates), the security root and
 	  the values of the enumerations, and uses the assistant.
-	The device templates (haumacher/ehome #103) are written by administrators only: their grants name no
-	role for Write, Create and Delete.
+	The device templates (haumacher/ehome #103) are written by the E-Home administrators only.
 
 	Members of a project see each other (haumacher/ehome #152, point 5a): an account holds
 	ehome.Collaborator on the accounts that share a project with it, by a role rule on tl.accounts:Person
@@ -46,14 +73,14 @@
 	are the accounts the owner discovers) or names an account by its mail address or user name.
 
 	The roles reach the objects in two steps (access-configuration article):
-	- The installers hold their role on the security root (singleton rule), and the five singletons of
-	  the shared master data name the security root as their role parent; they decide by the grants
-	  below. A project has no role parent: its roles are the ones its role rules give. An installer's
-	  Create of a project is decided on the security root, where the engine checks the creation of an
-	  object without container. A role parent would hand the installer's Create to every project, and
-	  every right on an object implies Discover on it: the installer would find every project in the
-	  lists. The coverage analysis does not count the security root for a Create and would report the
-	  grant as dead; the rule ehomeInstallerOnOwnedProject works around it (doc/tl-todo.md).
+	- The installers and the E-Home administrators hold their roles on the security root (singleton
+	  rules), and the five singletons of the shared master data name the security root as their role
+	  parent; they decide by the grants below. A project has no role parent: its roles are the ones its
+	  role rules give. An installer's Create of a project is decided on the security root, where the
+	  engine checks the creation of an object without container. A role parent would hand the
+	  installer's Create to every project, and every right on an object implies Discover on it: the
+	  installer would find every project in the lists. The E-Home administrators, who are to see every
+	  project, get their role on every project by a rule of its own instead.
 	- Every other E-Home type is held in a composition of one of them and delegates the whole decision
 	  to its container (the default access parent of a composition part): a device, a group address, a
 	  function, a deployment or a controller is read where its project is read and changed where the
@@ -63,12 +90,16 @@
 	- Every controller is a part of exactly one project (ehome.project:Project#controllers, haumacher/ehome
 	  #151), the one on the LAN as well as the enrolled one; whoever sees the project sees its
 	  controllers, nobody else. A controller without a project, which only the migration of existing
-	  data leaves (one no project deployed to), has no container to take its access from: nobody but an
-	  administrator sees it, who assigns it to a project or deletes it (Administration, E-Home
-	  controllers).
+	  data leaves (one no project deployed to), has no container to take its access from: its access
+	  parent, computed by a script, is the group "ehome.administrators" instead, which the E-Home
+	  administrators read (ehome.GroupReader) and nobody writes through the model. So they read such a
+	  controller and nobody else does; on a controller of a project, the script yields the project and
+	  the administrator gets no more than the project gives (Read). The commands assigning and deleting
+	  it are Java and check EHomeAdministration and the read of the controller.
 
 	The bearer token of a controller (ehome.runtime:Controller#token) is never readable through the
-	model: its read grant lists no role, which denies the read for every user but an administrator.
+	model: its read grant lists no role, which denies the read for every user but a technical
+	administrator; no E-Home role reads it, the E-Home administrators neither.
 	An editor sets it (the write follows the controller); the deployment reads it in Java
 	(de.haumacher.ehome.runtime.Deployer), which the model access check does not cover. The views show
 	only whether a token is set. The secret of an enrolled controller (ehome.runtime:Controller#secret,
@@ -83,8 +114,8 @@
 	The access tokens of the agent access (module tl-layout-view-agent, tl.agent:AccessToken,
 	doc/agent-access.md) are their owner's: an account holds ehome.TokenOwner on the tokens it issued
 	(a role rule along AccessToken#owner) and reads and withdraws them in the dialog "Agent access" of
-	the development menu; nobody else sees them but an administrator, who lists all tokens in the
-	administration. The token is issued and checked in Java (IssueAccessTokenAction, AgentAccess), which
+	the development menu; nobody else sees them but a technical administrator, who lists all tokens in
+	the engine's administration. The token is issued and checked in Java (IssueAccessTokenAction, AgentAccess), which
 	the model access check does not cover; only the hash of its secret is stored. The two transient
 	types of the dialog (the form of a new token and the invitation shown once) are never persisted and
 	are marked internal.
@@ -97,6 +128,8 @@
 			<instance>
 				<roles>
 					<role name="ehome.Installer"/>
+					<role name="ehome.Administrator"/>
+					<role name="ehome.GroupReader"/>
 					<role name="ehome.Owner"/>
 					<role name="ehome.Editor"/>
 					<role name="ehome.Viewer"/>
@@ -110,6 +143,7 @@
 			<instance>
 				<groups>
 					<group name="ehome.installers"/>
+					<group name="ehome.administrators"/>
 				</groups>
 			</instance>
 		</config>
@@ -124,6 +158,39 @@
 						>
 							<group-with-name name="ehome.installers"/>
 						</singleton-rule>
+						<singleton-rule id="ehomeAdministratorsOnRoot"
+							role="ehome.Administrator"
+							target="SecurityStructure#ROOT"
+						>
+							<group-with-name name="ehome.administrators"/>
+						</singleton-rule>
+						<!--
+							The E-Home administrators hold their role on every project (haumacher/ehome #165): a rule
+							without a path from the project, restricted to the group. It reads the project, manages
+							its members and deletes it; it does not write it.
+						-->
+						<rule id="ehomeAdministratorOnProject"
+							meta-element="ehome.project:Project"
+							role="ehome.Administrator"
+						>
+							<group-with-name name="ehome.administrators"/>
+						</rule>
+						<!--
+							The E-Home administrators read the two groups of E-Home with their members and no other
+							group (haumacher/ehome #165), and through the group of the administrators the controllers
+							without a project (the access parent of ehome.runtime:Controller). A role of its own: every
+							group has the security root as its role parent (the engine's SecRootForGroup), where the
+							administrators hold ehome.Administrator on every group.
+						-->
+						<rule id="ehomeAdministratorOnGroups"
+							meta-element="tl.accounts:Group"
+							role="ehome.GroupReader"
+						>
+							<path>
+								<script-step expr="g -> if($g.get(`tl.accounts:Group#name`) == 'ehome.installers' || $g.get(`tl.accounts:Group#name`) == 'ehome.administrators', $g, [])"/>
+								<group-with-name name="ehome.administrators"/>
+							</path>
+						</rule>
 						<!-- The roles in a project, along the references naming its members (haumacher/ehome #152). -->
 						<rule id="ehomeProjectOwner"
 							meta-element="ehome.project:Project"
@@ -187,6 +254,63 @@
 								<step attribute="ehome.project:Project#members"
 									inverse="false"
 								/>
+							</path>
+						</rule>
+						<!--
+							The E-Home administrators see the members of every project, whose members they manage,
+							and the members of the two groups of E-Home: the name and the mail address, as a member
+							of a shared project sees them (ehome.Collaborator), nothing else (haumacher/ehome #165).
+						-->
+						<rule id="ehomeAdministratorSeesProjectMembers"
+							meta-element="tl.accounts:Person"
+							role="ehome.Collaborator"
+						>
+							<path>
+								<step attribute="ehome.project:Project#members"
+									inverse="true"
+								/>
+								<group-with-name name="ehome.administrators"/>
+							</path>
+						</rule>
+						<rule id="ehomeAdministratorSeesProjectMemberContacts"
+							meta-element="Contacts:PersonContact"
+							role="ehome.Collaborator"
+						>
+							<path>
+								<step attribute="tl.accounts:Person#contact"
+									inverse="true"
+								/>
+								<step attribute="ehome.project:Project#members"
+									inverse="true"
+								/>
+								<group-with-name name="ehome.administrators"/>
+							</path>
+						</rule>
+						<rule id="ehomeAdministratorSeesGroupMembers"
+							meta-element="tl.accounts:Person"
+							role="ehome.Collaborator"
+						>
+							<path>
+								<step attribute="tl.accounts:Group#members"
+									inverse="true"
+								/>
+								<script-step expr="g -> if($g.get(`tl.accounts:Group#name`) == 'ehome.installers' || $g.get(`tl.accounts:Group#name`) == 'ehome.administrators', $g, [])"/>
+								<group-with-name name="ehome.administrators"/>
+							</path>
+						</rule>
+						<rule id="ehomeAdministratorSeesGroupMemberContacts"
+							meta-element="Contacts:PersonContact"
+							role="ehome.Collaborator"
+						>
+							<path>
+								<step attribute="tl.accounts:Person#contact"
+									inverse="true"
+								/>
+								<step attribute="tl.accounts:Group#members"
+									inverse="true"
+								/>
+								<script-step expr="g -> if($g.get(`tl.accounts:Group#name`) == 'ehome.installers' || $g.get(`tl.accounts:Group#name`) == 'ehome.administrators', $g, [])"/>
+								<group-with-name name="ehome.administrators"/>
 							</path>
 						</rule>
 						<rule id="ehomeOwnerOfAccessToken"
@@ -261,11 +385,11 @@
 						<operations>
 							<operation name="ManageMembers"/>
 						</operations>
-						<grant operation="Read" roles="ehome.Owner, ehome.Editor, ehome.Viewer"/>
+						<grant operation="Read" roles="ehome.Owner, ehome.Editor, ehome.Viewer, ehome.Administrator"/>
 						<grant operation="Write" roles="ehome.Owner, ehome.Editor"/>
-						<grant operation="Create" roles="ehome.Installer"/>
-						<grant operation="Delete" roles="ehome.Owner"/>
-						<grant operation="ManageMembers" roles="ehome.Owner"/>
+						<grant operation="Create" roles="ehome.Installer, ehome.Administrator"/>
+						<grant operation="Delete" roles="ehome.Owner, ehome.Administrator"/>
+						<grant operation="ManageMembers" roles="ehome.Owner, ehome.Administrator"/>
 					</class>
 					<!-- The members are written by the member commands only (Java, keeping the invariants). -->
 					<part name="ehome.project:Project#members">
@@ -278,49 +402,71 @@
 						<grant operation="Write"/>
 					</part>
 					<module name="ehome.catalog">
-						<grant inherit="true" operation="Read" roles="SecurityStructure.user, ehome.Installer"/>
-						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Read" roles="SecurityStructure.user, ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Write" roles="ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Create" roles="ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Delete" roles="ehome.Installer, ehome.Administrator"/>
 					</module>
 					<module name="ehome.datapoint">
-						<grant inherit="true" operation="Read" roles="SecurityStructure.user, ehome.Installer"/>
-						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Read" roles="SecurityStructure.user, ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Write" roles="ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Create" roles="ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Delete" roles="ehome.Installer, ehome.Administrator"/>
 					</module>
 					<!-- The root of the shared mask versions, the one type of ehome.operational no composition holds. -->
 					<class name="ehome.operational:MaskVersions">
-						<grant operation="Read" roles="SecurityStructure.user, ehome.Installer"/>
-						<grant operation="Write" roles="ehome.Installer"/>
-						<grant operation="Create" roles="ehome.Installer"/>
-						<grant operation="Delete" roles="ehome.Installer"/>
+						<grant operation="Read" roles="SecurityStructure.user, ehome.Installer, ehome.Administrator"/>
+						<grant operation="Write" roles="ehome.Installer, ehome.Administrator"/>
+						<grant operation="Create" roles="ehome.Installer, ehome.Administrator"/>
+						<grant operation="Delete" roles="ehome.Installer, ehome.Administrator"/>
 					</class>
 					<module name="ehome.zigbee.catalog">
-						<grant inherit="true" operation="Read" roles="SecurityStructure.user, ehome.Installer"/>
-						<grant inherit="true" operation="Write" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Create" roles="ehome.Installer"/>
-						<grant inherit="true" operation="Delete" roles="ehome.Installer"/>
+						<grant inherit="true" operation="Read" roles="SecurityStructure.user, ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Write" roles="ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Create" roles="ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Delete" roles="ehome.Installer, ehome.Administrator"/>
 					</module>
 					<!--
 						The device templates (haumacher/ehome #103): the singleton decides, its templates and their
-						overlays are composition parts. Read by every account, written by administrators only
-						(haumacher/ehome #152): no role is granted Write, Create or Delete.
+						overlays are composition parts. Read by every account, written by the E-Home administrators only
+						(haumacher/ehome #152, #165), with the presets of the templates (Presets#templateWriteVeto).
 					-->
 					<module name="ehome.template">
-						<grant inherit="true" operation="Read" roles="SecurityStructure.user, ehome.Installer"/>
+						<grant inherit="true" operation="Read" roles="SecurityStructure.user, ehome.Installer, ehome.Administrator"/>
+						<grant inherit="true" operation="Write" roles="ehome.Administrator"/>
+						<grant inherit="true" operation="Create" roles="ehome.Administrator"/>
+						<grant inherit="true" operation="Delete" roles="ehome.Administrator"/>
 					</module>
 					<!--
 						The security root stands for E-Home as a whole: every account reads it (the shell offers
 						the assistant to who reads it). A command that reads no object of the model checks the
 						project it acts for or the right to create projects instead (haumacher/ehome #65, #152).
 						The root has no grants of its type; the operation Administration declared for it by the
-						engine stays with the administrators.
+						engine (its administration) stays with the technical administrators. The operation
+						EHomeAdministration guards the pages of the E-Home administrators (haumacher/ehome #165).
 					-->
 					<singleton name="SecurityStructure#ROOT">
-						<grant operation="Read" roles="SecurityStructure.user, ehome.Installer"/>
+						<operations>
+							<operation name="EHomeAdministration"/>
+						</operations>
+						<grant operation="Read" roles="SecurityStructure.user, ehome.Installer, ehome.Administrator"/>
+						<grant operation="EHomeAdministration" roles="ehome.Administrator"/>
 					</singleton>
-					<!-- A read grant without roles: nobody but an administrator reads the token. -->
+					<!--
+						A controller decides as its project (its container, as the default of a composition part
+						would), a controller without a project as the group of the E-Home administrators
+						(haumacher/ehome #151, #165): they read it, nobody writes it through the model.
+					-->
+					<class name="ehome.runtime:Controller">
+						<access-parent>
+							<script expr="c -> if($c.container() == null, ehomeGroup('ehome.administrators'), $c.container())"/>
+						</access-parent>
+					</class>
+					<!-- The two groups of E-Home, read by the E-Home administrators (ehome.GroupReader is held on these two only). -->
+					<class name="tl.accounts:Group">
+						<grant operation="Read" roles="ehome.GroupReader"/>
+					</class>
+					<!-- A read grant without roles: nobody but a technical administrator reads the token. -->
 					<part name="ehome.runtime:Controller#token">
 						<grant operation="Read"/>
 					</part>
@@ -329,8 +475,8 @@
 						<grant operation="Read"/>
 					</part>
 					<!--
-						The private installation keys of a project (homecontrol issue #35): nobody but an
-						administrator reads them; E-Home signs with them in Java.
+						The private installation keys of a project (homecontrol issue #35): nobody but a
+						technical administrator reads them; E-Home signs with them in Java.
 					-->
 					<part name="ehome.project:Project#installationKey">
 						<grant operation="Read"/>
@@ -349,9 +495,9 @@
 						The AI modules (haumacher/ehome #126, #129). Their conversations, memories and personal
 						access tokens are their owner's by the policies the modules ship
 						(tl-ai-core.chatSecurity.config.xml, tl-ai-core.accessTokens.config.xml). The types
-						below are read and written by the modules' code and by administrators only: the form of
+						below are read and written by the modules' code and by technical administrators only: the form of
 						a new personal access token (transient, never persisted), the agents and skills authored
-						in the running application (E-Home's agents are configured, administrators author
+						in the running application (E-Home's agents are configured, technical administrators author
 						further ones), the pages an agent publishes (the group "workspace", granted to nobody),
 						and the period of the agent monitor of the administration (transient).
 					-->
@@ -367,7 +513,7 @@
 						classifier by roles instead of treating it as model data (doc/tl-todo.md).
 					-->
 					<class name="tl.model:TLClassifier">
-						<grant operation="Read" roles="SecurityStructure.user, ehome.Installer"/>
+						<grant operation="Read" roles="SecurityStructure.user, ehome.Installer, ehome.Administrator"/>
 					</class>
 					<!-- The open enrollment code of a project: its owners and editors only, a viewer must not enroll a controller. -->
 					<part name="ehome.project:Project#enrollmentCode">
@@ -447,6 +593,13 @@
 							<grant group="data.write"/>
 						</grants>
 					</role>
+					<role name="ehome.Administrator">
+						<grants>
+							<grant group="model.read"/>
+							<grant group="data.read"/>
+							<grant group="data.write"/>
+						</grants>
+					</role>
 				</tool-access>
 				<baseline/>
 				<background-allowlist>
@@ -465,8 +618,29 @@
 							<grant agents="TL_SingleAgent"/>
 						</grants>
 					</role>
+					<role name="ehome.Administrator">
+						<grants>
+							<grant agents="TL_SingleAgent"/>
+						</grants>
+					</role>
 				</agent-access>
 				<model-access default="all"/>
+			</instance>
+		</config>
+
+		<!--
+			The functions of the E-Home administrators (haumacher/ehome #165, de.haumacher.ehome.security
+			.Administration): ehomeGroup and projectsNamed read, ehomeGroupAdd and ehomeGroupRemove write the
+			members of the two groups of E-Home (and of no other group).
+		-->
+		<config service-class="com.top_logic.model.search.expr.config.SearchBuilder">
+			<instance>
+				<methods>
+					<method name="ehomeGroup" class="de.haumacher.ehome.security.AdministrationFunctions$Builder"/>
+					<method name="ehomeGroupAdd" class="de.haumacher.ehome.security.AdministrationFunctions$Builder"/>
+					<method name="ehomeGroupRemove" class="de.haumacher.ehome.security.AdministrationFunctions$Builder"/>
+					<method name="projectsNamed" class="de.haumacher.ehome.security.AdministrationFunctions$Builder"/>
+				</methods>
 			</instance>
 		</config>
 
@@ -474,6 +648,10 @@
 		<config service-class="com.top_logic.tool.boundsec.simple.CommandGroupRegistry">
 			<instance>
 				<group name="ManageMembers"
+					type="write"
+				/>
+				<!-- The pages of the E-Home administrators (haumacher/ehome #165), checked on the security root. -->
+				<group name="EHomeAdministration"
 					type="write"
 				/>
 			</instance>

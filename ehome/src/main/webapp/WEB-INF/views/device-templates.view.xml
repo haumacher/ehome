@@ -41,7 +41,7 @@
 		/>
 		<!--
 			What the detail says while the selected program has no template; it names the command creating
-			one only to a reader who may write the templates (an administrator, haumacher/ehome #163).
+			one only to a reader who may write the templates (an E-Home administrator, haumacher/ehome #163, #165).
 		-->
 		<derived-channel name="noTemplate"
 			expr="if($program == null, #('Select an application program.'@en, 'Wählen Sie ein Applikationsprogramm aus.'@de), if(canWrite($root), #('The selected application program has no template: &quot;Create template&quot; creates it.'@en, 'Das gewählte Applikationsprogramm hat keine Vorlage: „Vorlage anlegen“ legt sie an.'@de), #('The selected application program has no template.'@en, 'Das gewählte Applikationsprogramm hat keine Vorlage.'@de)))"
@@ -418,7 +418,7 @@
 											(the tab "Presets" of a device). The form changes the name, the purpose with the kind or
 											the operations and the roles of the objects; a value is removed from a preset here, a
 											value is changed by saving the channel anew. Read by every account, changed by
-											administrators.
+											the E-Home administrators.
 										-->
 										<split-panel
 											orientation="vertical"

@@ -99,18 +99,18 @@ the Claude 5.5 models); the chat offers a thinking effort for each of the three,
 
 | Account | Chat | Tools |
 |---|---|---|
-| every account (the engine's group `user` every new account joins) and the installers | the chat agent | read the model and the data (`model.read`, `data.read`); change data with the object tools (`data.write`: `updateObject`, `createObject`, `deleteObject`, `editText`) |
-| administrator (`root`) | every agent | every tool (the checks are bypassed) |
+| every account (the engine's group `user` every new account joins), the installers and the E-Home administrators (`ehome.administrators`) | the chat agent | read the model and the data (`model.read`, `data.read`); change data with the object tools (`data.write`: `updateObject`, `createObject`, `deleteObject`, `editText`) |
+| technical administrator (`root`) | every agent | every tool (the checks are bypassed) |
 | an account outside these groups | no launcher, no agent | none |
 
 What a tool then reads and changes is decided per object by the account's role in each project
 (haumacher/ehome #152, `ehome.security.config.xml`): it sees only the projects in which the account is
-owner, editor or viewer; an editor's or owner's tools change the project, a viewer's are refused
+owner, editor or viewer (an E-Home administrator's reads every project and changes none it is no member of); an editor's or owner's tools change the project, a viewer's are refused
 ("Permission denied: your account may not change ..."); every account reads the shared catalogs.
 
 - A tool reads and changes only what the account may read and change (`<security-config>`): the
   controllers' tokens and secrets and the projects' installation keys are never read by anybody but
-  an administrator.
+  a technical administrator.
 - **Every writing call asks the user** in the chat (approval card) before it runs.
 - **A writing tool decides the right itself:** E-Home's tools check the right to change the project
   of their target before they write (`ToolSupport.writeDenied`, `LogicSupport.writeDenied`); since

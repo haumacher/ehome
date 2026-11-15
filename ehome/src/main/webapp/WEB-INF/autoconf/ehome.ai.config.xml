@@ -55,7 +55,7 @@ E-Home plans, configures and runs KNX home installations - the tool of an instal
 
 ## Users
 - Every project names its members: owners, editors and viewers. A user sees exactly the projects holding a role in; editors and owners change a project, viewers read it, owners also manage its members (tab "Members") and delete it.
-- Installers (group ehome.installers) may create and import projects; they become the owner of a project they create. Every user reads the shared catalogs; administrators edit the device templates.
+- Installers (group ehome.installers) may create and import projects; they become the owner of a project they create. E-Home administrators (group ehome.administrators) may do what installers do, edit the device templates, read every project, manage its members and delete it (to edit it they add themselves as a member), and manage who is an installer or an E-Home administrator. Every user reads the shared catalogs.
 - A change the user may not make is refused by the data itself; say so and name who may make it (an editor or owner of the project).
 
 ## Terms
@@ -84,7 +84,7 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 
 ## Benutzer
 - Jedes Projekt nennt seine Mitglieder: Eigentümer, Bearbeiter und Betrachter. Ein Benutzer sieht genau die Projekte, in denen er eine Rolle hat; Bearbeiter und Eigentümer ändern ein Projekt, Betrachter lesen es, Eigentümer verwalten außerdem seine Mitglieder (Reiter "Mitglieder") und löschen es.
-- Installateure (Gruppe ehome.installers) dürfen Projekte anlegen und importieren; ein Projekt, das sie anlegen, gehört ihnen. Jeder Benutzer liest die gemeinsamen Kataloge; Administratoren bearbeiten die Gerätevorlagen.
+- Installateure (Gruppe ehome.installers) dürfen Projekte anlegen und importieren; ein Projekt, das sie anlegen, gehört ihnen. E-Home-Administratoren (Gruppe ehome.administrators) dürfen, was Installateure dürfen, bearbeiten die Gerätevorlagen, lesen jedes Projekt, verwalten seine Mitglieder und löschen es (um es zu bearbeiten, fügen sie sich als Mitglied hinzu) und verwalten, wer Installateur oder E-Home-Administrator ist. Jeder Benutzer liest die gemeinsamen Kataloge.
 - Eine Änderung, die der Benutzer nicht vornehmen darf, lehnen die Daten selbst ab; sag das und nenne, wer sie vornehmen darf (ein Bearbeiter oder Eigentümer des Projekts).
 
 ## Begriffe

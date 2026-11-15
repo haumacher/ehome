@@ -31,8 +31,8 @@ import com.top_logic.model.util.TLModelUtil;
  * <li>one that several projects deploy to moves into the first of them (by name, then by creation)
  * and is copied, with its token, into each of the others, which deploy to their copy from then on;
  * their recorded deployments name the copy;</li>
- * <li>one no project deploys to stays without a project: nobody but an administrator sees it, who
- * assigns it to a project or deletes it;</li>
+ * <li>one no project deploys to stays without a project: nobody but the E-Home administrators see it,
+ * who assign it to a project or delete it;</li>
  * <li>a project deploying to an enrolled controller of another project (which the options never
  * offered) loses that target: the controller stays with its project, and copying it would duplicate
  * its connection.</li>
@@ -102,7 +102,7 @@ public class ControllerOwnershipMigration implements StartupAction {
 		for (TLObject controller : MetaElementUtil.getAllDirectInstancesOf(controllerType, TLObject.class)) {
 			if (controller.tContainer() == null && !deployers.containsKey(controller)) {
 				report.add("Controller '" + name(controller)
-					+ "' is deployed to by no project and stays without a project; an administrator assigns it to a project or deletes it (haumacher/ehome #151).");
+					+ "' is deployed to by no project and stays without a project; an E-Home administrator assigns it to a project or deletes it (haumacher/ehome #151).");
 			}
 		}
 		return report;

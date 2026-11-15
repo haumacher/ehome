@@ -6,6 +6,7 @@ package test.de.haumacher.ehome.security;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -24,6 +25,9 @@ import test.de.haumacher.ehome.view.ViewCommandScan;
 import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.base.services.InitialGroupManager;
 import com.top_logic.base.services.InitialRolesManager;
+import com.top_logic.basic.config.ConfigurationItem;
+import com.top_logic.basic.config.DefaultInstantiationContext;
+import com.top_logic.basic.config.PropertyDescriptor;
 import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.KnowledgeBase;
@@ -50,16 +54,23 @@ import com.top_logic.tool.boundsec.BoundObject;
 import com.top_logic.tool.boundsec.manager.AccessManager;
 import com.top_logic.tool.boundsec.simple.CommandGroupRegistry;
 import com.top_logic.tool.boundsec.simple.SimpleBoundCommandGroup;
+import com.top_logic.tool.boundsec.wrap.Group;
 import com.top_logic.tool.execution.ExecutableState;
 import com.top_logic.util.TLContextManager;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
+import com.top_logic.layout.view.ViewLoader;
+import com.top_logic.layout.view.security.AccessControl;
+import com.top_logic.layout.view.security.UnitAccess;
 
 import de.haumacher.ehome.programming.DeviceSettings;
-import de.haumacher.ehome.programming.I18NConstants;
 import de.haumacher.ehome.project.ProjectMembers;
 import de.haumacher.ehome.project.ProjectMembers.Role;
 import de.haumacher.ehome.project.ProjectOwners;
+import de.haumacher.ehome.connection.ProjectControllers;
+import de.haumacher.ehome.security.I18NConstants;
+import de.haumacher.ehome.template.Presets;
+import de.haumacher.ehome.security.Administration;
 
 /**
  * The access definition of E-Home (<code>WEB-INF/autoconf/ehome.security.config.xml</code>, haumacher/ehome
@@ -67,10 +78,11 @@ import de.haumacher.ehome.project.ProjectOwners;
  * function, a deployment, a rule with a parameter, a reaction, a trigger and an action, a schedule
  * entry and an application datapoint, on a controller and its token, on a manufacturer with a catalog
  * and an application program, and on the singletons of the master data. The accounts: the owner, an
- * editor and a viewer of the project, an installer holding no role in it, and an account in no group
- * of E-Home (like every account, in the engine's group "user"). The access checks the view commands
- * declare (haumacher/ehome #65) are evaluated for these accounts as the engine evaluates them for a
- * button.
+ * editor and a viewer of the project, an installer holding no role in it, an E-Home administrator
+ * holding no role in it (haumacher/ehome #165), and an account in no group of E-Home (like every
+ * account, in the engine's group "user"). The access checks the view commands declare (haumacher/ehome
+ * #65) are evaluated for these accounts as the engine evaluates them for a button. No check needs the
+ * technical administrator: every function of E-Home is checked for an account of E-Home.
  *
  * <p>
  * Access per project (haumacher/ehome #152): a user sees exactly the projects holding a role in; the
@@ -111,6 +123,9 @@ public class TestAccessRights extends BasicTestCase {
 
 	/** In no group of E-Home and without a role. */
 	private Person _stranger;
+
+	/** Member of ehome.administrators without a role in the project. */
+	private Person _admin;
 
 	private TLObject _project;
 
@@ -161,6 +176,7 @@ public class TestAccessRights extends BasicTestCase {
 			_viewer = person("ehomeTestViewer", null);
 			_installer = person("ehomeTestInstaller", "ehome.installers");
 			_stranger = person("ehomeTestStranger", null);
+			_admin = person("ehomeTestAdministrator", Administration.ADMINISTRATORS);
 
 			_controller = create("ehome.runtime:Controller");
 			_controller.tUpdateByName("name", "Access test");
@@ -372,11 +388,12 @@ public class TestAccessRights extends BasicTestCase {
 
 	/**
 	 * The shared master data is read by every account, also one in no group of E-Home; an installer
-	 * edits the catalogs, nobody but an administrator the device templates.
+	 * and an E-Home administrator edit the catalogs, nobody but an E-Home administrator the device
+	 * templates (haumacher/ehome #165).
 	 */
 	public void testMasterDataReadByEveryAccount() {
 		for (TLObject object : masterData()) {
-			for (Person person : List.of(_stranger, _viewer, _editor, _installer)) {
+			for (Person person : List.of(_stranger, _viewer, _editor, _installer, _admin)) {
 				assertTrue(person.getName() + ": " + label(object), allowed(person, object, READ));
 			}
 			assertFalse(label(object), allowed(_stranger, object, WRITE));
@@ -388,6 +405,9 @@ public class TestAccessRights extends BasicTestCase {
 		assertTrue(rights().isAllowedCreate(_installer, singleton("ehome.zigbee.catalog:ZigbeeCatalog"),
 			part("ehome.zigbee.catalog:ZigbeeCatalog#types")));
 		assertFalse(allowed(_editor, _manufacturer, WRITE));
+		assertTrue(allowed(_admin, _manufacturer, WRITE));
+		assertTrue(rights().isAllowedCreate(_admin, singleton("ehome.catalog:ManufacturerRoot"),
+			part("ehome.catalog:ManufacturerRoot#manufacturers")));
 
 		TLObject templates = singleton("ehome.template:DeviceTemplates");
 		for (Person person : List.of(_installer, _owner, _editor, _viewer, _stranger)) {
@@ -396,8 +416,96 @@ public class TestAccessRights extends BasicTestCase {
 			assertFalse(person.getName(),
 				rights().isAllowedCreate(person, templates, part("ehome.template:DeviceTemplates#templates")));
 		}
-		Person root = PersonManager.getManager().getRoot();
-		assertTrue("An administrator writes a template.", allowed(root, _template, WRITE));
+		assertTrue("An E-Home administrator writes a template.", allowed(_admin, _template, WRITE));
+		assertTrue(allowed(_admin, templates, WRITE));
+		assertTrue(rights().isAllowedCreate(_admin, templates, part("ehome.template:DeviceTemplates#templates")));
+		assertTrue(allowed(_admin, _template, DELETE));
+	}
+
+	/**
+	 * The presets of the device templates are saved, changed and deleted by whoever writes the
+	 * templates (haumacher/ehome #146): an E-Home administrator, not an installer (haumacher/ehome
+	 * #165).
+	 */
+	public void testAdministratorWritesPresets() {
+		assertNull(as(_admin, () -> Presets.templateWriteVeto()));
+		for (Person person : List.of(_installer, _owner, _editor, _stranger)) {
+			assertEquals(person.getName(), de.haumacher.ehome.template.I18NConstants.ERROR_TEMPLATES_NOT_ALLOWED,
+				as(person, () -> Presets.templateWriteVeto()));
+		}
+	}
+
+	/**
+	 * An E-Home administrator reads every project, also one holding no role in, with everything in
+	 * it, manages its members and deletes it, but writes neither the project nor anything in it
+	 * (haumacher/ehome #165): to edit it, the administrator becomes a member. An installer sees
+	 * none of it.
+	 */
+	public void testAdministratorOnEveryProject() {
+		assertNull(ProjectMembers.role(_project, _admin));
+		for (TLObject object : projectObjects()) {
+			assertTrue(label(object), allowed(_admin, object, READ));
+			assertFalse(label(object), allowed(_admin, object, WRITE));
+		}
+		assertTrue(allowed(_admin, _project, DELETE));
+		assertTrue(allowed(_admin, _project, manageMembers()));
+		assertFalse("A part is deleted by writing the project.", allowed(_admin, _device, DELETE));
+		assertFalse(rights().isAllowedCreate(_admin, _project, part("ehome.project:Project#controllers")));
+		assertFalse("The enrollment code is the editors'.",
+			rights().isAllowed(_admin, _project, part("ehome.project:Project#enrollmentCode"), READ));
+		assertFalse(rights().isAllowed(_admin, _controller, part("ehome.runtime:Controller#token"), READ));
+		assertFalse(rights().isAllowed(_admin, _project, part("ehome.project:Project#installationKey"), READ));
+		assertFalse(allowed(_installer, _project, READ));
+		assertEquals(List.of(_project), as(_admin, () -> visibleProjects()));
+
+		// The administrator reads the name and mail address of the members, nothing else of them.
+		inTransaction(() -> mail(_owner, "owner.admin@example.org"));
+		assertTrue(rights().isAllowed(_admin, _owner, part("tl.accounts:Person#name"), READ));
+		assertTrue(rights().isAllowed(_admin, (TLObject) _owner.getUser(), part("Contacts:PersonContact#email"), READ));
+		assertFalse(rights().isAllowed(_admin, _owner, part("tl.accounts:Person#groups"), READ));
+		assertFalse(rights().isAllowed(_admin, _owner, WRITE));
+		assertFalse("No account outside a project or a group of E-Home.",
+			rights().isAllowed(_admin, _stranger, part("tl.accounts:Person#name"), READ));
+
+		// The member commands of the owner are the administrator's as well.
+		ViewCommandScan.Site add = ViewCommandScan.command("projects/member-add.view.xml", "projectAddMember()");
+		ViewCommandScan.Site role = ViewCommandScan.command("projects/member-role.view.xml", "projectSetRole()");
+		ViewCommandScan.Site remove = ViewCommandScan.command("projects/members.view.xml", "projectRemoveMember()");
+		assertTrue(as(_admin, () -> add.decide(_project)).isExecutable());
+		assertTrue(as(_admin, () -> role.decide(_project, _viewer)).isExecutable());
+		assertTrue(as(_admin, () -> remove.decide(_project, _viewer)).isExecutable());
+		ViewCommandScan.Site scan = ViewCommandScan.command("projects/scan.view.xml", "ScanJob");
+		assertFalse("Writing the project is the members'.", as(_admin, () -> scan.decide(_project)).isExecutable());
+	}
+
+	/**
+	 * A project without an owner (created without a user, left by a migration): the E-Home
+	 * administrator makes an account its owner, also the own one, and then edits it as an owner.
+	 */
+	public void testAdministratorRepairsProjectWithoutOwner() {
+		TLObject[] orphan = new TLObject[1];
+		inTransaction(() -> {
+			orphan[0] = create("ehome.project:Project");
+			orphan[0].tUpdateByName("name", "Access test without owner");
+		});
+		assertEquals(List.of(), new ArrayList<>(ProjectMembers.accounts(orphan[0], ProjectMembers.OWNERS)));
+		assertTrue(allowed(_admin, orphan[0], manageMembers()));
+		assertFalse(allowed(_owner, orphan[0], manageMembers()));
+		ViewCommandScan.Site add = ViewCommandScan.command("projects/member-add.view.xml", "projectAddMember()");
+		assertTrue(as(_admin, () -> add.decide(orphan[0])).isExecutable());
+		assertFalse(as(_installer, () -> add.decide(orphan[0])).isExecutable());
+
+		inTransaction(() -> as(_admin, () -> ProjectMembers.add(orphan[0], "ehomeTestAdministrator", Role.owner)));
+		assertEquals(Role.owner, ProjectMembers.role(orphan[0], _admin));
+		assertTrue(allowed(_admin, orphan[0], WRITE));
+		inTransaction(() -> as(_admin, () -> ProjectMembers.add(orphan[0], _installer, Role.owner)));
+		inTransaction(() -> as(_admin, () -> {
+			ProjectMembers.leave(orphan[0]);
+			return null;
+		}));
+		assertEquals(Role.owner, ProjectMembers.role(orphan[0], _installer));
+		assertFalse("A member no more, the administrator reads the project only.", allowed(_admin, orphan[0], WRITE));
+		assertTrue(allowed(_admin, orphan[0], READ));
 	}
 
 	/**
@@ -424,6 +532,14 @@ public class TestAccessRights extends BasicTestCase {
 			assertFalse(person.getName(), allowed(person, orphan[0], READ));
 			assertFalse(person.getName(), allowed(person, orphan[0], WRITE));
 		}
+		// The E-Home administrators read it (haumacher/ehome #165), nobody writes it through the model.
+		assertTrue(allowed(_admin, orphan[0], READ));
+		assertFalse(allowed(_admin, orphan[0], WRITE));
+		assertFalse(rights().isAllowed(_admin, orphan[0], part("ehome.runtime:Controller#token"), READ));
+		// On a controller of a project, the administrator holds what the project gives: reading.
+		assertTrue(allowed(_admin, _controller, READ));
+		assertFalse(allowed(_admin, _controller, WRITE));
+		assertFalse(allowed(_admin, _controller, DELETE));
 
 		// A controller on the LAN is created in a project by whoever writes the project.
 		ViewCommandScan.Site create = ViewCommandScan.command("controllers/create-controller.view.xml", "controllerCreate()");
@@ -432,10 +548,131 @@ public class TestAccessRights extends BasicTestCase {
 		assertFalse(as(_installer, () -> create.decide(_project)).isExecutable());
 		assertHidden(as(_stranger, () -> create.decide(_project)));
 
-		// Only an administrator assigns a controller without a project.
+		// Only an E-Home administrator assigns or deletes a controller without a project.
 		ViewCommandScan.Site assign = ViewCommandScan.command("controllers/assign-controller.view.xml", "controllerAssign()");
-		assertFalse(as(_owner, () -> assign.decide(orphan[0], _project)).isExecutable());
-		assertFalse(as(_viewer, () -> assign.decide(orphan[0], _project)).isExecutable());
+		ViewCommandScan.Site forget = ViewCommandScan.command("administration/controllers.view.xml", "ForgetControllerAction");
+		assertTrue(as(_admin, () -> assign.decide(orphan[0], _project)).isExecutable());
+		assertTrue(as(_admin, () -> forget.decide(orphan[0])).isExecutable());
+		for (Person person : List.of(_owner, _viewer, _installer, _stranger)) {
+			assertFalse(person.getName(), as(person, () -> assign.decide(orphan[0], _project)).isExecutable());
+			assertFalse(person.getName(), as(person, () -> forget.decide(orphan[0])).isExecutable());
+		}
+
+		// The projects of a name are found by a query of the database.
+		assertEquals(List.of(_project), Administration.projectsNamed(" Access test "));
+		assertEquals(List.of(), Administration.projectsNamed("Access"));
+
+		inTransaction(() -> as(_admin, () -> ProjectControllers.assign(orphan[0], _project)));
+		assertSame(_project, orphan[0].tContainer());
+		assertFalse("Now the project's business.", allowed(_admin, orphan[0], WRITE));
+		assertTrue(allowed(_editor, orphan[0], WRITE));
+	}
+
+	/**
+	 * An E-Home administrator manages who is an installer and who is an E-Home administrator
+	 * (haumacher/ehome #165): adds an account to <code>ehome.installers</code> by its mail address
+	 * or user name and removes it again; any other group is refused, a group of the engine as well
+	 * as a made-up one. An installer is refused the commands.
+	 */
+	public void testAdministratorManagesGroups() {
+		ViewCommandScan.Site add = ViewCommandScan.command("administration/group-add.view.xml", "ehomeGroupAdd()");
+		ViewCommandScan.Site remove = ViewCommandScan.command("administration/group-members.view.xml", "ehomeGroupRemove()");
+		Group installers = Administration.group(Administration.INSTALLERS);
+		Group administrators = Administration.group(Administration.ADMINISTRATORS);
+		assertNotNull(installers);
+		assertNotNull(administrators);
+		assertNull("No other group.", Administration.group(AccountFixture.USERS));
+
+		assertTrue(as(_admin, () -> add.decide(installers)).isExecutable());
+		assertTrue(as(_admin, () -> remove.decide(installers, _installer)).isExecutable());
+		assertTrue(as(_admin, () -> add.decide(administrators)).isExecutable());
+		for (Person person : List.of(_installer, _owner, _viewer)) {
+			assertHidden(as(person, () -> add.decide(installers)));
+			assertHidden(as(person, () -> remove.decide(installers, _installer)));
+		}
+		assertFalse("The engine's group is not read.", rights().isAllowed(_admin,
+			Group.getGroupByName(kb(), AccountFixture.USERS), READ));
+		assertTrue(allowed(_admin, installers, READ));
+		assertTrue(rights().isAllowed(_admin, _installer, part("tl.accounts:Person#name"), READ));
+
+		inTransaction(() -> mail(_stranger, "stranger.groups@example.org"));
+		assertFalse(rights().isAllowedCreate(_stranger, type("ehome.project:Project"), (TLObject) null));
+		inTransaction(() -> assertSame(_stranger,
+			as(_admin, () -> Administration.addMember(installers, "Stranger.Groups@example.org"))));
+		assertTrue(installers.getMembers().contains(_stranger));
+		assertTrue("An installer now.", rights().isAllowedCreate(_stranger, type("ehome.project:Project"), (TLObject) null));
+		assertRefused(I18NConstants.ERROR_ALREADY_IN_GROUP__ACCOUNT_GROUP.fill(_stranger, Administration.INSTALLERS),
+			() -> Administration.addMember(Administration.INSTALLERS, _stranger));
+		inTransaction(() -> as(_admin, () -> {
+			Administration.removeMember(installers, _stranger);
+			return null;
+		}));
+		assertFalse(installers.getMembers().contains(_stranger));
+		assertRefused(I18NConstants.ERROR_NOT_IN_GROUP__ACCOUNT_GROUP.fill(_stranger, Administration.INSTALLERS),
+			() -> Administration.removeMember(installers, _stranger));
+
+		// Any other group is refused.
+		Group users = Group.getGroupByName(kb(), AccountFixture.USERS);
+		for (Object other : List.of(users, AccountFixture.USERS, "ehome.madeUp")) {
+			String name = other instanceof Group group ? group.getName() : (String) other;
+			assertRefused(I18NConstants.ERROR_NOT_EHOME_GROUP__GROUP.fill(name),
+				() -> Administration.addMember(other, _stranger));
+			assertRefused(I18NConstants.ERROR_NOT_EHOME_GROUP__GROUP.fill(name),
+				() -> Administration.removeMember(other, _installer));
+		}
+		assertTrue(users.getMembers().contains(_installer));
+		assertNull(Group.getGroupByName(kb(), "ehome.madeUp"));
+	}
+
+	/**
+	 * The pages of the E-Home administrators (the group "E-Home administration" of the sidebar,
+	 * <code>app.view.xml</code>) are withheld from everybody else (haumacher/ehome #165).
+	 */
+	public void testAdministrationPagesWithheld() throws Exception {
+		AccessControl access = accessControl(ViewLoader.loadConfig(ViewLoader.fullPath("app.view.xml")),
+			"ehomeAdministration", new IdentityHashMap<>());
+		assertNotNull("The sidebar group of the E-Home administration.", access);
+		UnitAccess unit = UnitAccess.create(new DefaultInstantiationContext(TestAccessRights.class), access);
+		assertTrue(as(_admin, () -> unit.isOffered()));
+		for (Person person : List.of(_installer, _owner, _viewer, _stranger)) {
+			assertFalse(person.getName(), as(person, () -> unit.isOffered()));
+		}
+	}
+
+	/**
+	 * The access control of the unit with the given ID in the given configuration, <code>null</code> if
+	 * there is none.
+	 */
+	private static AccessControl accessControl(Object value, String id, Map<Object, Boolean> seen) {
+		if (!(value instanceof ConfigurationItem item)) {
+			if (value instanceof Collection<?> values) {
+				for (Object element : values) {
+					AccessControl result = accessControl(element, id, seen);
+					if (result != null) {
+						return result;
+					}
+				}
+			}
+			return null;
+		}
+		if (seen.put(item, Boolean.TRUE) != null) {
+			return null;
+		}
+		PropertyDescriptor idProperty = item.descriptor().getProperty("id");
+		PropertyDescriptor accessProperty = item.descriptor().getProperty("access-control");
+		if (idProperty != null && accessProperty != null && id.equals(item.value(idProperty))) {
+			return (AccessControl) item.value(accessProperty);
+		}
+		for (PropertyDescriptor property : item.descriptor().getProperties()) {
+			if (property.isDerived()) {
+				continue;
+			}
+			AccessControl result = accessControl(item.value(property), id, seen);
+			if (result != null) {
+				return result;
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -478,7 +715,7 @@ public class TestAccessRights extends BasicTestCase {
 
 	public void testDeviceValuesFollowTheDevice() {
 		assertNull(as(_editor, () -> DeviceSettings.writeVeto(_device)));
-		assertEquals(I18NConstants.ERROR_NOT_ALLOWED__DEVICE.fill(_device),
+		assertEquals(de.haumacher.ehome.programming.I18NConstants.ERROR_NOT_ALLOWED__DEVICE.fill(_device),
 			as(_viewer, () -> DeviceSettings.writeVeto(_device)));
 	}
 
@@ -818,6 +1055,12 @@ public class TestAccessRights extends BasicTestCase {
 						if (SharedData.isWithin(object, projects)) {
 							if (!allowed(_editor, object, WRITE)) {
 								problems.add(name + ": editor cannot write");
+							}
+							if (!allowed(_admin, object, READ)) {
+								problems.add(name + ": E-Home administrator cannot read");
+							}
+							if (allowed(_admin, object, WRITE)) {
+								problems.add(name + ": E-Home administrator without a role can write");
 							}
 							if (allowed(_installer, object, READ)) {
 								problems.add(name + ": installer without a role can read");
