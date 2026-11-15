@@ -929,7 +929,9 @@ public class TestAccessRights extends BasicTestCase {
 			second[0].tUpdateByName("name", "Second access test");
 			ProjectMembers.add(second[0], _owner, Role.owner);
 		});
-		String options = "p -> all(`tl.accounts:Person`).filter(x -> !$p.get(`" + MEMBERS + "`).containsElement($x))";
+		// The options of "Add member" (projects/member-add.view.xml, haumacher/ehome #167): the members of the user's projects.
+		String options = "p -> userProjects().flatMap(q -> $q.get(`" + MEMBERS + "`)).toSet()"
+			+ ".filter(x -> !$p.get(`" + MEMBERS + "`).containsElement($x))";
 		Collection<?> offered = SearchExpression.asCollection(as(_owner, () -> eval(options, second[0])));
 		assertTrue(offered.contains(_viewer));
 		assertTrue(offered.contains(_editor));

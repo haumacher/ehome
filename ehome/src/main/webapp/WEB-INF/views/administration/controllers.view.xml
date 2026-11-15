@@ -13,7 +13,9 @@
 	else does. "Assign to project" makes it one of a project's controllers
 	(controllers/assign-controller.view.xml, controllerAssign), "Delete" forgets it (ForgetControllerAction).
 
-	The list reads the controllers, not the projects, and only while an E-Home administrator shows it;
+	The list is one query of the database (controllersWithoutProject, haumacher/ehome #167): the
+	controllers no project holds in its composition "controllers"; it loads only those, no project
+	and no controller of a project. It runs only while an E-Home administrator shows the page;
 	a list of the controllers of all projects is not offered: the controllers of a project are the
 	project's business, shown in its tab.
 -->
@@ -119,7 +121,7 @@
 					<value>controllerTokenHint($row)</value>
 				</computed-column>
 			</columns>
-			<rows>all(`ehome.runtime:Controller`).filter(c -> $c.container() == null)</rows>
+			<rows>controllersWithoutProject()</rows>
 		</table>
 	</panel>
 </view>

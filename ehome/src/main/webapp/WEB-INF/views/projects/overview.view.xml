@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	Initial frame of the project drill-down: all projects. Activating a row (its activation button,
+	Initial frame of the project drill-down: the projects of the user (haumacher/ehome #167), and for
+	an E-Home administrator a search over all projects by the beginning of the name. Activating a row (its activation button,
 	a double-click or Enter) selects it and pushes the frame showing the structures of the project.
 
 	A project is created empty or imported from an ETS project file (.knxproj); an import that
@@ -26,7 +27,9 @@
 	added, changed, removed, kept or adopted, or that nothing changed); a refusal fails the job with its
 	reasons and changes nothing. A user sees the projects holding a role in (haumacher/ehome #152): the
 	ones created or imported, which the user owns, and the ones an owner added the user to; only an
-	installer creates and imports projects, only an owner deletes one. "Read the installation" builds the
+	installer creates and imports projects, only an owner deletes one. No page computes over all
+	projects: the list starts at the user's account (userProjects), the administrators' search is a
+	query of the database. "Read the installation" builds the
 	selected project from the devices on the bus (scan.view.xml, haumacher/ehome #9). The table observes
 	projects, so a created, imported or deleted project is reflected without a reload.
 -->
@@ -35,15 +38,38 @@
 		<channel name="project"/>
 		<channel name="importJob"/>
 		<!--
-			Whether the user sees a project at all (haumacher/ehome #163): the table is built only then.
-			The engine decides once, when a table is built, which attribute columns the user may read,
-			from the roles held on any object; an account in no project holds no role of a project,
-			and the table built for it would keep only the column "Your role" even after the first
-			project is created or the user is added to one (doc/tl-todo.md, TL ticket pending).
+			The search of the E-Home administrators (haumacher/ehome #165, #167), who read every project
+			without being members: the beginning of a project's name. Shown only to who holds the
+			operation EHomeAdministration on the security root.
 		-->
-		<derived-channel name="anyProject"
-			expr="!all(`ehome.project:Project`).isEmpty()"
+		<derived-channel name="administrator"
+			expr="canExecute(`SecurityStructure#ROOT`, 'EHomeAdministration')"
+		/>
+		<channel name="search"/>
+		<!--
+			The rows of the list (haumacher/ehome #167): the projects of the user, read backwards from
+			the account (userProjects, Project#members; no other project is read), or, while an
+			administrator has entered a text, the projects whose name begins with it (projectsByName, a
+			range query of the database, at most 50). Recomputed when a project changes: a project
+			created, imported or deleted, or the user added to or removed from one.
+		-->
+		<derived-channel name="projects"
+			expr="if($search.isEmpty(), userProjects(), projectsByName($search))"
+			inputs="search"
 			observed-types="ehome.project:Project"
+		/>
+		<!--
+			What the list shows: the table ("rows"), that no project's name begins with the text
+			("notFound"), or that the user is in no project ("none"). The table is built only when there
+			are rows (haumacher/ehome #163): the engine decides once, when a table is built, which
+			attribute columns the user may read, from the roles held on any object; an account in no
+			project holds no role of a project, and the table built for it would keep only the column
+			"Your role" even after the first project is created or the user is added to one
+			(doc/tl-todo.md, TL #30314).
+		-->
+		<derived-channel name="listState"
+			expr="if(!$projects.isEmpty(), 'rows', if($search.isEmpty(), 'none', 'notFound'))"
+			inputs="projects, search"
 		/>
 	</channels>
 
@@ -463,13 +489,40 @@
 					<job-status input="importJob"/>
 				</inset>
 			</visible-if>
-			<switch input="anyProject">
-				<case test="$anyProject">
+			<visible-if
+				expr="$administrator"
+				input="administrator"
+			>
+				<inset>
+					<fields>
+						<value-input
+							clearable="true"
+							debounce="400ms"
+							type="tl.core:String"
+							value="search"
+						>
+							<label>
+								<en>Find a project</en>
+								<de>Projekt suchen</de>
+							</label>
+							<placeholder>
+								<en>Beginning of the name (at most 50 projects); empty: your projects</en>
+								<de>Anfang des Namens (höchstens 50 Projekte); leer: Ihre Projekte</de>
+							</placeholder>
+						</value-input>
+					</fields>
+				</inset>
+			</visible-if>
+			<switch input="listState">
+				<case test="$listState == 'rows'">
 					<table
 						observed-types="ehome.project:Project"
 						selection="project"
 						types="ehome.project:Project"
 					>
+						<inputs>
+							<input channel="projects"/>
+						</inputs>
 						<columns>
 							<column attribute="name"/>
 							<column attribute="extId"/>
@@ -484,13 +537,23 @@
 								<value>projectRole($row, currentUser())</value>
 							</computed-column>
 						</columns>
-						<!-- The projects the user holds a role in (haumacher/ehome #152): all() delivers only these. -->
-						<rows>all(`ehome.project:Project`)</rows>
+						<!-- The projects of the user, or those an administrator searched for (the channel "projects"). -->
+						<rows>$projects</rows>
 						<on-activate class="com.top_logic.layout.view.tiles.NavigatePushCommand"
 							bind-input-to="project"
 							frame="project"
 						/>
 					</table>
+				</case>
+				<case test="$listState == 'notFound'">
+					<inset>
+						<text>
+							<label>
+								<en>No project's name begins with the text entered.</en>
+								<de>Kein Projektname beginnt mit dem eingegebenen Text.</de>
+							</label>
+						</text>
+					</inset>
 				</case>
 				<default>
 					<inset>

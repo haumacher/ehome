@@ -46,7 +46,17 @@ public class AdministrationFunctions extends GenericMethod {
 		 * <code>projectsNamed(name)</code>: the projects with exactly this name, found by a query of the
 		 * database.
 		 */
-		projectsNamed(1, true);
+		projectsNamed(1, true),
+		/**
+		 * <code>projectsByName(text)</code>: the projects whose name begins with the text, by their
+		 * names, at most 50, found by a query of the database.
+		 */
+		projectsByName(1, true),
+		/**
+		 * <code>controllersWithoutProject()</code>: the controllers that belong to no project, found
+		 * by a query of the database.
+		 */
+		controllersWithoutProject(0, true);
 
 		private final int _arguments;
 
@@ -119,6 +129,10 @@ public class AdministrationFunctions extends GenericMethod {
 				return null;
 			case projectsNamed:
 				return Administration.projectsNamed(arguments[0] instanceof String name ? name : null);
+			case projectsByName:
+				return Administration.projectsByName(arguments[0] instanceof String text ? text : null);
+			case controllersWithoutProject:
+				return Administration.controllersWithoutProject();
 			default:
 				return null;
 		}

@@ -3,9 +3,10 @@
 <!--
 	Adds a member to a project (haumacher/ehome #152, the project's tab "Members",
 	projects/members.view.xml): "project" carries the project, the added account is written to
-	"selection". The account is one the owner already works with - the accounts the owner discovers,
-	which are the members of the owner's other projects (the role ehome.Collaborator) - or is named by
-	its mail address or user name; the owner sees no list of the accounts of the installation.
+	"selection". The account is one the user already works with - the members of the user's projects
+	(userProjects, read backwards from the account; haumacher/ehome #167), not yet members of this
+	one - or is named by its mail address or user name; nobody sees a list of the accounts of the
+	installation, an E-Home administrator managing a project of others neither.
 	projectAddMember (de.haumacher.ehome.project.ProjectMembers#add) refuses an address without an
 	account ("an administrator creates accounts"), an address several accounts share and an account that
 	is a member already; the refusal keeps the dialog open with its reason.
@@ -29,7 +30,7 @@
 			<fields>
 				<value-input
 					inputs="project"
-					options="all(`tl.accounts:Person`).filter(p -> !$project.get(`ehome.project:Project#members`).containsElement($p))"
+					options="userProjects().flatMap(q -> $q.get(`ehome.project:Project#members`)).toSet().filter(p -> !$project.get(`ehome.project:Project#members`).containsElement($p))"
 					type="tl.accounts:Person"
 					value="account"
 				>
