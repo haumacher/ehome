@@ -186,7 +186,7 @@ final class ProgramResourcesImport {
 				in.close();
 			}
 		} catch (XMLStreamException ex) {
-			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+			throw new ProgramFileException(ex);
 		}
 	}
 

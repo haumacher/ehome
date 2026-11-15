@@ -21,11 +21,13 @@ import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
 
 import com.top_logic.basic.thread.ThreadContext;
+import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
+import com.top_logic.util.Resources;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
@@ -357,6 +359,33 @@ public class TestGroupMonitorInputs extends BasicTestCase {
 	/**
 	 * Runs the given function with the given language as the one of the user.
 	 */
+	/**
+	 * The refusal of a text that is no value of a one-bit type or no number, entirely in the language
+	 * of the reader; the values of the type are Calimero's notation (haumacher/ehome #171).
+	 */
+	public void testRefusalsInReaderLanguage() {
+		ResKey bit = refusal(Dpt.parse("1.001"), "vielleicht");
+		assertEquals("„vielleicht“ ist kein Wert des Datenpunkttyps 1.001; bitte off oder on eingeben.",
+			Resources.getInstance(Locale.GERMAN).getString(bit));
+		assertEquals("\"vielleicht\" is no value of the datapoint type 1.001; enter off or on.",
+			Resources.getInstance(Locale.ENGLISH).getString(bit));
+
+		ResKey number = refusal(Dpt.parse("9.001"), "warm");
+		assertEquals("„warm“ ist keine Zahl und damit kein Wert des Datenpunkttyps 9.001.",
+			Resources.getInstance(Locale.GERMAN).getString(number));
+		assertEquals("\"warm\" is no number, so it is no value of the datapoint type 9.001.",
+			Resources.getInstance(Locale.ENGLISH).getString(number));
+	}
+
+	private static ResKey refusal(Dpt dpt, Object value) {
+		try {
+			DatapointCodec.encodeWrite(dpt, value);
+		} catch (TopLogicException ex) {
+			return ex.getErrorKey();
+		}
+		throw new AssertionError("Not refused: " + value + " as " + dpt.code());
+	}
+
 	private static <T> T inLocale(Locale locale, Supplier<T> function) {
 		TLContext context = TLContext.getContext();
 		Locale before = context.getCurrentLocale();

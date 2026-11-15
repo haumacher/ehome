@@ -85,14 +85,10 @@ public class ProtectedProject {
 	 *         neither as given nor derived, or it cannot be read.
 	 */
 	public static Map<String, byte[]> read(String name, byte[] data, int schema, String password) {
-		boolean encrypted;
-		try {
-			encrypted = isEncrypted(data);
-		} catch (IOException ex) {
-			throw new TopLogicException(I18NConstants.ERROR_INVALID_PROJECT_ARCHIVE__ENTRY_DETAIL.fill(name,
-				ex.getMessage()), ex);
+		if (!isZip(data)) {
+			throw new TopLogicException(I18NConstants.ERROR_NO_ZIP_ARCHIVE__ENTRY.fill(name));
 		}
-		if (!encrypted) {
+		if (!isEncrypted(data)) {
 			try {
 				return entries(data, null);
 			} catch (IOException ex) {
@@ -122,14 +118,20 @@ public class ProtectedProject {
 	}
 
 	/**
+	 * Whether the given data starts with the local file header of a ZIP archive.
+	 */
+	private static boolean isZip(byte[] data) {
+		return data.length >= LOCAL_HEADER_SIZE && littleEndian(data, 0, 4) == LOCAL_HEADER_SIGNATURE;
+	}
+
+	/**
 	 * Whether the entries of the given archive are encrypted, read from the general purpose flag of
 	 * the first local file header (ETS encrypts all entries of a protected project alike); a stream
 	 * reader cannot tell it without starting to decrypt.
+	 *
+	 * @see #isZip(byte[])
 	 */
-	private static boolean isEncrypted(byte[] data) throws IOException {
-		if (data.length < LOCAL_HEADER_SIZE || littleEndian(data, 0, 4) != LOCAL_HEADER_SIGNATURE) {
-			throw new IOException("No ZIP archive.");
-		}
+	private static boolean isEncrypted(byte[] data) {
 		return (littleEndian(data, GENERAL_PURPOSE_FLAG, 2) & ENCRYPTED_FLAG) != 0;
 	}
 

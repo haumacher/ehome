@@ -65,6 +65,61 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_ZIGBEE_REPORT_REFUSED__TEXT_DATAPOINT_REASON;
 
 	/**
+	 * @en The datapoint type {0} has no coding.
+	 */
+	public static ResKey1 REASON_NO_CODING__TYPE;
+
+	/**
+	 * @en There is no coding of values of the type {0}.
+	 */
+	public static ResKey1 REASON_NO_CODING_OF__VALUE_TYPE;
+
+	/**
+	 * @en There is no value.
+	 */
+	public static ResKey REASON_NO_VALUE;
+
+	/**
+	 * @en The text is longer than a string value of the rules.
+	 */
+	public static ResKey REASON_TEXT_TOO_LONG;
+
+	/**
+	 * @en The end of the day (24:00) is no time of day of the rules.
+	 */
+	public static ResKey REASON_END_OF_DAY_NO_TIME_OF_DAY;
+
+	/**
+	 * @en The end of the day (24:00) is no point in time of the rules.
+	 */
+	public static ResKey REASON_END_OF_DAY_NO_DATE_TIME;
+
+	/**
+	 * @en A value of the type {0} is required, not {1}.
+	 */
+	public static ResKey2 REASON_VALUE_OF_TYPE_REQUIRED__TYPE_VALUE;
+
+	/**
+	 * @en A number is required, not {0}.
+	 */
+	public static ResKey1 REASON_NUMBER_REQUIRED__VALUE;
+
+	/**
+	 * @en The data does not have the length of the datapoint type {0}.
+	 */
+	public static ResKey1 REASON_WRONG_LENGTH__TYPE;
+
+	/**
+	 * @en The value lies outside the range of the datapoint type {0}.
+	 */
+	public static ResKey1 REASON_OUT_OF_RANGE__TYPE;
+
+	/**
+	 * @en The data is no value of the datapoint type {0}.
+	 */
+	public static ResKey1 REASON_NO_VALUE_OF__TYPE;
+
+	/**
 	 * @en "{0}" is no value of the parameter {1}. Enter a literal of its type, e.g. true, 21.5, 3min or 06:30.
 	 */
 	public static ResKey2 ERROR_INVALID_PARAMETER_VALUE__TEXT_PARAMETER;

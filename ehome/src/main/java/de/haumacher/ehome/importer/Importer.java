@@ -422,7 +422,8 @@ public class Importer {
 			steps.rollback(ex);
 			Logger.error("Program '" + id + "' not imported: " + ex.getMessage(), ex, Importer.class);
 			ResKey reason = ex instanceof I18NFailure failure ? failure.getErrorKey()
-				: ResKey.text(ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage());
+				: ex instanceof XMLStreamException ? new ProgramFileException(ex).getErrorKey()
+				: I18NConstants.REASON_PROGRAM_IMPORT_ERROR__DETAIL.fill(ProgramFileException.detail(ex));
 			_failedPrograms.put(id, reason);
 			_messages.log(Level.ERROR, I18NConstants.ERROR_PROGRAM_NOT_IMPORTED__PROGRAM_REASON.fill(id, reason));
 		} finally {
@@ -637,7 +638,7 @@ public class Importer {
 				in.close();
 			}
 		} catch (XMLStreamException ex) {
-			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+			throw new ProgramFileException(ex);
 		}
 		return result;
 	}
@@ -676,7 +677,7 @@ public class Importer {
 				in.close();
 			}
 		} catch (XMLStreamException ex) {
-			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+			throw new ProgramFileException(ex);
 		}
 		return result;
 	}
@@ -700,7 +701,7 @@ public class Importer {
 				in.close();
 			}
 		} catch (XMLStreamException ex) {
-			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+			throw new ProgramFileException(ex);
 		}
 		return result;
 	}

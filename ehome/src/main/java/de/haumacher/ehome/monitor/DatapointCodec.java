@@ -735,11 +735,7 @@ public final class DatapointCodec {
 				if (value instanceof Boolean) {
 					return value;
 				}
-				try {
-					return Boolean.valueOf(bit(calimero(dpt), value));
-				} catch (KNXException ex) {
-					throw invalidValue(dpt, value, ex);
-				}
+				return Boolean.valueOf(bit(dpt, calimero(dpt), value));
 			case 3:
 				if (value instanceof Map<?, ?> map && map.containsKey(DIRECTION)) {
 					return step(dpt, map);
@@ -780,7 +776,7 @@ public final class DatapointCodec {
 				return Double.valueOf(number.doubleValue());
 			}
 			if (kind != Kind.CHOICE) {
-				throw invalidValue(dpt, value, new NumberFormatException(text));
+				throw new TopLogicException(I18NConstants.ERROR_NO_NUMBER__VALUE_TYPE.fill(text, dpt.code()));
 			}
 		}
 		// A text in the notation of Calimero.
@@ -935,7 +931,7 @@ public final class DatapointCodec {
 		return DataUnitBuilder.extractASDU(apdu);
 	}
 
-	private static boolean bit(DPTXlator translator, Object value) throws KNXException {
+	private static boolean bit(Dpt dpt, DPTXlator translator, Object value) {
 		if (value instanceof Boolean flag) {
 			return flag.booleanValue();
 		}
@@ -961,8 +957,8 @@ public final class DatapointCodec {
 			case "aus":
 				return false;
 			default:
-				throw new KNXException("expected " + translator.getType().getLowerValue() + " or "
-					+ translator.getType().getUpperValue());
+				throw new TopLogicException(I18NConstants.ERROR_NO_BIT_VALUE__VALUE_TYPE_LOWER_UPPER.fill(text, dpt.code(),
+					translator.getType().getLowerValue(), translator.getType().getUpperValue()));
 		}
 	}
 

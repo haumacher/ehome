@@ -247,7 +247,7 @@ final class BaggageImport {
 				in.close();
 			}
 		} catch (XMLStreamException ex) {
-			throw new IOException("Cannot read the program file: " + ex.getMessage(), ex);
+			throw new ProgramFileException(ex);
 		}
 	}
 

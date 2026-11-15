@@ -6,6 +6,8 @@ package test.de.haumacher.ehome.importer;
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,8 +33,11 @@ import com.top_logic.basic.util.ResourcesModule;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
+import com.top_logic.util.Resources;
+import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.importer.ArchiveContents;
 import de.haumacher.ehome.importer.Importer;
 import de.haumacher.ehome.knx.ParameterValues;
 import de.haumacher.ehome.model.operational.Parameter;
@@ -272,6 +277,28 @@ public class TestImportMessages extends BasicTestCase {
 
 	private static String texts(List<BufferingI18NLog.Entry> messages) {
 		return String.join("\n", messages.stream().map(TestImportMessages::text).toList());
+	}
+
+	/**
+	 * A project part of a <code>.knxproj</code> that is no ZIP archive is refused in the reader's
+	 * language (haumacher/ehome #171).
+	 */
+	public void testNoZipArchive() throws Exception {
+		ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+		try (ZipOutputStream out = new ZipOutputStream(buffer)) {
+			out.putNextEntry(new ZipEntry("P-0001.zip"));
+			out.write("no archive".getBytes(StandardCharsets.UTF_8));
+			out.closeEntry();
+		}
+		try {
+			ArchiveContents.read(new ByteArrayInputStream(buffer.toByteArray()), null, false);
+			fail("A project part that is no ZIP archive was read.");
+		} catch (TopLogicException ex) {
+			assertEquals("Das Projekt „P-0001.zip“ kann nicht gelesen werden: Es ist kein ZIP-Archiv.",
+				Resources.getInstance(Locale.GERMAN).getString(ex.getErrorKey()));
+			assertEquals("The project \"P-0001.zip\" cannot be read: it is no ZIP archive.",
+				Resources.getInstance(Locale.ENGLISH).getString(ex.getErrorKey()));
+		}
 	}
 
 	private static String text(BufferingI18NLog.Entry message) {
