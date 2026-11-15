@@ -35,12 +35,17 @@
     <config service-class="com.top_logic.model.search.expr.config.SearchBuilder">
       <instance>
         <methods>
-          <!-- The members of a project (haumacher/ehome #152, de.haumacher.ehome.project.ProjectMembers): projectRole reads, the others write. -->
+          <!--
+            The members of a project (haumacher/ehome #152, de.haumacher.ehome.project.ProjectMembers):
+            projectRole and userProjects (the projects of the current user, read backwards from the
+            account, haumacher/ehome #167) read, the others write.
+          -->
           <method name="projectRole" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
           <method name="projectAddMember" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
           <method name="projectSetRole" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
           <method name="projectRemoveMember" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
           <method name="projectLeave" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
+          <method name="userProjects" class="de.haumacher.ehome.project.ProjectMemberFunctions$Builder"/>
         </methods>
       </instance>
     </config>

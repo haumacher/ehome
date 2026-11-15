@@ -5,6 +5,7 @@ package de.haumacher.ehome.project;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
@@ -16,6 +17,7 @@ import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLReference;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
@@ -110,6 +112,39 @@ public class ProjectMembers {
 			return Role.editor;
 		}
 		return Role.viewer;
+	}
+
+	/**
+	 * The projects the given account is a member of, by their names: the projects naming it in
+	 * <code>members</code>, read backwards from the account (haumacher/ehome #167). The cost is
+	 * bounded by the account's projects: one query of the references to the account, no other project
+	 * is read. Every project found gives the account the role <code>ehome.Viewer</code> (the rule
+	 * <code>ehomeProjectViewer</code>), so the account reads all of them. Empty for no account.
+	 */
+	public static List<TLObject> projectsOf(Person account) {
+		List<TLObject> result = new ArrayList<>();
+		if (account == null || !account.tValid()) {
+			return result;
+		}
+		TLReference members = (TLReference) TLModelUtil.findPart(PROJECT_TYPE + "#" + MEMBERS);
+		for (TLObject project : account.tReferers(members)) {
+			if (project.tValid()) {
+				result.add(project);
+			}
+		}
+		result.sort(BY_NAME);
+		return result;
+	}
+
+	/**
+	 * Projects in the order of their names, ignoring case; a project without a name first.
+	 */
+	public static final Comparator<TLObject> BY_NAME =
+		Comparator.comparing(ProjectMembers::name, String.CASE_INSENSITIVE_ORDER);
+
+	private static String name(TLObject project) {
+		Object name = project.tValueByName("name");
+		return name == null ? "" : name.toString();
 	}
 
 	/**

@@ -14,14 +14,16 @@ import com.top_logic.model.search.expr.GenericMethod;
 import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
+import com.top_logic.util.TLContext;
 
 import de.haumacher.ehome.project.ProjectMembers.Role;
 
 /**
  * The TL-Script functions of the members of a project (haumacher/ehome #152, {@link ProjectMembers}),
  * registered in <code>ehome.project.config.xml</code> under the names of the {@link Function}
- * constants. All but <code>projectRole</code> write: a command calling them runs them in a transaction
- * and checks the operation <code>ManageMembers</code> on the project (leaving a project: <code>Read</code>).
+ * constants. All but <code>projectRole</code> and <code>userProjects</code> write: a command calling
+ * them runs them in a transaction and checks the operation <code>ManageMembers</code> on the project
+ * (leaving a project: <code>Read</code>).
  */
 public class ProjectMemberFunctions extends GenericMethod {
 
@@ -50,7 +52,12 @@ public class ProjectMemberFunctions extends GenericMethod {
 		/**
 		 * <code>projectLeave(project)</code>: the current user leaves the project.
 		 */
-		projectLeave(1, false);
+		projectLeave(1, false),
+		/**
+		 * <code>userProjects()</code>: the projects the current user is a member of, by their names,
+		 * read backwards from the account (no other project is read, haumacher/ehome #167).
+		 */
+		userProjects(0, true);
 
 		private final int _arguments;
 
@@ -113,6 +120,9 @@ public class ProjectMemberFunctions extends GenericMethod {
 
 	@Override
 	protected Object eval(Object[] arguments, EvalContext definitions) {
+		if (_function == Function.userProjects) {
+			return ProjectMembers.projectsOf(TLContext.currentUser());
+		}
 		TLObject project = object(arguments[0]);
 		if (project == null) {
 			return null;

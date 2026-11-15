@@ -367,7 +367,7 @@ public class ViewCommandScan {
 	/**
 	 * The given configuration and all configurations nested in it.
 	 */
-	static List<ConfigurationItem> items(ConfigurationItem root) {
+	public static List<ConfigurationItem> items(ConfigurationItem root) {
 		List<ConfigurationItem> result = new ArrayList<>();
 		collect(root, result, new IdentityHashMap<>());
 		return result;

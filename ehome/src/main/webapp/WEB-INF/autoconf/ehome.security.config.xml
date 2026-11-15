@@ -630,8 +630,9 @@
 
 		<!--
 			The functions of the E-Home administrators (haumacher/ehome #165, de.haumacher.ehome.security
-			.Administration): ehomeGroup and projectsNamed read, ehomeGroupAdd and ehomeGroupRemove write the
-			members of the two groups of E-Home (and of no other group).
+			.Administration): ehomeGroup, projectsNamed, projectsByName and controllersWithoutProject read
+			(the last three by a query of the database, haumacher/ehome #167), ehomeGroupAdd and
+			ehomeGroupRemove write the members of the two groups of E-Home (and of no other group).
 		-->
 		<config service-class="com.top_logic.model.search.expr.config.SearchBuilder">
 			<instance>
@@ -640,6 +641,8 @@
 					<method name="ehomeGroupAdd" class="de.haumacher.ehome.security.AdministrationFunctions$Builder"/>
 					<method name="ehomeGroupRemove" class="de.haumacher.ehome.security.AdministrationFunctions$Builder"/>
 					<method name="projectsNamed" class="de.haumacher.ehome.security.AdministrationFunctions$Builder"/>
+					<method name="projectsByName" class="de.haumacher.ehome.security.AdministrationFunctions$Builder"/>
+					<method name="controllersWithoutProject" class="de.haumacher.ehome.security.AdministrationFunctions$Builder"/>
 				</methods>
 			</instance>
 		</config>
