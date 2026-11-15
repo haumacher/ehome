@@ -39,6 +39,7 @@ import de.haumacher.ehome.ai.logic.RuleTools;
 import de.haumacher.ehome.ai.logic.SimulationTools;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.FunctionProposal;
+import de.haumacher.ehome.runtime.ImageCache;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuleExport;
 
@@ -122,6 +123,22 @@ public class TestLogicTools extends BasicTestCase {
 		assertEquals(List.of(rule), RuleExport.orderedRules(project));
 		TLObject limit = (TLObject) ((java.util.Collection<?>) rule.tValueByName("parameters")).iterator().next();
 		assertEquals("5.0", limit.tValueByName("default"));
+	}
+
+	/**
+	 * A check of several rules builds the project's image once (production report of 2026-11-15: every
+	 * rule of a check built the whole image anew, configuring every device once per connection, and
+	 * the checks of a larger project ran into the MCP client's timeout).
+	 */
+	public void testCheckBuildsImageOnce() throws Exception {
+		TLObject project = _fixture.project();
+		String rule = FROST.substring(FROST.indexOf("[{") + 1, FROST.lastIndexOf("]}"));
+		String three = "{\"rules\": [" + rule + ", " + rule.replace("\"frost\"", "\"frost2\"") + ", "
+			+ rule.replace("\"frost\"", "\"frost3\"") + "]}";
+		long before = ImageCache.builds();
+		ToolResult checked = turn(_fixture.installer(), c -> _rules.checkAutomation(c, project, definitions(three)));
+		assertFalse(checked.text(), checked.failed());
+		assertEquals("One image build for the check of three rules.", 1, ImageCache.builds() - before);
 	}
 
 	public void testInvalidTextRefused() throws Exception {

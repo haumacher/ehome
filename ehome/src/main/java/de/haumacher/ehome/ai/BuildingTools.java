@@ -3,7 +3,7 @@
  */
 package de.haumacher.ehome.ai;
 
-import static de.haumacher.ehome.ai.ToolSupport.SAVED;
+import static de.haumacher.ehome.ai.ToolSupport.saved;
 import static de.haumacher.ehome.ai.ToolSupport.answer;
 import static de.haumacher.ehome.ai.ToolSupport.changing;
 import static de.haumacher.ehome.ai.ToolSupport.failure;
@@ -177,7 +177,7 @@ public class BuildingTools {
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("created", answer);
 			result.put("parent", ref(parent));
-			return answer("Created. " + SAVED, result);
+			return answer("Created. " + saved(context), result);
 		});
 	}
 
@@ -314,7 +314,7 @@ public class BuildingTools {
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("container", ref(container));
 			result.put("parts", order);
-			return answer("Moved. The parts of the container are now, in order: " + SAVED, result);
+			return answer("Moved. The parts of the container are now, in order: " + saved(context), result);
 		});
 	}
 
@@ -356,7 +356,7 @@ public class BuildingTools {
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("device", ref(device, GroupAddressConnections.deviceLabel(device)));
 			result.put("location", location == null ? null : ref(location, BuildingDevices.path(location)));
-			return answer((location == null ? "Removed from its building part. " : "Placed. ") + SAVED, result);
+			return answer((location == null ? "Removed from its building part. " : "Placed. ") + saved(context), result);
 		});
 	}
 

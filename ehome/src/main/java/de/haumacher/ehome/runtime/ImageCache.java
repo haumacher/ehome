@@ -89,7 +89,9 @@ public final class ImageCache {
 	public static Entry get(TLObject project) {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		if (!(kb instanceof DBKnowledgeBase db) || db.hasUncommittedChanges() || project.tId() == null) {
-			return new Entry(project, -1);
+			// Built once per stretch of stable reads (the checks of a change, StableReads).
+			return project.tId() == null ? new Entry(project, -1)
+				: StableReads.get(List.of(ImageCache.class, key(project)), () -> new Entry(project, -1));
 		}
 		long revision = kb.getHistoryManager().getLastRevision();
 		Key key = key(project);

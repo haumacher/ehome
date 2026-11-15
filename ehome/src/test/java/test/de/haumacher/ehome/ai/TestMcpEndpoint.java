@@ -227,6 +227,10 @@ public class TestMcpEndpoint extends BasicTestCase {
 			"arguments", Map.of("parent", tid(_fixture.project()), "parts", List.of(Map.of("kind", "Building",
 				"name", "Protokollhaus"))))));
 		assertTrue(created, created.contains("Created."));
+		// The endpoint commits each call when it returns: the answer says so, not the chat's "when this
+		// turn ends" (production report of 2026-11-15).
+		assertTrue(created, created.contains("committed when this call returned"));
+		assertFalse(created, created.contains("when this turn ends"));
 		PersistencyLayer.getKnowledgeBase().refetch();
 		TLObject building = buildings().stream()
 			.filter(b -> "Protokollhaus".equals(b.tValueByName("name"))).findFirst().orElseThrow();

@@ -127,6 +127,8 @@ public class TestAssistantTools extends BasicTestCase {
 			call("createBuildingParts", "parent", tid(_project), "parts", List.of(part("Building", "Haus", floor))));
 		String created = toolAnswer(sent, "createBuildingParts");
 		assertTrue(created, created.contains("Created."));
+		// In the chat the calls of a turn share its transaction (over MCP each call commits, TestMcpEndpoint).
+		assertTrue(created, created.contains("saved when this turn ends"));
 		TLObject house = named(ExtIds.list(_project, "buildings"), "Haus");
 		assertEquals("Haus", house.tValueByName("name"));
 		TLObject groundFloor = single(ExtIds.list(house, "parts"));

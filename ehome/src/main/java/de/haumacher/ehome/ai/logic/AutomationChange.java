@@ -30,6 +30,7 @@ import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Referers;
 import de.haumacher.ehome.runtime.RuleFunctions;
 import de.haumacher.ehome.runtime.RuleImport;
+import de.haumacher.ehome.runtime.StableReads;
 
 /**
  * Applies definitions of rules, schedule entries and application datapoints in the JSON of the
@@ -268,9 +269,12 @@ final class AutomationChange {
 
 		List<TLObject> items = new ArrayList<>(_created);
 		items.addAll(_replaced);
-		for (TLObject item : items) {
-			check(itemName(item), item, null, _problems);
-		}
+		// The change is made: the checks only read, and share the derived data (StableReads).
+		StableReads.run(() -> {
+			for (TLObject item : items) {
+				check(itemName(item), item, null, _problems);
+			}
+		});
 	}
 
 	/**
@@ -390,7 +394,7 @@ final class AutomationChange {
 	 */
 	static List<Problem> check(String item, TLObject obj) {
 		List<Problem> result = new ArrayList<>();
-		check(item, obj, null, result);
+		StableReads.run(() -> check(item, obj, null, result));
 		return result;
 	}
 

@@ -5,6 +5,7 @@ package de.haumacher.ehome.programming;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -17,6 +18,7 @@ import com.top_logic.model.TLObject;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
 import de.haumacher.ehome.modules.ModuleParts;
+import de.haumacher.ehome.runtime.StableReads;
 
 /**
  * Whether the communication object of a connector of a device is in effect (haumacher/ehome #137):
@@ -81,7 +83,9 @@ public final class ObjectsInEffect {
 		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
 		ObjectKey key = device.tId();
 		if (!(kb instanceof DBKnowledgeBase db) || db.hasUncommittedChanges() || key == null) {
-			return compute(device);
+			// Computed once per stretch of stable reads (the checks of a change, StableReads).
+			return key == null ? compute(device)
+				: StableReads.get(List.of(ObjectsInEffect.class, key), () -> compute(device));
 		}
 		long revision = kb.getHistoryManager().getLastRevision();
 		synchronized (CACHE) {

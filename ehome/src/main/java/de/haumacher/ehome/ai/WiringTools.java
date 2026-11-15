@@ -3,7 +3,7 @@
  */
 package de.haumacher.ehome.ai;
 
-import static de.haumacher.ehome.ai.ToolSupport.SAVED;
+import static de.haumacher.ehome.ai.ToolSupport.saved;
 import static de.haumacher.ehome.ai.ToolSupport.answer;
 import static de.haumacher.ehome.ai.ToolSupport.changing;
 import static de.haumacher.ehome.ai.ToolSupport.failure;
@@ -463,7 +463,7 @@ public class WiringTools {
 		Map<String, Object> result = new LinkedHashMap<>();
 		result.put("project", ref(owner));
 		result.put("changes", changes);
-		return answer(preview ? "These changes would be made; nothing was changed:" : "Named. " + SAVED, result);
+		return answer(preview ? "These changes would be made; nothing was changed:" : "Named. " + saved(context), result);
 	}
 
 	private static String blankToNull(String text) {
@@ -542,7 +542,7 @@ public class WiringTools {
 			result.put("id", id(created));
 			result.put("displayText", DatapointNames.name(created));
 			address(result, created);
-			return answer("Created. " + SAVED, result);
+			return answer("Created. " + saved(context), result);
 		});
 	}
 
@@ -612,7 +612,7 @@ public class WiringTools {
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("id", id(groupAddress));
 			address(result, groupAddress);
-			return answer("Set. " + SAVED, result);
+			return answer("Set. " + saved(context), result);
 		});
 	}
 
@@ -776,7 +776,7 @@ public class WiringTools {
 			if (!added.isEmpty()) {
 				result.put("problems", texts(added));
 			}
-			return answer("Connected. " + SAVED, result);
+			return answer("Connected. " + saved(context), result);
 		});
 	}
 
@@ -811,7 +811,7 @@ public class WiringTools {
 			Map<String, Object> result = new LinkedHashMap<>();
 			result.put("removed", text);
 			result.put("groupAddress", target == null ? null : ref(target, DatapointNames.name(target)));
-			return answer("Disconnected. " + SAVED, result);
+			return answer("Disconnected. " + saved(context), result);
 		});
 	}
 

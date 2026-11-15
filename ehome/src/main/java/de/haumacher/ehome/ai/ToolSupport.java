@@ -42,8 +42,10 @@ final class ToolSupport {
 	/** What a tool description says about a refusal of the application. */
 	static final String REFUSALS = ApplicationRefusals.DESCRIPTION;
 
-	/** What an answer that changed something says about the commit. */
-	static final String SAVED = "The change is saved when this turn ends.";
+	/** What an answer that changed something says about the commit: {@link CommitMessages#saved(ToolContext)}. */
+	static String saved(ToolContext context) {
+		return CommitMessages.saved(context);
+	}
 
 	private ToolSupport() {
 		// Static helpers only.

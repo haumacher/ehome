@@ -25,6 +25,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.ai.CommitMessages;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.Json;
@@ -49,8 +50,10 @@ final class LogicSupport {
 	/** What a tool description says about a refusal of the application. */
 	static final String REFUSALS = ApplicationRefusals.DESCRIPTION;
 
-	/** What an answer that changed something says about the commit. */
-	static final String SAVED = "The change is saved when this turn ends.";
+	/** What an answer that changed something says about the commit: {@link CommitMessages#saved(ToolContext)}. */
+	static String saved(ToolContext context) {
+		return CommitMessages.saved(context);
+	}
 
 	private LogicSupport() {
 		// Static helpers only.
@@ -237,7 +240,7 @@ final class LogicSupport {
 		if (!real.errors().isEmpty()) {
 			throw new IllegalStateException("The change passed its dry run but was refused: " + real.errors());
 		}
-		return answer(real.sentence() + " " + SAVED, real.data());
+		return answer(real.sentence() + " " + saved(context), real.data());
 	}
 
 	/**

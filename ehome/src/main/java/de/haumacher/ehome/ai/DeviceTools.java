@@ -3,7 +3,7 @@
  */
 package de.haumacher.ehome.ai;
 
-import static de.haumacher.ehome.ai.ToolSupport.SAVED;
+import static de.haumacher.ehome.ai.ToolSupport.saved;
 import static de.haumacher.ehome.ai.ToolSupport.answer;
 import static de.haumacher.ehome.ai.ToolSupport.changing;
 import static de.haumacher.ehome.ai.ToolSupport.failure;
@@ -276,7 +276,7 @@ public class DeviceTools {
 		}
 		return changing(context, target, () -> {
 			TLObject device = DevicePlanning.create(target, product, program, chosen, name, location);
-			return answer("Planned. " + SAVED, device(device));
+			return answer("Planned. " + saved(context), device(device));
 		});
 	}
 
@@ -316,7 +316,7 @@ public class DeviceTools {
 		}
 		return changing(context, device, () -> {
 			TLObject copy = DevicePlanning.duplicate(device);
-			return answer("Duplicated. " + SAVED, device(copy));
+			return answer("Duplicated. " + saved(context), device(copy));
 		});
 	}
 
@@ -507,7 +507,7 @@ public class DeviceTools {
 			result.put("parameter", ToolSupport.named(parameter.trim(), DeviceTexts.label(device, view)));
 			result.put("from", display(type, before));
 			result.put("to", display(type, DeviceSettings.value(device, view)));
-			return answer("Set. " + SAVED, result);
+			return answer("Set. " + saved(context), result);
 		});
 	}
 

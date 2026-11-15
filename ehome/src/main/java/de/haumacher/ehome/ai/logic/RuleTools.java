@@ -3,7 +3,7 @@
  */
 package de.haumacher.ehome.ai.logic;
 
-import static de.haumacher.ehome.ai.logic.LogicSupport.SAVED;
+import static de.haumacher.ehome.ai.logic.LogicSupport.saved;
 import static de.haumacher.ehome.ai.logic.LogicSupport.answer;
 import static de.haumacher.ehome.ai.logic.LogicSupport.failure;
 import static de.haumacher.ehome.ai.logic.LogicSupport.id;
@@ -381,7 +381,7 @@ public class RuleTools {
 		if (!change.notes().isEmpty()) {
 			result.put("notes", change.notes());
 		}
-		return answer("Saved. " + SAVED + " The controller runs it after the next deployment (the installer's"
+		return answer("Saved. " + saved(context) + " The controller runs it after the next deployment (the installer's"
 			+ " command in the runtime image view).", result);
 	}
 
@@ -652,7 +652,7 @@ public class RuleTools {
 				obj.tDelete();
 			}
 		}
-		return answer("Deleted. " + SAVED, report);
+		return answer("Deleted. " + saved(context), report);
 	}
 
 }
