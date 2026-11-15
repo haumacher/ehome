@@ -229,6 +229,13 @@ delivery:
 
 - **Nothing ran.** `./mvnw test` without `-DskipTests=false` is green with zero tests. Read the
   `Tests run:` line, not the banner.
+- **Stale classes after a merge or an engine upgrade.** The incremental compile of the Maven build
+  does not recompile a class whose dependency changed its signature: after the upgrade to
+  8.0.0-alpha13.823 the build was green on classes compiled against the old engine, and after a
+  merge a test failed with `NoSuchMethodError` in a test class compiled against the old signature
+  (2026-11-15, both). The gate after a merge or a version change is `./mvnw clean install
+  -DskipTests=false`; a `NoSuchMethodError` or `AbstractMethodError` in a test is this trap, not a
+  defect.
 - **Derived attributes read as `null`** in a test: a `<storage-algorithm><query>` evaluates with
   the reading user's access rights, and a test runs without a person. Read them as `root`
   (`TestEtsImport.derived`). The same applies in the app: a non-admin user sees nothing until the
@@ -288,7 +295,7 @@ user edited after the previous import.
 
 ```bash
 ./mvnw checkstyle:check                              # both modules: header, tabs, imports, braces
-./mvnw install -DskipTests=false                     # both modules, both suites (budget 95 s together); read every "Tests run:" line
+./mvnw install -DskipTests=false                     # (clean install after a merge or a version change, §4) both modules, both suites (budget 95 s together); read every "Tests run:" line
 bin/slowest-tests.py                                 # time of each suite, the total and the 10 slowest tests: within budget?
 git status --short                                   # only the files of this change; no .playwright-mcp, no tmp/
 ```
