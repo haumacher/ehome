@@ -37,11 +37,24 @@ bin/ehome-agent.py act /appShell/sidebar selectItem '{"itemId": "catalogs"}'
 bin/ehome-agent.py navigate /ehome/view/projects
 ```
 
-`observe` without `--actions` returns the whole tree of the window (with the values of tables and
-forms); `act` dispatches a command to the control at an address taken from `observe`, and answers
-with the observation after it. A route URL reaches only the areas already displayed; an area of the
-sidebar is opened with `selectItem` first. A refused or expired token ends with "the token is not
-admitted": the endpoint answers it with 401.
+`observe` without `--actions` returns the tree of the window as the user sees it: invisible controls
+are left out, a table lists the rows of its viewport (`id`, `label`, cell texts), and a node lists only
+the commands it offers in its current state (a disabled button has no `click`). `--actions` returns
+the flat list of the nodes that offer a command. `act` dispatches a command to the control at an
+address taken from `observe`, and answers with `success`, the `error` of a refused command, and the
+observation after it.
+
+Since TopLogic 8.0.0-alpha13.823 (TL #30200) a row, tree node, option or card is named by the `id` the
+observation shows for it, valid in this session: e.g. `act <table address> select '{"rowId": "v12"}'`
+with the `id` of an observed row. The commands by business key (`selectByKey`, `activateByKey`) and
+`dropObjects` are gone; a drop goes through the drop command of the target. An action with arguments
+names its schema as `{"$ref": "#/schemas/<id>"}`, a reference into the member `schemas` of the
+observation, which lists each schema once. The endpoint answers compact JSON (`bin/ehome-agent.py`
+indents it).
+
+A route URL reaches only the areas already displayed; an area of the sidebar is opened with
+`selectItem` first. A refused or expired token ends with "the token is not admitted": the endpoint
+answers it with 401; any other failure with its status and `{"error": ...}`.
 
 ## Operation
 

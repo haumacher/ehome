@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
@@ -105,6 +106,23 @@ public class BuildingTools {
 	}
 
 	/**
+	 * The commit message of {@link #createBuildingParts(ToolContext, TLObject, List, TLObject, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey createBuildingPartsMessage(ToolContext context, TLObject parent, List<Map<String, Object>> parts,
+			TLObject before, Boolean dryRun) {
+		List<String> names = new ArrayList<>();
+		if (parts != null) {
+			for (Object part : parts) {
+				names.add(part instanceof Map<?, ?> map && map.get("name") instanceof String name
+					? CommitMessages.text(name) : "?");
+			}
+		}
+		return I18NConstants.COMMIT_BUILDING_PARTS_CREATED__PARENT_PARTS.fill(CommitMessages.label(parent),
+			String.join(", ", names));
+	}
+
+	/**
 	 * Creates building parts, with the parts inside them.
 	 */
 	@ToolMethod(description = "Creates building parts in E-Home, with the parts inside them, in the given"
@@ -116,7 +134,8 @@ public class BuildingTools {
 		+ " lists the created parts with their identifiers. With dryRun=true nothing is created and the"
 		+ " answer says whether the parts can be created. " + ToolSupport.REFUSALS,
 		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE,
-		dryRun = "dryRun")
+		dryRun = "dryRun",
+		commitMessage = "createBuildingPartsMessage")
 	public ToolResult createBuildingParts(ToolContext context,
 			@P("Where to create them: the project (for buildings) or a building part") TLObject parent,
 			@P("The new parts, each {\"kind\": \"Floor\", \"name\": \"Ground floor\", \"parts\": [...]}; 'parts'"
@@ -262,12 +281,22 @@ public class BuildingTools {
 	}
 
 	/**
+	 * The commit message of {@link #moveBuildingParts(ToolContext, List, TLObject, TLObject)}.
+	 */
+	@CalledByReflection
+	ResKey moveBuildingPartsMessage(ToolContext context, List<TLObject> parts, TLObject container, TLObject before) {
+		return I18NConstants.COMMIT_BUILDING_PARTS_MOVED__CONTAINER_PARTS.fill(CommitMessages.label(container),
+			CommitMessages.labels(parts));
+	}
+
+	/**
 	 * Moves building parts.
 	 */
 	@ToolMethod(description = "Moves building parts of an E-Home project to another place: into another"
 		+ " part (or the project, for buildings), before one of its parts or at its end. Use it to reorder"
 		+ " parts within their parent as well. The parts keep their own parts and devices. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE,
+		commitMessage = "moveBuildingPartsMessage")
 	public ToolResult moveBuildingParts(ToolContext context,
 			@P("The building parts to move") List<TLObject> parts,
 			@P("Where to move them: a building part, or the project for buildings") TLObject container,
@@ -290,12 +319,28 @@ public class BuildingTools {
 	}
 
 	/**
+	 * The commit message of {@link #placeDevice(ToolContext, TLObject, TLObject)}.
+	 */
+	@CalledByReflection
+	ResKey placeDeviceMessage(ToolContext context, TLObject device, TLObject location) {
+		String name = deviceName(device);
+		return location == null ? I18NConstants.COMMIT_DEVICE_UNPLACED__DEVICE.fill(name)
+			: I18NConstants.COMMIT_DEVICE_PLACED__DEVICE_LOCATION.fill(name, CommitMessages.label(location));
+	}
+
+	private static String deviceName(TLObject device) {
+		return ExtIds.isA(device, "ehome.physical:Device") ? GroupAddressConnections.deviceLabel(device)
+			: CommitMessages.label(device);
+	}
+
+	/**
 	 * Places a device in a building part.
 	 */
 	@ToolMethod(description = "Places a device of an E-Home project in a building part (a room, a"
 		+ " distribution board, ...) of the same project, or removes it from its part with location=null."
 		+ " A device is in one part at a time; placing it moves it there. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE,
+		commitMessage = "placeDeviceMessage")
 	public ToolResult placeDevice(ToolContext context,
 			@P("The device") TLObject device,
 			@P(value = "The building part to place it in; omit to remove it from its part", required = false)

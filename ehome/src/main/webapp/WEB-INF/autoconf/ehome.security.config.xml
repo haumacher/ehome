@@ -124,24 +124,6 @@
 						>
 							<group-with-name name="ehome.installers"/>
 						</singleton-rule>
-						<!--
-							Workaround of a false finding of the coverage analysis (doc/tl-todo.md, "Create of a
-							top-level type"): the Create of a project is decided on the security root, which the
-							analysis does not count, and reports the grant to ehome.Installer as dead unless a rule
-							delivers the role on the type. The owners of a project hold it there: it grants nothing
-							on an existing project they do not hold already (Create only, and Discover, which every
-							member has).
-						-->
-						<rule id="ehomeInstallerOnOwnedProject"
-							meta-element="ehome.project:Project"
-							role="ehome.Installer"
-						>
-							<path>
-								<step attribute="ehome.project:Project#owners"
-									inverse="false"
-								/>
-							</path>
-						</rule>
 						<!-- The roles in a project, along the references naming its members (haumacher/ehome #152). -->
 						<rule id="ehomeProjectOwner"
 							meta-element="ehome.project:Project"

@@ -13,17 +13,12 @@ import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.annotation.Name;
 import com.top_logic.basic.config.annotation.Nullable;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
-import com.top_logic.basic.io.binary.BinaryData;
+import com.top_logic.layout.Flavor;
 import com.top_logic.layout.ResourceProvider;
+import com.top_logic.layout.basic.ThemeImage;
 import com.top_logic.layout.provider.ProxyResourceProvider;
 import com.top_logic.layout.react.ReactContext;
 import com.top_logic.layout.react.control.ReactControl;
-import com.top_logic.layout.react.control.image.ImageFit;
-import com.top_logic.layout.react.control.image.ReactImageControl;
-import com.top_logic.layout.react.control.layout.ReactStackControl;
-import com.top_logic.layout.react.control.layout.ReactStackControl.StackAlign;
-import com.top_logic.layout.react.control.layout.ReactStackControl.StackDirection;
-import com.top_logic.layout.react.control.layout.ReactStackControl.StackGap;
 import com.top_logic.layout.react.control.table.ReactResourceCellControl;
 import com.top_logic.layout.react.controlprovider.ReactControlProvider;
 import com.top_logic.layout.view.ViewContext;
@@ -56,8 +51,8 @@ import com.top_logic.model.search.expr.query.QueryExecutor;
  *
  * <p>
  * Where an <code>image</code> expression computes a picture (a binary value, e.g. the icon of a
- * channel from the icons of its program, haumacher/ehome #156), the node shows it in front of its
- * label, as large as the text.
+ * channel from the icons of its program, haumacher/ehome #156), the node shows it as its icon, in
+ * place of the icon of its object (as image data, TL #30316).
  * </p>
  *
  * <p>
@@ -105,8 +100,8 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 
 		/**
 		 * Expression computing a picture of a node from its object (the variable
-		 * <code>$value</code>), shown in front of its label: a binary value of a picture format;
-		 * <code>null</code> for none. Computed when the node is displayed.
+		 * <code>$value</code>), shown as its icon: a binary value of a picture format, or an icon;
+		 * <code>null</code> for the icon of the object. Computed when the node is displayed.
 		 */
 		@Name(IMAGE)
 		@Nullable
@@ -115,9 +110,6 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 
 	/** The variable holding the object of the node, behind the inputs. */
 	private static final String VALUE = "value";
-
-	/** The size of a picture in front of the label: the height of a line of text. */
-	private static final String ICON_SIZE = "1.25em";
 
 	private final Config _config;
 
@@ -147,33 +139,34 @@ public class ScriptLabelControlProvider implements ReactControlProvider {
 			: List.of();
 		ResourceProvider resources = resources(
 			_label == null ? null : object -> evaluate(_label, inputs, object),
-			_cssClass == null ? null : object -> evaluate(_cssClass, inputs, object));
-		ReactControl cell = new ReactResourceCellControl(context, model, resources, true, true, false);
-		Object image = _image == null || model == null ? null : evaluate(_image, inputs, model);
-		if (!(image instanceof BinaryData picture)) {
-			return cell;
-		}
-		ReactImageControl icon = new ReactImageControl(context);
-		icon.setFit(ImageFit.CONTAIN);
-		icon.setWidth(ICON_SIZE);
-		icon.setHeight(ICON_SIZE);
-		icon.setValue(picture);
-		return new ReactStackControl(context, StackDirection.ROW, StackGap.COMPACT, StackAlign.CENTER, false,
-			List.of(icon, cell));
+			_cssClass == null ? null : object -> evaluate(_cssClass, inputs, object),
+			_image == null ? null : object -> evaluate(_image, inputs, object));
+		return new ReactResourceCellControl(context, model, resources, true, true, false);
 	}
 
 	/**
-	 * The display of an object with a label and a CSS class computed by the given functions: the
-	 * icon of the object, the label the function computes (the object's own label where it gives
-	 * nothing), and the class it computes (none where it gives nothing).
+	 * The display of an object with a label, a CSS class and an icon computed by the given functions:
+	 * the label the function computes (the object's own label where it gives nothing), the class it
+	 * computes (none where it gives nothing), and the icon it computes (the object's own icon where it
+	 * gives nothing).
 	 *
 	 * @param label
 	 *        Computes the label of an object; <code>null</code> for the object's own label.
 	 * @param cssClass
 	 *        Computes the CSS class of an object; <code>null</code> for the object's own class.
+	 * @param image
+	 *        Computes the icon of an object, a picture or an icon (see
+	 *        {@link ThemeImage#fromValue(Object)}); <code>null</code> for the object's own icon.
 	 */
-	static ResourceProvider resources(Function<Object, Object> label, Function<Object, Object> cssClass) {
+	static ResourceProvider resources(Function<Object, Object> label, Function<Object, Object> cssClass,
+			Function<Object, Object> image) {
 		return new ProxyResourceProvider() {
+			@Override
+			public ThemeImage getImage(Object object, Flavor flavor) {
+				ThemeImage result = image == null || object == null ? null : ThemeImage.fromValue(image.apply(object));
+				return result == null ? super.getImage(object, flavor) : result;
+			}
+
 			@Override
 			public String getLabel(Object object) {
 				Object result = label == null || object == null ? null : label.apply(object);

@@ -205,6 +205,8 @@
 				</label-providers>
 				<resource-providers>
 					<provider kind="MODEL" type="ehome.physical:Device" implementation="de.haumacher.ehome.programming.DeviceResourceProvider"/>
+					<!-- An entry of an enumeration with the icon of its program, in the options of a choice (TL #30316). -->
+					<provider kind="MODEL" type="ehome.operational:EnumerationValue" implementation="de.haumacher.ehome.knx.EnumerationValueResourceProvider"/>
 				</resource-providers>
 			</instance>
 		</config>

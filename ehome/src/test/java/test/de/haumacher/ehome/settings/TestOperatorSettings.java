@@ -12,6 +12,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -189,21 +190,25 @@ public class TestOperatorSettings extends BasicTestCase {
 	 * haumacher/ehome #150: the views offer nothing that reaches into the local networks unless the
 	 * installation does - every element triggering such a path (the gateway search, the dialogs
 	 * searching controllers, the interfaces of the server, host, port and
-	 * token of a controller) is shown only under <code>localNetworkVeto()</code>. That the views
-	 * load is <code>TestViewsLoad</code>.
+	 * token of a controller) is shown only under <code>localNetworkVeto()</code>, or is in a page
+	 * whose sidebar entry is withheld by it (the page "Discover", <code>app.view.xml</code>). That the
+	 * views load is <code>TestViewsLoad</code>.
 	 */
 	public void testViewsGuarded() throws Exception {
 		List<String> unguarded = new ArrayList<>();
 		int triggers = 0;
 		Path root = Path.of("src/main/webapp/WEB-INF/views");
 		DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+		Set<String> withheld =
+			withheldPages(factory.newDocumentBuilder().parse(root.resolve("app.view.xml").toFile()).getDocumentElement());
+		assertTrue("The page \"Discover\" is withheld: " + withheld, withheld.contains("discover.view.xml"));
 		try (Stream<Path> files = Files.walk(root)) {
 			for (Path file : (Iterable<Path>) files.filter(f -> f.toString().endsWith(".view.xml"))::iterator) {
 				Element view = factory.newDocumentBuilder().parse(file.toFile()).getDocumentElement();
 				String name = root.relativize(file).toString().replace('\\', '/');
 				for (Element trigger : triggers(view, name)) {
 					triggers++;
-					if (!guarded(trigger)) {
+					if (!withheld.contains(name) && !guarded(trigger)) {
 						unguarded.add(name + ": <" + trigger.getTagName() + ">");
 					}
 				}
@@ -212,6 +217,38 @@ public class TestOperatorSettings extends BasicTestCase {
 		assertTrue("The scan finds the entries: " + triggers, triggers >= 10);
 		assertEquals("Entries reaching into the local networks, offered regardless of the setting", List.of(),
 			unguarded);
+	}
+
+	/**
+	 * The pages of the sidebar whose entry is shown only while the installation reaches local
+	 * networks: a <code>&lt;nav-item&gt;</code> with <code>&lt;visibility expr="localNetworkVeto() ==
+	 * null"/&gt;</code>, by the view its <code>&lt;view-ref&gt;</code> names.
+	 */
+	private static Set<String> withheldPages(Element element) {
+		Set<String> result = new HashSet<>();
+		if (element.getTagName().equals("nav-item")) {
+			boolean visibleOnlyWithLocalNetwork = false;
+			String page = null;
+			for (Node child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+				if (child instanceof Element part) {
+					if (part.getTagName().equals("visibility")
+						&& part.getAttribute("expr").equals("localNetworkVeto() == null")) {
+						visibleOnlyWithLocalNetwork = true;
+					} else if (part.getTagName().equals("view-ref")) {
+						page = part.getAttribute("view");
+					}
+				}
+			}
+			if (visibleOnlyWithLocalNetwork && page != null) {
+				result.add(page);
+			}
+		}
+		for (Node child = element.getFirstChild(); child != null; child = child.getNextSibling()) {
+			if (child instanceof Element childElement) {
+				result.addAll(withheldPages(childElement));
+			}
+		}
+		return result;
 	}
 
 	private static final Set<String> TRIGGER_TAGS = Set.of("discover-knx-gateways", "discover-controllers");

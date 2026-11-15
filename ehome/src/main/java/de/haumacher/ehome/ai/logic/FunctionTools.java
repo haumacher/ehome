@@ -14,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
@@ -28,6 +29,8 @@ import com.top_logic.tl.ai.tool.api.ToolMode;
 import com.top_logic.tl.ai.tool.api.ToolResult;
 import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.ai.CommitMessages;
+import de.haumacher.ehome.ai.I18NConstants;
 import de.haumacher.ehome.ai.logic.LogicSupport.Outcome;
 import de.haumacher.ehome.runtime.DatapointNames;
 import de.haumacher.ehome.runtime.FunctionKinds;
@@ -47,6 +50,18 @@ import de.haumacher.ehome.runtime.RuntimeImage;
 public class FunctionTools {
 
 	/**
+	 * The commit message of {@link #proposeFunctions(ToolContext, TLObject, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey proposeFunctionsMessage(ToolContext context, TLObject project, Boolean dryRun) {
+		return I18NConstants.COMMIT_FUNCTIONS_PROPOSED__PROJECT.fill(CommitMessages.label(owner(project)));
+	}
+
+	private static TLObject owner(TLObject obj) {
+		return obj == null || !obj.tValid() ? null : project(obj);
+	}
+
+	/**
 	 * Runs the function proposal.
 	 */
 	@ToolMethod(description = "Runs the function proposal of E-Home for a project, as the command \"Propose"
@@ -59,7 +74,8 @@ public class FunctionTools {
 		+ " command address, an address whose datapoint type contradicts the object). With dryRun=true it answers"
 		+ " what it would add and update without changing anything; show that to the user before accepting. "
 		+ LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "proposeFunctionsMessage")
 	public ToolResult proposeFunctions(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P(value = "true to only answer what the proposal would add", required = false) Boolean dryRun) {
@@ -97,13 +113,24 @@ public class FunctionTools {
 	}
 
 	/**
+	 * The commit message of {@link #dismissFunctions(ToolContext, List, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey dismissFunctionsMessage(ToolContext context, List<TLObject> functions, Boolean dryRun) {
+		TLObject owner = functions == null || functions.isEmpty() ? null : owner(functions.get(0));
+		return I18NConstants.COMMIT_FUNCTIONS_DELETED__PROJECT_FUNCTIONS.fill(CommitMessages.label(owner),
+			CommitMessages.labels(functions));
+	}
+
+	/**
 	 * Dismisses functions.
 	 */
 	@ToolMethod(description = "Deletes functions of an E-Home project as the delete command of the functions view"
 		+ " does: a function the proposal made is remembered as dismissed, so the next proposal does not add it"
 		+ " again. With dryRun=true it only answers what still refers to each function (control pages): those"
 		+ " refer to nothing afterwards. " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "dismissFunctionsMessage")
 	public ToolResult dismissFunctions(ToolContext context,
 			@P("The functions (ehome.runtime:Function)") List<TLObject> functions,
 			@P(value = "true to only answer what refers to them", required = false) Boolean dryRun) {
@@ -142,6 +169,16 @@ public class FunctionTools {
 	}
 
 	/**
+	 * The commit message of {@link #createFunction(ToolContext, TLObject, String, String, TLObject, Map, Integer, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey createFunctionMessage(ToolContext context, TLObject project, String kind, String name, TLObject room,
+			Map<String, Object> roles, Integer scene, Boolean dryRun) {
+		return I18NConstants.COMMIT_FUNCTION_CREATED__PROJECT_NAME.fill(CommitMessages.label(owner(project)),
+			CommitMessages.text(name));
+	}
+
+	/**
 	 * Creates a function.
 	 */
 	@ToolMethod(description = "Creates a function of an E-Home project (what the inhabitant operates on the"
@@ -155,7 +192,8 @@ public class FunctionTools {
 		+ " percent); scene command (with 'scene' 1..64); button press, state. The first role is the main one."
 		+ " Prefer proposeFunctions where the devices suggest the function. The answer names"
 		+ " what the runtime image would refuse of the function. " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "createFunctionMessage")
 	public ToolResult createFunction(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P("The kind: light, dimmer, blind, switch, sensor, climate, scene or button") String kind,
@@ -231,6 +269,16 @@ public class FunctionTools {
 	}
 
 	/**
+	 * The commit message of {@link #createPage(ToolContext, TLObject, String, List, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey createPageMessage(ToolContext context, TLObject project, String name, List<Map<String, Object>> sections,
+			Boolean dryRun) {
+		return I18NConstants.COMMIT_PAGE_CREATED__PROJECT_NAME.fill(CommitMessages.label(owner(project)),
+			CommitMessages.text(name));
+	}
+
+	/**
 	 * Creates a control page.
 	 */
 	@ToolMethod(description = "Creates a control page of an E-Home project (a page of the controller's user"
@@ -240,7 +288,8 @@ public class FunctionTools {
 		+ " shown as value or switch) and rule switches (a rule's enable switch). E.g. a page \"Ground floor\""
 		+ " with one section per room, each holding that room. The answer names what the pages view marks as a"
 		+ " problem (a room without functions). " + LogicSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "createPageMessage")
 	public ToolResult createPage(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
 			@P("The name of the page") String name,

@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
+import com.top_logic.basic.CalledByReflection;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
@@ -223,6 +224,18 @@ public class DeviceTools {
 	}
 
 	/**
+	 * The commit message of {@link #planDevice(ToolContext, TLObject, TLObject, TLObject, Integer, String, TLObject, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey planDeviceMessage(ToolContext context, TLObject line, TLObject product, TLObject program, Integer number,
+			String name, TLObject location, Boolean dryRun) {
+		TLObject target = line == null ? null : DevicePlanning.line(line);
+		String device = name != null && !name.isBlank() ? name.trim() : CommitMessages.label(product);
+		return I18NConstants.COMMIT_DEVICE_PLANNED__LINE_PRODUCT.fill(CommitMessages.label(target != null ? target : line),
+			device);
+	}
+
+	/**
 	 * Plans a device.
 	 */
 	@ToolMethod(description = "Plans a new KNX device in a line of an E-Home project: a product of the catalog"
@@ -231,7 +244,8 @@ public class DeviceTools {
 		+ " program's default parameters and no group address; it is programmed later by the installer. With"
 		+ " dryRun=true nothing is created and the answer gives the individual address the device would get,"
 		+ " or why it cannot. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "planDeviceMessage")
 	public ToolResult planDevice(ToolContext context,
 			@P("The line to plan it in (listDevices), or a device of that line") TLObject line,
 			@P("The product variant from searchCatalog") TLObject product,
@@ -267,6 +281,18 @@ public class DeviceTools {
 	}
 
 	/**
+	 * The commit message of {@link #duplicateDevice(ToolContext, TLObject, Boolean)}.
+	 */
+	@CalledByReflection
+	ResKey duplicateDeviceMessage(ToolContext context, TLObject device, Boolean dryRun) {
+		return I18NConstants.COMMIT_DEVICE_DUPLICATED__DEVICE.fill(deviceName(device));
+	}
+
+	private static String deviceName(TLObject device) {
+		return ExtIds.isA(device, DEVICE) ? GroupAddressConnections.deviceLabel(device) : CommitMessages.label(device);
+	}
+
+	/**
 	 * Duplicates a device.
 	 */
 	@ToolMethod(description = "Duplicates a device of an E-Home project: a new device of the same product and"
@@ -274,7 +300,8 @@ public class DeviceTools {
 		+ " group addresses and without a building part (placeDevice places it, updateObject renames it). With"
 		+ " dryRun=true nothing is created and the answer gives the address the copy would get. "
 		+ ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun")
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
+		commitMessage = "duplicateDeviceMessage")
 	public ToolResult duplicateDevice(ToolContext context,
 			@P("The device to copy") TLObject device,
 			@P(value = "true to only check", required = false) Boolean dryRun) {
@@ -432,6 +459,22 @@ public class DeviceTools {
 	}
 
 	/**
+	 * The commit message of {@link #setDeviceParameter(ToolContext, TLObject, String, String)}.
+	 */
+	@CalledByReflection
+	ResKey setDeviceParameterMessage(ToolContext context, TLObject device, String parameter, String value) {
+		String name = CommitMessages.text(parameter);
+		if (ExtIds.isA(device, DEVICE) && parameter != null) {
+			ParameterView view = findParameter(device, parameter.trim());
+			if (view != null) {
+				name = CommitMessages.label(view);
+			}
+		}
+		return value == null ? I18NConstants.COMMIT_PARAMETER_RESET__DEVICE_PARAMETER.fill(deviceName(device), name)
+			: I18NConstants.COMMIT_PARAMETER_SET__DEVICE_PARAMETER_VALUE.fill(deviceName(device), name, value);
+	}
+
+	/**
 	 * Sets a parameter of a device.
 	 */
 	@ToolMethod(description = "Sets one parameter of a device of an E-Home project, by its id from"
@@ -440,7 +483,8 @@ public class DeviceTools {
 		+ " parameter editor does - its type and range, whether the parameter can be changed, and the"
 		+ " manufacturer's validations and calculations - and keeps the device unchanged when it refuses."
 		+ " The device needs a download afterwards, which the installer starts. " + ToolSupport.REFUSALS,
-		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE)
+		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE,
+		commitMessage = "setDeviceParameterMessage")
 	public ToolResult setDeviceParameter(ToolContext context,
 			@P("The device") TLObject device,
 			@P("The id of the parameter from deviceParameters") String parameter,

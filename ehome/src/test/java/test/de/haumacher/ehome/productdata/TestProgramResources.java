@@ -25,6 +25,9 @@ import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
+import com.top_logic.layout.Flavor;
+import com.top_logic.layout.basic.ThemeImage;
+import com.top_logic.layout.provider.MetaResourceProvider;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
@@ -128,6 +131,12 @@ public class TestProgramResources extends BasicTestCase {
 		assertNotNull(ProgramResources.iconEntry(time));
 		assertNull(ProgramResources.icon(time));
 		assertNull(ProgramResources.icon(program));
+		// An entry of an enumeration shows its picture as its icon, wherever it is displayed (the options of a
+		// choice, TL #30316); one without a picture the icon of its type.
+		ThemeImage onImage = MetaResourceProvider.INSTANCE.getImage(on, Flavor.DEFAULT);
+		assertTrue(String.valueOf(onImage), onImage.toEncodedForm().startsWith("data:image/png"));
+		ThemeImage stairsImage = MetaResourceProvider.INSTANCE.getImage(stairs, Flavor.DEFAULT);
+		assertTrue(String.valueOf(stairsImage), stairsImage == null || !stairsImage.toEncodedForm().startsWith("data:"));
 		assertEquals("TEST_Kanal.png", ((BinaryData) script("x -> parameterIcon($x)").execute(channel)).getName());
 		assertNull(script("x -> parameterIcon($x)").execute(Long.valueOf(1)));
 

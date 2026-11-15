@@ -12,13 +12,9 @@
 	(claude-sonnet-5-5, claude-opus-5-5, claude-haiku-5-5) and the default model claude-sonnet-5-5, both
 	still overridden by tl_anthropic_models and tl_ai_default_model.
 
-	The catalog bundled with tl-ai-core (8.0.0-alpha12.819) does not know these models yet; their metadata
-	is given here (context window, output limit, prices in dollars per million tokens). An entry of the
-	remotely loaded catalog does not replace it.
-
-	claude-haiku-5-5 is declared without reasoning: tl-ai-core sends a Haiku model a thinking effort as a
-	budget (budget_tokens), which claude-haiku-5-5 refuses (doc/tl-todo.md, "AI modules"). Without
-	reasoning the chat offers no effort for it, and the model thinks adaptively as it does unasked.
+	Their metadata (context window, output limit, prices, reasoning with an effort) comes from the catalog
+	bundled with tl-ai-core (models-dev-snapshot.json, since 8.0.0-alpha13.823 with the Claude 5.5 models);
+	claude-haiku-5-5 is sent an effort with adaptive thinking, like the other two.
 
 	Domain tools and skills (haumacher/ehome #127, #128) join here: a factory of ToolRegistryService for
 	the tools of de.haumacher.ehome.ai, and the skills in <skills> of TopLogicAgentDefinitions, both
@@ -35,59 +31,6 @@
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
 >
 	<services>
-		<config service-class="com.top_logic.tl.ai.core.provider.LLMProviderService">
-			<instance class="com.top_logic.tl.ai.core.provider.LLMProviderService">
-				<model-catalog>
-					<model-overrides>
-						<model name="claude-sonnet-5-5"
-							cache-read-price="0.2"
-							cache-write-price="2.5"
-							context-window="1000000"
-							input-price="2.0"
-							max-output="128000"
-							output-price="10.0"
-							reasoning="true"
-							temperature="false"
-							tool-call="true"
-						/>
-						<model name="claude-opus-5-5"
-							cache-read-price="0.2"
-							cache-write-price="5.0"
-							context-window="1000000"
-							input-price="4.0"
-							max-output="128000"
-							output-price="20.0"
-							reasoning="true"
-							temperature="false"
-							tool-call="true"
-						/>
-						<model name="claude-haiku-5-5"
-							context-window="1000000"
-							input-price="0.1"
-							max-output="128000"
-							output-price="0.5"
-							reasoning="false"
-							temperature="false"
-							tool-call="true"
-						/>
-					</model-overrides>
-				</model-catalog>
-			</instance>
-		</config>
-
-		<!--
-			The security context of every run (chat, MCP): the shipped one, except that a part created in an
-			object the same turn created is not refused by the pre-commit guard, which decides such a
-			container as deleted (engine gap, doc/tl-todo.md "AI modules"; NewPartsSecurityContextFactory).
-			Without it a floor with its rooms, the first connection of a communication object and a
-			duplicated device are rolled back. Remove when the guard is fixed.
-		-->
-		<config service-class="com.top_logic.tl.ai.core.agent.AgentRuntimeService">
-			<instance class="com.top_logic.tl.ai.core.agent.AgentRuntimeService">
-				<security-context class="de.haumacher.ehome.ai.NewPartsSecurityContextFactory"/>
-			</instance>
-		</config>
-
 		<config service-class="com.top_logic.tl.ai.core.agent.AgentApplicationService">
 			<instance class="com.top_logic.tl.ai.core.agent.AgentApplicationService">
 				<environment>
