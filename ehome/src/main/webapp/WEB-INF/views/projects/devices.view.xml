@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	The topology of a project: areas, their lines and the devices on a line; devices not placed in a
+	The topology of a project: areas, their lines and the devices on a line, each in the order of its address; devices not placed in a
 	line yet follow the areas. A device changed since its last download is marked (DeviceChangeFunctions,
 	haumacher/ehome #15). The selected node is shown beside the tree; a device in its tabs: its data,
 	its configuration by the structure of its program (projects/device-item.view.xml for each entry of a
@@ -477,12 +477,12 @@
     switch {
         $node.instanceOf(`ehome.project:Project`):
             concat(
-                $node.get(`ehome.project:Project#areas`),
+                $node.get(`ehome.project:Project#areas`).sort((a -> $a.get(`ehome.physical:Area#address`)).comparator()),
                 $node.get(`ehome.project:Project#unassignedDevices`));
         $node.instanceOf(`ehome.physical:Area`):
-            $node.get(`ehome.physical:Area#lines`);
+            $node.get(`ehome.physical:Area#lines`).sort((l -> $l.get(`ehome.physical:Line#address`)).comparator());
         $node.instanceOf(`ehome.physical:Line`):
-            $node.get(`ehome.physical:Line#devices`);
+            $node.get(`ehome.physical:Line#devices`).sort((d -> $d.get(`ehome.physical:Device#address`)).comparator());
         default: [];
     })]]></children>
 							<parents><![CDATA[if($structure == 'building',

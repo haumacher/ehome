@@ -153,6 +153,8 @@
 				</access>
 				<executability>
 					<null-input-disabled/>
+					<!-- An E-Home administrator reads every project without being a member of it (haumacher/ehome #165). -->
+					<disabled-if expr="if($project.get(`ehome.project:Project#members`).containsElement(currentUser()), null, #('You are no member of this project.'@en, 'Sie sind kein Mitglied dieses Projekts.'@de))"/>
 				</executability>
 				<confirm expr="#('Leave the project {0}? You no longer see it unless an owner adds you again.'@en, 'Das Projekt {0} verlassen? Sie sehen es nicht mehr, bis ein Eigentümer Sie wieder hinzufügt.'@de).fill($project.get(`ehome.project:Project#name`))"/>
 				<with-transaction>
