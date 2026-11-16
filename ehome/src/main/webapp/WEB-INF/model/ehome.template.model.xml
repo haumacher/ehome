@@ -402,22 +402,6 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
-				<!--
-					Whether a device in a project connects the object to a group address although E-Home
-					cannot determine its datapoint type: the objects the template should type
-					(de.haumacher.ehome.template.DeviceTemplates#untypedConnected).
-				-->
-				<property name="untypedConnected"
-					type="tl.core:Boolean"
-				>
-					<annotations>
-						<storage-algorithm>
-							<query>
-								<expr><![CDATA[o -> placementUntypedConnected($o.get(`ehome.template:ObjectOverlay#placement`))]]></expr>
-							</query>
-						</storage-algorithm>
-					</annotations>
-				</property>
 				<!-- The datapoint type the template gives the object; empty: the manufacturer's applies. -->
 				<reference name="datapointTypes"
 					kind="forwards"

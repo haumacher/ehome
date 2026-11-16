@@ -50,11 +50,6 @@ public class TemplateFunctions extends GenericMethod {
 		placementInheritedTypes(1, true),
 		/** <code>placementTypeChoices(placement)</code>: {@link DeviceTemplates#typeChoices(Interface)}. */
 		placementTypeChoices(1, true),
-		/**
-		 * <code>placementUntypedConnected(placement)</code>:
-		 * {@link DeviceTemplates#untypedConnected(Interface, TLObject)} in any project.
-		 */
-		placementUntypedConnected(1, true),
 		/** <code>connectorDatapointType(connector)</code>: {@link ObjectTypes#effective(TLObject)}. */
 		connectorDatapointType(1, true),
 		/**
@@ -79,10 +74,33 @@ public class TemplateFunctions extends GenericMethod {
 		/** <code>templateProducts(program)</code>: {@link DeviceTemplates#products(TLObject)}. */
 		templateProducts(1, true),
 		/**
-		 * <code>templateUntypedObjects(program)</code>:
-		 * {@link DeviceTemplates#untypedConnected(TLObject)}.
+		 * <code>templateUntypedObjects(program, project)</code>:
+		 * {@link DeviceTemplates#untypedConnected(TLObject, TLObject)}, nothing without a project.
 		 */
-		templateUntypedObjects(1, true),
+		templateUntypedObjects(2, true),
+		/**
+		 * <code>templateKinds(program, project)</code>: the kinds of the program's communication objects,
+		 * {@link ObjectKinds#kinds(TLObject, TLObject)}.
+		 */
+		templateKinds(2, true),
+		/** <code>templateKindTypes(kind)</code>: {@link ObjectKinds#types(Object)}. */
+		templateKindTypes(1, true),
+		/** <code>templateKindType(template, kind)</code>: {@link ObjectKinds#type(TLObject, Object)}. */
+		templateKindType(2, true),
+		/** <code>templateKindMixed(template, kind)</code>: {@link ObjectKinds#mixed(TLObject, Object)}. */
+		templateKindMixed(2, true),
+		/** <code>templateKindTypeChoices(kind)</code>: {@link ObjectKinds#typeChoices(Object)}. */
+		templateKindTypeChoices(1, true),
+		/**
+		 * <code>templateKindUntyped(kind, project)</code>: {@link ObjectKinds#untyped(Object, TLObject)},
+		 * false without a project.
+		 */
+		templateKindUntyped(2, true),
+		/**
+		 * <code>templateKindSetType(template, kind, type)</code>:
+		 * {@link ObjectKinds#setType(TLObject, Object, TLObject)}.
+		 */
+		templateKindSetType(3, false),
 		/** <code>presetChannelName(preset)</code>: {@link Presets#presetChannelLabel(TLObject)}. */
 		presetChannelName(1, true),
 		/** <code>presetChannelLabel(device, channel)</code>: {@link Presets#channelLabel(TLObject, String)}. */
@@ -209,9 +227,6 @@ public class TemplateFunctions extends GenericMethod {
 				return ObjectTypes.inherited(placement(arguments[0]));
 			case placementTypeChoices:
 				return DeviceTemplates.typeChoices(placement(arguments[0]));
-			case placementUntypedConnected:
-				return Boolean.valueOf(placement(arguments[0]) != null
-					&& DeviceTemplates.untypedConnected(placement(arguments[0]), null));
 			case connectorDatapointType:
 				return ObjectTypes.effective(object(arguments[0]));
 			case deviceObjectType:
@@ -228,7 +243,23 @@ public class TemplateFunctions extends GenericMethod {
 			case templateProducts:
 				return DeviceTemplates.products(object(arguments[0]));
 			case templateUntypedObjects:
-				return object(arguments[0]) == null ? List.of() : DeviceTemplates.untypedConnected(object(arguments[0]));
+				return object(arguments[0]) == null || object(arguments[1]) == null ? List.of()
+					: DeviceTemplates.untypedConnected(object(arguments[0]), object(arguments[1]));
+			case templateKinds:
+				return ObjectKinds.kinds(object(arguments[0]), object(arguments[1]));
+			case templateKindTypes:
+				return ObjectKinds.types(arguments[0]);
+			case templateKindType:
+				return ObjectKinds.type(object(arguments[0]), arguments[1]);
+			case templateKindMixed:
+				return Boolean.valueOf(ObjectKinds.mixed(object(arguments[0]), arguments[1]));
+			case templateKindTypeChoices:
+				return ObjectKinds.typeChoices(arguments[0]);
+			case templateKindUntyped:
+				return Boolean.valueOf(object(arguments[1]) != null && ObjectKinds.untyped(arguments[0], object(arguments[1])));
+			case templateKindSetType:
+				ObjectKinds.setType(object(arguments[0]), arguments[1], object(arguments[2]));
+				return null;
 			case presetChannelName:
 				return Presets.presetChannelLabel(object(arguments[0]));
 			case presetChannelLabel:

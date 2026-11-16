@@ -156,6 +156,26 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey ERROR_TEMPLATES_NOT_ALLOWED;
 
+	/**
+	 * @en otherwise
+	 */
+	public static ResKey KIND_OTHERWISE;
+
+	/**
+	 * @en {0} or otherwise
+	 */
+	public static ResKey1 KIND_OR_OTHERWISE__VALUES;
+
+	/**
+	 * @en The application program has no template: create it first.
+	 */
+	public static ResKey ERROR_KIND_NO_TEMPLATE;
+
+	/**
+	 * @en The selected kind of communication objects is not one of "{0}": select a kind of its table.
+	 */
+	public static ResKey1 ERROR_KIND_OTHER_PROGRAM__PROGRAM;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

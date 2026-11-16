@@ -4,31 +4,41 @@
 	The device templates (haumacher/ehome #103, module ehome.template, de.haumacher.ehome.template):
 	E-Home's own repair of what an imported application program lacks, without changing the
 	imported program. The table lists the device types, one row per application program of the
-	catalog (the objects belong to the program), with the products running it and the number of its
-	objects for which E-Home cannot determine a datapoint type although a device in a project
-	connects them to a group address (no type in the project, the template or the program, and a
-	size other than 1 or 4 bits, which alone decide the main type; DeviceTemplates#untypedConnected).
-	The switch narrows the table to the programs with such objects: the work list.
+	catalog (the objects belong to the program), with the products running it.
 
-	A program has at most one template, created and deleted here. The template lists every
-	communication object of the program (its placements: an object placed in several channels or
-	cases of the program's structure is listed once per place, as its meaning differs there), marked
-	where a device connects it without a type ("Installed without type"), with the field
-	"Datapoint type", a field
-	with a fallback: empty, it shows the manufacturer's type greyed; a type entered is the template's
-	overlay of the object, an emptied field removes it. The choice offers the types of the object's
-	size. Every device running the program, in every project, uses the template at once
-	(ObjectTypes): its group addresses, the bind dialog and the runtime image follow; a type entered
-	at a device in the project wins over the template's. The export of a project file writes only
-	the types entered in the project.
+	The page reads no project data of its own accord (haumacher/ehome #166: E-Home hosts many tenants,
+	nothing scans all projects). The selector "Project" offers the projects the user is a member of
+	(userProjects, read backwards from the account), empty at first. With a project chosen, the page
+	shows its usage of the programs: the column "Without type" counts the objects of a program for
+	which E-Home cannot determine a datapoint type although a device of the project connects them to
+	a group address (no type in the project, the template or the program, and a size other than 1 or
+	4 bits, which alone decide the main type; DeviceTemplates#untypedConnected, computed from the
+	project's devices); the switch narrows the table to the programs with such objects, the work
+	list; and the kinds of objects such a device connects are marked and listed first. Without a
+	project, none of this exists.
 
-	The template's tabs (haumacher/ehome #146): "Communication objects" with the overlays above,
+	A program has at most one template, created and deleted here. The tab "Communication objects"
+	lists the kinds of the program's objects (ObjectKinds): the places of the objects in the channels
+	and cases of the program's structure (the Tastsensor of the test system places 91 objects 410
+	times) that are equal relative to their channel - the text and function of the object, its size
+	and the setting that selects it - one row naming the channels it occurs in. The field "Datapoint
+	type" below the table gives the selected kind a type: every place of the kind gets it in its
+	overlay; a kind whose places carry different types (entered before) is marked as mixed, and a
+	type entered unifies them; the empty field removes the template's type of the kind. The choice
+	offers the types of the kind's size. Every device running the program, in every project, uses the
+	template at once (ObjectTypes): its group addresses, the bind dialog and the runtime image follow;
+	a type entered at a device in the project wins over the template's. The export of a project file
+	writes only the types entered in the project.
+
+	The template's tabs (haumacher/ehome #146): "Communication objects" with the kinds above,
 	"Channels" with the channels of the program and their declarations as alike, "Presets" with the
 	presets saved from devices' channels (see the comments of the tabs).
 -->
 <view>
 	<channels>
 		<channel name="program"/>
+		<!-- The project whose usage of the programs the page shows, chosen from the user's projects; none at first. -->
+		<channel name="project"/>
 		<channel name="untypedOnly"/>
 		<derived-channel name="root"
 			expr="`ehome.template#ROOT`"
@@ -46,6 +56,22 @@
 		<derived-channel name="noTemplate"
 			expr="if($program == null, #('Select an application program.'@en, 'Wählen Sie ein Applikationsprogramm aus.'@de), if(canWrite($root), #('The selected application program has no template: &quot;Create template&quot; creates it.'@en, 'Das gewählte Applikationsprogramm hat keine Vorlage: „Vorlage anlegen“ legt sie an.'@de), #('The selected application program has no template.'@en, 'Das gewählte Applikationsprogramm hat keine Vorlage.'@de)))"
 			inputs="program, root"
+		/>
+		<!--
+			The kind of communication objects selected in the tab "Communication objects" (a row of
+			templateKinds) and the datapoint type its field shows: the template's type of all its objects,
+			empty for none or a mixed kind.
+		-->
+		<channel name="kind"/>
+		<channel name="kindType"
+			init="if($template == null or $kind == null, null, templateKindType($template, $kind))"
+			inputs="template, kind"
+			observed-types="ehome.template:ObjectOverlay"
+		/>
+		<!-- Whether the user may change the template (an E-Home administrator, haumacher/ehome #165). -->
+		<derived-channel name="templateEditable"
+			expr="$template != null and canWrite($template)"
+			inputs="template"
 		/>
 		<!-- The channels selected in the tab "Channels" (their keys), the preset and its value selected in the tab "Presets". -->
 		<channel name="templateChannels"/>
@@ -95,17 +121,33 @@
 						<inset>
 							<fields>
 								<value-input
-									type="tl.core:Boolean"
-									value="untypedOnly"
+									options="userProjects()"
+									type="ehome.project:Project"
+									value="project"
 								>
 									<label>
-										<en>Only installed programs with objects without datapoint type</en>
-										<de>Nur verbaute Programme mit Objekten ohne Datenpunkttyp</de>
+										<en>Project</en>
+										<de>Projekt</de>
 									</label>
-									<input-control class="com.top_logic.layout.view.form.BooleanControlProvider"
-										display="switch"
-									/>
 								</value-input>
+								<!-- The usage of the programs exists in the context of a project only. -->
+								<visible-if
+									expr="$project != null"
+									input="project"
+								>
+									<value-input
+										type="tl.core:Boolean"
+										value="untypedOnly"
+									>
+										<label>
+											<en>Only installed programs with objects without datapoint type</en>
+											<de>Nur verbaute Programme mit Objekten ohne Datenpunkttyp</de>
+										</label>
+										<input-control class="com.top_logic.layout.view.form.BooleanControlProvider"
+											display="switch"
+										/>
+									</value-input>
+								</visible-if>
 							</fields>
 						</inset>
 						<table
@@ -115,6 +157,7 @@
 						>
 							<inputs>
 								<input channel="untypedOnly"/>
+								<input channel="project"/>
 							</inputs>
 							<columns>
 								<column attribute="name"
@@ -148,21 +191,26 @@
 									<value>templateOf($row) != null</value>
 								</computed-column>
 								<computed-column name="untyped"
+									exists-if="$project != null"
 									type="tl.core:Integer"
 									width="130"
 								>
+									<inputs>
+										<input channel="project"/>
+									</inputs>
 									<label>
 										<en>Without type</en>
 										<de>Ohne Typ</de>
 									</label>
-									<value>templateUntypedObjects($row).size()</value>
+									<tooltip>#('The communication objects of the program that a device of the project connects to a group address although E-Home cannot determine their datapoint type.'@en, 'Die Kommunikationsobjekte des Programms, die ein Gerät des Projekts mit einer Gruppenadresse verbindet, obwohl E-Home ihren Datenpunkttyp nicht bestimmen kann.'@de)</tooltip>
+									<value>if($project == null, null, templateUntypedObjects($row, $project).size())</value>
 								</computed-column>
 							</columns>
 							<rows><![CDATA[{
     programs = `ehome.catalog#ROOT`
         .get(`ehome.catalog:ManufacturerRoot#manufacturers`)
         .get(`ehome.catalog:Manufacturer#programs`);
-    if($untypedOnly, $programs.filter(p -> !templateUntypedObjects($p).isEmpty()), $programs)
+    if($untypedOnly and $project != null, $programs.filter(p -> !templateUntypedObjects($p, $project).isEmpty()), $programs)
 }]]></rows>
 						</table>
 					</stack>
@@ -238,45 +286,159 @@
 											<en>Communication objects</en>
 											<de>Kommunikationsobjekte</de>
 										</label>
-										<form
-											input="template"
-											with-inset="true"
-										>
-											<field
-												attribute="program"
-												readonly="true"
-											/>
+<!--
+											The kinds of the program's communication objects (ObjectKinds, haumacher/ehome #166), and the
+											datapoint type of the selected kind.
+										-->
+										<stack gap="default">
 											<table
-												row-edit="ALL"
-												types="ehome.template:ObjectOverlay"
+												observed-types="ehome.template:ObjectOverlay"
+												selection="kind"
 											>
 												<inputs>
-													<input channel="template"/>
+													<input channel="program"/>
+													<input channel="project"/>
 												</inputs>
 												<columns>
-													<column attribute="number"
-														width="70"
-													/>
-													<column attribute="placement"
-														readonly="true"
-														width="240"
-													/>
-													<column attribute="function"
-														width="160"
-													/>
-													<column attribute="size"
-														width="90"
-													/>
-													<column attribute="untypedConnected"
+													<computed-column name="object"
+														type="tl.core:String"
+														width="200"
+													>
+														<label>
+															<en>Communication object</en>
+															<de>Kommunikationsobjekt</de>
+														</label>
+														<value>$row["object"]</value>
+													</computed-column>
+													<computed-column name="size"
+														type="tl.core:Integer"
+														width="80"
+													>
+														<label>
+															<en>Size (bits)</en>
+															<de>Größe (Bit)</de>
+														</label>
+														<value>$row["size"]</value>
+													</computed-column>
+													<computed-column name="setting"
+														type="tl.core:String"
+														width="320"
+													>
+														<label>
+															<en>Setting</en>
+															<de>Einstellung</de>
+														</label>
+														<tooltip>#('The parameter values within the channel that switch the object on; empty: always.'@en, 'Die Parameterwerte innerhalb des Kanals, die das Objekt einschalten; leer: immer.'@de)</tooltip>
+														<value>$row["setting"]</value>
+													</computed-column>
+													<computed-column name="channels"
+														type="tl.core:String"
+														width="200"
+													>
+														<label>
+															<en>Channels</en>
+															<de>Kanäle</de>
+														</label>
+														<value>$row["channels"]</value>
+													</computed-column>
+													<computed-column name="untyped"
+														exists-if="$project != null"
+														type="tl.core:Boolean"
 														width="130"
-													/>
-													<column attribute="effectiveDatapointTypes"
-														width="260"
-													/>
+													>
+														<inputs>
+															<input channel="project"/>
+														</inputs>
+														<label>
+															<en>Installed without type</en>
+															<de>Verbaut ohne Typ</de>
+														</label>
+														<tooltip>#('Whether a device of the project connects an object of the kind to a group address although E-Home cannot determine its datapoint type.'@en, 'Ob ein Gerät des Projekts ein Objekt dieser Art mit einer Gruppenadresse verbindet, obwohl E-Home seinen Datenpunkttyp nicht bestimmen kann.'@de)</tooltip>
+														<value>$project != null and templateKindUntyped($row, $project)</value>
+													</computed-column>
+													<computed-column name="types"
+														multiple="true"
+														type="ehome.datapoint:DatapointType"
+														width="240"
+													>
+														<inputs>
+															<input channel="template"/>
+														</inputs>
+														<label>
+															<en>Datapoint type</en>
+															<de>Datenpunkttyp</de>
+														</label>
+														<tooltip>if(templateKindMixed($template, $row), #('The objects of this kind have different datapoint types in the template. A type entered for the kind applies to all of them.'@en, 'Die Objekte dieser Art haben in der Vorlage unterschiedliche Datenpunkttypen. Ein für die Art eingegebener Typ gilt für alle.'@de), null)</tooltip>
+														<value>templateKindTypes($row)</value>
+													</computed-column>
+													<computed-column name="mixed"
+														type="tl.core:Boolean"
+														width="90"
+													>
+														<inputs>
+															<input channel="template"/>
+														</inputs>
+														<label>
+															<en>Mixed</en>
+															<de>Gemischt</de>
+														</label>
+														<tooltip>#('The objects of this kind have different datapoint types in the template (entered before for single objects). A type entered for the kind unifies them.'@en, 'Die Objekte dieser Art haben in der Vorlage unterschiedliche Datenpunkttypen (früher für einzelne Objekte eingegeben). Ein für die Art eingegebener Typ vereinheitlicht sie.'@de)</tooltip>
+														<value>templateKindMixed($template, $row)</value>
+													</computed-column>
 												</columns>
-												<rows>if($template == null, [], $template.get(`ehome.template:DeviceTemplate#overlays`))</rows>
+												<rows>if($program == null, [], templateKinds($program, $project))</rows>
 											</table>
-										</form>
+											<switch input="kind">
+												<case test="$kind != null">
+													<inset>
+														<fields>
+															<value-input
+																edit-mode="templateEditable"
+																inputs="kind"
+																options="templateKindTypeChoices($kind)"
+																type="ehome.datapoint:DatapointType"
+																value="kindType"
+															>
+																<label>
+																	<en>Datapoint type of the kind</en>
+																	<de>Datenpunkttyp der Art</de>
+																</label>
+																<on-submit inputs="template, kind">
+																	<access>
+																		<!-- The overlays are written in Java (ObjectKinds#setType). -->
+																		<operation name="Write"
+																			object="$template"
+																			type="ehome.template:DeviceTemplate"
+																		/>
+																	</access>
+																	<with-transaction>
+																		<execute-script function="templateKindSetType($template, $kind, $value)"/>
+																	</with-transaction>
+																</on-submit>
+															</value-input>
+															<text tone="helper"
+																variant="caption"
+															>
+																<label>
+																	<en>The type applies to every object of the selected kind, in every device running the program, in every project; a type entered at a device in a project wins. Empty: the manufacturer's type applies.</en>
+																	<de>Der Typ gilt für jedes Objekt der gewählten Art, in jedem Gerät mit dem Programm, in jedem Projekt; ein an einem Gerät im Projekt eingegebener Typ hat Vorrang. Leer: es gilt der Typ des Herstellers.</de>
+																</label>
+															</text>
+														</fields>
+													</inset>
+												</case>
+												<default>
+													<inset>
+														<text>
+															<label>
+																<en>Select a kind of communication objects to give it a datapoint type.</en>
+																<de>Wählen Sie eine Art von Kommunikationsobjekten aus, um ihr einen Datenpunkttyp zu geben.</de>
+															</label>
+														</text>
+													</inset>
+												</default>
+											</switch>
+										</stack>
 									</tab>
 									<tab id="channels"
 										icon="css:bi bi-intersect"

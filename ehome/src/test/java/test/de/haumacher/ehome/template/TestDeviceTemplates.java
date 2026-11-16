@@ -68,8 +68,8 @@ import de.haumacher.ehome.template.ObjectTypes;
  * the address connected to it at once, without a change of the project: the value type, the
  * options of the room controller's temperature input, the runtime image and the group monitor
  * follow. A type entered at the device wins over the template's; removing the template's type
- * returns to the manufacturer's (none). The overview counts the program's untyped connected
- * objects, and its filter lists the program until the template types the object. The export of
+ * returns to the manufacturer's (none). In the context of the project, the overview's filter lists
+ * the program until the template types the object (haumacher/ehome #166). The export of
  * the project file writes no type of the template.
  * </p>
  */
@@ -105,10 +105,10 @@ public class TestDeviceTemplates extends BasicTestCase {
 			assertNull(ObjectTypes.effective(connector));
 			assertNull(GroupAddressTypes.effective(temperature));
 			assertNull(Pages.valueType(temperature));
-			// The project connects 1 untyped object of the program; all projects of the database at least that one.
+			// The project connects 1 untyped object of the program; the filter lists the program in its context.
 			assertEquals(List.of(placed), DeviceTemplates.untypedConnected(program, project));
-			assertTrue(DeviceTemplates.untypedConnected(program).contains(placed));
-			assertTrue(filtered().contains(program));
+			assertTrue(filtered(project).contains(program));
+			assertTrue("Without a project, the switch filters nothing.", filtered(null).contains(program));
 			assertNull(DeviceTemplates.template(program));
 			assertEquals(1, DeviceTemplates.products(program).size());
 
@@ -133,7 +133,6 @@ public class TestDeviceTemplates extends BasicTestCase {
 			assertNotNull(overlay);
 			assertTrue(overlays.contains(overlay));
 			assertNull("An overlay without a type changes nothing.", ObjectTypes.effective(connector));
-			assertEquals(Boolean.TRUE, derived(overlay, "untypedConnected"));
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 				DeviceTemplates.create(program);
 				fail("A second template of a program must be refused.");
@@ -163,7 +162,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 			assertTrue(image.getDatapointSources().contains(temperature));
 			assertEquals("9.001", ((Map<?, ?>) datapoint(image, "0/0/28").get("knx")).get("dpt"));
 			assertEquals(List.of(), DeviceTemplates.untypedConnected(program, project));
-			assertFalse(DeviceTemplates.untypedConnected(program).contains(placed));
+			assertFalse(filtered(project).contains(program));
 
 			// The export writes the project's data only: the same file as without the template's type.
 			assertEquals(entries(untypedExport), entries(TestRoundTrip.export(project)));
@@ -216,7 +215,7 @@ public class TestDeviceTemplates extends BasicTestCase {
 			assertNull(GroupAddressTypes.effective(temperature));
 			assertFalse(BlockInstances.bindingOptions(input).contains(temperature));
 			assertEquals(List.of(placed), DeviceTemplates.untypedConnected(program, project));
-			assertTrue(filtered().contains(program));
+			assertTrue(filtered(project).contains(program));
 		} finally {
 			SharedData.deleteProjects(projects);
 			if (template != null) {
@@ -244,15 +243,19 @@ public class TestDeviceTemplates extends BasicTestCase {
 		}
 	}
 
-	/** The programs the overview lists with its switch "only installed programs without type" on. */
-	private static List<?> filtered() throws Exception {
+	/**
+	 * The programs the overview lists with its switch "only installed programs without type" on, in
+	 * the context of the given project (<code>null</code>: none).
+	 */
+	private static List<?> filtered(TLObject project) throws Exception {
 		NodeList nodes = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(new File(VIEW))
 			.getElementsByTagName("rows");
 		for (int n = 0; n < nodes.getLength(); n++) {
 			String text = nodes.item(n).getTextContent();
 			if (text.contains("untypedOnly")) {
-				QueryExecutor rows = ViewScripts.compile(ExprFormat.INSTANCE.getValue("rows", text), List.of("untypedOnly"));
-				return new ArrayList<>((Collection<?>) asRoot(() -> rows.execute(Boolean.TRUE)));
+				QueryExecutor rows =
+					ViewScripts.compile(ExprFormat.INSTANCE.getValue("rows", text), List.of("untypedOnly", "project"));
+				return new ArrayList<>((Collection<?>) asRoot(() -> rows.execute(Boolean.TRUE, project)));
 			}
 		}
 		fail("No rows with the filter in " + VIEW);

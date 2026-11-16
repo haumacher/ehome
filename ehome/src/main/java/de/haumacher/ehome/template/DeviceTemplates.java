@@ -6,10 +6,16 @@ package de.haumacher.ehome.template;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.WeakHashMap;
 
+import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
@@ -21,6 +27,8 @@ import com.top_logic.util.model.ModelService;
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.Port;
+import de.haumacher.ehome.programming.DeviceChanges;
+import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.GroupAddressTypes;
 
 /**
@@ -34,6 +42,13 @@ public final class DeviceTemplates {
 	private static final String TEMPLATE = "ehome.template:DeviceTemplate";
 
 	private static final String OVERLAY = "ehome.template:ObjectOverlay";
+
+	/** The untyped connected objects of a project by program, as computed for a revision of the knowledge base. */
+	private record Cached(long revision, Map<TLObject, Set<Interface>> untyped) {
+		// Value.
+	}
+
+	private static final Map<TLObject, Cached> UNTYPED = new WeakHashMap<>();
 
 	private DeviceTemplates() {
 		// Static only.
@@ -132,49 +147,78 @@ public final class DeviceTemplates {
 
 	/**
 	 * The communication objects of the program for which E-Home cannot determine a datapoint type in
-	 * a device that connects them to a group address: no type in the chain of {@link ObjectTypes},
-	 * and a size other than 1 bit (DPT 1) or 4 bits (DPT 3), which alone decide the main type.
-	 * Each object (placement) is counted once, whichever devices and projects connect it.
-	 */
-	public static List<Interface> untypedConnected(TLObject program) {
-		return untypedConnected(program, null);
-	}
-
-	/**
-	 * The {@link #untypedConnected(TLObject)} objects of the program in the given project only, in
-	 * all projects for <code>null</code>.
+	 * a device of the given project that connects them to a group address: no type in the chain of
+	 * {@link ObjectTypes}, and a size other than 1 bit (DPT 1) or 4 bits (DPT 3), which alone decide
+	 * the main type. Each object (placement) is listed once, whichever devices connect it, in the
+	 * order of {@link #placements(TLObject)}.
+	 *
+	 * <p>
+	 * The search starts at the project (its devices running the program, their connectors): its cost
+	 * is bound by the project, independent of the number of projects (haumacher/ehome #166). It is
+	 * computed once per project and revision of the knowledge base for all programs.
+	 * </p>
+	 *
+	 * @param project
+	 *        The project, mandatory: no other project is read.
 	 */
 	public static List<Interface> untypedConnected(TLObject program, TLObject project) {
+		Objects.requireNonNull(project, "The project is mandatory.");
+		Set<Interface> found = untypedByProgram(project).getOrDefault(program, Set.of());
 		List<Interface> result = new ArrayList<>();
+		if (found.isEmpty()) {
+			return result;
+		}
 		for (Interface placed : placements(program)) {
-			if (untypedConnected(placed, project)) {
+			if (found.contains(placed)) {
 				result.add(placed);
 			}
 		}
 		return result;
 	}
 
-	/**
-	 * Whether a device in the given project (in any project for <code>null</code>) connects the
-	 * placed object to a group address although E-Home cannot determine its datapoint type, see
-	 * {@link #untypedConnected(TLObject)}.
-	 */
-	public static boolean untypedConnected(Interface placed, TLObject project) {
-		int size = ObjectTypes.size(placed);
-		if (size == 1 || size == 4) {
-			return false;
+	private static Map<TLObject, Set<Interface>> untypedByProgram(TLObject project) {
+		long revision = PersistencyLayer.getKnowledgeBase().getHistoryManager().getLastRevision();
+		synchronized (UNTYPED) {
+			Cached cached = UNTYPED.get(project);
+			if (cached != null && cached.revision() == revision) {
+				return cached.untyped();
+			}
 		}
-		for (TLObject connector : placed.tReferers(reference("ehome.physical:Connector", "port"))) {
-			if (connector == null || !connector.tValid() || connector.tContainer() == null
-				|| (project != null && !within(connector, project))) {
+		Map<TLObject, Set<Interface>> result = new HashMap<>();
+		for (TLObject device : DeviceChanges.devices(project)) {
+			TLObject program = DeviceConfiguration.program(device);
+			if (program == null) {
 				continue;
 			}
-			if (!((Collection<?>) connector.tValueByName("connections")).isEmpty()
-				&& ObjectTypes.effective(connector) == null) {
-				return true;
+			for (Object element : (Collection<?>) device.tValueByName("connectors")) {
+				TLObject connector = (TLObject) element;
+				if (!(connector.tValueByName("port") instanceof Interface placed)
+					|| ((Collection<?>) connector.tValueByName("connections")).isEmpty()) {
+					continue;
+				}
+				int size = ObjectTypes.size(placed);
+				if (size != 1 && size != 4 && ObjectTypes.effective(connector) == null) {
+					result.computeIfAbsent(program, p -> new HashSet<>()).add(placed);
+				}
 			}
 		}
-		return false;
+		synchronized (UNTYPED) {
+			UNTYPED.put(project, new Cached(revision, result));
+		}
+		return result;
+	}
+
+	/**
+	 * The application program the placed communication object belongs to, <code>null</code> for none.
+	 */
+	public static TLObject program(Interface placed) {
+		Port port = placed == null ? null : placed.getPort();
+		for (TLObject current = port; current != null; current = current.tContainer()) {
+			if (ExtIds.isA(current, "ehome.operational:Program")) {
+				return current;
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -186,15 +230,6 @@ public final class DeviceTemplates {
 		}
 		List<TLObject> result = GroupAddressTypes.ofSize(Integer.valueOf(ObjectTypes.size(placed)));
 		return result.isEmpty() ? GroupAddressTypes.allTypes() : result;
-	}
-
-	private static boolean within(TLObject obj, TLObject ancestor) {
-		for (TLObject current = obj; current != null; current = current.tContainer()) {
-			if (current == ancestor) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private static TLReference reference(String type, String name) {
