@@ -8,7 +8,6 @@ import static de.haumacher.ehome.knx.ExtIds.list;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -21,6 +20,8 @@ import com.top_logic.model.TLReference;
 import com.top_logic.model.TLStructuredType;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.error.TopLogicException;
+
+import de.haumacher.ehome.query.Queries;
 
 /**
  * Editing the configuration structure and the definitions of an application program: where a new
@@ -302,6 +303,13 @@ public final class ProgramStructure {
 	/**
 	 * Why the given parameter, communication object, parameter type or enumeration entry cannot be
 	 * deleted; <code>null</code> if it can.
+	 *
+	 * <p>
+	 * The program is shared by the projects of all tenants: its own references (types, switches) are
+	 * read, the use by the devices of the projects (settings, connectors) and of an enumeration entry
+	 * is an existence check of the database that reads one link, not every device of every project
+	 * (haumacher/ehome #172); a user of the entry outside the program is not named.
+	 * </p>
 	 */
 	public static ResKey deleteVeto(TLObject obj) {
 		if (obj == null) {
@@ -314,20 +322,19 @@ public final class ProgramStructure {
 					users.iterator().next());
 			}
 		} else if (isA(obj, "ehome.operational:EnumerationValue")) {
-			// The holders share the reference of ParameterValue, or have one each: count every holder once.
-			Set<TLObject> holders = new HashSet<>();
-			for (String holder : List.of("ehome.operational:Parameter", "ehome.operational:ParameterView",
-				"ehome.physical:ParameterSetting")) {
-				holders.addAll(obj.tReferers(reference(holder, "choice")));
-			}
-			if (!holders.isEmpty()) {
-				return I18NConstants.ERROR_ENTRY_IN_USE__ENTRY_COUNT.fill(obj, holders.size());
+			// The holders share the reference of ParameterValue: the parameters, placements and
+			// assignments of programs, the settings of devices, the values of presets.
+			TLObject holder = Queries.firstReferer(obj, reference("ehome.operational:ParameterValue", "choice"));
+			if (holder != null) {
+				// A holder outside the shared program belongs to a project or a template: not named.
+				return ExtIds.ancestor(holder, "ehome.operational:Program") != null
+					? I18NConstants.ERROR_ENTRY_IN_USE__ENTRY_HOLDER.fill(obj, holder)
+					: I18NConstants.ERROR_ENTRY_SET_ELSEWHERE__ENTRY.fill(obj);
 			}
 		} else if (isA(obj, "ehome.operational:Parameter")) {
 			for (TLObject view : list(obj, "views")) {
-				int settings = view.tReferers(reference("ehome.physical:ParameterSetting", "parameter")).size();
-				if (settings > 0) {
-					return I18NConstants.ERROR_PARAMETER_SET_BY_DEVICES__PARAMETER_COUNT.fill(obj, settings);
+				if (Queries.hasReferer(view, reference("ehome.physical:ParameterSetting", "parameter"))) {
+					return I18NConstants.ERROR_PARAMETER_SET_BY_DEVICES__PARAMETER.fill(obj);
 				}
 				for (String user : List.of("ehome.operational:Switch", "ehome.operational:ParameterGroup")) {
 					Set<? extends TLObject> users = view.tReferers(reference(user, "input"));
@@ -338,9 +345,8 @@ public final class ProgramStructure {
 			}
 		} else if (isA(obj, "ehome.operational:Port")) {
 			for (TLObject placement : list(obj, "interfaces")) {
-				int connectors = placement.tReferers(reference("ehome.physical:Connector", "port")).size();
-				if (connectors > 0) {
-					return I18NConstants.ERROR_OBJECT_USED_BY_DEVICES__OBJECT_COUNT.fill(obj, connectors);
+				if (Queries.hasReferer(placement, reference("ehome.physical:Connector", "port"))) {
+					return I18NConstants.ERROR_OBJECT_USED_BY_DEVICES__OBJECT.fill(obj);
 				}
 			}
 		}

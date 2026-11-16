@@ -52,6 +52,7 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ExtIds.Kind;
+import de.haumacher.ehome.knx.I18NConstants;
 import de.haumacher.ehome.knx.ProgramStructure;
 import de.haumacher.ehome.knx.ProgramStructure.Position;
 import de.haumacher.ehome.model.operational.Case;
@@ -625,8 +626,8 @@ public class TestCatalogFromScratch extends BasicTestCase {
 		EnumerationValue dim = _enumeration.getValues().get(1);
 		ResKey entryInUse = ProgramStructure.deleteVeto(dim);
 		assertNotNull(entryInUse);
-		// The default of the enumeration parameter only.
-		assertTrue(Resources.getInstance(Locale.ENGLISH).getString(entryInUse), Resources.getInstance(Locale.ENGLISH).getString(entryInUse).contains(" 1 "));
+		// The default of the enumeration parameter only, which the reason names.
+		assertEquals(I18NConstants.ERROR_ENTRY_IN_USE__ENTRY_HOLDER.fill(dim, enumParameter), entryInUse);
 		EnumerationValue blind = _enumeration.getValues().get(2);
 		assertNull(ProgramStructure.deleteVeto(blind));
 		try (Transaction tx = _kb.beginTransaction()) {

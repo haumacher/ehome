@@ -14,7 +14,6 @@ import com.top_logic.basic.module.ConfiguredManagedClass;
 import com.top_logic.basic.module.ServiceDependencies;
 import com.top_logic.basic.module.TypedRuntimeModule;
 import com.top_logic.dob.identifier.ObjectKey;
-import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.CommitActions;
 import com.top_logic.knowledge.service.KnowledgeBase;
@@ -25,8 +24,11 @@ import com.top_logic.knowledge.service.event.ModificationListener;
 import com.top_logic.knowledge.service.event.PendingChanges;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLReference;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
+
+import de.haumacher.ehome.query.Queries;
 
 /**
  * Gives every rule its state datapoint (haumacher/ehome #140, homecontrol <code>spec/rules.md</code>
@@ -40,7 +42,8 @@ import com.top_logic.util.model.ModelService;
  * a rule (a form, the import of rules, a project file, an agent through the model), the commit gets
  * the rule's state datapoint in the {@link Modification} it returns, which the knowledge base runs
  * within the commit. At the start, the rules stored without one (before haumacher/ehome #140) get
- * theirs in a transaction of its own.
+ * theirs in a transaction of its own; a query of the database finds them ({@link #missing()}), the
+ * rules that have theirs are not read.
  * </p>
  *
  * <p>
@@ -77,12 +80,7 @@ public class StateDatapoints extends ConfiguredManagedClass<StateDatapoints.Conf
 		super.startUp();
 		_kb = PersistencyLayer.getKnowledgeBase();
 		_kb.addModificationListener(this);
-		List<TLObject> missing = new ArrayList<>();
-		for (TLObject rule : MetaElementUtil.getAllInstancesOf((TLClass) TLModelUtil.findType(RULE), TLObject.class)) {
-			if (lacks(rule)) {
-				missing.add(rule);
-			}
-		}
+		List<TLObject> missing = missing();
 		if (!missing.isEmpty()) {
 			try (Transaction tx = _kb.beginTransaction(I18NConstants.COMMIT_STATE_DATAPOINTS__COUNT.fill(missing.size()))) {
 				for (TLObject rule : missing) {
@@ -91,6 +89,24 @@ public class StateDatapoints extends ConfiguredManagedClass<StateDatapoints.Conf
 				tx.commit();
 			}
 		}
+	}
+
+	/**
+	 * The rules stored without a state datapoint: found by one query of the database, the rules
+	 * whose identifier is not the source of a link of <code>ehome.runtime:Rule#stateDatapoint</code>
+	 * (haumacher/ehome #172). Since haumacher/ehome #140 every rule gets its datapoint in the commit
+	 * creating it, so the start reads none of the rules of all projects; only the rules of a database
+	 * from before load.
+	 */
+	public static List<TLObject> missing() {
+		List<TLObject> result = new ArrayList<>();
+		TLReference reference = (TLReference) TLModelUtil.findPart(RULE + "#stateDatapoint");
+		for (TLObject rule : Queries.withoutValue(RULE, reference)) {
+			if (lacks(rule)) {
+				result.add(rule);
+			}
+		}
+		return result;
 	}
 
 	@Override

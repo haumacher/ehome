@@ -18,7 +18,6 @@ import java.util.zip.ZipInputStream;
 
 import com.top_logic.basic.i18n.log.BufferingI18NLog;
 import com.top_logic.basic.logging.Level;
-import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
@@ -35,6 +34,7 @@ import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.connection.ProjectControllers;
+import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.runtime.FunctionProposal;
@@ -156,21 +156,14 @@ public final class ProjectFileImport {
 	}
 
 	/**
-	 * The projects of the installation with the given external ID.
+	 * The projects of the installation with the given external ID, found by a query of the database
+	 * on the ID (haumacher/ehome #172), which reads no other project.
 	 */
 	public static List<TLObject> projectsWithId(String id) {
-		List<TLObject> result = new ArrayList<>();
 		if (id == null) {
-			return result;
+			return new ArrayList<>();
 		}
-		TLClass type = (TLClass) TLModelUtil.findType(ProjectFile.PROJECT_TYPE);
-		for (TLObject project : MetaElementUtil.getAllDirectInstancesOf(type,
-			TLObject.class)) {
-			if (id.equals(project.tValueByName("extId"))) {
-				result.add(project);
-			}
-		}
-		return result;
+		return ExtIds.projectsWithId(id);
 	}
 
 	/**

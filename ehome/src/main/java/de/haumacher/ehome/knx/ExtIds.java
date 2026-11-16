@@ -17,7 +17,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import com.top_logic.basic.sql.PooledConnection;
-import com.top_logic.element.meta.MetaElementUtil;
+import com.top_logic.element.meta.AttributeOperations;
 import com.top_logic.knowledge.service.CommitHandler;
 import com.top_logic.knowledge.service.KnowledgeBaseRuntimeException;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -27,6 +27,8 @@ import com.top_logic.model.TLClass;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+
+import de.haumacher.ehome.query.Queries;
 
 /**
  * The external IDs (<code>ehome.core:Externalized#extId</code>) of objects created in the app, in the
@@ -95,6 +97,11 @@ public final class ExtIds {
 	 * Name of the attribute holding the external ID.
 	 */
 	public static final String EXT_ID = "extId";
+
+	/**
+	 * The type of the projects, numbered in the whole application.
+	 */
+	public static final String PROJECT_TYPE = "ehome.project:Project";
 
 	/**
 	 * The first number of the app's range of a project, see the class comment: the objects of a
@@ -479,6 +486,15 @@ public final class ExtIds {
 	 * scope has.
 	 */
 	private static String unique(TLObject scope, Kind kind, LongFunction<String> pattern) {
+		if (kind == Kind.PROJECT) {
+			// Not all projects read (haumacher/ehome #172): each candidate is looked up in the database.
+			while (true) {
+				String candidate = pattern.apply(next(scope, kind));
+				if (projectsWithId(candidate).isEmpty()) {
+					return candidate;
+				}
+			}
+		}
 		Collection<String> taken = ids(members(scope, kind));
 		while (true) {
 			String candidate = pattern.apply(next(scope, kind));
@@ -532,8 +548,12 @@ public final class ExtIds {
 	 */
 	public static long raise(TLObject scope, Kind kind) {
 		long max = -1;
-		for (TLObject member : members(scope, kind)) {
-			max = Math.max(max, toSequence(kind, kind.number(extId(member))));
+		if (kind == Kind.PROJECT) {
+			max = highestProjectNumber();
+		} else {
+			for (TLObject member : members(scope, kind)) {
+				max = Math.max(max, toSequence(kind, kind.number(extId(member))));
+			}
 		}
 		try {
 			PooledConnection connection = connection();
@@ -636,7 +656,39 @@ public final class ExtIds {
 	}
 
 	/**
+	 * The projects with the given ID, found by a query of the database on the ID (haumacher/ehome
+	 * #172), which reads no other project.
+	 */
+	public static List<TLObject> projectsWithId(String id) {
+		return AttributeOperations.instancesWithValue((TLClass) TLModelUtil.findType(PROJECT_TYPE), EXT_ID, id,
+			TLObject.class);
+	}
+
+	/**
+	 * The highest number of a project ID (<code>P-01A0</code>), <code>-1</code> if no project has one.
+	 *
+	 * <p>
+	 * The numbers of project IDs have four hex digits, so their order is the order of the IDs as texts:
+	 * the database orders the projects with an ID from <code>P-0000</code> to <code>P-FFFF</code>
+	 * downwards and the first one of the pattern {@link Kind#PROJECT} has the highest number; no other
+	 * project is read (haumacher/ehome #172).
+	 * </p>
+	 */
+	public static long highestProjectNumber() {
+		TLObject highest = Queries.greatest(PROJECT_TYPE, EXT_ID, "P-0000", "P-FFFF",
+			project -> Kind.PROJECT.number(extId(project)) >= 0,
+			project -> Long.valueOf(Kind.PROJECT.number(extId(project))));
+		return highest == null ? -1 : Kind.PROJECT.number(extId(highest));
+	}
+
+	/**
 	 * The objects numbered in the given scope with the given kind.
+	 *
+	 * <p>
+	 * Not for {@link Kind#PROJECT}: the projects of all tenants are never read as a whole
+	 * (haumacher/ehome #172); a project ID is looked up with {@link #projectsWithId(String)}, the
+	 * highest number with {@link #highestProjectNumber()}.
+	 * </p>
 	 */
 	public static Collection<TLObject> members(TLObject scope, Kind kind) {
 		switch (kind) {
@@ -645,8 +697,7 @@ public final class ExtIds {
 				return list(module.getSingleton(TLModule.DEFAULT_SINGLETON_NAME), "manufacturers");
 			}
 			case PROJECT:
-				return MetaElementUtil.getAllDirectInstancesOf(
-					(TLClass) TLModelUtil.findType("ehome.project:Project"), TLObject.class);
+				throw new IllegalArgumentException("The projects are not listed; look them up by their ID.");
 			default:
 				break;
 		}

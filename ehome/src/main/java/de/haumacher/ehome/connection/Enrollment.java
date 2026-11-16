@@ -16,7 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-import com.top_logic.element.meta.MetaElementUtil;
+import com.top_logic.element.meta.AttributeOperations;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
@@ -251,16 +251,17 @@ public final class Enrollment {
 	}
 
 	/**
-	 * The project whose open code is the given one, <code>null</code> if there is none.
+	 * The project whose open code is the given one, <code>null</code> if there is none (or the code
+	 * is <code>null</code>). Found by a query of the database on the code (haumacher/ehome #172), which
+	 * reads no other project.
 	 */
-	private static TLObject project(String code) {
-		TLClass type = (TLClass) TLModelUtil.findType("ehome.project:Project");
-		for (TLObject project : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
-			if (code.equals(project.tValueByName("enrollmentCode"))) {
-				return project;
-			}
+	public static TLObject project(String code) {
+		if (code == null) {
+			return null;
 		}
-		return null;
+		TLClass type = (TLClass) TLModelUtil.findType("ehome.project:Project");
+		List<TLObject> found = AttributeOperations.instancesWithValue(type, "enrollmentCode", code, TLObject.class);
+		return found.isEmpty() ? null : found.get(0);
 	}
 
 	private static String hex(int bytes) {
