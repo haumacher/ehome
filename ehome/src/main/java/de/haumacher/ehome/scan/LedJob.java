@@ -37,7 +37,7 @@ import de.haumacher.ehome.programming.download.ProgrammingReport;
 public class LedJob implements JobBody {
 
 	/** BCU 1: the memory byte holding the programming mode. */
-	public static final int BCU1_PROGRAMMING_MODE = 0x0060;
+	public static final int BCU1_PROGRAMMING_MODE = BusScanner.BCU1_PROGRAMMING_MODE;
 
 	/**
 	 * Configuration of {@link LedJob}.

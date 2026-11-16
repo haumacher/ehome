@@ -11,6 +11,8 @@
 	(implemented in Java; the views name the types they depend on in observed-types).
 
 	- Compare reads the device and compares it with the download image; it never writes.
+	- Device info asks the device who it is and in what state, beside the project's values
+	  (DeviceInfoJob, projects/device-info.view.xml, haumacher/ehome #175); it never writes.
 	- Download runs the plan after a confirmation naming the device, its address and the path (gateway
 	  or controller).
 	- Write address writes the individual address into the one device in programming mode.
@@ -19,7 +21,7 @@
 	de.haumacher.ehome.settings.OperatorSettings), whatever the path. Unless the installation reaches local
 	networks (tl_ehome_local_network), a gateway is refused with that reason; the controller stays
 	available, and "Choose the gateway" offers only it then.
-	The commands run as jobs (DownloadJob, CompareJob) with their progress shown here, and end with
+	The commands run as jobs (DownloadJob, CompareJob, DeviceInfoJob) with their progress shown here, and end with
 	the report (projects/programming-report.view.xml), which replaces the progress display; a job
 	that fails keeps its display with the error. One job of the tab at a time: its progress is shown
 	with the device it was started for (jobDevice), and the commands of all devices are disabled with
@@ -180,6 +182,58 @@
 								dialog-view="projects/programming-report.view.xml"
 							/>
 							<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
+							<write-channel name="programmingJob" clear="true"/>
+						</with-result>
+					</start-job>
+				</generic-command>
+				<!--
+					The device info (haumacher/ehome #175): asks the device at its individual address who it is and in
+					what state, point to point; nothing is written, so a viewer of the project may ask and the write
+					switch does not apply. The result opens as projects/device-info.view.xml.
+				-->
+				<generic-command
+					image="css:bi bi-info-circle"
+					inputs="device, project, busState, programmingJob, jobDevice"
+					observed-types="ehome.project:Project"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Device info</en>
+						<de>Geräte-Info</de>
+					</label>
+					<tooltip>
+						<en>Asks the device at its individual address through the project's gateway or controller who it is (mask version, manufacturer, serial number, order info, hardware type, program) and in what state (load states, run state, programming mode), and shows it beside the project's values; nothing is written.</en>
+						<de>Fragt das Gerät unter seiner physikalischen Adresse über das Gateway oder den Controller des Projekts, wer es ist (Maskenversion, Hersteller, Seriennummer, Bestellinformation, Hardware-Typ, Programm) und in welchem Zustand (Ladezustände, Laufzustand, Programmiermodus), und zeigt es neben den Werten des Projekts; es wird nichts geschrieben.</de>
+					</tooltip>
+					<access>
+						<operation name="Read"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+						<!-- One job of this tab at a time: its progress and its report belong to its device. -->
+						<disabled-if expr='if(jobIsRunning($programmingJob), #("The job for {0} is still running."@en, "Der Auftrag für {0} läuft noch."@de).fill($jobDevice), null)'/>
+						<disabled-if expr="deviceInfoVeto($device)"/>
+					</executability>
+					<!-- The job's progress is shown with this device only. -->
+					<write-channel name="jobDevice"/>
+					<start-job
+						cancelable="true"
+						job="programmingJob"
+						update-interval="200"
+					>
+						<inputs>
+							<input channel="device"/>
+						</inputs>
+						<body class="de.haumacher.ehome.scan.DeviceInfoJob"/>
+						<with-result>
+							<open-dialog
+								bind-input-to="info"
+								dialog-view="projects/device-info.view.xml"
+							/>
+							<!-- The dialog shows how the job ended; its progress display is cleared when the dialog opens. -->
 							<write-channel name="programmingJob" clear="true"/>
 						</with-result>
 					</start-job>

@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The device info of a device of the project (haumacher/ehome #175), the result of the command
+	"Device info" of the tab "Programming" (projects/device-programming.view.xml): what the device at its
+	individual address told about itself when it was asked over the project's path to the bus, with the
+	time and the path of the reading. The reading is not stored in the model.
+
+	"info" carries the result of the job (de.haumacher.ehome.scan.DeviceInfoJob,
+	de.haumacher.ehome.scan.DeviceInfo#toMap()): "summary", "read" (time and path), "project",
+	"device" and the reading. The identity is compared with the project's values when it is shown
+	(deviceInfoRows, observing the devices): a row whose values differ is marked as a warning, a value
+	the project does not have as a note. "Take over the serial number" writes the serial number read
+	into the project's device, as the scan's "Create / update" does; it needs Write on the project.
+	The functions deviceInfo* are de.haumacher.ehome.scan.DeviceInfoFunctions.
+-->
+<view>
+	<channels>
+		<channel name="info"/>
+		<derived-channel name="summary"
+			expr='if($info == null, null, $info["summary"])'
+			inputs="info"
+		/>
+		<derived-channel name="read"
+			expr='if($info == null, null, $info["read"])'
+			inputs="info"
+		/>
+	</channels>
+	<window width="1000px">
+		<title>
+			<en>Device info</en>
+			<de>Geräte-Info</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text input="summary"/>
+				<text input="read"
+					tone="helper"
+					variant="caption"
+				/>
+				<panel>
+					<title>
+						<en>Identity</en>
+						<de>Identität</de>
+					</title>
+					<commands>
+						<generic-command
+							image="css:bi bi-upc-scan"
+							inputs="info"
+							observed-types="ehome.physical:Device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Take over the serial number</en>
+								<de>Seriennummer übernehmen</de>
+							</label>
+							<tooltip>
+								<en>Writes the serial number the device reported into the project's device. Only for the project's device (the same mask version and program); a serial number of the project is replaced.</en>
+								<de>Schreibt die Seriennummer, die das Gerät gemeldet hat, in das Gerät des Projekts. Nur für das Gerät des Projekts (gleiche Maskenversion und gleiches Programm); eine Seriennummer des Projekts wird ersetzt.</de>
+							</tooltip>
+							<access>
+								<operation name="Write"
+									object='$info["project"]'
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="deviceInfoSerialVeto($info)"/>
+							</executability>
+							<with-transaction>
+								<execute-script function="deviceInfoTakeSerial($info)"/>
+								<with-result>
+									<notify expr="$result"/>
+								</with-result>
+							</with-transaction>
+						</generic-command>
+					</commands>
+					<inset>
+						<table observed-types="ehome.physical:Device">
+							<inputs>
+								<input channel="info"/>
+							</inputs>
+							<columns>
+								<computed-column name="label"
+									type="tl.core:String"
+									width="180"
+								>
+									<label>
+										<en>Value</en>
+										<de>Angabe</de>
+									</label>
+									<value>$row["label"]</value>
+								</computed-column>
+								<computed-column name="project"
+									type="tl.core:String"
+									width="300"
+								>
+									<label>
+										<en>Project</en>
+										<de>Projekt</de>
+									</label>
+									<value>$row["project"]</value>
+								</computed-column>
+								<computed-column name="device"
+									type="tl.core:String"
+									width="300"
+								>
+									<label>
+										<en>Device</en>
+										<de>Gerät</de>
+									</label>
+									<value>$row["device"]</value>
+								</computed-column>
+								<computed-column name="comparison"
+									type="tl.core:String"
+									width="150"
+								>
+									<label>
+										<en>Comparison</en>
+										<de>Vergleich</de>
+									</label>
+									<value>$row["comparison"]</value>
+								</computed-column>
+							</columns>
+							<rows>if($info == null, [], deviceInfoRows($info))</rows>
+							<!-- A value differing from the project's as a warning, one the project does not have as a note. -->
+							<row-role>$row["role"]</row-role>
+						</table>
+					</inset>
+				</panel>
+				<panel>
+					<title>
+						<en>State</en>
+						<de>Zustand</de>
+					</title>
+					<inset>
+						<stack gap="compact">
+							<object-list
+								gap="compact"
+								inputs="info"
+								items="if($info == null, [], deviceInfoState($info))"
+							>
+								<item>
+									<text input="element"/>
+								</item>
+							</object-list>
+							<!-- What could not be read. -->
+							<object-list
+								gap="compact"
+								inputs="info"
+								items="if($info == null, [], deviceInfoNotes($info))"
+							>
+								<item>
+									<text
+										input="element"
+										tone="helper"
+									/>
+								</item>
+							</object-list>
+						</stack>
+					</inset>
+				</panel>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

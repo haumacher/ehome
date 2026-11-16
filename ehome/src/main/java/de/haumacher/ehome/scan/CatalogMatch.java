@@ -255,6 +255,14 @@ public class CatalogMatch {
 	}
 
 	/**
+	 * Whether the order info a device reports names the given order number: it starts with it,
+	 * blanks and case aside (devices pad it, e.g. <code>N000402000</code> for <code>N000402</code>).
+	 */
+	public static boolean sameOrder(String orderInfo, String orderNumber) {
+		return !normalize(orderNumber).isEmpty() && normalize(orderInfo).startsWith(normalize(orderNumber));
+	}
+
+	/**
 	 * Whether the order info a device reports (normalized) names the given variant: it starts with
 	 * the variant's order number (devices pad it, e.g. <code>N000402000</code> for
 	 * <code>N000402</code>).
@@ -292,7 +300,7 @@ public class CatalogMatch {
 	 * The hardware type the load procedure of a program compares (a <code>CompareProp</code> of
 	 * property 78), <code>null</code> if it compares none.
 	 */
-	private static byte[] comparedHardwareType(Program program) {
+	public static byte[] comparedHardwareType(Program program) {
 		for (LoadProcedure procedure : program.getLoadProcedures()) {
 			for (LoadStep step : procedure.getSteps()) {
 				if (step.getKind() != null && "CompareProp".equals(step.getKind().getName())
@@ -309,7 +317,7 @@ public class CatalogMatch {
 	 * Whether two values are equal when the shorter is padded with zeros (as the download compares a
 	 * property with the inline data of a <code>CompareProp</code> step).
 	 */
-	private static boolean samePadded(byte[] a, byte[] b) {
+	public static boolean samePadded(byte[] a, byte[] b) {
 		for (int n = 0; n < Math.max(a.length, b.length); n++) {
 			if ((n < a.length ? a[n] : 0) != (n < b.length ? b[n] : 0)) {
 				return false;

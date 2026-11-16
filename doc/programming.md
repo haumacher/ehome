@@ -132,6 +132,21 @@ comparison must report every block identical (once the image rules found with th
 type byte of the object table, are in the download image). That is the check before the first
 download: a difference there is a defect of the image, and the download must wait for its fix.
 
+## Device info (safe; haumacher/ehome #175)
+
+"Geräte-Info" on a device's tab "Programmierung" (`DeviceInfoJob`, `DeviceInfo`) asks the device at
+its individual address over the project's path (gateway or controller) what the scan asks each device
+(`BusScanner.read`: descriptor, manufacturer, serial number, order info, hardware type, program
+version or BCU 1 program identity, load states, run state) and its programming mode (property 54 of
+the device object, memory 0060 bit 0 for BCU 1); nothing is written, so it needs neither the write
+switch nor `Write` on the project (`Read` suffices). The dialog `projects/device-info.view.xml` shows
+the identity beside the project's values (the program's mask, the product's manufacturer and order
+number, the hardware type the load procedure compares, the program's application ID), a differing
+row as a warning, a value the project does not have (a serial number) as a note; "Seriennummer
+übernehmen" writes the serial number read into the project's device (`Write`, only where mask and
+program are the project's). No device at the address is the result "Kein Gerät antwortet unter …".
+The reading is not stored. The assistant and MCP have it as `ehome-devices.deviceInfo`.
+
 ## What a download does (mask 7.5, BIM M112)
 
 The program's own load procedure (`ProductProcedure`), as the plan lists it:

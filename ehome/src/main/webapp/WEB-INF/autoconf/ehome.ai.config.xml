@@ -181,7 +181,7 @@ The building structure is where devices are placed: the installer finds a device
 4. Report the created parts by name; the ids are for further calls.]]></content>
 					</skill>
 					<skill name="EHome_devicePlanning"
-						description="Load before planning KNX devices in an E-Home project: choosing products and application programs from the catalog, lines and individual addresses, duplicating devices and setting their parameters. Names the tools searchCatalog, listDevices, planDevice, duplicateDevice, deviceParameters, setDeviceParameter and placeDevice."
+						description="Load before planning KNX devices in an E-Home project: choosing products and application programs from the catalog, lines and individual addresses, duplicating devices and setting their parameters. Names the tools searchCatalog, listDevices, planDevice, duplicateDevice, deviceParameters, setDeviceParameter, deviceInfo and placeDevice."
 					>
 						<content><![CDATA[# Device planning in E-Home
 
@@ -203,6 +203,7 @@ E-Home replaces ETS: a planned device is a full device of the project - product,
 - A value can switch channels, objects and pages on: read the page again after setting one. Set the channel function (e.g. "Schalten"/"switching") before its details.
 - The application refuses values out of range and checks the manufacturer's rules; relay its reason.
 - Planned devices and changed parameters need a download; the installer starts it in the device view (programming is never yours).
+- deviceInfo asks a device over the bus who it is (mask, manufacturer, serial number, program) and in what state, beside the project's values; it writes nothing. Use it before a download to check that the right device answers at the address; "answered": false means no device is there. A serial number the project does not know is taken over by the installer in the dialog of the command "Device info" (device view, tab Programming).
 
 ## Duplicates
 - duplicateDevice copies product, program and parameters to the next free address of the same line, without connections and without location; rename it with updateObject (attribute title) and place it with placeDevice.]]></content>
@@ -306,6 +307,7 @@ The type in effect at a device's object is the first of: the type entered at the
 							<tool name="ehome-devices.duplicateDevice"/>
 							<tool name="ehome-devices.deviceParameters"/>
 							<tool name="ehome-devices.setDeviceParameter"/>
+							<tool name="ehome-devices.deviceInfo"/>
 							<tool name="ehome-wiring.listGroupAddresses"/>
 							<tool name="ehome-wiring.createGroupAddress"/>
 							<tool name="ehome-wiring.setGroupAddressType"/>

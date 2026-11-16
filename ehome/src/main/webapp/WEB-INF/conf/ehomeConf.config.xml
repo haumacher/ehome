@@ -172,6 +172,13 @@
 					<method name="scanReadVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanLedVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanLedConfirmation" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<!-- The device info of a device of the project (de.haumacher.ehome.scan.DeviceInfoFunctions, haumacher/ehome #175). -->
+					<method name="deviceInfoVeto" class="de.haumacher.ehome.scan.DeviceInfoFunctions$Builder"/>
+					<method name="deviceInfoRows" class="de.haumacher.ehome.scan.DeviceInfoFunctions$Builder"/>
+					<method name="deviceInfoState" class="de.haumacher.ehome.scan.DeviceInfoFunctions$Builder"/>
+					<method name="deviceInfoNotes" class="de.haumacher.ehome.scan.DeviceInfoFunctions$Builder"/>
+					<method name="deviceInfoSerialVeto" class="de.haumacher.ehome.scan.DeviceInfoFunctions$Builder"/>
+					<method name="deviceInfoTakeSerial" class="de.haumacher.ehome.scan.DeviceInfoFunctions$Builder"/>
 					<!-- The group monitor (de.haumacher.ehome.monitor.GroupMonitor, projects/monitor.view.xml): one builder, the function by its name. -->
 					<method name="monitorDisconnect" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>
 					<method name="monitorAllowSending" class="de.haumacher.ehome.monitor.MonitorFunctions$Builder"/>

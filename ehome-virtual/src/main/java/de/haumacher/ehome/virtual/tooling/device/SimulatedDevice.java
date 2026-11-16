@@ -51,6 +51,8 @@ import de.haumacher.ehome.programming.download.LoadControls;
  * <p>
  * Programming mode (the programming button of a real device): off at the start; the button
  * ({@link #pressProgrammingButton()}) switches it on and off, a restart ({@link #reset()}) ends it.
+ * A device with property-mapped load state machines shows it as property
+ * {@value #PID_PROGRAMMING_MODE} of the device object, which a write switches as well.
  * Only in programming mode does the device answer <code>A_IndividualAddress_Read</code> and take the
  * address of <code>A_IndividualAddress_Write</code> ({@link #changeAddress(int)}); the address is the
  * device's address on the virtual bus from then on, nothing of it goes back into the project.
@@ -66,6 +68,9 @@ public class SimulatedDevice {
 
 	/** The number of memory-mapped load state machines (address table, association table, application, PEI program). */
 	public static final int MAPPED_STATE_MACHINES = 4;
+
+	/** Device object: the programming mode (1 byte, bit 0), the state of the programming button. */
+	public static final int PID_PROGRAMMING_MODE = 54;
 
 	/** The interface object property naming the type of the object. */
 	public static final int PID_OBJECT_TYPE = 1;
@@ -370,6 +375,12 @@ public class SimulatedDevice {
 			}
 			return new byte[] { (byte) _states[object] };
 		}
+		if (_kind == LoadControlKind.PROPERTIES && object == 0 && property == PID_PROGRAMMING_MODE) {
+			if (start == 0) {
+				return new byte[] { 0, 1 };
+			}
+			return new byte[] { (byte) (_programmingMode ? 1 : 0) };
+		}
 		TreeMap<Integer, byte[]> elements = elements(object, property);
 		if (elements == null || elements.isEmpty()) {
 			_unknownReads.add(object + "/" + property);
@@ -414,6 +425,13 @@ public class SimulatedDevice {
 			}
 			_states[object] = loadControl(object, data);
 			return new byte[] { (byte) _states[object] };
+		}
+		if (_kind == LoadControlKind.PROPERTIES && object == 0 && property == PID_PROGRAMMING_MODE) {
+			if (data.length != 1) {
+				return null;
+			}
+			_programmingMode = (data[0] & 0x01) != 0;
+			return data;
 		}
 		putElements(object, property, start, count, data);
 		return data;

@@ -71,6 +71,9 @@ public class BusScanner {
 	/** BCU 1: the program identity in memory (manufacturer, application number, version). */
 	public static final int BCU1_APPLICATION_ID = 0x0104;
 
+	/** BCU 1: the memory byte holding the programming mode (bit 0, with an even parity in bit 7). */
+	public static final int BCU1_PROGRAMMING_MODE = 0x0060;
+
 	/** The phase reading the gateway itself through local device management. */
 	public static final String PHASE_GATEWAY = "gateway";
 
@@ -276,9 +279,19 @@ public class BusScanner {
 	}
 
 	/**
-	 * Reads what a device tells about itself, point to point.
+	 * Reads what a device tells about itself, point to point, and ends the connection to it.
 	 */
 	public static FoundDevice identify(DeviceReader reader, int address) {
+		FoundDevice result = read(reader, address);
+		disconnect(reader);
+		return result;
+	}
+
+	/**
+	 * Reads what a device tells about itself, point to point, and leaves the connection to it open
+	 * for further reads (a device that does not answer its descriptor is not read further).
+	 */
+	public static FoundDevice read(DeviceReader reader, int address) {
 		List<ResKey> notes = new ArrayList<>();
 		List<ResKey> loadStates = new ArrayList<>();
 		Integer descriptor = null;
@@ -289,7 +302,6 @@ public class BusScanner {
 			}
 		} catch (BusException ex) {
 			notes.add(I18NConstants.NOTE__LABEL_VALUE.fill(I18NConstants.READ_DESCRIPTOR, ex.getErrorKey()));
-			disconnect(reader);
 			return new FoundDevice(address, FoundDevice.Source.BUS, null, null, null, null, null, null, loadStates, notes);
 		}
 
@@ -335,9 +347,32 @@ public class BusScanner {
 		if (manufacturer == null && programVersion != null && programVersion.length >= 5) {
 			manufacturer = Integer.valueOf((programVersion[0] & 0xFF) << 8 | (programVersion[1] & 0xFF));
 		}
-		disconnect(reader);
 		return new FoundDevice(address, FoundDevice.Source.BUS, descriptor, manufacturer, serial, programVersion,
 			hardwareType, orderInfo, loadStates, notes);
+	}
+
+	/**
+	 * Reads whether a device is in programming mode: property {@value #PID_PROGRAMMING_MODE} of the
+	 * device object, bit 0; for BCU 1 (mask 001x, no properties) bit 0 of the memory byte 0060.
+	 *
+	 * @param descriptor
+	 *        The device descriptor read before.
+	 * @param notes
+	 *        Takes why the state could not be read.
+	 * @return Whether the programming mode is on, <code>null</code> if it could not be read.
+	 */
+	public static Boolean programmingMode(DeviceReader reader, int descriptor, List<ResKey> notes) {
+		try {
+			byte[] value = isBcu1(descriptor) ? reader.readMemory(BCU1_PROGRAMMING_MODE, 1)
+				: reader.readProperty(DEVICE_OBJECT, PID_PROGRAMMING_MODE, 1, 1);
+			if (value.length == 0) {
+				return null;
+			}
+			return Boolean.valueOf((value[0] & 0x01) != 0);
+		} catch (BusException ex) {
+			notes.add(I18NConstants.NOTE__LABEL_VALUE.fill(I18NConstants.READ_PROGRAMMING_MODE, ex.getErrorKey()));
+			return null;
+		}
 	}
 
 	/**
@@ -389,7 +424,10 @@ public class BusScanner {
 		}
 	}
 
-	private static void disconnect(DeviceReader reader) {
+	/**
+	 * Ends the connection to a device; a failure is ignored, the connection ends anyway.
+	 */
+	public static void disconnect(DeviceReader reader) {
 		try {
 			reader.disconnect();
 		} catch (BusException ex) {

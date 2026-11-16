@@ -546,6 +546,96 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey3 READBACK_DIFFERENT__DIFFERENT_COUNT_ADDRESSES;
 
+	/**
+	 * @en Programming mode
+	 */
+	public static ResKey READ_PROGRAMMING_MODE;
+
+	/**
+	 * @en Mask version
+	 */
+	public static ResKey INFO_MASK;
+
+	/**
+	 * @en Program
+	 */
+	public static ResKey INFO_PROGRAM;
+
+	/**
+	 * @en Equal
+	 */
+	public static ResKey INFO_EQUAL;
+
+	/**
+	 * @en Differs
+	 */
+	public static ResKey INFO_DIFFERENT;
+
+	/**
+	 * @en Not in the project
+	 */
+	public static ResKey INFO_NOT_IN_PROJECT;
+
+	/**
+	 * @en Not read
+	 */
+	public static ResKey INFO_NOT_READ;
+
+	/**
+	 * @en No device answers at {0} through {1}.
+	 */
+	public static ResKey2 INFO_NO_ANSWER__ADDRESS_PATH;
+
+	/**
+	 * @en Device info of {0} through {1}: {2} values differ from the project, {3} are not in the project.
+	 */
+	public static ResKey4 INFO_DONE__ADDRESS_PATH_DIFFERENT_UNKNOWN;
+
+	/**
+	 * @en The device info of {0} through {1} failed: {2}
+	 */
+	public static ResKey3 INFO_FAILED__ADDRESS_PATH_REASON;
+
+	/**
+	 * @en Read on {0} through {1}.
+	 */
+	public static ResKey2 INFO_READ__TIME_PATH;
+
+	/**
+	 * @en Serial number {1} of {0} taken over into the project.
+	 */
+	public static ResKey2 INFO_SERIAL_TAKEN__ADDRESS_SERIAL;
+
+	/**
+	 * @en No device info was read.
+	 */
+	public static ResKey ERROR_INFO_NONE;
+
+	/**
+	 * @en The device of the project was deleted.
+	 */
+	public static ResKey ERROR_INFO_DEVICE_DELETED;
+
+	/**
+	 * @en The device at {0} has not reported a serial number.
+	 */
+	public static ResKey1 ERROR_INFO_NO_SERIAL__ADDRESS;
+
+	/**
+	 * @en The device of the project no longer has the address {0} it was read at: read its device info again.
+	 */
+	public static ResKey1 ERROR_INFO_ADDRESS_CHANGED__ADDRESS;
+
+	/**
+	 * @en The project already has the serial number {0}.
+	 */
+	public static ResKey1 ERROR_INFO_SERIAL_KNOWN__SERIAL;
+
+	/**
+	 * @en The device at {0} is not the project''s ({1} differs or was not read): its serial number is not taken over.
+	 */
+	public static ResKey2 ERROR_INFO_OTHER_DEVICE__ADDRESS_WHAT;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

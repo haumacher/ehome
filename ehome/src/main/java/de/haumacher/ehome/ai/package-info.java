@@ -21,7 +21,8 @@
  * <li>{@link de.haumacher.ehome.ai.BuildingTools} (factory <code>ehome-building</code>): the building
  * structure, creating and moving parts, placing a device.</li>
  * <li>{@link de.haumacher.ehome.ai.DeviceTools} (<code>ehome-devices</code>): the catalog, the devices
- * by line, planning and duplicating a device, its parameter pages and setting a parameter.</li>
+ * by line, planning and duplicating a device, its parameter pages and setting a parameter, and the
+ * device info read over the bus (haumacher/ehome #175).</li>
  * <li>{@link de.haumacher.ehome.ai.WiringTools} (<code>ehome-wiring</code>): the group addresses with
  * what tells their purpose (paged), creating one, setting its datapoint type, naming several at once,
  * a device's communication objects, connecting and disconnecting them.</li>
@@ -57,7 +58,7 @@
  *
  * <p>
  * Deploying to a controller and programming a device stay commands of the installer in the views:
- * no tool does them.
+ * no tool does them. The one tool reaching the bus, the device info, only reads.
  * </p>
  */
 package de.haumacher.ehome.ai;

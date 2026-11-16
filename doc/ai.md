@@ -43,6 +43,7 @@ as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`, `ehome-temp
 | `duplicateDevice` | yes, dry run | `DevicePlanning.duplicateVeto` / `duplicate` |
 | `deviceParameters` | - | `DeviceConfiguration`: the page tree, a page's parameters with value, default, allowed values, edit veto |
 | `setDeviceParameter` | yes | `DeviceSettings.setValue` (type, range, manufacturer's validations and calculations) |
+| `deviceInfo` | - | `DeviceInfo`: the device at its address read over the project's path to the bus (gateway or controller), nothing written: identity beside the project's values, state, what was not read (haumacher/ehome #175) |
 | `listGroupAddresses` | - | ranges, and per address (paged) name, identifier, description, type, range, functions, connections with device, room, object, function, channel, direction |
 | `createGroupAddress` | yes, dry run | `GroupAddresses.veto` / `nextFree` / `create`, in the project's notation |
 | `setGroupAddressType` | yes | `GroupAddressTypes.veto` / `setType` |

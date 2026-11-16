@@ -34,6 +34,7 @@ import com.top_logic.tl.ai.tool.api.ToolMethod;
 import com.top_logic.tl.ai.tool.api.ToolMode;
 import com.top_logic.tl.ai.tool.api.ToolResult;
 import com.top_logic.util.Resources;
+import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.ParameterValues;
@@ -54,7 +55,14 @@ import de.haumacher.ehome.programming.BuildingDevices;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DeviceTexts;
+import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
+import de.haumacher.ehome.programming.download.BusException;
+import de.haumacher.ehome.programming.download.BusPath;
+import de.haumacher.ehome.programming.download.CalimeroReader;
+import de.haumacher.ehome.programming.download.DeviceReader;
+import de.haumacher.ehome.scan.DeviceInfo;
+import de.haumacher.ehome.scan.FoundDevice;
 
 /**
  * The assistant's tools for the devices of a project (haumacher/ehome #127): the catalog, the
@@ -68,6 +76,8 @@ import de.haumacher.ehome.programming.GroupAddressConnections;
  * parameter editor and the manufacturer's validations and calculations (haumacher/ehome #83, #123,
  * #124). A parameter and a page are named by the ID ETS gives them in the device
  * ({@link ModuleParts#partId(TLObject)}), which also tells the instances of a module apart.
+ * {@link #deviceInfo(TLObject)} reads a device over the project's path to the bus, nothing written
+ * ({@link DeviceInfo}, haumacher/ehome #175).
  * </p>
  */
 public class DeviceTools {
@@ -509,6 +519,79 @@ public class DeviceTools {
 			result.put("to", display(type, DeviceSettings.value(device, view)));
 			return answer("Set. " + saved(context), result);
 		});
+	}
+
+	/**
+	 * Reads the device info of a device over the bus.
+	 */
+	@ToolMethod(description = "Asks a device of an E-Home project over the bus who it is and in what state"
+		+ " (haumacher/ehome #175): the device at its individual address is read through the project's path to"
+		+ " the bus (its KNXnet/IP gateway or its connected controller); nothing is written. The answer gives"
+		+ " the identity the device reports (mask version, manufacturer, serial number, order info, hardware"
+		+ " type, program version) beside the project's values, each compared: equal, different (another"
+		+ " device or another program at the address), notInProject (e.g. a serial number the project does"
+		+ " not know yet) or notRead; its state (load states, run state, programming mode); and what could"
+		+ " not be read. 'answered' false means no device answers at the address - a result, not an error."
+		+ " Read it before the installer programs a device, to check that the right device is there. Takes"
+		+ " a few seconds; refused while the path is in use or cannot be used, with the reason.",
+		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
+	public ToolResult deviceInfo(
+			@P("The device") TLObject device) {
+		if (!ExtIds.isA(device, DEVICE)) {
+			return failure("'" + id(device) + "' is no device.");
+		}
+		ResKey veto = DeviceInfo.veto(device);
+		if (veto != null) {
+			return refused(device, veto);
+		}
+		BusPath path;
+		DeviceInfo info;
+		try {
+			path = BusPath.of(device);
+			int address = DownloadImage.individualAddress(device).intValue();
+			try (DeviceReader reader = CalimeroReader.open(path, address)) {
+				info = DeviceInfo.read(device, path.text(), reader);
+			} catch (BusException ex) {
+				return failure(Resources.getInstance().getString(de.haumacher.ehome.scan.I18NConstants.INFO_FAILED__ADDRESS_PATH_REASON
+					.fill(FoundDevice.formatAddress(address), path.text(), ex.getErrorKey())));
+			}
+		} catch (TopLogicException ex) {
+			return refused(device, ex.getErrorKey());
+		}
+		Resources resources = Resources.getInstance();
+		Map<String, Object> result = new LinkedHashMap<>();
+		result.put("device", ref(device, GroupAddressConnections.deviceLabel(device)));
+		result.put("address", info.addressText());
+		result.put("path", info.path());
+		result.put("time", info.time().toInstant().toString());
+		result.put("answered", Boolean.valueOf(info.answered()));
+		if (info.answered()) {
+			List<Object> identity = new ArrayList<>();
+			for (DeviceInfo.Row row : info.identity()) {
+				Map<String, Object> entry = new LinkedHashMap<>();
+				entry.put("value", row.name());
+				entry.put("project", row.project());
+				entry.put("device", row.device());
+				entry.put("comparison", comparison(row.comparison()));
+				identity.add(entry);
+			}
+			result.put("identity", identity);
+			result.put("state", info.state().stream().map(resources::getString).toList());
+		}
+		List<String> notes = info.notes().stream().map(resources::getString).toList();
+		if (!notes.isEmpty()) {
+			result.put("notRead", notes);
+		}
+		return answer(resources.getString(info.summary()), result);
+	}
+
+	private static String comparison(DeviceInfo.Comparison comparison) {
+		return switch (comparison) {
+			case EQUAL -> "equal";
+			case DIFFERENT -> "different";
+			case NOT_IN_PROJECT -> "notInProject";
+			case NOT_READ -> "notRead";
+		};
 	}
 
 	/**

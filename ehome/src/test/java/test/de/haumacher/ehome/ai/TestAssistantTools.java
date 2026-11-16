@@ -248,6 +248,15 @@ public class TestAssistantTools extends BasicTestCase {
 		assertTrue("Refused by the role in the project (haumacher/ehome #152): " + refusal, refusal.contains("may not change"));
 		assertEquals(devices, ExtIds.list(line, "devices").size());
 
+		// A viewer reads the device info (haumacher/ehome #175); without a path to the bus it is refused
+		// with the path's reason, before anything is opened.
+		sent = runs(_viewer, "Who is the actuator?", script(call("deviceInfo", "device", tid(actuator))));
+		assertTrue("A viewer reads: " + toolNames(sent.get(0)), toolNames(sent.get(0)).contains("deviceInfo"));
+		String info = toolAnswer(sent, "deviceInfo");
+		assertTrue("No path to the bus: " + info, info.contains("\"refused\""));
+		assertTrue(info, info.contains(as(_viewer,
+			() -> text(de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_BUS_PATH))));
+
 		// The tool checks the right itself, also for a caller that does not ask the permission filter.
 		ToolResult direct = as(_viewer, () -> new DeviceTools().planDevice(AssistantFixture.toolContext(), line,
 			(TLObject) actuator.tValueByName("type"), null, null, null, null, null));
