@@ -12,12 +12,11 @@ import java.util.Map;
 import java.util.Objects;
 
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.provider.MetaLabelProvider;
-import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLReference;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
@@ -131,13 +130,14 @@ public final class ZigbeeController {
 
 	/**
 	 * The projects deploying to the controller (whose <code>controller</code> it is), in no particular
-	 * order.
+	 * order: the referers of <code>ehome.project:Project#controller</code>, read backwards from the
+	 * controller (haumacher/ehome #172), not a scan of all projects.
 	 */
 	public static List<TLObject> projects(TLObject controller) {
 		List<TLObject> result = new ArrayList<>();
-		TLClass type = (TLClass) TLModelUtil.findType("ehome.project:Project");
-		for (TLObject project : MetaElementUtil.getAllInstancesOf(type, TLObject.class)) {
-			if (project.tValid() && project.tValueByName("controller") == controller) {
+		TLReference target = (TLReference) TLModelUtil.findPart("ehome.project:Project#controller");
+		for (TLObject project : controller.tReferers(target)) {
+			if (project.tValid()) {
 				result.add(project);
 			}
 		}

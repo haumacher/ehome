@@ -262,10 +262,16 @@ public class TestUserProjects extends BasicTestCase {
 	/**
 	 * No expression of a view of the app reads all objects of a type a project consists of: neither
 	 * <code>all()</code> of the project, of a type a project holds (in its compositions, at any
-	 * depth), nor of a generalization of one of them.
+	 * depth), nor of a generalization of one of them; nor all accounts or all conversations of the
+	 * assistant (haumacher/ehome #172).
 	 */
 	public void testNoViewScansProjects() throws IOException {
 		Set<TLClass> projectTypes = projectTypes();
+		// Neither the objects that grow with the accounts (haumacher/ehome #172): the accounts and the
+		// conversations of the assistant, read backwards from the account instead.
+		for (String perAccount : List.of("tl.accounts:Person", "tl.ai.execution:AgentSession")) {
+			projectTypes.addAll(TLModelUtil.getReflexiveTransitiveSpecializations((TLClass) TLModelUtil.findType(perAccount)));
+		}
 		List<String> scans = new ArrayList<>();
 		try (Stream<Path> files = Files.walk(ViewCommandScan.VIEWS)) {
 			for (Path file : (Iterable<Path>) files.filter(f -> f.toString().endsWith(".view.xml")).sorted()::iterator) {

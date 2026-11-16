@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 import com.top_logic.basic.Logger;
 import com.top_logic.basic.thread.ThreadContext;
-import com.top_logic.element.meta.MetaElementUtil;
+import com.top_logic.element.meta.AttributeOperations;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.RefetchTimeout;
 import com.top_logic.knowledge.service.Transaction;
@@ -388,19 +388,16 @@ public final class ControllerConnections {
 	}
 
 	/**
-	 * The enrolled controller with the given id, <code>null</code> if there is none.
+	 * The enrolled controller with the given id, <code>null</code> if there is none. Found by a query
+	 * of the database on the id (haumacher/ehome #172), which reads no other controller.
 	 */
 	public static TLObject find(String controllerId) {
 		if (controllerId == null) {
 			return null;
 		}
 		TLClass type = (TLClass) TLModelUtil.findType("ehome.runtime:Controller");
-		for (TLObject controller : MetaElementUtil.getAllDirectInstancesOf(type, TLObject.class)) {
-			if (controllerId.equals(controller.tValueByName("controllerId"))) {
-				return controller;
-			}
-		}
-		return null;
+		List<TLObject> found = AttributeOperations.instancesWithValue(type, "controllerId", controllerId, TLObject.class);
+		return found.isEmpty() ? null : found.get(0);
 	}
 
 	/**

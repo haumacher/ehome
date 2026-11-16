@@ -5,15 +5,16 @@ package de.haumacher.ehome.connection;
 
 import java.text.DateFormat;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.element.meta.MetaElementUtil;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
-import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.TLReference;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.Resources;
 
@@ -91,27 +92,35 @@ public final class Controllers {
 		}
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 			.beginTransaction(I18NConstants.COMMIT_CONTROLLER_FORGOTTEN__CONTROLLER.fill(String.valueOf(controller.tValueByName("name"))))) {
-			TLClass projectType = (TLClass) TLModelUtil.findType("ehome.project:Project");
-			for (TLObject project : MetaElementUtil.getAllDirectInstancesOf(projectType, TLObject.class)) {
-				if (project.tValueByName("controller") == controller) {
-					project.tUpdateByName("controller", soleOther(project, controller));
-				}
-				// The path to the bus is the installer's explicit choice (haumacher/ehome #148): nothing
-				// takes the forgotten controller's place.
-				if (project.tValueByName("programmingController") == controller) {
-					project.tUpdateByName("programmingController", null);
-				}
-				if (project.tValueByName("deployments") instanceof Collection<?> deployments) {
-					for (Object entry : deployments) {
-						if (entry instanceof TLObject deployment && deployment.tValueByName("controller") == controller) {
-							deployment.tUpdateByName("controller", null);
-						}
-					}
-				}
+			// The objects naming the controller, read backwards from it (haumacher/ehome #172): no scan of
+			// the projects.
+			for (TLObject project : referers(controller, "ehome.project:Project#controller")) {
+				project.tUpdateByName("controller", soleOther(project, controller));
+			}
+			// The path to the bus is the installer's explicit choice (haumacher/ehome #148): nothing
+			// takes the forgotten controller's place.
+			for (TLObject project : referers(controller, "ehome.project:Project#programmingController")) {
+				project.tUpdateByName("programmingController", null);
+			}
+			for (TLObject deployment : referers(controller, "ehome.runtime:Deployment#controller")) {
+				deployment.tUpdateByName("controller", null);
 			}
 			controller.tDelete();
 			tx.commit();
 		}
+	}
+
+	/**
+	 * The valid objects referencing the given one by the reference of the given qualified name.
+	 */
+	private static List<TLObject> referers(TLObject target, String reference) {
+		List<TLObject> result = new ArrayList<>();
+		for (TLObject referer : target.tReferers((TLReference) TLModelUtil.findPart(reference))) {
+			if (referer.tValid()) {
+				result.add(referer);
+			}
+		}
+		return result;
 	}
 
 	/**

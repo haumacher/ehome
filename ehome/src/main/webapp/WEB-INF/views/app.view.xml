@@ -182,9 +182,8 @@
 										search="false"
 										selection="assistantSession"
 									>
-										<rows>all(`tl.ai.execution:AgentSession`)
-	.filter(s -> $s.get(`tl.ai.execution:AgentSession#owner`) == currentUser()
-		&amp;&amp; $s.get(`tl.ai.execution:AgentSession#kind`) == `tl.ai.execution:SessionKind#CHAT`)
+										<rows>currentUser().referers(`tl.ai.execution:AgentSession#owner`)
+	.filter(s -> $s.get(`tl.ai.execution:AgentSession#kind`) == `tl.ai.execution:SessionKind#CHAT`)
 	.sort((s -> $s.get(`tl.ai.execution:AgentSession#createdAt`)).comparator().desc())</rows>
 										<lines>
 											<line attribute="title"/>

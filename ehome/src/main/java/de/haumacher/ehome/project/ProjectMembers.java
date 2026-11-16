@@ -8,10 +8,8 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 
-import com.top_logic.base.user.UserInterface;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.model.TLClassifier;
@@ -21,6 +19,8 @@ import com.top_logic.model.TLReference;
 import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.TLContext;
 import com.top_logic.util.error.TopLogicException;
+
+import de.haumacher.ehome.query.Queries;
 
 /**
  * The members of a project and their roles (haumacher/ehome #152).
@@ -45,6 +45,9 @@ public class ProjectMembers {
 
 	/** The type of a project. */
 	public static final String PROJECT_TYPE = "ehome.project:Project";
+
+	/** The type of the contact of an account, holding its mail address. */
+	public static final String CONTACT_TYPE = "Contacts:PersonContact";
 
 	/** The enumeration of the roles. */
 	public static final String ROLE_TYPE = "ehome.project:ProjectRole";
@@ -250,13 +253,7 @@ public class ProjectMembers {
 		if (addable(byName)) {
 			return byName;
 		}
-		List<Person> found = new ArrayList<>();
-		String address = text.toLowerCase(Locale.ROOT);
-		for (Person person : Person.all()) {
-			if (addable(person) && address.equals(mail(person))) {
-				found.add(person);
-			}
-		}
+		List<Person> found = byMail(text);
 		if (found.isEmpty()) {
 			throw new TopLogicException(I18NConstants.ERROR_NO_ACCOUNT);
 		}
@@ -267,12 +264,18 @@ public class ProjectMembers {
 	}
 
 	/**
-	 * The mail address of the account in lower case, <code>null</code> if it has none.
+	 * The accounts that may hold a role whose contact has the given mail address, ignoring case. The
+	 * database finds the contacts with the address (haumacher/ehome #172), each one leads to its
+	 * account: no other account is read.
 	 */
-	private static String mail(Person person) {
-		UserInterface user = person.getUser();
-		String mail = user == null ? null : user.getEMail();
-		return mail == null || mail.isBlank() ? null : mail.trim().toLowerCase(Locale.ROOT);
+	public static List<Person> byMail(String address) {
+		List<Person> result = new ArrayList<>();
+		for (TLObject contact : Queries.withTextIgnoringCase(CONTACT_TYPE, "email", address.trim())) {
+			if (contact.tValueByName("account") instanceof Person person && addable(person) && !result.contains(person)) {
+				result.add(person);
+			}
+		}
+		return result;
 	}
 
 	/**

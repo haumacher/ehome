@@ -85,14 +85,19 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_TYPE_IN_USE__TYPE_COUNT_EXAMPLE;
 
 	/**
-	 * @en The entry "{0}" cannot be deleted: it is the value or default of {1} parameters or settings.
+	 * @en The entry "{0}" cannot be deleted: it is the value or default of "{1}".
 	 */
-	public static ResKey2 ERROR_ENTRY_IN_USE__ENTRY_COUNT;
+	public static ResKey2 ERROR_ENTRY_IN_USE__ENTRY_HOLDER;
 
 	/**
-	 * @en The parameter "{0}" cannot be deleted: {1} devices set it.
+	 * @en The entry "{0}" cannot be deleted: devices or presets have it set.
 	 */
-	public static ResKey2 ERROR_PARAMETER_SET_BY_DEVICES__PARAMETER_COUNT;
+	public static ResKey1 ERROR_ENTRY_SET_ELSEWHERE__ENTRY;
+
+	/**
+	 * @en The parameter "{0}" cannot be deleted: devices set it.
+	 */
+	public static ResKey1 ERROR_PARAMETER_SET_BY_DEVICES__PARAMETER;
 
 	/**
 	 * @en The parameter "{0}" cannot be deleted: "{1}" depends on it.
@@ -100,9 +105,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 ERROR_PARAMETER_DECIDES__PARAMETER_USER;
 
 	/**
-	 * @en The communication object "{0}" cannot be deleted: {1} devices use it.
+	 * @en The communication object "{0}" cannot be deleted: devices use it.
 	 */
-	public static ResKey2 ERROR_OBJECT_USED_BY_DEVICES__OBJECT_COUNT;
+	public static ResKey1 ERROR_OBJECT_USED_BY_DEVICES__OBJECT;
 
 	/**
 	 * @en Not placed
