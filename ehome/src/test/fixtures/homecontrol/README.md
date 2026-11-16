@@ -64,12 +64,17 @@ The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/
 that commit.
 
 - `images/example.json`, `images/minimal.json`: complete and minimal images.
-- `images/example.json.sig`: the detached signature of `images/example.json` with the test
-  installation key (homecontrol `spec/api.md`, "Signed runtime images"), and
+- `images/example.json.sig`: the detached signature (context `v1`) of `images/example.json`, history
+  since the binary image (homecontrol #87) carries its signature inside, and
   `signatures/vectors.json`: the test keys (TEST KEYS ONLY: their seeds are public), their
-  fingerprints, the digest, message and signatures of `example.json` and RFC 8032 section 7.1 test 1;
-  E-Home's signing reproduces them byte for byte in
-  `test.de.haumacher.ehome.connection.TestImageSignatures`. The update manifest and its signature
+  fingerprints and RFC 8032 section 7.1 test 1, checked in
+  `test.de.haumacher.ehome.connection.TestImageSignatures`; the signed worked example
+  `minimal.signed.bin` of homecontrol `spec/runtime-image.md` 13 is reproduced byte for byte in
+  `test.de.haumacher.ehome.runtime.binary.TestImageCompiler`.
+- The compiled corpora (homecontrol `spec/runtime-image.md` 13.1: the `.bin` files and the mutation
+  corpus `images/binary/`) are not copied: `test.de.haumacher.ehome.runtime.binary.TestImageCorpus`
+  compiles the sources of the homecontrol checkout beside this repository and compares them with its
+  committed files, or writes them there (`-Dhomecontrol.regenerate=true`). The update manifest and its signature
   (`signatures/manifest.*`, the release key's) are HomeControl's release process and not copied.
 - `images/zigbee-bindings.json`: Zigbee bindings without reporting overrides (an image written
   before the member existed), valid in `test.de.haumacher.ehome.runtime.TestImageFixtures`.

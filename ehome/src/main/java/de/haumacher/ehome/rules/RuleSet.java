@@ -375,6 +375,11 @@ public final class RuleSet {
 		public String id() {
 			return _id;
 		}
+
+		/** The expression of the duration, <code>null</code> for none. */
+		public Node duration() {
+			return _duration;
+		}
 	}
 
 	/**
@@ -411,6 +416,16 @@ public final class RuleSet {
 		/** The label's language map, <code>null</code> when the image gave a plain string or none. */
 		public Map<String, String> labelMap() {
 			return _labelMap;
+		}
+
+		/** The entry actions. */
+		public List<Action> entry() {
+			return Collections.unmodifiableList(_entry);
+		}
+
+		/** The exit actions. */
+		public List<Action> exit() {
+			return Collections.unmodifiableList(_exit);
 		}
 	}
 
@@ -732,6 +747,36 @@ public final class RuleSet {
 
 		/** The target state index, -1 for none. */
 		int _to = -1;
+
+		/** The triggers. */
+		public List<Trigger> triggers() {
+			return Collections.unmodifiableList(_triggers);
+		}
+
+		/** The condition, <code>null</code> for none. */
+		public Node condition() {
+			return _condition;
+		}
+
+		/** The actions. */
+		public List<Action> actions() {
+			return Collections.unmodifiableList(_actions);
+		}
+
+		/** The actions when the condition is false. */
+		public List<Action> elseActions() {
+			return Collections.unmodifiableList(_elseActions);
+		}
+
+		/** The states of <code>from</code> as bits of their indices, -1 without <code>from</code>. */
+		public int fromMask() {
+			return _fromMask;
+		}
+
+		/** The state index of <code>to</code>, -1 without. */
+		public int to() {
+			return _to;
+		}
 	}
 
 	/**
@@ -820,6 +865,46 @@ public final class RuleSet {
 		/** The kind. */
 		public TriggerKind kind() {
 			return _kind;
+		}
+
+		/** The datapoint of a datapoint or silence trigger, the schedule of a schedule trigger. */
+		public String name() {
+			return _name;
+		}
+
+		/** Whether a datapoint trigger fires on every update. */
+		public boolean onUpdate() {
+			return _onUpdate;
+		}
+
+		/** Whether a datapoint trigger fires on reports only. */
+		public boolean originReport() {
+			return _originReport;
+		}
+
+		/** Whether a datapoint trigger fires on commands only. */
+		public boolean originCommand() {
+			return _originCommand;
+		}
+
+		/** The reasons of a start trigger. */
+		public Set<StartReason> reasons() {
+			return _reasons;
+		}
+
+		/** The condition of a match trigger. */
+		public Node condition() {
+			return _condition;
+		}
+
+		/** The timer index of a timer trigger, the parameter index of a parameter trigger. */
+		public int ref() {
+			return _ref;
+		}
+
+		/** The duration of a silence trigger. */
+		public Node after() {
+			return _after;
 		}
 	}
 
@@ -914,6 +999,36 @@ public final class RuleSet {
 		/** The kind. */
 		public ActionKind kind() {
 			return _kind;
+		}
+
+		/** The datapoint of a write or read. */
+		public String datapoint() {
+			return _datapoint;
+		}
+
+		/** Whether a write writes only a changed value. */
+		public boolean onlyOnChange() {
+			return _onlyOnChange;
+		}
+
+		/** The value of a write or setParameter, the duration of a timer start; <code>null</code> for none. */
+		public Node expr() {
+			return _expr;
+		}
+
+		/** The timer of a timer action, the parameter of a setParameter. */
+		public int ref() {
+			return _ref;
+		}
+
+		/** The level of a log action. */
+		public Level level() {
+			return _level;
+		}
+
+		/** The parts of the message of a log action: texts and expressions. */
+		public List<Object> parts() {
+			return Collections.unmodifiableList(_parts);
 		}
 	}
 

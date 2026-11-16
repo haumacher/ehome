@@ -21,24 +21,29 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
-import de.haumacher.ehome.runtime.ControllerClient.Answer;
+import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.rules.Schedule;
-import de.haumacher.ehome.runtime.Json.JsonException;
+import de.haumacher.ehome.runtime.ControllerClient.Answer;
+import de.haumacher.ehome.runtime.binary.CompileException;
+import de.haumacher.ehome.runtime.binary.ImageDecoder;
+import de.haumacher.ehome.runtime.binary.ImageDecoder.DecodeException;
+import de.haumacher.ehome.runtime.binary.Layout;
 
 /**
- * What differs between the image a controller stores (<code>GET /api/image</code>, byte for byte as
- * it was deployed) and the image E-Home is about to deploy to it (haumacher/ehome #47).
+ * What differs between the image a controller runs (<code>GET /api/image</code>, the binary image read
+ * back into its source form, haumacher/ehome #176) and the image E-Home is about to deploy to it
+ * (haumacher/ehome #47).
  *
  * <p>
  * The image to deploy carries the next revision and the time of now, so its bytes always differ from
  * the stored ones. Whether the project changed since is therefore decided on the image of the project
- * as it would have been written with the stored image's revision and time: when its bytes are the
- * stored bytes, there is nothing to deploy. Otherwise the comparison names the stored image's project
+ * as it would have been written with the stored image's revision and time: when it reads back as the
+ * stored image does, there is nothing to deploy. Otherwise the comparison names the stored image's project
  * and revision, the numbers of datapoints, locations and functions of both, the parts of the image
  * (its top level members) that differ, and the rules and schedules of the stored image, which E-Home
  * does not author and a deployment removes, and the inhabitant's schedule values the new image would
- * drop (homecontrol #58). The confirmation of a deployment warns when the controller reads an older
- * image schema than the image's.
+ * drop (homecontrol #58). The confirmation of a deployment warns when the controller reads no binary
+ * image or the image is larger than its slot.
  * </p>
  */
 public final class ImageComparison {
@@ -106,10 +111,11 @@ public final class ImageComparison {
 			return new Result(State.UNKNOWN, null, text(I18NConstants.COMPARE_FAILED__STATUS_ERROR
 				.fill(Integer.valueOf(answer.status()), error != null ? error : answer.text().strip())));
 		}
-		Map<?, ?> stored;
+		// The controller's binary image read back into its source form (haumacher/ehome #176).
+		Map<String, Object> stored;
 		try {
-			stored = Json.parse(answer.text(), ImageValidator.MAX_NESTING) instanceof Map<?, ?> map ? map : null;
-		} catch (JsonException ex) {
+			stored = ImageDecoder.decode(answer.bytes());
+		} catch (DecodeException ex) {
 			stored = null;
 		}
 		Map<?, ?> header = stored != null && stored.get(HEADER) instanceof Map<?, ?> map ? map : null;
@@ -123,11 +129,12 @@ public final class ImageComparison {
 			? own.get("projectId") : null);
 
 		if (sameProject && revision != null && generatedAt != null
-			&& RuntimeImage.build(project, revision.longValue(), generatedAt).getText().equals(answer.text())) {
+			&& Json.write(stored).equals(Json.write(view(RuntimeImage.build(project, revision.longValue(), generatedAt))))) {
 			return new Result(State.IDENTICAL, revision,
 				text(I18NConstants.COMPARE_IDENTICAL__REVISION.fill(revision)));
 		}
 
+		Map<?, ?> next = view(image);
 		List<String> lines = new ArrayList<>();
 		if (sameProject) {
 			lines.add(text(I18NConstants.COMPARE_REVISION__STORED_NEXT.fill(revision == null ? "?" : revision,
@@ -137,20 +144,36 @@ public final class ImageComparison {
 				Objects.toString(header.get("name"), ""), revision == null ? "?" : revision)));
 		}
 		lines.add(counts(stored, true));
-		lines.add(counts(image.getJson(), false));
-		Set<String> changed = changedParts(stored, image.getJson());
+		lines.add(counts(next, false));
+		Set<String> changed = changedParts(stored, next);
 		if (!changed.isEmpty()) {
 			lines.add(text(I18NConstants.COMPARE_CHANGED_PARTS__PARTS.fill(String.join(", ", changed))));
 		}
-		int rules = missing(stored.get("rules"), image.getJson().get("rules"));
-		int schedules = missing(stored.get("schedules"), image.getJson().get("schedules"));
+		int rules = missing(stored.get("rules"), next.get("rules"));
+		int schedules = missing(stored.get("schedules"), next.get("schedules"));
 		if (rules + schedules > 0) {
 			lines.add(text(I18NConstants.COMPARE_RULES_REMOVED__RULES_SCHEDULES.fill(Integer.valueOf(rules),
 				Integer.valueOf(schedules))));
 		}
-		lines.addAll(droppedOverrides(stored.get("schedules"), image.getJson().get("schedules")));
-		lines.addAll(droppedTimelines(stored.get("rules"), image.getJson().get("rules")));
+		lines.addAll(droppedOverrides(stored.get("schedules"), next.get("schedules")));
+		lines.addAll(droppedTimelines(stored.get("rules"), next.get("rules")));
 		return new Result(State.DIFFERENT, revision, String.join("\n", lines));
+	}
+
+	/**
+	 * The image as the controller would show it: its source compiled and read back, so that it compares
+	 * with the controller's image member by member (the normal form of {@link ImageDecoder}); the source
+	 * itself where it does not compile (an invalid image, which is never sent).
+	 */
+	static Map<String, Object> view(RuntimeImage image) {
+		if (!image.validate().isValid()) {
+			return image.getJson();
+		}
+		try {
+			return ImageDecoder.decode(image.compile(null));
+		} catch (CompileException | DecodeException ex) {
+			return image.getJson();
+		}
 	}
 
 	/**
@@ -287,67 +310,24 @@ public final class ImageComparison {
 	}
 
 	/**
-	 * The schema below which the deploy confirmation warns ({@link #schemaWarning(String)}). The
-	 * additions of a newer schema are refused by the deployer itself only where the image uses them
-	 * (the parameter ids of schema 1.5, {@link Deployer#parameterIdsRefusal(String, Object)}), so an
-	 * image without them goes to a controller reading 1.4 as before, without a warning.
-	 */
-	static final String WARNED_SCHEMA = "1.4";
-
-	/**
-	 * The line of the deploy confirmation that warns of a controller reading an older image schema than
-	 * the image's (homecontrol <code>spec/runtime-image.md</code> I4): its firmware refuses the
-	 * adjustable schedule members of schema 1.2. <code>null</code> when the controller reads the
-	 * image's schema, or could not be asked.
+	 * The format of the binary runtime image the controller of the project reports it reads: from its
+	 * E-Home connection (its <code>auth</code>), else from <code>GET /api/status</code>
+	 * (<code>device.format</code>).
 	 *
-	 * @param reported
-	 *        The newest schema the controller reports it reads, <code>null</code> when it reports none.
+	 * @return The reported format; <code>""</code> when the controller could not be asked;
+	 *         <code>null</code> when it reports none (a firmware reading JSON images).
 	 */
-	public static String schemaWarning(String reported) {
-		if (reported == null) {
-			return text(I18NConstants.CONFIRM_SCHEMA_UNKNOWN__IMAGE.fill(RuntimeImage.SCHEMA_VERSION));
-		}
-		int[] have = version(reported);
-		int[] need = version(WARNED_SCHEMA);
-		if (have != null && (have[0] > need[0] || have[0] == need[0] && have[1] >= need[1])) {
-			return null;
-		}
-		return text(I18NConstants.CONFIRM_SCHEMA_OLDER__READS_IMAGE.fill(reported, RuntimeImage.SCHEMA_VERSION));
-	}
-
-	private static int[] version(String text) {
-		String[] parts = text.trim().split("\\.");
-		if (parts.length != 2) {
-			return null;
-		}
-		try {
-			return new int[] { Integer.parseInt(parts[0]), Integer.parseInt(parts[1]) };
-		} catch (NumberFormatException ex) {
-			return null;
-		}
-	}
-
-	/**
-	 * The newest image schema the controller of the project reports it reads: from its E-Home
-	 * connection (its <code>auth</code>), else from <code>GET /api/status</code>
-	 * (<code>device.schema</code>).
-	 *
-	 * @return The reported version; <code>""</code> when the controller could not be asked;
-	 *         <code>null</code> when it reports none.
-	 */
-	static String reportedSchema(TLObject controller) {
+	static String reportedFormat(TLObject controller) {
 		ControllerClient client = Deployer.client(controller);
 		if (client.connection() != null) {
-			return client.connection().schema();
+			return client.connection().format();
 		}
 		try {
 			Answer answer = client.status();
 			if (!answer.ok()) {
 				return "";
 			}
-			Object device = answer.body() == null ? null : answer.body().get("device");
-			Object schema = device instanceof Map<?, ?> map ? map.get("schema") : null;
-			return schema instanceof String text && !text.isBlank() ? text : null;
+			return ControllerStatus.format(answer.body());
 		} catch (IOException ex) {
 			return "";
 		}
@@ -355,10 +335,10 @@ public final class ImageComparison {
 
 	/**
 	 * The question asked before the image of the project is deployed: whether to deploy, with what
-	 * differs from the image the controller stores; whether to deploy again if nothing differs. Below
+	 * differs from the image the controller runs; whether to deploy again if nothing differs. Below
 	 * it the warnings: the datapoints the inhabitant's pages show by their id, having no name
-	 * ({@link UnnamedDatapoints}, haumacher/ehome #114), a controller reading an older schema, an image
-	 * larger than the controller can store.
+	 * ({@link UnnamedDatapoints}, haumacher/ehome #114), a controller whose firmware reads no binary
+	 * image, an image larger than the controller's image slot (both refused when deployed).
 	 */
 	public static String confirmation(TLObject project, Instant now) {
 		TLObject controller = Deployer.controller(project);
@@ -381,18 +361,24 @@ public final class ImageComparison {
 			text += "\n\n" + String.join("\n", unnamed);
 		}
 		if (result.state() != State.UNKNOWN) {
-			String reported = reportedSchema(controller);
-			String warning = "".equals(reported) ? null : schemaWarning(reported);
-			if (warning != null) {
-				text += "\n\n" + warning;
+			String reported = reportedFormat(controller);
+			ResKey format = "".equals(reported) ? null : Deployer.formatRefusal(reported, controller.tValueByName("name"));
+			if (format != null) {
+				text += "\n\n" + text(format);
 			}
-			// An image larger than the controller can store and load again (homecontrol #52) runs, but may
-			// not survive a restart; a controller that reports no limit gets no warning.
-			Long storable = ControllerStatus.read(Deployer.client(controller)).storable();
-			if (storable != null) {
-				ResKey tooLarge = Deployer.storableWarning(image.getBytes().length, storable);
-				if (tooLarge != null) {
-					text += "\n\n" + text(tooLarge);
+			// An image larger than the controller's image slot is refused before it is sent.
+			ControllerClient client = Deployer.client(controller);
+			Long slot = Deployer.reportedSlot(client, ControllerStatus.read(client));
+			if (slot != null && image.validate().isValid()) {
+				try {
+					int bytes = image.compile(null).length
+						+ (InstallationKeys.signer(project, controller) != null ? Layout.SIGNATURE_SIZE : 0);
+					ResKey tooLarge = Deployer.slotRefusal(bytes, slot);
+					if (tooLarge != null) {
+						text += "\n\n" + text(tooLarge);
+					}
+				} catch (CompileException ex) {
+					// Refused with its reason when deployed.
 				}
 			}
 		}

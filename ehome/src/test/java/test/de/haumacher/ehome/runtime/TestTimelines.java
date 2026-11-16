@@ -36,7 +36,6 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.rules.ParameterStore;
 import de.haumacher.ehome.runtime.DatapointNames;
-import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.ImageComparison;
 import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.Json;
@@ -53,8 +52,7 @@ import de.haumacher.ehome.simulation.Simulation;
  * homecontrol <code>spec/rules.md</code> 2.8, 7.13, 8.8): the heating program of the issue built
  * through the model exports as the specification's image <code>heating-timeline.json</code>, each
  * refusal of the timeline shows at its field, the state datapoint is named, referenced by a rule and
- * a control page and simulated, the deploy needs a firmware reading schema 1.7, and a deploy that
- * removes a state the deployed timeline names warns.
+ * a control page and simulated, and a deploy that removes a state the deployed timeline names warns.
  *
  * <p>
  * The project is built without an ETS import: two group addresses of DPT 20.102 (HVAC mode) of a
@@ -442,28 +440,6 @@ public class TestTimelines extends BasicTestCase {
 				tx.commit();
 			}
 		}
-	}
-
-	/** The deploy needs a controller reading schema 1.7: refused with the reason for an older one. */
-	public void testSchemaGate() throws Exception {
-		Map<String, Object> json = RuntimeImage.build(_project, 1, NOW).getJson();
-		assertNull(Deployer.schema17Refusal(json, "1.7", "Fake"));
-		assertNull(Deployer.schema17Refusal(json, "2.0", "Fake"));
-		String refusal = Resources.getInstance().getString(Deployer.schema17Refusal(json, "1.6", "Fake"));
-		assertTrue(refusal, refusal.contains("heating") && refusal.contains("1.7") && refusal.contains("1.6"));
-		assertNotNull(Deployer.schema17Refusal(json, null, "Fake"));
-
-		// Without a timeline and labels, a page naming the state still needs 1.7.
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			_timeline.tDelete();
-			for (TLObject state : List.of(_comfort, _standby, _night)) {
-				state.tUpdateByName("label", null);
-			}
-			tx.commit();
-		}
-		json = RuntimeImage.build(_project, 1, NOW).getJson();
-		refusal = Resources.getInstance().getString(Deployer.schema17Refusal(json, "1.6", "Fake"));
-		assertTrue(refusal, refusal.contains("rule/heating/state"));
 	}
 
 	/**

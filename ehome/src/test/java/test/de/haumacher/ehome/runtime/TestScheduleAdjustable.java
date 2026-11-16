@@ -58,8 +58,7 @@ import de.haumacher.ehome.simulation.Simulation.Entry;
  * editor exported as the device's conformance case <code>accept-schedule-adjustable</code> has it,
  * the import of that case and its export again, the refusals at the fields of the entry, the datapoint
  * <code>schedule/&lt;id&gt;/time</code> in a rule and the simulation, the warnings of the deploy
- * confirmation about the inhabitant's values a new image would drop and about a controller reading
- * an older schema.
+ * confirmation about the inhabitant's values a new image would drop.
  */
 @SuppressWarnings("javadoc")
 public class TestScheduleAdjustable extends BasicTestCase {
@@ -238,53 +237,6 @@ public class TestScheduleAdjustable extends BasicTestCase {
 			text(I18NConstants.COMPARE_OVERRIDE_NOT_ADJUSTABLE__ENTRY_MEMBER.fill("workdayMorning", "days")),
 			text(I18NConstants.COMPARE_OVERRIDE_NARROWED__ENTRY_MEMBER.fill("christmasEve", "time"))),
 			ImageComparison.droppedOverrides(stored, next));
-	}
-
-	/**
-	 * The deploy confirmation warns of a controller reading an older schema, or reporting none.
-	 */
-	public void testSchemaWarning() throws Exception {
-		FakeController fake = new FakeController(TestImageComparison.TOKEN, 262144);
-		TLObject project = TestRuleAuthoring.createProject();
-		List<TLObject> controllers = new ArrayList<>();
-		try {
-			TLObject controller = TestImageComparison.controller(fake.getPort());
-			controllers.add(controller);
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				ControllerFixture.own(project, controller);
-				tx.commit();
-			}
-			String older = text(I18NConstants.CONFIRM_SCHEMA_OLDER__READS_IMAGE.fill("1.1", "1.5"));
-			assertEquals("The controller reads the image schema up to 1.1; this image is 1.5: update the controller's "
-				+ "firmware first, or what is newer in the image (adjustable schedules) is refused.", older);
-			// The confirmation names the schema of the image E-Home writes now.
-			older = text(I18NConstants.CONFIRM_SCHEMA_OLDER__READS_IMAGE.fill("1.1", RuntimeImage.SCHEMA_VERSION));
-			String unknown = text(I18NConstants.CONFIRM_SCHEMA_UNKNOWN__IMAGE.fill(RuntimeImage.SCHEMA_VERSION));
-
-			String current = ImageComparison.confirmation(project, NOW);
-			assertFalse(current, current.contains(older) || current.contains(unknown));
-
-			fake.setSchema("1.1");
-			String confirmation = ImageComparison.confirmation(project, NOW);
-			assertTrue(confirmation, confirmation.endsWith("\n\n" + older));
-
-			fake.setSchema(null);
-			confirmation = ImageComparison.confirmation(project, NOW);
-			assertTrue(confirmation, confirmation.endsWith("\n\n" + unknown));
-
-			fake.setSchema("1.4");
-			assertNull(ImageComparison.schemaWarning("1.4"));
-			assertEquals(current, ImageComparison.confirmation(project, NOW));
-
-			// Unreachable: the comparison says so, no schema line.
-			fake.stop();
-			confirmation = ImageComparison.confirmation(project, NOW);
-			assertFalse(confirmation, confirmation.contains(older) || confirmation.contains(unknown));
-		} finally {
-			fake.stop();
-			SharedData.deleteProjects(List.of(project));
-			SharedData.deleteProjects(controllers);
-		}
 	}
 
 	/**

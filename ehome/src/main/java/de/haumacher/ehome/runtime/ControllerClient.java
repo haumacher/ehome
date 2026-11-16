@@ -49,8 +49,17 @@ public final class ControllerClient {
 	 *        The JSON object of the body; empty if the body is no JSON object.
 	 * @param text
 	 *        The body as text.
+	 * @param bytes
+	 *        The body as it came, byte for byte (the binary runtime image of <code>GET /api/image</code>).
 	 */
-	public record Answer(int status, Map<String, Object> body, String text) {
+	public record Answer(int status, Map<String, Object> body, String text, byte[] bytes) {
+
+		/**
+		 * An answer whose body is the given text.
+		 */
+		public Answer(int status, Map<String, Object> body, String text) {
+			this(status, body, text, text.getBytes(StandardCharsets.UTF_8));
+		}
 
 		/**
 		 * Whether the status is 2xx.
@@ -207,40 +216,25 @@ public final class ControllerClient {
 		return call("GET", "/api/status", null, null, null);
 	}
 
-	/** The HTTP header carrying the signature of a runtime image (homecontrol issue #35). */
-	public static final String SIGNATURE_HEADER = "X-Image-Signature";
+	/** The content type of the binary runtime image (homecontrol <code>spec/api.md</code>, "Runtime image"). */
+	public static final String IMAGE_CONTENT_TYPE = "application/octet-stream";
 
 	/**
-	 * <code>PUT /api/image</code> with the given image, unsigned.
+	 * <code>PUT /api/image</code> with the given binary image (homecontrol <code>spec/api.md</code>,
+	 * "Runtime image", haumacher/ehome #176), its signature inside: over the E-Home connection announced
+	 * with <code>length</code> and sent in binary frames, over HTTP as an
+	 * <code>application/octet-stream</code> body.
 	 */
 	public Answer putImage(byte[] image) throws IOException {
-		return putImage(image, null);
-	}
-
-	/**
-	 * <code>PUT /api/image</code> with the given image and its signature (homecontrol
-	 * <code>spec/api.md</code>, "Where the signature travels"): over the E-Home connection the member
-	 * <code>signature</code> of the request next to <code>length</code>, the image in binary frames;
-	 * over HTTP the header {@value #SIGNATURE_HEADER}.
-	 *
-	 * @param signature
-	 *        The signature (128 hex digits) of the exact bytes, <code>null</code> for an unsigned image.
-	 */
-	public Answer putImage(byte[] image, String signature) throws IOException {
-		Map<String, Object> members = signature == null ? Collections.emptyMap() : Map.of("signature", signature);
 		if (_connection != null && _offline == null) {
-			// Byte for byte, whatever its size: the controller stores the image as it comes, and the
-			// signature covers these bytes.
-			return _connection.request("PUT", "/api/image", image, true, members, _timeout);
+			return _connection.request("PUT", "/api/image", image, true, _timeout);
 		}
-		Map<String, String> headers =
-			signature == null ? Collections.emptyMap() : Map.of(SIGNATURE_HEADER, signature);
-		return call("PUT", "/api/image", null, RuntimeImage.CONTENT_TYPE, image, headers);
+		return call("PUT", "/api/image", null, IMAGE_CONTENT_TYPE, image, Collections.emptyMap());
 	}
 
 	/**
-	 * <code>GET /api/image</code>: the stored image, byte for byte as it was deployed (404
-	 * <code>image.none</code> when none is stored).
+	 * <code>GET /api/image</code>: the loaded binary image, byte for byte as it is in the controller's
+	 * slot ({@link Answer#bytes()}; 404 <code>image.none</code> when none is loaded).
 	 */
 	public Answer getImage() throws IOException {
 		return call("GET", "/api/image", null, null, null);
@@ -327,7 +321,8 @@ public final class ControllerClient {
 			Thread.currentThread().interrupt();
 			throw new IOException("Interrupted while waiting for the controller.", ex);
 		}
-		String text = new String(response.body(), StandardCharsets.UTF_8);
+		byte[] bytes = response.body();
+		String text = new String(bytes, StandardCharsets.UTF_8);
 		Map<String, Object> body = Collections.emptyMap();
 		try {
 			if (!text.isBlank() && Json.parse(text, MAX_NESTING) instanceof Map<?, ?> map) {
@@ -338,7 +333,7 @@ public final class ControllerClient {
 		} catch (JsonException ex) {
 			// Not JSON: the text is kept.
 		}
-		return new Answer(response.statusCode(), body, text);
+		return new Answer(response.statusCode(), body, text, bytes);
 	}
 
 }

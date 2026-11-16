@@ -176,7 +176,13 @@ public final class ControllerConnection {
 
 	private volatile String _build;
 
-	private volatile String _schema;
+	private volatile String _format;
+
+	private volatile Long _slot;
+
+	private volatile String _refused;
+
+	private volatile String _refusedReason;
 
 	private volatile Instant _since;
 
@@ -256,12 +262,53 @@ public final class ControllerConnection {
 	}
 
 	/**
-	 * The newest runtime image schema the controller's firmware reads (<code>schema</code> in its
-	 * <code>auth</code> or status, homecontrol <code>spec/api.md</code>), <code>null</code> when it
-	 * reports none (a firmware before schema 1.2).
+	 * The newest format of the binary runtime image the controller's firmware reads
+	 * (<code>format</code> of its <code>auth</code> or of the <code>device</code> of its status,
+	 * homecontrol <code>spec/runtime-image.md</code> section 11); <code>null</code> when it reports
+	 * none (a firmware up to 1.2, which read JSON images).
 	 */
-	public String schema() {
-		return _schema;
+	public String format() {
+		return _format;
+	}
+
+	/**
+	 * The size of the controller's image slot in bytes (<code>slot</code> of its <code>auth</code>,
+	 * <code>image.slot</code> of its status): the largest image it takes; <code>null</code> when it
+	 * reports none.
+	 */
+	public Long slot() {
+		return _slot;
+	}
+
+	/**
+	 * The code of the refusal of the image the controller last tried to load
+	 * (<code>image.refused</code> of its <code>auth</code> or status: a deployment, or the slot's image
+	 * at boot), after which it runs without an image; <code>null</code> while it runs one or reports
+	 * none.
+	 */
+	public String refused() {
+		return _refused;
+	}
+
+	/**
+	 * The first refusal of {@link #refused()} as <code>path: reason</code>, <code>null</code> for none.
+	 */
+	public String refusedReason() {
+		return _refusedReason;
+	}
+
+	private void image(Object image, Object slot) {
+		if (slot instanceof Number number) {
+			_slot = Long.valueOf(number.longValue());
+		}
+		if (image instanceof Map<?, ?> map) {
+			if (map.get("slot") instanceof Number number) {
+				_slot = Long.valueOf(number.longValue());
+			}
+			boolean loaded = Boolean.TRUE.equals(map.get("loaded"));
+			_refused = loaded ? null : text(map.get("refused"));
+			_refusedReason = loaded ? null : text(map.get("reason"));
+		}
 	}
 
 	/**
@@ -488,7 +535,8 @@ public final class ControllerConnection {
 		}
 		// The body as it came, byte for byte (the runtime image is compared so): not embedded into the
 		// envelope's JSON, which would lose the whitespace around it.
-		String text = new String(stream.toByteArray(), StandardCharsets.UTF_8);
+		byte[] bytes = stream.toByteArray();
+		String text = new String(bytes, StandardCharsets.UTF_8);
 		Map<String, Object> body = Collections.emptyMap();
 		if (!text.isBlank()) {
 			try {
@@ -502,7 +550,7 @@ public final class ControllerConnection {
 			}
 		}
 		int status = head.get("status") instanceof Number number ? number.intValue() : 0;
-		pending.complete(new Answer(status, body, text));
+		pending.complete(new Answer(status, body, text, bytes));
 	}
 
 	private void refuseOrIgnore(String problem) {
@@ -539,7 +587,8 @@ public final class ControllerConnection {
 		_installation = credentials.installation();
 		_version = text(message.get("version"));
 		_build = text(message.get("build"));
-		_schema = text(message.get("schema"));
+		_format = text(message.get("format"));
+		image(message.get("image"), message.get("slot"));
 		_deviceKey = text(message.get("key"));
 		_since = Instant.now();
 		_state = State.READY;
@@ -579,9 +628,9 @@ public final class ControllerConnection {
 		if (message.get("device") instanceof Map<?, ?> device) {
 			String version = text(device.get("version"));
 			String build = text(device.get("build"));
-			String schema = text(device.get("schema"));
-			if (schema != null) {
-				_schema = schema;
+			String format = text(device.get("format"));
+			if (format != null) {
+				_format = format;
 			}
 			boolean changed = false;
 			if (version != null && !version.equals(_version)) {
@@ -595,6 +644,9 @@ public final class ControllerConnection {
 			if (changed) {
 				ControllerConnections.firmwareChanged(this);
 			}
+		}
+		if (message.containsKey("image")) {
+			image(message.get("image"), null);
 		}
 		// Visible only after the write of the firmware is queued: whoever sees the status and then waits
 		// for the knowledge base sees the firmware too.
@@ -686,10 +738,9 @@ public final class ControllerConnection {
 	 * members of the request message.
 	 *
 	 * @param members
-	 *        Members put into the request message after <code>length</code>, such as the
-	 *        <code>signature</code> of a runtime image (homecontrol <code>spec/api.md</code>, "Where the
-	 *        signature travels"). A request with members sends its body as binary frames: the members
-	 *        belong to the exact bytes.
+	 *        Members put into the request message after <code>length</code>. A request with members
+	 *        sends its body as binary frames: the members belong to the exact bytes. (The binary runtime
+	 *        image carries its signature inside, homecontrol <code>spec/runtime-image.md</code> 9.17.)
 	 */
 	public Answer request(String method, String path, byte[] body, boolean binary, Map<String, Object> members,
 			Duration timeout) throws IOException {

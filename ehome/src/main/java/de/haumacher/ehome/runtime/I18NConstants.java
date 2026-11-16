@@ -102,11 +102,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey4 DEPLOY_ACCEPTED__REVISION_DATAPOINTS_LOCATIONS_BYTES;
 
 	/**
-	 * @en The controller runs the image but could not store it ({0}); after a restart it loads the previous one.
-	 */
-	public static ResKey1 DEPLOY_NOT_STORED__ERROR;
-
-	/**
 	 * @en E-Home signed the image with the installation key {0}, and the device expects another key (its reason names it): compare the fingerprints in the tab Controller of the project; the owner accepts the project''s key on the device.
 	 */
 	public static ResKey1 DEPLOY_REFUSED_SIGNED__FINGERPRINT;
@@ -140,11 +135,6 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The controller has no image loaded.
 	 */
 	public static ResKey STATUS_NO_IMAGE;
-
-	/**
-	 * @en The controller has no image loaded; the last one it was given was refused ({0}).
-	 */
-	public static ResKey1 STATUS_NO_IMAGE_REFUSED__CODE;
 
 	/**
 	 * @en The controller runs project {0}, revision {1} ({2}), loaded by {3}.
@@ -708,24 +698,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey BINDING_SCHEDULE_TIME;
 
 	/**
-	 * @en The controller reads the image schema up to {0}; this image is {1}: update the controller''s firmware first, or what is newer in the image (adjustable schedules) is refused.
-	 */
-	public static ResKey2 CONFIRM_SCHEMA_OLDER__READS_IMAGE;
-
-	/**
-	 * @en The image has {0} bytes, more than the {1} bytes the controller can store and load again: it will run, but may not survive a restart of the controller.
-	 */
-	public static ResKey2 CONFIRM_TOO_LARGE__BYTES_STORABLE;
-
-	/**
 	 * @en Datapoint {0} has no name; the controller shows its id.
 	 */
 	public static ResKey1 DEPLOY_UNNAMED_DATAPOINT__ID;
-
-	/**
-	 * @en The controller does not report which image schema it reads (a firmware before schema 1.2); this image is {0}: update the controller''s firmware first, or what is newer in the image (adjustable schedules) is refused.
-	 */
-	public static ResKey1 CONFIRM_SCHEMA_UNKNOWN__IMAGE;
 
 	/**
 	 * @en Schedule entry {0}: a value of {1} the inhabitant set on the controller would be dropped, since {1} is no longer adjustable.
@@ -991,86 +966,6 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The output ''{1}'' of the virtual device {0} is bound to {2}, which the rule {3} writes too: both command it.
 	 */
 	public static ResKey4 NOTE_BLOCK_OUTPUT_WRITTEN_BY_RULE__BLOCK_PORT_DATAPOINT_RULE;
-
-	/**
-	 * @en Not deployed: the image has virtual devices, which need image schema 1.3; the controller {0} reads schema {1} and would run none of them. Update its firmware first.
-	 */
-	public static ResKey2 DEPLOY_REFUSED_BLOCKS_SCHEMA__CONTROLLER_SCHEMA;
-
-	/**
-	 * @en Not deployed: the image has virtual devices, which need image schema 1.3; the controller {0} reports no schema (a firmware reading at most 1.1) and would run none of them. Update its firmware first.
-	 */
-	public static ResKey1 DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER;
-
-	/**
-	 * @en Not deployed: the image has Zigbee remotes as buttons, which need image schema 1.4; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey2 DEPLOY_REFUSED_PRESSES_SCHEMA__CONTROLLER_SCHEMA;
-
-	/**
-	 * @en Not deployed: the image has Zigbee remotes as buttons, which need image schema 1.4; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey1 DEPLOY_REFUSED_PRESSES_NO_SCHEMA__CONTROLLER;
-
-	/**
-	 * @en Not deployed: the image has rule parameters whose id is no identifier (such as max-helligkeit), which need image schema 1.5; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey2 DEPLOY_REFUSED_PARAMETER_IDS_SCHEMA__CONTROLLER_SCHEMA;
-
-	/**
-	 * @en Not deployed: the image has rule parameters whose id is no identifier (such as max-helligkeit), which need image schema 1.5; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey1 DEPLOY_REFUSED_PARAMETER_IDS_NO_SCHEMA__CONTROLLER;
-
-	/**
-	 * @en Not deployed: the dimmer {2} has its switching command without a level command, which needs image schema 1.6; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey3 DEPLOY_REFUSED_DIMMER_SCHEMA__CONTROLLER_SCHEMA_FUNCTION;
-
-	/**
-	 * @en Not deployed: the dimmer {1} has its switching command without a level command, which needs image schema 1.6; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey2 DEPLOY_REFUSED_DIMMER_NO_SCHEMA__CONTROLLER_FUNCTION;
-
-	/**
-	 * @en Not deployed: the climate function {2} reports its heating as a number (an actuating value), which needs image schema 1.6; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey3 DEPLOY_REFUSED_HEATING_SCHEMA__CONTROLLER_SCHEMA_FUNCTION;
-
-	/**
-	 * @en Not deployed: the climate function {1} reports its heating as a number (an actuating value), which needs image schema 1.6; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey2 DEPLOY_REFUSED_HEATING_NO_SCHEMA__CONTROLLER_FUNCTION;
-
-	/**
-	 * @en Not deployed: a rule writes the application datapoint {2}, which the user may not change (not writable); that needs image schema 1.6; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey3 DEPLOY_REFUSED_RULE_WRITE_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT;
-
-	/**
-	 * @en Not deployed: a rule writes the application datapoint {1}, which the user may not change (not writable); that needs image schema 1.6; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey2 DEPLOY_REFUSED_RULE_WRITE_NO_SCHEMA__CONTROLLER_DATAPOINT;
-
-	/**
-	 * @en Not deployed: the rule {2} has a timeline or labels of its states; that needs image schema 1.7; the controller {0} reads schema {1} and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey3 DEPLOY_REFUSED_TIMELINE_SCHEMA__CONTROLLER_SCHEMA_RULE;
-
-	/**
-	 * @en Not deployed: the rule {1} has a timeline or labels of its states; that needs image schema 1.7; the controller {0} reports no schema (a firmware reading at most 1.1) and would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey2 DEPLOY_REFUSED_TIMELINE_NO_SCHEMA__CONTROLLER_RULE;
-
-	/**
-	 * @en Not deployed: the image names the state of a rule as the datapoint {2}; that needs image schema 1.7; the controller {0} reads schema {1} and has no such datapoint, so it would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey3 DEPLOY_REFUSED_STATE_DATAPOINT_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT;
-
-	/**
-	 * @en Not deployed: the image names the state of a rule as the datapoint {1}; that needs image schema 1.7; the controller {0} reports no schema (a firmware reading at most 1.1) and has no such datapoint, so it would refuse the whole image. Update its firmware first.
-	 */
-	public static ResKey2 DEPLOY_REFUSED_STATE_DATAPOINT_NO_SCHEMA__CONTROLLER_DATAPOINT;
 
 	/**
 	 * @en {0} (deleted)
@@ -2308,6 +2203,81 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en {0}: {1}
 	 */
 	public static ResKey2 FUNCTION_IN_ROOM__ROOM_CHANNEL;
+
+	/**
+	 * @en The controller has no image loaded; the last one it was given was refused ({0}: {1}).
+	 */
+	public static ResKey2 STATUS_NO_IMAGE_REFUSED__CODE_REASON;
+
+	/**
+	 * @en The image could not be compiled into the binary form the controller runs ({0}: {1}); nothing was sent.
+	 */
+	public static ResKey2 DEPLOY_COMPILE_FAILED__PATH_REASON;
+
+	/**
+	 * @en The image has {0} bytes, the controller holds {1}.
+	 */
+	public static ResKey2 DEPLOY_TOO_LARGE__BYTES_SLOT;
+
+	/**
+	 * @en The controller {0} reports no image format: its firmware reads JSON images, which E-Home no longer writes. Update the firmware (flash it once over USB), then deploy.
+	 */
+	public static ResKey1 DEPLOY_REFUSED_NO_FORMAT__CONTROLLER;
+
+	/**
+	 * @en The controller {0} reads the image format {1}; E-Home writes format {2}. Update the firmware, then deploy.
+	 */
+	public static ResKey3 DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE;
+
+	/**
+	 * @en The controller now runs no image, and E-Home knows no earlier valid deployment it could send again: deploy again once the cause is fixed.
+	 */
+	public static ResKey DEPLOY_NO_LAST_VALID;
+
+	/**
+	 * @en The controller then ran no image; E-Home sent the last valid deployment (revision {0}) again, and the controller runs it.
+	 */
+	public static ResKey1 DEPLOY_RESENT__REVISION;
+
+	/**
+	 * @en The controller then ran no image; E-Home sent the last valid deployment (revision {0}) again, but the controller refused it as well (see the entry sent again).
+	 */
+	public static ResKey1 DEPLOY_RESEND_FAILED__REVISION;
+
+	/**
+	 * @en Sent again: the last valid deployment (revision {0}), after an image that did not load; the controller runs it.
+	 */
+	public static ResKey1 RESEND_ACCEPTED__REVISION;
+
+	/**
+	 * @en Sent again: the last valid deployment (revision {0}), after an image that did not load; refused as well.
+	 */
+	public static ResKey1 RESEND_REFUSED__REVISION;
+
+	/**
+	 * @en The controller reported at its connection that the image it tried to load was refused ({0}: {1}) and that it runs none.
+	 */
+	public static ResKey2 DEPLOY_REPORTED_REFUSED__CODE_REASON;
+
+	/**
+	 * @en The controller runs revision {1} of project {0}: a binary image of format {2}, {3} bytes, CRC {4}.
+	 */
+	public static ResKey5 CONTROLLER_IMAGE__PROJECT_REVISION_FORMAT_BYTES_CRC;
+
+	/**
+	 * @en It is signed.
+	 */
+	public static ResKey CONTROLLER_IMAGE_SIGNED;
+
+	/**
+	 * @en It is not signed.
+	 */
+	public static ResKey CONTROLLER_IMAGE_UNSIGNED;
+
+	/**
+	 * @en The image the controller runs cannot be read: {0}
+	 */
+	public static ResKey1 CONTROLLER_IMAGE_UNREADABLE__REASON;
 
 	static {
 		initConstants(I18NConstants.class);

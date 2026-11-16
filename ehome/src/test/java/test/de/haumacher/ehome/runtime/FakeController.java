@@ -10,42 +10,49 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 
 import de.haumacher.ehome.connection.Signatures;
-import de.haumacher.ehome.runtime.ControllerClient;
-import de.haumacher.ehome.runtime.ImageReport;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
-import de.haumacher.ehome.runtime.ImageValidator;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Json.JsonException;
+import de.haumacher.ehome.runtime.binary.ImageCompiler;
+import de.haumacher.ehome.runtime.binary.ImageDecoder;
+import de.haumacher.ehome.runtime.binary.ImageDecoder.DecodeException;
 
 /**
  * An in-process stand-in for a HomeControl controller speaking the deployment protocol (homecontrol
  * <code>spec/api.md</code>, "Runtime image" and "Status") on <code>127.0.0.1</code>.
  *
  * <p>
- * It authenticates by a bearer token (401 <code>auth.required</code>, <code>auth.token_invalid</code>),
- * refuses a body above its limit before reading it (413 <code>api.body_too_large</code>), checks an
- * image with {@link ImageValidator} (the checks of the controller's loader, pinned by the same
- * conformance cases) and answers 400 <code>image.bad_json</code>, 422 <code>image.version</code> /
- * <code>image.invalid</code>, 413 <code>image.too_large</code>, or loads the image and answers 200. A
- * test can script the next answer to <code>PUT /api/image</code> ({@link #refuseNext}), e.g. 507
- * <code>image.no_memory</code> or 500 <code>image.apply_failed</code>, which no image provokes. The
- * status (<code>GET /api/status</code>) reports the loaded image. <code>GET /api/image</code> answers
- * the stored image byte for byte (404 <code>image.none</code> without one), <code>DELETE
- * /api/image</code> unloads it (200 <code>{"ok": true, "loaded": false}</code>; a test can script the
- * storage error of the next one, {@link #storageErrorOnNextDelete()}: 500
- * <code>image.storage_error</code>, the image unloaded anyway). For a manual check, the next refusal
- * is scripted with <code>PUT /fake/refuse-next</code>. Given a storable size ({@link #setStorable(Long)},
- * homecontrol #52; for a manual check <code>PUT /fake/storable</code>), its status reports it and a
- * larger image runs without being stored. Given an installation key ({@link #setKey(String)},
- * homecontrol issue #35), it accepts only images whose signature verifies under it.
+ * It authenticates by a bearer token (401 <code>auth.required</code>, <code>auth.token_invalid</code>)
+ * and takes the binary runtime image (homecontrol <code>spec/runtime-image.md</code> section 9,
+ * <code>spec/api.md</code> "Runtime image", haumacher/ehome #176) into its image slot of the given size:
+ * refused from the header with the running image untouched (413 <code>image.too_large</code> beyond the
+ * slot, 400 <code>image.format</code> for no binary image, 422 <code>image.version</code> for another
+ * major format, 403 <code>image.unsigned</code> while it holds a key), or after the slot was erased, so
+ * that it runs no image afterwards (422 <code>image.damaged</code> for a wrong CRC, 403
+ * <code>image.bad_signature</code>, 422 <code>image.invalid</code> for an image that does not read
+ * back, {@link ImageDecoder}); else it loads the image and answers 200. A test can script the next
+ * answer to <code>PUT /api/image</code> ({@link #refuseNext}), e.g. 507 <code>image.no_memory</code>
+ * or 500 <code>image.apply_failed</code>, which no image provokes; a refusal after the erase leaves no
+ * image, as on the device. The status (<code>GET /api/status</code>) reports the format it reads
+ * ({@link #setFormat(String)}, <code>null</code>: a firmware reading JSON images), the slot and the
+ * loaded image, or the refusal of the last one. <code>GET /api/image</code> answers the loaded image
+ * byte for byte (404 <code>image.none</code> without one), <code>DELETE /api/image</code> unloads it
+ * (200 <code>{"ok": true, "loaded": false}</code>; a test can script the storage error of the next
+ * one, {@link #storageErrorOnNextDelete()}: 500 <code>image.storage_error</code>, the image unloaded
+ * anyway). For a manual check, the next refusal is scripted with <code>PUT /fake/refuse-next</code>.
+ * Given an installation key ({@link #setKey(String)}, homecontrol issue #35), it accepts only images
+ * signed with it.
  * </p>
  *
  * <p>
@@ -85,15 +92,15 @@ public class FakeController {
 
 	private Map<String, Object> _loaded;
 
-	private String _storedText;
+	private byte[] _stored;
+
+	private String _refused;
+
+	private String _refusedReason;
 
 	private int _nextStatus;
 
-	private String _schema = "1.4";
-
-	private Long _storable;
-
-	private boolean _storesBeyond;
+	private String _format = "1.0";
 
 	private Map<String, Object> _nextBody;
 
@@ -147,7 +154,6 @@ public class FakeController {
 		_server.createContext("/api/image", this::image);
 		_server.createContext("/api/status", this::status);
 		_server.createContext("/fake/refuse-next", this::script);
-		_server.createContext("/fake/storable", this::scriptStorable);
 		_server.createContext("/api/auth/session", this::session);
 		_server.createContext("/fake/monitor", this::scriptMonitor);
 		_server.createContext("/api/zigbee/export", this::zigbeeExport);
@@ -360,11 +366,11 @@ public class FakeController {
 	/**
 	 * Gives the controller an installation key (homecontrol issue #35, <code>spec/api.md</code>, "Signed
 	 * runtime images"), the public key in 64 hex digits; <code>null</code> takes it away. While it holds
-	 * one, <code>PUT /api/image</code> needs the header <code>X-Image-Signature</code> with a signature
-	 * of the body that verifies under it: 403 <code>image.unsigned</code> without, 400
-	 * <code>image.bad_signature</code> for one that is not 128 hex digits, 403
-	 * <code>image.bad_signature</code> for one that does not verify; the reason names the key's
-	 * fingerprint, as the device's does.
+	 * one, an image must be signed (its header flag, the signature its last 64 bytes, homecontrol
+	 * <code>spec/runtime-image.md</code> 9.17) and the signature verify under it: 403
+	 * <code>image.unsigned</code> from the header, with the running image untouched, or 403
+	 * <code>image.bad_signature</code> after the erase; the reason names the key's fingerprint, as the
+	 * device's does.
 	 */
 	public synchronized void setKey(String publicKey) {
 		_key = publicKey;
@@ -378,7 +384,8 @@ public class FakeController {
 	}
 
 	/**
-	 * The signature the last <code>PUT /api/image</code> came with, <code>null</code> for none.
+	 * The signature the last <code>PUT /api/image</code> carried (its last 64 bytes in hex),
+	 * <code>null</code> for an unsigned image.
 	 */
 	public synchronized String getLastSignature() {
 		return _lastSignature;
@@ -407,28 +414,56 @@ public class FakeController {
 	}
 
 	/**
-	 * Stores the given text as the image, as if it had been deployed (by another tool); a text that is
-	 * no JSON object is stored, but runs no image.
+	 * Loads the given binary image, as if it had been deployed (by another tool); bytes that are no
+	 * image are kept, but run no image.
 	 */
-	public synchronized void store(String text) {
-		Map<String, Object> image;
+	public synchronized void store(byte[] image) {
+		Map<String, Object> view;
 		try {
-			@SuppressWarnings("unchecked")
-			Map<String, Object> parsed = Json.parse(text, ImageValidator.MAX_NESTING) instanceof Map<?, ?> map
-				? (Map<String, Object>) map : null;
-			image = parsed;
-		} catch (JsonException ex) {
-			image = null;
+			view = ImageDecoder.decode(image);
+		} catch (DecodeException ex) {
+			view = null;
 		}
-		_loaded = image;
-		_storedText = text;
+		_loaded = view;
+		_stored = image.clone();
+		_refused = null;
 	}
 
 	/**
-	 * The text of the image it runs, <code>null</code> for none.
+	 * Loads the image compiled from the given source (a JSON text), as {@link #store(byte[])}; a text
+	 * that is no image is kept as it is.
+	 */
+	public void store(String source) {
+		byte[] image;
+		try {
+			image = ImageCompiler.compile(source, ImageCompiler.Options.unsigned());
+		} catch (RuntimeException ex) {
+			System.err.println("FakeController: no image (" + ex.getMessage() + "), the text is kept.");
+			image = source.getBytes(StandardCharsets.UTF_8);
+		}
+		store(image);
+	}
+
+	/**
+	 * The binary image it runs, <code>null</code> for none.
+	 */
+	public synchronized byte[] getStored() {
+		return _stored == null ? null : _stored.clone();
+	}
+
+	/**
+	 * The image it runs in its source form ({@link ImageDecoder}), as JSON text; <code>null</code> for
+	 * none.
 	 */
 	public synchronized String getStoredText() {
-		return _storedText;
+		return _loaded == null ? null : Json.write(_loaded);
+	}
+
+	/**
+	 * The image it runs in its source form, <code>null</code> for none.
+	 */
+	public synchronized Map<String, Object> getLoaded() {
+		return _loaded;
 	}
 
 	/**
@@ -466,61 +501,45 @@ public class FakeController {
 	}
 
 	/**
-	 * The newest image schema the fake reports it reads (<code>device.schema</code> of
-	 * <code>/api/status</code>, <code>schema</code> of its <code>auth</code>): <code>null</code> as a
-	 * firmware before schema 1.2, which reports none; by default 1.3.
+	 * The format of the binary runtime image the fake reports it reads (<code>device.format</code> of
+	 * <code>/api/status</code>, <code>format</code> of its <code>auth</code>): <code>null</code> as a
+	 * firmware up to 1.2, which read JSON images and reports none; by default 1.0.
 	 */
-	public String getSchema() {
-		return _schema;
+	public synchronized String getFormat() {
+		return _format;
 	}
 
 	/**
-	 * @see #getSchema()
+	 * @see #getFormat()
 	 */
-	public void setSchema(String schema) {
-		_schema = schema;
+	public synchronized void setFormat(String format) {
+		_format = format;
 	}
 
 	/**
-	 * The largest image the fake reports it can store and load again (<code>image.storable</code> of
-	 * <code>/api/status</code>, homecontrol #52): <code>null</code> (the default) as a firmware before
-	 * it, which reports none. A larger image is accepted and runs, but is not stored (<code>stored:
-	 * false</code> with the controller's <code>storeError</code>).
+	 * The size of its image slot in bytes (the limit it was created with).
 	 */
-	public synchronized Long getStorable() {
-		return _storable;
+	public int getSlot() {
+		return _limit;
 	}
 
 	/**
-	 * @see #getStorable()
+	 * The code of the refusal of the last image it was given after which it runs none,
+	 * <code>null</code> for none.
 	 */
-	public synchronized void setStorable(Long storable) {
-		_storable = storable;
+	public synchronized String getRefused() {
+		return _refused;
 	}
 
 	/**
-	 * Whether an image larger than {@link #getStorable()} is stored nonetheless, as the controller does
-	 * when its store takes it but its staging could not load it again beside a failed image
-	 * (homecontrol #52: <code>stored: true</code>, a warning in its log).
+	 * As if its image did not load at boot (a power cut while it was written, homecontrol
+	 * <code>spec/runtime-image.md</code> 7): it runs no image and reports the refusal.
 	 */
-	public synchronized void setStoresBeyond(boolean storesBeyond) {
-		_storesBeyond = storesBeyond;
-	}
-
-	/**
-	 * <code>PUT /fake/storable</code> with <code>{"storable": &lt;bytes or null&gt;}</code>:
-	 * {@link #setStorable(Long)} for a manual check in the running application.
-	 */
-	private void scriptStorable(HttpExchange exchange) throws IOException {
-		Map<?, ?> body;
-		try (InputStream in = exchange.getRequestBody()) {
-			body = (Map<?, ?>) Json.parse(new String(in.readAllBytes(), StandardCharsets.UTF_8), 10);
-		} catch (JsonException ex) {
-			answer(exchange, 400, error(ex.getMessage(), "fake.bad_json"));
-			return;
-		}
-		setStorable(body.get("storable") instanceof Number number ? Long.valueOf(number.longValue()) : null);
-		answer(exchange, 200, error("scripted", "fake.ok"));
+	public synchronized void failAtBoot(String code, String reason) {
+		_loaded = null;
+		_stored = null;
+		_refused = code;
+		_refusedReason = reason;
 	}
 
 	private void status(HttpExchange exchange) throws IOException {
@@ -535,21 +554,27 @@ public class FakeController {
 		Map<String, Object> device = new LinkedHashMap<>();
 		device.put("name", "homecontrol-fake");
 		device.put("version", "0.0.0-fake");
-		if (_schema != null) {
-			device.put("schema", _schema);
+		String format = getFormat();
+		if (format != null) {
+			device.put("format", format);
 		}
 		body.put("device", device);
 		body.put("image", imageStatus());
 		answer(exchange, 200, body);
 	}
 
-	private synchronized Map<String, Object> imageStatus() {
+	/**
+	 * The member <code>image</code> of its status and of its <code>auth</code>.
+	 */
+	public synchronized Map<String, Object> imageStatus() {
 		Map<String, Object> image = new LinkedHashMap<>();
-		if (_storable != null) {
-			image.put("storable", _storable);
-		}
 		if (_loaded == null) {
 			image.put("loaded", Boolean.FALSE);
+			image.put("slot", Integer.valueOf(_limit));
+			if (_refused != null) {
+				image.put("refused", _refused);
+				image.put("reason", _refusedReason);
+			}
 			return image;
 		}
 		Map<?, ?> info = (Map<?, ?>) _loaded.get("image");
@@ -558,6 +583,10 @@ public class FakeController {
 		image.put("revision", info.get("revision"));
 		image.put("name", info.get("name"));
 		image.put("source", "api");
+		image.put("format", "1.0");
+		image.put("schemaVersion", info.get("schemaVersion"));
+		image.put("bytes", Integer.valueOf(_stored.length));
+		image.put("slot", Integer.valueOf(_limit));
 		image.put("datapoints", Integer.valueOf(size(_loaded.get("datapoints"))));
 		image.put("rules", Integer.valueOf(size(_loaded.get("rules"))));
 		image.put("schedules", Integer.valueOf(size(_loaded.get("schedules"))));
@@ -575,11 +604,16 @@ public class FakeController {
 			return;
 		}
 		if ("GET".equals(method)) {
-			String stored = getStoredText();
+			byte[] stored = getStored();
+			// Bytes E-Home cannot read (stored by a test) are answered as they are.
 			if (stored == null) {
-				answer(exchange, 404, error("no image is stored", "image.none"));
+				answer(exchange, 404, error("no image is loaded", "image.none"));
 			} else {
-				answer(exchange, 200, stored.getBytes(StandardCharsets.UTF_8));
+				exchange.getResponseHeaders().set("Content-Type", "application/octet-stream");
+				exchange.sendResponseHeaders(200, stored.length);
+				try (OutputStream out = exchange.getResponseBody()) {
+					out.write(stored);
+				}
 			}
 			return;
 		}
@@ -588,7 +622,8 @@ public class FakeController {
 			synchronized (this) {
 				_deletes++;
 				_loaded = null;
-				_storedText = null;
+				_stored = null;
+				_refused = null;
 				storageError = _storageError;
 				_storageError = false;
 			}
@@ -604,105 +639,95 @@ public class FakeController {
 		}
 		String length = exchange.getRequestHeaders().getFirst("Content-Length");
 		if (length != null && Long.parseLong(length) > _limit) {
-			answer(exchange, 413, error("the body exceeds " + _limit + " bytes", "api.body_too_large"));
+			drain(exchange);
+			answer(exchange, 413, untouched(error("the image has " + length + " bytes; the device holds at most " + _limit
+				+ " (its image slot)", "image.too_large")));
 			return;
 		}
 		byte[] bytes;
 		try (InputStream in = exchange.getRequestBody()) {
 			bytes = in.readAllBytes();
 		}
-		if (bytes.length > _limit) {
-			answer(exchange, 413, error("the body exceeds " + _limit + " bytes", "api.body_too_large"));
+		if (exchange.getRequestHeaders().getFirst("X-Image-Signature") != null) {
+			answer(exchange, 400, untouched(error("the signature is part of the binary image", "image.bad_request")));
 			return;
 		}
-		String signature = exchange.getRequestHeaders().getFirst(ControllerClient.SIGNATURE_HEADER);
 		String key;
 		synchronized (this) {
 			_puts++;
-			_lastSignature = signature;
 			key = _key;
 		}
-		if (key != null) {
-			String fingerprint = Signatures.fingerprint(key);
-			if (signature == null) {
-				answer(exchange, 403, error("the image is not signed; the device accepts only images signed with the "
-					+ "installation key " + fingerprint, "image.unsigned"));
-				return;
-			}
-			if (!signature.trim().matches("[0-9a-fA-F]{128}")) {
-				answer(exchange, 400, error("the signature is not 128 hex digits", "image.bad_signature"));
-				return;
-			}
-			if (!Signatures.verifyImage(key, bytes, signature.trim())) {
-				answer(exchange, 403, error("the signature does not verify under the installation key " + fingerprint,
-					"image.bad_signature"));
-				return;
-			}
+		if (bytes.length == 0) {
+			answer(exchange, 400, untouched(error("the body is empty", "image.missing")));
+			return;
+		}
+		if (bytes.length > _limit) {
+			answer(exchange, 413, untouched(error("the image has " + bytes.length + " bytes; the device holds at most "
+				+ _limit + " (its image slot)", "image.too_large")));
+			return;
+		}
+		// The header, before the slot is erased (spec/runtime-image.md 10.1).
+		ImageDecoder.Header header;
+		try {
+			header = ImageDecoder.header(bytes);
+		} catch (DecodeException ex) {
+			answer(exchange, 400, untouched(refusal("the image is no binary runtime image", "image.format",
+				List.of(new Refusal("header.magic", ex.getMessage())), 1)));
+			return;
+		}
+		if (header.major() != 1) {
+			answer(exchange, 422, untouched(refusal("another major format", "image.version",
+				List.of(new Refusal("header.major", "format " + header.format() + ": this firmware reads format 1 (up to 1.0)")), 1)));
+			return;
+		}
+		if (key != null && !header.signed()) {
+			answer(exchange, 403, untouched(refusal("the image is not signed; the device accepts only images signed with the "
+				+ "installation key " + Signatures.fingerprint(key), "image.unsigned", List.of(new Refusal(
+				"header.flags", "the image is not signed; the device accepts only images signed with the installation key "
+					+ Signatures.fingerprint(key))), 1)));
+			return;
 		}
 		synchronized (this) {
+			_lastSignature = header.signed() && bytes.length >= 64
+				? HexFormat.of().formatHex(bytes, bytes.length - 64, bytes.length) : null;
 			if (_nextBody != null) {
 				int status = _nextStatus;
 				Map<String, Object> body = _nextBody;
 				_nextBody = null;
+				String code = String.valueOf(body.get("code"));
+				if (GONE.contains(code)) {
+					erase(code, body);
+				}
 				body.put("loaded", Boolean.valueOf(_loaded != null));
 				body.put("revision", revision());
 				answer(exchange, status, body);
 				return;
 			}
 		}
-		if (bytes.length == 0) {
-			answer(exchange, 400, error("the body is empty", "image.missing"));
-			return;
-		}
-		String text = new String(bytes, StandardCharsets.UTF_8);
-		ImageReport report = ImageValidator.validate(text);
-		if (!report.isValid()) {
-			int status;
-			String code;
-			String message;
-			switch (report.getKind()) {
-				case SYNTAX:
-					status = 400;
-					code = "image.bad_json";
-					message = "the image is not JSON";
-					break;
-				case VERSION:
-					status = 422;
-					code = "image.version";
-					message = "the image has a newer schema version";
-					break;
-				case TOO_LARGE:
-					status = 413;
-					code = "image.too_large";
-					message = "the image is too large";
-					break;
-				default:
-					status = 422;
-					code = "image.invalid";
-					message = "the image is invalid";
+		// The slot is erased and written: a refusal from here on leaves no image (spec/runtime-image.md I9).
+		if (key != null) {
+			byte[] signed = Arrays.copyOf(bytes, bytes.length - 64);
+			if (!Signatures.verify(key, Signatures.message(signed), Arrays.copyOfRange(bytes, bytes.length - 64, bytes.length))) {
+				answer(exchange, 403, gone(refusal("the signature does not verify under the installation key " + Signatures.fingerprint(key), "image.bad_signature", List.of(new Refusal(
+					"signature", "the signature does not verify under the installation key " + Signatures.fingerprint(key))), 1)));
+				return;
 			}
-			List<Refusal> refusals = report.getRefusals();
-			Map<String, Object> body = refusal(message, code, refusals.subList(0, Math.min(12, refusals.size())),
-				refusals.size());
-			synchronized (this) {
-				body.put("loaded", Boolean.valueOf(_loaded != null));
-				body.put("revision", revision());
-			}
-			answer(exchange, status, body);
-			return;
 		}
 		Map<String, Object> image;
 		try {
-			@SuppressWarnings("unchecked")
-			Map<String, Object> parsed = (Map<String, Object>) Json.parse(text, ImageValidator.MAX_NESTING);
-			image = parsed;
-		} catch (JsonException ex) {
-			throw new IOException(ex);
+			image = ImageDecoder.decode(bytes);
+		} catch (DecodeException ex) {
+			String code = ex.getMessage().startsWith("the CRC-32") ? "image.damaged" : "image.invalid";
+			answer(exchange, 422, gone(refusal("the image is invalid", code, List.of(new Refusal("header", ex.getMessage())), 1)));
+			return;
 		}
 		Map<String, Object> body = new LinkedHashMap<>();
 		body.put("ok", Boolean.TRUE);
 		Map<String, Object> info = new LinkedHashMap<>((Map<String, Object>) image.get("image"));
+		info.put("format", header.format());
 		info.put("bytes", Integer.valueOf(bytes.length));
+		info.put("crc", header.crcText());
+		info.put("signed", Boolean.valueOf(header.signed()));
 		body.put("image", info);
 		Map<String, Object> counts = new LinkedHashMap<>();
 		counts.put("datapoints", Integer.valueOf(size(image.get("datapoints"))));
@@ -714,16 +739,34 @@ public class FakeController {
 		body.put("source", "api");
 		synchronized (this) {
 			_loaded = image;
-			if (_storable != null && bytes.length > _storable.longValue() && !_storesBeyond) {
-				// Runs, but the store cannot take it (homecontrol #52): the stored image stays.
-				body.put("stored", Boolean.FALSE);
-				body.put("storeError", "the storage is full (it stores at most " + _storable + " bytes)");
-			} else {
-				body.put("stored", Boolean.TRUE);
-				_storedText = text;
-			}
+			_stored = bytes;
+			_refused = null;
 		}
 		answer(exchange, 200, body);
+	}
+
+	/** The codes of the refusals after which the device runs no image (spec/runtime-image.md 4). */
+	private static final Set<String> GONE =
+		Set.of("image.damaged", "image.bad_signature", "image.invalid", "image.no_memory", "image.apply_failed");
+
+	private synchronized Map<String, Object> untouched(Map<String, Object> body) {
+		body.put("loaded", Boolean.valueOf(_loaded != null));
+		body.put("revision", revision());
+		return body;
+	}
+
+	private synchronized Map<String, Object> gone(Map<String, Object> body) {
+		erase(String.valueOf(body.get("code")), body);
+		body.put("loaded", Boolean.FALSE);
+		return body;
+	}
+
+	private void erase(String code, Map<String, Object> body) {
+		_loaded = null;
+		_stored = null;
+		_refused = code;
+		Object first = body.get("refusals") instanceof List<?> list && !list.isEmpty() ? list.get(0) : null;
+		_refusedReason = first instanceof Map<?, ?> map ? map.get("path") + ": " + map.get("reason") : null;
 	}
 
 	private Object revision() {

@@ -8,14 +8,16 @@
 	where E-Home gave it one (haumacher/ehome #95), the controller's English text otherwise; that text
 	is a column of its own, hidden at the start.
 
-	"Download image" checks the image as the controller would and offers it as a JSON file with its
-	detached signature (the .sig file, when the project has an installation key), or shows why it
-	would be refused (runtime-image.view.xml). Each deployment is signed with the key its controller
+	"Download image" checks the image as the controller would and offers the binary image the controller
+	runs (signed inside when the project has an installation key) and its source as JSON file, or shows
+	why it would be refused (runtime-image.view.xml). "Controller image" shows what the controller runs
+	(GET /api/image read back into the source form, controller-image.view.xml, haumacher/ehome #176). Each deployment is signed with the key its controller
 	holds and records the signature and the key's fingerprint (homecontrol issue #35). "Deploy" first compares the image with the one
 	the controller stores (GET /api/image, de.haumacher.ehome.runtime.ImageComparison, haumacher/ehome
-	#47) and asks, naming what differs or that nothing does; it then sends the image (PUT /api/image)
-	with the revision after the last loaded one and records the outcome; a refusal is an outcome, shown
-	in the table, not a failure. "Unload" removes the image from the controller (DELETE /api/image)
+	#47) and asks, naming what differs or that nothing does; it then sends the binary image (PUT
+	/api/image) with the revision after the last loaded one and records the outcome; a refusal is an
+	outcome, shown in the table, not a failure. An image the controller does not load leaves it without
+	one: E-Home then sends the last valid deployment again, recorded as an entry of its own. "Unload" removes the image from the controller (DELETE /api/image)
 	after a confirmation naming what it runs, recorded as a deployment marked as an unload. "Status"
 	compares what the controller runs (GET /api/status) with the last deployment.
 
@@ -253,8 +255,8 @@
 											<de>Abbild herunterladen</de>
 										</label>
 										<tooltip>
-											<en>Checks the runtime image as the controller would and offers it as a JSON file, signed where the project has an installation key, or shows why it would be refused; nothing is sent.</en>
-											<de>Prüft das Laufzeitabbild wie der Controller und bietet es als JSON-Datei an, signiert, wenn das Projekt einen Installationsschlüssel hat, oder zeigt, warum es abgelehnt würde; es wird nichts gesendet.</de>
+											<en>Checks the runtime image as the controller would and offers the binary image the controller runs, signed where the project has an installation key, with its source as JSON file, or shows why it would be refused; nothing is sent.</en>
+											<de>Prüft das Laufzeitabbild wie der Controller und bietet das Binärabbild an, mit dem der Controller arbeitet, signiert, wenn das Projekt einen Installationsschlüssel hat, dazu seine Quelle als JSON-Datei, oder zeigt, warum es abgelehnt würde; es wird nichts gesendet.</de>
 										</tooltip>
 										<access>
 											<!--
@@ -366,6 +368,42 @@
 												</if>
 											</with-result>
 										</unload-runtime-image>
+									</generic-command>
+									<generic-command
+										image="css:bi bi-file-earmark-binary"
+										inputs="project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Controller image</en>
+											<de>Abbild ansehen</de>
+										</label>
+										<tooltip>
+											<en>Reads the image the project's controller runs and shows it in its source form, with its revision, format, size and CRC; nothing is changed.</en>
+											<de>Liest das Abbild, mit dem der Controller des Projekts arbeitet, und zeigt es in seiner Quellform, mit Revision, Format, Größe und CRC; es wird nichts geändert.</de>
+										</tooltip>
+										<access>
+											<!--
+												Not for a viewer: the controller's image is signed and carries the authority of a
+												deployment, as "Download image" does (Write).
+											-->
+											<operation name="Write"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
+										<executability>
+											<null-input-disabled/>
+											<disabled-if expr="if($project.get(`ehome.project:Project#controller`) == null, #('The project has no controller.'@en, 'Das Projekt hat keinen Controller.'@de), null)"/>
+										</executability>
+										<show-controller-image>
+											<with-result>
+												<open-dialog
+													bind-input-to="result"
+													dialog-view="projects/controller-image.view.xml"
+												/>
+											</with-result>
+										</show-controller-image>
 									</generic-command>
 									<generic-command
 										image="css:bi bi-activity"

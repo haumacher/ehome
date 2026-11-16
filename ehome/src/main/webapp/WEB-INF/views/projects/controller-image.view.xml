@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The image the controller of a project runs (haumacher/ehome #176). "result" carries the result of
+	<show-controller-image> (de.haumacher.ehome.runtime.ShowControllerImageAction): what the controller
+	runs (project, revision, format, size, CRC, signed), its binary image read back into the source form
+	as JSON file, and the binary image as the controller holds it.
+-->
+<view>
+	<channels>
+		<channel name="result"/>
+		<derived-channel name="summary"
+			expr='if($result == null, null, $result["summary"])'
+			inputs="result"
+		/>
+		<derived-channel name="file"
+			expr='if($result == null, null, $result["file"])'
+			inputs="result"
+		/>
+		<derived-channel name="binary"
+			expr='if($result == null, null, $result["binary"])'
+			inputs="result"
+		/>
+	</channels>
+	<window width="800px">
+		<title>
+			<en>Image of the controller</en>
+			<de>Abbild des Controllers</de>
+		</title>
+		<inset>
+			<stack gap="loose">
+				<text input="summary"/>
+				<visible-if
+					expr='$result["file"] != null'
+					input="result"
+				>
+					<fields>
+						<value-input
+							readonly="true"
+							type="tl.core:Binary"
+							value="file"
+						>
+							<label>
+								<en>Image (JSON)</en>
+								<de>Abbild (JSON)</de>
+							</label>
+							<!-- A value input picks no control by the type tl.core:Binary (TL #29809, doc/tl-todo.md); the binary field offers the download. -->
+							<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
+						</value-input>
+					</fields>
+				</visible-if>
+				<visible-if
+					expr='$result["binary"] != null'
+					input="result"
+				>
+					<fields>
+						<value-input
+							readonly="true"
+							type="tl.core:Binary"
+							value="binary"
+						>
+							<label>
+								<en>Image (binary)</en>
+								<de>Abbild (binär)</de>
+							</label>
+							<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
+						</value-input>
+					</fields>
+				</visible-if>
+			</stack>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

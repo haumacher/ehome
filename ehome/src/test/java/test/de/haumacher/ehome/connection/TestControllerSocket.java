@@ -44,8 +44,11 @@ import de.haumacher.ehome.monitor.BusTelegram;
 import de.haumacher.ehome.monitor.LinkEvent;
 import de.haumacher.ehome.monitor.SocketBusLink;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
+import de.haumacher.ehome.runtime.binary.ImageCompiler;
+import de.haumacher.ehome.runtime.binary.ImageDecoder;
 import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.ImageComparison;
+import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.RuntimeImage;
 import de.haumacher.ehome.zigbee.ZigbeeController;
 
@@ -179,16 +182,18 @@ public class TestControllerSocket extends BasicTestCase {
 			assertTrue(put.binary());
 			assertTrue(java.util.Arrays.equals(large, put.body()));
 			assertEquals(3, link.getBinaryFrames() - framesBefore);
-			assertEquals(422, answer.status());
-			assertEquals("image.invalid", answer.string("code"));
+			// A JSON text is no binary image (homecontrol spec/runtime-image.md 10.1).
+			assertEquals(400, answer.status());
+			assertEquals("image.format", answer.string("code"));
 
-			// A streamed response: the stored image byte for byte.
-			String stored = "{\"image\": {\"projectId\": \"other\", \"revision\": 3}, \"pad\": \"" + padding + "\"}\n";
+			// A streamed response: the loaded binary image byte for byte.
+			byte[] stored = ImageCompiler.compile("{\"image\": {\"schemaVersion\": \"1.7\", \"projectId\": \"other\", "
+				+ "\"revision\": 3}}", ImageCompiler.Options.unsigned());
 			_fake.store(stored);
 			answer = connection.request("GET", "/api/image", null, Duration.ofSeconds(5));
 			assertEquals(200, answer.status());
-			assertEquals(stored, answer.text());
-			assertEquals("other", ((Map<?, ?>) answer.body().get("image")).get("projectId"));
+			assertTrue(java.util.Arrays.equals(stored, answer.bytes()));
+			assertEquals("other", ((Map<?, ?>) ImageDecoder.decode(answer.bytes()).get("image")).get("projectId"));
 
 			// Two concurrent requests: one after the other.
 			link.setDelay(300);
@@ -208,7 +213,9 @@ public class TestControllerSocket extends BasicTestCase {
 			// The deployment, the comparison and the Zigbee coordinator through the connection.
 			TLObject deployment = Deployer.deploy(project, NOW);
 			assertEquals(deployment.tValueByName("message").toString(), Boolean.TRUE, deployment.tValueByName("accepted"));
-			assertEquals(RuntimeImage.build(project, 1, NOW).getText(), _fake.getStoredText());
+			// The binary image (signed with the project's key) reads back as the project's image.
+			assertEquals(Json.write(ImageDecoder.decode(RuntimeImage.build(project, 1, NOW).compile(null))),
+				_fake.getStoredText());
 			assertTrue(last(link.getRequests()).binary());
 			assertEquals(ImageComparison.State.IDENTICAL, ImageComparison.compare(project, NOW).state());
 			_fake.setZigbeeExport("{\"format\": \"homecontrol-zigbee-export\", \"version\": 1, \"controller\": "

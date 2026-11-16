@@ -290,6 +290,20 @@
 				<property name="bytes"
 					type="tl.core:Integer"
 				/>
+				<!--
+					The binary image as the controller accepted it, signed (haumacher/ehome #176): the last valid
+					deployment, which E-Home sends again when a newer image does not load on the controller, also
+					after a restart of E-Home. Only the newest accepted deployment of a controller keeps it (the
+					older ones lose theirs, de.haumacher.ehome.runtime.Deployer); nobody reads it through the model
+					(ehome.security.config.xml): a signed image carries the authority of a deployment.
+				-->
+				<property name="image"
+					type="tl.core:Binary"
+				>
+					<annotations>
+						<visibility value="hidden"/>
+					</annotations>
+				</property>
 				<!-- The signature the image was sent with (128 hex digits, homecontrol issue #35); empty for an unsigned image. -->
 				<property name="signature"
 					type="tl.core:String"

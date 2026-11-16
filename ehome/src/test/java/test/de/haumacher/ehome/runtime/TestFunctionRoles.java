@@ -30,7 +30,6 @@ import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.rules.DatapointId;
 import de.haumacher.ehome.runtime.DatapointNames;
-import de.haumacher.ehome.runtime.Deployer;
 import de.haumacher.ehome.runtime.FunctionKinds;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.FunctionRoleCheck;
@@ -56,7 +55,7 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * as <code>heatingLevel</code>.</li>
  * <li>A dimmer's main role is its switching command (haumacher/ehome #134): it needs it or its level
  * command; with neither it is unused (also the derived attribute). With its command alone it is in the
- * image, which then needs a controller reading schema 1.6, as a heating of a number does.</li>
+ * image.</li>
  * </ul>
  */
 @SuppressWarnings("javadoc")
@@ -118,8 +117,8 @@ public class TestFunctionRoles extends BasicTestCase {
 		assertEquals(List.of("move", "stop", "atTop", "atBottom"), List.copyOf(awning.keySet()));
 		Map<?, ?> child = roles(image, "Temperatur Kind");
 		assertEquals(List.of("temperature", "setpointCommand", "heatingLevel"), List.copyOf(child.keySet()));
-		// A climate whose heating is a boolean, its level beside it, needs no 1.6.
-		assertNull(Deployer.schema16Refusal(image.getJson(), "1.5", "Fake"));
+		// The image compiles into the controller's binary form (haumacher/ehome #176).
+		assertTrue(image.compile(null).length > 0);
 
 		// A percentage as the end position: refused with the role named.
 		TLObject awningFunction = function(project, "Markise Terrasse");
@@ -129,7 +128,7 @@ public class TestFunctionRoles extends BasicTestCase {
 				"atTop", "blind", "boolean"));
 		TestFunctionProposal.update(awningFunction, "atTop", address(project, "6/1/3"));
 
-		// A truth value as the heating level: refused; a percentage as heating: taken, the image needs 1.6.
+		// A truth value as the heating level: refused; a percentage as heating: taken.
 		TLObject childFunction = function(project, "Temperatur Kind");
 		TestFunctionProposal.update(childFunction, "heatingLevel", address(project, "6/4/6"));
 		assertRefused(project, ".datapoints.heatingLevel",
@@ -141,12 +140,6 @@ public class TestFunctionRoles extends BasicTestCase {
 		assertTrue(image.validate().toString(), image.validate().isValid());
 		assertEquals(roles(image, "Temperatur Kind").get("heatingLevel"), roles(image, "Temperatur Kind").get("heating"));
 		String functionId = String.valueOf(childFunction.tValueByName("identifier"));
-		assertEquals(I18NConstants.DEPLOY_REFUSED_HEATING_SCHEMA__CONTROLLER_SCHEMA_FUNCTION.fill("Fake", "1.5",
-			functionId), Deployer.schema16Refusal(image.getJson(), "1.5", "Fake"));
-		assertEquals(I18NConstants.DEPLOY_REFUSED_HEATING_NO_SCHEMA__CONTROLLER_FUNCTION.fill("Fake", functionId),
-			Deployer.schema16Refusal(image.getJson(), null, "Fake"));
-		assertNull(Deployer.schema16Refusal(image.getJson(), "1.6", "Fake"));
-		assertNull(Deployer.schema16Refusal(image.getJson(), "2.0", "Fake"));
 		TestFunctionProposal.update(childFunction, "heating", null);
 
 		// Running the proposal again changes nothing.
@@ -169,26 +162,20 @@ public class TestFunctionRoles extends BasicTestCase {
 		assertTrue(FunctionProposal.unused(dimmer));
 		assertEquals(Boolean.TRUE, derived(dimmer, "unused"));
 
-		// Its switching command alone: in use, in the image, which needs schema 1.6.
+		// Its switching command alone: in use, in the image.
 		TestFunctionProposal.update(dimmer, "command", address(project, "6/1/1"));
 		assertFalse(FunctionProposal.unused(dimmer));
 		assertEquals(Boolean.FALSE, derived(dimmer, "unused"));
 		RuntimeImage image = RuntimeImage.build(project, 1, NOW);
 		assertTrue(image.validate().toString(), image.validate().isValid());
 		assertEquals(Map.of("command", id(project, "6/1/1")), roles(image, "Dimmer Flur"));
-		assertEquals(I18NConstants.DEPLOY_REFUSED_DIMMER_SCHEMA__CONTROLLER_SCHEMA_FUNCTION.fill("Fake", "1.5",
-			"dimmer_flur"), Deployer.schema16Refusal(image.getJson(), "1.5", "Fake"));
-		assertEquals(I18NConstants.DEPLOY_REFUSED_DIMMER_NO_SCHEMA__CONTROLLER_FUNCTION.fill("Fake", "dimmer_flur"),
-			Deployer.schema16Refusal(image.getJson(), "", "Fake"));
-		assertNull(Deployer.schema16Refusal(image.getJson(), "1.6", "Fake"));
 
-		// Its level command alone, as an image of 1.5 had it: in use, an older controller takes it.
+		// Its level command alone, as an image of 1.5 had it: in use.
 		TestFunctionProposal.update(dimmer, "command", null);
 		TestFunctionProposal.update(dimmer, "levelCommand", address(project, "6/2/2"));
 		assertFalse(FunctionProposal.unused(dimmer));
 		assertEquals(Boolean.FALSE, derived(dimmer, "unused"));
 		image = RuntimeImage.build(project, 1, NOW);
-		assertNull(Deployer.schema16Refusal(image.getJson(), "1.5", "Fake"));
 		// The level command needs a writable datapoint: the status of a position is not one.
 		assertRefused(project, ".datapoints.levelCommand",
 			I18NConstants.IMAGE_ROLE_WRITABLE__ROLE_NAME.fill("levelCommand",

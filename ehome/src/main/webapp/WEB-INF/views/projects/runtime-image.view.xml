@@ -3,8 +3,9 @@
 <!--
 	The runtime image of a project for download. "result" carries the result of <export-runtime-image>
 	(de.haumacher.ehome.runtime.ExportRuntimeImageAction): a sentence whether the image is valid, the
-	image as JSON file (none for a refused image), its detached signature as <image>.sig (none for a
-	project without an installation key; the controller's Settings page installs the file with it), the refusals with the objects of the project their
+	binary image the controller runs (.bin, signed inside where the project has an installation key;
+	the controller's Settings page installs it, haumacher/ehome #176) and its source form as JSON file
+	for people (none of both for a refused image), the refusals with the objects of the project their
 	paths lead to, and what the export left out (group addresses without datapoint type).
 -->
 <view>
@@ -18,8 +19,8 @@
 			expr='if($result == null, null, $result["file"])'
 			inputs="result"
 		/>
-		<derived-channel name="signature"
-			expr='if($result == null, null, $result["signature"])'
+		<derived-channel name="source"
+			expr='if($result == null, null, $result["source"])'
 			inputs="result"
 		/>
 		<derived-channel name="notes"
@@ -46,8 +47,8 @@
 							value="file"
 						>
 							<label>
-								<en>File</en>
-								<de>Datei</de>
+								<en>Image (binary)</en>
+								<de>Abbild (binär)</de>
 							</label>
 							<!-- A value input picks no control by the type tl.core:Binary (TL #29809, doc/tl-todo.md); the binary field offers the download. -->
 							<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
@@ -55,18 +56,18 @@
 					</fields>
 				</visible-if>
 				<visible-if
-					expr='$result["signature"] != null'
+					expr='$result["source"] != null'
 					input="result"
 				>
 					<fields>
 						<value-input
 							readonly="true"
 							type="tl.core:Binary"
-							value="signature"
+							value="source"
 						>
 							<label>
-								<en>Signature</en>
-								<de>Signatur</de>
+								<en>Source (JSON)</en>
+								<de>Quelle (JSON)</de>
 							</label>
 							<input-control class="com.top_logic.layout.view.form.BinaryControlProvider"/>
 						</value-input>

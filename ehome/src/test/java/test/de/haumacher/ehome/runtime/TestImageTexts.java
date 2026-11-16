@@ -105,7 +105,7 @@ public class TestImageTexts extends BasicTestCase {
 			int datapoints = ((List<?>) image.getJson().get("datapoints")).size();
 			int locations = ((List<?>) image.getJson().get("locations")).size();
 			assertEquals("The runtime image is valid: " + datapoints + " datapoints, " + locations
-				+ " locations, 0 functions, 0 settings, " + number(image.getBytes().length) + " bytes. The image has no time master.",
+				+ " locations, 0 functions, 0 settings, " + number(image.compile(null).length) + " bytes. The image has no time master.",
 				english(result.get("summary")));
 
 			apply(project);
@@ -123,7 +123,7 @@ public class TestImageTexts extends BasicTestCase {
 			image = RuntimeImage.build(project, 1, NOW);
 			assertNotNull(result.get("file"));
 			assertEquals("The runtime image is valid: " + datapoints + " datapoints, " + locations
-				+ " locations, 3 functions, 3 settings, " + number(image.getBytes().length)
+				+ " locations, 3 functions, 3 settings, " + number(image.compile(null).length)
 				+ " bytes. The time master sends on Uhrzeit (0/0/60), Datum (0/0/61).", english(result.get("summary")));
 		});
 	}

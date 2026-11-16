@@ -28,7 +28,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
 import de.haumacher.ehome.connection.Signatures;
-import de.haumacher.ehome.runtime.ControllerClient;
 import de.haumacher.ehome.runtime.Json;
 import de.haumacher.ehome.runtime.Json.JsonException;
 
@@ -53,10 +52,11 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  *
  * <p>
  * The installation key (homecontrol issue #35): the <code>auth</code> names the fingerprint of the
- * fake's key ({@link FakeController#getKey()}); a request's <code>signature</code> is passed to the
- * route as the header <code>X-Image-Signature</code>, and a <code>PUT /api/image</code> with an inline
- * <code>body</code> and a <code>signature</code> is refused 400 <code>image.bad_request</code> as the
- * device refuses it. An offered key is kept pending ({@link #getPendingKey()}) until the test accepts
+ * fake's key ({@link FakeController#getKey()}), its <code>format</code>, <code>slot</code> and
+ * <code>image</code> those of the fake (haumacher/ehome #176); the binary image carries its signature
+ * inside, so a request's former member <code>signature</code> is passed to the route as the header
+ * <code>X-Image-Signature</code>, which the fake refuses, and a <code>PUT /api/image</code> with an
+ * inline <code>body</code> is refused 400 <code>image.bad_request</code> as the device refuses it. An offered key is kept pending ({@link #getPendingKey()}) until the test accepts
  * it as the owner would ({@link #acceptKey()}).
  * </p>
  */
@@ -355,9 +355,11 @@ public class FakeControllerLink implements WebSocket.Listener {
 				auth.put("mac", mac);
 				auth.put("version", "0.1.0-fake");
 				auth.put("build", "fake123");
-				if (_fake.getSchema() != null) {
-					auth.put("schema", _fake.getSchema());
+				if (_fake.getFormat() != null) {
+					auth.put("format", _fake.getFormat());
+					auth.put("slot", Integer.valueOf(_fake.getSlot()));
 				}
+				auth.put("image", _fake.imageStatus());
 				String key = _fake.getKey();
 				if (key != null) {
 					auth.put("key", Signatures.fingerprint(key));
@@ -385,14 +387,13 @@ public class FakeControllerLink implements WebSocket.Listener {
 					}
 				}
 				String body = Json.member(text, "body", 32);
-				if (body != null && message.get("signature") != null && "PUT".equals(message.get("method"))
-					&& "/api/image".equals(message.get("path"))) {
+				if (body != null && "PUT".equals(message.get("method")) && "/api/image".equals(message.get("path"))) {
 					// As the device: the inline body is parsed JSON, not the signed bytes.
 					synchronized (this) {
 						_requests.add(new Request("PUT", "/api/image", body.getBytes(StandardCharsets.UTF_8), false,
 							String.valueOf(message.get("signature"))));
-						respond(message.get("id"), 400, "{\"error\":\"a signed image is sent with length and binary "
-							+ "frames: the signature covers its exact bytes\",\"code\":\"image.bad_request\"}", false);
+						respond(message.get("id"), 400, ("{\"error\":\"the image is binary: it is sent with length and binary "
+							+ "frames, its signature inside\",\"code\":\"image.bad_request\"}").getBytes(StandardCharsets.UTF_8), false);
 					}
 					return;
 				}
@@ -451,7 +452,7 @@ public class FakeControllerLink implements WebSocket.Listener {
 		Object id = request.get("id");
 		if (_busy) {
 			_overlaps++;
-			respond(id, 429, "{\"error\":\"busy\",\"code\":\"ehome.busy\"}", false);
+			respond(id, 429, "{\"error\":\"busy\",\"code\":\"ehome.busy\"}".getBytes(StandardCharsets.UTF_8), false);
 			return;
 		}
 		_busy = true;
@@ -465,11 +466,11 @@ public class FakeControllerLink implements WebSocket.Listener {
 					URI.create("http://127.0.0.1:" + _fake.getPort() + request.get("path")))
 					.header("Authorization", "Bearer " + _token);
 				if (signature != null) {
-					http.header(ControllerClient.SIGNATURE_HEADER, signature.toString());
+					http.header("X-Image-Signature", signature.toString());
 				}
 				http.method(String.valueOf(request.get("method")), body == null ? HttpRequest.BodyPublishers.noBody()
 					: HttpRequest.BodyPublishers.ofByteArray(body));
-				HttpResponse<String> response = _http.send(http.build(), HttpResponse.BodyHandlers.ofString());
+				HttpResponse<byte[]> response = _http.send(http.build(), HttpResponse.BodyHandlers.ofByteArray());
 				boolean stream = "GET".equals(request.get("method")) && "/api/image".equals(request.get("path"))
 					&& response.statusCode() == 200;
 				synchronized (FakeControllerLink.this) {
@@ -479,18 +480,19 @@ public class FakeControllerLink implements WebSocket.Listener {
 			} catch (Exception ex) {
 				synchronized (FakeControllerLink.this) {
 					_busy = false;
-					respond(id, 500, "{\"error\":\"failed\",\"code\":\"fake.failed\"}", false);
+					respond(id, 500, "{\"error\":\"failed\",\"code\":\"fake.failed\"}".getBytes(StandardCharsets.UTF_8), false);
 				}
 			}
 		});
 	}
 
-	private void respond(Object id, int status, String body, boolean stream) {
+	private void respond(Object id, int status, byte[] content, boolean stream) {
+		String body = new String(content, StandardCharsets.UTF_8);
 		Map<String, Object> head = new LinkedHashMap<>();
 		head.put("type", "response");
 		head.put("id", id);
 		head.put("status", Integer.valueOf(status));
-		byte[] bytes = (stream ? body : body.strip()).getBytes(StandardCharsets.UTF_8);
+		byte[] bytes = stream ? content : body.strip().getBytes(StandardCharsets.UTF_8);
 		try {
 			if (stream || bytes.length > MAX_TEXT_BODY) {
 				head.put("length", Integer.valueOf(bytes.length));

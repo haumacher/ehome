@@ -393,7 +393,7 @@ public class TestBlockEditing extends BasicTestCase {
 		String summary = ExportRuntimeImageAction.summary(image);
 		assertTrue(summary, summary.startsWith(text(I18NConstants.EXPORT_VALID__DATAPOINTS_LOCATIONS_FUNCTIONS_SETTINGS_BYTES
 			.fill(Integer.valueOf(listed + blocks), Integer.valueOf(((List<?>) image.getJson().get("locations")).size()),
-				Integer.valueOf(0), Integer.valueOf(0), Integer.valueOf(image.getBytes().length)))));
+				Integer.valueOf(0), Integer.valueOf(0), Integer.valueOf(image.compile(null).length)))));
 		assertTrue(summary, summary.contains(text(I18NConstants.EXPORT_BLOCKS__BLOCKS_DATAPOINTS.fill(Integer.valueOf(1),
 			Integer.valueOf(blocks)))));
 	}

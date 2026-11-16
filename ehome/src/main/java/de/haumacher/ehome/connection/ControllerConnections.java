@@ -31,6 +31,8 @@ import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
 
+import de.haumacher.ehome.runtime.Deployer;
+
 /**
  * The controllers connected to E-Home (haumacher/ehome #54): the authenticated
  * {@link ControllerConnection} of each controller id, and what follows from a connection for the
@@ -416,6 +418,7 @@ public final class ControllerConnections {
 		String build = connection.build();
 		execute(() -> store(connection.controllerId(), now, version, build));
 		deviceKey(connection, connection.deviceKey());
+		refusedImage(connection);
 		for (Listener listener : LISTENERS) {
 			try {
 				listener.connected(connection);
@@ -423,6 +426,46 @@ public final class ControllerConnections {
 				Logger.error("A listener of the controller connections failed.", ex, ControllerConnections.class);
 			}
 		}
+	}
+
+	/** The refusals already answered by sending the last valid deployment again, by controller. */
+	private static final Map<String, String> RESENT = new ConcurrentHashMap<>();
+
+	/**
+	 * A controller that connects reporting that the image it tried to load was refused and it runs none
+	 * (<code>image.refused</code> of its <code>auth</code>, homecontrol <code>spec/runtime-image.md</code>
+	 * I9) gets the last valid deployment again (haumacher/ehome #176,
+	 * {@link Deployer#resendAfterRefusal(TLObject, String, String, Instant)}), on a thread of its own: once
+	 * per refusal, so that a controller refusing that image too is not sent it at every connection.
+	 */
+	private static void refusedImage(ControllerConnection connection) {
+		String id = connection.controllerId();
+		String code = connection.refused();
+		if (code == null) {
+			RESENT.remove(id);
+			return;
+		}
+		String reason = connection.refusedReason();
+		String refusal = code + ": " + reason;
+		if (refusal.equals(RESENT.put(id, refusal))) {
+			return;
+		}
+		Thread thread = new Thread(() -> {
+			try {
+				ThreadContext.inSystemContext(ControllerConnections.class, () -> {
+					refetch();
+					TLObject controller = find(id);
+					if (controller != null) {
+						Deployer.resendAfterRefusal(controller, code, reason, Instant.now());
+					}
+				});
+			} catch (RuntimeException ex) {
+				Logger.error("Sending the last valid deployment to controller " + id + " again failed.", ex,
+					ControllerConnections.class);
+			}
+		}, "controller-resend-" + id);
+		thread.setDaemon(true);
+		thread.start();
 	}
 
 	/**

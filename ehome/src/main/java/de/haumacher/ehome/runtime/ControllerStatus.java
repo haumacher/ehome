@@ -32,12 +32,19 @@ public final class ControllerStatus {
 	 *        Its revision, <code>null</code> if unknown.
 	 * @param text
 	 *        What the controller runs, for the user.
-	 * @param storable
-	 *        The largest image in bytes the controller can store and load again
-	 *        (<code>image.storable</code>, homecontrol #52), <code>null</code> when it reports none (a
-	 *        firmware before it) or did not answer.
+	 * @param format
+	 *        The newest format of the binary runtime image the firmware reads (<code>device.format</code>,
+	 *        homecontrol <code>spec/runtime-image.md</code> section 11); <code>null</code> when it reports
+	 *        none (a firmware up to 1.2, which read JSON images) or did not answer.
+	 * @param slot
+	 *        The size of its image slot in bytes, the largest image it takes (<code>image.slot</code>);
+	 *        <code>null</code> when it reports none or did not answer.
+	 * @param refused
+	 *        The code of the refusal of the image it tried to load last (<code>image.refused</code>),
+	 *        after which it runs without one; <code>null</code> for none.
 	 */
-	public record Loaded(boolean answered, boolean loaded, String project, Long revision, String text, Long storable) {
+	public record Loaded(boolean answered, boolean loaded, String project, Long revision, String text, String format,
+			Long slot, String refused) {
 		// A record.
 	}
 
@@ -54,19 +61,22 @@ public final class ControllerStatus {
 			answer = client.status();
 		} catch (IOException ex) {
 			return new Loaded(false, false, null, null,
-				text(I18NConstants.STATUS_UNREACHABLE__ADDRESS_ERROR.fill(client.address(), Deployer.reason(ex))), null);
+				text(I18NConstants.STATUS_UNREACHABLE__ADDRESS_ERROR.fill(client.address(), Deployer.reason(ex))), null, null,
+				null);
 		}
 		if (!answer.ok()) {
 			String error = answer.string("error");
 			return new Loaded(false, false, null, null, text(I18NConstants.STATUS_FAILED__STATUS_ERROR
-				.fill(Integer.valueOf(answer.status()), error != null ? error : answer.text().strip())), null);
+				.fill(Integer.valueOf(answer.status()), error != null ? error : answer.text().strip())), null, null, null);
 		}
-		Long storable = storable(answer.body());
+		String format = format(answer.body());
+		Long slot = slot(answer.body());
 		if (!(answer.body().get("image") instanceof Map<?, ?> image) || !Boolean.TRUE.equals(image.get("loaded"))) {
 			Object refused = answer.body().get("image") instanceof Map<?, ?> image ? image.get("refused") : null;
+			Object reason = answer.body().get("image") instanceof Map<?, ?> image ? image.get("reason") : null;
 			return new Loaded(true, false, null, null, text(refused != null
-				? I18NConstants.STATUS_NO_IMAGE_REFUSED__CODE.fill(refused)
-				: I18NConstants.STATUS_NO_IMAGE), storable);
+				? I18NConstants.STATUS_NO_IMAGE_REFUSED__CODE_REASON.fill(refused, reason == null ? "" : reason)
+				: I18NConstants.STATUS_NO_IMAGE), format, slot, refused == null ? null : refused.toString());
 		}
 		String project = Objects.toString(image.get("project"), "");
 		Long revision = image.get("revision") instanceof Number number ? Long.valueOf(number.longValue()) : null;
@@ -76,19 +86,31 @@ public final class ControllerStatus {
 		if (Boolean.TRUE.equals(image.get("degraded"))) {
 			result += " " + text(I18NConstants.STATUS_DEGRADED);
 		}
-		return new Loaded(true, true, project, revision, result, storable);
+		return new Loaded(true, true, project, revision, result, format, slot, null);
 	}
 
 	/**
-	 * The largest image the controller can store and load again, from the body of its
-	 * <code>GET /api/status</code> (<code>image.storable</code>, homecontrol #52).
+	 * The format of the binary runtime image the controller reads, from the body of its
+	 * <code>GET /api/status</code> (<code>device.format</code>).
+	 *
+	 * @return The format; <code>null</code> when the status has none.
+	 */
+	public static String format(Map<?, ?> status) {
+		Object device = status == null ? null : status.get("device");
+		Object format = device instanceof Map<?, ?> map ? map.get("format") : null;
+		return format instanceof String text && !text.isBlank() ? text : null;
+	}
+
+	/**
+	 * The size of the controller's image slot, from the body of its <code>GET /api/status</code>
+	 * (<code>image.slot</code>).
 	 *
 	 * @return The bytes; <code>null</code> when the status has none.
 	 */
-	public static Long storable(Map<?, ?> status) {
+	public static Long slot(Map<?, ?> status) {
 		Object image = status == null ? null : status.get("image");
-		Object storable = image instanceof Map<?, ?> map ? map.get("storable") : null;
-		return storable instanceof Number number ? Long.valueOf(number.longValue()) : null;
+		Object slot = image instanceof Map<?, ?> map ? map.get("slot") : null;
+		return slot instanceof Number number ? Long.valueOf(number.longValue()) : null;
 	}
 
 	/**

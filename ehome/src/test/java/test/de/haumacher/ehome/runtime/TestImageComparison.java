@@ -75,6 +75,11 @@ public class TestImageComparison extends BasicTestCase {
 		super.tearDown();
 	}
 
+	/** A rule of the stored image: started, doing nothing. */
+	private static Map<String, Object> rule(String id) {
+		return Map.of("id", id, "name", id, "reactions", List.of(Map.of("triggers", List.of(Map.of("kind", "start")), "actions", List.of())));
+	}
+
 	public void testCompareAndUnload() throws Exception {
 		List<TLObject> before = instances("ehome.project:Project");
 		importSample("samples/Test.knxproj");
@@ -132,15 +137,16 @@ public class TestImageComparison extends BasicTestCase {
 			header.put("name", "Other house");
 			header.put("revision", Long.valueOf(7));
 			other.put("image", header);
-			other.put("rules", List.of(Map.of("id", "r1"), Map.of("id", "r2")));
-			other.put("schedules", List.of(Map.of("id", "s1")));
+			other.put("rules", List.of(rule("r1"), rule("r2")));
+			other.put("schedules", List.of(Map.of("id", "s1", "label", "S1", "kind", "weekly", "time",
+				Map.of("hour", Long.valueOf(6), "minute", Long.valueOf(0), "second", Long.valueOf(0)))));
 			_fake.store(Json.write(other));
 			Result foreign = ImageComparison.compare(project, LATER);
 			assertEquals(State.DIFFERENT, foreign.state());
 			lines = List.of(foreign.text().split("\n"));
 			assertEquals(text(I18NConstants.COMPARE_OTHER_PROJECT__PROJECT_NAME_REVISION.fill("other-house",
 				"Other house", 7L)), lines.get(0));
-			assertEquals(text(I18NConstants.COMPARE_CHANGED_PARTS__PARTS.fill("image, rules, schedules")),
+			assertEquals(text(I18NConstants.COMPARE_CHANGED_PARTS__PARTS.fill("image, schedules, rules")),
 				lines.get(3));
 			assertEquals(text(I18NConstants.COMPARE_RULES_REMOVED__RULES_SCHEDULES.fill(2, 1)), lines.get(4));
 

@@ -5,8 +5,9 @@ package test.de.haumacher.ehome.connection;
 
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,14 +53,14 @@ import de.haumacher.ehome.runtime.RuntimeImage;
  * <p>
  * The enrollment answer carries <code>public_key</code> when the project has a key (generated for its
  * first controller) and not for a project whose controllers were enrolled without one. A deployment
- * over the socket carries <code>signature</code> next to <code>length</code> with the image in binary
- * frames, the fake verifies it, and the deployment records the signature and the key; a device holding
+ * over the socket is the binary image in binary frames with its signature inside (haumacher/ehome
+ * #176), the fake verifies it, and the deployment records the signature and the key; a device holding
  * another key refuses (403 <code>image.bad_signature</code>) and the recorded message names both keys;
  * an unsigned image is refused 403 <code>image.unsigned</code>. The rotation: the new key is offered,
  * the device answers <code>key_pending</code>, images stay signed with the old key, and after
  * <code>key_accepted</code> the new key is the installation key; a later rotation completes through
- * the <code>auth</code> of a new connection naming the new key. Over HTTP on the LAN the signature is the
- * header <code>X-Image-Signature</code>. The export offers the detached <code>.sig</code>.
+ * the <code>auth</code> of a new connection naming the new key. Over HTTP on the LAN the same binary
+ * image is the body. The export offers the signed binary image.
  * </p>
  */
 @SuppressWarnings("javadoc")
@@ -153,15 +154,16 @@ public class TestInstallationKey extends BasicTestCase {
 			assertEquals(text(I18NConstants.DEVICE_KEY__FINGERPRINT.fill(first.fingerprint())),
 				InstallationKeys.controllerState(controller));
 
-			// Signed: the signature next to length, the image in binary frames, verified by the fake.
+			// Signed: the binary image in binary frames, its signature inside, verified by the fake.
 			TLObject deployment = Deployer.deploy(project, NOW);
 			assertEquals(deployment.tValueByName("message").toString(), Boolean.TRUE, deployment.tValueByName("accepted"));
 			FakeControllerLink.Request put = last(link.getRequests());
 			assertTrue(put.binary());
-			assertNotNull(put.signature());
-			assertTrue(Signatures.verifyImage(first.publicKey(), put.body(), put.signature()));
-			assertEquals(RuntimeImage.build(project, 1, NOW).getText(), new String(put.body(), StandardCharsets.UTF_8));
-			assertEquals(put.signature(), deployment.tValueByName("signature"));
+			assertNull(put.signature());
+			assertTrue(signedBy(first.publicKey(), put.body()));
+			assertTrue(Arrays.equals(RuntimeImage.build(project, 1, NOW).compile(first.seed()), put.body()));
+			assertEquals(HexFormat.of().formatHex(put.body(), put.body().length - 64, put.body().length),
+				deployment.tValueByName("signature"));
 			assertEquals(first.fingerprint(), deployment.tValueByName("keyFingerprint"));
 			assertFalse("No key is offered to a device holding the project's.",
 				link.getReceived().stream().anyMatch(m -> "key".equals(m.get("type"))));
@@ -181,7 +183,7 @@ public class TestInstallationKey extends BasicTestCase {
 
 			// Unsigned: refused while the device holds a key.
 			Answer unsigned = ControllerClient.over(connection, "socket", Deployer.TIMEOUT)
-				.putImage(RuntimeImage.build(project, 2, NOW).getBytes());
+				.putImage(RuntimeImage.build(project, 2, NOW).compile(null));
 			assertEquals(403, unsigned.status());
 			assertEquals(Deployer.CODE_UNSIGNED, unsigned.string("code"));
 			assertTrue(unsigned.string("error").contains(first.fingerprint()));
@@ -214,8 +216,7 @@ public class TestInstallationKey extends BasicTestCase {
 			TLObject after = Deployer.deploy(project, NOW);
 			assertEquals(after.tValueByName("message").toString(), Boolean.TRUE, after.tValueByName("accepted"));
 			assertEquals(second.fingerprint(), after.tValueByName("keyFingerprint"));
-			assertTrue(Signatures.verifyImage(second.publicKey(), last(link.getRequests()).body(),
-				(String) after.tValueByName("signature")));
+			assertTrue(signedBy(second.publicKey(), last(link.getRequests()).body()));
 
 			// A later rotation completes through the auth of a new connection naming the new key.
 			Keys third = InstallationKeys.renew(project);
@@ -230,16 +231,15 @@ public class TestInstallationKey extends BasicTestCase {
 			assertEquals(third, InstallationKeys.key(project));
 			assertNull(InstallationKeys.newKey(project));
 
-			// The export: the image with its detached signature.
+			// The export: the binary image signed inside, beside its source.
 			Map<String, Object> export = ExportRuntimeImageAction.export(project, NOW);
 			BinaryData file = (BinaryData) export.get("file");
-			BinaryData sig = (BinaryData) export.get("signature");
-			assertEquals(file.getName() + ".sig", sig.getName());
-			String sigText = new String(bytes(sig), StandardCharsets.US_ASCII);
-			assertTrue(sigText, sigText.matches("[0-9a-f]{128}\n"));
-			assertTrue(Signatures.verifyImage(third.publicKey(), bytes(file), sigText.trim()));
+			assertTrue(file.getName(), file.getName().endsWith(".runtime.bin"));
+			assertTrue(signedBy(third.publicKey(), bytes(file)));
+			BinaryData source = (BinaryData) export.get("source");
+			assertTrue(source.getName(), source.getName().endsWith(".runtime.json"));
 
-			// Over HTTP on the LAN: the header, verified by the fake.
+			// Over HTTP on the LAN: the same binary image, verified by the fake.
 			back.close();
 			await(() -> ControllerConnections.get(id) == null);
 			ControllerConnections.awaitKnowledgeBase(); // the last contact of the close is stored first
@@ -267,6 +267,12 @@ public class TestInstallationKey extends BasicTestCase {
 		Enrollment.Answer answer = Enrollment.enroll(request, _endpoint.base(), Instant.now());
 		assertEquals(answer.body().toString(), 200, answer.status());
 		return answer;
+	}
+
+	/** Whether the binary image ends with a signature under the key (homecontrol spec/runtime-image.md 9.17). */
+	private static boolean signedBy(String publicKey, byte[] image) {
+		return Signatures.verify(publicKey, Signatures.message(Arrays.copyOf(image, image.length - 64)),
+			Arrays.copyOfRange(image, image.length - 64, image.length));
 	}
 
 	private static byte[] bytes(BinaryData data) throws Exception {

@@ -32,16 +32,19 @@ import java.util.Locale;
  * </p>
  *
  * <p>
- * The signature of an image is Ed25519 over <code>M = "homecontrol-image-v1" || SHA-256(image)</code>
- * ({@link #message(byte[])}), the 64 bytes <code>R || S</code> in 128 lower-case hex digits. Ed25519 is
- * deterministic: the same seed and image give the same signature, which the controller's test
- * vectors pin.
+ * The signature of a binary runtime image (format 1.0, homecontrol <code>spec/runtime-image.md</code>
+ * 9.17, haumacher/ehome #176) is Ed25519 over
+ * <code>M = "homecontrol-image-v2" || SHA-256(image[0, signedEnd))</code> ({@link #message(byte[])}),
+ * the bytes before the signature; its 64 bytes <code>R || S</code> are the image's last 64 bytes
+ * ({@link de.haumacher.ehome.runtime.binary.ImageCompiler}). Ed25519 is deterministic: the same seed
+ * and image give the same signature, which the controller's test vectors pin. The context
+ * <code>v1</code> of the JSON images up to firmware 1.2 is gone with them.
  * </p>
  */
 public final class Signatures {
 
 	/** The context of the signed message, 20 ASCII bytes without terminator. */
-	public static final String CONTEXT = "homecontrol-image-v1";
+	public static final String CONTEXT = "homecontrol-image-v2";
 
 	/** The DER prefix of an Ed25519 public key in X.509 <code>SubjectPublicKeyInfo</code>. */
 	static final byte[] X509_PREFIX = HexFormat.of().parseHex("302a300506032b6570032100");
@@ -136,7 +139,8 @@ public final class Signatures {
 
 	/**
 	 * The message an image's signature covers: the 20 bytes of {@link #CONTEXT} followed by the 32
-	 * bytes of <code>SHA-256(image)</code>.
+	 * bytes of <code>SHA-256(signed)</code>, where <code>signed</code> are the bytes of the image before
+	 * its signature.
 	 */
 	public static byte[] message(byte[] image) {
 		byte[] context = CONTEXT.getBytes(StandardCharsets.US_ASCII);

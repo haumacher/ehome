@@ -22,9 +22,8 @@ import de.haumacher.ehome.runtime.Json;
  * "Signed runtime images") against the controller's test vectors
  * (<code>src/test/fixtures/homecontrol/signatures/vectors.json</code>, TEST KEYS ONLY): RFC 8032 section
  * 7.1 test 1 verifies with the JDK and is reproduced from its seed; the fingerprints of the test keys;
- * the signature of <code>images/example.json</code> with the test installation key equals
- * <code>images/example.json.sig</code> byte for byte (Ed25519 is deterministic), and the one with the
- * rotated key the vector's; a generated key pair signs and verifies, and its seed is never printed.
+ * the context of the binary image's signature; a generated key pair signs and verifies, and its seed
+ * is never printed.
  */
 @SuppressWarnings("javadoc")
 public class TestImageSignatures extends TestCase {
@@ -60,30 +59,18 @@ public class TestImageSignatures extends TestCase {
 			"13833FBFA81080CDB4C1210131A5BB3E98F17675236E66124AED84CC490BCCB1"));
 	}
 
-	public void testExampleImage() throws Exception {
-		byte[] image = Files.readAllBytes(new File(FIXTURES, "images/example.json").toPath());
-		String sig = Files.readString(new File(FIXTURES, "images/example.json.sig").toPath(), StandardCharsets.US_ASCII);
-		Map<?, ?> vector = (Map<?, ?>) _vectors.get("image");
-		assertEquals(vector.get("context"), Signatures.CONTEXT);
-		assertEquals(vector.get("message"), HexFormat.of().formatHex(Signatures.message(image)));
-
-		String installation = (String) key("installation").get("private_seed_TEST_ONLY");
-		String signature = Signatures.signImage(installation, image);
-		assertEquals("The detached signature byte for byte (with its line end).", sig, signature + "\n");
-		assertEquals(vector.get("signature"), signature);
-		assertTrue(Signatures.verifyImage((String) key("installation").get("public_key"), image, signature));
-		assertTrue("Upper case is read.", Signatures.verifyImage((String) key("installation").get("public_key"), image,
-			signature.toUpperCase()));
-
-		String rotated = Signatures.signImage((String) key("rotated").get("private_seed_TEST_ONLY"), image);
-		assertEquals(vector.get("signature_rotated_key"), rotated);
-		assertFalse("Not under the other key.", Signatures.verifyImage((String) key("installation").get("public_key"),
-			image, rotated));
-
-		byte[] changed = image.clone();
-		changed[changed.length - 2] ^= 1;
-		assertFalse(Signatures.verifyImage((String) key("installation").get("public_key"), changed, signature));
-		assertFalse(Signatures.verifyImage((String) key("installation").get("public_key"), image, "00"));
+	/**
+	 * The context of the binary image (homecontrol <code>spec/runtime-image.md</code> 9.17); the
+	 * vectors' entry of the JSON image signed with <code>v1</code> is history. The signed worked example
+	 * is reproduced by {@link test.de.haumacher.ehome.runtime.binary.TestImageCompiler}.
+	 */
+	public void testContext() throws Exception {
+		assertEquals("homecontrol-image-v2", Signatures.CONTEXT);
+		assertEquals("homecontrol-image-v1", ((Map<?, ?>) _vectors.get("image")).get("context"));
+		byte[] signed = Files.readAllBytes(new File(FIXTURES, "images/minimal.json").toPath());
+		byte[] message = Signatures.message(signed);
+		assertEquals(52, message.length);
+		assertEquals("homecontrol-image-v2", new String(message, 0, 20, StandardCharsets.US_ASCII));
 	}
 
 	public void testGeneratedKeys() {

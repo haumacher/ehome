@@ -4,8 +4,6 @@
 package test.de.haumacher.ehome.connection;
 
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -84,11 +82,6 @@ public class TestInstallationKeyIdentityProbe extends BasicTestCase {
 			byte[] altered = (image.getText() + " ").getBytes(StandardCharsets.UTF_8);
 			assertFalse("A single byte more and the signature is void.", Signatures.verifyImage(key.publicKey(), altered, signature));
 
-			// The controller's own fixture: its signature verifies under the fixture key.
-			byte[] fixture = Files.readAllBytes(Path.of("src/test/fixtures/homecontrol/images/example.json"));
-			String fixtureSig = Files.readString(Path.of("src/test/fixtures/homecontrol/images/example.json.sig"),
-				StandardCharsets.UTF_8).trim();
-			assertTrue(Signatures.verifyImage("13833fbfa81080cdb4c1210131a5bb3e98f17675236e66124aed84cc490bccb1", fixture, fixtureSig));
 			assertEquals("ce7d 4a41 a476 9ee3",
 				Signatures.fingerprint("13833fbfa81080cdb4c1210131a5bb3e98f17675236e66124aed84cc490bccb1"));
 		} finally {

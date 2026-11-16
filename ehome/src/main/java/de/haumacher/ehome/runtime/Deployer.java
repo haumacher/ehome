@@ -10,11 +10,9 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.PersistencyLayer;
@@ -31,12 +29,11 @@ import de.haumacher.ehome.connection.ControllerConnection;
 import de.haumacher.ehome.connection.ControllerConnections;
 import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.connection.ProjectControllers;
-import de.haumacher.ehome.connection.Signatures;
 import de.haumacher.ehome.connection.Signatures.Keys;
-import de.haumacher.ehome.rules.DatapointId;
-import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
+import de.haumacher.ehome.runtime.binary.CompileException;
+import de.haumacher.ehome.runtime.binary.Layout;
 import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
@@ -58,9 +55,10 @@ import de.haumacher.ehome.settings.OperatorSettings;
  * </p>
  *
  * <p>
- * The image is signed with the key the controller holds ({@link InstallationKeys#signer(TLObject,
- * TLObject)}, homecontrol issue #35) and sent with its signature; the deployment records the signature
- * and the key's fingerprint. A project without a key deploys unsigned. A device refusing the signature
+ * The controller gets the binary image compiled from the source (haumacher/ehome #176, homecontrol
+ * <code>spec/runtime-image.md</code> section 9), signed with the key the controller holds
+ * ({@link InstallationKeys#signer(TLObject, TLObject)}, homecontrol issue #35), the signature its last
+ * 64 bytes; the deployment records the signature and the key's fingerprint. A project without a key deploys unsigned. A device refusing the signature
  * ({@value #CODE_UNSIGNED}, {@value #CODE_BAD_SIGNATURE}) names the key it expects in its reason, which
  * the recorded message keeps beside the key E-Home signed with.
  * </p>
@@ -70,6 +68,13 @@ import de.haumacher.ehome.settings.OperatorSettings;
  * (<code>DELETE /api/image</code>, haumacher/ehome #47): the controller removes it with its persisted
  * values and history and returns to setup. An unload is recorded as a deployment as well, marked as
  * one (<code>unload</code>), with the revision the controller ran.
+ * </p>
+ *
+ * <p>
+ * An image that does not load leaves the controller without one (<code>spec/runtime-image.md</code>
+ * I9): E-Home then sends the last valid deployment again ({@link LastValidImages}) and records it as a
+ * deployment of its own, beside the failed one; so it does when the controller reports at its
+ * connection that its image was refused ({@link #resendAfterRefusal(TLObject, String, String, Instant)}).
  * </p>
  */
 public final class Deployer {
@@ -201,6 +206,18 @@ public final class Deployer {
 	 * Deploys the image of the project to its controller and records the deployment, in a
 	 * transaction of its own.
 	 *
+	 * <p>
+	 * The image is validated ({@link ImageValidator}) and compiled into the binary image
+	 * ({@link de.haumacher.ehome.runtime.binary.ImageCompiler}, homecontrol
+	 * <code>spec/runtime-image.md</code> section 9, haumacher/ehome #176), signed with the key the
+	 * controller holds. It is refused before sending when the controller reads no binary image (a
+	 * firmware that reports no <code>format</code>, or another major format: "Firmware aktualisieren")
+	 * or when it is larger than the controller's image slot. Before it is sent, the image the
+	 * controller runs is fetched (<code>GET /api/image</code>): when the new image does not load (the
+	 * controller then runs none, <code>spec/runtime-image.md</code> I9), that last valid deployment is
+	 * sent again at once and recorded as a deployment of its own.
+	 * </p>
+	 *
 	 * @return The recorded deployment.
 	 * @throws TopLogicException
 	 *         If the project cannot be deployed ({@link #veto(TLObject)}).
@@ -216,378 +233,217 @@ public final class Deployer {
 		RuntimeImage image = RuntimeImage.build(project, revision, now);
 		ImageReport report = image.validate();
 		Outcome outcome = new Outcome();
-		outcome._bytes = image.getBytes().length;
 		if (!report.isValid()) {
 			outcome._code = CODE_INVALID;
 			outcome._message = text(I18NConstants.DEPLOY_REFUSED_LOCALLY__COUNT.fill(report.getRefusals().size()));
 			outcome._refusals.addAll(report.getRefusals());
 			outcome._total = report.getRefusals().size();
-		} else if (blocksRefusal(image, controller) != null) {
-			// An older firmware would ignore the blocks and run none (homecontrol spec/blocks.md B1): nothing is sent.
-			outcome._code = CODE_SCHEMA;
-			outcome._message = text(blocksRefusal(image, controller));
-		} else if (pressesRefusal(image, controller) != null) {
-			// An older firmware refuses an enumeration press, so the whole image (homecontrol
-			// spec/runtime-image.md 3.5, 1.4): nothing is sent.
-			outcome._code = CODE_SCHEMA;
-			outcome._message = text(pressesRefusal(image, controller));
-		} else if (parameterIdsRefusal(image, controller) != null) {
-			// An older firmware refuses a parameter id that is no identifier, so the whole image
-			// (homecontrol spec/rules.md 2.1, 1.5): nothing is sent.
-			outcome._code = CODE_SCHEMA;
-			outcome._message = text(parameterIdsRefusal(image, controller));
-		} else if (schema17Refusal(image, controller) != null) {
-			// An older firmware refuses a rule with a timeline or a state with a label, and has no state
-			// datapoints, so it refuses the whole image (homecontrol spec/runtime-image.md 1.7): nothing
-			// is sent.
-			outcome._code = CODE_SCHEMA;
-			outcome._message = text(schema17Refusal(image, controller));
-		} else if (schema16Refusal(image, controller) != null) {
-			// An older firmware refuses a dimmer without its level command, a heating of a number and a
-			// rule writing an application datapoint that is not writable, so the whole image (homecontrol
-			// spec/runtime-image.md 1.6): nothing is sent.
-			outcome._code = CODE_SCHEMA;
-			outcome._message = text(schema16Refusal(image, controller));
-		} else {
-			ControllerStatus.Loaded before = ControllerStatus.read(client);
-			outcome._before = before.text();
-			outcome._storable = before.storable();
-			Keys signer = InstallationKeys.signer(project, controller);
-			if (signer != null) {
-				outcome._signature = Signatures.signImage(signer.seed(), image.getBytes());
-				outcome._fingerprint = signer.fingerprint();
-			}
-			send(client, image, revision, outcome);
-			if (outcome._accepted) {
-				// A role of a function no object in effect serves (haumacher/ehome #137): taken, but it never works.
-				for (ResKey warning : FunctionRoleCheck.warnings(project)) {
-					outcome._message += " " + text(warning);
-				}
-			}
+			return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
 		}
-		return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+		ControllerStatus.Loaded before = ControllerStatus.read(client);
+		outcome._before = before.text();
+		ResKey formatRefusal = formatRefusal(reportedFormat(client, before), controller.tValueByName("name"));
+		if (before.answered() && formatRefusal != null) {
+			// A firmware reading JSON images (or another major format) cannot load the binary image: nothing is sent.
+			outcome._code = CODE_FORMAT;
+			outcome._message = text(formatRefusal);
+			return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+		}
+		Keys signer = InstallationKeys.signer(project, controller);
+		byte[] binary;
+		try {
+			binary = image.compile(signer == null ? null : signer.seed());
+		} catch (CompileException ex) {
+			outcome._code = CODE_INVALID;
+			outcome._message = text(I18NConstants.DEPLOY_COMPILE_FAILED__PATH_REASON.fill(ex.getPath(), ex.getReason()));
+			return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+		}
+		outcome._bytes = Integer.valueOf(binary.length);
+		if (signer != null) {
+			outcome._signature = HexFormat.of().formatHex(binary, binary.length - Layout.SIGNATURE_SIZE, binary.length);
+			outcome._fingerprint = signer.fingerprint();
+		}
+		Long slot = reportedSlot(client, before);
+		ResKey tooLarge = slotRefusal(binary.length, slot);
+		if (tooLarge != null) {
+			outcome._code = CODE_TOO_LARGE;
+			outcome._message = text(tooLarge);
+			return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+		}
+		// What the controller runs now is the last valid deployment, sent again if the new image fails.
+		LastValidImages.Entry running = before.loaded() ? LastValidImages.fetch(controller, client) : null;
+		send(client, binary, outcome);
+		if (outcome._accepted) {
+			outcome._image = binary;
+			// A role of a function no object in effect serves (haumacher/ehome #137): taken, but it never works.
+			Map<String, Object> json = image.getJson();
+			String message = text(I18NConstants.DEPLOY_ACCEPTED__REVISION_DATAPOINTS_LOCATIONS_BYTES.fill(
+				Long.valueOf(revision), size(json.get("datapoints")), size(json.get("locations")),
+				Integer.valueOf(binary.length)));
+			if (image.getUnusedFunctions() > 0) {
+				message += " " + text(I18NConstants.EXPORT_UNUSED__COUNT.fill(Integer.valueOf(image.getUnusedFunctions())));
+			}
+			// A datapoint the inhabitant's pages show by its id, having no name (haumacher/ehome #114).
+			for (ResKey warning : UnnamedDatapoints.warnings(json)) {
+				message += " " + text(warning);
+			}
+			for (ResKey warning : FunctionRoleCheck.warnings(project)) {
+				message += " " + text(warning);
+			}
+			outcome._message = message;
+			return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+		}
+		if (!gone(client, outcome)) {
+			return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+		}
+		// The controller runs no image now (spec/runtime-image.md I9): the last valid deployment goes again.
+		LastValidImages.Entry last = running != null ? running : LastValidImages.get(controller);
+		if (last == null) {
+			outcome._message += " " + text(I18NConstants.DEPLOY_NO_LAST_VALID);
+			return record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+		}
+		Outcome resend = resend(client, last, outcome);
+		outcome._message += " " + text(resend._accepted ? I18NConstants.DEPLOY_RESENT__REVISION.fill(last.revision())
+			: I18NConstants.DEPLOY_RESEND_FAILED__REVISION.fill(last.revision()));
+		TLObject deployment = record(project, controller, client, image, Long.valueOf(revision), now, outcome);
+		record(project, controller, client, null, last.revision(), Instant.now(), resend);
+		return deployment;
 	}
 
 	/**
-	 * The warning that an image of the given size is larger than the controller can store and load
-	 * again (<code>image.storable</code> of its status, homecontrol #52): it is accepted and runs, but may
-	 * not survive a restart of the controller.
+	 * Sends the last valid deployment again after the image before it did not load.
 	 *
-	 * @param bytes
-	 *        The size of the image.
-	 * @param storable
-	 *        What the controller reports, <code>null</code> when it reports nothing (no warning).
-	 * @return The warning; <code>null</code> when the image fits or the controller reports no limit.
+	 * @param cause
+	 *        Why it is sent again, for its message; <code>null</code> for a refusal the controller
+	 *        reported by itself.
 	 */
-	public static ResKey storableWarning(int bytes, Long storable) {
-		if (storable == null || bytes <= storable.longValue()) {
+	private static Outcome resend(ControllerClient client, LastValidImages.Entry last, Outcome cause) {
+		Outcome outcome = new Outcome();
+		outcome._resend = true;
+		outcome._bytes = Integer.valueOf(last.bytes().length);
+		outcome._foreign = !last.own();
+		send(client, last.bytes(), outcome);
+		String revision = String.valueOf(last.revision());
+		if (outcome._accepted) {
+			outcome._image = last.bytes();
+			outcome._message = text(I18NConstants.RESEND_ACCEPTED__REVISION.fill(revision));
+		} else {
+			outcome._message = text(I18NConstants.RESEND_REFUSED__REVISION.fill(revision)) + " " + outcome._message;
+		}
+		return outcome;
+	}
+
+	/**
+	 * The controller reported that the image it tried to load was refused and it runs none
+	 * (homecontrol <code>spec/api.md</code>, "The socket": <code>image.refused</code> of its
+	 * <code>auth</code>; <code>spec/runtime-image.md</code> I9, e.g. its slot damaged by a power cut):
+	 * the last valid deployment E-Home knows of goes again and is recorded with the project of the
+	 * controller. Without one, the refusal is recorded so that the user deploys again.
+	 *
+	 * @param controller
+	 *        The controller (<code>ehome.runtime:Controller</code>) in its project.
+	 * @param code
+	 *        The code of the refusal.
+	 * @param reason
+	 *        Its first refusal, <code>path: reason</code>.
+	 * @return The recorded deployment, <code>null</code> for a controller without a project.
+	 */
+	public static TLObject resendAfterRefusal(TLObject controller, String code, String reason, Instant now) {
+		TLObject project = controller.tContainer();
+		if (project == null || !project.tValid()) {
 			return null;
 		}
-		return I18NConstants.CONFIRM_TOO_LARGE__BYTES_STORABLE.fill(Integer.valueOf(bytes), storable);
-	}
-
-	/** The code of a deployment E-Home refused because the controller reads a schema without blocks. */
-	public static final String CODE_SCHEMA = "ehome.schema";
-
-	/** The schema that brings the blocks (homecontrol spec/blocks.md B1). */
-	static final int[] BLOCKS_SCHEMA = { 1, 3 };
-
-	/**
-	 * Why the image cannot go to the controller (homecontrol <code>spec/blocks.md</code> B1): an image
-	 * with blocks needs a controller that reports schema 1.3 or newer; one that reports none counts as
-	 * at most 1.1. <code>null</code> for an image without blocks or a controller that reads them.
-	 */
-	static ResKey blocksRefusal(RuntimeImage image, TLObject controller) {
-		if (!(image.getJson().get("blocks") instanceof List<?> blocks) || blocks.isEmpty()) {
-			return null;
+		ControllerClient client = client(controller);
+		String reported = text(I18NConstants.DEPLOY_REPORTED_REFUSED__CODE_REASON.fill(code, reason == null ? "" : reason));
+		LastValidImages.Entry last = LastValidImages.get(controller);
+		if (last == null) {
+			Outcome outcome = new Outcome();
+			outcome._resend = true;
+			outcome._code = code;
+			outcome._message = reported + " " + text(I18NConstants.DEPLOY_NO_LAST_VALID);
+			return record(project, controller, client, null, null, now, outcome);
 		}
-		return blocksRefusal(ImageComparison.reportedSchema(controller), controller.tValueByName("name"));
+		Outcome outcome = resend(client, last, null);
+		outcome._message = reported + " " + outcome._message;
+		return record(project, controller, client, null, last.revision(), now, outcome);
 	}
 
 	/**
-	 * Why an image with blocks cannot go to a controller reporting the schema (<code>null</code> or
-	 * empty: none), <code>null</code> when it reads blocks.
+	 * Whether the controller runs no image after the refusal of the image just sent (homecontrol
+	 * <code>spec/api.md</code>, "Runtime image": <code>loaded</code> of the refusal; without an answer,
+	 * its status).
 	 */
-	public static ResKey blocksRefusal(String reported, Object controller) {
-		Boolean reads = reads(reported, BLOCKS_SCHEMA);
-		if (reads == null) {
-			return I18NConstants.DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER.fill(controller);
+	private static boolean gone(ControllerClient client, Outcome outcome) {
+		if (outcome._loaded != null) {
+			return !outcome._loaded.booleanValue();
 		}
-		return reads.booleanValue() ? null
-			: I18NConstants.DEPLOY_REFUSED_BLOCKS_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
-	}
-
-	/** The schema that brings the enumeration press of a button (homecontrol spec/runtime-image.md 3.5). */
-	static final int[] PRESSES_SCHEMA = { 1, 4 };
-
-	/**
-	 * Why the image cannot go to the controller (homecontrol <code>spec/runtime-image.md</code> 3.5,
-	 * haumacher/ehome #70): an image with a button whose press is an enumeration (a Zigbee remote, the
-	 * function's <code>presses</code>) needs a controller that reports schema 1.4 or newer, since an
-	 * older one refuses the whole image. <code>null</code> for an image without one or a controller
-	 * that reads it.
-	 */
-	static ResKey pressesRefusal(RuntimeImage image, TLObject controller) {
-		if (!(image.getJson().get("functions") instanceof List<?> functions)
-			|| functions.stream().noneMatch(f -> f instanceof Map<?, ?> map && map.containsKey("presses"))) {
-			return null;
-		}
-		return pressesRefusal(ImageComparison.reportedSchema(controller), controller.tValueByName("name"));
-	}
-
-	/**
-	 * Why an image with an enumeration press cannot go to a controller reporting the schema
-	 * (<code>null</code> or empty: none), <code>null</code> when it reads it.
-	 */
-	public static ResKey pressesRefusal(String reported, Object controller) {
-		Boolean reads = reads(reported, PRESSES_SCHEMA);
-		if (reads == null) {
-			return I18NConstants.DEPLOY_REFUSED_PRESSES_NO_SCHEMA__CONTROLLER.fill(controller);
-		}
-		return reads.booleanValue() ? null
-			: I18NConstants.DEPLOY_REFUSED_PRESSES_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
-	}
-
-	/** The schema that brings the parameter ids of the rule id characters (homecontrol spec/rules.md 2.1). */
-	static final int[] PARAMETER_IDS_SCHEMA = { 1, 5 };
-
-	/**
-	 * Why the image cannot go to the controller (homecontrol <code>spec/rules.md</code> 2.1,
-	 * haumacher/ehome #110): an image with a rule parameter whose id is no identifier
-	 * (<code>max-helligkeit</code>) needs a controller that reports schema 1.5 or newer, since an older
-	 * one refuses the whole image. <code>null</code> for an image without one or a controller that
-	 * reads it.
-	 */
-	static ResKey parameterIdsRefusal(RuntimeImage image, TLObject controller) {
-		if (!hasParameterIdBeyondIdentifier(image.getJson().get("rules"))) {
-			return null;
-		}
-		return parameterIdsRefusal(ImageComparison.reportedSchema(controller), controller.tValueByName("name"));
-	}
-
-	/**
-	 * Whether a rule of the given <code>rules</code> of an image has a parameter whose id is no
-	 * identifier of the rule language.
-	 */
-	static boolean hasParameterIdBeyondIdentifier(Object rules) {
-		if (!(rules instanceof List<?> list)) {
+		if (outcome._status != null) {
 			return false;
 		}
-		for (Object rule : list) {
-			if (rule instanceof Map<?, ?> map && map.get("parameters") instanceof List<?> parameters) {
-				for (Object parameter : parameters) {
-					if (parameter instanceof Map<?, ?> p && p.get("id") instanceof String id
-						&& !RuleLoader.validIdentifier(id)) {
-						return true;
-					}
-				}
-			}
+		ControllerStatus.Loaded after = ControllerStatus.read(client);
+		return after.answered() && !after.loaded() && after.refused() != null;
+	}
+
+	/** The code of a deployment E-Home refused because the controller reads no binary image of format 1. */
+	public static final String CODE_FORMAT = "ehome.format";
+
+	/** The code of a deployment E-Home refused because the image is larger than the controller's slot. */
+	public static final String CODE_TOO_LARGE = "ehome.too_large";
+
+	/**
+	 * The format of the binary runtime image the controller reads: from its E-Home connection (its
+	 * <code>auth</code>), else from its status.
+	 */
+	static String reportedFormat(ControllerClient client, ControllerStatus.Loaded status) {
+		if (client.connection() != null && client.connection().format() != null) {
+			return client.connection().format();
 		}
-		return false;
+		return status.format();
 	}
 
 	/**
-	 * Why an image with a parameter id that is no identifier cannot go to a controller reporting the
-	 * schema (<code>null</code> or empty: none), <code>null</code> when it reads it.
+	 * The size of the controller's image slot: from its status, else from its E-Home connection;
+	 * <code>null</code> when it reports none.
 	 */
-	public static ResKey parameterIdsRefusal(String reported, Object controller) {
-		Boolean reads = reads(reported, PARAMETER_IDS_SCHEMA);
-		if (reads == null) {
-			return I18NConstants.DEPLOY_REFUSED_PARAMETER_IDS_NO_SCHEMA__CONTROLLER.fill(controller);
+	static Long reportedSlot(ControllerClient client, ControllerStatus.Loaded status) {
+		if (status.slot() != null) {
+			return status.slot();
 		}
-		return reads.booleanValue() ? null
-			: I18NConstants.DEPLOY_REFUSED_PARAMETER_IDS_SCHEMA__CONTROLLER_SCHEMA.fill(controller, reported.trim());
-	}
-
-	/** The schema that brings the roles and the rule writes of haumacher/ehome #134, #136, #138. */
-	static final int[] SCHEMA_16 = { 1, 6 };
-
-	/**
-	 * Why the image cannot go to the controller (homecontrol <code>spec/runtime-image.md</code> 3.5
-	 * and section 8, 1.6): an image with a dimmer without its level command (its switching command
-	 * alone), a climate whose heating is a number, or a rule writing an application datapoint that is
-	 * not writable needs a controller that reports schema 1.6 or newer, since an older one refuses the
-	 * whole image. The roles <code>atTop</code>, <code>atBottom</code> and <code>heatingLevel</code> need
-	 * no check: an older firmware ignores them (I5). <code>null</code> for an image without any of the
-	 * three or a controller that reads them.
-	 */
-	static ResKey schema16Refusal(RuntimeImage image, TLObject controller) {
-		String reported = ImageComparison.reportedSchema(controller);
-		if (Boolean.TRUE.equals(reads(reported, SCHEMA_16))) {
-			return null;
-		}
-		return schema16Refusal(image.getJson(), reported, controller.tValueByName("name"));
+		return client.connection() == null ? null : client.connection().slot();
 	}
 
 	/**
-	 * Why the given image (its JSON document) cannot go to a controller reporting the schema
-	 * (<code>null</code> or empty: none), naming the first function or datapoint that needs schema 1.6;
-	 * <code>null</code> when the image needs no 1.6 or the controller reads it.
+	 * Why the binary image cannot go to a controller reporting the given format (homecontrol
+	 * <code>spec/runtime-image.md</code> section 11): a controller reporting none runs a firmware
+	 * that reads JSON images (up to 1.2), one of another major format a firmware E-Home cannot write
+	 * for; <code>null</code> when it reads format {@value Layout#FORMAT}. There is no JSON fallback:
+	 * every controller is flashed with a firmware reading the binary image.
 	 */
-	public static ResKey schema16Refusal(Map<String, Object> json, String reported, Object controller) {
-		Boolean reads = reads(reported, SCHEMA_16);
-		if (Boolean.TRUE.equals(reads)) {
-			return null;
+	public static ResKey formatRefusal(String reported, Object controller) {
+		if (reported == null || reported.isBlank()) {
+			return I18NConstants.DEPLOY_REFUSED_NO_FORMAT__CONTROLLER.fill(controller);
 		}
-		String schema = reads == null ? null : reported.trim();
-		Map<String, Map<?, ?>> datapoints = new HashMap<>();
-		if (json.get("datapoints") instanceof List<?> list) {
-			for (Object item : list) {
-				if (item instanceof Map<?, ?> dp && dp.get("id") instanceof String id) {
-					datapoints.put(id, dp);
-				}
-			}
-		}
-		if (json.get("functions") instanceof List<?> functions) {
-			for (Object item : functions) {
-				if (!(item instanceof Map<?, ?> function) || !(function.get("datapoints") instanceof Map<?, ?> roles)) {
-					continue;
-				}
-				Object label = function.get("id");
-				if ("dimmer".equals(function.get("kind")) && !roles.containsKey("levelCommand")) {
-					return schema == null ? I18NConstants.DEPLOY_REFUSED_DIMMER_NO_SCHEMA__CONTROLLER_FUNCTION.fill(controller, label)
-						: I18NConstants.DEPLOY_REFUSED_DIMMER_SCHEMA__CONTROLLER_SCHEMA_FUNCTION.fill(controller, schema, label);
-				}
-				if ("climate".equals(function.get("kind")) && roles.get("heating") instanceof String heating
-					&& datapoints.get(heating) != null && !ValueTypes.BOOLEAN.equals(datapoints.get(heating).get("type"))) {
-					return schema == null ? I18NConstants.DEPLOY_REFUSED_HEATING_NO_SCHEMA__CONTROLLER_FUNCTION.fill(controller, label)
-						: I18NConstants.DEPLOY_REFUSED_HEATING_SCHEMA__CONTROLLER_SCHEMA_FUNCTION.fill(controller, schema, label);
-				}
-			}
-		}
-		String written = ruleWriteOfApplication(json.get("rules"), datapoints);
-		if (written != null) {
-			return schema == null ? I18NConstants.DEPLOY_REFUSED_RULE_WRITE_NO_SCHEMA__CONTROLLER_DATAPOINT.fill(controller,
-				DatapointId.of(written))
-				: I18NConstants.DEPLOY_REFUSED_RULE_WRITE_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT.fill(controller, schema,
-					DatapointId.of(written));
-		}
-		return null;
-	}
-
-	/** The schema that brings the timelines, the labels of states and the state datapoints (haumacher/ehome #140). */
-	static final int[] SCHEMA_17 = { 1, 7 };
-
-	/**
-	 * Why the image cannot go to the controller (homecontrol <code>spec/runtime-image.md</code> section
-	 * 8, 1.7, haumacher/ehome #140): an image with a rule with a timeline or a state with a label, or
-	 * naming the datapoint of a rule's state (<code>rule/&lt;id&gt;/state</code>, which an older firmware
-	 * does not have), needs a controller that reports schema 1.7 or newer, since an older one refuses
-	 * the whole image. <code>null</code> for an image without any of them or a controller that reads
-	 * them.
-	 */
-	static ResKey schema17Refusal(RuntimeImage image, TLObject controller) {
-		String reported = ImageComparison.reportedSchema(controller);
-		if (Boolean.TRUE.equals(reads(reported, SCHEMA_17))) {
-			return null;
-		}
-		return schema17Refusal(image.getJson(), reported, controller.tValueByName("name"));
-	}
-
-	/**
-	 * Why the given image (its JSON document) cannot go to a controller reporting the schema
-	 * (<code>null</code> or empty: none), naming the first rule with a timeline or a labeled state, or
-	 * the first state datapoint the image names; <code>null</code> when the image needs no 1.7 or the
-	 * controller reads it.
-	 */
-	public static ResKey schema17Refusal(Map<String, Object> json, String reported, Object controller) {
-		Boolean reads = reads(reported, SCHEMA_17);
-		if (Boolean.TRUE.equals(reads)) {
-			return null;
-		}
-		String schema = reads == null ? null : reported.trim();
-		Set<String> stateDatapoints = new HashSet<>();
-		if (json.get("rules") instanceof List<?> rules) {
-			for (Object item : rules) {
-				if (!(item instanceof Map<?, ?> rule) || !(rule.get("id") instanceof String id)) {
-					continue;
-				}
-				boolean labeled = rule.get("states") instanceof List<?> states
-					&& states.stream().anyMatch(s -> s instanceof Map<?, ?> state && state.containsKey("label"));
-				if (rule.containsKey("timeline") || labeled) {
-					return schema == null ? I18NConstants.DEPLOY_REFUSED_TIMELINE_NO_SCHEMA__CONTROLLER_RULE.fill(controller, id)
-						: I18NConstants.DEPLOY_REFUSED_TIMELINE_SCHEMA__CONTROLLER_SCHEMA_RULE.fill(controller, schema, id);
-				}
-				if (rule.get("states") instanceof List<?> states && !states.isEmpty()) {
-					stateDatapoints.add(RuleLoader.stateDatapointName(id));
-				}
-			}
-		}
-		String named = named(json, stateDatapoints);
-		if (named != null) {
-			return schema == null
-				? I18NConstants.DEPLOY_REFUSED_STATE_DATAPOINT_NO_SCHEMA__CONTROLLER_DATAPOINT.fill(controller, DatapointId.of(named))
-				: I18NConstants.DEPLOY_REFUSED_STATE_DATAPOINT_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT.fill(controller, schema,
-					DatapointId.of(named));
-		}
-		return null;
-	}
-
-	/** The first text of the JSON value that is one of the given names, <code>null</code> for none. */
-	private static String named(Object node, Set<String> names) {
-		if (names.isEmpty()) {
-			return null;
-		}
-		if (node instanceof String text) {
-			return names.contains(text) ? text : null;
-		}
-		Iterable<?> children = node instanceof Map<?, ?> map ? map.values() : node instanceof List<?> list ? list : List.of();
-		for (Object child : children) {
-			String found = named(child, names);
-			if (found != null) {
-				return found;
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * The first datapoint a <code>write</code> action of the rules writes that is a value of the
-	 * application (<code>virtual</code> or without a technology member) and not writable;
-	 * <code>null</code> for none.
-	 */
-	private static String ruleWriteOfApplication(Object node, Map<String, Map<?, ?>> datapoints) {
-		if (node instanceof Map<?, ?> map) {
-			if ("write".equals(map.get("kind")) && map.get("datapoint") instanceof String name) {
-				Map<?, ?> dp = datapoints.get(name);
-				if (dp != null && !Boolean.TRUE.equals(dp.get("writable"))
-					&& (dp.containsKey("virtual") || (!dp.containsKey("knx") && !dp.containsKey("zigbee")))) {
-					return name;
-				}
-			}
-			for (Object value : map.values()) {
-				String found = ruleWriteOfApplication(value, datapoints);
-				if (found != null) {
-					return found;
-				}
-			}
-		} else if (node instanceof List<?> list) {
-			for (Object value : list) {
-				String found = ruleWriteOfApplication(value, datapoints);
-				if (found != null) {
-					return found;
-				}
-			}
-		}
-		return null;
-	}
-
-	/**
-	 * Whether the reported schema (<code>major.minor</code>) is the given one or newer;
-	 * <code>null</code> when none is reported or it is no version.
-	 */
-	private static Boolean reads(String reported, int[] schema) {
-		String[] parts = reported == null ? new String[0] : reported.trim().split("\\.");
-		if (parts.length != 2) {
-			return null;
-		}
+		String[] parts = reported.trim().split("\\.");
 		try {
-			int major = Integer.parseInt(parts[0]);
-			int minor = Integer.parseInt(parts[1]);
-			return Boolean.valueOf(major > schema[0] || (major == schema[0] && minor >= schema[1]));
+			if (parts.length == 2 && Integer.parseInt(parts[0]) == Layout.MAJOR && Integer.parseInt(parts[1]) >= Layout.MINOR) {
+				return null;
+			}
 		} catch (NumberFormatException ex) {
+			// Refused below.
+		}
+		return I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill(controller, reported.trim(), Layout.FORMAT);
+	}
+
+	/**
+	 * Why an image of the given size cannot go to a controller with the given image slot (homecontrol
+	 * <code>spec/runtime-image.md</code> section 7): "Das Abbild hat N Bytes, der Controller fasst M."
+	 * <code>null</code> when it fits or the controller reports no slot.
+	 */
+	public static ResKey slotRefusal(int bytes, Long slot) {
+		if (slot == null || bytes <= slot.longValue()) {
 			return null;
 		}
+		return I18NConstants.DEPLOY_TOO_LARGE__BYTES_SLOT.fill(Integer.valueOf(bytes), slot);
 	}
 
 	/**
@@ -642,16 +498,16 @@ public final class Deployer {
 	/** The wait before an image refused as {@link #CODE_BUSY} is sent again (the controller's Retry-After). */
 	static final long BUSY_WAIT_MS = 1000;
 
-	private static void send(ControllerClient client, RuntimeImage image, long revision, Outcome outcome) {
+	private static void send(ControllerClient client, byte[] image, Outcome outcome) {
 		Answer answer;
 		try {
-			answer = client.putImage(image.getBytes(), outcome._signature);
-			// The controller still stores the previous image (homecontrol #68: 503 image.busy, Retry-After 1):
-			// a store takes under a second, so the image is sent again after a second, a few times.
+			answer = client.putImage(image);
+			// The controller is receiving another image (503 image.busy, Retry-After 1): the image is sent
+			// again after a second, a few times.
 			for (int retry = 0; retry < BUSY_RETRIES && answer.status() == 503 && CODE_BUSY.equals(answer.string("code"));
 					retry++) {
 				Thread.sleep(BUSY_WAIT_MS);
-				answer = client.putImage(image.getBytes(), outcome._signature);
+				answer = client.putImage(image);
 			}
 		} catch (IOException ex) {
 			outcome._code = CODE_UNREACHABLE;
@@ -667,28 +523,12 @@ public final class Deployer {
 		outcome._status = Integer.valueOf(answer.status());
 		if (answer.status() == 200) {
 			outcome._accepted = true;
-			Map<String, Object> json = image.getJson();
-			String message = text(I18NConstants.DEPLOY_ACCEPTED__REVISION_DATAPOINTS_LOCATIONS_BYTES.fill(
-				Long.valueOf(revision), size(json.get("datapoints")), size(json.get("locations")),
-				Integer.valueOf(outcome._bytes)));
-			if (image.getUnusedFunctions() > 0) {
-				message += " " + text(I18NConstants.EXPORT_UNUSED__COUNT.fill(Integer.valueOf(image.getUnusedFunctions())));
-			}
-			// A datapoint the inhabitant's pages show by its id, having no name (haumacher/ehome #114).
-			for (ResKey warning : UnnamedDatapoints.warnings(json)) {
-				message += " " + text(warning);
-			}
-			if (Boolean.FALSE.equals(answer.body().get("stored"))) {
-				message += " " + text(I18NConstants.DEPLOY_NOT_STORED__ERROR.fill(answer.string("storeError")));
-			} else {
-				// Stored, but beyond what the controller is sure to load again (its staging, homecontrol #52).
-				ResKey warning = storableWarning(outcome._bytes, outcome._storable);
-				if (warning != null) {
-					message += " " + text(warning);
-				}
-			}
-			outcome._message = message;
+			outcome._loaded = Boolean.TRUE;
+			outcome._message = "";
 			return;
+		}
+		if (answer.body().get("loaded") instanceof Boolean loaded) {
+			outcome._loaded = loaded;
 		}
 		String code = answer.string("code");
 		String error = answer.string("error");
@@ -725,7 +565,7 @@ public final class Deployer {
 			deployment.tUpdateByName("code", outcome._code);
 			deployment.tUpdateByName("message", outcome._message);
 			deployment.tUpdateByName("before", outcome._before);
-			deployment.tUpdateByName("bytes", image == null ? null : Integer.valueOf(outcome._bytes));
+			deployment.tUpdateByName("bytes", outcome._bytes);
 			deployment.tUpdateByName("total", Integer.valueOf(outcome._total));
 			deployment.tUpdateByName("signature", outcome._signature);
 			deployment.tUpdateByName("keyFingerprint", outcome._fingerprint);
@@ -735,17 +575,21 @@ public final class Deployer {
 				stored.tUpdateByName("path", refusal.path());
 				stored.tUpdateByName("reason", refusal.reason());
 				stored.tUpdateByName("message", refusal.translations());
-				stored.tUpdateByName("element", image.elementAt(refusal.path()));
+				stored.tUpdateByName("element", image == null ? null : image.elementAt(refusal.path()));
 				refusals.add(stored);
 			}
 			deployment.tUpdateByName("refusals", refusals);
+			if (outcome._accepted && !outcome._unload && outcome._image != null) {
+				// The last valid deployment of the controller from now on (haumacher/ehome #176).
+				LastValidImages.store(controller, deployment, outcome._image);
+			}
 			List<Object> deployments = new ArrayList<>();
 			deployments.add(deployment);
 			if (project.tValueByName("deployments") instanceof Collection<?> before) {
 				deployments.addAll(before);
 			}
 			project.tUpdateByName("deployments", deployments);
-			if (outcome._accepted && !outcome._unload) {
+			if (outcome._accepted && !outcome._unload && !outcome._foreign && revision != null) {
 				project.tUpdateByName("imageRevision", revision);
 			}
 			tx.commit();
@@ -792,7 +636,19 @@ public final class Deployer {
 	private static final class Outcome {
 		boolean _unload;
 
+		/** Whether this is the last valid deployment sent again after a failed one. */
+		boolean _resend;
+
+		/** Whether the image sent again was not deployed from this project (another tool, another project). */
+		boolean _foreign;
+
 		boolean _accepted;
+
+		/**
+		 * Whether the controller runs an image after the answer (<code>loaded</code> of a refusal);
+		 * <code>null</code> when it did not say.
+		 */
+		Boolean _loaded;
 
 		Integer _status;
 
@@ -802,10 +658,11 @@ public final class Deployer {
 
 		String _before;
 
-		int _bytes;
+		/** The binary image the controller accepted, kept with the deployment; <code>null</code> for none. */
+		byte[] _image;
 
-		/** What the controller reported it can store and load again before the image was sent. */
-		Long _storable;
+		/** The size of the binary image, <code>null</code> when none was compiled. */
+		Integer _bytes;
 
 		int _total;
 

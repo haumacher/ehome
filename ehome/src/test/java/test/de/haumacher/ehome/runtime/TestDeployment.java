@@ -8,6 +8,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -30,27 +31,24 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 import com.top_logic.util.model.ModelService;
 
-import de.haumacher.ehome.blocks.RoomController;
 import de.haumacher.ehome.programming.GroupAddressTypes;
-import de.haumacher.ehome.rules.DatapointId;
-import de.haumacher.ehome.runtime.ApplicationDatapoints;
-import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.ControllerStatus;
 import de.haumacher.ehome.runtime.Deployer;
-import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.I18NConstants;
 import de.haumacher.ehome.runtime.ImageComparison;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
-import de.haumacher.ehome.runtime.RuleImport;
+import de.haumacher.ehome.runtime.LastValidImages;
 import de.haumacher.ehome.runtime.RuntimeImage;
 
 /**
  * Deployments of a project (<code>samples/Test.knxproj</code>) to an in-process
- * {@link FakeController} speaking the controller's protocol: an accepted image advances the
- * project's revision and the controller's status agrees with it; every refusal code of
- * <code>PUT /api/image</code> is recorded with the deployment (the refusals with the group address
- * their path leads to) and leaves the revision; a wrong token, a body above the controller's limit,
- * an unreachable controller and an image E-Home refuses itself are recorded the same way.
+ * {@link FakeController} speaking the controller's protocol: the binary image compiled from the
+ * source is sent (haumacher/ehome #176); an accepted image advances the project's revision and the
+ * controller's status agrees with it; every refusal code of <code>PUT /api/image</code> is recorded
+ * with the deployment (the refusals with the group address their path leads to) and leaves the
+ * revision, and one after which the controller runs no image is followed by the last valid deployment
+ * sent again; a wrong token, an image larger than the controller's slot, an unreachable controller, a
+ * controller reading no binary image and an image E-Home refuses itself are recorded the same way.
  *
  * <p>
  * The project is imported once and all cases run in one test (the import is the cost of the test).
@@ -108,7 +106,9 @@ public class TestDeployment extends BasicTestCase {
 			TLObject first = Deployer.deploy(project, NOW);
 			assertAccepted(first, 1);
 			assertEquals(text(I18NConstants.STATUS_NO_IMAGE), first.tValueByName("before"));
-			assertEquals(RuntimeImage.build(project, 1, NOW).getText(), _fake.getStoredText());
+			// The controller got the binary image compiled from the source (haumacher/ehome #176).
+			assertTrue(Arrays.equals(RuntimeImage.build(project, 1, NOW).compile(null), _fake.getStored()));
+			assertEquals(Integer.valueOf(_fake.getStored().length), first.tValueByName("bytes"));
 			assertEquals(Long.valueOf(1), project.tValueByName("imageRevision"));
 			assertTrue(ControllerStatus.drift(project),
 				ControllerStatus.drift(project).startsWith(text(I18NConstants.DRIFT_IN_SYNC__REVISION.fill(1L))));
@@ -123,7 +123,9 @@ public class TestDeployment extends BasicTestCase {
 			int datapoints = RuntimeImage.build(project, 2, NOW).getDatapointSources().size();
 			assertTrue(datapoints > 0);
 
-			// A refusal with refusals: recorded against the group address of the path.
+			// A refusal with refusals after the controller erased its slot: recorded against the group address of
+			// the path; the controller then runs no image, so the last valid deployment (revision 2) goes again,
+			// recorded as an entry of its own (spec/runtime-image.md I9).
 			_fake.refuseNext(422, "image.invalid", "the image is invalid",
 				List.of(new Refusal("datapoints[0].knx.dpt", "DPT 9.001 carries real values, the datapoint is boolean"),
 					new Refusal("", "something about the whole image")));
@@ -139,15 +141,23 @@ public class TestDeployment extends BasicTestCase {
 			assertNull(((TLObject) refusals.get(1)).tValueByName("element"));
 			// The controller's refusals are English only: no message.
 			assertNull(refusal.tValueByName("message"));
-			assertEquals(text(I18NConstants.DEPLOY_REFUSED__STATUS_ERROR.fill(422, "the image is invalid")),
-				refused.tValueByName("message"));
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED__STATUS_ERROR.fill(422, "the image is invalid")) + " "
+				+ text(I18NConstants.DEPLOY_RESENT__REVISION.fill(2L)), refused.tValueByName("message"));
+			List<?> deployments = (List<?>) project.tValueByName("deployments");
+			TLObject resent = (TLObject) deployments.get(0);
+			assertEquals(refused, deployments.get(1));
+			assertAccepted(resent, 2);
+			assertEquals(text(I18NConstants.RESEND_ACCEPTED__REVISION.fill("2")), resent.tValueByName("message"));
+			assertTrue(Arrays.equals(RuntimeImage.build(project, 2, NOW).compile(null), _fake.getStored()));
 
-			// Every other refusal code of the protocol.
-			Map<String, Integer> codes = Map.of("image.bad_json", 400, "image.version", 422, "image.too_large", 413,
+			// Every other refusal code of the protocol: from the header (the image runs on), or after the erase
+			// (the last valid deployment goes again).
+			Map<String, Integer> codes = Map.of("image.format", 400, "image.version", 422, "image.too_large", 413,
 				"image.no_memory", 507, "image.apply_failed", 500);
 			for (Map.Entry<String, Integer> code : codes.entrySet()) {
 				_fake.refuseNext(code.getValue(), code.getKey(), "refused", List.of());
 				assertRefused(Deployer.deploy(project, NOW), 3, code.getValue(), code.getKey());
+				assertNotNull(code.getKey(), _fake.getLoaded());
 			}
 			assertEquals(Long.valueOf(2), project.tValueByName("imageRevision"));
 			// The controller still runs revision 2, the last one deployed.
@@ -161,11 +171,15 @@ public class TestDeployment extends BasicTestCase {
 			assertTrue(ControllerStatus.drift(project).contains("401"));
 			update(controller, "token", TOKEN);
 
-			// A body above the controller's limit: 413 before the image is read.
+			// An image larger than the controller's slot: refused before it is sent.
 			FakeController small = new FakeController(TOKEN, 100);
 			try {
 				update(controller, "port", small.getPort());
-				assertRefused(Deployer.deploy(project, NOW), 3, 413, "api.body_too_large");
+				TLObject tooLarge = Deployer.deploy(project, NOW);
+				assertRefused(tooLarge, 3, null, Deployer.CODE_TOO_LARGE);
+				assertEquals(text(I18NConstants.DEPLOY_TOO_LARGE__BYTES_SLOT.fill(tooLarge.tValueByName("bytes"), 100L)),
+					tooLarge.tValueByName("message"));
+				assertEquals(0, small.getPuts());
 			} finally {
 				small.stop();
 			}
@@ -217,328 +231,66 @@ public class TestDeployment extends BasicTestCase {
 	}
 
 	/**
-	 * An image with blocks goes only to a controller that reads schema 1.3 (homecontrol
-	 * spec/blocks.md B1): refused, recorded with its reason and not sent, for a controller reporting
-	 * 1.2 and for one reporting no schema; accepted for 1.3. An image without blocks still goes to 1.2.
+	 * A controller whose firmware reads JSON images (it reports no <code>format</code>) or another major
+	 * format is refused before anything is sent, with "update the firmware"; there is no JSON fallback.
+	 * A controller reporting at its connection that its image did not load (here: as asked directly)
+	 * gets the last valid deployment again; without one the refusal is recorded.
 	 */
-	public void testBlocksNeedSchema13() throws Exception {
-		TLObject project;
-		TLObject block;
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-			project = ModelService.getInstance().getFactory()
-				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
-			project.tUpdateByName("name", "Blocks deployment");
-			project.tUpdateByName("extId", "P-TEST-75-DEPLOY");
-			TLObject temperature = ModelService.getInstance().getFactory()
-				.createObject((TLClass) TLModelUtil.findType("ehome.runtime:ApplicationDatapoint"));
-			temperature.tUpdateByName("identifier", "wz.temperature");
-			temperature.tUpdateByName("type", ((com.top_logic.model.TLEnumeration) TLModelUtil
-				.findType("ehome.runtime:DatapointValueType")).getClassifier("real"));
-			project.tUpdateByName("applicationDatapoints", List.of(temperature));
-			block = BlockInstances.create(project, BlockInstances.typeKey(RoomController.INSTANCE.manifest()), null,
-				ResKey.text("Heizung"));
-			BlockInstances.bind(BlockInstances.port(block, "temperature"), temperature);
-			tx.commit();
-		}
-		List<TLObject> controllers = new ArrayList<>();
-		try {
-			TLObject controller = controller("Fake 1.2", _fake.getPort(), TOKEN);
-			controllers.add(controller);
-			ControllerFixture.deployTo(project, controller);
-
-			_fake.setSchema("1.2");
-			int puts = _fake.getPuts();
-			TLObject refused = Deployer.deploy(project, NOW);
-			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
-			assertEquals(text(I18NConstants.DEPLOY_REFUSED_BLOCKS_SCHEMA__CONTROLLER_SCHEMA.fill("Fake 1.2", "1.2")),
-				refused.tValueByName("message"));
-			assertEquals("Nothing is sent.", puts, _fake.getPuts());
-			assertNull(project.tValueByName("imageRevision"));
-
-			_fake.setSchema(null);
-			refused = Deployer.deploy(project, NOW);
-			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
-			assertEquals(text(I18NConstants.DEPLOY_REFUSED_BLOCKS_NO_SCHEMA__CONTROLLER.fill("Fake 1.2")),
-				refused.tValueByName("message"));
-			assertEquals(puts, _fake.getPuts());
-
-			_fake.setSchema("1.3");
-			assertAccepted(Deployer.deploy(project, NOW), 1);
-			assertEquals(puts + 1, _fake.getPuts());
-
-			// Without blocks the image goes to an older controller as before (the confirmation warns).
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				block.tDelete();
-				tx.commit();
-			}
-			_fake.setSchema("1.2");
-			assertAccepted(Deployer.deploy(project, NOW), 2);
-			assertNull(Deployer.blocksRefusal("1.3", "x"));
-			assertNull(Deployer.blocksRefusal("2.0", "x"));
-			assertNull(Deployer.blocksRefusal("1.12", "x"));
-			assertNotNull(Deployer.blocksRefusal("1.1", "x"));
-			assertNotNull(Deployer.blocksRefusal("", "x"));
-		} finally {
-			SharedData.deleteProjects(List.of(project));
-			SharedData.deleteProjects(controllers);
-		}
-	}
-
-	/**
-	 * An image with a Zigbee remote as a button (an enumeration press with its presses, homecontrol
-	 * spec/runtime-image.md 3.5, haumacher/ehome #70) goes only to a controller that reads schema 1.4:
-	 * refused, recorded with its reason and not sent, for a controller reporting 1.3 and for one
-	 * reporting no schema; accepted for 1.4. Without the button the image still goes to 1.3.
-	 */
-	public void testPressesNeedSchema14() throws Exception {
-		TLObject project = TestRuleAuthoring.createProject();
-		List<TLObject> types = TestZigbeeRemoteProposal.createRemote(project);
-		List<TLObject> controllers = new ArrayList<>();
-		try {
-			TestFunctionProposal.apply(project);
-			TLObject remote = FunctionProposal.functions(project).stream()
-				.filter(f -> TestZigbeeRemoteProposal.REMOTE_CHANNEL.equals(f.tValueByName("channel"))).findFirst()
-				.orElseThrow();
-			TLObject controller = controller("Fake 1.3", _fake.getPort(), TOKEN);
-			controllers.add(controller);
-			ControllerFixture.deployTo(project, controller);
-
-			_fake.setSchema("1.3");
-			int puts = _fake.getPuts();
-			TLObject refused = Deployer.deploy(project, NOW);
-			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
-			assertEquals(text(I18NConstants.DEPLOY_REFUSED_PRESSES_SCHEMA__CONTROLLER_SCHEMA.fill("Fake 1.3", "1.3")),
-				refused.tValueByName("message"));
-			assertEquals("Nothing is sent.", puts, _fake.getPuts());
-			assertNull(project.tValueByName("imageRevision"));
-
-			_fake.setSchema(null);
-			refused = Deployer.deploy(project, NOW);
-			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
-			assertEquals(text(I18NConstants.DEPLOY_REFUSED_PRESSES_NO_SCHEMA__CONTROLLER.fill("Fake 1.3")),
-				refused.tValueByName("message"));
-			assertEquals(puts, _fake.getPuts());
-
-			_fake.setSchema("1.4");
-			assertAccepted(Deployer.deploy(project, NOW), 1);
-			assertEquals(puts + 1, _fake.getPuts());
-
-			// Without the remote's button the image goes to an older controller as before.
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				remote.tDelete();
-				tx.commit();
-			}
-			_fake.setSchema("1.3");
-			assertAccepted(Deployer.deploy(project, NOW), 2);
-			assertNull(Deployer.pressesRefusal("1.4", "x"));
-			assertNull(Deployer.pressesRefusal("2.0", "x"));
-			assertNull(Deployer.pressesRefusal("1.12", "x"));
-			assertNotNull(Deployer.pressesRefusal("1.3", "x"));
-			assertNotNull(Deployer.pressesRefusal("", "x"));
-		} finally {
-			_fake.setSchema("1.3");
-			SharedData.deleteProjects(List.of(project));
-			SharedData.deleteProjects(controllers);
-			TestZigbeeRemoteProposal.delete(types);
-		}
-	}
-
-	/**
-	 * An image with a rule writing an application datapoint the user may not change (haumacher/ehome
-	 * #138, homecontrol spec/rules.md 7.3) goes only to a controller that reads schema 1.6: refused,
-	 * recorded with its reason naming the datapoint and not sent, for a controller reporting 1.5 and for
-	 * one reporting no schema; accepted for 1.6. With the datapoint writable the image goes to 1.5 as
-	 * before.
-	 */
-	public void testRuleWriteOfApplicationNeedsSchema16() throws Exception {
+	public void testFormatAndResendAfterRefusal() throws Exception {
 		TLObject project = TestRuleAuthoring.createProject();
 		List<TLObject> controllers = new ArrayList<>();
 		try {
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				new RuleImport().importImage(project, """
-					{"datapoints": [{"id": "valve", "type": "real", "writable": true, "virtual": {}},
-						{"id": "heats", "type": "boolean", "virtual": {}}],
-					"rules": [{"id": "mirror", "name": "Mirror", "reactions": [{"triggers": [{"kind": "datapoint",
-						"datapoint": "valve"}], "actions": [{"kind": "write", "datapoint": "heats", "value": {"kind": "binary",
-						"op": ">", "left": {"kind": "datapoint", "name": "valve"}, "right": {"kind": "literal", "type": "real",
-						"value": 0.0}}}]}]}]}
-					""");
-				tx.commit();
-			}
-			TLObject heats = ApplicationDatapoints.of(project).stream()
-				.filter(d -> "heats".equals(ApplicationDatapoints.id(d))).findFirst().orElseThrow();
-			assertFalse(ApplicationDatapoints.writable(heats));
-			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
-			assertTrue(image.validate().toString(), image.validate().isValid());
-
-			TLObject controller = controller("Fake 1.5", _fake.getPort(), TOKEN);
+			TLObject controller = controller("Fake format", _fake.getPort(), TOKEN);
 			controllers.add(controller);
 			ControllerFixture.deployTo(project, controller);
 
-			_fake.setSchema("1.5");
-			int puts = _fake.getPuts();
-			TLObject refused = Deployer.deploy(project, NOW);
-			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
-			assertEquals(text(I18NConstants.DEPLOY_REFUSED_RULE_WRITE_SCHEMA__CONTROLLER_SCHEMA_DATAPOINT.fill("Fake 1.5",
-				"1.5", DatapointId.of("heats"))), refused.tValueByName("message"));
-			assertEquals("Nothing is sent.", puts, _fake.getPuts());
+			_fake.setFormat(null);
+			TLObject old = Deployer.deploy(project, NOW);
+			assertRefused(old, 1, null, Deployer.CODE_FORMAT);
+			assertEquals(text(I18NConstants.DEPLOY_REFUSED_NO_FORMAT__CONTROLLER.fill("Fake format")), old.tValueByName("message"));
+			assertEquals(0, _fake.getPuts());
+			String confirmation = ImageComparison.confirmation(project, NOW);
+			assertTrue(confirmation, confirmation.contains(text(I18NConstants.DEPLOY_REFUSED_NO_FORMAT__CONTROLLER.fill("Fake format"))));
+			_fake.setFormat("2.0");
+			assertRefused(Deployer.deploy(project, NOW), 1, null, Deployer.CODE_FORMAT);
+			assertEquals(I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill("x", "2.0", "1.0"),
+				Deployer.formatRefusal("2.0", "x"));
+			assertNull(Deployer.formatRefusal("1.0", "x"));
+			assertNull(Deployer.formatRefusal("1.3", "x"));
+			_fake.setFormat("1.0");
 
-			_fake.setSchema(null);
-			refused = Deployer.deploy(project, NOW);
-			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
-			assertEquals(text(I18NConstants.DEPLOY_REFUSED_RULE_WRITE_NO_SCHEMA__CONTROLLER_DATAPOINT.fill("Fake 1.5",
-				DatapointId.of("heats"))), refused.tValueByName("message"));
-			assertEquals(puts, _fake.getPuts());
+			// No last valid image: the refusal the controller reported is recorded, nothing is sent.
+			_fake.failAtBoot("image.damaged", "header.crc: the CRC-32 is 59772c42, the bytes give 0d5e8a10");
+			TLObject none = Deployer.resendAfterRefusal(controller, "image.damaged", "header.crc: ...", NOW);
+			assertEquals(Boolean.FALSE, none.tValueByName("accepted"));
+			assertEquals("image.damaged", none.tValueByName("code"));
+			assertTrue(String.valueOf(none.tValueByName("message")).endsWith(text(I18NConstants.DEPLOY_NO_LAST_VALID)));
+			assertEquals(0, _fake.getPuts());
 
-			_fake.setSchema("1.6");
-			assertAccepted(Deployer.deploy(project, NOW), 1);
-			assertEquals(puts + 1, _fake.getPuts());
-
-			// Writable for the user as well: the image goes to a controller reading 1.5 as before.
-			update(heats, "writable", Boolean.TRUE);
-			_fake.setSchema("1.5");
-			assertAccepted(Deployer.deploy(project, NOW), 2);
-			assertEquals(puts + 2, _fake.getPuts());
-		} finally {
-			_fake.setSchema("1.5");
-			SharedData.deleteProjects(List.of(project));
-			SharedData.deleteProjects(controllers);
-		}
-	}
-
-	/**
-	 * An image with a rule parameter whose id is no identifier (<code>max-helligkeit</code>,
-	 * haumacher/ehome #110, homecontrol spec/rules.md 2.1) goes only to a controller that reads schema
-	 * 1.5: refused, recorded with its reason and not sent, for a controller reporting 1.4 and for one
-	 * reporting no schema; accepted for 1.5. With an identifier as the id the image (written as 1.5)
-	 * still goes to 1.4, and the confirmation does not warn of the older schema.
-	 */
-	public void testParameterIdsNeedSchema15() throws Exception {
-		TLObject project = TestRuleAuthoring.createProject();
-		List<TLObject> controllers = new ArrayList<>();
-		try {
-			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
-				new RuleImport().importImage(project, """
-					{"rules": [{"id": "dimmer", "name": "Dimmer",
-						"parameters": [{"id": "max-helligkeit", "label": "Max", "type": "real", "default": 80.0}],
-						"reactions": [{"triggers": [{"kind": "start"}], "actions": [{"kind": "log", "level": "info",
-						"message": ["max ", {"kind": "parameter", "id": "max-helligkeit"}]}]}]}]}
-					""");
-				tx.commit();
-			}
-			TLObject parameter = (TLObject) ((List<?>) ((TLObject) ((List<?>) project.tValueByName("rules")).get(0))
-				.tValueByName("parameters")).get(0);
-			assertEquals("max-helligkeit", parameter.tValueByName("identifier"));
-			RuntimeImage image = RuntimeImage.build(project, 1, NOW);
-			assertTrue(image.validate().toString(), image.validate().isValid());
-			assertEquals(RuntimeImage.SCHEMA_VERSION, ((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
-
-			TLObject controller = controller("Fake 1.4", _fake.getPort(), TOKEN);
-			controllers.add(controller);
-			ControllerFixture.deployTo(project, controller);
-
-			_fake.setSchema("1.4");
-			int puts = _fake.getPuts();
-			TLObject refused = Deployer.deploy(project, NOW);
-			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
-			assertEquals(
-				text(I18NConstants.DEPLOY_REFUSED_PARAMETER_IDS_SCHEMA__CONTROLLER_SCHEMA.fill("Fake 1.4", "1.4")),
-				refused.tValueByName("message"));
-			assertEquals("Nothing is sent.", puts, _fake.getPuts());
-			assertNull(project.tValueByName("imageRevision"));
-
-			_fake.setSchema(null);
-			refused = Deployer.deploy(project, NOW);
-			assertRefused(refused, 1, null, Deployer.CODE_SCHEMA);
-			assertEquals(text(I18NConstants.DEPLOY_REFUSED_PARAMETER_IDS_NO_SCHEMA__CONTROLLER.fill("Fake 1.4")),
-				refused.tValueByName("message"));
-			assertEquals(puts, _fake.getPuts());
-
-			_fake.setSchema("1.5");
-			assertAccepted(Deployer.deploy(project, NOW), 1);
-			assertEquals(puts + 1, _fake.getPuts());
-
-			// With an identifier as the id the image goes to a controller reading 1.4 as before.
-			TLObject rule = (TLObject) ((List<?>) project.tValueByName("rules")).get(0);
-			TLObject reaction = (TLObject) ((List<?>) rule.tValueByName("reactions")).get(0);
-			TLObject log = (TLObject) ((List<?>) reaction.tValueByName("actions")).get(0);
-			assertEquals("max {$\"max-helligkeit\"}", log.tValueByName("message"));
-			update(parameter, "identifier", "max_helligkeit");
-			update(log, "message", "max {$max_helligkeit}");
-			_fake.setSchema("1.4");
-			assertNull(ImageComparison.schemaWarning("1.4"));
-			assertAccepted(Deployer.deploy(project, NOW), 2);
-			assertEquals(puts + 2, _fake.getPuts());
-
-			assertNull(Deployer.parameterIdsRefusal("1.5", "x"));
-			assertNull(Deployer.parameterIdsRefusal("2.0", "x"));
-			assertNull(Deployer.parameterIdsRefusal("1.12", "x"));
-			assertNotNull(Deployer.parameterIdsRefusal("1.4", "x"));
-			assertNotNull(Deployer.parameterIdsRefusal("", "x"));
-		} finally {
-			_fake.setSchema("1.4");
-			SharedData.deleteProjects(List.of(project));
-			SharedData.deleteProjects(controllers);
-		}
-	}
-
-	/**
-	 * The controller reports the largest image it can store and load again (<code>image.storable</code>
-	 * of its status, homecontrol #52): the deployment confirmation warns when the image is larger (it
-	 * runs, but may not survive a restart), not when it fits, and not when the controller reports no
-	 * limit. A deployment above it is accepted and runs; the controller says why it is not stored.
-	 */
-	public void testStorableWarning() throws Exception {
-		TLObject project = TestRuleAuthoring.createProject();
-		List<TLObject> controllers = new ArrayList<>();
-		try {
-			TLObject controller = controller("Fake storable", _fake.getPort(), TOKEN);
-			controllers.add(controller);
-			ControllerFixture.deployTo(project, controller);
-			int bytes = RuntimeImage.build(project, 1, NOW).getBytes().length;
-			ResKey tooLarge = I18NConstants.CONFIRM_TOO_LARGE__BYTES_STORABLE.fill(Integer.valueOf(bytes),
-				Long.valueOf(bytes - 1));
-
-			// A controller that reports no limit (a firmware before #52): no warning.
-			assertNull(_fake.getStorable());
-			assertNull(ControllerStatus.read(Deployer.client(controller)).storable());
-			String plain = ImageComparison.confirmation(project, NOW);
-			assertFalse(plain, plain.contains(text(tooLarge)));
-			assertNull(Deployer.storableWarning(bytes, null));
-
-			// The image fits, also exactly: no warning.
-			_fake.setStorable(Long.valueOf(bytes));
-			assertEquals(Long.valueOf(bytes), ControllerStatus.read(Deployer.client(controller)).storable());
-			assertEquals(plain, ImageComparison.confirmation(project, NOW));
-			assertNull(Deployer.storableWarning(bytes, Long.valueOf(bytes)));
-
-			// One byte larger: the confirmation warns, after the question.
-			_fake.setStorable(Long.valueOf(bytes - 1));
-			String warned = ImageComparison.confirmation(project, NOW);
-			assertEquals(plain + "\n\n" + text(tooLarge), warned);
-			assertTrue(warned.startsWith(text(I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(1L, "Fake storable"))));
-			assertEquals(tooLarge, Deployer.storableWarning(bytes, Long.valueOf(bytes - 1)));
-
-			// Deployed anyway: accepted and running, not stored; the record names the controller's reason.
+			// Deployed, then lost at a boot: E-Home sends the image again by itself, read from the stored
+			// deployment (it survives a restart of E-Home: nothing is held in memory).
 			TLObject deployed = Deployer.deploy(project, NOW);
 			assertAccepted(deployed, 1);
-			String message = String.valueOf(deployed.tValueByName("message"));
-			assertTrue(message, message.contains(text(I18NConstants.DEPLOY_NOT_STORED__ERROR
-				.fill("the storage is full (it stores at most " + (bytes - 1) + " bytes)"))));
-			assertNull(_fake.getStoredText());
-			assertTrue(ControllerStatus.drift(project).startsWith(text(I18NConstants.DRIFT_IN_SYNC__REVISION.fill(1L))));
-			assertFalse(message, message.contains(text(tooLarge)));
-
-			// Stored although larger (the store takes it, the staging could not restore it): the record warns.
-			_fake.setStoresBeyond(true);
-			TLObject stored = Deployer.deploy(project, NOW);
-			assertAccepted(stored, 2);
-			assertNotNull(_fake.getStoredText());
-			message = String.valueOf(stored.tValueByName("message"));
-			int bytes2 = RuntimeImage.build(project, 2, NOW).getBytes().length;
-			assertTrue(message, message.endsWith(" " + text(I18NConstants.CONFIRM_TOO_LARGE__BYTES_STORABLE
-				.fill(Integer.valueOf(bytes2), Long.valueOf(bytes - 1)))));
+			byte[] image = _fake.getStored();
+			assertTrue(Arrays.equals(image, bytes(deployed.tValueByName(LastValidImages.IMAGE))));
+			assertTrue(Arrays.equals(image, LastValidImages.get(controller).bytes()));
+			_fake.failAtBoot("image.damaged", "header.crc: the CRC-32 is 59772c42, the bytes give 0d5e8a10");
+			assertNull(_fake.getLoaded());
+			TLObject resent = Deployer.resendAfterRefusal(controller, "image.damaged", "header.crc: ...", NOW);
+			assertAccepted(resent, 1);
+			assertTrue(String.valueOf(resent.tValueByName("message")).contains(text(I18NConstants.RESEND_ACCEPTED__REVISION.fill("1"))));
+			assertTrue(Arrays.equals(image, _fake.getStored()));
+			assertEquals(List.of(resent, deployed, none), ((List<?>) project.tValueByName("deployments")).subList(0, 3));
+			// At most one image per controller: the newest accepted deployment keeps it.
+			assertNotNull(resent.tValueByName(LastValidImages.IMAGE));
+			assertNull(deployed.tValueByName(LastValidImages.IMAGE));
+			TLObject next = Deployer.deploy(project, NOW);
+			assertAccepted(next, 2);
+			assertNull(resent.tValueByName(LastValidImages.IMAGE));
+			assertTrue(Arrays.equals(_fake.getStored(), bytes(next.tValueByName(LastValidImages.IMAGE))));
+			assertEquals(Long.valueOf(2), LastValidImages.get(controller).revision());
 		} finally {
+			_fake.setFormat("1.0");
 			SharedData.deleteProjects(List.of(project));
 			SharedData.deleteProjects(controllers);
 		}
@@ -570,6 +322,12 @@ public class TestDeployment extends BasicTestCase {
 			controller.tUpdateByName("token", token);
 			tx.commit();
 			return controller;
+		}
+	}
+
+	private static byte[] bytes(Object data) throws Exception {
+		try (java.io.InputStream in = ((com.top_logic.basic.io.binary.BinaryData) data).getStream()) {
+			return in.readAllBytes();
 		}
 	}
 

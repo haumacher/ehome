@@ -30,6 +30,8 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.monitor.DatapointCodec.Dpt;
 import de.haumacher.ehome.programming.GroupAddressTypes;
+import de.haumacher.ehome.runtime.binary.CompileException;
+import de.haumacher.ehome.runtime.binary.ImageCompiler;
 import de.haumacher.ehome.rules.RuleLoader;
 import de.haumacher.ehome.rules.Schedule;
 
@@ -121,8 +123,11 @@ public final class RuntimeImage {
 		return Collections.unmodifiableMap(result);
 	}
 
-	/** The content type of an image. */
+	/** The content type of the source form of an image (the JSON document). */
 	public static final String CONTENT_TYPE = "application/json";
+
+	/** The content type of the binary image the controller runs (homecontrol <code>spec/runtime-image.md</code> 9). */
+	public static final String BINARY_CONTENT_TYPE = "application/octet-stream";
 
 	private static final Pattern INDEXED = Pattern.compile("^(datapoints|locations|functions)\\[(\\d+)\\]");
 
@@ -225,18 +230,32 @@ public final class RuntimeImage {
 	}
 
 	/**
-	 * The image as JSON text, without whitespace ({@link Json#writeCompact(Object)}): the bytes that
-	 * are signed, sent, stored by the controller and downloaded.
+	 * The source form of the image as JSON text, without whitespace ({@link Json#writeCompact(Object)}).
+	 * The controller gets the binary image compiled from it ({@link #compile(String)}).
 	 */
 	public String getText() {
 		return _text;
 	}
 
 	/**
-	 * The image as it is sent: UTF-8.
+	 * The source form of the image as UTF-8.
 	 */
 	public byte[] getBytes() {
 		return _text.getBytes(StandardCharsets.UTF_8);
+	}
+
+	/**
+	 * The binary image the controller runs (homecontrol <code>spec/runtime-image.md</code> section 9,
+	 * haumacher/ehome #176), compiled from this image, which must be valid ({@link #validate()}).
+	 *
+	 * @param seed
+	 *        The private installation key to sign with (its seed), <code>null</code> for an unsigned
+	 *        image.
+	 * @throws CompileException
+	 *         If the image cannot be compiled.
+	 */
+	public byte[] compile(String seed) {
+		return ImageCompiler.compile(_json, ImageCompiler.Options.signed(seed));
 	}
 
 	/**
@@ -451,6 +470,15 @@ public final class RuntimeImage {
 		String base = name == null || name.toString().isBlank() ? String.valueOf(project.tValueByName("extId"))
 			: name.toString();
 		return base.replaceAll("[\\\\/:*?\"<>|]", "_").trim() + ".runtime.json";
+	}
+
+	/**
+	 * The file name of the binary image of the given project: as {@link #fileName(TLObject)}, with the
+	 * extension <code>.bin</code>.
+	 */
+	public static String binaryFileName(TLObject project) {
+		String json = fileName(project);
+		return json.substring(0, json.length() - ".json".length()) + ".bin";
 	}
 
 	// ---- image -------------------------------------------------------------------------------

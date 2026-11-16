@@ -701,6 +701,19 @@ public class TestAccessRights extends BasicTestCase {
 		assertFalse(rights().isAllowed(_viewer, _controller, token, WRITE));
 	}
 
+	/**
+	 * The signed binary image a deployment keeps (haumacher/ehome #176) is read by nobody through the
+	 * model, the viewer least: it carries the authority of a deployment.
+	 */
+	public void testDeploymentImageUnreadable() {
+		TLStructuredTypePart image = part("ehome.runtime:Deployment#image");
+		for (Person person : List.of(_owner, _editor, _viewer, _stranger, _admin)) {
+			assertFalse(person.getName(), rights().isAllowed(person, _deployment, image, READ));
+		}
+		assertTrue("The deployment reads in a project its viewer reads.",
+			rights().isAllowed(_viewer, _deployment, READ));
+	}
+
 	public void testSecretAndCodeUnreadable() {
 		TLStructuredTypePart secret = part("ehome.runtime:Controller#secret");
 		for (Person person : List.of(_owner, _editor, _viewer, _stranger)) {

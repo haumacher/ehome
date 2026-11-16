@@ -25,9 +25,9 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.blocks.BlockSet;
 import de.haumacher.ehome.connection.InstallationKeys;
-import de.haumacher.ehome.connection.Signatures;
 import de.haumacher.ehome.connection.Signatures.Keys;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
+import de.haumacher.ehome.runtime.binary.CompileException;
 
 /**
  * {@link ViewAction} exporting the runtime image of the input project
@@ -35,12 +35,13 @@ import de.haumacher.ehome.runtime.ImageReport.Refusal;
  *
  * <p>
  * The image carries the revision the next deployment would carry. The result is a map for a
- * dialog: <code>file</code> (the image as JSON file named after the project, <code>null</code> for a
- * refused image), <code>signature</code> (the detached signature <code>&lt;file&gt;.sig</code>, 128 hex
- * digits and a line end, made with the key the project's controller holds, see
- * {@link InstallationKeys#signer(TLObject, TLObject)}; <code>null</code> for a project without a key or
- * a refused image), <code>summary</code> (whether the image is valid; for a valid one what it holds, see
- * {@link #summary(RuntimeImage)}, and the key it is signed with),
+ * dialog: <code>file</code> (the binary image the controller runs, homecontrol
+ * <code>spec/runtime-image.md</code> section 9, named after the project with the extension
+ * <code>.bin</code>, signed inside with the key the project's controller holds, see
+ * {@link InstallationKeys#signer(TLObject, TLObject)}; <code>null</code> for a refused image),
+ * <code>source</code> (its source form as JSON file, for people; <code>null</code> for a refused image),
+ * <code>summary</code> (whether the image is valid; for a valid one what it holds and its size, see
+ * {@link #summary(RuntimeImage, int)}, and the key it is signed with),
  * <code>refusals</code> (one map per refusal with <code>path</code>, <code>text</code> in the user's
  * language, <code>reason</code> in English as the controller gives it and the <code>element</code> of
  * the project the path leads to) and <code>notes</code> (what the export left
@@ -48,12 +49,6 @@ import de.haumacher.ehome.runtime.ImageReport.Refusal;
  * </p>
  */
 public class ExportRuntimeImageAction implements ViewAction {
-
-	/** The suffix of the detached signature file beside the image (homecontrol issue #35). */
-	public static final String SIGNATURE_SUFFIX = ".sig";
-
-	/** The content type of the signature file: 128 hex digits and a line end. */
-	public static final String SIGNATURE_CONTENT_TYPE = "text/plain";
 
 	/**
 	 * Configuration of {@link ExportRuntimeImageAction}.
@@ -101,25 +96,30 @@ public class ExportRuntimeImageAction implements ViewAction {
 			refusals.add(row);
 		}
 		Resources resources = Resources.getInstance();
+		Keys signer = report.isValid() ? InstallationKeys.signer(project, Deployer.controller(project)) : null;
+		byte[] binary = null;
+		String problem = null;
 		if (report.isValid()) {
-			result.put("file", BinaryDataFactory.createBinaryData(image.getBytes(), RuntimeImage.CONTENT_TYPE,
-				RuntimeImage.fileName(project)));
-			Keys signer = InstallationKeys.signer(project, Deployer.controller(project));
-			if (signer != null) {
-				result.put("signature", BinaryDataFactory.createBinaryData(
-					(Signatures.signImage(signer.seed(), image.getBytes()) + "\n").getBytes(StandardCharsets.US_ASCII),
-					SIGNATURE_CONTENT_TYPE, RuntimeImage.fileName(project) + SIGNATURE_SUFFIX));
-			} else {
-				result.put("signature", null);
+			try {
+				binary = image.compile(signer == null ? null : signer.seed());
+			} catch (CompileException ex) {
+				problem = resources.getString(I18NConstants.DEPLOY_COMPILE_FAILED__PATH_REASON.fill(ex.getPath(), ex.getReason()));
 			}
-			// A project without a key exports as before: no signature, no sentence about it.
-			result.put("summary", signer == null ? summary(image)
-				: summary(image) + " " + resources.getString(I18NConstants.EXPORT_SIGNED__FINGERPRINT.fill(signer.fingerprint())));
+		}
+		if (binary != null) {
+			result.put("file", BinaryDataFactory.createBinaryData(binary, RuntimeImage.BINARY_CONTENT_TYPE,
+				RuntimeImage.binaryFileName(project)));
+			result.put("source", BinaryDataFactory.createBinaryData(Json.write(image.getJson()).getBytes(StandardCharsets.UTF_8),
+				RuntimeImage.CONTENT_TYPE, RuntimeImage.fileName(project)));
+			// A project without a key exports as before: no sentence about it.
+			result.put("summary", signer == null ? summary(image, binary.length)
+				: summary(image, binary.length) + " "
+					+ resources.getString(I18NConstants.EXPORT_SIGNED__FINGERPRINT.fill(signer.fingerprint())));
 		} else {
 			result.put("file", null);
-			result.put("signature", null);
-			result.put("summary",
-				resources.getString(I18NConstants.EXPORT_INVALID__COUNT.fill(Integer.valueOf(refusals.size()))));
+			result.put("source", null);
+			result.put("summary", problem != null ? problem
+				: resources.getString(I18NConstants.EXPORT_INVALID__COUNT.fill(Integer.valueOf(refusals.size()))));
 		}
 		result.put("refusals", refusals);
 		result.put("notes", String.join("\n", image.getNotes()));
@@ -129,18 +129,26 @@ public class ExportRuntimeImageAction implements ViewAction {
 	/**
 	 * The sentences saying what a valid image holds: its datapoints (those it lists and those of its
 	 * virtual devices, <code>spec/blocks.md</code> 6, haumacher/ehome #78), locations, functions and
-	 * settings (the controller's settings and the history budget, each counted as one), its size,
+	 * settings (the controller's settings and the history budget, each counted as one), the size of the
+	 * binary image,
 	 * the virtual devices with their datapoints, the addresses of its time master, its rules and
 	 * schedule entries, and the unused functions it leaves out (haumacher/ehome #98).
 	 */
 	public static String summary(RuntimeImage image) {
+		return summary(image, image.compile(null).length);
+	}
+
+	/**
+	 * {@link #summary(RuntimeImage)} with the size of the binary image given.
+	 */
+	public static String summary(RuntimeImage image, int bytes) {
 		Map<String, Object> json = image.getJson();
 		int settings = size(json.get("settings")).intValue() + (json.containsKey("history") ? 1 : 0);
 		int blockDatapoints = BlockSet.impliedDatapoints(json.get("blocks"), BlockInstances.registry()).size();
 		Resources resources = Resources.getInstance();
 		String result = resources.getString(I18NConstants.EXPORT_VALID__DATAPOINTS_LOCATIONS_FUNCTIONS_SETTINGS_BYTES.fill(
 			Integer.valueOf(size(json.get("datapoints")).intValue() + blockDatapoints), size(json.get("locations")),
-			size(json.get("functions")), Integer.valueOf(settings), Integer.valueOf(image.getBytes().length)));
+			size(json.get("functions")), Integer.valueOf(settings), Integer.valueOf(bytes)));
 		if (json.containsKey("blocks")) {
 			result += " " + resources.getString(I18NConstants.EXPORT_BLOCKS__BLOCKS_DATAPOINTS.fill(size(json.get("blocks")),
 				Integer.valueOf(blockDatapoints)));
