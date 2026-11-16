@@ -25,6 +25,9 @@
  * <li>{@link de.haumacher.ehome.ai.WiringTools} (<code>ehome-wiring</code>): the group addresses with
  * what tells their purpose (paged), creating one, setting its datapoint type, naming several at once,
  * a device's communication objects, connecting and disconnecting them.</li>
+ * <li>{@link de.haumacher.ehome.ai.TemplateTools} (<code>ehome-templates</code>, haumacher/ehome #174):
+ * the programs with their device templates, the kinds of their communication objects, typing a kind,
+ * and the presets of a template, saved from a channel of a device and deleted.</li>
  * </ul>
  *
  * <h2>Where further domain tools join</h2>

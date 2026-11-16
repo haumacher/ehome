@@ -362,6 +362,22 @@ public class TestAssistantTools extends BasicTestCase {
 	}
 
 	/**
+	 * Review probe (haumacher/ehome #174): the template tools take a project only as the caller may
+	 * read it; an installer without a role in a project gets no marks of its devices, whichever
+	 * program is asked about.
+	 */
+	public void testProbeTemplateToolsOfForeignProject() {
+		TLObject assignment = (TLObject) device(line(), 5).tValueByName("program");
+		TLObject program = (TLObject) assignment.tValueByName("program");
+		List<ProviderRequest> sent = installerRuns("Which objects of the other project are untyped?",
+			call("objectKinds", "program", tid(program), "project", tid(_foreign), "untypedOnly", Boolean.TRUE));
+		String answer = toolAnswer(sent, "objectKinds");
+		assertTrue("A project without a role: " + answer, answer.contains("not found"));
+		assertFalse(answer, answer.contains("Fremdes Projekt"));
+		assertFalse(answer, answer.contains("\"kinds\""));
+	}
+
+	/**
 	 * The reading tools, a parameter set with the editor's checks, a duplicate with the settings, and
 	 * a part moved and a device placed.
 	 */

@@ -185,6 +185,16 @@ public final class ObjectKinds {
 		return result;
 	}
 
+	/**
+	 * The texts of the program's base language, in which {@link #kinds(TLObject, TLObject, Resources)}
+	 * compares the kinds: the language of the program's first language, the fallback language of the
+	 * application for a program without.
+	 */
+	public static Resources baseLanguage(TLObject program) {
+		return program instanceof Program valid ? Resources.getInstance(baseLanguage(valid))
+			: Resources.getInstance(ResourcesModule.getInstance().getFallbackLocale());
+	}
+
 	private static Locale baseLanguage(Program program) {
 		String languages = program.getLanguages();
 		if (languages != null && !languages.isBlank()) {

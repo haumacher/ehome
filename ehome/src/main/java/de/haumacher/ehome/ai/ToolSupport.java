@@ -178,13 +178,25 @@ final class ToolSupport {
 	}
 
 	/**
-	 * Why the run may not change the project of the given object, <code>null</code> if it may.
+	 * The refusal of a change in a run without a user account (a system context, where the
+	 * application checks no rights and records no author), <code>null</code> in a run with one.
 	 */
-	static ToolResult writeDenied(ToolContext context, TLObject obj) {
+	static ToolResult withoutUser() {
 		if (ThreadContext.isSecurityBypassed() || TLContext.currentUser() == null) {
 			return failure("This call runs without a user account, in a system context where the application"
 				+ " checks no rights and records no author. Data is only changed in the name of the user the"
 				+ " run acts for. Nothing was changed.");
+		}
+		return null;
+	}
+
+	/**
+	 * Why the run may not change the project of the given object, <code>null</code> if it may.
+	 */
+	static ToolResult writeDenied(ToolContext context, TLObject obj) {
+		ToolResult system = withoutUser();
+		if (system != null) {
+			return system;
 		}
 		TLObject project = project(obj);
 		if (project == null) {

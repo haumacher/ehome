@@ -26,6 +26,10 @@
 	of the communication objects (ehome-wiring). They are on the agent, so that a question about them
 	needs no skill load; the skills EHome_buildingLayout, EHome_devicePlanning and EHome_wiring carry
 	the knowledge the tools do not, and name the tools.
+
+	The tools of the device templates (haumacher/ehome #174, ehome-templates): the programs with their
+	templates, the kinds of their communication objects with their datapoint types, typing a kind, and
+	the presets; the skill EHome_deviceTemplates says where a type belongs (template or project).
 -->
 <application config:interface="com.top_logic.basic.config.ApplicationConfig$Config"
 	xmlns:config="http://www.top-logic.com/ns/config/6.0"
@@ -135,6 +139,11 @@ E-Home plant, konfiguriert und betreibt KNX-Installationen in Wohngebäuden - da
 					<factory name="ehome-wiring">
 						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
 							tool-class="de.haumacher.ehome.ai.WiringTools"
+						/>
+					</factory>
+					<factory name="ehome-templates">
+						<implementation class="com.top_logic.tl.ai.tool.api.registry.ReflectiveToolFactory"
+							tool-class="de.haumacher.ehome.ai.TemplateTools"
 						/>
 					</factory>
 				</tool-factories>
@@ -254,6 +263,35 @@ listGroupAddresses gives per address: its description (often the name ETS lost o
 3. Write the agreed names and identifiers with ONE nameGroupAddresses call per project (dryRun=true first if the list is long): each entry with 'name' and/or 'identifier'. Leave 'description' out unless the user wants it changed; it stays as it is. A name assigned here survives an update from ETS while the ETS project has none for the address; a name ETS has wins.
 4. Report how many addresses were named and identified; list the ones left unclear.]]></content>
 					</skill>
+					<skill name="EHome_deviceTemplates"
+						description="Load before working with the device templates of E-Home: giving the communication objects of an application program datapoint types (all devices of the program, in every project) or a connector of a project its type, finding the objects a project connects without a type, and saving, reading or deleting presets of channels. Names the tools programTemplates, objectKinds, setObjectKindType, presets, preset, presetCandidates, savePreset and deletePreset."
+					>
+						<content><![CDATA[# Device templates in E-Home
+
+A device template is E-Home's own repair of an imported application program, without changing the program: datapoint types for its communication objects, and presets of its channels. There is at most one per program; it applies to every device running the program, in every project. Templates are master data: every user reads them, only E-Home administrators change them (the application refuses everybody else - relay its reason and say who may do it).
+
+## Where a datapoint type belongs
+The type in effect at a device's object is the first of: the type entered at the device's object in the project (a connector's type), the template's type of the object, the manufacturer's.
+- At the template (setObjectKindType): what the object means for every device of the program, whatever the installation - the Temperaturwert of a key set to "Temperaturwertgeber" is 9.001 in every house. Most gaps of a manufacturer's program are of this kind.
+- In the project (the connector's type at the device, or the group address's type): what depends on the installation - a generic 1-byte value object that one installer uses for a percentage and another for a counter.
+- Objects of 1 bit and 4 bits need no type for E-Home to work (their size decides the main type); larger objects without a type cannot be read or written by the controller, the simulation or the group monitor.
+
+## Kinds of objects
+- A program places its objects in channels and in the cases of its settings; objectKinds groups the places that are equal relative to their channel - object text, function, size and the setting that switches them on - into kinds, naming the channels they occur in ("Taste 1–6, Wippe 1–3"). One type per kind is right: the setting decides the meaning.
+- A kind's 'id' is the identifier of its first object; pass it back to setObjectKindType. The texts are in the program's base language (often German).
+- "mixed": the objects of a kind carry different types (entered earlier for single objects); a type set for the kind unifies them.
+
+## How to work
+1. programTemplates finds the program (or take it from a device: its id works as 'program').
+2. objectKinds with 'project' and untypedOnly=true lists the kinds the devices of that project connect without a type - the work list. Without a project no project is read.
+3. Choose the type from the object text, the function and the setting (Temperaturwert -> 9.001, Helligkeit/lux -> 9.004, Wert 0..100% -> 5.001, Wert 0..255 -> 5.010, Szene -> 17.001/18.001). Propose them as a table and wait for the user's agreement when more than one kind is concerned or the meaning is not certain.
+4. setObjectKindType per kind; an empty type removes the template's type.
+
+## Presets
+- A preset is a named configuration of a channel, saved from a configured channel of a device: the parameter values that make it, the roles of the channel's objects, and its purpose - 'actuator' with the kind of function (light, dimmer, blind, switch, sensor, climate, scene, button) or 'source' with the operations of a key, LED or sensor (toggle, on, off, onOff, showStatus, dim).
+- presetCandidates(device) lists the channels; presetCandidates(device, channel) the values it may hold ('proposed' as the dialog selects them), the objects and the roles per purpose. savePreset(device, channel, name, purpose, ...) saves it; omit 'values' for the proposed ones. The name is unique on the channel ("Schalten", "Taste: Umschalten").
+- presets(program) and preset(id) read them; deletePreset deletes one (devices keep the values it set). Applying a preset to a device is the installer's command in the tab Presets of the device.]]></content>
+					</skill>
 				</skills>
 				<agents>
 					<agent name="TL_SingleAgent">
@@ -275,12 +313,21 @@ listGroupAddresses gives per address: its description (often the name ETS lost o
 							<tool name="ehome-wiring.deviceObjects"/>
 							<tool name="ehome-wiring.connectObject"/>
 							<tool name="ehome-wiring.disconnectObject"/>
+							<tool name="ehome-templates.programTemplates"/>
+							<tool name="ehome-templates.objectKinds"/>
+							<tool name="ehome-templates.setObjectKindType"/>
+							<tool name="ehome-templates.presets"/>
+							<tool name="ehome-templates.preset"/>
+							<tool name="ehome-templates.presetCandidates"/>
+							<tool name="ehome-templates.savePreset"/>
+							<tool name="ehome-templates.deletePreset"/>
 						</tools>
 						<skills>
 							<skill name="EHome_buildingLayout"/>
 							<skill name="EHome_devicePlanning"/>
 							<skill name="EHome_wiring"/>
 							<skill name="EHome_namingGroupAddresses"/>
+							<skill name="EHome_deviceTemplates"/>
 						</skills>
 					</agent>
 				</agents>
