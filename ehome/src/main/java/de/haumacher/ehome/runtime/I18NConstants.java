@@ -312,6 +312,36 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 PROPOSAL_WARNING__FUNCTION_WARNING;
 
 	/**
+	 * @en {0} existing functions were overwritten with what the proposal gives now (name, kind, room, roles).
+	 */
+	public static ResKey1 PROPOSAL_OVERWRITTEN__COUNT;
+
+	/**
+	 * @en Renamed: {0} → {1}
+	 */
+	public static ResKey2 PROPOSAL_RENAMED__BEFORE_AFTER;
+
+	/**
+	 * @en {0} functions came from a proposal that the proposal no longer gives. They were kept unchanged; delete them where they are not needed:
+	 */
+	public static ResKey1 PROPOSAL_STALE__COUNT;
+
+	/**
+	 * @en No longer proposed: {0}
+	 */
+	public static ResKey1 PROPOSAL_STALE__FUNCTION;
+
+	/**
+	 * @en {0} functions will be overwritten.
+	 */
+	public static ResKey1 PROPOSAL_OVERWRITE_CONFIRM__COUNT;
+
+	/**
+	 * @en Every function that comes from a proposal gets the name, kind, room and roles the proposal gives now; its identifier follows the new name. Functions made with "New function" stay as they are; dismissed proposals stay dismissed.
+	 */
+	public static ResKey PROPOSAL_OVERWRITE_CONFIRM_DETAIL;
+
+	/**
 	 * @en The status object "{0}" sends on {1}, the command address of the function: the state stays empty. Connect the status object to an address of its own.
 	 */
 	public static ResKey2 STATUS_ON_COMMAND__OBJECT_ADDRESS;

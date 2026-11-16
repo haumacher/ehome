@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog "Propose functions" of the functions view (projects/functions.view.xml): runs the function
+	proposal (<propose-functions>, de.haumacher.ehome.runtime.ProposeFunctionsAction) for "project".
+
+	The checkbox "overwrite" (off by default, haumacher/ehome #177) lets the run set every existing
+	function that comes from a proposal (proposed for a device channel, a Zigbee function by its key, a
+	virtual device; de.haumacher.ehome.runtime.FunctionProposal#proposed) to what the proposal gives
+	now: name, kind, room and the datapoints of the roles, the identifier after the new name. Functions
+	made with "New function" are not touched, dismissed proposals stay dismissed, and a function the
+	proposal no longer gives is kept and listed in the result. Before such a run a confirmation names
+	the count (functionProposalOverwrite); off, the run is the one the command always made, without a
+	question. The result is a notification: what was added and updated, every rename "old → new" and
+	the functions no longer proposed.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="overwrite"
+			init="false"
+		/>
+	</channels>
+	<window width="640px">
+		<title>
+			<en>Propose functions</en>
+			<de>Funktionen vorschlagen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text>
+					<label>
+						<en>Adds a function for every set of device channels linked by a group address, named after the address, and an unused one for every channel without a group address. Of existing functions, it only fills the roles of unused ones that got linked; edited names, bound roles and dismissed proposals stay.</en>
+						<de>Legt für jede über eine Gruppenadresse verbundene Gruppe von Gerätekanälen eine Funktion mit dem Namen der Adresse an und für jeden Kanal ohne Gruppenadresse eine unbenutzte. An bestehenden Funktionen ergänzt er nur die Rollen unbenutzter, die inzwischen verbunden sind; bearbeitete Namen, gebundene Rollen und verworfene Vorschläge bleiben.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						type="tl.core:Boolean"
+						value="overwrite"
+					>
+						<label>
+							<en>Overwrite existing proposed functions</en>
+							<de>Bestehende vorgeschlagene Funktionen überschreiben</de>
+						</label>
+					</value-input>
+				</fields>
+				<text tone="secondary">
+					<label>
+						<en>Checked, every function that comes from a proposal gets the name, kind, room and roles the proposal gives now, its identifier after the new name. Functions made with "New function" stay as they are, dismissed proposals stay dismissed; a function the proposal no longer gives is kept and listed.</en>
+						<de>Angekreuzt erhält jede Funktion, die aus einem Vorschlag stammt, Namen, Art, Raum und Rollen, die der Vorschlag jetzt ergibt, ihren Bezeichner nach dem neuen Namen. Mit „Neue Funktion“ angelegte Funktionen bleiben, wie sie sind, verworfene Vorschläge bleiben verworfen; eine Funktion, die der Vorschlag nicht mehr ergibt, bleibt erhalten und wird aufgeführt.</de>
+					</label>
+				</text>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-magic"
+					inputs="project, overwrite"
+				>
+					<label>
+						<en>Propose</en>
+						<de>Vorschlagen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<confirm expr="if($overwrite == true, functionProposalOverwrite($project), null)"/>
+					<propose-functions overwrite="overwrite">
+						<with-result>
+							<close-dialog/>
+							<notify
+								expr="$result"
+								kind="info"
+							/>
+						</with-result>
+					</propose-functions>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

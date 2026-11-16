@@ -294,7 +294,7 @@ public class TestAssistantTools extends BasicTestCase {
 		results.put("duplicateDevice", as(_viewingInstaller,
 			() -> new DeviceTools().duplicateDevice(AssistantFixture.toolContext(), actuator, null)));
 		results.put("proposeFunctions", as(_viewingInstaller,
-			() -> new FunctionTools().proposeFunctions(AssistantFixture.toolContext(), _project, null)));
+			() -> new FunctionTools().proposeFunctions(AssistantFixture.toolContext(), _project, null, null)));
 		for (Map.Entry<String, ToolResult> result : results.entrySet()) {
 			ToolResult refusal = result.getValue();
 			assertTrue(result.getKey() + ": " + refusal.text(), refusal.failed());

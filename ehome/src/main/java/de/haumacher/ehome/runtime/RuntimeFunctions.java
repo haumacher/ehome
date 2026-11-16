@@ -183,6 +183,12 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		functionWarning,
 		/**
+		 * <code>functionProposalOverwrite(project)</code>: the question asked before the function
+		 * proposal overwrites the existing functions that come from a proposal, with their count
+		 * ({@link ProposeFunctionsAction#confirmation(TLObject)}, haumacher/ehome #177).
+		 */
+		functionProposalOverwrite,
+		/**
 		 * <code>deleteConfirmation(obj)</code>: the question asked before the object is deleted,
 		 * naming the parts of the project that refer to it, such as the functions, rules and
 		 * schedule entries naming a datapoint ({@link Referers#deleteConfirmation(TLObject)},
@@ -296,6 +302,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return FunctionProposal.redundancy(obj);
 			case functionWarning:
 				return functionWarning(obj);
+			case functionProposalOverwrite:
+				return ProposeFunctionsAction.confirmation(obj);
 			case deleteConfirmation:
 				return Referers.deleteConfirmation(obj);
 			case groupAddressIdentifierProposal:

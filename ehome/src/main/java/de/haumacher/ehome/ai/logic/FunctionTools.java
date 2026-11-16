@@ -50,10 +50,10 @@ import de.haumacher.ehome.runtime.RuntimeImage;
 public class FunctionTools {
 
 	/**
-	 * The commit message of {@link #proposeFunctions(ToolContext, TLObject, Boolean)}.
+	 * The commit message of {@link #proposeFunctions(ToolContext, TLObject, Boolean, Boolean)}.
 	 */
 	@CalledByReflection
-	ResKey proposeFunctionsMessage(ToolContext context, TLObject project, Boolean dryRun) {
+	ResKey proposeFunctionsMessage(ToolContext context, TLObject project, Boolean dryRun, Boolean overwrite) {
 		return I18NConstants.COMMIT_FUNCTIONS_PROPOSED__PROJECT.fill(CommitMessages.label(owner(project)));
 	}
 
@@ -71,27 +71,48 @@ public class FunctionTools {
 		+ " existing proposed ones. Functions dismissed earlier are not added again. The answer lists the functions in"
 		+ " use apart from the unused ones (a channel without group address: stored, but not deployed to the"
 		+ " controller), and the warnings about the wiring the devices' objects show (a status object sending on the"
-		+ " command address, an address whose datapoint type contradicts the object). With dryRun=true it answers"
-		+ " what it would add and update without changing anything; show that to the user before accepting. "
+		+ " command address, an address whose datapoint type contradicts the object). With overwrite=true (the"
+		+ " option \"Overwrite existing proposed functions\" of the command) it first sets every existing function that"
+		+ " comes from a proposal (proposed for a device channel, a Zigbee function by its key, a virtual device; not one"
+		+ " made with \"New function\") to what the proposal gives now: name, kind, room and the datapoints of its roles,"
+		+ " the identifier after the new name; the answer lists the overwritten functions, the renames (before, after)"
+		+ " and the proposed functions the proposal no longer gives, which are kept, not deleted. Dismissed proposals"
+		+ " stay dismissed. With dryRun=true it answers what it would add, update and overwrite without changing"
+		+ " anything; show that to the user before accepting. "
 		+ LogicSupport.REFUSALS,
 		mode = ToolMode.DATA_WRITE, group = ToolGroups.DATA_WRITE, dryRun = "dryRun",
 		commitMessage = "proposeFunctionsMessage")
 	public ToolResult proposeFunctions(ToolContext context,
 			@P("The project, or any object of it") TLObject project,
-			@P(value = "true to only answer what the proposal would add", required = false) Boolean dryRun) {
+			@P(value = "true to only answer what the proposal would add", required = false) Boolean dryRun,
+			@P(value = "true to overwrite the existing proposed functions with what the proposal gives now (default"
+				+ " false)", required = false) Boolean overwrite) {
 		TLObject owner = project(project);
 		if (owner == null) {
 			return failure("'" + id(project) + "' belongs to no project. Nothing was changed.");
 		}
 		boolean dry = Boolean.TRUE.equals(dryRun);
 		return LogicSupport.perform(context, owner, dry, () -> {
-			FunctionProposal.Run run = FunctionProposal.run(owner);
+			FunctionProposal.Run run = FunctionProposal.run(owner, Boolean.TRUE.equals(overwrite));
 			List<TLObject> inUse = run.addedInUse();
 			List<TLObject> unused = run.addedUnused();
 			Map<String, Object> data = new LinkedHashMap<>();
 			data.put(dry ? "wouldAdd" : "added", functions(inUse, !dry));
 			data.put(dry ? "wouldAddUnused" : "addedUnused", functions(unused, !dry));
 			data.put(dry ? "wouldUpdate" : "updated", functions(run.updated(), true));
+			if (Boolean.TRUE.equals(overwrite)) {
+				data.put(dry ? "wouldOverwrite" : "overwritten", functions(run.overwritten(), true));
+				List<Object> renamed = new ArrayList<>();
+				for (FunctionProposal.Rename rename : run.renamed()) {
+					Map<String, Object> entry = new LinkedHashMap<>();
+					entry.put("id", id(rename.function()));
+					entry.put("before", rename.before() == null ? null : LogicSupport.text(rename.before()));
+					entry.put("after", LogicSupport.text(rename.after()));
+					renamed.add(entry);
+				}
+				data.put(dry ? "wouldRename" : "renamed", renamed);
+				data.put("noLongerProposed", functions(run.stale(), true));
+			}
 			List<Object> warnings = new ArrayList<>();
 			run.warnings().forEach((function, texts) -> {
 				for (ResKey text : texts) {
@@ -107,9 +128,22 @@ public class FunctionTools {
 			data.put("warnings", warnings);
 			String sentence = (dry ? "Would add " : "Added ") + inUse.size() + " functions in use and " + unused.size()
 				+ " unused functions (no group address: not deployed), " + (dry ? "would update " : "updated ")
-				+ run.updated().size() + "; " + warnings.size() + " warnings about the wiring.";
+				+ run.updated().size() + overwrite(run, dry) + "; " + warnings.size() + " warnings about the wiring.";
 			return Outcome.done(sentence, data);
 		});
+	}
+
+	/**
+	 * The part of the answer of {@link #proposeFunctions(ToolContext, TLObject, Boolean, Boolean)} about
+	 * the overwritten functions (haumacher/ehome #177), empty for a run without the option.
+	 */
+	private static String overwrite(FunctionProposal.Run run, boolean dry) {
+		if (run.overwritten().isEmpty() && run.stale().isEmpty()) {
+			return "";
+		}
+		return ", " + (dry ? "would overwrite " : "overwrote ") + run.overwritten().size() + " existing proposed functions ("
+			+ run.renamed().size() + " renamed), " + run.stale().size()
+			+ " proposed functions no longer proposed (kept)";
 	}
 
 	/**

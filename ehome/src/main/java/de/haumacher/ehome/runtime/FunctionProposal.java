@@ -239,6 +239,19 @@ import de.haumacher.ehome.modules.ModuleParts;
  * </p>
  *
  * <p>
+ * <b>Overwriting</b> (haumacher/ehome #177). A run with the option to overwrite
+ * ({@link #run(TLObject, boolean)}) first sets every existing function that comes from a proposal
+ * ({@link #proposed(TLObject)}: proposed for a device channel, a Zigbee datapoint by its key or a
+ * virtual device; not one made with "New function", nor one configured by intent) to what the
+ * proposal gives now, in place: its name, kind, room and the datapoints of its roles (a role the
+ * proposal does not give is cleared); a renamed function gets the identifier of its new name,
+ * unique in the project. Which proposal a function comes from is decided as the run without the
+ * option finds the existing function of a proposal ({@link #overwrite(TLObject)}). A function the
+ * proposal no longer gives is kept unchanged (control pages may refer to it) and named in the
+ * result; dismissed proposals stay dismissed. The run then goes on as without the option.
+ * </p>
+ *
+ * <p>
  * <b>Configured by intent</b> (haumacher/ehome #147). A function with a preset
  * (<code>Function#preset</code>) gets its roles from the derivation
  * (<code>de.haumacher.ehome.intent.Derivation</code>): the proposal changes nothing of it. A device the
@@ -564,11 +577,28 @@ public final class FunctionProposal {
 	 *        What the proposal says about the wiring of the functions added and of the existing ones
 	 *        it proposed again (haumacher/ehome #134), by function; a function without warnings is not
 	 *        among them.
+	 * @param overwritten
+	 *        The existing functions a run with the option to overwrite set to what the proposal gives
+	 *        now (haumacher/ehome #177), those that differed from it; empty without the option.
+	 * @param renamed
+	 *        The renames among the overwritten functions, in their order.
+	 * @param stale
+	 *        The existing functions that come from a proposal which the proposal no longer gives, found
+	 *        by a run with the option to overwrite: kept, not changed (control pages may refer to
+	 *        them); empty without the option.
 	 */
-	public record Run(List<TLObject> added, List<TLObject> updated, Map<TLObject, List<ResKey>> warnings) {
+	public record Run(List<TLObject> added, List<TLObject> updated, Map<TLObject, List<ResKey>> warnings,
+			List<TLObject> overwritten, List<Rename> renamed, List<TLObject> stale) {
 
 		/**
-		 * A run without warnings.
+		 * A run without the option to overwrite.
+		 */
+		public Run(List<TLObject> added, List<TLObject> updated, Map<TLObject, List<ResKey>> warnings) {
+			this(added, updated, warnings, List.of(), List.of(), List.of());
+		}
+
+		/**
+		 * A run without warnings and without the option to overwrite.
 		 */
 		public Run(List<TLObject> added, List<TLObject> updated) {
 			this(added, updated, Map.of());
@@ -595,6 +625,25 @@ public final class FunctionProposal {
 	 * proposed ones (see the class comment); must run in a transaction.
 	 */
 	public static Run run(TLObject project) {
+		return run(project, false);
+	}
+
+	/**
+	 * Adds the proposed functions the project lacks and updates the existing functions of the
+	 * proposed ones (see the class comment); must run in a transaction.
+	 *
+	 * @param overwrite
+	 *        Whether the existing functions that come from a proposal are first set to what the
+	 *        proposal gives now (haumacher/ehome #177, {@link #overwrite(TLObject, List)}): their
+	 *        name, kind, room and the datapoints of their roles. Without, the run changes only what
+	 *        the class comment says.
+	 */
+	public static Run run(TLObject project, boolean overwrite) {
+		List<TLObject> devices = devices(project);
+		Names names = new Names(devices);
+		List<Proposal> proposals = propose(project, devices, names);
+		Overwrite overwritten = overwrite ? overwrite(project, proposals).apply() : Overwrite.NONE;
+
 		List<TLObject> existing = functions(project);
 		Decision decision = new Decision();
 		for (TLObject function : existing) {
@@ -632,9 +681,6 @@ public final class FunctionProposal {
 			}
 		}
 
-		List<TLObject> devices = devices(project);
-		Names names = new Names(devices);
-		List<Proposal> proposals = propose(project, devices, names);
 		Set<TLObject> sources = controlSources(existing);
 		boolean[] accepted = new boolean[proposals.size()];
 		Set<TLObject> updated = new LinkedHashSet<>();
@@ -696,7 +742,9 @@ public final class FunctionProposal {
 			all.addAll(added);
 			project.tUpdateByName("functions", all);
 		}
-		return new Run(added, new ArrayList<>(updated), warnings);
+		updated.removeAll(overwritten.changed());
+		return new Run(added, new ArrayList<>(updated), warnings, overwritten.changed(), overwritten.renamed(),
+			overwritten.stale());
 	}
 
 	/**
@@ -722,6 +770,239 @@ public final class FunctionProposal {
 	 */
 	private static boolean sourceChannel(Proposal proposal, Set<TLObject> sources) {
 		return proposal.unused() && proposal.device() != null && sources.contains(proposal.device());
+	}
+
+	/**
+	 * A function renamed by a run of the proposal with the option to overwrite (haumacher/ehome #177).
+	 *
+	 * @param function
+	 *        The function, the same object as before.
+	 * @param before
+	 *        Its name before the run, <code>null</code> for none.
+	 * @param after
+	 *        Its name now.
+	 */
+	public record Rename(TLObject function, ResKey before, ResKey after) {
+		// A record.
+	}
+
+	/**
+	 * The existing functions of a project matched with what the proposal gives now (haumacher/ehome
+	 * #177): see {@link FunctionProposal#overwrite(TLObject, List)}.
+	 *
+	 * @param project
+	 *        The project, <code>null</code> for {@link #NONE}.
+	 * @param matches
+	 *        Each existing function that comes from a proposal with the proposal it comes from now, in
+	 *        the order of the proposals.
+	 * @param stale
+	 *        The existing functions that come from a proposal the proposal no longer gives, in the order
+	 *        of the project's functions.
+	 * @param changed
+	 *        After {@link #apply()}: the functions changed.
+	 * @param renamed
+	 *        After {@link #apply()}: the functions renamed.
+	 */
+	public record Overwrite(TLObject project, Map<TLObject, Proposal> matches, List<TLObject> stale,
+			List<TLObject> changed, List<Rename> renamed) {
+
+		/** Nothing to overwrite: a run without the option. */
+		static final Overwrite NONE = new Overwrite(null, Map.of(), List.of(), List.of(), List.of());
+
+		/**
+		 * The matched functions that differ from their proposal, which {@link #apply()} changes.
+		 */
+		public List<TLObject> differing() {
+			return matches.entrySet().stream().filter(e -> differs(e.getKey(), e.getValue())).map(Map.Entry::getKey)
+				.toList();
+		}
+
+		/**
+		 * Sets each matched function to what its proposal gives: its name (and the identifier of the
+		 * new name, unique in the project), kind, room and the datapoints of its roles; a role the
+		 * proposal does not give is cleared. Must run in a transaction.
+		 *
+		 * @return The overwrite with the functions changed and renamed.
+		 */
+		Overwrite apply() {
+			List<TLObject> differing = differing();
+			List<TLObject> renaming = differing.stream().filter(f -> renames(f, matches.get(f))).toList();
+			// The identifiers of the functions keeping their name, and of those not renamed; the renamed
+			// ones give theirs up first, so that two functions may swap their names.
+			Set<String> identifiers = new HashSet<>();
+			for (TLObject function : functions(project)) {
+				if (!renaming.contains(function) && function.tValueByName("identifier") != null) {
+					identifiers.add(function.tValueByName("identifier").toString());
+				}
+			}
+			List<Rename> renames = new ArrayList<>();
+			for (TLObject function : differing) {
+				Proposal proposal = matches.get(function);
+				if (renaming.contains(function)) {
+					ResKey before = function.tValueByName("name") instanceof ResKey key ? key : null;
+					ResKey name = proposal.name();
+					function.tUpdateByName("name", name);
+					function.tUpdateByName("identifier",
+						uniqueIdentifier(Resources.getInstance().getString(name), identifiers));
+					renames.add(new Rename(function, before, name));
+				}
+				String kind = kind(function);
+				if (!proposal.kind().equals(kind)) {
+					function.tUpdateByName("kind", classifier(proposal.kind()));
+				}
+				Object room = room(proposal);
+				if (function.tValueByName("room") != room) {
+					function.tUpdateByName("room", room);
+				}
+				for (String role : roles(kind, proposal.kind())) {
+					TLObject datapoint = proposal.roles().get(role);
+					if (function.tValueByName(role) != datapoint) {
+						function.tUpdateByName(role, datapoint);
+					}
+				}
+			}
+			return new Overwrite(project, matches, stale, differing, renames);
+		}
+
+		/**
+		 * Whether the function differs from what the proposal gives: its name, kind, room or the
+		 * datapoint of a role.
+		 */
+		private static boolean differs(TLObject function, Proposal proposal) {
+			if (renames(function, proposal) || !proposal.kind().equals(kind(function))
+				|| function.tValueByName("room") != room(proposal)) {
+				return true;
+			}
+			for (String role : roles(kind(function), proposal.kind())) {
+				if (function.tValueByName(role) != proposal.roles().get(role)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
+		private static boolean renames(TLObject function, Proposal proposal) {
+			ResKey name = proposal.name();
+			return name != null && !sameText(function.tValueByName("name"), name);
+		}
+
+		/** The roles of both kinds: those the function has, those the proposal gives. */
+		private static Set<String> roles(String kind, String proposed) {
+			Set<String> result = new LinkedHashSet<>(FunctionKinds.roles(kind));
+			result.addAll(FunctionKinds.roles(proposed));
+			return result;
+		}
+	}
+
+	/**
+	 * Whether the function comes from a proposal and the option to overwrite sets it to what the
+	 * proposal gives now (haumacher/ehome #177): it was proposed for a device channel, a Zigbee
+	 * datapoint (by its key) or a virtual device, as a {@link #dismiss(TLObject) dismissal} records
+	 * it; not a function the user made with "New function", and not one configured by intent
+	 * (<code>Function#preset</code>, haumacher/ehome #147), whose roles the derivation binds.
+	 */
+	public static boolean proposed(TLObject function) {
+		return identity(function.tValueByName("device"), function.tValueByName("channel")) != null
+			&& function.tValueByName("preset") == null;
+	}
+
+	/**
+	 * The existing functions of the project that come from a proposal ({@link #proposed(TLObject)})
+	 * matched with what the proposal gives now (haumacher/ehome #177), as the run without the option
+	 * finds the existing function of a proposal: a function proposed for one of the proposal's
+	 * channels (the linked channels of a KNX function in their order, else its own: a scene, a Zigbee
+	 * datapoint by its key, a virtual device) of the same kind first, then of another kind (the
+	 * proposal gives the channel another kind now) unless the proposal is dismissed for the channel,
+	 * then one of the same kind binding the proposal's main role (a function of an earlier run for
+	 * another channel of the function). Each function is matched once, each proposal once; the
+	 * functions left are those the proposal no longer gives. Changes nothing.
+	 */
+	public static Overwrite overwrite(TLObject project) {
+		List<TLObject> devices = devices(project);
+		return overwrite(project, propose(project, devices, new Names(devices)));
+	}
+
+	private static Overwrite overwrite(TLObject project, List<Proposal> proposals) {
+		List<TLObject> candidates = functions(project).stream().filter(FunctionProposal::proposed).toList();
+		Map<String, List<TLObject>> byChannel = new HashMap<>();
+		for (TLObject function : candidates) {
+			byChannel.computeIfAbsent(identity(function.tValueByName("device"), function.tValueByName("channel")),
+				i -> new ArrayList<>()).add(function);
+		}
+		Set<String> dismissed = new HashSet<>();
+		for (TLObject dismissal : list(project, DISMISSED)) {
+			String identity = identity(dismissal.tValueByName("device"), dismissal.tValueByName("channel"));
+			if (identity != null) {
+				dismissed.add(kind(dismissal) + " " + identity);
+			}
+		}
+		TLObject[] matched = new TLObject[proposals.size()];
+		Set<TLObject> taken = new HashSet<>();
+		for (boolean sameKind : new boolean[] { true, false }) {
+			for (int n = 0; n < proposals.size(); n++) {
+				Proposal proposal = proposals.get(n);
+				for (String identity : channels(proposal)) {
+					if (matched[n] != null) {
+						break;
+					}
+					if (!sameKind && dismissed.contains(proposal.kind() + " " + identity)) {
+						continue;
+					}
+					for (TLObject function : byChannel.getOrDefault(identity, List.of())) {
+						if (!taken.contains(function) && sameKind == proposal.kind().equals(kind(function))) {
+							matched[n] = function;
+							taken.add(function);
+							break;
+						}
+					}
+				}
+			}
+		}
+		for (int n = 0; n < proposals.size(); n++) {
+			Proposal proposal = proposals.get(n);
+			if (matched[n] != null || proposal.members().isEmpty() || proposal.unused()) {
+				continue;
+			}
+			String key = mainKey(proposal.kind(), proposal.main(), proposal.scene());
+			for (TLObject function : candidates) {
+				String kind = kind(function);
+				String main = FunctionKinds.boundMainRole(kind, function::tValueByName);
+				if (!taken.contains(function) && proposal.kind().equals(kind) && main != null
+					&& function.tValueByName(main) instanceof TLObject address
+					&& key.equals(mainKey(kind, address, function.tValueByName("scene")))) {
+					matched[n] = function;
+					taken.add(function);
+					break;
+				}
+			}
+		}
+		Map<TLObject, Proposal> matches = new LinkedHashMap<>();
+		for (int n = 0; n < proposals.size(); n++) {
+			if (matched[n] != null) {
+				matches.put(matched[n], proposals.get(n));
+			}
+		}
+		List<TLObject> stale = candidates.stream().filter(f -> !taken.contains(f)).toList();
+		return new Overwrite(project, matches, stale, List.of(), List.of());
+	}
+
+	/**
+	 * The channels ({@link #identity(Object, Object)}) a function of the proposal may have been
+	 * proposed for: those of its linked candidates in their order, then its own.
+	 */
+	private static List<String> channels(Proposal proposal) {
+		Set<String> result = new LinkedHashSet<>();
+		for (Member member : proposal.members()) {
+			String identity = identity(member.device(), member.channel());
+			if (identity != null) {
+				result.add(identity);
+			}
+		}
+		String own = identity(proposal.device(), proposal.channel());
+		if (own != null) {
+			result.add(own);
+		}
+		return new ArrayList<>(result);
 	}
 
 	/**

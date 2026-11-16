@@ -18,6 +18,9 @@ import test.com.top_logic.knowledge.KBSetup;
 import com.top_logic.base.security.device.TLSecurityDeviceManager;
 import com.top_logic.base.services.InitialGroupManager;
 import com.top_logic.base.services.InitialRolesManager;
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
@@ -30,6 +33,7 @@ import com.top_logic.tl.ai.core.agent.TopLogicAgentDefinitions;
 import com.top_logic.tl.ai.core.security.AiToolAccessService;
 import com.top_logic.tl.ai.tool.api.ToolResult;
 import com.top_logic.tool.boundsec.manager.AccessManager;
+import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.ai.logic.BlockTools;
@@ -38,9 +42,11 @@ import de.haumacher.ehome.ai.logic.FunctionTools;
 import de.haumacher.ehome.ai.logic.RuleTools;
 import de.haumacher.ehome.ai.logic.SimulationTools;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
+import de.haumacher.ehome.runtime.BlockInstances;
 import de.haumacher.ehome.runtime.FunctionProposal;
 import de.haumacher.ehome.runtime.ImageCache;
 import de.haumacher.ehome.runtime.Json;
+import de.haumacher.ehome.runtime.ProposeFunctionsAction;
 import de.haumacher.ehome.runtime.RuleExport;
 
 /**
@@ -58,7 +64,9 @@ import de.haumacher.ehome.runtime.RuleExport;
  * proposal adds its climate function; a page of the kitchen is created;</li>
  * <li>a rule whose datapoint was deleted is reported by the image's problems;</li>
  * <li>a viewer reads, explains and simulates, and is refused saving;</li>
- * <li>a rule writes an application datapoint that is not writable, but no status address.</li>
+ * <li>a rule writes an application datapoint that is not writable, but no status address;</li>
+ * <li>the function proposal with <code>overwrite</code> renames the function of a renamed room controller, as
+ * the command does (haumacher/ehome #177).</li>
  * </ul>
  */
 @SuppressWarnings("javadoc")
@@ -175,7 +183,7 @@ public class TestLogicTools extends BasicTestCase {
 		assertFalse(block.text(), block.failed());
 		assertTrue(block.text(), block.text().contains("\"imageRefuses\": []"));
 
-		ToolResult proposal = turn(_fixture.installer(), c -> new FunctionTools().proposeFunctions(c, project, null));
+		ToolResult proposal = turn(_fixture.installer(), c -> new FunctionTools().proposeFunctions(c, project, null, null));
 		assertFalse(proposal.text(), proposal.failed());
 		assertTrue("The room controller proposes a climate function: " + proposal.text(),
 			FunctionProposal.functions(project).stream().anyMatch(f -> "climate".equals(FunctionProposal.kind(f))));
@@ -194,6 +202,51 @@ public class TestLogicTools extends BasicTestCase {
 			List.of(Map.of("title", "Küche", "rooms", List.of(_fixture.room().tId().asString()))), null));
 		assertFalse(page.text(), page.failed());
 		assertEquals(1, ((java.util.Collection<?>) project.tValueByName("pages")).size());
+	}
+
+	/**
+	 * The tool proposing functions with <code>overwrite</code> (haumacher/ehome #177) does what the
+	 * command does: the room controller renamed, the climate function its proposal made follows the new
+	 * name in place, after a dry run naming the same function and rename.
+	 */
+	public void testProposalOverwrite() throws Exception {
+		TLObject project = _fixture.project();
+		ToolResult block = turn(_fixture.installer(), c -> new BlockTools().createBlock(c, _fixture.room(),
+			"org.homecontrol.room-controller 1.0", "Heizung Küche",
+			Map.of("temperature", List.of("1/2/0"), "valve", List.of("1/2/1")), Map.of("comfort", Double.valueOf(21.5)), null));
+		assertFalse(block.text(), block.failed());
+		assertFalse(turn(_fixture.installer(), c -> new FunctionTools().proposeFunctions(c, project, null, null)).failed());
+		TLObject climate = FunctionProposal.functions(project).stream()
+			.filter(f -> "climate".equals(FunctionProposal.kind(f))).findFirst().orElseThrow();
+		TLObject instance = BlockInstances.of(project).get(0);
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			instance.tUpdateByName("name", FunctionProposal.text(Map.of("de", "Raumregler Küche", "en", "Raumregler Küche")));
+			tx.commit();
+		}
+
+		// Without the option nothing is renamed (the name is the user's for the run without it).
+		ToolResult plain = turn(_fixture.installer(), c -> new FunctionTools().proposeFunctions(c, project, null, null));
+		assertFalse(plain.text(), plain.failed());
+		assertFalse(plain.text(), plain.text().contains("Raumregler"));
+
+		ToolResult dry = turn(_fixture.installer(),
+			c -> new FunctionTools().proposeFunctions(c, project, Boolean.TRUE, Boolean.TRUE));
+		assertFalse(dry.text(), dry.failed());
+		assertTrue(dry.text(), dry.text().contains("\"wouldRename\": ["));
+		assertTrue(dry.text(), dry.text().contains("\"after\": \"Raumregler Küche\""));
+		assertTrue(dry.text(), dry.text().contains(climate.tId().asString()));
+		assertEquals(List.of(climate), FunctionProposal.overwrite(project).differing());
+
+		// The command overwrites what the tool named.
+		FunctionProposal.Run run = ProposeFunctionsAction.apply(project, true);
+		assertEquals(List.of(climate), run.overwritten());
+		assertEquals("Raumregler Küche", Resources.getInstance().getString((ResKey) climate.tValueByName("name")));
+
+		// The tool with the option afterwards: nothing left to overwrite.
+		ToolResult again = turn(_fixture.installer(),
+			c -> new FunctionTools().proposeFunctions(c, project, null, Boolean.TRUE));
+		assertFalse(again.text(), again.failed());
+		assertTrue(again.text(), again.text().contains("\"overwritten\": []"));
 	}
 
 	public void testBrokenReferenceAndViewer() throws Exception {
