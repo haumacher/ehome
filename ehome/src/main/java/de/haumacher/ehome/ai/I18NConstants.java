@@ -124,6 +124,26 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 COMMIT_PAGE_CREATED__PROJECT_NAME;
 
+	/**
+	 * @en Datapoint type of {1} set to {2} in the template of {0}
+	 */
+	public static ResKey3 COMMIT_KIND_TYPE_SET__PROGRAM_KIND_TYPE;
+
+	/**
+	 * @en Datapoint type of {1} removed from the template of {0}
+	 */
+	public static ResKey2 COMMIT_KIND_TYPE_REMOVED__PROGRAM_KIND;
+
+	/**
+	 * @en Preset {1} saved in the template of {0}
+	 */
+	public static ResKey2 COMMIT_PRESET_SAVED__PROGRAM_NAME;
+
+	/**
+	 * @en Preset {0} deleted
+	 */
+	public static ResKey1 COMMIT_PRESET_DELETED__PRESET;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

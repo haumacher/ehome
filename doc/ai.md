@@ -28,7 +28,7 @@ rules, functions, schedules and pages follow in #128.
 ## E-Home's tools
 
 Classes of `de.haumacher.ehome.ai` (`ehome.ai.config.xml`): on the chat's agent, published over MCP
-as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`. Reading tools are in `data.read`
+as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`, `ehome-templates__...`. Reading tools are in `data.read`
 (installers and viewers), changing ones in `data.write` (installers; a dry run needs no approval).
 
 | Tool | Changes | Runs |
@@ -50,9 +50,20 @@ as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`. Reading too
 | `deviceObjects` | - | communication objects with size, type, flags, default direction, connections |
 | `connectObject` | yes, dry run | `DeviceSettings.connect`; refuses an object that does not fit the address (`GroupAddressConnections.problemsWith`) unless `despiteProblems` |
 | `disconnectObject` | yes | `DeviceSettings.disconnect` |
+| `programTemplates` | - | the programs of the catalog (words in manufacturer, name, version, ETS id) with products and whether they have a template (haumacher/ehome #174) |
+| `objectKinds` | - | `ObjectKinds.kinds` in the program's base language (#166), paged: per kind its id (the identifier of its first placement, taken back for the kind), object, size, setting, channels, the inherited type or the mixed ones, the template's type; with a project the kinds its devices connect without a type (`untyped`, `untypedOnly`), computed from that project alone |
+| `setObjectKindType` | yes | `ObjectKinds.setType` with a type of the kind's size (`typeChoices`), the template created where missing (`DeviceTemplates.create`) |
+| `presets`, `preset` | - | the presets of a template; one with its values (parameter id, title, value) and objects with roles |
+| `presetCandidates` | - | a device's channels; a channel's `Presets.candidates` (proposed marked), objects in effect, roles per purpose |
+| `savePreset` | yes | `Presets.save` (values by parameter id, the proposed ones by default; objects by id with a role) |
+| `deletePreset` | yes | deletes the preset as the page's command does |
 
 - **Rights.** A changing tool checks `Write` on the project of its objects before it changes
-  anything (E-Home's Java code is not access checked) and refuses without a user account. Objects
+  anything (E-Home's Java code is not access checked) and refuses without a user account. The
+  template tools change master data and check what the page's commands check instead: who writes the
+  device templates (`Presets.templateWriteVeto`, the E-Home administrators, #165), `Write` on the
+  template or `Delete` on the preset; every account reads them. They declare no type of project
+  data, and without a project they read none (#166). Objects
   come in as `Type:id` and are resolved with the read rights of the run.
 - **Refusals** are the views' own reasons (their veto functions), in the user's language, as the
   shipped refusal object `{"refused": true, "reasons": [...]}`; nothing is changed then.
@@ -64,6 +75,8 @@ as `ehome-building__...`, `ehome-devices__...`, `ehome-wiring__...`. Reading too
   the agent names the command).
 
 Skills (`loadSkill`): `EHome_buildingLayout`, `EHome_devicePlanning`, `EHome_wiring`,
+`EHome_deviceTemplates` (where a datapoint type belongs: the template for what the program means
+in every installation, the project for what depends on it; the work list per project; presets),
 `EHome_namingGroupAddresses` (room + function + kind, the project's language, status marked,
 nothing invented, a table first, then one `nameGroupAddresses` call after the user agreed; the
 identifiers derived from the names, `kueche.licht`, when the user asks for IDs too). The rules

@@ -217,6 +217,36 @@ public class TestMcpEndpoint extends BasicTestCase {
 	}
 
 	/**
+	 * The tools of the device templates (haumacher/ehome #174) over MCP: listed, the writing ones not
+	 * read-only (the client asks before a call), and a reading one answers an installer.
+	 */
+	@SuppressWarnings("unchecked")
+	public void testTemplateToolsPublished() throws Exception {
+		String installer = token(_fixture.installer());
+		String session = open(installer);
+		Map<String, Object> listing = call(installer, session, "tools/list", Map.of());
+		List<String> tools = toolNames(listing);
+		for (String name : List.of("programTemplates", "objectKinds", "setObjectKindType", "presets", "preset",
+			"presetCandidates", "savePreset", "deletePreset")) {
+			assertTrue(name + " is published: " + tools, tools.contains("ehome-templates__" + name));
+		}
+		for (Object tool : (List<Object>) listing.get("tools")) {
+			Map<String, Object> entry = (Map<String, Object>) tool;
+			String name = (String) entry.get("name");
+			if (List.of("ehome-templates__setObjectKindType", "ehome-templates__savePreset",
+				"ehome-templates__deletePreset").contains(name)) {
+				Map<String, Object> annotations = (Map<String, Object>) entry.get("annotations");
+				assertNotNull(name + ": " + entry, annotations);
+				assertFalse(name + " changes data: " + annotations, Boolean.TRUE.equals(annotations.get("readOnlyHint")));
+			}
+		}
+		String answer = Json.write(call(installer, session, "tools/call", Map.of("name",
+			"ehome-templates__programTemplates", "arguments", Map.of("text", ""))));
+		assertTrue(answer, answer.contains("\\\"programs\\\"") || answer.contains("\"programs\""));
+		assertFalse(answer, answer.contains("\"isError\": true"));
+	}
+
+	/**
 	 * A writing tool called over the endpoint commits with the message the tool describes its call
 	 * with (TL #30276), not with the generic one of the engine.
 	 */

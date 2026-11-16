@@ -417,7 +417,7 @@ public class DeviceTools {
 	/**
 	 * A value in an answer: an entry of a choice by its value and text, a number, a text.
 	 */
-	private static Object display(ParameterType type, Object value) {
+	static Object display(ParameterType type, Object value) {
 		if (value instanceof EnumerationValue entry) {
 			return entry.getUnsignedValue() + " " + label(entry);
 		}
