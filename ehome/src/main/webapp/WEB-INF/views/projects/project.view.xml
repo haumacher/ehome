@@ -242,6 +242,20 @@
 						<field attribute="name"/>
 						<field attribute="extId"/>
 						<field attribute="groupAddressStyle"/>
+						<!--
+							Where the installation is: its time zone and its position, for the sun times of astronomical
+							schedules; the image gives them to the controller (settings).
+						-->
+						<group>
+							<label>
+								<en>Location</en>
+								<de>Standort</de>
+							</label>
+							<field attribute="timeZone"/>
+							<field attribute="latitude"/>
+							<field attribute="longitude"/>
+							<field attribute="elevation"/>
+						</group>
 					</form>
 				</panel>
 			</tab>

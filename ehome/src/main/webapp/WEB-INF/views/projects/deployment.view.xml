@@ -66,8 +66,9 @@
 							unit="%"
 						>
 							<!--
-								The settings of the controller the project fixes (time zone, location, NTP server), the
-								KNX time master and the history budget (#45); each part of the image only where set.
+								The settings of the controller the project fixes (the NTP server; the time zone and the
+								location are properties of the project, tab "Properties"), the KNX time master and the
+								history budget (#45); each part of the image only where set.
 							-->
 							<panel>
 								<title>
@@ -83,10 +84,6 @@
 											<en>Controller</en>
 											<de>Controller</de>
 										</label>
-										<field attribute="timeZone"/>
-										<field attribute="latitude"/>
-										<field attribute="longitude"/>
-										<field attribute="elevation"/>
 										<field attribute="ntpServer"/>
 									</group>
 									<group>
