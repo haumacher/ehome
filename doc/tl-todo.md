@@ -356,6 +356,19 @@ the command "Search" names what each choice and the checkbox do.
 descriptions, give "New devices only" its help, and shorten the tooltip of "Search" to what it does
 itself.
 
+## Startup messages on the console of a shared Tomcat (TL #30407)
+
+The Debian package logs into E-Home's own file `/var/log/ehome/ehome.log` (haumacher/ehome #186:
+`WEB-INF/conf/logging/default.xml` of the deploy aspect `debian`, no console appender). The engine
+prints some messages with `System.out` instead of a logger, so they still reach Tomcat's journal,
+which the other applications of the Tomcat share: the banner of `OpenSourceLicenseTool`, the start
+and stop lines of `AbstractStartStopListener` ("up and running", "going down"), and the box of
+`PersonManager` about the initial password (the package always sets one, so the generated password
+itself never appears). No workaround.
+
+**When fixed:** nothing to remove; check in the container test of the package that
+`journalctl -u tomcat10` has no line of E-Home after an install.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -371,3 +384,4 @@ itself.
 - TL #30357: see above (the table of the cookie pools after their move to `tl-ai-browser`).
 - TL #30313, #30314: see above (a role query after a change of the roles on H2, the columns of a table after a change of the roles).
 - TL #30406, #30289: see above (no description at the options of a select, no help at a `<value-input>`).
+- TL #30407: see above (startup messages of the engine on the console of a shared Tomcat).
