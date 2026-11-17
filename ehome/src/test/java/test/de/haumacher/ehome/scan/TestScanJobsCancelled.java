@@ -7,6 +7,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -21,6 +22,7 @@ import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.job.JobHarness;
 import test.de.haumacher.ehome.knx.transport.TestLink;
+import test.de.haumacher.ehome.view.ViewCommandScan;
 
 import com.top_logic.basic.sched.SchedulerService;
 import com.top_logic.basic.thread.ThreadContext;
@@ -77,6 +79,12 @@ public class TestScanJobsCancelled extends BasicTestCase {
 	 */
 	private static final long PROMPT_MILLIS = 1500;
 
+	/** The view of the scan, relative to the views directory. */
+	private static final String VIEW = "projects/scan.view.xml";
+
+	/** A value of the channel <code>busState</code>, which only makes the commands decide again. */
+	private static final Object BUS_STATE = Long.valueOf(1);
+
 	/** The projects before the test. */
 	static List<TLObject> _before;
 
@@ -129,7 +137,11 @@ public class TestScanJobsCancelled extends BasicTestCase {
 				};
 			}
 		};
-		job.start(readBack, List.of(actuatorRow));
+		// Started with the values the command of the view starts it with.
+		Map<String, Object> channels = new HashMap<>();
+		channels.put("selected", actuatorRow);
+		channels.put("busState", BUS_STATE);
+		job.start(readBack, ViewCommandScan.command(VIEW, "ReadBackJob").jobValues(channels));
 
 		JobState state = cancelWhenBlocked(job, "de.haumacher.ehome.knx.transport.TransportClient");
 
@@ -181,7 +193,8 @@ public class TestScanJobsCancelled extends BasicTestCase {
 				job.cancel();
 			}
 		});
-		job.start(scanOfFakeBus(), List.of(_project, 1, 3, Boolean.FALSE, Boolean.TRUE, Boolean.FALSE));
+		// Started with the values the command of the view starts it with.
+		job.start(scanOfFakeBus(), ViewCommandScan.command(VIEW, "ScanJob").jobValues(scanChannels()));
 		JobState state = job.await();
 
 		assertEquals(JobStatus.COMPLETED, state.status());
@@ -198,6 +211,22 @@ public class TestScanJobsCancelled extends BasicTestCase {
 		assertEquals(JobStatus.COMPLETED, state.status());
 		List<?> rows = (List<?>) ((Map<?, ?>) state.result()).get("rows");
 		return rows.stream().filter(row -> "1.3.5".equals(((Map<?, ?>) row).get("address"))).findFirst().orElseThrow();
+	}
+
+	/**
+	 * The channels of the scan view choosing the line 1.3 and the gateway, with a value of the bus
+	 * state (an input of the command before the inputs of the job).
+	 */
+	private static Map<String, Object> scanChannels() {
+		Map<String, Object> result = new HashMap<>();
+		result.put("project", _project);
+		result.put("area", 1);
+		result.put("line", 3);
+		result.put("routers", Boolean.FALSE);
+		result.put("gatewayDevice", Boolean.TRUE);
+		result.put("programming", Boolean.FALSE);
+		result.put("busState", BUS_STATE);
+		return result;
 	}
 
 	private static ScanJob scanOfFakeBus() {

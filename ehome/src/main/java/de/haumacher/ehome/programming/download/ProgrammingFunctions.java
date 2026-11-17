@@ -26,6 +26,7 @@ import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
+import de.haumacher.ehome.view.JobInputs;
 
 /**
  * The TL-Script functions of the programming tab of a device: the plan of its download for the
@@ -169,15 +170,16 @@ public class ProgrammingFunctions extends GenericMethod {
 	}
 
 	/**
-	 * The device among the values a job is started with: the first object.
+	 * The device a job of the tab "Programming" is started with: the input <code>device</code> of its
+	 * <code>&lt;start-job&gt;</code>, its only input ({@link JobInputs}). Among the arguments of the
+	 * command before it stand other objects: the project (device info) and <code>jobDevice</code>,
+	 * the device of the job run before, possibly another device.
 	 */
-	static TLObject device(List<Object> arguments) {
-		for (Object argument : arguments) {
-			if (argument instanceof TLObject device) {
-				return device;
-			}
+	public static TLObject device(List<Object> arguments) {
+		if (JobInputs.of(arguments, 1).get(0) instanceof TLObject device) {
+			return device;
 		}
-		throw new IllegalArgumentException("No device among " + arguments);
+		throw new IllegalArgumentException("No device as the input of the job among " + arguments);
 	}
 
 	/**

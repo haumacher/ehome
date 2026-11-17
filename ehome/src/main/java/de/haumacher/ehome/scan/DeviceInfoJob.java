@@ -20,6 +20,7 @@ import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.DeviceReader;
+import de.haumacher.ehome.programming.download.ProgrammingFunctions;
 
 /**
  * The work of the command "Device info" of a device (tab "Programming", haumacher/ehome #175): reads
@@ -28,7 +29,7 @@ import de.haumacher.ehome.programming.download.DeviceReader;
  * {@link DeviceInfo#toMap()}.
  *
  * <p>
- * The device is the first object the job is started with. A device that does not answer is a result
+ * The device is the last value the job is started with ({@link ProgrammingFunctions#device(List)}). A device that does not answer is a result
  * ("no device answers at 1.3.5 through ..."); only a path that cannot be opened ends the job with a
  * failure ({@link DeviceInfo#failure(TLObject, ResKey)}). A cancel ends the reading at once while it
  * waits for the device (the accesses of {@link CalimeroReader} are interruptible sections of the
@@ -57,7 +58,7 @@ public class DeviceInfoJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		TLObject device = device(arguments);
+		TLObject device = ProgrammingFunctions.device(arguments);
 		ResKey veto = DeviceInfo.veto(device);
 		if (veto != null) {
 			throw new TopLogicException(veto);
@@ -84,18 +85,6 @@ public class DeviceInfoJob implements JobBody {
 	 */
 	protected DeviceReader openReader(BusPath path, int address) throws BusException {
 		return CalimeroReader.open(path, address);
-	}
-
-	/**
-	 * The device among the values the job is started with: the first object.
-	 */
-	private static TLObject device(List<Object> arguments) {
-		for (Object argument : arguments) {
-			if (argument instanceof TLObject device) {
-				return device;
-			}
-		}
-		throw new IllegalArgumentException("No device among " + arguments);
 	}
 
 }

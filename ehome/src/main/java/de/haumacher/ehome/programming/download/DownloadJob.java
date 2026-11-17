@@ -24,7 +24,7 @@ import com.top_logic.util.error.TopLogicException;
  * progress per operation, and records it at the device on success.
  *
  * <p>
- * The device is the first object the job is started with (the <code>device</code> input). The result is a
+ * The device is the input <code>device</code> of the job ({@link ProgrammingFunctions#device(List)}). The result is a
  * {@link ProgrammingReport}. A refusal (writing switched off, no gateway or controller, a plan with problems, no
  * connection) fails the job with its reason; a failure of the device is the report's outcome.
  * </p>

@@ -24,7 +24,7 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * it with the download image ({@link DeviceComparison}).
  *
  * <p>
- * The device is the first object the job is started with (the <code>device</code> input). The result is a
+ * The device is the input <code>device</code> of the job ({@link ProgrammingFunctions#device(List)}). The result is a
  * {@link ProgrammingReport}: the facts read, and per block of the image "identical" or the
  * differing addresses.
  * </p>

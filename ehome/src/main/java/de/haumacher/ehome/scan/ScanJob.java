@@ -25,6 +25,7 @@ import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
+import de.haumacher.ehome.view.JobInputs;
 
 /**
  * The work of the command "Read the installation" (<code>&lt;start-job&gt;</code> body of
@@ -70,12 +71,13 @@ public class ScanJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		TLObject project = (TLObject) arguments.get(0);
-		Integer area = number(arguments.get(1));
-		Integer line = number(arguments.get(2));
-		boolean routers = Boolean.TRUE.equals(arguments.get(3));
-		boolean gateway = Boolean.TRUE.equals(arguments.get(4));
-		boolean programming = Boolean.TRUE.equals(arguments.get(5));
+		List<Object> inputs = JobInputs.of(arguments, 6);
+		TLObject project = (TLObject) inputs.get(0);
+		Integer area = number(inputs.get(1));
+		Integer line = number(inputs.get(2));
+		boolean routers = Boolean.TRUE.equals(inputs.get(3));
+		boolean gateway = Boolean.TRUE.equals(inputs.get(4));
+		boolean programming = Boolean.TRUE.equals(inputs.get(5));
 		ResKey veto = ScanFunctions.scanVeto(project, area, line, routers, gateway, programming);
 		if (veto != null) {
 			throw new TopLogicException(veto);

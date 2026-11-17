@@ -26,6 +26,7 @@ import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadRecord;
 import de.haumacher.ehome.programming.download.ProgrammingReport;
+import de.haumacher.ehome.view.JobInputs;
 
 /**
  * The work of the command "Read the configuration" of a device found by a scan
@@ -71,7 +72,7 @@ public class ReadBackJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		Object row = arguments.get(0);
+		Object row = JobInputs.of(arguments, 1).get(0);
 		ResKey veto = ScanFunctions.readVeto(row);
 		if (veto != null) {
 			throw new TopLogicException(veto);

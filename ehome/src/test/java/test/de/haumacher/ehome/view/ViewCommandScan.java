@@ -19,6 +19,7 @@ import com.top_logic.basic.config.ConfigurationItem;
 import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.PropertyDescriptor;
 import com.top_logic.layout.view.ViewLoader;
+import com.top_logic.layout.view.channel.InputRef;
 import com.top_logic.layout.view.command.ExecuteScriptAction;
 import com.top_logic.layout.view.command.ActionArguments;
 import com.top_logic.layout.view.command.ActionScope;
@@ -29,6 +30,7 @@ import com.top_logic.layout.view.command.UploadCommand;
 import com.top_logic.layout.view.command.ViewCommand;
 import com.top_logic.layout.view.command.ViewExecutabilityRule;
 import com.top_logic.layout.view.dnd.DropConfig;
+import com.top_logic.layout.view.job.StartJobAction;
 import com.top_logic.layout.view.security.CommandAccess;
 import com.top_logic.layout.view.security.OperationAccess;
 import com.top_logic.model.search.expr.GenericMethod;
@@ -124,6 +126,41 @@ public class ViewCommandScan {
 			Object main = values.isEmpty() ? null : values.get(0);
 			ActionArguments arguments = arguments().arguments(main, values);
 			return access().isExecutableFor(arguments);
+		}
+
+		/**
+		 * The values the body of the <code>&lt;start-job&gt;</code> in the chain of the command is
+		 * started with, built as {@link StartJobAction} builds them when the command runs: the
+		 * arguments of the command followed by the values of the inputs of the job, in the order of
+		 * {@link StartJobAction#jobScope(ActionScope, List)} (an input of the job named as an
+		 * argument of the command moves that value behind the others).
+		 *
+		 * @param channels
+		 *        The values of the channels of the view by their names: the inputs of the command
+		 *        and of the job are read from them.
+		 */
+		public List<Object> jobValues(Map<String, ?> channels) {
+			List<StartJobAction.Config> jobs = new ArrayList<>();
+			for (ConfigurationItem item : items(config)) {
+				if (item instanceof StartJobAction.Config job) {
+					jobs.add(job);
+				}
+			}
+			if (jobs.size() != 1) {
+				throw new AssertionError("Not exactly one start-job in " + this + ": " + jobs.size());
+			}
+			StartJobAction.Config job = jobs.get(0);
+			CommandArguments command = arguments();
+			List<Object> inputValues = new ArrayList<>();
+			for (InputRef input : command.getInputs()) {
+				inputValues.add(channels.get(input.getChannel().getChannelName()));
+			}
+			Object main = inputValues.isEmpty() ? null : inputValues.get(0);
+			ActionArguments arguments = command.arguments(main, inputValues);
+			for (InputRef input : job.getInputs()) {
+				arguments = arguments.with(input.getName(), channels.get(input.getChannel().getChannelName()));
+			}
+			return arguments.values(StartJobAction.jobScope(command.scope(), job.getInputs()).names());
 		}
 
 		private CommandArguments arguments() {

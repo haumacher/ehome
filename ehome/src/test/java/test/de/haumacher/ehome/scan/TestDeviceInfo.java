@@ -9,6 +9,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -23,6 +24,7 @@ import test.com.top_logic.knowledge.KBSetup;
 import test.de.haumacher.ehome.etsImport.RecordingJobMonitor;
 import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.programming.MockDevice;
+import test.de.haumacher.ehome.view.ViewCommandScan;
 
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -42,6 +44,7 @@ import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.DownloadPlan;
+import de.haumacher.ehome.programming.download.ProgrammingFunctions;
 import de.haumacher.ehome.scan.BusScanner;
 import de.haumacher.ehome.scan.DeviceInfo;
 import de.haumacher.ehome.scan.DeviceInfoFunctions;
@@ -70,6 +73,11 @@ public class TestDeviceInfo extends BasicTestCase {
 
 	private static final int ACTUATOR = 0x1305;
 
+	private static final int TASTSENSOR = 0x1332;
+
+	/** The view of the tab "Programming", relative to the views directory. */
+	private static final String VIEW = "projects/device-programming.view.xml";
+
 	private static final String PROGRAMMING = "src/main/webapp/WEB-INF/views/projects/device-programming.view.xml";
 
 	private static final String DIALOG = "src/main/webapp/WEB-INF/views/projects/device-info.view.xml";
@@ -87,6 +95,18 @@ public class TestDeviceInfo extends BasicTestCase {
 			assertNotNull(device);
 			assertNull("The test system's project knows no serial numbers.", device.tValueByName("serialNumber"));
 
+			// Every job of the tab works on the device selected, not on another object it is started with.
+			Map<String, Object> channels = channels(project, device);
+			assertNotSame(device, channels.get("jobDevice"));
+			int jobs = 0;
+			for (ViewCommandScan.Site site : ViewCommandScan.commands(VIEW)) {
+				if (site.writes().stream().anyMatch(action -> action.endsWith("Job"))) {
+					assertSame(site.toString(), device, ProgrammingFunctions.device(site.jobValues(channels)));
+					jobs++;
+				}
+			}
+			assertEquals("Compare, device info, download, address, layout.", 5, jobs);
+
 			// No path: refused with the reason of the path.
 			assertEquals(de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_BUS_PATH,
 				DeviceInfo.veto(device));
@@ -99,7 +119,7 @@ public class TestDeviceInfo extends BasicTestCase {
 
 			// The actuator answers: its identity is the project's, its serial number new to the project.
 			MockDevice actuator = actuator();
-			Map<?, ?> result = run(device, address -> actuator);
+			Map<?, ?> result = run(project, device, address -> actuator);
 			DeviceInfo info = DeviceInfo.of(result);
 			assertNotNull(info);
 			assertTrue(info.answered());
@@ -155,7 +175,7 @@ public class TestDeviceInfo extends BasicTestCase {
 			MockDevice other = TestBusScan.mock("DI-3-1.3.50")
 				.setProperty(0, BusScanner.PID_SERIAL_NUMBER, "000800005678")
 				.setProperty(0, BusScanner.PID_PROGRAMMING_MODE, "01");
-			DeviceInfo otherInfo = DeviceInfo.of(run(device, address -> other));
+			DeviceInfo otherInfo = DeviceInfo.of(run(project, device, address -> other));
 			Map<String, DeviceInfo.Row> otherRows = rows(otherInfo);
 			assertEquals(DeviceInfo.Comparison.DIFFERENT, otherRows.get("program").comparison());
 			assertEquals(DeviceInfo.Comparison.DIFFERENT, otherRows.get("manufacturer").comparison());
@@ -173,7 +193,7 @@ public class TestDeviceInfo extends BasicTestCase {
 
 			// No device at the address: a result, not an error.
 			List<String> asked = new ArrayList<>();
-			DeviceInfo none = DeviceInfo.of(run(device, address -> new DeviceReader() {
+			DeviceInfo none = DeviceInfo.of(run(project, device, address -> new DeviceReader() {
 				@Override
 				public byte[] readDescriptor() throws BusException {
 					asked.add("readDescriptor");
@@ -209,7 +229,7 @@ public class TestDeviceInfo extends BasicTestCase {
 			assertEquals(I18NConstants.INFO_NO_ANSWER__ADDRESS_PATH.fill("1.3.5", path), none.serialVeto());
 
 			// The path cannot be opened: the job ends with the failure.
-			Map<?, ?> failed = run(device, address -> {
+			Map<?, ?> failed = run(project, device, address -> {
 				throw new BusException("gateway down");
 			});
 			assertNull(DeviceInfo.of(failed));
@@ -236,9 +256,11 @@ public class TestDeviceInfo extends BasicTestCase {
 	}
 
 	/**
-	 * Runs the job of the command for the device, the reader opened by the given function.
+	 * Runs the job of the command for the device, the reader opened by the given function, with the
+	 * values the command of the view starts it with: the job of the tab run before was one for
+	 * another device (<code>jobDevice</code>).
 	 */
-	private static Map<?, ?> run(TLObject device, Readers readers) throws Exception {
+	private static Map<?, ?> run(TLObject project, TLObject device, Readers readers) throws Exception {
 		DeviceInfoJob job = new DeviceInfoJob(null, TypedConfiguration.newConfigItem(DeviceInfoJob.Config.class)) {
 			@Override
 			protected DeviceReader openReader(BusPath path, int address) throws BusException {
@@ -246,9 +268,22 @@ public class TestDeviceInfo extends BasicTestCase {
 				return readers.open(address);
 			}
 		};
-		Object result = new RecordingJobMonitor().run(job, List.of(device));
+		Object result = new RecordingJobMonitor().run(job,
+			ViewCommandScan.command(VIEW, "DeviceInfoJob").jobValues(channels(project, device)));
 		assertTrue(String.valueOf(result), result instanceof Map<?, ?>);
 		return (Map<?, ?>) result;
+	}
+
+	/**
+	 * The channels of the tab "Programming" with the given device selected, after a job for another
+	 * device of the project.
+	 */
+	private static Map<String, Object> channels(TLObject project, TLObject device) {
+		Map<String, Object> result = new HashMap<>();
+		result.put("device", device);
+		result.put("project", project);
+		result.put("jobDevice", InstallationBuilder.device(project, TASTSENSOR));
+		return result;
 	}
 
 	private static Map<String, DeviceInfo.Row> rows(DeviceInfo info) {

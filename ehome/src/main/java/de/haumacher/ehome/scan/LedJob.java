@@ -20,6 +20,7 @@ import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.programming.download.DeviceAccess;
 import de.haumacher.ehome.programming.download.ProgrammingReport;
+import de.haumacher.ehome.view.JobInputs;
 
 /**
  * The work of the commands "LED on" / "LED off" of a device found by a scan: switches the
@@ -67,7 +68,7 @@ public class LedJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		Object row = arguments.get(0);
+		Object row = JobInputs.of(arguments, 1).get(0);
 		ResKey veto = ScanFunctions.ledVeto(row);
 		if (veto != null) {
 			throw new TopLogicException(veto);
