@@ -2,11 +2,19 @@
 
 <!--
 	Second frame of the project drill-down: the structures of the project the frame was opened for,
-	one tab each, and the properties of the project itself.
+	one tab each, and the properties of the project itself, among them its path to the bus (its KNX
+	gateway or its controller), set with the dialog that programming, scan and monitor open as well
+	(haumacher/ehome #181).
 -->
 <view>
 	<channels>
 		<channel name="project"/>
+		<!-- The path to the bus: "Gateway <address>", "Controller <name>" (ProgrammingFunctions busPath) or "-" without one. -->
+		<derived-channel name="busPath"
+			expr="if($project == null, null, if(busPath($project) == null, &quot;-&quot;, busPath($project)))"
+			inputs="project"
+			observed-types="ehome.project:Project"
+		/>
 	</channels>
 
 	<tab-bar active-tab="buildings">
@@ -230,34 +238,74 @@
 					<en>Properties</en>
 					<de>Eigenschaften</de>
 				</label>
-				<panel>
-					<title>
-						<en>Project</en>
-						<de>Projekt</de>
-					</title>
-					<form
-						input="project"
-						with-inset="true"
-					>
-						<field attribute="name"/>
-						<field attribute="extId"/>
-						<field attribute="groupAddressStyle"/>
-						<!--
-							Where the installation is: its time zone and its position, for the sun times of astronomical
-							schedules; the image gives them to the controller (settings).
-						-->
-						<group>
-							<label>
-								<en>Location</en>
-								<de>Standort</de>
-							</label>
-							<field attribute="timeZone"/>
-							<field attribute="latitude"/>
-							<field attribute="longitude"/>
-							<field attribute="elevation"/>
-						</group>
-					</form>
-				</panel>
+				<stack gap="default">
+					<panel>
+						<title>
+							<en>Project</en>
+							<de>Projekt</de>
+						</title>
+						<form
+							input="project"
+							with-inset="true"
+						>
+							<field attribute="name"/>
+							<field attribute="extId"/>
+							<field attribute="groupAddressStyle"/>
+							<!--
+								Where the installation is: its time zone and its position, for the sun times of astronomical
+								schedules; the image gives them to the controller (settings).
+							-->
+							<group>
+								<label>
+									<en>Location</en>
+									<de>Standort</de>
+								</label>
+								<field attribute="timeZone"/>
+								<field attribute="latitude"/>
+								<field attribute="longitude"/>
+								<field attribute="elevation"/>
+							</group>
+						</form>
+					</panel>
+					<panel>
+						<title>
+							<en>Path to the bus</en>
+							<de>Weg zum Bus</de>
+						</title>
+						<commands>
+							<generic-command
+								image="css:bi bi-broadcast"
+								inputs="project"
+								placement="TOOLBAR"
+							>
+								<label>
+									<en>Choose the gateway</en>
+									<de>Gateway wählen</de>
+								</label>
+								<tooltip>
+									<en>Sets the path of the project to the bus: a KNXnet/IP gateway, entered by address or chosen from a search, or the project's connected controller. All devices of the project are read and programmed through it.</en>
+									<de>Legt den Weg des Projekts zum Bus fest: ein KNXnet/IP-Gateway, als Adresse eingegeben oder aus einer Suche gewählt, oder den verbundenen Controller des Projekts. Darüber werden alle Geräte des Projekts gelesen und programmiert.</de>
+								</tooltip>
+								<access>
+									<operation name="Write"
+										object="$project"
+										type="ehome.project:Project"
+									/>
+								</access>
+								<executability>
+									<null-input-disabled/>
+								</executability>
+								<open-dialog
+									bind-input-to="project"
+									dialog-view="projects/choose-gateway.view.xml"
+								/>
+							</generic-command>
+						</commands>
+						<inset>
+							<text input="busPath"/>
+						</inset>
+					</panel>
+				</stack>
 			</tab>
 		</tabs>
 	</tab-bar>
