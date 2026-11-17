@@ -254,9 +254,13 @@ public class TestDeployment extends BasicTestCase {
 			_fake.setFormat("2.0");
 			assertRefused(Deployer.deploy(project, NOW), 1, null, Deployer.CODE_FORMAT);
 			assertEquals(I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill("x", "2.0", "1.0"),
-				Deployer.formatRefusal("2.0", "x"));
-			assertNull(Deployer.formatRefusal("1.0", "x"));
-			assertNull(Deployer.formatRefusal("1.3", "x"));
+				Deployer.formatRefusal("2.0", "x", 0));
+			assertNull(Deployer.formatRefusal("1.0", "x", 0));
+			assertNull(Deployer.formatRefusal("1.3", "x", 0));
+			// An image with anonymous pages (format 1.1, haumacher/ehome #184) needs a firmware that knows their sections.
+			assertEquals(I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill("x", "1.0", "1.1"),
+				Deployer.formatRefusal("1.0", "x", 1));
+			assertNull(Deployer.formatRefusal("1.1", "x", 1));
 			_fake.setFormat("1.0");
 
 			// No last valid image: the refusal the controller reported is recorded, nothing is sent.

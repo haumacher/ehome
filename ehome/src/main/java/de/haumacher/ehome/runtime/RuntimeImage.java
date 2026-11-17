@@ -106,6 +106,14 @@ public final class RuntimeImage {
 	public static final String SCHEMA_VERSION = "1.7";
 
 	/**
+	 * The version of the schema of an image with a control page of minimum role
+	 * <code>anonymous</code> (homecontrol <code>spec/runtime-image.md</code> 3.9, I12, haumacher/ehome
+	 * #184): the page member <code>minimumRole</code>. An image without such a page is written in
+	 * {@link #SCHEMA_VERSION}, so it stays the image it was (binary format 1.0).
+	 */
+	public static final String SCHEMA_VERSION_ANONYMOUS_PAGES = "1.8";
+
+	/**
 	 * The <code>presses</code> E-Home writes for a button whose press is the action of a Zigbee remote
 	 * (homecontrol <code>spec/runtime-image.md</code> 3.5, 1.4; haumacher/ehome #70): the toggle a press,
 	 * on and off, dim up and down, the dim stop a release.
@@ -1019,6 +1027,7 @@ public final class RuntimeImage {
 
 	// ---- control pages -----------------------------------------------------------------------
 
+	@SuppressWarnings("unchecked")
 	private void ui(TLObject project) {
 		Set<String> parameters = new HashSet<>();
 		for (RuleLoader.ParameterDatapoint datapoint : RuleLoader.parameterDatapoints(_json.get("rules"))) {
@@ -1058,6 +1067,9 @@ public final class RuntimeImage {
 			ui.put("pages", pages);
 			_json.put("ui", ui);
 			_uiSources.putAll(export.getSources());
+			if (ImageCompiler.formatMinor(_json) > 0) {
+				((Map<String, Object>) _json.get("image")).put("schemaVersion", SCHEMA_VERSION_ANONYMOUS_PAGES);
+			}
 		}
 	}
 

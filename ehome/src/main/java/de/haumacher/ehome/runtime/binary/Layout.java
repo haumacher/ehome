@@ -12,7 +12,7 @@ import java.util.TreeMap;
 
 /**
  * The layout of the binary runtime image (homecontrol <code>spec/runtime-image.md</code> section 9,
- * format 1.0): the header, the section table and the records of every section, field by field, as
+ * format 1.1): the header, the section table and the records of every section, field by field, as
  * the compiler ({@link ImageCompiler}) writes them and the decoder ({@link ImageDecoder}) reads them.
  */
 public final class Layout {
@@ -23,10 +23,14 @@ public final class Layout {
 	/** The major version of the format this layout describes. */
 	public static final int MAJOR = 1;
 
-	/** The minor version of the format this layout describes. */
-	public static final int MINOR = 0;
+	/**
+	 * The newest minor version of the format this layout describes (1.1: the anonymous pages,
+	 * homecontrol #91, haumacher/ehome #184). An image is written in the oldest minor version that has
+	 * its sections: 0 without the anonymous pages.
+	 */
+	public static final int MINOR = 1;
 
-	/** The format version this layout describes, as the controller reports it. */
+	/** The newest format version this layout describes, as the controller reports it. */
 	public static final String FORMAT = MAJOR + "." + MINOR;
 
 	/** The bytes of the header. */
@@ -127,7 +131,7 @@ public final class Layout {
 	 */
 	public record Section(int id, String name, int size, boolean single, List<Field> fields) {
 
-		/** Whether this is a byte section (<code>strings</code>, <code>ui</code>). */
+		/** Whether this is a byte section (<code>strings</code>, <code>ui</code>, <code>ui.anonymous</code>). */
 		public boolean bytes() {
 			return size == 0;
 		}
@@ -269,6 +273,18 @@ public final class Layout {
 	/** <code>ui</code>. */
 	public static final int UI = 0x60;
 
+	/** <code>ui.anonymous</code>: the body of <code>GET /api/pages</code> for <code>anonymous</code> (format 1.1). */
+	public static final int UI_ANONYMOUS = 0x62;
+
+	/** <code>ui.anonymous.datapoints</code>: the datapoints the anonymous pages show (format 1.1). */
+	public static final int UI_ANONYMOUS_DATAPOINTS = 0x63;
+
+	/** <code>ui.anonymous.functions</code>: the functions the anonymous pages show (format 1.1). */
+	public static final int UI_ANONYMOUS_FUNCTIONS = 0x64;
+
+	/** The flag of an entry of <code>ui.anonymous.datapoints</code>: <code>anonymous</code> may command it. */
+	public static final int ANONYMOUS_OPERATE = 0x01;
+
 	private static final Map<Integer, Section> SECTIONS = new TreeMap<>();
 
 	static {
@@ -349,6 +365,9 @@ public final class Layout {
 		table(BLOCK_PARAMETERS, "blocks.parameters", 16, false, "id:0:STR", "datapoint:4:U16", "flags:6:U8",
 			"value:8:F64");
 		SECTIONS.put(Integer.valueOf(UI), new Section(UI, "ui", 0, false, List.of()));
+		SECTIONS.put(Integer.valueOf(UI_ANONYMOUS), new Section(UI_ANONYMOUS, "ui.anonymous", 0, false, List.of()));
+		table(UI_ANONYMOUS_DATAPOINTS, "ui.anonymous.datapoints", 4, false, "datapoint:0:U16", "flags:2:U8");
+		table(UI_ANONYMOUS_FUNCTIONS, "ui.anonymous.functions", 2, false, "function:0:U16");
 	}
 
 	private static void table(int id, String name, int size, boolean single, String... fields) {
@@ -369,12 +388,12 @@ public final class Layout {
 		// Constants only.
 	}
 
-	/** The section of the id, <code>null</code> for an id format 1.0 does not know. */
+	/** The section of the id, <code>null</code> for an id format 1.1 does not know. */
 	public static Section section(int id) {
 		return SECTIONS.get(Integer.valueOf(id));
 	}
 
-	/** Every section of format 1.0, in ascending order of the ids. */
+	/** Every section of format 1.1, in ascending order of the ids. */
 	public static Collection<Section> sections() {
 		return Collections.unmodifiableCollection(SECTIONS.values());
 	}

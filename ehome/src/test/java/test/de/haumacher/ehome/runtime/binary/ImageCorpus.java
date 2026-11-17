@@ -265,7 +265,7 @@ public final class ImageCorpus {
 				+ ", not 48 43 49 4D (\"HCIM\"): a JSON text (E-Home compiles the image; send the binary form)",
 			null));
 		mutations.add(new Mutation("major-2", "minimal.bin", "header.major 2", crc(u16(minimal, 4, 2)), "image.version",
-			"header.major", "format 2.0: this firmware reads format 1 (up to 1.0)", null));
+			"header.major", "format 2.0: this firmware reads format 1 (up to 1.1)", null));
 		byte[] damaged = minimal.clone();
 		damaged[0x66] ^= 0x20;
 		mutations.add(new Mutation("damaged", "minimal.bin", "byte 0x66 changed, the CRC kept", damaged, "image.damaged",

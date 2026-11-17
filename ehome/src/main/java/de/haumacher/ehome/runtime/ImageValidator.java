@@ -63,9 +63,10 @@ public final class ImageValidator {
 	 * id characters, haumacher/ehome #110; 1.6: the roles atTop, atBottom and heatingLevel, a heating of a
 	 * number, a dimmer with its switching command alone, rules writing an application datapoint that is
 	 * not writable, haumacher/ehome #134, #136, #138; 1.7: the timelines of rules with states, the
-	 * labels of states, the datapoints of the rules' states, haumacher/ehome #140).
+	 * labels of states, the datapoints of the rules' states, haumacher/ehome #140; 1.8: the minimum
+	 * role of a control page, homecontrol #91, haumacher/ehome #184).
 	 */
-	public static final int SCHEMA_MINOR = 7;
+	public static final int SCHEMA_MINOR = 8;
 
 	/** The largest image in bytes. */
 	public static final int MAX_IMAGE_BYTES = 262144;
@@ -114,6 +115,9 @@ public final class ImageValidator {
 
 	/** The axes of a chart. */
 	public static final List<String> CHART_AXES = List.of("left", "right");
+
+	/** The minimum roles of a control page (3.9, schema 1.8), ascending; the default is the last. */
+	public static final List<String> PAGE_ROLES = List.of("anonymous", "operator");
 
 	/** The range a chart shows first when it names none. */
 	public static final String DEFAULT_CHART_RANGE = "24h";
@@ -2197,6 +2201,11 @@ public final class ImageValidator {
 				refuse("icon '" + icon + "' must have 1.." + MAX_ICON + " characters of A-Z a-z 0-9 _ . -",
 					I18NConstants.IMAGE_ICON_PATTERN__ICON_MAX.fill(icon, Integer.valueOf(MAX_ICON)));
 			}
+			leave();
+		}
+		if (page.containsKey("minimumRole")) {
+			enter(".minimumRole");
+			choice(page.get("minimumRole"), "minimumRole", PAGE_ROLES);
 			leave();
 		}
 		if (!page.containsKey("sections")) {

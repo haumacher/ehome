@@ -53,7 +53,9 @@ import de.haumacher.ehome.runtime.Json;
  *
  * <p>
  * Every reference is resolved to a table index, every string written once, the rules as flat
- * expression trees, the control pages as the finished body of <code>GET /api/pages</code>; the layout
+ * expression trees, the control pages as the finished body of <code>GET /api/pages</code> (and the
+ * pages of minimum role <code>anonymous</code> as a second one with the tables of what they show,
+ * format 1.1); the layout
  * is the canonical one of 9.18, so the same source gives the same bytes. The source must have been
  * validated ({@link ImageValidator}): the compiler resolves, it does not check. What it cannot resolve
  * is a {@link CompileException}.
@@ -132,6 +134,12 @@ public final class ImageCompiler {
 	static final int APPLICATION = 0x40;
 
 	static final int VIRTUAL = 0x80;
+
+	/** The member of a control page naming its minimum role (3.9, schema 1.8). */
+	static final String MINIMUM_ROLE = "minimumRole";
+
+	/** The minimum role of a control page shown and operated without sign-in. */
+	static final String ANONYMOUS = "anonymous";
 
 	/** The time master's datapoints: member, id, type. */
 	static final String[][] TIME_MASTER = { { "time", "knx.time", "timeOfDay" }, { "date", "knx.date", "date" },
@@ -1627,21 +1635,134 @@ public final class ImageCompiler {
 	// ---- ui ----------------------------------------------------------------------------------
 
 	/**
-	 * The control pages as the body of <code>GET /api/pages</code> (9.16, homecontrol
-	 * <code>spec/api.md</code>): five flat lists, the defaults resolved, the datapoints by their index;
-	 * <code>null</code> without pages.
+	 * The minor version of the binary format the image of the given source is written in (section 8):
+	 * 1 with a control page of minimum role <code>anonymous</code> (3.9, I12, homecontrol #91,
+	 * haumacher/ehome #184), else 0.
 	 */
-	private byte[] ui() {
+	public static int formatMinor(Map<?, ?> source) {
+		return anonymousPages(source).isEmpty() ? 0 : 1;
+	}
+
+	/** The control pages of minimum role <code>anonymous</code> of the source, in their order. */
+	private static List<Map<?, ?>> anonymousPages(Map<?, ?> source) {
+		List<Map<?, ?>> result = new ArrayList<>();
+		if (source.get("ui") instanceof Map<?, ?> ui) {
+			for (Map<?, ?> page : maps(ui.get("pages"))) {
+				if (ANONYMOUS.equals(page.get(MINIMUM_ROLE))) {
+					result.add(page);
+				}
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The byte sections of the control pages (9.16): <code>ui</code>, and with a page of minimum role
+	 * <code>anonymous</code> <code>ui.anonymous</code> with the tables of what those pages show
+	 * (format 1.1); none without pages.
+	 */
+	private Map<Integer, byte[]> ui() {
+		Map<Integer, byte[]> result = new TreeMap<>();
 		if (!(_src.get("ui") instanceof Map<?, ?> ui) || !(ui.get("pages") instanceof List<?> pageList)
 			|| pageList.isEmpty()) {
-			return null;
+			return result;
 		}
+		List<Map<?, ?>> all = maps(pageList);
+		result.put(Integer.valueOf(Layout.UI), pagesBody(all));
+		for (int p = 0; p < all.size(); p++) {
+			Object role = all.get(p).get(MINIMUM_ROLE);
+			if (role != null && !ImageValidator.PAGE_ROLES.contains(role)) {
+				throw new CompileException("ui.pages[" + p + "]." + MINIMUM_ROLE,
+					"'" + role + "' is neither anonymous nor operator");
+			}
+		}
+		List<Map<?, ?>> anonymous = anonymousPages(_src);
+		if (!anonymous.isEmpty()) {
+			result.put(Integer.valueOf(Layout.UI_ANONYMOUS), pagesBody(anonymous));
+			anonymousTables(anonymous);
+		}
+		return result;
+	}
+
+	/**
+	 * The tables <code>ui.anonymous.datapoints</code> and <code>ui.anonymous.functions</code> (9.16):
+	 * every datapoint the given pages show, operated unless it is only read (a datapoint element with
+	 * <code>readOnly</code>, a chart's series and reference lines), every role of a function element's
+	 * function operated; the functions of the function elements. Both in ascending order of their
+	 * indices.
+	 */
+	private void anonymousTables(List<Map<?, ?>> pages) {
+		SortedMap<Integer, Integer> datapoints = new TreeMap<>();
+		Set<Integer> functions = new TreeSet<>();
+		List<Map<String, Object>> functionTable = table(Layout.FUNCTIONS);
+		List<Map<String, Object>> roles = table(Layout.ROLES);
+		for (Map<?, ?> page : pages) {
+			for (Map<?, ?> section : maps(page.get("sections"))) {
+				for (Map<?, ?> element : maps(section.get("elements"))) {
+					if (element.get("function") != null) {
+						int f = functionIndex(functionTable, element.get("function"));
+						functions.add(Integer.valueOf(f));
+						// Every role of the function, operated: the tile is the function's control.
+						Map<String, Object> function = functionTable.get(f);
+						int first = ((Number) function.get("firstRole")).intValue();
+						int count = ((Number) function.get("roleCount")).intValue();
+						for (int k = first; k < first + count; k++) {
+							show(datapoints, ((Number) roles.get(k).get("datapoint")).intValue(), true);
+						}
+					} else if (element.get("datapoint") != null) {
+						show(datapoints, dp(element.get("datapoint")), !Boolean.TRUE.equals(element.get("readOnly")));
+					} else if (element.get("chart") instanceof Map<?, ?> chart) {
+						for (Map<?, ?> item : maps(chart.get("series"))) {
+							show(datapoints, dp(item.get("datapoint")), false);
+						}
+						for (Map<?, ?> item : maps(chart.get("references"))) {
+							if (item.get("datapoint") != null) {
+								show(datapoints, dp(item.get("datapoint")), false);
+							}
+						}
+					}
+				}
+			}
+		}
+		for (Map.Entry<Integer, Integer> entry : datapoints.entrySet()) {
+			Map<String, Object> rec = record();
+			rec.put("datapoint", entry.getKey());
+			rec.put("flags", entry.getValue());
+			table(Layout.UI_ANONYMOUS_DATAPOINTS).add(rec);
+		}
+		for (Integer function : functions) {
+			Map<String, Object> rec = record();
+			rec.put("function", function);
+			table(Layout.UI_ANONYMOUS_FUNCTIONS).add(rec);
+		}
+	}
+
+	/** Notes a datapoint the anonymous pages show; one shown both ways is operated. */
+	private static void show(SortedMap<Integer, Integer> datapoints, int index, boolean operate) {
+		datapoints.merge(Integer.valueOf(index), Integer.valueOf(operate ? Layout.ANONYMOUS_OPERATE : 0),
+			(a, b) -> Integer.valueOf(a.intValue() | b.intValue()));
+	}
+
+	private static int functionIndex(List<Map<String, Object>> functionTable, Object id) {
+		for (int f = 0; f < functionTable.size(); f++) {
+			if (functionTable.get(f).get("id").equals(id)) {
+				return f;
+			}
+		}
+		throw new CompileException("ui", "no function '" + id + "'");
+	}
+
+	/**
+	 * The given control pages as the body of <code>GET /api/pages</code> (9.16, homecontrol
+	 * <code>spec/api.md</code>): five flat lists, the defaults resolved, the datapoints by their index.
+	 */
+	private byte[] pagesBody(List<Map<?, ?>> pageList) {
 		List<Object> pages = new ArrayList<>();
 		List<Object> sections = new ArrayList<>();
 		List<Object> elements = new ArrayList<>();
 		List<Object> series = new ArrayList<>();
 		List<Object> references = new ArrayList<>();
-		for (Map<?, ?> page : maps(pageList)) {
+		for (Map<?, ?> page : pageList) {
 			Map<String, Object> p = new LinkedHashMap<>();
 			p.put("id", page.get("id"));
 			putIf(p, "label", page.get("label"));

@@ -80,6 +80,15 @@ public final class Pages {
 	/** The kind of a new reference line at the value of a datapoint (targets: datapoints). */
 	public static final String REFERENCE_DATAPOINT = "referenceDatapoint";
 
+	/** The attribute of a page naming its minimum role (haumacher/ehome #184, enumeration PageRole). */
+	public static final String MINIMUM_ROLE = "minimumRole";
+
+	/** The minimum role of a page shown and operated without sign-in. */
+	public static final String ANONYMOUS = "anonymous";
+
+	/** The minimum role of a page shown to a signed-in user, the default. */
+	public static final String OPERATOR = "operator";
+
 	/** The external names of the chart ranges of the image by the classifiers of ChartRange. */
 	private static final Map<String, String> RANGES = Map.of("hour", "1h", "day", "24h", "week", "7d", "month", "30d",
 		"year", "1y");
@@ -143,6 +152,14 @@ public final class Pages {
 	 */
 	public static boolean isGroupAddress(Object obj) {
 		return obj instanceof TLObject object && ExtIds.isA(object, "ehome.logical:GroupAddress");
+	}
+
+	/**
+	 * Whether the page is shown and operated without sign-in (its minimum role is
+	 * {@value #ANONYMOUS}, haumacher/ehome #184); a page without a role is one of {@value #OPERATOR}.
+	 */
+	public static boolean isAnonymous(TLObject page) {
+		return page.tValueByName(MINIMUM_ROLE) instanceof TLClassifier role && ANONYMOUS.equals(role.getName());
 	}
 
 	private static TLObject create(String type) {
@@ -793,6 +810,7 @@ public final class Pages {
 			case PAGE: {
 				TLObject page = create("Page");
 				page.tUpdateByName("name", FunctionProposal.text(I18NConstants.NEW_PAGE_NAME));
+				page.tUpdateByName(MINIMUM_ROLE, RuleImport.classifier("PageRole", OPERATOR));
 				created.add(page);
 				break;
 			}

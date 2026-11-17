@@ -25,6 +25,7 @@ import de.haumacher.ehome.connection.InstallationKeys;
 import de.haumacher.ehome.rules.Schedule;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.binary.CompileException;
+import de.haumacher.ehome.runtime.binary.ImageCompiler;
 import de.haumacher.ehome.runtime.binary.ImageDecoder;
 import de.haumacher.ehome.runtime.binary.ImageDecoder.DecodeException;
 import de.haumacher.ehome.runtime.binary.Layout;
@@ -362,7 +363,8 @@ public final class ImageComparison {
 		}
 		if (result.state() != State.UNKNOWN) {
 			String reported = reportedFormat(controller);
-			ResKey format = "".equals(reported) ? null : Deployer.formatRefusal(reported, controller.tValueByName("name"));
+			ResKey format = "".equals(reported) ? null : Deployer.formatRefusal(reported, controller.tValueByName("name"),
+				ImageCompiler.formatMinor(image.getJson()));
 			if (format != null) {
 				text += "\n\n" + text(format);
 			}

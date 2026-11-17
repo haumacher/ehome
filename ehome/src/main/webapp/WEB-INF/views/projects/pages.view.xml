@@ -572,6 +572,7 @@
 											<field attribute="name"/>
 											<field attribute="identifier"/>
 											<field attribute="icon"/>
+											<field attribute="minimumRole"/>
 										</form>
 									</case>
 									<case test="$selected.instanceOf(`ehome.runtime:PageSection`)">

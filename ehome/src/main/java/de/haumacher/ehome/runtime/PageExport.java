@@ -20,7 +20,8 @@ import com.top_logic.util.Resources;
  *
  * <p>
  * A page is written with its id (its identifier, derived from its name where it has none), its label
- * (its name in its languages), its icon and its sections; a section with its label (its title) and
+ * (its name in its languages), its icon, its minimum role where it is <code>anonymous</code> (schema
+ * 1.8, haumacher/ehome #184) and its sections; a section with its label (its title) and
  * its elements. An element names the image id of its target:
  * </p>
  * <ul>
@@ -111,6 +112,10 @@ final class PageExport {
 			String icon = Pages.text(page.tValueByName("icon"));
 			if (icon != null) {
 				json.put("icon", icon);
+			}
+			if (Pages.isAnonymous(page)) {
+				// The default operator is not written: an image without anonymous pages stays one of schema 1.7.
+				json.put(Pages.MINIMUM_ROLE, Pages.ANONYMOUS);
 			}
 			List<Object> sections = new ArrayList<>();
 			List<TLObject> parts = RuleExport.objects(page.tValueByName("sections"));

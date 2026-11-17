@@ -60,6 +60,11 @@ the persisted `<rule>/.timeline` and the refusal's `path` and `text`), the image
 `test.de.haumacher.ehome.runtime.TestTimelines`) and the image case
 `images/cases/refuse-rule-timeline.json`, and changed the rule corpus `README.md`; the block fixtures
 did not change.
+Synced again with the schema 1.8 round of haumacher/homecontrol (#91, haumacher/ehome #184: the
+minimum role of a control page, binary format 1.1 with the sections of the anonymous pages; from the
+working tree on top of `87a965ad55e3ff873d19f4f9383590f3cf9d9711`), which added the image
+`images/anonymous-pages.json` alone (its `.bin` is compared by
+`test.de.haumacher.ehome.runtime.binary.TestImageCorpus`); the rule and block fixtures did not change.
 The formats are `spec/runtime-image.md` (schema 1.0), `spec/rules.md` and `spec/schedules.md` of
 that commit.
 

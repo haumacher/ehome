@@ -3713,6 +3713,13 @@
 			<classifier name="band"/>
 			<classifier name="consumption"/>
 		</enum>
+		<!-- The lowest role of the controller that sees and operates a control page (haumacher/ehome #184, homecontrol #91). -->
+		<enum name="PageRole">
+			<!-- Without sign-in: everything the page shows may be read and operated by anybody. -->
+			<classifier name="anonymous"/>
+			<!-- Signed in. -->
+			<classifier name="operator" default="true"/>
+		</enum>
 		<!-- A control page of the controller's user interface. -->
 		<class name="Page">
 			<generalizations>
@@ -3742,6 +3749,12 @@
 				<!-- The name of the icon the controller shows beside the label (e.g. moon); empty for none. -->
 				<property name="icon"
 					type="tl.core:String"
+				/>
+				<!-- Who sees and operates the page on the controller: anonymous without sign-in, operator signed in. -->
+				<reference name="minimumRole"
+					kind="forwards"
+					mandatory="true"
+					type="PageRole"
 				/>
 				<!-- The sections of the page, from top to bottom. -->
 				<reference name="sections"

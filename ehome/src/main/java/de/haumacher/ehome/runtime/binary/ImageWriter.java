@@ -46,13 +46,15 @@ final class ImageWriter {
 	 * @param tables
 	 *        The records by section id; the sections <code>strings</code> and <code>labels</code> are
 	 *        made here, an empty table is left out.
-	 * @param ui
-	 *        The bytes of the section <code>ui</code>, <code>null</code> for none.
+	 * @param byteSections
+	 *        The byte sections but <code>strings</code> (<code>ui</code>, <code>ui.anonymous</code>) by
+	 *        their ids; one that is not given is left out.
 	 * @param seed
 	 *        The private installation key (its seed, 64 hex digits) to sign with, <code>null</code> for
 	 *        an unsigned image.
 	 */
-	static byte[] write(SortedMap<Integer, List<Map<String, Object>>> tables, byte[] ui, String seed) {
+	static byte[] write(SortedMap<Integer, List<Map<String, Object>>> tables, Map<Integer, byte[]> byteSections,
+			String seed) {
 		// The strings: every string reference and every tag and text of a label, sorted bytewise.
 		TreeSet<byte[]> strings = new TreeSet<>(Arrays::compareUnsigned);
 		strings.add(new byte[0]);
@@ -107,9 +109,7 @@ final class ImageWriter {
 		if (!labels.isEmpty()) {
 			ids.add(Integer.valueOf(Layout.LABELS));
 		}
-		if (ui != null) {
-			ids.add(Integer.valueOf(Layout.UI));
-		}
+		ids.addAll(byteSections.keySet());
 		ids.sort(null);
 
 		int[] offset = new int[ids.size()];
@@ -122,8 +122,8 @@ final class ImageWriter {
 			Section section = Layout.section(id);
 			if (id == Layout.STRINGS) {
 				length[i] = stringBytes;
-			} else if (id == Layout.UI) {
-				length[i] = ui.length;
+			} else if (byteSections.containsKey(ids.get(i))) {
+				length[i] = byteSections.get(ids.get(i)).length;
 			} else if (id == Layout.LABELS) {
 				length[i] = labels.size() * section.size();
 			} else {
@@ -138,7 +138,8 @@ final class ImageWriter {
 		ByteBuffer out = ByteBuffer.allocate(total).order(ByteOrder.LITTLE_ENDIAN);
 		out.put(0, Layout.MAGIC);
 		out.putShort(4, (short) Layout.MAJOR);
-		out.putShort(6, (short) Layout.MINOR);
+		// Format 1.1 only for an image with its sections (spec/runtime-image.md 8): the anonymous pages.
+		out.putShort(6, (short) (byteSections.containsKey(Integer.valueOf(Layout.UI_ANONYMOUS)) ? 1 : 0));
 		out.putInt(8, total);
 		out.putInt(16, signed ? Layout.FLAG_SIGNED : 0);
 		out.putShort(20, (short) Layout.HEADER_SIZE);
@@ -161,8 +162,8 @@ final class ImageWriter {
 					out.put(at, string);
 					at += string.length + 1;
 				}
-			} else if (id == Layout.UI) {
-				out.put(offset[i], ui);
+			} else if (byteSections.containsKey(ids.get(i))) {
+				out.put(offset[i], byteSections.get(ids.get(i)));
 			} else {
 				List<Map<String, Object>> records = id == Layout.LABELS ? labels : tables.get(ids.get(i));
 				for (int r = 0; r < records.size(); r++) {

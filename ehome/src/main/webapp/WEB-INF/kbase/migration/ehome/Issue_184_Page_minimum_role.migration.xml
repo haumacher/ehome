@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	haumacher/ehome #184: a control page has a minimum role (ehome.runtime:Page#minimumRole, the
+	enumeration ehome.runtime:PageRole, anonymous or operator), mandatory with the default operator.
+	The automatic model upgrade at startup adds the enumeration and the reference (nothing is removed or
+	moved) but gives the existing pages no value; the startup action PageRoleMigration gives every page
+	without one the role operator, so nothing changes until a page is set to anonymous.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_184_Page_minimum_role"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_178_Group_address_identifiers"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors/>
+	<post-processors/>
+	<startup-actions>
+		<startup-action class="de.haumacher.ehome.runtime.PageRoleMigration"/>
+	</startup-actions>
+</migration>

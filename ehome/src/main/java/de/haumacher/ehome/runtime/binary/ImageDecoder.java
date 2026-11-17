@@ -9,9 +9,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 import de.haumacher.ehome.blocks.BlockRegistry;
@@ -48,6 +50,8 @@ import de.haumacher.ehome.runtime.binary.Layout.Section;
  * flags, a schedule bound's <code>min</code> and <code>max</code>, a block input's aggregation, an
  * external source's interval, MQTT's flags and history interval, a chart's width, height, range,
  * presets, axes, a series' axis and consolidation, a reference line's axis;</li>
+ * <li>the minimum role of a page is written where it is <code>anonymous</code> (a page of the section
+ * <code>ui.anonymous</code>), the default <code>operator</code> left out;</li>
  * <li>values the source may write in several ways are written in one: group addresses as
  * <code>main/middle/sub</code>, a DPT with three digits of sub (<code>9.001</code>), an IEEE address as
  * 16 lower-case hex digits, a listen address equal to the send address dropped, an input bound to one
@@ -111,6 +115,8 @@ public final class ImageDecoder {
 	private byte[] _strings = new byte[0];
 
 	private byte[] _ui;
+
+	private byte[] _uiAnonymous;
 
 	private final BlockRegistry _registry;
 
@@ -210,6 +216,8 @@ public final class ImageDecoder {
 				_strings = Arrays.copyOfRange(_bytes, offset, offset + length);
 			} else if (id == Layout.UI) {
 				_ui = Arrays.copyOfRange(_bytes, offset, offset + length);
+			} else if (id == Layout.UI_ANONYMOUS) {
+				_uiAnonymous = Arrays.copyOfRange(_bytes, offset, offset + length);
 			} else {
 				if (entrySize < section.size() || length % entrySize != 0) {
 					throw new DecodeException("section " + section.name() + " has records of " + entrySize + " bytes");
@@ -1337,12 +1345,22 @@ public final class ImageDecoder {
 		return json;
 	}
 
-	private Map<String, Object> ui() throws DecodeException {
-		Map<?, ?> body;
+	private static Map<?, ?> pagesBody(byte[] bytes) throws DecodeException {
 		try {
-			body = (Map<?, ?>) Json.parse(new String(_ui, StandardCharsets.UTF_8), ImageValidator.MAX_NESTING);
+			return (Map<?, ?>) Json.parse(new String(bytes, StandardCharsets.UTF_8), ImageValidator.MAX_NESTING);
 		} catch (Json.JsonException | ClassCastException ex) {
 			throw new DecodeException("the control pages are no JSON object");
+		}
+	}
+
+	private Map<String, Object> ui() throws DecodeException {
+		Map<?, ?> body = pagesBody(_ui);
+		// The pages of minimum role anonymous are those of the second body (format 1.1); their tables follow from them.
+		Set<Object> anonymous = new HashSet<>();
+		if (_uiAnonymous != null) {
+			for (Map<?, ?> page : ImageCompiler.maps(pagesBody(_uiAnonymous).get("pages"))) {
+				anonymous.add(page.get("id"));
+			}
 		}
 		List<Map<?, ?>> pages = ImageCompiler.maps(body.get("pages"));
 		List<Map<?, ?>> sections = ImageCompiler.maps(body.get("sections"));
@@ -1356,6 +1374,9 @@ public final class ImageDecoder {
 			json.put("id", page.get("id"));
 			putIf(json, "label", page.get("label"));
 			putIf(json, "icon", page.get("icon"));
+			if (anonymous.contains(page.get("id"))) {
+				json.put("minimumRole", "anonymous");
+			}
 			List<Object> list = new ArrayList<>();
 			json.put("sections", list);
 			sectionsOfPage.add(list);

@@ -33,6 +33,7 @@ import de.haumacher.ehome.connection.Signatures.Keys;
 import de.haumacher.ehome.runtime.ControllerClient.Answer;
 import de.haumacher.ehome.runtime.ImageReport.Refusal;
 import de.haumacher.ehome.runtime.binary.CompileException;
+import de.haumacher.ehome.runtime.binary.ImageCompiler;
 import de.haumacher.ehome.runtime.binary.Layout;
 import de.haumacher.ehome.settings.OperatorSettings;
 
@@ -242,7 +243,8 @@ public final class Deployer {
 		}
 		ControllerStatus.Loaded before = ControllerStatus.read(client);
 		outcome._before = before.text();
-		ResKey formatRefusal = formatRefusal(reportedFormat(client, before), controller.tValueByName("name"));
+		ResKey formatRefusal = formatRefusal(reportedFormat(client, before), controller.tValueByName("name"),
+			ImageCompiler.formatMinor(image.getJson()));
 		if (before.answered() && formatRefusal != null) {
 			// A firmware reading JSON images (or another major format) cannot load the binary image: nothing is sent.
 			outcome._code = CODE_FORMAT;
@@ -416,22 +418,29 @@ public final class Deployer {
 	 * Why the binary image cannot go to a controller reporting the given format (homecontrol
 	 * <code>spec/runtime-image.md</code> section 11): a controller reporting none runs a firmware
 	 * that reads JSON images (up to 1.2), one of another major format a firmware E-Home cannot write
-	 * for; <code>null</code> when it reads format {@value Layout#FORMAT}. There is no JSON fallback:
-	 * every controller is flashed with a firmware reading the binary image.
+	 * for, one of an older minor format than the image is written in (format 1.1 for the anonymous
+	 * pages, haumacher/ehome #184) a firmware that does not know its sections; <code>null</code> when
+	 * it reads the image's format. There is no JSON fallback: every controller is flashed with a
+	 * firmware reading the binary image.
+	 *
+	 * @param imageMinor
+	 *        The minor version of the format the image is written in
+	 *        ({@link de.haumacher.ehome.runtime.binary.ImageCompiler#formatMinor(Map)}).
 	 */
-	public static ResKey formatRefusal(String reported, Object controller) {
+	public static ResKey formatRefusal(String reported, Object controller, int imageMinor) {
 		if (reported == null || reported.isBlank()) {
 			return I18NConstants.DEPLOY_REFUSED_NO_FORMAT__CONTROLLER.fill(controller);
 		}
 		String[] parts = reported.trim().split("\\.");
 		try {
-			if (parts.length == 2 && Integer.parseInt(parts[0]) == Layout.MAJOR && Integer.parseInt(parts[1]) >= Layout.MINOR) {
+			if (parts.length == 2 && Integer.parseInt(parts[0]) == Layout.MAJOR && Integer.parseInt(parts[1]) >= imageMinor) {
 				return null;
 			}
 		} catch (NumberFormatException ex) {
 			// Refused below.
 		}
-		return I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill(controller, reported.trim(), Layout.FORMAT);
+		return I18NConstants.DEPLOY_REFUSED_FORMAT__CONTROLLER_FORMAT_IMAGE.fill(controller, reported.trim(),
+			Layout.MAJOR + "." + imageMinor);
 	}
 
 	/**

@@ -6,9 +6,14 @@ package test.de.haumacher.ehome.runtime;
 import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,6 +30,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClass;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -42,6 +48,9 @@ import de.haumacher.ehome.runtime.Pages;
 import de.haumacher.ehome.runtime.RuleFunctions;
 import de.haumacher.ehome.runtime.RuntimeFunctions;
 import de.haumacher.ehome.runtime.RuntimeImage;
+import de.haumacher.ehome.runtime.binary.ImageCompiler;
+import de.haumacher.ehome.runtime.binary.ImageDecoder;
+import de.haumacher.ehome.runtime.binary.Layout;
 
 /**
  * The control pages of a project (haumacher/ehome #72 with its amendment "charts"): the member
@@ -288,6 +297,149 @@ public class TestControlPages extends BasicTestCase {
 		assertEquals(List.of(Long.valueOf(86400), Long.valueOf(7 * 86400), Long.valueOf(30 * 86400),
 			Long.valueOf(365 * 86400)), use.ranges());
 		assertEquals("full", use.width());
+	}
+
+	/**
+	 * The minimum role of a page (haumacher/ehome #184, homecontrol #91): a new page is one of
+	 * <code>operator</code> and its image has no section of the anonymous pages (format 1.0, schema
+	 * 1.7, as before); a page set to <code>anonymous</code> brings the sections <code>ui.anonymous</code>
+	 * (its pages alone), <code>ui.anonymous.datapoints</code> (exactly what they show, operated unless
+	 * read only) and <code>ui.anonymous.functions</code>, in format 1.1 and schema 1.8.
+	 */
+	public void testAnonymousPages() throws Exception {
+		buildPages();
+		assertEquals("operator", ((TLClassifier) _evening.tValueByName(Pages.MINIMUM_ROLE)).getName());
+		assertFalse(Pages.isAnonymous(_climate));
+		RuntimeImage operators = RuntimeImage.build(_project, 1, NOW);
+		assertEquals(RuntimeImage.SCHEMA_VERSION, ((Map<?, ?>) operators.getJson().get("image")).get("schemaVersion"));
+		assertEquals(Json.write(Json.parse(PAGES, 100)), Json.write(operators.getJson().get("ui")));
+		Binary none = new Binary(operators.compile(null));
+		assertEquals(0, none.minor());
+		assertNull(none.section(Layout.UI_ANONYMOUS));
+		assertNull(none.section(Layout.UI_ANONYMOUS_DATAPOINTS));
+		assertNull(none.section(Layout.UI_ANONYMOUS_FUNCTIONS));
+
+		// The first page without sign-in: its room, functions, a read-only address, an application datapoint,
+		// a rule parameter and an enable switch; nothing of the chart of the second page.
+		setRole(_evening, "anonymous");
+		RuntimeImage image = RuntimeImage.build(_project, 1, NOW);
+		assertTrue(image.validate().toString(), image.validate().isValid());
+		assertEquals(RuntimeImage.SCHEMA_VERSION_ANONYMOUS_PAGES,
+			((Map<?, ?>) image.getJson().get("image")).get("schemaVersion"));
+		List<?> pages = (List<?>) ((Map<?, ?>) image.getJson().get("ui")).get("pages");
+		assertEquals("anonymous", ((Map<?, ?>) pages.get(0)).get("minimumRole"));
+		assertFalse(((Map<?, ?>) pages.get(1)).containsKey("minimumRole"));
+		byte[] bytes = image.compile(null);
+		Binary binary = new Binary(bytes);
+		assertEquals(1, binary.minor());
+		assertEquals(onlyPages(image.getJson(), 0), binary.text(Layout.UI_ANONYMOUS));
+		// The datapoint the functions command is also shown read only: operated.
+		assertEquals(Map.of("1/0/1", Boolean.TRUE, "holiday", Boolean.TRUE, "rule/heat/setpoint", Boolean.TRUE,
+			"rule/heat/enabled", Boolean.TRUE), binary.anonymousDatapoints());
+		assertEquals(List.of("reading-light", "kitchen-light", "living-lamp", "living-light"),
+			binary.anonymousFunctions());
+		// Read back: the view names the anonymous page, and compiles to the same bytes.
+		Map<String, Object> view = ImageDecoder.decode(bytes);
+		assertTrue(Arrays.equals(bytes, ImageCompiler.compile(view)));
+
+		// The second page alone: its chart's series and reference lines only read, the function operated.
+		setRole(_evening, "operator");
+		setRole(_climate, "anonymous");
+		image = RuntimeImage.build(_project, 1, NOW);
+		binary = new Binary(image.compile(null));
+		assertEquals(1, binary.minor());
+		assertEquals(onlyPages(image.getJson(), 1), binary.text(Layout.UI_ANONYMOUS));
+		assertEquals(Map.of("1/0/1", Boolean.TRUE, "1/3/1", Boolean.FALSE, "1/3/5", Boolean.FALSE, "1/1/7",
+			Boolean.FALSE, "rule/heat/setpoint", Boolean.FALSE), binary.anonymousDatapoints());
+		assertEquals(List.of("kitchen-light"), binary.anonymousFunctions());
+
+		// Back to operator: the image is the one of before, byte for byte.
+		setRole(_climate, "operator");
+		assertTrue(Arrays.equals(operators.compile(null), RuntimeImage.build(_project, 1, NOW).compile(null)));
+	}
+
+	/** The section ui of the image compiled from the source with only the given page. */
+	private static String onlyPages(Map<String, Object> json, int page) {
+		Map<String, Object> copy = new LinkedHashMap<>(json);
+		List<?> pages = (List<?>) ((Map<?, ?>) json.get("ui")).get("pages");
+		copy.put("ui", Map.of("pages", List.of(pages.get(page))));
+		return new Binary(ImageCompiler.compile(copy)).text(Layout.UI);
+	}
+
+	private static void setRole(TLObject page, String role) {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			page.tUpdateByName(Pages.MINIMUM_ROLE, classifier("PageRole", role));
+			tx.commit();
+		}
+	}
+
+	/** A binary image read by hand (homecontrol <code>spec/runtime-image.md</code> 9). */
+	private static final class Binary {
+
+		private final ByteBuffer _in;
+
+		Binary(byte[] bytes) {
+			_in = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+		}
+
+		int minor() {
+			return _in.getShort(6) & 0xFFFF;
+		}
+
+		/** Offset and length of the section, <code>null</code> if it is absent. */
+		int[] section(int id) {
+			int count = _in.getShort(22) & 0xFFFF;
+			for (int k = 0; k < count; k++) {
+				int at = Layout.HEADER_SIZE + k * Layout.ENTRY_SIZE;
+				if ((_in.getShort(at) & 0xFFFF) == id) {
+					return new int[] { _in.getInt(at + 4), _in.getInt(at + 8) };
+				}
+			}
+			return null;
+		}
+
+		String text(int id) {
+			int[] section = section(id);
+			return new String(_in.array(), section[0], section[1], StandardCharsets.UTF_8);
+		}
+
+		/** The string at the offset of a record's string field. */
+		private String string(int field) {
+			int at = section(Layout.STRINGS)[0] + _in.getInt(field);
+			int end = at;
+			while (_in.get(end) != 0) {
+				end++;
+			}
+			return new String(_in.array(), at, end - at, StandardCharsets.UTF_8);
+		}
+
+		private String name(int table, int index) {
+			return string(section(table)[0] + index * Layout.section(table).size());
+		}
+
+		/** The datapoints of ui.anonymous.datapoints by their names, whether they are operated. */
+		Map<String, Boolean> anonymousDatapoints() {
+			int[] table = section(Layout.UI_ANONYMOUS_DATAPOINTS);
+			Map<String, Boolean> result = new LinkedHashMap<>();
+			int last = -1;
+			for (int at = table[0]; at < table[0] + table[1]; at += 4) {
+				int index = _in.getShort(at) & 0xFFFF;
+				assertTrue("Strictly ascending.", index > last);
+				last = index;
+				result.put(name(Layout.DATAPOINTS, index), Boolean.valueOf((_in.get(at + 2) & Layout.ANONYMOUS_OPERATE) != 0));
+			}
+			return result;
+		}
+
+		/** The functions of ui.anonymous.functions by their ids. */
+		List<String> anonymousFunctions() {
+			int[] table = section(Layout.UI_ANONYMOUS_FUNCTIONS);
+			List<String> result = new ArrayList<>();
+			for (int at = table[0]; at < table[0] + table[1]; at += 2) {
+				result.add(name(Layout.FUNCTIONS, _in.getShort(at) & 0xFFFF));
+			}
+			return result;
+		}
 	}
 
 	public void testSameFunctionOnTwoPages() throws Exception {
@@ -564,6 +716,15 @@ public class TestControlPages extends BasicTestCase {
 		assertRefused(report, chart + ".references[0]", "exactly one of value (a constant) or datapoint");
 		assertRefused(report, chart + ".references[1].datapoint", "unknown datapoint 'nope'");
 		assertRefused(report, "ui.pages[1].id", "duplicate page id 'a'");
+
+		// The minimum role of a page (schema 1.8, haumacher/ehome #184).
+		report = ImageValidator.validate(image("1.8", """
+			{"pages": [{"id": "a", "minimumRole": "anonymous"}, {"id": "b", "minimumRole": "operator"},
+					   {"id": "c", "minimumRole": "administrator"}]}
+			"""));
+		assertNoRefusal(report, "ui.pages[0].minimumRole");
+		assertNoRefusal(report, "ui.pages[1].minimumRole");
+		assertRefused(report, "ui.pages[2].minimumRole", "unknown minimumRole \"administrator\" (anonymous, operator)");
 	}
 
 	/**
