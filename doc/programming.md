@@ -25,8 +25,9 @@ does, how to run the first real download on the test system, and how to recover 
 - **The test system only.** The test system is reached through the IP router 192.168.178.81:3671
   (MAC 00-24-6D-01-58-64). The other router the search finds, "KNX IP Router 750", is the home
   installation: never choose it as the gateway of a project you program or compare.
-- Comparing never writes: it reads the device descriptor, the program version, the load states and
-  the memory of every block of the image.
+- Comparing never writes: it reads the device descriptor, the program version, the load states
+  (through properties on mask 7.5, the bytes B6EA-B6ED on mask 7.1) and the memory of every block of
+  the image.
 
 ## Where
 
@@ -191,6 +192,56 @@ what the plan computes. Not verified before the first download:
 - The zero fill: the segment of the Tastsensor's association table (dynamic table management) is
   written up to its end with zeros, so that its stamp's CRC describes the memory (the device held
   zeros there after ETS).
+
+## What a download does (mask 7.1, BIM M112, load state machines in memory; haumacher/ehome #22)
+
+A program of mask 7.1 (`MV-0701`, `PropertyMappedLsms` 0) is loaded by the same steps as one of mask
+7.5 (MDT's 7.1 programs have the load procedure of the actuator above, step by step); only the way of
+the load controls differs (`LoadStateMachines`, `LoadControls.memoryRecord`, `Operation.MemoryLoadControl`):
+
+- The load control of load state machine *n* (the object type of the loaded part: 1 address table,
+  2 association table, 3 application, 4 PEI program) is written with `A_Memory_Write` into the
+  mask's resource `<part>LoadControl` (flavour `LoadControl_M112`; 0104 for all four on mask 7.1) as
+  a record of 11 bytes: the load state machine in the high, the event in the low nibble of the first
+  byte (unload `14`, `24`, `34`; start loading `11`; load completed `12`); an additional load control
+  continues with the segment type, a segment ID `00` and the data of the 10-byte control after its
+  segment type (`13 00 00 40 00 02 01 FF 03 80 00`: segment 4000, 513 bytes, access FF, EEPROM,
+  flags 80; `13 02 00 40 00 01 00 83 00 14 11`: task segment 4000, PEI type 1, application 0083 0014
+  11). The record is not read back (the mask gives no read access to it).
+- After each record the load state is read from the mask's `<part>LoadStatus` (B6EA, B6EB, B6EC,
+  B6ED), one byte; a transitional state is read again until it settles, another state than the
+  expected one up to three times more (250 ms apart), then the download stops with the state read.
+- The task segment of load state machine 5 some 7.1 programs name (MDT's `M-0083_A-0014-11-EA36`)
+  is left out: the mask names no load control for it (as ETS does).
+- After the application: the program version (object 3, property 13, the mask's `ApplicationId`).
+
+Source of the format: KNX 3/5/2 Management Procedures 3.31.2 (the memory-mapped load state machine,
+"only with mask 070nh") and the conformance test of the load state machines (TSSG 2.1: the unloads
+14h-44h into 0104h, the states at B6EAh-B6EDh), as cited by the open-source download tools bussard
+(`dev/system7-spec.md`, section 5) and xknx-editor (`load_state.py`), whose ETS recordings of mask
+7.1 devices show the same 11-byte records. The mask's resource is 12 bytes long; the record fills 11
+of them. Verified against the virtual device (`TestVirtualDownload#testMask71`, which decodes the
+records by the specification's constants, independently of E-Home's encoding) and a mock
+(`TestMask71Download`): the plan of the fixture `TestMask71.knxproj` (the test system's actuator
+program turned into mask 7.1) equals the plan of the 7.5 program but for the way of the load
+controls, 626 bytes of the image written. **Not verified against a device.**
+
+### The first 7.1 download (the owner runs it)
+
+On the house installation (its only 7.1 devices), every step started by the owner from the UI; no
+agent starts a comparison or download there.
+
+1. Read only: "Mit dem Gerät vergleichen" shows "Ladezustandsmaschine 1-4" and the memory; load
+   state machines 1-3 should be "Geladen", every block identical to E-Home's image (the device must
+   hold exactly the parameters it has now, as imported).
+2. The unchanged ETS project at hand: if the download stops halfway (load state machines unloaded,
+   the device silent), an ETS download of that project restores it.
+3. One device, the one whose failure does least harm; "Herunterladen". What to watch: the first
+   step that writes is the unload of load state machine 1 (`14 …` into 0104); a refusal there with
+   "meldet … den Zustand …" means the device does not take the record as specified — stop, the device
+   is unchanged except for that state (reload it with ETS if it stays unloaded).
+4. Afterwards "Mit dem Gerät vergleichen": load state machines 1-3 loaded, memory identical, the
+   program version equal; the device switches as before.
 
 ## What a download does (BCU 1, mask 0012; haumacher/ehome #13)
 
@@ -368,8 +419,9 @@ by type are not read (reported). KNX Secure devices are not supported.
 
 ## Not supported (refused with the reason)
 
-- Masks whose load state machines are controlled in memory instead of properties (mask 7.1,
-  `MV-0701`: `PropertyMappedLsms` 0, load controls written to 0104), and step kinds other than
+- Masks naming no load control E-Home can write for a load state machine of their procedure (neither
+  `PropertyMappedLsms` 1 nor the resources `<part>LoadControl`/`<part>LoadStatus` of the flavour
+  `LoadControl_M112` in memory), and step kinds other than
   Connect, Disconnect, Unload, Load, AbsSegment (types 0 and 1), TaskSegment, TaskCtrl1,
   LoadCompleted, LoadImageProp (download stamps), LoadImageMem (nothing sent, see BCU 1),
   CompareProp, WriteProp, WriteMem / CompareMem (standard memory), Restart, Delay,

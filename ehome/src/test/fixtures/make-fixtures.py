@@ -404,6 +404,18 @@ as "Kanal 1" and "Kanal 2") has the numbers "Wert" (default 1) and "Kopie" (defa
 "Wert kopieren" (Kopie takes Wert, by the IDs of the module definition, MD-1_P-1_R-1). Device: "TEST
 Schaltgerät" (1.0.1, Quelle "Hallo", Wert 3 in the second module instance).
 
+TestMask71.knxproj: the samples contain no device of mask 7.1 (BIM M112, MV-0701), whose load state machines
+are controlled in memory (load controls written to 0104, load states read at B6EA-B6ED; haumacher/ehome #22).
+This copy of samples/KNX-Testsystem.knxproj (not of the Test project) turns the program of the MDT actuator
+1.3.5 into an artificial program of that mask, marked as test data by its name ("TEST: Maske 7.1"): a new ID
+(M-0083_A-FF71-01-0000, application number 65393, version 1), the mask MV-0701, and the task segment of load
+state machine 5 inside the load of the application that MDT's mask 7.1 programs carry (M-0083_A-0014-11-EA36,
+"Switching, Staircase 12f"); its load procedure is otherwise the one of the actuator, which equals that of
+MDT's mask 7.1 programs step by step. The hardware, its product and the catalog sections get IDs and names of
+their own (M-0083_H-TEST.2E71-1, "TEST Maske 7.1"), so that the import does not touch the products of the
+test system. The project is named "TestMask71"; its device 1.3.5 runs the test program with the parameters
+and connections of the test system.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -1324,13 +1336,13 @@ def trim_master(xml, others, extra=()):
     return re.sub(r' Signature="[^"]*"', '', xml, count=1)
 
 
-def write(target, modify, additions=(), keep=lambda name: True, rename=lambda name: name, master=()):
-    """Writes a copy of the Test project, modified per entry, with master data trimmed to its use.
+def write(target, modify, additions=(), keep=lambda name: True, rename=lambda name: name, master=(), source=SOURCE):
+    """Writes a copy of the Test project (or of the given source), modified per entry, with master data trimmed to its use.
 
     @param master: IDs of master data the fixture keeps although no other entry names them.
     """
     entries = []
-    with zipfile.ZipFile(SOURCE) as source:
+    with zipfile.ZipFile(source) as source:
         for info in source.infolist():
             if not keep(info.filename):
                 continue
@@ -3461,3 +3473,40 @@ baggage_archive('src/test/fixtures/TestResources.knxproj', [
     ('M-0008/' + RESOURCES_PROJECT_PROGRAM + '.xml', resources_program(RESOURCES_PROJECT_PROGRAM, 65462,
         'TEST: Symbole und Hilfe im Projekt (künstliche Testdaten)'))],
     project=True, project_name='TestResources')
+
+
+# TestMask71.knxproj: a program of mask 7.1 (haumacher/ehome #22), see the module comment.
+MASK71_IDS = [
+    ('000C-21-83B5', 'FF71-01-0000'),
+    ('M-0083_H-3.2E13-2', 'M-0083_H-TEST.2E71-1'),
+    ('M-0083_CS-A.2001', 'M-0083_CS-TEST71'),
+]
+MASK71_NAMES = [
+    ('"Switching, Staircase 4fold AKK"', '"TEST: Maske 7.1 (künstliche Testdaten)"'),
+    ('"Schalten, Treppenlicht 4fach AKK"', '"TEST: Maske 7.1 (künstliche Testdaten)"'),
+    ('"AKK-0416.03 Switch Actuator 4fold, 2SU, 16A"', '"TEST Maske 7.1"'),
+    ('"AKK-0416.03 Schaltaktor 4fach, 2TE, 16A"', '"TEST Maske 7.1"'),
+    ('"Schaltaktor 4fach, 2TE, 230VAC, 16A"', '"TEST Maske 7.1"'),
+    ('OrderNumber="AKK-0416.03"', 'OrderNumber="TEST-0701"'),
+]
+
+
+def mask71(name, xml):
+    for old, new in MASK71_IDS:
+        xml = xml.replace(old, new)
+    if name == 'P-0563/Project.xml':
+        return replace_once(xml, '<ProjectInformation Name="KNX-Testsystem"', '<ProjectInformation Name="TestMask71"')
+    if not name.startswith('M-0083/'):
+        return xml
+    for old, new in MASK71_NAMES:
+        xml = xml.replace(old, new)
+    if name == 'M-0083/M-0083_A-000C-21-83B5.xml':
+        xml = replace_once(xml, 'ApplicationNumber="12" ApplicationVersion="33"', 'ApplicationNumber="65393" ApplicationVersion="1"')
+        xml = replace_once(xml, 'MaskVersion="MV-0705"', 'MaskVersion="MV-0701"')
+        xml = replace_once(xml, '<LdCtrlTaskSegment LsmIdx="3" Address="17408" />',
+            '<LdCtrlTaskSegment LsmIdx="3" Address="17408" />\n                <LdCtrlTaskSegment LsmIdx="5" Address="17408" />')
+    return xml
+
+
+write('src/test/fixtures/TestMask71.knxproj', mask71, rename=lambda name: name.replace('000C-21-83B5', 'FF71-01-0000'),
+    source='samples/KNX-Testsystem.knxproj')

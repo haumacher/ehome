@@ -73,9 +73,9 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ERROR_UNSUPPORTED_STEP__STEP_KIND_MASK;
 
 	/**
-	 * @en Step {0}: mask {1} controls its load state machines in memory (no feature PropertyMappedLsms); only load state machines controlled through properties are supported (as on mask 7.5).
+	 * @en Step {0}: mask {1} names no load control for load state machine {2}: neither through properties (feature PropertyMappedLsms) nor in memory (resources of the flavour LoadControl_M112).
 	 */
-	public static ResKey2 ERROR_MEMORY_MAPPED_LSM__STEP_MASK;
+	public static ResKey3 ERROR_NO_LOAD_CONTROL__STEP_MASK_LSM;
 
 	/**
 	 * @en Step {0}: the load state machine is given by object type, not by index; not supported.
@@ -501,6 +501,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Load control of load state machine {0} (object {1}): {2} [{3}]; expected load state: {4}
 	 */
 	public static ResKey5 OP_LOAD_CONTROL__LSM_OBJECT_CONTROL_BYTES_STATE;
+
+	/**
+	 * @en Load control of load state machine {0} into memory {1}: {2} [{3}]; expected load state at {4}: {5}
+	 */
+	public static ResKeyN OP_MEMORY_LOAD_CONTROL__LSM_ADDRESS_CONTROL_BYTES_STATUS_STATE;
 
 	/**
 	 * @en Write memory {0}-{1} ({2} bytes, {3}): {4}

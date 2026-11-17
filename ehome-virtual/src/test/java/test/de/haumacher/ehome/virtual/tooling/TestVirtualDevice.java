@@ -215,6 +215,50 @@ public class TestVirtualDevice extends TestCase {
 	}
 
 	/**
+	 * Mask 0701 without the network: the memory-mapped load state machines answer every load event in
+	 * every state as {@link MockDevice} does with properties; a task segment sets the table reference
+	 * and the program version of the object of its load state machine; a record of another length or
+	 * of no load state machine 1 to 4 is refused and changes nothing.
+	 */
+	public void testMemoryRecords() {
+		int[] events = { LoadControls.EVENT_LOAD, LoadControls.EVENT_LOAD_COMPLETED, LoadControls.EVENT_ADDITIONAL,
+			LoadControls.EVENT_UNLOAD, 0, 7 };
+		for (int state = 0; state <= LoadControls.STATE_LOAD_COMPLETING; state++) {
+			for (int event : events) {
+				byte[] control = LoadControls.event(event);
+				MockDevice mock = new MockDevice().setState(1, state);
+				Integer expected = mock.writeLoadControl(1, control);
+
+				SimulatedDevice device = device(0x0701, LoadControlKind.MEMORY);
+				device.initState(2, state);
+				// Load state machine 2 (association table): the high nibble.
+				byte[] record = new byte[11];
+				record[0] = (byte) (0x20 | event);
+				assertTrue(device.putMemory(SimulatedDevice.MANAGEMENT_CONTROL, record));
+				assertEquals("state " + state + ", event " + event, expected.intValue(),
+					device.memory(SimulatedDevice.LOAD_STATES + 1, 1)[0] & 0xFF);
+			}
+		}
+
+		SimulatedDevice device = device(0x0701, LoadControlKind.MEMORY);
+		assertTrue(device.putMemory(SimulatedDevice.MANAGEMENT_CONTROL, HEX.parseHex("3100000000000000000000")));
+		// Task segment 4400 of load state machine 3: PEI type 1, application 0083 000C 21.
+		assertTrue(device.putMemory(SimulatedDevice.MANAGEMENT_CONTROL, HEX.parseHex("3302004400010083000c21")));
+		assertEquals(LoadControls.STATE_LOADING, device.state(3));
+		assertEquals("00004400", HEX.formatHex(device.property(3, LoadControls.PID_TABLE_REFERENCE, 1, 1)));
+		assertEquals("0083000c21", HEX.formatHex(device.property(3, LoadControls.PID_PROGRAM_VERSION, 1, 1)));
+		assertEquals("0003", HEX.formatHex(device.property(3, SimulatedDevice.PID_OBJECT_TYPE, 1, 1)));
+
+		// Refused: a record of 1 byte (as the device of 0701 took it before haumacher/ehome #22), one
+		// of 12, one of load state machine 5.
+		assertFalse(device.putMemory(SimulatedDevice.MANAGEMENT_CONTROL, new byte[] { 0x32 }));
+		assertFalse(device.putMemory(SimulatedDevice.MANAGEMENT_CONTROL, new byte[12]));
+		assertFalse(device.putMemory(SimulatedDevice.MANAGEMENT_CONTROL, HEX.parseHex("5302004400010083000c21")));
+		assertEquals(LoadControls.STATE_LOADING, device.state(3));
+		assertEquals(LoadControls.STATE_UNLOADED, device.state(5));
+	}
+
+	/**
 	 * Mask 0701: the load controls written to 0104 are recorded, the load states at B6EA answer the
 	 * state the control implies (the default rule) or the configured one.
 	 */
@@ -234,10 +278,10 @@ public class TestVirtualDevice extends TestCase {
 				try (CalimeroWriter writer = CalimeroWriter.open(gateway(endpoint), ADDRESS)) {
 					assertEquals("0701", HEX.formatHex(writer.readDescriptor()));
 					// Load state machine 2 (association table): start loading.
-					writer.writeMemory(SimulatedDevice.MANAGEMENT_CONTROL, new byte[] { 0x21 });
+					writer.writeMemory(SimulatedDevice.MANAGEMENT_CONTROL, HEX.parseHex(START_LOADING_2));
 					assertEquals(afterLoad, HEX.formatHex(writer.readMemory(SimulatedDevice.LOAD_STATES, 4)));
 					// Load completed.
-					writer.writeMemory(SimulatedDevice.MANAGEMENT_CONTROL, new byte[] { 0x22 });
+					writer.writeMemory(SimulatedDevice.MANAGEMENT_CONTROL, HEX.parseHex(LOAD_COMPLETED_2));
 					assertEquals(afterCompleted, HEX.formatHex(writer.readMemory(SimulatedDevice.LOAD_STATES, 4)));
 					writer.disconnect();
 				}
@@ -249,9 +293,16 @@ public class TestVirtualDevice extends TestCase {
 		}
 		List<String> signatures =
 			TraceOperations.operations(read(file).entries()).stream().map(TraceOperations::signature).toList();
-		assertEquals(List.of("Connect", "CheckMask 0701", "WriteMemory 0104 21", "CompareMemory B6EA " + afterLoad.toUpperCase(),
-			"WriteMemory 0104 22", "CompareMemory B6EA " + afterCompleted.toUpperCase(), "Disconnect"), signatures);
+		assertEquals(List.of("Connect", "CheckMask 0701", "WriteMemory 0104 " + START_LOADING_2,
+			"CompareMemory B6EA " + afterLoad.toUpperCase(), "WriteMemory 0104 " + LOAD_COMPLETED_2,
+			"CompareMemory B6EA " + afterCompleted.toUpperCase(), "Disconnect"), signatures);
 	}
+
+	/** The record of the load control "start loading" for load state machine 2. */
+	private static final String START_LOADING_2 = "2100000000000000000000";
+
+	/** The record of the load control "load completed" for load state machine 2. */
+	private static final String LOAD_COMPLETED_2 = "2200000000000000000000";
 
 	/**
 	 * A property the device does not know (the serial number) is answered as not present, and the

@@ -38,8 +38,8 @@ import de.haumacher.ehome.virtual.tooling.I18NConstants;
  * <li>Memory: the static data of the program's absolute segments (zero elsewhere); the memory a
  * download does not write keeps it, as with a device fresh from the factory that holds its
  * application.</li>
- * <li>Properties (only masks with property-mapped load state machines): the object types of the
- * objects 0 to 4, the manufacturer of the program (device object, property 12), and the hardware
+ * <li>Properties (masks with load state machines, through properties or in memory: 7.5, 7.1): the
+ * object types of the objects 0 to 4, the manufacturer of the program (device object, property 12), and the hardware
  * type (device object, property 78) - the program's static value for that property if it has one,
  * else the value its load procedure compares the property with (<code>CompareProp</code>): the
  * hardware the program declares it runs on; the serial number (property 11) of the project device
@@ -111,7 +111,7 @@ public class ProjectDevices {
 				}
 			}
 		}
-		if (kind == LoadControlKind.PROPERTIES) {
+		if (kind != LoadControlKind.NONE) {
 			byte[] id = DownloadPlanner.applicationId(program);
 			result.initProperty(0, SimulatedDevice.PID_MANUFACTURER_ID, Arrays.copyOf(id, 2));
 			byte[] hardware = hardwareType(device, program);

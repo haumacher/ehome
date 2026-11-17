@@ -35,6 +35,30 @@ import com.top_logic.basic.util.ResKey;
  * before the application ID in the task segment (KNX specification; the PEI type of both reference
  * programs' devices could not be told apart from 0).
  * </p>
+ *
+ * <h2>In memory (BIM M112 without <code>PropertyMappedLsms</code>, mask 7.1)</h2>
+ * <p>
+ * A mask controlling its load state machines in memory (realisation type 2 of the load state
+ * machine, KNX 3/5/2 Management Procedures 3.31.2, "only with mask 070nh"; the mask names the
+ * resources <code>*LoadControl</code> and <code>*LoadStatus</code> of the flavour
+ * <code>LoadControl_M112</code>) takes the same load controls as a {@link #memoryRecord(int, byte[])
+ * record} of {@value #MEMORY_RECORD_LENGTH} bytes written into the memory of its load control (0104
+ * on mask 7.1, the same for all load state machines): the first byte holds the load state machine in
+ * its high and the event in its low nibble; an additional load control continues with the segment
+ * type, a segment ID (0) and the data of the control from its third byte on. The load state is the
+ * byte of the machine's load status (B6EA address table, B6EB association table, B6EC application,
+ * B6ED PEI program on mask 7.1). The load state machine is the object type of the loaded part (1
+ * address table, 2 association table, 3 application, 4 PEI program).
+ * </p>
+ * <p>
+ * Source: KNX 3/5/2 3.31.2 (the record, the status bytes) and the conformance test of the load state
+ * machines (TSSG 2.1: the unloads 14, 24, 34, 44 into 0104, the states read at B6EA-B6ED), as cited
+ * by the open-source download tools bussard (<code>dev/system7-spec.md</code> section 5) and
+ * xknx-editor (<code>load_state.py</code>), whose ETS recordings of mask 7.1 devices show the same
+ * 11 bytes (e.g. <code>13 00 00 40 00 00 1D F2 03 80 00</code>, segment 4000 of 1D bytes for load
+ * state machine 1). The mask's resource is 12 bytes long; the record uses 11 of them. Not verified
+ * against a device of E-Home's.
+ * </p>
  */
 public class LoadControls {
 
@@ -91,6 +115,9 @@ public class LoadControls {
 
 	/** The size of an element of the download stamp of a segment. */
 	public static final int STAMP_LENGTH = 8;
+
+	/** The length of a load control written into memory (BIM M112, mask 7.1). */
+	public static final int MEMORY_RECORD_LENGTH = 11;
 
 	/**
 	 * A load control of one of the events without data.
@@ -155,6 +182,57 @@ public class LoadControls {
 		put16(result, 0, manufacturer);
 		put16(result, 2, applicationNumber);
 		result[4] = (byte) version;
+		return result;
+	}
+
+	/**
+	 * The load control as a mask controlling its load state machines in memory takes it: the load
+	 * state machine in the high, the event in the low nibble of the first byte; for additional load
+	 * controls the segment type, a segment ID (0) and the data of the control after its segment type.
+	 *
+	 * @param stateMachine
+	 *        The load state machine (1 to 15): the object type of the loaded part.
+	 * @param control
+	 *        The load control as {@link #event(int)} and the others create it ({@value #LENGTH} bytes).
+	 * @return The {@value #MEMORY_RECORD_LENGTH} bytes to write into the memory of the load control.
+	 */
+	public static byte[] memoryRecord(int stateMachine, byte[] control) {
+		if (stateMachine < 1 || stateMachine > 0x0F) {
+			throw new IllegalArgumentException("No load state machine of a memory record: " + stateMachine);
+		}
+		byte[] result = new byte[MEMORY_RECORD_LENGTH];
+		result[0] = (byte) (stateMachine << 4 | control[0] & 0x0F);
+		if (control[0] == EVENT_ADDITIONAL) {
+			result[1] = control[1];
+			// result[2]: the segment ID, 0.
+			System.arraycopy(control, 2, result, 3, LENGTH - 2);
+		} else {
+			System.arraycopy(control, 1, result, 1, LENGTH - 1);
+		}
+		return result;
+	}
+
+	/**
+	 * The load state machine a {@link #memoryRecord(int, byte[]) memory record} addresses.
+	 */
+	public static int memoryStateMachine(byte[] record) {
+		return (record[0] & 0xF0) >>> 4;
+	}
+
+	/**
+	 * The load control a {@link #memoryRecord(int, byte[]) memory record} carries, as written into
+	 * the property of a load state machine ({@value #LENGTH} bytes); the inverse of
+	 * {@link #memoryRecord(int, byte[])}.
+	 */
+	public static byte[] memoryControl(byte[] record) {
+		byte[] result = new byte[LENGTH];
+		result[0] = (byte) (record[0] & 0x0F);
+		if (result[0] == EVENT_ADDITIONAL) {
+			result[1] = record[1];
+			System.arraycopy(record, 3, result, 2, Math.min(LENGTH - 2, record.length - 3));
+		} else {
+			System.arraycopy(record, 1, result, 1, Math.min(LENGTH - 1, record.length - 1));
+		}
 		return result;
 	}
 

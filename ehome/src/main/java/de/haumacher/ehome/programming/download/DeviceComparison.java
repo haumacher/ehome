@@ -8,12 +8,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 import com.top_logic.basic.AbortExecutionException;
 import com.top_logic.basic.util.ResKey;
 
-import de.haumacher.ehome.model.operational.MaskFeature;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
@@ -22,7 +20,8 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
 
 /**
  * Compares a device with its download image without writing anything: reads the device descriptor,
- * the program version and the load states, and the memory of every block of the image (only the
+ * the program version and the load states (through properties or in memory, see
+ * {@link LoadStateMachines}), and the memory of every block of the image (only the
  * bytes of its mask), and reports the differences.
  *
  * <p>
@@ -279,18 +278,8 @@ public class DeviceComparison {
 						memory(reader, address, length), imageBytes(image, address, length)));
 				}
 			}
-			if (propertyMapped(mask)) {
-				for (int lsm = 1; lsm <= 3; lsm++) {
-					ResKey state;
-					try {
-						byte[] value = reader.readProperty(lsm, LoadControls.PID_LOAD_STATE_CONTROL, 1, 1);
-						state = value.length == 0 ? I18NConstants.FACT_NO_ANSWER : LoadControls.stateName(value[0] & 0xFF);
-					} catch (BusException ex) {
-						state = ex.getErrorKey();
-					}
-					facts.add(I18NConstants.FACT_LOAD_STATE__LSM_STATE.fill(lsm, state));
-				}
-			}
+			// Through properties (mask 7.5) or in memory (mask 7.1, haumacher/ehome #22).
+			facts.addAll(LoadStateMachines.readStates(mask, reader));
 		}
 	}
 
@@ -320,15 +309,6 @@ public class DeviceComparison {
 			result.append(value == null ? "--" : String.format("%02X", value));
 		}
 		return result.toString();
-	}
-
-	private static boolean propertyMapped(MaskVersion mask) {
-		for (MaskFeature feature : mask.getFeatures()) {
-			if ("PropertyMappedLsms".equals(feature.getName()) && Objects.equals(feature.getValue(), 1)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private static BlockResult compare(Block block, Map<Integer, Byte> written, DeviceReader reader, Listener listener,

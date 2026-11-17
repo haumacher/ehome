@@ -16,8 +16,12 @@ import com.top_logic.basic.util.ResKey;
  * <p>
  * A load control is followed by the check of the load state the device reports: the state in its
  * answer, or, if the answer holds none or a transitional state (unloading, load completing), the
- * state read from the load state control property until it settles. A verified memory write is
- * read back and compared.
+ * state read from the load state control property until it settles. A load control in memory (mask
+ * 7.1) is followed by the read of the load state byte of its load state machine: a transitional state
+ * is read again until it settles, another state than the expected one up to
+ * {@value #MEMORY_STATE_REREADS} times more (KNX 3/5/2 3.31.2: the device takes the control written
+ * into its memory without an answer, and its state follows). A verified memory write is read back and
+ * compared; the load control in memory is not (the mask gives no read access to it).
  * </p>
  */
 public class DownloadExecutor {
@@ -27,6 +31,12 @@ public class DownloadExecutor {
 
 	/** The time between two reads of a transitional load state, in milliseconds. */
 	private static final int STATE_POLL_INTERVAL = 250;
+
+	/**
+	 * How often the load state of a load state machine in memory is read again when it is not yet the
+	 * expected one (and not transitional).
+	 */
+	private static final int MEMORY_STATE_REREADS = 3;
 
 	/** The interface object of the device. */
 	private static final int DEVICE_OBJECT = 0;
@@ -179,6 +189,8 @@ public class DownloadExecutor {
 			}
 		} else if (operation instanceof Operation.LoadControl control) {
 			loadControl(control, access);
+		} else if (operation instanceof Operation.MemoryLoadControl control) {
+			memoryLoadControl(control, access);
 		} else if (operation instanceof Operation.WriteMemory write) {
 			access.writeMemory(write.address(), write.data());
 			if (write.verify()) {
@@ -259,6 +271,38 @@ public class DownloadExecutor {
 					LoadControls.stateName(state), LoadControls.describe(control.control()),
 					LoadControls.stateName(control.expectedState())));
 		}
+	}
+
+	private void memoryLoadControl(Operation.MemoryLoadControl control, DeviceAccess access)
+			throws BusException, Mismatch, InterruptedException {
+		access.writeMemory(control.address(), control.record());
+		Integer state = memoryState(control, access);
+		int polls = 0;
+		int rereads = 0;
+		while (state == null || state != control.expectedState()) {
+			if (state != null && transitional(state)) {
+				if (polls++ >= STATE_POLLS) {
+					break;
+				}
+			} else if (rereads++ >= MEMORY_STATE_REREADS) {
+				break;
+			}
+			_sleeper.sleep(STATE_POLL_INTERVAL);
+			state = memoryState(control, access);
+		}
+		if (state == null || state != control.expectedState()) {
+			throw new Mismatch(state == null
+				? I18NConstants.EXEC_NO_LOAD_STATE__LSM_CONTROL_EXPECTED.fill(control.stateMachine(),
+					LoadControls.describe(control.control()), LoadControls.stateName(control.expectedState()))
+				: I18NConstants.EXEC_LOAD_STATE__LSM_STATE_CONTROL_EXPECTED.fill(control.stateMachine(),
+					LoadControls.stateName(state), LoadControls.describe(control.control()),
+					LoadControls.stateName(control.expectedState())));
+		}
+	}
+
+	private static Integer memoryState(Operation.MemoryLoadControl control, DeviceAccess access) throws BusException {
+		byte[] value = access.readMemory(control.status(), 1);
+		return value.length == 0 ? null : Integer.valueOf(value[0] & 0xFF);
 	}
 
 	private static boolean transitional(int state) {
