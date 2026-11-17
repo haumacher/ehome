@@ -19,6 +19,8 @@ BACKUPS=$DATA_DIR/backup
 KEEP=5
 # How long the app may take to stop (seconds).
 STOP_TIMEOUT=300
+ENV_FILE=/etc/ehome/ehome.env
+SECRETS=/etc/ehome/secrets.env
 
 # Whether a process (Tomcat) holds the database file open.
 db_in_use() {
@@ -33,6 +35,34 @@ db_in_use() {
 # Whether a Tomcat runs (with or without systemd).
 tomcat_running() {
 	grep -lsa 'org[.]apache[.]catalina[.]startup[.]Bootstra[p]' /proc/[0-9]*/cmdline | grep -q .
+}
+
+# Settings of a version before 1.7.0 (haumacher/ehome #185): ehome.env was generated with the passwords
+# and the administrator's settings. The passwords move to secrets.env, with the comment block directly
+# above each, before dpkg unpacks ehome.env as a conffile: its prompt then offers to keep the
+# administrator's file without them or to replace it, and neither loses a password. A file without
+# h2_passwd is older than TopLogic 8.0.0-alpha12: its database has the engine's former default password.
+move_secrets() {
+	[ -e "$ENV_FILE" ] && [ ! -e "$SECRETS" ] || return 0
+	umask 077
+	{
+		grep -E '^(h2_passwd|tl_initial_password)=' "$ENV_FILE" || true
+		grep -q '^h2_passwd=' "$ENV_FILE" || echo 'h2_passwd=theautomatedappengine'
+	} > "$SECRETS.new"
+	awk '
+		/^#/ { block = block $0 "\n"; next }
+		/^(h2_passwd|tl_initial_password)=/ { block = ""; next }
+		/^$/ && blank && block == "" { next }
+		{ printf "%s%s\n", block, $0; blank = $0 == ""; block = "" }
+		END { printf "%s", block }
+	' "$ENV_FILE" > "$ENV_FILE.new"
+	chgrp tomcat "$SECRETS.new" 2>/dev/null || true
+	chmod 0640 "$SECRETS.new"
+	chown --reference="$ENV_FILE" "$ENV_FILE.new"
+	chmod --reference="$ENV_FILE" "$ENV_FILE.new"
+	mv "$SECRETS.new" "$SECRETS"
+	mv "$ENV_FILE.new" "$ENV_FILE"
+	echo "E-Home: the passwords of $ENV_FILE moved to $SECRETS." >&2
 }
 
 # Deploys the old app again after a failed attempt.
@@ -90,6 +120,11 @@ case "$1" in
 				rm -f "$old"
 			done
 		fi
+		move_secrets
+		;;
+	install)
+		# Installed again after a removal that kept the settings of an older version.
+		move_secrets
 		;;
 esac
 

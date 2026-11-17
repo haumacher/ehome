@@ -38,6 +38,19 @@ if [ -z "$VERSION" ]; then
 	fi
 fi
 
+# Every configuration variable of the app (${env:tl_...} in its configuration) has its line in the
+# settings the package ships, commented out with its note (haumacher/ehome #185).
+MISSING=
+for name in $(grep -rhoE '\$\{env:tl_[A-Za-z0-9_]+' "$ROOT/ehome/src/main/webapp/WEB-INF" | sed 's/^\${env://' | sort -u); do
+	if ! grep -qE "^#?$name=" "$SRC/ehome.env"; then
+		MISSING="$MISSING $name"
+	fi
+done
+if [ -n "$MISSING" ]; then
+	echo "Settings without a line in $SRC/ehome.env:$MISSING" >&2
+	exit 1
+fi
+
 STAGE="$OUT/deb"
 rm -rf "$STAGE"
 install -d "$STAGE/DEBIAN"
@@ -45,6 +58,10 @@ install -D -m 0644 "$WAR" "$STAGE/usr/share/ehome/ehome.war"
 install -D -m 0644 "$SRC/ehome.xml" "$STAGE/usr/share/ehome/tomcat/ehome.xml"
 install -D -m 0644 "$SRC/nginx-ehome.conf" "$STAGE/usr/share/doc/ehome/nginx-ehome.conf"
 install -D -m 0644 "$SRC/tomcat10-ehome.conf" "$STAGE/usr/lib/systemd/system/tomcat10.service.d/ehome.conf"
+# The settings: a conffile (dpkg asks at an upgrade when the administrator changed it), readable by root
+# only (an API key goes there); the generated passwords are in /etc/ehome/secrets.env (postinst).
+install -D -m 0640 "$SRC/ehome.env" "$STAGE/etc/ehome/ehome.env"
+echo /etc/ehome/ehome.env > "$STAGE/DEBIAN/conffiles"
 install -m 0755 "$SRC/preinst" "$SRC/postinst" "$SRC/prerm" "$SRC/postrm" "$STAGE/DEBIAN/"
 SIZE=$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)
 sed -e "s/@VERSION@/$VERSION/" -e "s/@SIZE@/$SIZE/" "$SRC/control" > "$STAGE/DEBIAN/control"

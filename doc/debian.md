@@ -65,11 +65,11 @@ release commit is deployed once.
 ```bash
 sudo apt install ehome                       # from the apt repository, or a downloaded package:
 sudo apt install ./ehome_<version>_all.deb
-sudo grep tl_initial_password /etc/ehome/ehome.env
+sudo grep tl_initial_password /etc/ehome/secrets.env
 ```
 
 The app is at `http://<host>:8080/ehome/view/`; log in as `root` with the password of
-`/etc/ehome/ehome.env`, generated at the first installation and applied only when the database is
+`/etc/ehome/secrets.env`, generated at the first installation and applied only when the database is
 created at the first start (about a minute). Change it in the application afterwards.
 
 **The package never restarts Tomcat**, neither at the installation nor at an upgrade, a change of the
@@ -93,13 +93,31 @@ other applications of the Tomcat; sizing it is the administrator's choice (`JAVA
 | Path | What |
 | --- | --- |
 | `/usr/share/ehome/ehome.war` | The app. |
-| `/etc/tomcat10/Catalina/localhost/ehome.xml` | Tomcat's context `/ehome` with the settings as `<Environment name="tl/...">` entries, written by `postinst` from the template `/usr/share/ehome/tomcat/ehome.xml` and `ehome.env` (mode 0640, `root:tomcat`: it holds the passwords). Writing it deploys the app in the running Tomcat. |
+| `/etc/tomcat10/Catalina/localhost/ehome.xml` | Tomcat's context `/ehome` with the settings as `<Environment name="tl/...">` entries, written by `postinst` from the template `/usr/share/ehome/tomcat/ehome.xml`, `ehome.env` and `secrets.env` (mode 0640, `root:tomcat`: it holds the passwords). Its header only points to `ehome.env`; edits in it are lost at the next `dpkg-reconfigure` or upgrade. Writing it deploys the app in the running Tomcat, without restarting Tomcat. |
 | `/usr/lib/systemd/system/tomcat10.service.d/ehome.conf` | Write access to the data and the log from Tomcat's next start (`ReadWritePaths`); nothing else. |
-| `/etc/ehome/ehome.env` | The settings (lines `name=value`): `tl_storage_path`, `h2_name`, `h2_passwd` (the password of the database, generated with the file), `tl_initial_password`; created once, owned by the administrator afterwards. Further TopLogic settings go there too; `dpkg-reconfigure ehome` after a change (deploys the app again, Tomcat keeps running). Tomcat never reads this file. |
+| `/etc/ehome/ehome.env` | The settings (lines `name=value`), a conffile of the package (mode 0640, readable by root only: an API key goes there). Active: `tl_storage_path`, `h2_name`; every other setting of E-Home is a commented line with its meaning and default (`tl_host`, `tl_anthropic_api_key`, `tl_anthropic_models`, `tl_ai_default_model`, `tl_ehome_programming_write_enabled`, `tl_ehome_local_network`; `bin/build-deb.sh` refuses to build when a `${env:tl_...}` variable of the app's configuration has no line). Further TopLogic settings go there too; `dpkg-reconfigure ehome` after a change (deploys the app again, Tomcat keeps running). Tomcat never reads this file. |
+| `/etc/ehome/secrets.env` | The generated passwords, `h2_passwd` (of the database) and `tl_initial_password` (of `root`), written once by `postinst` at the first installation (mode 0640, `root:tomcat`); not a conffile, as they differ per installation. A name set in `ehome.env` wins. |
 | `/var/lib/ehome` | The data: `h2.mv.db`, documents (`var/`). |
 | `/var/log/ehome` | The log of the app, `ehome.log` (owner `tomcat`, group `adm`, mode 2750 as Tomcat's own logs). Written by the logging configuration of the deploy aspect `ehome/deploy/debian`: `WEB-INF/conf/logging/default.xml`, which TopLogic's `LoggerAdminBean` loads at startup in place of the engine's file of that name (console and `top-logic.*.log` in the data directory), and `WEB-INF/classes/log4j2.xml` for the first moments before it (it takes precedence over the engine's console configuration in `WEB-INF/lib`); the scheduler's and the memory observer's lines go to `scheduler.log` and `memory.log` beside it. `ehome.log` is rolled at midnight into `ehome-<YYYY-mm-dd>.log.gz`, the newest 14 kept, by log4j itself (no logrotate: log4j keeps the file open, `copytruncate` would lose lines). Nothing goes to the console, so E-Home's lines are not in Tomcat's journal (`journalctl -u tomcat10`), which it shares with the other applications. An upgrade appends to the same file; `apt purge` deletes the directory. |
 
 ## Upgrading
+
+`ehome.env` is a conffile: an upgrade whose package changes it and finds it changed by the administrator
+asks as dpkg does for every conffile (keep, install the package's version, show the differences); a
+kept file gets the package's version beside it as `ehome.env.dpkg-dist`, a replaced one stays as
+`ehome.env.dpkg-old`. `apt-get -o Dpkg::Options::=--force-confold` keeps it without asking. The
+passwords are not in it, so neither choice touches them. An unchanged file is replaced silently.
+
+Before 1.7.0 `postinst` generated `ehome.env` once, with the passwords and the commented lines of that
+version, and it was no conffile (haumacher/ehome #185). The first upgrade from such a version: `preinst`
+moves `h2_passwd` and `tl_initial_password` (with the comment directly above each) into `secrets.env`
+(a file without `h2_passwd`, older than TopLogic 8.0.0-alpha12, gets the engine's former default
+`theautomatedappengine`, which created its database). dpkg then finds a file it did not install and
+asks: keeping it keeps the administrator's active settings (and, for a file of 1.0.0, its outdated
+header), installing the package's version gives the documented template, the old file stays as
+`ehome.env.dpkg-old` to copy settings from. Either way the app starts on its database with the moved
+password. A downgrade to a version before 1.7.0 is not supported: its `postinst` would add the
+former default password to the `ehome.env` without the moved one.
 
 An upgrade (`apt upgrade`, or `apt install` of a newer package) stops the app, not Tomcat, and backs
 up the database first; the settings and the data stay, and the new version migrates the database at
@@ -127,6 +145,16 @@ wait until it is undeployed, restore the file (`gunzip -c <backup> > /var/lib/eh
 if the newer one already migrated it: install the version named in the backup's name with it
 (`apt install ehome=<version>`, as long as the repository still holds it).
 
+Verified in a Debian 13 container with systemd, a running `tomcat10` and a second application
+(2026-11-18, haumacher/ehome #185): a fresh installation (`ehome.env` of the package, `secrets.env`
+generated, `root` logs in with its password; `tl_ehome_programming_write_enabled=true` and
+`dpkg-reconfigure ehome` enable the download commands, commented out again they are disabled with
+the reason); upgrades from 1.6.0 and from 1.0.0 (directly and through 1.6.0), each answered with
+"keep" and with "install": the prompt, the passwords in `secrets.env`, the app on its old database;
+an upgrade between two new packages with a changed `ehome.env` (silent when the package's file is
+unchanged, `--force-confold` keeps it, otherwise the prompt); the purge. Tomcat kept its PID
+throughout.
+
 Verified in a Debian 13 container with systemd and a running `tomcat10` (2026-11-04, 1.0.1): a first
 installation and an upgrade from 1.0.0 left Tomcat's process (same PID) and its ROOT application
 running, the first installation bound `/var/lib/ehome` into it, and the Tomcat process has no `tl_` or
@@ -138,9 +166,9 @@ project was there after both, and the model upgrade only added the module `tl.ag
 ## Settings and data
 
 The upgrade keeps the settings and the data. The engine has no default for the database password since TopLogic
-8.0.0-alpha12 (named secrets): an upgrade from an earlier package adds `h2_passwd` with the former
-default `theautomatedappengine`, which the existing database was created with, to settings that lack
-it. `apt remove` undeploys the app; `apt purge` also deletes the settings and the logs. As an upgrade does,
+8.0.0-alpha12 (named secrets): an upgrade from an earlier package writes `h2_passwd` with the former
+default `theautomatedappengine`, which the existing database was created with, into `secrets.env`
+("Upgrading"). `apt remove` undeploys the app; `apt purge` also deletes the settings (`ehome.env`, `secrets.env`) and the logs. As an upgrade does,
 `prerm` takes the descriptor away and waits (at most 5 minutes) until the app has closed the database
 and Tomcat has removed its unpacked copy, before the war and that copy are deleted: packages up to
 1.0.2 deleted the unpacked copy at once, the jars disappeared under the running app, its shutdown
@@ -155,17 +183,17 @@ set `JAVA_HOME` there. TLS and a public host name (the controllers connect to
 `wss://<host>/ehome/api/controllers/<id>/socket`, `doc/controllers.md`) belong to a reverse proxy in
 front of Tomcat on the same host: `/usr/share/doc/ehome/nginx-ehome.conf` is an example for nginx
 (WebSocket upgrade, `X-Forwarded-*`, read timeout). The context `ehome.xml` has Tomcat's
-`RemoteIpValve`, which takes the client's address and scheme from the forwarded headers of a proxy
-connecting from the loopback interface only, so that the enrollment's rate limit counts the clients;
-a proxy on another host needs its address in the valve's `internalProxies` (the context is rewritten
-by every upgrade of the package).
+`RemoteIpValve`, which takes the client's address and scheme from the `X-Forwarded-For` and
+`X-Forwarded-Proto` headers of a proxy connecting from the loopback interface only, so that the
+enrollment's rate limit counts the clients, not the proxy; from any other address the headers are
+ignored. A proxy on another host needs its address in the valve's `internalProxies` (the context is
+rewritten by every upgrade of the package and every `dpkg-reconfigure`).
 
 ## Programming and local networks
 
 Two settings of `/etc/ehome/ehome.env` decide what E-Home may reach (`de.haumacher.ehome.settings.OperatorSettings`;
 TopLogic configuration variables with the aliases `%EHOME_PROGRAMMING_WRITE_ENABLED%` and
-`%EHOME_LOCAL_NETWORK%` of `WEB-INF/conf/ehomeConf.xml`). A new installation has a commented line for
-each; an existing file gets the line added by hand. Like every setting they become JNDI entries of
+`%EHOME_LOCAL_NETWORK%` of `WEB-INF/conf/ehomeConf.xml`), each a commented line of `ehome.env`. Like every setting they become JNDI entries of
 E-Home's own context with `dpkg-reconfigure ehome` (the app is deployed again, Tomcat keeps running),
 never variables of Tomcat's JVM.
 
@@ -209,10 +237,9 @@ LAN address over `http`), they are disabled too.
 ## Assistant and MCP endpoint
 
 The assistant in the app (`doc/ai.md`) needs the API key of Anthropic: set
-`tl_anthropic_api_key=sk-ant-...` in `/etc/ehome/ehome.env` (a new installation has a commented
-line; an existing file gets the line added by hand) and apply it with `dpkg-reconfigure ehome`. Like
+`tl_anthropic_api_key=sk-ant-...` in `/etc/ehome/ehome.env` (a commented line of the file) and apply it with `dpkg-reconfigure ehome`. Like
 every setting it becomes a JNDI entry of E-Home's own context, never a variable of Tomcat's JVM, and
-the file keeps it readable by root and Tomcat only. Without a key the chat answers that the key is
+`ehome.env` keeps it readable by root only (the context descriptor by root and Tomcat). Without a key the chat answers that the key is
 missing; nothing is sent anywhere. `tl_anthropic_models` and `tl_ai_default_model` choose other
 models. The use is billed to the account of the key.
 

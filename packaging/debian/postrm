@@ -18,7 +18,9 @@ case "$1" in
 		rm -rf /var/lib/ehome/.upgrade
 		;;
 	purge)
-		rm -f /etc/ehome/ehome.env
+		# dpkg deletes the conffile ehome.env and its .dpkg-* copies; the generated passwords go here (and
+		# an ehome.env of a version before 1.7.0, which was no conffile).
+		rm -f /etc/ehome/secrets.env /etc/ehome/ehome.env
 		rmdir /etc/ehome 2>/dev/null || true
 		# The logs go with the package (Debian's convention for purge).
 		rm -rf /var/log/ehome

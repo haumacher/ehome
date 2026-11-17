@@ -1,17 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-	E-Home in Tomcat at the context path /ehome (package ehome): postinst copies it to
-	/etc/tomcat10/Catalina/localhost/ehome.xml. The war is unpacked into /var/lib/tomcat10/webapps/ehome;
-	the data stay in /var/lib/ehome. postinst puts the settings of /etc/ehome/ehome.env in place of the
-	marker below, as JNDI entries java:comp/env/tl/<name> (TopLogic reads them before system properties
-	and environment variables): the descriptor holds the passwords (mode 0640, root:tomcat), and writing
-	it deploys the app with its settings, without restarting Tomcat.
-
-	The RemoteIpValve takes the client's address and the scheme from the X-Forwarded-For and
-	X-Forwarded-Proto headers of a reverse proxy terminating TLS on this host (doc/controllers.md "TLS is
-	operations", the example /usr/share/doc/ehome/nginx-ehome.conf), so that the enrollment's rate limit
-	counts the clients, not the proxy. Only a proxy connecting from the loopback interface is trusted;
-	from any other address the headers are ignored.
+	Generated from /etc/ehome/ehome.env - edits here are lost.
+	Change a setting there, then: dpkg-reconfigure ehome
 -->
 <Context docBase="/usr/share/ehome/ehome.war">
 	<!-- @SETTINGS@ -->

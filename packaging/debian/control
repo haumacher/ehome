@@ -13,5 +13,5 @@ Description: E-Home, engineering of KNX and Zigbee installations
  controllers.
  .
  The application runs in Tomcat 10 at http://<host>:8080/ehome/view/ and keeps
- its H2 database and data in /var/lib/ehome. Settings, including the initial
- password of the administrator root, are in /etc/ehome/ehome.env.
+ its H2 database and data in /var/lib/ehome. Settings are in /etc/ehome/ehome.env,
+ the generated passwords (the initial one of root) in /etc/ehome/secrets.env.

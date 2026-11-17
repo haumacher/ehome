@@ -5,7 +5,8 @@ set -e
 # applications of the same Tomcat keep running through an installation, an upgrade and a change of
 # the settings.
 #
-# - The settings of /etc/ehome/ehome.env reach the app as JNDI entries of its context descriptor
+# - The settings of /etc/ehome/ehome.env (a conffile) and the generated passwords of
+#   /etc/ehome/secrets.env reach the app as JNDI entries of its context descriptor
 #   (java:comp/env/tl/<name>, which TopLogic reads before system properties and environment
 #   variables): writing the descriptor deploys the app with them, and only the app.
 # - tomcat10.service runs with ProtectSystem=strict. The drop-in grants the data directory and the log
@@ -18,6 +19,7 @@ set -e
 # the app again.
 
 ENV_FILE=/etc/ehome/ehome.env
+SECRETS=/etc/ehome/secrets.env
 DATA_DIR=/var/lib/ehome
 LOG_DIR=/var/log/ehome
 CONTEXT_DIR=/etc/tomcat10/Catalina/localhost
@@ -25,27 +27,32 @@ CONTEXT=$CONTEXT_DIR/ehome.xml
 TEMPLATE=/usr/share/ehome/tomcat/ehome.xml
 UPGRADE=$DATA_DIR/.upgrade
 
-# The value of a line NAME=VALUE as an XML attribute value.
-xml_escape() {
-	printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g' -e 's/"/\&quot;/g'
-}
-
-# The <Environment> entries for the settings of $ENV_FILE (lines NAME=VALUE; comments and other lines
-# are skipped).
+# The <Environment> entries for the lines NAME=VALUE of $ENV_FILE and $SECRETS (comments and other
+# lines are skipped). A name of $ENV_FILE wins over $SECRETS; in one file the last line of a name wins.
 environment_entries() {
-	while IFS= read -r line || [ -n "$line" ]; do
-		case "$line" in
-			[A-Za-z_]*=*) ;;
-			*) continue ;;
-		esac
-		name=${line%%=*}
-		case "$name" in
-			*[!A-Za-z0-9_]*) continue ;;
-		esac
-		value=${line#*=}
-		printf '\t<Environment name="tl/%s" value="%s" type="java.lang.String" override="false"/>\n' \
-			"$name" "$(xml_escape "$value")"
-	done < "$ENV_FILE"
+	files=
+	for file in "$ENV_FILE" "$SECRETS"; do
+		[ -e "$file" ] && files="$files $file"
+	done
+	[ -n "$files" ] || return 0
+	# shellcheck disable=SC2086
+	awk -v env="$ENV_FILE" '
+		!/^[A-Za-z_][A-Za-z0-9_]*=/ { next }
+		{
+			name = substr($0, 1, index($0, "=") - 1)
+			if (FILENAME != env && (name in fromEnv)) next
+			if (FILENAME == env) fromEnv[name] = 1
+			if (!(name in value)) order[++count] = name
+			value[name] = substr($0, index($0, "=") + 1)
+		}
+		END {
+			for (i = 1; i <= count; i++) {
+				v = value[order[i]]
+				gsub(/&/, "\\&amp;", v); gsub(/</, "\\&lt;", v); gsub(/>/, "\\&gt;", v); gsub(/"/, "\\&quot;", v)
+				printf "\t<Environment name=\"tl/%s\" value=\"%s\" type=\"java.lang.String\" override=\"false\"/>\n", order[i], v
+			}
+		}
+	' $files
 }
 
 # Writes the context descriptor: the template with the settings in place of its marker. It holds the
@@ -90,20 +97,13 @@ if [ "$1" = "configure" ]; then
 	# As Tomcat's own logs: readable by the group adm, the rolled files keep the group.
 	install -d -o tomcat -g adm -m 2750 "$LOG_DIR"
 
-	# The settings are created once and belong to the administrator afterwards (not a conffile, so
-	# that the generated password does not count as a local change).
-	if [ ! -e "$ENV_FILE" ]; then
-		install -d -m 0755 /etc/ehome
+	# The generated passwords, once per installation (preinst moved those of an older ehome.env).
+	if [ ! -e "$SECRETS" ]; then
 		PASSWORD=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 16)
 		DB_PASSWORD=$(tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 24)
-		umask 027
-		cat > "$ENV_FILE" <<END
-# Settings of E-Home. After a change: dpkg-reconfigure ehome (deploys the app again; Tomcat and its
-# other applications keep running).
-
-# The data: H2 database and documents (the log is /var/log/ehome/ehome.log).
-tl_storage_path=$DATA_DIR
-h2_name=$DATA_DIR/h2;DB_CLOSE_ON_EXIT=FALSE
+		umask 077
+		cat > "$SECRETS.new" <<END
+# Generated at the installation of E-Home; a name set in /etc/ehome/ehome.env wins.
 
 # The password of the H2 database, applied when the database is created at the first start.
 h2_passwd=$DB_PASSWORD
@@ -111,38 +111,12 @@ h2_passwd=$DB_PASSWORD
 # The password of the administrator "root", applied only when the database is created at the first
 # start. Change it in the application afterwards.
 tl_initial_password=$PASSWORD
-
-# The public address the users open in the browser, e.g. https://ehome.example.org (behind the
-# TLS-terminating nginx). Passkeys (sign-in without password) are bound to its host for good: they
-# work only when it is set, and changing the host later invalidates every registered passkey.
-#tl_host=https://ehome.example.org
-
-# The assistant (chat in the app, doc/ai.md): the API key of Anthropic (console.anthropic.com).
-# Without it the chat says which key is missing. The use is billed to the account of the key.
-#tl_anthropic_api_key=sk-ant-...
-# Optional: other models (comma separated, the default first) and the model the assistant runs on.
-#tl_anthropic_models=claude-sonnet-5-5,claude-opus-5-5,claude-haiku-5-5
-#tl_ai_default_model=claude-sonnet-5-5
-
-# Writing to the KNX bus (download, individual address, programming LED); off unless set to true.
-#tl_ehome_programming_write_enabled=true
-# Whether E-Home reaches the local networks of this server (gateway search and address, controller
-# search, controller by host and token). Set to false on a hosted instance: devices are then reached
-# only over the connection their controller opens itself.
-#tl_ehome_local_network=false
 END
-		chgrp tomcat "$ENV_FILE"
 		umask 022
-		echo "E-Home: the initial password of the user root is in $ENV_FILE." >&2
-	elif ! grep -q '^h2_passwd=' "$ENV_FILE"; then
-		# Settings of a version before TopLogic 8.0.0-alpha12: the database was created with the
-		# engine's former default password, which the engine no longer supplies.
-		cat >> "$ENV_FILE" <<END
-
-# The password of the H2 database (the engine's former default, which created the database).
-h2_passwd=theautomatedappengine
-END
-		echo "E-Home: the password of the H2 database is now set in $ENV_FILE." >&2
+		chown root:tomcat "$SECRETS.new"
+		chmod 0640 "$SECRETS.new"
+		mv "$SECRETS.new" "$SECRETS"
+		echo "E-Home: the initial password of the user root is in $SECRETS." >&2
 	fi
 
 	install -d -o root -g tomcat -m 2775 /etc/tomcat10/Catalina "$CONTEXT_DIR"
