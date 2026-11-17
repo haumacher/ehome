@@ -167,11 +167,12 @@
 					<method name="scanVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanTargets" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanTarget" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
-					<method name="scanApplyVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
-					<method name="scanApply" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
-					<method name="scanRefresh" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanTakeOverVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanRow" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanChooseVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanChoose" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanRematch" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
-					<method name="scanReadVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanLine" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanLedVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanLedConfirmation" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<!-- The device info of a device of the project (de.haumacher.ehome.scan.DeviceInfoFunctions, haumacher/ehome #175). -->

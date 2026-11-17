@@ -92,31 +92,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 MATCH_CHOICE__COUNT;
 
 	/**
-	 * @en The device {0} was created.
-	 */
-	public static ResKey1 APPLY_CREATED__ADDRESS;
-
-	/**
-	 * @en The device {0} was updated.
-	 */
-	public static ResKey1 APPLY_UPDATED__ADDRESS;
-
-	/**
-	 * @en Nothing changed: {0}
-	 */
-	public static ResKey1 APPLY_CONFLICT__MESSAGE;
-
-	/**
-	 * @en Configuration of {0} read back through {1}: {2} parameter values differ from the defaults, {3} connections.
-	 */
-	public static ResKey4 READBACK_DONE__DEVICE_GATEWAY_SETTINGS_CONNECTIONS;
-
-	/**
-	 * @en Reading the configuration of {0} through {1} failed: {2}
-	 */
-	public static ResKey3 READBACK_FAILED__DEVICE_GATEWAY_REASON;
-
-	/**
 	 * @en on
 	 */
 	public static ResKey LED_ON;
@@ -537,16 +512,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 READBACK_FLAGS__COUNT;
 
 	/**
-	 * @en {0} bytes of the download image compared with the memory read, all equal.
-	 */
-	public static ResKey1 READBACK_EQUAL__COUNT;
-
-	/**
-	 * @en {0} of {1} bytes of the download image differ from the memory read: {2}.
-	 */
-	public static ResKey3 READBACK_DIFFERENT__DIFFERENT_COUNT_ADDRESSES;
-
-	/**
 	 * @en Programming mode
 	 */
 	public static ResKey READ_PROGRAMMING_MODE;
@@ -640,6 +605,96 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The device at {0} is not the project''s ({1} differs or was not read): its serial number is not taken over.
 	 */
 	public static ResKey2 ERROR_INFO_OTHER_DEVICE__ADDRESS_WHAT;
+
+	/**
+	 * @en None of the devices can be taken over: {0}
+	 */
+	public static ResKey1 ERROR_NONE_TAKEN_OVER__REASONS;
+
+	/**
+	 * @en The catalog offers {0} products for the device: choose one with "Choose the product".
+	 */
+	public static ResKey1 ERROR_CHOOSE__COUNT;
+
+	/**
+	 * @en The catalog offers no choice of products for the device.
+	 */
+	public static ResKey ERROR_NO_CHOICE;
+
+	/**
+	 * @en Taking over {0} ({1} of {2}).
+	 */
+	public static ResKey3 MESSAGE_TAKING_OVER__ADDRESS_NUMBER_COUNT;
+
+	/**
+	 * @en Device {0} taken over from the bus
+	 */
+	public static ResKey1 COMMIT_TAKE_OVER__DEVICE;
+
+	/**
+	 * @en Taken over: {0}, configuration read: {1}, not taken over: {2}.
+	 */
+	public static ResKey3 TAKE_OVER_DONE__TAKEN_READ_REFUSED;
+
+	/**
+	 * @en Not taken over: {0}
+	 */
+	public static ResKey1 TAKE_OVER_REFUSED__REASON;
+
+	/**
+	 * @en Created, configuration read: {0} parameter values differ from the defaults, {1} connections.
+	 */
+	public static ResKey2 TAKE_OVER_CREATED_READ__SETTINGS_CONNECTIONS;
+
+	/**
+	 * @en Updated, configuration read: {0} parameter values differ from the defaults, {1} connections.
+	 */
+	public static ResKey2 TAKE_OVER_UPDATED_READ__SETTINGS_CONNECTIONS;
+
+	/**
+	 * @en Created, configuration not read: {0}
+	 */
+	public static ResKey1 TAKE_OVER_CREATED_NOT_READ__REASON;
+
+	/**
+	 * @en Updated, configuration not read: {0}
+	 */
+	public static ResKey1 TAKE_OVER_UPDATED_NOT_READ__REASON;
+
+	/**
+	 * @en Not identical with the device: {0} values not decoded, {1} bytes differ.
+	 */
+	public static ResKey2 TAKE_OVER_DIFFERENT__PROBLEMS_DIFFERENCES;
+
+	/**
+	 * @en The take-over was cancelled.
+	 */
+	public static ResKey TAKE_OVER_CANCELLED;
+
+	/**
+	 * @en Devices of the project, not read: {0}.
+	 */
+	public static ResKey1 NOTE_KNOWN_NOT_READ__ADDRESSES;
+
+	/**
+	 * @en Read over the bus
+	 */
+	public static ResKey DETAILS_READ_BUS;
+
+	/**
+	 * @en Read through the local device management of the gateway
+	 */
+	public static ResKey DETAILS_READ_LOCAL;
+
+	/**
+	 * @en Mask version: {0}
+	 */
+	public static ResKey1 DETAILS_MASK__MASK;
+
+	/**
+	 * @en Load states: {0}
+	 */
+	public static ResKey1 DETAILS_STATES__STATES;
 
 	static {
 		initConstants(I18NConstants.class);

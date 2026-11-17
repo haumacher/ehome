@@ -71,3 +71,18 @@
 	margin-left: 0.4em;
 	font-size: 0.85em;
 }
+
+/*
+ * The devices found by a scan of the bus (projects/scan.view.xml, haumacher/ehome #180): the panel
+ * and its table fill the height left in the dialog and the table scrolls its rows itself. A filling
+ * box may shrink to nothing (.tl-fill: min-height 0), so the panel keeps the height of its heading,
+ * the summary and a table of a few rows: in a low window the dialog scrolls instead, and the table
+ * keeps those rows when the display of a take-over stands above it.
+ */
+.tl-panel.ehomeScanFound {
+	min-height: 20rem;
+}
+
+.tl-table.ehomeScanTable {
+	min-height: 10rem;
+}

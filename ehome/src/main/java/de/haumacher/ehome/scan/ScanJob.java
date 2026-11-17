@@ -28,16 +28,18 @@ import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.view.JobInputs;
 
 /**
- * The work of the command "Read the installation" (<code>&lt;start-job&gt;</code> body of
+ * The work of the command "Scan" of the dialog "Scan the bus" (<code>&lt;start-job&gt;</code> body of
  * <code>projects/scan.view.xml</code>): scans the bus behind the project's gateway with
  * {@link BusScanner} (nothing is written), matches every device found against the catalog
  * ({@link CatalogMatch}) and keeps the unidentified ones in the project
  * ({@link InstallationBuilder#recordUnidentified(TLObject, FoundDevice, String)}).
  *
  * <p>
- * The job is started with the project, what to search for ({@link ScanTarget}) and the line to
- * scan, as entered (<code>area.line</code>, only for {@link ScanTarget#LINE}). Its result is a dictionary: <code>summary</code>, <code>rows</code>
- * (see {@link ScanRows}) and <code>notes</code> (what could not be read).
+ * The job is started with the project, what to search for ({@link ScanTarget}), the line to scan,
+ * as entered (<code>area.line</code>, only for {@link ScanTarget#LINE}), and whether only the new
+ * devices are read: then the addresses at which the project has a device are not read, only noted
+ * (haumacher/ehome #180). Its result is a dictionary: <code>summary</code>, <code>rows</code> (see
+ * {@link ScanRows}) and <code>notes</code> (what could not be read, the devices not read).
  * </p>
  *
  * <p>
@@ -70,10 +72,11 @@ public class ScanJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		List<Object> inputs = JobInputs.of(arguments, 3);
+		List<Object> inputs = JobInputs.of(arguments, 4);
 		TLObject project = (TLObject) inputs.get(0);
 		ScanTarget target = inputs.get(1) instanceof ScanTarget value ? value : null;
 		String lineText = inputs.get(2) instanceof String value ? value : null;
+		boolean newOnly = Boolean.TRUE.equals(inputs.get(3));
 		ResKey veto = ScanFunctions.scanVeto(project, target, lineText);
 		if (veto != null) {
 			throw new TopLogicException(veto);
@@ -82,6 +85,9 @@ public class ScanJob implements JobBody {
 		String gatewayText = address.text();
 		BusScanner.Request request = target == ScanTarget.LINE ? BusScanner.Request.of(BusScanner.Line.parse(lineText))
 			: BusScanner.Request.of(target);
+		if (newOnly) {
+			request = request.skipping(InstallationBuilder.addresses(project));
+		}
 		job.setPhases(phases(request));
 
 		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
@@ -100,7 +106,12 @@ public class ScanJob implements JobBody {
 
 					@Override
 					public void progress(int done, int total) {
-						job.progress(done, total);
+						if (total == 0) {
+							// Nothing to do in this phase: it is complete.
+							job.fraction(1);
+						} else {
+							job.progress(done, total);
+						}
 					}
 
 					@Override
@@ -116,6 +127,8 @@ public class ScanJob implements JobBody {
 		} catch (BusException ex) {
 			throw new TopLogicException(I18NConstants.SCAN_FAILED__GATEWAY_REASON.fill(gatewayText, ex.getErrorKey()), ex);
 		}
+		// The last phase is complete, also where it had nothing to do or reported no progress.
+		job.fraction(1);
 
 		// The point of no return (TL #30194): the devices found are stored, the job ends with them.
 		job.uncancelable();
@@ -151,6 +164,10 @@ public class ScanJob implements JobBody {
 		for (ResKey note : result.notes()) {
 			notes.add(resources.getString(note));
 		}
+		if (!result.skipped().isEmpty()) {
+			notes.add(resources.getString(I18NConstants.NOTE_KNOWN_NOT_READ__ADDRESSES.fill(
+				String.join(", ", result.skipped().stream().map(FoundDevice::formatAddress).toList()))));
+		}
 		if (!result.inProgrammingMode().isEmpty()) {
 			notes.add(resources.getString(I18NConstants.NOTE_PROGRAMMING_MODE__ADDRESSES.fill(
 				String.join(", ", result.inProgrammingMode().stream().map(FoundDevice::formatAddress).toList()))));
@@ -185,13 +202,21 @@ public class ScanJob implements JobBody {
 	}
 
 	/**
-	 * The result of a scan as the view reads it.
+	 * The result of a scan as the view reads it; the display of the job shows its summary.
 	 */
-	static Map<String, Object> result(String summary, List<Map<String, Object>> rows, List<String> notes) {
+	static Map<String, Object> result(String summary, List<?> rows, Object notes) {
+		return result(summary, summary, rows, notes);
+	}
+
+	/**
+	 * The result of a scan as the view reads it, shown by the display of the job producing it as the
+	 * given label.
+	 */
+	static Map<String, Object> result(String label, String summary, List<?> rows, Object notes) {
 		Map<String, Object> outcome = new LinkedHashMap<>() {
 			@Override
 			public String toString() {
-				return summary;
+				return label;
 			}
 		};
 		outcome.put("summary", summary);

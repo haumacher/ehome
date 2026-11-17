@@ -24,6 +24,7 @@ import test.de.haumacher.ehome.job.JobHarness;
 import test.de.haumacher.ehome.knx.transport.TestLink;
 import test.de.haumacher.ehome.view.ViewCommandScan;
 
+import com.top_logic.basic.config.ConfigurationItem;
 import com.top_logic.basic.sched.SchedulerService;
 import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.knowledge.service.KnowledgeBase;
@@ -34,6 +35,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.layout.view.job.JobState;
 import com.top_logic.layout.view.job.JobStatus;
 import com.top_logic.model.TLObject;
+import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.programming.download.BusPath;
@@ -41,13 +43,16 @@ import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.scan.BusScanner;
 import de.haumacher.ehome.scan.CalimeroScanBus;
-import de.haumacher.ehome.scan.ReadBackJob;
+import de.haumacher.ehome.scan.I18NConstants;
 import de.haumacher.ehome.scan.ScanBus;
+import de.haumacher.ehome.scan.ScanFunctions;
 import de.haumacher.ehome.scan.ScanJob;
+import de.haumacher.ehome.scan.ScanRows;
 import de.haumacher.ehome.scan.ScanTarget;
+import de.haumacher.ehome.scan.TakeOverJob;
 
 /**
- * A cancel of the bus scan ({@link ScanJob}) and of the read-back of a device ({@link ReadBackJob}),
+ * A cancel of the bus scan ({@link ScanJob}) and of the take-over of a device ({@link TakeOverJob}),
  * run by the engine's job runner ({@link JobHarness}), reaches them through the job's
  * <code>CancelScope</code> (TL #30196).
  *
@@ -111,7 +116,7 @@ public class TestScanJobsCancelled extends BasicTestCase {
 				};
 			}
 		};
-		job.start(scan, Arrays.asList(_project, ScanTarget.PROGRAMMING_MODE, null));
+		job.start(scan, Arrays.asList(_project, ScanTarget.PROGRAMMING_MODE, null, Boolean.FALSE));
 		assertTrue(asking.await(10, TimeUnit.SECONDS));
 
 		JobState state = cancelWhenBlocked(job, "tuwien.auto.calimero.");
@@ -123,13 +128,16 @@ public class TestScanJobsCancelled extends BasicTestCase {
 	}
 
 	/**
-	 * A read-back cancelled while it waits for the device ends at once as cancelled.
+	 * A take-over cancelled while it waits for the device ends at once as cancelled; the device of the
+	 * project stays as it was updated, and its row says that its configuration was not read.
 	 */
-	public void testReadBackCancelledOnTheBus() throws Exception {
-		Object actuatorRow = actuatorRow();
+	public void testTakeOverCancelledOnTheBus() throws Exception {
+		Map<?, ?> result = scanResult();
+		Object actuatorRow = ((List<?>) result.get("rows")).stream()
+			.filter(row -> "1.3.5".equals(((Map<?, ?>) row).get("address"))).findFirst().orElseThrow();
 
 		JobHarness job = new JobHarness(List.of());
-		ReadBackJob readBack = new ReadBackJob(null, null) {
+		TakeOverJob takeOver = new TakeOverJob(null, null) {
 			@Override
 			protected DeviceReader openReader(BusPath gateway, int address) {
 				assertEquals(ACTUATOR, address);
@@ -140,14 +148,18 @@ public class TestScanJobsCancelled extends BasicTestCase {
 		};
 		// Started with the values the command of the view starts it with.
 		Map<String, Object> channels = new HashMap<>();
+		channels.put("project", _project);
 		channels.put("selected", actuatorRow);
-		channels.put("busState", BUS_STATE);
-		job.start(readBack, ViewCommandScan.command(VIEW, "ReadBackJob").jobValues(channels));
+		channels.put("result", result);
+		job.start(takeOver, takeOverCommand().jobValues(channels));
 
 		JobState state = cancelWhenBlocked(job, "de.haumacher.ehome.knx.transport.TransportClient");
 
 		assertEquals(JobStatus.CANCELLED, state.status());
-		assertNull(state.result());
+		Map<?, ?> row = ScanFunctions.rows(state.result()).stream()
+			.filter(r -> ScanRows.found(r).address() == ACTUATOR).findFirst().orElseThrow();
+		assertEquals(Resources.getInstance().getString(I18NConstants.TAKE_OVER_UPDATED_NOT_READ__REASON
+			.fill(I18NConstants.TAKE_OVER_CANCELLED)), row.get(ScanRows.STATE));
 		assertFalse(job.events().toString(), job.events().contains("uncancelable"));
 		assertDatabaseUsable();
 	}
@@ -172,7 +184,7 @@ public class TestScanJobsCancelled extends BasicTestCase {
 				};
 			}
 		};
-		job.start(scan, List.of(_project, ScanTarget.LINE, "1.3"));
+		job.start(scan, List.of(_project, ScanTarget.LINE, "1.3", Boolean.FALSE));
 		JobState state = job.await();
 
 		assertEquals(JobStatus.CANCELLED, state.status());
@@ -204,15 +216,28 @@ public class TestScanJobsCancelled extends BasicTestCase {
 	}
 
 	/**
-	 * The row of the actuator of a completed scan of the recorded test line.
+	 * The result of a completed scan of the recorded test line.
 	 */
-	private Object actuatorRow() throws Exception {
+	private Map<?, ?> scanResult() throws Exception {
 		JobHarness job = new JobHarness(List.of());
-		job.start(scanOfFakeBus(), List.of(_project, ScanTarget.LINE, "1.3"));
+		job.start(scanOfFakeBus(), List.of(_project, ScanTarget.LINE, "1.3", Boolean.FALSE));
 		JobState state = job.await();
 		assertEquals(JobStatus.COMPLETED, state.status());
-		List<?> rows = (List<?>) ((Map<?, ?>) state.result()).get("rows");
-		return rows.stream().filter(row -> "1.3.5".equals(((Map<?, ?>) row).get("address"))).findFirst().orElseThrow();
+		return (Map<?, ?>) state.result();
+	}
+
+	/**
+	 * The command of the scan view taking over the selected rows.
+	 */
+	private static ViewCommandScan.Site takeOverCommand() {
+		for (ViewCommandScan.Site site : ViewCommandScan.commands(VIEW)) {
+			for (ConfigurationItem item : ViewCommandScan.items(site.config())) {
+				if (item instanceof TakeOverJob.Config config && !config.getAll()) {
+					return site;
+				}
+			}
+		}
+		throw new AssertionError("No take-over in " + VIEW);
 	}
 
 	/**
@@ -224,6 +249,7 @@ public class TestScanJobsCancelled extends BasicTestCase {
 		result.put("project", _project);
 		result.put("target", ScanTarget.LINE);
 		result.put("line", "1.3");
+		result.put("newOnly", Boolean.FALSE);
 		result.put("busState", BUS_STATE);
 		return result;
 	}

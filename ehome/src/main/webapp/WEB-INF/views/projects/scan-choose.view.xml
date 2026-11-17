@@ -3,11 +3,12 @@
 <!--
 	Dialog choosing what a device found on the bus is, when the catalog offers several candidates
 	(projects/scan.view.xml): programs differing in the hash part of their ID, or several products
-	carrying the program. The chosen candidate creates or updates the device in the project
-	(scanApply, de.haumacher.ehome.scan.ScanFunctions).
+	carrying the program. The chosen candidate becomes the match of the row (scanChoose,
+	de.haumacher.ehome.scan.ScanFunctions), which "Take over" then creates or updates in the project
+	(haumacher/ehome #180).
 
 	"row" is the row of the device (de.haumacher.ehome.scan.ScanRows), "result" the result of the
-	scan, whose rows are refreshed afterwards.
+	scan, written anew with the row chosen.
 -->
 <view>
 	<channels>
@@ -71,15 +72,15 @@
 			<button appearance="primary">
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-check-lg"
-					inputs="candidate, row"
+					inputs="candidate, row, result"
 				>
 					<label>
-						<en>Create / update</en>
-						<de>Anlegen / Aktualisieren</de>
+						<en>Choose</en>
+						<de>Wählen</de>
 					</label>
 					<access>
-						<!-- The device is created or updated in the project of the row. -->
-						<operation name="Write"
+						<!-- Only the result of the scan changes. -->
+						<operation name="Read"
 							object='$row["project"]'
 							type="ehome.project:Project"
 						/>
@@ -87,21 +88,12 @@
 					<executability>
 						<null-input-disabled/>
 					</executability>
-					<with-transaction>
-						<execute-script function="scanApply($row, $candidate)"/>
+					<execute-script function="scanChoose($result, $row, $candidate)">
 						<with-result>
-							<notify expr="$result"/>
-							<execute-script function='{"summary": $result["summary"], "rows": scanRefresh($result["rows"]), "notes": $result["notes"]}'>
-								<inputs>
-									<input channel="result"/>
-								</inputs>
-								<with-result>
-									<write-channel name="result"/>
-									<close-dialog/>
-								</with-result>
-							</execute-script>
+							<write-channel name="result"/>
+							<close-dialog/>
 						</with-result>
-					</with-transaction>
+					</execute-script>
 				</action>
 			</button>
 			<button>

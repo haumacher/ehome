@@ -36,6 +36,7 @@ import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.knowledge.wrap.person.Person;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
+import com.top_logic.layout.view.command.OpenDialogAction;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLEnumeration;
@@ -733,15 +734,39 @@ public class TestAccessRights extends BasicTestCase {
 	}
 
 	/**
-	 * The bus scan (<code>ScanJob</code>) writes the devices of the project: allowed for an editor,
-	 * refused for a viewer and for an installer without a role in the project.
+	 * The bus scan (<code>ScanJob</code>) and the take-over of the devices found
+	 * (<code>TakeOverJob</code>, haumacher/ehome #180) write the devices of the project, as does the
+	 * command of the devices view opening the scan: allowed for an editor, refused for a viewer and
+	 * for an installer without a role in the project.
 	 */
 	public void testScanCommand() {
-		ViewCommandScan.Site scan = ViewCommandScan.command("projects/scan.view.xml", "ScanJob");
-		assertTrue(as(_editor, () -> scan.decide(_project)).isExecutable());
-		assertFalse(as(_viewer, () -> scan.decide(_project)).isExecutable());
-		assertFalse(as(_installer, () -> scan.decide(_project)).isExecutable());
-		assertHidden(as(_stranger, () -> scan.decide(_project)));
+		List<ViewCommandScan.Site> sites = new ArrayList<>();
+		sites.add(ViewCommandScan.command("projects/scan.view.xml", "ScanJob"));
+		for (ViewCommandScan.Site site : ViewCommandScan.commands("projects/scan.view.xml")) {
+			if (site.writes().contains("TakeOverJob")) {
+				sites.add(site);
+			}
+		}
+		assertEquals("The scan, the take-over of the selected rows and of all rows.", 3, sites.size());
+		sites.add(scanDialogCommand());
+		for (ViewCommandScan.Site scan : sites) {
+			assertTrue(scan.toString(), as(_editor, () -> scan.decide(_project)).isExecutable());
+			assertFalse(scan.toString(), as(_viewer, () -> scan.decide(_project)).isExecutable());
+			assertFalse(scan.toString(), as(_installer, () -> scan.decide(_project)).isExecutable());
+			assertHidden(as(_stranger, () -> scan.decide(_project)));
+		}
+	}
+
+	/** The command of the devices view opening the scan of the bus (haumacher/ehome #180). */
+	private static ViewCommandScan.Site scanDialogCommand() {
+		for (ViewCommandScan.Site site : ViewCommandScan.commands("projects/devices.view.xml")) {
+			for (ConfigurationItem item : ViewCommandScan.items(site.config())) {
+				if (item instanceof OpenDialogAction.Config dialog && "projects/scan.view.xml".equals(dialog.getDialogView().getPath())) {
+					return site;
+				}
+			}
+		}
+		throw new AssertionError("No command opening the scan in the devices view.");
 	}
 
 	/**

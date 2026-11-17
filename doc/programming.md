@@ -268,8 +268,11 @@ The device may then be unloaded (its LED or behavior shows no application): reco
 
 ## Reading an installation (scan, read-back; haumacher/ehome #9)
 
-Projects → a project → "Installation einlesen" (`projects/scan.view.xml`, package
-`de.haumacher.ehome.scan`). Everything here only reads, except "Programmier-LED an/aus".
+A project → tab "Geräte" (structure by line) → "Bus durchsuchen" in the toolbar of the tree
+(`projects/scan.view.xml`, package `de.haumacher.ehome.scan`, haumacher/ehome #180); a line selected
+in the tree fills the field "Linie" (`scanLine`), an area or the project leaves it empty, and the
+choice "Suchen nach" stays on "Geräte im Programmiermodus". Everything here only reads, except
+"Programmier-LED an/aus".
 
 - **Scan** (`BusScanner`, `CalimeroScanBus`): over the project's path to the bus, exactly one
   search chosen under "Suchen nach" (`ScanTarget`, haumacher/ehome #182; a radio group, the default
@@ -282,7 +285,10 @@ Projects → a project → "Installation einlesen" (`projects/scan.view.xml`, pa
   device: descriptor, manufacturer (object 0 property 12), serial number (11), order info (15),
   hardware type (78), program version (object 3 property 13; BCU 1: memory 0104-0107), load
   states, run state. A device that does not answer its descriptor is read once more (right after the
-  scan the actuator of the test system refused the first connection).
+  scan the actuator of the test system refused the first connection). "Nur neue Geräte" leaves the
+  addresses at which the project has a device unread (`BusScanner.Request#skip`): found there, they
+  are only listed in a note ("Geräte des Projekts, nicht gelesen"), nothing of them is read; the
+  gateway itself is then read for its individual address only.
   The job status lists the steps of the scan (the search chosen, reading the devices found; the
   gateway is one step) with the bar of the current one; the line and coupler scans of Calimero tell no
   progress, so their bar follows the time they take (256 connects of 115 ms and 7.1 s for the last
@@ -296,14 +302,26 @@ Projects → a project → "Installation einlesen" (`projects/scan.view.xml`, pa
   one the project's device at the address runs (and of its variant) is the match: the catalog may
   hold several editions of a program, imported from several exports of an installation (the ETS 4 and
   ETS 6 exports of the test system, both P-0563, haumacher/ehome #161). The summary counts the devices
-  identified uniquely, those to choose for, and the unidentified. One candidate: "Anlegen";
-  several: a choice dialog; none: the device is kept as `ehome.project:UnidentifiedDevice` of the
-  project and matched again by "Vorgemerkte Geräte zuordnen" (e.g. after a product data import).
+  identified uniquely, those to choose for, and the unidentified. Several candidates: "Produkt
+  wählen" (a choice dialog) makes the chosen one the match of the row; none: the device is kept as
+  `ehome.project:UnidentifiedDevice` of the project and matched again by "Vorgemerkte Geräte
+  zuordnen" (e.g. after a product data import). The table shows address, manufacturer, serial
+  number, program version, catalog and the state in the project; how a device was read, its mask
+  version and its load states are the tooltip of its address, and a device not read completely
+  carries a marker with the reasons as its tooltip.
+- **Take-over** (`TakeOverJob`, "Übernehmen" on the selected rows, "Alle übernehmen" on every row):
+  per row in one go the creation (below) and the read-back (below), so that no device stays with the
+  defaults of its parameters. A row the catalog does not identify as one product and program (none,
+  or several not chosen), or whose address holds a device of another program, is left alone; a device
+  whose configuration cannot be read (the gateway itself, the path to the bus refused, a failed read)
+  is created all the same. Each row says in "Im Projekt" what happened (marked where it was refused or
+  not read), and a notice counts the devices taken over, read and refused. A cancel leaves the devices
+  taken over before; the job ends as cancelled with their rows.
 - **Creation** (`InstallationBuilder`): the device under the line of its address (areas and lines
   created, named by their address), `serialNumber` in the ETS form (base64), `loaded` = individual
   address and program. An existing device with the address and program is updated; one with another
   program is a conflict, nothing changes.
-- **Read-back** (`ReadBack`, "Konfiguration einlesen"): reads where the download image writes (every
+- **Read-back** (`ReadBack`, part of "Übernehmen"): reads where the download image writes (every
   loaded block, the tables at the device's table pointers, property 7, their lengths from their
   counts, the parameter properties), then decodes: the parameters with memory by their types until
   the parameters in effect settle; the parameters without memory (ETS shows them to open pages and

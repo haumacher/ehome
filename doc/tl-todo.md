@@ -345,14 +345,16 @@ stays, as migrations do; nothing to remove.
 
 ## The options of a select show no description (TL #30406), a `<value-input>` no help (TL #30289)
 
-The dialog "Read the installation" (haumacher/ehome #182) offers its searches as a radio group of
+The dialog "Scan the bus" (haumacher/ehome #182, #180) offers its searches as a radio group of
 the enum `ScanTarget`. The option list of a select sends only label, image and colour per option, so
 the descriptions of the choices (`ScanTarget.<CONSTANT>.tooltip`, generated into the bundles) are
-never shown; a `<value-input>` has no help text at its label either (TL #30289, approved). No
-workaround: the tooltip of the command "Search" names what each choice does.
+never shown; a `<value-input>` has no help text at its label either (TL #30289, approved), which
+leaves the checkbox "New devices only" without its explanation as well. No workaround: the tooltip of
+the command "Search" names what each choice and the checkbox do.
 
 **When fixed:** nothing to remove; check that the radio options of the dialog show their
-descriptions, and shorten the tooltip of "Search" to what it does itself.
+descriptions, give "New devices only" its help, and shorten the tooltip of "Search" to what it does
+itself.
 
 ## Upstream tickets to follow
 

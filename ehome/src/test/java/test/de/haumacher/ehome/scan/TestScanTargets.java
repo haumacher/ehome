@@ -5,6 +5,7 @@ package test.de.haumacher.ehome.scan;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
@@ -85,6 +86,60 @@ public class TestScanTargets extends TestCase {
 		assertEquals(FoundDevice.Source.LOCAL, result.devices().get(0).source());
 	}
 
+	/**
+	 * The addresses to skip (haumacher/ehome #180, "New devices only") are not connected to and not
+	 * read, only noted; the others are read as always.
+	 */
+	public void testSkippedAddressesAreNotRead() throws Exception {
+		RecordingBus bus = new RecordingBus();
+		BusScanner.Request request = BusScanner.Request.of(new BusScanner.Line(1, 3))
+			.skipping(Set.of(Integer.valueOf(ACTUATOR), Integer.valueOf(0x1332)));
+		BusScanner.Result result = BusScanner.scan(bus, request, listener(new ArrayList<>()));
+
+		assertEquals(List.of("scanLine 1.3", "device 1.3.1"), bus.calls());
+		assertEquals(List.of(Integer.valueOf(ACTUATOR), Integer.valueOf(0x1332)), result.skipped());
+		assertEquals(List.of(), result.devices());
+
+		// The devices in programming mode: the known one is not read either.
+		RecordingBus programming = new RecordingBus();
+		BusScanner.Result found = BusScanner.scan(programming,
+			BusScanner.Request.of(ScanTarget.PROGRAMMING_MODE).skipping(Set.of(Integer.valueOf(ACTUATOR))),
+			listener(new ArrayList<>()));
+		assertEquals(List.of("programmingMode"), programming.calls());
+		assertEquals(List.of(Integer.valueOf(ACTUATOR)), found.skipped());
+		assertEquals(List.of(Integer.valueOf(ACTUATOR)), found.inProgrammingMode());
+	}
+
+	/**
+	 * The gateway itself, known to the project, is read for its address only.
+	 */
+	public void testSkippedGatewayReadForItsAddressOnly() throws Exception {
+		List<Integer> properties = new ArrayList<>();
+		RecordingBus bus = new RecordingBus() {
+			@Override
+			public LocalProperties gatewayProperties() {
+				LocalProperties local = super.gatewayProperties();
+				return new LocalProperties() {
+					@Override
+					public byte[] readProperty(int objectType, int propertyId, int start, int count) throws BusException {
+						properties.add(Integer.valueOf(propertyId));
+						return local.readProperty(objectType, propertyId, start, count);
+					}
+
+					@Override
+					public void close() {
+						local.close();
+					}
+				};
+			}
+		};
+		BusScanner.Result result = BusScanner.scan(bus,
+			BusScanner.Request.of(ScanTarget.GATEWAY).skipping(Set.of(Integer.valueOf(0x1301))), listener(new ArrayList<>()));
+		assertEquals(List.of(Integer.valueOf(BusScanner.PID_KNX_INDIVIDUAL_ADDRESS)), properties);
+		assertEquals(List.of(Integer.valueOf(0x1301)), result.skipped());
+		assertEquals(List.of(), result.devices());
+	}
+
 	public void testRequestShape() {
 		assertNull(BusScanner.Request.of(ScanTarget.ROUTERS).line());
 		assertEquals(new BusScanner.Line(1, 1), BusScanner.Request.of(new BusScanner.Line(1, 1)).line());
@@ -93,6 +148,8 @@ public class TestScanTargets extends TestCase {
 		assertIllegal(() -> new BusScanner.Request(null, null));
 		assertIllegal(() -> new BusScanner.Line(16, 0));
 		assertIllegal(() -> new BusScanner.Line(0, -1));
+		assertEquals(Set.of(), BusScanner.Request.of(ScanTarget.ROUTERS).skip());
+		assertEquals(Set.of(Integer.valueOf(1)), BusScanner.Request.of(ScanTarget.ROUTERS).skipping(Set.of(Integer.valueOf(1))).skip());
 	}
 
 	public void testLineParser() {

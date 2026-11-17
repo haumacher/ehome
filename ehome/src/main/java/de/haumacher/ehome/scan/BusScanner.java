@@ -6,7 +6,9 @@ package de.haumacher.ehome.scan;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 
 import com.top_logic.basic.util.ResKey;
@@ -183,14 +185,17 @@ public class BusScanner {
 
 	/**
 	 * What a scan should do: search for the one {@link ScanTarget target}, then read the devices
-	 * found.
+	 * found, except those at the addresses to skip.
 	 *
 	 * @param target
 	 *        What to search for.
 	 * @param line
 	 *        The line to scan, given exactly for {@link ScanTarget#LINE}.
+	 * @param skip
+	 *        The addresses not to read (the devices the project has already, haumacher/ehome #180):
+	 *        a device found there is only noted, nothing of it is read.
 	 */
-	public record Request(ScanTarget target, Line line) {
+	public record Request(ScanTarget target, Line line, Set<Integer> skip) {
 
 		/**
 		 * Creates a {@link Request}.
@@ -202,6 +207,21 @@ public class BusScanner {
 			if ((target == ScanTarget.LINE) != (line != null)) {
 				throw new IllegalArgumentException("A line is given exactly for a scan of a line: " + target + ", " + line);
 			}
+			skip = skip == null ? Set.of() : Set.copyOf(skip);
+		}
+
+		/**
+		 * Creates a {@link Request} reading every device found.
+		 */
+		public Request(ScanTarget target, Line line) {
+			this(target, line, Set.of());
+		}
+
+		/**
+		 * This request, not reading the devices at the given addresses.
+		 */
+		public Request skipping(Set<Integer> addresses) {
+			return new Request(target, line, addresses);
 		}
 
 		/**
@@ -228,8 +248,12 @@ public class BusScanner {
 	 *        The addresses of the devices in programming mode.
 	 * @param notes
 	 *        What went wrong, for a person.
+	 * @param skipped
+	 *        The addresses at which a device was found but not read, as the request said
+	 *        ({@link Request#skip()}).
 	 */
-	public record Result(List<FoundDevice> devices, List<Integer> inProgrammingMode, List<ResKey> notes) {
+	public record Result(List<FoundDevice> devices, List<Integer> inProgrammingMode, List<ResKey> notes,
+			List<Integer> skipped) {
 		// Value.
 	}
 
@@ -258,16 +282,22 @@ public class BusScanner {
 		if (request.target() == ScanTarget.GATEWAY) {
 			listener.phase(PHASE_GATEWAY);
 			listener.message(I18NConstants.MESSAGE_READING_GATEWAY__PATH.fill(bus.gateway()));
+			List<Integer> skipped = new ArrayList<>();
 			try (ScanBus.LocalProperties local = bus.gatewayProperties()) {
 				if (local == null) {
 					notes.add(I18NConstants.NOTE_NO_LOCAL_MANAGEMENT__PATH.fill(bus.gateway()));
 				} else {
-					devices.add(identifyLocal(local));
+					int individual = localAddress(local);
+					if (request.skip().contains(Integer.valueOf(individual))) {
+						skipped.add(Integer.valueOf(individual));
+					} else {
+						devices.add(identifyLocal(local, individual));
+					}
 				}
 			} catch (BusException ex) {
 				notes.add(I18NConstants.NOTE_LOCAL_MANAGEMENT_FAILED__PATH_REASON.fill(bus.gateway(), ex.getErrorKey()));
 			}
-			return new Result(devices, List.of(), notes);
+			return new Result(devices, List.of(), notes, skipped);
 		}
 
 		ScanBus.Progress progress = new ScanBus.Progress() {
@@ -313,6 +343,16 @@ public class BusScanner {
 				throw new IllegalStateException("Read above.");
 		}
 
+		List<Integer> skipped = new ArrayList<>();
+		for (Iterator<Integer> it = addresses.iterator(); it.hasNext();) {
+			Integer address = it.next();
+			if (request.skip().contains(address)) {
+				// Known to the project: noted, not read (haumacher/ehome #180).
+				skipped.add(address);
+				it.remove();
+			}
+		}
+
 		listener.phase(PHASE_DEVICES);
 		int number = 0;
 		for (Integer address : addresses) {
@@ -337,7 +377,7 @@ public class BusScanner {
 			}
 		}
 		listener.progress(addresses.size(), addresses.size());
-		return new Result(devices, programming, notes);
+		return new Result(devices, programming, notes, skipped);
 	}
 
 	/**
@@ -441,12 +481,26 @@ public class BusScanner {
 	 * Reads what the gateway tells about itself through local device management.
 	 */
 	public static FoundDevice identifyLocal(ScanBus.LocalProperties local) throws BusException {
-		List<ResKey> notes = new ArrayList<>();
+		return identifyLocal(local, localAddress(local));
+	}
+
+	/**
+	 * Reads the individual address of the gateway through local device management.
+	 */
+	public static int localAddress(ScanBus.LocalProperties local) throws BusException {
 		byte[] address = local.readProperty(KNXNETIP_OBJECT_TYPE, PID_KNX_INDIVIDUAL_ADDRESS, 1, 1);
 		if (address.length < 2) {
 			throw new BusException(I18NConstants.SCAN_GATEWAY_NO_ADDRESS);
 		}
-		int individual = (address[0] & 0xFF) << 8 | (address[1] & 0xFF);
+		return (address[0] & 0xFF) << 8 | (address[1] & 0xFF);
+	}
+
+	/**
+	 * Reads what the gateway of the given individual address tells about itself through local
+	 * device management.
+	 */
+	public static FoundDevice identifyLocal(ScanBus.LocalProperties local, int individual) {
+		List<ResKey> notes = new ArrayList<>();
 		byte[] id = localProperty(local, 0, PID_MANUFACTURER_ID, I18NConstants.READ_MANUFACTURER, notes);
 		Integer manufacturer = id != null && id.length >= 2 ? Integer.valueOf((id[0] & 0xFF) << 8 | (id[1] & 0xFF)) : null;
 		byte[] serial = localProperty(local, 0, PID_SERIAL_NUMBER, I18NConstants.READ_SERIAL_NUMBER, notes);

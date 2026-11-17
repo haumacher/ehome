@@ -10,6 +10,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLClassifier;
@@ -171,6 +172,30 @@ public class InstallationBuilder {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * The individual addresses of the devices of the project, those with an area and a line of a
+	 * number.
+	 */
+	public static Set<Integer> addresses(TLObject project) {
+		Set<Integer> result = new TreeSet<>();
+		for (TLObject area : ExtIds.list(project, "areas")) {
+			if (!(area.tValueByName("address") instanceof Integer areaNumber) || areaNumber.intValue() >>> 4 != 0) {
+				continue;
+			}
+			for (TLObject line : ExtIds.list(area, "lines")) {
+				if (!(line.tValueByName("address") instanceof Integer lineNumber) || lineNumber.intValue() >>> 4 != 0) {
+					continue;
+				}
+				for (TLObject device : ExtIds.list(line, "devices")) {
+					if (device.tValueByName("address") instanceof Integer number && number.intValue() >>> 8 == 0) {
+						result.add(Integer.valueOf(areaNumber.intValue() << 12 | lineNumber.intValue() << 8 | number.intValue()));
+					}
+				}
+			}
+		}
+		return result;
 	}
 
 	/**

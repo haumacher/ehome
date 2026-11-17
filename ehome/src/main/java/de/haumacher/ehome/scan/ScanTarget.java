@@ -33,14 +33,14 @@ public enum ScanTarget {
 	 * Tries device 0 of every line, where couplers and routers sit, and reads the devices
 	 * answering.
 	 */
-	@Label("Couplers and routers of all lines")
+	@Label("Couplers and routers")
 	ROUTERS,
 
 	/**
 	 * Reads the KNXnet/IP gateway the project reaches the bus through, by its local device
 	 * management; not possible through a controller.
 	 */
-	@Label("The gateway itself (local device management; not through a controller)")
+	@Label("The gateway itself")
 	GATEWAY;
 
 }

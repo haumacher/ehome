@@ -11,6 +11,9 @@
 	(projects/device-presets.view.xml, haumacher/ehome #146), and its programming
 	(projects/device-programming.view.xml).
 
+	"Scan the bus" opens the scan of the bus behind the project's path (projects/scan.view.xml,
+	haumacher/ehome #9, #180); a line selected in the tree fills its field "Line".
+
 	Besides the import and the bus scan, a device is planned here (haumacher/ehome #104): "New",
 	"Device" plans one from the catalog in the selected line (projects/create-device.view.xml), and
 	"Duplicate the device" copies the selected one with its parameter settings to the next free address
@@ -82,6 +85,11 @@
 		/>
 		<derived-channel name="selectedArea"
 			expr="if($selected.instanceOf(`ehome.physical:Area`), $selected, null)"
+			inputs="selected"
+		/>
+		<!-- The selected line as entered for a scan of the bus ("1.1"), nothing for another node (haumacher/ehome #180). -->
+		<derived-channel name="scanLine"
+			expr="scanLine($selected)"
 			inputs="selected"
 		/>
 		<!-- The line a new device is planned in: the selected line, or the line of the selected device. -->
@@ -364,6 +372,43 @@
 									<write-channel name="selected"/>
 								</with-result>
 							</with-transaction>
+						</generic-command>
+						<!--
+							The scan of the bus behind the project's path (haumacher/ehome #9, #180): a line selected
+							in the tree fills the field "Line" of the dialog.
+						-->
+						<generic-command
+							image="css:bi bi-broadcast-pin"
+							inputs="project, structure"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Scan the bus</en>
+								<de>Bus durchsuchen</de>
+							</label>
+							<tooltip>
+								<en>Searches the bus behind the project's gateway or controller for devices and takes them over into the project with their configuration. Nothing is written into the devices.</en>
+								<de>Durchsucht den Bus hinter dem Gateway oder dem Controller des Projekts nach Geräten und übernimmt sie mit ihrer Konfiguration in das Projekt. In die Geräte wird nichts geschrieben.</de>
+							</tooltip>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<visible-if expr="$structure == 'line'"/>
+								<null-input-disabled/>
+							</executability>
+							<open-dialog
+								bind-input-to="project"
+								dialog-view="projects/scan.view.xml"
+							>
+								<bind
+									channel="startLine"
+									to="scanLine"
+								/>
+							</open-dialog>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"

@@ -1,36 +1,58 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	Dialog "Read the installation" of a project (haumacher/ehome #9): scans the bus behind the
-	project's gateway or its connected controller (haumacher/ehome #148), matches the devices found against the catalog, creates or updates them in the
-	project, and reads their configuration back.
+	Dialog "Scan the bus" of the area "Devices" of a project (haumacher/ehome #9, #180): scans the bus
+	behind the project's gateway or its connected controller (haumacher/ehome #148) for one thing
+	chosen under "Search for" (haumacher/ehome #182), matches the devices found against the catalog,
+	and takes them over into the project: creates or updates each and reads its configuration back in
+	one go.
 
-	"project" is the project. The scan and the read-back run as jobs (de.haumacher.ehome.scan.ScanJob,
-	ReadBackJob) and never write to the bus; the result is a dictionary in "result" (summary, rows,
-	notes, see de.haumacher.ehome.scan.ScanRows). The functions scan* are
-	de.haumacher.ehome.scan.ScanFunctions. Unidentified devices are kept in the project
-	(ehome.project:Project#unidentifiedDevices) and matched again by "Match kept devices", e.g. after
-	an import of product data.
+	"project" is the project, "startLine" the line selected in the tree of the devices as entered for
+	a scan ("1.1"), which fills the field "Line"; the tree does not switch the choice. The scan and the
+	take-over run as jobs (de.haumacher.ehome.scan.ScanJob, TakeOverJob) and never write to the bus;
+	the result is a dictionary in "result" (summary, rows, notes, see de.haumacher.ehome.scan.ScanRows).
+	The functions scan* are de.haumacher.ehome.scan.ScanFunctions. "New devices only" leaves the
+	addresses at which the project has a device unread. Unidentified devices are kept in the project
+	(ehome.project:Project#unidentifiedDevices) and matched again by "Match kept devices", e.g. after an
+	import of product data; "Choose the product" decides between several candidates of the catalog
+	(projects/scan-choose.view.xml) before the row is taken over.
 
-	"LED on/off" switches the programming mode of the selected device: it writes into the device, so
-	it is disabled with the reason unless the configuration variable tl_ehome_programming_write_enabled is
-	true, and asks for a confirmation naming device and path (gateway or controller). Unless the
-	installation reaches local networks (tl_ehome_local_network), a gateway is refused with that reason;
-	the controller stays available, and "Choose the gateway" offers only it then.
+	The table selects several rows; "Take over" works on the selected rows, "Take over all" on every
+	row, each row saying in its state what happened. "LED on/off" switches the programming mode of the
+	single selected device: it writes into the device, so it is disabled with the reason unless the
+	configuration variable tl_ehome_programming_write_enabled is true, and asks for a confirmation
+	naming device and path (gateway or controller). Unless the installation reaches local networks
+	(tl_ehome_local_network), a gateway is refused with that reason; the controller stays available,
+	and "Choose the gateway" offers only it then.
 -->
 <view>
 	<channels>
 		<channel name="project"/>
+		<!-- The line selected in the tree of the devices, as entered for a scan; nothing for another node. -->
+		<channel name="startLine"/>
 		<channel name="scanJob"/>
 		<channel name="deviceJob"/>
 		<!-- What the scan searches for, one de.haumacher.ehome.scan.ScanTarget (haumacher/ehome #182). -->
 		<channel name="target"
 			init="scanTarget('PROGRAMMING_MODE')"
 		/>
-		<!-- The line to scan, as entered ("1.1"), for the target LINE. -->
-		<channel name="line"/>
+		<!-- The line to scan, as entered ("1.1"), for the target LINE; starts with the line selected in the tree. -->
+		<channel name="line"
+			init="$startLine"
+			inputs="startLine"
+		/>
+		<!-- Whether the addresses at which the project has a device are left unread (haumacher/ehome #180). -->
+		<channel name="newOnly"
+			init="false"
+		/>
 		<channel name="result"/>
+		<!-- The rows selected in the table: one row, the set of several, or nothing. -->
 		<channel name="selected"/>
+		<!-- The single selected row. -->
+		<derived-channel name="row"
+			expr="scanRow($selected)"
+			inputs="selected"
+		/>
 		<!-- Re-decides the commands using the bus when a bus session or a controller changes (BusStateSource, haumacher/ehome #161). -->
 		<source-channel name="busState"
 			update-interval="500"
@@ -49,8 +71,8 @@
 	</channels>
 	<window width="1300px">
 		<title>
-			<en>Read the installation</en>
-			<de>Installation einlesen</de>
+			<en>Scan the bus</en>
+			<de>Bus durchsuchen</de>
 		</title>
 		<inset>
 			<stack gap="default">
@@ -98,11 +120,11 @@
 								<de>Suchen</de>
 							</label>
 							<tooltip>
-								<en>Searches for what is chosen under "Search for" and reads descriptor, properties and memory of the devices found; nothing is written. "Devices in programming mode" finds the devices whose programming button is pressed, within seconds; "Line" tries every address of the line entered; "Couplers and routers of all lines" tries device 0 of every line; "The gateway itself" reads the KNXnet/IP gateway through its local device management. Devices the catalog does not identify are kept in the project; devices of the project are created only by "Create / update".</en>
-								<de>Sucht nach dem unter „Suchen nach“ Gewählten und liest Gerätebeschreibung, Eigenschaften und Speicher der gefundenen Geräte; es wird nichts geschrieben. „Geräte im Programmiermodus“ findet die Geräte, deren Programmiertaste gedrückt ist, in Sekunden; „Linie“ probiert jede Adresse der eingegebenen Linie; „Koppler und Router aller Linien“ probiert Gerät 0 jeder Linie; „Das Gateway selbst“ liest das KNXnet/IP-Gateway über sein lokales Gerätemanagement. Vom Katalog nicht erkannte Geräte werden im Projekt vorgemerkt; Geräte des Projekts legt erst „Anlegen / Aktualisieren“ an.</de>
+								<en>Searches for what is chosen under "Search for" and reads descriptor, properties and memory of the devices found; nothing is written. "Devices in programming mode": the devices whose programming button is pressed, within seconds. "Line": every address of the line entered. "Couplers and routers": device 0 of every line. "The gateway itself": the KNXnet/IP gateway through its local device management, not through a controller. "New devices only": the addresses at which the project has a device are not read. Devices the catalog does not identify are kept in the project.</en>
+								<de>Sucht nach dem unter „Suchen nach“ Gewählten und liest Gerätebeschreibung, Eigenschaften und Speicher der gefundenen Geräte; es wird nichts geschrieben. „Geräte im Programmiermodus“: die Geräte, deren Programmiertaste gedrückt ist, in Sekunden. „Linie“: jede Adresse der eingegebenen Linie. „Koppler und Router“: Gerät 0 jeder Linie. „Das Gateway selbst“: das KNXnet/IP-Gateway über sein lokales Gerätemanagement, nicht über einen Controller. „Nur neue Geräte“: Die Adressen, an denen das Projekt ein Gerät hat, werden nicht gelesen. Vom Katalog nicht erkannte Geräte werden im Projekt vorgemerkt.</de>
 							</tooltip>
 							<access>
-								<!-- The scan creates and updates the devices of the project. -->
+								<!-- The scan keeps the unidentified devices in the project. -->
 								<operation name="Write"
 									object="$project"
 									type="ehome.project:Project"
@@ -122,10 +144,13 @@
 									<input channel="project"/>
 									<input channel="target"/>
 									<input channel="line"/>
+									<input channel="newOnly"/>
 								</inputs>
 								<body class="de.haumacher.ehome.scan.ScanJob"/>
+								<!-- The summary of the scan stands above the table; the display of the finished job is cleared. -->
 								<with-result>
 									<write-channel name="result"/>
+									<write-channel name="scanJob" clear="true"/>
 								</with-result>
 							</start-job>
 						</generic-command>
@@ -155,14 +180,6 @@
 					<inset>
 						<stack gap="compact">
 							<text input="gateway"/>
-							<text tone="helper"
-								variant="caption"
-							>
-								<label>
-									<en>The scan only reads: it connects to the devices and reads their descriptor, properties and memory. Choose the gateway or the controller of the installation to read; never a gateway of another installation.</en>
-									<de>Die Suche liest nur: Sie verbindet sich mit den Geräten und liest Gerätebeschreibung, Eigenschaften und Speicher. Wählen Sie das Gateway oder den Controller der Installation, die eingelesen werden soll, nie das Gateway einer anderen Installation.</de>
-								</label>
-							</text>
 							<fields>
 								<value-input
 									mandatory="true"
@@ -173,7 +190,7 @@
 										<en>Search for</en>
 										<de>Suchen nach</de>
 									</label>
-									<!-- The labels of the targets are those of the Java enum; its tooltips are not shown by a radio group (engine gap). -->
+									<!-- The labels of the targets are those of the Java enum; its tooltips are not shown by a radio group (TL #30406). -->
 									<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
 										display="radio"
 										order="as-given"
@@ -195,97 +212,54 @@
 										<input-control class="de.haumacher.ehome.scan.LineInputControlProvider"/>
 									</value-input>
 								</visible-if>
+								<value-input
+									type="tl.core:Boolean"
+									value="newOnly"
+								>
+									<label>
+										<en>New devices only</en>
+										<de>Nur neue Geräte</de>
+									</label>
+								</value-input>
 							</fields>
 							<job-status input="scanJob"/>
 						</stack>
 					</inset>
 				</panel>
-				<!-- Of its own height, so that the dialog scrolls in a small window instead of squeezing the table (haumacher/ehome #161). -->
-				<panel fill="false">
+				<!--
+					The table takes the height left in the dialog and scrolls in itself; in a low window the
+					panel keeps a minimum height (style/ehome.css) and the dialog scrolls (haumacher/ehome #180).
+				-->
+				<panel css-class="ehomeScanFound">
 					<title>
 						<en>Devices found</en>
 						<de>Gefundene Geräte</de>
 					</title>
 					<commands>
 						<generic-command
-							image="css:bi bi-plus-lg"
-							inputs="selected"
+							image="css:bi bi-box-arrow-in-down"
+							inputs="project, selected, result"
 							observed-types="ehome.physical:Device"
 							placement="TOOLBAR"
 						>
 							<label>
-								<en>Create / update</en>
-								<de>Anlegen / Aktualisieren</de>
+								<en>Take over</en>
+								<de>Übernehmen</de>
 							</label>
 							<tooltip>
-								<en>Creates the selected device in the project with the product and program found, its parameters at their defaults until "Read the configuration". A device of the project with its address only takes the serial number; one running another program is not changed.</en>
-								<de>Legt das gewählte Gerät mit dem gefundenen Produkt und Programm im Projekt an, mit den Vorgabewerten der Parameter bis „Konfiguration einlesen“. Ein Gerät des Projekts mit seiner Adresse übernimmt nur die Seriennummer; eines mit einem anderen Programm bleibt unverändert.</de>
+								<en>Creates the selected devices in the project, or updates them, and reads their configuration from the devices; nothing is written into the devices. A device whose configuration cannot be read is created all the same. Each row says what happened.</en>
+								<de>Legt die gewählten Geräte im Projekt an oder aktualisiert sie und liest ihre Konfiguration aus den Geräten; in die Geräte wird nichts geschrieben. Ein Gerät, dessen Konfiguration sich nicht lesen lässt, wird trotzdem angelegt. Jede Zeile sagt, was geschah.</de>
 							</tooltip>
 							<access>
-								<!-- The device is created or updated in the project of the row. -->
+								<!-- The devices are created or updated in the project and their configuration written there. -->
 								<operation name="Write"
-									object='$selected["project"]'
+									object="$project"
 									type="ehome.project:Project"
 								/>
 							</access>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="scanApplyVeto($selected)"/>
-							</executability>
-							<if test='$selected["kind"] == "choice"'>
-								<then>
-									<open-dialog
-										bind-input-to="row"
-										dialog-view="projects/scan-choose.view.xml"
-									>
-										<bind
-											channel="result"
-											to="result"
-										/>
-									</open-dialog>
-								</then>
-								<else>
-									<with-transaction>
-										<execute-script function="scanApply($selected, null)"/>
-										<with-result>
-											<notify expr="$result"/>
-											<execute-script function='{"summary": $result["summary"], "rows": scanRefresh($result["rows"]), "notes": $result["notes"]}'>
-												<inputs>
-													<input channel="result"/>
-												</inputs>
-												<with-result>
-													<write-channel name="result"/>
-												</with-result>
-											</execute-script>
-										</with-result>
-									</with-transaction>
-								</else>
-							</if>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-cloud-download"
-							inputs="selected, busState"
-							observed-types="ehome.physical:Device,ehome.project:Project"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Read the configuration</en>
-								<de>Konfiguration einlesen</de>
-							</label>
-							<tooltip>
-								<en>Reads the memory of the selected device and takes its parameter values and connections into the project's device, overwriting those there; nothing is written into the device. The device then counts as downloaded.</en>
-								<de>Liest den Speicher des gewählten Geräts und übernimmt seine Parameterwerte und Verbindungen in das Gerät des Projekts, wobei die bisherigen überschrieben werden; in das Gerät wird nichts geschrieben. Das Gerät gilt danach als heruntergeladen.</de>
-							</tooltip>
-							<access>
-								<!-- The read-back writes the configuration into the device of the project of the row. -->
-								<operation name="Write"
-									object='$selected["project"]'
-									type="ehome.project:Project"
-								/>
-							</access>
-							<executability>
-								<null-input-disabled/>
-								<disabled-if expr="scanReadVeto($selected)"/>
+								<disabled-if expr="scanTakeOverVeto($selected)"/>
 							</executability>
 							<start-job
 								cancelable="true"
@@ -294,20 +268,109 @@
 							>
 								<inputs>
 									<input channel="selected"/>
+									<input channel="result"/>
 								</inputs>
-								<body class="de.haumacher.ehome.scan.ReadBackJob"/>
-								<with-result>
-									<open-dialog
-										bind-input-to="report"
-										dialog-view="projects/scan-report.view.xml"
-									/>
+								<body class="de.haumacher.ehome.scan.TakeOverJob"/>
+								<with-result as="outcome">
+									<write-channel name="result"/>
 								</with-result>
+								<!-- Cancelled after some rows: the rows taken over before say so (TL #30195); the display of the job says what was done. -->
+								<on-cancel as="outcome">
+									<if test="$outcome != null">
+										<then>
+											<write-channel name="result"/>
+										</then>
+									</if>
+								</on-cancel>
 							</start-job>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-box-arrow-in-down-right"
+							inputs="project, result"
+							observed-types="ehome.physical:Device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Take over all</en>
+								<de>Alle übernehmen</de>
+							</label>
+							<tooltip>
+								<en>Takes over every device found, as "Take over" does with the selected ones.</en>
+								<de>Übernimmt alle gefundenen Geräte, wie „Übernehmen“ die gewählten.</de>
+							</tooltip>
+							<access>
+								<!-- The devices are created or updated in the project and their configuration written there. -->
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="scanTakeOverVeto($result)"/>
+							</executability>
+							<start-job
+								cancelable="true"
+								job="deviceJob"
+								update-interval="200"
+							>
+								<inputs>
+									<input channel="result"/>
+								</inputs>
+								<body class="de.haumacher.ehome.scan.TakeOverJob"
+									all="true"
+								/>
+								<with-result as="outcome">
+									<write-channel name="result"/>
+								</with-result>
+								<!-- Cancelled after some rows: the rows taken over before say so (TL #30195); the display of the job says what was done. -->
+								<on-cancel as="outcome">
+									<if test="$outcome != null">
+										<then>
+											<write-channel name="result"/>
+										</then>
+									</if>
+								</on-cancel>
+							</start-job>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-list-check"
+							inputs="row"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Choose the product</en>
+								<de>Produkt wählen</de>
+							</label>
+							<tooltip>
+								<en>Decides which of the products and programs of the catalog the selected device is, where several fit; "Take over" then takes it as that.</en>
+								<de>Legt fest, welches der Produkte und Programme des Katalogs das gewählte Gerät ist, wenn mehrere passen; „Übernehmen“ übernimmt es dann so.</de>
+							</tooltip>
+							<access>
+								<!-- Only the result of the scan changes. -->
+								<operation name="Read"
+									object='$row["project"]'
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="scanChooseVeto($row)"/>
+							</executability>
+							<open-dialog
+								bind-input-to="row"
+								dialog-view="projects/scan-choose.view.xml"
+							>
+								<bind
+									channel="result"
+									to="result"
+								/>
+							</open-dialog>
 						</generic-command>
 						<generic-command
 							clique="more"
 							image="css:bi bi-lightbulb"
-							inputs="selected, busState"
+							inputs="row, busState"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -321,22 +384,22 @@
 							<access>
 								<!-- Switches the programming mode of a device on the bus of the project of the row. -->
 								<operation name="Write"
-									object='$selected["project"]'
+									object='$row["project"]'
 									type="ehome.project:Project"
 								/>
 							</access>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="scanLedVeto($selected)"/>
+								<disabled-if expr="scanLedVeto($row)"/>
 							</executability>
-							<confirm expr="scanLedConfirmation($selected, true)"/>
+							<confirm expr="scanLedConfirmation($row, true)"/>
 							<start-job
 								cancelable="false"
 								job="deviceJob"
 								update-interval="200"
 							>
 								<inputs>
-									<input channel="selected"/>
+									<input channel="row"/>
 								</inputs>
 								<body class="de.haumacher.ehome.scan.LedJob"
 									on="true"
@@ -352,7 +415,7 @@
 						<generic-command
 							clique="more"
 							image="css:bi bi-lightbulb-off"
-							inputs="selected, busState"
+							inputs="row, busState"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -366,22 +429,22 @@
 							<access>
 								<!-- Switches the programming mode of a device on the bus of the project of the row. -->
 								<operation name="Write"
-									object='$selected["project"]'
+									object='$row["project"]'
 									type="ehome.project:Project"
 								/>
 							</access>
 							<executability>
 								<null-input-disabled/>
-								<disabled-if expr="scanLedVeto($selected)"/>
+								<disabled-if expr="scanLedVeto($row)"/>
 							</executability>
-							<confirm expr="scanLedConfirmation($selected, false)"/>
+							<confirm expr="scanLedConfirmation($row, false)"/>
 							<start-job
 								cancelable="false"
 								job="deviceJob"
 								update-interval="200"
 							>
 								<inputs>
-									<input channel="selected"/>
+									<input channel="row"/>
 								</inputs>
 								<body class="de.haumacher.ehome.scan.LedJob"
 									on="false"
@@ -411,40 +474,43 @@
 								</item>
 							</object-list>
 							<job-status input="deviceJob"/>
-							<table selection="selected">
+							<table
+								css-class="ehomeScanTable"
+								selection="selected"
+								selection-mode="multi"
+							>
 								<inputs>
 									<input channel="result"/>
 								</inputs>
 								<columns>
 									<computed-column name="address"
 										type="tl.core:String"
-										width="120"
+										width="110"
 									>
 										<label>
 											<en>Address</en>
 											<de>Adresse</de>
 										</label>
 										<value>$row["address"]</value>
+										<!-- How the device was read, its mask version and its load states (haumacher/ehome #180). -->
+										<tooltip>$row["details"]</tooltip>
 									</computed-column>
-									<computed-column name="source"
+									<!-- A marker where something of the device could not be read, the reasons as its tooltip. -->
+									<computed-column name="notes"
 										type="tl.core:String"
-										width="160"
+										width="60"
 									>
 										<label>
-											<en>Read via</en>
-											<de>Gelesen über</de>
+											<en>Not readable</en>
+											<de>Nicht lesbar</de>
 										</label>
-										<value>$row["source"]</value>
-									</computed-column>
-									<computed-column name="descriptor"
-										type="tl.core:String"
-										width="110"
-									>
-										<label>
-											<en>Mask</en>
-											<de>Maske</de>
-										</label>
-										<value>$row["descriptor"]</value>
+										<value>$row["notes"]</value>
+										<display class="com.top_logic.layout.view.element.ResourceDisplayByExpression"
+											icon="'css:bi bi-exclamation-triangle'"
+											label="''"
+											role="'warning'"
+											tooltip="$value"
+										/>
 									</computed-column>
 									<computed-column name="manufacturer"
 										type="tl.core:String"
@@ -458,7 +524,7 @@
 									</computed-column>
 									<computed-column name="serial"
 										type="tl.core:String"
-										width="170"
+										width="160"
 									>
 										<label>
 											<en>Serial number</en>
@@ -468,7 +534,7 @@
 									</computed-column>
 									<computed-column name="programVersion"
 										type="tl.core:String"
-										width="180"
+										width="150"
 									>
 										<label>
 											<en>Program version</en>
@@ -476,45 +542,28 @@
 										</label>
 										<value>$row["programVersion"]</value>
 									</computed-column>
-									<computed-column name="states"
-										type="tl.core:String"
-										width="180"
-									>
-										<label>
-											<en>Load states</en>
-											<de>Ladezustände</de>
-										</label>
-										<value>$row["states"]</value>
-									</computed-column>
 									<computed-column name="match"
 										type="tl.core:String"
-										width="300"
+										width="320"
 									>
 										<label>
 											<en>Catalog</en>
 											<de>Katalog</de>
 										</label>
 										<value>$row["matchText"]</value>
+										<tooltip>$row["matchText"]</tooltip>
 									</computed-column>
 									<computed-column name="state"
+										cell-role='$row["stateRole"]'
 										type="tl.core:String"
-										width="220"
+										width="320"
 									>
 										<label>
 											<en>In the project</en>
 											<de>Im Projekt</de>
 										</label>
 										<value>$row["state"]</value>
-									</computed-column>
-									<computed-column name="notes"
-										type="tl.core:String"
-										width="250"
-									>
-										<label>
-											<en>Not readable</en>
-											<de>Nicht lesbar</de>
-										</label>
-										<value>$row["notes"]</value>
+										<tooltip>if($row["stateDetails"] == null, $row["state"], $row["stateDetails"])</tooltip>
 									</computed-column>
 								</columns>
 								<rows>if($result == null, [], $result["rows"])</rows>

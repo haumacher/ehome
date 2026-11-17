@@ -20,6 +20,7 @@ import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.download.BusPath;
@@ -45,16 +46,25 @@ public class ScanFunctions extends GenericMethod {
 		scanTargets(0),
 		/** <code>scanTarget(name)</code>: the {@link ScanTarget} of the given name. */
 		scanTarget(1),
-		/** <code>scanApplyVeto(row)</code>: why the device cannot be created or updated. */
-		scanApplyVeto(1),
-		/** <code>scanApply(row, candidate)</code>: creates or updates the device; the candidate row may be empty for a unique match. */
-		scanApply(2),
-		/** <code>scanRefresh(rows)</code>: the rows with the state in the project computed anew. */
-		scanRefresh(1),
+		/**
+		 * <code>scanTakeOverVeto(rows)</code>: why none of the rows can be taken over; the rows are a
+		 * row, several or the result of a scan.
+		 */
+		scanTakeOverVeto(1),
+		/**
+		 * <code>scanRow(selection)</code>: the row of a selection of exactly one row,
+		 * <code>null</code> otherwise (a row is a dictionary, whose size is not the size of the
+		 * selection).
+		 */
+		scanRow(1),
+		/** <code>scanChooseVeto(row)</code>: why no product can be chosen for the device of the row. */
+		scanChooseVeto(1),
+		/** <code>scanChoose(result, row, candidate)</code>: the result with the candidate chosen for the row. */
+		scanChoose(3),
 		/** <code>scanRematch(project)</code>: the result of matching the project's unidentified devices again. */
 		scanRematch(1),
-		/** <code>scanReadVeto(row)</code>: why the configuration cannot be read back. */
-		scanReadVeto(1),
+		/** <code>scanLine(node)</code>: the line of a node of the topology as entered for a scan (<code>1.1</code>). */
+		scanLine(1),
 		/** <code>scanLedVeto(row)</code>: why the programming mode cannot be switched. */
 		scanLedVeto(1),
 		/** <code>scanLedConfirmation(row, on)</code>: the question before switching the programming mode. */
@@ -115,19 +125,14 @@ public class ScanFunctions extends GenericMethod {
 				return List.of(ScanTarget.values());
 			case scanTarget:
 				return ScanTarget.valueOf(String.valueOf(arguments[0]));
-			case scanApplyVeto:
-				return applyVeto(arguments[0]);
-			case scanApply:
-				return apply(arguments[0], arguments[1]);
-			case scanRefresh: {
-				List<Object> result = new ArrayList<>();
-				if (arguments[0] instanceof Collection<?> rows) {
-					for (Object row : rows) {
-						result.add(row instanceof Map<?, ?> map ? ScanRows.refresh(map) : row);
-					}
-				}
-				return result;
-			}
+			case scanTakeOverVeto:
+				return takeOverVeto(arguments[0]);
+			case scanRow:
+				return singleRow(arguments[0]);
+			case scanChooseVeto:
+				return chooseVeto(arguments[0]);
+			case scanChoose:
+				return choose(arguments[0], arguments[1], arguments[2]);
 			case scanRematch: {
 				if (!(arguments[0] instanceof TLObject project)) {
 					return null;
@@ -136,8 +141,8 @@ public class ScanFunctions extends GenericMethod {
 				return ScanJob.result(com.top_logic.util.Resources.getInstance()
 					.getString(I18NConstants.REMATCH_DONE__COUNT.fill(rows.size())), new ArrayList<>(rows), List.of());
 			}
-			case scanReadVeto:
-				return readVeto(arguments[0]);
+			case scanLine:
+				return lineText(arguments[0] instanceof TLObject node ? node : null);
 			case scanLedVeto:
 				return ledVeto(arguments[0]);
 			case scanLedConfirmation: {
@@ -191,51 +196,148 @@ public class ScanFunctions extends GenericMethod {
 	}
 
 	/**
-	 * Why the device of a row cannot be created or updated, <code>null</code> if it can.
+	 * The line of a node of the topology as a scan takes it (<code>area.line</code>, e.g.
+	 * <code>1.1</code>): a line by its number and the number of its area; <code>null</code> for any
+	 * other node (an area, the project) and a line without numbers.
+	 */
+	public static String lineText(TLObject node) {
+		if (node == null || !node.tValid() || !ExtIds.isA(node, "ehome.physical:Line")) {
+			return null;
+		}
+		TLObject area = node.tContainer();
+		if (area == null || !(area.tValueByName("address") instanceof Integer areaNumber)
+			|| !(node.tValueByName("address") instanceof Integer lineNumber)) {
+			return null;
+		}
+		BusScanner.Line line = BusScanner.Line.parse(areaNumber + "." + lineNumber);
+		return line == null ? null : line.toString();
+	}
+
+	/**
+	 * The row of a selection of exactly one row, <code>null</code> for none or several.
+	 */
+	public static Map<?, ?> singleRow(Object selection) {
+		if (selection instanceof Map<?, ?> row) {
+			return row.containsKey(ScanRows.FOUND) ? row : null;
+		}
+		List<Map<?, ?>> rows = selection instanceof Collection<?> ? rows(selection) : List.of();
+		return rows.size() == 1 ? rows.get(0) : null;
+	}
+
+	/**
+	 * The rows given to a command: a row, a collection of rows (a selection of several), or the
+	 * result of a scan (all its rows).
+	 */
+	public static List<Map<?, ?>> rows(Object rows) {
+		List<Map<?, ?>> result = new ArrayList<>();
+		if (rows instanceof Map<?, ?> map) {
+			if (map.containsKey(ScanRows.FOUND)) {
+				result.add(map);
+			} else if (map.get("rows") instanceof Collection<?> all) {
+				return rows(all);
+			}
+		} else if (rows instanceof Collection<?> collection) {
+			for (Object row : collection) {
+				if (row instanceof Map<?, ?> map && map.containsKey(ScanRows.FOUND)) {
+					result.add(map);
+				}
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Why none of the given rows can be taken over, <code>null</code> if one can at least; the others
+	 * are left alone by the take-over, each saying why ({@link TakeOverJob}).
+	 *
+	 * @param rows
+	 *        See {@link #rows(Object)}.
+	 */
+	public static ResKey takeOverVeto(Object rows) {
+		List<Map<?, ?>> list = rows(rows);
+		if (list.isEmpty()) {
+			return I18NConstants.ERROR_NO_ROW;
+		}
+		List<String> reasons = new ArrayList<>();
+		for (Map<?, ?> row : list) {
+			ResKey veto = applyVeto(row);
+			if (veto == null) {
+				return null;
+			}
+			if (list.size() == 1) {
+				return veto;
+			}
+			reasons.add(ScanRows.found(row).addressText() + ": " + com.top_logic.util.Resources.getInstance().getString(veto));
+		}
+		return I18NConstants.ERROR_NONE_TAKEN_OVER__REASONS.fill(String.join("; ", reasons));
+	}
+
+	/**
+	 * Why the device of a row cannot be created or updated, <code>null</code> if it can: it must be
+	 * identified by the catalog as exactly one product and program (one chosen of several), and a
+	 * device of the project at its address must run that program.
 	 */
 	public static ResKey applyVeto(Object row) {
 		FoundDevice found = ScanRows.found(row);
 		CatalogMatch.Match match = ScanRows.match(row);
-		if (found == null || match == null) {
+		TLObject project = ScanRows.project(row);
+		if (found == null || match == null || project == null) {
 			return I18NConstants.ERROR_NO_ROW;
 		}
-		if (match.kind() == CatalogMatch.Kind.UNIDENTIFIED) {
-			return I18NConstants.ERROR_UNIDENTIFIED__REASON.fill(match.reasonKey());
+		switch (match.kind()) {
+			case UNIDENTIFIED:
+				return I18NConstants.ERROR_UNIDENTIFIED__REASON.fill(match.reasonKey());
+			case CHOICE:
+				return I18NConstants.ERROR_CHOOSE__COUNT.fill(match.candidates().size());
+			case UNIQUE:
+				break;
+		}
+		TLObject device = InstallationBuilder.device(project, found.address());
+		if (device != null) {
+			Program program = DeviceConfiguration.program(device);
+			if (match.candidates().get(0).program() != program) {
+				return I18NConstants.ERROR_OTHER_PROGRAM__ADDRESS_PROGRAM.fill(found.addressText(),
+					program == null ? null : program.getExtId());
+			}
 		}
 		return null;
 	}
 
 	/**
-	 * Creates or updates the device of a row in its project.
-	 *
-	 * @param candidate
-	 *        The candidate chosen (a row of the choice dialog), <code>null</code> for a unique match.
-	 * @return What happened, for a person.
+	 * Why no product can be chosen for the device of a row, <code>null</code> if the catalog offers
+	 * several.
 	 */
-	public static ResKey apply(Object row, Object candidate) {
-		ResKey veto = applyVeto(row);
-		if (veto != null) {
-			throw new TopLogicException(veto);
-		}
+	public static ResKey chooseVeto(Object row) {
 		CatalogMatch.Match match = ScanRows.match(row);
+		if (match == null) {
+			return I18NConstants.ERROR_NO_ROW;
+		}
+		if (match.kind() != CatalogMatch.Kind.CHOICE) {
+			return I18NConstants.ERROR_NO_CHOICE;
+		}
+		return null;
+	}
+
+	/**
+	 * The result of a scan with the given candidate (a row of the choice dialog) chosen for the
+	 * given row.
+	 */
+	public static Map<String, Object> choose(Object result, Object row, Object candidate) {
+		if (!(result instanceof Map<?, ?> outcome) || !(row instanceof Map<?, ?> chosenRow)) {
+			throw new TopLogicException(I18NConstants.ERROR_NO_ROW);
+		}
 		CatalogMatch.Candidate chosen = candidate instanceof Map<?, ?> map
 			&& map.get("candidate") instanceof CatalogMatch.Candidate value ? value : null;
-		if (chosen == null) {
-			if (match.kind() != CatalogMatch.Kind.UNIQUE) {
-				throw new TopLogicException(I18NConstants.ERROR_NO_CANDIDATE);
-			}
-			chosen = match.candidates().get(0);
+		CatalogMatch.Match match = ScanRows.match(row);
+		if (chosen == null || match == null || !match.candidates().contains(chosen)) {
+			throw new TopLogicException(I18NConstants.ERROR_NO_CANDIDATE);
 		}
 		FoundDevice found = ScanRows.found(row);
-		InstallationBuilder.Outcome outcome = InstallationBuilder.apply(ScanRows.project(row), found, chosen);
-		switch (outcome.action()) {
-			case CREATED:
-				return I18NConstants.APPLY_CREATED__ADDRESS.fill(found.addressText());
-			case UPDATED:
-				return I18NConstants.APPLY_UPDATED__ADDRESS.fill(found.addressText());
-			default:
-				return I18NConstants.APPLY_CONFLICT__MESSAGE.fill(outcome.message());
+		List<Object> rows = new ArrayList<>();
+		for (Map<?, ?> other : rows(outcome)) {
+			rows.add(ScanRows.found(other) == found ? ScanRows.choose(chosenRow, chosen) : other);
 		}
+		return ScanJob.result((String) outcome.get("summary"), rows, outcome.get("notes"));
 	}
 
 	/**

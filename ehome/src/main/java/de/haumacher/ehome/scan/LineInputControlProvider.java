@@ -18,7 +18,7 @@ import com.top_logic.layout.react.field.ReactFieldControlProvider;
 
 /**
  * The input of a line of the installation, written <code>area.line</code> (e.g. <code>1.1</code>,
- * {@link BusScanner.Line}), in the dialog "Read the installation" (<code>projects/scan.view.xml</code>,
+ * {@link BusScanner.Line}), in the dialog "Scan the bus" (<code>projects/scan.view.xml</code>,
  * haumacher/ehome #182).
  *
  * <p>

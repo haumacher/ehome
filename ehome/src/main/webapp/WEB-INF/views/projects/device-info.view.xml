@@ -11,7 +11,7 @@
 	"device" and the reading. The identity is compared with the project's values when it is shown
 	(deviceInfoRows, observing the devices): a row whose values differ is marked as a warning, a value
 	the project does not have as a note. "Take over the serial number" writes the serial number read
-	into the project's device, as the scan's "Create / update" does; it needs Write on the project.
+	into the project's device, as the scan's "Take over" does; it needs Write on the project.
 	The functions deviceInfo* are de.haumacher.ehome.scan.DeviceInfoFunctions.
 -->
 <view>

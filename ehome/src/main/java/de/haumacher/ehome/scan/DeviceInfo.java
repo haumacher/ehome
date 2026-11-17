@@ -366,7 +366,7 @@ public class DeviceInfo {
 	 * it can.
 	 *
 	 * <p>
-	 * As the scan's "Create / update" does: the device read must be the project's (the same program
+	 * As the scan's "Take over" does: the device read must be the project's (the same program
 	 * and mask), and the project's device must still have the address it was read at.
 	 * </p>
 	 */

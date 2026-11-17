@@ -107,8 +107,9 @@ public class TestProgrammingTexts extends BasicTestCase {
 			de.haumacher.ehome.scan.I18NConstants.READ_RUN_STATE, de.haumacher.ehome.scan.I18NConstants.RUN_STATE_RUNNING);
 		assertEquals("Laufzustand: Läuft", de(states));
 
-		ResKey readBack = de.haumacher.ehome.scan.I18NConstants.READBACK_EQUAL__COUNT.fill(626);
-		assertEquals("626 Byte des Download-Abbilds mit dem gelesenen Speicher verglichen, alle gleich.", de(readBack));
+		ResKey readBack = de.haumacher.ehome.scan.I18NConstants.TAKE_OVER_CREATED_READ__SETTINGS_CONNECTIONS.fill(12, 5);
+		assertEquals("Angelegt, Konfiguration eingelesen: 12 Parameterwerte weichen von der Vorgabe ab, 5 Verbindungen.",
+			de(readBack));
 	}
 
 	/**
