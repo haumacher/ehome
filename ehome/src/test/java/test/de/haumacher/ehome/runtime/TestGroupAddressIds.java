@@ -44,6 +44,7 @@ import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.knx.GroupAddressStyle;
 import de.haumacher.ehome.runtime.ApplicationDatapoints;
 import de.haumacher.ehome.runtime.DatapointNames;
+import de.haumacher.ehome.runtime.GroupAddressIdentifierMigration;
 import de.haumacher.ehome.runtime.GroupAddressIds;
 import de.haumacher.ehome.runtime.IdRenames;
 import de.haumacher.ehome.runtime.Pages;
@@ -233,8 +234,8 @@ public class TestGroupAddressIds extends BasicTestCase {
 
 	/**
 	 * The proposal: from the function using an address (room, name without the room, role), else
-	 * from the name or the description; valid and unique; addresses without anything to derive from
-	 * and those with an identifier stay as they are.
+	 * from the name or the description, else from the address (haumacher/ehome #178); valid and
+	 * unique; those with an identifier stay as they are.
 	 */
 	public void testProposal() {
 		TLObject function;
@@ -263,14 +264,15 @@ public class TestGroupAddressIds extends BasicTestCase {
 		}
 		Map<TLObject, String> proposal = GroupAddressIds.propose(_project);
 		List<String> ids = new ArrayList<>(proposal.values());
-		assertEquals(List.of("kueche.licht", "kueche.licht.state", "licht_kueche", "_1_og_flur_praesenz"), ids);
+		assertEquals(List.of("kueche.licht", "kueche.licht.state", "ga_1_2_5", "licht_kueche", "_1_og_flur_praesenz", "ga_1_2_9"),
+			ids);
 		for (String id : ids) {
 			assertNull(id, GroupAddressIds.syntaxProblem(id));
 		}
 
 		// Unique among the identifiers the project has, the application datapoints included.
 		update(_other, "identifier", "licht_kueche");
-		assertEquals(List.of("kueche.licht", "kueche.licht.state", "licht_kueche_2", "_1_og_flur_praesenz"),
+		assertEquals(List.of("kueche.licht", "kueche.licht.state", "licht_kueche_2", "_1_og_flur_praesenz", "ga_1_2_9"),
 			new ArrayList<>(GroupAddressIds.propose(_project).values()));
 		update(_holiday, "identifier", "kueche.licht");
 		assertEquals("kueche.licht_2", GroupAddressIds.propose(_project).get(_licht));
@@ -286,7 +288,7 @@ public class TestGroupAddressIds extends BasicTestCase {
 		String confirmation = ProposeIdentifiersAction.confirmation(_project);
 		assertTrue(confirmation, confirmation.contains("1/2/3 Licht Küche → kueche.licht"));
 
-		assertEquals(5, ProposeIdentifiersAction.apply(_project));
+		assertEquals(6, ProposeIdentifiersAction.apply(_project));
 		assertEquals("kueche.licht", GroupAddressIds.identifier(_licht));
 		assertEquals("not @kueche.licht", _write.tValueByName("value"));
 		assertEquals("@kueche.licht.state and not @urlaub", _reaction.tValueByName("condition"));
@@ -298,9 +300,34 @@ public class TestGroupAddressIds extends BasicTestCase {
 				assertNull(GroupAddressIds.problem(identifier, address));
 			}
 		}
-		assertEquals(5, unique.size());
+		assertEquals(6, unique.size());
 		assertEquals(Map.of(), GroupAddressIds.propose(_project));
 		assertEquals(0, ProposeIdentifiersAction.apply(_project));
+	}
+
+	/**
+	 * The migration of haumacher/ehome #178: the addresses of a database from before without an
+	 * identifier get the proposed ones, the rules naming them by their address follow, the image names
+	 * no datapoint by its address.
+	 */
+	public void testMigration() {
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			assertEquals(3, GroupAddressIdentifierMigration.migrate(_project));
+			tx.commit();
+		}
+		assertEquals("licht_kueche", GroupAddressIds.identifier(_licht));
+		assertEquals("licht_kueche_status", GroupAddressIds.identifier(_status));
+		assertEquals("ga_1_2_5", GroupAddressIds.identifier(_other));
+		assertEquals("not @licht_kueche", _write.tValueByName("value"));
+		assertEquals("@licht_kueche_status and not @urlaub", _reaction.tValueByName("condition"));
+		for (Object datapoint : (List<?>) RuntimeImage.build(_project, 1, NOW).getJson().get("datapoints")) {
+			String id = String.valueOf(((Map<?, ?>) datapoint).get("id"));
+			assertFalse(id, id.matches("\\d+/\\d+/\\d+"));
+		}
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+			assertEquals(0, GroupAddressIdentifierMigration.migrate(_project));
+			tx.commit();
+		}
 	}
 
 	// ---- helpers -----------------------------------------------------------------------------

@@ -15,9 +15,10 @@
 	addresses and the ranges holding them, the details say why, and "Set the datapoint type" chooses
 	a type for the address (projects/set-datapoint-type.view.xml).
 
-	An address may have an identifier (#130), the readable id of its datapoint that rules name it by
-	(@kueche.licht instead of @"1/2/3"); "Propose identifiers" fills the missing ones after a
-	confirmation listing them.
+	An address has an identifier (#130, #178), the readable id of its datapoint that rules name it by
+	(@kueche.licht instead of @"1/2/3"), given when the address is created and kept when it is
+	renamed; "Propose identifiers" fills missing ones or, with "Overwrite existing", proposes all of
+	them anew, after a confirmation counting and listing the changes.
 
 	The details of an address include the settings of its datapoint in the runtime image (#45):
 	writable and read on start (derived from the connected objects unless set), readable, persistence,
@@ -217,8 +218,9 @@
 							</create-transient>
 						</generic-command>
 						<!--
-							The identifiers of the addresses without one (haumacher/ehome #130,
-							de.haumacher.ehome.runtime.GroupAddressIds): after a confirmation listing them.
+							The identifiers of the addresses (haumacher/ehome #130, #178,
+							de.haumacher.ehome.runtime.GroupAddressIds): a dialog (projects/propose-identifiers.view.xml)
+							whose checkbox "Overwrite existing" proposes every identifier anew.
 						-->
 						<generic-command
 							image="css:bi bi-tag"
@@ -230,8 +232,8 @@
 								<de>Bezeichner vorschlagen</de>
 							</label>
 							<tooltip>
-								<en>Gives every group address without an identifier a readable one that rules name its datapoint by (kueche.licht instead of "1/2/3"): from the room, name and role of the function using it, else from its name or description, made unique. Rules naming the addresses are adjusted.</en>
-								<de>Gibt jeder Gruppenadresse ohne Bezeichner einen lesbaren, mit dem Regeln ihren Datenpunkt nennen (kueche.licht statt "1/2/3"): aus Raum, Name und Rolle der Funktion, die sie nutzt, sonst aus ihrem Namen oder ihrer Beschreibung, eindeutig gemacht. Regeln, die die Adressen nennen, werden angepasst.</de>
+								<en>Every group address has a readable identifier that rules name its datapoint by (kueche.licht instead of "1/2/3"), given when it is created: from the room, name and role of the function using it, else from its name or description, else from the address (ga_1_2_3), made unique. Optionally, the identifiers are proposed anew for all addresses; rules naming them are adjusted.</en>
+								<de>Jede Gruppenadresse hat einen lesbaren Bezeichner, mit dem Regeln ihren Datenpunkt nennen (kueche.licht statt "1/2/3"), vergeben beim Anlegen: aus Raum, Name und Rolle der Funktion, die sie nutzt, sonst aus ihrem Namen oder ihrer Beschreibung, sonst aus der Adresse (ga_1_2_3), eindeutig gemacht. Wahlweise werden die Bezeichner aller Adressen neu vorgeschlagen; Regeln, die sie nennen, werden angepasst.</de>
 							</tooltip>
 							<access>
 								<operation name="Write"
@@ -242,15 +244,10 @@
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="groupAddressIdentifierProposal($project)"/>
-							<propose-identifiers>
-								<with-result>
-									<notify
-										expr="$result"
-										kind="info"
-									/>
-								</with-result>
-							</propose-identifiers>
+							<open-dialog
+								bind-input-to="project"
+								dialog-view="projects/propose-identifiers.view.xml"
+							/>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"

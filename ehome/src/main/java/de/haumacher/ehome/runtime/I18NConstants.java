@@ -2140,14 +2140,29 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 IDENTIFIERS_PROPOSAL_MORE__COUNT;
 
 	/**
-	 * @en Every group address has an identifier, or nothing to derive one from (no function using it, no name, no description); nothing to propose.
+	 * @en Every group address has an identifier; nothing to propose. To propose them anew, check "Overwrite existing".
 	 */
 	public static ResKey IDENTIFIERS_NOTHING_TO_PROPOSE;
 
 	/**
-	 * @en {0} group addresses got an identifier.
+	 * @en {0} group addresses got a new identifier.
 	 */
 	public static ResKey1 IDENTIFIERS_PROPOSED__COUNT;
+
+	/**
+	 * @en Every group address has the identifier the proposal gives; nothing changes.
+	 */
+	public static ResKey IDENTIFIERS_ALREADY_PROPOSED;
+
+	/**
+	 * @en {0} group addresses get a new identifier. Rules naming them are adjusted; the controller loses the persisted values and histories it keeps under the old ids with the next deployment.
+	 */
+	public static ResKey1 IDENTIFIERS_OVERWRITE_CONFIRM__COUNT;
+
+	/**
+	 * @en A group address always has an identifier, the id rules and the controller name its datapoint by. Enter one, or propose them with "Propose identifiers".
+	 */
+	public static ResKey GROUP_ADDRESS_ID_REQUIRED;
 
 	/**
 	 * @en The datapoint {0} now has the id {2} instead of {1}: the value and the history the controller keeps for it under the old id are lost with the next deployment.

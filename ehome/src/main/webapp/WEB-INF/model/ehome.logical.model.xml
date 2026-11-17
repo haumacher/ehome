@@ -140,8 +140,10 @@
 					the name rules reference it by (@kueche.licht instead of @"1/2/3"), a datapoint name of
 					the rule language (homecontrol spec/rules-grammar.ebnf: identifiers joined by dots), 1..63
 					bytes, unique among the datapoints of the project, not an id the controller adds itself.
-					Empty: the datapoint's id is the address in three levels. E-Home's own data: an update
-					from ETS keeps it (de.haumacher.ehome.knx.ProjectParts).
+					Every address has one (haumacher/ehome #178), given when it is created
+					(de.haumacher.ehome.runtime.GroupAddressIdentifiers) and kept when it is renamed; only an
+					address without one all the same has the address in three levels as its datapoint's id.
+					E-Home's own data: an update from ETS keeps it (de.haumacher.ehome.knx.ProjectParts).
 				-->
 				<property name="identifier"
 					type="tl.core:String"

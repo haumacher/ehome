@@ -139,6 +139,13 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		groupAddressIdentifierProposal,
 		/**
+		 * <code>groupAddressIdentifierOverwrite(project)</code>: the question asked before the
+		 * identifiers of all group addresses of the project are proposed anew, counting and listing
+		 * the ones that change ({@link ProposeIdentifiersAction#confirmation(TLObject, boolean)},
+		 * haumacher/ehome #178).
+		 */
+		groupAddressIdentifierOverwrite,
+		/**
 		 * <code>runtimeLabelProblem(label, obj)</code>: why the label entered for the object is too
 		 * long for the controller ({@link LabelLimit#problem(Object, Object)}); <code>null</code> if it
 		 * is not.
@@ -308,6 +315,8 @@ public class RuntimeFunctions extends GenericMethod {
 				return Referers.deleteConfirmation(obj);
 			case groupAddressIdentifierProposal:
 				return ProposeIdentifiersAction.confirmation(obj);
+			case groupAddressIdentifierOverwrite:
+				return ProposeIdentifiersAction.confirmation(obj, true);
 			default:
 				return null;
 		}
@@ -439,10 +448,13 @@ public class RuntimeFunctions extends GenericMethod {
 		if (project != null) {
 			collect(project.tValueByName("groupAddresses"), "ehome.logical:GroupAddress", result);
 		}
-		result.sort(Comparator.comparingInt(
-			(TLObject a) -> a.tValueByName("address") instanceof GA ga ? ga.getValue() : Integer.MAX_VALUE));
+		result.sort(BY_ADDRESS);
 		return result;
 	}
+
+	/** The order of group addresses by their address, those without one last. */
+	public static final Comparator<TLObject> BY_ADDRESS = Comparator.comparingInt(
+		(TLObject a) -> a.tValueByName("address") instanceof GA ga ? ga.getValue() : Integer.MAX_VALUE);
 
 	/**
 	 * The datapoints of the project a role of a function can refer to: its group addresses by their

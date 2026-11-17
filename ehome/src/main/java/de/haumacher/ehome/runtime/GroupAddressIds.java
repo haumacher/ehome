@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -44,12 +45,21 @@ import de.haumacher.ehome.rules.RuleText;
  * </p>
  *
  * <p>
- * The proposal ({@link #propose(TLObject)}) derives the missing identifiers: of an address a function
- * uses, from the function's room and name and the role (<code>kueche.licht</code>,
+ * Every group address has an identifier (haumacher/ehome #178): it is given when the address is
+ * created ({@link GroupAddressIdentifiers}), the addresses of a database from before got theirs by
+ * the migration <code>Issue_178_Group_address_identifiers</code>
+ * ({@link GroupAddressIdentifierMigration}). It stays when the address is renamed. The address in
+ * three levels as the datapoint's id is left only for an address that has none all the same.
+ * </p>
+ *
+ * <p>
+ * The proposal ({@link #proposal(TLObject, Collection, Set)}) derives the identifiers: of an address
+ * a function uses, from the function's room and name and the role (<code>kueche.licht</code>,
  * <code>kueche.licht.state</code>); else from the address's name, else from its description, after
  * the room of the connected devices when they share one (<code>kueche.taste_2_kurz</code> for
- * "Küche Taste 2 Kurz" of a push button in the kitchen, <code>licht_kueche</code> without a room); made
- * unique with a counter (<code>_2</code>).
+ * "Küche Taste 2 Kurz" of a push button in the kitchen, <code>licht_kueche</code> without a room); else
+ * from the address (<code>ga_1_2_3</code>, {@link #forAddress(String, Set)}); made unique with a counter
+ * (<code>_2</code>).
  * </p>
  */
 public final class GroupAddressIds {
@@ -114,8 +124,10 @@ public final class GroupAddressIds {
 	// ---- the check ---------------------------------------------------------------------------
 
 	/**
-	 * Why the text cannot be the identifier of the given group address; <code>null</code> if it can
-	 * or is empty (no identifier).
+	 * Why the text cannot be the identifier of the given group address; <code>null</code> if it can.
+	 * Empty, it is refused in the form of an existing address (haumacher/ehome #178: every address has
+	 * an identifier); a new address without one gets one when it is created
+	 * ({@link GroupAddressIdentifiers}).
 	 *
 	 * @param value
 	 *        The identifier entered.
@@ -124,7 +136,8 @@ public final class GroupAddressIds {
 	 */
 	public static ResKey problem(Object value, Object obj) {
 		if (value == null || value.toString().isEmpty()) {
-			return null;
+			return obj instanceof TLFormObjectBase form && form.getEditedObject() != null
+				&& identifier(form.getEditedObject()) != null ? I18NConstants.GROUP_ADDRESS_ID_REQUIRED : null;
 		}
 		String id = value.toString();
 		ResKey syntax = syntaxProblem(id);
@@ -225,28 +238,97 @@ public final class GroupAddressIds {
 	/**
 	 * The identifiers proposed for the group addresses of the project that have none, in the order
 	 * of their addresses: valid ({@link #syntaxProblem(String)}) and unique among the project's
-	 * datapoints and among each other. An address that neither a function uses nor has a name or
-	 * description gets none.
+	 * datapoints and among each other.
 	 */
 	public static Map<TLObject, String> propose(TLObject project) {
-		Set<String> taken = taken(project);
+		return propose(project, false);
+	}
+
+	/**
+	 * The identifiers proposed for the group addresses of the project, in the order of their
+	 * addresses (haumacher/ehome #178).
+	 *
+	 * @param overwrite
+	 *        Whether the identifiers the addresses have are proposed anew as well: every address is
+	 *        given what the proposal gives now, unique among the application datapoints and the
+	 *        addresses before it; the result holds the addresses whose identifier changes. Without,
+	 *        the result holds the addresses without an identifier, unique among the project's
+	 *        datapoints.
+	 */
+	public static Map<TLObject, String> propose(TLObject project, boolean overwrite) {
 		List<TLObject> addresses = RuntimeFunctions.groupAddresses(project);
-		Map<TLObject, List<String>> uses = uses(project);
+		if (!overwrite) {
+			addresses.removeIf(address -> identifier(address) != null);
+			return proposal(project, addresses, taken(project));
+		}
+		Map<TLObject, String> result = proposal(project, addresses, reserved(project));
+		result.entrySet().removeIf(entry -> entry.getValue().equals(identifier(entry.getKey())));
+		return result;
+	}
+
+	/**
+	 * The identifiers for the given group addresses of the project, which have none (haumacher/ehome
+	 * #178): the one rule every address is given its identifier by, whichever code created it (the
+	 * ETS import, a form, the derivation of the installation, an agent). Of an address a function
+	 * uses, from the function's room and name and the role; else from the address's name, else from
+	 * its description, after the room of the connected devices; else from the address itself
+	 * ({@link #forAddress(String, Set)}). Unique among the taken ids and each other.
+	 *
+	 * @param addresses
+	 *        The addresses, in the order they are to get their identifiers.
+	 * @param taken
+	 *        The ids none of them may take; the given ones are added to it.
+	 * @return The identifier of each address, in the given order.
+	 */
+	public static Map<TLObject, String> proposal(TLObject project, Collection<TLObject> addresses, Set<String> taken) {
 		Map<TLObject, String> result = new LinkedHashMap<>();
+		if (addresses.isEmpty()) {
+			return result;
+		}
+		Map<TLObject, List<String>> uses = uses(project);
 		for (TLObject address : addresses) {
-			if (identifier(address) != null) {
-				continue;
-			}
 			List<String> parts = uses.get(address);
 			if (parts == null) {
 				parts = nameParts(address);
 			}
-			if (parts == null) {
-				continue;
-			}
-			result.put(address, unique(parts, taken));
+			result.put(address, parts == null ? forAddress(notation(address), taken) : unique(parts, taken));
 		}
 		return result;
+	}
+
+	/**
+	 * The identifier of a group address that has nothing to derive one from (no function using it,
+	 * no name, no description): <code>ga_</code> and the address in the notation of the project, the
+	 * separators as underscores (three levels <code>ga_1_2_3</code>, two levels <code>ga_1_234</code>,
+	 * free <code>ga_4711</code>; an identifier of the rule language starts with a letter), made unique
+	 * among the taken ids, which it is added to; <code>ga</code> for an address without one.
+	 *
+	 * @param notation
+	 *        The address in the notation of the project, <code>null</code> for none.
+	 */
+	public static String forAddress(String notation, Set<String> taken) {
+		String address = segment(notation);
+		return unique(new ArrayList<>(List.of(address == null ? "ga" : "ga_" + address)), taken);
+	}
+
+	/** The address in the notation of its project, <code>null</code> for none. */
+	private static String notation(TLObject address) {
+		return address.tValueByName("address") instanceof GA ga ? ga.toString() : null;
+	}
+
+	/**
+	 * The ids the controller adds itself and the ids of the application datapoints of the project:
+	 * what no identifier of a group address may take, whatever the other addresses have.
+	 */
+	private static Set<String> reserved(TLObject project) {
+		Set<String> taken = new HashSet<>(TIME_MASTER_IDS);
+		for (TLObject datapoint : ApplicationDatapoints.of(project)) {
+			String id = ApplicationDatapoints.id(datapoint);
+			if (id != null) {
+				taken.add(id);
+			}
+		}
+		return taken;
 	}
 
 	/**
@@ -254,17 +336,11 @@ public final class GroupAddressIds {
 	 * ids of its application datapoints and the ids the controller adds itself.
 	 */
 	public static Set<String> taken(TLObject project) {
-		Set<String> taken = new HashSet<>(TIME_MASTER_IDS);
+		Set<String> taken = reserved(project);
 		for (TLObject address : RuntimeFunctions.groupAddresses(project)) {
 			String identifier = identifier(address);
 			if (identifier != null) {
 				taken.add(identifier);
-			}
-		}
-		for (TLObject datapoint : ApplicationDatapoints.of(project)) {
-			String id = ApplicationDatapoints.id(datapoint);
-			if (id != null) {
-				taken.add(id);
 			}
 		}
 		return taken;

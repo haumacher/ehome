@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog "Propose identifiers" of the group addresses view (projects/addresses.view.xml): runs the
+	proposal of identifiers (<propose-identifiers>, de.haumacher.ehome.runtime.ProposeIdentifiersAction)
+	for "project".
+
+	Every group address gets its identifier when it is created (haumacher/ehome #178), so without the
+	checkbox the run gives one only to an address that has none. The checkbox "overwrite" (off by
+	default) proposes the identifiers of all addresses anew, as "Propose functions" overwrites the
+	proposed functions (haumacher/ehome #177): from the function using an address, else from its name
+	or description, else from the address. The confirmation counts and lists the changes "old → new"
+	(groupAddressIdentifierOverwrite; without the checkbox groupAddressIdentifierProposal); the rules
+	naming a changed identifier are rewritten (de.haumacher.ehome.runtime.IdRenames). The result is a
+	notification listing every change.
+-->
+<view>
+	<channels>
+		<channel name="project"/>
+		<channel name="overwrite"
+			init="false"
+		/>
+	</channels>
+	<window width="640px">
+		<title>
+			<en>Propose identifiers</en>
+			<de>Bezeichner vorschlagen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text>
+					<label>
+						<en>Every group address gets a readable identifier when it is created, the id rules and the controller name its datapoint by: from the room, name and role of the function using it, else from its name or description, else from the address (ga_1_2_3). Renaming an address keeps it. Unchecked, only an address without an identifier gets one.</en>
+						<de>Jede Gruppenadresse erhält beim Anlegen einen lesbaren Bezeichner, die ID, mit der Regeln und der Controller ihren Datenpunkt nennen: aus Raum, Name und Rolle der Funktion, die sie nutzt, sonst aus ihrem Namen oder ihrer Beschreibung, sonst aus der Adresse (ga_1_2_3). Beim Umbenennen der Adresse bleibt er. Nicht angekreuzt erhält nur eine Adresse ohne Bezeichner einen.</de>
+					</label>
+				</text>
+				<fields>
+					<value-input
+						type="tl.core:Boolean"
+						value="overwrite"
+					>
+						<label>
+							<en>Overwrite existing</en>
+							<de>Bestehende überschreiben</de>
+						</label>
+					</value-input>
+				</fields>
+				<text tone="secondary">
+					<label>
+						<en>Checked, every group address gets the identifier the proposal gives now, also one entered by hand. Rules naming a changed identifier are adjusted; the controller loses the persisted values and histories it keeps under the old ids with the next deployment.</en>
+						<de>Angekreuzt erhält jede Gruppenadresse den Bezeichner, den der Vorschlag jetzt ergibt, auch einen von Hand eingegebenen. Regeln, die einen geänderten Bezeichner nennen, werden angepasst; die gespeicherten Werte und Verläufe, die der Controller unter den alten IDs führt, gehen mit der nächsten Bereitstellung verloren.</de>
+					</label>
+				</text>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-tag"
+					inputs="project, overwrite"
+				>
+					<label>
+						<en>Propose</en>
+						<de>Vorschlagen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$project"
+							type="ehome.project:Project"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<confirm expr="if($overwrite == true, groupAddressIdentifierOverwrite($project), groupAddressIdentifierProposal($project))"/>
+					<propose-identifiers overwrite="overwrite">
+						<with-result>
+							<close-dialog/>
+							<notify
+								expr="$result"
+								kind="info"
+							/>
+						</with-result>
+					</propose-identifiers>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

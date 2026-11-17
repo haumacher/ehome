@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	haumacher/ehome #178: every group address has an identifier, the readable id of its datapoint
+	(kueche.licht instead of 1/2/3). New addresses get theirs when they are created
+	(de.haumacher.ehome.runtime.GroupAddressIdentifiers); the addresses of a database from before that
+	have none get theirs once, by the startup action GroupAddressIdentifierMigration, after the rule of
+	"Propose identifiers" (de.haumacher.ehome.runtime.GroupAddressIds): from the function using the
+	address, else from its name or description, else from the address (ga_1_2_3), unique in the
+	project. The rules naming such an address by its address (@"1/2/3") are rewritten to the identifier
+	in the same transaction (de.haumacher.ehome.runtime.IdRenames). Nothing of the stored model changes.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_178_Group_address_identifiers"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_166_Drop_untyped_connected"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors/>
+	<post-processors/>
+	<startup-actions>
+		<startup-action class="de.haumacher.ehome.runtime.GroupAddressIdentifierMigration"/>
+	</startup-actions>
+</migration>

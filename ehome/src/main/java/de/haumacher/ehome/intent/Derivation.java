@@ -753,6 +753,10 @@ public final class Derivation {
 				slot._number = numbers.get(n).intValue();
 				slot._name = addressName(function._function, slot._role, _resources);
 				slot._identifier = GroupAddressIds.proposeFor(function._function, slot._role, mainRole, _identifiers);
+				if (slot._identifier == null) {
+					// A function without a name: the address gives the identifier (haumacher/ehome #178).
+					slot._identifier = GroupAddressIds.forAddress(_allocator.format(slot._number), _identifiers);
+				}
 			}
 		}
 		return null;
