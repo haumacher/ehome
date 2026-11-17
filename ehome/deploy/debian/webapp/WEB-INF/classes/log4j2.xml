@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!--
-	The log of the Debian package (deploy aspect debian, haumacher/ehome #186): E-Home's own file
+	The log of the Debian package for the first moments of the start (deploy aspect debian, haumacher/ehome
+	#186), until TopLogic's LoggerAdminBean loads WEB-INF/conf/logging/default.xml of this aspect, which
+	writes the same file. E-Home's own file
 	/var/log/ehome/ehome.log instead of the console, which Debian's Tomcat sends to the journal it shares
 	with every other app of the Tomcat. Rolled daily into ehome-<date>.log.gz, the newest 14 kept.
 

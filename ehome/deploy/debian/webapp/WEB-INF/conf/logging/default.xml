@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The logging of the Debian package once the application runs (deploy aspect debian, haumacher/ehome
+	#186). TopLogic's LoggerAdminBean loads this file at startup (logging-config default.xml of
+	top-logic.config.xml) and replaces with it the configuration log4j started with
+	(WEB-INF/classes/log4j2.xml, which covers only the first moments). It takes the place of the
+	engine's file of the same name, which writes to the console - the journal Debian's Tomcat shares
+	with every other app - and to top-logic.*.log in the data directory.
+
+	Everything goes into /var/log/ehome, nothing to the console: E-Home's log ehome.log, rolled daily
+	into ehome-<date>.log.gz with the newest 14 kept (the same file the early configuration writes);
+	the scheduler's and the memory observer's lines in files of their own as in the engine's
+	configuration. The package creates /var/log/ehome and lets Tomcat write it (packaging/debian,
+	doc/debian.md).
+-->
+<Configuration
+	com.top_logic.basic.Logger.exceptionLevel="DEBUG"
+	com.top_logic.basic.Logger.traceExceptions="true"
+	com.top_logic.basic.Logger.traceMessages="false"
+>
+	<Properties>
+		<Property name="dir">/var/log/ehome</Property>
+		<Property name="pattern.long">%date{ISO8601} %-5level [%thread]: %logger - %message %mdc{tl-session-id}%n%throwable</Property>
+	</Properties>
+	<Appenders>
+		<RollingFile name="FILE"
+			fileName="${dir}/ehome.log"
+			filePattern="${dir}/ehome-%d{yyyy-MM-dd}.log.gz"
+		>
+			<PatternLayout pattern="${pattern.long}" charset="UTF-8"/>
+			<Policies>
+				<TimeBasedTriggeringPolicy/>
+			</Policies>
+			<DefaultRolloverStrategy>
+				<Delete basePath="${dir}" maxDepth="1">
+					<IfFileName glob="ehome-*.log.gz">
+						<IfAccumulatedFileCount exceeds="14"/>
+					</IfFileName>
+				</Delete>
+			</DefaultRolloverStrategy>
+		</RollingFile>
+		<RollingFile name="SCHEDULER"
+			fileName="${dir}/scheduler.log"
+			filePattern="${dir}/scheduler.%i.log"
+		>
+			<PatternLayout pattern="${pattern.long}" charset="UTF-8"/>
+			<DefaultRolloverStrategy fileIndex="min" max="5"/>
+			<SizeBasedTriggeringPolicy size="1 MB"/>
+		</RollingFile>
+		<RollingFile name="MEMORY"
+			fileName="${dir}/memory.log"
+			filePattern="${dir}/memory.%i.log"
+		>
+			<PatternLayout pattern="${pattern.long}" charset="UTF-8"/>
+			<DefaultRolloverStrategy fileIndex="min" max="5"/>
+			<SizeBasedTriggeringPolicy size="1 MB"/>
+		</RollingFile>
+	</Appenders>
+	<Loggers>
+		<!-- What the engine routes to the console streams by name goes to the log as well. -->
+		<Logger name="STDOUT"
+			additivity="false"
+			level="info"
+		>
+			<AppenderRef ref="FILE"/>
+		</Logger>
+		<Logger name="STDERR"
+			additivity="false"
+			level="info"
+		>
+			<AppenderRef ref="FILE"/>
+		</Logger>
+		<Logger name="com.top_logic.util.sched"
+			additivity="false"
+			level="info"
+		>
+			<AppenderRef ref="SCHEDULER"/>
+		</Logger>
+		<Logger name="com.top_logic.util.sched.MemoryObserverThread"
+			additivity="false"
+			level="info"
+		>
+			<AppenderRef ref="MEMORY"/>
+		</Logger>
+		<Root level="info">
+			<AppenderRef ref="FILE"/>
+		</Root>
+	</Loggers>
+</Configuration>
