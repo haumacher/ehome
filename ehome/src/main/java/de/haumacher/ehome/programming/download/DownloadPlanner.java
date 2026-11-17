@@ -23,7 +23,6 @@ import com.top_logic.model.TLObject;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.LoadProcedure;
 import de.haumacher.ehome.model.operational.LoadStep;
-import de.haumacher.ehome.model.operational.MaskFeature;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
@@ -52,11 +51,15 @@ import de.haumacher.ehome.modules.ModuleInstances;
  *
  * <h2>Load controls</h2>
  * <p>
- * Only load state machines controlled through properties are supported (mask feature
- * <code>PropertyMappedLsms</code>, as on mask 7.5): load state machine <i>n</i> is the interface
- * object of index <i>n</i>, which the mask must name in one of its resources. <code>Unload</code>,
- * <code>Load</code>, <code>AbsSegment</code>, <code>TaskSegment</code>, <code>TaskCtrl1</code> and
- * <code>LoadCompleted</code> become {@link LoadControls load controls}. With dynamic table
+ * <code>Unload</code>, <code>Load</code>, <code>AbsSegment</code>, <code>TaskSegment</code>,
+ * <code>TaskCtrl1</code> and <code>LoadCompleted</code> become {@link LoadControls load controls},
+ * by the mask (see {@link LoadStateMachines}): through properties (mask feature
+ * <code>PropertyMappedLsms</code>, as on mask 7.5), load state machine <i>n</i> being the interface
+ * object of index <i>n</i>, which the mask must name in one of its resources; or in memory (mask
+ * 7.1, BIM M112, haumacher/ehome #22), written into the mask's load control of the load state machine
+ * and checked by its load state, both in memory. A <code>TaskSegment</code> of a load state machine
+ * the mask has no load control for (load state machine 5 on the masks 7.5 and 7.1) is left out: the
+ * device has nothing to load there. With dynamic table
  * management, the segment of the address table is allocated with the length of the table, the
  * segment of the association table from the end of the address table to the end of its static
  * segment, and the task segment of the association table points to the table (as ETS did it on the
@@ -118,9 +121,6 @@ public class DownloadPlanner {
 
 	/** The interface object of the device. */
 	private static final int DEVICE_OBJECT = 0;
-
-	/** The feature of a mask whose load state machines are controlled through properties. */
-	private static final String PROPERTY_MAPPED_LSMS = "PropertyMappedLsms";
 
 	/** The flavour of a mask resource holding the download stamps of a load state machine. */
 	private static final String STAMP_FLAVOUR = "Stamp_SystemB";
@@ -241,6 +241,30 @@ public class DownloadPlanner {
 
 		boolean contains(Block block) {
 			return block.address() >= _address && block.end() <= _address + _size;
+		}
+	}
+
+	/**
+	 * Where a load control of a step goes: the interface object of a load state machine controlled
+	 * through properties, or the memory of one controlled in memory.
+	 *
+	 * @param stateMachine
+	 *        The load state machine.
+	 * @param memory
+	 *        The load state machine in memory, <code>null</code> if it is controlled through the
+	 *        property of the interface object of its index.
+	 */
+	private record Lsm(int stateMachine, LoadStateMachines.InMemory memory) {
+
+		/**
+		 * The operation writing the given load control and checking the expected state.
+		 */
+		Operation control(String step, byte[] control, int expectedState) {
+			if (memory == null) {
+				return new Operation.LoadControl(step, stateMachine, stateMachine, control, expectedState);
+			}
+			return new Operation.MemoryLoadControl(step, stateMachine, memory.control(), memory.status(), control,
+				expectedState);
 		}
 	}
 
@@ -591,18 +615,16 @@ public class DownloadPlanner {
 				_operations.add(new Operation.Disconnect(label));
 				break;
 			case "Unload": {
-				Integer object = lsmObject(step, false);
-				if (object != null) {
-					_operations.add(new Operation.LoadControl(label, load.getStateMachine(), object,
-						LoadControls.event(LoadControls.EVENT_UNLOAD), LoadControls.STATE_UNLOADED));
+				Lsm lsm = lsm(step, false);
+				if (lsm != null) {
+					_operations.add(lsm.control(label, LoadControls.event(LoadControls.EVENT_UNLOAD), LoadControls.STATE_UNLOADED));
 				}
 				break;
 			}
 			case "Load": {
-				Integer object = lsmObject(step, false);
-				if (object != null) {
-					_operations.add(new Operation.LoadControl(label, load.getStateMachine(), object,
-						LoadControls.event(LoadControls.EVENT_LOAD), LoadControls.STATE_LOADING));
+				Lsm lsm = lsm(step, false);
+				if (lsm != null) {
+					_operations.add(lsm.control(label, LoadControls.event(LoadControls.EVENT_LOAD), LoadControls.STATE_LOADING));
 				}
 				break;
 			}
@@ -613,9 +635,9 @@ public class DownloadPlanner {
 				taskSegment(step);
 				break;
 			case "TaskCtrl1": {
-				Integer object = lsmObject(step, false);
-				if (object != null) {
-					_operations.add(new Operation.LoadControl(label, load.getStateMachine(), object,
+				Lsm lsm = lsm(step, false);
+				if (lsm != null) {
+					_operations.add(lsm.control(label,
 						LoadControls.taskControl1((int) value(load.getAddress()), value(load.getCount())),
 						LoadControls.STATE_LOADING));
 				}
@@ -680,33 +702,39 @@ public class DownloadPlanner {
 	}
 
 	/**
-	 * The interface object of the load state machine of a step, <code>null</code> if there is none
-	 * (then a problem is recorded unless the caller handles it).
+	 * Where the load controls of the load state machine of a step go, <code>null</code> if the mask
+	 * has no load control for it (then a problem is recorded unless the step is optional).
 	 */
-	private Integer lsmObject(Step step, boolean optional) {
+	private Lsm lsm(Step step, boolean optional) {
 		LoadStep load = step.step();
 		Integer lsm = load.getStateMachine();
 		if (lsm == null) {
 			_problems.add(I18NConstants.ERROR_LSM_BY_TYPE__STEP.fill(step.label()));
 			return null;
 		}
-		if (feature(PROPERTY_MAPPED_LSMS) != 1) {
-			_problems.add(I18NConstants.ERROR_MEMORY_MAPPED_LSM__STEP_MASK.fill(step.label(), maskName()));
-			return null;
+		if (LoadStateMachines.propertyMapped(_mask)) {
+			if (!maskHasObject(lsm)) {
+				if (!optional) {
+					_problems.add(I18NConstants.ERROR_NO_LSM_OBJECT__STEP_MASK_LSM.fill(step.label(), maskName(), lsm));
+				}
+				return null;
+			}
+			return new Lsm(lsm, null);
 		}
-		if (!maskHasObject(lsm)) {
+		LoadStateMachines.InMemory memory = LoadStateMachines.inMemory(_mask, lsm);
+		if (memory == null) {
 			if (!optional) {
-				_problems.add(I18NConstants.ERROR_NO_LSM_OBJECT__STEP_MASK_LSM.fill(step.label(), maskName(), lsm));
+				_problems.add(I18NConstants.ERROR_NO_LOAD_CONTROL__STEP_MASK_LSM.fill(step.label(), maskName(), lsm));
 			}
 			return null;
 		}
-		return lsm;
+		return new Lsm(lsm, memory);
 	}
 
 	private void absoluteSegment(Step step) {
 		LoadStep load = step.step();
-		Integer object = lsmObject(step, false);
-		if (object == null) {
+		Lsm lsm = lsm(step, false);
+		if (lsm == null) {
 			return;
 		}
 		int type = value(load.getSegmentType());
@@ -715,7 +743,7 @@ public class DownloadPlanner {
 			return;
 		}
 		Allocation allocation = allocation(step);
-		_operations.add(new Operation.LoadControl(step.label(), load.getStateMachine(), object,
+		_operations.add(lsm.control(step.label(),
 			LoadControls.absoluteSegment(type, allocation._address, allocation._size, allocation._access,
 				allocation._memoryType, allocation._flags),
 			LoadControls.STATE_LOADING));
@@ -733,17 +761,17 @@ public class DownloadPlanner {
 	private void taskSegment(Step step) {
 		LoadStep load = step.step();
 		Integer lsm = load.getStateMachine();
-		Integer object = lsmObject(step, true);
-		if (object == null) {
-			// A load state machine the mask has no interface object for (LSM 5 on mask 7.5): the device
-			// has nothing to load there.
+		Lsm target = lsm(step, true);
+		if (target == null) {
+			// A load state machine the mask has no load control for (LSM 5 on the masks 7.5 and 7.1):
+			// the device has nothing to load there.
 			return;
 		}
 		int address = _taskAddresses.getOrDefault(lsm, (int) value(load.getAddress()));
 		int manufacturer = manufacturer(_program);
 		int number = value(_program.getApplicationNumber());
 		int version = value(_program.getApplicationVersion());
-		_operations.add(new Operation.LoadControl(step.label(), lsm, object,
+		_operations.add(target.control(step.label(),
 			LoadControls.taskSegment(address, value(_program.getPeiType()), manufacturer, number, version),
 			LoadControls.STATE_LOADING));
 		_applicationIds.put(lsm, applicationId(_program));
@@ -751,13 +779,16 @@ public class DownloadPlanner {
 
 	private void loadCompleted(Step step) {
 		Integer lsm = step.step().getStateMachine();
-		Integer object = lsmObject(step, false);
-		if (object == null) {
+		Lsm target = lsm(step, false);
+		if (target == null) {
 			return;
 		}
+		// The interface object of the loaded part: of the index of the load state machine (through
+		// properties), of its object type (in memory); the same number.
+		int object = lsm;
 		writeSegments(lsm);
-		_operations.add(new Operation.LoadControl(step.label(), lsm, object,
-			LoadControls.event(LoadControls.EVENT_LOAD_COMPLETED), LoadControls.STATE_LOADED));
+		_operations.add(target.control(step.label(), LoadControls.event(LoadControls.EVENT_LOAD_COMPLETED),
+			LoadControls.STATE_LOADED));
 		ResourceLocation programVersion = systemProperty("ApplicationId");
 		byte[] applicationId = _applicationIds.get(lsm);
 		if (applicationId != null && programVersion != null && Objects.equals(programVersion.getInterfaceObject(), object)) {
@@ -1111,15 +1142,6 @@ public class DownloadPlanner {
 	 */
 	private int[] masks() {
 		return new int[] { _mask.getNumber() };
-	}
-
-	private int feature(String name) {
-		for (MaskFeature feature : _mask.getFeatures()) {
-			if (name.equals(feature.getName()) && feature.getValue() != null) {
-				return feature.getValue();
-			}
-		}
-		return 0;
 	}
 
 	private boolean maskHasObject(int objectIndex) {

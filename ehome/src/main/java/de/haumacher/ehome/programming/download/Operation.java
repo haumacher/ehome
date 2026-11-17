@@ -151,6 +151,46 @@ public sealed interface Operation {
 	}
 
 	/**
+	 * Writes a load control into the memory of the load control of a mask controlling its load state
+	 * machines in memory (mask 7.1, see {@link LoadStateMachines}) and checks the load state the device
+	 * holds afterwards at the address of the load state.
+	 *
+	 * @param stateMachine
+	 *        The load state machine (ETS: <code>LsmIdx</code>), the object type of the loaded part.
+	 * @param address
+	 *        The address of the load control.
+	 * @param status
+	 *        The address of the load state of the load state machine (one byte).
+	 * @param control
+	 *        The load control as written into a property ({@link LoadControls}); the bytes written are
+	 *        its {@link #record()}.
+	 * @param expectedState
+	 *        The load state the device must hold afterwards.
+	 */
+	record MemoryLoadControl(String step, int stateMachine, int address, int status, byte[] control, int expectedState)
+			implements Operation {
+
+		/**
+		 * The bytes written into the memory of the load control.
+		 */
+		public byte[] record() {
+			return LoadControls.memoryRecord(stateMachine, control);
+		}
+
+		@Override
+		public ResKey description() {
+			return I18NConstants.OP_MEMORY_LOAD_CONTROL__LSM_ADDRESS_CONTROL_BYTES_STATUS_STATE.fill(stateMachine,
+				String.format("%04X", address), LoadControls.describe(control), hex(record()), String.format("%04X", status),
+				LoadControls.stateName(expectedState));
+		}
+
+		@Override
+		public int bytesWritten() {
+			return LoadControls.MEMORY_RECORD_LENGTH;
+		}
+	}
+
+	/**
 	 * Writes memory, at most {@link DownloadPlanner#MAX_CHUNK} bytes; with verification, the bytes
 	 * are read back and compared.
 	 *

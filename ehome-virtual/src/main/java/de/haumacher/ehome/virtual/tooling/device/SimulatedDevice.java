@@ -33,11 +33,20 @@ import de.haumacher.ehome.programming.download.LoadControls;
  * (<code>PID_TABLE_REFERENCE</code>, the segment's address) and the program version
  * (<code>PID_PROGRAM_VERSION</code>, the application ID it carries) of the object, as the test
  * devices showed after ETS had loaded them (see {@link LoadControls}).</li>
- * <li>{@link LoadControlKind#MEMORY} (masks 0700 and 0701, BIM M112): the load controls are written
- * to memory {@value #MANAGEMENT_CONTROL} (state machine in the high, event in the low nibble of the
- * first byte, as Calimero's device implementation reads them), the load states are read at
- * {@value #LOAD_STATES} and the following bytes. The device records the writes and answers the
- * reads by its {@link MappedLoadStateRule}; the true answers of such a device are not known.</li>
+ * <li>{@link LoadControlKind#MEMORY} (masks 0700 and 0701, BIM M112): the load controls are records of
+ * {@value #MEMORY_RECORD_LENGTH} bytes written to memory {@value #MANAGEMENT_CONTROL} (KNX 3/5/2
+ * Management Procedures 3.31.2: the load state machine, the object type of the loaded part, in the
+ * high, the event in the low nibble of the first byte; an additional load control continues with the
+ * segment type, a segment ID 0 and the data of the control from its third byte on), the load states
+ * are read at {@value #LOAD_STATES} and the following bytes (address table, association table,
+ * application, PEI program). A record of another length, or naming no load state machine 1 to 4, is
+ * refused. The load state machines follow the records as those of a device with properties follow
+ * their load controls, a task segment setting the table reference and the program version of the
+ * interface object of the load state machine's number; the reads of the load states are answered by
+ * the device's {@link MappedLoadStateRule}. The record is decoded here, by the constants of the
+ * specification, independently of the download's encoding ({@link LoadControls#memoryRecord(int,
+ * byte[])}) and of the mask's resources. Interface objects 0 to 4 as with properties (mask 7.1
+ * names the program versions of objects 3 and 4, the table references of objects 1 and 2).</li>
  * <li>{@link LoadControlKind#NONE} (BCU 1, BCU 2): plain memory; a property access is answered as
  * not present.</li>
  * </ul>
@@ -68,6 +77,9 @@ public class SimulatedDevice {
 
 	/** The number of memory-mapped load state machines (address table, association table, application, PEI program). */
 	public static final int MAPPED_STATE_MACHINES = 4;
+
+	/** The length of a load control written to {@value #MANAGEMENT_CONTROL}. */
+	public static final int MEMORY_RECORD_LENGTH = 11;
 
 	/** Device object: the programming mode (1 byte, bit 0), the state of the programming button. */
 	public static final int PID_PROGRAMMING_MODE = 54;
@@ -165,7 +177,7 @@ public class SimulatedDevice {
 		_descriptor = descriptor;
 		_kind = kind;
 		_rule = rule;
-		_objectCount = kind == LoadControlKind.PROPERTIES ? LAST_LSM_OBJECT + 1 : 0;
+		_objectCount = kind == LoadControlKind.NONE ? 0 : LAST_LSM_OBJECT + 1;
 		for (int object = 0; object < _objectCount; object++) {
 			// Device object, address table, association table, application program, PEI program
 			// (the System B layout the download of mask 7.5 uses).
@@ -344,20 +356,33 @@ public class SimulatedDevice {
 	/**
 	 * Writes memory (A_Memory_Write).
 	 *
-	 * @return Whether the device accepts the write (the range lies in the memory).
+	 * @return Whether the device accepts the write (the range lies in the memory; a load control in
+	 *         memory is a record of {@value #MEMORY_RECORD_LENGTH} bytes for a load state machine 1 to
+	 *         {@value #MAPPED_STATE_MACHINES}).
 	 */
 	public synchronized boolean putMemory(int address, byte[] data) {
 		if (address < 0 || address + data.length > MEMORY_SIZE) {
 			return false;
 		}
-		System.arraycopy(data, 0, _memory, address, data.length);
-		if (_kind == LoadControlKind.MEMORY && address == MANAGEMENT_CONTROL && data.length > 0) {
-			int machine = (data[0] & 0xF0) >>> 4;
-			int event = data[0] & 0x0F;
-			if (machine >= 1 && machine <= MAPPED_STATE_MACHINES) {
-				_states[machine] = next(_states[machine], event);
+		if (_kind == LoadControlKind.MEMORY && address == MANAGEMENT_CONTROL) {
+			int machine = data.length == 0 ? 0 : (data[0] & 0xF0) >>> 4;
+			if (data.length != MEMORY_RECORD_LENGTH || machine < 1 || machine > MAPPED_STATE_MACHINES) {
+				return false;
 			}
+			// The load control as written into a property: the event, for additional load controls
+			// the segment type and the data after the segment ID.
+			byte[] control = new byte[LoadControls.LENGTH];
+			control[0] = (byte) (data[0] & 0x0F);
+			if (control[0] == LoadControls.EVENT_ADDITIONAL) {
+				control[1] = data[1];
+				System.arraycopy(data, 3, control, 2, LoadControls.LENGTH - 2);
+			} else {
+				System.arraycopy(data, 1, control, 1, LoadControls.LENGTH - 1);
+			}
+			_states[machine] = loadControl(machine, control);
+			return true;
 		}
+		System.arraycopy(data, 0, _memory, address, data.length);
 		return true;
 	}
 

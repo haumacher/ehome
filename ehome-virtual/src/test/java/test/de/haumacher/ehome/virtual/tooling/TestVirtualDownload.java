@@ -40,6 +40,7 @@ import de.haumacher.ehome.programming.download.DeviceComparison;
 import de.haumacher.ehome.programming.download.DownloadExecutor;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
+import de.haumacher.ehome.programming.download.LoadControls;
 import de.haumacher.ehome.programming.download.Operation;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.virtual.server.Endpoint;
@@ -56,8 +57,10 @@ import de.haumacher.ehome.virtual.tooling.VirtualInterfaceManager;
 /**
  * E-Home's own download into the virtual device (haumacher/ehome #27), over KNXnet/IP tunnelling
  * on the loopback address: the MDT actuator (1.3.5) and the Gira Tastsensor (1.3.50) of
- * <code>samples/KNX-Testsystem.knxproj</code> (mask 0705) and the BCU 1 program of
- * <code>samples/Tastsensor2.knxproj</code>.
+ * <code>samples/KNX-Testsystem.knxproj</code> (mask 0705), the BCU 1 program of
+ * <code>samples/Tastsensor2.knxproj</code>, and the program of mask 7.1 (load state machines in
+ * memory, haumacher/ehome #22) of the actuator 1.3.5 of the app's fixture
+ * <code>TestMask71.knxproj</code>, also into a device whose load states do not follow.
  *
  * <p>
  * For each: the trace recorded by the virtual device, read back from its file, is the download
@@ -97,6 +100,74 @@ public class TestVirtualDownload extends BasicTestCase {
 		} finally {
 			delete(project);
 		}
+	}
+
+	/**
+	 * Mask 7.1: the load controls written as records into memory 0104 and checked at B6EA-B6EC, on the
+	 * virtual device decoding the records itself; a device whose load states do not follow refuses
+	 * the download.
+	 */
+	public void testMask71() throws Exception {
+		TLObject project = importProject("../ehome/src/test/fixtures/TestMask71.knxproj");
+		try {
+			TLObject device = device(project, 0x1305);
+			assertEquals(0x0701, DeviceConfiguration.program(device).getMask().getNumber());
+			assertEquals(SimulatedDevice.LoadControlKind.MEMORY,
+				ProjectDevices.create(device, MappedLoadStateRule.ECHO).kind());
+			download(device, "mask71", TransportTiming.DEFAULT);
+			statesNotFollowing(device);
+		} finally {
+			delete(project);
+		}
+	}
+
+	/**
+	 * A device of mask 7.1 whose load states stay "unloaded": the unloads succeed, the start of the
+	 * load of the address table is refused after its state was read four times; nothing after its
+	 * record is written, no memory of the image.
+	 */
+	private void statesNotFollowing(TLObject device) throws Exception {
+		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
+		SimulatedDevice simulated = ProjectDevices.create(device, MappedLoadStateRule.UNLOADED);
+		byte[] initial = simulated.memorySnapshot();
+		VirtualInterfaceManager manager = manager("download-mask71-unloaded");
+		Endpoint endpoint = loopback();
+		VirtualInterface running = manager.start(simulated, endpoint, TransportTiming.DEFAULT, Map.of("plan", "unloaded"));
+		File file = running.recorder().file();
+		DownloadExecutor.Result[] result = new DownloadExecutor.Result[1];
+		try {
+			writing(() -> {
+				try (CalimeroWriter writer = CalimeroWriter.open(gateway(endpoint), plan.getIndividualAddress())) {
+					result[0] = new DownloadExecutor().execute(plan, writer, (number, count, operation) -> {
+						// No progress.
+					});
+				}
+			});
+		} finally {
+			manager.stop();
+		}
+		assertFalse(result[0].success());
+		Operation.MemoryLoadControl failed = (Operation.MemoryLoadControl) result[0].failed();
+		assertEquals("#6 Load LSM 1", failed.step());
+		assertEquals("Load state machine 1 reports the state \"Unloaded\" after the load control \"Start loading\", "
+			+ "expected \"Loading\".", result[0].failure());
+		assertTrue(Arrays.equals(initial, simulated.memorySnapshot()));
+		List<TraceEntry> entries = read(file).entries();
+		List<String> records = new ArrayList<>();
+		int stateReads = 0;
+		for (TraceEntry entry : entries) {
+			if (entry.incoming() && TraceEntry.MEMORY_WRITE.equals(entry.service())) {
+				records.add(TraceFormat.hex(entry.data()));
+			}
+			if (entry.incoming() && TraceEntry.MEMORY_READ.equals(entry.service())
+				&& entry.number(TraceEntry.ADDRESS) == SimulatedDevice.LOAD_STATES) {
+				stateReads++;
+			}
+		}
+		assertEquals(List.of("1400000000000000000000", "2400000000000000000000", "3400000000000000000000",
+			"1100000000000000000000"), records);
+		// One read after the unload of load state machine 1, four after its start of loading.
+		assertEquals(5, stateReads);
 	}
 
 	/** The option of the virtual device: it ends the connection after a restart. */
@@ -193,14 +264,21 @@ public class TestVirtualDownload extends BasicTestCase {
 			}
 			// The comparison expects the procedure's own writes over the image (haumacher/ehome #29).
 			assertEquals(name + ": differences found by the comparison", List.of(), different);
+			List<String> loaded = loadedStateMachines(plan);
 			for (String fact : comparison.facts()) {
 				if (fact.startsWith("Program version: ") || fact.startsWith("Program identity ")) {
 					String[] parts = fact.substring(fact.indexOf(':') + 2).split(", the (program|image)'s: ");
 					assertEquals(name + ": " + fact, parts[1], parts[0]);
 				} else if (fact.startsWith("Load state machine ")) {
-					assertTrue(name + ": " + fact, fact.endsWith(": Loaded"));
+					String lsm = fact.substring("Load state machine ".length(), fact.indexOf(':'));
+					// The load state machines the plan loads are loaded; another one (mask 7.1: the PEI
+					// program, 4) keeps its state.
+					assertEquals(name + ": " + fact, loaded.contains(lsm), fact.endsWith(": Loaded"));
 				}
 			}
+			assertEquals(name + ": the load states read", loaded,
+				comparison.facts().stream().filter(f -> f.endsWith(": Loaded"))
+					.map(f -> f.substring("Load state machine ".length(), f.indexOf(':'))).toList());
 
 			// A device that does not hold the procedure's own data (BCU 1: the application stopped,
 			// RunError not FF) differs there.
@@ -266,6 +344,23 @@ public class TestVirtualDownload extends BasicTestCase {
 		assertEquals(states[2], simulated.state(3));
 		List<Operation> recorded = TraceOperations.operations(read(file).entries());
 		assertTrue(recorded.toString(), recorded.stream().noneMatch(Operation::writes));
+	}
+
+	/**
+	 * The load state machines whose load the plan completes, in their order.
+	 */
+	private static List<String> loadedStateMachines(DownloadPlan plan) {
+		List<String> result = new ArrayList<>();
+		for (Operation operation : plan.getOperations()) {
+			if (operation instanceof Operation.LoadControl control
+				&& control.control()[0] == LoadControls.EVENT_LOAD_COMPLETED) {
+				result.add(Integer.toString(control.stateMachine()));
+			} else if (operation instanceof Operation.MemoryLoadControl control
+				&& control.control()[0] == LoadControls.EVENT_LOAD_COMPLETED) {
+				result.add(Integer.toString(control.stateMachine()));
+			}
+		}
+		return result;
 	}
 
 	/**

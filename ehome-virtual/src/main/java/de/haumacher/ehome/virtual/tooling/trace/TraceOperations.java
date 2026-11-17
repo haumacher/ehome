@@ -33,9 +33,12 @@ import de.haumacher.ehome.programming.download.Operation;
  * read is the one expected. Any other property write: {@link Operation.WriteProperty}.</li>
  * <li><code>A_PropertyValue_Read</code>: {@link Operation.CompareProperty} with the value
  * answered.</li>
- * <li><code>A_Memory_Write</code>: {@link Operation.WriteMemory}, verified if a read of the same
- * range follows; any other <code>A_Memory_Read</code>: {@link Operation.CompareMemory} with the
- * bytes answered.</li>
+ * <li><code>A_Memory_Write</code> of {@value LoadControls#MEMORY_RECORD_LENGTH} bytes followed by reads
+ * of one byte at one address: {@link Operation.MemoryLoadControl} (mask 7.1: the record of a load
+ * control, the reads of its load state; the load state machine is the high nibble of the record, the
+ * expected state the last one read). Any other <code>A_Memory_Write</code>:
+ * {@link Operation.WriteMemory}, verified if a read of the same range follows; any other
+ * <code>A_Memory_Read</code>: {@link Operation.CompareMemory} with the bytes answered.</li>
  * <li><code>A_Restart</code>: {@link Operation.Restart}, together with the tool's
  * <code>T_Disconnect</code> right after it (the restart ends the connection);
  * <code>A_IndividualAddress_Write</code>:
@@ -116,6 +119,19 @@ public class TraceOperations {
 				case TraceEntry.MEMORY_WRITE: {
 					int address = request.number(TraceEntry.ADDRESS);
 					byte[] data = request.data();
+					if (data.length == LoadControls.MEMORY_RECORD_LENGTH && n + 1 < requests.size()
+						&& isStateRead(requests.get(n + 1))) {
+						int status = requests.get(n + 1).number(TraceEntry.ADDRESS);
+						int state = -1;
+						while (n + 1 < requests.size() && isStateRead(requests.get(n + 1))
+							&& requests.get(n + 1).number(TraceEntry.ADDRESS) == status) {
+							n++;
+							state = state(answer(entries, requests.get(n)));
+						}
+						result.add(new Operation.MemoryLoadControl("", LoadControls.memoryStateMachine(data), address, status,
+							LoadControls.memoryControl(data), state));
+						break;
+					}
 					boolean verify = n + 1 < requests.size() && isMemoryRead(requests.get(n + 1), address, data.length);
 					if (verify) {
 						n++;
@@ -236,6 +252,10 @@ public class TraceOperations {
 			return "LoadControl " + control.objectIndex() + " " + TraceFormat.hex(control.control()) + " -> "
 				+ control.expectedState();
 		}
+		if (operation instanceof Operation.MemoryLoadControl control) {
+			return String.format("MemoryLoadControl %04X %s %04X -> %d", control.address(), TraceFormat.hex(control.record()),
+				control.status(), control.expectedState());
+		}
 		if (operation instanceof Operation.WriteMemory write) {
 			return String.format("WriteMemory %04X %s%s", write.address(), TraceFormat.hex(write.data()),
 				write.verify() ? " verified" : "");
@@ -317,6 +337,13 @@ public class TraceOperations {
 	private static boolean isStateRead(TraceEntry request, int object) {
 		return TraceEntry.PROPERTY_READ.equals(request.service()) && request.number(TraceEntry.OBJECT) == object
 			&& request.number(TraceEntry.PROPERTY) == LoadControls.PID_LOAD_STATE_CONTROL;
+	}
+
+	/**
+	 * Whether the request reads one byte of memory: the load state of a load state machine in memory.
+	 */
+	private static boolean isStateRead(TraceEntry request) {
+		return TraceEntry.MEMORY_READ.equals(request.service()) && request.number(TraceEntry.COUNT) == 1;
 	}
 
 	private static boolean isMemoryRead(TraceEntry request, int address, int length) {
