@@ -292,6 +292,8 @@ public final class ExtIds {
 			case "ehome.physical:Line":
 				return Kind.LINE;
 			case "ehome.physical:Device":
+			// The stub of a device the catalog does not identify is numbered as a device (haumacher/ehome #183).
+			case "ehome.physical:DeviceStub":
 				return Kind.DEVICE;
 			case "ehome.logical:GroupRange":
 				return Kind.GROUP_RANGE;

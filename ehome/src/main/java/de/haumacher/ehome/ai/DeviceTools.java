@@ -224,10 +224,17 @@ public class DeviceTools {
 		result.put("id", id(device));
 		result.put("address", GroupAddressConnections.addressText(device));
 		result.put("name", device.tValueByName("title"));
-		TLObject variant = device.tValueByName("type") instanceof TLObject type ? type : null;
-		result.put("product", variant == null ? null : DevicePlanning.variantLabel(variant));
-		TLObject assignment = device.tValueByName("program") instanceof TLObject program ? program : null;
-		result.put("program", assignment == null ? null : DevicePlanning.programLabel(assignment));
+		if (ExtIds.isA(device, DEVICE)) {
+			TLObject variant = device.tValueByName("type") instanceof TLObject type ? type : null;
+			result.put("product", variant == null ? null : DevicePlanning.variantLabel(variant));
+			TLObject assignment = device.tValueByName("program") instanceof TLObject program ? program : null;
+			result.put("program", assignment == null ? null : DevicePlanning.programLabel(assignment));
+		} else {
+			// The stub of a device a scan found that the catalog does not identify (haumacher/ehome #183).
+			result.put("unidentified", "No product and program: the catalog does not identify the device "
+				+ GroupAddressConnections.deviceLabel(device) + "; the user assigns it after importing the"
+				+ " manufacturer's product data.");
+		}
 		TLObject location = device.tValueByName("location") instanceof TLObject part ? part : null;
 		result.put("location", location == null ? null : ref(location, BuildingDevices.path(location)));
 		return result;

@@ -91,14 +91,14 @@ final class ProjectExport {
 					.attr("Address", number(line, "address"))
 					// Not modeled; required by the schema.
 					.attr("MediumTypeRefId", "MT-0");
-				for (TLObject device : byAddress(list(line, "devices"))) {
+				for (TLObject device : byAddress(Usage.exported(list(line, "devices")))) {
 					writeDevice(out, device);
 				}
 				out.close();
 			}
 			out.close();
 		}
-		List<TLObject> unassigned = list(_project, "unassignedDevices");
+		List<TLObject> unassigned = Usage.exported(list(_project, "unassignedDevices"));
 		if (!unassigned.isEmpty()) {
 			out.open("UnassignedDevices");
 			for (TLObject device : unassigned) {

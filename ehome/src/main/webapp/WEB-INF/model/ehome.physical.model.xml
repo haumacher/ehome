@@ -269,9 +269,134 @@
 				/>
 			</attributes>
 		</class>
-		<class name="Device">
+		<!--
+			A device on the bus of a project (haumacher/ehome #183): a device of the catalog (Device, with its
+			product and application program) or a device a scan found that the catalog does not identify
+			(DeviceStub). What both have: the name the user gave it, the individual address in its line, the
+			serial number and the building part it is placed in. A line holds both; what needs a program
+			(parameters, communication objects, programming, the runtime, the monitor) takes a Device.
+		-->
+		<class name="BusDevice"
+			abstract="true"
+		>
 			<generalizations>
 				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:fa-solid fa-mobile-screen-button"/>
+			</annotations>
+			<attributes>
+				<!-- The name the user gave the device; without one, the device is named by type and address. -->
+				<property name="title"
+					type="tl.core:String"
+				/>
+				<!-- The serial number of the real device, as read from the bus. -->
+				<property name="serialNumber"
+					type="tl.core:String"
+				/>
+				<!--
+					The serial number as KNX writes it, manufacturer and number in hex ("000A:2A4A2711"); the
+					stored serialNumber is in the form of ETS's project (Base64, haumacher/ehome #120).
+				-->
+				<property name="serialText"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[d -> serialNumberText($d.get(`ehome.physical:BusDevice#serialNumber`))]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The device number in its line (the last part of the individual address). -->
+				<property name="address"
+					type="tl.core:Integer"
+				/>
+				<reference name="location"
+					kind="forwards"
+					type="ehome.building:BuildingDefinition"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A device a scan of the bus found that the catalog does not identify (haumacher/ehome #183): what
+			it told about itself, without product and program. It stands in its line like a device, marked
+			as a problem; "Assign" (de.haumacher.ehome.scan.DeviceStubs) looks its identity up in the catalog
+			again and replaces it by a Device, keeping name, address, serial number and location.
+		-->
+		<class name="DeviceStub">
+			<generalizations>
+				<generalization type="BusDevice"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-exclamation-triangle ehomeStub"/>
+			</annotations>
+			<attributes>
+				<property name="name"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[d -> $d.get(`ehome.physical:BusDevice#title`) || deviceLabel($d)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The manufacturer as the catalog names it, else its KNX ID (M-0008). -->
+				<property name="manufacturer"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[d -> deviceStubManufacturer($d)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The order number the device reports; where it reports no text there, its hardware type in hex. -->
+				<property name="orderNumber"
+					type="tl.core:String"
+				>
+					<annotations>
+						<storage-algorithm>
+							<query>
+								<expr><![CDATA[d -> deviceStubOrder($d)]]></expr>
+							</query>
+						</storage-algorithm>
+					</annotations>
+				</property>
+				<!-- The KNX ID of the manufacturer of the device (device object, property 12). -->
+				<property name="manufacturerId"
+					type="tl.core:Integer"
+				/>
+				<!-- The application program it runs: manufacturer, application number and version (5 bytes) as hex digits. -->
+				<property name="programVersion"
+					type="tl.core:String"
+				/>
+				<!-- The device descriptor (mask version) as hex digits. -->
+				<property name="descriptor"
+					type="tl.core:String"
+				/>
+				<!-- The hardware type (device object, property 78) as hex digits. -->
+				<property name="hardwareType"
+					type="tl.core:String"
+				/>
+				<!-- The order info (device object, property 15): text where printable, else its bytes in hex. -->
+				<property name="orderInfo"
+					type="tl.core:String"
+				/>
+				<!-- When a scan read the device last. -->
+				<property name="lastSeen"
+					type="tl.core:DateTime"
+				/>
+			</attributes>
+		</class>
+		<class name="Device">
+			<generalizations>
+				<generalization type="BusDevice"/>
 			</generalizations>
 			<annotations>
 				<table name="EHDevice"/>
@@ -292,43 +417,20 @@
 					<annotations>
 						<storage-algorithm>
 							<query>
-								<expr><![CDATA[d -> $d.get(`ehome.physical:Device#title`) || "{0} ({1})".fill(
+								<expr><![CDATA[d -> $d.get(`ehome.physical:BusDevice#title`) || "{0} ({1})".fill(
     $d.get(`ehome.physical:Device#type`).label(),
-    $d.get(`ehome.physical:Device#address`).label()
+    $d.get(`ehome.physical:BusDevice#address`).label()
 )]]></expr>
 							</query>
 						</storage-algorithm>
 					</annotations>
 				</property>
-				<!-- The name the user gave the device; without one, the device is named by type and address. -->
-				<property name="title"
-					type="tl.core:String"
-				/>
 				<property name="description"
 					type="tl.core:Text"
 				/>
 				<property name="installationHints"
 					type="tl.core:Text"
 				/>
-				<!-- The serial number of the real device, as read from the bus. -->
-				<property name="serialNumber"
-					type="tl.core:String"
-				/>
-				<!--
-					The serial number as KNX writes it, manufacturer and number in hex ("000A:2A4A2711"); the
-					stored serialNumber is in the form of ETS's project (Base64, haumacher/ehome #120).
-				-->
-				<property name="serialText"
-					type="tl.core:String"
-				>
-					<annotations>
-						<storage-algorithm>
-							<query>
-								<expr><![CDATA[d -> serialNumberText($d.get(`ehome.physical:Device#serialNumber`))]]></expr>
-							</query>
-						</storage-algorithm>
-					</annotations>
-				</property>
 				<property name="lastModified"
 					type="tl.core:DateTime"
 				/>
@@ -366,9 +468,6 @@
 						</storage-algorithm>
 					</annotations>
 				</property>
-				<property name="address"
-					type="tl.core:Integer"
-				/>
 				<reference name="type"
 					kind="forwards"
 					mandatory="true"
@@ -392,10 +491,6 @@
 						</options>
 					</annotations>
 				</reference>
-				<reference name="location"
-					kind="forwards"
-					type="ehome.building:BuildingDefinition"
-				/>
 				<!-- The parameter values set in the project; all others have their default. -->
 				<reference name="settings"
 					composite="true"
@@ -492,11 +587,12 @@
 				<property name="address"
 					type="tl.core:Integer"
 				/>
+				<!-- The devices of the line: devices of the catalog and stubs of devices a scan did not identify (haumacher/ehome #183). -->
 				<reference name="devices"
 					composite="true"
 					kind="forwards"
 					multiple="true"
-					type="Device"
+					type="BusDevice"
 				/>
 			</attributes>
 		</class>

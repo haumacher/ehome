@@ -61,8 +61,6 @@ public class ScanFunctions extends GenericMethod {
 		scanChooseVeto(1),
 		/** <code>scanChoose(result, row, candidate)</code>: the result with the candidate chosen for the row. */
 		scanChoose(3),
-		/** <code>scanRematch(project)</code>: the result of matching the project's unidentified devices again. */
-		scanRematch(1),
 		/** <code>scanLine(node)</code>: the line of a node of the topology as entered for a scan (<code>1.1</code>). */
 		scanLine(1),
 		/** <code>scanLedVeto(row)</code>: why the programming mode cannot be switched. */
@@ -133,14 +131,6 @@ public class ScanFunctions extends GenericMethod {
 				return chooseVeto(arguments[0]);
 			case scanChoose:
 				return choose(arguments[0], arguments[1], arguments[2]);
-			case scanRematch: {
-				if (!(arguments[0] instanceof TLObject project)) {
-					return null;
-				}
-				List<Map<String, Object>> rows = new ArrayList<>(ScanRows.rematch(project));
-				return ScanJob.result(com.top_logic.util.Resources.getInstance()
-					.getString(I18NConstants.REMATCH_DONE__COUNT.fill(rows.size())), new ArrayList<>(rows), List.of());
-			}
 			case scanLine:
 				return lineText(arguments[0] instanceof TLObject node ? node : null);
 			case scanLedVeto:
@@ -273,9 +263,11 @@ public class ScanFunctions extends GenericMethod {
 	}
 
 	/**
-	 * Why the device of a row cannot be created or updated, <code>null</code> if it can: it must be
-	 * identified by the catalog as exactly one product and program (one chosen of several), and a
-	 * device of the project at its address must run that program.
+	 * Why the device of a row cannot be created or updated, <code>null</code> if it can: identified by
+	 * the catalog as exactly one product and program (one chosen of several), a device of the project
+	 * at its address must run that program (a stub there is replaced); not identified, it is taken
+	 * over as a stub (haumacher/ehome #183) unless the project has a device of the catalog at its
+	 * address.
 	 */
 	public static ResKey applyVeto(Object row) {
 		FoundDevice found = ScanRows.found(row);
@@ -284,16 +276,20 @@ public class ScanFunctions extends GenericMethod {
 		if (found == null || match == null || project == null) {
 			return I18NConstants.ERROR_NO_ROW;
 		}
+		TLObject device = InstallationBuilder.device(project, found.address());
 		switch (match.kind()) {
 			case UNIDENTIFIED:
-				return I18NConstants.ERROR_UNIDENTIFIED__REASON.fill(match.reasonKey());
+				if (DeviceStubs.isDevice(device)) {
+					return I18NConstants.ERROR_UNIDENTIFIED_EXISTS__DEVICE_REASON.fill(device.tValueByName("name"),
+						match.reasonKey());
+				}
+				return null;
 			case CHOICE:
 				return I18NConstants.ERROR_CHOOSE__COUNT.fill(match.candidates().size());
 			case UNIQUE:
 				break;
 		}
-		TLObject device = InstallationBuilder.device(project, found.address());
-		if (device != null) {
+		if (DeviceStubs.isDevice(device)) {
 			Program program = DeviceConfiguration.program(device);
 			if (match.candidates().get(0).program() != program) {
 				return I18NConstants.ERROR_OTHER_PROGRAM__ADDRESS_PROGRAM.fill(found.addressText(),
@@ -357,7 +353,7 @@ public class ScanFunctions extends GenericMethod {
 			return gateway;
 		}
 		TLObject device = InstallationBuilder.device(project, found.address());
-		if (device == null) {
+		if (!DeviceStubs.isDevice(device)) {
 			return I18NConstants.ERROR_NO_DEVICE__ADDRESS.fill(found.addressText());
 		}
 		Program program = DeviceConfiguration.program(device);

@@ -369,6 +369,17 @@ itself never appears). No workaround.
 **When fixed:** nothing to remove; check in the container test of the package that
 `journalctl -u tomcat10` has no line of E-Home after an install.
 
+## An abstract class created by a migration (TL #30408)
+
+The migration `Issue_183_Device_stubs` (haumacher/ehome #183) creates the abstract class
+`ehome.physical:BusDevice`. The processor `<create-class abstract="true">` writes it into the stored
+model as `<interface final="false">`, which the model service cannot parse at the next start ("Cannot
+parse old model configuration"). Workaround: the class is created with `abstract="false"` and made
+abstract by `<update-class abstract="true"/>` right after (checked on a copy of `tmp/`).
+
+**When fixed:** the migration stays, as migrations do; a later migration creating an abstract class
+can use `abstract="true"` directly.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).

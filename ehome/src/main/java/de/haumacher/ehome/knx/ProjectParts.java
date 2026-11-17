@@ -84,17 +84,17 @@ public final class ProjectParts {
 		"ehome.physical:Line#name",
 		"ehome.physical:Line#address",
 		"ehome.physical:Line#devices",
-		"ehome.physical:Device#title",
+		"ehome.physical:BusDevice#title",
+		"ehome.physical:BusDevice#serialNumber",
+		"ehome.physical:BusDevice#address",
+		"ehome.physical:BusDevice#location",
 		"ehome.physical:Device#description",
 		"ehome.physical:Device#installationHints",
-		"ehome.physical:Device#serialNumber",
 		"ehome.physical:Device#lastModified",
 		"ehome.physical:Device#lastDownload",
 		"ehome.physical:Device#loaded",
-		"ehome.physical:Device#address",
 		"ehome.physical:Device#type",
 		"ehome.physical:Device#program",
-		"ehome.physical:Device#location",
 		"ehome.physical:Device#settings",
 		"ehome.physical:Device#connectors",
 		"ehome.physical:Device#moduleInstances",
@@ -153,6 +153,14 @@ public final class ProjectParts {
 	private static final Set<String> APP_OWNED = Set.of(
 		"ehome.physical:Device#downloadRevision",
 		"ehome.physical:Device#presets",
+		// What a scan read of a device the catalog does not identify (haumacher/ehome #183): a stub has no
+		// place in ETS's project, the export leaves it out.
+		"ehome.physical:DeviceStub#manufacturerId",
+		"ehome.physical:DeviceStub#programVersion",
+		"ehome.physical:DeviceStub#descriptor",
+		"ehome.physical:DeviceStub#hardwareType",
+		"ehome.physical:DeviceStub#orderInfo",
+		"ehome.physical:DeviceStub#lastSeen",
 		"ehome.logical:GroupAddress#identifier",
 		"ehome.logical:GroupAddress#runtimeWritable",
 		"ehome.logical:GroupAddress#runtimeReadOnStart",
@@ -175,12 +183,11 @@ public final class ProjectParts {
 
 	/**
 	 * The composite references of a project holding its operating history: recordings of the
-	 * monitor, deployments, the devices a scan did not identify.
+	 * monitor, deployments.
 	 */
 	private static final Set<String> HISTORY = Set.of(
 		"ehome.project:Project#recordings",
-		"ehome.project:Project#deployments",
-		"ehome.project:Project#unidentifiedDevices");
+		"ehome.project:Project#deployments");
 
 	/**
 	 * The attributes identifying an object of the KNX part without an ID within its container, by the
@@ -231,7 +238,7 @@ public final class ProjectParts {
 
 	/**
 	 * Whether the given composite reference of a project holds operating history (recordings,
-	 * deployments, devices a scan did not identify).
+	 * deployments).
 	 */
 	public static boolean isHistory(TLStructuredTypePart part) {
 		return HISTORY.contains(qualifiedName(part));

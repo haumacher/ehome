@@ -23,7 +23,7 @@ import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.knx.GA;
 
 /**
- * The devices placed in the parts of a building (<code>ehome.physical:Device#location</code>, seen
+ * The devices placed in the parts of a building (<code>ehome.physical:BusDevice#location</code>, seen
  * from the part as <code>ehome.building:BuildingDefinition#devices</code>), and the group addresses
  * in use in a part.
  *
@@ -56,7 +56,8 @@ public class BuildingDevices {
 
 	/**
 	 * The devices placed directly in the given building part (not in its sub-parts), by their
-	 * individual address.
+	 * individual address; the stubs of devices the catalog does not identify among them
+	 * (haumacher/ehome #183).
 	 */
 	public static List<TLObject> devices(TLObject part) {
 		List<TLObject> result = new ArrayList<>();
@@ -73,7 +74,7 @@ public class BuildingDevices {
 	 */
 	public static List<TLObject> unplaced(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
-		for (TLObject device : GroupAddressConnections.devices(project)) {
+		for (TLObject device : GroupAddressConnections.busDevices(project)) {
 			if (device.tValueByName(LOCATION) == null) {
 				result.add(device);
 			}
@@ -143,6 +144,10 @@ public class BuildingDevices {
 	public static List<TLObject> connections(TLObject part) {
 		List<TLObject> result = new ArrayList<>();
 		for (TLObject device : allDevices(part)) {
+			if (device.tType().getPart("connectors") == null) {
+				// The stub of a device the catalog does not identify has no objects.
+				continue;
+			}
 			for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
 				for (Object connection : (Collection<?>) ((TLObject) connector).tValueByName("connections")) {
 					TLObject value = (TLObject) connection;
@@ -167,7 +172,7 @@ public class BuildingDevices {
 	 */
 	public static List<TLObject> choices(TLObject part) {
 		List<TLObject> result = new ArrayList<>();
-		for (TLObject device : GroupAddressConnections.devices(part)) {
+		for (TLObject device : GroupAddressConnections.busDevices(part)) {
 			if (device.tValueByName(LOCATION) != part) {
 				result.add(device);
 			}

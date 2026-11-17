@@ -39,6 +39,12 @@ public class GroupAddressConnections {
 
 	private static final String SEPARATOR = " · ";
 
+	/** The type of a device of the catalog, with product and program. */
+	private static final String DEVICE_TYPE = "ehome.physical:Device";
+
+	/** The type of the stub of a device the catalog does not identify (haumacher/ehome #183). */
+	private static final String STUB_TYPE = "ehome.physical:DeviceStub";
+
 	/**
 	 * The connections to the given group address, the sending ones first, then by the individual
 	 * address of the device and the number of the object.
@@ -107,16 +113,38 @@ public class GroupAddressConnections {
 	}
 
 	/**
-	 * The device by its name and individual address, e.g. "Tastsensor 3 (1.3.50)".
+	 * The device by its name and individual address, e.g. "Tastsensor 3 (1.3.50)"; the stub of a device
+	 * the catalog does not identify without a name by its manufacturer and order number (haumacher/ehome
+	 * #183), e.g. "GIRA 5133 00 (1.1.7)".
 	 */
 	public static String deviceLabel(TLObject device) {
 		if (device == null) {
 			return "";
 		}
 		Object title = device.tValueByName("title");
-		String name = title != null && !title.toString().isEmpty() ? title.toString()
-			: MetaLabelProvider.INSTANCE.getLabel(device.tValueByName("type"));
+		String name;
+		if (title != null && !title.toString().isEmpty()) {
+			name = title.toString();
+		} else if (isA(device, STUB_TYPE)) {
+			name = stubProduct(device);
+		} else {
+			name = MetaLabelProvider.INSTANCE.getLabel(device.tValueByName("type"));
+		}
 		return name + " (" + addressText(device) + ")";
+	}
+
+	/**
+	 * A stub by what it computes of the device read (<code>ehome.physical:DeviceStub#manufacturer</code>,
+	 * <code>#orderNumber</code>).
+	 */
+	private static String stubProduct(TLObject stub) {
+		List<String> parts = new ArrayList<>();
+		for (String attribute : List.of("manufacturer", "orderNumber")) {
+			if (stub.tValueByName(attribute) instanceof String text && !text.isBlank()) {
+				parts.add(text);
+			}
+		}
+		return parts.isEmpty() ? MetaLabelProvider.INSTANCE.getLabel(stub.tType()) : String.join(" ", parts);
 	}
 
 	/**
@@ -416,11 +444,28 @@ public class GroupAddressConnections {
 	}
 
 	/**
-	 * The devices of the project the group address belongs to, by their individual address.
+	 * The devices of the project the given object (a group address, a building part, the project)
+	 * belongs to, by their individual address: those of the catalog, with a program; not the stubs of
+	 * devices the catalog does not identify (haumacher/ehome #183).
 	 */
 	public static List<TLObject> devices(TLObject groupAddress) {
 		List<TLObject> result = new ArrayList<>();
-		TLObject project = project(groupAddress);
+		for (TLObject device : busDevices(groupAddress)) {
+			if (isA(device, DEVICE_TYPE)) {
+				result.add(device);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The devices of the project the given object belongs to, by their individual address, the stubs of
+	 * devices the catalog does not identify among them (haumacher/ehome #183): what the lines and the
+	 * unplaced devices of the project hold.
+	 */
+	public static List<TLObject> busDevices(TLObject obj) {
+		List<TLObject> result = new ArrayList<>();
+		TLObject project = project(obj);
 		if (project != null) {
 			for (Object area : (Collection<?>) project.tValueByName("areas")) {
 				for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {

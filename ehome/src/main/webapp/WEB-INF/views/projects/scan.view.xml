@@ -12,10 +12,12 @@
 	take-over run as jobs (de.haumacher.ehome.scan.ScanJob, TakeOverJob) and never write to the bus;
 	the result is a dictionary in "result" (summary, rows, notes, see de.haumacher.ehome.scan.ScanRows).
 	The functions scan* are de.haumacher.ehome.scan.ScanFunctions. "New devices only" leaves the
-	addresses at which the project has a device unread. Unidentified devices are kept in the project
-	(ehome.project:Project#unidentifiedDevices) and matched again by "Match kept devices", e.g. after an
-	import of product data; "Choose the product" decides between several candidates of the catalog
-	(projects/scan-choose.view.xml) before the row is taken over.
+	addresses at which the project has a device unread. The scan itself changes nothing in the project.
+	"Choose the product" decides between several candidates of the catalog (projects/scan-choose.view.xml)
+	before the row is taken over. A device the catalog does not identify is taken over as a stub in its
+	line (ehome.physical:DeviceStub, haumacher/ehome #183), without program and without reading its
+	configuration; "Assign" at the stub matches it again after an import of product data. The table
+	shows the order number a device reports, where it reports no text there its hardware type.
 
 	The table selects several rows; "Take over" works on the selected rows, "Take over all" on every
 	row, each row saying in its state what happened. "LED on/off" switches the programming mode of the
@@ -120,11 +122,11 @@
 								<de>Suchen</de>
 							</label>
 							<tooltip>
-								<en>Searches for what is chosen under "Search for" and reads descriptor, properties and memory of the devices found; nothing is written. "Devices in programming mode": the devices whose programming button is pressed, within seconds. "Line": every address of the line entered. "Couplers and routers": device 0 of every line. "The gateway itself": the KNXnet/IP gateway through its local device management, not through a controller. "New devices only": the addresses at which the project has a device are not read. Devices the catalog does not identify are kept in the project.</en>
-								<de>Sucht nach dem unter „Suchen nach“ Gewählten und liest Gerätebeschreibung, Eigenschaften und Speicher der gefundenen Geräte; es wird nichts geschrieben. „Geräte im Programmiermodus“: die Geräte, deren Programmiertaste gedrückt ist, in Sekunden. „Linie“: jede Adresse der eingegebenen Linie. „Koppler und Router“: Gerät 0 jeder Linie. „Das Gateway selbst“: das KNXnet/IP-Gateway über sein lokales Gerätemanagement, nicht über einen Controller. „Nur neue Geräte“: Die Adressen, an denen das Projekt ein Gerät hat, werden nicht gelesen. Vom Katalog nicht erkannte Geräte werden im Projekt vorgemerkt.</de>
+								<en>Searches for what is chosen under "Search for" and reads descriptor, properties and memory of the devices found; nothing is written. "Devices in programming mode": the devices whose programming button is pressed, within seconds. "Line": every address of the line entered. "Couplers and routers": device 0 of every line. "The gateway itself": the KNXnet/IP gateway through its local device management, not through a controller. "New devices only": the addresses at which the project has a device are not read.</en>
+								<de>Sucht nach dem unter „Suchen nach“ Gewählten und liest Gerätebeschreibung, Eigenschaften und Speicher der gefundenen Geräte; es wird nichts geschrieben. „Geräte im Programmiermodus“: die Geräte, deren Programmiertaste gedrückt ist, in Sekunden. „Linie“: jede Adresse der eingegebenen Linie. „Koppler und Router“: Gerät 0 jeder Linie. „Das Gateway selbst“: das KNXnet/IP-Gateway über sein lokales Gerätemanagement, nicht über einen Controller. „Nur neue Geräte“: Die Adressen, an denen das Projekt ein Gerät hat, werden nicht gelesen.</de>
 							</tooltip>
 							<access>
-								<!-- The scan keeps the unidentified devices in the project. -->
+								<!-- The scan prepares the take-over into the project. -->
 								<operation name="Write"
 									object="$project"
 									type="ehome.project:Project"
@@ -153,28 +155,6 @@
 									<write-channel name="scanJob" clear="true"/>
 								</with-result>
 							</start-job>
-						</generic-command>
-						<generic-command
-							image="css:bi bi-arrow-repeat"
-							inputs="project"
-							placement="TOOLBAR"
-						>
-							<label>
-								<en>Match kept devices</en>
-								<de>Vorgemerkte Geräte zuordnen</de>
-							</label>
-							<tooltip>
-								<en>Matches the unidentified devices kept from earlier scans against the catalog again, for example after an import of product data; the bus is not accessed.</en>
-								<de>Ordnet die bei früheren Suchen vorgemerkten, nicht erkannten Geräte erneut dem Katalog zu, etwa nach einem Import von Produktdaten; der Bus wird dabei nicht angesprochen.</de>
-							</tooltip>
-							<executability>
-								<null-input-disabled/>
-							</executability>
-							<execute-script function="scanRematch($project)">
-								<with-result>
-									<write-channel name="result"/>
-								</with-result>
-							</execute-script>
 						</generic-command>
 					</commands>
 					<inset>
@@ -239,7 +219,7 @@
 						<generic-command
 							image="css:bi bi-box-arrow-in-down"
 							inputs="project, selected, result"
-							observed-types="ehome.physical:Device"
+							observed-types="ehome.physical:BusDevice"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -247,8 +227,8 @@
 								<de>Übernehmen</de>
 							</label>
 							<tooltip>
-								<en>Creates the selected devices in the project, or updates them, and reads their configuration from the devices; nothing is written into the devices. A device whose configuration cannot be read is created all the same. Each row says what happened.</en>
-								<de>Legt die gewählten Geräte im Projekt an oder aktualisiert sie und liest ihre Konfiguration aus den Geräten; in die Geräte wird nichts geschrieben. Ein Gerät, dessen Konfiguration sich nicht lesen lässt, wird trotzdem angelegt. Jede Zeile sagt, was geschah.</de>
+								<en>Creates the selected devices in the project, or updates them, and reads their configuration from the devices; nothing is written into the devices. A device whose configuration cannot be read is created all the same; a device the catalog does not identify is created without program, marked as a problem. Each row says what happened.</en>
+								<de>Legt die gewählten Geräte im Projekt an oder aktualisiert sie und liest ihre Konfiguration aus den Geräten; in die Geräte wird nichts geschrieben. Ein Gerät, dessen Konfiguration sich nicht lesen lässt, wird trotzdem angelegt; ein Gerät, das der Katalog nicht identifiziert, wird ohne Programm angelegt und als Problem markiert. Jede Zeile sagt, was geschah.</de>
 							</tooltip>
 							<access>
 								<!-- The devices are created or updated in the project and their configuration written there. -->
@@ -287,7 +267,7 @@
 						<generic-command
 							image="css:bi bi-box-arrow-in-down-right"
 							inputs="project, result"
-							observed-types="ehome.physical:Device"
+							observed-types="ehome.physical:BusDevice"
 							placement="TOOLBAR"
 						>
 							<label>
@@ -521,6 +501,17 @@
 											<de>Hersteller</de>
 										</label>
 										<value>$row["manufacturer"]</value>
+									</computed-column>
+									<!-- The order number the device reports; where it reports no text there, its hardware type in hex (haumacher/ehome #183). -->
+									<computed-column name="order"
+										type="tl.core:String"
+										width="160"
+									>
+										<label>
+											<en>Order number</en>
+											<de>Bestellnummer</de>
+										</label>
+										<value>$row["order"]</value>
 									</computed-column>
 									<computed-column name="serial"
 										type="tl.core:String"

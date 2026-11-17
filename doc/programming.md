@@ -310,16 +310,17 @@ choice "Suchen nach" stays on "Geräte im Programmiermodus". Everything here onl
   hold several editions of a program, imported from several exports of an installation (the ETS 4 and
   ETS 6 exports of the test system, both P-0563, haumacher/ehome #161). The summary counts the devices
   identified uniquely, those to choose for, and the unidentified. Several candidates: "Produkt
-  wählen" (a choice dialog) makes the chosen one the match of the row; none: the device is kept as
-  `ehome.project:UnidentifiedDevice` of the project and matched again by "Vorgemerkte Geräte
-  zuordnen" (e.g. after a product data import). The table shows address, manufacturer, serial
-  number, program version, catalog and the state in the project; how a device was read, its mask
+  wählen" (a choice dialog) makes the chosen one the match of the row; none: the row is taken over as
+  a stub (below). The scan itself changes nothing in the project. The table shows address,
+  manufacturer, order number (the order info as read where it is text, else the hardware type in hex),
+  serial number, program version, catalog and the state in the project; how a device was read, its mask
   version and its load states are the tooltip of its address, and a device not read completely
   carries a marker with the reasons as its tooltip.
 - **Take-over** (`TakeOverJob`, "Übernehmen" on the selected rows, "Alle übernehmen" on every row):
   per row in one go the creation (below) and the read-back (below), so that no device stays with the
-  defaults of its parameters. A row the catalog does not identify as one product and program (none,
-  or several not chosen), or whose address holds a device of another program, is left alone; a device
+  defaults of its parameters. A row the catalog does not identify becomes a stub in its line (below),
+  its configuration not read; a row with several candidates not chosen, or whose address holds a
+  device of another program (or, unidentified, any device of the catalog), is left alone; a device
   whose configuration cannot be read (the gateway itself, the path to the bus refused, a failed read)
   is created all the same. Each row says in "Im Projekt" what happened (marked where it was refused or
   not read), and a notice counts the devices taken over, read and refused. A cancel leaves the devices
@@ -327,7 +328,21 @@ choice "Suchen nach" stays on "Geräte im Programmiermodus". Everything here onl
 - **Creation** (`InstallationBuilder`): the device under the line of its address (areas and lines
   created, named by their address), `serialNumber` in the ETS form (base64), `loaded` = individual
   address and program. An existing device with the address and program is updated; one with another
-  program is a conflict, nothing changes.
+  program is a conflict, nothing changes; a stub at the address is replaced by the device, which keeps
+  its name, serial number, location and ID.
+- **Stub** (`DeviceStubs`, `ehome.physical:DeviceStub`, haumacher/ehome #183): a device the catalog
+  does not identify stands in its line like a device, without product and program, with the problem
+  icon of its type; it holds what the device told about itself (manufacturer, program version, mask
+  version, hardware type, order info, serial number) and shares name, address, serial number and
+  location with a device (`ehome.physical:BusDevice`). Selected, it shows its data and no tabs (no
+  parameters, objects, programming or virtual device). "Zuordnen" (Write on the project) looks it up in
+  the catalog again: found, it is replaced by a device keeping name, address, serial number, location
+  and ID (its parameters have their defaults until "Übernehmen" reads them); not found, it refuses with
+  "Keine Produktdaten für GIRA, Bestellnummer 5133 00 – Produktdaten des Herstellers importieren."
+  (the hardware type where the device reports no order number as text); several products, it points
+  to "Übernehmen" with "Produkt wählen". The export as `.knxproj` leaves stubs out and names them
+  (`doc/knx/export.md`); what reads a device's program, objects or configuration (the runtime image,
+  the monitor, the programming, the rules, the proposals, the assistant's wiring) takes devices only.
 - **Read-back** (`ReadBack`, part of "Übernehmen"): reads where the download image writes (every
   loaded block, the tables at the device's table pointers, property 7, their lengths from their
   counts, the parameter properties), then decodes: the parameters with memory by their types until

@@ -1771,6 +1771,8 @@ public final class FunctionProposal {
 			}
 		}
 		result.addAll(list(project, "unassignedDevices"));
+		// The stubs of devices the catalog does not identify have no objects to propose for (haumacher/ehome #183).
+		result.removeIf(device -> !isA(device, "ehome.physical:Device"));
 		result.sort(Comparator.comparing((TLObject d) -> DownloadImage.individualAddress(d),
 			Comparator.nullsLast(Comparator.naturalOrder())));
 		return result;

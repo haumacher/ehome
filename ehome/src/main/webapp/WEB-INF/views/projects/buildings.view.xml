@@ -4,7 +4,7 @@
 	The building structure of a project: buildings and their nested parts (floors, rooms, ...), parts
 	only (haumacher/ehome #87). The selected part is shown beside the tree. Below, the tabs "In this
 	building part" list what lies in the selected part and in all its sub-parts, each row with the
-	part it is placed in ("Placed in"): the devices (ehome.physical:Device#location), the Zigbee
+	part it is placed in ("Placed in"): the devices (ehome.physical:BusDevice#location), the Zigbee
 	devices (ehome.zigbee:ZigbeeDevice#location, haumacher/ehome #64), the virtual devices
 	(ehome.runtime:BlockInstance#room, haumacher/ehome #75) and the group addresses in use: the
 	connections of the devices placed in the part and in its sub-parts (BuildingDevices#connections),
@@ -48,7 +48,7 @@
 		<!-- The selected device: the row selected in the table of the devices of the part and its sub-parts. -->
 		<derived-channel name="device"
 			inputs="part, selectedRow"
-			observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
+			observed-types="ehome.physical:BusDevice,ehome.building:BuildingDefinition"
 		>
 			<expr><![CDATA[if($selectedRow != null and $part != null and buildingAllDevices($part).containsElement($selectedRow), $selectedRow, null)]]></expr>
 		</derived-channel>
@@ -447,13 +447,13 @@
 							<access>
 								<operation name="Write"
 									object="$device"
-									type="ehome.physical:Device"
+									type="ehome.physical:BusDevice"
 								/>
 							</access>
 							<executability>
 								<null-input-disabled/>
 							</executability>
-							<confirm expr="#('Remove {0} from {1}?'@en, '{0} aus {1} entfernen?'@de).fill(deviceLabel($device), buildingPath($device.get(`ehome.physical:Device#location`)))"/>
+							<confirm expr="#('Remove {0} from {1}?'@en, '{0} aus {1} entfernen?'@de).fill(deviceLabel($device), buildingPath($device.get(`ehome.physical:BusDevice#location`)))"/>
 							<with-transaction>
 								<!-- The selected part stays selected. -->
 								<execute-script>
@@ -611,18 +611,21 @@
 												<en>Devices</en>
 												<de>Geräte</de>
 											</label>
-											<!-- The devices placed in the part and in its sub-parts, by individual address. -->
+											<!--
+												The devices placed in the part and in its sub-parts, by individual address; a stub of a device
+												the catalog does not identify (haumacher/ehome #183) has no type and description.
+											-->
 											<table
-												observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
+												observed-types="ehome.physical:BusDevice,ehome.building:BuildingDefinition"
 												selection="selectedRow"
-												types="ehome.physical:Device"
+												types="ehome.physical:BusDevice"
 											>
 												<inputs>
 													<input channel="part"/>
 												</inputs>
 												<columns>
 													<computed-column name="device"
-														type="ehome.physical:Device"
+														type="ehome.physical:BusDevice"
 														width="240"
 													>
 														<label>
@@ -636,12 +639,26 @@
 															link="true"
 														/>
 													</computed-column>
-													<column attribute="type"
+													<computed-column name="type"
+														type="ehome.catalog:Variant"
 														width="260"
-													/>
-													<column attribute="description"
+													>
+														<label>
+															<en>Type</en>
+															<de>Typ</de>
+														</label>
+														<value>if($row.instanceOf(`ehome.physical:Device`), $row.get(`ehome.physical:Device#type`), null)</value>
+													</computed-column>
+													<computed-column name="description"
+														type="tl.core:String"
 														width="200"
-													/>
+													>
+														<label>
+															<en>Description</en>
+															<de>Beschreibung</de>
+														</label>
+														<value>if($row.instanceOf(`ehome.physical:Device`), $row.get(`ehome.physical:Device#description`), null)</value>
+													</computed-column>
 													<computed-column name="location"
 														type="tl.core:String"
 														width="200"
@@ -650,7 +667,7 @@
 															<en>Placed in</en>
 															<de>Platziert in</de>
 														</label>
-														<value>buildingPath($row.get(`ehome.physical:Device#location`))</value>
+														<value>buildingPath($row.get(`ehome.physical:BusDevice#location`))</value>
 													</computed-column>
 												</columns>
 												<rows>if($part == null, [], buildingAllDevices($part))</rows>
@@ -896,7 +913,7 @@
 															<en>Placed in</en>
 															<de>Platziert in</de>
 														</label>
-														<value>buildingPath(connectionDevice($row).get(`ehome.physical:Device#location`))</value>
+														<value>buildingPath(connectionDevice($row).get(`ehome.physical:BusDevice#location`))</value>
 													</computed-column>
 												</columns>
 												<rows>if($part == null, [], buildingConnections($part))</rows>

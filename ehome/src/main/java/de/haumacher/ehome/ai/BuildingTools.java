@@ -329,7 +329,7 @@ public class BuildingTools {
 	}
 
 	private static String deviceName(TLObject device) {
-		return ExtIds.isA(device, "ehome.physical:Device") ? GroupAddressConnections.deviceLabel(device)
+		return ExtIds.isA(device, "ehome.physical:BusDevice") ? GroupAddressConnections.deviceLabel(device)
 			: CommitMessages.label(device);
 	}
 
@@ -345,7 +345,8 @@ public class BuildingTools {
 			@P("The device") TLObject device,
 			@P(value = "The building part to place it in; omit to remove it from its part", required = false)
 			TLObject location) {
-		if (!ExtIds.isA(device, "ehome.physical:Device")) {
+		// A device of the catalog or the stub of a device the catalog does not identify (haumacher/ehome #183).
+		if (!ExtIds.isA(device, "ehome.physical:BusDevice")) {
 			return failure("'" + id(device) + "' is no device. Nothing was changed.");
 		}
 		if (location != null && !ExtIds.isA(location, BUILDING_DEFINITION)) {

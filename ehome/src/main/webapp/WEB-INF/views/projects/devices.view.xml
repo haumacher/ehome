@@ -26,7 +26,7 @@
 	The switch "Structure" above the tree shows the devices by line (the topology above, the default)
 	or by building part (haumacher/ehome #106): the buildings of the project and their parts, nested in
 	their order, all parts including the empty ones, each part with the KNX devices placed in it
-	(ehome.physical:Device#location) by individual address, and the node "No location" (the text
+	(ehome.physical:BusDevice#location) by individual address, and the node "No location" (the text
 	"noLocation", no object) with the devices placed in no part. There one or several selected devices
 	are dragged onto a building part to place them there, or onto "No location" to remove their
 	placement (buildingPlace); dragging a device takes the access check Write on it. Areas and lines
@@ -39,6 +39,13 @@
 	module depending on the app adds a tab with a same-path overlay of this view addressing the tab
 	bar by config:ref (TL #29896): the development tooling (module ehome-virtual) adds its "Virtual
 	device" tab that way.
+
+	A device a scan found that the catalog does not identify stands in its line as a stub
+	(ehome.physical:DeviceStub, haumacher/ehome #183) with the problem icon of its type: selected, it
+	shows no tab bar (no parameters, objects, programming or virtual device, which need a program), only
+	its data and what it told about itself, and "Assign" (de.haumacher.ehome.scan.DeviceStubs), which
+	looks it up in the catalog again and replaces it by a device keeping its name, address, serial
+	number and location, or refuses naming manufacturer and order number.
 -->
 <view>
 	<channels>
@@ -59,9 +66,9 @@
 			inputs="treeSelection"
 			reverse="$value"
 		/>
-		<!-- The selected node deleted by "Delete": an area, a line or a device, not a building part. -->
+		<!-- The selected node deleted by "Delete": an area, a line or a device (a stub as well), not a building part. -->
 		<derived-channel name="selectedNode"
-			expr="if($selected.instanceOf(`ehome.physical:Area`) or $selected.instanceOf(`ehome.physical:Line`) or $selected.instanceOf(`ehome.physical:Device`), $selected, null)"
+			expr="if($selected.instanceOf(`ehome.physical:Area`) or $selected.instanceOf(`ehome.physical:Line`) or $selected.instanceOf(`ehome.physical:BusDevice`), $selected, null)"
 			inputs="selected"
 		/>
 		<!-- The selected building part (structure by building part), shown read-only. -->
@@ -105,9 +112,20 @@
 		/>
 		<!-- Where the selected device is placed, as the path of its building part, details first ("Küche, Erdgeschoss"). -->
 		<derived-channel name="locationPath"
-			expr="buildingPath($device.get(`ehome.physical:Device#location`))"
+			expr="buildingPath($device.get(`ehome.physical:BusDevice#location`))"
 			inputs="device"
 			observed-types="ehome.physical:Device,ehome.building:BuildingDefinition"
+		/>
+		<!-- The selected stub of a device the catalog does not identify (haumacher/ehome #183). -->
+		<derived-channel name="stub"
+			expr="if($selected.instanceOf(`ehome.physical:DeviceStub`), $selected, null)"
+			inputs="selected"
+		/>
+		<!-- Where the selected stub is placed, as the path of its building part. -->
+		<derived-channel name="stubLocationPath"
+			expr="buildingPath($stub.get(`ehome.physical:BusDevice#location`))"
+			inputs="stub"
+			observed-types="ehome.physical:DeviceStub,ehome.building:BuildingDefinition"
 		/>
 		<!--
 			What the device's values select in the structure of its program (the cases of its switches);
@@ -500,7 +518,7 @@
 							another individual address).
 						-->
 						<tree-table
-							observed-types="ehome.physical:Area,ehome.physical:Line,ehome.physical:Device,ehome.building:BuildingDefinition"
+							observed-types="ehome.physical:Area,ehome.physical:Line,ehome.physical:BusDevice,ehome.building:BuildingDefinition"
 							selection="treeSelection"
 							selection-mode="multi"
 						>
@@ -527,20 +545,20 @@
         $node.instanceOf(`ehome.physical:Area`):
             $node.get(`ehome.physical:Area#lines`).sort((l -> $l.get(`ehome.physical:Line#address`)).comparator());
         $node.instanceOf(`ehome.physical:Line`):
-            $node.get(`ehome.physical:Line#devices`).sort((d -> $d.get(`ehome.physical:Device#address`)).comparator());
+            $node.get(`ehome.physical:Line#devices`).sort((d -> $d.get(`ehome.physical:BusDevice#address`)).comparator());
         default: [];
     })]]></children>
 							<parents><![CDATA[if($structure == 'building',
     switch {
         $node == 'noLocation':
             $project;
-        $node.instanceOf(`ehome.physical:Device`):
-            if($node.get(`ehome.physical:Device#location`) == null, 'noLocation', $node.get(`ehome.physical:Device#location`));
+        $node.instanceOf(`ehome.physical:BusDevice`):
+            if($node.get(`ehome.physical:BusDevice#location`) == null, 'noLocation', $node.get(`ehome.physical:BusDevice#location`));
         $node.instanceOf(`ehome.building:BuildingDefinition`):
             $node.container();
         default: null;
     },
-    if($node.instanceOf(`ehome.physical:Area`) or $node.instanceOf(`ehome.physical:Line`) or $node.instanceOf(`ehome.physical:Device`), $node.container(), null))]]></parents>
+    if($node.instanceOf(`ehome.physical:Area`) or $node.instanceOf(`ehome.physical:Line`) or $node.instanceOf(`ehome.physical:BusDevice`), $node.container(), null))]]></parents>
 							<!--
 								By building part, the selected devices (only devices, and only those the user may
 								change) are dragged onto a part or onto "No location"; there is no place between two
@@ -554,10 +572,10 @@
 									<disabled-if expr="$structure != 'building'"/>
 								</executability>
 								<row-executability>
-									<disabled-if expr="if(!$row.instanceOf(`ehome.physical:Device`), #('Only devices are placed in a building part.'@en, 'Nur Geräte werden einem Gebäudeteil zugeordnet.'@de))"/>
+									<disabled-if expr="if(!$row.instanceOf(`ehome.physical:BusDevice`), #('Only devices are placed in a building part.'@en, 'Nur Geräte werden einem Gebäudeteil zugeordnet.'@de))"/>
 									<operation name="Write"
 										object="$row"
-										type="ehome.physical:Device"
+										type="ehome.physical:BusDevice"
 									/>
 								</row-executability>
 							</drag>
@@ -570,7 +588,7 @@
 									<disabled-if expr="$structure != 'building'"/>
 								</executability>
 								<refuse-if><![CDATA[switch {
-    !$objects.filter(d -> !$d.instanceOf(`ehome.physical:Device`)).isEmpty():
+    !$objects.filter(d -> !$d.instanceOf(`ehome.physical:BusDevice`)).isEmpty():
         #("Only devices are placed in a building part."@en, "Nur Geräte werden einem Gebäudeteil zugeordnet."@de);
     !$objects.filter(d -> !canWrite($d)).isEmpty():
         #("You may not change the location of these devices."@en, "Sie dürfen den Standort dieser Geräte nicht ändern."@de);
@@ -605,8 +623,9 @@
 							<columns>
 								<!--
 									A device changed since its last download is marked (it changes with every change of its
-									configuration). The node "No location" (no object, structure by building part) is shown by its
-									text, also in the Excel export.
+									configuration); a stub of a device the catalog does not identify shows the problem icon of its
+									type. The node "No location" (no object, structure by building part) is shown by its text, also
+									in the Excel export.
 								-->
 								<computed-column name="name"
 									width="260"
@@ -640,7 +659,7 @@
 										<en>Location</en>
 										<de>Standort</de>
 									</label>
-									<value>if($row.instanceOf(`ehome.physical:Device`), buildingPath($row.get(`ehome.physical:Device#location`)), null)</value>
+									<value>if($row.instanceOf(`ehome.physical:BusDevice`), buildingPath($row.get(`ehome.physical:BusDevice#location`)), null)</value>
 								</computed-column>
 								<!-- The individual address: area, area.line, area.line.device; the number alone of a device in no line. -->
 								<computed-column name="address"
@@ -656,10 +675,10 @@
         toString($row.get(`ehome.physical:Area#address`));
     $row.instanceOf(`ehome.physical:Line`):
         toString($row.container().get(`ehome.physical:Area#address`), ".", $row.get(`ehome.physical:Line#address`));
-    $row.instanceOf(`ehome.physical:Device`) and $row.container().instanceOf(`ehome.physical:Line`):
-        toString($row.container().container().get(`ehome.physical:Area#address`), ".", $row.container().get(`ehome.physical:Line#address`), ".", $row.get(`ehome.physical:Device#address`));
-    $row.instanceOf(`ehome.physical:Device`):
-        toString($row.get(`ehome.physical:Device#address`));
+    $row.instanceOf(`ehome.physical:BusDevice`) and $row.container().instanceOf(`ehome.physical:Line`):
+        toString($row.container().container().get(`ehome.physical:Area#address`), ".", $row.container().get(`ehome.physical:Line#address`), ".", $row.get(`ehome.physical:BusDevice#address`));
+    $row.instanceOf(`ehome.physical:BusDevice`):
+        toString($row.get(`ehome.physical:BusDevice#address`));
     default: null;
 }]]></value>
 								</computed-column>
@@ -724,6 +743,108 @@
 									</value-input>
 								</fields>
 							</inset>
+						</case>
+						<!--
+							The stub of a device a scan found that the catalog does not identify (haumacher/ehome #183): no
+							tab bar, as parameters, objects and programming need a program; its data, what it told about
+							itself, and "Assign".
+						-->
+						<case test="$selected.instanceOf(`ehome.physical:DeviceStub`)">
+							<form
+								input="selected"
+								with-inset="true"
+							>
+								<commands>
+									<!--
+										Looks the device up in the catalog again (after an import of the manufacturer's product
+										data) and replaces the stub by a device of the product found, which is selected then;
+										refuses naming manufacturer and order number.
+									-->
+									<generic-command
+										image="css:bi bi-box-arrow-in-down-right"
+										inputs="stub, project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Assign</en>
+											<de>Zuordnen</de>
+										</label>
+										<tooltip>
+											<en>Looks the device up in the catalog again, for example after an import of the manufacturer's product data, and turns it into a device with product and application program; name, address, serial number and location stay. Its parameters have their defaults until its configuration is read with "Scan the bus".</en>
+											<de>Sucht das Gerät erneut im Katalog, etwa nach einem Import der Produktdaten des Herstellers, und macht es zu einem Gerät mit Produkt und Applikationsprogramm; Name, Adresse, Seriennummer und Standort bleiben. Seine Parameter haben ihre Vorgabewerte, bis seine Konfiguration mit „Bus durchsuchen“ gelesen wird.</de>
+										</tooltip>
+										<access>
+											<!-- The device replaces the stub in the project. -->
+											<operation name="Write"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<with-transaction>
+											<execute-script function="deviceStubAssign($stub)"/>
+											<with-result>
+												<write-channel name="selected"/>
+											</with-result>
+										</with-transaction>
+									</generic-command>
+									<generic-command
+										image="css:fa-solid fa-location-dot"
+										inputs="stub"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Choose the location</en>
+											<de>Standort wählen</de>
+										</label>
+										<tooltip>
+											<en>Places the device in a building part of the project (a room, a floor, …) or removes it from its part. The building parts are created in the tab Buildings.</en>
+											<de>Ordnet das Gerät einem Gebäudeteil des Projekts zu (einem Raum, einer Etage …) oder hebt die Zuordnung auf. Die Gebäudeteile werden im Reiter „Gebäude“ angelegt.</de>
+										</tooltip>
+										<access>
+											<operation name="Write"
+												object="$stub"
+												type="ehome.physical:DeviceStub"
+											/>
+										</access>
+										<executability>
+											<null-input-disabled/>
+										</executability>
+										<open-dialog
+											bind-input-to="device"
+											dialog-view="projects/choose-location.view.xml"
+										>
+											<bind
+												channel="selection"
+												to="selected"
+											/>
+										</open-dialog>
+									</generic-command>
+								</commands>
+								<field attribute="title"/>
+								<field attribute="address"/>
+								<field attribute="manufacturer"/>
+								<field attribute="orderNumber"/>
+								<value-input
+									readonly="true"
+									type="tl.core:String"
+									value="stubLocationPath"
+								>
+									<label>
+										<en>Location</en>
+										<de>Standort</de>
+									</label>
+								</value-input>
+								<field attribute="serialText"/>
+								<field attribute="programVersion"/>
+								<field attribute="descriptor"/>
+								<field attribute="hardwareType"/>
+								<field attribute="orderInfo"/>
+								<field attribute="lastSeen"/>
+								<field attribute="extId"/>
+							</form>
 						</case>
 						<case test="$selected.instanceOf(`ehome.physical:Device`)">
 							<!--

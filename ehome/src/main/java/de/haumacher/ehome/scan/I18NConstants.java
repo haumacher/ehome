@@ -32,16 +32,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 SCAN_FAILED__GATEWAY_REASON;
 
 	/**
-	 * @en Unidentified devices of the project matched again: {0}.
-	 */
-	public static ResKey1 REMATCH_DONE__COUNT;
-
-	/**
-	 * @en The catalog does not identify the device: {0}
-	 */
-	public static ResKey1 ERROR_UNIDENTIFIED__REASON;
-
-	/**
 	 * @en Choose one of the products and programs the device may be.
 	 */
 	public static ResKey ERROR_NO_CANDIDATE;
@@ -82,7 +72,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 STATE_CONFLICT__DEVICE_PROGRAM;
 
 	/**
-	 * @en Unidentified, kept in the project
+	 * @en New, not identified by the catalog
 	 */
 	public static ResKey STATE_UNIDENTIFIED;
 
@@ -105,11 +95,6 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Switching the programming mode of {0} through {1} failed: {2}
 	 */
 	public static ResKey3 LED_FAILED__ADDRESS_GATEWAY_REASON;
-
-	/**
-	 * @en Bus of {0} scanned via {1}: {2} devices
-	 */
-	public static ResKey3 COMMIT_SCAN__PROJECT_GATEWAY_FOUND;
 
 	/**
 	 * @en Configuration of {0} read back
@@ -695,6 +680,56 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Load states: {0}
 	 */
 	public static ResKey1 DETAILS_STATES__STATES;
+
+	/**
+	 * @en The catalog does not identify the device, and the project has the device {0} at its address: {1}
+	 */
+	public static ResKey2 ERROR_UNIDENTIFIED_EXISTS__DEVICE_REASON;
+
+	/**
+	 * @en In the project as an unidentified device: {0}
+	 */
+	public static ResKey1 STATE_STUB__DEVICE;
+
+	/**
+	 * @en Created as an unidentified device without program: {0}
+	 */
+	public static ResKey1 TAKE_OVER_STUB_CREATED__REASON;
+
+	/**
+	 * @en Updated as an unidentified device without program: {0}
+	 */
+	public static ResKey1 TAKE_OVER_STUB_UPDATED__REASON;
+
+	/**
+	 * @en No unidentified device is selected.
+	 */
+	public static ResKey ERROR_NO_STUB;
+
+	/**
+	 * @en No product data for {0}, order number {1} – import the manufacturer''s product data.
+	 */
+	public static ResKey2 ERROR_NO_PRODUCT_DATA__MANUFACTURER_ORDER;
+
+	/**
+	 * @en No product data for {0}, hardware type {1} – import the manufacturer''s product data.
+	 */
+	public static ResKey2 ERROR_NO_PRODUCT_DATA_HARDWARE__MANUFACTURER_TYPE;
+
+	/**
+	 * @en No product data for {0} – import the manufacturer''s product data.
+	 */
+	public static ResKey1 ERROR_NO_PRODUCT_DATA__MANUFACTURER;
+
+	/**
+	 * @en The catalog offers {1} products for {0}: take the device over with "Scan the bus" and choose the product there.
+	 */
+	public static ResKey2 ERROR_ASSIGN_CHOICE__DEVICE_COUNT;
+
+	/**
+	 * @en Unidentified device {0} assigned
+	 */
+	public static ResKey1 COMMIT_ASSIGN__DEVICE;
 
 	static {
 		initConstants(I18NConstants.class);

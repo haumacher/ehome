@@ -58,6 +58,7 @@ import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.scan.CatalogMatch;
+import de.haumacher.ehome.scan.DeviceStubs;
 import de.haumacher.ehome.scan.FoundDevice;
 import de.haumacher.ehome.scan.I18NConstants;
 import de.haumacher.ehome.scan.InstallationBuilder;
@@ -72,7 +73,8 @@ import de.haumacher.ehome.scan.TakeOverJob;
  * The scan of the bus in the area "Devices" of a project (haumacher/ehome #180): the line selected
  * in the tree fills the field of the dialog, "New devices only" reads no device the project has, and
  * "Take over" creates or updates the devices of several rows and reads their configuration in one go,
- * leaving a row the catalog does not identify alone with its reason.
+ * a row the catalog does not identify becoming a stub in its line without program (haumacher/ehome
+ * #183).
  *
  * <p>
  * The bus is the recorded test line 1.3 of {@link TestBusScan} (actuator 1.3.5, Tastsensor 1.3.50,
@@ -114,8 +116,9 @@ public class TestScanTakeOver extends BasicTestCase {
 
 	/**
 	 * "Take over" on several rows: the actuator and the Tastsensor are created with their
-	 * configuration read in one go, a device the catalog does not identify is left alone with its
-	 * reason; "Take over all" updates them and reads them again.
+	 * configuration read in one go, a device the catalog does not identify becomes a stub in its line
+	 * without program, whose row says why, and is not read; "Take over all" updates them and reads the
+	 * devices again.
 	 */
 	public void testTakeOverSeveralRows() throws Exception {
 		Map<String, Object> result = scan(_scanned, false, new TestBusScan.FakeBus());
@@ -137,8 +140,8 @@ public class TestScanTakeOver extends BasicTestCase {
 		assertSame(unknownRow, ScanFunctions.singleRow(Set.of(unknownRow)));
 		assertNull(ScanFunctions.singleRow(null));
 		assertNull("One row can be taken over at least.", ScanFunctions.takeOverVeto(selected));
-		assertEquals(I18NConstants.ERROR_UNIDENTIFIED__REASON.fill(ScanRows.match(unknownRow).reasonKey()),
-			ScanFunctions.takeOverVeto(unknownRow));
+		assertNull("Taken over as a stub.", ScanFunctions.takeOverVeto(unknownRow));
+		assertEquals(text(I18NConstants.STATE_UNIDENTIFIED), unknownRow.get(ScanRows.STATE));
 
 		Map<String, MockDevice> devices = new HashMap<>();
 		Map<String, Object> channels = new HashMap<>();
@@ -147,7 +150,7 @@ public class TestScanTakeOver extends BasicTestCase {
 		channels.put("result", result);
 		Map<?, ?> taken = takeOver(takeOverCommand(false).jobValues(channels), false, devices);
 
-		assertEquals(text(I18NConstants.TAKE_OVER_DONE__TAKEN_READ_REFUSED.fill(2, 2, 1)), taken.get(TakeOverJob.TAKE_OVER));
+		assertEquals(text(I18NConstants.TAKE_OVER_DONE__TAKEN_READ_REFUSED.fill(3, 2, 0)), taken.get(TakeOverJob.TAKE_OVER));
 		assertEquals("The display of the job shows what the take-over did.", taken.get(TakeOverJob.TAKE_OVER),
 			taken.toString());
 		assertEquals("The summary of the scan stays.", result.get("summary"), taken.get("summary"));
@@ -166,18 +169,25 @@ public class TestScanTakeOver extends BasicTestCase {
 			assertTrue("The memory was read.", devices.get(FoundDevice.formatAddress(address)).calls().size() > 0);
 			assertEquals(0, devices.get(FoundDevice.formatAddress(address)).writes());
 		}
-		Map<?, ?> refused = row(after, 0x1307);
-		assertEquals(text(I18NConstants.TAKE_OVER_REFUSED__REASON.fill(ScanFunctions.applyVeto(unknownRow))),
-			refused.get(ScanRows.STATE));
-		assertEquals("warning", refused.get(ScanRows.STATE_ROLE));
-		assertNull("Left alone.", InstallationBuilder.device(_scanned, 0x1307));
-		assertFalse(devices.containsKey("1.3.7"));
+		Map<?, ?> stubRow = row(after, 0x1307);
+		assertEquals(text(I18NConstants.TAKE_OVER_STUB_CREATED__REASON.fill(ScanRows.match(unknownRow).reasonKey())),
+			stubRow.get(ScanRows.STATE));
+		assertEquals("warning", stubRow.get(ScanRows.STATE_ROLE));
+		TLObject stub = InstallationBuilder.device(_scanned, 0x1307);
+		assertTrue("A stub in its line: " + stub, DeviceStubs.isStub(stub));
+		assertSame(InstallationBuilder.device(_scanned, ACTUATOR).tContainer(), stub.tContainer());
+		assertEquals(Integer.valueOf(7), stub.tValueByName("address"));
+		assertNull("No program.", DeviceConfiguration.program(stub));
+		assertFalse("Its configuration is not read.", devices.containsKey("1.3.7"));
 
 		// All rows again: the devices are updated and read once more.
 		devices.clear();
 		channels.put("result", taken);
 		Map<?, ?> again = takeOver(takeOverCommand(true).jobValues(channels), true, devices);
-		assertEquals(text(I18NConstants.TAKE_OVER_DONE__TAKEN_READ_REFUSED.fill(2, 2, 1)), again.get(TakeOverJob.TAKE_OVER));
+		assertEquals(text(I18NConstants.TAKE_OVER_DONE__TAKEN_READ_REFUSED.fill(3, 2, 0)), again.get(TakeOverJob.TAKE_OVER));
+		assertEquals(text(I18NConstants.TAKE_OVER_STUB_UPDATED__REASON.fill(ScanRows.match(unknownRow).reasonKey())),
+			row(ScanFunctions.rows(again), 0x1307).get(ScanRows.STATE));
+		assertSame("The stub is updated.", stub, InstallationBuilder.device(_scanned, 0x1307));
 		String state = (String) row(ScanFunctions.rows(again), ACTUATOR).get(ScanRows.STATE);
 		assertTrue(state, state.startsWith(prefix(I18NConstants.TAKE_OVER_UPDATED_READ__SETTINGS_CONNECTIONS)));
 		assertEquals(Set.of("1.3.5", "1.3.50"), devices.keySet());
@@ -362,7 +372,7 @@ public class TestScanTakeOver extends BasicTestCase {
 	 * @param devices
 	 *        Takes the devices read, by address.
 	 */
-	private static Map<?, ?> takeOver(List<Object> arguments, boolean all, Map<String, MockDevice> devices)
+	static Map<?, ?> takeOver(List<Object> arguments, boolean all, Map<String, MockDevice> devices)
 			throws Exception {
 		JobHarness job = new JobHarness(List.of());
 		// Configured as the command of the view configures it.
@@ -408,7 +418,7 @@ public class TestScanTakeOver extends BasicTestCase {
 	}
 
 	/** The command of the scan view starting the take-over: of the selected rows, or of all. */
-	private static ViewCommandScan.Site takeOverCommand(boolean all) {
+	static ViewCommandScan.Site takeOverCommand(boolean all) {
 		for (ViewCommandScan.Site site : ViewCommandScan.commands(VIEW)) {
 			for (ConfigurationItem item : ViewCommandScan.items(site.config())) {
 				if (item instanceof TakeOverJob.Config job && job.getAll() == all) {
@@ -446,7 +456,7 @@ public class TestScanTakeOver extends BasicTestCase {
 		throw new AssertionError("No command opening " + VIEW + " in " + DEVICES + ": " + found);
 	}
 
-	private static Map<?, ?> row(List<Map<?, ?>> rows, int address) {
+	static Map<?, ?> row(List<Map<?, ?>> rows, int address) {
 		return rows.stream().filter(r -> ScanRows.found(r).address() == address).findFirst().orElseThrow();
 	}
 
@@ -509,7 +519,7 @@ public class TestScanTakeOver extends BasicTestCase {
 		}
 	}
 
-	private static TLObject emptyProject(String name) {
+	static TLObject emptyProject(String name) {
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
 			TLObject project = ModelService.getInstance().getFactory()
 				.createObject((TLClass) TLModelUtil.findType("ehome.project:Project"));
@@ -522,7 +532,7 @@ public class TestScanTakeOver extends BasicTestCase {
 		}
 	}
 
-	private static void delete(TLObject project) {
+	static void delete(TLObject project) {
 		ThreadContext.inSystemContext(TestScanTakeOver.class, () -> {
 			SharedData.deleteProjects(List.of(project));
 			return null;

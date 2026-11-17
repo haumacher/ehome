@@ -160,6 +160,16 @@ public record FoundDevice(int address, Source source, Integer descriptor, Intege
 	}
 
 	/**
+	 * What a person looks the device up by at its manufacturer (haumacher/ehome #183): the order
+	 * number ({@link #orderNumber()}); where the device reports no text there, its hardware type in
+	 * hex; <code>null</code> if neither was read.
+	 */
+	public String orderText() {
+		String order = orderNumber();
+		return order != null ? order : hardwareTypeText();
+	}
+
+	/**
 	 * Bytes as text, two hex digits each, separated by blanks.
 	 */
 	public static String hex(byte[] data) {

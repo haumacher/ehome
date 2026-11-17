@@ -41,7 +41,8 @@ import de.haumacher.ehome.programming.download.DownloadPlan;
  *
  * <p>
  * Without a candidate the device is unidentified: its program (or manufacturer) is not in the
- * catalog, and it can be matched again after an import of product data.
+ * catalog. Taken over, it becomes a stub in its line, which "Assign" matches again after an import of
+ * product data ({@link DeviceStubs}, haumacher/ehome #183).
  * </p>
  */
 public class CatalogMatch {
@@ -117,7 +118,8 @@ public class CatalogMatch {
 			return match;
 		}
 		TLObject device = InstallationBuilder.device(project, found.address());
-		if (device == null) {
+		if (!DeviceStubs.isDevice(device)) {
+			// No device, or the stub of a device not identified before: it names no program.
 			return match;
 		}
 		Object assignment = device.tValueByName("program");

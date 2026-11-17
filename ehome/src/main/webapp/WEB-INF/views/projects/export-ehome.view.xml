@@ -7,10 +7,19 @@
 
 	The file holds the KNX part as .knxproj and the E-Home part as JSON
 	(de.haumacher.ehome.projectfile.ProjectFile), without secrets and without operating history.
+
+	"project" is the project exported: the devices the catalog does not identify (stubs, haumacher/ehome
+	#183) are not in the file, as its KNX part is the .knxproj; the dialog names them.
 -->
 <view>
 	<channels>
 		<channel name="file"/>
+		<channel name="project"/>
+		<!-- The devices left out, named; nothing if none. -->
+		<derived-channel name="leftOut"
+			expr="knxprojLeftOut($project)"
+			inputs="project"
+		/>
 	</channels>
 	<window width="600px">
 		<title>
@@ -25,6 +34,15 @@
 						<de>Das Projekt wurde als Projektdatei exportiert: der KNX-Teil mit den Katalogdaten, die er verwendet, die Regeln, Zeitpläne, Anwendungsdatenpunkte, virtuellen Geräte, Funktionen, Seiten, Zigbee-Geräte, die Einstellungen der Gruppenadressen und die Adressen der Controller. Die Datei enthält keine Geheimnisse (Installationsschlüssel, Verbindungsgeheimnisse, HTTP-Tokens) und keine Aufzeichnungen oder Bereitstellungen: Nach dem Import die Controller neu koppeln.</de>
 					</label>
 				</text>
+				<visible-if
+					expr="$leftOut != null"
+					input="leftOut"
+				>
+					<text
+						input="leftOut"
+						tone="warning"
+					/>
+				</visible-if>
 				<fields>
 					<value-input
 						readonly="true"

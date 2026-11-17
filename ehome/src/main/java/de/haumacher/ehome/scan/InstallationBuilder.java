@@ -6,7 +6,6 @@ package de.haumacher.ehome.scan;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HexFormat;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -30,8 +29,8 @@ import de.haumacher.ehome.scan.CatalogMatch.Candidate;
 
 /**
  * Builds the project of an installation from the devices a scan found: a matched device becomes a
- * <code>ehome.physical:Device</code> under the line of its address, an unidentified one an
- * <code>ehome.project:UnidentifiedDevice</code> of the project.
+ * <code>ehome.physical:Device</code> under the line of its address, an unidentified one a stub
+ * (<code>ehome.physical:DeviceStub</code>, {@link DeviceStubs}) there.
  *
  * <p>
  * Every method changes the model and must be called within a transaction.
@@ -73,14 +72,23 @@ public class InstallationBuilder {
 	 * <p>
 	 * A new device runs the program of the candidate, is of its product variant, and records that
 	 * the individual address and the program are loaded (its parameters and group addresses are the
-	 * project's defaults until its configuration is read back, see {@link ReadBack}). An existing
-	 * device with the address gets the serial number read; if it runs another program, nothing is
-	 * changed and the conflict is reported.
+	 * project's defaults until its configuration is read back, see {@link ReadBack}). A stub at the
+	 * address (a device not identified before, haumacher/ehome #183) is replaced by the device, which
+	 * keeps its name, serial number and location. An existing device with the address gets the
+	 * serial number read; if it runs another program, nothing is changed and the conflict is reported.
 	 * </p>
 	 */
 	public static Outcome apply(TLObject project, FoundDevice found, Candidate candidate) {
 		TLObject existing = device(project, found.address());
 		String address = found.addressText();
+		if (DeviceStubs.isStub(existing)) {
+			TLObject device = replace(existing, candidate);
+			if (found.serialStored() != null) {
+				device.tUpdateByName("serialNumber", found.serialStored());
+			}
+			return new Outcome(Action.CREATED, device, "The device " + address + " was created in place of its stub: "
+				+ candidate.label() + ".");
+		}
 		if (existing != null) {
 			if (DeviceConfiguration.program(existing) != candidate.program()) {
 				Object program = DeviceConfiguration.program(existing) == null ? null
@@ -91,19 +99,62 @@ public class InstallationBuilder {
 			if (found.serialStored() != null) {
 				existing.tUpdateByName("serialNumber", found.serialStored());
 			}
-			removeUnidentified(project, found.address());
 			return new Outcome(Action.UPDATED, existing, "The device " + address + " was updated.");
 		}
 		TLObject line = line(project, found.address() >>> 12 & 0x0F, found.address() >>> 8 & 0x0F);
-		Set<Object> loaded = new LinkedHashSet<>();
-		loaded.add(TLModelUtil.findPart("ehome.physical:DownloadPart#IndividualAddress"));
-		loaded.add(TLModelUtil.findPart("ehome.physical:DownloadPart#ApplicationProgram"));
-		TLObject device = createDevice(line, found.address() & 0xFF, candidate.variant(), candidate.assignment(), loaded);
+		TLObject device = createDevice(line, found.address() & 0xFF, candidate.variant(), candidate.assignment(), loadedFromBus());
 		if (found.serialStored() != null) {
 			device.tUpdateByName("serialNumber", found.serialStored());
 		}
-		removeUnidentified(project, found.address());
 		return new Outcome(Action.CREATED, device, "The device " + address + " was created: " + candidate.label() + ".");
+	}
+
+	/**
+	 * What a device found on the bus holds: its individual address and its program
+	 * (<code>ehome.physical:DownloadPart</code>).
+	 */
+	private static Set<Object> loadedFromBus() {
+		Set<Object> loaded = new LinkedHashSet<>();
+		loaded.add(TLModelUtil.findPart("ehome.physical:DownloadPart#IndividualAddress"));
+		loaded.add(TLModelUtil.findPart("ehome.physical:DownloadPart#ApplicationProgram"));
+		return loaded;
+	}
+
+	/**
+	 * Replaces the given stub (<code>ehome.physical:DeviceStub</code>) by a device of the candidate's
+	 * product variant and program at its place (its line, or the unplaced devices of the project),
+	 * keeping its name, device number, serial number, location and external ID (haumacher/ehome
+	 * #183). The device records that its address and program are loaded: the stub was found on the
+	 * bus. Its parameters have their defaults until its configuration is read back.
+	 *
+	 * @return The new device.
+	 */
+	public static TLObject replace(TLObject stub, Candidate candidate) {
+		TLObject container = stub.tContainer();
+		String reference = stub.tContainerReference().getName();
+		List<TLObject> before = ExtIds.list(container, reference);
+		int index = before.indexOf(stub);
+		Object title = stub.tValueByName("title");
+		Object number = stub.tValueByName("address");
+		Object serial = stub.tValueByName("serialNumber");
+		Object location = stub.tValueByName("location");
+		Object extId = stub.tValueByName(ExtIds.EXT_ID);
+		stub.tDelete();
+
+		TLObject device = newDevice(number, candidate.variant(), candidate.assignment(), loadedFromBus());
+		device.tUpdateByName("title", title);
+		device.tUpdateByName("serialNumber", serial);
+		device.tUpdateByName("location", location);
+		List<TLObject> elements = ExtIds.list(container, reference);
+		elements.add(index < 0 ? elements.size() : Math.min(index, elements.size()), device);
+		container.tUpdateByName(reference, elements);
+		if (extId != null) {
+			device.tUpdateByName(ExtIds.EXT_ID, extId);
+		} else {
+			ExtIds.assign(device);
+		}
+		completeDevice(device);
+		return device;
 	}
 
 	/**
@@ -135,25 +186,38 @@ public class InstallationBuilder {
 	 */
 	public static TLObject createDevice(TLObject line, int number, TLObject variant, TLObject assignment,
 			Collection<?> loaded) {
-		TLObject device = create("ehome.physical:Device");
-		device.tUpdateByName("address", Integer.valueOf(number));
+		TLObject device = newDevice(Integer.valueOf(number), variant, assignment, loaded);
+		add(line, "devices", device);
+		ExtIds.assign(device);
+		completeDevice(device);
+		return device;
+	}
+
+	private static TLObject newDevice(Object number, TLObject variant, TLObject assignment, Collection<?> loaded) {
+		TLObject device = create(DeviceStubs.DEVICE_TYPE);
+		device.tUpdateByName("address", number);
 		device.tUpdateByName("type", variant);
 		device.tUpdateByName("program", assignment);
 		device.tUpdateByName("loaded", new LinkedHashSet<>(loaded));
 		device.tUpdateByName("lastModified", new Date());
-		add(line, "devices", device);
-		ExtIds.assign(device);
+		return device;
+	}
+
+	/**
+	 * Computes what a new device derives from its program and values.
+	 */
+	private static void completeDevice(TLObject device) {
 		// The instances of its program's dynamic modules for the default values (haumacher/ehome #119).
 		ModuleInstances.update(device);
 		// The R values of its calculations from its L values (haumacher/ehome #123): the defaults of a
 		// program need not be consistent.
 		DeviceCalculations.recompute(device);
-		return device;
 	}
 
 	/**
-	 * The device of the project with the given individual address, <code>null</code> if there is
-	 * none.
+	 * The device of the project with the given individual address, a stub of a device the catalog
+	 * does not identify (<code>ehome.physical:DeviceStub</code>) among them; <code>null</code> if there
+	 * is none.
 	 */
 	public static TLObject device(TLObject project, int address) {
 		for (TLObject area : ExtIds.list(project, "areas")) {
@@ -231,62 +295,6 @@ public class InstallationBuilder {
 	}
 
 	/**
-	 * Records a device the catalog does not identify in the project (or updates the record of its
-	 * address).
-	 */
-	public static TLObject recordUnidentified(TLObject project, FoundDevice found, String reason) {
-		TLObject record = unidentified(project, found.address());
-		if (record == null) {
-			record = create("ehome.project:UnidentifiedDevice");
-			add(project, "unidentifiedDevices", record);
-		}
-		record.tUpdateByName("name", found.addressText());
-		record.tUpdateByName("address", Integer.valueOf(found.address()));
-		record.tUpdateByName("descriptor", found.descriptorText());
-		record.tUpdateByName("manufacturerId", found.manufacturerId());
-		record.tUpdateByName("serialNumber", found.serialNumber() == null ? null : hex(found.serialNumber()));
-		record.tUpdateByName("programVersion", found.programVersion() == null ? null : hex(found.programVersion()));
-		record.tUpdateByName("hardwareType", found.hardwareType() == null ? null : hex(found.hardwareType()));
-		record.tUpdateByName("orderInfo", found.orderInfo());
-		record.tUpdateByName("reason", reason);
-		record.tUpdateByName("lastSeen", new Date());
-		return record;
-	}
-
-	/**
-	 * The device a record of an unidentified device (<code>ehome.project:UnidentifiedDevice</code>)
-	 * describes, to be matched again.
-	 */
-	public static FoundDevice found(TLObject record) {
-		Object descriptor = record.tValueByName("descriptor");
-		return new FoundDevice(((Integer) record.tValueByName("address")).intValue(), FoundDevice.Source.BUS,
-			descriptor == null ? null : Integer.valueOf((String) descriptor, 16),
-			(Integer) record.tValueByName("manufacturerId"),
-			bytes(record.tValueByName("serialNumber")), bytes(record.tValueByName("programVersion")),
-			bytes(record.tValueByName("hardwareType")), (String) record.tValueByName("orderInfo"), List.of(), List.of());
-	}
-
-	/**
-	 * The record of an unidentified device with the given address, <code>null</code> if there is
-	 * none.
-	 */
-	public static TLObject unidentified(TLObject project, int address) {
-		for (TLObject record : ExtIds.list(project, "unidentifiedDevices")) {
-			if (record.tValueByName("address") instanceof Integer value && value.intValue() == address) {
-				return record;
-			}
-		}
-		return null;
-	}
-
-	private static void removeUnidentified(TLObject project, int address) {
-		TLObject record = unidentified(project, address);
-		if (record != null) {
-			record.tDelete();
-		}
-	}
-
-	/**
 	 * The group address of the project with the given value, created where the project has none:
 	 * in the group range taking it, or in ranges created for it (named by their prefix), in the
 	 * notation of the project. A new address is named by its address.
@@ -357,14 +365,6 @@ public class InstallationBuilder {
 
 	private static boolean number(TLObject obj, int number) {
 		return obj.tValueByName("address") instanceof Integer value && value.intValue() == number;
-	}
-
-	private static String hex(byte[] data) {
-		return HexFormat.of().withUpperCase().formatHex(data);
-	}
-
-	private static byte[] bytes(Object hex) {
-		return hex instanceof String text && !text.isEmpty() ? HexFormat.of().parseHex(text) : null;
 	}
 
 	static TLObject create(String typeName) {

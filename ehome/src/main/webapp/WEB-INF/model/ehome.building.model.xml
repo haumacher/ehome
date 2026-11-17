@@ -18,12 +18,12 @@
 					ordered="true"
 					type="BuildingDefinition"
 				/>
-				<!-- The devices placed in this part (ehome.physical:Device#location), not those of its sub-parts. -->
+				<!-- The devices placed in this part (ehome.physical:BusDevice#location, stubs among them), not those of its sub-parts. -->
 				<reference name="devices"
 					inverse-reference="location"
 					kind="backwards"
 					multiple="true"
-					type="ehome.physical:Device"
+					type="ehome.physical:BusDevice"
 				/>
 				<!-- The Zigbee devices placed in this part (ehome.zigbee:ZigbeeDevice#location), not those of its sub-parts. -->
 				<reference name="zigbeeDevices"

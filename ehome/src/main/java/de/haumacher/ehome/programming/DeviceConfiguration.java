@@ -435,9 +435,13 @@ public class DeviceConfiguration {
 	}
 
 	/**
-	 * The program of the given device; <code>null</code> if it has none.
+	 * The program of the given device; <code>null</code> if it has none (the stub of a device the
+	 * catalog does not identify, haumacher/ehome #183, has no attribute for one).
 	 */
 	public static Program program(TLObject device) {
+		if (device.tType().getPart("program") == null) {
+			return null;
+		}
 		Object assignment = device.tValueByName("program");
 		if (assignment instanceof TLObject programAssignment
 			&& programAssignment.tValueByName("program") instanceof Program program) {

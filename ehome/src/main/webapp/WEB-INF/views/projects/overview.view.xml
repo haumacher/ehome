@@ -398,7 +398,12 @@
 						<open-dialog
 							bind-input-to="file"
 							dialog-view="projects/export-knxproj.view.xml"
-						/>
+						>
+							<bind
+								channel="project"
+								to="project"
+							/>
+						</open-dialog>
 					</with-result>
 				</export-knxproj>
 			</generic-command>
@@ -430,7 +435,12 @@
 						<open-dialog
 							bind-input-to="file"
 							dialog-view="projects/export-ehome.view.xml"
-						/>
+						>
+							<bind
+								channel="project"
+								to="project"
+							/>
+						</open-dialog>
 					</with-result>
 				</export-ehome>
 			</generic-command>

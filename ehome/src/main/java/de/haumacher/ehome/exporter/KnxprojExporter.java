@@ -5,12 +5,18 @@ package de.haumacher.ehome.exporter;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import javax.xml.stream.XMLStreamException;
 
+import com.top_logic.basic.util.ResKey;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLObject;
+
+import de.haumacher.ehome.knx.ExtIds;
 
 /**
  * Exports a project (<code>ehome.project:Project</code>) as an ETS project archive
@@ -35,11 +41,17 @@ import com.top_logic.model.TLObject;
  */
 public class KnxprojExporter {
 
+	/** The type of the stub of a device the catalog does not identify (haumacher/ehome #183). */
+	private static final String STUB_TYPE = "ehome.physical:DeviceStub";
+
 	/**
 	 * Writes the given project as a <code>.knxproj</code> archive to the given stream (which stays
 	 * open).
+	 *
+	 * @return The devices left out: the stubs of devices the catalog does not identify
+	 *         (haumacher/ehome #183), which have no product ETS could reference.
 	 */
-	public static void export(TLObject project, OutputStream out) throws IOException {
+	public static List<TLObject> export(TLObject project, OutputStream out) throws IOException {
 		Usage usage = new Usage(project);
 		ZipOutputStream zip = new ZipOutputStream(out);
 		try {
@@ -65,6 +77,54 @@ public class KnxprojExporter {
 			throw new IOException(ex);
 		}
 		zip.finish();
+		return leftOut(project);
+	}
+
+	/**
+	 * Whether the given device of the project goes into the export: a device of the catalog, not the
+	 * stub of a device the catalog does not identify (haumacher/ehome #183), which has no product.
+	 */
+	static boolean exported(TLObject device) {
+		return !ExtIds.isA(device, STUB_TYPE);
+	}
+
+	/**
+	 * The devices of the given project the export leaves out ({@link #exported(TLObject)}), in the
+	 * order of the topology.
+	 */
+	public static List<TLObject> leftOut(TLObject project) {
+		List<TLObject> result = new ArrayList<>();
+		for (TLObject area : Values.list(project, "areas")) {
+			for (TLObject line : Values.list(area, "lines")) {
+				for (TLObject device : Values.list(line, "devices")) {
+					if (!exported(device)) {
+						result.add(device);
+					}
+				}
+			}
+		}
+		for (TLObject device : Values.list(project, "unassignedDevices")) {
+			if (!exported(device)) {
+				result.add(device);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * What the export of the given project says about the devices it leaves out, naming them;
+	 * <code>null</code> if it leaves out none.
+	 */
+	public static ResKey leftOutNote(TLObject project) {
+		List<TLObject> leftOut = leftOut(project);
+		if (leftOut.isEmpty()) {
+			return null;
+		}
+		List<String> names = new ArrayList<>();
+		for (TLObject device : leftOut) {
+			names.add(MetaLabelProvider.INSTANCE.getLabel(device));
+		}
+		return I18NConstants.EXPORT_LEFT_OUT__DEVICES.fill(String.join(", ", names));
 	}
 
 	private interface Content {

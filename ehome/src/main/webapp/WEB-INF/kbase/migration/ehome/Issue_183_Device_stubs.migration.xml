@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	haumacher/ehome #183: a device a scan of the bus found that the catalog does not identify is no longer
+	kept in a list of the project (ehome.project:Project#unidentifiedDevices, ehome.project:UnidentifiedDevice)
+	but stands in its line as a stub (ehome.physical:DeviceStub). Device and stub share the new abstract
+	class ehome.physical:BusDevice: the name the user gave a device, its address in the line, its serial
+	number and its location move from Device up to it, and the references holding the devices of a line,
+	the unplaced devices of a project and the devices placed in a building part take it.
+
+	The processors move what exists, so the automatic model upgrade at startup neither deletes nor
+	re-creates it: the attributes move with their identity (the links of the locations stay valid, the
+	values stay where they are), the class UnidentifiedDevice becomes DeviceStub with its objects and
+	their values (identity read from the bus), loses its own name, address, serial number and reason
+	(it inherits address and serial number from BusDevice, whose values are stored under the same names;
+	its name is computed), and the links of Project#unidentifiedDevices become links of
+	Project#unassignedDevices before the reference is deleted. The computed attributes of the stub are
+	created, and the queries naming the moved attributes updated, so the automatic model upgrade at
+	startup has nothing left to do.
+
+	After the start, the startup action DeviceStubMigration places each former record in the line of its
+	address (its address becomes the device number there), creating the line where the project has none,
+	as "Take over" does for a device found there; only where the line has a device at the number does it
+	stay among the unplaced devices. It turns the serial number from hex into the form of
+	BusDevice#serialNumber (Base64, as ETS stores it) and gives the stub an ID. Each step is logged.
+-->
+<migration config:interface="com.top_logic.knowledge.service.migration.MigrationConfig"
+	xmlns:config="http://www.top-logic.com/ns/config/6.0"
+>
+	<version name="Issue_183_Device_stubs"
+		module="ehome"
+	/>
+	<dependencies>
+		<dependency name="Issue_184_Page_minimum_role"
+			module="ehome"
+		/>
+		<dependency name="Ticket_29492_enlarge_layout_key"
+			module="tl"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-element"
+		/>
+		<dependency name="Ticket_29741_hide_anonymous_in_options"
+			module="tl-contact"
+		/>
+		<dependency name="Ticket_28710_Added_TLSearch"
+			module="tl-model-search"
+		/>
+		<dependency name="Ticket_27736_Upgrade_layout"
+			module="tl-monitoring"
+		/>
+		<dependency name="Ticket_30183_account_lock"
+			module="tl-layout-formeditor"
+		/>
+	</dependencies>
+	<processors>
+		<!--
+			The common class of devices and stubs, created concrete and then made abstract: created abstract,
+			the processor writes it into the stored model as an interface with the attribute "final", which
+			the model service then cannot parse (TL #30408, doc/tl-todo.md).
+		-->
+		<create-class name="ehome.physical:BusDevice"
+			abstract="false"
+			final="false"
+			without-primary-generalization="true"
+		>
+			<annotations>
+				<instance-presentation icon="css:fa-solid fa-mobile-screen-button"/>
+			</annotations>
+		</create-class>
+		<update-class name="ehome.physical:BusDevice"
+			abstract="true"
+		/>
+		<add-class-generalizations name="ehome.physical:BusDevice">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+		</add-class-generalizations>
+		<add-class-generalizations name="ehome.physical:Device">
+			<generalizations>
+				<generalization type="ehome.physical:BusDevice"/>
+			</generalizations>
+		</add-class-generalizations>
+		<remove-class-generalizations name="ehome.physical:Device">
+			<generalizations>
+				<generalization type="ehome.core:Externalized"/>
+			</generalizations>
+		</remove-class-generalizations>
+
+		<!-- The base properties move up, with their identity and values. -->
+		<update-property name="ehome.physical:Device#title"
+			new-name="ehome.physical:BusDevice#title"
+		/>
+		<update-property name="ehome.physical:Device#serialNumber"
+			new-name="ehome.physical:BusDevice#serialNumber"
+		/>
+		<update-property name="ehome.physical:Device#serialText"
+			new-name="ehome.physical:BusDevice#serialText"
+		/>
+		<update-property name="ehome.physical:Device#address"
+			new-name="ehome.physical:BusDevice#address"
+		/>
+		<update-reference name="ehome.physical:Device#location"
+			new-name="ehome.physical:BusDevice#location"
+		/>
+
+		<!-- The references holding devices take stubs as well. -->
+		<update-reference name="ehome.physical:Line#devices"
+			new-type="ehome.physical:BusDevice"
+		/>
+		<update-reference name="ehome.project:Project#unassignedDevices"
+			new-type="ehome.physical:BusDevice"
+		/>
+
+		<!-- The records of unidentified devices become stubs, keeping their identity and what was read. -->
+		<update-class name="ehome.project:UnidentifiedDevice"
+			new-name="ehome.physical:DeviceStub"
+		/>
+		<remove-class-generalizations name="ehome.physical:DeviceStub">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+		</remove-class-generalizations>
+		<add-class-generalizations name="ehome.physical:DeviceStub">
+			<generalizations>
+				<generalization type="ehome.physical:BusDevice"/>
+			</generalizations>
+		</add-class-generalizations>
+		<!-- Inherited from BusDevice, whose values are stored under the same names; the stored values stay. -->
+		<delete-property name="ehome.physical:DeviceStub#address"/>
+		<delete-property name="ehome.physical:DeviceStub#serialNumber"/>
+		<!-- The name is computed now; the reason is given when the stub is assigned. -->
+		<delete-property name="ehome.physical:DeviceStub#name"/>
+		<delete-property name="ehome.physical:DeviceStub#reason"/>
+
+		<!-- What the model computes with the moved attributes, and the computed attributes of the stub. -->
+		<update-annotations name="ehome.physical:BusDevice#serialText">
+			<annotations>
+				<storage-algorithm>
+					<query expr="d -> serialNumberText($d.get(`ehome.physical:BusDevice#serialNumber`))"/>
+				</storage-algorithm>
+			</annotations>
+		</update-annotations>
+		<update-annotations name="ehome.physical:Device#name">
+			<annotations>
+				<storage-algorithm>
+					<query>
+						<expr><![CDATA[d -> $d.get(`ehome.physical:BusDevice#title`) || "{0} ({1})".fill(
+    $d.get(`ehome.physical:Device#type`).label(),
+    $d.get(`ehome.physical:BusDevice#address`).label()
+)]]></expr>
+					</query>
+				</storage-algorithm>
+			</annotations>
+		</update-annotations>
+		<update-annotations name="ehome.physical:DeviceStub">
+			<annotations>
+				<instance-presentation icon="css:bi bi-exclamation-triangle ehomeStub"/>
+			</annotations>
+		</update-annotations>
+		<create-property name="ehome.physical:DeviceStub#name"
+			type="tl.core:String"
+		>
+			<annotations>
+				<storage-algorithm>
+					<query expr="d -> $d.get(`ehome.physical:BusDevice#title`) || deviceLabel($d)"/>
+				</storage-algorithm>
+			</annotations>
+		</create-property>
+		<create-property name="ehome.physical:DeviceStub#manufacturer"
+			type="tl.core:String"
+		>
+			<annotations>
+				<storage-algorithm>
+					<query expr="d -> deviceStubManufacturer($d)"/>
+				</storage-algorithm>
+			</annotations>
+		</create-property>
+		<create-property name="ehome.physical:DeviceStub#orderNumber"
+			type="tl.core:String"
+		>
+			<annotations>
+				<storage-algorithm>
+					<query expr="d -> deviceStubOrder($d)"/>
+				</storage-algorithm>
+			</annotations>
+		</create-property>
+		<reorder-part name="ehome.physical:DeviceStub#name"
+			before="manufacturerId"
+		/>
+		<reorder-part name="ehome.physical:DeviceStub#manufacturer"
+			before="manufacturerId"
+		/>
+		<reorder-part name="ehome.physical:DeviceStub#orderNumber"
+			before="manufacturerId"
+		/>
+		<reorder-part name="ehome.physical:DeviceStub#descriptor"
+			before="hardwareType"
+		/>
+
+		<!-- The list of the project goes away: its stubs become unplaced devices, placed by the startup action. -->
+		<change-link-reference
+			source-ref="ehome.project:Project#unidentifiedDevices"
+			table="hasStructureChild"
+			target-ref="ehome.project:Project#unassignedDevices"
+		/>
+		<delete-reference name="ehome.project:Project#unidentifiedDevices"/>
+	</processors>
+	<post-processors/>
+	<startup-actions>
+		<startup-action class="de.haumacher.ehome.scan.DeviceStubMigration"/>
+	</startup-actions>
+</migration>

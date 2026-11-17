@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 
 <!--
-	Dialog choosing the building part a device is placed in (ehome.physical:Device#location): the
+	Dialog choosing the building part a device is placed in (ehome.physical:BusDevice#location): the
 	counterpart of projects/place-device.view.xml from the device's side.
 
-	"device" carries the device. The building parts of the device's project are offered as the tree
+	"device" carries the device (a device of the catalog or the stub of one it does not identify,
+	haumacher/ehome #183). The building parts of the device's project are offered as the tree
 	of the building view, so that a part is chosen together with its path; "Place" places the device
 	in the chosen part (buildingPlace), "Remove the placement" takes it out of its part. The device
 	stays selected ("selection" is written with it).
@@ -21,10 +22,10 @@
 		/>
 		<derived-channel name="hint"
 			inputs="device"
-			observed-types="ehome.physical:Device"
+			observed-types="ehome.physical:BusDevice"
 		>
 			<expr><![CDATA[{
-    location = $device.get(`ehome.physical:Device#location`);
+    location = $device.get(`ehome.physical:BusDevice#location`);
     if($location == null,
         #("{0} is placed in no building part."@en, "{0} ist in keinem Gebäudeteil platziert."@de).fill(deviceLabel($device)),
         #("{0} is placed in {1}."@en, "{0} ist in {1} platziert."@de).fill(deviceLabel($device), buildingPath($location)))
@@ -75,7 +76,7 @@
 					<access>
 						<operation name="Write"
 							object="$device"
-							type="ehome.physical:Device"
+							type="ehome.physical:BusDevice"
 						/>
 					</access>
 					<executability>
@@ -94,7 +95,7 @@
 				<action class="com.top_logic.layout.view.command.GenericViewCommand"
 					image="css:bi bi-box-arrow-up-left"
 					inputs="device"
-					observed-types="ehome.physical:Device"
+					observed-types="ehome.physical:BusDevice"
 				>
 					<label>
 						<en>Remove the placement</en>
@@ -103,12 +104,12 @@
 					<access>
 						<operation name="Write"
 							object="$device"
-							type="ehome.physical:Device"
+							type="ehome.physical:BusDevice"
 						/>
 					</access>
 					<executability>
 						<null-input-disabled/>
-						<disabled-if expr="if($device.get(`ehome.physical:Device#location`) == null, #('The device is placed in no building part.'@en, 'Das Gerät ist in keinem Gebäudeteil platziert.'@de))"/>
+						<disabled-if expr="if($device.get(`ehome.physical:BusDevice#location`) == null, #('The device is placed in no building part.'@en, 'Das Gerät ist in keinem Gebäudeteil platziert.'@de))"/>
 					</executability>
 					<with-transaction>
 						<execute-script function="buildingPlace($device, null)"/>

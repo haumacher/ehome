@@ -5,7 +5,8 @@
 	projects/choose-location.view.xml from the part's side.
 
 	"part" carries the building part (ehome.building:BuildingDefinition). The table offers the devices
-	of the part's project that are not placed in it, those placed nowhere first, each with its name
+	of the part's project that are not placed in it (the stubs of devices the catalog does not identify
+	among them, haumacher/ehome #183), those placed nowhere first, each with its name
 	and individual address and the part it is placed in now; the chosen one is placed in the part
 	(buildingPlace, which moves it out of its former part) and written to "selection".
 -->
@@ -37,7 +38,7 @@
 				/>
 				<table
 					selection="chosen"
-					types="ehome.physical:Device"
+					types="ehome.physical:BusDevice"
 				>
 					<inputs>
 						<input channel="part"/>
@@ -61,11 +62,18 @@
 								<en>Placed in</en>
 								<de>Platziert in</de>
 							</label>
-							<value>buildingPath($row.get(`ehome.physical:Device#location`))</value>
+							<value>buildingPath($row.get(`ehome.physical:BusDevice#location`))</value>
 						</computed-column>
-						<column attribute="type"
+						<computed-column name="type"
+							type="ehome.catalog:Variant"
 							width="200"
-						/>
+						>
+							<label>
+								<en>Type</en>
+								<de>Typ</de>
+							</label>
+							<value>if($row.instanceOf(`ehome.physical:Device`), $row.get(`ehome.physical:Device#type`), null)</value>
+						</computed-column>
 					</columns>
 					<rows>buildingDeviceChoices($part)</rows>
 				</table>
@@ -85,7 +93,7 @@
 						<!-- Placing sets the location of the chosen device. -->
 						<operation name="Write"
 							object="$chosen"
-							type="ehome.physical:Device"
+							type="ehome.physical:BusDevice"
 						/>
 					</access>
 					<executability>

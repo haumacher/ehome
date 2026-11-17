@@ -16,6 +16,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 ERROR_EXPORT_FAILED__DETAIL;
 
+	/**
+	 * @en Left out, as the catalog does not identify them (ETS needs a product for every device): {0}.
+	 */
+	public static ResKey1 EXPORT_LEFT_OUT__DEVICES;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

@@ -136,6 +136,9 @@ public class TestAccessRights extends BasicTestCase {
 
 	private TLObject _device;
 
+	/** The stub of a device the catalog does not identify, in the line of {@link #_device} (haumacher/ehome #183). */
+	private TLObject _stub;
+
 	private TLObject _function;
 
 	private TLObject _dismissal;
@@ -224,8 +227,10 @@ public class TestAccessRights extends BasicTestCase {
 			_device = create("ehome.physical:Device");
 			_device.tUpdateByName("type", _variant);
 			_device.tUpdateByName("program", assignment);
+			_stub = create("ehome.physical:DeviceStub");
+			_stub.tUpdateByName("address", Integer.valueOf(7));
 			TLObject line = create("ehome.physical:Line");
-			line.tUpdateByName("devices", List.of(_device));
+			line.tUpdateByName("devices", List.of(_device, _stub));
 			TLObject area = create("ehome.physical:Area");
 			area.tUpdateByName("lines", List.of(line));
 			_project.tUpdateByName("areas", List.of(area));
@@ -731,6 +736,26 @@ public class TestAccessRights extends BasicTestCase {
 		assertNull(as(_editor, () -> DeviceSettings.writeVeto(_device)));
 		assertEquals(de.haumacher.ehome.programming.I18NConstants.ERROR_NOT_ALLOWED__DEVICE.fill(_device),
 			as(_viewer, () -> DeviceSettings.writeVeto(_device)));
+	}
+
+	/**
+	 * The stub of a device the catalog does not identify follows its project as a device does
+	 * (haumacher/ehome #183): a viewer reads it, an editor changes it; "Assign", which replaces it by a
+	 * device, writes the project: allowed for an editor, refused for a viewer and for an installer
+	 * without a role in the project.
+	 */
+	public void testDeviceStub() {
+		assertTrue(rights().isAllowed(_viewer, _stub, part("ehome.physical:BusDevice#title"), READ));
+		assertTrue(rights().isAllowed(_viewer, _stub, part("ehome.physical:DeviceStub#programVersion"), READ));
+		assertFalse(rights().isAllowed(_viewer, _stub, part("ehome.physical:BusDevice#title"), WRITE));
+		assertTrue(rights().isAllowed(_editor, _stub, part("ehome.physical:BusDevice#title"), WRITE));
+		assertFalse(rights().isAllowed(_stranger, _stub, part("ehome.physical:BusDevice#title"), READ));
+
+		ViewCommandScan.Site assign = ViewCommandScan.command("projects/devices.view.xml", "deviceStubAssign()");
+		assertTrue(as(_editor, () -> assign.decide(_stub, _project)).isExecutable());
+		assertFalse(as(_viewer, () -> assign.decide(_stub, _project)).isExecutable());
+		assertFalse(as(_installer, () -> assign.decide(_stub, _project)).isExecutable());
+		assertHidden(as(_stranger, () -> assign.decide(_stub, _project)));
 	}
 
 	/**

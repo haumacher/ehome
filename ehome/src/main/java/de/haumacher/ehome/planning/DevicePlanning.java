@@ -60,6 +60,9 @@ public final class DevicePlanning {
 
 	private static final String DEVICE = "ehome.physical:Device";
 
+	/** A device or the stub of a device the catalog does not identify (haumacher/ehome #183). */
+	private static final String BUS_DEVICE = "ehome.physical:BusDevice";
+
 	private static final String PROJECT = "ehome.project:Project";
 
 	private static final String BUILDING_DEFINITION = "ehome.building:BuildingDefinition";
@@ -197,7 +200,7 @@ public final class DevicePlanning {
 		if (ExtIds.isA(node, LINE)) {
 			return node;
 		}
-		if (ExtIds.isA(node, DEVICE) && node.tContainer() != null && ExtIds.isA(node.tContainer(), LINE)) {
+		if (ExtIds.isA(node, BUS_DEVICE) && node.tContainer() != null && ExtIds.isA(node.tContainer(), LINE)) {
 			return node.tContainer();
 		}
 		return null;

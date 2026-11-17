@@ -50,6 +50,7 @@ import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
 import de.haumacher.ehome.scan.BusScanner;
 import de.haumacher.ehome.scan.CatalogMatch;
+import de.haumacher.ehome.scan.DeviceStubs;
 import de.haumacher.ehome.scan.FoundDevice;
 import de.haumacher.ehome.scan.InstallationBuilder;
 import de.haumacher.ehome.scan.ReadBack;
@@ -155,13 +156,14 @@ public class TestBusScan extends BasicTestCase {
 					InstallationBuilder.apply(scanned, tastsensor, candidate(tastsensorMatch, "M-0008_A-10D7-11-A0E5-O000A")).action());
 				assertEquals(InstallationBuilder.Action.CREATED,
 					InstallationBuilder.apply(scanned, router, candidate(routerMatch, "M-006A_A-0703-10-FD20-O00C5")).action());
-				InstallationBuilder.recordUnidentified(scanned, unknown, unknownMatch.reason());
+				DeviceStubs.record(scanned, unknown);
 				tx.commit();
 			}
 			assertEquals(1, list(scanned, "areas").size());
 			TLObject line = list(list(scanned, "areas").get(0), "lines").get(0);
 			assertEquals("1.3", line.tValueByName("name"));
-			assertEquals(3, list(line, "devices").size());
+			// The three devices and the stub of the unknown one (haumacher/ehome #183).
+			assertEquals(4, list(line, "devices").size());
 			TLObject device = InstallationBuilder.device(scanned, ACTUATOR);
 			assertNotNull(device);
 			assertEquals(Integer.valueOf(5), device.tValueByName("address"));
@@ -178,9 +180,11 @@ public class TestBusScan extends BasicTestCase {
 					InstallationBuilder.apply(scanned, moved, candidate(actuatorMatch, "M-0083_A-000C-21-83B5")).action());
 				tx.commit();
 			}
-			assertEquals(3, list(line, "devices").size());
-			assertEquals(1, list(scanned, "unidentifiedDevices").size());
-			FoundDevice recorded = InstallationBuilder.found(list(scanned, "unidentifiedDevices").get(0));
+			assertEquals(4, list(line, "devices").size());
+			TLObject stub = InstallationBuilder.device(scanned, 0x1307);
+			assertTrue(DeviceStubs.isStub(stub));
+			FoundDevice recorded = DeviceStubs.found(stub);
+			assertEquals(0x1307, recorded.address());
 			assertEquals(unknown.programVersionText(), recorded.programVersionText());
 			assertEquals(CatalogMatch.Kind.UNIDENTIFIED, CatalogMatch.match(recorded).kind());
 

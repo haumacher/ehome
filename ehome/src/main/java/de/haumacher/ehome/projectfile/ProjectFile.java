@@ -106,9 +106,10 @@ import de.haumacher.ehome.modules.ModuleParts;
  * of the derivation (haumacher/ehome #147), the secrets (the installation keys, the
  * enrollment code, of a controller everything but its name, host and port: its connection id and
  * secret, its HTTP token, and what it reported), and the operating history (the recordings of the
- * monitor, the deployments, the revision of the last image, the devices a scan did not identify, the
- * simulation's overrides of rules and parameters, the revision of a device's last download, which is
- * a revision of the database it was made in).
+ * monitor, the deployments, the revision of the last image, the simulation's overrides of rules and
+ * parameters, the revision of a device's last download, which is a revision of the database it was
+ * made in). The stubs of devices the catalog does not identify (haumacher/ehome #183) are not in the
+ * file: the <code>.knxproj</code> leaves them out, as ETS needs a product for every device.
  * </p>
  */
 public final class ProjectFile {

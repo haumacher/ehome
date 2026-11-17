@@ -171,10 +171,14 @@
 					<method name="scanRow" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanChooseVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanChoose" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
-					<method name="scanRematch" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanLine" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanLedVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanLedConfirmation" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<!-- The stub of a device the catalog does not identify (de.haumacher.ehome.scan.DeviceStubFunctions, haumacher/ehome #183). -->
+					<method name="deviceStubManufacturer" class="de.haumacher.ehome.scan.DeviceStubFunctions$Builder"/>
+					<method name="deviceStubOrder" class="de.haumacher.ehome.scan.DeviceStubFunctions$Builder"/>
+					<method name="deviceStubAssign" class="de.haumacher.ehome.scan.DeviceStubFunctions$Builder"/>
+					<method name="knxprojLeftOut" class="de.haumacher.ehome.scan.DeviceStubFunctions$Builder"/>
 					<!-- The device info of a device of the project (de.haumacher.ehome.scan.DeviceInfoFunctions, haumacher/ehome #175). -->
 					<method name="deviceInfoVeto" class="de.haumacher.ehome.scan.DeviceInfoFunctions$Builder"/>
 					<method name="deviceInfoRows" class="de.haumacher.ehome.scan.DeviceInfoFunctions$Builder"/>
@@ -218,6 +222,8 @@
 				</label-providers>
 				<resource-providers>
 					<provider kind="MODEL" type="ehome.physical:Device" implementation="de.haumacher.ehome.programming.DeviceResourceProvider"/>
+					<!-- The stub of a device the catalog does not identify (haumacher/ehome #183): by manufacturer and order number. -->
+					<provider kind="MODEL" type="ehome.physical:DeviceStub" implementation="de.haumacher.ehome.programming.DeviceResourceProvider"/>
 					<!-- An entry of an enumeration with the icon of its program, in the options of a choice (TL #30316). -->
 					<provider kind="MODEL" type="ehome.operational:EnumerationValue" implementation="de.haumacher.ehome.knx.EnumerationValueResourceProvider"/>
 				</resource-providers>
@@ -265,8 +271,8 @@
 							<bind channel="selected"/>
 						</show>
 					</target>
-					<!-- A KNX device in the devices of its project, selected in the tree. -->
-					<target type="ehome.physical:Device">
+					<!-- A KNX device in the devices of its project, selected in the tree (a stub of a device the catalog does not identify as well). -->
+					<target type="ehome.physical:BusDevice">
 						<show view="projects/overview.view.xml">
 							<bind
 								channel="project"

@@ -43,9 +43,11 @@ import de.haumacher.ehome.view.JobInputs;
  * <p>
  * The job is started with the rows to take over (a row, the set of the selected rows) and the
  * result of the scan, or, configured with {@link Config#getAll() all}, with the result alone, whose
- * rows are all taken over. A row the catalog does not identify as exactly one product and program,
- * or whose address holds a device of another program, is left alone; a device whose configuration
- * cannot be read (the gateway itself, the bus not reachable, a failed read) is created all the same.
+ * rows are all taken over. A row the catalog does not identify becomes a stub in its line (or updates
+ * the stub at its address), without program and without reading its configuration (haumacher/ehome
+ * #183); a row the catalog offers several products for, or whose address holds a device of another
+ * program, is left alone; a device whose configuration cannot be read (the gateway itself, the bus not
+ * reachable, a failed read) is created all the same, a stub at its address is replaced by it.
  * Each row says in its state what happened ({@link ScanRows#outcome(Map, String, boolean, String)}). The
  * result is the result of the scan with these rows, and <code>takeOver</code>, what was done.
  * </p>
@@ -164,6 +166,9 @@ public class TakeOverJob implements JobBody {
 			return ScanRows.outcome(row, resources.getString(I18NConstants.TAKE_OVER_REFUSED__REASON.fill(veto)), true, null);
 		}
 		TLObject project = ScanRows.project(row);
+		if (ScanRows.match(row).kind() == CatalogMatch.Kind.UNIDENTIFIED) {
+			return takeOverStub(row, project, found, counts);
+		}
 		CatalogMatch.Candidate candidate = ScanRows.match(row).candidates().get(0);
 		InstallationBuilder.Outcome applied;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(
@@ -235,6 +240,23 @@ public class TakeOverJob implements JobBody {
 		}
 		String details = notes.isEmpty() ? null : String.join("; ", notes);
 		return ScanRows.outcome(row, text, !report.identical(), details);
+	}
+
+	/**
+	 * Takes over a device the catalog does not identify: as a stub in its line, without program; its
+	 * configuration is not read (haumacher/ehome #183).
+	 */
+	private static Map<String, Object> takeOverStub(Map<?, ?> row, TLObject project, FoundDevice found, Counts counts) {
+		boolean created = InstallationBuilder.device(project, found.address()) == null;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(
+			I18NConstants.COMMIT_TAKE_OVER__DEVICE.fill(found.addressText()))) {
+			DeviceStubs.record(project, found);
+			tx.commit();
+		}
+		counts._taken++;
+		ResKey reason = ScanRows.match(row).reasonKey();
+		return ScanRows.outcome(row, Resources.getInstance().getString((created ? I18NConstants.TAKE_OVER_STUB_CREATED__REASON
+			: I18NConstants.TAKE_OVER_STUB_UPDATED__REASON).fill(reason)), true, null);
 	}
 
 	/**

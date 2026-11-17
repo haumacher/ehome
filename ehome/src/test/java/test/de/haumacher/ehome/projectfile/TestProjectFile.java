@@ -120,7 +120,7 @@ public class TestProjectFile extends BasicTestCase {
 		"ehome.project:Project#installationPublicKey", "ehome.project:Project#newInstallationKey",
 		"ehome.project:Project#newInstallationPublicKey", "ehome.project:Project#recordings",
 		"ehome.project:Project#deployments", "ehome.project:Project#imageRevision",
-		"ehome.project:Project#unidentifiedDevices", "ehome.runtime:Rule#simulationEnabled",
+		"ehome.runtime:Rule#simulationEnabled",
 		"ehome.runtime:Rule#simulationState", "ehome.runtime:RuleParameter#simulationValue",
 		"ehome.physical:Device#downloadRevision");
 

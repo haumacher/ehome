@@ -4,7 +4,6 @@
 package de.haumacher.ehome.scan;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +76,7 @@ public class ScanRows {
 		row.put("programVersion", found.programVersionText());
 		row.put("hardwareType", found.hardwareTypeText());
 		row.put("orderInfo", found.orderInfo());
+		row.put("order", found.orderText());
 		row.put("states", texts(found.loadStates(), ", "));
 		String notes = texts(found.notes(), "; ");
 		row.put(NOTES, notes.isEmpty() ? null : notes);
@@ -214,13 +214,15 @@ public class ScanRows {
 	}
 
 	/**
-	 * The device of the project at the address, for a person: new, the device, a conflict, or
-	 * unidentified.
+	 * The device of the project at the address, for a person: new, the device, a conflict, the stub
+	 * of an unidentified device, or new and unidentified.
 	 */
 	static String state(TLObject project, FoundDevice found, CatalogMatch.Match match) {
 		TLObject device = InstallationBuilder.device(project, found.address());
 		ResKey state;
-		if (device != null) {
+		if (DeviceStubs.isStub(device)) {
+			state = I18NConstants.STATE_STUB__DEVICE.fill(device.tValueByName("name"));
+		} else if (device != null) {
 			Program program = DeviceConfiguration.program(device);
 			boolean same = match.candidates().stream().anyMatch(c -> c.program() == program);
 			state = same || match.kind() == CatalogMatch.Kind.UNIDENTIFIED
@@ -254,19 +256,6 @@ public class ScanRows {
 	 */
 	public static TLObject project(Object row) {
 		return row instanceof Map<?, ?> map && map.get(PROJECT) instanceof TLObject project ? project : null;
-	}
-
-	/**
-	 * The rows of the unidentified devices recorded in the project, matched again against the
-	 * catalog.
-	 */
-	public static List<Map<String, Object>> rematch(TLObject project) {
-		List<Map<String, Object>> result = new ArrayList<>();
-		for (Object record : (Collection<?>) project.tValueByName("unidentifiedDevices")) {
-			FoundDevice found = InstallationBuilder.found((TLObject) record);
-			result.add(row(project, found, CatalogMatch.match(project, found)));
-		}
-		return result;
 	}
 
 }

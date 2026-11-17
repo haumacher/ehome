@@ -47,10 +47,10 @@ final class Usage {
 	Usage(TLObject project) {
 		for (TLObject area : list(project, "areas")) {
 			for (TLObject line : list(area, "lines")) {
-				_devices.addAll(list(line, "devices"));
+				_devices.addAll(exported(list(line, "devices")));
 			}
 		}
-		_devices.addAll(list(project, "unassignedDevices"));
+		_devices.addAll(exported(list(project, "unassignedDevices")));
 		for (TLObject device : _devices) {
 			TLObject variant = ref(device, "type");
 			if (variant != null) {
@@ -153,6 +153,19 @@ final class Usage {
 	 */
 	List<TLObject> programs(TLObject manufacturer) {
 		return Values.sortedById(_programs.stream().filter(p -> ref(p, "manufacturer") == manufacturer).toList());
+	}
+
+	/**
+	 * The given devices of the project that go into the export ({@link KnxprojExporter#exported(TLObject)}).
+	 */
+	static List<TLObject> exported(List<TLObject> devices) {
+		List<TLObject> result = new ArrayList<>();
+		for (TLObject device : devices) {
+			if (KnxprojExporter.exported(device)) {
+				result.add(device);
+			}
+		}
+		return result;
 	}
 
 }

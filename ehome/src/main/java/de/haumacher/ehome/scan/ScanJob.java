@@ -13,9 +13,6 @@ import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.knowledge.service.PersistencyLayer;
-import com.top_logic.knowledge.service.Transaction;
-import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.layout.view.job.JobPhase;
@@ -31,8 +28,8 @@ import de.haumacher.ehome.view.JobInputs;
  * The work of the command "Scan" of the dialog "Scan the bus" (<code>&lt;start-job&gt;</code> body of
  * <code>projects/scan.view.xml</code>): scans the bus behind the project's gateway with
  * {@link BusScanner} (nothing is written), matches every device found against the catalog
- * ({@link CatalogMatch}) and keeps the unidentified ones in the project
- * ({@link InstallationBuilder#recordUnidentified(TLObject, FoundDevice, String)}).
+ * ({@link CatalogMatch}). The scan changes nothing in the project: "Take over" ({@link TakeOverJob})
+ * creates the devices, an unidentified one as a stub (haumacher/ehome #183).
  *
  * <p>
  * The job is started with the project, what to search for ({@link ScanTarget}), the line to scan,
@@ -46,8 +43,7 @@ import de.haumacher.ehome.view.JobInputs;
  * A cancel ends the scan at its next report, or at once while it waits for the bus (the accesses of
  * {@link CalimeroScanBus} are interruptible sections of the job's
  * {@link com.top_logic.basic.thread.CancelScope}, TL #30196). Once the bus is read, the job is past
- * its point of no return ({@link JobMonitor#uncancelable()}): it stores the devices found and ends
- * with them.
+ * its point of no return ({@link JobMonitor#uncancelable()}): it ends with the devices found.
  * </p>
  */
 public class ScanJob implements JobBody {
@@ -130,34 +126,26 @@ public class ScanJob implements JobBody {
 		// The last phase is complete, also where it had nothing to do or reported no progress.
 		job.fraction(1);
 
-		// The point of no return (TL #30194): the devices found are stored, the job ends with them.
+		// The point of no return (TL #30194): the bus is read, the job ends with the devices found.
 		job.uncancelable();
 		List<Map<String, Object>> rows = new ArrayList<>();
 		int identified = 0;
 		int choices = 0;
 		int unidentified = 0;
-		try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction(I18NConstants.COMMIT_SCAN__PROJECT_GATEWAY_FOUND
-			.fill(MetaLabelProvider.INSTANCE.getLabel(project), gatewayText, Integer.valueOf(result.devices().size())))) {
-			for (FoundDevice found : result.devices()) {
-				CatalogMatch.Match match = CatalogMatch.match(project, found);
-				switch (match.kind()) {
-					case UNIDENTIFIED:
-						unidentified++;
-						if (InstallationBuilder.device(project, found.address()) == null) {
-							InstallationBuilder.recordUnidentified(project, found,
-								Resources.getInstance().getString(match.reasonKey()));
-						}
-						break;
-					case CHOICE:
-						choices++;
-						break;
-					case UNIQUE:
-						identified++;
-						break;
-				}
-				rows.add(ScanRows.row(project, found, match));
+		for (FoundDevice found : result.devices()) {
+			CatalogMatch.Match match = CatalogMatch.match(project, found);
+			switch (match.kind()) {
+				case UNIDENTIFIED:
+					unidentified++;
+					break;
+				case CHOICE:
+					choices++;
+					break;
+				case UNIQUE:
+					identified++;
+					break;
 			}
-			tx.commit();
+			rows.add(ScanRows.row(project, found, match));
 		}
 		Resources resources = Resources.getInstance();
 		List<String> notes = new ArrayList<>();

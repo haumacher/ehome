@@ -691,25 +691,33 @@ public class DeviceChanges {
 	}
 
 	/**
-	 * The devices of the project (<code>ehome.project:Project</code>): those in its lines, then
-	 * those not placed in a line.
+	 * The devices of the project (<code>ehome.project:Project</code>) with a program: those in its
+	 * lines, then those not placed in a line; not the stubs of devices the catalog does not identify
+	 * (haumacher/ehome #183), which have no configuration.
 	 */
 	public static List<TLObject> devices(TLObject project) {
 		List<TLObject> result = new ArrayList<>();
 		for (Object area : (Collection<?>) project.tValueByName("areas")) {
 			for (Object line : (Collection<?>) ((TLObject) area).tValueByName("lines")) {
 				for (Object device : (Collection<?>) ((TLObject) line).tValueByName("devices")) {
-					result.add((TLObject) device);
+					addDevice(result, device);
 				}
 			}
 		}
 		Object unassigned = project.tValueByName("unassignedDevices");
 		if (unassigned instanceof Collection<?> devices) {
 			for (Object device : devices) {
-				result.add((TLObject) device);
+				addDevice(result, device);
 			}
 		}
 		return result;
+	}
+
+	private static void addDevice(List<TLObject> result, Object device) {
+		TLObject obj = (TLObject) device;
+		if (obj.tType().getPart("program") != null) {
+			result.add(obj);
+		}
 	}
 
 	/**
