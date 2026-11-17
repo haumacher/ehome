@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -34,6 +35,7 @@ import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.Resources;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.knx.ExtIds;
@@ -52,6 +54,7 @@ import de.haumacher.ehome.scan.FoundDevice;
 import de.haumacher.ehome.scan.InstallationBuilder;
 import de.haumacher.ehome.scan.ReadBack;
 import de.haumacher.ehome.scan.ScanBus;
+import de.haumacher.ehome.scan.ScanTarget;
 
 /**
  * Building a project from an installation (haumacher/ehome #9): the devices of the user's test
@@ -88,12 +91,20 @@ public class TestBusScan extends BasicTestCase {
 		TLObject scanned = null;
 		try {
 			FakeBus bus = new FakeBus();
-			BusScanner.Result result = BusScanner.scan(bus, new BusScanner.Request(1, 3, false, true, false), listener());
-			assertEquals(result.notes().toString(), 0, result.notes().size());
-			assertEquals(3, result.devices().size());
-			FoundDevice router = result.devices().get(0);
-			FoundDevice actuator = result.devices().get(1);
-			FoundDevice tastsensor = result.devices().get(2);
+			// The gateway through local device management, then the line (haumacher/ehome #182: one target
+			// per scan).
+			BusScanner.Result gateway = BusScanner.scan(bus, BusScanner.Request.of(ScanTarget.GATEWAY), listener());
+			assertEquals(gateway.notes().toString(), 0, gateway.notes().size());
+			assertEquals(1, gateway.devices().size());
+			BusScanner.Result result = BusScanner.scan(bus, BusScanner.Request.of(new BusScanner.Line(1, 3)), listener());
+			// The gateway answers a connection through its own tunnel, but not its reads.
+			assertEquals(result.notes().toString(), 1, result.notes().size());
+			assertTrue(result.notes().toString(),
+				Resources.getInstance(Locale.ENGLISH).getString(result.notes().get(0)).startsWith("1.3.1:"));
+			assertEquals(2, result.devices().size());
+			FoundDevice router = gateway.devices().get(0);
+			FoundDevice actuator = result.devices().get(0);
+			FoundDevice tastsensor = result.devices().get(1);
 			assertEquals(FoundDevice.Source.LOCAL, router.source());
 			assertEquals("1.3.1", router.addressText());
 			assertEquals("1.3.5", actuator.addressText());

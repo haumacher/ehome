@@ -8,8 +8,10 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 import junit.framework.Test;
 
@@ -33,6 +35,7 @@ import de.haumacher.ehome.scan.CatalogMatch;
 import de.haumacher.ehome.scan.FoundDevice;
 import de.haumacher.ehome.scan.I18NConstants;
 import de.haumacher.ehome.scan.InstallationBuilder;
+import de.haumacher.ehome.scan.ScanTarget;
 
 /**
  * The catalog candidates of a device found on the bus when the catalog holds several editions of its
@@ -98,13 +101,12 @@ public class TestScanCandidates extends BasicTestCase {
 
 	public void testPhases() {
 		assertEquals(List.of(BusScanner.PHASE_LINE, BusScanner.PHASE_DEVICES),
-			BusScanner.phases(new BusScanner.Request(1, 3, false, false, false)));
-		assertEquals(
-			List.of(BusScanner.PHASE_GATEWAY, BusScanner.PHASE_LINE, BusScanner.PHASE_ROUTERS,
-				BusScanner.PHASE_PROGRAMMING, BusScanner.PHASE_DEVICES),
-			BusScanner.phases(new BusScanner.Request(1, 3, true, true, true)));
+			BusScanner.phases(BusScanner.Request.of(new BusScanner.Line(1, 3))));
+		assertEquals(List.of(BusScanner.PHASE_ROUTERS, BusScanner.PHASE_DEVICES),
+			BusScanner.phases(BusScanner.Request.of(ScanTarget.ROUTERS)));
 		assertEquals(List.of(BusScanner.PHASE_PROGRAMMING, BusScanner.PHASE_DEVICES),
-			BusScanner.phases(new BusScanner.Request(null, 0, false, false, true)));
+			BusScanner.phases(BusScanner.Request.of(ScanTarget.PROGRAMMING_MODE)));
+		assertEquals(List.of(BusScanner.PHASE_GATEWAY), BusScanner.phases(BusScanner.Request.of(ScanTarget.GATEWAY)));
 	}
 
 	/**
@@ -114,7 +116,7 @@ public class TestScanCandidates extends BasicTestCase {
 	public void testScanReportsPhases() throws Exception {
 		TestBusScan.FakeBus bus = new TestBusScan.FakeBus();
 		List<String> events = new ArrayList<>();
-		BusScanner.Request request = new BusScanner.Request(1, 3, true, true, false);
+		BusScanner.Request request = BusScanner.Request.of(new BusScanner.Line(1, 3));
 		BusScanner.scan(bus, request, new BusScanner.Listener() {
 			@Override
 			public void phase(String name) {
@@ -133,14 +135,20 @@ public class TestScanCandidates extends BasicTestCase {
 		});
 		List<String> phases = events.stream().filter(e -> e.startsWith("phase ")).map(e -> e.substring(6)).toList();
 		assertEquals(BusScanner.phases(request), phases);
-		// Reading the devices found (actuator and Tastsensor; the router is read as the gateway) starts
-		// at nothing done and ends with all done.
+		// Reading the devices found (the gateway, which does not answer through its own tunnel, the
+		// actuator and the Tastsensor) starts at nothing done and ends with all done.
 		int devices = events.indexOf("phase " + BusScanner.PHASE_DEVICES);
-		assertEquals(List.of("0/2", "1/2", "2/2"), events.subList(devices + 1, events.size()));
+		assertEquals(List.of("0/3", "1/3", "2/3", "3/3"), events.subList(devices + 1, events.size()));
 	}
 
 	public void testPhaseLabels() {
-		for (String name : BusScanner.phases(new BusScanner.Request(1, 3, true, true, true))) {
+		Set<String> names = new LinkedHashSet<>();
+		for (ScanTarget target : ScanTarget.values()) {
+			names.addAll(BusScanner.phases(target == ScanTarget.LINE ? BusScanner.Request.of(new BusScanner.Line(1, 3))
+				: BusScanner.Request.of(target)));
+		}
+		assertEquals(5, names.size());
+		for (String name : names) {
 			JobPhase phase = new JobPhase(name, label(name));
 			String german = Resources.getInstance(Locale.GERMAN).getString(phase.label());
 			String english = Resources.getInstance(Locale.ENGLISH).getString(phase.label());

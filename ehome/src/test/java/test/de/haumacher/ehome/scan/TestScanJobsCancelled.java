@@ -44,6 +44,7 @@ import de.haumacher.ehome.scan.CalimeroScanBus;
 import de.haumacher.ehome.scan.ReadBackJob;
 import de.haumacher.ehome.scan.ScanBus;
 import de.haumacher.ehome.scan.ScanJob;
+import de.haumacher.ehome.scan.ScanTarget;
 
 /**
  * A cancel of the bus scan ({@link ScanJob}) and of the read-back of a device ({@link ReadBackJob}),
@@ -110,7 +111,7 @@ public class TestScanJobsCancelled extends BasicTestCase {
 				};
 			}
 		};
-		job.start(scan, Arrays.asList(_project, null, null, Boolean.FALSE, Boolean.FALSE, Boolean.TRUE));
+		job.start(scan, Arrays.asList(_project, ScanTarget.PROGRAMMING_MODE, null));
 		assertTrue(asking.await(10, TimeUnit.SECONDS));
 
 		JobState state = cancelWhenBlocked(job, "tuwien.auto.calimero.");
@@ -171,7 +172,7 @@ public class TestScanJobsCancelled extends BasicTestCase {
 				};
 			}
 		};
-		job.start(scan, List.of(_project, 1, 3, Boolean.FALSE, Boolean.TRUE, Boolean.FALSE));
+		job.start(scan, List.of(_project, ScanTarget.LINE, "1.3"));
 		JobState state = job.await();
 
 		assertEquals(JobStatus.CANCELLED, state.status());
@@ -198,7 +199,8 @@ public class TestScanJobsCancelled extends BasicTestCase {
 		JobState state = job.await();
 
 		assertEquals(JobStatus.COMPLETED, state.status());
-		assertEquals(3, ((List<?>) ((Map<?, ?>) state.result()).get("rows")).size());
+		// The actuator and the Tastsensor; the gateway 1.3.1 does not answer through its own tunnel.
+		assertEquals(2, ((List<?>) ((Map<?, ?>) state.result()).get("rows")).size());
 	}
 
 	/**
@@ -206,7 +208,7 @@ public class TestScanJobsCancelled extends BasicTestCase {
 	 */
 	private Object actuatorRow() throws Exception {
 		JobHarness job = new JobHarness(List.of());
-		job.start(scanOfFakeBus(), List.of(_project, 1, 3, Boolean.FALSE, Boolean.TRUE, Boolean.FALSE));
+		job.start(scanOfFakeBus(), List.of(_project, ScanTarget.LINE, "1.3"));
 		JobState state = job.await();
 		assertEquals(JobStatus.COMPLETED, state.status());
 		List<?> rows = (List<?>) ((Map<?, ?>) state.result()).get("rows");
@@ -214,17 +216,14 @@ public class TestScanJobsCancelled extends BasicTestCase {
 	}
 
 	/**
-	 * The channels of the scan view choosing the line 1.3 and the gateway, with a value of the bus
+	 * The channels of the scan view choosing the line 1.3, with a value of the bus
 	 * state (an input of the command before the inputs of the job).
 	 */
 	private static Map<String, Object> scanChannels() {
 		Map<String, Object> result = new HashMap<>();
 		result.put("project", _project);
-		result.put("area", 1);
-		result.put("line", 3);
-		result.put("routers", Boolean.FALSE);
-		result.put("gatewayDevice", Boolean.TRUE);
-		result.put("programming", Boolean.FALSE);
+		result.put("target", ScanTarget.LINE);
+		result.put("line", "1.3");
 		result.put("busState", BUS_STATE);
 		return result;
 	}

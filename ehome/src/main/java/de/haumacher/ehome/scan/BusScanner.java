@@ -128,28 +128,102 @@ public class BusScanner {
 	}
 
 	/**
-	 * What a scan should do.
+	 * A line of the installation, written <code>area.line</code> (e.g. <code>1.1</code>), both
+	 * parts 0 to 15.
 	 *
 	 * @param area
-	 *        The area of the line to scan, <code>null</code> to scan no line.
+	 *        The area, 0 to 15.
 	 * @param line
-	 *        The line to scan.
-	 * @param routers
-	 *        Whether to scan for couplers and routers (device 0 of every line).
-	 * @param gateway
-	 *        Whether to read the gateway itself through local device management.
-	 * @param programmingMode
-	 *        Whether to look for the devices in programming mode.
+	 *        The line in the area, 0 to 15.
 	 */
-	public record Request(Integer area, int line, boolean routers, boolean gateway, boolean programmingMode) {
-		// Value.
+	public record Line(int area, int line) {
+
+		/**
+		 * Creates a {@link Line}.
+		 */
+		public Line {
+			if (area < 0 || area > 15 || line < 0 || line > 15) {
+				throw new IllegalArgumentException("No line: " + area + "." + line);
+			}
+		}
+
+		/**
+		 * The line written as the given text, <code>null</code> if the text is no line (two
+		 * numbers 0 to 15 separated by a dot; surrounding white space is ignored).
+		 */
+		public static Line parse(String text) {
+			if (text == null) {
+				return null;
+			}
+			String[] parts = text.strip().split("\\.", -1);
+			if (parts.length != 2) {
+				return null;
+			}
+			Integer area = part(parts[0]);
+			Integer line = part(parts[1]);
+			if (area == null || line == null) {
+				return null;
+			}
+			return new Line(area.intValue(), line.intValue());
+		}
+
+		private static Integer part(String text) {
+			if (text.isEmpty() || text.length() > 2 || !text.chars().allMatch(c -> c >= '0' && c <= '9')) {
+				return null;
+			}
+			int value = Integer.parseInt(text);
+			return value <= 15 ? Integer.valueOf(value) : null;
+		}
+
+		@Override
+		public String toString() {
+			return area + "." + line;
+		}
+	}
+
+	/**
+	 * What a scan should do: search for the one {@link ScanTarget target}, then read the devices
+	 * found.
+	 *
+	 * @param target
+	 *        What to search for.
+	 * @param line
+	 *        The line to scan, given exactly for {@link ScanTarget#LINE}.
+	 */
+	public record Request(ScanTarget target, Line line) {
+
+		/**
+		 * Creates a {@link Request}.
+		 */
+		public Request {
+			if (target == null) {
+				throw new IllegalArgumentException("No target.");
+			}
+			if ((target == ScanTarget.LINE) != (line != null)) {
+				throw new IllegalArgumentException("A line is given exactly for a scan of a line: " + target + ", " + line);
+			}
+		}
+
+		/**
+		 * A request searching for the given target, which needs no line.
+		 */
+		public static Request of(ScanTarget target) {
+			return new Request(target, null);
+		}
+
+		/**
+		 * A request scanning the given line.
+		 */
+		public static Request of(Line line) {
+			return new Request(ScanTarget.LINE, line);
+		}
 	}
 
 	/**
 	 * The outcome of a scan.
 	 *
 	 * @param devices
-	 *        The devices found, by address (the gateway first, if it was read).
+	 *        The devices found, by address.
 	 * @param inProgrammingMode
 	 *        The addresses of the devices in programming mode.
 	 * @param notes
@@ -161,24 +235,16 @@ public class BusScanner {
 
 	/**
 	 * The phases a scan of the given request goes through, in order: the names of the
-	 * <code>PHASE_*</code> constants.
+	 * <code>PHASE_*</code> constants. The search of the target, then the reading of the devices
+	 * found; the gateway is read in its own phase.
 	 */
 	public static List<String> phases(Request request) {
-		List<String> result = new ArrayList<>();
-		if (request.gateway()) {
-			result.add(PHASE_GATEWAY);
-		}
-		if (request.area() != null) {
-			result.add(PHASE_LINE);
-		}
-		if (request.routers()) {
-			result.add(PHASE_ROUTERS);
-		}
-		if (request.programmingMode()) {
-			result.add(PHASE_PROGRAMMING);
-		}
-		result.add(PHASE_DEVICES);
-		return result;
+		return switch (request.target()) {
+			case GATEWAY -> List.of(PHASE_GATEWAY);
+			case LINE -> List.of(PHASE_LINE, PHASE_DEVICES);
+			case ROUTERS -> List.of(PHASE_ROUTERS, PHASE_DEVICES);
+			case PROGRAMMING_MODE -> List.of(PHASE_PROGRAMMING, PHASE_DEVICES);
+		};
 	}
 
 	/**
@@ -188,25 +254,20 @@ public class BusScanner {
 		List<ResKey> notes = new ArrayList<>();
 		List<FoundDevice> devices = new ArrayList<>();
 		TreeSet<Integer> addresses = new TreeSet<>();
-		Integer gatewayAddress = null;
 
-		if (request.gateway()) {
+		if (request.target() == ScanTarget.GATEWAY) {
 			listener.phase(PHASE_GATEWAY);
 			listener.message(I18NConstants.MESSAGE_READING_GATEWAY__PATH.fill(bus.gateway()));
-			FoundDevice gateway = null;
 			try (ScanBus.LocalProperties local = bus.gatewayProperties()) {
 				if (local == null) {
 					notes.add(I18NConstants.NOTE_NO_LOCAL_MANAGEMENT__PATH.fill(bus.gateway()));
 				} else {
-					gateway = identifyLocal(local);
+					devices.add(identifyLocal(local));
 				}
 			} catch (BusException ex) {
 				notes.add(I18NConstants.NOTE_LOCAL_MANAGEMENT_FAILED__PATH_REASON.fill(bus.gateway(), ex.getErrorKey()));
 			}
-			if (gateway != null) {
-				devices.add(gateway);
-				gatewayAddress = gateway.address();
-			}
+			return new Result(devices, List.of(), notes);
 		}
 
 		ScanBus.Progress progress = new ScanBus.Progress() {
@@ -227,28 +288,29 @@ public class BusScanner {
 				listener.message(I18NConstants.MESSAGE_FOUND__ADDRESS.fill(FoundDevice.formatAddress(address)));
 			}
 		};
-		if (request.area() != null) {
-			String line = request.area() + "." + request.line();
-			listener.phase(PHASE_LINE);
-			listener.message(I18NConstants.MESSAGE_SCANNING_LINE__LINE.fill(line));
-			addresses.addAll(bus.scanLine(request.area().intValue(), request.line(), progress));
-		}
-		if (request.routers()) {
-			listener.phase(PHASE_ROUTERS);
-			listener.message(I18NConstants.MESSAGE_SCANNING_ROUTERS);
-			addresses.addAll(bus.scanRouters(progress));
-		}
 		List<Integer> programming = List.of();
-		if (request.programmingMode()) {
-			listener.phase(PHASE_PROGRAMMING);
-			listener.message(I18NConstants.MESSAGE_PROGRAMMING_MODE);
-			listener.indeterminate();
-			programming = bus.programmingMode();
-			addresses.addAll(programming);
-		}
-		if (gatewayAddress != null) {
-			// The gateway does not answer through its own tunnel; it was read above.
-			addresses.remove(gatewayAddress);
+		switch (request.target()) {
+			case LINE: {
+				Line line = request.line();
+				listener.phase(PHASE_LINE);
+				listener.message(I18NConstants.MESSAGE_SCANNING_LINE__LINE.fill(line.toString()));
+				addresses.addAll(bus.scanLine(line.area(), line.line(), progress));
+				break;
+			}
+			case ROUTERS:
+				listener.phase(PHASE_ROUTERS);
+				listener.message(I18NConstants.MESSAGE_SCANNING_ROUTERS);
+				addresses.addAll(bus.scanRouters(progress));
+				break;
+			case PROGRAMMING_MODE:
+				listener.phase(PHASE_PROGRAMMING);
+				listener.message(I18NConstants.MESSAGE_PROGRAMMING_MODE);
+				listener.indeterminate();
+				programming = bus.programmingMode();
+				addresses.addAll(programming);
+				break;
+			case GATEWAY:
+				throw new IllegalStateException("Read above.");
 		}
 
 		listener.phase(PHASE_DEVICES);

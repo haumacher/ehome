@@ -39,8 +39,12 @@ public class ScanFunctions extends GenericMethod {
 	 * The functions, named as they are registered.
 	 */
 	public enum Function {
-		/** <code>scanVeto(project, area, line, routers, gateway, programming)</code>: why the scan is refused. */
-		scanVeto(6),
+		/** <code>scanVeto(project, target, line)</code>: why the scan is refused. */
+		scanVeto(3),
+		/** <code>scanTargets()</code>: what a scan can search for ({@link ScanTarget}), in the order offered. */
+		scanTargets(0),
+		/** <code>scanTarget(name)</code>: the {@link ScanTarget} of the given name. */
+		scanTarget(1),
 		/** <code>scanApplyVeto(row)</code>: why the device cannot be created or updated. */
 		scanApplyVeto(1),
 		/** <code>scanApply(row, candidate)</code>: creates or updates the device; the candidate row may be empty for a unique match. */
@@ -104,9 +108,13 @@ public class ScanFunctions extends GenericMethod {
 	protected Object eval(Object[] arguments, EvalContext definitions) {
 		switch (_function) {
 			case scanVeto:
-				return scanVeto(arguments[0] instanceof TLObject project ? project : null, number(arguments[1]),
-					number(arguments[2]), Boolean.TRUE.equals(arguments[3]), Boolean.TRUE.equals(arguments[4]),
-					Boolean.TRUE.equals(arguments[5]));
+				return scanVeto(arguments[0] instanceof TLObject project ? project : null,
+					arguments[1] instanceof ScanTarget target ? target : null,
+					arguments[2] instanceof String line ? line : null);
+			case scanTargets:
+				return List.of(ScanTarget.values());
+			case scanTarget:
+				return ScanTarget.valueOf(String.valueOf(arguments[0]));
 			case scanApplyVeto:
 				return applyVeto(arguments[0]);
 			case scanApply:
@@ -147,9 +155,14 @@ public class ScanFunctions extends GenericMethod {
 
 	/**
 	 * Why a scan is refused, <code>null</code> if it can be started.
+	 *
+	 * @param target
+	 *        What to search for.
+	 * @param line
+	 *        The line to scan as entered (<code>area.line</code>), needed for
+	 *        {@link ScanTarget#LINE} only.
 	 */
-	public static ResKey scanVeto(TLObject project, Integer area, Integer line, boolean routers, boolean gateway,
-			boolean programming) {
+	public static ResKey scanVeto(TLObject project, ScanTarget target, String line) {
 		if (project == null) {
 			return de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_BUS_PATH;
 		}
@@ -157,14 +170,14 @@ public class ScanFunctions extends GenericMethod {
 		if (veto != null) {
 			return veto;
 		}
-		if (gateway && BusPath.controller(project) != null) {
+		if (target == null) {
+			return I18NConstants.ERROR_NOTHING_TO_SCAN;
+		}
+		if (target == ScanTarget.GATEWAY && BusPath.controller(project) != null) {
 			return I18NConstants.ERROR_GATEWAY_THROUGH_CONTROLLER;
 		}
-		if ((area == null) != (line == null) || area != null && (area < 0 || area > 15 || line < 0 || line > 15)) {
+		if (target == ScanTarget.LINE && BusScanner.Line.parse(line) == null) {
 			return I18NConstants.ERROR_NO_LINE;
-		}
-		if (area == null && !routers && !gateway && !programming) {
-			return I18NConstants.ERROR_NOTHING_TO_SCAN;
 		}
 		return null;
 	}
@@ -271,10 +284,6 @@ public class ScanFunctions extends GenericMethod {
 			return I18NConstants.ERROR_LOCAL__ADDRESS.fill(found.addressText());
 		}
 		return gatewayVeto(project);
-	}
-
-	private static Integer number(Object value) {
-		return value instanceof Number number ? Integer.valueOf(number.intValue()) : null;
 	}
 
 	/**

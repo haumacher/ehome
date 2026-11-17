@@ -17,12 +17,12 @@ import com.top_logic.layout.I18NConstantsBase;
 public class I18NConstants extends I18NConstantsBase {
 
 	/**
-	 * @en Enter the area and the line to scan (0 to 15 each), or choose another search.
+	 * @en Enter a line such as 1.1 (area and line 0–15).
 	 */
 	public static ResKey ERROR_NO_LINE;
 
 	/**
-	 * @en Nothing to search: choose a line, the routers, the gateway or the devices in programming mode.
+	 * @en Choose what to search for.
 	 */
 	public static ResKey ERROR_NOTHING_TO_SCAN;
 
@@ -147,7 +147,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 COMMIT_READ_BACK_IDENTICAL__DEVICE;
 
 	/**
-	 * @en The gateway itself cannot be read through a controller: its local device management is a KNXnet/IP service of its own, not a frame on the bus. Uncheck "The gateway itself".
+	 * @en The gateway itself cannot be read through a controller: its local device management is a KNXnet/IP service of its own, not a frame on the bus. Choose another search.
 	 */
 	public static ResKey ERROR_GATEWAY_THROUGH_CONTROLLER;
 

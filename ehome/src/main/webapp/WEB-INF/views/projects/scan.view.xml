@@ -23,11 +23,12 @@
 		<channel name="project"/>
 		<channel name="scanJob"/>
 		<channel name="deviceJob"/>
-		<channel name="area"/>
+		<!-- What the scan searches for, one de.haumacher.ehome.scan.ScanTarget (haumacher/ehome #182). -->
+		<channel name="target"
+			init="scanTarget('PROGRAMMING_MODE')"
+		/>
+		<!-- The line to scan, as entered ("1.1"), for the target LINE. -->
 		<channel name="line"/>
-		<channel name="routers"/>
-		<channel name="gatewayDevice"/>
-		<channel name="programming"/>
 		<channel name="result"/>
 		<channel name="selected"/>
 		<!-- Re-decides the commands using the bus when a bus session or a controller changes (BusStateSource, haumacher/ehome #161). -->
@@ -88,7 +89,7 @@
 						</generic-command>
 						<generic-command
 							image="css:bi bi-search"
-							inputs="project, area, line, routers, gatewayDevice, programming, busState"
+							inputs="project, target, line, busState"
 							observed-types="ehome.project:Project"
 							placement="TOOLBAR"
 						>
@@ -97,8 +98,8 @@
 								<de>Suchen</de>
 							</label>
 							<tooltip>
-								<en>Searches the chosen line and the targets checked for devices and reads their descriptor, properties and memory; nothing is written. Devices the catalog does not identify are kept in the project; devices of the project are created only by "Create / update".</en>
-								<de>Sucht auf der gewählten Linie und bei den angekreuzten Zielen nach Geräten und liest Gerätebeschreibung, Eigenschaften und Speicher; es wird nichts geschrieben. Vom Katalog nicht erkannte Geräte werden im Projekt vorgemerkt; Geräte des Projekts legt erst „Anlegen / Aktualisieren“ an.</de>
+								<en>Searches for what is chosen under "Search for" and reads descriptor, properties and memory of the devices found; nothing is written. "Devices in programming mode" finds the devices whose programming button is pressed, within seconds; "Line" tries every address of the line entered; "Couplers and routers of all lines" tries device 0 of every line; "The gateway itself" reads the KNXnet/IP gateway through its local device management. Devices the catalog does not identify are kept in the project; devices of the project are created only by "Create / update".</en>
+								<de>Sucht nach dem unter „Suchen nach“ Gewählten und liest Gerätebeschreibung, Eigenschaften und Speicher der gefundenen Geräte; es wird nichts geschrieben. „Geräte im Programmiermodus“ findet die Geräte, deren Programmiertaste gedrückt ist, in Sekunden; „Linie“ probiert jede Adresse der eingegebenen Linie; „Koppler und Router aller Linien“ probiert Gerät 0 jeder Linie; „Das Gateway selbst“ liest das KNXnet/IP-Gateway über sein lokales Gerätemanagement. Vom Katalog nicht erkannte Geräte werden im Projekt vorgemerkt; Geräte des Projekts legt erst „Anlegen / Aktualisieren“ an.</de>
 							</tooltip>
 							<access>
 								<!-- The scan creates and updates the devices of the project. -->
@@ -109,8 +110,8 @@
 							</access>
 							<executability>
 								<null-input-disabled/>
-								<!-- The job's own check, with the line and the targets as chosen (a controller cannot read the gateway itself, haumacher/ehome #148). -->
-								<disabled-if expr="scanVeto($project, $area, $line, $routers, $gatewayDevice, $programming)"/>
+								<!-- The job's own check, with the target and the line as chosen (a controller cannot read the gateway itself, haumacher/ehome #148). -->
+								<disabled-if expr="scanVeto($project, $target, $line)"/>
 							</executability>
 							<start-job
 								cancelable="true"
@@ -119,11 +120,8 @@
 							>
 								<inputs>
 									<input channel="project"/>
-									<input channel="area"/>
+									<input channel="target"/>
 									<input channel="line"/>
-									<input channel="routers"/>
-									<input channel="gatewayDevice"/>
-									<input channel="programming"/>
 								</inputs>
 								<body class="de.haumacher.ehome.scan.ScanJob"/>
 								<with-result>
@@ -167,50 +165,36 @@
 							</text>
 							<fields>
 								<value-input
-									type="tl.core:Integer"
-									value="area"
+									mandatory="true"
+									options="scanTargets()"
+									value="target"
 								>
 									<label>
-										<en>Area of the line</en>
-										<de>Bereich der Linie</de>
+										<en>Search for</en>
+										<de>Suchen nach</de>
 									</label>
+									<!-- The labels of the targets are those of the Java enum; its tooltips are not shown by a radio group (engine gap). -->
+									<input-control class="com.top_logic.layout.view.form.SelectControlProvider"
+										display="radio"
+										order="as-given"
+									/>
 								</value-input>
-								<value-input
-									type="tl.core:Integer"
-									value="line"
+								<visible-if
+									expr="$target == scanTarget('LINE')"
+									input="target"
 								>
-									<label>
-										<en>Line</en>
-										<de>Linie</de>
-									</label>
-								</value-input>
-								<value-input
-									type="tl.core:Boolean"
-									value="routers"
-								>
-									<label>
-										<en>Couplers and routers of all lines</en>
-										<de>Koppler und Router aller Linien</de>
-									</label>
-								</value-input>
-								<value-input
-									type="tl.core:Boolean"
-									value="gatewayDevice"
-								>
-									<label>
-										<en>The gateway itself (local device management; not through a controller)</en>
-										<de>Das Gateway selbst (lokales Gerätemanagement; nicht über einen Controller)</de>
-									</label>
-								</value-input>
-								<value-input
-									type="tl.core:Boolean"
-									value="programming"
-								>
-									<label>
-										<en>Devices in programming mode</en>
-										<de>Geräte im Programmiermodus</de>
-									</label>
-								</value-input>
+									<!-- Entered as "area.line", refused at the field otherwise; the text reaches the channel when the field is left. -->
+									<value-input
+										mandatory="true"
+										value="line"
+									>
+										<label>
+											<en>Line</en>
+											<de>Linie</de>
+										</label>
+										<input-control class="de.haumacher.ehome.scan.LineInputControlProvider"/>
+									</value-input>
+								</visible-if>
 							</fields>
 							<job-status input="scanJob"/>
 						</stack>

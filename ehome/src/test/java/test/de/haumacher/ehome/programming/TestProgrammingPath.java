@@ -52,6 +52,7 @@ import de.haumacher.ehome.programming.download.CalimeroWriter;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.ProgrammingFunctions;
 import de.haumacher.ehome.scan.ScanFunctions;
+import de.haumacher.ehome.scan.ScanTarget;
 import de.haumacher.ehome.settings.OperatorSettings;
 
 /**
@@ -91,7 +92,7 @@ public class TestProgrammingPath extends BasicTestCase {
 			ResKey none = de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_BUS_PATH;
 			assertEquals(none, BusPath.veto(device));
 			assertEquals(none, ProgrammingFunctions.compareVeto(device));
-			assertEquals(none, ScanFunctions.scanVeto(project, 1, 1, false, false, false));
+			assertEquals(none, ScanFunctions.scanVeto(project, ScanTarget.LINE, "1.1"));
 			assertRefused(null, () -> use.execute(project, null, null, null));
 
 			// The gateway.
@@ -120,20 +121,38 @@ public class TestProgrammingPath extends BasicTestCase {
 			assertTrue(path.viaController());
 			assertSame(fake.connection(), ((BusPath.Controller) path).connection());
 			assertNull(ProgrammingFunctions.compareVeto(device));
-			assertNull(ScanFunctions.scanVeto(project, 1, 1, false, false, false));
+			assertNull(ScanFunctions.scanVeto(project, ScanTarget.LINE, "1.1"));
 			assertEquals(de.haumacher.ehome.scan.I18NConstants.ERROR_GATEWAY_THROUGH_CONTROLLER,
-				ScanFunctions.scanVeto(project, null, null, false, true, false));
+				ScanFunctions.scanVeto(project, ScanTarget.GATEWAY, null));
 			assertNull(init("address", project));
 			assertEquals("The dialog opens with the current controller.", controller, init("selectedController", project));
 
-			// "Suchen" follows the checkboxes (its disabled-if over the dialog's channels).
+			// "Suchen" follows the one choice (its disabled-if over the dialog's channels, haumacher/ehome #182).
 			QueryExecutor scan = scanCheck();
-			assertNull("through the controller, the gateway unchecked", scan.execute(project, 1, 3, null, null, null));
-			assertNull(scan.execute(project, 1, 3, Boolean.TRUE, Boolean.FALSE, Boolean.TRUE));
-			assertEquals("the gateway checked", de.haumacher.ehome.scan.I18NConstants.ERROR_GATEWAY_THROUGH_CONTROLLER,
-				scan.execute(project, 1, 3, null, Boolean.TRUE, null));
+			assertNull("through the controller, programming mode",
+				scan.execute(project, ScanTarget.PROGRAMMING_MODE, null));
+			assertNull(scan.execute(project, ScanTarget.ROUTERS, null));
+			assertNull(scan.execute(project, ScanTarget.LINE, "1.3"));
+			assertNull("the line as entered", scan.execute(project, ScanTarget.LINE, " 1.3 "));
+			assertNull("no line needed", scan.execute(project, ScanTarget.ROUTERS, "1.16"));
+			assertEquals("the gateway itself", de.haumacher.ehome.scan.I18NConstants.ERROR_GATEWAY_THROUGH_CONTROLLER,
+				scan.execute(project, ScanTarget.GATEWAY, null));
 			assertEquals(de.haumacher.ehome.scan.I18NConstants.ERROR_NOTHING_TO_SCAN,
-				scan.execute(project, null, null, null, null, null));
+				scan.execute(project, null, null));
+			for (String line : new String[] { null, "", "1", "1.16", "16.1", "a.b", "1.1.1" }) {
+				assertEquals(line, de.haumacher.ehome.scan.I18NConstants.ERROR_NO_LINE,
+					scan.execute(project, ScanTarget.LINE, line));
+			}
+			// The dialog opens with the devices in programming mode; the line is asked for "Line" only.
+			Element target = element(SCAN, "channel", "name", "target");
+			assertEquals(ScanTarget.PROGRAMMING_MODE,
+				ViewScripts.compile(ExprFormat.INSTANCE.getValue("init", target.getAttribute("init")), List.of()).execute());
+			Element lineShown = element(SCAN, "visible-if", "input", "target");
+			QueryExecutor shown = ViewScripts.compile(ExprFormat.INSTANCE.getValue("expr", lineShown.getAttribute("expr")),
+				List.of("target"));
+			for (ScanTarget choice : ScanTarget.values()) {
+				assertEquals(choice.name(), Boolean.valueOf(choice == ScanTarget.LINE), shown.execute(choice));
+			}
 
 			// The confirmation names the controller.
 			QueryExecutor confirmation = QueryExecutor.compile(ExprFormat.INSTANCE.getValue("expr",
@@ -162,7 +181,7 @@ public class TestProgrammingPath extends BasicTestCase {
 			localNetwork(() -> {
 				assertNull(BusPath.veto(device));
 				assertNull(ProgrammingFunctions.compareVeto(device));
-				assertNull(ScanFunctions.scanVeto(project, 1, 1, false, false, false));
+				assertNull(ScanFunctions.scanVeto(project, ScanTarget.LINE, "1.1"));
 			});
 
 			// The refusals of the controller, where the commands are.
@@ -175,7 +194,7 @@ public class TestProgrammingPath extends BasicTestCase {
 				assertEquals(I18NConstants.ERROR_BUS_SESSION_OPEN__CONTROLLER.fill(CONTROLLER),
 					ProgrammingFunctions.compareVeto(device));
 				assertEquals(I18NConstants.ERROR_BUS_SESSION_OPEN__CONTROLLER.fill(CONTROLLER),
-					ScanFunctions.scanVeto(project, 1, 1, false, false, false));
+					ScanFunctions.scanVeto(project, ScanTarget.LINE, "1.1"));
 			} finally {
 				session.close();
 			}
@@ -276,8 +295,8 @@ public class TestProgrammingPath extends BasicTestCase {
 		Element command = (Element) rule.getParentNode().getParentNode();
 		List<String> inputs = List.of(command.getAttribute("inputs").split("\\s*,\\s*"));
 		// The last input only re-decides the rule when a bus session or a controller changes (haumacher/ehome #161).
-		assertEquals(List.of("project", "area", "line", "routers", "gatewayDevice", "programming", "busState"), inputs);
-		inputs = inputs.subList(0, 6);
+		assertEquals(List.of("project", "target", "line", "busState"), inputs);
+		inputs = inputs.subList(0, 3);
 		return ViewScripts.compile(ExprFormat.INSTANCE.getValue("expr", rule.getAttribute("expr")), inputs);
 	}
 

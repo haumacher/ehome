@@ -165,6 +165,8 @@
 					<method name="controllerBusState" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<!-- Reading an installation from the bus (de.haumacher.ehome.scan.ScanFunctions): one builder, the function by its name. -->
 					<method name="scanVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanTargets" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
+					<method name="scanTarget" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanApplyVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanApply" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanRefresh" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>

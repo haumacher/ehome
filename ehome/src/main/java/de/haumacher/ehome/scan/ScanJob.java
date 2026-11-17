@@ -35,9 +35,8 @@ import de.haumacher.ehome.view.JobInputs;
  * ({@link InstallationBuilder#recordUnidentified(TLObject, FoundDevice, String)}).
  *
  * <p>
- * The job is started with the project, the area and the line to scan (empty: no line), and whether
- * to scan for routers, to read the gateway through local device management and to look for the
- * devices in programming mode. Its result is a dictionary: <code>summary</code>, <code>rows</code>
+ * The job is started with the project, what to search for ({@link ScanTarget}) and the line to
+ * scan, as entered (<code>area.line</code>, only for {@link ScanTarget#LINE}). Its result is a dictionary: <code>summary</code>, <code>rows</code>
  * (see {@link ScanRows}) and <code>notes</code> (what could not be read).
  * </p>
  *
@@ -71,21 +70,18 @@ public class ScanJob implements JobBody {
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
-		List<Object> inputs = JobInputs.of(arguments, 6);
+		List<Object> inputs = JobInputs.of(arguments, 3);
 		TLObject project = (TLObject) inputs.get(0);
-		Integer area = number(inputs.get(1));
-		Integer line = number(inputs.get(2));
-		boolean routers = Boolean.TRUE.equals(inputs.get(3));
-		boolean gateway = Boolean.TRUE.equals(inputs.get(4));
-		boolean programming = Boolean.TRUE.equals(inputs.get(5));
-		ResKey veto = ScanFunctions.scanVeto(project, area, line, routers, gateway, programming);
+		ScanTarget target = inputs.get(1) instanceof ScanTarget value ? value : null;
+		String lineText = inputs.get(2) instanceof String value ? value : null;
+		ResKey veto = ScanFunctions.scanVeto(project, target, lineText);
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
 		BusPath address = BusPath.of(project);
 		String gatewayText = address.text();
-		BusScanner.Request request = new BusScanner.Request(line == null ? null : area, line == null ? 0 : line,
-			routers, gateway, programming);
+		BusScanner.Request request = target == ScanTarget.LINE ? BusScanner.Request.of(BusScanner.Line.parse(lineText))
+			: BusScanner.Request.of(target);
 		job.setPhases(phases(request));
 
 		job.message(de.haumacher.ehome.programming.download.I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
@@ -202,10 +198,6 @@ public class ScanJob implements JobBody {
 		outcome.put("rows", rows);
 		outcome.put("notes", notes);
 		return outcome;
-	}
-
-	private static Integer number(Object value) {
-		return value instanceof Number number ? Integer.valueOf(number.intValue()) : null;
 	}
 
 }

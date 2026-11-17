@@ -343,6 +343,17 @@ left as it is).
 **When fixed** (the engine removes the type for an application without `tl-ai-browser`): the migration
 stays, as migrations do; nothing to remove.
 
+## The options of a select show no description (TL #30406), a `<value-input>` no help (TL #30289)
+
+The dialog "Read the installation" (haumacher/ehome #182) offers its searches as a radio group of
+the enum `ScanTarget`. The option list of a select sends only label, image and colour per option, so
+the descriptions of the choices (`ScanTarget.<CONSTANT>.tooltip`, generated into the bundles) are
+never shown; a `<value-input>` has no help text at its label either (TL #30289, approved). No
+workaround: the tooltip of the command "Search" names what each choice does.
+
+**When fixed:** nothing to remove; check that the radio options of the dialog show their
+descriptions, and shorten the tooltip of "Search" to what it does itself.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
@@ -357,3 +368,4 @@ stays, as migrations do; nothing to remove.
 - TL #30311: see above (memory of a product import committed step by step).
 - TL #30357: see above (the table of the cookie pools after their move to `tl-ai-browser`).
 - TL #30313, #30314: see above (a role query after a change of the roles on H2, the columns of a table after a change of the roles).
+- TL #30406, #30289: see above (no description at the options of a select, no help at a `<value-input>`).

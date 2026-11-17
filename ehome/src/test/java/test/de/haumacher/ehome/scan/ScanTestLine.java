@@ -3,6 +3,8 @@
  */
 package test.de.haumacher.ehome.scan;
 
+import java.util.List;
+
 import test.de.haumacher.ehome.programming.ReadDeviceMemory;
 
 import com.top_logic.basic.util.ResKey;
@@ -10,6 +12,7 @@ import com.top_logic.basic.util.ResKey;
 import de.haumacher.ehome.scan.BusScanner;
 import de.haumacher.ehome.scan.CalimeroScanBus;
 import de.haumacher.ehome.scan.FoundDevice;
+import de.haumacher.ehome.scan.ScanTarget;
 
 /**
  * Read-only tool scanning a line of the user's KNX test system (haumacher/ehome #9): the devices
@@ -31,8 +34,10 @@ public class ScanTestLine {
 		int area = Integer.parseInt(args[0]);
 		int line = Integer.parseInt(args[1]);
 		try (CalimeroScanBus bus = CalimeroScanBus.open(ReadDeviceMemory.GATEWAY)) {
-			BusScanner.Result result = BusScanner.scan(bus, new BusScanner.Request(area, line, false, true, false),
-				new BusScanner.Listener() {
+			// The gateway itself, then the line: one target per scan (haumacher/ehome #182).
+			for (BusScanner.Request request : List.of(BusScanner.Request.of(ScanTarget.GATEWAY),
+				BusScanner.Request.of(new BusScanner.Line(area, line)))) {
+				print(BusScanner.scan(bus, request, new BusScanner.Listener() {
 					@Override
 					public void message(ResKey text) {
 						System.out.println("# " + text);
@@ -42,17 +47,21 @@ public class ScanTestLine {
 					public void progress(int done, int total) {
 						// Silent.
 					}
-				});
-			for (FoundDevice device : result.devices()) {
-				System.out.println(device.addressText() + " via " + device.source() + ": descriptor "
-					+ device.descriptorText() + ", manufacturer " + device.manufacturerId() + ", serial "
-					+ device.serialText() + ", program " + device.programVersionText() + ", hardware "
-					+ device.hardwareTypeText() + ", order " + device.orderInfo() + ", states " + device.loadStates()
-					+ ", not readable " + device.notes());
+				}));
 			}
-			for (ResKey note : result.notes()) {
-				System.out.println("note: " + note);
-			}
+		}
+	}
+
+	private static void print(BusScanner.Result result) {
+		for (FoundDevice device : result.devices()) {
+			System.out.println(device.addressText() + " via " + device.source() + ": descriptor "
+				+ device.descriptorText() + ", manufacturer " + device.manufacturerId() + ", serial "
+				+ device.serialText() + ", program " + device.programVersionText() + ", hardware "
+				+ device.hardwareTypeText() + ", order " + device.orderInfo() + ", states " + device.loadStates()
+				+ ", not readable " + device.notes());
+		}
+		for (ResKey note : result.notes()) {
+			System.out.println("note: " + note);
 		}
 	}
 

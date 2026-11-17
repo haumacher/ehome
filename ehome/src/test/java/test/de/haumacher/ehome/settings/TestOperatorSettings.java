@@ -60,6 +60,7 @@ import de.haumacher.ehome.runtime.DiscoverControllersAction;
 import de.haumacher.ehome.runtime.MdnsBrowser;
 import de.haumacher.ehome.scan.CalimeroScanBus;
 import de.haumacher.ehome.scan.ScanFunctions;
+import de.haumacher.ehome.scan.ScanTarget;
 import de.haumacher.ehome.settings.I18NConstants;
 import de.haumacher.ehome.settings.OperatorSettings;
 
@@ -154,7 +155,7 @@ public class TestOperatorSettings extends BasicTestCase {
 						ProgrammingFunctions.downloadVeto(device, DownloadPlan.Kind.ADDRESS));
 					assertEquals(I18NConstants.ERROR_NO_LOCAL_NETWORK, ProgrammingFunctions.compareVeto(device));
 					assertEquals(I18NConstants.ERROR_NO_LOCAL_NETWORK,
-						ScanFunctions.scanVeto(project, 1, 1, false, false, false));
+						ScanFunctions.scanVeto(project, ScanTarget.LINE, "1.1"));
 					assertEquals(GATEWAY_TEXT, project.tValueByName("gateway"));
 
 					// The controller search.
@@ -177,7 +178,7 @@ public class TestOperatorSettings extends BasicTestCase {
 				// On: as before.
 				assertNull(eval("localNetworkVeto()"));
 				assertNull(ProgrammingFunctions.compareVeto(device));
-				assertNull(ScanFunctions.scanVeto(project, 1, 1, false, false, false));
+				assertNull(ScanFunctions.scanVeto(project, ScanTarget.LINE, "1.1"));
 				assertEquals("192.0.2.1:80", Deployer.client(controller).address());
 				assertEquals("192.0.2.1:80", ControllerTarget.of(project, controller, null, null, null).client().address());
 			} finally {

@@ -271,16 +271,20 @@ The device may then be unloaded (its LED or behavior shows no application): reco
 Projects → a project → "Installation einlesen" (`projects/scan.view.xml`, package
 `de.haumacher.ehome.scan`). Everything here only reads, except "Programmier-LED an/aus".
 
-- **Scan** (`BusScanner`, `CalimeroScanBus`): over the project's gateway, the devices of a line
-  that answer a connection (Calimero `scanNetworkDevices`), optionally the couplers of all lines,
-  the devices in programming mode (broadcast address read) and the gateway itself through KNXnet/IP
-  local device management (it does not answer point-to-point reads through its own tunnel). Per
+- **Scan** (`BusScanner`, `CalimeroScanBus`): over the project's path to the bus, exactly one
+  search chosen under "Suchen nach" (`ScanTarget`, haumacher/ehome #182; a radio group, the default
+  the devices in programming mode): the devices in programming mode (broadcast address read), the
+  devices of a line that answer a connection (Calimero `scanNetworkDevices`; the line one field
+  `Bereich.Linie`, e.g. `1.1`, shown only for "Linie" and refused at the field otherwise,
+  `LineInputControlProvider`), the couplers of all lines, or the gateway itself through KNXnet/IP
+  local device management (it does not answer point-to-point reads through its own tunnel, so a
+  line scan lists it as not readable). The devices found are read then. Per
   device: descriptor, manufacturer (object 0 property 12), serial number (11), order info (15),
   hardware type (78), program version (object 3 property 13; BCU 1: memory 0104-0107), load
   states, run state. A device that does not answer its descriptor is read once more (right after the
   scan the actuator of the test system refused the first connection).
-  The job status lists the steps of the scan (gateway, line, couplers, programming mode, reading the
-  devices found) with the bar of the current one; the line and coupler scans of Calimero tell no
+  The job status lists the steps of the scan (the search chosen, reading the devices found; the
+  gateway is one step) with the bar of the current one; the line and coupler scans of Calimero tell no
   progress, so their bar follows the time they take (256 connects of 115 ms and 7.1 s for the last
   answers) and turns indeterminate once that time is over (through a controller they take longer),
   instead of standing at the end (haumacher/ehome #161).
