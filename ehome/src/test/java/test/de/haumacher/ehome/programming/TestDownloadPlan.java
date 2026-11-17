@@ -116,17 +116,23 @@ public class TestDownloadPlan extends BasicTestCase {
 	/**
 	 * The Tastsensor: its own load procedure (30 steps) with the segments of the dynamic tables
 	 * placed by their contents, the memory of the loaded segments in chunks of at most 12 bytes, the
-	 * stamps of the stamped segments, the task segment of load state machine 5 not executed.
+	 * stamps of the stamped segments; the hardware type of its image compared before anything is
+	 * written (haumacher/ehome #187), the task segment of load state machine 5 left out without a
+	 * notice.
 	 */
 	private void checkSensorPlan() {
 		DownloadPlan plan = DownloadPlanner.plan(device(SENSOR), DownloadPlan.Kind.FULL);
 		Logger.info("Download plan of the Tastsensor:\n" + plan.dump(), TestDownloadPlan.class);
 		assertEquals(plan.dump(), List.of(), plan.getProblems());
 		assertEquals(
-			"Connect CheckMask Unload1 Unload2 Unload3 Load1 Segment1 Task1 Write Completed1 Load2 Segment2 Task2 Write "
-				+ "Completed2 Load3 Segment3*8 Task3 TaskControl3 Write Completed3 CompareProperty WriteProperty*8 Restart "
-				+ "Skip Disconnect Skip",
+			"Connect CheckMask CompareProperty Unload1 Unload2 Unload3 Load1 Segment1 Task1 Write Completed1 Load2 Segment2 "
+				+ "Task2 Write Completed2 Load3 Segment3*8 Task3 TaskControl3 Write Completed3 CompareProperty "
+				+ "WriteProperty*8 Restart Disconnect",
 			signature(plan));
+		Operation.CompareProperty hardware = (Operation.CompareProperty) plan.getOperations().get(2);
+		assertEquals(0, hardware.objectIndex());
+		assertEquals(78, hardware.propertyId());
+		assertEquals("000a0000003d", hex(hardware.expected()));
 
 		// The load controls: the tables of the demo wiring (three group addresses) placed by their
 		// contents, the application's segments as the procedure names them.
@@ -189,10 +195,10 @@ public class TestDownloadPlan extends BasicTestCase {
 
 		// The program version after the application is loaded.
 		assertTrue(plan.dump(), plan.dump().contains("Compare object 3 property 13 with 00 08 10 D7 11"));
-		// Load state machine 5 has no interface object on mask 7.5.
-		assertTrue(plan.dump(), plan.dump().contains("[#29 TaskSegment LSM 5] Not executed"));
-		// The hardware type parameter (object 0, property 78) is not written.
-		assertTrue(plan.dump(), plan.dump().contains("Not executed: The parameter value 00 0A 00 00 00 3D of object 0 property 78"));
+		// Load state machine 5 has no interface object on mask 7.5: nothing to load, nothing to report.
+		assertFalse(plan.dump(), plan.dump().contains("TaskSegment LSM 5"));
+		// The hardware type is compared, not reported as a parameter not written.
+		assertFalse(plan.dump(), plan.dump().contains("Not executed"));
 	}
 
 	/**
@@ -334,7 +340,7 @@ public class TestDownloadPlan extends BasicTestCase {
 		Object loadedBefore = device.tValueByName("loaded");
 		Object downloadBefore = device.tValueByName("lastDownload");
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
-		MockDevice mock = new MockDevice().scriptLoadControl(
+		MockDevice mock = sensorDevice(plan).scriptLoadControl(
 			(object, control) -> object == 2 && control[0] == LoadControls.EVENT_LOAD ? LoadControls.STATE_ERROR : null);
 		DownloadExecutor.Result result = DownloadService.download(device, plan, mock,
 			new DownloadExecutor(ms -> { /* No wait. */ }), (number, count, operation) -> { /* Ignore. */ });
@@ -350,8 +356,9 @@ public class TestDownloadPlan extends BasicTestCase {
 	}
 
 	/**
-	 * A device of another hardware type than the actuator program expects: the download stops before
-	 * writing anything.
+	 * A device of another hardware type than the program expects: the download stops before writing
+	 * anything, with both values; for the actuator by the comparison of its load procedure, for the
+	 * Tastsensor by the comparison of the mask's hardware type (haumacher/ehome #187).
 	 */
 	private void checkHardwareMismatch() throws Exception {
 		DownloadPlan plan = DownloadPlanner.plan(device(ACTUATOR), DownloadPlan.Kind.FULL);
@@ -360,8 +367,19 @@ public class TestDownloadPlan extends BasicTestCase {
 			(number, count, operation) -> { /* Ignore. */ });
 		assertFalse(result.success());
 		assertTrue(result.failed() instanceof Operation.CompareProperty);
-		assertEquals("Object 0 property 78 is 00 0A 00 00 00 3D, expected 00 00 00 00 03 0D 00 00 00 00.", result.failure());
+		assertEquals("The device has the hardware type 00 0A 00 00 00 3D, the program expects 00 00 00 00 03 0D 00 00 00 00.",
+			result.failure());
 		assertEquals(0, mock.writes());
+
+		DownloadPlan sensorPlan = DownloadPlanner.plan(device(SENSOR), DownloadPlan.Kind.FULL);
+		MockDevice sensor = sensorDevice(sensorPlan).setProperty(0, 78, "000a0000003c");
+		result = new DownloadExecutor(ms -> { /* No wait. */ }).execute(sensorPlan, sensor, (n, c, o) -> { /* Ignore. */ });
+		assertFalse(result.success());
+		assertSame(sensorPlan.getOperations().get(2), result.failed());
+		assertEquals("The device has the hardware type 00 0A 00 00 00 3C, the program expects 00 0A 00 00 00 3D.",
+			result.failure());
+		assertEquals(List.of("readDescriptor", "readProperty 0 78 1 1"), sensor.calls());
+		assertEquals(0, sensor.writes());
 
 		MockDevice wrongMask = actuatorDevice().setDescriptor("0701");
 		result = new DownloadExecutor(ms -> { /* No wait. */ }).execute(plan, wrongMask, (n, c, o) -> { /* Ignore. */ });

@@ -13,7 +13,9 @@ import static test.de.haumacher.ehome.virtual.tooling.VirtualTesting.writing;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -76,6 +78,7 @@ public class TestVirtualDownload extends BasicTestCase {
 			download(device(project, 0x1305), "actuator", RESTART_DISCONNECTS);
 			// The default: the device stays silent after the restart, E-Home ends the connection.
 			download(device(project, 0x1332), "tastsensor", TransportTiming.DEFAULT);
+			hardwareMismatch(device(project, 0x1332));
 		} finally {
 			delete(project);
 		}
@@ -216,6 +219,53 @@ public class TestVirtualDownload extends BasicTestCase {
 		} finally {
 			manager.stop();
 		}
+	}
+
+	/**
+	 * A device of another hardware type than the program expects (haumacher/ehome #187): the
+	 * download compares the mask's hardware type before anything is written and stops with both
+	 * values; the device's memory and load states stay as they were.
+	 */
+	private void hardwareMismatch(TLObject device) throws Exception {
+		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
+		assertEquals(plan.dump(), List.of(), plan.getProblems());
+		SimulatedDevice simulated = ProjectDevices.create(device, MappedLoadStateRule.ECHO);
+		byte[] expected = simulated.property(0, SimulatedDevice.PID_HARDWARE_TYPE, 1, 1);
+		assertNotNull("The program's hardware type.", expected);
+		byte[] other = expected.clone();
+		other[other.length - 1] ^= 1;
+		simulated.initProperty(0, SimulatedDevice.PID_HARDWARE_TYPE, other);
+		byte[] initial = simulated.memorySnapshot();
+		int[] states = { simulated.state(1), simulated.state(2), simulated.state(3) };
+		VirtualInterfaceManager manager = manager("download-hardware-mismatch");
+		Endpoint endpoint = loopback();
+		VirtualInterface running = manager.start(simulated, endpoint, TransportTiming.DEFAULT, Map.of("plan", "mismatch"));
+		File file = running.recorder().file();
+		DownloadExecutor.Result[] result = new DownloadExecutor.Result[1];
+		try {
+			writing(() -> {
+				try (CalimeroWriter writer = CalimeroWriter.open(gateway(endpoint), plan.getIndividualAddress())) {
+					result[0] = new DownloadExecutor().execute(plan, writer, (number, count, operation) -> {
+						// No progress.
+					});
+				}
+			});
+		} finally {
+			manager.stop();
+		}
+		assertFalse(result[0].success());
+		// Connect and the mask check done, the comparison of the hardware type failed.
+		assertSame(plan.getOperations().get(2), result[0].failed());
+		assertEquals(2, result[0].done());
+		HexFormat hex = HexFormat.ofDelimiter(" ").withUpperCase();
+		assertEquals("The device has the hardware type " + hex.formatHex(other) + ", the program expects "
+			+ hex.formatHex(expected) + ".", result[0].failure());
+		assertTrue(Arrays.equals(initial, simulated.memorySnapshot()));
+		assertEquals(states[0], simulated.state(1));
+		assertEquals(states[1], simulated.state(2));
+		assertEquals(states[2], simulated.state(3));
+		List<Operation> recorded = TraceOperations.operations(read(file).entries());
+		assertTrue(recorded.toString(), recorded.stream().noneMatch(Operation::writes));
 	}
 
 	/**

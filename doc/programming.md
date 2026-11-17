@@ -152,8 +152,12 @@ The reading is not stored. The assistant and MCP have it as `ehome-devices.devic
 The program's own load procedure (`ProductProcedure`), as the plan lists it:
 
 1. Connect; read the device descriptor and stop unless it is the program's mask (0705).
-2. The actuator only: compare the hardware type (object 0, property 78) with the program's; stop
-   on a difference. Nothing is written before these checks.
+2. Compare the hardware type (object 0, property 78) with the program's; stop on a difference
+   ("The device has the hardware type …, the program expects …"). The actuator's load procedure
+   compares it itself (`CompareProp`); for the Tastsensor, whose procedure does not, E-Home compares
+   the value of its image, because the mask names the property `HardwareConfig_Identical` (every
+   such resource of the mask with a value in the image; haumacher/ehome #187). Nothing is written
+   before these checks.
 3. Unload the load state machines 1 (address table), 2 (association table), 3 (application): a
    load control (10 bytes) into property 5 of the interface objects 1, 2, 3; the device must answer
    "unloaded".
@@ -178,9 +182,9 @@ what the plan computes. Not verified before the first download:
   otherwise reads property 5; transitional states (unloading, load completing) are read again until
   they settle.
 - The Tastsensor's last step `TaskSegment LsmIdx=5` is not executed: mask 7.5 has no interface
-  object 5 for a property-controlled load state machine. The plan shows it as "Not executed". The
-  object table address is part of the application header, so the device does not need it; the
-  first download of the Tastsensor shows whether that holds.
+  object 5 for a property-controlled load state machine. The plan leaves it out without a notice
+  (haumacher/ehome #187). The object table address is part of the application header, so the device
+  does not need it; the first download of the Tastsensor shows whether that holds.
 - The zero fill: the segment of the Tastsensor's association table (dynamic table management) is
   written up to its end with zeros, so that its stamp's CRC describes the memory (the device held
   zeros there after ETS).
