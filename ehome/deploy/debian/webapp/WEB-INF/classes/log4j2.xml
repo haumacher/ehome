@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+	The log of the Debian package (deploy aspect debian, haumacher/ehome #186): E-Home's own file
+	/var/log/ehome/ehome.log instead of the console, which Debian's Tomcat sends to the journal it shares
+	with every other app of the Tomcat. Rolled daily into ehome-<date>.log.gz, the newest 14 kept.
+
+	log4j finds this file through the class loader of the web app, which searches WEB-INF/classes before
+	WEB-INF/lib: it replaces the engine's log4j2.xml (tl-basic-logging-log4j, console only) in this war
+	alone. log4j lives in the war, so its configuration belongs to E-Home and nothing reaches the JVM or
+	the other apps of the Tomcat. The package creates /var/log/ehome and lets Tomcat write it
+	(packaging/debian, doc/debian.md). A local run (exec:java) does not use this aspect and logs to the
+	console.
+-->
+<Configuration>
+	<Properties>
+		<Property name="dir">/var/log/ehome</Property>
+		<Property name="pattern.long">%date{ISO8601} %-5level [%thread]: %logger - %message%n%throwable</Property>
+	</Properties>
+	<Appenders>
+		<RollingFile name="FILE"
+			fileName="${dir}/ehome.log"
+			filePattern="${dir}/ehome-%d{yyyy-MM-dd}.log.gz"
+		>
+			<PatternLayout pattern="${pattern.long}" charset="UTF-8"/>
+			<Policies>
+				<TimeBasedTriggeringPolicy/>
+			</Policies>
+			<DefaultRolloverStrategy>
+				<Delete basePath="${dir}" maxDepth="1">
+					<IfFileName glob="ehome-*.log.gz">
+						<IfAccumulatedFileCount exceeds="14"/>
+					</IfFileName>
+				</Delete>
+			</DefaultRolloverStrategy>
+		</RollingFile>
+	</Appenders>
+	<Loggers>
+		<Root level="info">
+			<AppenderRef ref="FILE"/>
+		</Root>
+	</Loggers>
+</Configuration>

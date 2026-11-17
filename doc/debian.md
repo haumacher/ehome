@@ -82,19 +82,22 @@ both: it restarted Tomcat at the first installation and gave the settings to the
 in 1.0.1; a Tomcat started under 1.0.0's drop-in keeps those variables until its next start, which
 the administrator schedules.)
 
-`tomcat10.service` runs with `ProtectSystem=strict`: the drop-in grants `/var/lib/ehome` from
-Tomcat's next start, and a Tomcat that runs already gets the directory bound into its namespace with
-`systemctl bind tomcat10 /var/lib/ehome` (systemd 248 or newer; Debian 13 has 257). Where that is not
-possible, the package installs without deploying and says what to do. E-Home shares the heap with the
+`tomcat10.service` runs with `ProtectSystem=strict`: the drop-in grants `/var/lib/ehome` and
+`/var/log/ehome` from Tomcat's next start (the log directory optional, so that a missing one never keeps
+Tomcat from starting), and a Tomcat that runs already gets each directory it cannot write bound into its
+namespace with `systemctl bind tomcat10 <directory>` (systemd 248 or newer; Debian 13 has 257); an
+upgrade from a package without the log directory binds it the same way. Where that is not possible
+for one of the two, the package installs without deploying and says what to do. E-Home shares the heap with the
 other applications of the Tomcat; sizing it is the administrator's choice (`JAVA_OPTS` below).
 
 | Path | What |
 | --- | --- |
 | `/usr/share/ehome/ehome.war` | The app. |
 | `/etc/tomcat10/Catalina/localhost/ehome.xml` | Tomcat's context `/ehome` with the settings as `<Environment name="tl/...">` entries, written by `postinst` from the template `/usr/share/ehome/tomcat/ehome.xml` and `ehome.env` (mode 0640, `root:tomcat`: it holds the passwords). Writing it deploys the app in the running Tomcat. |
-| `/usr/lib/systemd/system/tomcat10.service.d/ehome.conf` | Write access to the data from Tomcat's next start (`ReadWritePaths`); nothing else. |
+| `/usr/lib/systemd/system/tomcat10.service.d/ehome.conf` | Write access to the data and the log from Tomcat's next start (`ReadWritePaths`); nothing else. |
 | `/etc/ehome/ehome.env` | The settings (lines `name=value`): `tl_storage_path`, `h2_name`, `h2_passwd` (the password of the database, generated with the file), `tl_initial_password`; created once, owned by the administrator afterwards. Further TopLogic settings go there too; `dpkg-reconfigure ehome` after a change (deploys the app again, Tomcat keeps running). Tomcat never reads this file. |
-| `/var/lib/ehome` | The data: `h2.mv.db`, documents (`var/`), logs (`logs/top-logic.main.log`). |
+| `/var/lib/ehome` | The data: `h2.mv.db`, documents (`var/`). |
+| `/var/log/ehome` | The log of the app, `ehome.log` (owner `tomcat`, group `adm`, mode 2750 as Tomcat's own logs). Written by the `log4j2.xml` of the war (deploy aspect `ehome/deploy/debian`, `WEB-INF/classes`, which takes precedence over the engine's console configuration in `WEB-INF/lib`): rolled at midnight into `ehome-<YYYY-mm-dd>.log.gz`, the newest 14 kept, by log4j itself (no logrotate: log4j keeps the file open, `copytruncate` would lose lines). Nothing goes to the console, so E-Home's lines are not in Tomcat's journal (`journalctl -u tomcat10`), which it shares with the other applications. An upgrade appends to the same file; `apt purge` deletes the directory. |
 
 ## Upgrading
 
@@ -137,7 +140,7 @@ project was there after both, and the model upgrade only added the module `tl.ag
 The upgrade keeps the settings and the data. The engine has no default for the database password since TopLogic
 8.0.0-alpha12 (named secrets): an upgrade from an earlier package adds `h2_passwd` with the former
 default `theautomatedappengine`, which the existing database was created with, to settings that lack
-it. `apt remove` undeploys the app; `apt purge` also deletes the settings. As an upgrade does,
+it. `apt remove` undeploys the app; `apt purge` also deletes the settings and the logs. As an upgrade does,
 `prerm` takes the descriptor away and waits (at most 5 minutes) until the app has closed the database
 and Tomcat has removed its unpacked copy, before the war and that copy are deleted: packages up to
 1.0.2 deleted the unpacked copy at once, the jars disappeared under the running app, its shutdown
