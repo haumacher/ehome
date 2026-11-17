@@ -530,8 +530,8 @@ public class DeviceTools {
 		+ " the identity the device reports (mask version, manufacturer, serial number, order info, hardware"
 		+ " type, program version) beside the project's values, each compared: equal, different (another"
 		+ " device or another program at the address), notInProject (e.g. a serial number the project does"
-		+ " not know yet) or notRead; its state (load states, run state, programming mode); and what could"
-		+ " not be read. 'answered' false means no device answers at the address - a result, not an error."
+		+ " not know yet), notRead or notComparable (an order info in the manufacturer's own encoding); its"
+		+ " state (load states, run state, programming mode); and what could not be read. 'answered' false means no device answers at the address - a result, not an error."
 		+ " Read it before the installer programs a device, to check that the right device is there. Takes"
 		+ " a few seconds; refused while the path is in use or cannot be used, with the reason.",
 		mode = ToolMode.READ, group = ToolGroups.DATA_READ)
@@ -591,6 +591,7 @@ public class DeviceTools {
 			case DIFFERENT -> "different";
 			case NOT_IN_PROJECT -> "notInProject";
 			case NOT_READ -> "notRead";
+			case NOT_COMPARABLE -> "notComparable";
 		};
 	}
 

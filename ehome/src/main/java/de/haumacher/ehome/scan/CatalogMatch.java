@@ -202,8 +202,8 @@ public class CatalogMatch {
 			return new Match(Kind.UNIDENTIFIED, List.of(),
 				I18NConstants.UNIDENTIFIED_NO_PRODUCT__PROGRAM.fill(programs.get(0).getExtId()));
 		}
-		if (device.orderInfo() != null) {
-			String order = normalize(device.orderInfo());
+		if (device.orderNumber() != null) {
+			String order = normalize(device.orderNumber());
 			List<Candidate> ordered = candidates.stream()
 				.filter(c -> ordered(c.variant(), order))
 				.toList();
@@ -230,12 +230,12 @@ public class CatalogMatch {
 			return new Match(Kind.UNIDENTIFIED, List.of(),
 				I18NConstants.UNIDENTIFIED_MANUFACTURER__MANUFACTURER.fill(String.format("M-%04X", device.manufacturerId())));
 		}
-		String order = normalize(device.orderInfo());
+		String order = device.orderNumber() == null ? null : normalize(device.orderNumber());
 		List<Candidate> candidates = new ArrayList<>();
 		for (Object product : (Collection<?>) manufacturer.tValueByName("products")) {
 			TLObject hardware = (TLObject) product;
 			for (Object variant : (Collection<?>) hardware.tValueByName("variants")) {
-				if (!ordered((TLObject) variant, order)) {
+				if (order == null || !ordered((TLObject) variant, order)) {
 					continue;
 				}
 				for (Object assignment : (Collection<?>) hardware.tValueByName("programs")) {

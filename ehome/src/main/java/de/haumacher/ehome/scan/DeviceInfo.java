@@ -72,7 +72,13 @@ public class DeviceInfo {
 		NOT_IN_PROJECT,
 
 		/** The device did not tell the value. */
-		NOT_READ;
+		NOT_READ,
+
+		/**
+		 * The device tells the value in a form that cannot be related to the project's (an order info
+		 * in a manufacturer-specific encoding, haumacher/ehome #179).
+		 */
+		NOT_COMPARABLE;
 
 		/**
 		 * The comparison for a person.
@@ -83,6 +89,7 @@ public class DeviceInfo {
 				case DIFFERENT -> I18NConstants.INFO_DIFFERENT;
 				case NOT_IN_PROJECT -> I18NConstants.INFO_NOT_IN_PROJECT;
 				case NOT_READ -> I18NConstants.INFO_NOT_READ;
+				case NOT_COMPARABLE -> I18NConstants.INFO_NOT_COMPARABLE;
 			};
 		}
 	}
@@ -269,7 +276,8 @@ public class DeviceInfo {
 		Object orderNumber = variant == null ? null : variant.tValueByName("orderNumber");
 		String order = orderNumber instanceof String text && !text.isBlank() ? text : null;
 		result.add(row("orderInfo", I18NConstants.READ_ORDER_INFO, order, _found.orderInfo(),
-			() -> CatalogMatch.sameOrder(_found.orderInfo(), order)));
+			() -> _found.orderNumber() == null ? null
+				: Boolean.valueOf(CatalogMatch.sameOrder(_found.orderNumber(), order))));
 
 		byte[] hardware = program == null ? null : CatalogMatch.comparedHardwareType(program);
 		result.add(row("hardwareType", I18NConstants.READ_HARDWARE_TYPE, hardware == null ? null : FoundDevice.hex(hardware),
@@ -283,7 +291,10 @@ public class DeviceInfo {
 	}
 
 	private interface Same {
-		boolean test();
+		/**
+		 * Whether the device's value is the project's, <code>null</code> if they cannot be compared.
+		 */
+		Boolean test();
 	}
 
 	private static Row row(String name, ResKey label, String project, String device, Same same) {
@@ -293,7 +304,9 @@ public class DeviceInfo {
 		} else if (project == null) {
 			comparison = Comparison.NOT_IN_PROJECT;
 		} else {
-			comparison = same.test() ? Comparison.EQUAL : Comparison.DIFFERENT;
+			Boolean equal = same.test();
+			comparison = equal == null ? Comparison.NOT_COMPARABLE
+				: equal.booleanValue() ? Comparison.EQUAL : Comparison.DIFFERENT;
 		}
 		return new Row(name, label, project, device, comparison);
 	}

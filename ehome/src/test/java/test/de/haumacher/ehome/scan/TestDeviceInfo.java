@@ -7,6 +7,7 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.importSample;
 import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
@@ -190,6 +191,36 @@ public class TestDeviceInfo extends BasicTestCase {
 			assertRefused(I18NConstants.ERROR_INFO_OTHER_DEVICE__ADDRESS_WHAT.fill("1.3.5", I18NConstants.INFO_PROGRAM),
 				() -> inTransaction(otherInfo::takeSerial));
 			assertEquals(0, other.writes());
+
+			// The order info as the MDT actuator on the desk reports it (haumacher/ehome #179): bytes in
+			// the manufacturer's encoding, not the catalog's order number AKK-0416.03 - not comparable,
+			// and no warning.
+			MockDevice mdt = actuator().setProperty(0, BusScanner.PID_ORDER_INFO, "1430343136FFFF030F60");
+			DeviceInfo mdtInfo = DeviceInfo.of(run(project, device, address -> mdt));
+			DeviceInfo.Row order = rows(mdtInfo).get("orderInfo");
+			assertEquals("AKK-0416.03", order.project());
+			assertEquals("14 30 34 31 36 FF FF 03 0F 60", order.device());
+			assertNull(mdtInfo.found().orderNumber());
+			assertEquals(DeviceInfo.Comparison.NOT_COMPARABLE, order.comparison());
+			assertEquals("Not comparable", DownloadPlan.english(order.comparison().label()));
+			assertEquals(0, mdtInfo.count(DeviceInfo.Comparison.DIFFERENT));
+			assertTrue(DeviceInfoFunctions.rows(mdtInfo).stream()
+				.noneMatch(r -> "orderInfo".equals(r.get("name")) && r.get("role") != null));
+			// An order info as text is the order number, padded or not.
+			MockDevice text = actuator().setProperty(0, BusScanner.PID_ORDER_INFO,
+				HexFormat.of().formatHex("AKK-0416.03\0\0".getBytes(StandardCharsets.ISO_8859_1)));
+			assertEquals(DeviceInfo.Comparison.EQUAL,
+				rows(DeviceInfo.of(run(project, device, address -> text))).get("orderInfo").comparison());
+			MockDevice otherOrder = actuator().setProperty(0, BusScanner.PID_ORDER_INFO,
+				HexFormat.of().formatHex("AKK-0816.03".getBytes(StandardCharsets.ISO_8859_1)));
+			assertEquals(DeviceInfo.Comparison.DIFFERENT,
+				rows(DeviceInfo.of(run(project, device, address -> otherOrder))).get("orderInfo").comparison());
+			// Text that reads as hex digits is text: the scan writes hex only for bytes that are no text.
+			MockDevice hexText = actuator().setProperty(0, BusScanner.PID_ORDER_INFO,
+				HexFormat.of().formatHex("41 42".getBytes(StandardCharsets.ISO_8859_1)));
+			DeviceInfo hexInfo = DeviceInfo.of(run(project, device, address -> hexText));
+			assertEquals("41 42", hexInfo.found().orderNumber());
+			assertEquals(DeviceInfo.Comparison.DIFFERENT, rows(hexInfo).get("orderInfo").comparison());
 
 			// No device at the address: a result, not an error.
 			List<String> asked = new ArrayList<>();

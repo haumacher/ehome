@@ -35,7 +35,10 @@ import com.top_logic.basic.util.ResKey;
  * @param hardwareType
  *        The hardware type (device object, property 78).
  * @param orderInfo
- *        The order info (device object, property 15), as text where it is printable.
+ *        The order info (device object, property 15), as text where it is printable, otherwise as
+ *        its bytes in hex ({@link #hex(byte[])}). Only the text is an order number
+ *        ({@link #orderNumber()}): many devices report a manufacturer-specific encoding there
+ *        (haumacher/ehome #179).
  * @param loadStates
  *        The states of the load state machines 1 to 3, for a person.
  * @param notes
@@ -124,6 +127,36 @@ public record FoundDevice(int address, Source source, Integer descriptor, Intege
 	 */
 	public String hardwareTypeText() {
 		return hardwareType == null ? null : hex(hardwareType);
+	}
+
+	/**
+	 * The order info as an order number to compare with a catalog's, <code>null</code> if it was not
+	 * read or the device reports bytes that are no text (MDT, for example, reports
+	 * <code>14 30 34 31 36 FF FF 03 0F 60</code> for <code>AKK-0416.03</code>).
+	 *
+	 * <p>
+	 * The scan writes the order info in hex only where a byte is not printable; so a text that reads
+	 * as hex digits of printable bytes only was text in the first place.
+	 * </p>
+	 */
+	public String orderNumber() {
+		if (orderInfo == null) {
+			return null;
+		}
+		if (!orderInfo.matches("[0-9A-F]{2}( [0-9A-F]{2})*")) {
+			return orderInfo;
+		}
+		byte[] bytes = HexFormat.ofDelimiter(" ").parseHex(orderInfo);
+		int end = bytes.length;
+		while (end > 0 && (bytes[end - 1] == 0 || bytes[end - 1] == ' ')) {
+			end--;
+		}
+		for (int n = 0; n < end; n++) {
+			if (bytes[n] < 0x20 || bytes[n] > 0x7E) {
+				return null;
+			}
+		}
+		return orderInfo;
 	}
 
 	/**

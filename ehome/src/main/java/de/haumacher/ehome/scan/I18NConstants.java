@@ -582,6 +582,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey INFO_NOT_READ;
 
 	/**
+	 * @en Not comparable
+	 */
+	public static ResKey INFO_NOT_COMPARABLE;
+
+	/**
 	 * @en No device answers at {0} through {1}.
 	 */
 	public static ResKey2 INFO_NO_ANSWER__ADDRESS_PATH;
