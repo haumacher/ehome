@@ -3,6 +3,7 @@
  */
 package test.de.haumacher.ehome.connection;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -40,7 +41,14 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * message of an op with a code ({@link #refuseNext(String, String, String)}), deliver indications
  * ({@link #frames(byte[]...)}), end the session as the controller does ({@link #end(String, String)})
  * and end the connection ({@link #disconnect(String)}). The answers go back on a thread of their own,
- * in order, as the socket's reading thread delivers them.
+ * in order, as the socket's reading thread delivers them. A monitor subscription is answered
+ * <code>subscribed</code>; {@link #reconnect()} connects the same controller again.
+ * </p>
+ *
+ * <p>
+ * As a transport the fake writes like the blocking remote endpoint of Tomcat's WebSocket
+ * (<code>WsRemoteEndpointImplBase.sendMessageBlockInternal</code>): a write on an interrupted thread
+ * closes the whole socket with 1001 (going away) and fails (haumacher/ehome #189).
  * </p>
  */
 @SuppressWarnings("javadoc")
@@ -79,6 +87,10 @@ public class FakeBusController implements ControllerConnection.Peer {
 
 	private TLObject _controller;
 
+	private String _id;
+
+	private String _secret;
+
 	private volatile Bus _bus = (controller, frame) -> "confirmed";
 
 	private volatile boolean _session;
@@ -108,7 +120,23 @@ public class FakeBusController implements ControllerConnection.Peer {
 		ControllerConnections.refetch();
 		String id = (String) enrolled.body().get("controller");
 		String secret = (String) enrolled.body().get("secret");
+		return connect(id, secret, bus);
+	}
+
+	/**
+	 * Connects the same controller again, on a socket of its own (the controller restarted or its
+	 * network came back): E-Home replaces the connection of this fake by the new one.
+	 *
+	 * @return The fake of the new connection.
+	 */
+	public FakeBusController reconnect() throws Exception {
+		return connect(_id, _secret, true);
+	}
+
+	private static FakeBusController connect(String id, String secret, boolean bus) throws Exception {
 		FakeBusController result = new FakeBusController();
+		result._id = id;
+		result._secret = secret;
 		result._connection = new ControllerConnection(id, result);
 		result._connection.open();
 		String nonce = result._nonce.get(5, TimeUnit.SECONDS);
@@ -200,6 +228,20 @@ public class FakeBusController implements ControllerConnection.Peer {
 	}
 
 	/**
+	 * Every message E-Home sent so far, in order.
+	 */
+	public synchronized List<Map<String, Object>> messages() {
+		return new ArrayList<>(_received);
+	}
+
+	/**
+	 * Whether the given message of E-Home subscribes to the monitor stream.
+	 */
+	public static boolean monitorSubscription(Map<String, Object> message) {
+		return "monitor".equals(message.get("type")) && Boolean.TRUE.equals(message.get("subscribe"));
+	}
+
+	/**
 	 * The bus messages E-Home sent so far.
 	 */
 	public synchronized List<Map<String, Object>> busMessages() {
@@ -267,7 +309,14 @@ public class FakeBusController implements ControllerConnection.Peer {
 	// ControllerConnection.Peer
 
 	@Override
-	public void sendText(String text) {
+	public void sendText(String text) throws IOException {
+		if (Thread.currentThread().isInterrupted()) {
+			// As Tomcat's blocking send: "The current thread was interrupted while waiting for a blocking
+			// send to complete", the session closed with GOING_AWAY.
+			close(ControllerConnection.CLOSE_GOING_AWAY, "send interrupted");
+			_connection.closed("closed (1001 send interrupted)");
+			throw new IOException("The current thread was interrupted while waiting for a blocking send to complete.");
+		}
 		Map<String, Object> message;
 		try {
 			@SuppressWarnings("unchecked")
@@ -285,6 +334,16 @@ public class FakeBusController implements ControllerConnection.Peer {
 		}
 		if (BusSessionLink.TYPE.equals(message.get("type"))) {
 			_replies.execute(() -> bus(message));
+		}
+		if ("monitor".equals(message.get("type")) && Boolean.TRUE.equals(message.get("subscribe"))) {
+			Map<String, Object> subscribed = new LinkedHashMap<>();
+			subscribed.put("type", "monitor");
+			subscribed.put("subscribed", Boolean.TRUE);
+			subscribed.put("next", Long.valueOf(0));
+			if (message.get("ref") != null) {
+				subscribed.put("ref", message.get("ref"));
+			}
+			reply(subscribed);
 		}
 	}
 

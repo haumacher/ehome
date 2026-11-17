@@ -91,7 +91,10 @@ public final class ControllerConnections {
 	 */
 	public interface Listener {
 
-		/** A controller connected and was accepted. */
+		/**
+		 * A controller connected and was accepted: its connection is established
+		 * (<code>ready</code> and <code>subscribe</code> went out), so the listener may send on it.
+		 */
 		default void connected(ControllerConnection connection) {
 			// Ignored by default.
 		}
@@ -403,14 +406,24 @@ public final class ControllerConnections {
 	}
 
 	/**
-	 * A controller was accepted.
+	 * A controller authenticated: its connection takes the place of an older one of the controller
+	 * (which ends), before E-Home sends <code>ready</code>. It is not established yet: nothing may be
+	 * sent on it and {@link #get(String)} does not return it until {@link #announce(ControllerConnection)}.
 	 */
-	static void ready(ControllerConnection connection) {
+	static void register(ControllerConnection connection) {
 		OPENING.remove(connection);
 		ControllerConnection before = CONNECTIONS.put(connection.controllerId(), connection);
 		if (before != null && before != connection) {
 			before.close(ControllerConnection.CLOSE_NORMAL, ControllerConnection.CLOSED_REPLACED);
 		}
+	}
+
+	/**
+	 * The connection of a controller is established (<code>ready</code> and <code>subscribe</code>
+	 * went out, haumacher/ehome #188): stored and told to the listeners, which may send on it from
+	 * now on.
+	 */
+	static void announce(ControllerConnection connection) {
 		Logger.info("Controller " + connection.controllerId() + " (" + connection.name() + ") connected, firmware "
 			+ connection.version() + " " + connection.build() + ".", ControllerConnections.class);
 		Instant now = connection.since();
@@ -523,10 +536,12 @@ public final class ControllerConnections {
 	}
 
 	/**
-	 * A socket ended before its controller was accepted.
+	 * A socket ended before its connection was established (the controller was refused, or sending
+	 * <code>ready</code> failed).
 	 */
 	static void dropped(ControllerConnection connection) {
 		OPENING.remove(connection);
+		CONNECTIONS.remove(connection.controllerId(), connection);
 	}
 
 	private static void store(String controllerId, Instant contact, String version, String build) {

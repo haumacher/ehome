@@ -6,7 +6,12 @@ package de.haumacher.ehome.connection;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Arrays;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import jakarta.websocket.CloseReason;
 import jakarta.websocket.OnClose;
@@ -35,6 +40,13 @@ import com.top_logic.basic.Logger;
  * nothing within {@link ControllerConnections#IDLE_TIMEOUT}. It calls the message handlers of one session one at a
  * time; sending is serialized by the connection.
  * </p>
+ *
+ * <p>
+ * A message is written through the asynchronous remote endpoint, and the sending thread waits for
+ * the end of the write without being interruptible (at most {@link #SEND_TIMEOUT}): an interrupt of
+ * that thread (the cancel of a job waiting for the controller) must not end the write, which in
+ * Tomcat's blocking send closes the whole socket with 1001 (haumacher/ehome #189).
+ * </p>
  */
 @ServerEndpoint(ControllerSocket.PATH)
 public class ControllerSocket implements ControllerConnection.Peer {
@@ -47,6 +59,12 @@ public class ControllerSocket implements ControllerConnection.Peer {
 
 	/** The longest message E-Home takes from a controller (a status, a snapshot chunk, a response). */
 	public static final int MAX_MESSAGE = 1024 * 1024;
+
+	/**
+	 * The longest a write may take (the default of Tomcat's blocking send); a socket on which a write
+	 * takes longer is closed.
+	 */
+	public static final Duration SEND_TIMEOUT = Duration.ofSeconds(20);
 
 	/**
 	 * The session's user property under which the containers (Tomcat, Jetty) put the remote address.
@@ -130,20 +148,52 @@ public class ControllerSocket implements ControllerConnection.Peer {
 
 	@Override
 	public void sendText(String text) throws IOException {
-		Session session = _session;
-		if (session == null || !session.isOpen()) {
-			throw new IOException("The socket is closed.");
-		}
-		session.getBasicRemote().sendText(text);
+		Session session = openSession();
+		complete(session.getAsyncRemote().sendText(text));
 	}
 
 	@Override
 	public void sendBinary(byte[] data) throws IOException {
+		Session session = openSession();
+		complete(session.getAsyncRemote().sendBinary(ByteBuffer.wrap(data)));
+	}
+
+	private Session openSession() throws IOException {
 		Session session = _session;
 		if (session == null || !session.isOpen()) {
 			throw new IOException("The socket is closed.");
 		}
-		session.getBasicRemote().sendBinary(ByteBuffer.wrap(data));
+		return session;
+	}
+
+	/**
+	 * Waits for the end of a write, at most {@link #SEND_TIMEOUT}, without letting an interrupt of the
+	 * waiting thread end the wait: the interrupt is kept for the caller.
+	 */
+	private void complete(Future<Void> sent) throws IOException {
+		boolean interrupted = false;
+		long end = System.nanoTime() + SEND_TIMEOUT.toNanos();
+		try {
+			while (true) {
+				try {
+					sent.get(Math.max(0, end - System.nanoTime()), TimeUnit.NANOSECONDS);
+					return;
+				} catch (InterruptedException ex) {
+					interrupted = true;
+				} catch (ExecutionException ex) {
+					Throwable cause = ex.getCause() == null ? ex : ex.getCause();
+					throw cause instanceof IOException io ? io : new IOException(cause.getMessage(), cause);
+				} catch (TimeoutException ex) {
+					close(ControllerConnection.CLOSE_GOING_AWAY, "send timed out");
+					throw new IOException("A write to the controller did not complete within " + SEND_TIMEOUT.toSeconds()
+						+ " s.", ex);
+				}
+			}
+		} finally {
+			if (interrupted) {
+				Thread.currentThread().interrupt();
+			}
+		}
 	}
 
 	@Override

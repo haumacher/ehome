@@ -46,10 +46,22 @@ import de.haumacher.ehome.runtime.Json.JsonException;
  * connection; the controller answers <code>auth</code> with its id and
  * <code>HMAC-SHA256(secret, nonce)</code> in hex ({@link #hmac(String, String)}), which is compared in
  * constant time with the HMAC of the secret stored for that id. Then E-Home answers <code>ready</code> with the installation's name
- * and sends <code>subscribe</code>; otherwise <code>refused</code> with a code
+ * and sends <code>subscribe</code> (and offers the installation key the device should hold); otherwise <code>refused</code> with a code
  * ({@link #REFUSED_UNKNOWN}, {@link #REFUSED_AUTH}, {@link #REFUSED_REQUIRED},
  * {@link #REFUSED_TIMEOUT}) and the close code 1008. A replayed <code>auth</code> carries the HMAC of
  * an old nonce and fails.
+ * </p>
+ *
+ * <p>
+ * The connection is established when <code>ready</code> and <code>subscribe</code> have gone out
+ * (haumacher/ehome #188): the firmware fails an attempt on any other message before
+ * <code>ready</code>. An accepted connection is registered with the {@link ControllerConnections}
+ * before <code>ready</code> (an older connection of the controller ends), so that whatever the
+ * controller does after <code>ready</code> finds it ({@link #isReady()},
+ * {@link ControllerConnections#get(String)}); a send or request of another thread in the moment
+ * between waits until <code>ready</code> and <code>subscribe</code> went out, and the listeners of the
+ * {@link ControllerConnections} are told of the connection only then. A send on a connection whose
+ * controller has not authenticated is a programming error ({@link IllegalStateException}).
  * </p>
  *
  * <p>
@@ -114,15 +126,26 @@ public final class ControllerConnection {
 
 	private static final SecureRandom RANDOM = new SecureRandom();
 
+	/** The longest a send waits for <code>ready</code> and <code>subscribe</code> to have gone out. */
+	private static final Duration ESTABLISH_TIMEOUT = Duration.ofSeconds(10);
+
 	/**
 	 * The transport of a connection: the WebSocket ({@link ControllerSocket}).
+	 *
+	 * <p>
+	 * An interrupt of a thread sending must never end a write and with it the connection
+	 * (haumacher/ehome #189: Tomcat closes the whole socket with 1001 when a blocking send runs on an
+	 * interrupted thread). The connection calls the sends with the calling thread's interrupt cleared
+	 * (and sets it again afterwards); a transport completes a write it began whatever happens to the
+	 * calling thread meanwhile.
+	 * </p>
 	 */
 	public interface Peer {
 
-		/** Sends a text message. */
+		/** Sends a text message, see the interrupt of the calling thread above. */
 		void sendText(String text) throws IOException;
 
-		/** Sends a binary message. */
+		/** Sends a binary message, see the interrupt of the calling thread above. */
 		void sendBinary(byte[] data) throws IOException;
 
 		/** Sends a close frame with the code and reason and closes the transport. */
@@ -155,7 +178,17 @@ public final class ControllerConnection {
 	}
 
 	private enum State {
-		CHALLENGED, READY, CLOSED;
+		/** The challenge is sent, the controller has not authenticated. */
+		CHALLENGED,
+
+		/** The controller authenticated: registered, <code>ready</code> and <code>subscribe</code> are being sent. */
+		ACCEPTING,
+
+		/** Established: <code>ready</code> and <code>subscribe</code> went out. */
+		READY,
+
+		/** Ended. */
+		CLOSED;
 	}
 
 	private final String _pathId;
@@ -197,6 +230,9 @@ public final class ControllerConnection {
 	private final Map<Object, Map<String, Object>> _datapoints = new ConcurrentHashMap<>();
 
 	private final List<Listener> _listeners = new CopyOnWriteArrayList<>();
+
+	/** Completed when <code>ready</code> and <code>subscribe</code> went out, or the connection ended. */
+	private final CompletableFuture<Void> _established = new CompletableFuture<>();
 
 	private final ReentrantLock _requests = new ReentrantLock(true);
 
@@ -319,10 +355,40 @@ public final class ControllerConnection {
 	}
 
 	/**
-	 * Whether the controller is authenticated and the connection open.
+	 * Whether the controller is accepted and the connection open (a send waits for
+	 * <code>ready</code> and <code>subscribe</code> to have gone out).
 	 */
 	public boolean isReady() {
-		return _state == State.READY;
+		State state = _state;
+		return state == State.ACCEPTING || state == State.READY;
+	}
+
+	/**
+	 * Lets a send by a part of E-Home go out only after <code>ready</code> and <code>subscribe</code>
+	 * (haumacher/ehome #188): in the moment between the acceptance and those messages it waits for
+	 * them.
+	 *
+	 * @throws IllegalStateException
+	 *         If the controller has not authenticated: nothing may be sent to it.
+	 * @throws IOException
+	 *         If the connection ends before it is established.
+	 */
+	private void checkEstablished() throws IOException {
+		State state = _state;
+		if (state == State.CHALLENGED) {
+			throw new IllegalStateException("Nothing may be sent to controller " + _pathId
+				+ " before it authenticated.");
+		}
+		if (state == State.ACCEPTING) {
+			try {
+				_established.get(ESTABLISH_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
+			} catch (InterruptedException ex) {
+				Thread.currentThread().interrupt();
+				throw new IOException("Interrupted while waiting for the connection to the controller.", ex);
+			} catch (ExecutionException | TimeoutException ex) {
+				throw new IOException("The connection to the controller was not established.", ex);
+			}
+		}
 	}
 
 	/**
@@ -356,12 +422,20 @@ public final class ControllerConnection {
 	 * it.
 	 */
 	public void offerKey(String publicKey, String fingerprint) throws IOException {
+		checkEstablished();
+		if (!isReady()) {
+			throw new IOException("The controller is not connected.");
+		}
+		writeKeyOffer(publicKey, fingerprint);
+	}
+
+	private void writeKeyOffer(String publicKey, String fingerprint) throws IOException {
 		Map<String, Object> offer = new LinkedHashMap<>();
 		offer.put("type", "key");
 		offer.put("public_key", publicKey);
 		offer.put("fingerprint", fingerprint);
 		_keyError = null;
-		send(offer);
+		sendText(Json.compact(offer));
 		Logger.info("Offered the installation key " + fingerprint + " to controller " + _pathId + ".",
 			ControllerConnection.class);
 	}
@@ -591,21 +665,38 @@ public final class ControllerConnection {
 		image(message.get("image"), message.get("slot"));
 		_deviceKey = text(message.get("key"));
 		_since = Instant.now();
-		_state = State.READY;
+		synchronized (this) {
+			if (_state != State.CHALLENGED) {
+				return;
+			}
+			_state = State.ACCEPTING;
+		}
 		Map<String, Object> ready = new LinkedHashMap<>();
 		ready.put("type", "ready");
 		ready.put("installation", _installation == null ? "" : _installation);
+		// Registered before the controller hears of it (an older connection of it ends), but not ready:
+		// nobody sends on it before "ready" and "subscribe" went out (haumacher/ehome #188).
+		ControllerConnections.register(this);
 		try {
-			// Known before the controller hears of it: what it does after "ready" finds its connection.
-			ControllerConnections.ready(this);
 			sendText(Json.compact(ready));
 			sendText("{\"type\":\"subscribe\"}");
 			if (credentials.keyFingerprint() != null && !credentials.keyFingerprint().equals(_deviceKey)) {
-				offerKey(credentials.publicKey(), credentials.keyFingerprint());
+				writeKeyOffer(credentials.publicKey(), credentials.keyFingerprint());
 			}
 		} catch (IOException ex) {
-			_peer.close(CLOSE_GOING_AWAY, "send failed");
+			close(CLOSE_GOING_AWAY, "send failed");
+			return;
 		}
+		synchronized (this) {
+			if (_state != State.ACCEPTING) {
+				// Closed meanwhile.
+				return;
+			}
+			_state = State.READY;
+		}
+		_established.complete(null);
+		// Established: from here on the parts of E-Home following the controller may send.
+		ControllerConnections.announce(this);
 	}
 
 	/**
@@ -744,6 +835,7 @@ public final class ControllerConnection {
 	 */
 	public Answer request(String method, String path, byte[] body, boolean binary, Map<String, Object> members,
 			Duration timeout) throws IOException {
+		checkEstablished();
 		if (!isReady()) {
 			throw new IOException("The controller is not connected.");
 		}
@@ -813,7 +905,7 @@ public final class ControllerConnection {
 					int length = Math.min(BINARY_CHUNK, body.length - offset);
 					byte[] chunk = new byte[length];
 					System.arraycopy(body, offset, chunk, 0, length);
-					_peer.sendBinary(chunk);
+					uninterrupted(() -> _peer.sendBinary(chunk));
 				}
 			}
 		}
@@ -842,8 +934,14 @@ public final class ControllerConnection {
 
 	/**
 	 * Sends a message of the live feed protocol (<code>command</code>, <code>monitor</code>, ...).
+	 *
+	 * @throws IOException
+	 *         If the connection has ended.
+	 * @throws IllegalStateException
+	 *         If the connection is not established yet (before <code>ready</code>).
 	 */
 	public void send(Map<String, Object> message) throws IOException {
+		checkEstablished();
 		if (!isReady()) {
 			throw new IOException("The controller is not connected.");
 		}
@@ -854,7 +952,30 @@ public final class ControllerConnection {
 
 	private void sendText(String text) throws IOException {
 		synchronized (_sendLock) {
-			_peer.sendText(text);
+			uninterrupted(() -> _peer.sendText(text));
+		}
+	}
+
+	/**
+	 * A write on the socket.
+	 */
+	private interface Write {
+		void run() throws IOException;
+	}
+
+	/**
+	 * Runs a write with the calling thread's interrupt cleared, and sets it again afterwards: an
+	 * interrupt meant for a job waiting for an answer (its cancel) must not reach the write and close
+	 * the controller's whole connection (haumacher/ehome #189).
+	 */
+	private static void uninterrupted(Write write) throws IOException {
+		boolean interrupted = Thread.interrupted();
+		try {
+			write.run();
+		} finally {
+			if (interrupted) {
+				Thread.currentThread().interrupt();
+			}
 		}
 	}
 
@@ -899,12 +1020,13 @@ public final class ControllerConnection {
 		if (before == State.CLOSED) {
 			return;
 		}
+		_established.complete(null);
 		CompletableFuture<Answer> pending = _pending;
 		if (pending != null) {
 			pending.completeExceptionally(new IOException("The connection to the controller was closed ("
 				+ (reason == null || reason.isBlank() ? "no reason" : reason) + ")."));
 		}
-		if (before == State.CHALLENGED) {
+		if (before == State.CHALLENGED || before == State.ACCEPTING) {
 			ControllerConnections.dropped(this);
 		}
 		if (before == State.READY) {

@@ -86,7 +86,14 @@ and the controller answers `{"type": "auth", "controller": "<id>", "mac": "<64 h
 encodes, in lower-case hex (as homecontrol's `ehome_mac` computes it). `key`, only while the device
 holds an installation key, is that key's fingerprint (section "Signatures"). E-Home compares it in constant
 time with the HMAC of the stored secret and answers `{"type": "ready", "installation": ...}` followed
-by `{"type": "subscribe"}`, or `{"type": "refused", "code": ..., "error": ...}` and closes with 1008:
+by `{"type": "subscribe"}` (and the offer of the installation key the device should hold), or
+`{"type": "refused", "code": ..., "error": ...}` and closes with 1008. The firmware fails an attempt on
+any other message before `ready`, so the connection is established only when `ready` and `subscribe`
+went out (haumacher/ehome #188): it is registered before (an older connection of the controller
+ends, and what the controller does after `ready` finds it), a send of another thread in the moment
+between waits for them, and the listeners of `ControllerConnections` (the group monitor, Zigbee, the
+resend of a refused image) are told of it only then; a send to a controller that has not
+authenticated is refused as a programming error.
 
 | `code` | When |
 |---|---|
@@ -122,6 +129,13 @@ controller. `connection.BusSessionLink` makes a Calimero network link of it, on 
 and reads the devices of the project chosen to be programmed through the controller
 (`Project#programmingController`, `doc/programming.md` "Through a controller"). The capability is the
 member `ehome.bus` of the controller's status; one session per controller at a time.
+
+A cancelled job on a bus session (whatever reads or programs through the controller)
+ends that session with `close` and nothing else (haumacher/ehome #189): no
+interrupt of a thread reaches a write on the socket. `ControllerConnection` writes with the caller's
+interrupt cleared, `ControllerSocket` through the asynchronous remote with a wait no interrupt ends
+(at most 20 s); Tomcat's blocking send would close the whole socket with 1001 on an interrupted
+thread, and Calimero's transport layer sends the repetition of a data unit with the interrupt set.
 
 `ControllerClient`, which every action uses (deploy, unload, status, the image comparison, the
 Zigbee export, permit and read), takes the socket when the controller is connected and HTTP with
