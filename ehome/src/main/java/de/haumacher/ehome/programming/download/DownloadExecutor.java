@@ -28,6 +28,12 @@ public class DownloadExecutor {
 	/** The time between two reads of a transitional load state, in milliseconds. */
 	private static final int STATE_POLL_INTERVAL = 250;
 
+	/** The interface object of the device. */
+	private static final int DEVICE_OBJECT = 0;
+
+	/** The property of the device object holding its hardware type (<code>PID_HARDWARE_TYPE</code>). */
+	private static final int PID_HARDWARE_TYPE = 78;
+
 	/**
 	 * Is told about each operation before it is performed.
 	 */
@@ -164,6 +170,10 @@ public class DownloadExecutor {
 		} else if (operation instanceof Operation.CompareProperty compare) {
 			byte[] value = access.readProperty(compare.objectIndex(), compare.propertyId(), compare.start(), compare.count());
 			if (!startsWith(value, compare.expected())) {
+				if (compare.objectIndex() == DEVICE_OBJECT && compare.propertyId() == PID_HARDWARE_TYPE) {
+					throw new Mismatch(I18NConstants.EXEC_HARDWARE_TYPE__VALUE_EXPECTED.fill(Operation.hex(value),
+						Operation.hex(compare.expected())));
+				}
 				throw new Mismatch(I18NConstants.EXEC_PROPERTY__OBJECT_PROPERTY_VALUE_EXPECTED.fill(compare.objectIndex(),
 					compare.propertyId(), Operation.hex(value), Operation.hex(compare.expected())));
 			}

@@ -8,15 +8,18 @@ set -e
 # - The settings of /etc/ehome/ehome.env reach the app as JNDI entries of its context descriptor
 #   (java:comp/env/tl/<name>, which TopLogic reads before system properties and environment
 #   variables): writing the descriptor deploys the app with them, and only the app.
-# - tomcat10.service runs with ProtectSystem=strict. The drop-in grants the data directory for the
-#   next start of Tomcat; a Tomcat that runs already gets it bound into its namespace with
-#   "systemctl bind" (systemd >= 248), instead of a restart.
+# - tomcat10.service runs with ProtectSystem=strict. The drop-in grants the data directory and the log
+#   directory for the next start of Tomcat; a Tomcat that runs already gets them bound into its
+#   namespace with "systemctl bind" (systemd >= 248), instead of a restart.
+# - The app logs into its own file $LOG_DIR/ehome.log (the log4j2.xml of the war, rolled daily, 14
+#   kept), not into Tomcat's journal shared with the other applications.
 #
 # "dpkg-reconfigure ehome" applies a changed ehome.env: it rewrites the descriptor, and Tomcat deploys
 # the app again.
 
 ENV_FILE=/etc/ehome/ehome.env
 DATA_DIR=/var/lib/ehome
+LOG_DIR=/var/log/ehome
 CONTEXT_DIR=/etc/tomcat10/Catalina/localhost
 CONTEXT=$CONTEXT_DIR/ehome.xml
 TEMPLATE=/usr/share/ehome/tomcat/ehome.xml
@@ -74,16 +77,18 @@ tomcat_pid() {
 	fi
 }
 
-# Whether Tomcat can write the data directory: it does not run under systemd, or the directory is a
+# Whether Tomcat can write the given directory: it does not run under systemd, or the directory is a
 # mount point in its namespace (the drop-in's ReadWritePaths at its start, or an earlier bind).
-data_writable() {
+writable() {
 	pid=$(tomcat_pid)
 	[ -z "$pid" ] && return 0
-	awk -v dir="$DATA_DIR" '$5 == dir { found = 1 } END { exit !found }' "/proc/$pid/mountinfo" 2>/dev/null
+	awk -v dir="$1" '$5 == dir { found = 1 } END { exit !found }' "/proc/$pid/mountinfo" 2>/dev/null
 }
 
 if [ "$1" = "configure" ]; then
 	install -d -o tomcat -g tomcat -m 0750 "$DATA_DIR"
+	# As Tomcat's own logs: readable by the group adm, the rolled files keep the group.
+	install -d -o tomcat -g adm -m 2750 "$LOG_DIR"
 
 	# The settings are created once and belong to the administrator afterwards (not a conffile, so
 	# that the generated password does not count as a local change).
@@ -96,7 +101,7 @@ if [ "$1" = "configure" ]; then
 # Settings of E-Home. After a change: dpkg-reconfigure ehome (deploys the app again; Tomcat and its
 # other applications keep running).
 
-# The data: H2 database, documents and logs.
+# The data: H2 database and documents (the log is /var/log/ehome/ehome.log).
 tl_storage_path=$DATA_DIR
 h2_name=$DATA_DIR/h2;DB_CLOSE_ON_EXIT=FALSE
 
@@ -145,19 +150,27 @@ END
 		# The drop-in applies from Tomcat's next start; the running one is not restarted.
 		systemctl daemon-reload || true
 	fi
-	if ! data_writable; then
-		if systemctl bind tomcat10 "$DATA_DIR" 2>/dev/null && data_writable; then
-			echo "E-Home: $DATA_DIR is bound into the running Tomcat (no restart)." >&2
-		else
-			# Without write access the app would fail at its start: it waits for Tomcat's next start.
-			rm -f "$CONTEXT"
-			rm -rf "$UPGRADE"
-			echo "E-Home: the running Tomcat cannot write $DATA_DIR, and this systemd cannot bind it" >&2
-			echo "E-Home: into Tomcat (systemctl bind). E-Home is installed but not deployed: restart" >&2
-			echo "E-Home: Tomcat when it suits its other applications (systemctl restart tomcat10)," >&2
-			echo "E-Home: then run dpkg-reconfigure ehome." >&2
-			exit 0
+	blocked=
+	for dir in "$DATA_DIR" "$LOG_DIR"; do
+		if writable "$dir"; then
+			continue
 		fi
+		if systemctl bind tomcat10 "$dir" 2>/dev/null && writable "$dir"; then
+			echo "E-Home: $dir is bound into the running Tomcat (no restart)." >&2
+		else
+			blocked="$blocked $dir"
+		fi
+	done
+	if [ -n "$blocked" ]; then
+		# Without write access the app would fail at its start (or log nowhere): it waits for Tomcat's
+		# next start.
+		rm -f "$CONTEXT"
+		rm -rf "$UPGRADE"
+		echo "E-Home: the running Tomcat cannot write$blocked, and this systemd cannot bind it" >&2
+		echo "E-Home: into Tomcat (systemctl bind). E-Home is installed but not deployed: restart" >&2
+		echo "E-Home: Tomcat when it suits its other applications (systemctl restart tomcat10)," >&2
+		echo "E-Home: then run dpkg-reconfigure ehome." >&2
+		exit 0
 	fi
 
 	# A first installation deploys the app, an upgrade the new version (preinst stopped the old one and
@@ -166,6 +179,7 @@ END
 	rm -rf "$UPGRADE"
 	echo "E-Home: deployed in the running Tomcat; Tomcat was not restarted." >&2
 	echo "E-Home: http://localhost:8080/ehome/view/ (the first start takes about a minute)." >&2
+	echo "E-Home: its log is $LOG_DIR/ehome.log." >&2
 fi
 
 exit 0

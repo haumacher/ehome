@@ -548,11 +548,6 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey SKIP_PROGRESS_TEXT;
 
 	/**
-	 * @en Task segment {0} of load state machine {1}: mask {2} controls its load state machines through interface objects (PropertyMappedLsms) and has no interface object {1}.
-	 */
-	public static ResKey3 SKIP_TASK_SEGMENT__ADDRESS_LSM_MASK;
-
-	/**
 	 * @en Takes the image of the memory {0} for ETS; nothing is sent to the device, a later step writes the bytes of the image there.
 	 */
 	public static ResKey1 SKIP_IMAGE_MEMORY__RANGE;
@@ -651,6 +646,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en The device has the mask version {0}, the program needs {1}.
 	 */
 	public static ResKey2 EXEC_MASK__DESCRIPTOR_NEEDED;
+
+	/**
+	 * @en The device has the hardware type {0}, the program expects {1}.
+	 */
+	public static ResKey2 EXEC_HARDWARE_TYPE__VALUE_EXPECTED;
 
 	/**
 	 * @en Object {0} property {1} is {2}, expected {3}.

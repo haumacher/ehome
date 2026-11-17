@@ -78,6 +78,15 @@ import de.haumacher.ehome.modules.ModuleInstances;
  * of the image no step writes is listed as not written.
  * </p>
  *
+ * <h2>The hardware</h2>
+ * <p>
+ * A property the mask requires to be identical to the program's (flavour
+ * <code>HardwareConfig_Identical</code>, the hardware type: object 0, property 78), for which the
+ * image has a value, is compared right after the mask check, before anything is written, unless the
+ * procedure compares it itself (<code>CompareProp</code>). A device holding another value refuses
+ * the download.
+ * </p>
+ *
  * <h2>Memory-based procedures (BCU 1)</h2>
  * <p>
  * A procedure that allocates no segment (the mask's generic procedure of BCU 1, mask 0012) loads
@@ -115,6 +124,12 @@ public class DownloadPlanner {
 
 	/** The flavour of a mask resource holding the download stamps of a load state machine. */
 	private static final String STAMP_FLAVOUR = "Stamp_SystemB";
+
+	/**
+	 * The flavour of a mask resource whose value in the device must be identical to the program's
+	 * (the hardware type); only the manufacturer writes it.
+	 */
+	private static final String IDENTICAL_FLAVOUR = "HardwareConfig_Identical";
 
 	/**
 	 * The flag of a segment allocation marking a segment ETS writes and stamps; the image's memory in
@@ -174,7 +189,7 @@ public class DownloadPlanner {
 	/** The ranges whose image a <code>LoadImageMem</code> step takes, by step, written from the image after it. */
 	private final Map<String, int[]> _imageRanges = new LinkedHashMap<>();
 
-	/** The property values of the image the plan writes, by object index and property. */
+	/** The property values of the image the plan writes or compares, by object index and property. */
 	private final Set<List<Integer>> _writtenProperties = new HashSet<>();
 
 	/** The application ID the task segment of a load state machine sets, by load state machine. */
@@ -325,6 +340,7 @@ public class DownloadPlanner {
 		for (Step step : steps) {
 			step(step);
 		}
+		compareIdentical(steps);
 		checkWritten();
 		return result(device, address, kind);
 	}
@@ -719,10 +735,8 @@ public class DownloadPlanner {
 		Integer lsm = load.getStateMachine();
 		Integer object = lsmObject(step, true);
 		if (object == null) {
-			if (lsm != null && feature(PROPERTY_MAPPED_LSMS) == 1) {
-				_operations.add(new Operation.Skip(step.label(), I18NConstants.SKIP_TASK_SEGMENT__ADDRESS_LSM_MASK.fill(
-					String.format("%04X", value(load.getAddress())), lsm, maskName())));
-			}
+			// A load state machine the mask has no interface object for (LSM 5 on mask 7.5): the device
+			// has nothing to load there.
 			return;
 		}
 		int address = _taskAddresses.getOrDefault(lsm, (int) value(load.getAddress()));
@@ -964,6 +978,48 @@ public class DownloadPlanner {
 			return null;
 		}
 		return load.getObjectIndex();
+	}
+
+	/**
+	 * Compares the properties the mask requires to be identical to the program's (resources of the
+	 * flavour {@value #IDENTICAL_FLAVOUR}, the hardware type) with the image's values, right after
+	 * the mask check and before anything is written; a property the procedure compares itself
+	 * (<code>CompareProp</code>) is not compared twice.
+	 */
+	private void compareIdentical(List<Step> steps) {
+		Set<List<Integer>> compared = new HashSet<>();
+		for (Step step : steps) {
+			LoadStep load = step.step();
+			if ("CompareProp".equals(step.kind()) && load.getObjectIndex() != null && load.getPropertyId() != null) {
+				compared.add(List.of(load.getObjectIndex(), load.getPropertyId()));
+			}
+		}
+		int index = 0;
+		for (int n = 0; n < _operations.size(); n++) {
+			if (_operations.get(n) instanceof Operation.CheckMask) {
+				index = n + 1;
+				break;
+			}
+		}
+		for (MaskResource resource : _mask.getResources()) {
+			ResourceLocation location = resource.getLocation();
+			if (!IDENTICAL_FLAVOUR.equals(resource.getFlavour()) || location == null || location.getAddressSpace() == null
+				|| !"SystemProperty".equals(location.getAddressSpace().getName()) || location.getInterfaceObject() == null
+				|| location.getPropertyId() == null) {
+				continue;
+			}
+			List<Integer> property = List.of(location.getInterfaceObject(), location.getPropertyId());
+			for (PropertyWrite write : _image.getPropertyWrites()) {
+				if (!Objects.equals(write.objectIndex(), property.get(0)) || write.propertyId() != property.get(1)) {
+					continue;
+				}
+				_writtenProperties.add(property);
+				if (compared.add(property)) {
+					_operations.add(index++,
+						new Operation.CompareProperty("", property.get(0), property.get(1), 1, 1, write.value()));
+				}
+			}
+		}
 	}
 
 	private void checkWritten() {
