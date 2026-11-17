@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import com.top_logic.basic.AbortExecutionException;
 import com.top_logic.basic.util.ResKey;
 
 import de.haumacher.ehome.model.operational.MaskFeature;
@@ -29,6 +30,14 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * except where the load procedure writes inline data of its own over it (BCU 1: FF into
  * <code>RunError</code> at its end), there the value the plan writes last.
  * </p>
+ *
+ * <p>
+ * The memory is read in requests of at most {@link DownloadPlanner#MAX_CHUNK} bytes; the
+ * {@link Listener} is told before every one (haumacher/ehome #190), and may end the comparison there
+ * by its cancel ({@link AbortExecutionException}, as the cancel of a job does, also while a read waits
+ * for the device). An aborted comparison is no failure: its {@link Result} holds what was compared up
+ * to then ({@link Result#aborted()}).
+ * </p>
  */
 public class DeviceComparison {
 
@@ -47,9 +56,12 @@ public class DeviceComparison {
 	 *        The addresses at which the device differs from the image, in ascending order.
 	 * @param failureKey
 	 *        Why the block could not be read completely, <code>null</code> if it could.
+	 * @param abortedAt
+	 *        The address at which the comparison was aborted in this block (the first address not
+	 *        compared), <code>null</code> if it was not.
 	 */
 	public record BlockResult(ResKey label, int address, int length, int compared, List<Integer> different,
-			ResKey failureKey) {
+			ResKey failureKey, Integer abortedAt) {
 
 		/**
 		 * The {@link #label()} in English, for the log.
@@ -70,7 +82,7 @@ public class DeviceComparison {
 		 * Whether the device holds the image in this block.
 		 */
 		public boolean identical() {
-			return failureKey == null && different.isEmpty();
+			return failureKey == null && abortedAt == null && different.isEmpty();
 		}
 
 		/**
@@ -89,9 +101,12 @@ public class DeviceComparison {
 	 * @param factKeys
 	 *        Further things read from the device, for a person (program version, load states).
 	 * @param blocks
-	 *        The comparison of each block of the image.
+	 *        The comparison of each block of the image; of an aborted comparison the blocks compared
+	 *        before and the block it was aborted in, up to the address of the abort.
+	 * @param aborted
+	 *        Whether the comparison was aborted (its cancel) before it compared every block.
 	 */
-	public record Result(String descriptor, List<ResKey> factKeys, List<BlockResult> blocks) {
+	public record Result(String descriptor, List<ResKey> factKeys, List<BlockResult> blocks, boolean aborted) {
 
 		/**
 		 * The {@link #factKeys()} in English, for the log.
@@ -109,7 +124,7 @@ public class DeviceComparison {
 	}
 
 	/**
-	 * Is told which block is read.
+	 * Is told which block is read, and before every read of the memory.
 	 */
 	public interface Listener {
 
@@ -117,6 +132,35 @@ public class DeviceComparison {
 		 * The block of the given number (from 1) of the given count is read next.
 		 */
 		void block(int number, int count, Block block);
+
+		/**
+		 * The memory of the given block is read next, at the given address; may end the comparison
+		 * with its cancel ({@link AbortExecutionException}).
+		 *
+		 * @param done
+		 *        The bytes compared so far.
+		 * @param total
+		 *        The bytes to compare in all (those of the masks of the blocks compared).
+		 */
+		default void read(Block block, int address, long done, long total) {
+			// Ignored by default.
+		}
+	}
+
+	/**
+	 * How far the comparison of the blocks has come.
+	 */
+	private static final class Progress {
+
+		final long _total;
+
+		long _done;
+
+		boolean _aborted;
+
+		Progress(long total) {
+			_total = total;
+		}
 	}
 
 	/**
@@ -167,8 +211,54 @@ public class DeviceComparison {
 	private static Result compare(Program program, DownloadImage image, Collection<Block> skip,
 			Map<Integer, Byte> written, DeviceReader reader, Listener listener)
 			throws BusException {
-		String descriptor = Operation.hex(reader.readDescriptor());
+		String descriptor = null;
 		List<ResKey> facts = new ArrayList<>();
+		List<BlockResult> results = new ArrayList<>();
+		try {
+			descriptor = Operation.hex(reader.readDescriptor());
+			facts(program, image, reader, facts);
+
+			List<Block> blocks = new ArrayList<>(image.getBlocks());
+			blocks.removeAll(skip);
+			Progress progress = new Progress(bytes(blocks));
+			int number = 1;
+			for (Block block : blocks) {
+				listener.block(number++, blocks.size(), block);
+				results.add(compare(block, written, reader, listener, progress));
+				if (progress._aborted) {
+					return new Result(descriptor, facts, results, true);
+				}
+			}
+		} catch (AbortExecutionException ex) {
+			// Cancelled before the blocks or between them: what was compared stands.
+			return new Result(descriptor, facts, results, true);
+		}
+		return new Result(descriptor, facts, results, false);
+	}
+
+	/**
+	 * The bytes the comparison of the given blocks reads: those of their masks, without the blocks
+	 * of a load state machine (relative segments, which are not compared).
+	 */
+	private static long bytes(List<Block> blocks) {
+		long result = 0;
+		for (Block block : blocks) {
+			if (block.stateMachine() != null) {
+				continue;
+			}
+			for (byte bits : block.mask()) {
+				if (bits != 0) {
+					result++;
+				}
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Reads what identifies the program in the device (program version or identity, load states).
+	 */
+	private static void facts(Program program, DownloadImage image, DeviceReader reader, List<ResKey> facts) {
 		MaskVersion mask = program == null ? null : program.getMask();
 		if (mask != null) {
 			facts.add(I18NConstants.FACT_MASK__NUMBER_NAME.fill(String.format("%04X", mask.getNumber()), mask.getName()));
@@ -202,16 +292,6 @@ public class DeviceComparison {
 				}
 			}
 		}
-
-		List<Block> blocks = new ArrayList<>(image.getBlocks());
-		blocks.removeAll(skip);
-		List<BlockResult> results = new ArrayList<>();
-		int number = 1;
-		for (Block block : blocks) {
-			listener.block(number++, blocks.size(), block);
-			results.add(compare(block, written, reader));
-		}
-		return new Result(descriptor, facts, results);
 	}
 
 	private static ResKey property(DeviceReader reader, int object, int property) {
@@ -251,14 +331,15 @@ public class DeviceComparison {
 		return false;
 	}
 
-	private static BlockResult compare(Block block, Map<Integer, Byte> written, DeviceReader reader) {
+	private static BlockResult compare(Block block, Map<Integer, Byte> written, DeviceReader reader, Listener listener,
+			Progress progress) {
 		byte[] data = block.data();
 		byte[] mask = block.mask();
 		List<Integer> different = new ArrayList<>();
 		int compared = 0;
 		if (block.stateMachine() != null) {
 			return new BlockResult(block.label(), block.address(), data.length, 0, different,
-				I18NConstants.COMPARE_RELATIVE_SEGMENT);
+				I18NConstants.COMPARE_RELATIVE_SEGMENT, null);
 		}
 		int n = 0;
 		while (n < data.length) {
@@ -272,12 +353,18 @@ public class DeviceComparison {
 			}
 			byte[] read;
 			try {
+				listener.read(block, block.address() + start, progress._done, progress._total);
 				read = reader.readMemory(block.address() + start, n - start);
 			} catch (BusException ex) {
 				return new BlockResult(block.label(), block.address(), data.length, compared, different,
 					I18NConstants.COMPARE_READ_FAILED__ADDRESS_REASON.fill(String.format("%04X", block.address() + start),
-						ex.getErrorKey()));
+						ex.getErrorKey()), null);
+			} catch (AbortExecutionException ex) {
+				progress._aborted = true;
+				return new BlockResult(block.label(), block.address(), data.length, compared, different, null,
+					Integer.valueOf(block.address() + start));
 			}
+			progress._done += n - start;
 			for (int k = start; k < n; k++) {
 				compared++;
 				int bits = mask[k] & 0xFF;
@@ -287,7 +374,7 @@ public class DeviceComparison {
 				}
 			}
 		}
-		return new BlockResult(block.label(), block.address(), data.length, compared, different, null);
+		return new BlockResult(block.label(), block.address(), data.length, compared, different, null, null);
 	}
 
 	/**

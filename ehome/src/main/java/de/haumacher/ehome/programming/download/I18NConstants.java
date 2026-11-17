@@ -183,6 +183,21 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey4 COMPARE_DONE__DEVICE_GATEWAY_EQUAL_BLOCKS;
 
 	/**
+	 * @en Comparison of {0} through {1} aborted: the device equals the download image in {2} of the {3} blocks compared up to then.
+	 */
+	public static ResKey4 COMPARE_ABORTED__DEVICE_GATEWAY_EQUAL_BLOCKS;
+
+	/**
+	 * @en Aborted at {0}: the {1} bytes compared before are identical.
+	 */
+	public static ResKey2 REPORT_BLOCK_ABORTED_EQUAL__ADDRESS_COUNT;
+
+	/**
+	 * @en Aborted at {0}: {1} of the {2} bytes compared before differ: {3}
+	 */
+	public static ResKey4 REPORT_BLOCK_ABORTED_DIFFERENT__ADDRESS_DIFFERENT_COUNT_RANGES;
+
+	/**
 	 * @en Comparison of {0} through {1} failed: {2}
 	 */
 	public static ResKey3 COMPARE_FAILED__DEVICE_GATEWAY_REASON;
@@ -241,6 +256,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Reading {0}
 	 */
 	public static ResKey1 PROGRESS_READING__WHAT;
+
+	/**
+	 * @en {0}: {1} of {2}
+	 */
+	public static ResKey3 PROGRESS_READING_AT__BLOCK_ADDRESS_RANGE;
 
 	/**
 	 * @en The download is refused: {0}

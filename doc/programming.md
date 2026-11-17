@@ -41,7 +41,10 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   addresses and bytes; the blocks of the image the procedure does not load; the reasons a download
   is refused. "Download-Abbild" shows the image.
 - "Mit dem Gerät vergleichen": compares the device with the image; the report lists per block
-  "Identisch" or the differing addresses.
+  "Identisch" or the differing addresses. The progress moves with every read (at most 12 bytes: the
+  block and the address read, as "<block>: 4A30 von 4000-4FFF"); a cancel ends the
+  comparison before the next read and opens the report of what was compared up to then
+  (haumacher/ehome #190).
 - "Herunterladen": asks for confirmation naming the device, its address and the path ("über Gateway
   192.168.178.81:3671" or "über Controller homecontrol-f883ec"), then runs
   the plan with progress, and reports success (operations, duration) or the failing operation with

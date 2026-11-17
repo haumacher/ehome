@@ -34,7 +34,8 @@ import com.top_logic.util.Resources;
  * Every report of the body is recorded as an {@link #events() event} and handed to the
  * {@link #onEvent(Consumer) hook} of the test, on the body's thread right after the report, so that a
  * test cancels the job at a chosen point of its work: <code>phase:&lt;name&gt;</code>,
- * <code>message:&lt;English text&gt;</code>, <code>uncancelable</code>.
+ * <code>message:&lt;English text&gt;</code>, <code>progress:&lt;done&gt;/&lt;total&gt;</code> (whole
+ * numbers), <code>uncancelable</code>.
  * </p>
  *
  * <p>
@@ -163,6 +164,7 @@ public class JobHarness {
 		@Override
 		public void progress(double done, double total) {
 			_job.progress(done, total);
+			event("progress:" + (long) done + "/" + (long) total);
 		}
 
 		@Override

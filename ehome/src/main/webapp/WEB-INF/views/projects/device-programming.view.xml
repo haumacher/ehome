@@ -184,6 +184,21 @@
 							<!-- The report says how the job ended; its progress display is cleared when the report opens. -->
 							<write-channel name="programmingJob" clear="true"/>
 						</with-result>
+						<!--
+							A cancelled comparison (haumacher/ehome #190): the report of what was compared up to the
+							cancel. Cancelled before the device was read, it has none; the display of the job stays.
+						-->
+						<on-cancel as="report">
+							<if test="$report != null">
+								<then>
+									<open-dialog
+										bind-input-to="report"
+										dialog-view="projects/programming-report.view.xml"
+									/>
+									<write-channel name="programmingJob" clear="true"/>
+								</then>
+							</if>
+						</on-cancel>
 					</start-job>
 				</generic-command>
 				<!--
