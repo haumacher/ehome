@@ -380,6 +380,18 @@ abstract by `<update-class abstract="true"/>` right after (checked on a copy of 
 **When fixed:** the migration stays, as migrations do; a later migration creating an abstract class
 can use `abstract="true"` directly.
 
+## The model catalog of the assistant at every start (TL #30443)
+
+At every start `LLMProviderService` reads the models.dev snapshot bundled with tl-ai-core
+(`models-dev-snapshot.json`, 6 MB, 235 providers, 8,991 models) completely into one String, which
+is 18 MB allocated in one go, to keep the 3 models E-Home offers. By default it then downloads the
+current catalog from models.dev in a background thread. On 2026-11-18 a production start in the
+shared Tomcat died with `OutOfMemoryError` in `ModelsDevFetcher.loadSnapshot`. The heap was already
+tight, and this allocation is what failed. No workaround.
+
+**When fixed:** check that the start no longer allocates the whole snapshot, and decide whether a
+production server gets the remote fetch through the configuration variable the ticket asks for.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
