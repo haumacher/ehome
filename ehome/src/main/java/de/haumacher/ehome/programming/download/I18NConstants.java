@@ -898,7 +898,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 ERROR_NO_PROGRAM_VERSION__MASK;
 
 	/**
-	 * @en The download image holds no bytes for the program's identity at {1} (mask {0}): without them, a download of the parameters only cannot check that the device holds the program.
+	 * @en The download image holds no bytes for the identity of the program at {1} (mask {0}): without them, a download of the parameters only cannot check that the device holds the program.
 	 */
 	public static ResKey2 ERROR_NO_PROGRAM_IDENTITY__MASK_RANGE;
 
@@ -923,7 +923,7 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 EXEC_PROGRAM_VERSION__VALUE_EXPECTED;
 
 	/**
-	 * @en The device holds {1} at {0} as the program's identity, the program has {2}: only a full download loads the program.
+	 * @en The device holds {1} at {0} as the identity of the program, the program has {2}: only a full download loads the program.
 	 */
 	public static ResKey3 EXEC_PROGRAM_IDENTITY__ADDRESS_VALUE_EXPECTED;
 
