@@ -146,7 +146,7 @@ public class DownloadPlanner {
 	private final TLObject _device;
 
 	/** The revision the plan is computed from, see {@link DownloadPlan#getRevision()}. */
-	private final long _revision = HistoryUtils.getLastRevision().getCommitNumber();
+	private final long _revision = HistoryUtils.getSessionRevision().getCommitNumber();
 
 	private final Set<ResKey> _problems = new LinkedHashSet<>();
 

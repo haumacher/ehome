@@ -23,6 +23,7 @@ import java.util.Set;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.Revision;
 import com.top_logic.knowledge.service.Transaction;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClassifier;
@@ -57,10 +58,11 @@ import de.haumacher.ehome.model.operational.Switch;
 import de.haumacher.ehome.model.operational.TextType;
 import de.haumacher.ehome.model.operational.TimeType;
 import de.haumacher.ehome.model.operational.VoidType;
+import de.haumacher.ehome.modules.ModuleParts;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DeviceSettings;
-import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
+import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupTables;
 import de.haumacher.ehome.programming.ParameterEncoding;
 import de.haumacher.ehome.programming.ValueException;
@@ -71,7 +73,6 @@ import de.haumacher.ehome.programming.download.DownloadPlanner;
 import de.haumacher.ehome.programming.download.DownloadRecord;
 import de.haumacher.ehome.programming.download.LoadControls;
 import de.haumacher.ehome.programming.download.Snapshot;
-import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * Reads the configuration of a device back into the project: its group addresses and connections,
@@ -342,14 +343,18 @@ public class ReadBack {
 	public static Report takeOver(TLObject device, Memory memory) {
 		String deviceLabel = MetaLabelProvider.INSTANCE.getLabel(device);
 		Report report;
+		long committed;
 		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
 			.beginTransaction(I18NConstants.COMMIT_READ_BACK__DEVICE.fill(deviceLabel))) {
 			report = apply(device, memory);
 			tx.commit();
+			// A read-back that changed nothing commits no revision: the project is as the thread sees it.
+			Revision revision = tx.getCommitRevision();
+			committed = revision != null ? revision.getCommitNumber() : HistoryUtils.getSessionRevision().getCommitNumber();
 		}
 		if (report.identical()) {
-			// The device holds what the project now says.
-			DownloadRecord.record(device, DownloadPlan.Kind.FULL, HistoryUtils.getLastRevision().getCommitNumber(),
+			// The device holds what the project says in the revision just committed.
+			DownloadRecord.record(device, DownloadPlan.Kind.FULL, committed,
 				I18NConstants.COMMIT_READ_BACK_IDENTICAL__DEVICE.fill(deviceLabel));
 		}
 		return report;

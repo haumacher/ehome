@@ -14,6 +14,7 @@ import java.util.function.Function;
 
 import com.top_logic.basic.thread.ThreadContext;
 import com.top_logic.dob.identifier.ObjectKey;
+import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.db2.DBKnowledgeBase;
@@ -36,9 +37,10 @@ import com.top_logic.util.TLContext;
  * </p>
  * <ul>
  * <li>the project,</li>
- * <li>the last revision of the knowledge base ({@link com.top_logic.knowledge.service.HistoryManager#getLastRevision()}):
- * a commit by anyone invalidates every entry (the revision is read before the build, so a build that
- * sees a newer state is only rebuilt once more),</li>
+ * <li>the revision the reader sees ({@link com.top_logic.knowledge.service.HistoryUtils#getSessionRevision()},
+ * haumacher/ehome #199): a reader with an older view than the last commit reads the older state, so
+ * its entry is valid for that view only; a commit by anyone makes the next reader of the newer state
+ * build anew,</li>
  * <li>the reading person and whether the security checks are bypassed and the thread runs in a system
  * context: the build reads the model through the reader's access rights (a derived attribute or a
  * label it reaches is computed with them and reads as <code>null</code> without a person outside the
@@ -93,7 +95,8 @@ public final class ImageCache {
 			return project.tId() == null ? new Entry(project, -1)
 				: StableReads.get(List.of(ImageCache.class, key(project)), () -> new Entry(project, -1));
 		}
-		long revision = kb.getHistoryManager().getLastRevision();
+		// The state of the data the caller sees (its session revision), not the last commit of others.
+		long revision = HistoryUtils.getSessionRevision().getCommitNumber();
 		Key key = key(project);
 		synchronized (CACHE) {
 			Entry cached = CACHE.get(key);

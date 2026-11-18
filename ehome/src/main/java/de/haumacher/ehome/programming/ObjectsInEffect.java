@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.top_logic.dob.identifier.ObjectKey;
+import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.db2.DBKnowledgeBase;
@@ -87,7 +88,8 @@ public final class ObjectsInEffect {
 			return key == null ? compute(device)
 				: StableReads.get(List.of(ObjectsInEffect.class, key), () -> compute(device));
 		}
-		long revision = kb.getHistoryManager().getLastRevision();
+		// The state of the data the caller sees (its session revision), not the last commit of others.
+		long revision = HistoryUtils.getSessionRevision().getCommitNumber();
 		synchronized (CACHE) {
 			Entry cached = CACHE.get(key);
 			if (cached != null && cached.revision() == revision) {

@@ -12,18 +12,20 @@ import java.util.List;
 import java.util.Locale;
 
 import junit.framework.Test;
-
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.history.OlderView;
 import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.importer.TestEtsImport;
 
 import com.top_logic.basic.logging.Level;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.knowledge.wrap.WrapperHistoryUtils;
 import com.top_logic.knowledge.wrap.person.PersonManager;
 import com.top_logic.layout.provider.LabelProviderService;
 import com.top_logic.model.TLObject;
@@ -47,6 +49,7 @@ import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.ProgramChanges;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
+import de.haumacher.ehome.programming.download.DownloadRecord;
 
 /**
  * The parameter calculations of the manufacturer (haumacher/ehome #123) with the artificial fixture
@@ -313,7 +316,7 @@ public class TestParameterCalculations extends BasicTestCase {
 	 * A device whose program changes (the device form) gets the module instances and computed R values
 	 * of the new program (ProgramChanges); a program whose calculation cannot be evaluated is refused.
 	 */
-	private static void checkProgramChange(TLObject consistent, TLObject locked) {
+	private static void checkProgramChange(TLObject consistent, TLObject locked) throws InterruptedException {
 		Object calcAssignment = consistent.tValueByName("program");
 		Object lockedAssignment = locked.tValueByName("program");
 		try (Transaction tx = kb().beginTransaction()) {
@@ -334,6 +337,28 @@ public class TestParameterCalculations extends BasicTestCase {
 			assertTrue(text, text.contains("Select") || text.contains("Auswahl"));
 		}
 		assertEquals(calcAssignment, consistent.tValueByName("program"));
+		checkStaleView(consistent, locked);
+	}
+
+	/**
+	 * Work in a thread whose view is older than the last commit (haumacher/ehome #199, the production
+	 * failure of 2026-11-18 "Unable to resolve future object" when a download was recorded).
+	 */
+	private static void checkStaleView(TLObject device, TLObject other) throws InterruptedException {
+		// The record of a download: the program change listener needs no history.
+		OlderView.run(() -> record(other, DownloadPlan.Kind.ADDRESS), view -> record(device, DownloadPlan.Kind.FULL));
+
+		// The revision of a plan is the one its data comes from: the thread's view, resolvable there.
+		OlderView.run(() -> record(other, DownloadPlan.Kind.ADDRESS), view -> {
+			DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
+			assertEquals(view, plan.getRevision());
+			assertNotNull(WrapperHistoryUtils.getWrapper(HistoryUtils.getRevision(plan.getRevision()), device));
+		});
+
+	}
+
+	private static void record(TLObject device, DownloadPlan.Kind kind) {
+		DownloadRecord.record(device, kind, DownloadPlanner.plan(device, DownloadPlan.Kind.FULL).getRevision());
 	}
 
 	private static String refused(TLObject device, String id, long value) {

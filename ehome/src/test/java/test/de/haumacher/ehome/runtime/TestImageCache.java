@@ -10,6 +10,7 @@ import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.history.OlderView;
 import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.importer.TestEtsImport;
 
@@ -147,6 +148,17 @@ public class TestImageCache extends BasicTestCase {
 				// Not committed: rolled back.
 			}
 			assertSame(system, ImageCache.get(project));
+
+			// An entry built by a thread whose view is older than the last commit (haumacher/ehome #199) is
+			// valid for that view only: a reader of the newer state gets the datapoint committed since.
+			OlderView.run(() -> {
+				try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
+					RuleFunctions.create(project, "applicationDatapoints", runtime("ApplicationDatapoint"))
+						.tUpdateByName("identifier", "committed");
+					tx.commit();
+				}
+			}, view -> assertNull(ImageCache.get(project).directory().type("committed")));
+			assertNotNull(ImageCache.get(project).directory().type("committed"));
 		} finally {
 			SharedData.deleteProjects(List.of(project));
 		}

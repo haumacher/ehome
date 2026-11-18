@@ -18,7 +18,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
@@ -251,7 +251,8 @@ public final class ChannelShape {
 		if (program == null) {
 			return Map.of();
 		}
-		long revision = PersistencyLayer.getKnowledgeBase().getHistoryManager().getLastRevision();
+		// The state of the data the caller sees (its session revision), not the last commit of others.
+		long revision = HistoryUtils.getSessionRevision().getCommitNumber();
 		synchronized (CACHE) {
 			Cached cached = CACHE.get(program);
 			if (cached != null && cached.revision() == revision) {

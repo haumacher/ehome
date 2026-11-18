@@ -15,7 +15,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.WeakHashMap;
 
-import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLModule;
 import com.top_logic.model.TLObject;
@@ -177,7 +177,8 @@ public final class DeviceTemplates {
 	}
 
 	private static Map<TLObject, Set<Interface>> untypedByProgram(TLObject project) {
-		long revision = PersistencyLayer.getKnowledgeBase().getHistoryManager().getLastRevision();
+		// The state of the data the caller sees (its session revision), not the last commit of others.
+		long revision = HistoryUtils.getSessionRevision().getCommitNumber();
 		synchronized (UNTYPED) {
 			Cached cached = UNTYPED.get(project);
 			if (cached != null && cached.revision() == revision) {
