@@ -57,6 +57,23 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   verwerfen"); the confirmation of "Herunterladen" names their number (haumacher/ehome #15). For a
   device ETS had downloaded, the state as imported is the reference until the first download from
   E-Home.
+- "Nur Parameter" (haumacher/ehome #195): the download writes the parameters, the group address and
+  association tables and the object table, without the program's code, as ETS's partial download
+  (`DownloadPlan.Kind.PARAMETERS`; the plan, the veto, the confirmation and the job follow the
+  checkbox). It is set for a device whose `loaded` parts include `ApplicationProgram` and whose
+  program is the one of its last recorded download, unless the program allows no partial download
+  (`LegacyNoPartialDownload`, which refuses it). Which steps run: where the product data names them
+  (a load procedure of the scope `par` or `par,grp`, of the program or of the mask; or steps with an
+  `AppliesTo` other than `auto` and `all`), the steps of `par`, `grp`, `full,par`, `full,grp`,
+  `par,grp`, `all`, `auto` and those without; otherwise the full procedure, whose segments holding
+  the program's code alone (no parameter, no table, not the object table) are allocated and not
+  written. The code not written is listed as not loaded. Before the first write the plan reads the
+  program version (BCU 1: the program's identity in memory) and the load states of the load state
+  machines the procedure completes; another program or a load state machine not loaded stops it
+  with the reason, and only the full download loads the program. Within the segments it writes,
+  every byte is written; there is no comparison with an earlier image. It is recorded like a full
+  download. That a load state machine unloaded and loaded again keeps the memory of a segment not
+  written is still to be verified per mask on hardware.
 - "Physikalische Adresse programmieren": writes the device's individual address into the one device
   whose programming button is pressed.
 - One job of the tab at a time (haumacher/ehome #161): its progress is shown with the device it was
@@ -543,4 +560,4 @@ by type are not read (reported). KNX Secure devices are not supported.
 - Writing only some bits of a byte (a parameter in a segment without static data).
 - The IP router (mask 9.1A): its procedure writes the coupler's slave and filter memories
   (`LcSlave`, `LcFilter`, `ClearLCFilterTable`), and its parameters are bit fields within bytes.
-- The partial download (parameters and tables only), KNX Secure, RF, firmware.
+- KNX Secure, RF, firmware.

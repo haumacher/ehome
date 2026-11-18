@@ -172,7 +172,8 @@ public class TraceOperations {
 	 * disconnects while no connection is open (after a restart, which ends the connection, see
 	 * {@link de.haumacher.ehome.programming.download.DeviceAccess#restart()}). A memory write without
 	 * verification followed by the comparison of the same bytes (BCU 2, mask 2.0: RunError FF, then
-	 * <code>CompareMem</code> of it) is on the wire what a verified write is.
+	 * <code>CompareMem</code> of it) is on the wire what a verified write is; the checks of a download of the
+	 * parameters only are the reads they make.
 	 */
 	public static List<Operation> visible(List<Operation> plan) {
 		List<Operation> result = new ArrayList<>();
@@ -188,6 +189,7 @@ public class TraceOperations {
 				operation = new Operation.WriteMemory(write.step(), write.what(), write.address(), write.data(), true);
 				n++;
 			}
+			operation = onWire(operation);
 			if (operation instanceof Operation.Disconnect) {
 				if (!connected) {
 					continue;
@@ -201,6 +203,28 @@ public class TraceOperations {
 			result.add(operation);
 		}
 		return result;
+	}
+
+	/**
+	 * A check of a download of the parameters only as it shows on the wire: the read of the program
+	 * version or a load state (property or memory) with the value expected.
+	 */
+	private static Operation onWire(Operation operation) {
+		if (operation instanceof Operation.CheckProgramVersion check) {
+			return new Operation.CompareProperty(check.step(), check.objectIndex(), check.propertyId(), 1, 1,
+				check.expected());
+		}
+		if (operation instanceof Operation.CheckProgramIdentity check) {
+			return new Operation.CompareMemory(check.step(), check.address(), check.expected());
+		}
+		if (operation instanceof Operation.CheckLoadState check) {
+			byte[] loaded = { (byte) LoadControls.STATE_LOADED };
+			return check.objectIndex() != null
+				? new Operation.CompareProperty(check.step(), check.objectIndex(), LoadControls.PID_LOAD_STATE_CONTROL, 1, 1,
+					loaded)
+				: new Operation.CompareMemory(check.step(), check.status(), loaded);
+		}
+		return operation;
 	}
 
 	/**

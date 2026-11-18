@@ -40,7 +40,14 @@ public class DownloadPlan {
 		 * by E-Home's, where an imported project recorded a difference of their argument values
 		 * (haumacher/ehome #119); the user confirms it naming the difference.
 		 */
-		LAYOUT;
+		LAYOUT,
+
+		/**
+		 * The parameters, the group address tables and the object table, without the program's code,
+		 * into a device holding the program already (ETS: partial download, haumacher/ehome #195); see
+		 * {@link DownloadPlanner}.
+		 */
+		PARAMETERS;
 	}
 
 	private final String _device;

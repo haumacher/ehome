@@ -17,6 +17,8 @@ import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.error.TopLogicException;
 
+import de.haumacher.ehome.view.JobInputs;
+
 /**
  * The work of the download command of a device (<code>&lt;start-job&gt;</code> body): plans the
  * download, connects to the bus on the project's {@link BusPath} (its gateway or its controller) through
@@ -24,7 +26,9 @@ import com.top_logic.util.error.TopLogicException;
  * progress per operation, and records it at the device on success.
  *
  * <p>
- * The device is the input <code>device</code> of the job ({@link ProgrammingFunctions#device(List)}). The result is a
+ * The device is the input <code>device</code> of the job ({@link ProgrammingFunctions#device(List)}). With
+ * {@link Config#getParametersChoice()}, the input before it says whether the download writes the
+ * parameters only ({@link DownloadPlan.Kind#PARAMETERS}, haumacher/ehome #195). The result is a
  * {@link ProgrammingReport}. A refusal (writing switched off, no gateway or controller, a plan with problems, no
  * connection) fails the job with its reason; a failure of the device is the report's outcome.
  * </p>
@@ -46,9 +50,19 @@ public class DownloadJob implements JobBody {
 		@Name("kind")
 		@FormattedDefault("FULL")
 		DownloadPlan.Kind getKind();
+
+		/**
+		 * Whether the job has two inputs, the first one (a Boolean) saying whether the download writes
+		 * the parameters only, the second the device; <code>true</code> there makes a download of the
+		 * {@link #getKind() kind} {@link DownloadPlan.Kind#FULL} one of the parameters only.
+		 */
+		@Name("parameters-choice")
+		boolean getParametersChoice();
 	}
 
 	private final DownloadPlan.Kind _kind;
+
+	private final boolean _parametersChoice;
 
 	/**
 	 * Creates a {@link DownloadJob} from configuration.
@@ -56,16 +70,33 @@ public class DownloadJob implements JobBody {
 	@CalledByReflection
 	public DownloadJob(InstantiationContext context, Config config) {
 		_kind = config.getKind();
+		_parametersChoice = config.getParametersChoice();
 	}
 
 	@Override
 	public Object run(JobMonitor job, List<Object> arguments) throws Exception {
 		TLObject device = ProgrammingFunctions.device(arguments);
-		ResKey veto = ProgrammingFunctions.downloadVeto(device, _kind);
+		DownloadPlan.Kind kind = _kind;
+		if (_parametersChoice && kind == DownloadPlan.Kind.FULL
+			&& Boolean.TRUE.equals(JobInputs.of(arguments, 2).get(0))) {
+			kind = DownloadPlan.Kind.PARAMETERS;
+		}
+		return download(job, device, kind);
+	}
+
+	/**
+	 * Downloads into the device: refuses with the reason (a {@link TopLogicException}) what cannot be
+	 * started, performs the plan of the given kind through the project's path to the bus, records it
+	 * on success.
+	 *
+	 * @return The report ({@link ProgrammingReport#toMap(ResKey, boolean)}).
+	 */
+	public static Object download(JobMonitor job, TLObject device, DownloadPlan.Kind kind) throws Exception {
+		ResKey veto = ProgrammingFunctions.downloadVeto(device, kind);
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
-		DownloadPlan plan = DownloadPlanner.plan(device, _kind);
+		DownloadPlan plan = DownloadPlanner.plan(device, kind);
 		BusPath path = BusPath.of(device);
 		String gatewayText = path.text();
 

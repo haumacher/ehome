@@ -52,6 +52,10 @@ import de.haumacher.ehome.programming.download.Operation;
  * <li>The download on a {@link MockDevice} of mask 7.1, which decodes the records itself; a device
  * whose load state does not follow refuses the download at that load control, after reading the
  * state again three times.</li>
+ * <li>The download of the parameters only (haumacher/ehome #195): the plan of the full download (the
+ * program has no segment of code alone) after the checks of the program version and of the load
+ * states in memory; a device whose load states are not loaded refuses it before anything is
+ * written.</li>
  * <li>The comparison reads the load states of all four load state machines from memory.</li>
  * </ul>
  */
@@ -107,6 +111,7 @@ public class TestMask71Download extends BasicTestCase {
 			Logger.info("Download plan of the mask 7.1 actuator:\n" + plan.dump(), TestMask71Download.class);
 			checkPlan(plan, DownloadPlanner.plan(device(reference, ACTUATOR), DownloadPlan.Kind.FULL));
 			MockDevice mock = checkDownload(plan);
+			checkParameters(device, plan, mock);
 			checkCompare(device, plan, mock);
 			checkReadOut(device, plan, mock);
 			checkDeviceInfo(mock);
@@ -247,6 +252,52 @@ public class TestMask71Download extends BasicTestCase {
 		assertEquals(LoadControls.STATE_LOADED, mock.state(3));
 		assertEquals(LoadControls.STATE_UNLOADED, mock.state(4));
 		return mock;
+	}
+
+	/**
+	 * Parameters only on mask 7.1: the full plan after the checks, which read the program version and
+	 * the load states of the load state machines 1 to 3 from memory; the loaded device takes it, a
+	 * device whose load states are not loaded refuses it at the first check of a load state.
+	 */
+	private static void checkParameters(TLObject device, DownloadPlan full, MockDevice loaded) throws Exception {
+		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.PARAMETERS);
+		assertEquals(plan.dump(), List.of(), plan.getProblems());
+		assertEquals(List.of(), plan.getUnloadedBlocks());
+		List<String> checks = new ArrayList<>();
+		List<String> rest = new ArrayList<>();
+		for (Operation operation : plan.getOperations()) {
+			if (operation instanceof Operation.CheckProgramVersion || operation instanceof Operation.CheckLoadState) {
+				checks.add(operation.describe());
+			} else {
+				rest.add(operation.describe());
+			}
+		}
+		assertEquals(List.of("Check that object 3 property 13 holds the program version 00 83 FF 71 01",
+			"Check that load state machine 1 is loaded", "Check that load state machine 2 is loaded",
+			"Check that load state machine 3 is loaded"), checks);
+		assertEquals(full.getOperations().stream().map(Operation::describe).toList(), rest);
+
+		int calls = loaded.calls().size();
+		DownloadExecutor.Result result = new DownloadExecutor(ms -> {
+			// No wait.
+		}).execute(plan, loaded, (number, count, operation) -> {
+			// No progress.
+		});
+		assertTrue(result.failure(), result.success());
+		assertEquals(List.of("readDescriptor", "readProperty 0 78 1 1", "readProperty 3 13 1 1", "readMemory B6EA 1",
+			"readMemory B6EB 1", "readMemory B6EC 1", "writeMemory 0104 1400000000000000000000"),
+			loaded.calls().subList(calls, calls + 7));
+
+		MockDevice unloaded = mask71Device();
+		DownloadExecutor.Result refused = new DownloadExecutor(ms -> {
+			// No wait.
+		}).execute(plan, unloaded, (number, count, operation) -> {
+			// No progress.
+		});
+		assertFalse(refused.success());
+		assertEquals("Load state machine 1 of the device is \"Unloaded\", not loaded: only a full download loads the program.",
+			refused.failure());
+		assertEquals(0, unloaded.writes());
 	}
 
 	/**

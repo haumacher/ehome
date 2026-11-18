@@ -4,6 +4,8 @@
 package de.haumacher.ehome.programming.download;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -12,6 +14,9 @@ import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.xml.TagUtil;
+import com.top_logic.knowledge.service.Revision;
+import com.top_logic.knowledge.wrap.WrapperHistoryUtils;
+import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLType;
 import com.top_logic.model.search.expr.EvalContext;
@@ -22,8 +27,10 @@ import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBui
 import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.connection.BusSessionLink;
+import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.modules.ModuleInstances;
 import de.haumacher.ehome.programming.DeviceChanges;
+import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.view.JobInputs;
@@ -33,7 +40,9 @@ import de.haumacher.ehome.view.JobInputs;
  * preview, the reasons a command is refused, and the confirmation texts.
  *
  * <p>
- * Each function takes the device (<code>ehome.physical:Device</code>) and is registered in
+ * Each function takes the device (<code>ehome.physical:Device</code>); those of the download take
+ * in addition whether it writes the parameters only (a Boolean, {@link DownloadPlan.Kind#PARAMETERS},
+ * else {@link DownloadPlan.Kind#FULL}; haumacher/ehome #195). Each is registered in
  * <code>ehomeConf.config.xml</code> under the name of its {@link Function} constant with the
  * {@link Builder} of this class. The plan depends on the device's settings and connections, so a
  * view calling them names those types in <code>observed-types</code>.
@@ -45,22 +54,32 @@ public class ProgrammingFunctions extends GenericMethod {
 	 * The functions, named as they are registered.
 	 */
 	public enum Function {
-		/** <code>downloadPlanRows(device)</code>: the operations of the full download, as rows. */
+		/**
+		 * <code>downloadPlanRows(device, parametersOnly?)</code>: the operations of the download, as rows.
+		 */
 		downloadPlanRows,
-		/** <code>downloadSummary(device)</code>: the number of operations and bytes, and the procedure. */
+		/**
+		 * <code>downloadSummary(device, parametersOnly?)</code>: the number of operations and bytes, and
+		 * the procedure.
+		 */
 		downloadSummary,
-		/** <code>downloadProblems(device)</code>: why the full download is refused (texts). */
+		/** <code>downloadProblems(device, parametersOnly?)</code>: why the download is refused (texts). */
 		downloadProblems,
 		/** <code>downloadImageDump(device)</code>: the download image as HTML (a preformatted text). */
 		downloadImageDump,
-		/** <code>downloadVeto(device)</code>: why the full download command is disabled, or nothing. */
+		/** <code>downloadVeto(device, parametersOnly?)</code>: why the download command is disabled, or nothing. */
 		downloadVeto,
 		/** <code>addressVeto(device)</code>: why the address command is disabled, or nothing. */
 		addressVeto,
 		/** <code>compareVeto(device)</code>: why the compare command is disabled, or nothing. */
 		compareVeto,
-		/** <code>downloadConfirmation(device)</code>: the question before a full download. */
+		/** <code>downloadConfirmation(device, parametersOnly?)</code>: the question before a download. */
 		downloadConfirmation,
+		/**
+		 * <code>downloadParametersOnly(device)</code>: whether the download offers the parameters only
+		 * at first ({@link ProgrammingFunctions#parametersOnlyByDefault(TLObject)}).
+		 */
+		downloadParametersOnly,
 		/** <code>addressConfirmation(device)</code>: the question before writing the address. */
 		addressConfirmation,
 		/**
@@ -123,17 +142,19 @@ public class ProgrammingFunctions extends GenericMethod {
 		if (!(arguments[0] instanceof TLObject device)) {
 			return null;
 		}
+		DownloadPlan.Kind kind = arguments.length > 1 && Boolean.TRUE.equals(arguments[1]) ? DownloadPlan.Kind.PARAMETERS
+			: DownloadPlan.Kind.FULL;
 		switch (_function) {
 			case downloadPlanRows:
-				return rows(DownloadPlanner.plan(device, DownloadPlan.Kind.FULL));
+				return rows(DownloadPlanner.plan(device, kind));
 			case downloadSummary: {
-				DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
+				DownloadPlan plan = DownloadPlanner.plan(device, kind);
 				return plan.isExecutable() ? I18NConstants.PLAN_SUMMARY__COUNT_BYTES_PROCEDURE.fill(
 					plan.getOperations().size(), plan.bytesWritten(), plan.getProcedure()) : null;
 			}
 			case downloadProblems: {
 				List<String> result = new ArrayList<>();
-				for (ResKey problem : DownloadPlanner.plan(device, DownloadPlan.Kind.FULL).getProblems()) {
+				for (ResKey problem : DownloadPlanner.plan(device, kind).getProblems()) {
 					result.add(Resources.getInstance().getString(problem));
 				}
 				return result;
@@ -144,14 +165,17 @@ public class ProgrammingFunctions extends GenericMethod {
 					: "<pre>" + TagUtil.encodeXML(plan.getImage().dump(Resources.getInstance())) + "</pre>";
 			}
 			case downloadVeto:
-				return downloadVeto(device, DownloadPlan.Kind.FULL);
+				return downloadVeto(device, kind);
 			case addressVeto:
 				return downloadVeto(device, DownloadPlan.Kind.ADDRESS);
 			case compareVeto:
 				return compareVeto(device);
 			case downloadConfirmation:
-				return I18NConstants.CONFIRM_DOWNLOAD__DEVICE_ADDRESS_PATH_CHANGES.fill(device.tValueByName("name"),
-					address(device), BusPath.describe(device), changes(device));
+				return (kind == DownloadPlan.Kind.PARAMETERS ? I18NConstants.CONFIRM_PARAMETERS__DEVICE_ADDRESS_PATH_CHANGES
+					: I18NConstants.CONFIRM_DOWNLOAD__DEVICE_ADDRESS_PATH_CHANGES).fill(device.tValueByName("name"),
+						address(device), BusPath.describe(device), changes(device));
+			case downloadParametersOnly:
+				return Boolean.valueOf(parametersOnlyByDefault(device));
 			case addressConfirmation:
 				return I18NConstants.CONFIRM_ADDRESS__ADDRESS_PATH.fill(address(device), BusPath.describe(device));
 			case layoutVeto:
@@ -180,6 +204,30 @@ public class ProgrammingFunctions extends GenericMethod {
 			return device;
 		}
 		throw new IllegalArgumentException("No device as the input of the job among " + arguments);
+	}
+
+	/**
+	 * Whether a download into the device writes the parameters only unless the user decides otherwise
+	 * (haumacher/ehome #195): the device holds the program (<code>Device#loaded</code> includes
+	 * <code>ApplicationProgram</code>), and the device's program is the one of the download recorded
+	 * last (the revision {@link DeviceChanges#referenceRevision(TLObject)}), and the program allows a
+	 * download of the parameters only. Whether the real device
+	 * holds the program is checked by the download itself before it writes.
+	 */
+	public static boolean parametersOnlyByDefault(TLObject device) {
+		if (!(device.tValueByName("loaded") instanceof Collection<?> loaded)
+			|| loaded.stream().noneMatch(part -> part instanceof TLClassifier c && "ApplicationProgram".equals(c.getName()))) {
+			return false;
+		}
+		Program program = DeviceConfiguration.program(device);
+		Revision revision = DeviceChanges.referenceRevision(device);
+		if (program == null || program.getNoPartialDownload() || revision == null) {
+			return false;
+		}
+		TLObject recorded = WrapperHistoryUtils.getWrapper(revision, device);
+		Program loadedProgram = recorded == null ? null : DeviceConfiguration.program(recorded);
+		return loadedProgram != null
+			&& Arrays.equals(DownloadPlanner.applicationId(loadedProgram), DownloadPlanner.applicationId(program));
 	}
 
 	/**
@@ -297,7 +345,7 @@ public class ProgrammingFunctions extends GenericMethod {
 
 		@Override
 		public ProgrammingFunctions build(Expr expr, SearchExpression[] args) throws ConfigurationException {
-			checkArgs(expr, args, 1, 1);
+			checkArgs(expr, args, 1, 2);
 			return new ProgrammingFunctions(getConfig().getName(), _function, args);
 		}
 

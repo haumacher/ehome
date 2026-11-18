@@ -882,6 +882,61 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 SNAPSHOT_SUMMARY_INCOMPLETE__SUMMARY;
 
+	/**
+	 * @en Parameters of {0} programmed
+	 */
+	public static ResKey1 COMMIT_PARAMETERS_PROGRAMMED__DEVICE;
+
+	/**
+	 * @en The program allows no download of the parameters only: only a full download writes into the device.
+	 */
+	public static ResKey ERROR_NO_PARTIAL_DOWNLOAD;
+
+	/**
+	 * @en The mask {0} names no program version: without it, a download of the parameters only cannot check that the device holds the program.
+	 */
+	public static ResKey1 ERROR_NO_PROGRAM_VERSION__MASK;
+
+	/**
+	 * @en The download image holds no bytes for the program's identity at {1} (mask {0}): without them, a download of the parameters only cannot check that the device holds the program.
+	 */
+	public static ResKey2 ERROR_NO_PROGRAM_IDENTITY__MASK_RANGE;
+
+	/**
+	 * @en Check that object {0} property {1} holds the program version {2}
+	 */
+	public static ResKey3 OP_CHECK_PROGRAM_VERSION__OBJECT_PROPERTY_VALUE;
+
+	/**
+	 * @en Check that memory {0}-{1} holds the program identity {2}
+	 */
+	public static ResKey3 OP_CHECK_PROGRAM_IDENTITY__FROM_TO_VALUE;
+
+	/**
+	 * @en Check that load state machine {0} is loaded
+	 */
+	public static ResKey1 OP_CHECK_LOADED__LSM;
+
+	/**
+	 * @en The device holds the program version {0}, the program is {1}: only a full download loads the program.
+	 */
+	public static ResKey2 EXEC_PROGRAM_VERSION__VALUE_EXPECTED;
+
+	/**
+	 * @en The device holds {1} at {0} as the program's identity, the program has {2}: only a full download loads the program.
+	 */
+	public static ResKey3 EXEC_PROGRAM_IDENTITY__ADDRESS_VALUE_EXPECTED;
+
+	/**
+	 * @en Load state machine {0} of the device is "{1}", not loaded: only a full download loads the program.
+	 */
+	public static ResKey2 EXEC_NOT_LOADED__LSM_STATE;
+
+	/**
+	 * @en Download the parameters into {0} ({1}) through {2}? {3} The program stays in the device; the device does not work until the download is complete.
+	 */
+	public static ResKey4 CONFIRM_PARAMETERS__DEVICE_ADDRESS_PATH_CHANGES;
+
 	static {
 		initConstants(I18NConstants.class);
 	}
