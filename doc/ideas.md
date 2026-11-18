@@ -211,3 +211,20 @@ Open (proposals, not decided):
    not until an administrator grants it).
 
 Why it waits: an engine upgrade the user asks for, and the access per project first.
+
+## HomeControl: a Docker image of the Linux service
+
+A container image of the controller's Linux service (haumacher/homecontrol#95), as the PhoneBlock
+dongle has one (`phoneblock/answerbot2` on Docker Hub, built from the apt package in the same
+release workflow; haumacher/phoneblock `phoneblock-dongle/docker/`, `phoneblock-dongle/debian/README.md`
+"Docker").
+
+The user agreed to put it off while the Debian package comes first (spec round 2026-11-18).
+
+Today: no container build in homecontrol; the Debian package is homecontrol#95.
+
+Open (proposals, not decided):
+1. Image from the released apt package (as the dongle), tags = version, `beta`, `latest`.
+2. `--network host`, the data in a volume at `/var/lib/homecontrol`, port by environment variable.
+
+Why it waits: homecontrol#95 first.
