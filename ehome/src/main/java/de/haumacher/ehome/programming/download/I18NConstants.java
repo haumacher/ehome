@@ -937,6 +937,131 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey4 CONFIRM_PARAMETERS__DEVICE_ADDRESS_PATH_CHANGES;
 
+	/**
+	 * @en The download into {0} is running.
+	 */
+	public static ResKey1 LOCK_DOWNLOAD__DEVICE;
+
+	/**
+	 * @en The programming of {0} devices of the project is running.
+	 */
+	public static ResKey1 LOCK_QUEUE__COUNT;
+
+	/**
+	 * @en The devices are being programmed.
+	 */
+	public static ResKey QUEUE_RUNNING;
+
+	/**
+	 * @en No device waits for its download.
+	 */
+	public static ResKey QUEUE_NOTHING_WAITS;
+
+	/**
+	 * @en No selected device waits for its download.
+	 */
+	public static ResKey QUEUE_NOTHING_SELECTED_WAITS;
+
+	/**
+	 * @en No download is running.
+	 */
+	public static ResKey QUEUE_NOTHING_RUNS;
+
+	/**
+	 * @en The selection holds no device with a program.
+	 */
+	public static ResKey QUEUE_NO_DEVICES;
+
+	/**
+	 * @en No device of the project needs a download.
+	 */
+	public static ResKey QUEUE_NONE_PENDING;
+
+	/**
+	 * @en Not started.
+	 */
+	public static ResKey QUEUE_CANCELLED;
+
+	/**
+	 * @en Aborted before the first operation.
+	 */
+	public static ResKey QUEUE_ABORTED;
+
+	/**
+	 * @en Aborted before operation {0} of {1}.
+	 */
+	public static ResKey2 QUEUE_ABORTED_AT__NUMBER_COUNT;
+
+	/**
+	 * @en Download into {0}
+	 */
+	public static ResKey1 QUEUE_PROGRESS_STARTING__DEVICE;
+
+	/**
+	 * @en {0}: operation {1} of {2}: {3}
+	 */
+	public static ResKey4 QUEUE_PROGRESS__DEVICE_NUMBER_COUNT_TEXT;
+
+	/**
+	 * @en The device no longer exists.
+	 */
+	public static ResKey QUEUE_DEVICE_DELETED;
+
+	/**
+	 * @en The download failed: {0}
+	 */
+	public static ResKey1 QUEUE_INTERNAL_ERROR__DETAIL;
+
+	/**
+	 * @en {0} operations done in {1,number,0.0} s.
+	 */
+	public static ResKey2 QUEUE_DONE__COUNT_SECONDS;
+
+	/**
+	 * @en Operation {0} "{1}" failed: {2}
+	 */
+	public static ResKey3 QUEUE_FAILED__NUMBER_OPERATION_REASON;
+
+	/**
+	 * @en Programmed: {0}, failed: {1}, cancelled: {2}, aborted: {3}.
+	 */
+	public static ResKey4 QUEUE_SUMMARY__DONE_FAILED_CANCELLED_ABORTED;
+
+	/**
+	 * @en Waiting
+	 */
+	public static ResKey QUEUE_STATE_WAITING;
+
+	/**
+	 * @en Running
+	 */
+	public static ResKey QUEUE_STATE_RUNNING;
+
+	/**
+	 * @en Done
+	 */
+	public static ResKey QUEUE_STATE_DONE;
+
+	/**
+	 * @en Failed
+	 */
+	public static ResKey QUEUE_STATE_FAILED;
+
+	/**
+	 * @en Cancelled
+	 */
+	public static ResKey QUEUE_STATE_CANCELLED;
+
+	/**
+	 * @en Aborted
+	 */
+	public static ResKey QUEUE_STATE_ABORTED;
+
+	/**
+	 * @en Program {0} devices one after another through {1}: {2} full, {3} parameters only? A device does not work until its download is complete.
+	 */
+	public static ResKey4 QUEUE_CONFIRM__COUNT_PATH_FULL_PARAMETERS;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

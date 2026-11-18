@@ -14,6 +14,10 @@
 	"Scan the bus" opens the scan of the bus behind the project's path (projects/scan.view.xml,
 	haumacher/ehome #9, #180); a line selected in the tree fills its field "Line".
 
+	"Program" programs the devices of the selected nodes one after another (an area, a line or a building
+	part stands for its devices), "All with changes" those of the project needing a download
+	(projects/download-queue.view.xml, haumacher/ehome #200).
+
 	Besides the import and the bus scan, a device is planned here (haumacher/ehome #104): "New",
 	"Device" plans one from the catalog in the selected line (projects/create-device.view.xml), and
 	"Duplicate the device" copies the selected one with its parameter settings to the next free address
@@ -427,6 +431,86 @@
 									to="scanLine"
 								/>
 							</open-dialog>
+						</generic-command>
+						<!--
+							The programming of several devices one after another (haumacher/ehome #200,
+							projects/download-queue.view.xml): the devices of the selected nodes (the devices below a
+							selected area, line or building part count), or those of the project needing a download.
+						-->
+						<generic-command
+							image="css:bi bi-download"
+							inputs="project, treeSelection"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>Program</en>
+								<de>Programmieren</de>
+							</label>
+							<tooltip>
+								<en>Downloads into the selected devices one after another, each fully or the parameters only; an area, a line or a building part stands for its devices.</en>
+								<de>Lädt nacheinander in die gewählten Geräte, jedes vollständig oder nur die Parameter; ein Bereich, eine Linie oder ein Gebäudeteil steht für seine Geräte.</de>
+							</tooltip>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="downloadQueueSelectVeto(downloadQueueDevices($project, $treeSelection))"/>
+							</executability>
+							<execute-script function="downloadQueueNew($project, downloadQueueDevices($project, $treeSelection))">
+								<with-result>
+									<open-dialog
+										bind-input-to="queue"
+										dialog-view="projects/download-queue.view.xml"
+									>
+										<bind
+											channel="project"
+											to="project"
+										/>
+									</open-dialog>
+								</with-result>
+							</execute-script>
+						</generic-command>
+						<generic-command
+							image="css:bi bi-cloud-download"
+							inputs="project"
+							observed-types="ehome.physical:Device"
+							placement="TOOLBAR"
+						>
+							<label>
+								<en>All with changes</en>
+								<de>Alle mit Änderungen</de>
+							</label>
+							<tooltip>
+								<en>Downloads into every device of the project that needs a download, one after another, each fully or the parameters only.</en>
+								<de>Lädt nacheinander in jedes Gerät des Projekts, das einen Download braucht, jedes vollständig oder nur die Parameter.</de>
+							</tooltip>
+							<access>
+								<operation name="Write"
+									object="$project"
+									type="ehome.project:Project"
+								/>
+							</access>
+							<executability>
+								<null-input-disabled/>
+								<disabled-if expr="downloadQueuePendingVeto($project)"/>
+							</executability>
+							<execute-script function="downloadQueueNew($project, downloadQueuePending($project))">
+								<with-result>
+									<open-dialog
+										bind-input-to="queue"
+										dialog-view="projects/download-queue.view.xml"
+									>
+										<bind
+											channel="project"
+											to="project"
+										/>
+									</open-dialog>
+								</with-result>
+							</execute-script>
 						</generic-command>
 						<generic-command
 							image="css:bi bi-trash"
