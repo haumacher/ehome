@@ -2,6 +2,12 @@
 
 <model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
 	<module name="ehome.logical">
+		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.logical.internal"
+				interface-package="de.haumacher.ehome.model.logical"
+			/>
+		</annotations>
 		<!--
 			A KNX group address. The database stores the plain 16-bit number; the application sees a
 			de.haumacher.ehome.knx.GA that carries the notation of its project (see GroupAddressStyle),

@@ -10,6 +10,12 @@
 		project (#43) and its runtime settings (#45).
 	-->
 	<module name="ehome.runtime">
+		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.runtime.internal"
+				interface-package="de.haumacher.ehome.model.runtime"
+			/>
+		</annotations>
 		<!--
 			A HomeControl controller. Two ways lead to it: on the LAN over HTTP by host and port, where the
 			bearer token (hct_..., created on the controller's console with "web token create e-home")

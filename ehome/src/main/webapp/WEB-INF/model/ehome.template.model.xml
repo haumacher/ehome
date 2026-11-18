@@ -21,6 +21,10 @@
 	-->
 	<module name="ehome.template">
 		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.template.internal"
+				interface-package="de.haumacher.ehome.model.template"
+			/>
 			<singletons>
 				<singleton type="DeviceTemplates"/>
 			</singletons>

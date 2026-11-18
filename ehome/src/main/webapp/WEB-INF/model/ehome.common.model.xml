@@ -2,6 +2,12 @@
 
 <model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
 	<module name="ehome.common">
+		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.common.internal"
+				interface-package="de.haumacher.ehome.model.common"
+			/>
+		</annotations>
 		<enum name="Enablement">
 			<classifier name="Disabled"/>
 			<classifier name="Enabled"/>

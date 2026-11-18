@@ -249,7 +249,7 @@
           the model changes. The header is fixed, so a run does not rewrite the year of every generated file.
         -->
         <configuration>
-          <modules>ehome.core,ehome.operational</modules>
+          <modules>ehome.common,ehome.core,ehome.operational,ehome.catalog,ehome.logical,ehome.building,ehome.project,ehome.template,ehome.monitor,ehome.runtime,ehome.zigbee</modules>
           <languages>en,de</languages>
           <copyrightHeader>Copyright (c) 2018 Bernhard Haumacher</copyrightHeader>
         </configuration>

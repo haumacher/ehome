@@ -3,6 +3,10 @@
 <model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
 	<module name="ehome.catalog">
 		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.catalog.internal"
+				interface-package="de.haumacher.ehome.model.catalog"
+			/>
 			<singletons>
 				<singleton type="ManufacturerRoot"/>
 			</singletons>

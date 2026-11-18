@@ -80,14 +80,14 @@ public interface HelpFileBase extends com.top_logic.model.TLObject {
 	/**
 	 * Getter for part {@link #FILE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getFile() {
-		return (com.top_logic.model.TLObject) tValueByName(FILE_ATTR);
+	default de.haumacher.ehome.model.catalog.Baggage getFile() {
+		return (de.haumacher.ehome.model.catalog.Baggage) tValueByName(FILE_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #FILE_ATTR}.
 	 */
-	default void setFile(com.top_logic.model.TLObject newValue) {
+	default void setFile(de.haumacher.ehome.model.catalog.Baggage newValue) {
 		tUpdateByName(FILE_ATTR, newValue);
 	}
 

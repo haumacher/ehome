@@ -32,14 +32,14 @@ public interface PictureTypeBase extends de.haumacher.ehome.model.operational.Vo
 	/**
 	 * Getter for part {@link #PICTURE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getPicture() {
-		return (com.top_logic.model.TLObject) tValueByName(PICTURE_ATTR);
+	default de.haumacher.ehome.model.catalog.Baggage getPicture() {
+		return (de.haumacher.ehome.model.catalog.Baggage) tValueByName(PICTURE_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #PICTURE_ATTR}.
 	 */
-	default void setPicture(com.top_logic.model.TLObject newValue) {
+	default void setPicture(de.haumacher.ehome.model.catalog.Baggage newValue) {
 		tUpdateByName(PICTURE_ATTR, newValue);
 	}
 

@@ -11,6 +11,12 @@
 		updates the device, its endpoints and its functions in place (de.haumacher.ehome.zigbee.ZigbeeImport).
 	-->
 	<module name="ehome.zigbee">
+		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.zigbee.internal"
+				interface-package="de.haumacher.ehome.model.zigbee"
+			/>
+		</annotations>
 		<!-- A device joined to the network of a controller, as its export describes it. -->
 		<class name="ZigbeeDevice">
 			<generalizations>

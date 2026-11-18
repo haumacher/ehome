@@ -10,6 +10,12 @@
 		with the telegrams.
 	-->
 	<module name="ehome.monitor">
+		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.monitor.internal"
+				interface-package="de.haumacher.ehome.model.monitor"
+			/>
+		</annotations>
 		<!-- The service of a group telegram. -->
 		<enum name="TelegramService">
 			<classifier name="write" default="true"/>

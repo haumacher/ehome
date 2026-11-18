@@ -2,6 +2,12 @@
 
 <model xmlns="http://www.top-logic.com/ns/dynamic-types/6.0">
 	<module name="ehome.building">
+		<annotations>
+			<package-binding
+				implementation-package="de.haumacher.ehome.model.building.internal"
+				interface-package="de.haumacher.ehome.model.building"
+			/>
+		</annotations>
 		<interface name="BuildingDefinition">
 			<generalizations>
 				<generalization type="ehome.core:Externalized"/>

@@ -569,8 +569,8 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 * Getter for part {@link #BAGGAGE_ATTR}.
 	 */
 	@SuppressWarnings("unchecked")
-	default java.util.List<? extends com.top_logic.model.TLObject> getBaggage() {
-		return (java.util.List<? extends com.top_logic.model.TLObject>) tValueByName(BAGGAGE_ATTR);
+	default java.util.List<? extends de.haumacher.ehome.model.catalog.Baggage> getBaggage() {
+		return (java.util.List<? extends de.haumacher.ehome.model.catalog.Baggage>) tValueByName(BAGGAGE_ATTR);
 	}
 
 	/**
@@ -580,31 +580,31 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	 * The caller has to take care of the transaction handling.
 	 * </p>
 	 */
-	default java.util.List<com.top_logic.model.TLObject> getBaggageModifiable() {
+	default java.util.List<de.haumacher.ehome.model.catalog.Baggage> getBaggageModifiable() {
 		com.top_logic.model.TLStructuredTypePart attribute = tType().getPart(BAGGAGE_ATTR);
 		@SuppressWarnings("unchecked")
-		java.util.List<com.top_logic.model.TLObject> result = (java.util.List<com.top_logic.model.TLObject>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
+		java.util.List<de.haumacher.ehome.model.catalog.Baggage> result = (java.util.List<de.haumacher.ehome.model.catalog.Baggage>) com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil.getLiveCollection(this, attribute);
 		return result;
 	}
 
 	/**
 	 * Setter for part {@link #BAGGAGE_ATTR}.
 	 */
-	default void setBaggage(java.util.List<com.top_logic.model.TLObject> newValue) {
+	default void setBaggage(java.util.List<de.haumacher.ehome.model.catalog.Baggage> newValue) {
 		tUpdateByName(BAGGAGE_ATTR, newValue);
 	}
 
 	/**
 	 * Adds a value to the {@link #BAGGAGE_ATTR} reference.
 	 */
-	default void addBaggage(com.top_logic.model.TLObject newValue) {
+	default void addBaggage(de.haumacher.ehome.model.catalog.Baggage newValue) {
 		tAddByName(BAGGAGE_ATTR, newValue);
 	}
 
 	/**
 	 * Removes the given value from the {@link #BAGGAGE_ATTR} reference.
 	 */
-	default void removeBaggage(com.top_logic.model.TLObject oldValue) {
+	default void removeBaggage(de.haumacher.ehome.model.catalog.Baggage oldValue) {
 		tRemoveByName(BAGGAGE_ATTR, oldValue);
 	}
 
@@ -753,14 +753,14 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	/**
 	 * Getter for part {@link #ICON_FILE_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getIconFile() {
-		return (com.top_logic.model.TLObject) tValueByName(ICON_FILE_ATTR);
+	default de.haumacher.ehome.model.catalog.Baggage getIconFile() {
+		return (de.haumacher.ehome.model.catalog.Baggage) tValueByName(ICON_FILE_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #ICON_FILE_ATTR}.
 	 */
-	default void setIconFile(com.top_logic.model.TLObject newValue) {
+	default void setIconFile(de.haumacher.ehome.model.catalog.Baggage newValue) {
 		tUpdateByName(ICON_FILE_ATTR, newValue);
 	}
 
@@ -923,8 +923,8 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	/**
 	 * Getter for part {@link #MANUFACTURER_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getManufacturer() {
-		return (com.top_logic.model.TLObject) tValueByName(MANUFACTURER_ATTR);
+	default de.haumacher.ehome.model.catalog.Manufacturer getManufacturer() {
+		return (de.haumacher.ehome.model.catalog.Manufacturer) tValueByName(MANUFACTURER_ATTR);
 	}
 
 	/**
@@ -1043,14 +1043,14 @@ public interface ProgramBase extends de.haumacher.ehome.model.operational.Config
 	/**
 	 * Getter for part {@link #ORIGINAL_MANUFACTURER_ATTR}.
 	 */
-	default com.top_logic.model.TLObject getOriginalManufacturer() {
-		return (com.top_logic.model.TLObject) tValueByName(ORIGINAL_MANUFACTURER_ATTR);
+	default de.haumacher.ehome.model.catalog.Manufacturer getOriginalManufacturer() {
+		return (de.haumacher.ehome.model.catalog.Manufacturer) tValueByName(ORIGINAL_MANUFACTURER_ATTR);
 	}
 
 	/**
 	 * Setter for part {@link #ORIGINAL_MANUFACTURER_ATTR}.
 	 */
-	default void setOriginalManufacturer(com.top_logic.model.TLObject newValue) {
+	default void setOriginalManufacturer(de.haumacher.ehome.model.catalog.Manufacturer newValue) {
 		tUpdateByName(ORIGINAL_MANUFACTURER_ATTR, newValue);
 	}
 
