@@ -79,10 +79,23 @@ public final class VirtualInterface implements AutoCloseable {
 	 */
 	public static VirtualInterface start(Endpoint endpoint, SimulatedDevice device, TraceRecorder recorder,
 			TransportTiming timing, File workDir) {
+		return start(endpoint, device, recorder, timing, workDir, KnxServer.TP1_MAX_APDU);
+	}
+
+	/**
+	 * Starts a virtual interface announcing the given maximum APDU length (haumacher/ehome #196).
+	 *
+	 * @param maxApdu
+	 *        The maximum APDU length of the interface, from {@value KnxServer#TP1_MAX_APDU} (TP1
+	 *        without extended frames) to 254.
+	 * @see #start(Endpoint, SimulatedDevice, TraceRecorder, TransportTiming, File)
+	 */
+	public static VirtualInterface start(Endpoint endpoint, SimulatedDevice device, TraceRecorder recorder,
+			TransportTiming timing, File workDir, int maxApdu) {
 		int serverAddress = serverAddress(device.address());
 		String name = NAME_PREFIX + TraceFormat.individual(device.address());
 		KnxServer server = KnxServer.start(endpoint, name, serverAddress,
-			List.of(tunnelAddress(serverAddress, device.address())), workDir);
+			List.of(tunnelAddress(serverAddress, device.address())), workDir, maxApdu);
 		VirtualInterface result = new VirtualInterface(endpoint, device, recorder, timing, server, serverAddress, name);
 		try {
 			result.connect();

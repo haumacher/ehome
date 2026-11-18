@@ -99,6 +99,8 @@ public class FakeBusController implements ControllerConnection.Peer {
 
 	private volatile String _address = ADDRESS;
 
+	private volatile int _maxApdu = 254;
+
 	private volatile String _closedWith;
 
 	/**
@@ -204,6 +206,14 @@ public class FakeBusController implements ControllerConnection.Peer {
 	 */
 	public void setAddress(String address) {
 		_address = address;
+	}
+
+	/**
+	 * Sets the maximum APDU length that <code>opened</code> reports (default 254, the frame of the
+	 * controller's firmware).
+	 */
+	public void setMaxApdu(int maxApdu) {
+		_maxApdu = maxApdu;
 	}
 
 	/**
@@ -394,7 +404,7 @@ public class FakeBusController implements ControllerConnection.Peer {
 				Map<String, Object> opened = event("opened", ref);
 				opened.put("address", _address);
 				opened.put("max_frame", Integer.valueOf(264));
-				opened.put("max_apdu", Integer.valueOf(254));
+				opened.put("max_apdu", Integer.valueOf(_maxApdu));
 				opened.put("idle_s", Integer.valueOf(60));
 				answer(opened);
 				return;

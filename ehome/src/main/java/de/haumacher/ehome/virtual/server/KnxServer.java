@@ -52,7 +52,7 @@ public final class KnxServer implements AutoCloseable {
 	private static final String SERVER_NAME = "ehome-virtual";
 
 	/** The maximum APDU length of a standard frame on TP1. */
-	private static final int TP1_MAX_APDU = 15;
+	public static final int TP1_MAX_APDU = 15;
 
 	private final Endpoint _endpoint;
 
@@ -60,11 +60,14 @@ public final class KnxServer implements AutoCloseable {
 
 	private final Thread _thread;
 
+	private final int _maxApdu;
+
 	private VirtualLink _subnet;
 
-	private KnxServer(Endpoint endpoint, Launcher launcher) {
+	private KnxServer(Endpoint endpoint, Launcher launcher, int maxApdu) {
 		_endpoint = endpoint;
 		_launcher = launcher;
+		_maxApdu = maxApdu;
 		_thread = new Thread(launcher, SERVER_NAME + " " + endpoint);
 		_thread.setDaemon(true);
 	}
@@ -86,6 +89,22 @@ public final class KnxServer implements AutoCloseable {
 	 */
 	public static KnxServer start(Endpoint endpoint, String friendlyName, int serverAddress, List<Integer> tunnelAddresses,
 			File workDir) {
+		return start(endpoint, friendlyName, serverAddress, tunnelAddresses, workDir, TP1_MAX_APDU);
+	}
+
+	/**
+	 * Starts a server announcing the given maximum APDU length.
+	 *
+	 * @param maxApdu
+	 *        The maximum APDU length the server announces (property 56 of its device object), from
+	 *        {@value #TP1_MAX_APDU} (TP1 without extended frames) to 254.
+	 * @see #start(Endpoint, String, int, List, File)
+	 */
+	public static KnxServer start(Endpoint endpoint, String friendlyName, int serverAddress, List<Integer> tunnelAddresses,
+			File workDir, int maxApdu) {
+		if (maxApdu < TP1_MAX_APDU || maxApdu > 254) {
+			throw new IllegalArgumentException("Maximum APDU length out of range [15..254]: " + maxApdu);
+		}
 		NetworkInterface networkInterface = checkAddress(endpoint.address());
 		if (!portFree(endpoint)) {
 			throw new TopLogicException(I18NConstants.ERROR_PORT_IN_USE__ENDPOINT.fill(endpoint.toString()));
@@ -108,7 +127,7 @@ public final class KnxServer implements AutoCloseable {
 			throw new TopLogicException(I18NConstants.ERROR_START__ENDPOINT_DETAIL.fill(endpoint.toString(), ex.getMessage()),
 				ex);
 		}
-		KnxServer result = new KnxServer(endpoint, launcher);
+		KnxServer result = new KnxServer(endpoint, launcher, maxApdu);
 		try {
 			result.connect();
 		} catch (RuntimeException ex) {
@@ -121,11 +140,11 @@ public final class KnxServer implements AutoCloseable {
 	private void connect() {
 		_thread.start();
 		_subnet = awaitSubnet();
-		// A TP1 interface without extended frames: the server's own maximum APDU length is that of
-		// its subnet (15), not that of its KNX IP side (254), which a client reads to size the frames
-		// it sends (and with a larger value asks every device for its own maximum first).
+		// By default a TP1 interface without extended frames: the server's own maximum APDU length is
+		// that of its subnet (15), not that of its KNX IP side (254), which a client reads to size the
+		// frames it sends (and with a larger value asks every device for its own maximum first).
 		_launcher.getGateway().getServer().getInterfaceObjectServer().setProperty(InterfaceObject.DEVICE_OBJECT, 1,
-			PID.MAX_APDULENGTH, 1, 1, (byte) 0, (byte) TP1_MAX_APDU);
+			PID.MAX_APDULENGTH, 1, 1, (byte) (_maxApdu >>> 8), (byte) _maxApdu);
 		long deadline = System.currentTimeMillis() + TIMEOUT;
 		while (!listening(_endpoint)) {
 			if (System.currentTimeMillis() > deadline || !_thread.isAlive()) {

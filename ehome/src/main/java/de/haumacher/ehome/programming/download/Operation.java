@@ -262,7 +262,8 @@ public sealed interface Operation {
 
 	/**
 	 * Writes memory, at most {@link DownloadPlanner#MAX_CHUNK} bytes; with verification, the bytes
-	 * are read back and compared.
+	 * are read back and compared. The executor may write a run of them in longer chunks
+	 * ({@link DownloadExecutor}).
 	 *
 	 * @param what
 	 *        The block of the download image (or other source) the bytes belong to, for a person.

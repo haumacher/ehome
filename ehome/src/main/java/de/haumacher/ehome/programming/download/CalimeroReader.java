@@ -13,6 +13,7 @@ import tuwien.auto.calimero.DataUnitBuilder;
 import tuwien.auto.calimero.IndividualAddress;
 import tuwien.auto.calimero.link.KNXNetworkLink;
 
+import com.top_logic.basic.Logger;
 import com.top_logic.basic.thread.CancelScope;
 import com.top_logic.basic.util.ResKey;
 import com.top_logic.basic.util.ResKey4;
@@ -27,6 +28,16 @@ import de.haumacher.ehome.settings.OperatorSettings;
  * tunnelling link to the gateway, or the bus session of the project's controller
  * (<code>BusSessionLink</code>, haumacher/ehome #148), and a connection-oriented transport connection
  * to the device of E-Home's own ({@link TransportClient}, haumacher/ehome #31).
+ *
+ * <p>
+ * The chunk of the memory accesses ({@link #memoryChunk()}, haumacher/ehome #196) follows the maximum
+ * APDU length of the path (the medium of the link) and of the device: on a path of more than a
+ * standard frame, the device is asked once (property 56 of the device object, as ETS does at every
+ * download); a device that does not answer it, or a device of BCU 1 (mask 001x, without properties),
+ * keeps the standard frame. On a path of a standard frame the device is not asked. A longer memory
+ * access failing without an answer of the device falls back to standard frames for the rest of the
+ * reader's connection and is repeated in them ({@link #fallBack(BusException)}).
+ * </p>
  *
  * <p>
  * Reads only; writing is the business of {@link CalimeroWriter}, the one class sending anything
@@ -50,6 +61,18 @@ public class CalimeroReader implements DeviceReader {
 
 	private final TransportClient _connection;
 
+	/** The mask version the device answered, <code>-1</code> before. */
+	private int _mask = -1;
+
+	/** The chunk of the memory accesses, <code>0</code> before it is determined. */
+	private int _memoryChunk;
+
+	/**
+	 * Whether a longer memory access failed without an answer of the device: the memory accesses go
+	 * in standard frames from then on.
+	 */
+	private boolean _standardFrames;
+
 	/**
 	 * Opens a connection to the gateway for reading the given device.
 	 *
@@ -69,7 +92,17 @@ public class CalimeroReader implements DeviceReader {
 	 *        The individual address of the device.
 	 */
 	public static CalimeroReader open(BusPath path, int device) throws BusException {
-		return new CalimeroReader(path, device);
+		return open(path, device, TIMING);
+	}
+
+	/**
+	 * Opens a link on the given path for reading the given device, with the given timing of the
+	 * transport connection (a test's shorter waits).
+	 *
+	 * @see #open(BusPath, int)
+	 */
+	public static CalimeroReader open(BusPath path, int device, TransportClient.Timing timing) throws BusException {
+		return new CalimeroReader(path, device, timing);
 	}
 
 	/**
@@ -80,8 +113,8 @@ public class CalimeroReader implements DeviceReader {
 	 *         networks ({@link OperatorSettings#checkLocalNetwork()}, haumacher/ehome #150) for a
 	 *         gateway, the controller refuses the bus session.
 	 */
-	protected CalimeroReader(BusPath path, int device) throws BusException {
-		this(path.text(), path.open(), device);
+	protected CalimeroReader(BusPath path, int device, TransportClient.Timing timing) throws BusException {
+		this(path.text(), path.open(), device, timing);
 	}
 
 	/**
@@ -95,10 +128,20 @@ public class CalimeroReader implements DeviceReader {
 	 *        The individual address of the device.
 	 */
 	protected CalimeroReader(String path, KNXNetworkLink link, int device) {
+		this(path, link, device, TIMING);
+	}
+
+	/**
+	 * Creates a {@link CalimeroReader} on a link that is open already, with the given timing of the
+	 * transport connection.
+	 *
+	 * @see #CalimeroReader(String, KNXNetworkLink, int)
+	 */
+	protected CalimeroReader(String path, KNXNetworkLink link, int device, TransportClient.Timing timing) {
 		_path = path;
 		_device = new IndividualAddress(device);
 		_link = link;
-		_connection = new TransportClient(link, device, TIMING);
+		_connection = new TransportClient(link, device, timing);
 	}
 
 	/**
@@ -128,7 +171,51 @@ public class CalimeroReader implements DeviceReader {
 			DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.DESCRIPTOR_READ, (byte) 0),
 			r -> (Tpdu.service(r) & 0x3C0) == Tpdu.DESCRIPTOR_RESPONSE && (Tpdu.asdu(r)[0] & 0x3F) == 0);
 		byte[] asdu = Tpdu.asdu(answer);
-		return Arrays.copyOfRange(asdu, 1, asdu.length);
+		byte[] descriptor = Arrays.copyOfRange(asdu, 1, asdu.length);
+		if (descriptor.length == 2) {
+			_mask = (descriptor[0] & 0xFF) << 8 | descriptor[1] & 0xFF;
+		}
+		return descriptor;
+	}
+
+	@Override
+	public int memoryChunk() {
+		if (_memoryChunk == 0) {
+			_memoryChunk = determineChunk();
+		}
+		return _memoryChunk;
+	}
+
+	private int determineChunk() {
+		int path = _link.getKNXMedium().maxApduLength();
+		if (path <= MemoryChunk.STANDARD_APDU) {
+			return MemoryChunk.STANDARD;
+		}
+		if (_standardFrames) {
+			return MemoryChunk.STANDARD;
+		}
+		int device = MemoryChunk.STANDARD_APDU;
+		if ((_mask & 0xFFF0) == 0x0010) {
+			Logger.info("Memory accesses of " + device() + " through " + _path + ": the device of mask "
+				+ String.format("%04X", _mask) + " has no properties, " + MemoryChunk.STANDARD + " bytes.",
+				CalimeroReader.class);
+			return MemoryChunk.STANDARD;
+		}
+		try {
+			byte[] value = readProperty(0, MemoryChunk.PID_MAX_APDU_LENGTH, 1, 1);
+			if (value.length > 0) {
+				device = value.length == 1 ? value[0] & 0xFF : (value[0] & 0xFF) << 8 | value[1] & 0xFF;
+			}
+		} catch (BusException ex) {
+			Logger.info("Memory accesses of " + device() + " through " + _path
+				+ ": no maximum APDU length of the device (" + DownloadPlan.english(ex.getErrorKey())
+				+ "), a standard frame.", CalimeroReader.class);
+		}
+		int result = MemoryChunk.of(path, device);
+		Logger.info("Memory accesses of " + device() + " through " + _path + ": " + result
+			+ " bytes (maximum APDU length of the device " + device + ", of the path " + path + ").",
+			CalimeroReader.class);
+		return result;
 	}
 
 	@Override
@@ -143,6 +230,78 @@ public class CalimeroReader implements DeviceReader {
 
 	@Override
 	public byte[] readMemory(int address, int length) throws BusException {
+		if (length > MemoryChunk.STANDARD) {
+			if (_standardFrames) {
+				return readInStandardFrames(address, length);
+			}
+			if (longFrames()) {
+				try {
+					return readMemoryOnce(address, length);
+				} catch (NoAnswer ex) {
+					fallBack(ex);
+					return readInStandardFrames(address, length);
+				}
+			}
+		}
+		return readMemoryOnce(address, length);
+	}
+
+	private byte[] readInStandardFrames(int address, int length) throws BusException {
+		byte[] result = new byte[length];
+		for (int position = 0; position < length; position += MemoryChunk.STANDARD) {
+			int chunk = Math.min(MemoryChunk.STANDARD, length - position);
+			System.arraycopy(readMemoryOnce(address + position, chunk), 0, result, position, chunk);
+		}
+		return result;
+	}
+
+	/**
+	 * Whether the memory accesses take longer frames than a standard frame (determined, and not fallen
+	 * back).
+	 */
+	protected boolean longFrames() {
+		return _memoryChunk > MemoryChunk.STANDARD;
+	}
+
+	/**
+	 * Whether the memory accesses fell back to standard frames.
+	 *
+	 * @see #fallBack(BusException)
+	 */
+	protected boolean standardFrames() {
+		return _standardFrames;
+	}
+
+	/**
+	 * Falls back to memory accesses in standard frames for the rest of this reader's connection,
+	 * after a longer access failed without an answer of the device: the line between the path and the
+	 * device may not carry the longer frames whatever the device and the path announce
+	 * (haumacher/ehome #196). The connection, whose state is unknown after the failure, is ended (the
+	 * next access connects again, {@link #reconnected()}); nothing of the failed access counts as
+	 * done.
+	 *
+	 * @param ex
+	 *        The failure of the longer access.
+	 */
+	protected void fallBack(BusException ex) throws BusException {
+		Logger.warn("Memory accesses of " + device() + " through " + _path + ": an access of more than "
+			+ MemoryChunk.STANDARD + " bytes failed without an answer of the device (" + ex.getMessage()
+			+ "), standard frames of " + MemoryChunk.STANDARD + " bytes from now on.", CalimeroReader.class);
+		_standardFrames = true;
+		_memoryChunk = MemoryChunk.STANDARD;
+		_connection.disconnect();
+		reconnected();
+	}
+
+	/**
+	 * Restores what the connection held before the fall back ended it; the next access connects
+	 * again.
+	 */
+	protected void reconnected() throws BusException {
+		// Nothing to restore for reading.
+	}
+
+	private byte[] readMemoryOnce(int address, int length) throws BusException {
 		String hexAddress = String.format("%04X", address);
 		byte[] request = DataUnitBuilder.createLengthOptimizedAPDU(Tpdu.MEMORY_READ, (byte) length, (byte) (address >>> 8),
 			(byte) address);
@@ -186,9 +345,20 @@ public class CalimeroReader implements DeviceReader {
 			// A cancel of the job ends the wait for the device (TL #30196).
 			return CancelScope.runInterruptibly(() -> _connection.request(apdu, answer));
 		} catch (TransportException ex) {
-			throw failure(failure, ex);
+			throw new NoAnswer(failure.apply(BusException.reason(ex)), ex);
 		} catch (InterruptedException ex) {
 			throw interrupted(ex);
+		}
+	}
+
+	/**
+	 * A failure of a service without a valid answer of the device: no acknowledgement, no answer, the
+	 * connection ended, the frame not confirmed.
+	 */
+	protected static final class NoAnswer extends BusException {
+
+		NoAnswer(ResKey message, Throwable cause) {
+			super(message, cause);
 		}
 	}
 

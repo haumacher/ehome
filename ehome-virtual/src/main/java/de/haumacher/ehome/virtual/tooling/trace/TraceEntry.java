@@ -94,6 +94,12 @@ public record TraceEntry(Instant time, Direction direction, int source, int dest
 	public static final String TL_REJECTED = "TL_Rejected";
 
 	/**
+	 * Event: a frame longer than a standard frame, to or from the device, lost on a line carrying
+	 * standard frames only (field {@link #REASON}, the service and its length).
+	 */
+	public static final String LINE_DROPPED = "LINE_Dropped";
+
+	/**
 	 * Event: the programming mode of the device switched (field {@link #MODE}, <code>on</code> or
 	 * <code>off</code>, and {@link #REASON}: the button, a restart).
 	 */

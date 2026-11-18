@@ -79,6 +79,7 @@ public class TestDownloadPlan extends BasicTestCase {
 			checkAddressPlan();
 			checkStampsAgainstDevice();
 			checkDownload();
+			checkLongChunks();
 			checkRefusedStamps();
 			checkFailure();
 			checkHardwareMismatch();
@@ -329,6 +330,68 @@ public class TestDownloadPlan extends BasicTestCase {
 		Collection<?> loaded = (Collection<?>) device.tValueByName("loaded");
 		assertEquals(5, loaded.size());
 		assertNotNull(device.tValueByName("lastDownload"));
+	}
+
+	/**
+	 * A download into a device and path taking memory accesses of 30 bytes (haumacher/ehome #196): the
+	 * contiguous memory writes of the plan go in chunks of up to 30 bytes, each read back as written;
+	 * the device holds the same memory as after the download in chunks of 12, every operation of the
+	 * plan is announced once. A verification failing in a chunk fails the operation holding the chunk's
+	 * first byte.
+	 */
+	private void checkLongChunks() throws Exception {
+		TLObject device = device(ACTUATOR);
+		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
+		MockDevice standard = actuatorDevice();
+		assertTrue(new DownloadExecutor(ms -> { /* No wait. */ }).execute(plan, standard, (n, c, o) -> { /* Ignore. */ })
+			.success());
+		List<String> standardWrites = memoryCalls(standard, "writeMemory");
+		assertEquals(writes(plan).size(), standardWrites.size());
+
+		MockDevice mock = actuatorDevice().setMemoryChunk(30);
+		List<Integer> progress = new ArrayList<>();
+		DownloadExecutor.Result result = new DownloadExecutor(ms -> { /* No wait. */ }).execute(plan, mock,
+			(number, count, operation) -> progress.add(number));
+		assertTrue(result.failure(), result.success());
+		assertEquals(plan.getOperations().size(), result.done());
+		List<Integer> expected = new ArrayList<>();
+		for (int n = 1; n <= plan.getOperations().size(); n++) {
+			expected.add(n);
+		}
+		assertEquals(expected, progress);
+		assertTrue(Arrays.equals(standard.memory(), mock.memory()));
+		List<String> writes = memoryCalls(mock, "writeMemory");
+		assertTrue(writes.size() < standardWrites.size());
+		int longest = 0;
+		List<String> calls = mock.calls();
+		for (int n = 0; n < calls.size(); n++) {
+			String call = calls.get(n);
+			if (!call.startsWith("writeMemory ")) {
+				continue;
+			}
+			String[] parts = call.split(" ");
+			int length = parts[2].length() / 2;
+			longest = Math.max(longest, length);
+			assertTrue(call, length <= 30);
+			assertEquals("verified as written", "readMemory " + parts[1] + " " + length, calls.get(n + 1));
+		}
+		assertEquals(30, longest);
+
+		// A verification failing: the operation holding the first byte of the chunk.
+		Operation.WriteMemory target = writes(plan).get(writes(plan).size() / 2);
+		MockDevice failing = actuatorDevice().setMemoryChunk(30).corruptRead(target.address() + 1);
+		result = new DownloadExecutor(ms -> { /* No wait. */ }).execute(plan, failing, (n, c, o) -> { /* Ignore. */ });
+		assertFalse(result.success());
+		List<String> failingWrites = memoryCalls(failing, "writeMemory");
+		int chunkStart = Integer.parseInt(failingWrites.get(failingWrites.size() - 1).split(" ")[1], 16);
+		Operation.WriteMemory failed = (Operation.WriteMemory) result.failed();
+		assertTrue(failed.describe(), failed.address() <= chunkStart && chunkStart < failed.address() + failed.data().length);
+		assertEquals(plan.getOperations().indexOf(failed), result.done());
+		assertTrue(result.failure(), result.failure().contains(String.format("%04X", chunkStart)));
+	}
+
+	private static List<String> memoryCalls(MockDevice device, String prefix) {
+		return device.calls().stream().filter(c -> c.startsWith(prefix + " ")).toList();
 	}
 
 	/**

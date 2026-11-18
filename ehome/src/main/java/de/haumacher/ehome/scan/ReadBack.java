@@ -83,7 +83,8 @@ import de.haumacher.ehome.programming.download.Snapshot;
  * The device is read where its download image ({@link DownloadImage}) writes: the memory of every
  * block of the image, the group address table and the association table (at the places the device
  * names in its table pointers, property 7 of the interface objects 1 and 2, else at those of the
- * image; their lengths from their counts), and the properties carrying parameters. Nothing is
+ * image; their lengths from their counts), and the properties carrying parameters, the memory in
+ * reads of at most {@link DeviceReader#memoryChunk()} bytes (haumacher/ehome #196). Nothing is
  * written to the device ({@link #read(TLObject, DeviceReader, Listener)}).
  * </p>
  *
@@ -273,7 +274,7 @@ public class ReadBack {
 					continue;
 				}
 				int start = n;
-				while (n < mask.length && mask[n] != 0 && n - start < DownloadPlanner.MAX_CHUNK) {
+				while (n < mask.length && mask[n] != 0 && n - start < reader.memoryChunk()) {
 					n++;
 				}
 				readInto(reader, block.address() + start, n - start, memory, known);
@@ -393,7 +394,7 @@ public class ReadBack {
 			throws BusException {
 		int position = 0;
 		while (position < length) {
-			int chunk = Math.min(DownloadPlanner.MAX_CHUNK, length - position);
+			int chunk = Math.min(reader.memoryChunk(), length - position);
 			byte[] data = reader.readMemory(address + position, chunk);
 			if (data.length != chunk) {
 				throw new BusException(I18NConstants.READBACK_SHORT_ANSWER__ADDRESS_COUNT_EXPECTED.fill(

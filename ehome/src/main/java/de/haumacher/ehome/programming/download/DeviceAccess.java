@@ -36,7 +36,7 @@ public interface DeviceAccess extends DeviceReader {
 	void writeProperty(int objectIndex, int propertyId, int start, int count, byte[] data) throws BusException;
 
 	/**
-	 * Writes memory, at most {@link DownloadPlanner#MAX_CHUNK} bytes.
+	 * Writes memory, at most {@link #memoryChunk()} bytes.
 	 */
 	void writeMemory(int address, byte[] data) throws BusException;
 

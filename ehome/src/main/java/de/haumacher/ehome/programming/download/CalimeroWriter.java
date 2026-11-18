@@ -61,14 +61,27 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 	 *         bus session.
 	 */
 	public static CalimeroWriter open(BusPath path, int device) throws BusException {
+		return open(path, device, TIMING);
+	}
+
+	/**
+	 * Opens a link on the given path for writing into the given device, with the given timing of the
+	 * transport connection (a test's shorter waits).
+	 *
+	 * @see #open(BusPath, int)
+	 */
+	public static CalimeroWriter open(BusPath path, int device, TransportClient.Timing timing) throws BusException {
 		if (!writeEnabled()) {
 			throw new TopLogicException(I18NConstants.ERROR_WRITE_DISABLED);
 		}
-		return new CalimeroWriter(path, device);
+		return new CalimeroWriter(path, device, timing);
 	}
 
-	private CalimeroWriter(BusPath path, int device) throws BusException {
-		super(path, device);
+	/** The key of the last authorization, <code>null</code> before. */
+	private byte[] _key;
+
+	private CalimeroWriter(BusPath path, int device, TransportClient.Timing timing) throws BusException {
+		super(path, device, timing);
 	}
 
 	/**
@@ -98,6 +111,7 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 
 	@Override
 	public int authorize(byte[] key) throws BusException {
+		_key = key.clone();
 		byte[] asdu = new byte[1 + key.length];
 		System.arraycopy(key, 0, asdu, 1, key.length);
 		byte[] answer = request(
@@ -123,8 +137,58 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 		}
 	}
 
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>
+	 * A write of more than a standard frame failing without an answer of the device falls back to
+	 * standard frames and is written again in them ({@link #fallBack(BusException)}): whether the
+	 * device took the longer write is not known.
+	 * </p>
+	 */
 	@Override
 	public void writeMemory(int address, byte[] data) throws BusException {
+		if (data.length > MemoryChunk.STANDARD) {
+			if (standardFrames()) {
+				writeInStandardFrames(address, data);
+				return;
+			}
+			if (longFrames()) {
+				try {
+					writeMemoryOnce(address, data);
+				} catch (NoAnswer ex) {
+					fallBack(ex);
+					writeInStandardFrames(address, data);
+				}
+				return;
+			}
+		}
+		writeMemoryOnce(address, data);
+	}
+
+	private void writeInStandardFrames(int address, byte[] data) throws BusException {
+		for (int position = 0; position < data.length; position += MemoryChunk.STANDARD) {
+			writeMemoryOnce(address + position,
+				Arrays.copyOfRange(data, position, Math.min(data.length, position + MemoryChunk.STANDARD)));
+		}
+	}
+
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>
+	 * The connection after the fall back starts at the free access level: the key authorized before
+	 * is authorized again.
+	 * </p>
+	 */
+	@Override
+	protected void reconnected() throws BusException {
+		if (_key != null) {
+			authorize(_key);
+		}
+	}
+
+	private void writeMemoryOnce(int address, byte[] data) throws BusException {
 		byte[] asdu = new byte[3 + data.length];
 		asdu[0] = (byte) data.length;
 		asdu[1] = (byte) (address >>> 8);
