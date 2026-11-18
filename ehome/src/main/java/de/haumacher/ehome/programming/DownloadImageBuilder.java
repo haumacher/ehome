@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 
 import com.top_logic.basic.util.ResKey2;
 import com.top_logic.model.TLClassifier;
@@ -713,6 +714,14 @@ class DownloadImageBuilder {
 		for (Port port : _configuration.getPorts()) {
 			ports.putIfAbsent(port.getIndex(), port);
 		}
+		// An object with group addresses that the table cannot hold is not silently left out: the
+		// association table would point to a descriptor the device does not have (haumacher/ehome
+		// #202). An object without an association never communicates; the table need not hold it.
+		for (Integer number : new TreeSet<>(_associatedObjects)) {
+			if (number.intValue() >= count) {
+				_image.addProblem(I18NConstants.IMAGE_OBJECT_BEYOND_TABLE__NUMBER_COUNT.fill(number, count));
+			}
+		}
 		Map<Port, TLObject> connectors = new HashMap<>();
 		for (TLObject connector : _configuration.getConnectors()) {
 			Interface placed = ModuleParts.port(connector);
@@ -725,7 +734,15 @@ class DownloadImageBuilder {
 		for (int number = 0; number < count; number++) {
 			Port port = ports.get(number);
 			if (port == null) {
-				_image.addProblem(I18NConstants.IMAGE_UNDEFINED_OBJECT__NUMBER.fill(number));
+				int position = start + format.header() + format.descriptor() * number + format.config();
+				if (!_program.getModules().isEmpty()) {
+					// The table of a program with modules holds the objects of every instance its layout
+					// allows; one of an instance not in effect (a repeat counting fewer) keeps the static
+					// descriptor, without communication (haumacher/ehome #202).
+					data[position] = (byte) ((data[position] & 0xFF) & ~GroupTables.COMMUNICATION);
+				} else {
+					_image.addProblem(I18NConstants.IMAGE_UNDEFINED_OBJECT__NUMBER.fill(number));
+				}
 				continue;
 			}
 			TLObject connector = connectors.get(port);

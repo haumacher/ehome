@@ -60,6 +60,7 @@ import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DeviceTexts;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupAddressConnections;
+import de.haumacher.ehome.programming.GroupTables;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
 import de.haumacher.ehome.programming.download.DownloadRecord;
@@ -322,19 +323,19 @@ public class TestDynamicModules extends BasicTestCase {
 	}
 
 	private void checkRepeatDevice(TLObject device) {
-		// Three signals (offsets 160, 192, 224 from Signal_params, objects from 10 by 2, numbers from 1),
-		// two channels (offsets 96, 108, objects 20, 24, numbers after the signals'), one scene in the
+		// Three signals (offsets 160, 192, 224 from Signal_params, objects from 3 by 2, numbers from 1),
+		// two channels (offsets 128, 140, objects 9, 13, numbers after the signals'), one scene in the
 		// first channel and two in the second (offsets 2, 4 on top of the channel's, objects 1, 2 on top
 		// of the channel's).
 		assertEquals(List.of(
-			"MD-1_M-1_MI-1 5x1 6x1 true {ParamsOffsetBase=160, ObjNumberBase=10, SigNo=1}",
-			"MD-1_M-1_MI-2 5x2 6x1 true {ParamsOffsetBase=192, ObjNumberBase=12, SigNo=2}",
-			"MD-1_M-1_MI-3 5x3 6x1 true {ParamsOffsetBase=224, ObjNumberBase=14, SigNo=3}",
-			"MD-2_M-1_MI-1 10x1 11x1 true {KaOffs=96, KaObj=20, KaNo=4}",
-			"MD-2_M-1_MI-1_SM-1_M-1_MI-1-1-1 10x1 11x1 5x1 6x1 true {SzOffs=98, SzObj=21, KaNo=4, SzNo=1}",
-			"MD-2_M-1_MI-2 10x2 11x1 true {KaOffs=108, KaObj=24, KaNo=5}",
-			"MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-1 10x2 11x1 5x1 6x1 true {SzOffs=110, SzObj=25, KaNo=5, SzNo=1}",
-			"MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-2 10x2 11x1 5x2 6x1 true {SzOffs=112, SzObj=26, KaNo=5, SzNo=2}"),
+			"MD-1_M-1_MI-1 5x1 6x1 true {ParamsOffsetBase=160, ObjNumberBase=3, SigNo=1}",
+			"MD-1_M-1_MI-2 5x2 6x1 true {ParamsOffsetBase=192, ObjNumberBase=5, SigNo=2}",
+			"MD-1_M-1_MI-3 5x3 6x1 true {ParamsOffsetBase=224, ObjNumberBase=7, SigNo=3}",
+			"MD-2_M-1_MI-1 10x1 11x1 true {KaOffs=128, KaObj=9, KaNo=4}",
+			"MD-2_M-1_MI-1_SM-1_M-1_MI-1-1-1 10x1 11x1 5x1 6x1 true {SzOffs=130, SzObj=10, KaNo=4, SzNo=1}",
+			"MD-2_M-1_MI-2 10x2 11x1 true {KaOffs=140, KaObj=13, KaNo=5}",
+			"MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-1 10x2 11x1 5x1 6x1 true {SzOffs=142, SzObj=14, KaNo=5, SzNo=1}",
+			"MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-2 10x2 11x1 5x2 6x1 true {SzOffs=144, SzObj=15, KaNo=5, SzNo=2}"),
 			stored(device));
 		assertTrue(ModuleInstances.differences(device).isEmpty());
 
@@ -350,22 +351,22 @@ public class TestDynamicModules extends BasicTestCase {
 		TLObject scene = connectors.get(R + "MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-2_O-1-0_R-1");
 		assertEquals(Set.of("send P-01A0-0_GA-2"), connections(signal));
 		assertEquals(Set.of("send P-01A0-0_GA-3"), connections(scene));
-		assertEquals("12 Signal 2: Süd: Wert", label(signal, Locale.GERMAN));
-		assertEquals("26 Kanal 5, Szene 2: Szene", label(scene, Locale.GERMAN));
+		assertEquals("5 Signal 2: Süd: Wert", label(signal, Locale.GERMAN));
+		assertEquals("15 Kanal 5, Szene 2: Szene", label(scene, Locale.GERMAN));
 
 		DownloadPlan plan = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
 		assertTrue(plan.getProblems().toString(), plan.isExecutable());
 		DownloadImage image = plan.getImage();
-		assertEquals(image.dump(), Integer.valueOf(3), image.byteAt(SEGMENT + 0x58));
+		assertEquals(image.dump(), Integer.valueOf(3), image.byteAt(SEGMENT + 0x78));
 		// "Typ" of signal 3 (default 1) at 224, "Name" of signal 2 from 193.
 		assertEquals(Integer.valueOf(1), image.byteAt(SEGMENT + 224));
 		assertEquals(Integer.valueOf('S'), image.byteAt(SEGMENT + 193));
 		assertEquals(Integer.valueOf(0xFC), image.byteAt(SEGMENT + 194));
-		// "Anzahl Szenen" of channel 2 at 108, the "Wert" of its scenes at 110 (default 5) and 112 (7).
-		assertEquals(Integer.valueOf(2), image.byteAt(SEGMENT + 108));
-		assertEquals(Integer.valueOf(5), image.byteAt(SEGMENT + 110));
-		assertEquals(Integer.valueOf(7), image.byteAt(SEGMENT + 112));
-		assertEquals(Set.of(12, 26), Set.copyOf(associatedObjects(image)));
+		// "Anzahl Szenen" of channel 2 at 140, the "Wert" of its scenes at 142 (default 5) and 144 (7).
+		assertEquals(Integer.valueOf(2), image.byteAt(SEGMENT + 140));
+		assertEquals(Integer.valueOf(5), image.byteAt(SEGMENT + 142));
+		assertEquals(Integer.valueOf(7), image.byteAt(SEGMENT + 144));
+		assertEquals(Set.of(5, 15), Set.copyOf(associatedObjects(image)));
 	}
 
 	/**
@@ -427,8 +428,8 @@ public class TestDynamicModules extends BasicTestCase {
 			tx.commit();
 		}
 		List<String> instances = stored(device);
-		assertTrue(instances.toString(), instances.contains("MD-1_M-1_MI-3 5x3 6x1 false {ParamsOffsetBase=224, ObjNumberBase=14, SigNo=3}"));
-		assertTrue(instances.toString(), instances.contains("MD-2_M-1_MI-1 10x1 11x1 true {KaOffs=96, KaObj=20, KaNo=3}"));
+		assertTrue(instances.toString(), instances.contains("MD-1_M-1_MI-3 5x3 6x1 false {ParamsOffsetBase=224, ObjNumberBase=7, SigNo=3}"));
+		assertTrue(instances.toString(), instances.contains("MD-2_M-1_MI-1 10x1 11x1 true {KaOffs=128, KaObj=9, KaNo=3}"));
 		Map<String, TLObject> settings = settings(device);
 		assertTrue("The setting of the removed instance stays.", settings.containsKey(R + "MD-1_M-1_MI-3_P-2_R-1"));
 		TLObject connector = connectors(device).get(R + "MD-1_M-1_MI-3_O-1-0_R-1");
@@ -438,7 +439,7 @@ public class TestDynamicModules extends BasicTestCase {
 		assertFalse(two.getConnectors().contains(connector));
 		assertNull(shownViews(two).get(R + "MD-1_M-1_MI-3_P-2_R-1"));
 		DownloadImage image = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL).getImage();
-		assertFalse(associatedObjects(image).contains(14));
+		assertFalse(associatedObjects(image).contains(7));
 		// The static data where the third signal was: not written by its values.
 		assertEquals(Integer.valueOf(0), image.byteAt(SEGMENT + 225));
 
@@ -447,12 +448,12 @@ public class TestDynamicModules extends BasicTestCase {
 			DeviceSettings.setValue(device, signals, Integer.valueOf(3));
 			tx.commit();
 		}
-		assertTrue(stored(device).contains("MD-1_M-1_MI-3 5x3 6x1 true {ParamsOffsetBase=224, ObjNumberBase=14, SigNo=3}"));
+		assertTrue(stored(device).contains("MD-1_M-1_MI-3 5x3 6x1 true {ParamsOffsetBase=224, ObjNumberBase=7, SigNo=3}"));
 		DeviceConfiguration three = new DeviceConfiguration(device);
 		assertTrue(three.getConnectors().contains(connector));
 		assertEquals("Ost", three.valueHolder(shownViews(three).get(R + "MD-1_M-1_MI-3_P-2_R-1")).tValueByName("text"));
 		image = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL).getImage();
-		assertTrue(associatedObjects(image).contains(14));
+		assertTrue(associatedObjects(image).contains(7));
 		assertEquals(Integer.valueOf('O'), image.byteAt(SEGMENT + 225));
 
 		// Four signals would need the offset 256 of Signal_params, beyond its limit 224: refused, naming
@@ -526,12 +527,12 @@ public class TestDynamicModules extends BasicTestCase {
 		}
 		assertTrue(list(planned, "settings").isEmpty());
 		assertEquals(List.of(
-			"MD-1_M-1_MI-1 5x1 6x1 true {ParamsOffsetBase=160, ObjNumberBase=10, SigNo=1}",
-			"MD-1_M-1_MI-2 5x2 6x1 true {ParamsOffsetBase=192, ObjNumberBase=12, SigNo=2}",
-			"MD-2_M-1_MI-1 10x1 11x1 true {KaOffs=96, KaObj=20, KaNo=3}",
-			"MD-2_M-1_MI-1_SM-1_M-1_MI-1-1-1 10x1 11x1 5x1 6x1 true {SzOffs=98, SzObj=21, KaNo=3, SzNo=1}",
-			"MD-2_M-1_MI-2 10x2 11x1 true {KaOffs=108, KaObj=24, KaNo=4}",
-			"MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-1 10x2 11x1 5x1 6x1 true {SzOffs=110, SzObj=25, KaNo=4, SzNo=1}"),
+			"MD-1_M-1_MI-1 5x1 6x1 true {ParamsOffsetBase=160, ObjNumberBase=3, SigNo=1}",
+			"MD-1_M-1_MI-2 5x2 6x1 true {ParamsOffsetBase=192, ObjNumberBase=5, SigNo=2}",
+			"MD-2_M-1_MI-1 10x1 11x1 true {KaOffs=128, KaObj=9, KaNo=3}",
+			"MD-2_M-1_MI-1_SM-1_M-1_MI-1-1-1 10x1 11x1 5x1 6x1 true {SzOffs=130, SzObj=10, KaNo=3, SzNo=1}",
+			"MD-2_M-1_MI-2 10x2 11x1 true {KaOffs=140, KaObj=13, KaNo=4}",
+			"MD-2_M-1_MI-2_SM-1_M-1_MI-2-1-1 10x2 11x1 5x1 6x1 true {SzOffs=142, SzObj=14, KaNo=4, SzNo=1}"),
 			stored(planned));
 
 		// The parameter editor shows the parameters of the instances with the modules' defaults.
@@ -557,10 +558,16 @@ public class TestDynamicModules extends BasicTestCase {
 		assertEquals(image.dump(), Integer.valueOf(1), image.byteAt(SEGMENT + 160));
 		assertEquals(Integer.valueOf(1), image.byteAt(SEGMENT + 192));
 		assertEquals(Integer.valueOf('S'), image.byteAt(SEGMENT + 193));
-		assertEquals(Integer.valueOf(1), image.byteAt(SEGMENT + 96));
-		assertEquals(Integer.valueOf(5), image.byteAt(SEGMENT + 98));
-		assertEquals(Integer.valueOf(5), image.byteAt(SEGMENT + 110));
-		assertEquals(List.of(12), associatedObjects(image));
+		assertEquals(Integer.valueOf(1), image.byteAt(SEGMENT + 128));
+		assertEquals(Integer.valueOf(5), image.byteAt(SEGMENT + 130));
+		assertEquals(Integer.valueOf(5), image.byteAt(SEGMENT + 142));
+		assertEquals(List.of(5), associatedObjects(image));
+		// The object table holds every object the program can have (21); the descriptor of one of an
+		// instance not in effect (object 7, "Wert" of a third signal) keeps the static data (D7),
+		// without communication.
+		byte[] table = image.getObjectTable().data();
+		assertEquals(21, table[0]);
+		assertEquals(0xD7 & ~GroupTables.COMMUNICATION, table[2 + 3 * 7 + 1] & 0xFF);
 	}
 
 	/**

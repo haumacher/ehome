@@ -35,8 +35,9 @@ import de.haumacher.ehome.template.ObjectTypes;
  * Probe of the flags of a communication object (haumacher/ehome #201) composed with dynamic
  * modules: two instances of the same module's object in one device
  * (<code>TestModules.knxproj</code>) are separate objects. A flag set on one instance changes that
- * instance's object only, in its own connector and in the object table of the image; the reset of
- * one leaves the other as it is.
+ * instance's object only, in its own connector and in the object table of the image (exactly the
+ * configuration byte of its own descriptor, haumacher/ehome #202); the reset of one leaves the other
+ * as it is.
  */
 @SuppressWarnings("javadoc")
 public class TestObjectFlagsProbe extends BasicTestCase {
@@ -63,6 +64,10 @@ public class TestObjectFlagsProbe extends BasicTestCase {
 			Interface second = pair[1];
 			boolean read = Boolean.TRUE.equals(ObjectFlags.get(device, first, "canRead"));
 			byte[] initial = table(device);
+			// Both instances inside the table, each with its own descriptor.
+			Integer firstConfig = configPosition(initial, first);
+			Integer secondConfig = configPosition(initial, second);
+			assertFalse(firstConfig.equals(secondConfig));
 
 			TLObject d = device;
 			run(() -> ObjectFlags.set(d, first, "canRead", Boolean.valueOf(!read)));
@@ -71,15 +76,17 @@ public class TestObjectFlagsProbe extends BasicTestCase {
 				ObjectFlags.get(device, second, "canRead"));
 			assertTrue(ObjectFlags.objectDiffers(device, first));
 			assertFalse(ObjectFlags.objectDiffers(device, second));
-			List<Integer> firstBytes = differences(initial, table(device));
-			assertEquals("One byte of the object table: " + firstBytes, 1, firstBytes.size());
+			assertEquals("The configuration byte of the first instance's descriptor.", List.of(firstConfig),
+				differences(initial, table(device)));
 
 			// Both changed: two connectors, one per instance; the first object's byte stays as set.
 			run(() -> ObjectFlags.set(d, second, "canRead", Boolean.valueOf(!read)));
 			assertTrue(ObjectFlags.objectDiffers(device, second));
 			assertEquals(Boolean.valueOf(!read), ObjectFlags.get(device, first, "canRead"));
 			assertNotSame(ObjectTypes.connector(device, first), ObjectTypes.connector(device, second));
-			assertTrue(differences(initial, table(device)).containsAll(firstBytes));
+			assertEquals("The configuration bytes of both instances' descriptors.",
+				List.of(Math.min(firstConfig, secondConfig), Math.max(firstConfig, secondConfig)),
+				differences(initial, table(device)));
 
 			// The first reset: the second stays changed.
 			run(() -> {
@@ -89,7 +96,8 @@ public class TestObjectFlagsProbe extends BasicTestCase {
 			assertFalse(ObjectFlags.objectDiffers(device, first));
 			assertTrue(ObjectFlags.objectDiffers(device, second));
 			assertEquals(Boolean.valueOf(!read), ObjectFlags.get(device, second, "canRead"));
-			assertFalse(differences(initial, table(device)).containsAll(firstBytes));
+			assertEquals("The configuration byte of the second instance's descriptor.", List.of(secondConfig),
+				differences(initial, table(device)));
 			run(() -> {
 				ObjectFlags.reset(d, second);
 				return null;
@@ -123,6 +131,16 @@ public class TestObjectFlagsProbe extends BasicTestCase {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * The position of the configuration byte of the object's descriptor in the object table (BCU 1:
+	 * the count and the RAM flags pointer, then per object value pointer, configuration and type).
+	 */
+	private static Integer configPosition(byte[] table, Interface placed) {
+		int number = placed.getPort().getIndex();
+		assertTrue("Object " + number + " inside the table of " + (table[0] & 0xFF), number < (table[0] & 0xFF));
+		return Integer.valueOf(2 + 3 * number + 1);
 	}
 
 	private static byte[] table(TLObject device) {

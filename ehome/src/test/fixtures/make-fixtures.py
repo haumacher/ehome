@@ -120,25 +120,29 @@ argument ParamOffsBase 80 instead of 96 (0x60): its memory was written with anot
 the default "Aus" of "Kanal B", so E-Home computes no instance of the placement "Kanal B", but it sets
 the "Beschreibung" of that instance ("Bad") and links its "Schalten" to GA-4 (as ETS keeps the values
 of a module whose placement is not in effect).
+The object table of the program (BCU 1: at 0136 in page 1, its pointer 0112 one byte; the count, the
+RAM flags pointer, three bytes per object) holds the five objects of the program (0 to 4: "Zentral",
+then "Schalten" and "Status" of Kanal A and of Kanal B), so that every object a device can associate
+has its descriptor (haumacher/ehome #202); it ends at 0146, before the parameters from 0150.
 
 TestModules.knxproj also holds a second artificial program of the BCU 1 kind, M-0008_A-FFF8-01-0000,
 marked as test data by its name, assigned to "TEST Module" as well, with repeats, allocators and a
 sub-module (haumacher/ehome #119, the layouts of the ABB Modbus RTU Gateway and the Zennio DALI BOX):
-- the parameters "Anzahl Signale" (0 to 8, default 2, byte 0x58) and "Anzahl Kanäle" (0 to 3, default
-  2, byte 0x59) in the block "Allgemein";
+- the parameters "Anzahl Signale" (0 to 8, default 2, byte 0x78) and "Anzahl Kanäle" (0 to 3, default
+  2, byte 0x79) in the block "Allgemein";
 - the objects 0 to 2 of its object table ("Allgemein 0" to "Allgemein 2"), placed nowhere;
 - a Repeat over "Anzahl Signale" placing the module "Signal" (MD-1): its ParamsOffsetBase from the
   allocator Signal_params (Start 160, maxInclusive 224, Allocates 32), its ObjNumberBase from
-  Signal_objs (Start 10, Allocates 2), its number SigNo from Nummer (Start 1, maxInclusive 6, Allocates
+  Signal_objs (Start 3, maxInclusive 7, Allocates 2), its number SigNo from Nummer (Start 1, maxInclusive 6, Allocates
   1). The module has the parameters "Typ" (an enumeration Aus 0 / Analog 1 / Digital 2, default 1, at
   offset 0) and "Name" (a text of 4 bytes, default "Sig", at offset 1), the objects "Wert" (Number 0)
   and "Status" (Number 1), the reference of "Wert" with the text "Signal {{SigNo}}: {{0}}" filled from
   "Name", and the structure: a channel "Signal {{SigNo}}: {{0}}" and in it a block
   "{{0:Signal {{SigNo}}}}", both filled from "Name" (TextParameterRefId), placing the parameters and
-  objects. So the signals lie at 160, 192, 224, their objects at 10/11, 12/13, 14/15, and a fourth
+  objects. So the signals lie at 160, 192, 224, their objects at 3/4, 5/6, 7/8, and a fourth
   signal (offset 256) exceeds Signal_params;
 - a Repeat over "Anzahl Kanäle" placing the module "Kanal" (MD-2): its KaOffs from Kanal_params (Start
-  96, Allocates 12), its KaObj from Kanal_objs (Start 20, Allocates 4), its number KaNo from Nummer
+  128, maxInclusive 152, Allocates 12), its KaObj from Kanal_objs (Start 9, maxInclusive 17, Allocates 4), its number KaNo from Nummer
   (shared with the signals: the channels are numbered after them). The module has the parameter
   "Anzahl Szenen" (0 to 5, default 1, at offset 0), the object "Kanal {{KaNo}}" (Number 0), allocators
   of its own (Szene_params Start 2 maxInclusive 6, Szene_objs Start 1, Szene_num Start 1), and in its
@@ -146,8 +150,11 @@ sub-module (haumacher/ehome #119, the layouts of the ABB Modbus RTU Gateway and 
   Szene_params on top of KaOffs (BaseValue), SzObj from Szene_objs on top of KaObj, KaNo as 0 on top of
   the channel's KaNo, SzNo from Szene_num. The scene has the parameter "Wert" (0 to 255, default 5, at
   offset 0) and the object "Szene" (Number 0) with the text "Kanal {{KaNo}}, Szene {{SzNo}}". So with
-  two scenes in the second channel (offset 108), its scenes lie at 110 and 112, their objects at 25 and
-  26 (after 21 of the first channel's scene).
+  two scenes in the second channel (offset 140), its scenes lie at 142 and 144, their objects at 14 and
+  15 (after 10 of the first channel's scene). The object table of the program (at 0136, as in the
+  program above) holds every object the program can have, 21 (0 to 20: three signals from 3, three
+  channels of four objects from 9, as Signal_objs and Kanal_objs allow), and ends at 0176, before the
+  parameters from 0178; Kanal_params lie at 0180 to 019E, Signal_params at 01A0 to 01E4.
 The device "TEST Repeat-Gerät" (1.0.3, this program) sets "Anzahl Signale" = 3, the "Name" of signal 2
 = "Süd", that of signal 3 empty, "Anzahl Szenen" of channel 2 = 2 and the "Wert" of its scene 2 = 7 (named as
 MD-2_M-1_MI-2-1-2_SM-1_P-1_R-1), links "Wert" of signal 2 to GA-2 and the object of scene 2 of channel 2
@@ -758,6 +765,22 @@ def bcu1_memory():
         data[offset] = value
     for offset in (0x01, 0x02, 0x03, 0x17, 0x18):
         mask[offset] = 0
+    return base64.b64encode(bytes(data)).decode('ascii'), base64.b64encode(bytes(mask)).decode('ascii')
+
+
+def module_memory(types, end):
+    """The memory of bcu1_memory() with an object table of its own for the programs of
+    TestModules.knxproj: at 0136 (pointer 0112, page 1), the count, the RAM flags at 00CE, then per
+    object the value pointer (RAM after the flags), the configuration D7 and the given type byte. The
+    table must end before the given offset (the program's first parameter); 0151 is left free."""
+    data, mask = (bytearray(base64.b64decode(part)) for part in bcu1_memory())
+    for offset in list(range(0x36, 0x41)) + [0x51]:
+        data[offset] = 0
+    count = len(types)
+    values = 0xCE + (count + 1) // 2
+    table = [count, 0xCE] + [b for n, kind in enumerate(types) for b in (values + n, 0xD7, kind)]
+    assert 0x36 + len(table) <= end, 'object table beyond 01%02X' % end
+    data[0x36:0x36 + len(table)] = bytes(table)
     return base64.b64encode(bytes(data)).decode('ascii'), base64.b64encode(bytes(mask)).decode('ascii')
 
 
@@ -1636,8 +1659,9 @@ MODULE_PLACEMENTS = [(1, 'Kanal A', 0x60, 1, 'A'), (2, 'Kanal B', 0x70, 3, 'B')]
 def module_program():
     p = MODULE_PROGRAM
     segment = p + '_AS-0100'
-    # The memory of the BCU 1 programs (header, tables); the parameters lie above it.
-    data, mask = bcu1_memory()
+    # The memory of the BCU 1 programs (header, tables) with an object table of the five objects (the
+    # program's 0, Kanal A 1 and 2, Kanal B 3 and 4, all of 1 bit); the parameters lie above it, from 0150.
+    data, mask = module_memory([0x00] * 5, 0x50)
     flags = ('Priority="Low" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Enabled" '
         'TransmitFlag="Disabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled"')
     types = ('<ParameterType Id="{p}_PT-Schalter" Name="Schalter"><TypeRestriction Base="Value" SizeInBit="8">'
@@ -1771,7 +1795,10 @@ REPEAT_ASSIGNMENT = MODULE_HARDWARE + '_HP-FFF8-01-0000'
 def repeat_program():
     p = REPEAT_PROGRAM
     segment = p + '_AS-0100'
-    data, mask = bcu1_memory()
+    # The object table holds every object the program can have (21): the program's 0 to 2 (1 bit), three
+    # signals from 3 (Wert 1 byte, Status 1 bit), three channels from 9 (Kanal 1 bit, three scenes of 1
+    # byte); it ends at 0176, before the parameters from 0178.
+    data, mask = module_memory([0x00] * 3 + [0x07, 0x00] * 3 + [0x00, 0x07, 0x07, 0x07] * 3, 0x78)
     flags = ('Priority="Low" CommunicationFlag="Enabled" ReadFlag="Disabled" WriteFlag="Enabled" '
         'TransmitFlag="Disabled" UpdateFlag="Disabled" ReadOnInitFlag="Disabled"')
     types = ('<ParameterType Id="{p}_PT-Anzahl8" Name="Anzahl8"><TypeNumber SizeInBit="8" Type="unsignedInt" '
@@ -1789,19 +1816,19 @@ def repeat_program():
         '</TypeRestriction></ParameterType>\n'
         '<ParameterType Id="{p}_PT-Text" Name="Text"><TypeText SizeInBit="32" /></ParameterType>\n')
     params = ('<Parameter Id="{p}_P-1" Name="AnzahlSignale" Text="Anzahl Signale" ParameterType="{p}_PT-Anzahl8" '
-        'Access="ReadWrite" Value="2"><Memory CodeSegment="' + segment + '" Offset="88" BitOffset="0" /></Parameter>\n'
+        'Access="ReadWrite" Value="2"><Memory CodeSegment="' + segment + '" Offset="120" BitOffset="0" /></Parameter>\n'
         '<Parameter Id="{p}_P-2" Name="AnzahlKanaele" Text="Anzahl Kanäle" ParameterType="{p}_PT-Anzahl3" '
-        'Access="ReadWrite" Value="2"><Memory CodeSegment="' + segment + '" Offset="89" BitOffset="0" /></Parameter>\n')
+        'Access="ReadWrite" Value="2"><Memory CodeSegment="' + segment + '" Offset="121" BitOffset="0" /></Parameter>\n')
     refs = '<ParameterRef Id="{p}_P-1_R-1" RefId="{p}_P-1" />\n<ParameterRef Id="{p}_P-2_R-1" RefId="{p}_P-2" />\n'
     # The objects 0 to 2 of the object table of the static data: the program's own.
     objects = ''.join('<ComObject Id="{p}_O-%d" Name="Allgemein%d" Text="Allgemein %d" Number="%d" ObjectSize="1 Bit" '
         % (n, n, n, n) + flags + ' />' for n in range(3))
     objrefs = ''.join('<ComObjectRef Id="{p}_O-%d_R-1" RefId="{p}_O-%d" />' % (n, n) for n in range(3))
     allocators = ('<Allocators><Allocator Id="{p}_L-1" Name="Signal_params" Start="160" maxInclusive="224" />'
-        '<Allocator Id="{p}_L-2" Name="Signal_objs" Start="10" maxInclusive="15" />'
+        '<Allocator Id="{p}_L-2" Name="Signal_objs" Start="3" maxInclusive="7" />'
         '<Allocator Id="{p}_L-3" Name="Nummer" Start="1" maxInclusive="6" />'
-        '<Allocator Id="{p}_L-4" Name="Kanal_params" Start="96" maxInclusive="120" />'
-        '<Allocator Id="{p}_L-5" Name="Kanal_objs" Start="20" maxInclusive="28" /></Allocators>\n')
+        '<Allocator Id="{p}_L-4" Name="Kanal_params" Start="128" maxInclusive="152" />'
+        '<Allocator Id="{p}_L-5" Name="Kanal_objs" Start="9" maxInclusive="17" /></Allocators>\n')
     signal = ('<ModuleDef Id="{p}_MD-1" Name="Signal"><Arguments>'
         '<Argument Id="{p}_MD-1_A-1" Name="ParamsOffsetBase" Allocates="32" />'
         '<Argument Id="{p}_MD-1_A-2" Name="ObjNumberBase" Allocates="2" />'

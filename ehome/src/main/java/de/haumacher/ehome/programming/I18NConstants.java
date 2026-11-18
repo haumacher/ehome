@@ -558,6 +558,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey1 IMAGE_UNDEFINED_OBJECT__NUMBER;
 
 	/**
+	 * @en The object {0} has group addresses, but the object table of the program holds {1} objects only: the object cannot be written.
+	 */
+	public static ResKey2 IMAGE_OBJECT_BEYOND_TABLE__NUMBER_COUNT;
+
+	/**
 	 * @en Object {0} has a size of {1} bits, which has no type code in {2}.
 	 */
 	public static ResKey3 IMAGE_OBJECT_SIZE__NUMBER_BITS_FORMAT;

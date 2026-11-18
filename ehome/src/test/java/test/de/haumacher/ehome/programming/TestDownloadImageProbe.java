@@ -9,9 +9,11 @@ import static test.de.haumacher.ehome.importer.TestEtsImport.instances;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
@@ -37,21 +39,27 @@ import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.EhomeOperationalFactory;
 import de.haumacher.ehome.model.operational.EnumerationType;
 import de.haumacher.ehome.model.operational.EnumerationValue;
+import de.haumacher.ehome.model.operational.Interface;
 import de.haumacher.ehome.model.operational.NumericType;
 import de.haumacher.ehome.model.operational.Parameter;
 import de.haumacher.ehome.model.operational.ParameterView;
 import de.haumacher.ehome.model.operational.Pointer;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.TableLocation;
+import de.haumacher.ehome.programming.DeviceChanges;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
+import de.haumacher.ehome.programming.I18NConstants;
+import de.haumacher.ehome.programming.ParameterEncoding;
 
 /**
  * Probe of the download image (issue #6) composed with the rest of the application: the image is a
  * pure function of the project data; a setting edited in the project as the device view does it
  * changes exactly the bits of its parameter and nothing else, and removing it restores the image;
- * a device of a program built from scratch (as the catalog editor builds it) has an image too.
+ * a device of a program built from scratch (as the catalog editor builds it) has an image too. An
+ * object with group addresses that the object table of the program cannot hold is an image problem;
+ * an object without one is not (haumacher/ehome #202).
  */
 @SuppressWarnings("javadoc")
 public class TestDownloadImageProbe extends BasicTestCase {
@@ -75,6 +83,54 @@ public class TestDownloadImageProbe extends BasicTestCase {
 						obj.tDelete();
 					}
 				}
+				project.tDelete();
+				tx.commit();
+			}
+		}
+	}
+
+	/**
+	 * The device "TEST Modulgerät" (1.0.1 of <code>TestModules.knxproj</code>) with the object table
+	 * of its program cut to three objects (in a transaction that is rolled back): its object 3
+	 * (Schalten of Kanal B, with group addresses) is the only problem, its object 4 (Status of Kanal
+	 * B, active without group addresses) none.
+	 */
+	public void testObjectBeyondTable() throws Exception {
+		List<TLObject> before = instances("ehome.project:Project");
+		importSample("src/test/fixtures/TestModules.knxproj");
+		List<TLObject> projects = new ArrayList<>(instances("ehome.project:Project"));
+		projects.removeAll(before);
+		assertEquals(1, projects.size());
+		TLObject project = projects.get(0);
+		KnowledgeBase kb = PersistencyLayer.getKnowledgeBase();
+		try {
+			TLObject device = DeviceChanges.devices(project).stream()
+				.filter(d -> "TEST Modulgerät".equals(d.tValueByName("name"))).findFirst().orElseThrow();
+			Set<Integer> active = new HashSet<>();
+			for (Interface placed : new DeviceConfiguration(device).getActiveInterfaces().values()) {
+				active.add(Integer.valueOf(placed.getPort().getIndex()));
+			}
+			// Object 4 is in effect without group addresses; object 3 has group addresses.
+			assertTrue(active.toString(), active.contains(Integer.valueOf(4)));
+			DownloadImage full = DownloadImage.compute(device);
+			assertEquals(full.dump(), List.of(), full.getProblems());
+			assertEquals(5, full.getObjectTable().data()[0]);
+
+			TableLocation location = DeviceConfiguration.program(device).getObjectTable();
+			CodeSegment segment = (CodeSegment) location.getSegment();
+			try (Transaction tx = kb.beginTransaction()) {
+				byte[] data = ParameterEncoding.toBytes(segment.getData());
+				data[location.getOffset()] = 3;
+				segment.setData(BinaryDataFactory.createBinaryData(data));
+
+				DownloadImage cut = DownloadImage.compute(device);
+				assertEquals(List.of(I18NConstants.IMAGE_OBJECT_BEYOND_TABLE__NUMBER_COUNT
+					.fill(Integer.valueOf(3), Integer.valueOf(3))).toString(), cut.getProblems().toString());
+				// Not committed: the program keeps its table.
+			}
+			assertEquals(List.of(), DownloadImage.compute(device).getProblems());
+		} finally {
+			try (Transaction tx = kb.beginTransaction()) {
 				project.tDelete();
 				tx.commit();
 			}
