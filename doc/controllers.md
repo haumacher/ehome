@@ -240,6 +240,31 @@ encodings) and `connection.InstallationKeys` (the keys of a project and the rota
   during a rotation the new one) with the one the controller's Settings page shows before accepting
   a key; the device's key in the controller's detail.
 
+## Deploying an earlier state
+
+"Deploy again" on an entry of the deployment table (haumacher/ehome #192, `Deployer.redeploy`)
+compiles the image of that deployment once more from the versioned knowledge base: the project as of
+the entry's state (`Deployer.state`, the historic objects of that revision through
+`WrapperHistoryUtils.getWrapper`, the master data they reach included), with the time of the earlier
+image, the next revision and the key the controller holds now. It is compared, confirmed, checked
+(format, slot, signature) and recorded as "Deploy" is; the record's message starts with "From
+deployment <revision> of <time>". The stored binary `image` of the newest accepted deployment stays
+for the automatic resend of #176 and is not used.
+
+- **The state** of a deployment is the commit its image was compiled from, kept with the record
+  (`Deployment#sourceRevision`): the compile and the record are not one commit apart (the controller
+  is asked and the image sent in between, while others may commit). A deployment that went back to an
+  earlier one keeps that one's commit and refers to it (`Deployment#redeployedFrom`, shown as
+  "Deployed again from"); its image carries the time of the first, so it can be deployed again in
+  turn. An entry recorded before #192 has the revision before its record; an entry that sent an
+  earlier image again (#176) has none.
+- **What is compiled historically.** The whole `RuntimeImage.build`: navigation, the referers of a
+  historic object (`tReferers`, e.g. the connections of an address), the derived attributes and the
+  caches (`ImageCache`, `ObjectsInEffect`, keyed by the object's id, which carries the revision) all
+  answer in that revision, with the reader's access rights as for current objects (the image does not
+  depend on them). Refusals of such an image are recorded against the objects as they are now (or
+  none, for an object deleted since).
+
 ## Forgetting a controller
 
 "Vergessen" (project tab, or "Löschen" in the E-Home administrators' list for a controller without a project) asks, then deletes the controller with its

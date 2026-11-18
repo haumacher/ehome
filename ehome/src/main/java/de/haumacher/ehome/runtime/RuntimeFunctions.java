@@ -66,6 +66,19 @@ public class RuntimeFunctions extends GenericMethod {
 		 */
 		deploymentConfirmation,
 		/**
+		 * <code>redeploymentVeto(project, deployment)</code>: why the given deployment of the project
+		 * cannot be deployed again now, as text; <code>null</code> if it can
+		 * ({@link Deployer#redeployVeto(TLObject, TLObject)}, haumacher/ehome #192).
+		 */
+		redeploymentVeto,
+		/**
+		 * <code>redeploymentConfirmation(project, deployment)</code>: the question asked before the
+		 * image of the given deployment is deployed again, naming the revision and time it goes back
+		 * to, with what differs from the image the controller stores
+		 * ({@link ImageComparison#redeployConfirmation(TLObject, TLObject)}).
+		 */
+		redeploymentConfirmation,
+		/**
 		 * <code>unloadConfirmation(project)</code>: the question asked before the image of the
 		 * project's controller is unloaded, with what the controller runs
 		 * ({@link ControllerStatus#drift(TLObject)}).
@@ -285,6 +298,15 @@ public class RuntimeFunctions extends GenericMethod {
 			case deploymentConfirmation:
 				return Deployer.veto(obj) != null ? resources.getString(Deployer.veto(obj))
 					: ImageComparison.confirmation(obj, Instant.now());
+			case redeploymentVeto: {
+				ResKey veto = Deployer.redeployVeto(obj, arguments[1] instanceof TLObject earlier ? earlier : null);
+				return veto == null ? null : resources.getString(veto);
+			}
+			case redeploymentConfirmation: {
+				TLObject earlier = arguments[1] instanceof TLObject deployment ? deployment : null;
+				ResKey veto = Deployer.redeployVeto(obj, earlier);
+				return veto != null ? resources.getString(veto) : ImageComparison.redeployConfirmation(obj, earlier);
+			}
 			case unloadConfirmation:
 				return Deployer.veto(obj) != null ? resources.getString(Deployer.veto(obj))
 					: resources.getString(I18NConstants.CONFIRM_UNLOAD__CONTROLLER
@@ -525,7 +547,8 @@ public class RuntimeFunctions extends GenericMethod {
 		public RuntimeFunctions build(Expr expr, SearchExpression[] args) throws ConfigurationException {
 			int arity = _function == Function.runtimeTimeMasterProblem ? 3
 				: _function == Function.runtimeDatapointIdProblem || _function == Function.runtimeParameterIdProblem
-					|| _function == Function.groupAddressIdentifierProblem || _function == Function.runtimeLabelProblem ? 2
+					|| _function == Function.groupAddressIdentifierProblem || _function == Function.runtimeLabelProblem
+					|| _function == Function.redeploymentVeto || _function == Function.redeploymentConfirmation ? 2
 					: 1;
 			checkArgs(expr, args, arity, arity);
 			return new RuntimeFunctions(getConfig().getName(), _function, args);

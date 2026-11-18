@@ -212,6 +212,8 @@
 					<provider kind="MODEL" type="ehome.runtime:RuleStateDatapoint" implementation="de.haumacher.ehome.runtime.RuleLabelProvider"/>
 					<provider kind="MODEL" type="ehome.runtime:RuleState" implementation="de.haumacher.ehome.runtime.RuleLabelProvider"/>
 					<provider kind="MODEL" type="ehome.runtime:TimelinePlan" implementation="de.haumacher.ehome.runtime.RuleLabelProvider"/>
+					<!-- A deployment by its revision and time (haumacher/ehome #192: the deployment an entry went back to). -->
+					<provider kind="MODEL" type="ehome.runtime:Deployment" implementation="de.haumacher.ehome.runtime.DeploymentLabelProvider"/>
 					<!-- An area or a line without a name (ETS 6 writes none) by its address (haumacher/ehome #168). -->
 					<provider kind="MODEL" type="ehome.physical:Area" implementation="de.haumacher.ehome.knx.TopologyLabelProvider"/>
 					<provider kind="MODEL" type="ehome.physical:Line" implementation="de.haumacher.ehome.knx.TopologyLabelProvider"/>

@@ -17,7 +17,9 @@
 	#47) and asks, naming what differs or that nothing does; it then sends the binary image (PUT
 	/api/image) with the revision after the last loaded one and records the outcome; a refusal is an
 	outcome, shown in the table, not a failure. An image the controller does not load leaves it without
-	one: E-Home then sends the last valid deployment again, recorded as an entry of its own. "Unload" removes the image from the controller (DELETE /api/image)
+	one: E-Home then sends the last valid deployment again, recorded as an entry of its own. "Deploy again"
+	sends the image of the selected deployment, compiled from the project as it was then (the versioned
+	knowledge base, haumacher/ehome #192), with the next revision. "Unload" removes the image from the controller (DELETE /api/image)
 	after a confirmation naming what it runs, recorded as a deployment marked as an unload. "Status"
 	compares what the controller runs (GET /api/status) with the last deployment.
 
@@ -325,6 +327,56 @@
 											</with-result>
 										</deploy-runtime-image>
 									</generic-command>
+									<!--
+										The image of the selected deployment again (haumacher/ehome #192): compiled from the project
+										as of the state of that deployment (de.haumacher.ehome.runtime.Deployer#redeploy), with the
+										next revision and the key the controller holds now; compared, confirmed and recorded as
+										"Deploy" does, the record naming the deployment it goes back to.
+									-->
+									<generic-command
+										image="css:bi bi-clock-history"
+										inputs="deployment, project"
+										placement="TOOLBAR"
+									>
+										<label>
+											<en>Deploy again</en>
+											<de>Erneut bereitstellen</de>
+										</label>
+										<tooltip>
+											<en>Sends the runtime image of the selected deployment again, compiled from the project as it was then, after showing what differs from the image the controller holds. It carries the next revision.</en>
+											<de>Sendet das Laufzeitabbild der ausgewählten Bereitstellung erneut, erzeugt aus dem Projekt, wie es damals war, nachdem angezeigt wurde, was sich vom gespeicherten Abbild des Controllers unterscheidet. Es trägt die nächste Revision.</de>
+										</tooltip>
+										<access>
+											<operation name="Write"
+												object="$project"
+												type="ehome.project:Project"
+											/>
+										</access>
+										<executability>
+											<null-input-disabled/>
+											<disabled-if expr="redeploymentVeto($project, $deployment)"/>
+										</executability>
+										<confirm expr="redeploymentConfirmation($project, $deployment)"/>
+										<redeploy-runtime-image>
+											<with-result>
+												<write-channel name="deployment"/>
+												<if test="$result.get(`ehome.runtime:Deployment#accepted`)">
+													<then>
+														<notify
+															expr="$result.get(`ehome.runtime:Deployment#message`)"
+															kind="info"
+														/>
+													</then>
+													<else>
+														<notify
+															expr="$result.get(`ehome.runtime:Deployment#message`)"
+															kind="warning"
+														/>
+													</else>
+												</if>
+											</with-result>
+										</redeploy-runtime-image>
+									</generic-command>
 									<generic-command
 										image="css:bi bi-eject"
 										inputs="project"
@@ -459,6 +511,7 @@
 									<columns>
 										<column attribute="time"/>
 										<column attribute="revision"/>
+										<column attribute="redeployedFrom"/>
 										<column attribute="unload"/>
 										<column attribute="target"/>
 										<column attribute="accepted"/>
@@ -486,6 +539,9 @@
 									withEditMode="false"
 								>
 									<field attribute="message"/>
+									<!-- The deployment this one went back to, and the commit its image was compiled from (haumacher/ehome #192). -->
+									<field attribute="redeployedFrom"/>
+									<field attribute="sourceRevision"/>
 									<field attribute="keyFingerprint"/>
 									<field attribute="signature"/>
 									<field attribute="before"/>

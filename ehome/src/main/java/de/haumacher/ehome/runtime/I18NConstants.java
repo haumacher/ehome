@@ -2195,6 +2195,51 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey2 COMMIT_UNLOAD_FAILED__PROJECT_CONTROLLER;
 
 	/**
+	 * @en Select a deployment of the project.
+	 */
+	public static ResKey ERROR_REDEPLOY_NO_DEPLOYMENT;
+
+	/**
+	 * @en An unload carries no image: select a deployment.
+	 */
+	public static ResKey ERROR_REDEPLOY_UNLOAD;
+
+	/**
+	 * @en This entry sent the image of revision {0} again and compiled none of its own: deploy the deployment of revision {0} again.
+	 */
+	public static ResKey1 ERROR_REDEPLOY_RESENT__REVISION;
+
+	/**
+	 * @en The history of the database no longer reaches back to commit {0}, the state of this deployment.
+	 */
+	public static ResKey1 ERROR_REDEPLOY_HISTORY_GONE__COMMIT;
+
+	/**
+	 * @en The project did not exist yet at commit {0}, the state of this deployment.
+	 */
+	public static ResKey1 ERROR_REDEPLOY_NO_PROJECT__COMMIT;
+
+	/**
+	 * @en From deployment {0} of {1}.
+	 */
+	public static ResKey2 REDEPLOY_FROM__REVISION_TIME;
+
+	/**
+	 * @en Deployment {0} of {1}
+	 */
+	public static ResKey2 DEPLOYMENT_LABEL__REVISION_TIME;
+
+	/**
+	 * @en Deploy the image of deployment {0} of {1} again to {3}, as revision {2}? It is compiled from the project as it was then.
+	 */
+	public static ResKey4 CONFIRM_REDEPLOY__REVISION_TIME_NEXT_CONTROLLER;
+
+	/**
+	 * @en Nothing to deploy: the controller stores revision {0} of this project, identical to the image of this deployment.
+	 */
+	public static ResKey1 COMPARE_IDENTICAL_EARLIER__REVISION;
+
+	/**
 	 * @en Function deleted: {0}
 	 */
 	public static ResKey1 COMMIT_FUNCTION_DELETED__FUNCTION;
