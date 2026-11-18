@@ -249,6 +249,20 @@ public class TestGroupMonitor extends BasicTestCase {
 		monitor.setSending(false);
 		TLObject recording = monitor.startRecording("Test");
 		assertTrue(((Collection<?>) project.tValueByName("recordings")).contains(recording));
+		// A snapshot on a thread without a context of the application while the recording runs (the
+		// timer that ends the freshness of a row, the state callbacks of a link): its status names the
+		// recording without reading the knowledge base.
+		java.util.concurrent.atomic.AtomicReference<Object> recordingStatus = new java.util.concurrent.atomic.AtomicReference<>();
+		Thread plain = new Thread(() -> {
+			try {
+				recordingStatus.set(monitor.snapshot().get("recordingStatus"));
+			} catch (RuntimeException ex) {
+				recordingStatus.set(ex);
+			}
+		});
+		plain.start();
+		plain.join();
+		assertTrue(String.valueOf(recordingStatus.get()), String.valueOf(recordingStatus.get()).contains("Test"));
 		link.write(ACTUATOR, SWITCH, 0x01);
 		// The thread of a real link has no context of the application.
 		link.writeFromLinkThread(TASTSENSOR, temperature, 0x0C, 0x33);

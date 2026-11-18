@@ -131,6 +131,13 @@ public class GroupMonitor {
 
 	private TLObject _recording;
 
+	/**
+	 * The name of {@link #_recording}, kept as text: a snapshot is built on threads without a context
+	 * of the application (the timer of the fresh rows, the callbacks of a link), where the knowledge
+	 * base cannot be read.
+	 */
+	private String _recordingName;
+
 	private int _recorded;
 
 	/** The {@link BusTelegram}s and {@link LinkEvent}s of the running recording not stored yet. */
@@ -793,6 +800,7 @@ public class GroupMonitor {
 				_context = ThreadContextManager.getSubSession();
 			}
 			_recording = recording;
+			_recordingName = recordingName;
 			_recorded = 0;
 			_pending.clear();
 		}
@@ -823,6 +831,7 @@ public class GroupMonitor {
 				Logger.error("Ending the recording failed.", ex, GroupMonitor.class);
 			}
 			_recording = null;
+			_recordingName = null;
 			_pending.clear();
 		}
 		changed();
@@ -982,7 +991,7 @@ public class GroupMonitor {
 			result.put("sendingStatus",
 				resources.getString(_sending ? I18NConstants.SENDING_ALLOWED : I18NConstants.SENDING_LOCKED));
 			result.put("recordingStatus", resources.getString(_recording == null ? I18NConstants.RECORDING_NONE
-				: I18NConstants.RECORDING_RUNNING__NAME_COUNT.fill(_recording.tValueByName("name"),
+				: I18NConstants.RECORDING_RUNNING__NAME_COUNT.fill(_recordingName,
 					Integer.valueOf(_recorded + _pending.size()))));
 			result.put("logStatus", _pausedLog == null ? null : resources.getString(I18NConstants.LOG_PAUSED));
 			long now = System.currentTimeMillis();
