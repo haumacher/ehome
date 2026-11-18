@@ -185,7 +185,7 @@ public class DeviceChanges {
 			effective = referenceRevision(device) != null ? Reference.DEVICE : Reference.DEFAULT;
 		}
 		CacheKey key = new CacheKey(device, effective, device.tValueByName("lastModified"),
-			device.tValueByName("downloadRevision"), HistoryUtils.getLastRevision().getCommitNumber());
+			device.tValueByName("downloadRevision"), HistoryUtils.getSessionRevision().getCommitNumber());
 		synchronized (CACHE) {
 			DeviceChanges cached = CACHE.get(key);
 			if (cached != null) {
@@ -235,9 +235,9 @@ public class DeviceChanges {
 			return HistoryUtils.getRevision(number.longValue());
 		}
 		long created = device.tHandle().getCreateCommitNumber();
-		Revision last = HistoryUtils.getLastRevision();
-		if (created <= 0 || created > last.getCommitNumber()) {
-			// Not committed yet.
+		Revision seen = HistoryUtils.getSessionRevision();
+		if (created <= 0 || created > seen.getCommitNumber()) {
+			// Not committed yet, or after the revision the caller sees.
 			return null;
 		}
 		Revision creation = HistoryUtils.getRevision(created);

@@ -21,6 +21,7 @@ import junit.framework.Test;
 import test.com.top_logic.basic.BasicTestCase;
 import test.com.top_logic.basic.module.ServiceTestSetup;
 import test.com.top_logic.knowledge.KBSetup;
+import test.de.haumacher.ehome.history.OlderView;
 import test.de.haumacher.ehome.importer.SharedData;
 import test.de.haumacher.ehome.security.AccountFixture;
 
@@ -338,6 +339,19 @@ public class TestRedeployment extends BasicTestCase {
 				}
 			} finally {
 				SharedData.deleteProjects(List.of(other));
+			}
+
+			// A deployment by a thread whose view is older than the last commit (haumacher/ehome #199): its
+			// state is the revision its image was compiled from, resolvable in that thread.
+			List<TLObject> elsewhere = new ArrayList<>();
+			try {
+				OlderView.run(() -> elsewhere.add(TestRuleAuthoring.createProject()), view -> {
+					Deployer.State lateState = Deployer.state(Deployer.deploy(project, T_C));
+					assertEquals(view, lateState.commit());
+					assertNotNull(Deployer.source(project, lateState));
+				});
+			} finally {
+				SharedData.deleteProjects(elsewhere);
 			}
 		} finally {
 			SharedData.deleteProjects(projects);

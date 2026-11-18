@@ -250,8 +250,8 @@ public final class Deployer {
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
-		// The state the image is compiled from: the last commit before the project is read.
-		State state = new State(HistoryUtils.getLastRevision().getCommitNumber(), now);
+		// The state the image is compiled from: the revision the reader sees (its session revision).
+		State state = new State(HistoryUtils.getSessionRevision().getCommitNumber(), now);
 		return deploy(project, project, state, null, now);
 	}
 
@@ -368,7 +368,7 @@ public final class Deployer {
 		// before the status is read).
 		boolean compiled = deployment.tValueByName("before") != null || CODE_INVALID.equals(deployment.tValueByName("code"));
 		long created = deployment.tHandle().getCreateCommitNumber();
-		if (!compiled || created <= 0 || created > HistoryUtils.getLastRevision().getCommitNumber()) {
+		if (!compiled || created <= 0 || created > HistoryUtils.getSessionRevision().getCommitNumber()) {
 			return null;
 		}
 		return new State(created - 1, time);

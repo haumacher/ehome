@@ -4,31 +4,26 @@
 package de.haumacher.ehome.programming;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.module.ConfiguredManagedClass;
 import com.top_logic.basic.module.ServiceDependencies;
 import com.top_logic.basic.module.TypedRuntimeModule;
-import com.top_logic.dob.identifier.ObjectKey;
+import com.top_logic.element.meta.kbbased.WrapperMetaAttributeUtil;
 import com.top_logic.knowledge.objects.KnowledgeAssociation;
 import com.top_logic.knowledge.objects.KnowledgeItem;
 import com.top_logic.knowledge.service.CommitActions;
-import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.KnowledgeBase;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.event.Modification;
 import com.top_logic.knowledge.service.event.ModificationListener;
 import com.top_logic.knowledge.service.event.PendingChanges;
-import com.top_logic.knowledge.wrap.WrapperHistoryUtils;
 import com.top_logic.model.TLObject;
+import com.top_logic.model.util.TLModelUtil;
 import com.top_logic.util.model.ModelService;
 
 import de.haumacher.ehome.calculation.DeviceCalculations;
-import de.haumacher.ehome.knx.ExtIds;
 import de.haumacher.ehome.modules.ModuleInstances;
 
 /**
@@ -38,8 +33,8 @@ import de.haumacher.ehome.modules.ModuleInstances;
  * as for a device created in E-Home.
  *
  * <p>
- * A {@link ModificationListener} of the knowledge base: it compares the program assignment of each
- * updated device with its value at the last commit (its historic version) and updates the device in the
+ * A {@link ModificationListener} of the knowledge base: a device whose program reference the
+ * transaction sets (a new link of <code>Device#program</code>) is updated in the
  * {@link Modification} it returns, which runs within the commit. A calculation that cannot be
  * evaluated or fails refuses the commit with its reason, so the program change is rolled back with it.
  * A device created in the transaction is computed by its creator.
@@ -88,29 +83,19 @@ public class ProgramChanges extends ConfiguredManagedClass<ProgramChanges.Config
 
 	@Override
 	public Modification createModification(KnowledgeBase kb, CommitActions actions, PendingChanges changes) {
-		// The program reference may be stored in a link (a new one is created) or in the device (updated).
-		Set<TLObject> candidates = new LinkedHashSet<>();
-		for (Map<ObjectKey, ? extends KnowledgeItem> items : List.of(changes.getUpdated(), changes.getCreated())) {
-			for (KnowledgeItem item : items.values()) {
-				KnowledgeItem owner = item instanceof KnowledgeAssociation link ? link.getSourceObject() : item;
-				if (owner != null && !changes.getCreated().containsKey(owner.tId())
-					&& owner.getWrapper() instanceof TLObject device && ExtIds.isA(device, DEVICE)) {
-					candidates.add(device);
-				}
-			}
-		}
+		// The program of a device changed in this transaction exactly when the transaction creates a
+		// link of the reference Device#program (setting the reference replaces its link). A device
+		// created in the transaction is computed by its creator.
+		KnowledgeItem programPart = TLModelUtil.findPart(DEVICE + "#" + PROGRAM).tHandle();
 		List<TLObject> changed = new ArrayList<>();
-		for (TLObject device : candidates) {
-			if (!device.tValid()) {
-				continue;
-			}
-			Object after = device.tValueByName(PROGRAM);
-			// The program the device had at the last commit (its historic version).
-			TLObject historic = WrapperHistoryUtils.getWrapper(HistoryUtils.getLastRevision(), device);
-			Object before = historic == null ? null : historic.tValueByName(PROGRAM);
-			if (before instanceof TLObject old && after instanceof TLObject now
-				&& !WrapperHistoryUtils.equalsUnversioned(old, now)) {
-				changed.add(device);
+		for (KnowledgeItem item : changes.getCreated().values()) {
+			if (item instanceof KnowledgeAssociation link
+				&& programPart.equals(link.getAttributeValue(WrapperMetaAttributeUtil.META_ATTRIBUTE_ATTR))) {
+				KnowledgeItem source = link.getSourceObject();
+				if (source != null && !changes.getCreated().containsKey(source.tId())
+					&& source.getWrapper() instanceof TLObject device && !changed.contains(device)) {
+					changed.add(device);
+				}
 			}
 		}
 		if (changed.isEmpty()) {

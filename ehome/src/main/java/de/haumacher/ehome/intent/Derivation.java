@@ -360,7 +360,7 @@ public final class Derivation {
 
 	private Derivation(TLObject project) {
 		_project = project;
-		_revision = HistoryUtils.getLastRevision().getCommitNumber();
+		_revision = HistoryUtils.getSessionRevision().getCommitNumber();
 		_marks = ExtIds.list(project, "derivedParts");
 		for (Phase phase : Phase.values()) {
 			_operations.put(phase, new ArrayList<>());
@@ -376,11 +376,11 @@ public final class Derivation {
 	}
 
 	/**
-	 * The plan of the derivation of the project, cached for the last revision of the knowledge base
+	 * The plan of the derivation of the project, cached for the revision the caller sees (its session revision)
 	 * (the problems of the functions and controls shown in their tables).
 	 */
 	public static Derivation of(TLObject project) {
-		long revision = HistoryUtils.getLastRevision().getCommitNumber();
+		long revision = HistoryUtils.getSessionRevision().getCommitNumber();
 		synchronized (CACHE) {
 			Derivation cached = CACHE.get(project);
 			if (cached != null && cached._revision == revision && cached._resources == Resources.getInstance()) {
