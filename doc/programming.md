@@ -76,6 +76,31 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   written is still to be verified per mask on hardware.
 - "Physikalische Adresse programmieren": writes the device's individual address into the one device
   whose programming button is pressed.
+- Several devices one after another (haumacher/ehome #200): in the toolbar of the tree of the devices,
+  "Programmieren" for the devices of the selection (an area, a line or a building part stands for its
+  devices; stubs without a program are left out) and "Alle mit Änderungen" for every device of the
+  project with `downloadPending` open the dialog "Geräte programmieren"
+  (`projects/download-queue.view.xml`). It lists the devices by individual address, each with "Nur
+  Parameter" preset as the single download presets it (`parametersOnlyByDefault`: a device whose
+  program is not loaded gets the full download), changeable per row while the device waits and its
+  program allows it, or for all waiting devices at once ("Alle vollständig", "Alle nur Parameter").
+  "Starten" asks for a confirmation (number of devices, path, how many of each kind) and works through
+  the waiting devices as one job (`DownloadQueue`, `DownloadQueueJob`): strictly one after another on
+  the project's path, one connection and one device at a time, each download planned, vetoed,
+  performed and recorded exactly as a single one (`DownloadRecord`). Each row shows its state (Wartet,
+  Läuft with the operation, Fertig with operations and duration, Fehlgeschlagen with the reason,
+  Storniert, Abgebrochen with the operation it stopped before); a failure does not stop the queue, and a
+  device not reached keeps its pending state. "Stornieren" takes the selected waiting devices out,
+  "Alle wartenden stornieren" all of them, untouched; "Abbrechen" stops the running download before
+  its next operation and the queue goes on; the cancel of the job's display aborts the running download
+  and cancels the waiting ones. The queue is runtime state of the dialog (no model); the job holds the
+  dialog open until it ends. The commands check Write on the project, whose devices they all are.
+- The downloads of a project run one at a time (`DownloadLock`, haumacher/ehome #200): a single
+  download of any kind and the queue hold the project's lock while they run; another download of the
+  project is refused with what holds it ("Der Download in … läuft", "Die Programmierung von n Geräten
+  des Projekts läuft"), as the veto of its command (the channel `busState` follows the lock) and at the
+  start of the job. Comparison, read-out and device info do not take the lock (they never write);
+  through a controller they are refused anyway while a bus session is open.
 - One job of the tab at a time (haumacher/ehome #161): its progress is shown with the device it was
   started for only (the channel `jobDevice`), and the commands of every device say "Der Auftrag für …
   läuft noch" while it runs. The vetoes of the commands read runtime state no model event reflects

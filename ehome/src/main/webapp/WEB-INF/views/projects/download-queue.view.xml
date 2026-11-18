@@ -1,0 +1,332 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog "Program" of the area "Devices" of a project (haumacher/ehome #200): programs several devices one
+	after another over the project's path to the bus, each with a full download or the parameters only
+	(haumacher/ehome #195). Opened by "Program" for the devices of the selection in the tree (the devices
+	below a selected area, line or building part count) and by "All with changes" for the devices of the
+	project needing a download.
+
+	"queue" is the de.haumacher.ehome.programming.download.DownloadQueue, runtime state of this dialog (no
+	model); "project" its project. The functions downloadQueue* are
+	de.haumacher.ehome.programming.download.DownloadQueueFunctions. Each row is a device: its kind
+	("Parameters only", preset by the state of the device, changeable while it waits, per row or for all
+	at once), its state (waiting, running, done, failed, cancelled, aborted) and the details (the operation
+	running, the outcome, the reason of a failure).
+
+	"Start" works through the waiting devices as one job (DownloadQueueJob), strictly one after another,
+	one connection and one device at a time; a failure does not stop it. Each download is recorded as a
+	single one. While it runs, the project's other downloads are refused (DownloadLock), and a single
+	download running refuses the start. "Cancel" takes the selected waiting devices out, "Cancel all
+	waiting" every waiting one, untouched; "Abort" stops the running download before its next operation
+	and goes on with the next device. The cancel of the job's display aborts the running download and
+	cancels the waiting ones. The job holds the dialog until it ends.
+
+	The commands changing the queue change no model; they return the queue's version, written into
+	"changes", which the cells of the table follow, as they follow the job's reports.
+-->
+<view>
+	<channels>
+		<channel name="queue"/>
+		<channel name="project"/>
+		<channel name="queueJob"/>
+		<!-- The version of the queue after a command changed it. -->
+		<channel name="changes"/>
+		<!-- The rows selected in the table: one entry, the set of several, or nothing. -->
+		<channel name="selected"/>
+		<!-- Re-decides "Start" when a bus session, a controller or a download of the project changes (BusStateSource). -->
+		<source-channel name="busState"
+			update-interval="500"
+		>
+			<source class="de.haumacher.ehome.programming.download.BusStateSource"/>
+		</source-channel>
+		<derived-channel name="gateway"
+			expr='#("Path to the bus: {0}"@en, "Weg zum Bus: {0}"@de).fill(if(busPath($project) == null, "-", busPath($project))).localize()'
+			inputs="project"
+			observed-types="ehome.project:Project"
+		/>
+	</channels>
+	<window width="1200px">
+		<title>
+			<en>Program devices</en>
+			<de>Geräte programmieren</de>
+		</title>
+		<inset>
+			<panel>
+				<title>
+					<en>Devices</en>
+					<de>Geräte</de>
+				</title>
+				<commands>
+					<generic-command
+						image="css:bi bi-play-fill"
+						inputs="queue, project, busState, queueJob, changes"
+						observed-types="ehome.project:Project"
+						placement="TOOLBAR"
+					>
+						<label>
+							<en>Start</en>
+							<de>Starten</de>
+						</label>
+						<tooltip>
+							<en>Downloads into the waiting devices one after another through the project's gateway or controller, each as chosen: everything, or the parameters only. A device does not work until its download is complete.</en>
+							<de>Lädt nacheinander in die wartenden Geräte über das Gateway oder den Controller des Projekts, jedes wie gewählt: alles oder nur die Parameter. Ein Gerät arbeitet erst wieder, wenn sein Download abgeschlossen ist.</de>
+						</tooltip>
+						<access>
+							<operation name="Write"
+								object="$project"
+								type="ehome.project:Project"
+							/>
+						</access>
+						<executability>
+							<null-input-disabled/>
+							<disabled-if expr="downloadQueueStartVeto($queue)"/>
+						</executability>
+						<confirm expr="downloadQueueConfirmation($queue)"/>
+						<start-job
+							cancelable="true"
+							job="queueJob"
+							update-interval="250"
+						>
+							<inputs>
+								<input channel="queue"/>
+							</inputs>
+							<body class="de.haumacher.ehome.programming.download.DownloadQueueJob"/>
+						</start-job>
+					</generic-command>
+					<generic-command
+						image="css:bi bi-stop-circle"
+						inputs="queue, project, queueJob, changes"
+						placement="TOOLBAR"
+					>
+						<label>
+							<en>Abort</en>
+							<de>Abbrechen</de>
+						</label>
+						<tooltip>
+							<en>Stops the running download before its next operation; the device stays without a complete download. The next waiting device follows.</en>
+							<de>Hält den laufenden Download vor seiner nächsten Operation an; das Gerät bleibt ohne vollständigen Download. Das nächste wartende Gerät folgt.</de>
+						</tooltip>
+						<access>
+							<operation name="Write"
+								object="$project"
+								type="ehome.project:Project"
+							/>
+						</access>
+						<executability>
+							<null-input-disabled/>
+							<disabled-if expr="downloadQueueAbortVeto($queue)"/>
+						</executability>
+						<execute-script function="downloadQueueAbort($queue)">
+							<with-result>
+								<write-channel name="changes"/>
+							</with-result>
+						</execute-script>
+					</generic-command>
+					<generic-command
+						image="css:bi bi-x-circle"
+						inputs="queue, project, selected, queueJob, changes"
+						placement="TOOLBAR"
+					>
+						<label>
+							<en>Cancel</en>
+							<de>Stornieren</de>
+						</label>
+						<tooltip>
+							<en>Takes the selected waiting devices out; nothing is written into them.</en>
+							<de>Nimmt die gewählten wartenden Geräte heraus; in sie wird nichts geschrieben.</de>
+						</tooltip>
+						<access>
+							<operation name="Write"
+								object="$project"
+								type="ehome.project:Project"
+							/>
+						</access>
+						<executability>
+							<disabled-if expr="downloadQueueCancelVeto($queue, $selected)"/>
+						</executability>
+						<execute-script function="downloadQueueCancel($queue, $selected)">
+							<with-result>
+								<write-channel name="changes"/>
+							</with-result>
+						</execute-script>
+					</generic-command>
+					<generic-command
+						image="css:bi bi-x-octagon"
+						inputs="queue, project, queueJob, changes"
+						placement="TOOLBAR"
+					>
+						<label>
+							<en>Cancel all waiting</en>
+							<de>Alle wartenden stornieren</de>
+						</label>
+						<tooltip>
+							<en>Takes every waiting device out; nothing is written into them. A running download goes on.</en>
+							<de>Nimmt alle wartenden Geräte heraus; in sie wird nichts geschrieben. Ein laufender Download geht weiter.</de>
+						</tooltip>
+						<access>
+							<operation name="Write"
+								object="$project"
+								type="ehome.project:Project"
+							/>
+						</access>
+						<executability>
+							<null-input-disabled/>
+							<disabled-if expr="downloadQueueChooseVeto($queue)"/>
+						</executability>
+						<execute-script function="downloadQueueCancelAll($queue)">
+							<with-result>
+								<write-channel name="changes"/>
+							</with-result>
+						</execute-script>
+					</generic-command>
+					<generic-command
+						clique="more"
+						image="css:bi bi-box-seam"
+						inputs="queue, project, queueJob, changes"
+						placement="TOOLBAR"
+					>
+						<label>
+							<en>All full</en>
+							<de>Alle vollständig</de>
+						</label>
+						<tooltip>
+							<en>Every waiting device gets the full download: the program, the parameters and the group addresses.</en>
+							<de>Jedes wartende Gerät erhält den vollständigen Download: Programm, Parameter und Gruppenadressen.</de>
+						</tooltip>
+						<access>
+							<operation name="Write"
+								object="$project"
+								type="ehome.project:Project"
+							/>
+						</access>
+						<executability>
+							<null-input-disabled/>
+							<disabled-if expr="downloadQueueChooseVeto($queue)"/>
+						</executability>
+						<execute-script function="downloadQueueSetAll($queue, false)">
+							<with-result>
+								<write-channel name="changes"/>
+							</with-result>
+						</execute-script>
+					</generic-command>
+					<generic-command
+						clique="more"
+						image="css:bi bi-sliders"
+						inputs="queue, project, queueJob, changes"
+						placement="TOOLBAR"
+					>
+						<label>
+							<en>All parameters only</en>
+							<de>Alle nur Parameter</de>
+						</label>
+						<tooltip>
+							<en>Every waiting device whose program allows it gets the download of the parameters and the group addresses without the program's code.</en>
+							<de>Jedes wartende Gerät, dessen Programm es zulässt, erhält den Download der Parameter und Gruppenadressen ohne den Code des Programms.</de>
+						</tooltip>
+						<access>
+							<operation name="Write"
+								object="$project"
+								type="ehome.project:Project"
+							/>
+						</access>
+						<executability>
+							<null-input-disabled/>
+							<disabled-if expr="downloadQueueChooseVeto($queue)"/>
+						</executability>
+						<execute-script function="downloadQueueSetAll($queue, true)">
+							<with-result>
+								<write-channel name="changes"/>
+							</with-result>
+						</execute-script>
+					</generic-command>
+				</commands>
+				<inset>
+					<stack gap="default">
+						<text input="gateway"/>
+						<job-status input="queueJob"/>
+						<table
+							edit-in-place="true"
+							selection="selected"
+							selection-mode="multi"
+						>
+							<inputs>
+								<input channel="queue"/>
+							</inputs>
+							<columns>
+								<computed-column name="device"
+									type="tl.core:String"
+									width="320"
+								>
+									<label>
+										<en>Device</en>
+										<de>Gerät</de>
+									</label>
+									<value>downloadQueueDevice($row)</value>
+								</computed-column>
+								<!-- The kind of the download: changeable while the device waits and its program allows the parameters only. -->
+								<computed-column name="parametersOnly"
+									type="tl.core:Boolean"
+									width="140"
+								>
+									<label>
+										<en>Parameters only</en>
+										<de>Nur Parameter</de>
+									</label>
+									<inputs>
+										<input channel="changes"/>
+										<input channel="queueJob"/>
+									</inputs>
+									<value>downloadQueueParametersOnly($row)</value>
+									<can-update>downloadQueueCanChoose($row)</can-update>
+									<update>downloadQueueSetParametersOnly($row, $value)</update>
+								</computed-column>
+								<computed-column name="state"
+									cell-role="downloadQueueStateRole($row)"
+									type="tl.core:String"
+									width="140"
+								>
+									<label>
+										<en>State</en>
+										<de>Zustand</de>
+									</label>
+									<inputs>
+										<input channel="changes"/>
+										<input channel="queueJob"/>
+									</inputs>
+									<value>downloadQueueState($row)</value>
+								</computed-column>
+								<computed-column name="details"
+									type="tl.core:String"
+									width="520"
+								>
+									<label>
+										<en>Details</en>
+										<de>Details</de>
+									</label>
+									<inputs>
+										<input channel="changes"/>
+										<input channel="queueJob"/>
+									</inputs>
+									<value>downloadQueueDetails($row)</value>
+									<tooltip>downloadQueueDetails($row)</tooltip>
+								</computed-column>
+							</columns>
+							<rows>if($queue == null, [], downloadQueueEntries($queue))</rows>
+						</table>
+					</stack>
+				</inset>
+			</panel>
+		</inset>
+		<actions>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand">
+					<label>
+						<en>Close</en>
+						<de>Schließen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

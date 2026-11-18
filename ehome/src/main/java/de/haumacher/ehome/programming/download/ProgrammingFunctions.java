@@ -9,6 +9,7 @@ import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
@@ -67,7 +68,10 @@ public class ProgrammingFunctions extends GenericMethod {
 		downloadProblems,
 		/** <code>downloadImageDump(device)</code>: the download image as HTML (a preformatted text). */
 		downloadImageDump,
-		/** <code>downloadVeto(device, parametersOnly?)</code>: why the download command is disabled, or nothing. */
+		/**
+		 * <code>downloadVeto(device, parametersOnly?)</code>: why the download command is disabled, or
+		 * nothing; also while another download of the project runs ({@link DownloadLock}).
+		 */
 		downloadVeto,
 		/** <code>addressVeto(device)</code>: why the address command is disabled, or nothing. */
 		addressVeto,
@@ -165,9 +169,9 @@ public class ProgrammingFunctions extends GenericMethod {
 					: "<pre>" + TagUtil.encodeXML(plan.getImage().dump(Resources.getInstance())) + "</pre>";
 			}
 			case downloadVeto:
-				return downloadVeto(device, kind);
+				return lockedOr(device, () -> downloadVeto(device, kind));
 			case addressVeto:
-				return downloadVeto(device, DownloadPlan.Kind.ADDRESS);
+				return lockedOr(device, () -> downloadVeto(device, DownloadPlan.Kind.ADDRESS));
 			case compareVeto:
 				return compareVeto(device);
 			case downloadConfirmation:
@@ -179,7 +183,7 @@ public class ProgrammingFunctions extends GenericMethod {
 			case addressConfirmation:
 				return I18NConstants.CONFIRM_ADDRESS__ADDRESS_PATH.fill(address(device), BusPath.describe(device));
 			case layoutVeto:
-				return downloadVeto(device, DownloadPlan.Kind.LAYOUT);
+				return lockedOr(device, () -> downloadVeto(device, DownloadPlan.Kind.LAYOUT));
 			case layoutConfirmation:
 				return I18NConstants.CONFIRM_LAYOUT__DEVICE_ADDRESS_GATEWAY_DIFFERENCES.fill(device.tValueByName("name"),
 					address(device), BusPath.describe(device), ModuleInstances.differenceText(device));
@@ -268,6 +272,15 @@ public class ProgrammingFunctions extends GenericMethod {
 			return I18NConstants.ERROR_REFUSED__PROBLEMS.fill(String.join(" ", problems));
 		}
 		return null;
+	}
+
+	/**
+	 * What holds the {@link DownloadLock} of the device's project (another download of the project
+	 * runs, haumacher/ehome #200), else the given veto.
+	 */
+	private static ResKey lockedOr(TLObject device, Supplier<ResKey> veto) {
+		ResKey locked = DownloadLock.veto(device);
+		return locked != null ? locked : veto.get();
 	}
 
 	/**

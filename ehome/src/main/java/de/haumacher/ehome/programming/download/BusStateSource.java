@@ -25,7 +25,8 @@ import de.haumacher.ehome.connection.ControllerConnections;
  * path to the bus can be used changes without a model change (haumacher/ehome #161): a bus session
  * through a controller opens or ends ({@link BusSessionLink#addSessionListener(Runnable)}), a
  * controller connects or disconnects, or a controller's status changes what it offers (whether it has
- * reported its status, whether its firmware has the bus session).
+ * reported its status, whether its firmware has the bus session), or a download of a project starts or
+ * ends ({@link DownloadLock}, haumacher/ehome #200).
  *
  * <p>
  * The vetoes of the commands using the bus ({@link BusPath#veto(com.top_logic.model.TLObject)}) read
@@ -94,8 +95,10 @@ public class BusStateSource implements ChannelSource {
 		};
 		BusSessionLink.addSessionListener(publish);
 		ControllerConnections.addListener(connections);
+		DownloadLock.addListener(publish);
 		publish.run();
 		return Registration.onDispose(() -> {
+			DownloadLock.removeListener(publish);
 			ControllerConnections.removeListener(connections);
 			BusSessionLink.removeSessionListener(publish);
 		});

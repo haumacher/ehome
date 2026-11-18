@@ -12,6 +12,7 @@ import com.top_logic.basic.config.annotation.Name;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.config.annotation.defaults.FormattedDefault;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.model.TLObject;
@@ -87,11 +88,20 @@ public class DownloadJob implements JobBody {
 	/**
 	 * Downloads into the device: refuses with the reason (a {@link TopLogicException}) what cannot be
 	 * started, performs the plan of the given kind through the project's path to the bus, records it
-	 * on success.
+	 * on success. Holds the project's {@link DownloadLock} meanwhile; refuses while another download of
+	 * the project runs.
 	 *
 	 * @return The report ({@link ProgrammingReport#toMap(ResKey, boolean)}).
 	 */
 	public static Object download(JobMonitor job, TLObject device, DownloadPlan.Kind kind) throws Exception {
+		// The downloads of a project run one after another (haumacher/ehome #200).
+		try (DownloadLock lock = DownloadLock.acquire(device,
+			I18NConstants.LOCK_DOWNLOAD__DEVICE.fill(MetaLabelProvider.INSTANCE.getLabel(device)))) {
+			return downloadLocked(job, device, kind);
+		}
+	}
+
+	private static Object downloadLocked(JobMonitor job, TLObject device, DownloadPlan.Kind kind) throws Exception {
 		ResKey veto = ProgrammingFunctions.downloadVeto(device, kind);
 		if (veto != null) {
 			throw new TopLogicException(veto);
