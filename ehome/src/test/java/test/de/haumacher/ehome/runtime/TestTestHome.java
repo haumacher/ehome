@@ -180,7 +180,7 @@ public class TestTestHome extends BasicTestCase {
 		}
 	}
 
-	private static void setUp(TLObject project) throws Exception {
+	static void setUp(TLObject project) throws Exception {
 		List<String> notes = RuntimeImage.build(project, 1, Instant.ofEpochSecond(START)).getNotes();
 		assertEquals(notes.toString(), 1, notes.size());
 		assertTrue(notes.get(0), notes.get(0).contains("Raumtemperatur (0/0/28)"));
@@ -204,7 +204,7 @@ public class TestTestHome extends BasicTestCase {
 		}
 	}
 
-	private static void importHome(TLObject project, Map<?, ?> sample) throws Exception {
+	static void importHome(TLObject project, Map<?, ?> sample) throws Exception {
 		String text = Json.write(sample);
 		RuleImport importer = new RuleImport();
 		RuleImport.Imported imported;
@@ -407,7 +407,7 @@ public class TestTestHome extends BasicTestCase {
 		throw new AssertionError("No object of " + device + " receives " + address);
 	}
 
-	private static String read(String path) throws Exception {
+	static String read(String path) throws Exception {
 		return Files.readString(new File(path).toPath(), StandardCharsets.UTF_8);
 	}
 

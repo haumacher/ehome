@@ -46,6 +46,12 @@ import de.haumacher.ehome.runtime.binary.Layout;
  * drop (homecontrol #58). The confirmation of a deployment warns when the controller reads no binary
  * image or the image is larger than its slot.
  * </p>
+ *
+ * <p>
+ * The image of an earlier deployment deployed again (haumacher/ehome #192) is compared the same way,
+ * compiled from the project as of that deployment ({@link Deployer#source(TLObject, Deployer.State)})
+ * with the time of its image.
+ * </p>
  */
 public final class ImageComparison {
 
@@ -95,8 +101,27 @@ public final class ImageComparison {
 	 *        The project, with a controller ({@link Deployer#controller(TLObject)}).
 	 */
 	public static Result compare(TLObject project, Instant now) {
+		return compare(project, project, now, false);
+	}
+
+	/**
+	 * Compares the image the controller of the project stores with the image compiled from the given
+	 * source.
+	 *
+	 * @param project
+	 *        The project as it is now, with a controller ({@link Deployer#controller(TLObject)}).
+	 * @param source
+	 *        The project the image is compiled from: the project itself, or its historic object of
+	 *        the state of an earlier deployment ({@link Deployer#source(TLObject, Deployer.State)},
+	 *        haumacher/ehome #192).
+	 * @param generatedAt
+	 *        The time the image carries.
+	 * @param earlier
+	 *        Whether the source is the state of an earlier deployment.
+	 */
+	public static Result compare(TLObject project, TLObject source, Instant generatedAt, boolean earlier) {
 		ControllerClient client = Deployer.client(Deployer.controller(project));
-		RuntimeImage image = RuntimeImage.build(project, Deployer.nextRevision(project), now);
+		RuntimeImage image = RuntimeImage.build(source, Deployer.nextRevision(project), generatedAt);
 		Answer answer;
 		try {
 			answer = client.getImage();
@@ -125,14 +150,14 @@ public final class ImageComparison {
 		}
 		String projectId = Objects.toString(header.get("projectId"), "");
 		Long revision = header.get("revision") instanceof Number number ? Long.valueOf(number.longValue()) : null;
-		Instant generatedAt = instant(header.get("generatedAt"));
+		Instant storedAt = instant(header.get("generatedAt"));
 		boolean sameProject = projectId.equals(image.getJson().get(HEADER) instanceof Map<?, ?> own
 			? own.get("projectId") : null);
 
-		if (sameProject && revision != null && generatedAt != null
-			&& Json.write(stored).equals(Json.write(view(RuntimeImage.build(project, revision.longValue(), generatedAt))))) {
-			return new Result(State.IDENTICAL, revision,
-				text(I18NConstants.COMPARE_IDENTICAL__REVISION.fill(revision)));
+		if (sameProject && revision != null && storedAt != null
+			&& Json.write(stored).equals(Json.write(view(RuntimeImage.build(source, revision.longValue(), storedAt))))) {
+			return new Result(State.IDENTICAL, revision, text((earlier ? I18NConstants.COMPARE_IDENTICAL_EARLIER__REVISION
+				: I18NConstants.COMPARE_IDENTICAL__REVISION).fill(revision)));
 		}
 
 		Map<?, ?> next = view(image);
@@ -344,16 +369,41 @@ public final class ImageComparison {
 	public static String confirmation(TLObject project, Instant now) {
 		TLObject controller = Deployer.controller(project);
 		Long next = Long.valueOf(Deployer.nextRevision(project));
-		Result result = compare(project, now);
+		return confirmation(project, project, now, false,
+			I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(next, controller.tValueByName("name")));
+	}
+
+	/**
+	 * The question asked before the image of an earlier deployment of the project is deployed again
+	 * (haumacher/ehome #192): naming the revision and time it goes back to, with what differs from
+	 * the image the controller runs and the warnings of {@link #confirmation(TLObject, Instant)}.
+	 *
+	 * @param earlier
+	 *        The deployment to deploy again, one {@link Deployer#redeployVeto(TLObject, TLObject)}
+	 *        admits.
+	 */
+	public static String redeployConfirmation(TLObject project, TLObject earlier) {
+		TLObject controller = Deployer.controller(project);
+		Long next = Long.valueOf(Deployer.nextRevision(project));
+		Deployer.State state = Deployer.state(earlier);
+		return confirmation(project, Deployer.source(project, state), state.generatedAt(), true,
+			I18NConstants.CONFIRM_REDEPLOY__REVISION_TIME_NEXT_CONTROLLER.fill(earlier.tValueByName("revision"),
+				Deployer.time(earlier.tValueByName("time")), next, controller.tValueByName("name")));
+	}
+
+	private static String confirmation(TLObject project, TLObject source, Instant generatedAt, boolean earlier,
+			ResKey question) {
+		TLObject controller = Deployer.controller(project);
+		Long next = Long.valueOf(Deployer.nextRevision(project));
+		Result result = compare(project, source, generatedAt, earlier);
 		String text;
 		if (result.state() == State.IDENTICAL) {
 			text = result.text() + "\n" + text(I18NConstants.CONFIRM_DEPLOY_AGAIN__REVISION.fill(next));
 		} else {
-			text = text(I18NConstants.CONFIRM_DEPLOY__REVISION_CONTROLLER.fill(next, controller.tValueByName("name")))
-				+ "\n\n" + result.text();
+			text = text(question) + "\n\n" + result.text();
 		}
 		// The datapoints the inhabitant's pages will show by their id, having no name (haumacher/ehome #114).
-		RuntimeImage image = RuntimeImage.build(project, next.longValue(), now);
+		RuntimeImage image = RuntimeImage.build(source, next.longValue(), generatedAt);
 		List<String> unnamed = new ArrayList<>();
 		for (ResKey warning : UnnamedDatapoints.warnings(image.getJson())) {
 			unnamed.add(text(warning));

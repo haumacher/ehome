@@ -312,6 +312,32 @@
 				<property name="keyFingerprint"
 					type="tl.core:String"
 				/>
+				<!--
+					The number of the commit whose state of the project the image was compiled from (haumacher/ehome
+					#192): "Deploy again" compiles it once more from the versioned knowledge base. Empty for an
+					unload and for an earlier image sent again; a deployment recorded before #192 has the commit
+					before its record (de.haumacher.ehome.runtime.Deployer#state).
+				-->
+				<property name="sourceRevision"
+					type="tl.core:Long"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+						<!-- Written without thousands separator. -->
+						<format>
+							<decimal pattern="0" result-type="long"/>
+						</format>
+					</annotations>
+				</property>
+				<!-- The earlier deployment of the project this one deployed again (haumacher/ehome #192); empty otherwise. -->
+				<reference name="redeployedFrom"
+					kind="forwards"
+					type="Deployment"
+				>
+					<annotations>
+						<visibility value="read-only"/>
+					</annotations>
+				</reference>
 				<!-- The number of refusals; the list holds up to the number reported. -->
 				<property name="total"
 					type="tl.core:Integer"

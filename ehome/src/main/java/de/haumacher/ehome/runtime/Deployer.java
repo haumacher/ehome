@@ -15,8 +15,11 @@ import java.util.List;
 import java.util.Map;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.Revision;
 import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.knowledge.wrap.WrapperHistoryUtils;
 import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClass;
 import com.top_logic.model.TLObject;
@@ -76,6 +79,25 @@ import de.haumacher.ehome.settings.OperatorSettings;
  * I9): E-Home then sends the last valid deployment again ({@link LastValidImages}) and records it as a
  * deployment of its own, beside the failed one; so it does when the controller reports at its
  * connection that its image was refused ({@link #resendAfterRefusal(TLObject, String, String, Instant)}).
+ * </p>
+ *
+ * <p>
+ * Every deployment can be compiled again from its own point in time (haumacher/ehome #192): the
+ * knowledge base is versioned, and the {@link #state(TLObject) state} of a deployment is the commit
+ * its image was compiled from. "Deploy again" ({@link #redeploy(TLObject, TLObject, Instant)}) compiles
+ * the image from the project as of that commit, its master data included (the historic objects of the
+ * revision, {@link WrapperHistoryUtils#getWrapper(Revision, TLObject)}), with the time of the earlier
+ * image, stamps it with the next revision and signs it with the key the controller holds now. It is
+ * recorded as a deployment of its own, its message starting with the deployment it goes back to.
+ * </p>
+ *
+ * <p>
+ * Each record keeps the commit its image was compiled from (<code>Deployment#sourceRevision</code>):
+ * the record and the compile are not one commit apart (the controller is asked and the image sent in
+ * between, while others may commit). A deployment that goes back to an earlier one keeps that one's
+ * commit and refers to it (<code>Deployment#redeployedFrom</code>), its image carrying the time of the
+ * first. A deployment recorded before haumacher/ehome #192 has the revision before its record as its
+ * state.
  * </p>
  */
 public final class Deployer {
@@ -228,12 +250,161 @@ public final class Deployer {
 		if (veto != null) {
 			throw new TopLogicException(veto);
 		}
+		// The state the image is compiled from: the last commit before the project is read.
+		State state = new State(HistoryUtils.getLastRevision().getCommitNumber(), now);
+		return deploy(project, project, state, null, now);
+	}
+
+	/**
+	 * Deploys the image of an earlier deployment of the project again (haumacher/ehome #192): the
+	 * image compiled from the project as of the {@link #state(TLObject) state} of that deployment,
+	 * with the time of its image, the next revision and the key the controller holds now. Checked,
+	 * compared, sent and recorded as {@link #deploy(TLObject, Instant)} does; the message of the
+	 * record starts with the deployment it goes back to.
+	 *
+	 * @param project
+	 *        The project, as it is now.
+	 * @param earlier
+	 *        The deployment of the project to deploy again.
+	 * @return The recorded deployment.
+	 * @throws TopLogicException
+	 *         If the deployment cannot be deployed again ({@link #redeployVeto(TLObject, TLObject)}).
+	 */
+	public static TLObject redeploy(TLObject project, TLObject earlier, Instant now) {
+		ResKey veto = redeployVeto(project, earlier);
+		if (veto != null) {
+			throw new TopLogicException(veto);
+		}
+		State state = state(earlier);
+		return deploy(project, source(project, state), state, earlier, now);
+	}
+
+	/**
+	 * Why the given deployment of the project cannot be deployed again now, <code>null</code> if it
+	 * can: the project cannot be deployed ({@link #veto(TLObject)}), the entry is no deployment of
+	 * the project, it is an unload, it sent an earlier image again (it has no state of its own), or
+	 * the history no longer reaches back to its state.
+	 */
+	public static ResKey redeployVeto(TLObject project, TLObject earlier) {
+		if (earlier == null || !earlier.tValid() || !(project.tValueByName("deployments") instanceof Collection<?> all)
+			|| !all.contains(earlier)) {
+			return I18NConstants.ERROR_REDEPLOY_NO_DEPLOYMENT;
+		}
+		ResKey veto = veto(project);
+		if (veto != null) {
+			return veto;
+		}
+		if (Boolean.TRUE.equals(earlier.tValueByName("unload"))) {
+			return I18NConstants.ERROR_REDEPLOY_UNLOAD;
+		}
+		State state = state(earlier);
+		if (state == null) {
+			return I18NConstants.ERROR_REDEPLOY_RESENT__REVISION.fill(earlier.tValueByName("revision"));
+		}
+		if (state.commit() < HistoryUtils.getHistoryManager().getFirstRevision()) {
+			return I18NConstants.ERROR_REDEPLOY_HISTORY_GONE__COMMIT.fill(Long.valueOf(state.commit()));
+		}
+		if (source(project, state) == null) {
+			return I18NConstants.ERROR_REDEPLOY_NO_PROJECT__COMMIT.fill(Long.valueOf(state.commit()));
+		}
+		return null;
+	}
+
+	/**
+	 * The state of the project a deployment compiled its image from (haumacher/ehome #192).
+	 *
+	 * @param commit
+	 *        The commit number of the revision whose project the image was compiled from.
+	 * @param generatedAt
+	 *        The time the image carries (<code>image.generatedAt</code>).
+	 */
+	public record State(long commit, Instant generatedAt) {
+		// A value.
+	}
+
+	/**
+	 * The state of the project the given deployment compiled its image from, <code>null</code> for an
+	 * entry without an image of its own: an unload, an earlier image sent again.
+	 *
+	 * <p>
+	 * The commit is the recorded <code>sourceRevision</code>; the time of the image the one of the
+	 * deployment, for a deployment that went back to an earlier one the time of that one's image. A
+	 * deployment recorded before haumacher/ehome #192 (without <code>sourceRevision</code>) has the
+	 * revision before its record as its state; one that sent an earlier image again has no state (it
+	 * read no status of the controller before, <code>before</code> is empty, and was not refused by
+	 * E-Home itself).
+	 * </p>
+	 */
+	public static State state(TLObject deployment) {
+		return state(deployment, 0);
+	}
+
+	/** The longest chain of deployments going back to earlier ones that is followed. */
+	private static final int MAX_CHAIN = 1000;
+
+	private static State state(TLObject deployment, int depth) {
+		if (deployment == null || !deployment.tValid() || depth > MAX_CHAIN
+			|| Boolean.TRUE.equals(deployment.tValueByName("unload"))) {
+			return null;
+		}
+		Instant time = deployment.tValueByName("time") instanceof Date date ? date.toInstant() : null;
+		if (time == null) {
+			return null;
+		}
+		if (deployment.tValueByName(SOURCE_REVISION) instanceof Number commit) {
+			if (deployment.tValueByName(REDEPLOYED_FROM) instanceof TLObject earlier) {
+				State origin = state(earlier, depth + 1);
+				return new State(commit.longValue(), origin != null ? origin.generatedAt() : time);
+			}
+			return new State(commit.longValue(), time);
+		}
+		// Recorded before haumacher/ehome #192: compiled right before its record, unless it sent an earlier
+		// image again, which reads no status of the controller (an image E-Home refused itself is recorded
+		// before the status is read).
+		boolean compiled = deployment.tValueByName("before") != null || CODE_INVALID.equals(deployment.tValueByName("code"));
+		long created = deployment.tHandle().getCreateCommitNumber();
+		if (!compiled || created <= 0 || created > HistoryUtils.getLastRevision().getCommitNumber()) {
+			return null;
+		}
+		return new State(created - 1, time);
+	}
+
+	/** The attribute of a deployment holding the commit its image was compiled from (haumacher/ehome #192). */
+	public static final String SOURCE_REVISION = "sourceRevision";
+
+	/** The attribute of a deployment referring to the earlier deployment it deployed again. */
+	public static final String REDEPLOYED_FROM = "redeployedFrom";
+
+	/**
+	 * The project as of the given state: the historic object of its revision, <code>null</code> if
+	 * the project did not exist then.
+	 */
+	public static TLObject source(TLObject project, State state) {
+		return WrapperHistoryUtils.getWrapper(HistoryUtils.getRevision(state.commit()), project);
+	}
+
+	/**
+	 * Deploys the image compiled from the given source.
+	 *
+	 * @param project
+	 *        The project as it is now: its controller, revision, key and deployments.
+	 * @param source
+	 *        The project the image is compiled from: the project itself, or its historic object of an
+	 *        earlier state.
+	 * @param state
+	 *        The state of the source, recorded with the deployment.
+	 * @param earlier
+	 *        The deployment deployed again, <code>null</code> for a deployment of the project as it is.
+	 */
+	private static TLObject deploy(TLObject project, TLObject source, State state, TLObject earlier, Instant now) {
 		TLObject controller = controller(project);
 		ControllerClient client = client(controller);
 		long revision = nextRevision(project);
-		RuntimeImage image = RuntimeImage.build(project, revision, now);
+		RuntimeImage image = RuntimeImage.build(source, revision, state.generatedAt());
 		ImageReport report = image.validate();
 		Outcome outcome = new Outcome();
+		outcome._state = state;
+		outcome._earlier = earlier;
 		if (!report.isValid()) {
 			outcome._code = CODE_INVALID;
 			outcome._message = text(I18NConstants.DEPLOY_REFUSED_LOCALLY__COUNT.fill(report.getRefusals().size()));
@@ -572,19 +743,25 @@ public final class Deployer {
 			deployment.tUpdateByName("accepted", Boolean.valueOf(outcome._accepted));
 			deployment.tUpdateByName("status", outcome._status);
 			deployment.tUpdateByName("code", outcome._code);
-			deployment.tUpdateByName("message", outcome._message);
+			// A deployment that goes back to an earlier one names it first (haumacher/ehome #192).
+			deployment.tUpdateByName("message", outcome._earlier == null ? outcome._message
+				: text(I18NConstants.REDEPLOY_FROM__REVISION_TIME.fill(outcome._earlier.tValueByName("revision"),
+					time(outcome._earlier.tValueByName("time")))) + " " + outcome._message);
 			deployment.tUpdateByName("before", outcome._before);
 			deployment.tUpdateByName("bytes", outcome._bytes);
 			deployment.tUpdateByName("total", Integer.valueOf(outcome._total));
 			deployment.tUpdateByName("signature", outcome._signature);
 			deployment.tUpdateByName("keyFingerprint", outcome._fingerprint);
+			deployment.tUpdateByName(SOURCE_REVISION, outcome._state == null ? null : Long.valueOf(outcome._state.commit()));
+			deployment.tUpdateByName(REDEPLOYED_FROM, outcome._earlier);
 			List<TLObject> refusals = new ArrayList<>();
 			for (Refusal refusal : outcome._refusals) {
 				TLObject stored = create("ehome.runtime:Refusal");
 				stored.tUpdateByName("path", refusal.path());
 				stored.tUpdateByName("reason", refusal.reason());
 				stored.tUpdateByName("message", refusal.translations());
-				stored.tUpdateByName("element", image == null ? null : image.elementAt(refusal.path()));
+				// An image of an earlier state leads to the historic objects: the refusal names them as they are now.
+				stored.tUpdateByName("element", image == null ? null : current(image.elementAt(refusal.path())));
 				refusals.add(stored);
 			}
 			deployment.tUpdateByName("refusals", refusals);
@@ -622,6 +799,26 @@ public final class Deployer {
 			: I18NConstants.COMMIT_DEPLOY_FAILED__PROJECT_CONTROLLER.fill(projectLabel, controllerName);
 	}
 
+	/**
+	 * The given object of the project as it is now: itself, or for a historic object its current
+	 * version; <code>null</code> for an object deleted since.
+	 */
+	private static TLObject current(TLObject object) {
+		if (object == null || WrapperHistoryUtils.isCurrent(object)) {
+			return object;
+		}
+		TLObject current = WrapperHistoryUtils.getCurrent(object);
+		return current != null && current.tValid() ? current : null;
+	}
+
+	/**
+	 * The time of a deployment as the user reads it.
+	 */
+	public static String time(Object time) {
+		return time instanceof Date date ? DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.MEDIUM,
+			Resources.getInstance().getLocale()).format(date) : "?";
+	}
+
 	private static TLObject create(String type) {
 		return ModelService.getInstance().getFactory().createObject((TLClass) TLModelUtil.findType(type));
 	}
@@ -647,6 +844,12 @@ public final class Deployer {
 
 		/** Whether this is the last valid deployment sent again after a failed one. */
 		boolean _resend;
+
+		/** The state the image was compiled from, <code>null</code> for none (an unload, an image sent again). */
+		State _state;
+
+		/** The deployment deployed again, <code>null</code> for a deployment of the project as it is. */
+		TLObject _earlier;
 
 		/** Whether the image sent again was not deployed from this project (another tool, another project). */
 		boolean _foreign;
