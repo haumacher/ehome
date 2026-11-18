@@ -64,6 +64,7 @@ import de.haumacher.ehome.programming.DeviceSettings;
 import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.GroupTables;
+import de.haumacher.ehome.programming.ObjectFlags;
 import de.haumacher.ehome.programming.ParameterEncoding;
 import de.haumacher.ehome.programming.ValueException;
 import de.haumacher.ehome.programming.download.BusException;
@@ -1846,12 +1847,14 @@ public class ReadBack {
 			}
 			TLObject connector = connector(device, configuration, placed);
 			int config = actual.intValue();
-			connector.tUpdateByName("update", enablement(config, GroupTables.UPDATE));
-			connector.tUpdateByName("transmission", enablement(config, GroupTables.TRANSMIT));
-			connector.tUpdateByName("canWrite", enablement(config, GroupTables.WRITE));
-			connector.tUpdateByName("canRead", enablement(config, GroupTables.READ));
+			// Stored as a deviation from the program only (ObjectFlags): a flag the device holds as
+			// the program gives it leaves the connector without value.
+			ObjectFlags.store(connector, placed, "update", enablement(config, GroupTables.UPDATE));
+			ObjectFlags.store(connector, placed, "transmission", enablement(config, GroupTables.TRANSMIT));
+			ObjectFlags.store(connector, placed, "canWrite", enablement(config, GroupTables.WRITE));
+			ObjectFlags.store(connector, placed, "canRead", enablement(config, GroupTables.READ));
 			if (associated.contains(number)) {
-				connector.tUpdateByName("communication", enablement(config, GroupTables.COMMUNICATION));
+				ObjectFlags.store(connector, placed, "communication", enablement(config, GroupTables.COMMUNICATION));
 			}
 			String priority = switch (config & 0x03) {
 				case 1 -> "High";
@@ -1862,7 +1865,7 @@ public class ReadBack {
 			if (priority == null) {
 				problems.add(I18NConstants.READBACK_SYSTEM_PRIORITY__OBJECT.fill(number));
 			} else {
-				connector.tUpdateByName("priority", TLModelUtil.findPart("ehome.physical:Priority#" + priority));
+				ObjectFlags.store(connector, placed, ObjectFlags.PRIORITY, priority);
 			}
 			device.tUpdateByName("lastModified", new java.util.Date());
 			result++;
@@ -1883,8 +1886,8 @@ public class ReadBack {
 		return connector;
 	}
 
-	private static Object enablement(int config, int bit) {
-		return TLModelUtil.findPart("ehome.common:Enablement#" + ((config & bit) != 0 ? "Enabled" : "Disabled"));
+	private static String enablement(int config, int bit) {
+		return (config & bit) != 0 ? "Enabled" : "Disabled";
 	}
 
 	private static TLObject project(TLObject obj) {

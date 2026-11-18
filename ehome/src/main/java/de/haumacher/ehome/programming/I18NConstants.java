@@ -592,6 +592,46 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 ERROR_DOWNLOAD_REQUIRES__REQUIREMENTS;
 
+	/**
+	 * @en "{0}" is no communication object of a device.
+	 */
+	public static ResKey1 ERROR_NOT_AN_OBJECT__ELEMENT;
+
+	/**
+	 * @en C
+	 */
+	public static ResKey FLAG_COMMUNICATION;
+
+	/**
+	 * @en R
+	 */
+	public static ResKey FLAG_READ;
+
+	/**
+	 * @en W
+	 */
+	public static ResKey FLAG_WRITE;
+
+	/**
+	 * @en T
+	 */
+	public static ResKey FLAG_TRANSMIT;
+
+	/**
+	 * @en U
+	 */
+	public static ResKey FLAG_UPDATE;
+
+	/**
+	 * @en I
+	 */
+	public static ResKey FLAG_READ_ON_INIT;
+
+	/**
+	 * @en Default: {0}
+	 */
+	public static ResKey1 HINT_DEFAULT__VALUE;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

@@ -14,6 +14,7 @@ import com.top_logic.model.search.expr.GenericMethod;
 import com.top_logic.model.search.expr.SearchExpression;
 import com.top_logic.model.search.expr.config.dom.Expr;
 import com.top_logic.model.search.expr.config.operations.AbstractSimpleMethodBuilder;
+import com.top_logic.util.Resources;
 
 import de.haumacher.ehome.calculation.DeviceCalculations;
 import de.haumacher.ehome.model.operational.Interface;
@@ -97,7 +98,37 @@ public class DeviceFunctions extends GenericMethod {
 		 */
 		deviceConnect(4, false),
 		/** <code>deviceDisconnect(connection)</code>: {@link DeviceSettings#disconnect(TLObject)}. */
-		deviceDisconnect(1, false);
+		deviceDisconnect(1, false),
+		/**
+		 * <code>deviceObjectFlag(device, interface, attribute)</code>: a flag or the priority of a
+		 * communication object in effect, {@link ObjectFlags#get(TLObject, Interface, String)}.
+		 */
+		deviceObjectFlag(3, true),
+		/**
+		 * <code>deviceSetObjectFlag(device, interface, attribute, value)</code>:
+		 * {@link ObjectFlags#set(TLObject, Interface, String, Object)}.
+		 */
+		deviceSetObjectFlag(4, false),
+		/**
+		 * <code>deviceResetObjectFlags(device, interface)</code>:
+		 * {@link ObjectFlags#reset(TLObject, Interface)}.
+		 */
+		deviceResetObjectFlags(2, false),
+		/**
+		 * <code>deviceObjectFlags(device, interface)</code>: the flags and the priority in effect for
+		 * a person, {@link ObjectFlags#text(TLObject, Interface)}.
+		 */
+		deviceObjectFlags(2, true),
+		/**
+		 * <code>deviceObjectFlagsChanged(device, interface)</code>: whether the flags or the priority
+		 * differ from the program's, {@link ObjectFlags#objectDiffers(TLObject, Interface)}.
+		 */
+		deviceObjectFlagsChanged(2, true),
+		/**
+		 * <code>deviceObjectFlagsDefault(device, interface)</code>: "Default: …", the program's flags
+		 * and priority where the object differs from them, else nothing.
+		 */
+		deviceObjectFlagsDefault(2, true);
 
 		private final int _arguments;
 
@@ -193,12 +224,34 @@ public class DeviceFunctions extends GenericMethod {
 			case deviceDisconnect:
 				DeviceSettings.disconnect(device);
 				return null;
+			case deviceObjectFlag:
+				return arguments[1] instanceof Interface placed ? ObjectFlags.get(device, placed, string(arguments[2])) : null;
+			case deviceSetObjectFlag:
+				return ObjectFlags.set(device, (Interface) arguments[1], string(arguments[2]), arguments[3]);
+			case deviceResetObjectFlags:
+				if (arguments[1] instanceof Interface placed) {
+					ObjectFlags.reset(device, placed);
+				}
+				return null;
+			case deviceObjectFlags:
+				return arguments[1] instanceof Interface placed ? ObjectFlags.text(device, placed) : null;
+			case deviceObjectFlagsChanged:
+				return Boolean.valueOf(arguments[1] instanceof Interface placed && ObjectFlags.objectDiffers(device, placed));
+			case deviceObjectFlagsDefault: {
+				String text = arguments[1] instanceof Interface placed ? ObjectFlags.programText(device, placed) : null;
+				return text == null ? null
+					: Resources.getInstance().getString(I18NConstants.HINT_DEFAULT__VALUE.fill(text));
+			}
 		}
 		return null;
 	}
 
 	private static Object toNumber(Object value) {
 		return value instanceof Number number ? SearchExpression.toNumber(number.doubleValue()) : value;
+	}
+
+	private static String string(Object value) {
+		return value == null ? null : value.toString();
 	}
 
 	private static TLObject object(Object value) {

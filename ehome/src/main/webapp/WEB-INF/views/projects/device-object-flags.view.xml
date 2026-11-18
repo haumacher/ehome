@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	The flags and the priority of a communication object of a device (tab "Communication objects" of
+	projects/devices.view.xml, haumacher/ehome #201): K, L, S, Ü, A, I (communication, read, write,
+	transmit, update, read on init) and the priority, as ETS edits them per object of a device.
+
+	Each input shows the value in effect: the device's (its connector of the object), else the
+	program's. A value the user changes is applied at once in a transaction of its own
+	(deviceSetObjectFlag, de.haumacher.ehome.programming.ObjectFlags): the connector stores only what
+	differs from the program (a value equal to the program's removes the device's value), and the
+	device is changed since its last download. Where the object differs from the program, the
+	program's flags are shown with the way back to them ("Default: …", deviceResetObjectFlags), as
+	beside a changed parameter. A user who may not change the device sees the values only.
+
+	"interface" is the selected communication object (ehome.operational:Interface) of "device".
+-->
+<view>
+	<channels>
+		<channel name="device"/>
+		<channel name="interface"/>
+		<!-- Whether the user may change the flags: Write on the device (the submit checks it as well). -->
+		<derived-channel name="editable"
+			expr="$interface != null and canWrite($device)"
+			inputs="device, interface"
+		/>
+		<channel name="flagCommunication"
+			init="if($interface == null, null, deviceObjectFlag($device, $interface, 'communication'))"
+			inputs="device, interface"
+			observed-types="ehome.physical:Connector,ehome.physical:ParameterSetting"
+		/>
+		<channel name="flagRead"
+			init="if($interface == null, null, deviceObjectFlag($device, $interface, 'canRead'))"
+			inputs="device, interface"
+			observed-types="ehome.physical:Connector,ehome.physical:ParameterSetting"
+		/>
+		<channel name="flagWrite"
+			init="if($interface == null, null, deviceObjectFlag($device, $interface, 'canWrite'))"
+			inputs="device, interface"
+			observed-types="ehome.physical:Connector,ehome.physical:ParameterSetting"
+		/>
+		<channel name="flagTransmit"
+			init="if($interface == null, null, deviceObjectFlag($device, $interface, 'transmission'))"
+			inputs="device, interface"
+			observed-types="ehome.physical:Connector,ehome.physical:ParameterSetting"
+		/>
+		<channel name="flagUpdate"
+			init="if($interface == null, null, deviceObjectFlag($device, $interface, 'update'))"
+			inputs="device, interface"
+			observed-types="ehome.physical:Connector,ehome.physical:ParameterSetting"
+		/>
+		<channel name="flagReadOnInit"
+			init="if($interface == null, null, deviceObjectFlag($device, $interface, 'readOnInit'))"
+			inputs="device, interface"
+			observed-types="ehome.physical:Connector,ehome.physical:ParameterSetting"
+		/>
+		<channel name="priority"
+			init="if($interface == null, null, deviceObjectFlag($device, $interface, 'priority'))"
+			inputs="device, interface"
+			observed-types="ehome.physical:Connector,ehome.physical:ParameterSetting"
+		/>
+		<!-- The program's flags and priority where the object differs from them. -->
+		<derived-channel name="defaultHint"
+			expr="if($interface == null, null, deviceObjectFlagsDefault($device, $interface))"
+			inputs="device, interface"
+			observed-types="ehome.physical:Connector,ehome.physical:ParameterSetting"
+		/>
+	</channels>
+	<panel>
+		<title>
+			<en>Flags</en>
+			<de>Flags</de>
+		</title>
+		<visible-if
+			expr="$interface != null"
+			input="interface"
+		>
+			<inset>
+				<stack gap="compact">
+					<!-- K, L, S, Ü, A, I side by side, as ETS shows them. -->
+					<stack
+						direction="row"
+						gap="compact"
+						wrap="true"
+					>
+						<value-input
+							edit-mode="editable"
+							type="tl.core:Boolean"
+							value="flagCommunication"
+						>
+							<label>
+								<en>Communication</en>
+								<de>Kommunikation</de>
+							</label>
+							<on-submit inputs="device, interface">
+								<access>
+									<operation name="Write"
+										object="$device"
+										type="ehome.physical:Device"
+									/>
+								</access>
+								<with-transaction>
+									<execute-script function="deviceSetObjectFlag($device, $interface, 'communication', $value)"/>
+									<with-result>
+										<write-channel name="flagCommunication"/>
+									</with-result>
+								</with-transaction>
+							</on-submit>
+						</value-input>
+						<value-input
+							edit-mode="editable"
+							type="tl.core:Boolean"
+							value="flagRead"
+						>
+							<label>
+								<en>Read</en>
+								<de>Lesen</de>
+							</label>
+							<on-submit inputs="device, interface">
+								<access>
+									<operation name="Write"
+										object="$device"
+										type="ehome.physical:Device"
+									/>
+								</access>
+								<with-transaction>
+									<execute-script function="deviceSetObjectFlag($device, $interface, 'canRead', $value)"/>
+									<with-result>
+										<write-channel name="flagRead"/>
+									</with-result>
+								</with-transaction>
+							</on-submit>
+						</value-input>
+						<value-input
+							edit-mode="editable"
+							type="tl.core:Boolean"
+							value="flagWrite"
+						>
+							<label>
+								<en>Write</en>
+								<de>Schreiben</de>
+							</label>
+							<on-submit inputs="device, interface">
+								<access>
+									<operation name="Write"
+										object="$device"
+										type="ehome.physical:Device"
+									/>
+								</access>
+								<with-transaction>
+									<execute-script function="deviceSetObjectFlag($device, $interface, 'canWrite', $value)"/>
+									<with-result>
+										<write-channel name="flagWrite"/>
+									</with-result>
+								</with-transaction>
+							</on-submit>
+						</value-input>
+						<value-input
+							edit-mode="editable"
+							type="tl.core:Boolean"
+							value="flagTransmit"
+						>
+							<label>
+								<en>Transmit</en>
+								<de>Übertragen</de>
+							</label>
+							<on-submit inputs="device, interface">
+								<access>
+									<operation name="Write"
+										object="$device"
+										type="ehome.physical:Device"
+									/>
+								</access>
+								<with-transaction>
+									<execute-script function="deviceSetObjectFlag($device, $interface, 'transmission', $value)"/>
+									<with-result>
+										<write-channel name="flagTransmit"/>
+									</with-result>
+								</with-transaction>
+							</on-submit>
+						</value-input>
+						<value-input
+							edit-mode="editable"
+							type="tl.core:Boolean"
+							value="flagUpdate"
+						>
+							<label>
+								<en>Update</en>
+								<de>Aktualisieren</de>
+							</label>
+							<on-submit inputs="device, interface">
+								<access>
+									<operation name="Write"
+										object="$device"
+										type="ehome.physical:Device"
+									/>
+								</access>
+								<with-transaction>
+									<execute-script function="deviceSetObjectFlag($device, $interface, 'update', $value)"/>
+									<with-result>
+										<write-channel name="flagUpdate"/>
+									</with-result>
+								</with-transaction>
+							</on-submit>
+						</value-input>
+						<value-input
+							edit-mode="editable"
+							type="tl.core:Boolean"
+							value="flagReadOnInit"
+						>
+							<label>
+								<en>Read on init</en>
+								<de>Lesen bei Init</de>
+							</label>
+							<on-submit inputs="device, interface">
+								<access>
+									<operation name="Write"
+										object="$device"
+										type="ehome.physical:Device"
+									/>
+								</access>
+								<with-transaction>
+									<execute-script function="deviceSetObjectFlag($device, $interface, 'readOnInit', $value)"/>
+									<with-result>
+										<write-channel name="flagReadOnInit"/>
+									</with-result>
+								</with-transaction>
+							</on-submit>
+						</value-input>
+					</stack>
+					<fields>
+						<value-input
+							edit-mode="editable"
+							mandatory="true"
+							type="ehome.physical:Priority"
+							value="priority"
+						>
+							<label>
+								<en>Priority</en>
+								<de>Priorität</de>
+							</label>
+							<on-submit inputs="device, interface">
+								<access>
+									<operation name="Write"
+										object="$device"
+										type="ehome.physical:Device"
+									/>
+								</access>
+								<with-transaction>
+									<execute-script function="deviceSetObjectFlag($device, $interface, 'priority', $value)"/>
+									<with-result>
+										<write-channel name="priority"/>
+									</with-result>
+								</with-transaction>
+							</on-submit>
+						</value-input>
+					</fields>
+					<!-- Flags other than the program's: the program's, and the way back to them. -->
+					<visible-if
+						expr="$defaultHint != null"
+						input="defaultHint"
+					>
+						<stack
+							align="center"
+							direction="row"
+							gap="compact"
+						>
+							<text
+								input="defaultHint"
+								tone="secondary"
+							/>
+							<button
+								appearance="ghost"
+								size="small"
+							>
+								<action class="com.top_logic.layout.view.command.GenericViewCommand"
+									display="icon-only"
+									image="css:bi bi-arrow-counterclockwise"
+									inputs="device, interface"
+								>
+									<label>
+										<en>Reset to default</en>
+										<de>Auf Vorgabe zurücksetzen</de>
+									</label>
+									<access>
+										<operation name="Write"
+											object="$device"
+											type="ehome.physical:Device"
+										/>
+									</access>
+									<executability>
+										<null-input-disabled/>
+									</executability>
+									<with-transaction>
+										<execute-script function="deviceResetObjectFlags($device, $interface)"/>
+									</with-transaction>
+								</action>
+							</button>
+						</stack>
+					</visible-if>
+				</stack>
+			</inset>
+		</visible-if>
+	</panel>
+</view>

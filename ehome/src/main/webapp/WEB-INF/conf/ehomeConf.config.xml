@@ -59,6 +59,12 @@
 					<method name="deviceSetting" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceEditVeto" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceSetValue" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceObjectFlag" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceSetObjectFlag" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceResetObjectFlags" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceObjectFlags" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceObjectFlagsChanged" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
+					<method name="deviceObjectFlagsDefault" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceApplyValue" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="deviceResetSetting" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>
 					<method name="devicePages" class="de.haumacher.ehome.programming.DeviceFunctions$Builder"/>

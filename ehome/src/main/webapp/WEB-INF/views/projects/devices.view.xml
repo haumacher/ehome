@@ -1070,7 +1070,10 @@
 										</label>
 										<!--
 											The communication objects in effect (and those no longer in effect that still
-											have connections), and the group addresses the selected one is connected to.
+											have connections) with their flags and priority (marked where they differ from
+											the program's), and of the selected one its flags and priority to edit
+											(projects/device-object-flags.view.xml, haumacher/ehome #201) and the group
+											addresses it is connected to.
 										-->
 										<split-panel
 											orientation="horizontal"
@@ -1119,6 +1122,22 @@
 															<column attribute="function"
 																width="130"
 															/>
+															<!-- The flags and the priority in effect; marked where they differ from the program's. -->
+															<computed-column name="flags"
+																cell-class="if(deviceObjectFlagsChanged($device, $row), 'ehomeChanged', null)"
+																type="tl.core:String"
+																width="160"
+															>
+																<inputs>
+																	<input channel="device"/>
+																</inputs>
+																<label>
+																	<en>Flags</en>
+																	<de>Flags</de>
+																</label>
+																<tooltip>deviceObjectFlagsDefault($device, $row)</tooltip>
+																<value>deviceObjectFlags($device, $row)</value>
+															</computed-column>
 															<computed-column name="connections"
 																multiple="true"
 																type="ehome.physical:Connection"
@@ -1170,94 +1189,123 @@
 													size="35"
 													unit="%"
 												>
-													<panel>
-														<title>
-															<en>Group addresses</en>
-															<de>Gruppenadressen</de>
-														</title>
-														<commands>
-															<generic-command
-																image="css:bi bi-link-45deg"
-																inputs="interface, device"
-																placement="TOOLBAR"
+													<split-panel
+														orientation="vertical"
+														resizable="true"
+													>
+														<panes>
+															<pane
+																min-size="160"
+																size="45"
+																unit="%"
 															>
-																<label>
-																	<en>Connect a group address</en>
-																	<de>Gruppenadresse verbinden</de>
-																</label>
-																<tooltip>
-																	<en>Connects the selected communication object to a group address of the project, sending to it or receiving from it. The device gets the connection with its next download.</en>
-																	<de>Verbindet das gewählte Kommunikationsobjekt mit einer Gruppenadresse des Projekts, an die es sendet oder von der es empfängt. Das Gerät erhält die Verbindung mit seinem nächsten Download.</de>
-																</tooltip>
-																<access>
-																	<operation name="Write"
-																		object="$device"
-																		type="ehome.physical:Device"
-																	/>
-																</access>
-																<executability>
-																	<null-input-disabled/>
-																</executability>
-																<open-dialog
-																	bind-input-to="interface"
-																	dialog-view="projects/connect-group-address.view.xml"
-																>
+																<view-ref view="projects/device-object-flags.view.xml">
 																	<bind
 																		channel="device"
 																		to="device"
 																	/>
 																	<bind
-																		channel="selection"
-																		to="selectedConnection"
+																		channel="interface"
+																		to="interface"
 																	/>
-																</open-dialog>
-															</generic-command>
-															<generic-command
-																image="css:bi bi-x-lg"
-																inputs="connection"
-																placement="TOOLBAR"
+																</view-ref>
+															</pane>
+															<pane
+																min-size="160"
+																size="55"
+																unit="%"
 															>
-																<label>
-																	<en>Remove the connection</en>
-																	<de>Verbindung entfernen</de>
-																</label>
-																<access>
-																	<operation name="Write"
-																		object="$connection"
-																		type="ehome.physical:Connection"
-																	/>
-																</access>
-																<executability>
-																	<null-input-disabled/>
-																</executability>
-																<with-transaction>
-																	<execute-script function="deviceDisconnect($connection)"/>
-																	<with-result>
-																		<write-channel name="selectedConnection"/>
-																	</with-result>
-																</with-transaction>
-															</generic-command>
-														</commands>
-														<table
-															observed-types="ehome.physical:Connection,ehome.physical:Connector"
-															selection="selectedConnection"
-															types="ehome.physical:Connection"
-														>
-															<inputs>
-																<input channel="device"/>
-																<input channel="interface"/>
-															</inputs>
-															<columns>
-																<column attribute="target"
-																	width="220"
-																/>
-																<column attribute="kind"
-																	width="130"
-																/>
-															</columns>
-															<rows>if($interface == null, [], deviceConnections($device, $interface))</rows>
-														</table>
-													</panel>
+																<panel>
+																	<title>
+																		<en>Group addresses</en>
+																		<de>Gruppenadressen</de>
+																	</title>
+																	<commands>
+																		<generic-command
+																			image="css:bi bi-link-45deg"
+																			inputs="interface, device"
+																			placement="TOOLBAR"
+																		>
+																			<label>
+																				<en>Connect a group address</en>
+																				<de>Gruppenadresse verbinden</de>
+																			</label>
+																			<tooltip>
+																				<en>Connects the selected communication object to a group address of the project, sending to it or receiving from it. The device gets the connection with its next download.</en>
+																				<de>Verbindet das gewählte Kommunikationsobjekt mit einer Gruppenadresse des Projekts, an die es sendet oder von der es empfängt. Das Gerät erhält die Verbindung mit seinem nächsten Download.</de>
+																			</tooltip>
+																			<access>
+																				<operation name="Write"
+																					object="$device"
+																					type="ehome.physical:Device"
+																				/>
+																			</access>
+																			<executability>
+																				<null-input-disabled/>
+																			</executability>
+																			<open-dialog
+																				bind-input-to="interface"
+																				dialog-view="projects/connect-group-address.view.xml"
+																			>
+																				<bind
+																					channel="device"
+																					to="device"
+																				/>
+																				<bind
+																					channel="selection"
+																					to="selectedConnection"
+																				/>
+																			</open-dialog>
+																		</generic-command>
+																		<generic-command
+																			image="css:bi bi-x-lg"
+																			inputs="connection"
+																			placement="TOOLBAR"
+																		>
+																			<label>
+																				<en>Remove the connection</en>
+																				<de>Verbindung entfernen</de>
+																			</label>
+																			<access>
+																				<operation name="Write"
+																					object="$connection"
+																					type="ehome.physical:Connection"
+																				/>
+																			</access>
+																			<executability>
+																				<null-input-disabled/>
+																			</executability>
+																			<with-transaction>
+																				<execute-script function="deviceDisconnect($connection)"/>
+																				<with-result>
+																					<write-channel name="selectedConnection"/>
+																				</with-result>
+																			</with-transaction>
+																		</generic-command>
+																	</commands>
+																	<table
+																		observed-types="ehome.physical:Connection,ehome.physical:Connector"
+																		selection="selectedConnection"
+																		types="ehome.physical:Connection"
+																	>
+																		<inputs>
+																			<input channel="device"/>
+																			<input channel="interface"/>
+																		</inputs>
+																		<columns>
+																			<column attribute="target"
+																				width="220"
+																			/>
+																			<column attribute="kind"
+																				width="130"
+																			/>
+																		</columns>
+																		<rows>if($interface == null, [], deviceConnections($device, $interface))</rows>
+																	</table>
+																</panel>
+															</pane>
+														</panes>
+													</split-panel>
 												</pane>
 											</panes>
 										</split-panel>

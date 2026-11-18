@@ -40,8 +40,8 @@ import de.haumacher.ehome.modules.ModuleParts;
 
 /**
  * The changes of the configuration of a device (<code>ehome.physical:Device</code>) against a
- * reference (haumacher/ehome #15): its parameter values and the group addresses its communication
- * objects are connected to.
+ * reference (haumacher/ehome #15): its parameter values, the group addresses its communication
+ * objects are connected to, and their flags and priorities (haumacher/ehome #201, {@link ObjectFlags}).
  *
  * <p>
  * Two references are offered ({@link Reference}):
@@ -53,9 +53,10 @@ import de.haumacher.ehome.modules.ModuleParts;
  * knowledge base ({@link WrapperHistoryUtils#getWrapper(Revision, TLObject)}): its settings and
  * connectors are the historic objects of that revision. The entries are the values that differ from
  * the value the device had then, and the communication objects whose connections (group address and
- * direction) differ.</li>
+ * direction) or flags and priority in effect differ.</li>
  * <li>{@link Reference#DEFAULT}: the defaults of the program; the entries are the values the device
- * sets (its settings), no connections.</li>
+ * sets (its settings) and the communication objects whose flags or priority differ from the
+ * program's, no connections.</li>
  * </ul>
  *
  * <p>
@@ -115,7 +116,7 @@ public class DeviceChanges {
 
 	/**
 	 * A change: a parameter placement whose value differs from the reference, or a communication
-	 * object whose connections differ.
+	 * object whose connections or flags differ.
 	 *
 	 * @param item
 	 *        The {@link ParameterView} or the {@link Interface} (the placement of the object in
@@ -131,18 +132,39 @@ public class DeviceChanges {
 	 * @param currentValue
 	 *        For a value: the current value in the notation of ETS.
 	 * @param referenceConnections
-	 *        For connections: the connections of the reference (historic objects).
+	 *        For changed connections: the connections of the reference (historic objects);
+	 *        <code>null</code> where the connections are unchanged.
 	 * @param currentConnections
-	 *        For connections: the current connections.
+	 *        For changed connections: the current connections.
+	 * @param referenceFlags
+	 *        For changed flags: the flags and the priority of the reference; <code>null</code>
+	 *        where they are unchanged.
+	 * @param currentFlags
+	 *        For changed flags: the flags and the priority in effect.
 	 */
 	public record Entry(Option item, Object page, TLObject referenceHolder, String referenceValue, String currentValue,
-			List<TLObject> referenceConnections, List<TLObject> currentConnections) {
+			List<TLObject> referenceConnections, List<TLObject> currentConnections, ObjectFlags.State referenceFlags,
+			ObjectFlags.State currentFlags) {
 
 		/**
-		 * Whether this is a change of the connections of a communication object.
+		 * Whether this is a change of a communication object (its connections or its flags).
 		 */
 		public boolean isConnections() {
 			return item instanceof Interface;
+		}
+
+		/**
+		 * Whether the connections of the communication object changed.
+		 */
+		public boolean connectionsChanged() {
+			return referenceConnections != null;
+		}
+
+		/**
+		 * Whether the flags or the priority of the communication object changed.
+		 */
+		public boolean flagsChanged() {
+			return referenceFlags != null;
 		}
 	}
 
@@ -256,8 +278,18 @@ public class DeviceChanges {
 				String reference = ParameterValues.encode(holder);
 				String current = ParameterValues.encode(value);
 				if (!Objects.equals(reference, current)) {
-					entries.add(new Entry(view, shown.get(view), holder, reference, current, null, null));
+					entries.add(new Entry(view, shown.get(view), holder, reference, current, null, null, null, null));
 				}
+			}
+		}
+		// The flags and priorities other than the program's.
+		Map<Interface, TLObject> seen = new LinkedHashMap<>();
+		for (Object element : (Collection<?>) _device.tValueByName("connectors")) {
+			TLObject connector = (TLObject) element;
+			Interface placed = ModuleParts.port(connector);
+			if (placed != null && seen.putIfAbsent(placed, connector) == null && ObjectFlags.differs(connector, placed)) {
+				entries.add(new Entry(placed, shown.get(placed), null, null, null, null, null,
+					ObjectFlags.state(null, placed), ObjectFlags.state(connector, placed)));
 			}
 		}
 		addInOrder(entries, shown);
@@ -293,29 +325,38 @@ public class DeviceChanges {
 			String reference = ParameterValues.encode(holder);
 			String current = _configuration.value(view);
 			if (!Objects.equals(reference, current)) {
-				entries.add(new Entry(view, shown.get(view), holder, reference, current, null, null));
+				entries.add(new Entry(view, shown.get(view), holder, reference, current, null, null, null, null));
 			}
 		}
 
-		// Connections: per communication object (by its definition), the group addresses with the
-		// direction.
+		// Communication objects (by their definition): the group addresses with the direction, and the
+		// flags and the priority in effect (the program's read as it is now).
 		Map<PartRef, List<TLObject>> referenceConnections = connectionsByPort(historic);
 		Map<PartRef, List<TLObject>> currentConnections = connectionsByPort(_device);
+		Map<PartRef, TLObject> referenceConnectors = connectorsByPort(historic);
+		Map<PartRef, TLObject> currentConnectors = connectorsByPort(_device);
 		Set<PartRef> ports = new LinkedHashSet<>(currentConnections.keySet());
 		ports.addAll(referenceConnections.keySet());
+		ports.addAll(currentConnectors.keySet());
+		ports.addAll(referenceConnectors.keySet());
 		Map<PartRef, Interface> placements = placements(historic);
 		for (PartRef port : ports) {
-			List<TLObject> before = referenceConnections.getOrDefault(port, List.of());
-			List<TLObject> now = currentConnections.getOrDefault(port, List.of());
-			if (keys(before).equals(keys(now))) {
-				continue;
-			}
 			Interface placed = placements.get(port);
 			if (placed == null) {
 				// The object no longer exists in the program.
 				continue;
 			}
-			entries.add(new Entry(placed, shown.get(placed), null, null, null, before, now));
+			List<TLObject> before = referenceConnections.getOrDefault(port, List.of());
+			List<TLObject> now = currentConnections.getOrDefault(port, List.of());
+			boolean connections = !keys(before).equals(keys(now));
+			ObjectFlags.State flagsBefore = ObjectFlags.state(referenceConnectors.get(port), placed);
+			ObjectFlags.State flagsNow = ObjectFlags.state(currentConnectors.get(port), placed);
+			boolean flags = !flagsBefore.equals(flagsNow);
+			if (!connections && !flags) {
+				continue;
+			}
+			entries.add(new Entry(placed, shown.get(placed), null, null, null, connections ? before : null,
+				connections ? now : null, flags ? flagsBefore : null, flags ? flagsNow : null));
 		}
 		addInOrder(entries, shown);
 	}
@@ -412,6 +453,21 @@ public class DeviceChanges {
 			List<TLObject> list = result.computeIfAbsent(key, x -> new ArrayList<>());
 			for (Object connection : connections) {
 				list.add((TLObject) connection);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * The connector of each communication object of the device (the first of its definition).
+	 */
+	private static Map<PartRef, TLObject> connectorsByPort(TLObject device) {
+		Map<PartRef, TLObject> result = new LinkedHashMap<>();
+		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
+			TLObject value = (TLObject) connector;
+			if (value.tValueByName("port") instanceof TLObject placed
+				&& placed.tValueByName("port") instanceof TLObject port) {
+				result.putIfAbsent(new PartRef(identity(port), ModuleParts.instanceId(value)), value);
 			}
 		}
 		return result;
@@ -538,7 +594,8 @@ public class DeviceChanges {
 
 	/**
 	 * What the reference holds for the given item, for a person: the value of a parameter, the
-	 * connections of a communication object; <code>null</code> if the item is unchanged.
+	 * connections and the flags of a communication object (those that changed);
+	 * <code>null</code> if the item is unchanged.
 	 */
 	public String referenceText(Object item) {
 		Entry entry = _entries.get(item);
@@ -546,7 +603,14 @@ public class DeviceChanges {
 			return null;
 		}
 		if (entry.isConnections()) {
-			return connectionsText(entry.referenceConnections());
+			List<String> texts = new ArrayList<>();
+			if (entry.connectionsChanged()) {
+				texts.add(connectionsText(entry.referenceConnections()));
+			}
+			if (entry.flagsChanged()) {
+				texts.add(entry.referenceFlags().text());
+			}
+			return String.join("; ", texts);
 		}
 		Object display = entry.referenceHolder().tValueByName("displayValue");
 		if (display != null && !display.toString().isEmpty()) {
@@ -587,9 +651,21 @@ public class DeviceChanges {
 			return;
 		}
 		if (entry.isConnections()) {
-			resetConnections(entry);
+			resetObject(entry);
 		} else {
 			resetValue(entry);
+		}
+	}
+
+	/**
+	 * Sets the connections and the flags of a communication object back to the reference.
+	 */
+	private void resetObject(Entry entry) {
+		if (entry.connectionsChanged()) {
+			resetConnections(entry);
+		}
+		if (entry.flagsChanged()) {
+			ObjectFlags.restore(_device, (Interface) entry.item(), entry.referenceFlags());
 		}
 	}
 
@@ -642,8 +718,9 @@ public class DeviceChanges {
 	}
 
 	/**
-	 * Sets every changed value and connection of the device back to the reference: the values first
-	 * (they decide which objects are in effect), then the connections. Must run in a transaction.
+	 * Sets every changed value, connection and flag of the device back to the reference: the values
+	 * first (they decide which objects are in effect), then the communication objects. Must run in
+	 * a transaction.
 	 *
 	 * @return The number of changes discarded.
 	 */
@@ -656,7 +733,7 @@ public class DeviceChanges {
 		}
 		for (Entry entry : entries) {
 			if (entry.isConnections()) {
-				resetConnections(entry);
+				resetObject(entry);
 			}
 		}
 		return entries.size();

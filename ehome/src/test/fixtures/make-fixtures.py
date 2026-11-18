@@ -3,7 +3,10 @@
 
 TestDetails.knxproj: the samples contain no device names, descriptions, serial numbers, unassigned
 devices, inactive communication objects or details of group ranges and addresses. This copy of the
-Test project adds them, and marks the device as fully downloaded after its last change.
+Test project adds them, and marks the device as fully downloaded after its last change. The samples
+set no flag of a communication object at a device: TestDetails.knxproj sets the read flag
+(ReadFlag="Enabled") of the device's room temperature object, which the program's reference of the
+object disables (haumacher/ehome #201).
 
 The samples contain no building parts and place no device. TestDetails.knxproj adds a building
 "Haus" with the floor "Erdgeschoss", holding the empty room "Wohnzimmer", the room "Küche", in which
@@ -936,10 +939,18 @@ def naming(name, xml):
     return result
 
 
+def instance_flag(xml):
+    # The read flag of the room temperature set at the device (haumacher/ehome #201): the program's
+    # reference of the object has ReadFlag="Disabled".
+    ref = '<ComObjectInstanceRef RefId="M-0008_A-10D7-11-A0E5-O000A_O-64_R-1249" '
+    assert xml.count(ref) == 1
+    return xml.replace(ref, ref + 'ReadFlag="Enabled" ', 1)
+
+
 def keep_details(name, xml):
     if name == PROJECT_INFO:
         return rename_project(xml, 'TestDetails')
-    return details(xml) if name == PROJECT else xml
+    return instance_flag(details(xml)) if name == PROJECT else xml
 
 
 # TestFunctionKeys.knxproj: an actuator and a push-button sensor of artificial programs (see the module
