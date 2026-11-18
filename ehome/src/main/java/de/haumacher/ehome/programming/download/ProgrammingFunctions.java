@@ -317,7 +317,10 @@ public class ProgrammingFunctions extends GenericMethod {
 		return BusPath.veto(device);
 	}
 
-	private static List<Map<String, Object>> rows(DownloadPlan plan) {
+	/**
+	 * The operations of the plan and the blocks it does not load, as rows of the plan's table.
+	 */
+	static List<Map<String, Object>> rows(DownloadPlan plan) {
 		List<Map<String, Object>> result = new ArrayList<>();
 		int number = 1;
 		for (Operation operation : plan.getOperations()) {

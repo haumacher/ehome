@@ -207,6 +207,15 @@ public class DownloadPlanner {
 
 	private final DownloadPlan.Kind _kind;
 
+	/** The snapshot a restore writes (haumacher/ehome #194), <code>null</code> for a download. */
+	private final Snapshot _snapshot;
+
+	/** Whether a restore may write a snapshot read at another individual address. */
+	private final boolean _otherAddress;
+
+	/** The image of the restore of {@link #_snapshot}. */
+	private SnapshotImage _restore;
+
 	/**
 	 * Whether the plan leaves out the segments of the program's code: a download of the parameters
 	 * only following the full procedure (the product data names no steps of its own for it).
@@ -358,16 +367,34 @@ public class DownloadPlanner {
 		}
 	}
 
-	private DownloadPlanner(TLObject device, DownloadPlan.Kind kind) {
+	private DownloadPlanner(TLObject device, DownloadPlan.Kind kind, Snapshot snapshot, boolean otherAddress) {
 		_device = device;
 		_kind = kind;
+		_snapshot = snapshot;
+		_otherAddress = otherAddress;
 	}
 
 	/**
 	 * The plan of a download of the given kind into the given device (<code>ehome.physical:Device</code>).
 	 */
 	public static DownloadPlan plan(TLObject device, DownloadPlan.Kind kind) {
-		return new DownloadPlanner(device, kind).build();
+		return new DownloadPlanner(device, kind, null, false).build();
+	}
+
+	/**
+	 * The plan of the restore of a snapshot into the given device (<code>ehome.physical:Device</code>,
+	 * haumacher/ehome #194): the full download of the device's program whose bytes are the snapshot's
+	 * ({@link SnapshotImage}).
+	 *
+	 * <p>
+	 * Refused with the reason (before anything is written) if the snapshot was read from another
+	 * program, mask or program version, if a byte or property the plan writes from the image is not in
+	 * the snapshot, or if the snapshot was read at another individual address than the device has,
+	 * unless <code>otherAddress</code> allows it.
+	 * </p>
+	 */
+	public static DownloadPlan restore(TLObject device, Snapshot snapshot, boolean otherAddress) {
+		return new DownloadPlanner(device, DownloadPlan.Kind.FULL, snapshot, otherAddress).build();
 	}
 
 	/**
@@ -430,6 +457,12 @@ public class DownloadPlanner {
 			_problems.add(I18NConstants.ERROR_NO_MASK);
 			return result(device, address, kind);
 		}
+		if (_snapshot != null) {
+			checkSnapshot(address);
+			_restore = SnapshotImage.of(_image, _snapshot, address);
+			_problems.addAll(_restore.problems());
+			_image = _restore.image();
+		}
 		TLClassifier medium = _mask.getMedium();
 		if (medium != null && !"TP".equals(medium.getName())) {
 			_problems.add(I18NConstants.ERROR_UNSUPPORTED_MEDIUM__MEDIUM_MASK.fill(medium.getName(), maskName()));
@@ -450,7 +483,73 @@ public class DownloadPlanner {
 			checkProgram(steps);
 		}
 		checkWritten();
+		checkRestored();
 		return result(device, address, kind);
+	}
+
+	/**
+	 * Restore: whether the snapshot is one of the device's program (program, mask, program version)
+	 * and was read at the device's individual address (or another one is allowed).
+	 */
+	private void checkSnapshot(Integer address) {
+		ResKey other = SnapshotFile.veto(_device, _snapshot);
+		if (other != null) {
+			_problems.add(other);
+		}
+		if (_snapshot.getDescriptor() == null) {
+			_problems.add(I18NConstants.RESTORE_NO_MASK);
+		}
+		String expected = expectedVersion();
+		if (_snapshot.getProgramVersion() == null) {
+			_problems.add(I18NConstants.RESTORE_NO_PROGRAM_VERSION);
+		} else if (expected != null && !expected.equalsIgnoreCase(_snapshot.getProgramVersion())) {
+			_problems.add(I18NConstants.RESTORE_OTHER_PROGRAM_VERSION__SNAPSHOT_PROGRAM.fill(
+				DeviceComparison.spaced(_snapshot.getProgramVersion().toUpperCase()), DeviceComparison.spaced(expected)));
+		}
+		if (!_otherAddress && address != null && !address.equals(_snapshot.getAddress())) {
+			_problems.add(I18NConstants.RESTORE_OTHER_ADDRESS__SNAPSHOT_DEVICE.fill(
+				_snapshot.getAddress() == null ? "?" : formatAddress(_snapshot.getAddress()), formatAddress(address)));
+		}
+	}
+
+	/**
+	 * The program version the device reports with the program, in hex: its application ID, or (BCU 1)
+	 * the bytes of the program's identity in the image; <code>null</code> if the mask names neither.
+	 */
+	private String expectedVersion() {
+		if (systemProperty("ApplicationId") != null) {
+			return Snapshot.hex(applicationId(_program));
+		}
+		MaskResource identity = memoryResource("ApplicationId");
+		if (identity == null) {
+			return null;
+		}
+		int start = identity.getLocation().getStartAddress().intValue();
+		StringBuilder result = new StringBuilder();
+		for (int n = 0; n < identity.getLength().intValue(); n++) {
+			Integer value = _image.byteAt(start + n);
+			if (value == null) {
+				return null;
+			}
+			result.append(String.format("%02X", value));
+		}
+		return result.toString();
+	}
+
+	/**
+	 * Restore: every byte the plan writes from the image must be in the snapshot.
+	 */
+	private void checkRestored() {
+		if (_restore == null) {
+			return;
+		}
+		BitSet missing = (BitSet) _restore.unknown().clone();
+		missing.and(_writtenFromImage);
+		if (!missing.isEmpty()) {
+			List<Integer> addresses = missing.stream().boxed().toList();
+			_problems.add(I18NConstants.RESTORE_UNKNOWN_BYTES__COUNT_RANGES.fill(addresses.size(),
+				DeviceComparison.ranges(addresses)));
+		}
 	}
 
 	private DownloadPlan result(String device, Integer address, DownloadPlan.Kind kind) {
@@ -1218,6 +1317,9 @@ public class DownloadPlanner {
 					data = write.value();
 					what = I18NConstants.WHAT_PARAMETERS;
 					_writtenProperties.add(List.of(object, property));
+					if (_restore != null && _restore.unknownProperties().contains(List.of(object, property))) {
+						_problems.add(I18NConstants.RESTORE_UNKNOWN_PROPERTY__OBJECT_PROPERTY.fill(object, property));
+					}
 				}
 			}
 		}

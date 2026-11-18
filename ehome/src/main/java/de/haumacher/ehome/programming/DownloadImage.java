@@ -123,6 +123,32 @@ public class DownloadImage {
 	}
 
 	/**
+	 * An image of the given parts, e.g. an image whose bytes are taken from elsewhere than the
+	 * project (the restore of a snapshot, haumacher/ehome #194).
+	 *
+	 * @param segments
+	 *        The blocks of {@link #getSegments()}.
+	 * @param addressTable
+	 *        See {@link #getAddressTable()}.
+	 * @param associationTable
+	 *        See {@link #getAssociationTable()}.
+	 * @param objectTable
+	 *        See {@link #getObjectTable()}.
+	 * @param properties
+	 *        See {@link #getPropertyWrites()}.
+	 */
+	public static DownloadImage of(String device, List<Block> segments, Block addressTable, Block associationTable,
+			Block objectTable, List<PropertyWrite> properties) {
+		DownloadImage result = new DownloadImage(device);
+		result._segments.addAll(segments);
+		result._addressTable = addressTable;
+		result._associationTable = associationTable;
+		result._objectTable = objectTable;
+		result._properties.addAll(properties);
+		return result;
+	}
+
+	/**
 	 * The individual address of a device (<code>ehome.physical:Device</code>): area, line and device
 	 * number in 4, 4 and 8 bits; <code>null</code> if one of them is missing.
 	 */

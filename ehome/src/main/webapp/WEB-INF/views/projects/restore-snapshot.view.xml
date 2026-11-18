@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+	Dialog "Restore" of a snapshot of a device (haumacher/ehome #194), opened from the panel "Snapshots" of
+	projects/device-programming.view.xml: writes the snapshot back into the device as a download whose bytes
+	are the snapshot's (de.haumacher.ehome.programming.download.RestoreJob, DownloadPlanner.restore).
+
+	"snapshot" is the stored snapshot (ehome.physical:DeviceSnapshot). The dialog shows the device, the path
+	to the bus, the reasons the restore is refused and the operations of its plan (the functions restore* of
+	de.haumacher.ehome.programming.download.SnapshotFunctions). A snapshot read at another individual address
+	than the device has is refused unless "Allow another individual address" (channel otherAddress) is set;
+	the field is shown only for such a snapshot.
+
+	"Restore" runs the job in the dialog in three phases: it reads the device first (a device holding the
+	snapshot already is not written; a cancel is possible up to here), then writes, then reads back and
+	stores the reading as a new snapshot. The job that completes closes the dialog and shows the report
+	(projects/programming-report.view.xml); a failed one stays displayed with its reason.
+-->
+<view>
+	<channels>
+		<channel name="snapshot"/>
+		<channel name="job"/>
+		<channel name="otherAddress"
+			init="false"
+		/>
+		<!-- Re-decides "Restore" when a bus session, a controller or a download of the project changes (BusStateSource). -->
+		<source-channel name="busState"
+			update-interval="500"
+		>
+			<source class="de.haumacher.ehome.programming.download.BusStateSource"/>
+		</source-channel>
+		<derived-channel name="target"
+			expr="if($snapshot == null, null, restoreTarget($snapshot))"
+			inputs="snapshot"
+			observed-types="ehome.project:Project"
+		/>
+		<derived-channel name="summary"
+			expr="if($snapshot == null, null, restoreSummary($snapshot, $otherAddress))"
+			inputs="snapshot, otherAddress"
+		/>
+	</channels>
+	<window width="1000px">
+		<title>
+			<en>Restore the snapshot</en>
+			<de>Speicherabbild wiederherstellen</de>
+		</title>
+		<inset>
+			<stack gap="default">
+				<text input="target"/>
+				<visible-if
+					expr="$snapshot != null and restoreAddressDiffers($snapshot)"
+					input="snapshot"
+				>
+					<fields>
+						<value-input
+							type="tl.core:Boolean"
+							value="otherAddress"
+						>
+							<label>
+								<en>Allow another individual address</en>
+								<de>Andere physikalische Adresse zulassen</de>
+							</label>
+						</value-input>
+					</fields>
+				</visible-if>
+				<text input="summary"/>
+				<!-- Why the restore is refused. -->
+				<object-list
+					gap="compact"
+					inputs="snapshot, otherAddress"
+					items="if($snapshot == null, [], restoreProblems($snapshot, $otherAddress))"
+				>
+					<item>
+						<text
+							input="element"
+							tone="error"
+						/>
+					</item>
+				</object-list>
+				<!-- The job of the dialog; a failed one stays displayed with its reason until the dialog is closed. -->
+				<visible-if
+					expr="$job != null"
+					input="job"
+				>
+					<job-status input="job"/>
+				</visible-if>
+				<table>
+					<inputs>
+						<input channel="snapshot"/>
+						<input channel="otherAddress"/>
+					</inputs>
+					<columns>
+						<computed-column name="number"
+							type="tl.core:Integer"
+							width="90"
+						>
+							<label>
+								<en>No.</en>
+								<de>Nr.</de>
+							</label>
+							<value>$row["number"]</value>
+						</computed-column>
+						<computed-column name="step"
+							type="tl.core:String"
+							width="170"
+						>
+							<label>
+								<en>Step</en>
+								<de>Schritt</de>
+							</label>
+							<value>$row["step"]</value>
+						</computed-column>
+						<computed-column name="operation"
+							type="tl.core:String"
+							width="560"
+						>
+							<label>
+								<en>Operation</en>
+								<de>Operation</de>
+							</label>
+							<value>$row["operation"]</value>
+						</computed-column>
+						<computed-column name="bytes"
+							type="tl.core:Integer"
+							width="100"
+						>
+							<label>
+								<en>Bytes</en>
+								<de>Bytes</de>
+							</label>
+							<value>$row["bytes"]</value>
+						</computed-column>
+					</columns>
+					<rows>if($snapshot == null, [], restorePlanRows($snapshot, $otherAddress))</rows>
+				</table>
+			</stack>
+		</inset>
+		<actions>
+			<button appearance="primary">
+				<action class="com.top_logic.layout.view.command.GenericViewCommand"
+					image="css:bi bi-arrow-counterclockwise"
+					inputs="snapshot, otherAddress, busState, job"
+				>
+					<label>
+						<en>Restore</en>
+						<de>Wiederherstellen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$snapshot"
+							type="ehome.physical:DeviceSnapshot"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+						<disabled-if expr='if(jobIsRunning($job), #("The restore is running."@en, "Die Wiederherstellung läuft."@de), null)'/>
+						<disabled-if expr="restoreVeto($snapshot, $otherAddress)"/>
+					</executability>
+					<start-job
+						cancelable="true"
+						job="job"
+						update-interval="200"
+					>
+						<phases>
+							<phase name="compare">
+								<label>
+									<en>Comparing</en>
+									<de>Vergleichen</de>
+								</label>
+							</phase>
+							<phase name="write">
+								<label>
+									<en>Writing</en>
+									<de>Schreiben</de>
+								</label>
+							</phase>
+							<phase name="readback">
+								<label>
+									<en>Reading back</en>
+									<de>Zurücklesen</de>
+								</label>
+							</phase>
+						</phases>
+						<inputs>
+							<input channel="otherAddress"/>
+							<input channel="snapshot"/>
+						</inputs>
+						<body class="de.haumacher.ehome.programming.download.RestoreJob"/>
+						<with-result as="report">
+							<!-- The dialog closes first, then the report says how the job ended (TL #30193). -->
+							<close-dialog/>
+							<open-dialog
+								bind-input-to="report"
+								dialog-view="projects/programming-report.view.xml"
+							/>
+						</with-result>
+					</start-job>
+				</action>
+			</button>
+			<button>
+				<action class="com.top_logic.layout.view.command.CancelDialogCommand"
+					image="css:bi bi-x-lg"
+				>
+					<label>
+						<en>Cancel</en>
+						<de>Abbrechen</de>
+					</label>
+				</action>
+			</button>
+		</actions>
+	</window>
+</view>

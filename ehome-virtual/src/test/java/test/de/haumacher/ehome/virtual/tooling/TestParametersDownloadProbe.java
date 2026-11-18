@@ -88,7 +88,7 @@ public class TestParametersDownloadProbe extends BasicTestCase {
 		assertTrue(name + ": " + result.failure(), result.success());
 	}
 
-	private static TLObject firstConnection(TLObject device) {
+	static TLObject firstConnection(TLObject device) {
 		for (Object connector : (Collection<?>) device.tValueByName("connectors")) {
 			Collection<?> connections = (Collection<?>) ((TLObject) connector).tValueByName("connections");
 			if (!connections.isEmpty()) {

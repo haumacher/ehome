@@ -1062,6 +1062,76 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey4 QUEUE_CONFIRM__COUNT_PATH_FULL_PARAMETERS;
 
+	/**
+	 * @en {0}: not in the snapshot.
+	 */
+	public static ResKey1 RESTORE_NO_TABLE__TABLE;
+
+	/**
+	 * @en The snapshot holds no mask version.
+	 */
+	public static ResKey RESTORE_NO_MASK;
+
+	/**
+	 * @en The snapshot holds no program version.
+	 */
+	public static ResKey RESTORE_NO_PROGRAM_VERSION;
+
+	/**
+	 * @en The snapshot was read from a device with the program version {0}; the program of this device has the version {1}.
+	 */
+	public static ResKey2 RESTORE_OTHER_PROGRAM_VERSION__SNAPSHOT_PROGRAM;
+
+	/**
+	 * @en The snapshot was read at the individual address {0}; this device has the address {1}.
+	 */
+	public static ResKey2 RESTORE_OTHER_ADDRESS__SNAPSHOT_DEVICE;
+
+	/**
+	 * @en The snapshot does not hold {0} bytes the restore writes: {1}.
+	 */
+	public static ResKey2 RESTORE_UNKNOWN_BYTES__COUNT_RANGES;
+
+	/**
+	 * @en The snapshot does not hold the property {1} of the object {0}, which the restore writes.
+	 */
+	public static ResKey2 RESTORE_UNKNOWN_PROPERTY__OBJECT_PROPERTY;
+
+	/**
+	 * @en The restore is refused: {0}
+	 */
+	public static ResKey1 RESTORE_REFUSED__PROBLEMS;
+
+	/**
+	 * @en The restore of a snapshot into {0} is running.
+	 */
+	public static ResKey1 LOCK_RESTORE__DEVICE;
+
+	/**
+	 * @en Into {1}: the snapshot {0}; path to the bus: {2}.
+	 */
+	public static ResKey3 RESTORE_TARGET__SNAPSHOT_DEVICE_PATH;
+
+	/**
+	 * @en {0} holds the snapshot {1} already: nothing was written.
+	 */
+	public static ResKey2 RESTORE_IDENTICAL__DEVICE_SNAPSHOT;
+
+	/**
+	 * @en Restore of the snapshot {1} into {0} through {2} failed at operation {3}: {4}
+	 */
+	public static ResKey5 RESTORE_FAILED__DEVICE_SNAPSHOT_PATH_NUMBER_REASON;
+
+	/**
+	 * @en The snapshot {1} was written into {0}; reading it back failed: {2}
+	 */
+	public static ResKey3 RESTORE_NOT_READ_BACK__DEVICE_SNAPSHOT_REASON;
+
+	/**
+	 * @en Snapshot {1} restored into {0}: {2} operations in {3,number,0.0} s; read back, {4} of {5} blocks equal the snapshot.
+	 */
+	public static ResKeyN RESTORE_DONE__DEVICE_SNAPSHOT_COUNT_SECONDS_EQUAL_BLOCKS;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

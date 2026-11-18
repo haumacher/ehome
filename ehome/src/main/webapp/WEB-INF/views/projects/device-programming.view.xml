@@ -14,7 +14,8 @@
 	  haumacher/ehome #193); it never writes.
 	- Compare reads the device out in the same way and compares the snapshot with the download image; it
 	  never writes. The panel "Snapshots" compares a stored snapshot again, takes it over into the project,
-	  downloads it as a file or uploads one, all without the bus.
+	  downloads it as a file or uploads one, all without the bus; "Restore" writes a snapshot back into the
+	  device (projects/restore-snapshot.view.xml, RestoreJob, haumacher/ehome #194).
 	- Device info asks the device who it is and in what state, beside the project's values
 	  (DeviceInfoJob, projects/device-info.view.xml, haumacher/ehome #175); it never writes.
 	- Download runs the plan after a confirmation naming the device, its address and the path (gateway
@@ -672,6 +673,38 @@
 							/>
 						</with-result>
 					</execute-script>
+				</generic-command>
+				<!--
+					Restore (haumacher/ehome #194): writes the selected snapshot back into the device, as a download
+					whose bytes are the snapshot's; the dialog projects/restore-snapshot.view.xml shows the refusals and
+					the plan and runs the job.
+				-->
+				<generic-command
+					image="css:bi bi-arrow-counterclockwise"
+					inputs="snapshot"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Restore</en>
+						<de>Wiederherstellen</de>
+					</label>
+					<tooltip>
+						<en>Writes the selected snapshot back into the device through the project's gateway or controller: the program's load procedure with the snapshot's bytes. The project is not changed.</en>
+						<de>Schreibt das gewählte Speicherabbild über das Gateway oder den Controller des Projekts in das Gerät zurück: die Ladeprozedur des Programms mit den Bytes des Speicherabbilds. Das Projekt wird nicht geändert.</de>
+					</tooltip>
+					<access>
+						<operation name="Write"
+							object="$snapshot"
+							type="ehome.physical:DeviceSnapshot"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<open-dialog
+						bind-input-to="snapshot"
+						dialog-view="projects/restore-snapshot.view.xml"
+					/>
 				</generic-command>
 				<generic-command
 					image="css:bi bi-download"

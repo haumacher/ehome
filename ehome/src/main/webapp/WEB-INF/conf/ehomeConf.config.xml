@@ -200,6 +200,13 @@
 					<method name="snapshotSummary" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
 					<method name="snapshotLabel" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
 					<method name="snapshotUpload" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<!-- The restore of a snapshot into its device (haumacher/ehome #194). -->
+					<method name="restoreTarget" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="restoreAddressDiffers" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="restoreSummary" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="restoreProblems" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="restorePlanRows" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="restoreVeto" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
 					<!-- The take-over of a snapshot into its device without the bus (de.haumacher.ehome.scan.SnapshotTakeOver). -->
 					<method name="snapshotTakeOver" class="de.haumacher.ehome.scan.SnapshotTakeOver$Builder"/>
 					<!-- Reading an installation from the bus (de.haumacher.ehome.scan.ScanFunctions): one builder, the function by its name. -->

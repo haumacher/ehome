@@ -92,6 +92,32 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   every byte is written; there is no comparison with an earlier image. It is recorded like a full
   download. That a load state machine unloaded and loaded again keeps the memory of a segment not
   written is still to be verified per mask on hardware.
+- "Wiederherstellen" (haumacher/ehome #194) on a snapshot of the list "Speicherabbilder" (a read-out or
+  an uploaded file) writes it back into the device: a full download whose bytes are the snapshot's
+  (`DownloadPlanner.restore`, `SnapshotImage`, `RestoreJob`). The plan is the one of the full download,
+  computed on an image of the project's structure (blocks, masks, object table, parameter properties)
+  with the snapshot's bytes and property values; the group address and association tables lie where the
+  snapshot found them and have its lengths (with dynamic table management the segments are allocated
+  for them), and a byte outside the mask (never written) stays the project's, as the download expects it
+  (the CRC of a download stamp covers it). The load procedure runs unchanged (unload, allocate, task
+  segments, write, load completed, stamps, restart); the hardware type is compared with the snapshot's
+  value. The restore of a read-out taken right after a download is exactly that download. Refused, with
+  the reason, before anything is written: a snapshot of another program or mask, of another program
+  version, without mask or program version, a byte or a property the plan writes that the snapshot does
+  not hold (with the addresses), a table it does not hold, a snapshot read at another individual address
+  than the device has, unless "Andere physikalische Adresse zulassen" is set in the dialog (then the
+  first entry of the group address table is the device's own address where the snapshot's table holds
+  the address it was read at). The dialog (`projects/restore-snapshot.view.xml`) shows the device, the
+  path, the refusals and the plan; the command needs Write on the project, the write switch, and the
+  project's `DownloadLock`. The job reads the device first, as the read-out does: a device holding the
+  snapshot already (mask, program version, every load state machine loaded, the tables at the snapshot's
+  places, every byte and property the plan writes) is not written at all, and the reading is stored as a
+  new snapshot. Otherwise it writes (cancelable up to here, not afterwards) and reads back with the
+  plan of the restore; the reading is stored as a new snapshot and the report is its comparison with
+  the plan. Within the segments it writes, every byte is written (no comparison byte by byte, as for a
+  download). The project is not changed (no parameter, connection or download record): the compare of
+  the tab shows where the device differs from the plan afterwards, "Übernehmen" takes the restored
+  state over.
 - "Physikalische Adresse programmieren": writes the device's individual address into the one device
   whose programming button is pressed.
 - Several devices one after another (haumacher/ehome #200): in the toolbar of the tree of the devices,

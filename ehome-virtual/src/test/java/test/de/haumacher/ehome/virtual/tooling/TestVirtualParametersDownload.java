@@ -254,7 +254,7 @@ public class TestVirtualParametersDownload extends BasicTestCase {
 	/**
 	 * Changes a shown, editable choice of the device whose value lies in the image's memory.
 	 */
-	private static void changeParameter(TLObject device) {
+	static void changeParameter(TLObject device) {
 		DeviceConfiguration configuration = new DeviceConfiguration(device);
 		DownloadPlan before = DownloadPlanner.plan(device, DownloadPlan.Kind.FULL);
 		for (Option item : configuration.getShownItems().keySet()) {

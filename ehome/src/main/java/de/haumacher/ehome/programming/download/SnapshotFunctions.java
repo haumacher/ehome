@@ -4,6 +4,7 @@
 package de.haumacher.ehome.programming.download;
 
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import java.util.Map;
 import com.top_logic.basic.config.ConfigurationException;
 import com.top_logic.basic.config.InstantiationContext;
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.TLType;
 import com.top_logic.model.search.expr.EvalContext;
@@ -22,6 +24,7 @@ import com.top_logic.util.Resources;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.programming.DeviceConfiguration;
+import de.haumacher.ehome.programming.DownloadImage;
 
 /**
  * The TL-Script functions of the snapshots of a device (haumacher/ehome #193), registered in
@@ -59,7 +62,36 @@ public class SnapshotFunctions extends GenericMethod {
 		 * refused with the reason if it is no snapshot file or was read from a device of another program
 		 * or mask. Returns the stored snapshot. Must run in a transaction.
 		 */
-		snapshotUpload(2, false);
+		snapshotUpload(2, false),
+		/**
+		 * <code>restoreTarget(snapshot)</code>: what the restore of the snapshot writes where, for a
+		 * person: the snapshot, the device and the path to the bus (haumacher/ehome #194).
+		 */
+		restoreTarget(1, true),
+		/**
+		 * <code>restoreAddressDiffers(snapshot)</code>: whether the snapshot was read at another
+		 * individual address than its device has.
+		 */
+		restoreAddressDiffers(1, true),
+		/**
+		 * <code>restoreSummary(snapshot, otherAddress)</code>: the number of operations and bytes of the
+		 * restore, and the procedure; nothing if it is refused.
+		 */
+		restoreSummary(2, true),
+		/**
+		 * <code>restoreProblems(snapshot, otherAddress)</code>: why the restore of the snapshot is
+		 * refused (texts), {@link DownloadPlanner#restore(TLObject, Snapshot, boolean)}.
+		 */
+		restoreProblems(2, true),
+		/**
+		 * <code>restorePlanRows(snapshot, otherAddress)</code>: the operations of the restore, as rows.
+		 */
+		restorePlanRows(2, true),
+		/**
+		 * <code>restoreVeto(snapshot, otherAddress)</code>: why the restore cannot be started, or
+		 * nothing; also while another download of the project runs ({@link DownloadLock}).
+		 */
+		restoreVeto(2, true);
 
 		private final int _arity;
 
@@ -124,8 +156,41 @@ public class SnapshotFunctions extends GenericMethod {
 				return Resources.getInstance().getString(label(Snapshots.load(object)));
 			case snapshotUpload:
 				return upload(object, arguments[1]);
+			case restoreTarget: {
+				TLObject device = Snapshots.device(object);
+				return I18NConstants.RESTORE_TARGET__SNAPSHOT_DEVICE_PATH.fill(label(Snapshots.load(object)),
+					MetaLabelProvider.INSTANCE.getLabel(device), String.valueOf(BusPath.describe(device)));
+			}
+			case restoreAddressDiffers: {
+				Integer address = DownloadImage.individualAddress(Snapshots.device(object));
+				return Boolean.valueOf(address != null && !address.equals(Snapshots.load(object).getAddress()));
+			}
+			case restoreSummary: {
+				DownloadPlan plan = restorePlan(object, arguments[1]);
+				return plan.isExecutable() ? I18NConstants.PLAN_SUMMARY__COUNT_BYTES_PROCEDURE.fill(
+					plan.getOperations().size(), plan.bytesWritten(), plan.getProcedure()) : null;
+			}
+			case restoreProblems: {
+				List<String> result = new ArrayList<>();
+				for (ResKey problem : restorePlan(object, arguments[1]).getProblems()) {
+					result.add(Resources.getInstance().getString(problem));
+				}
+				return result;
+			}
+			case restorePlanRows:
+				return ProgrammingFunctions.rows(restorePlan(object, arguments[1]));
+			case restoreVeto: {
+				TLObject device = Snapshots.device(object);
+				ResKey locked = DownloadLock.veto(device);
+				return locked != null ? locked
+					: RestoreJob.veto(device, Snapshots.load(object), Boolean.TRUE.equals(arguments[1]));
+			}
 		}
 		return null;
+	}
+
+	private static DownloadPlan restorePlan(TLObject stored, Object otherAddress) {
+		return DownloadPlanner.restore(Snapshots.device(stored), Snapshots.load(stored), Boolean.TRUE.equals(otherAddress));
 	}
 
 	/**
