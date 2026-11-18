@@ -392,6 +392,24 @@ tight, and this allocation is what failed. No workaround.
 **When fixed:** check that the start no longer allocates the whole snapshot, and decide whether a
 production server gets the remote fetch through the configuration variable the ticket asks for.
 
+## Three model modules without generated wrappers (TL #30446, #27991)
+
+The wrapper generator cannot give one attribute another Java name. `ehome.physical:Device#lastModified`
+generates `getLastModified()` returning a `Date`, which clashes with `Wrapper.getLastModified()`
+(`Long`); `ehome.datapoint:DatapointTypes#types` and `ehome.zigbee.catalog:ZigbeeCatalog#types`
+generate `getTypes()` against `PersistentTLScope.getTypes()` (the singletons' scope supertype, #27991).
+The binding does not compile, so `ehome.physical`, `ehome.datapoint` and `ehome.zigbee.catalog` stay
+out of the generator's list in `ehome/pom.xml` (haumacher/ehome #198): their types (`Device`, `Line`,
+`Area`, `ParameterSetting`, `ModuleInstance`, `PresetUse`, the datapoint types, the Zigbee catalog)
+are reached by name, and the calls on them stay in the `[migrate]` section of
+`name-access-inventory.txt`. No workaround: renaming the attributes would need a data migration (and
+a column rename of `EHDevice`) for names that are valid in the model.
+
+**When fixed:** give the three modules their `package-binding` (as the other modules), add them to
+`<modules>` of `tl:generate-java` (with the Java-name annotation of the fix where it needs one), run
+the generator, move the remaining name-based calls on their types to the wrappers, lower the
+inventories, and close haumacher/ehome #198.
+
 ## Upstream tickets to follow
 
 - TL #29797: see above (XML import into a transient candidate; `<versioned-master-data>`).
