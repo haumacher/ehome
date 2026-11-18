@@ -164,6 +164,7 @@
 					<method name="addressVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="compareVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="downloadConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<method name="downloadParametersOnly" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="addressConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="layoutVeto" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="layoutConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>

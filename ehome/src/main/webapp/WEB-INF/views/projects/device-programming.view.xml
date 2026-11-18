@@ -18,7 +18,10 @@
 	- Device info asks the device who it is and in what state, beside the project's values
 	  (DeviceInfoJob, projects/device-info.view.xml, haumacher/ehome #175); it never writes.
 	- Download runs the plan after a confirmation naming the device, its address and the path (gateway
-	  or controller).
+	  or controller). "Parameters only" (channel parametersOnly, haumacher/ehome #195) chooses the download of
+	  the parameters and tables without the program's code; it is set for a device holding the program
+	  of its last download (ProgrammingFunctions.parametersOnlyByDefault) and decides the plan shown, the
+	  veto, the confirmation and the job (DownloadJob parameters-choice).
 	- Write address writes the individual address into the one device in programming mode.
 	Both writing commands are disabled, with the reason, unless the configuration variable
 	tl_ehome_programming_write_enabled is true (de.haumacher.ehome.programming.download.CalimeroWriter,
@@ -63,9 +66,14 @@
 			inputs="project"
 			observed-types="ehome.project:Project"
 		/>
-		<derived-channel name="summary"
-			expr="if($device == null, null, downloadSummary($device))"
+		<!-- Whether the download writes the parameters only; set anew for each device (haumacher/ehome #195). -->
+		<channel name="parametersOnly"
+			init="$device != null and downloadParametersOnly($device)"
 			inputs="device"
+		/>
+		<derived-channel name="summary"
+			expr="if($device == null, null, downloadSummary($device, $parametersOnly))"
+			inputs="device, parametersOnly"
 			observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 		/>
 	</channels>
@@ -319,7 +327,7 @@
 				</generic-command>
 				<generic-command
 					image="css:bi bi-download"
-					inputs="device, busState, programmingJob, jobDevice"
+					inputs="device, parametersOnly, busState, programmingJob, jobDevice"
 					observed-types="ehome.project:Project,ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 					placement="TOOLBAR"
 				>
@@ -328,8 +336,8 @@
 						<de>Herunterladen</de>
 					</label>
 					<tooltip>
-						<en>Writes the application, the parameters and the group addresses into the device at its individual address (a new device gets its address first). The device does not work until the download is complete, which takes seconds to minutes.</en>
-						<de>Schreibt Applikation, Parameter und Gruppenadressen in das Gerät mit seiner physikalischen Adresse (ein neues Gerät erhält zuerst seine Adresse). Das Gerät arbeitet erst wieder, wenn der Download abgeschlossen ist; das dauert Sekunden bis Minuten.</de>
+						<en>Writes the application, the parameters and the group addresses into the device at its individual address (a new device gets its address first). With "Parameters only", the parameters and the group addresses without the program's code, into a device holding the program. The device does not work until the download is complete, which takes seconds to minutes.</en>
+						<de>Schreibt Applikation, Parameter und Gruppenadressen in das Gerät mit seiner physikalischen Adresse (ein neues Gerät erhält zuerst seine Adresse). Mit „Nur Parameter“ die Parameter und Gruppenadressen ohne den Code des Programms, in ein Gerät, das das Programm hält. Das Gerät arbeitet erst wieder, wenn der Download abgeschlossen ist; das dauert Sekunden bis Minuten.</de>
 					</tooltip>
 					<access>
 						<operation name="Write"
@@ -341,9 +349,9 @@
 						<null-input-disabled/>
 						<!-- One job of this tab at a time: its progress and its report belong to its device. -->
 						<disabled-if expr='if(jobIsRunning($programmingJob), #("The job for {0} is still running."@en, "Der Auftrag für {0} läuft noch."@de).fill($jobDevice), null)'/>
-						<disabled-if expr="downloadVeto($device)"/>
+						<disabled-if expr="downloadVeto($device, $parametersOnly)"/>
 					</executability>
-					<confirm expr="downloadConfirmation($device)"/>
+					<confirm expr="downloadConfirmation($device, $parametersOnly)"/>
 					<!-- The job's progress is shown with this device only. -->
 					<write-channel name="jobDevice"/>
 					<start-job
@@ -352,9 +360,12 @@
 						update-interval="200"
 					>
 						<inputs>
+							<input channel="parametersOnly"/>
 							<input channel="device"/>
 						</inputs>
-						<body class="de.haumacher.ehome.programming.download.DownloadJob"/>
+						<body class="de.haumacher.ehome.programming.download.DownloadJob"
+							parameters-choice="true"
+						/>
 						<with-result>
 							<open-dialog
 								bind-input-to="report"
@@ -474,12 +485,21 @@
 			<inset>
 				<stack gap="default">
 					<job-status input="deviceJob"/>
+					<value-input
+						type="tl.core:Boolean"
+						value="parametersOnly"
+					>
+						<label>
+							<en>Parameters only</en>
+							<de>Nur Parameter</de>
+						</label>
+					</value-input>
 					<text input="summary"/>
 					<!-- Why the download is refused. -->
 					<object-list
 						gap="compact"
-						inputs="device"
-						items="if($device == null, [], downloadProblems($device))"
+						inputs="device, parametersOnly"
+						items="if($device == null, [], downloadProblems($device, $parametersOnly))"
 						observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
 					>
 						<item>
@@ -492,6 +512,7 @@
 					<table>
 						<inputs>
 							<input channel="device"/>
+							<input channel="parametersOnly"/>
 						</inputs>
 						<columns>
 							<computed-column name="number"
@@ -535,7 +556,7 @@
 								<value>$row["bytes"]</value>
 							</computed-column>
 						</columns>
-						<rows>if($device == null, [], downloadPlanRows($device))</rows>
+						<rows>if($device == null, [], downloadPlanRows($device, $parametersOnly))</rows>
 					</table>
 				</stack>
 			</inset>

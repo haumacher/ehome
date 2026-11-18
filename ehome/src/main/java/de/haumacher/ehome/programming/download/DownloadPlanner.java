@@ -6,6 +6,7 @@ package de.haumacher.ehome.programming.download;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -28,6 +29,7 @@ import de.haumacher.ehome.model.operational.MaskVersion;
 import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.model.operational.ResourceLocation;
 import de.haumacher.ehome.model.operational.Segment;
+import de.haumacher.ehome.model.operational.TableLocation;
 import de.haumacher.ehome.programming.DeviceConfiguration;
 import de.haumacher.ehome.programming.DownloadImage;
 import de.haumacher.ehome.programming.DownloadImage.Block;
@@ -120,6 +122,26 @@ import de.haumacher.ehome.modules.ModuleInstances;
  * access level.
  * </p>
  *
+ * <h2>Parameters only (haumacher/ehome #195)</h2>
+ * <p>
+ * A download of the {@link DownloadPlan.Kind#PARAMETERS parameters only} writes what a changed
+ * configuration needs (parameters, group address and association tables, object table) without the
+ * program's code, as ETS's partial download does. Where the product data says which steps belong to
+ * it - a load procedure of the scope <code>par</code> or <code>par,grp</code> (of the program, or
+ * of the mask for <code>DefaultProcedure</code> and <code>MergedProcedure</code>), or steps whose
+ * <code>appliesTo</code> names a scope other than <code>auto</code> and <code>all</code> - the steps
+ * apply whose <code>appliesTo</code> is empty, <code>auto</code>, <code>all</code>, <code>par</code>,
+ * <code>grp</code>, <code>fullpar</code>, <code>fullgrp</code> or <code>pargrp</code>. Otherwise the
+ * full procedure runs, but a segment holding image memory of the program's code alone (a segment of the
+ * program no parameter lies in, holding neither a table nor the object table) is allocated and not
+ * written. In both cases the code the plan does not write is listed as not loaded: the device keeps
+ * it. Before anything is written, the plan reads the program version (BCU 1: the program's identity
+ * in memory) and the load states of the load state machines the procedure completes (without any,
+ * those of the address table, the association table and the application) and stops unless the device
+ * holds the program and has it loaded; only a full download loads the program. A program that allows
+ * no partial download (ETS: <code>LegacyNoPartialDownload</code>) refuses it.
+ * </p>
+ *
  * <p>
  * Memory writes are verified (read back and compared) unless the program says
  * <code>LegacyNoMemoryVerifyMode</code>; <code>SetControlVariable EnableVerifyOnWriteDirect</code>
@@ -173,7 +195,21 @@ public class DownloadPlanner {
 	/** The scopes of steps and procedures belonging to a full download. */
 	private static final Set<String> FULL_SCOPES = Set.of("auto", "all", "full", "fullpar", "fullgrp");
 
+	/** The scopes of steps belonging to a download of the parameters only, where the product data says so. */
+	private static final Set<String> PARAMETER_SCOPES = Set.of("auto", "all", "par", "grp", "fullpar", "fullgrp", "pargrp");
+
+	/** The scopes of steps that apply whatever the download (they do not tell its kind). */
+	private static final Set<String> ANY_SCOPES = Set.of("auto", "all");
+
 	private final TLObject _device;
+
+	private final DownloadPlan.Kind _kind;
+
+	/**
+	 * Whether the plan leaves out the segments of the program's code: a download of the parameters
+	 * only following the full procedure (the product data names no steps of its own for it).
+	 */
+	private boolean _skipCode;
 
 	/** The revision the plan is computed from, see {@link DownloadPlan#getRevision()}. */
 	private final long _revision = HistoryUtils.getSessionRevision().getCommitNumber();
@@ -320,15 +356,16 @@ public class DownloadPlanner {
 		}
 	}
 
-	private DownloadPlanner(TLObject device) {
+	private DownloadPlanner(TLObject device, DownloadPlan.Kind kind) {
 		_device = device;
+		_kind = kind;
 	}
 
 	/**
 	 * The plan of a download of the given kind into the given device (<code>ehome.physical:Device</code>).
 	 */
 	public static DownloadPlan plan(TLObject device, DownloadPlan.Kind kind) {
-		return new DownloadPlanner(device).build(kind);
+		return new DownloadPlanner(device, kind).build();
 	}
 
 	/**
@@ -338,7 +375,8 @@ public class DownloadPlanner {
 		return (address >>> 12) + "." + ((address >>> 8) & 0x0F) + "." + (address & 0xFF);
 	}
 
-	private DownloadPlan build(DownloadPlan.Kind kind) {
+	private DownloadPlan build() {
+		DownloadPlan.Kind kind = _kind;
 		Integer address = DownloadImage.individualAddress(_device);
 		String device = (address == null ? "(no address)" : formatAddress(address)) + " "
 			+ Objects.toString(_device.tValueByName("extId"), "");
@@ -375,6 +413,9 @@ public class DownloadPlanner {
 				_problems.add(I18NConstants.ERROR_MODULE_LAYOUT_DIFFERS__DIFFERENCES.fill(differences));
 			}
 		}
+		if (kind == DownloadPlan.Kind.PARAMETERS && _program.getNoPartialDownload()) {
+			_problems.add(I18NConstants.ERROR_NO_PARTIAL_DOWNLOAD);
+		}
 		if (kind == DownloadPlan.Kind.LAYOUT && ModuleInstances.differenceText(_device) == null) {
 			_problems.add(I18NConstants.ERROR_NO_LAYOUT_DIFFERENCE);
 		}
@@ -402,6 +443,10 @@ public class DownloadPlanner {
 			step(step);
 		}
 		compareIdentical(steps);
+		if (kind == DownloadPlan.Kind.PARAMETERS) {
+			unloadCode();
+			checkProgram(steps);
+		}
 		checkWritten();
 		return result(device, address, kind);
 	}
@@ -418,14 +463,21 @@ public class DownloadPlanner {
 	// The procedure.
 
 	private List<Step> procedure() {
+		boolean parameters = _kind == DownloadPlan.Kind.PARAMETERS;
 		String style = name(_program.getLoadProcedureStyle());
 		if (style == null) {
 			style = _program.getLoadProcedures().isEmpty() ? "DefaultProcedure" : "ProductProcedure";
 		}
 		List<LoadStep> steps = new ArrayList<>();
+		// Whether the product data names a procedure of its own for the parameters.
+		boolean parameterProcedure = false;
 		switch (style) {
 			case "ProductProcedure": {
-				LoadProcedure procedure = programProcedure();
+				LoadProcedure procedure = parameters ? parameterProcedure(_program.getLoadProcedures(), true) : null;
+				parameterProcedure = procedure != null;
+				if (procedure == null) {
+					procedure = programProcedure();
+				}
 				if (procedure == null) {
 					_problems.add(I18NConstants.ERROR_NO_PROCEDURE__MASK.fill(maskName()));
 					return null;
@@ -436,7 +488,11 @@ public class DownloadPlanner {
 			}
 			case "MergedProcedure":
 			case "DefaultProcedure": {
-				LoadProcedure procedure = maskProcedure();
+				LoadProcedure procedure = parameters ? parameterProcedure(_mask.getProcedures(), false) : null;
+				parameterProcedure = procedure != null;
+				if (procedure == null) {
+					procedure = maskProcedure();
+				}
 				if (procedure == null) {
 					_problems.add(I18NConstants.ERROR_NO_PROCEDURE__MASK.fill(maskName()));
 					return null;
@@ -461,10 +517,16 @@ public class DownloadPlanner {
 				_problems.add(I18NConstants.ERROR_NO_PROCEDURE__MASK.fill(maskName()));
 				return null;
 		}
+		// Parameters only: the steps the product data names for it, else the full procedure without the
+		// segments of the code.
+		boolean named = parameterProcedure || steps.stream().anyMatch(
+			step -> step.getAppliesTo() != null && !ANY_SCOPES.contains(step.getAppliesTo().getName()));
+		Set<String> scopes = parameters && named ? PARAMETER_SCOPES : FULL_SCOPES;
+		_skipCode = parameters && !named;
 		List<Step> result = new ArrayList<>();
 		for (LoadStep step : steps) {
 			TLClassifier appliesTo = step.getAppliesTo();
-			if (appliesTo != null && !FULL_SCOPES.contains(appliesTo.getName())) {
+			if (appliesTo != null && !scopes.contains(appliesTo.getName())) {
 				continue;
 			}
 			result.add(new Step(result.size() + 1, step));
@@ -498,10 +560,39 @@ public class DownloadPlanner {
 		return all;
 	}
 
+	/**
+	 * The load procedure of the parameters only among the given ones: of the scope <code>par,grp</code>
+	 * (the parameters with the tables), else <code>par</code>; <code>null</code> if there is none.
+	 *
+	 * @param program
+	 *        Whether the procedures are the program's (one of a merge is not a procedure of its own),
+	 *        else the mask's (one for remote access).
+	 */
+	private static LoadProcedure parameterProcedure(Collection<? extends LoadProcedure> procedures, boolean program) {
+		LoadProcedure result = null;
+		for (LoadProcedure procedure : procedures) {
+			if (!isLoadKind(procedure) || (program ? procedure.getMergeId() != null : !remote(procedure))) {
+				continue;
+			}
+			String scope = name(procedure.getScope());
+			if ("pargrp".equals(scope)) {
+				return procedure;
+			}
+			if ("par".equals(scope) && result == null) {
+				result = procedure;
+			}
+		}
+		return result;
+	}
+
 	private static boolean isLoad(LoadProcedure procedure) {
-		String kind = name(procedure.getKind());
 		String scope = name(procedure.getScope());
-		return (kind == null || "Load".equals(kind)) && (scope == null || FULL_SCOPES.contains(scope));
+		return isLoadKind(procedure) && (scope == null || FULL_SCOPES.contains(scope));
+	}
+
+	private static boolean isLoadKind(LoadProcedure procedure) {
+		String kind = name(procedure.getKind());
+		return kind == null || "Load".equals(kind);
 	}
 
 	private static boolean remote(LoadProcedure procedure) {
@@ -632,6 +723,169 @@ public class DownloadPlanner {
 				}
 			}
 		}
+		if (_skipCode && allocation._segmentWrite && codeOnly(allocation)) {
+			// Parameters only: the segment is allocated, its memory (the program's code) stays as it is.
+			Arrays.fill(allocation._write, false);
+			for (Block block : _image.getBlocks()) {
+				if (block.stateMachine() == null && allocation.contains(block)) {
+					unload(block);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Whether the image's memory in the allocated segment is the program's code alone: it holds blocks
+	 * of the image, all of them {@link #isCode(Block) code}.
+	 */
+	private boolean codeOnly(Allocation allocation) {
+		boolean any = false;
+		for (Block block : _image.getBlocks()) {
+			if (block.stateMachine() != null || !allocation.contains(block)) {
+				continue;
+			}
+			if (!isCode(block)) {
+				return false;
+			}
+			any = true;
+		}
+		return any;
+	}
+
+	/**
+	 * Whether a block of the image is the program's code: the memory of a segment of the program no
+	 * parameter lies in, holding neither a table nor the object table.
+	 */
+	private boolean isCode(Block block) {
+		if (block.stateMachine() != null || block == _image.getAddressTable() || block == _image.getAssociationTable()) {
+			return false;
+		}
+		Block objects = _image.getObjectTable();
+		if (objects != null && objects.address() < block.end() && block.address() < objects.end()) {
+			return false;
+		}
+		for (Segment segment : _program.getSegments()) {
+			if (segment instanceof CodeSegment code && Objects.equals(code.getAddress(), block.address())) {
+				return code.getPointers().isEmpty() && !tableSegment(code);
+			}
+		}
+		return false;
+	}
+
+	private boolean tableSegment(Segment segment) {
+		for (TableLocation table : Arrays.asList(_program.getAddressTable(), _program.getAssociationTable(),
+			_program.getObjectTable())) {
+			if (table != null && table.getSegment() == segment) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Lists a block of the image as not loaded: the device keeps its memory there.
+	 */
+	private void unload(Block block) {
+		if (!_unloaded.contains(block)) {
+			_unloaded.add(block);
+		}
+		_notLoaded.set(block.address(), block.end());
+	}
+
+	/**
+	 * Parameters only: the program's code the plan does not write is not loaded, the device keeps it
+	 * (whether the steps of the parameters allocate no segment for it or the plan leaves its segment
+	 * out).
+	 */
+	private void unloadCode() {
+		for (Block block : _image.getBlocks()) {
+			if (isCode(block) && _written.get(block.address(), block.end()).isEmpty()) {
+				unload(block);
+			}
+		}
+	}
+
+	/**
+	 * Parameters only: the checks that the device holds the program, inserted before the first
+	 * operation writing into the device - its program version (BCU 1: the program's identity in
+	 * memory) and the load states of the load state machines the procedure completes.
+	 */
+	private void checkProgram(List<Step> steps) {
+		List<Operation> checks = new ArrayList<>();
+		ResourceLocation version = systemProperty("ApplicationId");
+		MaskResource identity = memoryResource("ApplicationId");
+		if (version != null) {
+			checks.add(new Operation.CheckProgramVersion("", version.getInterfaceObject(), version.getPropertyId(),
+				applicationId(_program)));
+		} else if (identity != null) {
+			int address = identity.getLocation().getStartAddress().intValue();
+			byte[] expected = new byte[identity.getLength().intValue()];
+			for (int n = 0; n < expected.length; n++) {
+				Integer value = _image.byteAt(address + n);
+				if (value == null) {
+					_problems.add(I18NConstants.ERROR_NO_PROGRAM_IDENTITY__MASK_RANGE.fill(maskName(),
+						range(address, expected.length)));
+					return;
+				}
+				expected[n] = value.byteValue();
+			}
+			checks.add(new Operation.CheckProgramIdentity("", address, expected));
+		} else {
+			_problems.add(I18NConstants.ERROR_NO_PROGRAM_VERSION__MASK.fill(maskName()));
+			return;
+		}
+		Set<Integer> completed = new LinkedHashSet<>();
+		for (Step step : steps) {
+			if ("LoadCompleted".equals(step.kind()) && step.step().getStateMachine() != null) {
+				completed.add(step.step().getStateMachine());
+			}
+		}
+		boolean properties = LoadStateMachines.propertyMapped(_mask);
+		if (completed.isEmpty() && properties) {
+			// A procedure writing memory alone (BCU 2): the load state machines of the tables and the
+			// application.
+			for (int lsm = 1; lsm <= 3; lsm++) {
+				if (maskHasObject(lsm)) {
+					completed.add(lsm);
+				}
+			}
+		}
+		for (int lsm : completed) {
+			if (properties) {
+				if (maskHasObject(lsm)) {
+					checks.add(new Operation.CheckLoadState("", lsm, Integer.valueOf(lsm), null));
+				}
+			} else {
+				LoadStateMachines.InMemory memory = LoadStateMachines.inMemory(_mask, lsm);
+				if (memory != null) {
+					checks.add(new Operation.CheckLoadState("", lsm, null, Integer.valueOf(memory.status())));
+				}
+			}
+		}
+		int index = _operations.size();
+		for (int n = 0; n < _operations.size(); n++) {
+			if (_operations.get(n).writes()) {
+				index = n;
+				break;
+			}
+		}
+		_operations.addAll(index, checks);
+	}
+
+	/**
+	 * The mask's resource of the given name in the standard memory, with its address and length;
+	 * <code>null</code> if there is none.
+	 */
+	private MaskResource memoryResource(String resourceName) {
+		for (MaskResource resource : _mask.getResources()) {
+			ResourceLocation location = resource.getLocation();
+			if (resourceName.equals(resource.getName()) && location != null && location.getAddressSpace() != null
+				&& "StandardMemory".equals(location.getAddressSpace().getName()) && location.getStartAddress() != null
+				&& resource.getLength() != null && resource.getLength() > 0) {
+				return resource;
+			}
+		}
+		return null;
 	}
 
 	/**

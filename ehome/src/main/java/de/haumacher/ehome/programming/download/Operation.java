@@ -140,6 +140,60 @@ public sealed interface Operation {
 	}
 
 	/**
+	 * Reads the program version of the device (<code>PID_PROGRAM_VERSION</code>) and aborts unless it
+	 * is the program's: a download of the parameters only needs the program in the device
+	 * (haumacher/ehome #195).
+	 *
+	 * @param objectIndex
+	 *        The interface object of the program version (the mask's resource
+	 *        <code>ApplicationId</code>).
+	 * @param propertyId
+	 *        Its property.
+	 * @param expected
+	 *        The application ID of the program.
+	 */
+	record CheckProgramVersion(String step, int objectIndex, int propertyId, byte[] expected) implements Operation {
+		@Override
+		public ResKey description() {
+			return I18NConstants.OP_CHECK_PROGRAM_VERSION__OBJECT_PROPERTY_VALUE.fill(objectIndex, propertyId, hex(expected));
+		}
+	}
+
+	/**
+	 * Reads the identity of the program in the memory of the device (BCU 1: the mask's resource
+	 * <code>ApplicationId</code> in memory) and aborts unless it holds the image's bytes there: a
+	 * download of the parameters only needs the program in the device (haumacher/ehome #195).
+	 */
+	record CheckProgramIdentity(String step, int address, byte[] expected) implements Operation {
+		@Override
+		public ResKey description() {
+			return I18NConstants.OP_CHECK_PROGRAM_IDENTITY__FROM_TO_VALUE.fill(String.format("%04X", address),
+				String.format("%04X", address + expected.length - 1), hex(expected));
+		}
+	}
+
+	/**
+	 * Reads the load state of a load state machine and aborts unless it is
+	 * {@link LoadControls#STATE_LOADED loaded}: a download of the parameters only needs the program
+	 * in the device (haumacher/ehome #195).
+	 *
+	 * @param stateMachine
+	 *        The load state machine.
+	 * @param objectIndex
+	 *        The interface object whose load state control property holds its state (load state
+	 *        machines through properties), <code>null</code> for one in memory.
+	 * @param status
+	 *        The address of its load state in memory (mask 7.1), <code>null</code> for one through
+	 *        properties.
+	 */
+	record CheckLoadState(String step, int stateMachine, Integer objectIndex, Integer status) implements Operation {
+		@Override
+		public ResKey description() {
+			return I18NConstants.OP_CHECK_LOADED__LSM.fill(stateMachine);
+		}
+	}
+
+	/**
 	 * Writes a load control (10 bytes) into the load state control property (5) of the interface
 	 * object of a load state machine and checks the state the device reports afterwards.
 	 *

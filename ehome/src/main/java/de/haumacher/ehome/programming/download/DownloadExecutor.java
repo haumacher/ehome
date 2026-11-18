@@ -23,6 +23,12 @@ import com.top_logic.basic.util.ResKey;
  * into its memory without an answer, and its state follows). A verified memory write is read back and
  * compared; the load control in memory is not (the mask gives no read access to it).
  * </p>
+ *
+ * <p>
+ * The checks of a download of the parameters only (haumacher/ehome #195) read the program version
+ * (or, BCU 1, the program's identity in memory) and the load states once each; a device holding
+ * another program or a load state machine not loaded stops the download before anything is written.
+ * </p>
  */
 public class DownloadExecutor {
 
@@ -188,6 +194,26 @@ public class DownloadExecutor {
 				}
 				throw new Mismatch(I18NConstants.EXEC_PROPERTY__OBJECT_PROPERTY_VALUE_EXPECTED.fill(compare.objectIndex(),
 					compare.propertyId(), Operation.hex(value), Operation.hex(compare.expected())));
+			}
+		} else if (operation instanceof Operation.CheckProgramVersion check) {
+			byte[] value = access.readProperty(check.objectIndex(), check.propertyId(), 1, 1);
+			if (!startsWith(value, check.expected())) {
+				throw new Mismatch(I18NConstants.EXEC_PROGRAM_VERSION__VALUE_EXPECTED.fill(Operation.hex(value),
+					Operation.hex(check.expected())));
+			}
+		} else if (operation instanceof Operation.CheckProgramIdentity check) {
+			byte[] value = access.readMemory(check.address(), check.expected().length);
+			if (!Arrays.equals(value, check.expected())) {
+				throw new Mismatch(I18NConstants.EXEC_PROGRAM_IDENTITY__ADDRESS_VALUE_EXPECTED.fill(
+					String.format("%04X", check.address()), Operation.hex(value), Operation.hex(check.expected())));
+			}
+		} else if (operation instanceof Operation.CheckLoadState check) {
+			byte[] value = check.objectIndex() != null
+				? access.readProperty(check.objectIndex(), LoadControls.PID_LOAD_STATE_CONTROL, 1, 1)
+				: access.readMemory(check.status(), 1);
+			if (value.length == 0 || (value[0] & 0xFF) != LoadControls.STATE_LOADED) {
+				throw new Mismatch(I18NConstants.EXEC_NOT_LOADED__LSM_STATE.fill(check.stateMachine(),
+					value.length == 0 ? I18NConstants.FACT_NO_ANSWER : LoadControls.stateName(value[0] & 0xFF)));
 			}
 		} else if (operation instanceof Operation.LoadControl control) {
 			loadControl(control, access);

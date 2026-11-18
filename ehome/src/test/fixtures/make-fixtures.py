@@ -439,6 +439,19 @@ parameter segment allocated while EnableSegmentWrite is off and written by a Wri
 TaskCtrl2 and a task segment of LSM 5. The objects 0 (send 0/0/3, receive 0/0/1) and 1 (send 0/1/1) of the
 devices 1.0.1 and 1.0.3 are connected; the device 1.0.2 has in addition object 2 receiving from 0/0/2.
 
+TestPartialDownload.knxproj and TestPartialSteps.knxproj (haumacher/ehome #195, the download "Parameters only"):
+copies of samples/KNX-Testsystem.knxproj like TestMask71, whose MDT actuator 1.3.5 runs an artificial program
+of mask 7.5 made from its program, marked as test data by its name, with a code segment the test system's
+programs lack: the absolute segment 4700-470F holding the bytes C0-CF, no parameter and no table, allocated by
+the application's load (LSM 3, SegFlags 80) after the segment of the parameters. In TestPartialDownload
+("TEST: Teil-Download", M-0083_A-FF72-01-0000, application number 65394, version 1) every step applies to every
+download, as in the test system's programs. In TestPartialSteps ("TEST: Teil-Download mit Schritten",
+M-0083_A-FF73-01-0000, application number 65395, version 1) the steps say which download they belong to: the
+allocation of the code segment AppliesTo "full", those of the object table (4400) and of the parameters (44EC)
+"full,par", and a delay of 20 ms after the load of the application "par". The hardware, its product and the
+catalog sections get IDs and names of their own (M-0083_H-TEST.2E72-1, M-0083_H-TEST.2E73-1); the projects are
+named "TestPartialDownload" and "TestPartialSteps".
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -3541,6 +3554,72 @@ def mask71(name, xml):
 
 write('src/test/fixtures/TestMask71.knxproj', mask71, rename=lambda name: name.replace('000C-21-83B5', 'FF71-01-0000'),
     source='samples/KNX-Testsystem.knxproj')
+
+
+# TestPartialDownload.knxproj and TestPartialSteps.knxproj: programs with a code segment (haumacher/ehome #195),
+# see the module comment.
+PARTIAL_CODE_ADDRESS = 0x4700
+PARTIAL_CODE = bytes(range(0xC0, 0xD0))
+PARTIAL_PARAMETER_SEGMENT = '<LdCtrlAbsSegment LsmIdx="3" SegType="0" Address="17644" Size="304" Access="255" MemType="3" SegFlags="128" />'
+
+
+def partial(suffix, number, name, project, steps):
+    """The modification of the test system for a program with a code segment (see the module comment).
+
+    @param suffix: The application number of the program in hex (FF72).
+    @param steps: Whether the steps say which download they belong to.
+    """
+    short = suffix[2:]
+    ids = [
+        ('000C-21-83B5', suffix + '-01-0000'),
+        ('M-0083_H-3.2E13-2', 'M-0083_H-TEST.2E' + short + '-1'),
+        ('M-0083_CS-A.2001', 'M-0083_CS-TEST' + short),
+    ]
+    names = [
+        ('"Switching, Staircase 4fold AKK"', '"TEST: ' + name + ' (künstliche Testdaten)"'),
+        ('"Schalten, Treppenlicht 4fach AKK"', '"TEST: ' + name + ' (künstliche Testdaten)"'),
+        ('"AKK-0416.03 Switch Actuator 4fold, 2SU, 16A"', '"TEST ' + name + '"'),
+        ('"AKK-0416.03 Schaltaktor 4fach, 2TE, 16A"', '"TEST ' + name + '"'),
+        ('"Schaltaktor 4fach, 2TE, 230VAC, 16A"', '"TEST ' + name + '"'),
+        ('OrderNumber="AKK-0416.03"', 'OrderNumber="TEST-00' + short + '"'),
+    ]
+    program = 'M-0083_A-' + suffix + '-01-0000'
+
+    def modify(entry, xml):
+        for old, new in ids:
+            xml = xml.replace(old, new)
+        if entry == 'P-0563/Project.xml':
+            return replace_once(xml, '<ProjectInformation Name="KNX-Testsystem"', '<ProjectInformation Name="' + project + '"')
+        if not entry.startswith('M-0083/'):
+            return xml
+        for old, new in names:
+            xml = xml.replace(old, new)
+        if entry == 'M-0083/M-0083_A-000C-21-83B5.xml':
+            xml = replace_once(xml, 'ApplicationNumber="12" ApplicationVersion="33"',
+                'ApplicationNumber="%d" ApplicationVersion="1"' % number)
+            parameters = xml.index('<AbsoluteSegment Id="' + program + '_AS-44EC"')
+            end = xml.index('</AbsoluteSegment>', parameters) + len('</AbsoluteSegment>')
+            xml = xml[:end] + ('\r\n              <AbsoluteSegment Id="%s_AS-%04X" Address="%d" Size="%d" UserMemory="0">'
+                '\r\n                <Data>%s</Data>\r\n              </AbsoluteSegment>') % (program, PARTIAL_CODE_ADDRESS,
+                PARTIAL_CODE_ADDRESS, len(PARTIAL_CODE), base64.b64encode(PARTIAL_CODE).decode('ascii')) + xml[end:]
+            code = ('<LdCtrlAbsSegment LsmIdx="3" SegType="0" Address="%d" Size="%d" Access="255" MemType="3" SegFlags="128"%s />'
+                % (PARTIAL_CODE_ADDRESS, len(PARTIAL_CODE), ' AppliesTo="full"' if steps else ''))
+            xml = replace_once(xml, PARTIAL_PARAMETER_SEGMENT, PARTIAL_PARAMETER_SEGMENT + '\r\n                ' + code)
+            if steps:
+                for address, size in ((17408, 236), (17644, 304)):
+                    step = '<LdCtrlAbsSegment LsmIdx="3" SegType="0" Address="%d" Size="%d" Access="255" MemType="3" SegFlags="128"' % (address, size)
+                    xml = replace_once(xml, step + ' />', step + ' AppliesTo="full,par" />')
+                xml = replace_once(xml, '<LdCtrlLoadCompleted LsmIdx="3" />',
+                    '<LdCtrlLoadCompleted LsmIdx="3" />\r\n                <LdCtrlDelay MilliSeconds="20" AppliesTo="par" />')
+        return xml
+    return modify
+
+
+write('src/test/fixtures/TestPartialDownload.knxproj', partial('FF72', 65394, 'Teil-Download', 'TestPartialDownload', False),
+    rename=lambda name: name.replace('000C-21-83B5', 'FF72-01-0000'), source='samples/KNX-Testsystem.knxproj')
+write('src/test/fixtures/TestPartialSteps.knxproj',
+    partial('FF73', 65395, 'Teil-Download mit Schritten', 'TestPartialSteps', True),
+    rename=lambda name: name.replace('000C-21-83B5', 'FF73-01-0000'), source='samples/KNX-Testsystem.knxproj')
 
 
 # TestBcu2.knxproj: three artificial BCU 2 programs (see the module comment).

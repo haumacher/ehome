@@ -24,6 +24,12 @@ import de.haumacher.ehome.modules.ModuleInstances;
  * when (<code>Device#lastDownload</code>) and, for a full download, the revision of the project data
  * it was computed from (<code>Device#downloadRevision</code>), the reference of the changes since
  * (<code>de.haumacher.ehome.programming.DeviceChanges</code>).
+ *
+ * <p>
+ * A download of the parameters only ({@link DownloadPlan.Kind#PARAMETERS}) is recorded as a full one:
+ * it checked that the device holds the program before it wrote the parameters and the tables, so the
+ * device holds every part afterwards.
+ * </p>
  */
 public class DownloadRecord {
 
@@ -44,6 +50,7 @@ public class DownloadRecord {
 			case ADDRESS -> I18NConstants.COMMIT_ADDRESS_PROGRAMMED__DEVICE.fill(label);
 			case LAYOUT -> I18NConstants.COMMIT_LAYOUT_PROGRAMMED__DEVICE.fill(label);
 			case FULL -> I18NConstants.COMMIT_PROGRAMMED__DEVICE.fill(label);
+			case PARAMETERS -> I18NConstants.COMMIT_PARAMETERS_PROGRAMMED__DEVICE.fill(label);
 		});
 	}
 
