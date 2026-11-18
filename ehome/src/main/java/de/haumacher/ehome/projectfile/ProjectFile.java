@@ -224,6 +224,9 @@ public final class ProjectFile {
 		// The presets applied to a device name presets of this installation's device templates (master
 		// data, haumacher/ehome #146); the values they set are the device's settings and travel.
 		"ehome.physical:Device#presets",
+		// The read-outs of the real devices (haumacher/ehome #193) are operating history of this installation,
+		// naming its accounts; a snapshot leaves as a file of its own.
+		"ehome.physical:Device#snapshots",
 		// Likewise the presets of the functions and controls (haumacher/ehome #147); the controls travel with
 		// their device, channel and operation. The marks of the derivation name presets and parts of the
 		// programs: a derivation after the import takes the addresses the functions' roles are bound to and

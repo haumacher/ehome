@@ -14,10 +14,8 @@ import com.top_logic.basic.config.PolymorphicConfiguration;
 import com.top_logic.basic.config.annotation.Name;
 import com.top_logic.basic.config.annotation.defaults.ClassDefault;
 import com.top_logic.basic.util.ResKey;
-import com.top_logic.knowledge.service.HistoryUtils;
 import com.top_logic.knowledge.service.PersistencyLayer;
 import com.top_logic.knowledge.service.Transaction;
-import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.layout.view.job.JobBody;
 import com.top_logic.layout.view.job.JobMonitor;
 import com.top_logic.layout.view.job.JobRunner;
@@ -29,8 +27,6 @@ import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.BusPath;
 import de.haumacher.ehome.programming.download.CalimeroReader;
 import de.haumacher.ehome.programming.download.DeviceReader;
-import de.haumacher.ehome.programming.download.DownloadPlan;
-import de.haumacher.ehome.programming.download.DownloadRecord;
 import de.haumacher.ehome.view.JobInputs;
 
 /**
@@ -204,17 +200,7 @@ public class TakeOverJob implements JobBody {
 				notRead = ex.getErrorKey();
 			}
 			if (memory != null) {
-				String deviceLabel = MetaLabelProvider.INSTANCE.getLabel(device);
-				try (Transaction tx = PersistencyLayer.getKnowledgeBase()
-					.beginTransaction(I18NConstants.COMMIT_READ_BACK__DEVICE.fill(deviceLabel))) {
-					report = ReadBack.apply(device, memory);
-					tx.commit();
-				}
-				if (report.identical()) {
-					// The device holds what the project now says.
-					DownloadRecord.record(device, DownloadPlan.Kind.FULL, HistoryUtils.getLastRevision().getCommitNumber(),
-						I18NConstants.COMMIT_READ_BACK_IDENTICAL__DEVICE.fill(deviceLabel));
-				}
+				report = ReadBack.takeOver(device, memory);
 			}
 		}
 		if (report == null) {

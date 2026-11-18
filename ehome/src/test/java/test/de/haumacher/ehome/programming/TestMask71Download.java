@@ -108,6 +108,7 @@ public class TestMask71Download extends BasicTestCase {
 			checkPlan(plan, DownloadPlanner.plan(device(reference, ACTUATOR), DownloadPlan.Kind.FULL));
 			MockDevice mock = checkDownload(plan);
 			checkCompare(device, plan, mock);
+			checkReadOut(device, plan, mock);
 			checkDeviceInfo(mock);
 			checkStateNotFollowing(plan);
 		} finally {
@@ -264,6 +265,48 @@ public class TestMask71Download extends BasicTestCase {
 		assertEquals(List.of("readMemory B6EA 1", "readMemory B6EB 1", "readMemory B6EC 1", "readMemory B6ED 1"),
 			mock.calls().subList(before + 2, before + 6));
 		assertEquals(result.blocks().size(), result.identicalBlocks());
+	}
+
+	/**
+	 * Probe of the read-out (haumacher/ehome #193) on a mask 7.1 device, whose load states are in
+	 * memory: the snapshot of the loaded device compares identical offline, survives its file, and a
+	 * byte changed in the device afterwards shows up with both values.
+	 */
+	private static void checkReadOut(TLObject device, DownloadPlan plan, MockDevice mock) throws Exception {
+		de.haumacher.ehome.model.operational.Program program = DeviceConfiguration.program(device);
+		de.haumacher.ehome.programming.download.Snapshot snapshot =
+			de.haumacher.ehome.programming.download.ReadOut.read(program, plan, mock, (number, count, block) -> {
+				// No progress.
+			});
+		DeviceComparison.Result same = DeviceComparison.compare(program, plan, snapshot);
+		assertTrue(same.facts().contains("Load state machine 3: Loaded"));
+		assertEquals(same.blocks().size(), same.identicalBlocks());
+
+		de.haumacher.ehome.programming.download.Snapshot copy = de.haumacher.ehome.programming.download.SnapshotFile
+			.parse(de.haumacher.ehome.programming.download.SnapshotFile.write(snapshot));
+		assertEquals(same.identicalBlocks(), DeviceComparison.compare(program, plan, copy).identicalBlocks());
+
+		Block block = plan.getImage().getBlocks().get(plan.getImage().getBlocks().size() - 1);
+		int address = block.address();
+		byte old = mock.memory()[address];
+		mock.setMemory(address, new byte[] { (byte) (old ^ 0xFF) });
+		try {
+			de.haumacher.ehome.programming.download.Snapshot changed =
+				de.haumacher.ehome.programming.download.ReadOut.read(program, plan, mock, (number, count, b) -> {
+					// No progress.
+				});
+			DeviceComparison.Result diff = DeviceComparison.compare(program, plan, changed);
+			assertEquals(same.blocks().size() - 1, diff.identicalBlocks());
+			DeviceComparison.BlockResult differing =
+				diff.blocks().stream().filter(r -> !r.identical()).findFirst().orElseThrow();
+			assertEquals(List.of(address), differing.different());
+			String expectedDevice = HexFormat.of().withUpperCase().formatHex(new byte[] { (byte) (old ^ 0xFF) });
+			assertEquals(1, differing.differences().size());
+			assertEquals(expectedDevice, differing.differences().get(0).device());
+			assertEquals(HexFormat.of().withUpperCase().formatHex(new byte[] { old }), differing.differences().get(0).plan());
+		} finally {
+			mock.setMemory(address, new byte[] { old });
+		}
 	}
 
 	/**

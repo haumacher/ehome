@@ -10,7 +10,11 @@
 	computed by the TL-Script functions of de.haumacher.ehome.programming.download.ProgrammingFunctions
 	(implemented in Java; the views name the types they depend on in observed-types).
 
-	- Compare reads the device and compares it with the download image; it never writes.
+	- Read out reads the device and keeps what was read as a snapshot of the device (ReadOutJob,
+	  haumacher/ehome #193); it never writes.
+	- Compare reads the device out in the same way and compares the snapshot with the download image; it
+	  never writes. The panel "Snapshots" compares a stored snapshot again, takes it over into the project,
+	  downloads it as a file or uploads one, all without the bus.
 	- Device info asks the device who it is and in what state, beside the project's values
 	  (DeviceInfoJob, projects/device-info.view.xml, haumacher/ehome #175); it never writes.
 	- Download runs the plan after a confirmation naming the device, its address and the path (gateway
@@ -21,7 +25,7 @@
 	de.haumacher.ehome.settings.OperatorSettings), whatever the path. Unless the installation reaches local
 	networks (tl_ehome_local_network), a gateway is refused with that reason; the controller stays
 	available, and "Choose the gateway" offers only it then.
-	The commands run as jobs (DownloadJob, CompareJob, DeviceInfoJob) with their progress shown here, and end with
+	The commands run as jobs (DownloadJob, CompareJob, ReadOutJob, DeviceInfoJob) with their progress shown here, and end with
 	the report (projects/programming-report.view.xml), which replaces the progress display; a job
 	that fails keeps its display with the error. One job of the tab at a time: its progress is shown
 	with the device it was started for (jobDevice), and the commands of all devices are disabled with
@@ -34,6 +38,8 @@
 		<channel name="device"/>
 		<channel name="project"/>
 		<channel name="programmingJob"/>
+		<!-- The snapshot selected in the panel "Snapshots" (haumacher/ehome #193). -->
+		<channel name="snapshot"/>
 		<!-- The device the job in programmingJob was started for: its progress is shown only with that device (haumacher/ehome #161). -->
 		<channel name="jobDevice"/>
 		<derived-channel name="deviceJob"
@@ -150,8 +156,8 @@
 						<de>Mit dem Gerät vergleichen</de>
 					</label>
 					<tooltip>
-						<en>Reads the memory of the device through the project's gateway or controller and compares it with the download image; nothing is written. Takes seconds to minutes, depending on the device.</en>
-						<de>Liest den Speicher des Geräts über das Gateway oder den Controller des Projekts und vergleicht ihn mit dem Download-Abbild; es wird nichts geschrieben. Dauert je nach Gerät Sekunden bis Minuten.</de>
+						<en>Reads the device out through the project's gateway or controller, keeps what was read as a snapshot, and compares it with the download image; nothing is written. Takes seconds to minutes, depending on the device.</en>
+						<de>Liest das Gerät über das Gateway oder den Controller des Projekts aus, behält das Gelesene als Speicherabbild und vergleicht es mit dem Download-Abbild; es wird nichts geschrieben. Dauert je nach Gerät Sekunden bis Minuten.</de>
 					</tooltip>
 					<access>
 						<operation name="Write"
@@ -194,6 +200,64 @@
 									<open-dialog
 										bind-input-to="report"
 										dialog-view="projects/programming-report.view.xml"
+									/>
+									<write-channel name="programmingJob" clear="true"/>
+								</then>
+							</if>
+						</on-cancel>
+					</start-job>
+				</generic-command>
+				<!--
+					Read out (haumacher/ehome #193): reads the device as the comparison does and keeps what was read
+					as a snapshot of the device (panel "Snapshots" below); nothing is written into the device.
+				-->
+				<generic-command
+					image="css:bi bi-sd-card"
+					inputs="device, busState, programmingJob, jobDevice"
+					observed-types="ehome.project:Project"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Read out</en>
+						<de>Auslesen</de>
+					</label>
+					<tooltip>
+						<en>Reads the memory, the properties, the program version and the load states of the device through the project's gateway or controller and keeps them as a snapshot of the device; nothing is written. Takes seconds to minutes, depending on the device.</en>
+						<de>Liest Speicher, Eigenschaften, Programmversion und Ladezustände des Geräts über das Gateway oder den Controller des Projekts und behält sie als Speicherabbild des Geräts; es wird nichts geschrieben. Dauert je nach Gerät Sekunden bis Minuten.</de>
+					</tooltip>
+					<access>
+						<operation name="Write"
+							object="$device"
+							type="ehome.physical:Device"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+						<!-- One job of this tab at a time: its progress and its report belong to its device. -->
+						<disabled-if expr='if(jobIsRunning($programmingJob), #("The job for {0} is still running."@en, "Der Auftrag für {0} läuft noch."@de).fill($jobDevice), null)'/>
+						<disabled-if expr="compareVeto($device)"/>
+					</executability>
+					<!-- The job's progress is shown with this device only. -->
+					<write-channel name="jobDevice"/>
+					<start-job
+						cancelable="true"
+						job="programmingJob"
+						update-interval="200"
+					>
+						<inputs>
+							<input channel="device"/>
+						</inputs>
+						<body class="de.haumacher.ehome.programming.download.ReadOutJob"/>
+						<with-result>
+							<write-channel name="snapshot"/>
+							<write-channel name="programmingJob" clear="true"/>
+						</with-result>
+						<!-- Cancelled: what was read up to then is kept as a snapshot that is not complete. -->
+						<on-cancel as="stored">
+							<if test="$stored != null">
+								<then>
+									<write-channel name="snapshot"
+										value="stored"
 									/>
 									<write-channel name="programmingJob" clear="true"/>
 								</then>
@@ -474,6 +538,219 @@
 						<rows>if($device == null, [], downloadPlanRows($device))</rows>
 					</table>
 				</stack>
+			</inset>
+		</panel>
+		<!--
+			The snapshots of the device (haumacher/ehome #193): what "Read out" and "Compare" read from it, or a
+			file uploaded, newest first. Compare and take-over work on a snapshot without the bus; a snapshot
+			downloads as a file (JSON, de.haumacher.ehome.programming.download.SnapshotFile) and a file
+			uploads into a device of the same program and mask.
+		-->
+		<panel>
+			<title>
+				<en>Snapshots</en>
+				<de>Speicherabbilder</de>
+			</title>
+			<commands>
+				<upload-command
+					accept=".json,application/json"
+					image="css:bi bi-upload"
+					inputs="device"
+					multiple="false"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Upload a snapshot</en>
+						<de>Speicherabbild hochladen</de>
+					</label>
+					<tooltip>
+						<en>Takes a snapshot file (JSON) as a snapshot of this device; a file read from a device of another program or mask is refused.</en>
+						<de>Übernimmt eine Speicherabbild-Datei (JSON) als Speicherabbild dieses Geräts; eine Datei eines Geräts mit anderem Programm oder anderer Maske wird abgelehnt.</de>
+					</tooltip>
+					<access>
+						<operation name="Write"
+							object="$device"
+							type="ehome.physical:Device"
+						/>
+					</access>
+					<executability>
+						<!-- Not <null-input-disabled/>: the uploaded file is an input that is empty until the upload. -->
+						<disabled-if expr="$device == null"/>
+					</executability>
+					<with-transaction>
+						<execute-script function="snapshotUpload($device, $file)">
+							<inputs>
+								<input channel="device"/>
+							</inputs>
+						</execute-script>
+						<with-result>
+							<write-channel name="snapshot"/>
+						</with-result>
+					</with-transaction>
+				</upload-command>
+				<generic-command
+					image="css:bi bi-arrow-left-right"
+					inputs="snapshot"
+					observed-types="ehome.physical:ParameterSetting,ehome.physical:Connector,ehome.physical:Connection"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Compare</en>
+						<de>Vergleichen</de>
+					</label>
+					<tooltip>
+						<en>Compares the selected snapshot with the download image, block by block, with the device's and the plan's bytes where they differ; the bus is not used.</en>
+						<de>Vergleicht das gewählte Speicherabbild Block für Block mit dem Download-Abbild, mit den Bytes des Geräts und des Plans, wo sie sich unterscheiden; der Bus wird nicht benutzt.</de>
+					</tooltip>
+					<access>
+						<operation name="Read"
+							object="$snapshot"
+							type="ehome.physical:DeviceSnapshot"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<execute-script function="snapshotCompare($snapshot)">
+						<with-result>
+							<open-dialog
+								bind-input-to="report"
+								dialog-view="projects/programming-report.view.xml"
+							/>
+						</with-result>
+					</execute-script>
+				</generic-command>
+				<generic-command
+					image="css:bi bi-box-arrow-in-left"
+					inputs="snapshot"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Take over</en>
+						<de>Übernehmen</de>
+					</label>
+					<tooltip>
+						<en>Takes the parameter values, connections and flags of the selected snapshot into the project, as "Take over" of the bus scan does; the bus is not used.</en>
+						<de>Übernimmt Parameterwerte, Verbindungen und Flags des gewählten Speicherabbilds in das Projekt, wie „Übernehmen“ der Bussuche; der Bus wird nicht benutzt.</de>
+					</tooltip>
+					<access>
+						<operation name="Write"
+							object="$snapshot"
+							type="ehome.physical:DeviceSnapshot"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<confirm expr='#("Take the configuration of the snapshot {0} into the project? The device&apos;s parameter values and connections in the project are replaced."@en, "Die Konfiguration des Speicherabbilds {0} in das Projekt übernehmen? Parameterwerte und Verbindungen des Geräts im Projekt werden ersetzt."@de).fill(snapshotLabel($snapshot))'/>
+					<execute-script function="snapshotTakeOver($snapshot)">
+						<with-result>
+							<notify
+								expr="$result"
+								kind="info"
+							/>
+						</with-result>
+					</execute-script>
+				</generic-command>
+				<generic-command
+					image="css:bi bi-download"
+					inputs="snapshot"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Download the file</en>
+						<de>Datei herunterladen</de>
+					</label>
+					<tooltip>
+						<en>Saves the selected snapshot as a file (JSON).</en>
+						<de>Speichert das gewählte Speicherabbild als Datei (JSON).</de>
+					</tooltip>
+					<access>
+						<operation name="Read"
+							object="$snapshot"
+							type="ehome.physical:DeviceSnapshot"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<execute-script function="snapshotFile($snapshot)">
+						<with-result>
+							<download/>
+						</with-result>
+					</execute-script>
+				</generic-command>
+				<generic-command
+					image="css:bi bi-trash"
+					inputs="snapshot"
+					placement="TOOLBAR"
+				>
+					<label>
+						<en>Delete</en>
+						<de>Löschen</de>
+					</label>
+					<access>
+						<operation name="Write"
+							object="$snapshot"
+							type="ehome.physical:DeviceSnapshot"
+						/>
+					</access>
+					<executability>
+						<null-input-disabled/>
+					</executability>
+					<confirm expr='#("Delete the snapshot {0}?"@en, "Das Speicherabbild {0} löschen?"@de).fill(snapshotLabel($snapshot))'/>
+					<delete-object/>
+					<write-channel name="snapshot" clear="true"/>
+				</generic-command>
+			</commands>
+			<inset>
+				<table
+					observed-types="ehome.physical:DeviceSnapshot,ehome.physical:Device"
+					selection="snapshot"
+					types="ehome.physical:DeviceSnapshot"
+				>
+					<inputs>
+						<input channel="device"/>
+					</inputs>
+					<columns>
+						<column attribute="time"
+							width="170"
+						/>
+						<computed-column name="source"
+							type="tl.core:String"
+							width="260"
+						>
+							<label>
+								<en>Read through</en>
+								<de>Gelesen über</de>
+							</label>
+							<value>if($row.get(`ehome.physical:DeviceSnapshot#file`) != null, $row.get(`ehome.physical:DeviceSnapshot#file`), $row.get(`ehome.physical:DeviceSnapshot#busPath`))</value>
+						</computed-column>
+						<column attribute="account"
+							width="140"
+						/>
+						<column attribute="descriptor"
+							width="80"
+						/>
+						<column attribute="programVersion"
+							width="130"
+						/>
+						<computed-column name="content"
+							type="tl.core:String"
+							width="300"
+						>
+							<label>
+								<en>Content</en>
+								<de>Inhalt</de>
+							</label>
+							<value>snapshotSummary($row)</value>
+						</computed-column>
+						<column attribute="notes"
+							width="300"
+						/>
+					</columns>
+					<rows>if($device == null, [], deviceSnapshots($device))</rows>
+				</table>
 			</inset>
 		</panel>
 	</stack>

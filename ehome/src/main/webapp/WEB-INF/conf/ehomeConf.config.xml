@@ -163,6 +163,15 @@
 					<method name="layoutConfirmation" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="busPath" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
 					<method name="controllerBusState" class="de.haumacher.ehome.programming.download.ProgrammingFunctions$Builder"/>
+					<!-- The snapshots of a device (de.haumacher.ehome.programming.download.SnapshotFunctions, haumacher/ehome #193): one builder, the function by its name. -->
+					<method name="deviceSnapshots" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="snapshotCompare" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="snapshotFile" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="snapshotSummary" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="snapshotLabel" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<method name="snapshotUpload" class="de.haumacher.ehome.programming.download.SnapshotFunctions$Builder"/>
+					<!-- The take-over of a snapshot into its device without the bus (de.haumacher.ehome.scan.SnapshotTakeOver). -->
+					<method name="snapshotTakeOver" class="de.haumacher.ehome.scan.SnapshotTakeOver$Builder"/>
 					<!-- Reading an installation from the bus (de.haumacher.ehome.scan.ScanFunctions): one builder, the function by its name. -->
 					<method name="scanVeto" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>
 					<method name="scanTargets" class="de.haumacher.ehome.scan.ScanFunctions$Builder"/>

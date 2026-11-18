@@ -21,6 +21,10 @@ import java.util.Map;
 import java.util.Set;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.knowledge.service.HistoryUtils;
+import com.top_logic.knowledge.service.PersistencyLayer;
+import com.top_logic.knowledge.service.Transaction;
+import com.top_logic.layout.provider.MetaLabelProvider;
 import com.top_logic.model.TLClassifier;
 import com.top_logic.model.TLObject;
 import com.top_logic.model.util.TLModelUtil;
@@ -64,7 +68,9 @@ import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
+import de.haumacher.ehome.programming.download.DownloadRecord;
 import de.haumacher.ehome.programming.download.LoadControls;
+import de.haumacher.ehome.programming.download.Snapshot;
 import de.haumacher.ehome.modules.ModuleParts;
 
 /**
@@ -146,6 +152,44 @@ public class ReadBack {
 		 */
 		public Integer byteAt(int address) {
 			return known.get(address) ? Integer.valueOf(memory[address] & 0xFF) : null;
+		}
+
+		/**
+		 * What a snapshot of the device holds (haumacher/ehome #193), for the decoding without the bus:
+		 * its memory, the bytes it knows, its properties and table addresses, its notes. A table whose
+		 * count or entries the snapshot does not know is left out, with a note: its connections are
+		 * not decoded.
+		 *
+		 * @param device
+		 *        The device of the project the snapshot is decoded into, for the blocks a download
+		 *        does not write.
+		 */
+		public static Memory of(Snapshot snapshot, TLObject device) {
+			List<ResKey> notes = new ArrayList<>();
+			for (String note : snapshot.getNotes()) {
+				notes.add(ResKey.text(note));
+			}
+			Integer addressTable = table(snapshot, snapshot.getAddressTable(),
+				de.haumacher.ehome.programming.I18NConstants.BLOCK_ADDRESS_TABLE, notes);
+			Integer associationTable = table(snapshot, snapshot.getAssociationTable(),
+				de.haumacher.ehome.programming.I18NConstants.BLOCK_ASSOCIATION_TABLE, notes);
+			Map<String, byte[]> properties = new LinkedHashMap<>(snapshot.getProperties());
+			DownloadImage image = DownloadImage.compute(device);
+			return new Memory(image.getDevice(), snapshot.memory(), snapshot.known(), properties, addressTable,
+				associationTable, notes, unloadedMemory(device, image));
+		}
+
+		private static Integer table(Snapshot snapshot, Integer address, ResKey table, List<ResKey> notes) {
+			if (address == null) {
+				return null;
+			}
+			Integer count = snapshot.byteAt(address.intValue());
+			if (count == null || !snapshot.isKnown(address.intValue() + 1, 2 * count.intValue())) {
+				notes.add(I18NConstants.READBACK_TABLE_NOT_READ__TABLE_ADDRESS.fill(table,
+					String.format("%04X", address)));
+				return null;
+			}
+			return address;
 		}
 	}
 
@@ -271,6 +315,14 @@ public class ReadBack {
 		}
 		listener.progress(total, total, null);
 		reader.disconnect();
+		return new Memory(image.getDevice(), memory, known, properties, addressTable, associationTable, notes,
+			unloadedMemory(device, image));
+	}
+
+	/**
+	 * The addresses of the blocks of the image a download does not write.
+	 */
+	private static BitSet unloadedMemory(TLObject device, DownloadImage image) {
 		BitSet unloaded = new BitSet();
 		Set<Integer> unloadedStarts = unloaded(device);
 		for (Block block : image.getBlocks()) {
@@ -278,7 +330,29 @@ public class ReadBack {
 				unloaded.set(block.address(), block.end());
 			}
 		}
-		return new Memory(image.getDevice(), memory, known, properties, addressTable, associationTable, notes, unloaded);
+		return unloaded;
+	}
+
+	/**
+	 * Decodes what was read into the device and, where the device then holds exactly what the
+	 * project says, records that state as downloaded (as a download would): the take-over of
+	 * "Take over" from the bus (haumacher/ehome #180) and from a snapshot (haumacher/ehome #193). Runs
+	 * transactions of its own.
+	 */
+	public static Report takeOver(TLObject device, Memory memory) {
+		String deviceLabel = MetaLabelProvider.INSTANCE.getLabel(device);
+		Report report;
+		try (Transaction tx = PersistencyLayer.getKnowledgeBase()
+			.beginTransaction(I18NConstants.COMMIT_READ_BACK__DEVICE.fill(deviceLabel))) {
+			report = apply(device, memory);
+			tx.commit();
+		}
+		if (report.identical()) {
+			// The device holds what the project now says.
+			DownloadRecord.record(device, DownloadPlan.Kind.FULL, HistoryUtils.getLastRevision().getCommitNumber(),
+				I18NConstants.COMMIT_READ_BACK_IDENTICAL__DEVICE.fill(deviceLabel));
+		}
+		return report;
 	}
 
 	/**

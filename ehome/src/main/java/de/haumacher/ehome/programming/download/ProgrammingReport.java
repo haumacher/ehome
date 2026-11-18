@@ -18,7 +18,8 @@ import com.top_logic.util.Resources;
  * dictionary with <code>severity</code> (<code>error</code>, <code>warning</code>,
  * <code>info</code>), <code>level</code> (its label), <code>message</code> and <code>file</code>
  * (here: the step or block it belongs to), the keys of the messages of the ETS import, so that
- * <code>projects/import-message.view.xml</code> shows them.
+ * <code>projects/import-message.view.xml</code> shows them; of a comparison also
+ * {@value #DIFFERENCES}.
  */
 public class ProgrammingReport {
 
@@ -30,6 +31,13 @@ public class ProgrammingReport {
 
 	/** Key of the list of messages. */
 	public static final String MESSAGES = "messages";
+
+	/**
+	 * Key of the list of the differing bytes of a comparison (haumacher/ehome #193), each a
+	 * dictionary with <code>block</code>, <code>address</code> (the range), <code>device</code> and
+	 * <code>plan</code> (the bytes in hex).
+	 */
+	public static final String DIFFERENCES = "differences";
 
 	/**
 	 * The report: a dictionary that a person reads as its summary (the job status shows the result
@@ -52,6 +60,8 @@ public class ProgrammingReport {
 	private final Resources _resources = Resources.getInstance();
 
 	private final List<Map<String, Object>> _messages = new ArrayList<>();
+
+	private final List<Map<String, Object>> _differences = new ArrayList<>();
 
 	/**
 	 * Adds a message.
@@ -77,6 +87,18 @@ public class ProgrammingReport {
 	}
 
 	/**
+	 * Adds a run of differing bytes of the given block.
+	 */
+	public void difference(ResKey block, DeviceComparison.Difference difference) {
+		Map<String, Object> entry = new HashMap<>();
+		entry.put("block", _resources.getString(block));
+		entry.put("address", difference.range());
+		entry.put("device", difference.device());
+		entry.put("plan", difference.plan());
+		_differences.add(entry);
+	}
+
+	/**
 	 * The report as dictionary.
 	 */
 	public Map<String, Object> toMap(ResKey summary, boolean success) {
@@ -85,6 +107,7 @@ public class ProgrammingReport {
 		result.put(SUMMARY, text);
 		result.put(SUCCESS, Boolean.valueOf(success));
 		result.put(MESSAGES, _messages);
+		result.put(DIFFERENCES, _differences);
 		return result;
 	}
 

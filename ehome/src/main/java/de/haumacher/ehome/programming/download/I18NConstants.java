@@ -712,6 +712,156 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey2 REPORT_OPERATION_FAILED__OPERATION_REASON;
 
+	/**
+	 * @en Not read
+	 */
+	public static ResKey FACT_NOT_READ;
+
+	/**
+	 * @en {0} bytes could not be read: {1}
+	 */
+	public static ResKey2 COMPARE_NOT_READ__COUNT_RANGES;
+
+	/**
+	 * @en The program version could not be read: {0}
+	 */
+	public static ResKey1 READOUT_PROGRAM_VERSION_FAILED__REASON;
+
+	/**
+	 * @en The state of load state machine {0} could not be read: {1}
+	 */
+	public static ResKey2 READOUT_LOAD_STATE_FAILED__LSM_REASON;
+
+	/**
+	 * @en {0}: a relative segment, its place in the device is not known; it is not read.
+	 */
+	public static ResKey1 READOUT_RELATIVE_SEGMENT__BLOCK;
+
+	/**
+	 * @en The device answered the read of {0} with {1} bytes instead of {2}.
+	 */
+	public static ResKey3 READOUT_SHORT_ANSWER__ADDRESS_COUNT_EXPECTED;
+
+	/**
+	 * @en Memory {0} could not be read: {1}
+	 */
+	public static ResKey2 READOUT_MEMORY_FAILED__RANGE_REASON;
+
+	/**
+	 * @en {0}: three reads in a row failed, the rest from {1} on is not read.
+	 */
+	public static ResKey2 READOUT_BLOCK_GIVEN_UP__BLOCK_ADDRESS;
+
+	/**
+	 * @en The table pointer of object {0} has {1} bytes; the table is read where the download image has it.
+	 */
+	public static ResKey2 READOUT_TABLE_POINTER_LENGTH__OBJECT_LENGTH;
+
+	/**
+	 * @en The table pointer of object {0} could not be read ({1}); the table is read where the download image has it.
+	 */
+	public static ResKey2 READOUT_TABLE_POINTER_FAILED__OBJECT_REASON;
+
+	/**
+	 * @en Object {0}, property {1}
+	 */
+	public static ResKey2 READOUT_PROPERTY__OBJECT_PROPERTY;
+
+	/**
+	 * @en Property {0} of an object given by type ({1}) is not read.
+	 */
+	public static ResKey2 READOUT_PROPERTY_BY_TYPE__PROPERTY_TYPE;
+
+	/**
+	 * @en Property {1} of object {0} could not be read: {2}
+	 */
+	public static ResKey3 READOUT_PROPERTY_FAILED__OBJECT_PROPERTY_REASON;
+
+	/**
+	 * @en Reading out {0} through {1} failed: {2}
+	 */
+	public static ResKey3 READOUT_FAILED__DEVICE_PATH_REASON;
+
+	/**
+	 * @en Snapshot of {0} stored.
+	 */
+	public static ResKey1 COMMIT_SNAPSHOT__DEVICE;
+
+	/**
+	 * @en No file was uploaded.
+	 */
+	public static ResKey SNAPSHOT_FILE_NONE;
+
+	/**
+	 * @en The file cannot be read: {0}
+	 */
+	public static ResKey1 SNAPSHOT_FILE_UNREADABLE__REASON;
+
+	/**
+	 * @en The file is no JSON (at character {0}: {1}).
+	 */
+	public static ResKey2 SNAPSHOT_FILE_NO_JSON__OFFSET_REASON;
+
+	/**
+	 * @en The file is no snapshot of a device.
+	 */
+	public static ResKey SNAPSHOT_FILE_NO_SNAPSHOT;
+
+	/**
+	 * @en The file has the format version {0}; E-Home reads version {1}.
+	 */
+	public static ResKey2 SNAPSHOT_FILE_VERSION__VERSION_SUPPORTED;
+
+	/**
+	 * @en The file is no valid snapshot: {0}
+	 */
+	public static ResKey1 SNAPSHOT_FILE_INVALID__REASON;
+
+	/**
+	 * @en The snapshot was read from a device with the program {0}; this device has the program {1}.
+	 */
+	public static ResKey2 SNAPSHOT_OTHER_PROGRAM__SNAPSHOT_DEVICE;
+
+	/**
+	 * @en The snapshot was read from a device of mask {0}; the program of this device has mask {1}.
+	 */
+	public static ResKey2 SNAPSHOT_OTHER_MASK__SNAPSHOT_DEVICE;
+
+	/**
+	 * @en The file is not taken over: {0}
+	 */
+	public static ResKey1 SNAPSHOT_UPLOAD_REFUSED__REASON;
+
+	/**
+	 * @en Comparison of {0} with the snapshot of {1}: the device equals the download image in {2} of {3} blocks.
+	 */
+	public static ResKey4 SNAPSHOT_COMPARE_DONE__DEVICE_SNAPSHOT_EQUAL_BLOCKS;
+
+	/**
+	 * @en Comparison of {0} with the snapshot of {1}, whose read-out was cancelled: the device equals the download image in {2} of the {3} blocks compared.
+	 */
+	public static ResKey4 SNAPSHOT_COMPARE_ABORTED__DEVICE_SNAPSHOT_EQUAL_BLOCKS;
+
+	/**
+	 * @en {0} through {1}
+	 */
+	public static ResKey2 SNAPSHOT_LABEL__TIME_PATH;
+
+	/**
+	 * @en {0} from the file {1}
+	 */
+	public static ResKey2 SNAPSHOT_LABEL_FILE__TIME_FILE;
+
+	/**
+	 * @en {0} bytes in {1} ranges, {2} of them not readable
+	 */
+	public static ResKey3 SNAPSHOT_SUMMARY__BYTES_RANGES_UNKNOWN;
+
+	/**
+	 * @en {0}; read-out cancelled
+	 */
+	public static ResKey1 SNAPSHOT_SUMMARY_INCOMPLETE__SUMMARY;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

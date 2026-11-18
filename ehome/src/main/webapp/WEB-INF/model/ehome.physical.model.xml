@@ -540,6 +540,92 @@
 					ordered="true"
 					type="ChannelInstance"
 				/>
+				<!--
+					The read-outs of the real device (haumacher/ehome #193): what was read from it, kept until
+					they are deleted; compare and take-over work on them without the bus.
+				-->
+				<reference name="snapshots"
+					composite="true"
+					kind="forwards"
+					multiple="true"
+					type="DeviceSnapshot"
+				/>
+			</attributes>
+		</class>
+		<!--
+			A read-out of a device (haumacher/ehome #193): what the device held when it was read, through the
+			project's path to the bus or from an uploaded file (de.haumacher.ehome.programming.download.Snapshot).
+			The memory is kept as the ranges read, each a line "<address> <bytes>" in hex, two digits per
+			byte and "??" for a byte that could not be read; the properties as lines
+			"<object>/<property> <bytes>"; the load states as lines "<state machine> <state>" ("??" not
+			read).
+		-->
+		<class name="DeviceSnapshot">
+			<generalizations>
+				<generalization type="tl.model:TLObject"/>
+			</generalizations>
+			<annotations>
+				<instance-presentation icon="css:bi bi-sd-card"/>
+			</annotations>
+			<attributes>
+				<!-- When the device was read. -->
+				<property name="time"
+					mandatory="true"
+					type="tl.core:DateTime"
+				/>
+				<!-- Who read the device, or uploaded the file. -->
+				<reference name="account"
+					kind="forwards"
+					type="tl.accounts:Person"
+				/>
+				<!-- The path to the bus it was read through, for a person. -->
+				<property name="busPath"
+					type="tl.core:String"
+				/>
+				<!-- The name of the file it was uploaded from; empty for a read-out. -->
+				<property name="file"
+					type="tl.core:String"
+				/>
+				<!-- The individual address the device was read at (area.line.device). -->
+				<property name="address"
+					type="tl.core:String"
+				/>
+				<!-- The device descriptor type 0 (the mask version) as read, hex; empty if it was not read. -->
+				<property name="descriptor"
+					type="tl.core:String"
+				/>
+				<!-- The ID of the application program of the device when it was read (ETS: M-0002_A-A002-13-8DB0). -->
+				<property name="program"
+					type="tl.core:String"
+				/>
+				<!-- The program version (identity) the device reports, hex; empty if it was not read. -->
+				<property name="programVersion"
+					type="tl.core:String"
+				/>
+				<property name="loadStates"
+					type="tl.core:Text"
+				/>
+				<!-- The addresses of the group address table and of the association table in the device. -->
+				<property name="addressTable"
+					type="tl.core:Integer"
+				/>
+				<property name="associationTable"
+					type="tl.core:Integer"
+				/>
+				<property name="memory"
+					type="tl.core:Text"
+				/>
+				<property name="properties"
+					type="tl.core:Text"
+				/>
+				<!-- What could not be read, one line each. -->
+				<property name="notes"
+					type="tl.core:Text"
+				/>
+				<!-- Whether the read-out ran to its end (it was not cancelled). -->
+				<property name="complete"
+					type="tl.core:Boolean"
+				/>
 			</attributes>
 		</class>
 		<!--

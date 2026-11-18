@@ -20,13 +20,14 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
 
 /**
  * The work of the compare command of a device (<code>&lt;start-job&gt;</code> body): reads the
- * device on the project's {@link BusPath} (its gateway or its controller) with {@link CalimeroReader} (nothing is written) and compares
- * it with the download image ({@link DeviceComparison}).
+ * device on the project's {@link BusPath} (its gateway or its controller) with {@link CalimeroReader}
+ * (nothing is written) into a {@link Snapshot}, stores it with the device (haumacher/ehome #193) and
+ * compares it with the download image ({@link DeviceComparison}).
  *
  * <p>
  * The device is the input <code>device</code> of the job ({@link ProgrammingFunctions#device(List)}). The result is a
- * {@link ProgrammingReport}: the facts read, and per block of the image "identical" or the
- * differing addresses.
+ * {@link ProgrammingReport}: the facts read, per block of the image "identical" or the differing
+ * addresses, and the differing bytes with the device's and the plan's values.
  * </p>
  *
  * <p>
@@ -35,8 +36,8 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * (haumacher/ehome #190). A cancel ends the comparison before its next read, or at once while a read
  * waits for the device (the accesses of {@link CalimeroReader} are interruptible sections of the
  * job's {@link com.top_logic.basic.thread.CancelScope}, TL #30196); through a controller only the bus
- * session ends (haumacher/ehome #189). The cancelled job returns the report of what was compared up
- * to then.
+ * session ends (haumacher/ehome #189). The cancelled job stores what was read up to then (a snapshot
+ * not complete) and returns the report of what was compared.
  * </p>
  */
 public class CompareJob implements JobBody {
@@ -70,40 +71,46 @@ public class CompareJob implements JobBody {
 		BusPath path = BusPath.of(device);
 		String gatewayText = path.text();
 
-		job.message(I18NConstants.PROGRESS_CONNECTING__GATEWAY.fill(gatewayText));
-		ProgrammingReport report = new ProgrammingReport();
-		DeviceComparison.Result result;
-		long[] total = { 0 };
-		try (DeviceReader reader = openReader(path, plan.getIndividualAddress())) {
-			result = DeviceComparison.compare(DeviceConfiguration.program(device), plan, reader,
-				new DeviceComparison.Listener() {
-					@Override
-					public void block(int number, int count, Block block) {
-						job.checkCancelled();
-					}
-
-					@Override
-					public void read(Block block, int address, long done, long all) {
-						job.checkCancelled();
-						total[0] = all;
-						job.progress(done, all);
-						job.message(I18NConstants.PROGRESS_READING_AT__BLOCK_ADDRESS_RANGE.fill(block.label(),
-							String.format("%04X", address), String.format("%04X-%04X", block.address(), block.end() - 1)));
-					}
-				});
+		Snapshot snapshot;
+		try {
+			snapshot = ReadOutJob.readOut(job, device, plan, path, this::openReader);
 		} catch (BusException ex) {
+			ProgrammingReport report = new ProgrammingReport();
 			report.add("error", I18NConstants.LEVEL_FAILURE, "", ex.getErrorKey());
 			return report.toMap(I18NConstants.COMPARE_FAILED__DEVICE_GATEWAY_REASON.fill(plan.getDevice(), gatewayText,
 				ex.getErrorKey()), false);
 		}
-		if (!result.aborted()) {
-			job.progress(total[0], total[0]);
-		}
+		ReadOutJob.store(device, snapshot);
+		DeviceComparison.Result result = DeviceComparison.compare(DeviceConfiguration.program(device), plan, snapshot);
+		return report(plan, snapshot, result,
+			I18NConstants.COMPARE_DONE__DEVICE_GATEWAY_EQUAL_BLOCKS.fill(plan.getDevice(), gatewayText,
+				result.identicalBlocks(), result.blocks().size()),
+			I18NConstants.COMPARE_ABORTED__DEVICE_GATEWAY_EQUAL_BLOCKS.fill(plan.getDevice(), gatewayText,
+				result.identicalBlocks(), result.blocks().size()));
+	}
+
+	/**
+	 * The report of a comparison of a snapshot with the plan: the facts read, per block of the image
+	 * "identical" or the differing addresses, the notes of the read, and (key
+	 * {@value ProgrammingReport#DIFFERENCES}) every differing run of bytes with the device's and the
+	 * plan's values.
+	 *
+	 * @param done
+	 *        The summary of a comparison of every block.
+	 * @param aborted
+	 *        The summary of a comparison of a cancelled read-out.
+	 */
+	public static java.util.Map<String, Object> report(DownloadPlan plan, Snapshot snapshot,
+			DeviceComparison.Result result, ResKey done, ResKey aborted) {
+		ProgrammingReport report = new ProgrammingReport();
 		if (result.descriptor() != null) {
 			report.add("info", I18NConstants.LEVEL_NOTE, "", I18NConstants.REPORT_DESCRIPTOR__VALUE.fill(result.descriptor()));
 		}
 		for (ResKey fact : result.factKeys()) {
 			report.add("info", I18NConstants.LEVEL_NOTE, "", fact);
+		}
+		for (String note : snapshot.getNotes()) {
+			report.add("info", I18NConstants.LEVEL_NOTE, "", ResKey.text(note));
 		}
 		for (DeviceComparison.BlockResult block : result.blocks()) {
 			ResKey where = blockRange(block.label(), block.address(), block.address() + block.length());
@@ -117,27 +124,31 @@ public class CompareJob implements JobBody {
 						I18NConstants.REPORT_BLOCK_ABORTED_DIFFERENT__ADDRESS_DIFFERENT_COUNT_RANGES.fill(at,
 							block.different().size(), block.compared(), block.ranges()));
 				}
-			} else if (block.failureKey() != null) {
-				report.add("error", I18NConstants.LEVEL_FAILURE, where, block.failureKey());
 			} else if (block.identical()) {
 				report.add("info", I18NConstants.LEVEL_IDENTICAL, where,
 					I18NConstants.REPORT_BLOCK_EQUAL__COUNT.fill(block.compared()));
 			} else {
-				report.add("warning", I18NConstants.LEVEL_DIFFERENT, where,
-					I18NConstants.REPORT_BLOCK_DIFFERENT__DIFFERENT_COUNT_RANGES.fill(block.different().size(),
-						block.compared(), block.ranges()));
+				if (!block.different().isEmpty()) {
+					report.add("warning", I18NConstants.LEVEL_DIFFERENT, where,
+						I18NConstants.REPORT_BLOCK_DIFFERENT__DIFFERENT_COUNT_RANGES.fill(block.different().size(),
+							block.compared(), block.ranges()));
+				}
+				if (block.failureKey() != null) {
+					report.add("error", I18NConstants.LEVEL_FAILURE, where, block.failureKey());
+				}
+			}
+			for (DeviceComparison.Difference difference : block.differences()) {
+				report.difference(block.label(), difference);
 			}
 		}
 		if (result.aborted()) {
-			return report.toMap(I18NConstants.COMPARE_ABORTED__DEVICE_GATEWAY_EQUAL_BLOCKS.fill(plan.getDevice(),
-				gatewayText, result.identicalBlocks(), result.blocks().size()), false);
+			return report.toMap(aborted, false);
 		}
 		for (Block skipped : plan.getUnloadedBlocks()) {
 			report.add("info", I18NConstants.LEVEL_NOTE, blockRange(skipped.label(), skipped.address(), skipped.end()),
 				I18NConstants.REPORT_NOT_COMPARED);
 		}
-		return report.toMap(I18NConstants.COMPARE_DONE__DEVICE_GATEWAY_EQUAL_BLOCKS.fill(plan.getDevice(), gatewayText,
-			result.identicalBlocks(), result.blocks().size()), true);
+		return report.toMap(done, true);
 	}
 
 	/**

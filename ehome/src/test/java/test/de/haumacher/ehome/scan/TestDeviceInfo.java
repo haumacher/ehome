@@ -106,7 +106,7 @@ public class TestDeviceInfo extends BasicTestCase {
 					jobs++;
 				}
 			}
-			assertEquals("Compare, device info, download, address, layout.", 5, jobs);
+			assertEquals("Compare, read out, device info, download, address, layout.", 6, jobs);
 
 			// No path: refused with the reason of the path.
 			assertEquals(de.haumacher.ehome.programming.download.I18NConstants.ERROR_NO_BUS_PATH,

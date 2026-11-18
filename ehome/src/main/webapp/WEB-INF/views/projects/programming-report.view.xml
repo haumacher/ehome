@@ -7,7 +7,8 @@
 
 	"report" carries the result of the job (de.haumacher.ehome.programming.download.ProgrammingReport):
 	"summary" and "messages" with the keys of the messages of the ETS import, shown by
-	import-message.view.xml.
+	import-message.view.xml; of a comparison "differences", the differing bytes of the device and of the
+	plan, shown in a table.
 -->
 <view>
 	<channels>
@@ -17,7 +18,7 @@
 			inputs="report"
 		/>
 	</channels>
-	<window width="900px">
+	<window width="1200px">
 		<title>
 			<en>Programming: report</en>
 			<de>Programmierung: Bericht</de>
@@ -39,6 +40,59 @@
 						</view-ref>
 					</item>
 				</object-list>
+				<!-- The differing bytes of a comparison, the device's and the plan's side by side (haumacher/ehome #193). -->
+				<switch input="report">
+					<case test='$report != null and $report["differences"].size() > 0'>
+						<table>
+							<inputs>
+								<input channel="report"/>
+							</inputs>
+							<columns>
+								<computed-column name="block"
+									type="tl.core:String"
+									width="200"
+								>
+									<label>
+										<en>Block</en>
+										<de>Block</de>
+									</label>
+									<value>$row["block"]</value>
+								</computed-column>
+								<computed-column name="address"
+									type="tl.core:String"
+									width="110"
+								>
+									<label>
+										<en>Address</en>
+										<de>Adresse</de>
+									</label>
+									<value>$row["address"]</value>
+								</computed-column>
+								<computed-column name="device"
+									type="tl.core:String"
+									width="380"
+								>
+									<label>
+										<en>Device</en>
+										<de>Gerät</de>
+									</label>
+									<value>$row["device"]</value>
+								</computed-column>
+								<computed-column name="plan"
+									type="tl.core:String"
+									width="380"
+								>
+									<label>
+										<en>Plan</en>
+										<de>Plan</de>
+									</label>
+									<value>$row["plan"]</value>
+								</computed-column>
+							</columns>
+							<rows>$report["differences"]</rows>
+						</table>
+					</case>
+				</switch>
 			</stack>
 		</inset>
 		<actions>

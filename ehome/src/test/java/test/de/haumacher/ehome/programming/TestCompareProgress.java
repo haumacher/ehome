@@ -62,7 +62,9 @@ public class TestCompareProgress extends BasicTestCase {
 		job.start(compare(device), List.of(_device));
 		JobState state = job.await();
 		assertEquals(String.valueOf(state.error()), JobStatus.COMPLETED, state.status());
-		assertEquals(expected.count(), device.reads());
+		// Every read of the blocks, then the tables where the device has them, as far as the blocks did
+		// not read them (haumacher/ehome #193).
+		assertTrue("Every read of the blocks: " + device.reads(), device.reads() >= expected.count());
 
 		List<Long> done = new ArrayList<>();
 		List<String> messages = new ArrayList<>();

@@ -731,6 +731,21 @@ public class I18NConstants extends I18NConstantsBase {
 	 */
 	public static ResKey1 COMMIT_ASSIGN__DEVICE;
 
+	/**
+	 * @en {0} at {1}: not read completely, its connections are not taken over.
+	 */
+	public static ResKey2 READBACK_TABLE_NOT_READ__TABLE_ADDRESS;
+
+	/**
+	 * @en The snapshot is not taken over: {0}
+	 */
+	public static ResKey1 SNAPSHOT_TAKE_OVER_REFUSED__REASON;
+
+	/**
+	 * @en Taken over from the snapshot: {0} parameter values differ from the defaults, {1} connections.
+	 */
+	public static ResKey2 SNAPSHOT_TAKEN_OVER__SETTINGS_CONNECTIONS;
+
 	static {
 		initConstants(I18NConstants.class);
 	}

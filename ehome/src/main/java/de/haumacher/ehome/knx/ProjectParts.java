@@ -153,6 +153,8 @@ public final class ProjectParts {
 	private static final Set<String> APP_OWNED = Set.of(
 		"ehome.physical:Device#downloadRevision",
 		"ehome.physical:Device#presets",
+		// The read-outs of the real device (haumacher/ehome #193).
+		"ehome.physical:Device#snapshots",
 		// What a scan read of a device the catalog does not identify (haumacher/ehome #183): a stub has no
 		// place in ETS's project, the export leaves it out.
 		"ehome.physical:DeviceStub#manufacturerId",

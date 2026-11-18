@@ -5,6 +5,7 @@ package de.haumacher.ehome.virtual.tooling.device;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -156,6 +157,9 @@ public class SimulatedDevice {
 
 	private final List<String> _unknownReads = new ArrayList<>();
 
+	/** The addresses whose read the device refuses (protected memory). */
+	private final BitSet _protected = new BitSet();
+
 	/**
 	 * Creates a {@link SimulatedDevice} with empty memory, all load state machines unloaded.
 	 *
@@ -294,6 +298,15 @@ public class SimulatedDevice {
 	}
 
 	/**
+	 * Makes the given memory unreadable: a read touching it is refused (an answer without data), as a
+	 * device answers a read of memory it protects.
+	 */
+	public synchronized SimulatedDevice protectMemory(int address, int length) {
+		_protected.set(address, address + length);
+		return this;
+	}
+
+	/**
 	 * Sets a property value of one element without recording it (the initial content).
 	 */
 	public synchronized SimulatedDevice initProperty(int object, int property, byte[] value) {
@@ -335,10 +348,15 @@ public class SimulatedDevice {
 	/**
 	 * Reads memory (A_Memory_Read).
 	 *
-	 * @return The bytes, <code>null</code> if the range is outside the memory.
+	 * @return The bytes, <code>null</code> if the range is outside the memory or touches protected
+	 *         memory ({@link #protectMemory(int, int)}).
 	 */
 	public synchronized byte[] memory(int address, int length) {
 		if (address < 0 || length < 0 || address + length > MEMORY_SIZE) {
+			return null;
+		}
+		int protectedAddress = _protected.nextSetBit(address);
+		if (protectedAddress >= 0 && protectedAddress < address + length) {
 			return null;
 		}
 		byte[] result = Arrays.copyOfRange(_memory, address, address + length);
