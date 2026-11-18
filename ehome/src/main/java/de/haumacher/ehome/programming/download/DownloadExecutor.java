@@ -25,6 +25,20 @@ import com.top_logic.basic.util.ResKey;
  * </p>
  *
  * <p>
+ * The memory writes of the plan carry at most a standard frame's {@value MemoryChunk#STANDARD} bytes
+ * each, whatever the path (the plan is the same for every path). Where the device and the path take
+ * longer memory accesses ({@link DeviceAccess#memoryChunk()}, asked before the first memory write;
+ * haumacher/ehome #196), a run of memory writes following each other at addresses following each
+ * other (and verified alike) is written in chunks of that length instead, each verified chunk read
+ * back as written. The progress names the operations of the plan, and a failure the operation
+ * holding the first byte of the chunk that failed. A longer chunk failing without an answer of the
+ * device is repeated by the access in standard frames, which the rest of the download uses
+ * ({@link CalimeroWriter#writeMemory(int, byte[])}); its verification reads back what was written
+ * then, so nothing of the failed chunk is taken as written. With chunks of a standard frame, every memory
+ * write of the plan is a memory write on the bus, as planned.
+ * </p>
+ *
+ * <p>
  * The checks of a download of the parameters only (haumacher/ehome #195) read the program version
  * (or, BCU 1, the program's identity in memory) and the load states once each; a device holding
  * another program or a load state machine not loaded stops the download before anything is written.
@@ -152,19 +166,90 @@ public class DownloadExecutor {
 		}
 		long start = System.nanoTime();
 		List<Operation> operations = plan.getOperations();
+		int count = operations.size();
 		int done = 0;
-		for (Operation operation : operations) {
-			listener.operation(done + 1, operations.size(), operation);
+		while (done < count) {
+			Operation operation = operations.get(done);
+			int[] position = { done };
 			try {
+				if (operation instanceof Operation.WriteMemory && access.memoryChunk() > MemoryChunk.STANDARD) {
+					done = writeRun(operations, done, access, listener, position);
+					continue;
+				}
+				listener.operation(done + 1, count, operation);
 				perform(operation, access);
 			} catch (BusException ex) {
-				return new Result(done, operations.size(), operation, ex.getErrorKey(), elapsed(start));
+				return new Result(position[0], count, operations.get(position[0]), ex.getErrorKey(), elapsed(start));
 			} catch (Mismatch ex) {
-				return new Result(done, operations.size(), operation, ex.reason(), elapsed(start));
+				return new Result(position[0], count, operations.get(position[0]), ex.reason(), elapsed(start));
 			}
 			done++;
 		}
-		return new Result(done, operations.size(), null, null, elapsed(start));
+		return new Result(done, count, null, null, elapsed(start));
+	}
+
+	/**
+	 * Writes the memory writes from the given one on, as long as each continues the one before it (at
+	 * the address following it, verified alike), in chunks of the access's length
+	 * ({@link DeviceAccess#memoryChunk()}, asked for every chunk: after a fall back to standard frames
+	 * the rest of the run goes in those).
+	 *
+	 * @param first
+	 *        The index of the first memory write.
+	 * @param position
+	 *        Takes the index of the operation holding the first byte of the chunk written: the
+	 *        operation failing with it.
+	 * @return The index of the operation after the run.
+	 */
+	private static int writeRun(List<Operation> operations, int first, DeviceAccess access, Listener listener,
+			int[] position) throws BusException, Mismatch {
+		Operation.WriteMemory head = (Operation.WriteMemory) operations.get(first);
+		int end = first + 1;
+		int length = head.data().length;
+		while (end < operations.size() && operations.get(end) instanceof Operation.WriteMemory next
+			&& next.verify() == head.verify() && next.address() == head.address() + length) {
+			length += next.data().length;
+			end++;
+		}
+		byte[] data = new byte[length];
+		int[] offsets = new int[end - first];
+		int offset = 0;
+		for (int index = first; index < end; index++) {
+			byte[] part = ((Operation.WriteMemory) operations.get(index)).data();
+			offsets[index - first] = offset;
+			System.arraycopy(part, 0, data, offset, part.length);
+			offset += part.length;
+		}
+		int announced = first;
+		int from = 0;
+		while (from < length) {
+			int to = Math.min(length, from + access.memoryChunk());
+			while (announced < end && offsets[announced - first] < to) {
+				listener.operation(announced + 1, operations.size(), operations.get(announced));
+				announced++;
+			}
+			int holder = first;
+			while (holder + 1 < end && offsets[holder + 1 - first] <= from) {
+				holder++;
+			}
+			position[0] = holder;
+			int address = head.address() + from;
+			byte[] written = Arrays.copyOfRange(data, from, to);
+			access.writeMemory(address, written);
+			if (head.verify()) {
+				verify(access, address, written);
+			}
+			from = to;
+		}
+		return end;
+	}
+
+	private static void verify(DeviceAccess access, int address, byte[] written) throws BusException, Mismatch {
+		byte[] read = access.readMemory(address, written.length);
+		if (!Arrays.equals(read, written)) {
+			throw new Mismatch(I18NConstants.EXEC_VERIFY__ADDRESS_READ_WRITTEN.fill(String.format("%04X", address),
+				Operation.hex(read), Operation.hex(written)));
+		}
 	}
 
 	private static Duration elapsed(long start) {
@@ -222,11 +307,7 @@ public class DownloadExecutor {
 		} else if (operation instanceof Operation.WriteMemory write) {
 			access.writeMemory(write.address(), write.data());
 			if (write.verify()) {
-				byte[] read = access.readMemory(write.address(), write.data().length);
-				if (!Arrays.equals(read, write.data())) {
-					throw new Mismatch(I18NConstants.EXEC_VERIFY__ADDRESS_READ_WRITTEN.fill(String.format("%04X", write.address()),
-						Operation.hex(read), Operation.hex(write.data())));
-				}
+				verify(access, write.address(), write.data());
 			}
 		} else if (operation instanceof Operation.CompareMemory compare) {
 			byte[] read = access.readMemory(compare.address(), compare.expected().length);

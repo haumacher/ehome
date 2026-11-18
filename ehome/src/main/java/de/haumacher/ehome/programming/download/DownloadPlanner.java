@@ -152,9 +152,11 @@ import de.haumacher.ehome.modules.ModuleInstances;
 public class DownloadPlanner {
 
 	/**
-	 * The most bytes a memory write carries: a memory write in a standard frame on TP.
+	 * The most bytes a memory write of the plan carries: a memory write in a standard frame on TP
+	 * ({@link MemoryChunk#STANDARD}). The plan is the same for every path; the executor writes
+	 * longer chunks where the device and the path take them ({@link DownloadExecutor}).
 	 */
-	public static final int MAX_CHUNK = 12;
+	public static final int MAX_CHUNK = MemoryChunk.STANDARD;
 
 	/** The interface object of the device. */
 	private static final int DEVICE_OBJECT = 0;

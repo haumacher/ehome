@@ -42,10 +42,28 @@ Project → tab "Geräte" → a device → tab "Programmierung":
   addresses and bytes; the blocks of the image the procedure does not load; the reasons a download
   is refused. "Download-Abbild" shows the image.
 - "Mit dem Gerät vergleichen": compares the device with the image; the report lists per block
-  "Identisch" or the differing addresses. The progress moves with every read (at most 12 bytes: the
-  block and the address read, as "<block>: 4A30 von 4000-4FFF"); a cancel ends the
+  "Identisch" or the differing addresses. The progress moves with every read (at most one memory chunk, see
+  below: the block and the address read, as "<block>: 4A30 von 4000-4FFF"); a cancel ends the
   comparison before the next read and opens the report of what was compared up to then
   (haumacher/ehome #190).
+- **Memory chunks** (haumacher/ehome #196). A memory access (`A_Memory_Write`/`Read`) carries the
+  APDU length less 3 bytes: 12 in a standard frame on TP (APDU 15), at most 63 (the 6-bit count; the
+  extended memory services are not used). Before the first memory access of a download, a comparison,
+  a read-out or a read-back, `CalimeroReader.memoryChunk()` takes the smaller of the path's maximum
+  APDU length (the tunnel's medium: what the gateway announces in property 56 of its device object; or
+  the controller's `max_apdu`) and the device's (property 0/56, read once per connection, as ETS does
+  at every download). On a path of a standard frame the device is not asked; a device that refuses or
+  does not answer the property, and a device of BCU 1 (mask 001x), keep 12. The plan stays the same
+  for every path (writes of at most 12 bytes); the executor writes a run of contiguous memory writes
+  (verified alike) in chunks of the derived length and reads each verified chunk back as written.
+  Nobody on the path knows what the line between the gateway and the device carries (a router may
+  announce more than its TP line forwards; the controller's `max_apdu` 254 is its own frame): a
+  longer memory access failing without a valid answer of the device (no acknowledgement, no answer,
+  the connection ended) makes the reader fall back to 12 bytes for the rest of its connection, logged
+  once with the reason. It ends the connection (the next access connects again, a writer authorizes
+  again with the key it authorized before) and repeats the access in standard frames; a write is
+  written again completely and verified as before. A genuine answer of the device (a short read, a
+  verification differing) still fails as before.
 - "Herunterladen": asks for confirmation naming the device, its address and the path ("über Gateway
   192.168.178.81:3671" or "über Controller homecontrol-f883ec"), then runs
   the plan with progress, and reports success (operations, duration) or the failing operation with

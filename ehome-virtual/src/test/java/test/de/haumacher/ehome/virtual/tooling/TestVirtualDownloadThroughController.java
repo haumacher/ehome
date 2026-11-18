@@ -67,6 +67,8 @@ import de.haumacher.ehome.virtual.tooling.trace.TraceOperations;
  * project's path to the bus is its controller, a simulated controller connection
  * ({@link FakeBusController}) whose tunnel is a KNXnet/IP tunnel to the virtual device on the loopback
  * address ({@link TunnelBridge}), as the controller's tunnel goes to the gateway of the installation.
+ * The controller reports the maximum APDU length of its tunnel (a standard frame), so the memory
+ * accesses keep the chunks of the plan (haumacher/ehome #196).
  * The bus session carries the frames of E-Home's transport connection and load procedure unchanged:
  * the trace of the virtual device is the plan operation by operation, as through a gateway
  * ({@link TestVirtualDownload}), and the comparison through the controller finds the device identical.
@@ -162,6 +164,8 @@ public class TestVirtualDownloadThroughController extends BasicTestCase {
 			_address = _tunnel.getKNXMedium().assignedAddress().orElse(_tunnel.getKNXMedium().getDeviceAddress());
 			_tunnel.addLinkListener(this);
 			controller.setAddress(_address.toString());
+			// The bus session reaches the device through the tunnel: no longer frames than it takes.
+			controller.setMaxApdu(_tunnel.getKNXMedium().maxApduLength());
 			controller.setBus(this);
 		}
 

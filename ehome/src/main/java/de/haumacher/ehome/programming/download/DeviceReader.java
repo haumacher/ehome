@@ -33,9 +33,21 @@ public interface DeviceReader extends AutoCloseable {
 	byte[] readProperty(int objectIndex, int propertyId, int start, int count) throws BusException;
 
 	/**
-	 * Reads memory, at most {@link DownloadPlanner#MAX_CHUNK} bytes.
+	 * Reads memory, at most {@link #memoryChunk()} bytes.
 	 */
 	byte[] readMemory(int address, int length) throws BusException;
+
+	/**
+	 * The most bytes one memory read or write carries on the way to the device ({@link MemoryChunk}).
+	 *
+	 * <p>
+	 * An implementation reaching a device asks it once at most, before its first memory access; the
+	 * default is the chunk of a standard frame ({@link MemoryChunk#STANDARD}).
+	 * </p>
+	 */
+	default int memoryChunk() {
+		return MemoryChunk.STANDARD;
+	}
 
 	/**
 	 * Ends the connection to the device (a following access connects again).

@@ -28,8 +28,8 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  * the program version (the property <code>ApplicationId</code> of the mask, or, BCU 1, the memory of
  * the program's identity); the states of the load state machines (through properties or in memory,
  * {@link LoadStateMachines}); the memory of every block of the download image a download writes, the
- * bytes of its mask, in requests of at most {@link DownloadPlanner#MAX_CHUNK} bytes (as the
- * comparison did); the group address table and the association table where the device's table
+ * bytes of its mask, in requests of at most {@link DeviceReader#memoryChunk()} bytes (as the
+ * comparison did; haumacher/ehome #196); the group address table and the association table where the device's table
  * pointers name them (property 7 of the interface objects 1 and 2, else where the image has them, as
  * <code>ReadBack</code> reads them), with their lengths from their counts; and the properties the
  * image writes parameters into.
@@ -292,7 +292,7 @@ public final class ReadOut {
 				continue;
 			}
 			int start = n;
-			while (n < mask.length && mask[n] != 0 && n - start < DownloadPlanner.MAX_CHUNK) {
+			while (n < mask.length && mask[n] != 0 && n - start < _reader.memoryChunk()) {
 				n++;
 			}
 			int address = block.address() + start;
@@ -413,7 +413,7 @@ public final class ReadOut {
 				continue;
 			}
 			int start = position;
-			while (position < end && !_snapshot.isKnown(position) && position - start < DownloadPlanner.MAX_CHUNK) {
+			while (position < end && !_snapshot.isKnown(position) && position - start < _reader.memoryChunk()) {
 				position++;
 			}
 			try {

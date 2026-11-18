@@ -13,6 +13,7 @@ import com.top_logic.basic.Logger;
 import com.top_logic.util.error.TopLogicException;
 
 import de.haumacher.ehome.virtual.server.Endpoint;
+import de.haumacher.ehome.virtual.server.KnxServer;
 import de.haumacher.ehome.virtual.tooling.device.SimulatedDevice;
 import de.haumacher.ehome.virtual.tooling.server.TransportTiming;
 import de.haumacher.ehome.virtual.tooling.server.VirtualInterface;
@@ -40,6 +41,9 @@ public class VirtualInterfaceManager {
 
 	/** Header: the timing of the device's transport layer. */
 	public static final String HEADER_TRANSPORT = "transport";
+
+	/** Header: the maximum APDU length of the interface, if not that of TP1 without extended frames. */
+	public static final String HEADER_MAX_APDU = "max APDU";
 
 	/** Header: when the interface was started. */
 	public static final String HEADER_STARTED = "started";
@@ -87,8 +91,22 @@ public class VirtualInterfaceManager {
 	 *
 	 * @see #start(SimulatedDevice, Endpoint, Map)
 	 */
-	public synchronized VirtualInterface start(SimulatedDevice device, Endpoint endpoint, TransportTiming timing,
+	public VirtualInterface start(SimulatedDevice device, Endpoint endpoint, TransportTiming timing,
 			Map<String, String> header) {
+		return start(device, endpoint, timing, KnxServer.TP1_MAX_APDU, header);
+	}
+
+	/**
+	 * Starts a virtual interface with the given device, the given timing of its transport layer and
+	 * the given maximum APDU length of the interface (haumacher/ehome #196).
+	 *
+	 * @param maxApdu
+	 *        The maximum APDU length of the interface, from {@value KnxServer#TP1_MAX_APDU} (TP1
+	 *        without extended frames) to 254.
+	 * @see #start(SimulatedDevice, Endpoint, Map)
+	 */
+	public synchronized VirtualInterface start(SimulatedDevice device, Endpoint endpoint, TransportTiming timing,
+			int maxApdu, Map<String, String> header) {
 		if (_running != null) {
 			if (_running.isRunning()) {
 				throw new TopLogicException(
@@ -103,6 +121,9 @@ public class VirtualInterfaceManager {
 			? ", states answered: " + device.rule() : ""));
 		all.put(HEADER_INTERFACE, endpoint.toString());
 		all.put(HEADER_TRANSPORT, timing.describe());
+		if (maxApdu != KnxServer.TP1_MAX_APDU) {
+			all.put(HEADER_MAX_APDU, Integer.toString(maxApdu));
+		}
 		all.put(HEADER_STARTED, Instant.now().toString());
 		// Where the values the project does not hold come from (the substitutes).
 		all.putAll(device.notes());
@@ -114,7 +135,7 @@ public class VirtualInterfaceManager {
 			throw new TopLogicException(I18NConstants.ERROR_TRACE_FILE__DETAIL.fill(ex.getMessage()), ex);
 		}
 		try {
-			_running = VirtualInterface.start(endpoint, device, recorder, timing, _workDir);
+			_running = VirtualInterface.start(endpoint, device, recorder, timing, _workDir, maxApdu);
 		} catch (RuntimeException ex) {
 			recorder.close();
 			File file = recorder.file();

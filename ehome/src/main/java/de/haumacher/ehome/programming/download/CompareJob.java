@@ -32,7 +32,7 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
  *
  * <p>
  * The progress counts the bytes read of all bytes to compare and moves with every read of at most
- * {@link DownloadPlanner#MAX_CHUNK} bytes; the message names the block and the address read
+ * {@link DeviceReader#memoryChunk()} bytes; the message names the block and the address read
  * (haumacher/ehome #190). A cancel ends the comparison before its next read, or at once while a read
  * waits for the device (the accesses of {@link CalimeroReader} are interruptible sections of the
  * job's {@link com.top_logic.basic.thread.CancelScope}, TL #30196); through a controller only the bus

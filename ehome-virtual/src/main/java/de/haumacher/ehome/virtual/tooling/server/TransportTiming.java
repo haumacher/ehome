@@ -33,37 +33,52 @@ import java.time.Duration;
  *        device takes milliseconds; the virtual one answers at once by default. Calimero's management
  *        client (2.6) misses an answer that arrives before it waits for it, so a test driving that
  *        client sets a delay.
+ * @param standardFramesOnly
+ *        Whether the line to the device carries standard frames only (a TP line without extended
+ *        frames behind a router announcing more, haumacher/ehome #196): a longer frame to or from the
+ *        device is lost on the way, recorded as the event {@link
+ *        de.haumacher.ehome.virtual.tooling.trace.TraceEntry#LINE_DROPPED}.
  */
 public record TransportTiming(Duration ackTimeout, int repetitions, Duration connectionTimeout,
-		boolean disconnectOnRestart, Duration responseDelay) {
+		boolean disconnectOnRestart, Duration responseDelay, boolean standardFramesOnly) {
 
 	/**
 	 * The timing of the application: 3 s, 10 repetitions, 60 s idle, no disconnect on a restart, an
 	 * answer at once.
 	 */
 	public static final TransportTiming DEFAULT =
-		new TransportTiming(Duration.ofSeconds(3), 10, Duration.ofSeconds(60), false, Duration.ZERO);
+		new TransportTiming(Duration.ofSeconds(3), 10, Duration.ofSeconds(60), false, Duration.ZERO, false);
 
 	/**
 	 * A timing that answers at once.
 	 */
 	public TransportTiming(Duration ackTimeout, int repetitions, Duration connectionTimeout,
 			boolean disconnectOnRestart) {
-		this(ackTimeout, repetitions, connectionTimeout, disconnectOnRestart, Duration.ZERO);
+		this(ackTimeout, repetitions, connectionTimeout, disconnectOnRestart, Duration.ZERO, false);
 	}
 
 	/**
 	 * The same timing, with the given choice of ending the connection after a restart.
 	 */
 	public TransportTiming withDisconnectOnRestart(boolean disconnect) {
-		return new TransportTiming(ackTimeout, repetitions, connectionTimeout, disconnect, responseDelay);
+		return new TransportTiming(ackTimeout, repetitions, connectionTimeout, disconnect, responseDelay,
+			standardFramesOnly);
 	}
 
 	/**
 	 * The same timing, answering after the given delay.
 	 */
 	public TransportTiming withResponseDelay(Duration delay) {
-		return new TransportTiming(ackTimeout, repetitions, connectionTimeout, disconnectOnRestart, delay);
+		return new TransportTiming(ackTimeout, repetitions, connectionTimeout, disconnectOnRestart, delay,
+			standardFramesOnly);
+	}
+
+	/**
+	 * The same timing, on a line carrying standard frames only, or any frame.
+	 */
+	public TransportTiming withStandardFramesOnly(boolean standardOnly) {
+		return new TransportTiming(ackTimeout, repetitions, connectionTimeout, disconnectOnRestart, responseDelay,
+			standardOnly);
 	}
 
 	/**
@@ -72,7 +87,8 @@ public record TransportTiming(Duration ackTimeout, int repetitions, Duration con
 	public String describe() {
 		return "repetition after " + ackTimeout.toMillis() + " ms, " + repetitions + " repetitions, idle timeout "
 			+ connectionTimeout.toSeconds() + " s, disconnect after restart: " + (disconnectOnRestart ? "yes" : "no")
-			+ (responseDelay.isZero() ? "" : ", response delay " + responseDelay.toMillis() + " ms");
+			+ (responseDelay.isZero() ? "" : ", response delay " + responseDelay.toMillis() + " ms")
+			+ (standardFramesOnly ? ", standard frames only" : "");
 	}
 
 }

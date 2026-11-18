@@ -14,6 +14,7 @@ import java.util.function.BiFunction;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.DeviceAccess;
 import de.haumacher.ehome.programming.download.LoadControls;
+import de.haumacher.ehome.programming.download.MemoryChunk;
 
 /**
  * A device of mask 7.5 in memory for the tests of the download: it records every call, answers from
@@ -43,6 +44,11 @@ public class MockDevice implements DeviceAccess {
 	private final java.util.Set<Integer> _refusedWrites = new java.util.HashSet<>();
 
 	private byte[] _descriptor = { 0x07, 0x05 };
+
+	private int _memoryChunk = MemoryChunk.STANDARD;
+
+	/** The address whose byte a memory read answers inverted, -1 for none. */
+	private int _corruptRead = -1;
 
 	/** Script: (object index, control) to the state to answer, or null for the regular one. */
 	private BiFunction<Integer, byte[], Integer> _loadControlScript = (o, c) -> null;
@@ -86,6 +92,27 @@ public class MockDevice implements DeviceAccess {
 	public MockDevice refuseWrites(int property) {
 		_refusedWrites.add(Integer.valueOf(property));
 		return this;
+	}
+
+	/**
+	 * Sets the chunk of the memory accesses the device and its path take ({@link #memoryChunk()}).
+	 */
+	public MockDevice setMemoryChunk(int chunk) {
+		_memoryChunk = chunk;
+		return this;
+	}
+
+	/**
+	 * Makes every memory read answer the byte at the given address inverted.
+	 */
+	public MockDevice corruptRead(int address) {
+		_corruptRead = address;
+		return this;
+	}
+
+	@Override
+	public int memoryChunk() {
+		return _memoryChunk;
 	}
 
 	public MockDevice setDescriptor(String hex) {
@@ -158,6 +185,9 @@ public class MockDevice implements DeviceAccess {
 	public byte[] readMemory(int address, int length) {
 		_calls.add(String.format("readMemory %04X %d", address, length));
 		byte[] result = Arrays.copyOfRange(_memory, address, address + length);
+		if (_corruptRead >= address && _corruptRead < address + length) {
+			result[_corruptRead - address] ^= (byte) 0xFF;
+		}
 		if (_memoryControl >= 0) {
 			for (int lsm = 1; lsm <= 4; lsm++) {
 				int at = _memoryStates + lsm - 1 - address;

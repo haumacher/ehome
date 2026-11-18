@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import tuwien.auto.calimero.cemi.CEMILData;
+import tuwien.auto.calimero.cemi.CEMILDataEx;
 import tuwien.auto.calimero.DataUnitBuilder;
 import tuwien.auto.calimero.FrameEvent;
 import tuwien.auto.calimero.GroupAddress;
@@ -75,6 +76,9 @@ import de.haumacher.ehome.virtual.tooling.trace.TraceRecorder;
 public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 
 	private static final int NO_PARTNER = -1;
+
+	/** The longest TPDU of a standard frame (the APDU of 15 octets and its first octet). */
+	private static final int STANDARD_TPDU = 16;
 
 	private final SimulatedDevice _device;
 
@@ -148,6 +152,10 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 			if (frame.getSource().getRawAddress() == _device.address()) {
 				// The device's own frame (a broadcast the virtual subnet indicates to every device link,
 				// the sender's included): a real device does not receive what it sends.
+				return;
+			}
+			if (_timing.standardFramesOnly() && frame.getPayload().length > STANDARD_TPDU) {
+				dropped(frame.getSource().getRawAddress(), frame.getPayload());
 				return;
 			}
 			// Recorded on the receiving thread before the device handles it, a frame the device sends
@@ -494,12 +502,22 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 	private void sendBroadcast(byte[] tpdu) {
 		GroupAddress broadcast = GroupAddress.Broadcast;
 		try {
-			record(new CEMILData(CEMILData.MC_LDATA_REQ, new IndividualAddress(_device.address()), broadcast, tpdu,
-				Priority.SYSTEM), false);
+			record(frame(broadcast, tpdu, Priority.SYSTEM), false);
 			_link.sendRequest(broadcast, Priority.SYSTEM, tpdu);
 		} catch (KNXException ex) {
 			Logger.error("The virtual device " + _device.name() + " could not send a broadcast.", ex, DeviceStack.class);
 		}
+	}
+
+	/**
+	 * The frame the device sends, for the trace: an extended frame for a TPDU longer than a standard
+	 * frame takes (haumacher/ehome #196).
+	 */
+	private CEMILData frame(KNXAddress destination, byte[] tpdu, Priority priority) {
+		IndividualAddress source = new IndividualAddress(_device.address());
+		return tpdu.length > STANDARD_TPDU
+			? new CEMILDataEx(CEMILData.MC_LDATA_REQ, source, destination, tpdu, priority)
+			: new CEMILData(CEMILData.MC_LDATA_REQ, source, destination, tpdu, priority);
 	}
 
 	private void sendControl(int destination, byte[] tpdu) {
@@ -508,14 +526,23 @@ public final class DeviceStack implements NetworkLinkListener, AutoCloseable {
 
 	private void send(int destination, Priority priority, byte[] tpdu) {
 		IndividualAddress receiver = new IndividualAddress(destination);
+		if (_timing.standardFramesOnly() && tpdu.length > STANDARD_TPDU) {
+			// Sent by the device, lost on the line: the device waits for the acknowledgement.
+			dropped(destination, tpdu);
+			return;
+		}
 		try {
-			record(new CEMILData(CEMILData.MC_LDATA_REQ, new IndividualAddress(_device.address()), receiver, tpdu,
-				priority), false);
+			record(frame(receiver, tpdu, priority), false);
 			_link.sendRequest(receiver, priority, tpdu);
 		} catch (KNXException ex) {
 			Logger.error("The virtual device " + _device.name() + " could not send to " + new IndividualAddress(destination)
 				+ ".", ex, DeviceStack.class);
 		}
+	}
+
+	private void dropped(int partner, byte[] tpdu) {
+		event(partner, TraceEntry.LINE_DROPPED, null, (tpdu.length >= 2 ? String.format("service_%03X", Tpdu.service(tpdu))
+			: "control") + " of " + tpdu.length + " octets");
 	}
 
 	private void event(int partner, String service, Integer sequence, String reason) {
