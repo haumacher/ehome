@@ -29,6 +29,8 @@ import de.haumacher.ehome.programming.DownloadImage.Block;
 import de.haumacher.ehome.programming.download.DeviceComparison;
 import de.haumacher.ehome.programming.download.DownloadExecutor;
 import de.haumacher.ehome.programming.download.DownloadPlan;
+import de.haumacher.ehome.scan.BusScanner;
+import de.haumacher.ehome.scan.FoundDevice;
 import de.haumacher.ehome.programming.download.DownloadPlanner;
 import de.haumacher.ehome.programming.download.LoadControls;
 import de.haumacher.ehome.programming.download.LoadStateMachines;
@@ -106,6 +108,7 @@ public class TestMask71Download extends BasicTestCase {
 			checkPlan(plan, DownloadPlanner.plan(device(reference, ACTUATOR), DownloadPlan.Kind.FULL));
 			MockDevice mock = checkDownload(plan);
 			checkCompare(device, plan, mock);
+			checkDeviceInfo(mock);
 			checkStateNotFollowing(plan);
 		} finally {
 			try (Transaction tx = PersistencyLayer.getKnowledgeBase().beginTransaction()) {
@@ -261,6 +264,17 @@ public class TestMask71Download extends BasicTestCase {
 		assertEquals(List.of("readMemory B6EA 1", "readMemory B6EB 1", "readMemory B6EC 1", "readMemory B6ED 1"),
 			mock.calls().subList(before + 2, before + 6));
 		assertEquals(result.blocks().size(), result.identicalBlocks());
+	}
+
+	/**
+	 * The device info (the scan's reading of a device) shows the load states of a mask 7.1 device
+	 * from its memory, not from property 5 of the objects 1 to 3, which the mask does not have.
+	 */
+	private static void checkDeviceInfo(MockDevice mock) {
+		FoundDevice found = BusScanner.read(mock, 0x1305);
+		List<String> states = found.loadStates().stream().map(DownloadPlan::english).toList();
+		assertEquals(List.of("1: Loaded", "2: Loaded", "3: Loaded", "4: Unloaded"), states.subList(0, 4));
+		assertTrue(found.notes().stream().map(DownloadPlan::english).noneMatch(note -> note.startsWith("Load state")));
 	}
 
 	/**

@@ -12,10 +12,16 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import com.top_logic.basic.util.ResKey;
+import com.top_logic.model.TLModule;
+import com.top_logic.model.util.TLModelUtil;
+import com.top_logic.util.model.ModelService;
 
+import de.haumacher.ehome.model.operational.MaskVersion;
+import de.haumacher.ehome.model.operational.MaskVersions;
 import de.haumacher.ehome.programming.download.BusException;
 import de.haumacher.ehome.programming.download.DeviceReader;
 import de.haumacher.ehome.programming.download.LoadControls;
+import de.haumacher.ehome.programming.download.LoadStateMachines;
 
 /**
  * Scans the bus behind a gateway for the devices of an installation and reads what each tells
@@ -390,6 +396,27 @@ public class BusScanner {
 	}
 
 	/**
+	 * The mask version of the master data with the given number (the device descriptor type 0),
+	 * <code>null</code> if the master data do not know it or the model is not running (a reading of the
+	 * bus without the knowledge base, e.g. a tool or a unit test).
+	 */
+	public static MaskVersion mask(int number) {
+		if (!ModelService.Module.INSTANCE.isActive()) {
+			return null;
+		}
+		TLModule module = TLModelUtil.findType("ehome.operational:MaskVersions").getModule();
+		if (!(module.getSingleton(TLModule.DEFAULT_SINGLETON_NAME) instanceof MaskVersions root)) {
+			return null;
+		}
+		for (MaskVersion mask : root.getMasks()) {
+			if (mask.getNumber() == number) {
+				return mask;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Reads what a device tells about itself, point to point, and leaves the connection to it open
 	 * for further reads (a device that does not answer its descriptor is not read further).
 	 */
@@ -434,11 +461,29 @@ public class BusScanner {
 				I18NConstants.READ_PROGRAM_VERSION, notes);
 			hardwareType = property(reader, DEVICE_OBJECT, PID_HARDWARE_TYPE, I18NConstants.READ_HARDWARE_TYPE, notes);
 			orderInfo = text(property(reader, DEVICE_OBJECT, PID_ORDER_INFO, I18NConstants.READ_ORDER_INFO, notes));
-			for (int lsm = 1; lsm <= 3; lsm++) {
-				byte[] state = property(reader, lsm, LoadControls.PID_LOAD_STATE_CONTROL,
-					I18NConstants.READ_LOAD_STATE__LSM.fill(lsm), notes);
-				if (state != null && state.length > 0) {
-					loadStates.add(I18NConstants.NOTE__LABEL_VALUE.fill(lsm, LoadControls.stateName(state[0] & 0xFF)));
+			MaskVersion mask = descriptor == null ? null : mask(descriptor.intValue());
+			if (mask != null && !LoadStateMachines.propertyMapped(mask)) {
+				// A mask whose load state machines are controlled in memory (mask 7.1, BIM M112): the
+				// state of each is a byte of the memory (haumacher/ehome #22).
+				for (LoadStateMachines.InMemory lsm : LoadStateMachines.inMemory(mask)) {
+					try {
+						byte[] state = reader.readMemory(lsm.status(), 1);
+						if (state.length > 0) {
+							loadStates.add(I18NConstants.NOTE__LABEL_VALUE.fill(lsm.stateMachine(),
+								LoadControls.stateName(state[0] & 0xFF)));
+						}
+					} catch (BusException ex) {
+						notes.add(I18NConstants.NOTE__LABEL_VALUE.fill(
+							I18NConstants.READ_LOAD_STATE__LSM.fill(lsm.stateMachine()), ex.getErrorKey()));
+					}
+				}
+			} else {
+				for (int lsm = 1; lsm <= 3; lsm++) {
+					byte[] state = property(reader, lsm, LoadControls.PID_LOAD_STATE_CONTROL,
+						I18NConstants.READ_LOAD_STATE__LSM.fill(lsm), notes);
+					if (state != null && state.length > 0) {
+						loadStates.add(I18NConstants.NOTE__LABEL_VALUE.fill(lsm, LoadControls.stateName(state[0] & 0xFF)));
+					}
 				}
 			}
 			byte[] run = property(reader, APPLICATION_OBJECT, PID_RUN_STATE, I18NConstants.READ_RUN_STATE, notes);
