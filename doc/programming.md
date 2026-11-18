@@ -142,7 +142,7 @@ download: a difference there is a defect of the image, and the download must wai
 its individual address over the project's path (gateway or controller) what the scan asks each device
 (`BusScanner.read`: descriptor, manufacturer, serial number, order info, hardware type, program
 version or BCU 1 program identity, load states, run state) and its programming mode (property 54 of
-the device object, memory 0060 bit 0 for BCU 1); nothing is written, so it needs neither the write
+the device object, memory 0060 bit 0 for BCU 1 and BCU 2); nothing is written, so it needs neither the write
 switch nor `Write` on the project (`Read` suffices). The dialog `projects/device-info.view.xml` shows
 the identity beside the project's values (the program's mask, the product's manufacturer and order
 number, the hardware type the load procedure compares, the program's application ID), a differing
@@ -292,6 +292,101 @@ settle: the configuration bits of BCU 1 (taken to be those of mask 7.5, as the s
 suggests), the communication flag cleared for objects without an association (as ETS does on mask
 7.5), and whether ETS moves the association table with dynamic table management.
 
+## What a download does (BCU 2, masks 0020, 0021, 0025; haumacher/ehome #191)
+
+BCU 2 (`ManagementModel` `Bcu2`) controls its load state machines through properties, as mask 7.5
+(feature `PropertyMappedLsms` 1, flavour `LoadControl_Bcu2`: load control and state in property 5
+of the objects 1/2/3, run control and state in property 6 of object 3, table pointers in property 7
+of the objects 1/2/3, two bytes). The masks name the interface objects 0 to 3 only (no PEI program
+object): a task segment of load state machine 5 (some programs name one) is left out, as on mask 7.5.
+
+**Tables** (`GroupTables`, `DownloadImageBuilder`):
+
+- Address table `AddressTable_Bcu1` at 0116 (count, individual address, group addresses), as on BCU 1
+  and mask 7.5.
+- Association table `AssociationTable_Bcu2`: the bytes of BCU 1/mask 7.5 (count, then address
+  index and object number per entry), but with one reserved place per communication object first:
+  entry *n* holds the address object *n* sends to (its send connection, else its first receive
+  connection), `FE n` for an object without association; the other associations follow, and while
+  there are any, a free place takes the first of them whose address no object sends to from its own
+  place (`GroupTables.associationSlots`). The read-back decodes it the other way round: the entry in
+  an object's own place is its send address, `FE` entries are no associations
+  (`GroupTables.associations`). Source: the reserved places are what the templates of the
+  association table BCU 2 programs ship show (`FE 00`, `FE 01`, ... one entry per object); the order
+  of the other entries and the use of free places are the rules ETS follows as the open-source
+  download tool xknx-editor recorded them against ETS (`association_slots`).
+- Object table `GroupObjectTable_Bcu2`: the bytes of BCU 1 (count, RAM flags pointer of one byte, per
+  object value pointer, configuration, type); the value pointers are offsets into the segments
+  task control 2 names. The configuration and type bytes are computed as for every mask.
+- Pointers: the masks 2.0 and 2.1 keep the association and object table pointers also in memory
+  (0111, 0112, `Ptr_StandardMemory100`), set as on BCU 1 when the tables lie in one segment with the
+  header; mask 2.5 has them in properties only, set by the task segments of the load.
+
+**Load controls** (`LoadControls`): besides those of mask 7.5, the additional load controls
+*task pointer* (segment type 3: the addresses of the initialisation, save and serial routines, two
+bytes each; `LdCtrlTaskPtr` `InitPtr`, `SavePtr`, `SerialPtr`) and *task control 2* (segment type 5:
+callback, object table, segment 0, segment 1, two bytes each; `LdCtrlTaskCtrl2` `Callback`,
+`Address`, `Seg0`, `Seg1`), from the KNX resources specification (load state machine, additional
+load controls; the numbering of the types 0, 2 and 4 E-Home writes since mask 7.5); xknx-editor
+writes the same bytes.
+
+**Procedure:** the program's own (`ProductProcedure`), or for the masks 2.0 and 2.1 the mask's
+(`DefaultProcedure`, `Load`/`all`, remote). The mask's procedure unloads the load state machines 1-3,
+loads 3 with its fixed segments, task segment, task pointer, task control 1 and 2 while
+`EnableSegmentWrite` is off, then writes the memory as the BCU 1 procedure does (RunError 00, the
+address table emptied, the image's ranges 0100, 0103-010C, 010E-0115, 0119-01FE, 0200-046F, the
+count, RunError FF, `CompareMem` of it, restart; 01FF listed as not loaded).
+
+- `SetControlVariable EnableSegmentWrite`: while it is off, a segment allocated then is not written
+  by the load (its memory is the procedure's own memory writes'); a plan whose segments are all
+  allocated so is memory-based as BCU 1 (static data no step writes is listed as not loaded).
+- Which allocated segments the load writes: on a mask with download stamps (feature
+  `DownloadStamp`, mask 7.5) those with the flag 80, as before; on every other mask (BCU 2, mask 7.1)
+  the segments of EEPROM (memory type 3) - on BCU 2 the flag 80 switches the checksum control of the
+  segment on, it does not decide what is loaded.
+- `AllocExtraByte` (BCU 2): a segment with checksum control is one byte longer than its content, for
+  the checksum. It matters where E-Home computes an allocation: with dynamic table management the
+  address table's segment (load state machine 1) is allocated one byte longer than the table when
+  the procedure allocates it with the flag 80, and the association table follows after that byte
+  (`DownloadImage.tableChecksum`); ETS does the same (as xknx-editor recorded). The read-back and the
+  read-out place the association table the same way when the device names no table pointer.
+- `AuthorizeLevels` (BCU 2: 4 levels, 3 the free one): the plan authorizes with the key of the
+  delivery state (FF FF FF FF, `A_Authorize_Request`) right after the mask check, as ETS does; the
+  download goes on with the level the device grants (a write it does not permit is refused by the
+  device with its answer). Not on the masks 7.x, whose downloads work without.
+- `VerifyMode`: the device can answer memory writes itself (device control, property 14 bit 2);
+  E-Home verifies by reading back, which works with and without, and leaves it off.
+- `FirstAppObjectIdx`, `PollingGroupSupport`: no effect on a download by object index (the polling
+  group settings, object 0 property 18, are written only by a step or parameter naming them).
+- Programming mode: memory 0060 bit 0 (the masks' `ProgrammingMode`), as on BCU 1.
+- Read-out, comparison and read-back read the table pointers (property 7) only of a table in a
+  segment of its own; tables within the segment of the header (the mask's procedure) are at their
+  places there.
+
+Verified against the virtual device in its BCU 2 mode (`TestVirtualBcu2`: the download of the three
+programs of the fixture `TestBcu2.knxproj` over KNXnet/IP, its trace equal to the plan, memory, load
+states, table references and the task pointer and task control 2 as planned; the read-out compared
+identical offline; the take-over into the emptied device giving the downloaded connections and
+values) and a mock (`TestBcu2Download`, exact bytes). **Not verified against a device.**
+
+### Checking a BCU 2 device (read only; the owner runs it)
+
+On the device's tab "Programmierung", the device on the bus through the project's path (gateway or
+controller); nothing of these steps writes (`CalimeroReader`; the write switch stays off):
+
+1. "Geräte-Info": mask version 0020/0021/0025, program version (object 3 property 13), load states
+   1-3, run state, programming mode (memory 0060).
+2. "Auslesen" (read-out, #193): reads the device's memory in every block of E-Home's image, the
+   table pointers (property 7 of the objects 1 and 2, for tables in segments of their own), the
+   program version and the load states, and keeps them as a snapshot of the device.
+3. Off the bus, in the list "Speicherabbilder": "Vergleichen" on that snapshot, as often as wanted:
+   every block identical when the project holds the device's configuration; a difference shows the
+   device's and the plan's bytes. The association table (a place per object, `FE n` for an object
+   without association) and the object table (configuration and type bytes) are the BCU 2 specifics
+   to look at.
+4. Optional, in a copy of the project: "Übernehmen" of the snapshot shows whether the read-back
+   reproduces the project's connections and values ("Identisch").
+
 ## The first real download (the user runs it)
 
 Start with the actuator 1.3.5: no stamps, no skipped step, the hardware type checked first.
@@ -407,7 +502,7 @@ choice "Suchen nach" stays on "Geräte im Programmiermodus". Everything here onl
   configuration byte differs. The proof: the image of the device as read back equals the memory read
   (report "Identisch"), and the device is recorded as downloaded in that state.
 - **LED** ("Programmier-LED an/aus", `LedJob`): writes the programming mode (object 0 property 54;
-  BCU 1: memory 0060 with parity) through `CalimeroWriter`, so it is disabled unless the variable
+  BCU 1 and BCU 2: memory 0060 with parity) through `CalimeroWriter`, so it is disabled unless the variable
   `tl_ehome_programming_write_enabled` is true, and asks for a confirmation naming device and
   gateway. **Not yet executed against a real device**: tested only against the mock; the first real
   toggle is the user's decision.
@@ -437,12 +532,14 @@ by type are not read (reported). KNX Secure devices are not supported.
 - Masks naming no load control E-Home can write for a load state machine of their procedure (neither
   `PropertyMappedLsms` 1 nor the resources `<part>LoadControl`/`<part>LoadStatus` of the flavour
   `LoadControl_M112` in memory), and step kinds other than
-  Connect, Disconnect, Unload, Load, AbsSegment (types 0 and 1), TaskSegment, TaskCtrl1,
-  LoadCompleted, LoadImageProp (download stamps), LoadImageMem (nothing sent, see BCU 1),
+  Connect, Disconnect, Unload, Load, AbsSegment (types 0 and 1), TaskSegment, TaskPtr, TaskCtrl1,
+  TaskCtrl2, LoadCompleted, LoadImageProp (download stamps), LoadImageMem (nothing sent, see BCU 1),
   CompareProp, WriteProp, WriteMem / CompareMem (standard memory), Restart, Delay,
-  SetControlVariable (verify, optimistic write), ProgressText.
-- BCU 2 (masks 0020, 0021): its tables (`AssociationTable_Bcu2`, `GroupObjectTable_Bcu2`) and its
-  procedure (TaskPtr, TaskCtrl2, `EnableSegmentWrite`) are refused with their names.
+  SetControlVariable (verify, optimistic write, segment write), ProgressText.
+- A step naming its load state machine or interface object by object type instead of index
+  (`ObjType`): resolving it needs the device's list of interface objects from
+  `FirstAppObjectIdx` on, read at download time (every mask; no BCU 2 procedure of the master data
+  does it).
 - Writing only some bits of a byte (a parameter in a segment without static data).
 - The IP router (mask 9.1A): its procedure writes the coupler's slave and filter memories
   (`LcSlave`, `LcFilter`, `ClearLCFilterTable`), and its parameters are bit fields within bytes.

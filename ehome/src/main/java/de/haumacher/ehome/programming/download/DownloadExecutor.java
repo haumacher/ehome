@@ -177,6 +177,8 @@ public class DownloadExecutor {
 				throw new Mismatch(I18NConstants.EXEC_MASK__DESCRIPTOR_NEEDED.fill(Operation.hex(descriptor),
 					String.format("%04X", check.masks()[0])));
 			}
+		} else if (operation instanceof Operation.Authorize authorize) {
+			access.authorize(authorize.key());
 		} else if (operation instanceof Operation.CompareProperty compare) {
 			byte[] value = access.readProperty(compare.objectIndex(), compare.propertyId(), compare.start(), compare.count());
 			if (!startsWith(value, compare.expected())) {

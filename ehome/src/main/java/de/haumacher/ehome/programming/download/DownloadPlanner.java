@@ -52,7 +52,8 @@ import de.haumacher.ehome.modules.ModuleInstances;
  * <h2>Load controls</h2>
  * <p>
  * <code>Unload</code>, <code>Load</code>, <code>AbsSegment</code>, <code>TaskSegment</code>,
- * <code>TaskCtrl1</code> and <code>LoadCompleted</code> become {@link LoadControls load controls},
+ * <code>TaskPtr</code>, <code>TaskCtrl1</code>, <code>TaskCtrl2</code> and <code>LoadCompleted</code>
+ * become {@link LoadControls load controls},
  * by the mask (see {@link LoadStateMachines}): through properties (mask feature
  * <code>PropertyMappedLsms</code>, as on mask 7.5), load state machine <i>n</i> being the interface
  * object of index <i>n</i>, which the mask must name in one of its resources; or in memory (mask
@@ -105,6 +106,20 @@ import de.haumacher.ehome.modules.ModuleInstances;
  * keeps what it has there, e.g. 01FF on BCU 1), and refuses the plan otherwise.
  * </p>
  *
+ * <h2>BCU 2 (masks 0020, 0021, 0025; haumacher/ehome #191)</h2>
+ * <p>
+ * Load state machines through properties as on mask 7.5. While the control variable
+ * <code>EnableSegmentWrite</code> is off, a segment allocated then is not written by the load (the
+ * mask's procedure of 2.0 and 2.1 allocates its segments so and writes the memory afterwards as on BCU
+ * 1); a plan whose segments are all allocated so is memory-based as above. On a mask without download
+ * stamps (feature <code>DownloadStamp</code>) the load writes the segments of EEPROM (memory type 3),
+ * whatever their flags: on BCU 2 the flag 80 switches on the segment's checksum. With dynamic table
+ * management the address table's segment takes the checksum byte of <code>AllocExtraByte</code> (see
+ * {@link DownloadImage#tableChecksum(Program)}). After the mask check the plan authorizes with the key
+ * of the delivery state ({@link #DEFAULT_KEY}), as ETS does: BCU 2 starts a connection at the free
+ * access level.
+ * </p>
+ *
  * <p>
  * Memory writes are verified (read back and compared) unless the program says
  * <code>LegacyNoMemoryVerifyMode</code>; <code>SetControlVariable EnableVerifyOnWriteDirect</code>
@@ -139,6 +154,21 @@ public class DownloadPlanner {
 
 	/** The flag of a segment allocation marking a segment with a download stamp. */
 	private static final int STAMPED = LOADED;
+
+	/** The control variable switching the writing of the memory of allocated segments. */
+	private static final String SEGMENT_WRITE = "EnableSegmentWrite";
+
+	/** The mask feature of a mask whose download stamps the procedure writes. */
+	private static final String DOWNLOAD_STAMP = "DownloadStamp";
+
+	/** The mask feature naming the number of access levels. */
+	private static final String AUTHORIZE_LEVELS = "AuthorizeLevels";
+
+	/** The memory type of EEPROM in a segment allocation. */
+	private static final int EEPROM = 3;
+
+	/** The key of every access level in the delivery state of a device. */
+	static final byte[] DEFAULT_KEY = { (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF };
 
 	/** The scopes of steps and procedures belonging to a full download. */
 	private static final Set<String> FULL_SCOPES = Set.of("auto", "all", "full", "fullpar", "fullgrp");
@@ -227,8 +257,14 @@ public class DownloadPlanner {
 		/** Per byte, whether the plan writes it. */
 		boolean[] _write;
 
+		/**
+		 * Whether the load of the segment writes its memory: the control variable
+		 * <code>EnableSegmentWrite</code> was not switched off at its allocation.
+		 */
+		final boolean _segmentWrite;
+
 		Allocation(int stateMachine, String step, int segmentType, int address, int size, int access, int memoryType,
-				int flags) {
+				int flags, boolean segmentWrite) {
 			_stateMachine = stateMachine;
 			_step = step;
 			_segmentType = segmentType;
@@ -237,6 +273,7 @@ public class DownloadPlanner {
 			_access = access;
 			_memoryType = memoryType;
 			_flags = flags;
+			_segmentWrite = segmentWrite;
 		}
 
 		boolean contains(Block block) {
@@ -475,15 +512,21 @@ public class DownloadPlanner {
 	// The segments.
 
 	private void allocations(List<Step> steps) {
+		boolean segmentWrite = true;
 		for (Step step : steps) {
 			LoadStep load = step.step();
 			switch (step.kind()) {
+				case "SetControlVariable":
+					if (SEGMENT_WRITE.equals(name(load.getControlVariable()))) {
+						segmentWrite = load.getControlValue();
+					}
+					break;
 				case "AbsSegment":
 					if (load.getStateMachine() != null) {
 						_allocations.computeIfAbsent(load.getStateMachine(), x -> new ArrayList<>())
 							.add(new Allocation(load.getStateMachine(), step.label(), value(load.getSegmentType()),
 								(int) value(load.getAddress()), (int) value(load.getSize()), value(load.getSegmentAccess()),
-								value(load.getMemoryType()), value(load.getSegmentFlags())));
+								value(load.getMemoryType()), value(load.getSegmentFlags()), segmentWrite));
 					}
 					break;
 				case "LoadImageProp":
@@ -534,7 +577,8 @@ public class DownloadPlanner {
 			return;
 		}
 		addressAllocation._address = addresses.address();
-		addressAllocation._size = addresses.data().length;
+		// With the checksum byte the mask appends to a segment with checksum control (AllocExtraByte).
+		addressAllocation._size = addresses.data().length + DownloadImage.tableChecksum(_program);
 		int end = associationAllocation._address + associationAllocation._size;
 		associationAllocation._address = associations.address();
 		associationAllocation._size = end - associations.address();
@@ -556,8 +600,12 @@ public class DownloadPlanner {
 			if (block.stateMachine() != null || !allocation.contains(block)) {
 				continue;
 			}
+			if (!allocation._segmentWrite) {
+				// The procedure writes this memory itself (EnableSegmentWrite off: BCU 2, mask 2.0).
+				continue;
+			}
 			boolean table = block == _image.getAddressTable() || block == _image.getAssociationTable();
-			boolean loaded = table || (allocation._flags & LOADED) != 0;
+			boolean loaded = table || loads(allocation);
 			if (!loaded) {
 				// ETS does not write a segment whose allocation lacks the flag (the Tastsensor's 454E
 				// holds zeros where the image has its static data).
@@ -577,13 +625,31 @@ public class DownloadPlanner {
 				allocation._write[offset + n] = loaded && writable(block, n);
 			}
 		}
-		if (_stamped.contains(allocation._stateMachine) && (allocation._flags & STAMPED) != 0) {
+		if (allocation._segmentWrite && _stamped.contains(allocation._stateMachine) && (allocation._flags & STAMPED) != 0) {
 			for (int n = 0; n < allocation._write.length; n++) {
 				if (allocation._source[n] < 0) {
 					allocation._write[n] = true;
 				}
 			}
 		}
+	}
+
+	/**
+	 * Whether the load of a segment writes the image's memory into it: on a mask with download stamps
+	 * (feature {@value #DOWNLOAD_STAMP}, mask 7.5), a segment allocated with the flag {@value #LOADED}
+	 * (as ETS did on the test system); on any other mask, a segment of EEPROM (memory type
+	 * {@value #EEPROM}): BCU 2 allocates its parameter and table segments without that flag, which
+	 * there switches on the checksum control of the segment, and RAM holds nothing to load.
+	 */
+	private boolean loads(Allocation allocation) {
+		if (feature(DOWNLOAD_STAMP)) {
+			return (allocation._flags & LOADED) != 0;
+		}
+		return (allocation._memoryType & 0x07) == EEPROM;
+	}
+
+	private boolean feature(String name) {
+		return _mask.getFeatures().stream().anyMatch(f -> name.equals(f.getName()) && Objects.equals(f.getValue(), 1));
 	}
 
 	private boolean writable(Block block, int index) {
@@ -609,6 +675,9 @@ public class DownloadPlanner {
 				if (!_maskChecked) {
 					_maskChecked = true;
 					_operations.add(new Operation.CheckMask("", masks()));
+					if (authorizes()) {
+						_operations.add(new Operation.Authorize("", DEFAULT_KEY));
+					}
 				}
 				break;
 			case "Disconnect":
@@ -639,6 +708,23 @@ public class DownloadPlanner {
 				if (lsm != null) {
 					_operations.add(lsm.control(label,
 						LoadControls.taskControl1((int) value(load.getAddress()), value(load.getCount())),
+						LoadControls.STATE_LOADING));
+				}
+				break;
+			}
+			case "TaskPtr": {
+				Lsm lsm = lsm(step, false);
+				if (lsm != null) {
+					_operations.add(lsm.control(label, LoadControls.taskPointer(value(load.getInitPointer()),
+						value(load.getSavePointer()), value(load.getSerialPointer())), LoadControls.STATE_LOADING));
+				}
+				break;
+			}
+			case "TaskCtrl2": {
+				Lsm lsm = lsm(step, false);
+				if (lsm != null) {
+					_operations.add(lsm.control(label, LoadControls.taskControl2(value(load.getCallback()),
+						(int) value(load.getAddress()), value(load.getSegment0()), value(load.getSegment1())),
 						LoadControls.STATE_LOADING));
 				}
 				break;
@@ -807,6 +893,9 @@ public class DownloadPlanner {
 		}
 		List<Block> blocks = _image.getBlocks();
 		for (Allocation allocation : _allocations.getOrDefault(lsm, List.of())) {
+			if (!allocation._segmentWrite) {
+				continue;
+			}
 			int n = 0;
 			while (n < allocation._write.length) {
 				if (!allocation._write[n]) {
@@ -994,6 +1083,9 @@ public class DownloadPlanner {
 		String variable = name(load.getControlVariable());
 		if ("EnableVerifyOnWriteDirect".equals(variable) || "EnableMemoryAutoVerify".equals(variable)) {
 			_verify = load.getControlValue();
+		} else if (SEGMENT_WRITE.equals(variable)) {
+			// Taken by the allocations (see allocations(List)): while it is off, the load of a segment
+			// does not write its memory, the procedure's memory writes do.
 		} else if ("EnableOptimisticWrite".equals(variable)) {
 			// E-Home writes every byte (never optimistically skipping bytes it believes to be in the
 			// device), which serves both settings.
@@ -1057,7 +1149,9 @@ public class DownloadPlanner {
 		if (_image == null) {
 			return;
 		}
-		boolean memoryBased = _allocations.isEmpty();
+		// Memory written by the procedure's memory writes alone: no segment (BCU 1), or no segment whose
+		// load writes it (EnableSegmentWrite off, BCU 2).
+		boolean memoryBased = _allocations.values().stream().flatMap(List::stream).noneMatch(a -> a._segmentWrite);
 		for (Block block : _image.getBlocks()) {
 			int unwritten = -1;
 			for (int n = 0; n <= block.data().length; n++) {
@@ -1142,6 +1236,18 @@ public class DownloadPlanner {
 	 */
 	private int[] masks() {
 		return new int[] { _mask.getNumber() };
+	}
+
+	/**
+	 * Whether the download authorizes with the {@link #DEFAULT_KEY key of the delivery state} after
+	 * the mask check, as ETS does: on BCU 2 (management model <code>Bcu2</code> with the feature
+	 * {@value #AUTHORIZE_LEVELS}), whose connection starts at the free access level 3, while the mask
+	 * gives the load controls and the configuration write access only.
+	 */
+	private boolean authorizes() {
+		TLClassifier model = _mask.getManagementModel();
+		return model != null && "Bcu2".equals(model.getName())
+			&& _mask.getFeatures().stream().anyMatch(f -> AUTHORIZE_LEVELS.equals(f.getName()));
 	}
 
 	private boolean maskHasObject(int objectIndex) {

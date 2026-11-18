@@ -283,7 +283,9 @@ public class ReadBack {
 		Integer addressTable = null;
 		Integer associationTable = null;
 		if (addressBlock != null) {
-			addressTable = propertyMapped ? tablePointer(reader, 1, notes) : null;
+			// A table in a segment of its own is where its load state machine's table reference says; one
+			// within a segment holding more (BCU 1, BCU 2 loaded by the mask's procedure) at its place there.
+			addressTable = propertyMapped && image.getBlocks().contains(addressBlock) ? tablePointer(reader, 1, notes) : null;
 			if (addressTable == null) {
 				addressTable = Integer.valueOf(addressBlock.address());
 			}
@@ -291,11 +293,13 @@ public class ReadBack {
 		}
 		listener.progress(done++, total, de.haumacher.ehome.programming.I18NConstants.BLOCK_ASSOCIATION_TABLE);
 		if (associationBlock != null) {
-			associationTable = propertyMapped ? tablePointer(reader, 2, notes) : null;
+			associationTable =
+				propertyMapped && image.getBlocks().contains(associationBlock) ? tablePointer(reader, 2, notes) : null;
 			if (associationTable == null) {
 				boolean separate = image.getBlocks().contains(associationBlock);
 				if (program.getDynamicTableManagement() && separate && addressTable != null) {
-					associationTable = Integer.valueOf(addressTable.intValue() + 1 + 2 * (memory[addressTable] & 0xFF));
+					associationTable = Integer.valueOf(addressTable.intValue() + 1 + 2 * (memory[addressTable] & 0xFF)
+						+ DownloadImage.tableChecksum(program));
 				} else {
 					associationTable = Integer.valueOf(associationBlock.address());
 				}
@@ -439,8 +443,8 @@ public class ReadBack {
 		Program program = DeviceConfiguration.program(device);
 		List<ResKey> problems = new ArrayList<>(memory.notes());
 		Decoder decoder = new Decoder(device, program, memory);
-		List<String> inferred = parametersWithoutMemory(decoder, links(memory, new ArrayList<>()).keySet(),
-			unloaded(device), problems);
+		List<String> inferred = parametersWithoutMemory(decoder,
+			links(memory, DownloadImage.associationSlots(program), new ArrayList<>()).keySet(), unloaded(device), problems);
 		for (Map.Entry<Parameter, ResKey> failure : parameters(decoder, problems).entrySet()) {
 			problems.add(I18NConstants.READBACK_PARAMETER__NAME_ID_REASON.fill(failure.getKey().getName(),
 				failure.getKey().getExtId(), failure.getValue()));
@@ -1690,7 +1694,7 @@ public class ReadBack {
 		if (memory.addressTable() == null || memory.associationTable() == null) {
 			return associated;
 		}
-		Map<Integer, List<Integer>> links = links(memory, problems);
+		Map<Integer, List<Integer>> links = links(memory, DownloadImage.associationSlots(program), problems);
 		associated.addAll(links.keySet());
 
 		DeviceConfiguration configuration = new DeviceConfiguration(device);
@@ -1761,10 +1765,14 @@ public class ReadBack {
 	}
 
 	/**
-	 * The associations of the tables read: per object number the group addresses, in the order of
-	 * the association table (the first one the object sends to).
+	 * The associations of the tables read: per object number the group addresses, the one the object
+	 * sends to first (the first of the object in the association table; with a place per object, BCU
+	 * 2, the one in the object's place, see {@link GroupTables#associations(byte[], boolean)}).
+	 *
+	 * @param slots
+	 *        Whether the association table reserves a place per object (BCU 2).
 	 */
-	private static Map<Integer, List<Integer>> links(Memory memory, List<ResKey> problems) {
+	private static Map<Integer, List<Integer>> links(Memory memory, boolean slots, List<ResKey> problems) {
 		Map<Integer, List<Integer>> links = new LinkedHashMap<>();
 		if (memory.addressTable() == null || memory.associationTable() == null) {
 			return links;
@@ -1774,16 +1782,18 @@ public class ReadBack {
 		int addressCount = bytes[addressStart] & 0xFF;
 		int associationStart = memory.associationTable().intValue();
 		int associationCount = bytes[associationStart] & 0xFF;
-		for (int n = 0; n < associationCount; n++) {
-			int index = bytes[associationStart + 1 + 2 * n] & 0xFF;
-			int object = bytes[associationStart + 2 + 2 * n] & 0xFF;
+		byte[] table = Arrays.copyOfRange(bytes, associationStart, associationStart + 1 + 2 * associationCount);
+		int number = 0;
+		for (GroupTables.Association association : GroupTables.associations(table, slots)) {
+			number++;
+			int index = association.addressIndex();
 			if (index == 0 || index >= addressCount) {
-				problems.add(I18NConstants.READBACK_ASSOCIATION_INDEX__NUMBER_INDEX_COUNT.fill(n + 1, index,
+				problems.add(I18NConstants.READBACK_ASSOCIATION_INDEX__NUMBER_INDEX_COUNT.fill(number, index,
 					addressCount - 1));
 				continue;
 			}
 			int value = (bytes[addressStart + 1 + 2 * index] & 0xFF) << 8 | (bytes[addressStart + 2 + 2 * index] & 0xFF);
-			links.computeIfAbsent(object, x -> new ArrayList<>()).add(value);
+			links.computeIfAbsent(association.objectNumber(), x -> new ArrayList<>()).add(value);
 		}
 		return links;
 	}

@@ -180,6 +180,12 @@ public class MockDevice implements DeviceAccess {
 	}
 
 	@Override
+	public int authorize(byte[] key) {
+		_calls.add("authorize " + HexFormat.of().withUpperCase().formatHex(key));
+		return 0;
+	}
+
+	@Override
 	public Integer writeLoadControl(int objectIndex, byte[] control) {
 		_calls.add("writeLoadControl " + objectIndex + " " + HexFormat.of().formatHex(control));
 		return loadControl(objectIndex, control);

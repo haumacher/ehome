@@ -345,7 +345,9 @@ public final class ReadOut {
 		_listener.step(de.haumacher.ehome.programming.I18NConstants.BLOCK_ADDRESS_TABLE);
 		Integer addressTable = null;
 		if (addressBlock != null) {
-			addressTable = propertyMapped ? tablePointer(1) : null;
+			// A table in a segment of its own is where its load state machine's table reference says; one
+			// within a segment holding more (BCU 1, BCU 2 loaded by the mask's procedure) at its place there.
+			addressTable = propertyMapped && _image.getBlocks().contains(addressBlock) ? tablePointer(1) : null;
 			if (addressTable == null) {
 				addressTable = Integer.valueOf(addressBlock.address());
 			}
@@ -354,12 +356,13 @@ public final class ReadOut {
 		_listener.step(de.haumacher.ehome.programming.I18NConstants.BLOCK_ASSOCIATION_TABLE);
 		Integer associationTable = null;
 		if (associationBlock != null) {
-			associationTable = propertyMapped ? tablePointer(2) : null;
+			associationTable = propertyMapped && _image.getBlocks().contains(associationBlock) ? tablePointer(2) : null;
 			if (associationTable == null) {
 				boolean separate = _image.getBlocks().contains(associationBlock);
 				Integer count = addressTable == null ? null : _snapshot.byteAt(addressTable.intValue());
 				if (_program.getDynamicTableManagement() && separate && count != null) {
-					associationTable = Integer.valueOf(addressTable.intValue() + 1 + 2 * count.intValue());
+					associationTable = Integer.valueOf(addressTable.intValue() + 1 + 2 * count.intValue()
+						+ DownloadImage.tableChecksum(_program));
 				} else {
 					associationTable = Integer.valueOf(associationBlock.address());
 				}

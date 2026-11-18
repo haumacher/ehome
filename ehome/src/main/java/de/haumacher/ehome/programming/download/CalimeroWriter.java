@@ -97,6 +97,19 @@ public final class CalimeroWriter extends CalimeroReader implements DeviceAccess
 	}
 
 	@Override
+	public int authorize(byte[] key) throws BusException {
+		byte[] asdu = new byte[1 + key.length];
+		System.arraycopy(key, 0, asdu, 1, key.length);
+		byte[] answer = request(
+			reason -> I18NConstants.ACCESS_AUTHORIZE_FAILED__DEVICE_PATH_REASON.fill(device(), path(), reason),
+			DataUnitBuilder.createAPDU(Tpdu.AUTHORIZE_REQUEST, asdu), r -> Tpdu.service(r) == Tpdu.AUTHORIZE_RESPONSE);
+		byte[] level = Tpdu.asdu(answer);
+		int result = level.length == 0 ? -1 : level[0] & 0xFF;
+		Logger.info("Authorize at " + device() + ": access level " + result + ".", CalimeroWriter.class);
+		return result;
+	}
+
+	@Override
 	public void writeProperty(int objectIndex, int propertyId, int start, int count, byte[] data) throws BusException {
 		byte[] answer = request(
 			reason -> I18NConstants.ACCESS_WRITE_PROPERTY_FAILED__OBJECT_PROPERTY_DEVICE_PATH_REASON.fill(objectIndex,

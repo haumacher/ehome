@@ -510,7 +510,7 @@ public class BusScanner {
 	 */
 	public static Boolean programmingMode(DeviceReader reader, int descriptor, List<ResKey> notes) {
 		try {
-			byte[] value = isBcu1(descriptor) ? reader.readMemory(BCU1_PROGRAMMING_MODE, 1)
+			byte[] value = programmingModeInMemory(descriptor) ? reader.readMemory(BCU1_PROGRAMMING_MODE, 1)
 				: reader.readProperty(DEVICE_OBJECT, PID_PROGRAMMING_MODE, 1, 1);
 			if (value.length == 0) {
 				return null;
@@ -555,6 +555,16 @@ public class BusScanner {
 			I18NConstants.READ_PROGRAM_VERSION, notes);
 		return new FoundDevice(individual, FoundDevice.Source.LOCAL, null, manufacturer, serial, programVersion,
 			hardwareType, orderInfo, List.of(), notes);
+	}
+
+	/**
+	 * Whether a mask version keeps the programming mode in the memory byte
+	 * {@value #BCU1_PROGRAMMING_MODE} instead of property {@value #PID_PROGRAMMING_MODE} of the device
+	 * object: BCU 1 (<code>001x</code>) and BCU 2 (<code>002x</code>), whose masks name the resource
+	 * <code>ProgrammingMode</code> there (flavour <code>ProgrammingMode_Bcu1</code>).
+	 */
+	public static boolean programmingModeInMemory(int descriptor) {
+		return isBcu1(descriptor) || (descriptor & 0xFFF0) == 0x0020;
 	}
 
 	/**

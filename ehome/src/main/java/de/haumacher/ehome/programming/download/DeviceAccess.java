@@ -15,6 +15,13 @@ package de.haumacher.ehome.programming.download;
 public interface DeviceAccess extends DeviceReader {
 
 	/**
+	 * Authorizes the connection with the given key (4 bytes).
+	 *
+	 * @return The access level the device grants.
+	 */
+	int authorize(byte[] key) throws BusException;
+
+	/**
 	 * Writes a load control into the load state control property of the interface object of a load
 	 * state machine.
 	 *

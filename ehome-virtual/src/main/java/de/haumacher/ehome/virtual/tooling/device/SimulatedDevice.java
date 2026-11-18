@@ -48,8 +48,17 @@ import de.haumacher.ehome.programming.download.LoadControls;
  * specification, independently of the download's encoding ({@link LoadControls#memoryRecord(int,
  * byte[])}) and of the mask's resources. Interface objects 0 to 4 as with properties (mask 7.1
  * names the program versions of objects 3 and 4, the table references of objects 1 and 2).</li>
- * <li>{@link LoadControlKind#NONE} (BCU 1, BCU 2): plain memory; a property access is answered as
- * not present.</li>
+ * <li>BCU 2 (masks 0020, 0021, 0025, {@link #bcu2()}): through properties as mask 7.5, but with the
+ * interface objects 0 to 3 only (device, address table, association table, application; no PEI
+ * program), table references of two bytes (the mask's <code>Ptr_StandardMemory</code>), and only the
+ * additional load controls of BCU 2 (segment types 0 to 5: code/data, stack, task segment, task
+ * pointer, task control 1, task control 2); another type puts the load state machine into error. The
+ * last additional load control of each type is kept per load state machine
+ * ({@link #additionalControl(int, int)}). The programming mode is bit 0 of the memory byte
+ * {@value #PROGRAMMING_MODE_MEMORY} (the masks' resource <code>ProgrammingMode</code>), not a
+ * property.</li>
+ * <li>{@link LoadControlKind#NONE} (BCU 1): plain memory; a property access is answered as not
+ * present.</li>
  * </ul>
  *
  * <p>
@@ -62,7 +71,8 @@ import de.haumacher.ehome.programming.download.LoadControls;
  * Programming mode (the programming button of a real device): off at the start; the button
  * ({@link #pressProgrammingButton()}) switches it on and off, a restart ({@link #reset()}) ends it.
  * A device with property-mapped load state machines shows it as property
- * {@value #PID_PROGRAMMING_MODE} of the device object, which a write switches as well.
+ * {@value #PID_PROGRAMMING_MODE} of the device object (a BCU 2 as bit 0 of the memory byte
+ * {@value #PROGRAMMING_MODE_MEMORY}), which a write switches as well.
  * Only in programming mode does the device answer <code>A_IndividualAddress_Read</code> and take the
  * address of <code>A_IndividualAddress_Write</code> ({@link #changeAddress(int)}); the address is the
  * device's address on the virtual bus from then on, nothing of it goes back into the project.
@@ -84,6 +94,9 @@ public class SimulatedDevice {
 
 	/** Device object: the programming mode (1 byte, bit 0), the state of the programming button. */
 	public static final int PID_PROGRAMMING_MODE = 54;
+
+	/** The memory byte holding the programming mode of a BCU 2 in its bit 0. */
+	public static final int PROGRAMMING_MODE_MEMORY = 0x0060;
 
 	/** The interface object property naming the type of the object. */
 	public static final int PID_OBJECT_TYPE = 1;
@@ -124,6 +137,21 @@ public class SimulatedDevice {
 	private static final int FIRST_LSM_OBJECT = 1;
 
 	private static final int LAST_LSM_OBJECT = 4;
+
+	/** The last interface object with a load state machine of a BCU 2 (the application). */
+	private static final int LAST_BCU2_LSM_OBJECT = 3;
+
+	/** The additional load controls a BCU 2 takes: the segment types 0 to 5. */
+	private static final int LAST_BCU2_SEGMENT_TYPE = LoadControls.SEGMENT_TASK_CONTROL_2;
+
+	/** Whether the device is a BCU 2. */
+	private final boolean _bcu2;
+
+	/** The last interface object with a load state machine. */
+	private final int _lastLsmObject;
+
+	/** The last additional load control by <code>object/type</code>. */
+	private final Map<String, byte[]> _additional = new HashMap<>();
 
 	private final String _name;
 
@@ -175,16 +203,31 @@ public class SimulatedDevice {
 	 *        How a {@link LoadControlKind#MEMORY} device answers the reads of its load states.
 	 */
 	public SimulatedDevice(String name, int address, int descriptor, LoadControlKind kind, MappedLoadStateRule rule) {
+		this(name, address, descriptor, kind, rule, false);
+	}
+
+	/**
+	 * Creates a {@link SimulatedDevice} with empty memory, all load state machines unloaded.
+	 *
+	 * @param bcu2
+	 *        Whether the device is a BCU 2 (see the class comment); its load state machines are
+	 *        controlled through properties.
+	 * @see #SimulatedDevice(String, int, int, LoadControlKind, MappedLoadStateRule)
+	 */
+	public SimulatedDevice(String name, int address, int descriptor, LoadControlKind kind, MappedLoadStateRule rule,
+			boolean bcu2) {
+		_bcu2 = bcu2 && kind == LoadControlKind.PROPERTIES;
+		_lastLsmObject = _bcu2 ? LAST_BCU2_LSM_OBJECT : LAST_LSM_OBJECT;
 		_name = name;
 		_address = address;
 		_initialAddress = address;
 		_descriptor = descriptor;
 		_kind = kind;
 		_rule = rule;
-		_objectCount = kind == LoadControlKind.NONE ? 0 : LAST_LSM_OBJECT + 1;
+		_objectCount = kind == LoadControlKind.NONE ? 0 : _lastLsmObject + 1;
 		for (int object = 0; object < _objectCount; object++) {
 			// Device object, address table, association table, application program, PEI program
-			// (the System B layout the download of mask 7.5 uses).
+			// (the System B layout the download of mask 7.5 uses; a BCU 2 has no PEI program object).
 			putElements(object, PID_OBJECT_TYPE, 1, 1, new byte[] { 0, (byte) object });
 		}
 	}
@@ -266,6 +309,22 @@ public class SimulatedDevice {
 	 */
 	public LoadControlKind kind() {
 		return _kind;
+	}
+
+	/**
+	 * Whether the device is a BCU 2 (see the class comment).
+	 */
+	public boolean bcu2() {
+		return _bcu2;
+	}
+
+	/**
+	 * The last additional load control of the given segment type the load state machine of the given
+	 * interface object took (10 bytes), <code>null</code> if it took none.
+	 */
+	public synchronized byte[] additionalControl(int object, int type) {
+		byte[] result = _additional.get(object + "/" + type);
+		return result == null ? null : result.clone();
 	}
 
 	/**
@@ -360,6 +419,10 @@ public class SimulatedDevice {
 			return null;
 		}
 		byte[] result = Arrays.copyOfRange(_memory, address, address + length);
+		if (_bcu2 && address <= PROGRAMMING_MODE_MEMORY && PROGRAMMING_MODE_MEMORY < address + length) {
+			int at = PROGRAMMING_MODE_MEMORY - address;
+			result[at] = (byte) ((result[at] & 0xFE) | (_programmingMode ? 1 : 0));
+		}
 		if (_kind == LoadControlKind.MEMORY) {
 			for (int machine = 1; machine <= MAPPED_STATE_MACHINES; machine++) {
 				int at = LOAD_STATES + machine - 1 - address;
@@ -401,6 +464,9 @@ public class SimulatedDevice {
 			return true;
 		}
 		System.arraycopy(data, 0, _memory, address, data.length);
+		if (_bcu2 && address <= PROGRAMMING_MODE_MEMORY && PROGRAMMING_MODE_MEMORY < address + data.length) {
+			_programmingMode = (data[PROGRAMMING_MODE_MEMORY - address] & 0x01) != 0;
+		}
 		return true;
 	}
 
@@ -418,7 +484,7 @@ public class SimulatedDevice {
 			}
 			return new byte[] { (byte) _states[object] };
 		}
-		if (_kind == LoadControlKind.PROPERTIES && object == 0 && property == PID_PROGRAMMING_MODE) {
+		if (_kind == LoadControlKind.PROPERTIES && !_bcu2 && object == 0 && property == PID_PROGRAMMING_MODE) {
 			if (start == 0) {
 				return new byte[] { 0, 1 };
 			}
@@ -469,7 +535,7 @@ public class SimulatedDevice {
 			_states[object] = loadControl(object, data);
 			return new byte[] { (byte) _states[object] };
 		}
-		if (_kind == LoadControlKind.PROPERTIES && object == 0 && property == PID_PROGRAMMING_MODE) {
+		if (_kind == LoadControlKind.PROPERTIES && !_bcu2 && object == 0 && property == PID_PROGRAMMING_MODE) {
 			if (data.length != 1) {
 				return null;
 			}
@@ -507,16 +573,25 @@ public class SimulatedDevice {
 		return object >= 0 && object < _objectCount;
 	}
 
-	private static boolean lsmObject(int object) {
-		return object >= FIRST_LSM_OBJECT && object <= LAST_LSM_OBJECT;
+	private boolean lsmObject(int object) {
+		return object >= FIRST_LSM_OBJECT && object <= _lastLsmObject;
 	}
 
 	private int loadControl(int object, byte[] control) {
 		int state = next(_states[object], control[0]);
+		if (control[0] == LoadControls.EVENT_ADDITIONAL && _bcu2
+			&& (control[1] < 0 || control[1] > LAST_BCU2_SEGMENT_TYPE)) {
+			// An additional load control BCU 2 does not know.
+			return LoadControls.STATE_ERROR;
+		}
+		if (control[0] == LoadControls.EVENT_ADDITIONAL && state == LoadControls.STATE_LOADING) {
+			_additional.put(object + "/" + control[1], control.clone());
+		}
 		if (control[0] == LoadControls.EVENT_ADDITIONAL && control[1] == LoadControls.SEGMENT_TASK
 			&& state == LoadControls.STATE_LOADING) {
-			// The task segment: the address of the table (4 bytes) and the application ID.
-			putElements(object, LoadControls.PID_TABLE_REFERENCE, 1, 1, new byte[] { 0, 0, control[2], control[3] });
+			// The task segment: the address of the table (4 bytes, BCU 2: 2 bytes) and the application ID.
+			putElements(object, LoadControls.PID_TABLE_REFERENCE, 1, 1,
+				_bcu2 ? new byte[] { control[2], control[3] } : new byte[] { 0, 0, control[2], control[3] });
 			putElements(object, LoadControls.PID_PROGRAM_VERSION, 1, 1, Arrays.copyOfRange(control, 5, 10));
 		}
 		return state;

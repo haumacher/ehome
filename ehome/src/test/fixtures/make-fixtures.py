@@ -416,6 +416,26 @@ their own (M-0083_H-TEST.2E71-1, "TEST Maske 7.1"), so that the import does not 
 test system. The project is named "TestMask71"; its device 1.3.5 runs the test program with the parameters
 and connections of the test system.
 
+TestBcu2.knxproj: the samples contain no device of BCU 2 (masks 2.0, 2.1, 2.5: MV-0020, MV-0021, MV-0025;
+haumacher/ehome #191). This copy of the Test project adds three artificial programs of that kind, marked as test
+data by their names, on their own hardware "TEST BCU2", and replaces the project's device by three devices of
+them on line 1.0, each with the parameters Betriebsart = 2 and Verhalten = 2 set:
+"TEST BCU2 Maske 2.0" (1.0.1) runs M-0008_A-FF20-01-0000 (mask 2.0), loaded by the mask's procedure
+(DefaultProcedure: EnableSegmentWrite, TaskPtr, TaskCtrl1, TaskCtrl2, then memory writes as on BCU 1), whose
+only segment, the EEPROM 0100-046F, holds the system header, the address table (0116, 6 entries), the
+association table (0125, pointer 0111, 8 entries), the object table (0136, pointer 0112, three objects) and
+the parameters from 0150 (bytes made up for the test, as for BCU 1; 5A in 01FF, which the mask's procedure does
+not write); "TEST BCU2 Maske 2.1" (1.0.2) runs M-0008_A-FF21-01-0000 (mask 2.1) with a procedure of its own
+and dynamic table management: the address table (0116, LSM 1) and the association table (0141, LSM 2) are
+allocated with checksum control (SegFlags 80), the application segment 0200-025F (parameters from 0200, the
+object table at 0240) with a RAM segment 00C8, a task segment, TaskPtr, TaskCtrl1 and TaskCtrl2; "TEST BCU2
+Maske 2.5" (1.0.3) runs M-0008_A-FF25-01-0000 (mask 2.5) with a procedure of its own in the property-mapped
+style of that mask: CompareProp of the hardware type, the address table (0116), the association table (0160),
+the object table (0400) and the parameters (3C00) in segments of their own allocated without flags, the
+parameter segment allocated while EnableSegmentWrite is off and written by a WriteMem after the load, TaskPtr,
+TaskCtrl2 and a task segment of LSM 5. The objects 0 (send 0/0/3, receive 0/0/1) and 1 (send 0/1/1) of the
+devices 1.0.1 and 1.0.3 are connected; the device 1.0.2 has in addition object 2 receiving from 0/0/2.
+
 Usage (from the app module, ehome/ in the repository): python3 src/test/fixtures/make-fixtures.py
 """
 import base64
@@ -3510,3 +3530,263 @@ def mask71(name, xml):
 
 write('src/test/fixtures/TestMask71.knxproj', mask71, rename=lambda name: name.replace('000C-21-83B5', 'FF71-01-0000'),
     source='samples/KNX-Testsystem.knxproj')
+
+
+# TestBcu2.knxproj: three artificial BCU 2 programs (see the module comment).
+BCU2_HARDWARE = 'M-0008_H-TEST.20BCU2-1'
+BCU2_PRODUCT = BCU2_HARDWARE + '_P-TEST.20BCU2'
+
+
+def bcu2_objects(table_count=3):
+    """An object table of BCU 2: the count, the RAM flags pointer, per object value pointer, configuration, type."""
+    return bytes([table_count, 0x00, 0x00, 0xD7, 0x00, 0x01, 0xD7, 0x00, 0x02, 0xDF, 0x07])
+
+
+def bcu2_segment(segment, address, size, data=None, mask=None):
+    content = ''
+    if data is not None:
+        content = '<Data>' + base64.b64encode(bytes(data)).decode('ascii') + '</Data>'
+        if mask is not None:
+            content += '<Mask>' + base64.b64encode(bytes(mask)).decode('ascii') + '</Mask>'
+    return ('<AbsoluteSegment Id="' + segment + '" Address="' + str(address) + '" Size="' + str(size)
+        + '" UserMemory="0">' + content + '</AbsoluteSegment>')
+
+
+def bcu2_mask20():
+    """Program 2.0: the EEPROM 0100-046F with header, tables, object table and parameters."""
+    data = bytearray(880)
+    mask = bytearray(b'\xff' * 880)
+    header = {
+        0x00: 0xFF,                                      # 0100 option register
+        0x03: 0x00, 0x04: 0x08, 0x05: 0xFF, 0x06: 0x20, 0x07: 0x01,  # 0103 application ID
+        0x08: 0xFF,                                      # 0108 check limit
+        0x0D: 0xFF,                                      # 010D run error
+        0x11: 0x25,                                      # 0111 pointer to the association table 0125
+        0x12: 0x36,                                      # 0112 pointer to the object table 0136
+        0x16: 0x01,                                      # 0116 address table: the individual address only
+        0xFF: 0x5A,                                      # 01FF not written by the procedure of the mask
+        0x1E: 0x81, 0x1F: 0x00,                          # 011E start of the application (made up)
+    }
+    for offset, value in header.items():
+        data[offset] = value
+    data[0x36:0x36 + 11] = bcu2_objects()
+    for offset in (0x01, 0x02, 0x17, 0x18):
+        mask[offset] = 0
+    return data, mask
+
+
+def bcu2_mask21_application():
+    """Program 2.1: the application segment 0200-025F, parameters from 0200, the object table at 0240."""
+    data = bytearray(0x60)
+    data[0x10] = 0x81                                    # 0210 task start (made up)
+    data[0x40:0x40 + 11] = bcu2_objects()
+    return data
+
+
+BCU2_PROGRAMS = [
+    # (program, number, name, mask, assignment)
+    ('M-0008_A-FF20-01-0000', 'FF20', 65312, 'TEST: BCU2 Maske 2.0 (künstliche Testdaten)', 'MV-0020'),
+    ('M-0008_A-FF21-01-0000', 'FF21', 65313, 'TEST: BCU2 Maske 2.1 (künstliche Testdaten)', 'MV-0021'),
+    ('M-0008_A-FF25-01-0000', 'FF25', 65317, 'TEST: BCU2 Maske 2.5 (künstliche Testdaten)', 'MV-0025'),
+]
+
+
+def bcu2_program(program, number, name, mask):
+    """A BCU 2 program of the given mask (see the module comment)."""
+    seg = program + '_AS-'
+    if mask == 'MV-0020':
+        data, data_mask = bcu2_mask20()
+        segments = bcu2_segment(seg + '0100', 0x100, 880, data, data_mask)
+        parameter_segment, parameter_base = seg + '0100', 0x50
+        objects = (seg + '0100', 0x36)
+        address_table = (seg + '0100', 0x16, 6)
+        association_table = (seg + '0100', 0x25, 8)
+        style, dynamic, procedure = 'DefaultProcedure', '0', ''
+    elif mask == 'MV-0021':
+        segments = (bcu2_segment(seg + '00C8', 0xC8, 0x18)
+            + bcu2_segment(seg + '0116', 0x116, 0x2B, bytes([1]) + bytes(0x2A))
+            + bcu2_segment(seg + '0141', 0x141, 0x29, bytes(0x29))
+            + bcu2_segment(seg + '0200', 0x200, 0x60, bcu2_mask21_application()))
+        parameter_segment, parameter_base = seg + '0200', 0x00
+        objects = (seg + '0200', 0x40)
+        address_table = (seg + '0116', 0, 20)
+        association_table = (seg + '0141', 0, 20)
+        style, dynamic = 'ProductProcedure', '1'
+        procedure = (
+            '<LdCtrlConnect />'
+            '<LdCtrlUnload LsmIdx="1" /><LdCtrlUnload LsmIdx="2" /><LdCtrlUnload LsmIdx="3" />'
+            '<LdCtrlLoad LsmIdx="1" />'
+            '<LdCtrlAbsSegment LsmIdx="1" SegType="0" Address="278" Size="43" Access="51" MemType="3" SegFlags="128" />'
+            '<LdCtrlTaskSegment LsmIdx="1" Address="278" />'
+            '<LdCtrlLoadCompleted LsmIdx="1" />'
+            '<LdCtrlLoad LsmIdx="2" />'
+            '<LdCtrlAbsSegment LsmIdx="2" SegType="0" Address="321" Size="41" Access="51" MemType="3" SegFlags="128" />'
+            '<LdCtrlTaskSegment LsmIdx="2" Address="321" />'
+            '<LdCtrlLoadCompleted LsmIdx="2" />'
+            '<LdCtrlLoad LsmIdx="3" />'
+            '<LdCtrlAbsSegment LsmIdx="3" SegType="0" Address="200" Size="24" Access="51" MemType="1" SegFlags="0" />'
+            '<LdCtrlSetControlVariable Name="EnableSegmentWrite" Value="true" />'
+            '<LdCtrlAbsSegment LsmIdx="3" SegType="0" Address="512" Size="96" Access="51" MemType="3" SegFlags="128" />'
+            '<LdCtrlTaskSegment LsmIdx="3" Address="528" />'
+            '<LdCtrlTaskPtr LsmIdx="3" InitPtr="544" SavePtr="552" SerialPtr="0" />'
+            '<LdCtrlTaskCtrl1 LsmIdx="3" Address="0" Count="0" />'
+            '<LdCtrlTaskCtrl2 LsmIdx="3" Callback="20609" Address="576" Seg0="200" Seg1="512" />'
+            '<LdCtrlLoadCompleted LsmIdx="3" />'
+            '<LdCtrlRestart />'
+            '<LdCtrlDisconnect />')
+    else:
+        segments = (bcu2_segment(seg + '0116', 0x116, 0x2B, bytes([1]) + bytes(0x2A))
+            + bcu2_segment(seg + '0160', 0x160, 0x29, bytes(0x29))
+            + bcu2_segment(seg + '0400', 0x400, 0x20, bcu2_objects() + bytes(0x20 - 11))
+            + bcu2_segment(seg + '3C00', 0x3C00, 0x10, bytes(0x10)))
+        parameter_segment, parameter_base = seg + '3C00', 0x00
+        objects = (seg + '0400', 0)
+        address_table = (seg + '0116', 0, 20)
+        association_table = (seg + '0160', 0, 20)
+        style, dynamic = 'ProductProcedure', '0'
+        procedure = (
+            '<LdCtrlConnect />'
+            '<LdCtrlCompareProp ObjIdx="0" PropId="78" InlineData="0008000025F300000000" />'
+            '<LdCtrlUnload LsmIdx="1" /><LdCtrlUnload LsmIdx="2" /><LdCtrlUnload LsmIdx="3" />'
+            '<LdCtrlLoad LsmIdx="1" />'
+            '<LdCtrlAbsSegment LsmIdx="1" Address="278" Size="43" SegType="0" Access="51" MemType="3" SegFlags="0" />'
+            '<LdCtrlTaskSegment LsmIdx="1" Address="278" />'
+            '<LdCtrlLoad LsmIdx="2" />'
+            '<LdCtrlAbsSegment LsmIdx="2" Address="352" Size="41" SegType="0" Access="51" MemType="3" SegFlags="0" />'
+            '<LdCtrlTaskSegment LsmIdx="2" Address="352" />'
+            '<LdCtrlLoad LsmIdx="3" />'
+            '<LdCtrlAbsSegment LsmIdx="3" Address="1024" Size="32" SegType="0" Access="51" MemType="3" SegFlags="0" />'
+            '<LdCtrlSetControlVariable Name="EnableSegmentWrite" Value="false" />'
+            '<LdCtrlAbsSegment LsmIdx="3" Address="15360" Size="16" SegType="0" Access="51" MemType="3" SegFlags="0" />'
+            '<LdCtrlSetControlVariable Name="EnableSegmentWrite" Value="true" />'
+            '<LdCtrlTaskSegment LsmIdx="3" Address="0" />'
+            '<LdCtrlTaskPtr LsmIdx="3" InitPtr="0" SavePtr="0" SerialPtr="0" />'
+            '<LdCtrlTaskCtrl2 LsmIdx="3" Address="1024" Callback="0" Seg0="0" Seg1="0" />'
+            '<LdCtrlTaskSegment LsmIdx="5" Address="1024" />'
+            '<LdCtrlLoadCompleted LsmIdx="1" />'
+            '<LdCtrlLoadCompleted LsmIdx="2" />'
+            '<LdCtrlLoadCompleted LsmIdx="3" />'
+            '<LdCtrlWriteMem Address="15360" Size="16" Verify="true" />'
+            '<LdCtrlDisconnect />')
+    types = (
+        '<ParameterType Id="{p}_PT-Betriebsart" Name="Betriebsart"><TypeRestriction Base="Value" SizeInBit="8">'
+        '<Enumeration Id="{p}_PT-Betriebsart_EN-0" Text="Aus" Value="0" DisplayOrder="0" />'
+        '<Enumeration Id="{p}_PT-Betriebsart_EN-1" Text="Schalten" Value="1" DisplayOrder="1" />'
+        '<Enumeration Id="{p}_PT-Betriebsart_EN-2" Text="Treppenlicht" Value="2" DisplayOrder="2" />'
+        '</TypeRestriction></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Stufe" Name="Stufe">'
+        '<TypeNumber SizeInBit="4" Type="unsignedInt" minInclusive="0" maxInclusive="15" /></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Verhalten" Name="Verhalten"><TypeRestriction Base="Value" SizeInBit="2">'
+        '<Enumeration Id="{p}_PT-Verhalten_EN-0" Text="Unverändert" Value="0" DisplayOrder="0" />'
+        '<Enumeration Id="{p}_PT-Verhalten_EN-1" Text="Aus" Value="1" DisplayOrder="1" />'
+        '<Enumeration Id="{p}_PT-Verhalten_EN-2" Text="Ein" Value="2" DisplayOrder="2" />'
+        '</TypeRestriction></ParameterType>\n'
+        '<ParameterType Id="{p}_PT-Zeit" Name="Zeit">'
+        '<TypeNumber SizeInBit="16" Type="unsignedInt" minInclusive="0" maxInclusive="65535" /></ParameterType>\n')
+    parameters = [
+        # (number, name, type, default, offset, bit offset)
+        (1, 'Betriebsart', 'Betriebsart', 1, parameter_base, 0),
+        (2, 'Verzögerung', 'Stufe', 3, parameter_base + 1, 0),
+        (3, 'Verhalten', 'Verhalten', 1, parameter_base + 1, 4),
+        (4, 'Zeit', 'Zeit', 300, parameter_base + 2, 0),
+    ]
+    params = ''.join(
+        '<Parameter Id="{p}_P-%d" Name="%s" Text="%s" ParameterType="{p}_PT-%s" Access="ReadWrite" Value="%d">'
+        '<Memory CodeSegment="%s" Offset="%d" BitOffset="%d" /></Parameter>\n'
+        % (n, text, text, t, value, parameter_segment, offset, bit) for n, text, t, value, offset, bit in parameters)
+    refs = ''.join('<ParameterRef Id="{p}_P-%d_R-%d" RefId="{p}_P-%d" Tag="%d" />\n' % (n, n, n, n)
+        for n, _, _, _, _, _ in parameters)
+    comobjects_list = [
+        # (number, name, size, communication, read, write, transmit, update)
+        (0, 'Schalten', '1 Bit', 'Enabled', 'Disabled', 'Enabled', 'Disabled', 'Disabled'),
+        (1, 'Rückmeldung', '1 Bit', 'Enabled', 'Enabled', 'Disabled', 'Enabled', 'Disabled'),
+        (2, 'Wert', '1 Byte', 'Enabled', 'Enabled', 'Enabled', 'Enabled', 'Disabled'),
+    ]
+    comobjects = ''.join(
+        '<ComObject Id="{p}_O-%d" Name="%s" Text="%s" Number="%d" ObjectSize="%s" Priority="Low" '
+        'CommunicationFlag="%s" ReadFlag="%s" WriteFlag="%s" TransmitFlag="%s" UpdateFlag="%s" '
+        'ReadOnInitFlag="Disabled" />\n' % (o[0], o[1], o[1], o[0], o[2], o[3], o[4], o[5], o[6], o[7])
+        for o in comobjects_list)
+    corefs = ''.join('<ComObjectRef Id="{p}_O-%d_R-%d" RefId="{p}_O-%d" Tag="%d" />\n' % (o[0], o[0] + 1, o[0], o[0] + 1)
+        for o in comobjects_list)
+    placed = (''.join('<ParameterRefRef RefId="{p}_P-%d_R-%d" />\n' % (n, n) for n, _, _, _, _, _ in parameters)
+        + ''.join('<ComObjectRefRef RefId="{p}_O-%d_R-%d" />\n' % (o[0], o[0] + 1) for o in comobjects_list))
+    procedures = '<LoadProcedures><LoadProcedure>' + procedure + '</LoadProcedure></LoadProcedures>\n' if procedure else ''
+    xml = ('<?xml version="1.0" encoding="utf-8"?>\n'
+        '<KNX xmlns="http://knx.org/xml/project/11" CreatedBy="make-fixtures.py" ToolVersion="test">\n'
+        '<ManufacturerData><Manufacturer RefId="M-0008"><ApplicationPrograms>\n'
+        '<ApplicationProgram Id="{p}" Name="' + name + '" ApplicationNumber="' + str(number) + '" '
+        'ApplicationVersion="1" ProgramType="ApplicationProgram" MaskVersion="' + mask + '" '
+        'LoadProcedureStyle="' + style + '" PeiType="0" DefaultLanguage="de-DE" DynamicTableManagement="' + dynamic + '" '
+        'Linkable="0" MinEtsVersion="4.0" NonRegRelevantDataVersion="0">\n'
+        '<Static>\n<Code>' + segments + '</Code>\n'
+        '<ParameterTypes>\n' + types + '</ParameterTypes>\n'
+        '<Parameters>\n' + params + '</Parameters>\n'
+        '<ParameterRefs>\n' + refs + '</ParameterRefs>\n'
+        '<ComObjectTable CodeSegment="' + objects[0] + '" Offset="' + str(objects[1]) + '">\n' + comobjects
+        + '</ComObjectTable>\n'
+        '<ComObjectRefs>\n' + corefs + '</ComObjectRefs>\n'
+        '<AddressTable CodeSegment="' + address_table[0] + '" Offset="' + str(address_table[1]) + '" MaxEntries="'
+        + str(address_table[2]) + '" />\n'
+        '<AssociationTable CodeSegment="' + association_table[0] + '" Offset="' + str(association_table[1])
+        + '" MaxEntries="' + str(association_table[2]) + '" />\n'
+        + procedures
+        + '<Options ParameterByteOrder="BigEndian" />\n'
+        '</Static>\n'
+        '<Dynamic><Channel Name="Kanal A" Text="Kanal A" Number="1" Id="{p}_CH-1">'
+        '<ParameterBlock Id="{p}_PB-1" Name="Allgemein" Text="Allgemein">\n' + placed
+        + '</ParameterBlock></Channel></Dynamic>\n'
+        '</ApplicationProgram>\n</ApplicationPrograms></Manufacturer></ManufacturerData>\n</KNX>\n')
+    return xml.replace('{p}', program)
+
+
+def bcu2_hardware(xml):
+    assert xml.count('<Languages>') == 1
+    end = xml.rindex('</Hardware>', 0, xml.index('<Languages>'))
+    programs = ''.join('<Hardware2Program Id="' + BCU2_HARDWARE + '_HP-' + number + '-01-0000" MediumTypes="MT-0">'
+        '<ApplicationProgramRef RefId="' + program + '" /></Hardware2Program>\n'
+        for program, number, _, _, _ in BCU2_PROGRAMS)
+    hardware = ('<Hardware Id="' + BCU2_HARDWARE + '" Name="TEST BCU2" SerialNumber="TEST BCU2" VersionNumber="1" '
+        'HasIndividualAddress="1" HasApplicationProgram="1"><Products><Product Id="' + BCU2_PRODUCT + '" '
+        'Text="TEST BCU2 (künstliche Testdaten)" OrderNumber="TEST BCU2" IsRailMounted="1" DefaultLanguage="de-DE" />'
+        '</Products><Hardware2Programs>\n' + programs + '</Hardware2Programs></Hardware>\n')
+    return xml[:end] + hardware + xml[end:]
+
+
+def bcu2_devices(xml):
+    start = xml.index('<DeviceInstance Id="P-01A0-0_DI-1" ')
+    end = xml.index('</DeviceInstance>', start) + len('</DeviceInstance>')
+    devices = ''
+    for n, (program, number, _, _, mask) in enumerate(BCU2_PROGRAMS, 1):
+        receive = '<Receive GroupAddressRefId="P-01A0-0_GA-2" />' if mask == 'MV-0021' else ''
+        devices += ('<DeviceInstance Id="P-01A0-0_DI-' + str(n) + '" Name="TEST BCU2 Maske ' + mask[5] + '.' + mask[6]
+            + '" ProductRefId="' + BCU2_PRODUCT + '" Hardware2ProgramRefId="' + BCU2_HARDWARE + '_HP-' + number
+            + '-01-0000" Address="' + str(n) + '" LastModified="2026-11-18T12:00:00">\n'
+            '<ParameterInstanceRefs>\n'
+            '<ParameterInstanceRef RefId="' + program + '_P-1_R-1" Value="2" />\n'
+            '<ParameterInstanceRef RefId="' + program + '_P-3_R-3" Value="2" />\n'
+            '</ParameterInstanceRefs>\n<ComObjectInstanceRefs>\n'
+            '<ComObjectInstanceRef RefId="' + program + '_O-0_R-1" IsActive="1"><Connectors>'
+            '<Send GroupAddressRefId="P-01A0-0_GA-3" /><Receive GroupAddressRefId="P-01A0-0_GA-1" />'
+            '</Connectors></ComObjectInstanceRef>\n'
+            '<ComObjectInstanceRef RefId="' + program + '_O-1_R-2" IsActive="1"><Connectors>'
+            '<Send GroupAddressRefId="P-01A0-0_GA-4" /></Connectors></ComObjectInstanceRef>\n'
+            '<ComObjectInstanceRef RefId="' + program + '_O-2_R-3" IsActive="1">'
+            + ('<Connectors>' + receive + '</Connectors>' if receive else '') + '</ComObjectInstanceRef>\n'
+            '</ComObjectInstanceRefs>\n</DeviceInstance>\n')
+    return xml[:start] + devices + xml[end:]
+
+
+def bcu2(name, xml):
+    if name == PROJECT_INFO:
+        return rename_project(xml, 'TestBcu2')
+    if name == PROJECT:
+        return bcu2_devices(xml)
+    if name == 'M-0008/Hardware.xml':
+        return bcu2_hardware(xml)
+    return xml
+
+
+write('src/test/fixtures/TestBcu2.knxproj', bcu2,
+    [('M-0008/' + program + '.xml', bcu2_program(program, number, name, mask))
+     for program, _, number, name, mask in BCU2_PROGRAMS])

@@ -23,6 +23,8 @@ import com.top_logic.model.TLObject;
 import de.haumacher.ehome.knx.GA;
 import de.haumacher.ehome.model.operational.CodeSegment;
 import de.haumacher.ehome.model.operational.Interface;
+import de.haumacher.ehome.model.operational.LoadProcedure;
+import de.haumacher.ehome.model.operational.LoadStep;
 import de.haumacher.ehome.model.operational.Location;
 import de.haumacher.ehome.model.operational.MaskResource;
 import de.haumacher.ehome.model.operational.MaskVersion;
@@ -78,8 +80,21 @@ class DownloadImageBuilder {
 
 	private static final String ADDRESS_TABLE_FORMAT = "AddressTable_Bcu1";
 
+	/** The format of the association table of BCU 2, with a reserved place per object ({@link GroupTables#associationSlots(Collection, int)}). */
+	private static final String ASSOCIATION_TABLE_BCU2 = "AssociationTable_Bcu2";
+
 	/** The formats of the association table with the bytes of {@link GroupTables#associationTable(List)}. */
-	private static final List<String> ASSOCIATION_TABLE_FORMATS = List.of("AssociationTable_M112", "AssociationTable_Bcu1");
+	private static final List<String> ASSOCIATION_TABLE_FORMATS =
+		List.of("AssociationTable_M112", "AssociationTable_Bcu1", ASSOCIATION_TABLE_BCU2);
+
+	/**
+	 * The feature of a mask whose segments with checksum control (allocation attribute
+	 * {@value #CHECKSUM_SEGMENT}) take one byte more than their content: the checksum.
+	 */
+	private static final String ALLOC_EXTRA_BYTE = "AllocExtraByte";
+
+	/** The attribute of a segment allocation switching the checksum control of the segment on. */
+	private static final int CHECKSUM_SEGMENT = 0x80;
 
 	/** The flavour of a mask's pointer to a table: one byte in memory, the table's address minus 0100. */
 	private static final String POINTER_100 = "Ptr_StandardMemory100";
@@ -292,8 +307,11 @@ class DownloadImageBuilder {
 			}
 			return;
 		}
-		if (!supported("GroupAddressTable", List.of(ADDRESS_TABLE_FORMAT))
-			|| !supported("GroupAssociationTable", ASSOCIATION_TABLE_FORMATS)) {
+		if (!supported("GroupAddressTable", List.of(ADDRESS_TABLE_FORMAT))) {
+			return;
+		}
+		String associationFormat = format("GroupAssociationTable", ASSOCIATION_TABLE_FORMATS);
+		if (associationFormat == null) {
 			return;
 		}
 
@@ -302,9 +320,13 @@ class DownloadImageBuilder {
 		for (int[] link : links) {
 			associations.add(new Association(addresses.indexOf(link[0]) + 1, link[1], link[2] == 1));
 		}
-		associations = GroupTables.associationOrder(associations);
 		for (Association association : associations) {
 			_associatedObjects.add(association.objectNumber());
+		}
+		if (ASSOCIATION_TABLE_BCU2.equals(associationFormat)) {
+			associations = GroupTables.associationSlots(associations, objectCount());
+		} else {
+			associations = GroupTables.associationOrder(associations);
 		}
 		checkSize(I18NConstants.IMAGE_TOO_MANY_ADDRESSES__COUNT_MAX, addresses.size(), addressLocation);
 		checkSize(I18NConstants.IMAGE_TOO_MANY_ASSOCIATIONS__COUNT_MAX, associations.size(), associationLocation);
@@ -337,8 +359,9 @@ class DownloadImageBuilder {
 		byte[] associationMask;
 		boolean associationCombined = combined(associationLocation);
 		if (_program.getDynamicTableManagement() && !associationCombined) {
-			// ETS places the association table right after the address table.
-			associationStart = addressStart + addressTable.length;
+			// ETS places the association table right after the address table (and the checksum of its
+			// segment, see tableChecksum(Program)).
+			associationStart = addressStart + addressTable.length + tableChecksum(_program);
 			associationMask = full(associationTable.length);
 		} else {
 			Integer start = start(associationLocation, null);
@@ -420,6 +443,11 @@ class DownloadImageBuilder {
 	 */
 	private void pointer(String resourceName, int tableAddress) {
 		MaskResource resource = memoryResourceOf(resourceName);
+		if (resource == null && propertyResource(resourceName)) {
+			// The mask keeps the pointer in a property only (BCU 2.5, PID_TABLE_REFERENCE): the load
+			// procedure sets it with the task segment of the table's load state machine.
+			return;
+		}
 		if (resource == null || !POINTER_100.equals(resource.getFlavour())) {
 			_image.addProblem(I18NConstants.IMAGE_NO_POINTER__MASK_RESOURCE_FORMAT.fill(_program.getMask().getName(), resourceName,
 				POINTER_100));
@@ -452,6 +480,90 @@ class DownloadImageBuilder {
 				String.format("%02X", block.data()[index] & 0xFF), String.format("%02X", mask), resourceName, hex4(address),
 				hex4(tableAddress)));
 		}
+	}
+
+	/**
+	 * Whether the mask names a resource of the given name as a property of an interface object.
+	 */
+	private boolean propertyResource(String name) {
+		if (_program.getMask() == null) {
+			return false;
+		}
+		for (MaskResource resource : _program.getMask().getResources()) {
+			ResourceLocation location = resource.getLocation();
+			if (name.equals(resource.getName()) && location != null && location.getAddressSpace() != null
+				&& "SystemProperty".equals(location.getAddressSpace().getName())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * The number of communication objects of the program: the count of the object table in its
+	 * static data, else one more than the highest object number.
+	 */
+	private int objectCount() {
+		TableLocation location = _program.getObjectTable();
+		if (location != null && location.getSegment() != null) {
+			byte[] data = ParameterEncoding.toBytes(location.getSegment().getData());
+			int offset = value(location.getOffset());
+			if (data != null && offset < data.length) {
+				return data[offset] & 0xFF;
+			}
+		}
+		int count = 0;
+		for (Port port : _configuration.getPorts()) {
+			count = Math.max(count, port.getIndex() + 1);
+		}
+		return count;
+	}
+
+	/**
+	 * The checksum byte at the end of the segment of the address table (load state machine 1): 1 if
+	 * the mask allocates a byte more for the checksum of a segment with checksum control (feature
+	 * {@value #ALLOC_EXTRA_BYTE}, BCU 2) and the load procedure allocates that segment with checksum
+	 * control (attribute {@value #CHECKSUM_SEGMENT}), else 0.
+	 *
+	 * <p>
+	 * With dynamic table management, the address table's segment is then one byte longer than the
+	 * table, and the association table follows after that byte. Source: the rule ETS follows as the
+	 * open-source download tool xknx-editor recorded it against ETS (BCU 2 with dynamic tables: the
+	 * association table at 0116 + 3 + 2n + 1 with <code>AllocExtraByte</code> and
+	 * <code>SegFlags</code> 80 of the segment of load state machine 1); the feature's name says the
+	 * same. Not verified against a device of E-Home's.
+	 * </p>
+	 */
+	static boolean associationSlots(Program program) {
+		if (program.getMask() == null) {
+			return false;
+		}
+		for (MaskResource resource : program.getMask().getResources()) {
+			if ("GroupAssociationTable".equals(resource.getName()) && ASSOCIATION_TABLE_BCU2.equals(resource.getFlavour())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	static int tableChecksum(Program program) {
+		MaskVersion mask = program.getMask();
+		if (mask == null || mask.getFeatures().stream()
+			.noneMatch(f -> ALLOC_EXTRA_BYTE.equals(f.getName()) && Objects.equals(f.getValue(), 1))) {
+			return 0;
+		}
+		List<LoadProcedure> procedures = new ArrayList<>(program.getLoadProcedures());
+		procedures.addAll(mask.getProcedures());
+		for (LoadProcedure procedure : procedures) {
+			for (LoadStep step : procedure.getSteps()) {
+				if (step.getKind() != null && "AbsSegment".equals(step.getKind().getName())
+					&& Objects.equals(step.getStateMachine(), 1)) {
+					Integer flags = step.getSegmentFlags();
+					return flags != null && (flags & CHECKSUM_SEGMENT) != 0 ? 1 : 0;
+				}
+			}
+		}
+		return 0;
 	}
 
 	private ResourceLocation memoryResource(String name) {
@@ -565,8 +677,8 @@ class DownloadImageBuilder {
 			_image.addProblem(I18NConstants.IMAGE_OBJECT_TABLE_NO_DATA);
 			return;
 		}
-		String flavour = format("GroupObjectTable",
-			List.of(GroupTables.ObjectTableFormat.M112.flavour(), GroupTables.ObjectTableFormat.BCU1.flavour()));
+		String flavour = format("GroupObjectTable", List.of(GroupTables.ObjectTableFormat.M112.flavour(),
+			GroupTables.ObjectTableFormat.BCU1.flavour(), GroupTables.ObjectTableFormat.BCU2.flavour()));
 		if (flavour == null) {
 			return;
 		}

@@ -14,6 +14,7 @@ import com.top_logic.basic.util.ResKey;
 import com.top_logic.model.TLObject;
 import com.top_logic.util.Resources;
 
+import de.haumacher.ehome.model.operational.Program;
 import de.haumacher.ehome.programming.download.DownloadPlan;
 
 /**
@@ -127,6 +128,23 @@ public class DownloadImage {
 	 */
 	public static Integer individualAddress(TLObject device) {
 		return DownloadImageBuilder.individualAddress(device);
+	}
+
+	/**
+	 * The byte between the address table and the association table with dynamic table management:
+	 * 1 if the segment of the address table ends in a checksum byte (BCU 2, mask feature
+	 * <code>AllocExtraByte</code>, an allocation with checksum control), else 0.
+	 */
+	public static int tableChecksum(Program program) {
+		return DownloadImageBuilder.tableChecksum(program);
+	}
+
+	/**
+	 * Whether the association table of the program's mask reserves a place per communication object
+	 * (BCU 2, see {@link GroupTables#associationSlots(java.util.Collection, int)}).
+	 */
+	public static boolean associationSlots(Program program) {
+		return DownloadImageBuilder.associationSlots(program);
 	}
 
 	/**

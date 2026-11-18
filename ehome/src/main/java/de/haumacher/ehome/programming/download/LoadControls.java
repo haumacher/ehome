@@ -22,9 +22,23 @@ import com.top_logic.basic.util.ResKey;
  * (code/data resp. stack): address (2 bytes), length (2 bytes), access (read and write level, one
  * nibble each), memory type, attributes (ETS: <code>SegFlags</code>), a zero byte; 2 task segment:
  * address (2 bytes), PEI type, the application ID (manufacturer, 2 bytes; application number, 2
- * bytes; version); 4 task control 1: address of the event handler (2 bytes) and the number of
- * objects.</li>
+ * bytes; version); 3 task pointer (BCU 2): the addresses of the application's initialisation, save
+ * and serial (PEI) routines (2 bytes each); 4 task control 1: address of the event handler (2 bytes)
+ * and the number of objects; 5 task control 2 (BCU 2): the address of the callback (2 bytes), the
+ * address of the object table (2 bytes) and the addresses of the segments 0 and 1 the value pointers
+ * of the object table are offsets into (2 bytes each).</li>
  * </ul>
+ *
+ * <p>
+ * The task pointer and task control 2 carry the attributes of <code>LdCtrlTaskPtr</code>
+ * (<code>InitPtr</code>, <code>SavePtr</code>, <code>SerialPtr</code>) and
+ * <code>LdCtrlTaskCtrl2</code> (<code>Callback</code>, <code>Address</code>, <code>Seg0</code>,
+ * <code>Seg1</code>) in their order. The segment types 3 and 5 and these layouts are those of the
+ * KNX resources specification (load state machine, additional load controls), the numbering being
+ * the one of the types 0, 2 and 4 E-Home already writes (verified on mask 7.5); the open-source
+ * download tool xknx-editor writes the same bytes (<code>load_state.py</code>). Not verified against
+ * a device of E-Home's.
+ * </p>
  *
  * <p>
  * Verified on the test devices (mask 7.5, read-back of what ETS wrote): the table pointers
@@ -110,8 +124,14 @@ public class LoadControls {
 	/** Additional load control: task segment. */
 	public static final int SEGMENT_TASK = 2;
 
+	/** Additional load control: task pointer (BCU 2). */
+	public static final int SEGMENT_TASK_POINTER = 3;
+
 	/** Additional load control: task control 1. */
 	public static final int SEGMENT_TASK_CONTROL_1 = 4;
+
+	/** Additional load control: task control 2 (BCU 2). */
+	public static final int SEGMENT_TASK_CONTROL_2 = 5;
 
 	/** The size of an element of the download stamp of a segment. */
 	public static final int STAMP_LENGTH = 8;
@@ -170,6 +190,33 @@ public class LoadControls {
 		byte[] result = additional(SEGMENT_TASK_CONTROL_1);
 		put16(result, 2, address);
 		result[4] = (byte) count;
+		return result;
+	}
+
+	/**
+	 * The additional load control "task pointer" (BCU 2): the addresses of the routines of the
+	 * application for its initialisation, for saving before a reset, and for the serial interface
+	 * (PEI).
+	 */
+	public static byte[] taskPointer(int initPointer, int savePointer, int serialPointer) {
+		byte[] result = additional(SEGMENT_TASK_POINTER);
+		put16(result, 2, initPointer);
+		put16(result, 4, savePointer);
+		put16(result, 6, serialPointer);
+		return result;
+	}
+
+	/**
+	 * The additional load control "task control 2" (BCU 2): the address of the callback, of the
+	 * object table, and of the segments 0 and 1 the value pointers of the object table are offsets
+	 * into.
+	 */
+	public static byte[] taskControl2(int callback, int objectTable, int segment0, int segment1) {
+		byte[] result = additional(SEGMENT_TASK_CONTROL_2);
+		put16(result, 2, callback);
+		put16(result, 4, objectTable);
+		put16(result, 6, segment0);
+		put16(result, 8, segment1);
 		return result;
 	}
 
@@ -309,9 +356,15 @@ public class LoadControls {
 						return I18NConstants.CONTROL_TASK_SEGMENT__ADDRESS_PEI_APPLICATION.fill(String.format("%04X", address),
 							control[4] & 0xFF, String.format("%02X%02X %02X%02X %02X", control[5] & 0xFF, control[6] & 0xFF,
 								control[7] & 0xFF, control[8] & 0xFF, control[9] & 0xFF));
+					case SEGMENT_TASK_POINTER:
+						return I18NConstants.CONTROL_TASK_POINTER__INIT_SAVE_SERIAL.fill(String.format("%04X", address),
+							hex16(control, 4), hex16(control, 6));
 					case SEGMENT_TASK_CONTROL_1:
 						return I18NConstants.CONTROL_TASK_CONTROL__HANDLER_OBJECTS.fill(String.format("%04X", address),
 							control[4] & 0xFF);
+					case SEGMENT_TASK_CONTROL_2:
+						return I18NConstants.CONTROL_TASK_CONTROL_2__CALLBACK_TABLE_SEGMENT0_SEGMENT1.fill(
+							String.format("%04X", address), hex16(control, 4), hex16(control, 6), hex16(control, 8));
 					default:
 						return I18NConstants.CONTROL_ADDITIONAL__TYPE.fill(control[1]);
 				}
@@ -340,6 +393,10 @@ public class LoadControls {
 			default:
 				return I18NConstants.LOAD_STATE_OTHER__NUMBER.fill(state);
 		}
+	}
+
+	private static String hex16(byte[] buffer, int position) {
+		return String.format("%04X", (buffer[position] & 0xFF) << 8 | buffer[position + 1] & 0xFF);
 	}
 
 	private static void put16(byte[] buffer, int position, int value) {

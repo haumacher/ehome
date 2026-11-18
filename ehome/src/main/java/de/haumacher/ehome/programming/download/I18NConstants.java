@@ -373,6 +373,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey3 ACCESS_RESTART_FAILED__DEVICE_PATH_REASON;
 
 	/**
+	 * @en The authorization at {0} through {1} failed: {2}
+	 */
+	public static ResKey3 ACCESS_AUTHORIZE_FAILED__DEVICE_PATH_REASON;
+
+	/**
 	 * @en A device with the address {0} exists, but is not in programming mode.
 	 */
 	public static ResKey1 ACCESS_ADDRESS_NOT_IN_PROGRAMMING_MODE__ADDRESS;
@@ -426,6 +431,16 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Task control 1, event handler {0}, {1} objects
 	 */
 	public static ResKey2 CONTROL_TASK_CONTROL__HANDLER_OBJECTS;
+
+	/**
+	 * @en Task pointer, initialisation {0}, save {1}, serial interface {2}
+	 */
+	public static ResKey3 CONTROL_TASK_POINTER__INIT_SAVE_SERIAL;
+
+	/**
+	 * @en Task control 2, callback {0}, object table {1}, segment 0 at {2}, segment 1 at {3}
+	 */
+	public static ResKey4 CONTROL_TASK_CONTROL_2__CALLBACK_TABLE_SEGMENT0_SEGMENT1;
 
 	/**
 	 * @en Additional load control {0}
@@ -531,6 +546,11 @@ public class I18NConstants extends I18NConstantsBase {
 	 * @en Restart the device
 	 */
 	public static ResKey OP_RESTART;
+
+	/**
+	 * @en Authorize with the key {0}
+	 */
+	public static ResKey1 OP_AUTHORIZE__KEY;
 
 	/**
 	 * @en Wait {0} ms

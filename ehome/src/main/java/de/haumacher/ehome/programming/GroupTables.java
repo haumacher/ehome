@@ -6,14 +6,17 @@ package de.haumacher.ehome.programming;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.TreeSet;
 
 /**
  * The formats of the group communication tables: the group address table, the association table,
  * the object table and the configuration byte of a communication object, for the BIM M112 family
- * (mask version 7.x, System 7) and for BCU 1 (mask version 1.2, <code>MV-0012</code>).
+ * (mask version 7.x, System 7), for BCU 1 (mask version 1.2, <code>MV-0012</code>) and for BCU 2 (mask
+ * versions 2.0, 2.1, 2.5).
  *
  * <p>
  * Verified against the memory ETS wrote into the devices of the user's test system (mask 0x0705, see
@@ -61,6 +64,18 @@ import java.util.TreeSet;
  * BCU 1 programs shows them: D7 for update, transmit, write, communication, low priority), the type
  * byte (codes 0 to 14 only).</li>
  * </ul>
+ *
+ * <h2>BCU 2 (masks 0020, 0021, 0025)</h2>
+ * <p>
+ * Not verified against a device. The address table is <code>AddressTable_Bcu1</code>. The
+ * association table (<code>AssociationTable_Bcu2</code>) has the bytes above with a reserved place
+ * per object first ({@link #associationSlots(Collection, int)}). The object table
+ * (<code>GroupObjectTable_Bcu2</code>, {@link ObjectTableFormat#BCU2}) has the bytes of BCU 1: the
+ * static data of BCU 2 programs parse as count, RAM flags pointer of one byte and three bytes per
+ * object with configuration bytes of the bits above; the value pointers are offsets into the
+ * segments the load control "task control 2" names (its <code>Seg0</code>, <code>Seg1</code>), which
+ * E-Home takes from the static data as it is.
+ * </p>
  */
 public class GroupTables {
 
@@ -102,10 +117,17 @@ public class GroupTables {
 		public static final ObjectTableFormat BCU1 = new ObjectTableFormat("GroupObjectTable_Bcu11", 2, 3, 1, 2, 14);
 
 		/**
+		 * The object table of BCU 2 (masks 2.0, 2.1, 2.5): the bytes of {@link #BCU1}; the value pointers
+		 * are offsets into the segments the load control "task control 2" names (see
+		 * {@link GroupTables}).
+		 */
+		public static final ObjectTableFormat BCU2 = new ObjectTableFormat("GroupObjectTable_Bcu2", 2, 3, 1, 2, 14);
+
+		/**
 		 * The format of the given name, <code>null</code> if it is not supported.
 		 */
 		public static ObjectTableFormat byFlavour(String flavour) {
-			for (ObjectTableFormat format : new ObjectTableFormat[] { M112, BCU1 }) {
+			for (ObjectTableFormat format : new ObjectTableFormat[] { M112, BCU1, BCU2 }) {
 				if (format.flavour().equals(flavour)) {
 					return format;
 				}
@@ -113,6 +135,12 @@ public class GroupTables {
 			return null;
 		}
 	}
+
+	/**
+	 * The address index of an entry of a BCU 2 association table holding no association: the
+	 * reserved place of an object that sends to no group address.
+	 */
+	public static final int UNUSED_SLOT = 0xFE;
 
 	/** Configuration bit: the object's value is updated by responses to a read (ETS: UpdateFlag). */
 	public static final int UPDATE = 0x80;
@@ -212,7 +240,118 @@ public class GroupTables {
 	}
 
 	/**
-	 * The association table of associations in the order of {@link #associationOrder(Collection)}.
+	 * The associations in the order of the association table of BCU 2
+	 * (<code>AssociationTable_Bcu2</code>): one reserved place per communication object first, the
+	 * place of object <i>n</i> being entry <i>n</i>; it holds the address the object sends to, an
+	 * entry {@link #UNUSED_SLOT} <i>n</i> if the object has no association. The other associations
+	 * follow in the order of {@link #associationOrder(Collection)}; while there are any, a free place
+	 * takes the first of them whose address no object sends to from its own place.
+	 *
+	 * <p>
+	 * The address an object sends to is the one of its send connection, else the first of its
+	 * receive connections (an object with associations always sends to one of them); a second send
+	 * connection is received only. The order within the other associations, and the use of the free
+	 * places, are the rules ETS follows as the open-source download tool xknx-editor recorded them
+	 * against ETS (<code>association_slots</code>); the reserved places themselves are shown by the
+	 * templates of the association table BCU 2 programs ship (100 entries <code>FE 00</code>,
+	 * <code>FE 01</code>, ... with the address indexes of the template's connections between them).
+	 * </p>
+	 *
+	 * @param objectCount
+	 *        The number of communication objects (the count of the object table).
+	 */
+	public static List<Association> associationSlots(Collection<Association> associations, int objectCount) {
+		List<Association> ordered = associationOrder(associations);
+		Association[] slots = new Association[objectCount];
+		List<Association> rest = new ArrayList<>();
+		Set<Integer> placed = new HashSet<>();
+		for (Association association : ordered) {
+			int object = association.objectNumber();
+			if (object < objectCount && placed.add(object)) {
+				slots[object] = new Association(association.addressIndex(), object, true);
+			} else {
+				rest.add(new Association(association.addressIndex(), object, false));
+			}
+		}
+		for (int slot = 0; slot < objectCount && !rest.isEmpty(); slot++) {
+			if (slots[slot] != null) {
+				continue;
+			}
+			for (int candidate = 0; candidate < rest.size(); candidate++) {
+				int index = rest.get(candidate).addressIndex();
+				boolean sendAddress = false;
+				for (int other = 0; other < objectCount; other++) {
+					Association own = slots[other];
+					if (own != null && own.objectNumber() == other && own.addressIndex() == index) {
+						sendAddress = true;
+						break;
+					}
+				}
+				if (!sendAddress) {
+					slots[slot] = rest.remove(candidate);
+					break;
+				}
+			}
+		}
+		List<Association> result = new ArrayList<>();
+		for (int slot = 0; slot < objectCount; slot++) {
+			result.add(slots[slot] != null ? slots[slot] : new Association(UNUSED_SLOT, slot, false));
+		}
+		result.addAll(rest);
+		return result;
+	}
+
+	/**
+	 * The associations an association table holds, in the order of the table, without the free
+	 * places of BCU 2: per entry the address index and the object number; the send flag tells the
+	 * address the object sends to.
+	 *
+	 * @param table
+	 *        The association table: its count, then two bytes per entry.
+	 * @param slots
+	 *        Whether the table is one of BCU 2 ({@link #associationSlots(Collection, int)}): the entry
+	 *        <i>n</i> of object <i>n</i> holds its send address, the entries {@link #UNUSED_SLOT} no
+	 *        association. Otherwise the first entry of an object is its send address.
+	 */
+	public static List<Association> associations(byte[] table, boolean slots) {
+		List<Association> result = new ArrayList<>();
+		int count = table[0] & 0xFF;
+		Set<Integer> seen = new HashSet<>();
+		for (int n = 0; n < count; n++) {
+			int index = table[1 + 2 * n] & 0xFF;
+			int object = table[2 + 2 * n] & 0xFF;
+			boolean send;
+			if (slots) {
+				if (index == UNUSED_SLOT) {
+					continue;
+				}
+				send = object == n;
+			} else {
+				send = seen.add(object);
+			}
+			result.add(new Association(index, object, send));
+		}
+		if (slots) {
+			// The send address of an object first.
+			List<Association> sorted = new ArrayList<>();
+			for (Association association : result) {
+				if (association.send()) {
+					sorted.add(association);
+				}
+			}
+			for (Association association : result) {
+				if (!association.send()) {
+					sorted.add(association);
+				}
+			}
+			return sorted;
+		}
+		return result;
+	}
+
+	/**
+	 * The association table of associations in the order of {@link #associationOrder(Collection)}
+	 * (or of {@link #associationSlots(Collection, int)}).
 	 */
 	public static byte[] associationTable(List<Association> associations) {
 		if (associations.size() > 255) {

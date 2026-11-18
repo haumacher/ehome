@@ -34,7 +34,8 @@ import de.haumacher.ehome.virtual.tooling.I18NConstants;
  * <ul>
  * <li>Address: the individual address of the device.</li>
  * <li>Device descriptor: the mask version of its program.</li>
- * <li>Load state machines: by the mask, see {@link #kind(MaskVersion)}; all unloaded.</li>
+ * <li>Load state machines: by the mask, see {@link #kind(MaskVersion)}; all unloaded. A mask of the
+ * management model <code>Bcu2</code> makes a {@link SimulatedDevice#bcu2() BCU 2}.</li>
  * <li>Memory: the static data of the program's absolute segments (zero elsewhere); the memory a
  * download does not write keeps it, as with a device fresh from the factory that holds its
  * application.</li>
@@ -102,7 +103,8 @@ public class ProjectDevices {
 		}
 		LoadControlKind kind = kind(mask);
 		String name = DownloadPlanner.formatAddress(address) + " (" + device.tValueByName("extId") + ")";
-		SimulatedDevice result = new SimulatedDevice(name, address, mask.getNumber(), kind, rule);
+		boolean bcu2 = mask.getManagementModel() != null && "Bcu2".equals(mask.getManagementModel().getName());
+		SimulatedDevice result = new SimulatedDevice(name, address, mask.getNumber(), kind, rule, bcu2);
 		for (Segment segment : program.getSegments()) {
 			if (segment instanceof CodeSegment code && code.getAddress() != null) {
 				byte[] data = ParameterEncoding.toBytes(code.getData());

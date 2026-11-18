@@ -98,7 +98,7 @@ public class LedJob implements JobBody {
 	 * @return Whether the device reports its programming mode on afterwards.
 	 */
 	public static boolean setProgrammingMode(DeviceAccess access, FoundDevice found, boolean on) throws BusException {
-		if (found.descriptor() != null && BusScanner.isBcu1(found.descriptor().intValue())) {
+		if (found.descriptor() != null && BusScanner.programmingModeInMemory(found.descriptor().intValue())) {
 			byte[] current = access.readMemory(BCU1_PROGRAMMING_MODE, 1);
 			int value = (current[0] & 0x7E) | (on ? 0x01 : 0x00);
 			if (Integer.bitCount(value) % 2 != 0) {

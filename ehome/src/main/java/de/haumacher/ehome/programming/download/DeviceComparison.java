@@ -4,6 +4,7 @@
 package de.haumacher.ehome.programming.download;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -229,8 +230,14 @@ public class DeviceComparison {
 		List<BlockResult> results = new ArrayList<>();
 		List<Block> blocks = new ArrayList<>(image.getBlocks());
 		blocks.removeAll(skip);
+		// A skipped block may be a part of a block (the static bytes the mask's procedure does not
+		// write, DownloadPlanner): its addresses are not compared in the block it belongs to.
+		BitSet skipped = new BitSet();
+		for (Block part : skip) {
+			skipped.set(part.address(), part.end());
+		}
 		for (Block block : blocks) {
-			BlockResult result = compare(block, written, snapshot);
+			BlockResult result = compare(block, written, snapshot, skipped);
 			if (result == null) {
 				// Not reached by a cancelled read-out.
 				return new Result(descriptor, facts, results, true);
@@ -312,7 +319,7 @@ public class DeviceComparison {
 	 *
 	 * @return The comparison; <code>null</code> if the snapshot was cancelled before the block.
 	 */
-	private static BlockResult compare(Block block, Map<Integer, Byte> written, Snapshot snapshot) {
+	private static BlockResult compare(Block block, Map<Integer, Byte> written, Snapshot snapshot, BitSet skipped) {
 		byte[] data = block.data();
 		byte[] mask = block.mask();
 		List<Integer> different = new ArrayList<>();
@@ -324,7 +331,7 @@ public class DeviceComparison {
 		}
 		Map<Integer, int[]> values = new HashMap<>();
 		for (int k = 0; k < data.length; k++) {
-			if (mask[k] == 0) {
+			if (mask[k] == 0 || skipped.get(block.address() + k)) {
 				continue;
 			}
 			int address = block.address() + k;

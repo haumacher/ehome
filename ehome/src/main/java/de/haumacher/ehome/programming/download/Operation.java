@@ -95,6 +95,22 @@ public sealed interface Operation {
 	}
 
 	/**
+	 * Authorizes the connection with a key (<code>A_Authorize_Request</code>); the device answers with
+	 * the access level it grants for the key. The download goes on with whatever level the device
+	 * grants: a write the level does not permit is refused by the device, and the download stops
+	 * there with the device's answer.
+	 *
+	 * @param key
+	 *        The key (4 bytes).
+	 */
+	record Authorize(String step, byte[] key) implements Operation {
+		@Override
+		public ResKey description() {
+			return I18NConstants.OP_AUTHORIZE__KEY.fill(hex(key));
+		}
+	}
+
+	/**
 	 * Reads a property and aborts unless it starts with the expected bytes (ETS:
 	 * <code>LdCtrlCompareProp</code>, e.g. the hardware type; after a load, the program version).
 	 *

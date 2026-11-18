@@ -6,6 +6,7 @@ package de.haumacher.ehome.virtual.tooling.trace;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 
@@ -27,6 +28,7 @@ import de.haumacher.ehome.programming.download.Operation;
  * tool): {@link Operation.Disconnect}.</li>
  * <li><code>A_DeviceDescriptor_Read</code>: {@link Operation.CheckMask} with the mask the device
  * answered.</li>
+ * <li><code>A_Authorize_Request</code>: {@link Operation.Authorize} with its key.</li>
  * <li><code>A_PropertyValue_Write</code> of 10 bytes into property 5: {@link Operation.LoadControl}
  * (the load state machine is the object, the expected state the one answered); the reads of
  * property 5 of the same object right after it (polls of the state) belong to it, the last state
@@ -94,6 +96,9 @@ public class TraceOperations {
 					result.add(new Operation.CheckMask("", new int[] { value }));
 					break;
 				}
+				case TraceEntry.AUTHORIZE_REQUEST:
+					result.add(new Operation.Authorize("", HexFormat.of().parseHex(request.field(TraceEntry.KEY))));
+					break;
 				case TraceEntry.PROPERTY_WRITE: {
 					int object = request.number(TraceEntry.OBJECT);
 					int property = request.number(TraceEntry.PROPERTY);
@@ -165,14 +170,23 @@ public class TraceOperations {
 	/**
 	 * The operations of a plan that are visible on the wire: without delays, steps not executed and
 	 * disconnects while no connection is open (after a restart, which ends the connection, see
-	 * {@link de.haumacher.ehome.programming.download.DeviceAccess#restart()}).
+	 * {@link de.haumacher.ehome.programming.download.DeviceAccess#restart()}). A memory write without
+	 * verification followed by the comparison of the same bytes (BCU 2, mask 2.0: RunError FF, then
+	 * <code>CompareMem</code> of it) is on the wire what a verified write is.
 	 */
 	public static List<Operation> visible(List<Operation> plan) {
 		List<Operation> result = new ArrayList<>();
 		boolean connected = false;
-		for (Operation operation : plan) {
+		for (int n = 0; n < plan.size(); n++) {
+			Operation operation = plan.get(n);
 			if (operation instanceof Operation.Delay || operation instanceof Operation.Skip) {
 				continue;
+			}
+			if (operation instanceof Operation.WriteMemory write && !write.verify() && n + 1 < plan.size()
+				&& plan.get(n + 1) instanceof Operation.CompareMemory compare && compare.address() == write.address()
+				&& Arrays.equals(compare.expected(), write.data())) {
+				operation = new Operation.WriteMemory(write.step(), write.what(), write.address(), write.data(), true);
+				n++;
 			}
 			if (operation instanceof Operation.Disconnect) {
 				if (!connected) {
@@ -243,6 +257,9 @@ public class TraceOperations {
 				result.append(String.format(" %04X", mask & 0xFFFF));
 			}
 			return result.toString();
+		}
+		if (operation instanceof Operation.Authorize authorize) {
+			return "Authorize " + TraceFormat.hex(authorize.key());
 		}
 		if (operation instanceof Operation.CompareProperty compare) {
 			return "CompareProperty " + compare.objectIndex() + "/" + compare.propertyId() + " " + compare.start() + "+"
