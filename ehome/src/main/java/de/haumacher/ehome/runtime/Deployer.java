@@ -282,7 +282,7 @@ public final class Deployer {
 	/**
 	 * Why the given deployment of the project cannot be deployed again now, <code>null</code> if it
 	 * can: the project cannot be deployed ({@link #veto(TLObject)}), the entry is no deployment of
-	 * the project, it is an unload, it sent an earlier image again (it has no state of its own), or
+	 * the project, it is an unload, no controller accepted its image, it sent an earlier image again (it has no state of its own), or
 	 * the history no longer reaches back to its state.
 	 */
 	public static ResKey redeployVeto(TLObject project, TLObject earlier) {
@@ -296,6 +296,11 @@ public final class Deployer {
 		}
 		if (Boolean.TRUE.equals(earlier.tValueByName("unload"))) {
 			return I18NConstants.ERROR_REDEPLOY_UNLOAD;
+		}
+		if (!Boolean.TRUE.equals(earlier.tValueByName("accepted"))) {
+			// No controller ever ran this image (E-Home did not send it, or the controller refused it):
+			// there is no working state to go back to.
+			return I18NConstants.ERROR_REDEPLOY_NOT_ACCEPTED__REVISION.fill(earlier.tValueByName("revision"));
 		}
 		State state = state(earlier);
 		if (state == null) {

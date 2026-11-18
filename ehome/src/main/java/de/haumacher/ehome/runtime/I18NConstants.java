@@ -2205,6 +2205,11 @@ public class I18NConstants extends I18NConstantsBase {
 	public static ResKey ERROR_REDEPLOY_UNLOAD;
 
 	/**
+	 * @en The controller did not accept the image of revision {0}: there is no working state to go back to.
+	 */
+	public static ResKey1 ERROR_REDEPLOY_NOT_ACCEPTED__REVISION;
+
+	/**
 	 * @en This entry sent the image of revision {0} again and compiled none of its own: deploy the deployment of revision {0} again.
 	 */
 	public static ResKey1 ERROR_REDEPLOY_RESENT__REVISION;

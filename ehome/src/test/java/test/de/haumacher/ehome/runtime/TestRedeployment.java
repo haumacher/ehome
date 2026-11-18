@@ -287,6 +287,9 @@ public class TestRedeployment extends BasicTestCase {
 				List.of(new Refusal("datapoints[0].knx.dpt", "refused for the test")));
 			TLObject refused = Deployer.redeploy(project, a, T_C);
 			assertEquals(Boolean.FALSE, refused.tValueByName("accepted"));
+			// A deployment no controller accepted is no state to go back to.
+			assertEquals(I18NConstants.ERROR_REDEPLOY_NOT_ACCEPTED__REVISION.fill(refused.tValueByName("revision")),
+				Deployer.redeployVeto(project, refused));
 			TLObject element = (TLObject) ((TLObject) ((List<?>) refused.tValueByName("refusals")).get(0))
 				.tValueByName("element");
 			assertNotNull(element);
